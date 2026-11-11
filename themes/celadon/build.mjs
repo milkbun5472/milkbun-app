@@ -313,6 +313,10 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="note"][data-part="pat"]{background:#DCEDE6 ${svg(STAR)} 9px center/11px 11px no-repeat !important;border:none !important;border-radius:999px !important;color:${C.brown} !important;padding:2px 26px 2px 26px !important;font-size:12px !important;position:relative !important}
 [data-wk="note"][data-part="pat"]::after{content:"" !important;position:absolute !important;right:9px !important;top:50% !important;width:11px !important;height:11px !important;margin-top:-5.5px !important;background:${svg(STAR)} center/contain no-repeat !important}
 
+/* 领过的红包也保持青瓷绿，只淡一点 */
+[data-wk="rpcard"][data-status="done"]{background:${C.cel} !important;opacity:.8 !important}
+[data-wk="rpcard"][data-status="done"] [data-wk="rpflap"]{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60' preserveAspectRatio='none'><path d='M0 0 L50 58 L100 0' fill='${C.cel}' stroke='${C.brown}' stroke-width='1.6' vector-effect='non-scaling-stroke' stroke-linejoin='round'/></svg>`)} center/100% 100% no-repeat !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "青瓷焦茶", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
