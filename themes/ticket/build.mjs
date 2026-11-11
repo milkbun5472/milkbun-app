@@ -1,11 +1,11 @@
-// 票签：烟紫底、豆沙粉。我的话＝一张票根（右边撕开一截写 No.＋时间感的小字），他的话＝尖头挂牌（小孔＋细线连到头像），
+// 票签：牛皮纸＋墨绿，红印章。我的话＝一张票根（右边撕开一截写 No.＋时间感的小字），他的话＝尖头挂牌（小孔＋细线连到头像），
 // 已读＝一枚圆红印章。用法：node themes/ticket/build.mjs
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const svg = s => "url(\"data:image/svg+xml;base64," + Buffer.from(s.replace(/>\s+</g, "><")).toString("base64") + "\")";
-const C = { bg: "#E8E3EA", paper: "#FBF6F2", pink: "#F6E4E6", rose: "#B5636F", roseD: "#8E4651", ink: "#5B4A55", line: "#9E8A95", fog: "#A79BA4" };
+const C = { bg: "#F1EAD8", paper: "#FCF8EE", pink: "#E3CDA8", rose: "#3F5E4B", roseD: "#2B4334", ink: "#4A3F33", line: "#8F7C62", fog: "#A3967F", red: "#B4473C" };
 
 const I_PLUS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 6 V18 M6 12 H18' stroke='${C.ink}' stroke-width='1.6' stroke-linecap='round'/></svg>`;
 const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'><path d='M3 12 L24 4 L18 21 L13 14Z' fill='none' stroke='${C.ink}' stroke-width='1.5' stroke-linejoin='round'/><path d='M13 14 L24 4' stroke='${C.ink}' stroke-width='1.3'/></svg>`;
@@ -13,12 +13,12 @@ const HEART = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'><path
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 11 L12 4 L20 11 V20 H4Z' fill='none' stroke='${C.ink}' stroke-width='1.5' stroke-linejoin='round'/></svg>`;
 const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='5' cy='12' r='1.5' fill='${C.ink}'/><circle cx='12' cy='12' r='1.5' fill='${C.ink}'/><circle cx='19' cy='12' r='1.5' fill='${C.ink}'/></svg>`;
 // 圆形红印章
-const STAMP = (t) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><circle cx='30' cy='30' r='26' fill='rgba(251,246,242,.85)' stroke='${C.rose}' stroke-width='2'/><circle cx='30' cy='30' r='21' fill='none' stroke='${C.rose}' stroke-width='1'/><text x='30' y='35' text-anchor='middle' font-size='14' fill='${C.rose}' font-family='sans-serif' transform='rotate(-14 30 30)'>${t}</text></svg>`;
+const STAMP = (t) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><circle cx='30' cy='30' r='26' fill='rgba(251,246,242,.85)' stroke='${C.red}' stroke-width='2'/><circle cx='30' cy='30' r='21' fill='none' stroke='${C.red}' stroke-width='1'/><text x='30' y='35' text-anchor='middle' font-size='14' fill='${C.red}' font-family='sans-serif' transform='rotate(-14 30 30)'>${t}</text></svg>`;
 
 const bubble = { myBg: C.pink, myText: C.ink, myBorder: "1.4px solid " + C.line, charBg: C.paper, charText: C.ink, charBorder: "1.4px solid " + C.line, radius: 8, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const LINE = `1.4px solid ${C.line}`;
-const SH = "0 3px 0 rgba(91,74,85,.18)";
+const SH = "0 3px 0 rgba(74,63,51,.18)";
 
 const css = `
 /* ───── 票签 · 第一批 ───── */
