@@ -1601,6 +1601,9 @@ function App() {
   const callRef = useRef(null);
   const groupAutoCallEpochRef = useRef({});
   const groupCallActive = gid => !!(callRef.current && callRef.current.groupId === gid);
+  // 她正在打着一通电话（群里 2026-11-11 截图：跟TA语音通着 38 分钟，聊天里又冒出一条TA打来的未接来电）：
+  //   谁都不该这时候再拨过来——TA在电话里就在跟她说话。来电的三处出口（单聊回复、约好的电话、群里有人拨）都先问这一句
+  const onCallNow = () => !!(callRef.current && !callRef.current.endTs);
   const [takeoutNav, setTakeoutNav] = useState("near");     // 外卖 app 落在哪一页（聊天里点外卖卡进来＝订单）
   const [takeoutBack, setTakeoutBack] = useState(null);
   // 随身物里点「我的物品」直接进购物的「我的」那一页（同一页、同一份数据）；返回回随身物（她 2026-10-08）
@@ -8368,6 +8371,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           //   拦下来不是让别人接手，是一直拖到过了 20 分钟、变成一条未接来电——
           //   她明明就坐在这个聊天里等TA电话。而且来电浮层挂在根上，她在哪一页都看得见。
           if (pm.via === "voice" || pm.via === "video") {
+            // 正打着电话：跟TA打着就算这通约好的电话打了，收掉；跟别人打着就先等，挂了下一轮再拨
+            if (onCallNow()) { if ((callRef.current.participants || []).some(x => x && x.id === pm.charId)) drop(); continue; }
             drop();
             dongnianFiredRef.current[pm.charId] = Date.now();
             // 未接来电那张卡也照这个地板走：不然它也会插到前面几条的下面去
@@ -14886,7 +14891,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         }
       }
       // TA 主动发起通话邀请（弹来电卡，用户接听/拒绝）
-      const callMode = parsed.call && ["voice", "video"].includes(String(parsed.call).toLowerCase()) ? String(parsed.call).toLowerCase() : null;
+      const callMode = !onCallNow() && parsed.call && ["voice", "video"].includes(String(parsed.call).toLowerCase()) ? String(parsed.call).toLowerCase() : null;
       if (callMode) {
         await new Promise(r => setTimeout(r, 420));
         {
@@ -17066,7 +17071,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             if (toMe || toC) pGChat(groupId, p => [...p, { role: "assistant", kind: "pat", senderId: spk.id, senderName: spk.name, patToName: toMe ? gUName : toC.name,
               content: (spk.remark || spk.name) + " 拍了拍" + (toMe ? "我" + (spk.myPatSig ? " " + spk.myPatSig : "") : " " + (toC.remark || toC.name) + (toC.patSig ? " " + toC.patSig : "")), ts: Date.now() }]);
           }
-          const gcm = item.call && spk && gDmToHerOk(spk) && ["voice", "video"].includes(String(item.call).toLowerCase()) ? String(item.call).toLowerCase() : null;
+          const gcm = !onCallNow() && item.call && spk && gDmToHerOk(spk) && ["voice", "video"].includes(String(item.call).toLowerCase()) ? String(item.call).toLowerCase() : null;
           if (gcm) {
             await new Promise(r => setTimeout(r, 300));
             checkAutoCall();
