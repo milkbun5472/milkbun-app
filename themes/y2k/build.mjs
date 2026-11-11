@@ -213,6 +213,91 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{l
 /* 按键投影改由 CSS 画（SVG 里带滤镜在 iPhone 上会被按低分辨率糊成一团） */
 [data-wk="chatplus"],[data-wk="chatreply"],[data-wk="send"],[data-wk="sameroom"],[data-wk="chatmore"]{filter:drop-shadow(0 3px 3px rgba(122,69,214,.38)) !important}
 
+
+/* 顶栏头像框跟聊天里一样：白厚边＋淡紫厚度，不再用亮粉 */
+[data-wk="chathead"] [data-wk="avatar"]{padding:0 !important;background:transparent !important;box-shadow:0 0 0 4px #fff,0 2px 0 4px #D8CCF4,0 2px 0 5.5px #B9A8EA,0 6px 10px 3px rgba(30,20,60,.3) !important;border-radius:10px !important}
+[data-wk="chathead"] [data-wk="avatar"] > *,[data-wk="chathead"] [data-wk="avatar"] img{width:100% !important;height:100% !important;border-radius:9px !important}
+
+/* ───── Y2K · 第二批：卡片。形状不动，只换主题色，每张顶上加一条小窗口标题栏（名字各不同）当小巧思 ───── */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="voice"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"],[data-wk="rpcard"]{position:relative !important;border:2px solid #fff !important;border-radius:14px !important;box-shadow:0 0 0 1.5px #B9A8EA,0 6px 14px rgba(30,20,60,.35) !important;overflow:hidden !important}
+[data-wk="transfercard"],[data-wk="namecard"],[data-part="offlog"],[data-wk="geocard"] > [data-wk="card"],[data-wk="callpill"] > [data-wk="block"]{background:#FBF8FF !important;padding-top:22px !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:#3A2A55 !important;border-color:#E3DAF7 !important}
+[data-wk="transfercard"]::before,[data-wk="namecard"]::before,[data-part="offlog"]::before,[data-wk="geocard"] > [data-wk="card"]::before,[data-wk="rpcard"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:0 !important;height:18px !important;font:800 9px/18px monospace !important;letter-spacing:.06em !important;color:#fff !important;padding-left:10px !important;text-align:left !important;background:${svg(DOTS)} right 8px center/26px 8px no-repeat,linear-gradient(90deg,#B9A6F0,#9D88E6) !important;z-index:2 !important}
+[data-wk="transfercard"]::before{content:"money.exe" !important;background:${svg(DOTS)} right 8px center/26px 8px no-repeat,linear-gradient(90deg,#FFB0D8,#FF6FBE) !important}
+[data-wk="namecard"]::before{content:"contact.vcf" !important}
+[data-part="offlog"]::before{content:"diary.log" !important}
+[data-wk="geocard"] > [data-wk="card"]::before{content:"map.exe" !important;background:${svg(DOTS)} right 8px center/26px 8px no-repeat,linear-gradient(90deg,#9FD8FF,#5AAEF0) !important}
+/* 转账 */
+[data-wk="transferamount"],[data-wk="transfercur"]{color:#FF3FA4 !important;font-weight:900 !important}
+[data-wk="transferrule"]{border:none !important;height:2px !important;background:linear-gradient(90deg,#FF9FD6,#93D6FF) !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:#F1ECFF !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:linear-gradient(180deg,#FFC2E6,#FF5DB4) !important;color:#fff !important;border:2px solid #fff !important;box-shadow:0 0 0 1px #E58FC0 !important}
+[data-wk="transferbtn"][data-part="back"]{background:#fff !important;color:#6A5A8C !important;border:1.5px solid #C9BBEF !important}
+[data-wk="transferseal"]{border:2px solid #FF9FD6 !important;color:#FF3FA4 !important;background:#fff !important;box-shadow:none !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{background:${svg(HEART())} center/70% no-repeat,#fff !important;border-color:#FF5DB4 !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *{opacity:0 !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.75 !important;filter:grayscale(.4) !important}
+/* 红包：粉色果冻，左上一颗爱心，标题栏写 gift.exe */
+[data-wk="rpcard"]{background:linear-gradient(180deg,rgba(255,255,255,.6) 0,rgba(255,255,255,0) 40%),linear-gradient(160deg,#FF8CCB,#FF3FA4) !important;padding-top:18px !important}
+[data-wk="rpcard"]::after{content:"gift.exe" !important;background:${svg(DOTS)} right 8px center/26px 8px no-repeat,rgba(255,255,255,.28) !important}
+[data-wk="rpflap"]{background:rgba(255,255,255,.18) !important;top:18px !important}
+[data-wk="rpseal"]{border:none !important;background:${svg(HEART("#fff"))} center/contain no-repeat !important;top:30px !important}
+[data-wk="rpseal"] *{display:none !important}
+[data-wk="rpcard"][data-status="done"]{filter:grayscale(.35) brightness(1.05) !important}
+[data-wk="rpenvelope"]{background:linear-gradient(180deg,#FF8CCB,#C93D8F) !important;border:3px solid #fff !important;box-shadow:0 0 0 2px #B9A8EA,0 10px 30px rgba(30,20,60,.5) !important;border-radius:26px !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:#7E5BD6 !important}
+[data-wk="rpopenbtn"]{background:${svg(ORB_PLUS)} center/contain no-repeat !important;border:none !important;box-shadow:none !important}
+[data-wk="rpopenbtn"] *{opacity:0 !important}
+[data-wk="rpenvelope"] *{color:#fff !important}
+[data-wk="rpamount"]{color:#FFE45C !important}
+/* 照片：窗口边框，底下一条小进度条「loading 100%」 */
+[data-wk="photocard"]{background:#FBF8FF !important;padding:8px 8px 22px !important}
+[data-wk="photocard"]::after{content:"" !important;position:absolute !important;left:10px !important;right:10px !important;bottom:8px !important;height:6px !important;border-radius:3px !important;background:repeating-linear-gradient(90deg,#FF9FD6 0 8px,#93D6FF 8px 16px) !important;box-shadow:0 0 0 1px #fff,0 0 0 2px #C9BBEF !important}
+[data-wk="photoface"]{border-radius:10px !important;background:linear-gradient(160deg,#E7DCFF,#C8D8FF) !important}
+[data-wk="photoface"] *,[data-wk="phototext"],[data-wk="photocap"],[data-wk="photohint"]{color:#3A2A55 !important}
+/* 语音：蓝果冻胶囊，声波是像素格 */
+[data-wk="voice"]{background:linear-gradient(180deg,rgba(255,255,255,.7) 0,rgba(255,255,255,0) 45%),linear-gradient(180deg,#CDEBFF,#8FD0FF) !important;border-radius:999px !important}
+[data-wk="voice"] > *{background:transparent !important;border:none !important;box-shadow:none !important;color:#2A3A66 !important}
+[data-wk="voicewave"] span{background:#2F7FD0 !important;border-radius:0 !important}
+/* 天气 */
+[data-wk="wxcardsky"]{background:linear-gradient(170deg,#C8D8FF,#E7DCFF) !important}
+[data-wk="wxcardsky"] *{color:#3A2A55 !important}
+[data-wk="wxcardsky"] svg{stroke:#7E5BD6 !important}
+[data-wk="wxcardsay"]{background:#FBF8FF !important;color:#3A2A55 !important;border-top:2px solid #E3DAF7 !important}
+[data-wk="geopin"]{background:${svg(HEART())} center/contain no-repeat !important;border:none !important;box-shadow:none !important;width:22px !important;height:20px !important}
+[data-wk="geopin"] *{opacity:0 !important}
+[data-wk="geopinstem"]{background:#FF5DB4 !important}
+[data-wk="namecard"] img{border-radius:10px !important;box-shadow:0 0 0 3px #fff,0 0 0 4.5px #B9A8EA !important}
+/* 拍一拍、通话结束：白胶囊，前面一颗星 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:#fff ${svg(STAR())} 9px center/13px 13px no-repeat !important;border-radius:999px !important;padding:2px 12px 2px 28px !important;color:#3A2A55 !important;font-weight:700 !important;box-shadow:0 2px 6px rgba(20,20,70,.3) !important}
+[data-wk="note"][data-part="call"] svg{stroke:#7E5BD6 !important}
+[data-wk="note"][data-part="callsum"]{color:#E8DEFF !important}
+/* 系统提示：一行「SYSTEM」小标签 */
+[data-wk="sysnote"]{background:transparent !important;border:none !important;box-shadow:none !important}
+[data-wk="sysnotelabel"]{display:inline-block !important;background:#7E5BD6 !important;color:#fff !important;border-radius:4px !important;font:800 9px/14px monospace !important;padding:0 6px !important;letter-spacing:.08em !important}
+[data-wk="sysnotetext"]{color:#E8DEFF !important}
+/* 线下小结 */
+[data-wk="offlogtitle"]{color:#FF3FA4 !important;font-weight:900 !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:#7E5BD6 !important}
+[data-wk="offlogtranscript"]{border-top:2px solid #E3DAF7 !important}
+/* 加号面板：一颗颗水晶球 */
+[data-wk="chatpanel"]{background:#F4EEFF !important;border-top:2px solid #fff !important}
+[data-wk="chattoolicon"]{background:linear-gradient(180deg,rgba(255,255,255,.9) 0,rgba(255,255,255,.1) 45%,transparent 46%),linear-gradient(180deg,#E2F6FF,#93D6FF) !important;border:2px solid #fff !important;border-radius:50% !important;box-shadow:0 0 0 1px #6F7BA6,0 4px 8px rgba(122,69,214,.35) !important}
+[data-wk="chattoolicon"]:nth-of-type(3n+1),[data-wk="chattool"]:nth-child(3n+1) [data-wk="chattoolicon"]{background:linear-gradient(180deg,rgba(255,255,255,.9) 0,rgba(255,255,255,.1) 45%,transparent 46%),linear-gradient(180deg,#FFE3F4,#FF9FD6) !important}
+[data-wk="chattool"]:nth-child(3n+2) [data-wk="chattoolicon"]{background:linear-gradient(180deg,rgba(255,255,255,.9) 0,rgba(255,255,255,.1) 45%,transparent 46%),linear-gradient(180deg,#FFF6B0,#FFD84D) !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:#3A2A55 !important;color:#3A2A55 !important}
+[data-wk="chattoollabel"]{color:#3A2A55 !important;font-weight:700 !important}
+/* 引用三处 */
+[data-wk="quotedraft"]{background:transparent !important;border-top:none !important}
+[data-wk="quote"]{background:rgba(255,255,255,.9) !important;color:#3A2A55 !important;border:none !important;border-left:3px solid #FF9FD6 !important;border-radius:8px !important;opacity:1 !important}
+[data-wk="quote"][data-me="0"]{border-left-color:#93D6FF !important}
+[data-wk="quote"][data-draft="1"]{border-left:3px solid #FF5DB4 !important;box-shadow:0 0 0 1px #C9BBEF !important}
+[data-wk="quoteicon"]{color:#FF5DB4 !important}
+[data-wk="quoteclear"]{color:#7E5BD6 !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:3px solid rgba(126,91,214,.5) !important;padding-left:8px !important;opacity:.85 !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "Y2K", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
