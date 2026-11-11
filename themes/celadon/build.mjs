@@ -8,7 +8,7 @@ const svg = s => "url(\"data:image/svg+xml;base64," + Buffer.from(s.replace(/>\s
 const C = { bg: "#F3EBDA", dot: "#D9CDB4", brown: "#4A3A30", cel: "#A9D3C3", celD: "#8FC0AE", cream: "#FBF6EA", fog: "#A79E92" };
 
 const STAR = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2.5 L14.6 8.6 L21.2 9.2 L16.2 13.6 L17.7 20.1 L12 16.7 L6.3 20.1 L7.8 13.6 L2.8 9.2 L9.4 8.6Z' fill='${C.cream}' stroke='${C.brown}' stroke-width='1.6' stroke-linejoin='round'/></svg>`;
-const CAT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 84 34'><path d='M4 34 C5 25 9 20 15 17 L17 6 Q18 4 20 5 L27 12 C33 10 41 10 47 12 L54 5 Q56 4 57 6 L59 17 C65 20 69 25 70 34' fill='${C.cream}' stroke='${C.brown}' stroke-width='1.8' stroke-linejoin='round' stroke-linecap='round'/><path d='M70 31 C76 31 80 27 79 22 C78 18 74 17 72 19' fill='none' stroke='${C.brown}' stroke-width='1.8' stroke-linecap='round'/><path d='M24 23 q3.5 2.5 7 0 M43 23 q3.5 2.5 7 0' fill='none' stroke='${C.brown}' stroke-width='1.6' stroke-linecap='round'/><path d='M33.5 27 q1.75 1.6 3.5 0 q1.75 1.6 3.5 0' fill='none' stroke='${C.brown}' stroke-width='1.4' stroke-linecap='round'/><ellipse cx='21' cy='28' rx='3.2' ry='1.8' fill='#F2B8B0'/><ellipse cx='53' cy='28' rx='3.2' ry='1.8' fill='#F2B8B0'/></svg>`;
+const CAT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 30' fill='none' stroke='${C.brown}' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M56 26 C62 27 67 23 66 16 C65.6 13.5 67.5 12 69 13'/><path d='M5 30 C5 22 8 16 13 13 L12.5 4.5 L21 9.5 C26 8 38 8 43 9.5 L50 3.5 L51.5 13 C56 16 59 22 59 30' fill='${C.cream}'/><ellipse cx='20' cy='23.5' rx='3.4' ry='1.7' fill='#F2B8B0' stroke='none'/><ellipse cx='44' cy='23.5' rx='3.4' ry='1.7' fill='#F2B8B0' stroke='none'/><path d='M25.5 19.6 L26.5 19.6 M37.5 19.6 L38.5 19.6' stroke-width='2.4'/><path d='M29 23 C29.6 24.6 31.4 24.6 32 23 C32.6 24.6 34.4 24.6 35 23' stroke-width='1.3'/></svg>`;
 const CORNER = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40' preserveAspectRatio='none'><path d='M4 14 V5 H12' fill='none' stroke='${C.brown}' stroke-width='1.6' vector-effect='non-scaling-stroke'/><path d='M96 26 V35 H88' fill='none' stroke='${C.brown}' stroke-width='1.6' vector-effect='non-scaling-stroke'/></svg>`;
 const CTL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M1 11 V1 H11' fill='none' stroke='${C.brown}' stroke-width='1.6'/></svg>`;
 const CBR = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M11 1 V11 H1' fill='none' stroke='${C.brown}' stroke-width='1.6'/></svg>`;
@@ -54,7 +54,7 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="bubble"][data-kind="text"]::before,[data-wk="bubble"][data-kind="text"]::after{content:none !important}
 [data-wk="bubble"][data-kind="text"][data-me="1"]::after{content:"" !important;position:absolute !important;right:-10px !important;bottom:-10px !important;left:auto !important;top:auto !important;width:22px !important;height:22px !important;background:${svg(STAR)} center/contain no-repeat !important;border:none !important;transform:none !important}
 [data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]{margin-top:22px !important}
-[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::before{content:"" !important;position:absolute !important;right:14px !important;left:auto !important;top:-21.5px !important;width:58px !important;height:23.5px !important;background:${svg(CAT)} center bottom/contain no-repeat !important;border:none !important;transform:none !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::before{content:"" !important;position:absolute !important;right:14px !important;left:auto !important;top:-20.5px !important;width:52px !important;height:21.7px !important;background:${svg(CAT)} center bottom/contain no-repeat !important;border:none !important;transform:none !important}
 
 /* 时间、已读：浅灰小字 */
 [data-wk="time"] > span{background:${C.cream} !important;color:${C.brown} !important;border:${LINE} !important;border-radius:999px !important;padding:2px 12px !important;font-size:11px !important}
@@ -79,6 +79,66 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.92) !important}
 [data-wk="msg"][data-me="0"] [data-wk="name"]{display:none !important}
 [data-wk="msg"][data-me="1"] [data-wk="meta"]{margin-right:14px !important}
+
+
+/* ───── 青瓷焦茶 · 第二批：卡片（形状不动，米白底焦茶描边；小巧思：转账、名片、线下小结的卡角趴一只同款小猫，收下的印是一颗星） ───── */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{background:${C.cream} !important;border:${LINE} !important;border-radius:14px !important;box-shadow:none !important;color:${C.brown} !important;position:relative !important;overflow:visible !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:${C.brown} !important;border-color:rgba(74,58,48,.25) !important}
+[data-wk="transfercard"],[data-wk="namecard"],[data-part="offlog"]{margin-top:20px !important}
+[data-wk="transfercard"]::before,[data-wk="namecard"]::before,[data-part="offlog"]::before{content:"" !important;position:absolute !important;right:16px !important;top:-20.5px !important;width:52px !important;height:21.7px !important;background:${svg(CAT)} center bottom/contain no-repeat !important;z-index:2 !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.brown} !important;font-weight:700 !important}
+[data-wk="transferrule"]{border:none !important;height:1.6px !important;background:${C.brown} !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:${C.bg} !important;border-radius:0 0 12px 12px !important}
+[data-wk="transferbtn"]{border-radius:10px !important;border:${LINE} !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.cel} !important;color:${C.brown} !important}
+[data-wk="transferbtn"][data-part="back"]{background:${C.cream} !important;color:${C.brown} !important}
+[data-wk="transferseal"]{border:${LINE} !important;color:${C.brown} !important;background:${C.cream} !important;box-shadow:none !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{background:${svg(STAR)} center/contain no-repeat !important;border:none !important;width:52px !important;height:52px !important;border-radius:0 !important;transform:rotate(-10deg) !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *{opacity:0 !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.6 !important}
+/* 红包：留红，只加焦茶描边、圆角 */
+[data-wk="rpcard"]{border:${LINE} !important;border-radius:14px !important;box-shadow:none !important}
+[data-wk="rpenvelope"]{border:${LINE} !important;border-radius:24px !important}
+/* 照片：米白边相框 */
+[data-wk="photocard"]{padding:8px 8px 10px !important}
+[data-wk="photoface"]{border-radius:10px !important;background:${C.bg} !important;border:1px solid rgba(74,58,48,.2) !important}
+[data-wk="photoface"] *,[data-wk="phototext"],[data-wk="photocap"],[data-wk="photohint"]{color:${C.brown} !important}
+/* 语音：跟气泡一样，我青瓷、他米白，焦茶描边 */
+[data-wk="voice"][data-me]{background:${C.cream} !important;border:${LINE} !important;border-radius:12px !important;box-shadow:none !important}
+[data-wk="voice"][data-me="1"]{background:${C.cel} !important}
+[data-wk="voice"] > *{background:transparent !important;border:none !important;box-shadow:none !important;color:${C.brown} !important}
+[data-wk="voicewave"] span{background:${C.brown} !important}
+[data-wk="wxcardsky"]{background:${C.bg} !important}
+[data-wk="wxcardsky"] *{color:${C.brown} !important}
+[data-wk="wxcardsky"] svg{stroke:${C.brown} !important}
+[data-wk="wxcardsay"]{background:${C.cream} !important;color:${C.brown} !important;border-top:${LINE} !important}
+[data-wk="geopin"]{background:${svg(STAR)} center/contain no-repeat !important;box-shadow:none !important;border:none !important;width:22px !important;height:22px !important;border-radius:0 !important}
+[data-wk="geopin"] *{opacity:0 !important}
+[data-wk="geopinstem"]{background:${C.brown} !important}
+[data-wk="namecard"] img{border-radius:10px !important;box-shadow:0 0 0 1.6px ${C.brown} !important}
+/* 拍一拍、通话结束、系统提示：米白小胶囊焦茶边 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:${C.cream} !important;border:${LINE} !important;border-radius:999px !important;color:${C.brown} !important;padding:2px 12px !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.brown} !important}
+[data-wk="note"][data-part="callsum"]{color:${C.fog} !important}
+[data-wk="sysnote"]{background:transparent !important;border:none !important;box-shadow:none !important}
+[data-wk="sysnotelabel"]{display:none !important}
+[data-wk="sysnotetext"]{display:inline-block !important;background:${C.cream} !important;border:${LINE} !important;border-radius:999px !important;color:${C.brown} !important;padding:2px 12px !important;font-style:normal !important}
+[data-wk="offlogtitle"]{color:${C.brown} !important;font-weight:700 !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:#6F8F82 !important}
+[data-wk="offlogtranscript"]{border-top:${LINE} !important}
+/* 加号面板 */
+[data-wk="chatpanel"]{background:${C.cream} !important;border-top:${LINE} !important}
+[data-wk="chattoolicon"]{background:${C.cream} !important;border:${LINE} !important;border-radius:14px !important;box-shadow:none !important}
+[data-wk="chattool"]:nth-child(odd) [data-wk="chattoolicon"]{background:${C.cel} !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.brown} !important;color:${C.brown} !important}
+[data-wk="chattoollabel"]{color:${C.brown} !important}
+/* 引用三处 */
+[data-wk="quotedraft"]{background:${C.cream} !important;border-top:${LINE} !important}
+[data-wk="quote"]{background:${C.cream} !important;color:${C.brown} !important;border:${LINE} !important;border-radius:10px !important;opacity:1 !important;padding-left:24px !important;background-image:${svg(CTL)} !important;background-repeat:no-repeat !important;background-position:8px 6px !important;background-size:9px 9px !important}
+[data-wk="quote"][data-me="1"]{background-color:#DCEDE6 !important}
+[data-wk="quoteicon"],[data-wk="quoteclear"]{color:${C.brown} !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid ${C.brown} !important;padding-left:8px !important;opacity:.7 !important}
 
 `;
 
