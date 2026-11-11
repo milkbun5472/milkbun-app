@@ -416,6 +416,6 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{l
 
 `;
 
-const pack = { kind: "chat-look", v: 1, name: "Y2K", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
-writeFileSync(join(here, "Y2K-美化.json"), JSON.stringify(pack));
+const pack = { kind: "chat-look", v: 1, name: "千禧果冻", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
+writeFileSync(join(here, "千禧果冻-美化.json"), JSON.stringify(pack));
 console.log("ok", css.length);
