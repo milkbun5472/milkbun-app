@@ -98,9 +98,26 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{background:${svg(STAR)} center/contain no-repeat !important;border:none !important;width:52px !important;height:52px !important;border-radius:0 !important;transform:rotate(-10deg) !important}
 [data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *{opacity:0 !important}
 [data-wk="transfercard"][data-status="returned"]{opacity:.6 !important}
-/* 红包：留红，只加焦茶描边、圆角 */
-[data-wk="rpcard"]{border:${LINE} !important;border-radius:14px !important;box-shadow:none !important}
-[data-wk="rpenvelope"]{border:${LINE} !important;border-radius:24px !important}
+/* 红包：一个青瓷色小信封——焦茶描边、三角封口压一道折线、封口上贴一颗星；领完变米白、星变空 */
+[data-wk="rpcard"]{background:linear-gradient(160deg,transparent 0 0),${C.cel} !important;border:${LINE} !important;border-radius:12px !important;box-shadow:none !important;overflow:hidden !important}
+[data-wk="rpcard"] *{color:${C.brown} !important}
+[data-wk="rpflap"]{height:48px !important;bottom:auto !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60' preserveAspectRatio='none'><path d='M0 0 L50 58 L100 0' fill='${C.celD}' stroke='${C.brown}' stroke-width='1.6' vector-effect='non-scaling-stroke' stroke-linejoin='round'/></svg>`)} center/100% 100% no-repeat !important;border:none !important}
+[data-wk="rpseal"]{border:none !important;background:${svg(STAR)} center/contain no-repeat !important;width:26px !important;height:26px !important;left:50% !important;margin-left:-13px !important;top:30px !important}
+[data-wk="rpseal"] *{display:none !important}
+[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"] > div:not([data-wk]){padding-top:60px !important;padding-left:16px !important;padding-bottom:14px !important;text-align:center !important}
+[data-wk="rpcard"][data-status="done"]{background:${C.cream} !important;filter:none !important;opacity:.85 !important}
+[data-wk="rpcard"][data-status="done"] [data-wk="rpflap"]{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60' preserveAspectRatio='none'><path d='M0 0 L50 58 L100 0' fill='${C.bg}' stroke='${C.brown}' stroke-width='1.6' vector-effect='non-scaling-stroke'/></svg>`)} center/100% 100% no-repeat !important}
+/* 拆开前后那一页 */
+[data-wk="rpenvelope"]{background:${svg(DOTS)} 0 0/22px 22px,${C.cel} !important;border:${LINE} !important;border-radius:24px !important;box-shadow:0 10px 30px rgba(74,58,48,.25) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:${C.celD} !important;border-color:${C.brown} !important}
+[data-wk="rpenvelope"] *{color:${C.brown} !important}
+[data-wk="rpenvelope"][data-stage="open"]{background:${svg(DOTS)} 0 0/22px 22px,${C.cream} !important}
+[data-wk="rpopenbtn"]{background:${C.cream} ${svg(STAR)} center/60% no-repeat !important;border:${LINE} !important;box-shadow:none !important}
+[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important}
+[data-wk="rpamount"]{color:${C.brown} !important}
+[data-wk="rpavatar"]{border-radius:10px !important;box-shadow:0 0 0 1.6px ${C.brown} !important}
+[data-wk="rpclose"]{background:${C.cream} !important;border:${LINE} !important;color:${C.brown} !important}
 /* 照片：米白边相框 */
 [data-wk="photocard"]{padding:8px 8px 10px !important}
 [data-wk="photoface"]{border-radius:10px !important;background:${C.bg} !important;border:1px solid rgba(74,58,48,.2) !important}
