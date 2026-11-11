@@ -30,7 +30,7 @@ const G_HOUSE = TAG(`<path d='M21 15.5 L28 9.5 L35 15.5 V22 H21Z' fill='${C.pink
 const G_MORE = TAG(`<path d='M28 21 C23.5 18 21.5 16 21.5 13.6 C21.5 11.8 22.9 10.6 24.5 10.6 C26 10.6 27.3 11.5 28 12.6 C28.7 11.5 30 10.6 31.5 10.6 C33.1 10.6 34.5 11.8 34.5 13.6 C34.5 16 32.5 18 28 21Z' fill='${C.pink}' stroke='${C.roseD}' stroke-width='1.4'/>`);
 // 头像框：邮票齿孔一圈＋紫色细环
 const PERF = (() => { let d = ""; for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2; d += `<circle cx='${(50 + Math.cos(a) * 47).toFixed(2)}' cy='${(50 + Math.sin(a) * 47).toFixed(2)}' r='3.2' fill='${C.bg}'/>`; } return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='${C.paper}'/>${d}<circle cx='50' cy='50' r='40' fill='none' stroke='${C.rose}' stroke-width='2'/></svg>`; })();
-const G_SEND = TAG(`<path d='M21 15 H34 M29.5 10.5 L34 15 L29.5 19.5' fill='none' stroke='${C.roseD}' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/>`);
+const G_SEND = TAG(`<path d='M28 21.5 V9 M23.5 13.5 L28 9 L32.5 13.5' fill='none' stroke='${C.roseD}' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/>`);
 const bubble = { myBg: C.pink, myText: C.ink, myBorder: "1.4px solid " + C.line, charBg: C.paper, charText: C.ink, charBorder: "1.4px solid " + C.line, radius: 8, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const LINE = `1.4px solid ${C.line}`;
@@ -229,6 +229,14 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 /* 气泡上方那条引用：一张小挂牌，跟他的气泡同形状 */
 [data-wk="quote"]:not([data-draft]){background:radial-gradient(circle at 12px 50%,${C.bg} 3px,transparent 3.5px),${C.paper} !important;border:${LINE} !important;border-radius:4px 8px 8px 4px !important;clip-path:polygon(8px 0,100% 0,100% 100%,8px 100%,0 50%) !important;padding-left:22px !important}
 [data-wk="quote"]:not([data-draft])[data-me="1"]{background:radial-gradient(circle at 12px 50%,${C.bg} 3px,transparent 3.5px),${C.pink} !important}
+
+
+/* 我的票根：描边换嫩粉，存根竖线也跟着粉 */
+[data-wk="bubble"][data-kind="text"][data-me="1"]{border-color:#F59BC4 !important;background:radial-gradient(circle at calc(100% - 30px) 0,${C.bg} 6px,transparent 6.5px),radial-gradient(circle at calc(100% - 30px) 100%,${C.bg} 6px,transparent 6.5px),linear-gradient(90deg,transparent calc(100% - 30.7px),#F59BC4 calc(100% - 30.7px),#F59BC4 calc(100% - 29.3px),transparent calc(100% - 29.3px)),${C.pink} !important;box-shadow:0 3px 0 rgba(245,155,196,.35) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::after{color:#E0558A !important}
+/* 一串最后一条是表情包、卡片时：已读印章盖在它底下（cardmeta 默认藏着） */
+[data-run][data-last="1"] + [data-wk="cardmeta"]{display:block !important;font-size:0 !important;height:36px !important;padding:0 !important;margin:-12px 0 0 !important;background:${svg(STAMP("已读"))} 70px center/36px 36px no-repeat !important;position:relative !important;z-index:2 !important}
+[data-run][data-last="1"] + [data-wk="cardmeta"][data-me="1"]{background:none !important;font-size:10.5px !important;height:auto !important;margin:2px 0 0 !important;text-align:right !important;padding:0 64px 0 0 !important;color:${C.fog} !important;font-family:ui-monospace,Menlo,monospace !important;letter-spacing:.1em !important}
 
 `;
 
