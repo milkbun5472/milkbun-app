@@ -17572,6 +17572,8 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
   const C = (cx, cy, r) => h("circle", { cx: cx, cy: cy, r: r });
   const R = (x, y, w, ht, rx) => h("rect", { x: x, y: y, width: w, height: ht, rx: rx });
   const kids = {
+    // 只重写这一个人这一段：转圈的箭头里站着一个人（跟整段重写的 ↻ 分得开）
+    rerollOne: [P("M19.2 12a7.2 7.2 0 11-2.1-5.1"), P("M19.4 4.6v3.6h-3.6"), C(12, 10.4, 1.7), P("M8.9 16c.7-1.5 1.8-2.3 3.1-2.3s2.4.8 3.1 2.3")],
     pin: [P("M12 21.5s-6.6-6.2-6.6-10.6a6.6 6.6 0 1113.2 0c0 4.4-6.6 10.6-6.6 10.6z"), C(12, 10.9, 2.3)],
     trash: [P("M4.5 6.5h15"), P("M9.5 6.5V4.5h5v2"), P("M6.5 6.5l1 13h9l1-13"), P("M10.5 10.5v6M13.5 10.5v6")],
     sticker: [P("M4.5 4.5h10.8L19.5 8.7v10.8h-15z"), P("M15.3 4.5v4.2h4.2"), P("M9 13c.9 1.4 4.1 1.4 5 0"), P("M9.3 9.6v.7M14.7 9.6v.7")],
@@ -19896,7 +19898,7 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
     (moreKeys && !isUser && !isNarr && !isNovel && onSaveExample) ? h("button", { onClick: () => onSaveExample(m, spk), className: "active:opacity-50", title: "收作好吃范例", style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", lineHeight: 1, color: t.fog } }, "✦") : null,
     // 删前问一句（群友 2026-10-26：点编辑手一滑点到旁边的删除，整段没了）
     // 群线下：只重写这一个人这一段，前后别人的不动（群里 2026-11-11）
-    (moreKeys && onRerollOne && m.senderId && !isUser && !isNarr && !isNovel) ? h("button", { "data-wk": "offrerollone", onClick: () => onRerollOne(m.id), disabled: sending, className: "active:opacity-50 disabled:opacity-30", title: "只重写这一段", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap" } }, "只重写这段") : null,
+    (moreKeys && onRerollOne && m.senderId && !isUser && !isNarr && !isNovel) ? h("button", { "data-wk": "offrerollone", onClick: () => onRerollOne(m.id), disabled: sending, className: "active:opacity-50 disabled:opacity-30", title: "只重写这一段", "aria-label": "只重写这一段" }, h(CGlyph, { k: "rerollOne", size: 16, color: t.fog })) : null,
     moreKeys && onDelete ? iconBtn(ITrash, () => requestAppConfirm("删掉这一段？", "删了找不回来。", () => onDelete(m.id), "删掉"), "删除") : null,
     (isUser || moreKeys) && onEdit ? iconBtn(IPencil, () => setEditing(true), "编辑") : null,
     (!isUser && !isNarr && onReroll) ? h("button", Object.assign({ "data-wk": "rerollpress", disabled: sending, className: "active:opacity-50 disabled:opacity-30", title: "重写（长按给方向）", style: { WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } }, rerollPress(() => onReroll(m.id))), h(IRefresh, { size: 15, color: t.fog })) : null,
