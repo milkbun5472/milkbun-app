@@ -103,20 +103,9 @@ button[data-wk="avatar"] *,span[data-wk="avatar"] *,img[data-wk="avatar"]{border
 [data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *,[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"] *{opacity:0 !important}
 [data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"]{background:#E5E5EA !important;border:none !important}
 [data-wk="transfercard"][data-status="returned"]{opacity:.6 !important}
-/* 红包：黑卡，右下一颗红点（跟顶栏在线点同一个红） */
-[data-wk="rpcard"]{background:#1C1C1E !important;border-radius:20px !important;box-shadow:0 6px 16px rgba(0,0,0,.2) !important}
-[data-wk="rpcard"] *{color:#fff !important}
-[data-wk="rpflap"]{background:rgba(255,255,255,.06) !important;border-bottom:1px solid rgba(255,255,255,.1) !important}
-[data-wk="rpseal"]{border:none !important;background:#E5533D !important;border-radius:50% !important;width:12px !important;height:12px !important;top:18px !important;left:22px !important}
-[data-wk="rpseal"] *{display:none !important}
-[data-wk="rpcorner"]{display:none !important}
-[data-wk="rpcard"][data-status="done"]{background:#3A3A3C !important;filter:none !important}
-[data-wk="rpenvelope"]{background:#1C1C1E !important;border-radius:28px !important;box-shadow:0 20px 50px rgba(0,0,0,.4) !important}
-[data-wk="rpenvelope"] [data-wk="rparc"]{background:#2C2C2E !important}
-[data-wk="rpenvelope"] *{color:#fff !important}
-[data-wk="rpopenbtn"]{background:#fff !important;color:#1C1C1E !important;border:none !important;box-shadow:0 0 0 6px rgba(255,255,255,.12) !important}
-[data-wk="rpopenbtn"] *{color:#1C1C1E !important}
-[data-wk="rpamount"]{color:#fff !important}
+/* 红包：留原来的红色，只换成圆角＋柔影，跟别的卡一家 */
+[data-wk="rpcard"]{border-radius:20px !important;box-shadow:0 6px 16px rgba(160,40,30,.25) !important}
+[data-wk="rpenvelope"]{border-radius:28px !important}
 /* 照片：白边，底下一行小号等宽「IMG_」 */
 [data-wk="photocard"]{padding:8px 8px 10px !important}
 [data-wk="photoface"]{border-radius:14px !important;background:#E5E5EA !important}
