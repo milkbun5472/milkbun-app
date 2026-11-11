@@ -61,6 +61,9 @@
 
 - **别藏聊天里的头像**（她要两边都看得到）；参考图里没头像也照样留着，只换框的样子。头像是点开状态卡的入口。
 
+- 好感条换成多个小图形（星星排一排）时：描边别用 stateheartline 那层缩进叠（会错位），把 line 层设透明，在 stateheart 上用四个方向的 `drop-shadow` 描边。
+- 默认按键顺序是**左发送、右回复（chatreply）**；别给 send 加 `order` 把它挪到最右，除非参考图就是那样，而且图标要跟功能对得上。
+
 ### app 挂点
 - 挂点不够：先给 app 补挂点（只加不改名，进 `theme-studio.js` 名单，写测试，`ship.mjs` 发版），**提醒她先刷新 app**。
 - 已补过的：statemood / stateaffval / stateheartknob / gazeempty / statehist* / geo* / cardmeta / offlog* / gazetape（Ta 眼里贴条）/ meta 的 `data-read`（已送达 0、已读 1）。
