@@ -98,6 +98,13 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 /* 已送达＝空心，已读＝实心 */
 [data-wk="meta"][data-read="0"]{background-image:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'><path d='M12 20 C4.5 14.5 2 11 2 7 C2 4 4.4 2 7 2 C9.2 2 11 3.4 12 5.2 C13 3.4 14.8 2 17 2 C19.6 2 22 4 22 7 C22 11 19.5 14.5 12 20Z' fill='none' stroke='#FF5DB4' stroke-width='2.4'/></svg>`)} !important}
 
+/* 头像框加粗成果冻边：白内圈＋粗彩边＋白外描＋一层投影；我的粉、他的蓝 */
+button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 0 3px #fff,0 0 0 9px #8FD0FF,0 0 0 10.5px #fff,0 0 0 12px #5AA8E8,0 6px 14px rgba(40,90,180,.45) !important;border-radius:14px !important}
+[data-me="1"] button[data-wk="avatar"],[data-me="1"] span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 0 3px #fff,0 0 0 9px #FF9AD2,0 0 0 10.5px #fff,0 0 0 12px #F05AAE,0 6px 14px rgba(240,90,174,.45) !important}
+button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{right:-15px !important;top:-15px !important;width:20px !important;height:20px !important}
+button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{left:-14px !important;bottom:-12px !important;width:17px !important;height:16px !important}
+[data-wk="chathead"] button[data-wk="avatar"],[data-wk="chathead"] span[data-wk="avatar"]{box-shadow:0 0 0 2px #fff,0 0 0 6px #8FD0FF,0 0 0 7.5px #fff,0 0 0 8.5px #5AA8E8 !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "Y2K", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
