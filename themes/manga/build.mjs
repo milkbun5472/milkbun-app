@@ -120,8 +120,75 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 [data-wk="chathead"] [data-wk="headname"]{overflow:visible !important}
 [data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]::before{top:-12px !important;left:-2px !important;z-index:3 !important}
 
-[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]::after{right:-23px !important;bottom:6px !important;width:29px !important;height:22px !important;background:${svg(TAILR(C.yellow))} center/contain no-repeat !important;filter:drop-shadow(4px 4px 0 ${C.ink}) !important;z-index:1 !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]::after{right:-16px !important;bottom:8px !important;width:22px !important;height:17px !important;background:${svg(TAILR(C.yellow))} center/contain no-repeat !important;filter:drop-shadow(4px 4px 0 ${C.ink}) !important;z-index:1 !important}
 [data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::after{left:-23px !important;top:10px !important;width:29px !important;height:22px !important;background:${svg(TAILL(C.paper))} center/contain no-repeat !important;z-index:1 !important}
+
+
+/* ───── 漫画对白 · 第二批：卡片（形状不动；对白框同款粗黑边＋错位影；小巧思：卡角一块黑底黄字的分镜标签） ───── */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{background:${C.paper} !important;border:${LINE} !important;border-radius:4px !important;box-shadow:${POP} !important;color:${C.ink} !important;position:relative !important;overflow:visible !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:${C.ink} !important;border-color:${C.ink} !important}
+[data-wk="transfercard"]::before,[data-wk="namecard"]::before,[data-part="offlog"]::before{position:absolute !important;left:-6px !important;top:-12px !important;background:${C.ink} !important;color:${C.yellow} !important;font:800 10px/1 ui-monospace,Menlo,monospace !important;letter-spacing:.12em !important;padding:4px 8px !important;transform:rotate(-4deg) !important;z-index:2 !important}
+[data-wk="transfercard"]::before{content:"¥ 转账" !important}
+[data-wk="namecard"]::before{content:"CAST · 名片" !important}
+[data-part="offlog"]::before{content:"番外 · 线下" !important}
+[data-wk="transfercard"],[data-wk="namecard"],[data-part="offlog"]{margin-top:14px !important}
+/* 转账：金额下面一道黄色马克笔；收下盖黄色爆炸「GET!」，退回盖斜线网点 */
+[data-wk="transferamount"]{background:linear-gradient(transparent 60%,${C.yellow} 60%,${C.yellow} 92%,transparent 92%) !important;font-weight:900 !important}
+[data-wk="transferrule"]{border:none !important;height:2px !important;background:${C.ink} !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:${HATCH},${C.paper} !important;border-top:${LINE} !important}
+[data-wk="transferbtn"]{border-radius:2px !important;border:${LINE} !important;box-shadow:2px 2px 0 ${C.ink} !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.yellow} !important;color:${C.ink} !important}
+[data-wk="transferbtn"][data-part="back"]{background:${C.paper} !important;color:${C.ink} !important}
+[data-wk="transferseal"]{border:${LINE} !important;border-radius:2px !important;background:${C.paper} !important;color:${C.ink} !important;box-shadow:none !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{width:66px !important;height:40px !important;border:none !important;background:${svg(BURST)} center/100% 100% no-repeat !important;transform:rotate(-10deg) !important;font-size:0 !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]::after{content:"GET!" !important;font:900 13px/40px ui-monospace,Menlo,monospace !important;color:${C.ink} !important;display:block !important;text-align:center !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *{display:none !important}
+[data-wk="transfercard"][data-status="returned"]{background:${HATCH},${C.paper} !important;opacity:.75 !important}
+/* 红包：留红，加粗黑边错位影 */
+[data-wk="rpcard"]{border:${LINE} !important;border-radius:4px !important;box-shadow:${POP} !important}
+[data-wk="rpenvelope"]{border:3px solid ${C.ink} !important;border-radius:6px !important;box-shadow:6px 6px 0 ${C.ink} !important}
+/* 照片：漫画格子，下面一行等宽小字 */
+[data-wk="photocard"]{padding:6px 6px 10px !important}
+[data-wk="photoface"]{border-radius:0 !important;border:${LINE} !important;background:${HATCH},#F1F0EA !important}
+[data-wk="photoface"] *,[data-wk="phototext"],[data-wk="photocap"],[data-wk="photohint"]{color:${C.ink} !important}
+/* 语音：小对白框，我黄他白 */
+[data-wk="voice"][data-me]{background:${C.paper} !important;border:${LINE} !important;border-radius:18px !important;box-shadow:3px 3px 0 ${C.ink} !important}
+[data-wk="voice"][data-me="1"]{background:${C.yellow} !important}
+[data-wk="voice"] > *{background:transparent !important;border:none !important;box-shadow:none !important;color:${C.ink} !important}
+[data-wk="voicewave"] span{background:${C.ink} !important;border-radius:0 !important}
+[data-wk="wxcardsky"]{background:${HATCH},#F1F0EA !important}
+[data-wk="wxcardsky"] *{color:${C.ink} !important}
+[data-wk="wxcardsky"] svg{stroke:${C.ink} !important}
+[data-wk="wxcardsay"]{background:${C.paper} !important;color:${C.ink} !important;border-top:${LINE} !important}
+[data-wk="geopin"]{background:${C.yellow} !important;border:${LINE} !important;box-shadow:2px 2px 0 ${C.ink} !important}
+[data-wk="geopinstem"]{background:${C.ink} !important}
+[data-wk="namecard"] img{border-radius:2px !important;box-shadow:0 0 0 1.4px ${C.ink} !important}
+/* 拍一拍、通话结束：小爆炸框 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:${svg(BURST)} center/100% 100% no-repeat !important;border:none !important;border-radius:0 !important;color:${C.ink} !important;font-weight:800 !important;padding:5px 18px !important;font-size:12px !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.ink} !important}
+[data-wk="note"][data-part="callsum"]{color:${C.fog} !important}
+/* 线下小结 */
+[data-wk="offlogtitle"]{font-weight:900 !important;letter-spacing:.1em !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.ink} !important;text-decoration:underline !important;text-decoration-color:${C.yellow} !important;text-decoration-thickness:4px !important;text-underline-offset:-1px !important}
+[data-wk="offlogtranscript"]{border-top:${LINE} !important}
+/* 加号面板：一格格漫画格子，黄白交替 */
+[data-wk="chatpanel"]{background:${svg(DOTS)} 0 0/12px 12px,${C.bg} !important;border-top:${LINE} !important}
+[data-wk="chattoolicon"]{background:${C.paper} !important;border:${LINE} !important;border-radius:4px !important;box-shadow:3px 3px 0 ${C.ink} !important}
+[data-wk="chattool"]:nth-child(odd) [data-wk="chattoolicon"]{background:${C.yellow} !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.ink} !important;color:${C.ink} !important}
+[data-wk="chattoollabel"]{color:${C.ink} !important;font-weight:700 !important}
+/* 引用三处 */
+[data-wk="quotedraft"]{background:${C.paper} !important;border-top:none !important}
+[data-wk="quote"]{background:${HATCH},${C.paper} !important;color:${C.ink} !important;border:1.6px solid ${C.ink} !important;border-left:5px solid ${C.ink} !important;border-radius:0 !important;opacity:1 !important}
+[data-wk="quote"][data-me="1"]{background:${C.yellow} !important}
+[data-wk="quoteicon"],[data-wk="quoteclear"]{color:${C.ink} !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:3px solid ${C.ink} !important;padding-left:8px !important;opacity:.7 !important}
+/* 线下：加号、照片键也换成漫画格子按键 */
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:32px !important;height:32px !important;background:${svg(I_PLUS)} center/28px no-repeat !important;border:none !important;box-shadow:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:32px !important;min-width:32px !important;height:32px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><rect x='3' y='5' width='24' height='19' fill='${C.yellow}' stroke='${C.ink}' stroke-width='2'/><circle cx='10' cy='11' r='2' fill='${C.ink}'/><path d='M4 22 L12 15 L17 19 L21 16 L26 21' fill='none' stroke='${C.ink}' stroke-width='2' stroke-linejoin='round'/></svg>`)} center/28px no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
 
 `;
 
