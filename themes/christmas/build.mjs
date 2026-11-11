@@ -507,6 +507,15 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="statewear"]{white-space:normal !important;max-height:44px !important;overflow-y:auto !important;text-overflow:clip !important;scrollbar-width:none !important}
 [data-wk="statewear"] *{white-space:normal !important}
 
+/* 他那条带引用：引用纸条先挂在灯串上，礼物卡再用一截短丝带接在纸条底下 */
+[data-wk="quote"][data-me="0"]{position:relative !important;overflow:visible !important;padding-left:50px !important;margin-top:30px !important;margin-bottom:0 !important;border-radius:4px 12px 12px 12px !important;max-width:86% !important;box-shadow:0 3px 6px rgba(0,0,0,.25) !important}
+[data-wk="quote"][data-me="0"]::before{content:"" !important;position:absolute !important;left:16px !important;top:-31px !important;width:30px !important;height:40px !important;background:${svg(RIBBON)} center top/contain no-repeat !important;pointer-events:none !important}
+[data-wk="quote"][data-me="0"] > *{overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important}
+[data-wk="quote"][data-me="0"] + [data-wk="bubble"][data-kind="text"]{margin-top:12px !important;animation:none !important}
+[data-wk="quote"][data-me="0"] + [data-wk="bubble"][data-kind="text"]::before{top:-14px !important;height:14px !important;width:4px !important;left:29px !important;background:${C.red} !important;border-radius:2px !important}
+/* 我那条带引用：纸条和雪帽之间留出空 */
+[data-wk="quote"][data-me="1"]{margin-bottom:8px !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "圣诞", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
