@@ -363,14 +363,25 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="statehead"]{padding-right:118px !important}
 
 /* 顶栏＝日记本封面：粉色布面，中间缝一块白色布标签写名字 */
-[data-wk="chathead"]{background:repeating-linear-gradient(45deg,rgba(255,255,255,.12) 0 2px,transparent 2px 5px),repeating-linear-gradient(-45deg,rgba(138,90,95,.07) 0 2px,transparent 2px 5px),#e9b8bf !important}
-[data-wk="chathead"]::after{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' width='20' height='16' viewBox='0 0 20 16'><path d='M0 0 H20 V4 A5 5 0 0 1 10 4 A5 5 0 0 1 0 4Z' fill='#e9b8bf'/><path d='M0 4 A5 5 0 0 0 10 4 A5 5 0 0 0 20 4' fill='none' stroke='#fff' stroke-width='1.4'/></svg>`)} repeat-x left top/20px 16px !important}
+[data-wk="chathead"]{background:linear-gradient(90deg,rgba(255,255,255,.35) 50%,transparent 50%) 0 0/16px 16px,linear-gradient(rgba(255,255,255,.35) 50%,transparent 50%) 0 0/16px 16px,#ffc4d0 !important}
+[data-wk="chathead"]::after{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' width='20' height='16' viewBox='0 0 20 16'><path d='M0 0 H20 V4 A5 5 0 0 1 10 4 A5 5 0 0 1 0 4Z' fill='#ffd9e1'/><path d='M0 4 A5 5 0 0 0 10 4 A5 5 0 0 0 20 4' fill='none' stroke='#fff' stroke-width='1.4'/></svg>`)} repeat-x left top/20px 16px !important}
 [data-wk="chathead"] [data-wk="headname"]{background:#fffaf7 !important;border:1.5px solid ${C.rose} !important;box-shadow:0 0 0 3px #fffaf7,0 0 0 4.5px ${C.margin},2px 3px 0 4px rgba(94,66,69,.18) !important;border-radius:3px !important;padding:2px 10px !important;transform:rotate(-1.5deg) !important;flex:0 1 auto !important;max-width:none !important;min-width:0 !important}
 [data-wk="chathead"] [data-wk="headink"]{color:${C.ink} !important;font-style:italic !important}
 [data-wk="chathead"] [data-wk="headink"] > span:first-child{overflow:visible !important;text-overflow:clip !important}
 [data-wk="chathead"] [data-wk="chatback"] svg{stroke:#fff !important}
 [data-wk="chathead"] [data-wk="headdim"]{color:${C.rose} !important}
 [data-wk="statehistbtn"][data-part="more"]{border:none !important;border-top:1.5px solid ${C.line} !important;border-radius:0 !important}
+
+/* 页头改成上下排：先一张拍立得，下面写名字和心情，右边只给丝带留位置 */
+[data-wk="statehead"]{display:block !important;padding:16px 84px 12px 40px !important}
+[data-wk="statehead"] > [data-wk="avatar"]{display:block !important;width:56px !important;height:56px !important;margin:0 0 8px !important}
+[data-wk="statehead"] > [data-wk="avatar"] *{width:56px !important;height:56px !important}
+[data-wk="statehead"] > div{display:block !important;width:auto !important;min-width:0 !important}
+[data-wk="statehead"] > div > div{white-space:normal !important;overflow:visible !important}
+[data-wk="statehead"] > div > div:first-child{white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;font-size:20px !important}
+[data-wk="statehead"] > div > div:first-child::after{display:inline !important;font-size:12px !important;letter-spacing:.1em !important}
+[data-wk="statehead"] > button{position:absolute !important;left:110px !important;right:auto !important;top:18px !important;width:28px !important;height:28px !important}
+[data-wk="statehead"] button[aria-label="关掉"]{position:absolute !important;left:116px !important;top:30px !important;right:auto !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "粉色日记", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
