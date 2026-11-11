@@ -49,3 +49,6 @@ test("Ta 眼里的贴条挂点", () => {
   assert.match(gaze, /const tape = extra => h\("div", \{ "data-wk": "gazetape"/);
   assert.ok(studio.includes('"gazetape"'));
 });
+test("已读那一行报 data-read，美化分得出已送达／已读", () => {
+  assert.match(comp, /"data-wk": "meta", "data-me": m && m\.role === "user" \? "1" : "0", "data-read": \/已读\/\.test/);
+});

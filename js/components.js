@@ -15244,7 +15244,8 @@ const markTtsCached = (text, voiceId, emo) => {
 //   onState：他那条底下的「状态」——平时藏着（点头像就能看），排版里把头像藏了才由 chatLayoutCSS 在一串最后一条底下露出来（群友 2026-10-26）
 function chatMsgFoot(t, m, sub, dot, onState) {
   if (!dot && !sub && !onState) return null;
-  return h("span", { "data-wk": "meta", "data-me": m && m.role === "user" ? "1" : "0",
+  // data-read：这条已读了没（她 2026-11-11 做 Y2K：「已送达是空心、已读是实心」）——美化分得出两种状态才画得出不同的样子
+  return h("span", { "data-wk": "meta", "data-me": m && m.role === "user" ? "1" : "0", "data-read": /已读/.test(String(sub || "")) ? "1" : "0",
     className: "flex items-center", style: { gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog } },
     sub ? h("span", null, sub) : null, dot,
     onState ? h("button", { "data-wk": "stlink", onClick: e => { e.stopPropagation(); onState(); }, "aria-label": "看状态卡",

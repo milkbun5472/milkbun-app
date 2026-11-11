@@ -95,6 +95,9 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="1"]{color:${C.ink} !important;box-shadow:0 0 0 1.5px ${C.pink},0 -4px 10px rgba(0,0,0,.2) !important}
 [data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="0"]{box-shadow:0 0 0 1.5px #4AA8F0,0 -4px 10px rgba(0,0,0,.2) !important}
 
+/* 已送达＝空心，已读＝实心 */
+[data-wk="meta"][data-read="0"]{background-image:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'><path d='M12 20 C4.5 14.5 2 11 2 7 C2 4 4.4 2 7 2 C9.2 2 11 3.4 12 5.2 C13 3.4 14.8 2 17 2 C19.6 2 22 4 22 7 C22 11 19.5 14.5 12 20Z' fill='none' stroke='#FF5DB4' stroke-width='2.4'/></svg>`)} !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "Y2K", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
