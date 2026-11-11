@@ -363,8 +363,8 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="statehead"]{padding-right:118px !important}
 
 /* 顶栏＝日记本封面：粉色布面，中间缝一块白色布标签写名字 */
-[data-wk="chathead"]{background:linear-gradient(90deg,rgba(255,255,255,.35) 50%,transparent 50%) 0 0/16px 16px,linear-gradient(rgba(255,255,255,.35) 50%,transparent 50%) 0 0/16px 16px,#ffc4d0 !important}
-[data-wk="chathead"]::after{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' width='20' height='16' viewBox='0 0 20 16'><path d='M0 0 H20 V4 A5 5 0 0 1 10 4 A5 5 0 0 1 0 4Z' fill='#ffd9e1'/><path d='M0 4 A5 5 0 0 0 10 4 A5 5 0 0 0 20 4' fill='none' stroke='#fff' stroke-width='1.4'/></svg>`)} repeat-x left top/20px 16px !important}
+[data-wk="chathead"]{background:radial-gradient(circle,rgba(255,255,255,.75) 1.6px,transparent 2.2px) 0 0/14px 14px,radial-gradient(circle,rgba(255,255,255,.75) 1.6px,transparent 2.2px) 7px 7px/14px 14px,linear-gradient(180deg,#f2b3c0,#f6c8d1) !important}
+[data-wk="chathead"]::after{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' width='20' height='16' viewBox='0 0 20 16'><path d='M0 0 H20 V4 A5 5 0 0 1 10 4 A5 5 0 0 1 0 4Z' fill='#f6c8d1'/><path d='M0 4 A5 5 0 0 0 10 4 A5 5 0 0 0 20 4' fill='none' stroke='#fff' stroke-width='1.4'/></svg>`)} repeat-x left top/20px 16px !important}
 [data-wk="chathead"] [data-wk="headname"]{background:#fffaf7 !important;border:1.5px solid ${C.rose} !important;box-shadow:0 0 0 3px #fffaf7,0 0 0 4.5px ${C.margin},2px 3px 0 4px rgba(94,66,69,.18) !important;border-radius:3px !important;padding:2px 10px !important;transform:rotate(-1.5deg) !important;flex:0 1 auto !important;max-width:none !important;min-width:0 !important}
 [data-wk="chathead"] [data-wk="headink"]{color:${C.ink} !important;font-style:italic !important}
 [data-wk="chathead"] [data-wk="headink"] > span:first-child{overflow:visible !important;text-overflow:clip !important}
