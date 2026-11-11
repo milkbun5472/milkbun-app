@@ -25,6 +25,8 @@ const HATCH = "repeating-linear-gradient(135deg,rgba(26,26,26,.16) 0 1.2px,trans
 // 融进气泡的尾巴：填色往回多盖一截压住气泡边框，描边只画外面两条边
 const TAILR = (f) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='-5 0 29 22'><path d='M-5 2 L1 2 L22 19 L1 13 L-5 13Z' fill='${f}'/><path d='M1 2 L22 19 L1 13' fill='none' stroke='${C.ink}' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/></svg>`;
 const TAILL = (f) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 29 22'><path d='M29 5 L23 5 L2 10 L23 16 L29 16Z' fill='${f}'/><path d='M23 5 L2 10 L23 16' fill='none' stroke='${C.ink}' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/></svg>`;
+// 红包里那颗大爆炸：黄底黑边，中间「¥!」
+const BOOM = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><path d='M30 2 L35 17 L50 8 L44 24 L58 28 L44 35 L52 50 L36 43 L30 58 L24 43 L8 50 L16 35 L2 28 L16 24 L10 8 L25 17Z' fill='${C.yellow}' stroke='${C.ink}' stroke-width='2.4' stroke-linejoin='round'/><text x='30' y='36' text-anchor='middle' font-size='17' font-weight='900' fill='${C.ink}' font-family='sans-serif'>¥!</text></svg>`;
 const bubble = { myBg: C.yellow, myText: C.ink, myBorder: LINE, charBg: C.paper, charText: C.ink, charBorder: LINE, radius: 20, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: true, gap: "normal", time: "show" };
 
@@ -189,6 +191,26 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:32px !important;min-width:32px !important;height:32px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><rect x='3' y='5' width='24' height='19' fill='${C.yellow}' stroke='${C.ink}' stroke-width='2'/><circle cx='10' cy='11' r='2' fill='${C.ink}'/><path d='M4 22 L12 15 L17 19 L21 16 L26 21' fill='none' stroke='${C.ink}' stroke-width='2' stroke-linejoin='round'/></svg>`)} center/28px no-repeat !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+
+
+/* 红包：一格漫画——红色网点底、粗黑边错位影、左边一颗黄色大爆炸「¥!」，右下速度线；领完变灰网点 */
+[data-wk="rpcard"]{background:radial-gradient(circle,rgba(0,0,0,.18) 1.2px,transparent 1.5px) 0 0/7px 7px,#E8463D !important;border:2.4px solid ${C.ink} !important;border-radius:2px !important;box-shadow:5px 5px 0 ${C.ink} !important;padding-left:74px !important;position:relative !important;overflow:visible !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:6px !important;top:50% !important;width:62px !important;height:62px !important;margin-top:-31px !important;background:${svg(BOOM)} center/contain no-repeat !important;transform:rotate(-8deg) !important;z-index:2 !important}
+[data-wk="rpcard"]::after{content:"" !important;position:absolute !important;right:-28px !important;bottom:4px !important;width:24px !important;height:30px !important;background:${svg(SPEED)} center/contain no-repeat !important;transform:scaleX(-1) !important}
+[data-wk="rpcard"] *{color:#fff !important;font-weight:800 !important;text-shadow:1.5px 1.5px 0 ${C.ink} !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"] > div:not([data-wk]){padding-left:4px !important}
+[data-wk="rpcard"][data-status="done"]{background:${HATCH},#BDBDB8 !important;filter:none !important}
+[data-wk="rpcard"][data-status="done"]::before{filter:grayscale(1) !important;opacity:.7 !important}
+/* 拆开那页：一大格漫画分镜 */
+[data-wk="rpenvelope"]{background:radial-gradient(circle,rgba(0,0,0,.18) 1.4px,transparent 1.7px) 0 0/9px 9px,#E8463D !important;border:3px solid ${C.ink} !important;border-radius:4px !important;box-shadow:7px 7px 0 ${C.ink} !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:${C.paper} !important;border-color:${C.ink} !important}
+[data-wk="rpenvelope"] *{color:#fff !important;text-shadow:1.5px 1.5px 0 ${C.ink} !important}
+[data-wk="rpenvelope"][data-stage="open"]{background:${svg(DOTS)} 0 0/12px 12px,${C.paper} !important}
+[data-wk="rpenvelope"][data-stage="open"] *{color:${C.ink} !important;text-shadow:none !important}
+[data-wk="rpopenbtn"]{background:${svg(BOOM)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;width:88px !important;height:88px !important}
+[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important;text-shadow:none !important}
+[data-wk="rpamount"]{background:linear-gradient(transparent 60%,${C.yellow} 60%,${C.yellow} 92%,transparent 92%) !important;color:${C.ink} !important}
 
 `;
 
