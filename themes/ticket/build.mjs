@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const svg = s => "url(\"data:image/svg+xml;base64," + Buffer.from(s.replace(/>\s+</g, "><")).toString("base64") + "\")";
-const C = { bg: "#ECE4F7", paper: "#FBF8FF", pink: "#FBD3E2", rose: "#8B6CC9", roseD: "#6A4FA6", ink: "#4B3B66", line: "#9A86C4", fog: "#A79CC0", red: "#E0558A" };
+const C = { bg: "#ECE4F7", paper: "#FBF8FF", pink: "#FFC7E0", rose: "#8B6CC9", roseD: "#6A4FA6", ink: "#4B3B66", line: "#9A86C4", fog: "#A79CC0", red: "#F0478E" };
 
 const I_PLUS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 6 V18 M6 12 H18' stroke='${C.ink}' stroke-width='1.6' stroke-linecap='round'/></svg>`;
 const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'><path d='M3 12 L24 4 L18 21 L13 14Z' fill='none' stroke='${C.ink}' stroke-width='1.5' stroke-linejoin='round'/><path d='M13 14 L24 4' stroke='${C.ink}' stroke-width='1.3'/></svg>`;
