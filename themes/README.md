@@ -40,7 +40,7 @@
 
 每一批截图给她看一眼再往下做。预览脚本在 `themes/_preview/`（起 `python3 -m http.server 8765`，
 `NODE_PATH=$(npm root -g) node themes/_preview/preview.cjs <出图目录> <美化.json> [额外消息.json]`；
-状态卡 state.cjs、翻旧 hist.cjs、线下 off.cjs、红包拆开 env.cjs）。
+状态卡 state.cjs、翻旧 hist.cjs、线下 off.cjs、红包拆开 env.cjs；线下小结卡用 preview.cjs 带 offlog.json，**每套都要出这张图**）。
 
 ## 别忘的几处（每套都漏过一次）
 

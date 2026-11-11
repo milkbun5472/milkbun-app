@@ -46,6 +46,9 @@ const CAN = (body = "#DCE6F2", label = "#fff") => `<svg xmlns='http://www.w3.org
 const PADSTAMP = (f) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 40'><path d='${MITT}' fill='${f}'/><g fill='#fff' opacity='.45'>${BEANS}</g></svg>`;
 // 小鱼图钉（位置）
 const FISHPIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><g transform='rotate(-90 20 20) translate(2 10)'>${X(FISH(C.pinkD))}</g></svg>`;
+
+// 趴在状态卡顶上的一整只猫：圆脑袋、尖耳朵、粉腮红、两只前爪搭在卡边、尾巴卷起来
+const LOAFCAT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 74'><g stroke='${C.line}' stroke-width='2.6' stroke-linejoin='round' stroke-linecap='round'><path d='M118 58 C138 56 146 40 136 30 C130 24 122 30 128 36' fill='none'/><path d='M30 72 C26 50 44 36 76 36 C108 36 124 50 120 72Z' fill='#fff'/><path d='M40 24 L36 4 L54 15Z M86 15 L102 4 L100 24Z' fill='#fff'/><path d='M41 19 L39 9 L49 15Z M91 15 L99 9 L98 19Z' fill='${C.pink}' stroke='none'/><ellipse cx='70' cy='34' rx='34' ry='26' fill='#fff'/><path d='M56 32 q4 -4 8 0 M76 32 q4 -4 8 0' fill='none'/><path d='M66 40 l4 3 l4 -3' fill='none' stroke-width='2'/><path d='M38 40 h-12 M38 45 l-11 3 M102 40 h12 M102 45 l11 3' stroke-width='1.6'/><path d='M50 72 C48 62 62 62 62 72 M80 72 C80 62 94 62 92 72' fill='#fff'/></g><ellipse cx='52' cy='41' rx='5' ry='3' fill='${C.pink}' opacity='.7'/><ellipse cx='88' cy='41' rx='5' ry='3' fill='${C.pink}' opacity='.7'/><path d='M56 26 q-4 2 -2 6' fill='none' stroke='${C.line}' stroke-width='1.5' opacity='.5'/></svg>`;
 const bubble = { myBg: "#CFDAEA", myText: C.ink, myBorder: "2px solid " + C.line, charBg: "#fff", charText: C.ink, charBorder: "2px solid " + C.line, radius: 22, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
@@ -365,6 +368,32 @@ ${ktAlong()}
 [data-wk="statehistitem"]{padding:14px 16px !important}
 [data-wk="statehistmeta"]{padding:8px 12px !important}
 [data-wk="gazetitle"]{color:${C.line} !important}
+
+/* ── 第三批返工 ── */
+/* 状态卡顶上趴一整只猫，两只前爪搭在卡边 */
+[data-wk="statecard"]::before{top:-52px !important;width:150px !important;height:74px !important;margin-left:-75px !important;background:${svg(LOAFCAT)} center bottom/contain no-repeat !important;z-index:3 !important}
+[data-wk="statehead"]{padding-top:22px !important}
+/* 小鱼干好感条换蓝色系 */
+[data-wk="statecard"]{--sc-heart-ink:linear-gradient(to top,#B9CBE4,#6F86AD) !important}
+[data-wk="stateheartknob"]{background:#fff ${svg(PAW(C.line))} center/18px 16px no-repeat !important}
+/* 翻旧的：不再是一排卡片——一朵朵思考泡泡左右交替往下冒，泡泡尾巴指向那一侧，底下一只睡觉的猫 */
+[data-wk="statehistlist"]{padding-left:0 !important}
+[data-wk="statehistlist"]::before{display:none !important}
+[data-wk="statehistitem"]{width:84% !important;border-radius:40px !important;margin:0 0 30px !important;padding:16px 20px !important;box-shadow:0 4px 0 #C3CEE0 !important}
+[data-wk="statehistitem"]:nth-child(even){margin-left:auto !important;background:#E6EDF6 !important}
+[data-wk="statehistitem"]::before{top:auto !important;bottom:-20px !important;left:34px !important;width:16px !important;height:16px !important;border-radius:50% !important;background:inherit !important;border:2px solid ${C.line} !important}
+[data-wk="statehistitem"]::after{content:"" !important;position:absolute !important;bottom:-30px !important;left:26px !important;width:9px !important;height:9px !important;border-radius:50% !important;background:#fff !important;border:2px solid ${C.line} !important}
+[data-wk="statehistitem"]:nth-child(even)::before{left:auto !important;right:34px !important}
+[data-wk="statehistitem"]:nth-child(even)::after{left:auto !important;right:26px !important}
+[data-wk="statehistmeta"]{background:transparent !important;border-top:2px solid ${C.mist} !important;border-radius:0 !important;padding:8px 2px 0 !important}
+[data-wk="statehisttime"]{float:right !important}
+[data-wk="statehistend"]{flex-direction:column !important;padding-top:70px !important;position:relative !important}
+[data-wk="statehistend"]::before{position:absolute !important;top:0 !important;left:50% !important;margin:0 0 0 -50px !important;width:100px !important;height:60px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60'><g stroke='${C.line}' stroke-width='2.4' stroke-linejoin='round' stroke-linecap='round'><path d='M14 52 C6 36 22 22 50 22 C80 22 94 36 86 52Z M86 50 C98 46 98 30 88 34' fill='#fff'/><path d='M26 30 L24 16 L36 24Z M50 22 L58 12 L60 26Z' fill='#fff'/><path d='M30 38 q4 3 8 0 M46 38 q4 3 8 0' fill='none'/></g><text x='70' y='16' font-size='12' fill='${C.line}' font-family='sans-serif'>z</text><text x='80' y='8' font-size='9' fill='${C.line}' font-family='sans-serif'>z</text></svg>`)} center/contain no-repeat !important}
+
+/* 线下小结：卡顶右角蜷着一只睡猫，标题是一颗圆胶囊挂在卡边上 */
+[data-part="offlog"]{margin-top:30px !important;padding-top:26px !important}
+[data-part="offlog"]::before{content:"" !important;position:absolute !important;right:18px !important;top:-40px !important;width:84px !important;height:50px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60'><g stroke='${C.line}' stroke-width='2.4' stroke-linejoin='round' stroke-linecap='round'><path d='M14 58 C6 36 22 22 50 22 C80 22 94 36 86 58Z M86 54 C98 50 98 34 88 38' fill='#fff'/><path d='M26 30 L24 16 L36 24Z M50 22 L58 12 L60 26Z' fill='#fff'/><path d='M30 38 q4 3 8 0 M46 38 q4 3 8 0' fill='none'/></g><ellipse cx='30' cy='45' rx='4' ry='2.4' fill='${C.pink}' opacity='.7'/><ellipse cx='56' cy='45' rx='4' ry='2.4' fill='${C.pink}' opacity='.7'/><text x='70' y='16' font-size='12' fill='${C.line}' font-family='sans-serif'>z</text><text x='80' y='8' font-size='9' fill='${C.line}' font-family='sans-serif'>z</text></svg>`)} center bottom/contain no-repeat !important}
+[data-wk="offlogtitle"]{position:absolute !important;top:-14px !important;left:18px !important;margin:0 !important;border-radius:999px !important;padding:4px 16px 4px 30px !important;box-shadow:0 3px 0 #6F7D99 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
