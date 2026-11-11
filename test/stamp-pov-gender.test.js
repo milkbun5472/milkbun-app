@@ -130,3 +130,7 @@ test("卡名挂了这一期前缀的，存的时候、开机时摘掉", () => {
   const f = new Function(src.slice(i, j) + "return stampNameTidy;")();
   assert.equal(f({ theme: "万圣夜", text: { name: "万圣夜·判官笔" } }).text.name, "判官笔");
 });
+test("生日、纪念日卡不再顶着「日常卡」的开头", () => {
+  assert.match(src, /if \(day\) return "这是一张【" \+ day \+ "卡】：写这一天前后真发生的一刻，不是平常的一天。"/);
+  assert.ok(!/隆重不等于西装，照那天在做的事配/.test(src));
+});
