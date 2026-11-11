@@ -321,6 +321,11 @@ span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 [data-wk="gazecard"] > :first-child:not([data-wk]){opacity:0 !important}
 [data-wk="gazecard"]{position:relative !important;overflow:visible !important}
 [data-wk="gazecard"]::before{content:"" !important;position:absolute !important;top:-10px !important;left:calc(50% - 10px) !important;width:20px !important;height:20px !important;background:${svg(SPARK(C.gold, 9))} center/contain no-repeat !important;filter:drop-shadow(0 0 5px rgba(255,217,138,.8)) !important;z-index:2 !important}
+
+/* 整张卡一起滑：头像、金弧、金线跟着内容走，不会错位 */
+[data-wk="statecard"]{overflow-y:auto !important;overflow-x:hidden !important}
+[data-wk="statecard"] > div.flex-1{overflow:visible !important;flex:none !important;min-height:auto !important}
+[data-wk="stateseen"],[data-wk="statevoice"]{max-height:none !important;overflow:visible !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, layout: { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" }, customCSS: css.trim() }, assets: {} };
