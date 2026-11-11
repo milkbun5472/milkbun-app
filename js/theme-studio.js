@@ -480,7 +480,7 @@
         ["chat", "聊天页整块背景"], ["body", "正文区背景"],
         // 「Ta 眼里」那页：聊天里点顶栏名字 → Ta 眼里（群友 2026-10-05：「这个和关于我/关于我们有挂点嘛」）
         ["gazepage","整页那张手记底（data-side=\"me\" 关于我 / \"us\" 关于我们）"],["gazetitle","右上角「关于我/关于我们」大字"],
-        ["gazetab","两条布书签（data-on=\"1\" 是选中的）"],["gazestatus","书签下面那行复看说明小字"],["gazeempty","一块都还没写时那一整块（这里还是空的＋让他写写看）"],
+        ["gazetape","Ta 眼里卡片顶上那条米色贴条（展开的信和旧版也是它）"],["gazetab","两条布书签（data-on=\"1\" 是选中的）"],["gazestatus","书签下面那行复看说明小字"],["gazeempty","一块都还没写时那一整块（这里还是空的＋让他写写看）"],
         ["gazecard","每一块便签（data-k＝me.person 这类块名；data-empty=\"1\" 还没写）"],["gazecardname","便签标题"],["gazecardtext","便签正文"],["gazecardtime","便签底下「N 天前写的」"],
         ["gazebtn","底下的按钮（data-kind＝review 再看一遍 / redo 整份重写 / history 从前那几版 / seed 第一次写）"],
         ["gazelock","信纸里「锁住这块」（data-on＝1 已锁）"],
@@ -1183,7 +1183,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v89.473",changed: "日记封面、往期线下、约会票根上的日子都跟着虚拟时间走了",none: ""};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v89.474",changed: "",none: "这一版没动美化挂点。"};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

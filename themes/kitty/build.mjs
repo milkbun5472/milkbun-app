@@ -20,7 +20,9 @@ const CATPAW = (fill = "#fff") => `<svg xmlns='http://www.w3.org/2000/svg' viewB
 const BELL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><circle cx='10' cy='10' r='8' fill='${C.gold}' stroke='#B88A33' stroke-width='1.2'/><path d='M3 9 H17' stroke='#B88A33' stroke-width='1.1'/><circle cx='10' cy='13' r='1.6' fill='#7A5A20'/><path d='M10 14 V17' stroke='#7A5A20' stroke-width='1.2'/></svg>`;
 
 // 猫耳头像框（耳朵＋项圈＋铃铛），flip 给我那颗
-const EARS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path fill-rule='evenodd' d='M14.5 40 C12 28 12 14 18 6 C26 8 34 13 39 19 C42.5 18.2 46.2 17.8 50 17.8 C53.8 17.8 57.5 18.2 61 19 C66 13 74 8 82 6 C88 14 88 28 85.5 40 C88.3 45 90 51 90 57.8 C90 79.9 72.1 97.8 50 97.8 C27.9 97.8 10 79.9 10 57.8 C10 51 11.7 45 14.5 40Z M50 24.8 A33 33 0 1 0 50.01 24.8Z' fill='#E6EDF6' stroke='${C.line}' stroke-width='2.4' stroke-linejoin='round'/><path d='M19 30 C18 22 19 15 22 11 C27 13 32 16 35 20 C29 22 23 25 19 30Z M81 30 C82 22 81 15 78 11 C73 13 68 16 65 20 C71 22 77 25 81 30Z' fill='${C.pink}'/><path d='M23 22 l4 -2 M25 26 l5 -1 M77 22 l-4 -2 M75 26 l-5 -1' stroke='#fff' stroke-width='1.5' stroke-linecap='round'/><path d='M17 76 Q50 100 83 76' fill='none' stroke='${C.pink}' stroke-width='6' stroke-linecap='round'/><path d='M17 76 Q50 100 83 76' fill='none' stroke='#fff' stroke-width='1.2' stroke-dasharray='1 5' stroke-linecap='round' opacity='.8'/><g transform='translate(41 85)'><circle cx='9' cy='9' r='8.5' fill='${C.gold}' stroke='#B88A33' stroke-width='1.3'/><path d='M1.5 8 H16.5' stroke='#B88A33' stroke-width='1.2'/><circle cx='9' cy='12' r='1.7' fill='#7A5A20'/><path d='M9 13 V16.5' stroke='#7A5A20' stroke-width='1.2'/><circle cx='6' cy='5' r='1.6' fill='#fff' opacity='.7'/></g></svg>`;
+const EARS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 106'><path fill-rule='evenodd' d='M14.5 40 C12 28 12 14 18 6 C26 8 34 13 39 19 C42.5 18.2 46.2 17.8 50 17.8 C53.8 17.8 57.5 18.2 61 19 C66 13 74 8 82 6 C88 14 88 28 85.5 40 C88.3 45 90 51 90 57.8 C90 79.9 72.1 97.8 50 97.8 C27.9 97.8 10 79.9 10 57.8 C10 51 11.7 45 14.5 40Z M50 24.8 A33 33 0 1 0 50.01 24.8Z' fill='#E6EDF6' stroke='${C.line}' stroke-width='2.4' stroke-linejoin='round'/><path d='M19 30 C18 22 19 15 22 11 C27 13 32 16 35 20 C29 22 23 25 19 30Z M81 30 C82 22 81 15 78 11 C73 13 68 16 65 20 C71 22 77 25 81 30Z' fill='${C.pink}'/><path d='M23 22 l4 -2 M25 26 l5 -1 M77 22 l-4 -2 M75 26 l-5 -1' stroke='#fff' stroke-width='1.5' stroke-linecap='round'/><path d='M17 76 Q50 100 83 76' fill='none' stroke='${C.pink}' stroke-width='6' stroke-linecap='round'/><path d='M17 76 Q50 100 83 76' fill='none' stroke='#fff' stroke-width='1.2' stroke-dasharray='1 5' stroke-linecap='round' opacity='.8'/><g transform='translate(41 86)'><circle cx='9' cy='9' r='8.5' fill='${C.gold}' stroke='#B88A33' stroke-width='1.3'/><path d='M1.5 8 H16.5' stroke='#B88A33' stroke-width='1.2'/><circle cx='9' cy='12' r='1.7' fill='#7A5A20'/><path d='M9 13 V16.5' stroke='#7A5A20' stroke-width='1.2'/><circle cx='6' cy='5' r='1.6' fill='#fff' opacity='.7'/></g></svg>`;
+// 顶栏那颗用不带铃铛的框，铃铛另画一颗叠在头像上（不然框里一颗、上面一颗，看着像两颗）
+const EARS_NB = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 106'><path fill-rule='evenodd' d='M14.5 40 C12 28 12 14 18 6 C26 8 34 13 39 19 C42.5 18.2 46.2 17.8 50 17.8 C53.8 17.8 57.5 18.2 61 19 C66 13 74 8 82 6 C88 14 88 28 85.5 40 C88.3 45 90 51 90 57.8 C90 79.9 72.1 97.8 50 97.8 C27.9 97.8 10 79.9 10 57.8 C10 51 11.7 45 14.5 40Z M50 24.8 A33 33 0 1 0 50.01 24.8Z' fill='#E6EDF6' stroke='${C.line}' stroke-width='2.4' stroke-linejoin='round'/><path d='M19 30 C18 22 19 15 22 11 C27 13 32 16 35 20 C29 22 23 25 19 30Z M81 30 C82 22 81 15 78 11 C73 13 68 16 65 20 C71 22 77 25 81 30Z' fill='${C.pink}'/><path d='M23 22 l4 -2 M25 26 l5 -1 M77 22 l-4 -2 M75 26 l-5 -1' stroke='#fff' stroke-width='1.5' stroke-linecap='round'/><path d='M17 76 Q50 100 83 76' fill='none' stroke='${C.pink}' stroke-width='6' stroke-linecap='round'/><path d='M17 76 Q50 100 83 76' fill='none' stroke='#fff' stroke-width='1.2' stroke-dasharray='1 5' stroke-linecap='round' opacity='.8'/></svg>`;
 
 
 // 背景：雾蓝底，散着淡淡的小鱼、鱼骨、爪印
@@ -97,9 +99,9 @@ const css = `
 [data-wk="avatar"]{position:relative !important;overflow:visible !important;border-radius:50% !important}
 [data-wk="avatar"] *{border-radius:50% !important}
 img[data-wk="avatar"],[data-wk="avatar"] img{clip-path:circle(50%) !important}
-button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{content:"" !important;position:absolute !important;inset:-26% !important;top:-40% !important;bottom:-24% !important;background:${svg(EARS)} center/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
+button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{content:"" !important;position:absolute !important;inset:-26% !important;top:-40% !important;bottom:-33% !important;background:${svg(EARS)} center top/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"]){position:relative !important;overflow:visible !important}
-[data-wk="chathead"] button:has(> [data-wk="avatar"])::before{content:"" !important;position:absolute !important;width:52px !important;height:52px !important;left:-8px !important;top:calc(50% - 30px) !important;background:${svg(EARS)} center/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
+[data-wk="chathead"] button:has(> [data-wk="avatar"])::before{content:"" !important;position:absolute !important;width:52px !important;height:55px !important;left:-8px !important;top:calc(50% - 30px) !important;background:${svg(EARS_NB)} center top/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
 
 /* 气泡：肉垫形，尾巴是一颗小肉球 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:24px 24px 24px 24px !important}
@@ -430,6 +432,31 @@ ${ktAlong()}
 [data-wk="bubble"][data-kind="text"]::before{width:clamp(28px,40%,46px) !important;height:auto !important;aspect-ratio:64/22 !important;top:auto !important;bottom:calc(100% - 3px) !important}
 [data-wk="bubble"][data-kind="text"][data-me="1"]::before{right:clamp(12px,14%,24px) !important}
 [data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:clamp(12px,14%,24px) !important}
+
+/* 名字＝项圈上挂的小名牌：蓝灰描边的圆角牌子，左边一颗金铃铛 */
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]{display:inline-flex !important;max-width:100% !important;background:#fff ${svg(BELL)} 7px center/14px 14px no-repeat !important;border:1.5px solid ${C.line} !important;border-radius:11px !important;padding:0 8px 0 24px !important;line-height:1.35 !important;box-shadow:0 2px 0 #C3CEE0 !important;font-size:15px !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"] > [data-wk="headdim"]{display:none !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headdim"]{font-size:9px !important;opacity:.75 !important;margin:1px 0 0 6px !important;line-height:1.2 !important}
+
+/* 名牌给名字让地方：铃铛挪到牌子左上角挂着，牌子里只剩名字；名字那一块尽量撑满；右边小房子和三颗爪收小 */
+[data-wk="chathead"] [data-wk="headname"]{flex:1 1 auto !important;min-width:0 !important;overflow:visible !important}
+[data-wk="chathead"] button:has(> [data-wk="headname"]){flex:1 1 auto !important;min-width:0 !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]{background:#fff !important;padding:0 9px !important;font-size:14px !important;position:relative !important;overflow:visible !important}
+[data-wk="chathead"] [data-wk="headname"] > [data-wk="headink"]::before{content:"" !important;position:absolute !important;left:-6px !important;top:-7px !important;width:13px !important;height:13px !important;background:${svg(BELL)} center/contain no-repeat !important}
+[data-wk="sameroom"]{width:30px !important;min-width:30px !important;height:30px !important;background-size:26px !important}
+[data-wk="chatmore"]{width:34px !important;min-width:34px !important;background-size:32px auto !important}
+
+/* 顶栏头像的铃铛：框里那颗被头像图压住了，另画一颗一模一样的叠在最上面（好日子光圈那天让给光圈） */
+[data-wk="chathead"] button:has(> [data-wk="avatar"]):not(:has(> [data-halo]))::after{content:"" !important;position:absolute !important;left:12.5px !important;top:calc(50% + 10px) !important;width:11px !important;height:11px !important;background:${svg(BELL)} center/contain no-repeat !important;z-index:3 !important;pointer-events:none !important}
+/* 毛线团压在那根线上面，不让线从球里透过去 */
+[data-wk="chat"]::after{z-index:0 !important}
+[data-wk="chat"]::before{z-index:1 !important}
+
+/* Ta 眼里：米色贴条换成一小段蓝毛线绑带；卡片、翻旧、照片的猫耳统一换成气泡那套软猫耳 */
+[data-wk="gazetape"]{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 18'><path d='M2 9 C12 3 20 15 26 9 C32 3 40 15 50 9' fill='none' stroke='${C.line}' stroke-width='2.4' stroke-linecap='round'/><circle cx='26' cy='9' r='6' fill='${C.mist}' stroke='${C.line}' stroke-width='1.6'/><path d='M21 7 q5 3 10 0 M21 11 q5 3 10 0' fill='none' stroke='${C.line}' stroke-width='1' opacity='.7'/></svg>`)} center/contain no-repeat !important;box-shadow:none !important;border:none !important}
+[data-wk="gazecard"]::before,[data-wk="photocard"]::before{top:-14px !important;width:46px !important;height:17px !important;background:${svg(SOFTEARS("#fff"))} center bottom/100% 100% no-repeat !important;border:none !important;border-radius:0 !important}
+/* Ta 眼里的卡片：猫耳一左一右交替 */
+[data-wk="gazecard"]:nth-of-type(even)::before{left:auto !important;right:20px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
