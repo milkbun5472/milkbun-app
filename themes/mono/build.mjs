@@ -267,6 +267,6 @@ button[data-wk="avatar"] *,span[data-wk="avatar"] *,img[data-wk="avatar"]{border
 
 `;
 
-const pack = { kind: "chat-look", v: 1, name: "黑白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
-writeFileSync(join(here, "黑白-美化.json"), JSON.stringify(pack));
+const pack = { kind: "chat-look", v: 1, name: "奶油留白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
+writeFileSync(join(here, "奶油留白-美化.json"), JSON.stringify(pack));
 console.log("ok", css.length);
