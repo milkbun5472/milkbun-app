@@ -24,7 +24,7 @@ const STRIP = today => {
   const seq = [0, 1, 2, 3, 4, 5, 6, 7, 0];
   const dots = xs.map((x, i) => {
     const on = seq[i] === today && (today !== 0 || i === 0);
-    return `<g transform='translate(${240 + x} 12)'>${on ? `<circle r='13' fill='${C.gold}' opacity='.25'/>` : ""}${MOONDOT(seq[i], on ? 9 : 6)}</g>`;
+    return `<g transform='translate(${240 + x} 9)'>${MOONDOT(seq[i], 6)}${on ? `<path d='M-3 11 L3 11 L0 15.5Z' fill='${C.gold}'/>` : ""}</g>`;
   }).join("");
   return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 480 24' preserveAspectRatio='xMidYMid meet'><defs><linearGradient id='a' x1='0' x2='1'><stop offset='0' stop-color='${C.gold}' stop-opacity='0'/><stop offset='1' stop-color='${C.gold}'/></linearGradient><linearGradient id='b' x1='1' x2='0'><stop offset='0' stop-color='${C.gold}' stop-opacity='0'/><stop offset='1' stop-color='${C.gold}'/></linearGradient></defs>${dots}</svg>`;
 };
@@ -205,6 +205,64 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{inset:-30% !important;background:${svg(MOONFRAME)} center/contain no-repeat !important}
 span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"])::before{width:58px !important;height:58px !important;left:-11px !important;top:calc(50% - 29px) !important;background:${svg(MOONFRAME)} center/contain no-repeat !important}
+
+/* ───── 第三批：状态卡＝一张星盘 ───── */
+[data-wk="statecard"]{background:radial-gradient(circle at 50% 30%,rgba(108,123,255,.25),transparent 60%),linear-gradient(180deg,#0B0F2B,#1B1A52 60%,#2A1B5E) !important;border:1.2px solid rgba(255,217,138,.7) !important;border-radius:26px !important;box-shadow:0 0 40px rgba(255,217,138,.15),0 20px 50px rgba(0,0,0,.5) !important;color:${C.ink} !important;position:relative !important;overflow:hidden !important;--sc-heart-mask:${svg(SPARK("#000", 10))} !important;--sc-heart-ink:${C.gold} !important}
+[data-wk="statecard"]::before{content:"" !important;position:absolute !important;left:50% !important;top:-120px !important;width:420px !important;height:420px !important;margin-left:-210px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='-100 -100 200 200'><g fill='none' stroke='${C.gold}' opacity='.35'><circle r='96' stroke-width='.6'/><circle r='80' stroke-width='5' stroke-dasharray='.6 4.6'/><circle r='70' stroke-width='.5'/><circle r='40' stroke-width='.5' stroke-dasharray='2 3'/>${Array.from({length:12},(_, i)=>`<line x1='0' y1='-70' x2='0' y2='-96' transform='rotate(${i*30})' stroke-width='.5'/>`).join("")}</g></svg>`)} center/contain no-repeat !important;pointer-events:none !important;animation:snSpin 120s linear infinite !important}
+@keyframes snSpin{to{transform:rotate(360deg)}}
+[data-wk="statecard"] *{color:${C.ink} !important;border-color:rgba(255,217,138,.3) !important}
+[data-wk="statehead"]{background:transparent !important;position:relative !important}
+[data-wk="statehead"] [data-wk="avatar"]{box-shadow:0 0 0 2px ${C.gold},0 0 18px rgba(255,217,138,.6) !important}
+[data-wk="statemood"]{color:${C.gold} !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(11,15,43,.5) !important;border-radius:999px !important;margin:4px 16px 8px !important;padding:3px !important;border:1px solid rgba(255,217,138,.4) !important}
+[data-wk="statecard"] button[aria-pressed]{border-radius:999px !important;border:none !important;color:${C.dim} !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:linear-gradient(135deg,#6F5BFF,#C56BE0) !important;color:#fff !important}
+[data-wk="stateseen"],[data-wk="statevoice"]{background:rgba(11,15,43,.55) !important;border:1px solid rgba(255,217,138,.5) !important;border-radius:18px !important;margin:10px 16px !important;position:relative !important;backdrop-filter:blur(4px) !important;-webkit-backdrop-filter:blur(4px) !important}
+[data-wk="stateseen"] > span[aria-hidden]{border-color:${C.gold} !important}
+[data-wk="statevoice"] > span[aria-hidden]{color:${C.gold} !important;opacity:.25 !important}
+[data-wk="statewear"]{color:${C.dim} !important}
+[data-wk="stateaff"]{border-top:1px solid rgba(255,217,138,.3) !important;background:transparent !important}
+[data-wk="stateheartline"]{background:${C.gold} !important}
+[data-wk="stateheartbase"]{background:rgba(11,15,43,.8) !important;opacity:1 !important}
+[data-wk="stateheartnum"]{color:#0B0F2B !important;-webkit-text-stroke:0 !important;font-weight:700 !important}
+[data-wk="statehist"] *{color:${C.ink} !important}
+[data-wk="statehistitem"]{border-bottom:1px solid rgba(255,217,138,.25) !important}
+[data-wk="statehistmood"],[data-wk="statehisttime"]{color:${C.gold} !important}
+[data-wk="statehistbtn"]{color:${C.gold} !important;border-color:rgba(255,217,138,.4) !important;background:transparent !important}
+[data-wk="gazepage"]{background:transparent !important}
+[data-wk="gazetitle"]{color:${C.gold} !important;text-shadow:0 0 12px rgba(255,217,138,.5) !important}
+[data-wk="gazetab"]{background:rgba(11,15,43,.5) !important;color:${C.dim} !important;border:1px solid rgba(255,217,138,.4) !important}
+[data-wk="gazetab"][data-on="1"]{background:linear-gradient(135deg,#6F5BFF,#C56BE0) !important;color:#fff !important}
+[data-wk="gazecard"],[data-wk="gazeempty"],[data-wk="gazeletter"],[data-wk="gazehistory"]{background:rgba(11,15,43,.6) !important;border:1px solid rgba(255,217,138,.45) !important;border-radius:16px !important}
+[data-wk="gazecardname"]{color:${C.gold} !important}
+[data-wk="gazecardtext"],[data-wk="gazestatus"]{color:${C.dim} !important}
+[data-wk="gazeempty"] button{background:linear-gradient(135deg,#6F5BFF,#C56BE0) !important;color:#fff !important;border-radius:999px !important}
+
+/* ───── 线下：同一片夜空，正文是浮在天上的玻璃纸 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(STARS)} 0 0/240px 240px,linear-gradient(180deg,${C.night},${C.deep} 50%,${C.violet}) !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"] [data-wk="offtitle"]{color:${C.ink} !important}
+[data-wk="offline"] [data-wk="chathead"] *{color:${C.dim} !important}
+[data-wk="offline"] [data-wk="chathead"] svg{stroke:${C.gold} !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){color:${C.gold} !important;border:1px solid rgba(255,217,138,.6) !important;border-radius:999px !important;padding:2px 12px !important}
+[data-wk="offcard"]{background:rgba(11,15,43,.55) !important;border:1px solid rgba(255,217,138,.45) !important;border-radius:20px !important;box-shadow:0 0 20px rgba(108,123,255,.15) !important;backdrop-filter:blur(4px) !important;-webkit-backdrop-filter:blur(4px) !important}
+[data-wk="offcard"][data-me="1"]{background:linear-gradient(135deg,rgba(111,91,255,.45),rgba(197,107,224,.4)) !important}
+[data-wk="offname"]{color:${C.gold} !important}
+[data-wk="offtext"]{color:${C.ink} !important}
+[data-wk="offsay"]{color:#FFE9B0 !important}
+[data-wk="offthought"]{background:rgba(255,217,138,.08) !important;border-left:2px solid ${C.gold} !important;color:${C.dim} !important}
+[data-wk="offreplyopt"]{background:rgba(11,15,43,.6) !important;border:1px solid rgba(255,217,138,.5) !important;color:${C.ink} !important;border-radius:999px !important}
+[data-wk="offcomposer"]{background:rgba(7,10,34,.8) !important;border-top:1px solid rgba(255,217,138,.4) !important}
+[data-wk="offcomposer"] textarea{background:rgba(11,15,43,.6) !important;color:${C.ink} !important;border:1px solid rgba(255,217,138,.6) !important;border-radius:20px !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/120% no-repeat !important;border:none !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) *{opacity:0 !important}
+
+/* ───── 通话：字幕像星光，大头像套月牙 ───── */
+[data-wk="callbubble"]{background:rgba(11,15,43,.6) !important;color:${C.ink} !important;border:1px solid rgba(255,217,138,.55) !important;border-radius:18px !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:linear-gradient(135deg,rgba(111,91,255,.75),rgba(197,107,224,.7)) !important;border-color:rgba(255,255,255,.4) !important}
+[data-wk="callact"]{color:#FFE9B0 !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 3px ${C.gold},0 0 40px rgba(255,217,138,.5) !important}
+[data-wk="offline"] [data-wk="chathead"] + *{margin-top:16px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, layout: { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" }, customCSS: css.trim() }, assets: {} };
