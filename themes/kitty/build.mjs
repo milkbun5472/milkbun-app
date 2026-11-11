@@ -123,9 +123,13 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="body"]{background:transparent !important}
 [data-wk="chat"]{background:${svg(TILE)} 0 0/200px 200px,linear-gradient(180deg,${C.mist2},${C.mist}) !important}
 [data-wk="chat"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:0 !important;bottom:0 !important;background:${svg(YARNLINE)} 0 0/390px 760px no-repeat !important;pointer-events:none !important;z-index:0 !important}
-[data-wk="chat"]::before{left:0 !important;top:0 !important;bottom:auto !important;width:40px !important;height:40px !important;margin:-20px 0 0 -20px !important;offset-path:path("M300 0 C300 120 70 140 90 260 C110 380 330 340 310 480 C290 620 300 680 300 760") !important;offset-rotate:0deg !important;transform:scale(calc(1)) !important;animation:ktAlong 14s ease-in-out infinite alternate,ktSpin 2.2s linear infinite !important;transform-origin:50% 50% !important}
-@keyframes ktAlong{from{offset-distance:4%}to{offset-distance:96%}}
-@keyframes ktSpin{to{rotate:360deg}}
+[data-wk="chat"]::before{left:0 !important;top:0 !important;bottom:auto !important;width:40px !important;height:40px !important;margin:-20px 0 0 -20px !important;offset-path:path("M300 0 C300 120 70 140 90 260 C110 380 330 340 310 480 C290 620 300 680 300 760") !important;offset-rotate:0deg !important;offset-distance:34% !important;transform:none !important;animation:none !important}
+/* 手机支持「跟着滑动走」时：往上滑一点，毛线团就顺着线往前滚一点，滑到底它就滚到线尾；不支持就乖乖停在线上 */
+[data-wk="chat"]{timeline-scope:--ktscroll !important}
+[data-wk="body"]{scroll-timeline:--ktscroll y !important}
+[data-wk="chat"]::before{animation:ktAlong linear both,ktSpin linear both !important;animation-timeline:--ktscroll,--ktscroll !important}
+@keyframes ktAlong{from{offset-distance:96%}to{offset-distance:4%}}
+@keyframes ktSpin{from{rotate:0deg}to{rotate:-1440deg}}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
