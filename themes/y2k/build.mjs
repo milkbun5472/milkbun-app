@@ -414,6 +414,11 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{l
 [data-wk="offcomposer"] textarea{white-space:nowrap !important;overflow:hidden !important}
 [data-wk="offcomposer"] textarea:focus{white-space:pre-wrap !important}
 
+/* 动描：一扇淡紫小窗，标题栏写 action.txt */
+[data-wk="narr"]{background:transparent !important;border:none !important;box-shadow:none !important}
+[data-wk="narrink"]{display:inline-block !important;position:relative !important;background:#FBF8FF !important;color:#3A2A55 !important;font-style:italic !important;border:2px solid #fff !important;border-radius:12px !important;box-shadow:0 0 0 1.5px #B9A8EA,0 6px 14px rgba(30,20,60,.35) !important;padding:26px 16px 10px !important;line-height:1.7 !important}
+[data-wk="narrink"]::before{content:"action.txt" !important;position:absolute !important;left:0 !important;right:0 !important;top:0 !important;height:18px !important;border-radius:10px 10px 0 0 !important;font:800 9px/18px monospace !important;font-style:normal !important;letter-spacing:.06em !important;color:#fff !important;padding-left:10px !important;text-align:left !important;background:${svg(DOTS)} right 8px center/26px 8px no-repeat,linear-gradient(90deg,#B9A6F0,#9D88E6) !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "千禧果冻", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
