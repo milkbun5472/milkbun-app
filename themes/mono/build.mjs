@@ -259,6 +259,9 @@ button[data-wk="avatar"] *,span[data-wk="avatar"] *,img[data-wk="avatar"]{border
 [data-wk="sameroom"]{margin-left:auto !important;margin-right:-4px !important;width:28px !important;min-width:28px !important}
 [data-wk="chatmore"]{width:28px !important;min-width:28px !important;margin-left:0 !important}
 
+/* 线下底栏跟线上一样的排法：对话气泡在左、箭头发送挪到最右；箭头缩小 */
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){order:99 !important;width:38px !important;min-width:38px !important;height:38px !important;box-shadow:0 4px 10px rgba(0,0,0,.18) !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "黑白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
