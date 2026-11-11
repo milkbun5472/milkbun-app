@@ -522,6 +522,6 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 
 `;
 
-const pack = { kind: "chat-look", v: 1, name: "圣诞", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
-writeFileSync(join(here, "圣诞-美化.json"), JSON.stringify(pack));
+const pack = { kind: "chat-look", v: 1, name: "灯下雪夜", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
+writeFileSync(join(here, "灯下雪夜-美化.json"), JSON.stringify(pack));
 console.log("ok", css.length);
