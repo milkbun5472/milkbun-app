@@ -36,6 +36,12 @@ const I_PAWS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 22'><g t
 const bubble = { myBg: "#CFDAEA", myText: C.ink, myBorder: "2px solid " + C.line, charBg: "#fff", charText: C.ink, charBorder: "2px solid " + C.line, radius: 22, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
+
+// 毛线团沿线走：不用 offset-path（有的 iOS 不认），直接按线上的点写 translate
+const KT_SEGS=[[[300,0],[300,120],[70,140],[90,260]],[[90,260],[110,380],[330,340],[310,480]],[[310,480],[290,620],[300,680],[300,760]]];
+const ktAt=u=>{const g=Math.min(2,Math.floor(u*3)),t=u*3-g,[a,b,c,d]=KT_SEGS[g],m=1-t,f=i=>m*m*m*a[i]+3*m*m*t*b[i]+3*m*t*t*c[i]+t*t*t*d[i];return Math.round(f(0))+"px "+Math.round(f(1))+"px";};
+const KT_REST=ktAt(0.3);
+const ktAlong=()=>{let k="";for(let i=0;i<=24;i++){const u=0.92-(0.92-0.2)*i/24;k+=(i/24*100).toFixed(2)+"%{translate:"+ktAt(u)+"}";}return "@keyframes ktAlong{"+k+"}";};
 const css = `
 /* ───── 猫猫 · 第一批 ───── */
 [data-wk="chat"]{background:${svg(TILE)} 0 0/200px 200px,linear-gradient(180deg,${C.mist2},${C.mist}) !important;position:relative !important}
@@ -123,12 +129,12 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="body"]{background:transparent !important}
 [data-wk="chat"]{background:${svg(TILE)} 0 0/200px 200px,linear-gradient(180deg,${C.mist2},${C.mist}) !important}
 [data-wk="chat"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:0 !important;bottom:0 !important;background:${svg(YARNLINE)} 0 0/390px 760px no-repeat !important;pointer-events:none !important;z-index:0 !important}
-[data-wk="chat"]::before{left:0 !important;top:0 !important;bottom:auto !important;width:40px !important;height:40px !important;margin:-20px 0 0 -20px !important;offset-path:path("M300 0 C300 120 70 140 90 260 C110 380 330 340 310 480 C290 620 300 680 300 760") !important;offset-rotate:0deg !important;offset-distance:34% !important;transform:none !important;animation:none !important}
+[data-wk="chat"]::before{left:0 !important;top:0 !important;bottom:auto !important;width:40px !important;height:40px !important;margin:-20px 0 0 -20px !important;transform:none !important;translate:${KT_REST} !important;animation:none !important}
 /* 手机支持「跟着滑动走」时：往上滑一点，毛线团就顺着线往前滚一点，滑到底它就滚到线尾；不支持就乖乖停在线上 */
 [data-wk="chat"]{timeline-scope:--ktscroll !important}
 [data-wk="body"]{scroll-timeline:--ktscroll y !important}
 [data-wk="chat"]::before{animation:ktAlong linear both,ktSpin linear both !important;animation-timeline:--ktscroll,--ktscroll !important}
-@keyframes ktAlong{from{offset-distance:92%}to{offset-distance:20%}}
+${ktAlong()}
 @keyframes ktSpin{from{rotate:0deg}to{rotate:-1440deg}}
 `;
 
