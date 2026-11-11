@@ -27,6 +27,13 @@ const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 40'><pa
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle cx='20' cy='20' r='17' fill='#fff' stroke='#C8B2FF' stroke-width='1.8'/><path d='M11 20 L20 12 L29 20 V29 H11Z' fill='#FF9EC8' stroke='#fff' stroke-width='1.8' stroke-linejoin='round'/><rect x='17.5' y='22' width='5' height='7' fill='#fff'/></svg>`;
 const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 36'><path d='M10 22 a8 8 0 0 1 3-14 a12 12 0 0 1 22-1 a9 9 0 0 1 9 15 Z' fill='#fff' stroke='#9EC8FF' stroke-width='1.4'/><path d='M38 22 a6 6 0 0 1 2-10 a8 8 0 0 1 14 0 a6 6 0 0 1 2 10 Z' fill='#C8B2FF'/>${["#8FC2FF", "#FF9EC8", "#FFD86B"].map((c, i) => `<path d='M${16 + i * 9} 26 q-3 5 0 7 q3 -2 0 -7Z' fill='${c}'/>`).join("")}</svg>`;
 
+// ── 第二批用的图 ──
+const LID = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 30'><rect x='14' y='4' width='92' height='18' rx='5' fill='#FF9EC8' stroke='#fff' stroke-width='2'/><path d='M20 8 H100 M20 13 H100 M20 18 H100' stroke='#fff' stroke-width='1' opacity='.6'/><rect x='8' y='20' width='104' height='8' rx='4' fill='#E57FAF' stroke='#fff' stroke-width='1.6'/></svg>`;
+const BOAT = (sail = "#fff", hull = "#FFFBF4", edge = "#B79CFF") => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 120'><path d='M78 10 V74' stroke='${edge}' stroke-width='2'/><path d='M80 12 L124 70 H80Z' fill='${sail}' stroke='${edge}' stroke-width='2' stroke-linejoin='round'/><path d='M76 26 L44 70 H76Z' fill='#FFD9EA' stroke='${edge}' stroke-width='2' stroke-linejoin='round'/><path d='M8 74 H152 L128 104 H32Z' fill='${hull}' stroke='${edge}' stroke-width='2.4' stroke-linejoin='round'/><path d='M8 74 L40 88 L80 74 L120 88 L152 74' fill='none' stroke='${edge}' stroke-width='1.6' stroke-linejoin='round'/><path d='M0 112 Q20 104 40 112 T80 112 T120 112 T160 112' fill='none' stroke='#8FC2FF' stroke-width='3' stroke-linecap='round'/></svg>`;
+const TAPE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 20'><path d='M2 3 L58 1 L56 9 L58 17 L3 19 L5 11Z' fill='rgba(255,158,200,.75)'/><path d='M8 5 V15 M16 5 V15 M24 4 V16 M32 4 V16 M40 4 V16 M48 4 V16' stroke='#fff' stroke-width='1.2' opacity='.5'/></svg>`;
+const RIPPLE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M15 3 q-5 8 0 11 q5 -3 0 -11Z' fill='#8FC2FF' stroke='#fff' stroke-width='1'/><ellipse cx='15' cy='22' rx='6' ry='2.4' fill='none' stroke='#8FC2FF' stroke-width='1.6'/><ellipse cx='15' cy='22' rx='12' ry='5' fill='none' stroke='#B79CFF' stroke-width='1.2' opacity='.7'/></svg>`;
+const UPIN = UMB("#FF9EC8");
+
 const bubble = { myBg: C.glass, myText: C.ink, myBorder: "none", charBg: C.cream, charText: C.ink, charBorder: "none", radius: 18, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -116,6 +123,117 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.86) !important}
 [data-wk="chatpanel"]{background:rgba(20,28,68,.92) !important;position:relative !important;z-index:3 !important;border-top:1.5px solid rgba(200,178,255,.5) !important}
+/* ───── 雨天窗边 · 第二批：卡片 ───── */
+/* 卡片统一：奶白底、淡紫描边、底下一层紫影 */
+[data-wk="photocard"],[data-wk="voice"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{background:${C.cream} !important;border:2px solid #C8B2FF !important;border-radius:20px !important;box-shadow:0 4px 0 rgba(183,156,255,.55),0 8px 18px rgba(20,28,68,.35) !important;color:${C.ink} !important}
+[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:${C.ink} !important;border-color:rgba(183,156,255,.45) !important}
+
+/* 转账＝一只「存雨罐」：玻璃罐、粉盖子，金额浮在罐里；收下罐里涨满蓝水、冒一颗星；退回罐子空了起一层雾 */
+[data-wk="transfercard"]{position:relative !important;overflow:visible !important;width:220px !important;margin-top:20px !important;padding-top:20px !important;background:linear-gradient(100deg,rgba(255,255,255,.65) 0 10%,transparent 10% 16%,rgba(255,255,255,.3) 16% 19%,transparent 19%),linear-gradient(180deg,rgba(236,232,255,.9),rgba(200,220,255,.85)) !important;border:2.5px solid #fff !important;border-radius:26px 26px 30px 30px !important;box-shadow:0 0 0 1.5px #9EC8FF,0 8px 18px rgba(20,28,68,.4) !important;color:${C.ink} !important}
+[data-wk="transfercard"]::before{content:"" !important;position:absolute !important;left:12% !important;right:12% !important;top:-22px !important;height:28px !important;background:${svg(LID)} center/100% 100% no-repeat !important;z-index:2 !important}
+[data-wk="transfercard"]::after{content:"存雨罐" !important;position:absolute !important;right:14px !important;top:12px !important;font-size:10px !important;letter-spacing:.2em !important;color:#9A92C4 !important}
+[data-wk="transfercard"] *{color:${C.ink} !important;border-color:rgba(183,156,255,.4) !important}
+[data-wk="transferlabel"]{color:#7E78A8 !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:#5B6FD8 !important;font-weight:700 !important}
+[data-wk="transferrule"]{border:none !important;height:2px !important;background:repeating-linear-gradient(90deg,#9EC8FF 0 6px,transparent 6px 10px) !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:transparent !important;border-radius:0 0 28px 28px !important;overflow:hidden !important}
+[data-wk="transfernote"]::before{content:"☂ " !important;color:${C.pink} !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:linear-gradient(135deg,#7FB0FF,#B79CFF) !important;color:#fff !important;border:none !important;box-shadow:0 3px 0 #7E6CD0 !important}
+[data-wk="transferbtn"][data-part="back"]{background:#fff !important;color:#7E78A8 !important;border:1.5px solid #C8B2FF !important}
+[data-wk="transferseal"]{background:#fff !important;border:1.5px solid #C8B2FF !important;color:#7E78A8 !important;border-radius:50% !important;box-shadow:none !important}
+[data-wk="transfercard"][data-status="accepted"]{background:linear-gradient(100deg,rgba(255,255,255,.6) 0 10%,transparent 10% 16%,rgba(255,255,255,.3) 16% 19%,transparent 19%),linear-gradient(180deg,rgba(236,232,255,.9) 0 30%,#BFDBFF 30% 33%,#9EC8FF 33%,#8FB5FF) !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{width:46px !important;height:46px !important;flex-shrink:0 !important;border:none !important;border-radius:0 !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2 L14.6 9.4 L22 12 L14.6 14.6 L12 22 L9.4 14.6 L2 12 L9.4 9.4Z' fill='${C.yel}' stroke='#fff' stroke-width='1.4' stroke-linejoin='round'/></svg>`)} center/contain no-repeat !important;filter:drop-shadow(0 0 8px rgba(255,216,107,.9)) !important;animation:rwBob 2.4s ease-in-out infinite !important}
+@keyframes rwBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+[data-wk="transfercard"][data-status="returned"]{background:linear-gradient(180deg,rgba(220,224,236,.95),rgba(200,206,222,.95)) !important;box-shadow:0 0 0 1.5px #B9C0D4,0 6px 14px rgba(20,28,68,.3) !important;opacity:.85 !important}
+[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"]{width:46px !important;height:46px !important;flex-shrink:0 !important;border:none !important;background:${svg(DROP("#C9CFE0"))} center/50% no-repeat,rgba(255,255,255,.6) !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *,[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"] *{display:none !important}
+
+/* 红包＝一张奶白卡，底下一道水，左边一只纸船在水上一上一下地漂；领完了船歪着靠岸、变灰 */
+[data-wk="rpcard"]{position:relative !important;overflow:visible !important;width:210px !important;min-height:84px !important;padding:14px 16px 22px 92px !important;background:linear-gradient(transparent calc(100% - 16px),rgba(143,194,255,.35) calc(100% - 16px)),${C.cream} !important;border:2px solid #C8B2FF !important;border-radius:20px !important;box-shadow:0 4px 0 rgba(183,156,255,.55),0 8px 18px rgba(20,28,68,.35) !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:6px !important;bottom:4px !important;width:82px !important;height:62px !important;background:${svg(BOAT())} center bottom/contain no-repeat !important;animation:rwFloat 3.6s ease-in-out infinite !important;filter:drop-shadow(0 3px 4px rgba(20,28,68,.25)) !important}
+@keyframes rwFloat{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-4px) rotate(3deg)}}
+[data-wk="rpcard"]::after{content:"一只纸船" !important;position:absolute !important;right:12px !important;bottom:3px !important;font-size:9.5px !important;letter-spacing:.2em !important;color:#7E78A8 !important}
+[data-wk="rpcard"] *{color:${C.ink} !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"] > div:not([data-wk]){padding:0 !important;background:transparent !important}
+[data-wk="rpmsg"]{-webkit-line-clamp:2 !important}
+[data-wk="rpcard"][data-status="done"]{background:#EEEDF4 !important;filter:grayscale(.2) !important;opacity:.85 !important}
+[data-wk="rpcard"][data-status="done"]::before{background:${svg(BOAT("#E4E2EE", "#EEEDF4", "#A9A5C4"))} center bottom/contain no-repeat !important;animation:none !important;transform:rotate(-8deg) translateY(4px) !important}
+[data-wk="rpcard"][data-status="done"]::after{content:"靠岸了" !important}
+[data-wk="rpenvelope"][data-stage="closed"]{background:${svg(RAIN)} 0 0/120px 160px,linear-gradient(180deg,${C.night},${C.vio}) !important;border:2.5px solid #C8B2FF !important;border-radius:28px !important;box-shadow:0 10px 30px rgba(0,0,0,.35) !important}
+[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rparc"]{background:#ECE8FF !important;border-top:2px solid #C8B2FF !important}
+[data-wk="rpenvelope"][data-stage="closed"] *{color:#fff !important}
+[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rparc"] *{color:${C.ink} !important}
+[data-wk="rpopenbtn"]{background:#fff ${svg(UMB("#FF9EC8"))} center 55%/62% no-repeat !important;border:3px solid #C8B2FF !important;box-shadow:0 4px 0 #9A84E0,0 0 18px rgba(255,158,200,.6) !important;animation:rwBob 1.6s ease-in-out infinite !important}
+[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important}
+[data-wk="rpenvelope"][data-stage="open"]{background:${svg(BOKEH)} 0 0/390px 520px,linear-gradient(180deg,${C.dusk},${C.rose}) !important;border:2.5px solid #C8B2FF !important;border-radius:28px !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"][data-part="top"]{background:#ECE8FF !important;border-bottom:2px solid #C8B2FF !important;box-shadow:none !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"][data-part="top"]::after{content:none !important}
+[data-wk="rpenvelope"][data-stage="open"] *{color:#fff !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"] *{color:${C.ink} !important}
+[data-wk="rpavatar"]{box-shadow:0 0 0 3px #fff,0 0 0 5px #C8B2FF !important;border-radius:50% !important}
+[data-wk="rpamount"]{color:${C.yel} !important;background:none !important;text-shadow:0 0 12px rgba(255,216,107,.6) !important}
+[data-wk="rpclose"]{background:#fff !important;border:2px solid #C8B2FF !important;color:${C.ink} !important}
+
+/* 照片＝一张用粉胶带贴在起雾玻璃上的照片，四周一圈雾，有点歪 */
+[data-wk="photocard"]{position:relative !important;overflow:visible !important;background:#fff !important;border:none !important;border-radius:4px !important;padding:9px 9px 24px !important;box-shadow:0 0 0 8px rgba(236,232,255,.35),0 8px 16px rgba(20,28,68,.4) !important;transform:rotate(-2deg) !important;margin-top:14px !important}
+[data-wk="photocard"]::before{content:"" !important;position:absolute !important;left:50% !important;top:-11px !important;width:64px !important;height:22px !important;margin-left:-32px !important;background:${svg(TAPE)} center/contain no-repeat !important;z-index:2 !important;transform:rotate(3deg) !important}
+[data-wk="photocard"]::after{content:"" !important;position:absolute !important;right:10px !important;bottom:6px !important;width:10px !important;height:13px !important;background:${svg(DROP())} center/contain no-repeat !important}
+[data-wk="photoface"]{background:${svg(RAIN)} 0 0/90px 120px,linear-gradient(170deg,${C.dusk},${C.vio}) !important;border-radius:2px !important;border:none !important}
+[data-wk="photoface"] *,[data-wk="phototext"]{color:#fff !important}
+[data-wk="photocap"],[data-wk="photohint"]{color:${C.ink} !important}
+
+/* 语音：小胶囊，前面一颗落进水洼的雨滴，荡开两圈 */
+[data-wk="voice"] > *{background:transparent !important;box-shadow:none !important;border:none !important;color:${C.ink} !important}
+[data-wk="voice"][data-me]{border-radius:999px !important;padding:0 12px 0 38px !important;position:relative !important}
+[data-wk="voice"]::before{content:"" !important;position:absolute !important;left:9px !important;top:50% !important;width:24px !important;height:24px !important;margin-top:-12px !important;background:${svg(RIPPLE)} center/contain no-repeat !important;animation:rwBob 1.8s ease-in-out infinite !important;z-index:2 !important}
+[data-wk="voice"][data-me="1"]{background:linear-gradient(135deg,${C.glass},${C.glass2}) !important;border-color:#fff !important}
+[data-wk="voicewave"] span{background:#7E6CD0 !important}
+
+/* 天气：雨夜的天，下面一行奶白 */
+[data-wk="wxcardsky"]{background:${svg(RAIN)} 0 0/90px 120px,linear-gradient(170deg,${C.night},${C.vio}) !important}
+[data-wk="wxcardsky"] *{color:#fff !important}
+[data-wk="wxcardsky"] svg{stroke:${C.yel} !important}
+[data-wk="wxcardsay"]{background:${C.cream} !important;color:${C.ink} !important;border-top:2px solid #C8B2FF !important}
+/* 位置：一把小粉伞插在地图上 */
+[data-wk="geopin"]{background:${svg(UPIN)} center/contain no-repeat !important;box-shadow:none !important;border:none !important;width:30px !important;height:26px !important;border-radius:0 !important;filter:drop-shadow(0 2px 3px rgba(20,28,68,.4)) !important}
+[data-wk="geopin"] *{opacity:0 !important}
+[data-wk="geopinstem"]{background:#C8B2FF !important}
+/* 名片 */
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 2px #fff,0 0 0 4px #C8B2FF !important}
+
+/* 拍一拍、通话结束：一朵白云小胶囊，前面一颗雨滴 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:#fff ${svg(DROP())} 10px center/10px 13px no-repeat !important;border:1.5px solid #C8B2FF !important;border-radius:999px !important;padding:3px 14px 3px 28px !important;color:${C.ink} !important;box-shadow:0 2px 0 rgba(183,156,255,.6) !important}
+[data-wk="note"][data-part="call"] svg{stroke:#7E6CD0 !important}
+[data-wk="note"][data-part="callsum"]{color:${C.fog} !important}
+[data-wk="sysnoteclose"]{color:${C.fog} !important}
+
+/* 线下小结：一张信纸，横线像雨后玻璃上的水痕；右上角贴一只纸船邮票 */
+[data-part="offlog"]{position:relative !important;overflow:visible !important;padding-top:26px !important;padding-right:60px !important;background:repeating-linear-gradient(180deg,transparent 0 27px,rgba(158,200,255,.35) 27px 28px),${C.cream} !important}
+[data-part="offlog"]::before{content:"" !important;position:absolute !important;right:10px !important;top:10px !important;width:44px !important;height:40px !important;background:${svg(BOAT())} center/contain no-repeat,#ECE8FF !important;border:2px dashed #C8B2FF !important;border-radius:4px !important;transform:rotate(5deg) !important}
+[data-wk="offlogtitle"]{display:inline-block !important;position:absolute !important;top:-13px !important;left:16px !important;margin:0 !important;padding:4px 16px !important;background:linear-gradient(135deg,#7FB0FF,#B79CFF) !important;color:#fff !important;border-radius:999px !important;letter-spacing:.12em !important;box-shadow:0 2px 0 #7E6CD0 !important}
+[data-wk="offlogtitle"] *{color:#fff !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:#7E6CD0 !important}
+[data-wk="offlogtranscript"]{border-top:1.5px dashed #C8B2FF !important;color:#7E78A8 !important}
+[data-wk="offlogtext"]{padding-right:46px !important}
+
+/* 加号面板：一颗颗挂着水珠的玻璃泡泡 */
+[data-wk="chatpanel"] *{color:#fff !important}
+[data-wk="chattoolicon"]{background:radial-gradient(circle at 32% 28%,#fff,rgba(200,220,255,.9) 55%,rgba(183,156,255,.9)) !important;border:2px solid #fff !important;border-radius:50% !important;box-shadow:0 4px 10px rgba(0,0,0,.3) !important;position:relative !important}
+[data-wk="chattoolicon"]::before{content:"" !important;position:absolute !important;right:-2px !important;bottom:-4px !important;width:9px !important;height:12px !important;background:${svg(DROP())} center/contain no-repeat !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.ink} !important;color:${C.ink} !important}
+[data-wk="chattoollabel"]{color:#E6E2FF !important}
+
+/* 引用三处：待发送那条＝一块磨砂玻璃条；气泡上方＝一朵小白云条；气泡里＝左边一道蓝紫水痕 */
+[data-wk="quotedraft"]{background:rgba(255,255,255,.92) !important;border:1.5px solid #C8B2FF !important;border-radius:16px !important;position:relative !important;padding-left:30px !important}
+[data-wk="quotedraft"]::before{content:"" !important;position:absolute !important;left:10px !important;top:50% !important;width:12px !important;height:15px !important;margin-top:-8px !important;background:${svg(DROP())} center/contain no-repeat !important}
+[data-wk="quotedraft"] *{background:transparent !important;color:${C.ink} !important;border:none !important}
+[data-wk="quoteicon"]{display:none !important}
+[data-wk="quoteclear"]{color:#7E6CD0 !important}
+[data-wk="quote"]{background:rgba(255,255,255,.85) !important;color:${C.ink} !important;border:1px solid #C8B2FF !important;border-radius:999px !important;padding:3px 12px !important;opacity:1 !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:3px solid transparent !important;border-image:linear-gradient(#8FC2FF,#B79CFF) 1 !important;padding-left:8px !important;opacity:.9 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "雨天窗边", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
