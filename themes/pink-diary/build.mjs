@@ -353,6 +353,20 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="rpclose"]{background:#fff ${svg(HEART())} center/0 0 no-repeat !important;border:1.5px solid ${C.margin} !important;color:${C.rose} !important}
 [data-wk="rpenvelope"][data-stage="closed"]{border-radius:6px !important;border:2px solid #fff !important}
 [data-wk="rpenvelope"][data-stage="closed"] [data-wk="rpwish"],[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rpfrom"]{color:#fff !important}
+
+/* 状态卡页头：名字＋「的日记」一行写完 */
+[data-wk="statehead"] > div > div:first-child{white-space:nowrap !important;font-size:19px !important;overflow:hidden !important;text-overflow:ellipsis !important}
+[data-wk="statehead"]{padding-right:96px !important}
+
+/* 顶栏＝日记本封面：粉色布面，中间缝一块白色布标签写名字 */
+[data-wk="chathead"]{background:repeating-linear-gradient(45deg,rgba(255,255,255,.12) 0 2px,transparent 2px 5px),repeating-linear-gradient(-45deg,rgba(138,90,95,.07) 0 2px,transparent 2px 5px),#e9b8bf !important}
+[data-wk="chathead"]::after{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' width='20' height='16' viewBox='0 0 20 16'><path d='M0 0 H20 V4 A5 5 0 0 1 10 4 A5 5 0 0 1 0 4Z' fill='#e9b8bf'/><path d='M0 4 A5 5 0 0 0 10 4 A5 5 0 0 0 20 4' fill='none' stroke='#fff' stroke-width='1.4'/></svg>`)} repeat-x left top/20px 16px !important}
+[data-wk="chathead"] [data-wk="headname"]{background:#fffaf7 !important;border:1.5px solid ${C.rose} !important;box-shadow:0 0 0 3px #fffaf7,0 0 0 4.5px ${C.margin},2px 3px 0 4px rgba(94,66,69,.18) !important;border-radius:3px !important;padding:2px 14px !important;transform:rotate(-1.5deg) !important;max-width:60% !important}
+[data-wk="chathead"] [data-wk="headink"]{color:${C.ink} !important;font-style:italic !important}
+[data-wk="chathead"] [data-wk="headink"] > span:first-child::after{content:" 的日记" !important;font-size:12px !important;color:${C.rose} !important}
+[data-wk="chathead"] [data-wk="chatback"] svg{stroke:#fff !important}
+[data-wk="chathead"] [data-wk="headdim"]{color:${C.rose} !important}
+[data-wk="statehistbtn"]{border-style:solid !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "粉色日记", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
