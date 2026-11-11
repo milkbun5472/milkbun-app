@@ -102,7 +102,7 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="photocard"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{background:${C.paper} !important;border:${LINE} !important;border-radius:8px !important;box-shadow:${SH} !important;color:${C.ink} !important}
 [data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:${C.ink} !important;border-color:rgba(154,134,196,.4) !important}
 /* 转账＝一张车票：左边粉色主票、右边一截紫色存根，中间一排半圆缺口隔开；收下盖玫粉圆章，退回盖一枚斜的「作废」 */
-[data-wk="transfercard"]{position:relative !important;overflow:visible !important;background:radial-gradient(circle at calc(100% - 64px) 0,${C.bg} 7px,transparent 7.5px),radial-gradient(circle at calc(100% - 64px) 100%,${C.bg} 7px,transparent 7.5px),linear-gradient(90deg,${C.pink} calc(100% - 64px),${C.rose} calc(100% - 64px)) !important;border:${LINE} !important;border-radius:8px !important;box-shadow:${SH} !important;padding-top:26px !important}
+[data-wk="transfercard"]{position:relative !important;overflow:visible !important;background:radial-gradient(circle at calc(100% - 64px) 0,${C.bg} 7px,transparent 7.5px),radial-gradient(circle at calc(100% - 64px) 100%,${C.bg} 7px,transparent 7.5px),linear-gradient(90deg,transparent calc(100% - 64.7px),${C.line} calc(100% - 64.7px),${C.line} calc(100% - 63.3px),transparent calc(100% - 63.3px)),linear-gradient(90deg,${C.pink} calc(100% - 64px),#FFE4F0 calc(100% - 64px)) !important;border:${LINE} !important;border-radius:8px !important;box-shadow:${SH} !important;padding-top:26px !important}
 [data-wk="transfercard"]::before{content:"ADMIT ONE · 转账" !important;position:absolute !important;left:16px !important;top:9px !important;font:600 9px/1 ui-monospace,Menlo,monospace !important;letter-spacing:.2em !important;color:${C.roseD} !important}
 [data-wk="transfercard"] *{color:${C.ink} !important;border-color:rgba(106,79,166,.25) !important}
 [data-wk="transferamount"],[data-wk="transfercur"]{color:${C.roseD} !important;font-weight:700 !important}
@@ -112,19 +112,19 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="transferbtn"]{border-radius:4px !important}
 [data-wk="transferbtn"][data-part="take"]{background:${C.rose} !important;color:#fff !important;border:none !important}
 [data-wk="transferbtn"][data-part="back"]{background:${C.paper} !important;color:${C.ink} !important;border:${LINE} !important}
-[data-wk="transferseal"]{border:1.4px solid #fff !important;background:transparent !important;color:#fff !important;box-shadow:none !important}
-[data-wk="transferseal"] *{color:#fff !important}
+[data-wk="transferseal"]{border:1.4px solid ${C.rose} !important;background:transparent !important;color:${C.roseD} !important;box-shadow:none !important}
+[data-wk="transferseal"] *{color:${C.roseD} !important}
 [data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{width:54px !important;height:54px !important;border:none !important;background:${svg(STAMP("已收"))} center/contain no-repeat !important;transform:rotate(-12deg) !important}
 [data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"]{width:54px !important;height:54px !important;border:none !important;background:${svg(STAMP("作废"))} center/contain no-repeat !important;transform:rotate(10deg) !important;filter:grayscale(1) !important}
 [data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *,[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"] *{opacity:0 !important}
 [data-wk="transfercard"][data-status="returned"]{opacity:.7 !important}
 /* 红包＝一张入场券：紫色主票＋粉色存根，存根上一颗心 */
-[data-wk="rpcard"]{background:radial-gradient(circle at 60px 0,${C.bg} 7px,transparent 7.5px),radial-gradient(circle at 60px 100%,${C.bg} 7px,transparent 7.5px),linear-gradient(90deg,${C.pink} 60px,${C.rose} 60px) !important;border:${LINE} !important;border-radius:8px !important;box-shadow:${SH} !important;padding-left:72px !important}
+[data-wk="rpcard"]{background:radial-gradient(circle at 60px 0,${C.bg} 7px,transparent 7.5px),radial-gradient(circle at 60px 100%,${C.bg} 7px,transparent 7.5px),linear-gradient(90deg,transparent 59.3px,rgba(255,255,255,.7) 59.3px,rgba(255,255,255,.7) 60.7px,transparent 60.7px),linear-gradient(90deg,#A48ADA 60px,${C.rose} 60px) !important;border:${LINE} !important;border-radius:8px !important;box-shadow:${SH} !important;padding-left:72px !important}
 [data-wk="rpcard"] > div:not([data-wk]){padding-left:12px !important}
 [data-wk="rpcard"] *{color:#fff !important}
 [data-wk="rpflap"]{display:none !important}
 [data-wk="rpcorner"]{display:none !important}
-[data-wk="rpseal"]{border:none !important;left:18px !important;top:50% !important;margin-top:-12px !important;width:24px !important;height:22px !important;background:${svg(HEART.replace(/#fff/g, C.roseD))} center/contain no-repeat !important}
+[data-wk="rpseal"]{border:none !important;left:18px !important;top:50% !important;margin-top:-12px !important;width:24px !important;height:22px !important;background:${svg(HEART)} center/contain no-repeat !important}
 [data-wk="rpseal"] *{display:none !important}
 [data-wk="rpcard"][data-status="done"]{filter:saturate(.4) !important;opacity:.8 !important}
 [data-wk="rpenvelope"]{background:${C.rose} !important;border:${LINE} !important;border-radius:18px !important}
@@ -184,7 +184,7 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:36px !important;min-width:36px !important;height:28px !important;border:none !important;box-shadow:none !important;font-size:0 !important;color:transparent !important;background:${svg(T_PHOTO)} center/contain no-repeat !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
 /* 转账存根里的印章：没收时也要看得清——白底紫字的小圆章 */
-[data-wk="transfercard"][data-status="pending"] [data-wk="transferseal"]{background:${C.paper} !important;border:1.4px solid ${C.roseD} !important;box-shadow:0 0 0 3px ${C.rose} !important}
+[data-wk="transfercard"][data-status="pending"] [data-wk="transferseal"]{background:${C.paper} !important;border:1.4px solid ${C.roseD} !important;box-shadow:none !important}
 [data-wk="transfercard"][data-status="pending"] [data-wk="transferseal"] *{color:${C.roseD} !important}
 
 [data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/26px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
