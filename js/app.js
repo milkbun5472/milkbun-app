@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.463";
+const APP_VERSION = "v89.464";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25525,12 +25525,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   她在「全部」里发的帖（"*"）哪个世界都看得到：在哪个世界里看，就按哪个世界的人和世界观来回。
   const forumThreadWorld = post => { const pw = forumPostWorld(post); return pw === "*" ? forumCurWorld() : pw; };
   // 世界只起了名字、没写世界观（群里 2026-10-22：加了个「武侠」，回帖的还是现代人）：原来连名字都不给，就落回现代。名字也是设定，照样压进去
+  // 论坛里的「今天」（群友 2026-11-10：虚拟时间拨在万圣节当天，楼里却说「万圣节都过去好几天了」）：原来论坛的提示词里一个日子都没有，
+  //   模型照自己以为的现实日子猜。论坛是她这张主面具的世界，照主面具那只钟；没开虚拟时间就是现实的今天。帖子、楼、刷吧、搜索都从 forumLoreLine 走，这一句跟着它进
+  const forumNowLine = () => {
+    try {
+      const d = new Date(typeof vclockMainMap === "function" ? vclockMainMap(Date.now()) : Date.now());
+      return "\n【论坛里的今天】" + d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日 周" + "日一二三四五六"[d.getDay()] + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0")
+        + "。网友说到的日子、节日、过了几天，都从这一天算。";
+    } catch (e) { return ""; }
+  };
   const forumLoreLine = w => {
     const lore = charWorldLore(w);
     const name = w ? String(((charWorldsLoad().worlds.find(x => x.id === w) || {}).name) || "").trim() : "";
-    if (!lore && !name) return "";
+    if (!lore && !name) return forumNowLine();
     return "\n【这个论坛开在这样一个世界里，下面每一帖、每一楼都照这个来】" + (name ? "「" + name + "」" : "") + (lore ? "\n" + lore : "（没写更多设定，照这个名字本来的样子想：它是哪个年代、什么样的世道、人们怎么过日子）")
-      + "\n网友是这个世界的人：网名、口吻、聊的事、用的东西都是这个世界里有的，这个世界没有的东西（年代不对的物件、说法）一样都别出现。";
+      + "\n网友是这个世界的人：网名、口吻、聊的事、用的东西都是这个世界里有的，这个世界没有的东西（年代不对的物件、说法）一样都别出现。" + forumNowLine();
   };
   // 「全部」（大杂烩）里不分世界：谁都能去谁的帖下面说话（她 2026-10-01：「在全部的时候古代角色也可以评论现代的，
   //   vice versa」）。切到某个世界才按世界分——想让两条线的人别碰面，就切过去逛。
