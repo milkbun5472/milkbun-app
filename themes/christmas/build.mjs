@@ -99,11 +99,11 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="bubble"][data-kind="text"][data-me="0"]::before{content:"" !important;position:absolute !important;left:16px !important;top:-31px !important;width:30px !important;height:40px !important;background:${svg(RIBBON)} center top/contain no-repeat !important;border:none !important;pointer-events:none !important}
 [data-wk="bubble"][data-kind="text"][data-me="0"]::after{content:"" !important;position:absolute !important;right:-8px !important;left:auto !important;bottom:-8px !important;width:18px !important;height:18px !important;background:${svg(STAR())} center/contain no-repeat !important;border:none !important;transform:none !important}
 /* 连发：后面几张只用一截短丝带连在上一张底下，像一挂礼物卡 */
-[data-run][data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="0"]{margin-top:12px !important;animation:none !important}
-[data-run][data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="0"]::before{top:-16px !important;height:16px !important;width:4px !important;left:29px !important;background:${C.red} !important;border-radius:2px !important}
+[data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="0"]{margin-top:12px !important;animation:none !important}
+[data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="0"]::before{top:-34px !important;height:34px !important;z-index:-1 !important;width:4px !important;left:29px !important;background:${C.red} !important;border-radius:2px !important}
 /* 我连发的第二条起不再顶雪，只第一条有 */
-[data-run][data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="1"]{padding-top:10px !important;margin-top:4px !important}
-[data-run][data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="1"]::before{display:none !important}
+[data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="1"]{padding-top:10px !important;margin-top:4px !important}
+[data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="1"]::before{display:none !important}
 
 /* 时间：牛皮纸挂签；已读：一颗亮起来的小灯泡 */
 [data-wk="time"] > span{background:${svg(TAG)} center/100% 100% no-repeat !important;border:none !important;border-radius:0 !important;padding:4px 16px 4px 24px !important;color:#6B4A2E !important;box-shadow:none !important}
@@ -130,6 +130,12 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.86) !important}
 [data-wk="time"]{margin-top:26px !important}
 [data-wk="chatpanel"]{background:${C.cream} !important;position:relative !important;z-index:3 !important;border-top:2px solid ${C.gold} !important}
+/* 雪地小木屋抬到底栏上面露出来 */
+[data-wk="chat"]::after{bottom:0 !important;height:calc(env(safe-area-inset-bottom) * .4 + 62px + 150px) !important;background:${svg(SCENE)} center bottom calc(env(safe-area-inset-bottom) * .4 + 60px)/100% auto no-repeat,linear-gradient(${C.snow},${C.snow}) center bottom/100% calc(env(safe-area-inset-bottom) * .4 + 64px) no-repeat !important}
+/* 回复键：帽子别顶出胶囊，跟发送键对齐 */
+[data-wk="chatreply"]{background-size:88% !important;background-position:center 60% !important;margin-right:4px !important}
+/* 他连发的一挂里，已读只留在最后一张底下，不让丝带穿过字 */
+[data-wk="msg"][data-me="0"][data-last="0"] [data-wk="meta"]{display:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "圣诞", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
