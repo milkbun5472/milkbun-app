@@ -101,7 +101,7 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 /* 红包：一个青瓷色小信封——焦茶描边、三角封口压一道折线、封口上贴一颗星；领完变米白、星变空 */
 [data-wk="rpcard"]{background:linear-gradient(160deg,transparent 0 0),${C.cel} !important;border:${LINE} !important;border-radius:12px !important;box-shadow:none !important;overflow:hidden !important}
 [data-wk="rpcard"] *{color:${C.brown} !important}
-[data-wk="rpflap"]{height:48px !important;bottom:auto !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60' preserveAspectRatio='none'><path d='M0 0 L50 58 L100 0' fill='${C.celD}' stroke='${C.brown}' stroke-width='1.6' vector-effect='non-scaling-stroke' stroke-linejoin='round'/></svg>`)} center/100% 100% no-repeat !important;border:none !important}
+[data-wk="rpflap"]{height:48px !important;bottom:auto !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60' preserveAspectRatio='none'><path d='M0 0 L50 58 L100 0' fill='${C.cel}' stroke='${C.brown}' stroke-width='1.6' vector-effect='non-scaling-stroke' stroke-linejoin='round'/></svg>`)} center/100% 100% no-repeat !important;border:none !important}
 [data-wk="rpseal"]{border:none !important;background:${svg(STAR)} center/contain no-repeat !important;width:26px !important;height:26px !important;left:50% !important;margin-left:-13px !important;top:30px !important}
 [data-wk="rpseal"] *{display:none !important}
 [data-wk="rpcorner"]{display:none !important}
@@ -110,7 +110,7 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="rpcard"][data-status="done"] [data-wk="rpflap"]{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60' preserveAspectRatio='none'><path d='M0 0 L50 58 L100 0' fill='${C.bg}' stroke='${C.brown}' stroke-width='1.6' vector-effect='non-scaling-stroke'/></svg>`)} center/100% 100% no-repeat !important}
 /* 拆开前后那一页 */
 [data-wk="rpenvelope"]{background:${svg(DOTS)} 0 0/22px 22px,${C.cel} !important;border:${LINE} !important;border-radius:24px !important;box-shadow:0 10px 30px rgba(74,58,48,.25) !important}
-[data-wk="rpenvelope"] [data-wk="rparc"]{background:${C.celD} !important;border-color:${C.brown} !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:${C.cel} !important;border-color:${C.brown} !important}
 [data-wk="rpenvelope"] *{color:${C.brown} !important}
 [data-wk="rpenvelope"][data-stage="open"]{background:${svg(DOTS)} 0 0/22px 22px,${C.cream} !important}
 [data-wk="rpopenbtn"]{background:${C.cream} ${svg(STAR)} center/60% no-repeat !important;border:${LINE} !important;box-shadow:none !important}
