@@ -118,6 +118,14 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="bubble"][data-kind="text"]::after{bottom:-7px !important;width:18px !important;height:16px !important;border:none !important;border-radius:0 !important;background:${svg(PAW(C.line))} center/contain no-repeat !important}
 [data-wk="bubble"][data-kind="text"][data-me="1"]::after{right:-4px !important;transform:rotate(25deg) !important;background:${svg(PAW(C.line))} center/contain no-repeat !important;border:none !important;border-radius:0 !important}
 [data-wk="bubble"][data-kind="text"][data-me="0"]::after{left:-4px !important;transform:rotate(-25deg) !important;background:${svg(PAW(C.line))} center/contain no-repeat !important;border:none !important;border-radius:0 !important}
+
+/* 毛线固定在屏幕上，毛线团沿着这根线来回滚（offset-path 用同一条线，按屏幕比例换算） */
+[data-wk="body"]{background:transparent !important}
+[data-wk="chat"]{background:${svg(TILE)} 0 0/200px 200px,linear-gradient(180deg,${C.mist2},${C.mist}) !important}
+[data-wk="chat"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:0 !important;bottom:0 !important;background:${svg(YARNLINE)} 0 0/390px 760px no-repeat !important;pointer-events:none !important;z-index:0 !important}
+[data-wk="chat"]::before{left:0 !important;top:0 !important;bottom:auto !important;width:40px !important;height:40px !important;margin:-20px 0 0 -20px !important;offset-path:path("M300 0 C300 120 70 140 90 260 C110 380 330 340 310 480 C290 620 300 680 300 760") !important;offset-rotate:0deg !important;transform:scale(calc(1)) !important;animation:ktAlong 14s ease-in-out infinite alternate,ktSpin 2.2s linear infinite !important;transform-origin:50% 50% !important}
+@keyframes ktAlong{from{offset-distance:4%}to{offset-distance:96%}}
+@keyframes ktSpin{to{rotate:360deg}}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
