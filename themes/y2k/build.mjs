@@ -144,6 +144,10 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"]:not([data-halo]) > *,[data-w
 button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{right:-13px !important;top:-13px !important}
 button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{left:-12px !important;bottom:-11px !important}
 
+/* 顶栏、底栏照参考图的立体胶囊：外面一圈白亮的厚边框，里面一道往下凹的槽，底下一层厚度＋投影 */
+[data-wk="chathead"]::before{background:linear-gradient(180deg,rgba(255,255,255,.55) 0,rgba(255,255,255,0) 40%),linear-gradient(180deg,#E7E1F8,#D3C8F0) !important;border:none !important;box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 8px #EEEAF8,inset 0 -2px 0 8px #CEC5EA,inset 0 3px 6px 8px rgba(110,90,180,.3),0 0 0 1.5px #B4A8DA,0 5px 0 0.5px #A79BD0,0 12px 22px rgba(20,10,50,.45) !important}
+[data-wk="composer"]::before{background:linear-gradient(180deg,rgba(255,255,255,.55) 0,rgba(255,255,255,0) 40%),linear-gradient(180deg,#E7E1F8,#D3C8F0) !important;border:none !important;box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 8px #EEEAF8,inset 0 -2px 0 8px #CEC5EA,inset 0 3px 6px 8px rgba(110,90,180,.3),0 0 0 1.5px #B4A8DA,0 5px 0 0.5px #A79BD0,0 -2px 18px rgba(20,10,50,.45) !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "Y2K", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
