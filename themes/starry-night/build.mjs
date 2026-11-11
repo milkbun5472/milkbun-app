@@ -26,7 +26,7 @@ const STRIP = today => {
     const on = seq[i] === today && (today !== 0 || i === 0);
     return `<g transform='translate(${240 + x} 12)'>${on ? `<circle r='13' fill='${C.gold}' opacity='.25'/>` : ""}${MOONDOT(seq[i], on ? 9 : 6)}</g>`;
   }).join("");
-  return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 480 24' preserveAspectRatio='xMidYMid meet'><defs><linearGradient id='a' x1='0' x2='1'><stop offset='0' stop-color='${C.gold}' stop-opacity='0'/><stop offset='1' stop-color='${C.gold}'/></linearGradient><linearGradient id='b' x1='1' x2='0'><stop offset='0' stop-color='${C.gold}' stop-opacity='0'/><stop offset='1' stop-color='${C.gold}'/></linearGradient></defs><rect x='0' y='11.4' width='140' height='1.2' fill='url(#a)'/><rect x='340' y='11.4' width='140' height='1.2' fill='url(#b)'/>${dots}</svg>`;
+  return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 480 24' preserveAspectRatio='xMidYMid meet'><defs><linearGradient id='a' x1='0' x2='1'><stop offset='0' stop-color='${C.gold}' stop-opacity='0'/><stop offset='1' stop-color='${C.gold}'/></linearGradient><linearGradient id='b' x1='1' x2='0'><stop offset='0' stop-color='${C.gold}' stop-opacity='0'/><stop offset='1' stop-color='${C.gold}'/></linearGradient></defs>${dots}</svg>`;
 };
 // 满天星（平铺）
 const STARS = (() => { let r = 7, out = ""; const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
@@ -114,10 +114,10 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 /* 月亮调暗，压在字后面不抢眼 */
 [data-wk="chat"]::before{opacity:.72 !important;filter:brightness(.9) !important}
 /* 流星：每隔几秒从右上划过一颗 */
-@keyframes snMeteor{0%{transform:translate(0,0) rotate(-32deg);opacity:0}3%{opacity:1}14%{transform:translate(-260px,160px) rotate(-32deg);opacity:0}100%{transform:translate(-260px,160px) rotate(-32deg);opacity:0}}
-@keyframes snMeteor2{0%,40%{transform:translate(0,0) rotate(-28deg);opacity:0}43%{opacity:.9}54%{transform:translate(-220px,120px) rotate(-28deg);opacity:0}100%{opacity:0}}
-[data-wk="chat"]::after{content:"" !important;position:absolute !important;top:120px !important;right:-30px !important;width:130px !important;height:3px !important;border-radius:3px !important;background:linear-gradient(90deg,#fff,rgba(255,217,138,.7) 30%,transparent) !important;box-shadow:0 0 8px 1px rgba(255,255,255,.6) !important;pointer-events:none !important;z-index:0 !important;animation:snMeteor 4s ease-in infinite !important}
-[data-wk="body"]::before{content:"" !important;position:fixed !important;top:300px !important;right:10px !important;width:90px !important;height:2px !important;border-radius:2px !important;background:linear-gradient(90deg,#fff,rgba(168,240,255,.6) 30%,transparent) !important;pointer-events:none !important;animation:snMeteor2 5.5s ease-in infinite !important}
+@keyframes snMeteor{0%{transform:translate(0,0) rotate(-32deg);opacity:0}3%{opacity:1}14%{transform:translate(-420px,260px) rotate(-32deg);opacity:0}100%{transform:translate(-420px,260px) rotate(-32deg);opacity:0}}
+@keyframes snMeteor2{0%,40%{transform:translate(0,0) rotate(-28deg);opacity:0}43%{opacity:.9}54%{transform:translate(-380px,220px) rotate(-28deg);opacity:0}100%{opacity:0}}
+[data-wk="chat"]::after{content:"" !important;position:absolute !important;top:120px !important;right:-140px !important;width:130px !important;height:3px !important;border-radius:3px !important;background:linear-gradient(90deg,#fff,rgba(255,217,138,.7) 30%,transparent) !important;box-shadow:0 0 8px 1px rgba(255,255,255,.6) !important;pointer-events:none !important;z-index:0 !important;animation:snMeteor 4s ease-in infinite !important}
+[data-wk="body"]::before{content:"" !important;position:fixed !important;top:300px !important;right:-100px !important;width:90px !important;height:2px !important;border-radius:2px !important;background:linear-gradient(90deg,#fff,rgba(168,240,255,.6) 30%,transparent) !important;pointer-events:none !important;animation:snMeteor2 5.5s ease-in infinite !important}
 @media (prefers-reduced-motion:reduce){[data-wk="chat"]::after,[data-wk="body"]::before{animation:none !important;opacity:0 !important}}
 /* 系统提示：一行星座连线小字，不要白框 */
 [data-wk="sysnote"]{background:transparent !important;border:none !important;box-shadow:none !important;text-align:center !important}
@@ -129,8 +129,8 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="name"]{color:${C.dim} !important}
 
 /* 第三颗流星 */
-@keyframes snMeteor3{0%,60%{transform:translate(0,0) rotate(-36deg);opacity:0}62%{opacity:1}74%{transform:translate(-300px,210px) rotate(-36deg);opacity:0}100%{opacity:0}}
-[data-wk="body"]::after{content:"" !important;position:fixed !important;top:180px !important;left:62% !important;width:110px !important;height:2.5px !important;border-radius:2px !important;background:linear-gradient(90deg,#fff,rgba(245,184,255,.6) 30%,transparent) !important;box-shadow:0 0 6px rgba(255,255,255,.5) !important;pointer-events:none !important;animation:snMeteor3 8s ease-in infinite !important}
+@keyframes snMeteor3{0%,60%{transform:translate(0,0) rotate(-36deg);opacity:0}62%{opacity:1}74%{transform:translate(-460px,300px) rotate(-36deg);opacity:0}100%{opacity:0}}
+[data-wk="body"]::after{content:"" !important;position:fixed !important;top:180px !important;left:105% !important;width:110px !important;height:2.5px !important;border-radius:2px !important;background:linear-gradient(90deg,#fff,rgba(245,184,255,.6) 30%,transparent) !important;box-shadow:0 0 6px rgba(255,255,255,.5) !important;pointer-events:none !important;animation:snMeteor3 8s ease-in infinite !important}
 @media (prefers-reduced-motion:reduce){[data-wk="body"]::after{animation:none !important;opacity:0 !important}}
 
 /* ───── 第二批：卡片都是磨砂玻璃＋金边，像夜空里的一块星图 ───── */
@@ -194,7 +194,7 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="meta"]{text-shadow:0 1px 2px rgba(0,0,0,.7) !important}
 
 /* 胶囊放大，按键缩一点，全包进去 */
-[data-wk="composer"]::before{left:6px !important;right:6px !important;top:2px !important;bottom:calc(env(safe-area-inset-bottom) * .4 + 2px) !important}
+[data-wk="composer"]::before{left:6px !important;right:6px !important;top:2px !important;bottom:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) - 8px) !important}
 [data-wk="composer"]{padding-left:16px !important;padding-right:16px !important}
 [data-wk="chatplus"],[data-wk="send"],[data-wk="chatreply"]{width:34px !important;height:34px !important;min-width:34px !important;margin:0 !important}
 [data-wk="chatreply"]{background-size:100% !important}
