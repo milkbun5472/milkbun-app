@@ -260,6 +260,9 @@ const css = `
 [data-wk="chatreply"]{margin-right:4px !important}
 [data-wk="send"]{width:40px !important;min-width:40px !important;height:40px !important;box-shadow:none !important}
 
+/* 线上最右那颗也换成同一个圆角三角，线上线下一致 */
+[data-wk="send"]{background:${C.ink} ${svg(I_PLAY)} center/18px no-repeat !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "方格手稿", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

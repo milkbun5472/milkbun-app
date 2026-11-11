@@ -266,6 +266,9 @@ button[data-wk="avatar"] *,span[data-wk="avatar"] *,img[data-wk="avatar"]{border
 [data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:38px !important;min-width:38px !important;height:38px !important;border:none !important;border-radius:50% !important;background:${svg(I_PLAY)} center/contain no-repeat !important;box-shadow:0 4px 10px rgba(0,0,0,.18) !important;font-size:0 !important;color:transparent !important}
 [data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
 
+/* 线上最右那颗也换成同一个圆角三角，线上线下一致 */
+[data-wk="send"]{background:${svg(I_PLAY)} center/contain no-repeat !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "奶油留白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
