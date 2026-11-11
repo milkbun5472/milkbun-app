@@ -87,8 +87,8 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 
 /* 时间：写进左边页边那一栏，跟活页孔排在一起 */
 [data-wk="msg"]{position:relative !important}
-[data-wk="time"]{position:absolute !important;left:-40px !important;top:0 !important;width:30px !important;margin:0 !important;text-align:center !important;z-index:1 !important}
-[data-wk="time"] > span{display:block !important;background:${C.butter} !important;color:${C.rose} !important;font-size:9px !important;line-height:12px !important;padding:3px 1px !important;border-radius:2px !important;transform:rotate(-4deg) !important;word-break:break-all !important;box-shadow:0 1px 0 rgba(138,90,95,.15) !important}
+[data-wk="time"]{position:absolute !important;left:-43px !important;top:0 !important;width:40px !important;margin:0 !important;text-align:center !important;z-index:1 !important}
+[data-wk="time"] > span{display:block !important;background:${C.butter} !important;color:${C.rose} !important;font-size:8.5px !important;line-height:12px !important;padding:3px 1px !important;border-radius:2px !important;transform:rotate(-4deg) !important;word-break:keep-all !important;overflow-wrap:normal !important;letter-spacing:-.02em !important;box-shadow:0 1px 0 rgba(138,90,95,.15) !important}
 [data-wk="msg"]{padding:0 !important;margin:0 0 28px !important}
 [data-wk="msg"] + [data-wk="msg"]{margin-top:0 !important}
 [data-wk="body"] > *{margin-top:0 !important}
