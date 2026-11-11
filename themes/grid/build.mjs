@@ -83,7 +83,6 @@ const css = `
 /* 底栏面板包住整条输入框 */
 [data-wk="composer"]::before{top:4px !important;bottom:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) - 8px) !important}
 [data-wk="chatinput"]{min-height:38px !important;align-self:center !important}
-[data-wk="stlink"]{display:none !important}
 
 /* ───── 方格手稿 · 第二批：卡片（形状不动，方角细线面板；小巧思：左上角一行宽字距小标题，像稿纸栏目） ───── */
 [data-wk="transfercard"],[data-wk="photocard"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"],[data-wk="rpcard"]{${PANEL};position:relative !important;color:${C.ink} !important}
@@ -145,7 +144,110 @@ const css = `
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.6 !important}
 
 [data-wk="body"] button[data-wk="avatar"],[data-wk="body"] span[data-wk="avatar"]{display:none !important}
-[data-wk="msg"][data-last="1"] [data-wk="meta"] [data-wk="stlink"]{display:none !important}
+[data-wk="msg"][data-last="1"] [data-wk="meta"] 
+
+/* ───── 方格手稿 · 第三批：状态卡（形状不动；小巧思：每块一行栏目小标题、好感条是一把刻度尺） ───── */
+[data-wk="statecard"]{${PANEL};background:${C.panel} !important;border-radius:2px !important;box-shadow:0 20px 50px rgba(0,0,0,.18) !important;--sc-heart-ink:${C.ink} !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:1px solid ${C.line} !important}
+[data-wk="statehead"] *{color:${C.ink} !important}
+[data-wk="statehead"] [data-wk="avatar"],[data-wk="statehead"] [data-wk="avatar"] *{border-radius:1px !important;display:block !important}
+[data-wk="statehead"] button{border:1px solid ${C.ink} !important;border-radius:2px !important;background:transparent !important}
+[data-wk="statemood"]{display:inline-block !important;background:${C.ink} !important;color:#fff !important;border-radius:0 !important;padding:0 8px !important;margin-right:4px !important;letter-spacing:.15em !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:transparent !important;border:1px solid ${C.line} !important;border-radius:2px !important;padding:3px !important;margin:10px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:0 !important;letter-spacing:.2em !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:${C.ink} !important;color:#fff !important}
+[data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;background:#fff !important;border:1px solid ${C.line} !important;border-radius:2px !important;margin:10px 16px !important;padding-top:34px !important;box-shadow:none !important;color:${C.ink} !important}
+[data-wk="stateseen"]::before,[data-wk="statevoice"]::before{position:absolute !important;left:16px !important;top:11px !important;font:10px/1 ${SERIF} !important;letter-spacing:.35em !important;color:${C.fog} !important;padding-bottom:4px !important;border-bottom:1px solid ${C.line} !important}
+[data-wk="stateseen"]::before{content:"SEEN · 看得见的" !important}
+[data-wk="statevoice"]::before{content:"INNER · 心里想的" !important}
+[data-wk="stateseen"] *,[data-wk="statevoice"] *{color:${C.ink} !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statevoice"]{background:repeating-linear-gradient(180deg,transparent 0 27px,rgba(0,0,0,.07) 27px 28px),#fff !important}
+[data-wk="statewear"]{background:transparent !important;border:1px solid ${C.line} !important;border-radius:0 !important}
+[data-wk="statewear"] > span{background:${C.panel} !important;border-radius:0 !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.fog} !important}
+[data-wk="statevoice"] + div > button{background:transparent !important;color:${C.ink} !important;border:1px solid ${C.ink} !important;border-radius:2px !important}
+/* 好感：一把横放的刻度尺 */
+[data-wk="stateaff"]{background:transparent !important;border-top:1px solid ${C.line} !important;position:relative !important;display:block !important;padding:16px 20px 60px !important;overflow:hidden !important}
+[data-wk="stateaff"] *{color:${C.ink} !important}
+[data-wk="stateheart"]{position:absolute !important;width:10px !important;left:calc(50% - 5px) !important;height:min(240px, 76vw) !important;bottom:calc(28px - min(240px, 76vw) / 2) !important;transform:rotate(90deg) !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 240' preserveAspectRatio='none'><rect width='10' height='240'/></svg>`)} !important}
+[data-wk="stateheart"] > div{-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important}
+[data-wk="stateheartline"]{background:${C.ink} !important;opacity:1 !important}
+[data-wk="stateheart"] > div:not([data-wk="stateheartline"]){inset:1px !important}
+[data-wk="stateheartbase"]{background:repeating-linear-gradient(180deg,${C.line} 0 1px,#fff 1px 24px) !important;opacity:1 !important}
+[data-wk="stateheartfill"] > div{opacity:1 !important;border-top:none !important}
+[data-wk="stateheartnum"]{display:none !important}
+[data-wk="stateheartknob"]{display:block !important;width:2px !important;height:22px !important;margin:0 0 -1px -11px !important;background:${C.ink} !important;transform:rotate(-90deg) !important}
+[data-wk="stateaffval"]{display:block !important;position:absolute !important;right:20px !important;top:12px !important;font:32px/1 ${SERIF} !important;color:${C.ink} !important}
+
+/* 翻旧的：一页页手稿，左边编号 No.1 No.2 */
+[data-wk="statehistbtn"]{background:transparent !important;color:${C.ink} !important;border:1px solid ${C.ink} !important;border-radius:2px !important;letter-spacing:.2em !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.ink} !important;letter-spacing:.2em !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1px solid ${C.line} !important;border-radius:2px !important;color:${C.fog} !important;background:transparent !important}
+[data-wk="statehistlist"]{counter-reset:pg !important}
+[data-wk="statehistitem"]{counter-increment:pg !important;position:relative !important;background:#fff !important;border:1px solid ${C.line} !important;border-radius:2px !important;padding:34px 16px 14px !important;margin-bottom:12px !important;box-shadow:0 3px 10px rgba(0,0,0,.06) !important}
+[data-wk="statehistitem"]::before{content:"No." counter(pg) !important;position:absolute !important;left:16px !important;top:11px !important;font:10px/1 ${SERIF} !important;letter-spacing:.35em !important;color:${C.fog} !important;padding-bottom:4px !important;border-bottom:1px solid ${C.line} !important}
+[data-wk="statehistmood"]{background:${C.ink} !important;color:#fff !important;border:none !important;border-radius:0 !important}
+[data-wk="statehisttime"]{color:${C.fog} !important;font-family:${SERIF} !important;letter-spacing:.1em !important}
+[data-wk="statehisttext"]{color:${C.ink} !important}
+[data-wk="statehistmeta"]{background:${C.panel} !important;border-radius:0 !important}
+[data-wk="statehistact"],[data-wk="statehistwear"]{color:#5A5955 !important}
+[data-wk="statehistend"]{color:${C.fog} !important;letter-spacing:.3em !important}
+
+/* Ta 眼里：贴条换一截半透明描图纸胶带 */
+[data-wk="gazepage"]{background:${C.panel} !important}
+[data-wk="gazetitle"]{color:${C.ink} !important;font-family:${SERIF} !important}
+[data-wk="gazetab"]{background:transparent !important;color:${C.fog} !important;border:1px solid ${C.line} !important;border-radius:2px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:${C.ink} !important;color:#fff !important;border-color:${C.ink} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{background:#fff !important;border:1px solid ${C.line} !important;border-radius:2px !important;box-shadow:0 3px 10px rgba(0,0,0,.06) !important}
+[data-wk="gazetape"]{background:rgba(255,255,255,.65) !important;box-shadow:0 0 0 1px rgba(0,0,0,.06) !important;border:none !important}
+[data-wk="gazecardname"]{color:${C.ink} !important;font-family:${SERIF} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:${C.fog} !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:${C.panel} !important;border:1px solid ${C.line} !important;border-radius:2px !important}
+[data-wk="gazeempty"]{background:#fff !important;border:1px solid ${C.line} !important;border-radius:2px !important}
+[data-wk="gazeempty"] button{background:${C.ink} !important;color:#fff !important;border-radius:2px !important;border:none !important}
+
+/* ───── 线下 ───── */
+[data-wk="offline"]:not([style*="url("]){background:linear-gradient(180deg,#D9D8D4,#E4E2DE) !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:${C.ink} !important;font-family:${SERIF} !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:26px !important;height:26px !important;background:${svg(I_PLUS)} center/20px no-repeat !important;border:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:${C.ink} !important;color:#fff !important;border:none !important;border-radius:2px !important;font-size:12px !important;padding:3px 12px !important;letter-spacing:.2em !important}
+[data-wk="offcomposer"]{background:${C.panel} !important;border-top:1px solid ${C.line} !important}
+[data-wk="offcomposer"] textarea{background:#fff !important;border:1px solid ${C.line} !important;border-radius:2px !important;color:${C.ink} !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;height:30px !important;min-width:30px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PLUS)} center/20px no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_REPLY)} center/24px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:38px !important;min-width:38px !important;height:38px !important;border:none !important;border-radius:2px !important;background:${C.ink} ${svg(I_SEND)} center/20px no-repeat !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcard"]{background:#fff !important;border:1px solid ${C.line} !important;border-left-width:1px !important;border-radius:2px !important;box-shadow:0 3px 10px rgba(0,0,0,.08) !important}
+[data-wk="offcard"][data-me="1"]{background:${C.ink} !important;border-color:${C.ink} !important}
+[data-wk="offcard"][data-me="1"] *{color:#fff !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:1px !important;box-shadow:0 0 0 1px ${C.line} !important}
+[data-wk="offname"]{color:${C.ink} !important;font-family:${SERIF} !important;letter-spacing:.15em !important}
+[data-wk="offtext"]{color:${C.ink} !important}
+[data-wk="offsay"]{background:none !important;color:${C.ink} !important;font-weight:700 !important;border-bottom:1px solid ${C.ink} !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{border-color:#fff !important}
+[data-wk="offthought"]{background:${C.panel} !important;border:none !important;border-left:2px solid ${C.ink} !important;border-radius:0 !important;color:#5A5955 !important}
+[data-wk="offcardacts"] svg{stroke:${C.fog} !important;color:${C.fog} !important}
+[data-wk="offreplyopt"]{background:transparent !important;border:1px solid ${C.ink} !important;border-radius:2px !important;color:${C.ink} !important}
+
+/* ───── 通话 ───── */
+[data-wk="callbubble"]{background:${C.panel} !important;color:${C.ink} !important;border:1px solid ${C.line} !important;border-radius:2px !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:${C.ink} !important;color:#fff !important;border-color:${C.ink} !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callavatar"]{border-radius:2px !important;box-shadow:0 0 0 6px ${C.panel},0 0 0 7px ${C.line},0 20px 40px rgba(0,0,0,.3) !important}
+
+[data-wk="statecard"][data-wk],div[data-wk="statecard"]{border-radius:2px !important;border-top:1px solid ${C.line} !important;overflow:hidden !important}
+[data-wk="stateheartfill"] > div{background:${C.ink} !important}
+
+[data-wk="statecard"] [data-wk="stateaff"] [data-wk="stateheart"] [data-wk="stateheartfill"] > div{background:${C.ink} !important;opacity:1 !important}
 
 `;
 

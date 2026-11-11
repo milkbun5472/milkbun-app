@@ -59,6 +59,8 @@
 - 顶栏下沿挂装饰（彩灯、布边）会盖住顶栏下面那条**日程条**：`[data-wk="chathead"] + *:not([data-wk="body"])` 往下让，被灯挡一点没关系。
 - 同一个地方线上线下都有（chathead、composer）：线下单独写 `[data-wk="offline"] …`。
 
+- **排版设成「头像不显示」时，别再把「状态」入口（`stlink`）藏掉**：那时点不到头像，它是打开状态卡的唯一入口。
+
 ### app 挂点
 - 挂点不够：先给 app 补挂点（只加不改名，进 `theme-studio.js` 名单，写测试，`ship.mjs` 发版），**提醒她先刷新 app**。
 - 已补过的：statemood / stateaffval / stateheartknob / gazeempty / statehist* / geo* / cardmeta / offlog* / gazetape（Ta 眼里贴条）/ meta 的 `data-read`（已送达 0、已读 1）。
