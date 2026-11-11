@@ -94,12 +94,16 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 /* 底栏：金边玻璃胶囊，发送是一颗小月亮 */
 [data-wk="composer"]{background:transparent !important;border-top:none !important;position:relative !important;z-index:2 !important}
 [data-wk="composer"] > div:has([data-wk="chatinput"]),[data-wk="chatinput"]{background:transparent !important}
-[data-wk="chatinput"]{color:${C.ink} !important;border:1.3px solid rgba(255,217,138,.8) !important;border-radius:999px !important;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.04)),rgba(7,10,34,.6) !important}
+[data-wk="chatinput"]{color:${C.ink} !important;border:none !important;border-radius:0 !important;background:transparent !important;box-shadow:none !important}
+/* 整个底栏画成一颗金边玻璃胶囊，加号、输入框、发送、回复都包在里面 */
+[data-wk="composer"]::before{content:"" !important;position:absolute !important;left:8px !important;right:8px !important;top:6px !important;bottom:calc(env(safe-area-inset-bottom) * .4 + 6px) !important;border-radius:999px !important;border:1.3px solid rgba(255,217,138,.8) !important;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.04)),rgba(7,10,34,.62) !important;backdrop-filter:blur(6px) !important;-webkit-backdrop-filter:blur(6px) !important;pointer-events:none !important;z-index:0 !important}
+[data-wk="composer"] > *{position:relative !important;z-index:1 !important}
+[data-wk="composer"] > div{background:transparent !important;border:none !important;box-shadow:none !important}
 [data-wk="chatinput"]::placeholder{color:${C.dim} !important}
 [data-wk="chatplus"],[data-wk="send"],[data-wk="chatreply"]{border:none !important;box-shadow:none !important;border-radius:0 !important;transition:transform .12s !important}
 [data-wk="chatplus"]{background:${svg(I_PLUS)} center/contain no-repeat !important}
 [data-wk="send"]{background:${svg(I_SEND)} center/contain no-repeat !important}
-[data-wk="chatreply"]{background:${svg(I_REPLY)} center/contain no-repeat !important}
+[data-wk="chatreply"]{background:${svg(I_REPLY)} center/78% no-repeat !important;margin-right:6px !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.86) !important}
 `;
