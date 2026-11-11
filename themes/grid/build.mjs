@@ -14,7 +14,7 @@ const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><pa
 const I_MENU = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 7 H20 M4 12 H20 M4 17 H16' stroke='${C.ink}' stroke-width='1.3'/></svg>`;
 
 const bubble = { myBg: C.ink, myText: "#fff", myBorder: "none", charBg: C.panel, charText: C.ink, charBorder: "1px solid " + C.line, radius: 2, shadow: "none", myAlpha: 100, charAlpha: 100 };
-const layout = { bubble: "bubble", avatar: "all", name: true, gap: "normal", time: "show" };
+const layout = { bubble: "bubble", avatar: "first", name: true, gap: "normal", time: "show" };
 const PANEL = `background:${C.panel} !important;border:1px solid ${C.line} !important;border-radius:2px !important;box-shadow:0 3px 10px rgba(0,0,0,.08) !important`;
 
 const css = `
@@ -249,6 +249,15 @@ const css = `
 [data-wk="stateheartfill"] > div{background:${C.ink} !important}
 
 [data-wk="statecard"] [data-wk="stateaff"] [data-wk="stateheart"] [data-wk="stateheartfill"] > div{background:${C.ink} !important;opacity:1 !important}
+
+/* 顶栏、底栏铺满整宽，不做悬浮面板 */
+[data-wk="chathead"]{background:${C.panel} !important;border-bottom:1px solid ${C.line} !important;box-shadow:0 2px 8px rgba(0,0,0,.05) !important;padding-left:16px !important}
+[data-wk="chathead"]::before{content:none !important}
+[data-wk="composer"]{background:${C.panel} !important;border-top:1px solid ${C.line} !important;box-shadow:0 -2px 8px rgba(0,0,0,.04) !important;padding-left:12px !important;padding-right:12px !important}
+[data-wk="composer"]::before{content:none !important}
+[data-wk="chatinput"]{background:#fff !important;border:1px solid ${C.line} !important;border-radius:2px !important;padding-left:12px !important}
+[data-wk="chatreply"]{margin-right:4px !important}
+[data-wk="send"]{width:40px !important;min-width:40px !important;height:40px !important;box-shadow:none !important}
 
 `;
 
