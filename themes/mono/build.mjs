@@ -15,7 +15,7 @@ const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><cir
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 11 L12 4 L20 11 V20 H4Z' fill='none' stroke='${C.ink}' stroke-width='1.7' stroke-linejoin='round'/></svg>`;
 const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='5' cy='12' r='1.7' fill='${C.ink}'/><circle cx='12' cy='12' r='1.7' fill='${C.ink}'/><circle cx='19' cy='12' r='1.7' fill='${C.ink}'/></svg>`;
 
-const I_PLAY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><circle cx='24' cy='24' r='23' fill='${C.ink}'/><path d='M19 15 L33 24 L19 33Z' fill='#fff'/></svg>`;
+const I_PLAY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><circle cx='24' cy='24' r='23' fill='${C.ink}'/><path d='M20 16.5 L31.5 24 L20 31.5Z' fill='#fff' stroke='#fff' stroke-width='3' stroke-linejoin='round'/></svg>`;
 const bubble = { myBg: C.ink2, myText: "#fff", myBorder: "none", charBg: C.paper, charText: C.ink, charBorder: "none", radius: 24, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 const FLOAT = "0 8px 24px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.06)";

@@ -13,7 +13,7 @@ const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><pat
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 11 L12 4 L20 11 V20 H4Z' fill='none' stroke='${C.ink}' stroke-width='1.3' stroke-linejoin='round'/></svg>`;
 const I_MENU = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 7 H20 M4 12 H20 M4 17 H16' stroke='${C.ink}' stroke-width='1.3'/></svg>`;
 
-const I_PLAY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M8 5 L19 12 L8 19Z' fill='#fff'/></svg>`;
+const I_PLAY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9 7 L17 12 L9 17Z' fill='#fff' stroke='#fff' stroke-width='2' stroke-linejoin='round'/></svg>`;
 const bubble = { myBg: C.ink, myText: "#fff", myBorder: "none", charBg: C.panel, charText: C.ink, charBorder: "1px solid " + C.line, radius: 2, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: true, gap: "normal", time: "show" };
 const PANEL = `background:${C.panel} !important;border:1px solid ${C.line} !important;border-radius:2px !important;box-shadow:0 3px 10px rgba(0,0,0,.08) !important`;
