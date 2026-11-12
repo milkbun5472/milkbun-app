@@ -29,6 +29,11 @@ const PAIR = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 22'><path 
 const FLUFF = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M10 18 Q9 12 4 8 M10 18 Q10 10 9 3 M10 18 Q12 11 16 6 M10 18 Q14 14 18 13 M10 18 Q6 15 2 15' stroke='#A8B1B3' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>`;
 const PLUME = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 21 C5 12 11 5 21 2 C21 11 15 18 6 19Z' fill='#fff'/><path d='M3 22 L15 9' stroke='#BFD3D6' stroke-width='1'/><path d='M10 15 L7 14 M13 12 L10 10.5' stroke='#D7E4E6' stroke-width='.8'/></svg>`;
 const PRINT = (c) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 14' fill='${c}'><path d='M6 1 C5 3 1 9 1 10.5 C3 9.6 4.6 10 6 11.8 C7.4 10 9 9.6 11 10.5 C11 9 7 3 6 1Z' transform='rotate(-12 6 7)'/><path d='M17 2.5 C16 4.5 12 10.5 12 12 C14 11.1 15.6 11.5 17 13.3 C18.4 11.5 20 11.1 22 12 C22 10.5 18 4.5 17 2.5Z' transform='rotate(10 17 8)'/></svg>`;
+const STAGE = (inner) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 84 76'><ellipse cx='42' cy='64' rx='34' ry='8' fill='rgba(255,243,207,.12)'/><path d='M10 64 H30 M50 66 H74 M20 69 H40' stroke='rgba(255,255,255,.35)' stroke-width='1.2' stroke-linecap='round'/>${inner}</svg>`;
+const ST_EGG = STAGE(`<path d='M14 60 Q42 70 70 60 Q66 52 42 54 Q18 52 14 60Z' fill='#7A5A33'/><path d='M18 58 Q24 52 30 57 M54 57 Q60 52 66 58' stroke='#5B4224' stroke-width='1.2' fill='none'/><path d='M42 18 C52 18 58 32 58 42 C58 52 51 58 42 58 C33 58 26 52 26 42 C26 32 32 18 42 18Z' fill='#F6E7C6' stroke='#fff' stroke-width='1.4'/><path d='M34 26 Q36 22 40 21' stroke='#fff' stroke-width='2' fill='none' stroke-linecap='round'/><circle cx='47' cy='40' r='1.6' fill='#C9B48C'/><circle cx='38' cy='46' r='1.2' fill='#C9B48C'/>`);
+const ST_DUCK = STAGE(`<path d='M18 56 Q18 44 32 42 Q36 30 44 30 Q53 30 53 39 Q53 43 49 46 Q64 44 68 54 Q64 62 42 62 Q20 62 18 56Z' fill='#9AA4A6'/><path d='M32 40 Q29 34 33 31 M38 32 Q37 27 40 26' stroke='#B9C2C4' stroke-width='1.6' fill='none' stroke-linecap='round'/><circle cx='46' cy='37' r='1.6' fill='#13252E'/><path d='M53 37 L61 39 L53 41.5Z' fill='#F0A23A'/><path d='M28 52 Q36 48 44 52' stroke='#B9C2C4' stroke-width='1.4' fill='none'/>`);
+const ST_TEEN = STAGE(`<path d='M16 56 Q16 46 30 44 L44 44 Q38 40 37 32 Q36 22 42 18 Q48 15 51 20 L52 22 L48 22 Q44 22 44 30 Q45 38 52 43 Q66 46 68 54 Q64 62 42 62 Q18 62 16 56Z' fill='#C9D0D1'/><path d='M24 50 Q32 46 40 50 M44 50 Q50 47 56 50' stroke='#fff' stroke-width='2.4' fill='none' stroke-linecap='round'/><circle cx='47.5' cy='20.5' r='1.3' fill='#13252E'/><path d='M52 21 L58 22.5 L52 24Z' fill='#E79A3A'/><path d='M40 30 Q41 26 43 25' stroke='#fff' stroke-width='1.6' fill='none'/>`);
+const ST_SWAN = STAGE(`<circle cx='42' cy='40' r='30' fill='rgba(255,243,207,.18)'/><path d='M14 56 Q14 46 28 44 L42 44 Q34 38 31 28 Q28 16 34 9 Q39 4 44 8 L46 10 L42 11 Q37 12 38 22 Q40 34 50 41 Q66 44 70 54 Q66 62 42 62 Q16 62 14 56Z' fill='#fff'/><path d='M46 10 L53 12.5 L46 14Z' fill='#F0A23A'/><circle cx='41.5' cy='9.6' r='1.2' fill='#13252E'/><path d='M22 50 Q34 44 46 50 Q54 46 62 50' stroke='#E3ECEC' stroke-width='1.6' fill='none'/><path d='M60 20 l1.5 4 l4 1.5 l-4 1.5 l-1.5 4 l-1.5 -4 l-4 -1.5 l4 -1.5Z' fill='#FFF3CF'/>`);
 const bubble = { myBg: C.teal, myText: C.ink, myBorder: "1px solid rgba(190,230,225,.5)", charBg: C.white, charText: "#21343A", charBorder: "none", radius: 18, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
@@ -203,6 +208,115 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),img[data-wk="av
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PIC)} center/contain no-repeat !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+/* ───── 月湖天鹅 · 第三批：状态卡是一扇月夜湖窗——深色湖底、白瓷小卡、细金线；好感是丑小鸭长大 ───── */
+[data-wk="statecard"]{background:radial-gradient(circle at 80% 0%,rgba(246,227,176,.22),transparent 45%),linear-gradient(180deg,#0B1E2E,#1C4C55 40%,#0C2A30) !important;border:1px solid rgba(255,255,255,.3) !important;border-radius:18px !important;box-shadow:inset 0 0 0 4px #10283A,inset 0 0 0 4.6px rgba(242,178,74,.6),0 14px 34px rgba(0,0,0,.5) !important;color:#fff !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:1px solid rgba(255,255,255,.15) !important}
+[data-wk="statehead"] *{color:#fff !important}
+[data-wk="statehead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 3px #B4BDBF,0 0 5px 4px rgba(168,177,179,.5) !important}
+[data-wk="statehead"] button{border:1px solid rgba(255,255,255,.4) !important;border-radius:50% !important;background:rgba(7,25,30,.6) !important}
+[data-wk="statemood"]{display:inline-block !important;background:transparent !important;border:1px solid #F2B24A !important;color:#FFF3CF !important;padding:0 10px !important;margin-right:4px !important;border-radius:10px !important;font-family:Georgia,"Songti SC",serif !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(7,25,30,.6) !important;border:1px solid rgba(255,255,255,.2) !important;border-radius:14px !important;padding:3px !important;margin:12px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:#93AFAE !important;border:none !important;border-radius:11px !important;background:transparent !important;font-family:Georgia,"Songti SC",serif !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;color:#0E3138 !important}
+[data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;overflow:visible !important;background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;border:1px solid #fff !important;border-radius:14px !important;margin:16px 16px 12px !important;color:#0E3138 !important;box-shadow:0 0 14px rgba(255,255,255,.2),inset 0 0 0 4px #F7FAF9,inset 0 0 0 4.6px rgba(242,178,74,.55) !important}
+[data-wk="statevoice"]{background:linear-gradient(135deg,rgba(143,227,234,.42),rgba(63,162,176,.30)),rgba(18,66,75,.95) !important;border-color:rgba(255,255,255,.6) !important;color:#fff !important;box-shadow:inset 0 0 0 4px #2A6670,inset 0 0 0 4.6px rgba(242,178,74,.6) !important}
+[data-wk="stateseen"]::before{content:"" !important;position:absolute !important;left:10px !important;top:-10px !important;width:20px !important;height:20px !important;background:${svg(FLUFF)} center/contain no-repeat !important}
+[data-wk="statevoice"]::before{content:"" !important;position:absolute !important;right:10px !important;top:-10px !important;width:20px !important;height:20px !important;background:${svg(PLUME)} center/contain no-repeat !important}
+[data-wk="stateseen"] *{color:#0E3138 !important}
+[data-wk="statevoice"] *{color:#fff !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:rgba(18,66,75,.06) !important;border:1px solid rgba(14,49,56,.2) !important;border-radius:10px !important}
+[data-wk="statewear"] > span{background:transparent !important;border:1px solid rgba(14,49,56,.2) !important;border-radius:8px !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:#F2B24A !important}
+[data-wk="statevoice"] + div > button{background:rgba(7,25,30,.6) !important;color:#fff !important;border:1px solid rgba(255,255,255,.4) !important;border-radius:12px !important}
+/* 好感：不做进度条——丑小鸭长大：蛋（<20）→ 灰毛小鸭（20–49）→ 半大的鸭（50–79）→ 白天鹅（80+）。
+   用的是心那几层：形状变量换成整块方形，四层各放一张图，按 --sc-heart-lvl 只亮一张 */
+[data-wk="stateaff"]{background:rgba(7,25,30,.55) !important;border-top:1px solid rgba(255,255,255,.15) !important;position:relative !important;display:block !important;padding:16px 120px 18px 20px !important;min-height:112px !important}
+[data-wk="stateaff"] *{color:#fff !important}
+[data-wk="stateheart"]{position:absolute !important;right:18px !important;left:auto !important;top:50% !important;margin-top:-40px !important;width:92px !important;height:84px !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><rect width='10' height='10'/></svg>`)} !important}
+[data-wk="stateheart"] > div,[data-wk="stateheartknob"]{inset:0 !important;-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important;background-color:transparent !important;border:none !important}
+[data-wk="stateheart"] > div:not([data-wk]){display:none !important}
+[data-wk="stateheartfill"] > div{display:none !important}
+[data-wk="stateheartline"]{background:${svg(ST_EGG)} center/contain no-repeat !important;opacity:calc(1 - clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1)) !important}
+[data-wk="stateheartbase"]{background:${svg(ST_DUCK)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1)) !important}
+[data-wk="stateheartfill"]{background:${svg(ST_TEEN)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important}
+[data-wk="stateheartknob"]{display:block !important;position:absolute !important;left:0 !important;bottom:0 !important;width:100% !important;height:100% !important;margin:0 !important;transform:none !important;background:${svg(ST_SWAN)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important;filter:drop-shadow(0 0 8px rgba(255,243,207,.5)) !important}
+[data-wk="stateheartnum"]{position:absolute !important;inset:auto 0 -6px 0 !important;display:flex !important;justify-content:center !important;padding:0 !important;font:600 13px/1 Georgia,serif !important;color:#FFF3CF !important;-webkit-text-stroke:0 !important;text-shadow:0 0 4px #000 !important;z-index:3 !important}
+[data-wk="stateaffval"]{display:none !important}
+
+/* 翻旧的：一张张白瓷小卡，左上一根小羽毛写着第几张 */
+[data-wk="statehistbtn"]{background:rgba(7,25,30,.6) !important;color:#fff !important;border:1px solid rgba(255,255,255,.4) !important;border-radius:12px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:#fff !important;font-family:Georgia,"Songti SC",serif !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1px solid #F2B24A !important;border-radius:10px !important;background:transparent !important}
+[data-wk="statehistlist"]{counter-reset:pg !important}
+[data-wk="statehistitem"]{counter-increment:pg !important;position:relative !important;background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;border:1px solid #fff !important;border-radius:14px !important;padding:26px 18px 14px !important;margin:18px 0 12px !important;box-shadow:inset 0 0 0 4px #F7FAF9,inset 0 0 0 4.6px rgba(242,178,74,.55) !important}
+[data-wk="statehistitem"]:nth-child(even){background:linear-gradient(135deg,rgba(143,227,234,.42),rgba(63,162,176,.30)),rgba(18,66,75,.95) !important;border-color:rgba(255,255,255,.6) !important;box-shadow:inset 0 0 0 4px #2A6670,inset 0 0 0 4.6px rgba(242,178,74,.6) !important}
+[data-wk="statehistitem"] *{color:#0E3138 !important}
+[data-wk="statehistitem"]:nth-child(even) *{color:#fff !important}
+[data-wk="statehistitem"]::before{content:"No." counter(pg) !important;position:absolute !important;left:14px !important;top:8px !important;font:italic 11px/1 Georgia,serif !important;color:#C98A1E !important;letter-spacing:.1em !important}
+[data-wk="statehistmood"]{background:transparent !important;border:1px solid #F2B24A !important;border-radius:8px !important;padding:0 6px !important}
+[data-wk="statehisttime"]{opacity:.6 !important}
+[data-wk="statehisttext"]{font-family:Georgia,"Songti SC",serif !important}
+[data-wk="statehistmeta"]{background:rgba(14,49,56,.06) !important;border-radius:8px !important}
+[data-wk="statehistend"]{color:#93AFAE !important;letter-spacing:.3em !important}
+
+/* Ta 眼里：贴条换成一根小白羽毛 */
+[data-wk="gazepage"]{background:linear-gradient(180deg,#0B1E2E,#1C4C55 30%,#091E24) !important}
+[data-wk="gazetitle"]{color:#fff !important;font-family:Georgia,"Songti SC",serif !important}
+[data-wk="gazetab"]{background:rgba(7,25,30,.6) !important;color:#93AFAE !important;border:1px solid rgba(255,255,255,.2) !important;border-radius:12px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;color:#0E3138 !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:#93AFAE !important}
+[data-wk="gazecard"]{position:relative !important;overflow:visible !important;background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;border:1px solid #fff !important;border-radius:14px !important;box-shadow:0 0 14px rgba(255,255,255,.18) !important}
+[data-wk="gazetape"]{background:${svg(PLUME)} center/contain no-repeat !important;width:24px !important;height:24px !important;box-shadow:none !important;border:none !important;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3)) !important}
+[data-wk="gazecardname"]{color:#0E3138 !important;font-family:Georgia,"Songti SC",serif !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#4E6A6E !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;color:#0E3138 !important;border:1px solid #fff !important;border-radius:16px !important;box-shadow:inset 0 0 0 4px #F7FAF9,inset 0 0 0 4.6px rgba(242,178,74,.55) !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:#0E3138 !important}
+[data-wk="gazeempty"]{background:rgba(7,25,30,.6) !important;color:#fff !important;border:1px solid rgba(255,255,255,.3) !important;border-radius:14px !important}
+[data-wk="gazeempty"] *{color:#fff !important}
+[data-wk="gazeempty"] button{background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;color:#0E3138 !important;border:none !important;border-radius:12px !important}
+
+/* ───── 线下：同一片月夜湖；他一张白瓷卡、我一块水色玻璃，左上角绒毛/羽毛；说的话奶油色高亮，心里话淡金斜体 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${BG} !important;background-color:#0C2A30 !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"]{background:rgba(7,25,30,.82) !important;border:1px solid rgba(255,255,255,.28) !important;border-radius:14px !important;margin:6px 10px 0 !important;box-shadow:inset 0 0 0 3px rgba(7,25,30,.82),inset 0 0 0 3.6px rgba(242,178,74,.7) !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="headname"] > div:last-child{white-space:normal !important;line-height:1.35 !important;color:#93AFAE !important}
+[data-wk="offline"] [data-wk="headname"] > div:last-child::before{content:none !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *,[data-wk="offline"] [data-wk="chatback"] *{color:#fff !important}
+[data-wk="offline"] [data-wk="chatback"] svg{stroke:#fff !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:transparent !important;color:#FFF3CF !important;border:1px solid #F2B24A !important;border-radius:12px !important;font-size:12px !important;padding:3px 10px !important;flex-shrink:0 !important}
+[data-wk="offline"] [data-wk="chatmore"]{width:26px !important;min-width:26px !important;height:26px !important}
+[data-wk="offcomposer"]{background:rgba(7,25,30,.82) !important;border:1px solid rgba(255,255,255,.28) !important;border-radius:14px !important;margin:0 10px 8px !important;box-shadow:inset 0 0 0 3px rgba(7,25,30,.82),inset 0 0 0 3.6px rgba(242,178,74,.7) !important}
+[data-wk="offcomposer"] textarea{background:linear-gradient(180deg,#24525A,#1A3F46) !important;border:1px solid rgba(190,230,225,.4) !important;border-radius:14px !important;color:#fff !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){width:52px !important;min-width:52px !important;height:36px !important;background:${svg(I_SEND)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:38px !important;min-width:38px !important;height:32px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important;font-size:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcard"]{position:relative !important;overflow:visible !important;background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;border:1px solid #fff !important;border-radius:16px !important;box-shadow:0 0 16px rgba(255,255,255,.2),inset 0 0 0 4px #F7FAF9,inset 0 0 0 4.6px rgba(242,178,74,.5) !important}
+[data-wk="offcard"][data-me="1"]{background:linear-gradient(135deg,rgba(143,227,234,.42),rgba(63,162,176,.30) 55%,rgba(155,231,236,.36)),rgba(18,66,75,.95) !important;border-color:rgba(255,255,255,.6) !important;box-shadow:inset 0 0 0 4px #2A6670,inset 0 0 0 4.6px rgba(242,178,74,.6) !important}
+[data-wk="offcard"]::before{content:"" !important;position:absolute !important;left:10px !important;top:-10px !important;width:20px !important;height:20px !important;background:${svg(FLUFF)} center/contain no-repeat !important}
+[data-wk="offcard"][data-me="1"]::before{left:auto !important;right:10px !important;background:${svg(PLUME)} center/contain no-repeat !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2.5px #B4BDBF !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offhead"] img,[data-wk="offcard"][data-me="1"] [data-wk="offhead"] [data-wk="avatar"]{box-shadow:0 0 0 2.5px #fff,0 0 0 3.4px #F2B24A !important}
+[data-wk="offname"]{color:#C98A1E !important;font-family:Georgia,"Songti SC",serif !important;font-style:italic !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offname"]{color:#FFF3CF !important}
+[data-wk="offtext"]{color:#24414A !important;font-family:Georgia,"Songti SC",serif !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offtext"]{color:#E8F1F0 !important}
+[data-wk="offsay"]{color:#0E3138 !important;background:linear-gradient(transparent 60%,rgba(242,178,74,.35) 60%) !important;border:none !important;font-weight:600 !important;box-decoration-break:clone !important;-webkit-box-decoration-break:clone !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{color:#fff !important;background:linear-gradient(transparent 60%,rgba(255,243,207,.3) 60%) !important}
+[data-wk="offthought"]{background:transparent !important;border:none !important;color:#9C7A3E !important;font-style:italic !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offthought"]{color:#E8D7AE !important}
+[data-wk="offcardacts"] svg{stroke:#6E8A8E !important;color:#6E8A8E !important}
+[data-wk="offreplyopt"]{background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;border:1px solid #fff !important;border-radius:12px !important;color:#0E3138 !important}
+
+/* ───── 通话：他白瓷、我水色玻璃；头像外一圈细金线和月光 ───── */
+[data-wk="callbubble"]{background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;color:#0E3138 !important;border:1px solid #fff !important;border-radius:13px !important;box-shadow:0 0 14px rgba(255,255,255,.25) !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:linear-gradient(135deg,rgba(143,227,234,.42),rgba(63,162,176,.30)),rgba(18,66,75,.95) !important;color:#fff !important;border-color:rgba(255,255,255,.6) !important;box-shadow:none !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 3px #fff,0 0 0 8px #133B42,0 0 0 9px rgba(242,178,74,.9),0 0 40px 10px rgba(246,227,176,.35) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "月湖天鹅", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
