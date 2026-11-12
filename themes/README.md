@@ -32,6 +32,7 @@
 状态卡 state.cjs、翻旧 hist.cjs、线下 off.cjs、红包拆开 env.cjs；线下小结卡用 preview.cjs 带 offlog.json，**每套都要出这张图**）。
 
 ## 踩过的坑（只留对的做法；错的旧说法已删）
+- 每套的按键（加号、房子、⋯、发送、回复、线下几颗）都不能只是给原图标包一层框或写字：要换成这套自己画的配套图案（她 2026-11-12：霓虹「發送」灯牌、回复灯框被打回）。
 - 线下顶栏副标题后面会拼「· 第N轮」：别给 `[data-wk="offline"] [data-wk="chathead"] *` 一刀切 nowrap 不放，要给 `[data-wk="headname"] > div:last-child` 放开 `white-space:normal`，右边按键收到 26px，否则轮数被加号压住。
 
 ### 听她的话

@@ -8,18 +8,20 @@ const C = { bg: "#0E0B19", pink: "#FF5FAE", teal: "#43EEDD", gold: "#F6C764", in
 const GP = `0 0 2px ${C.pink},0 0 8px ${C.pink},0 0 18px rgba(255,95,174,.55)`;
 const GT = `0 0 2px ${C.teal},0 0 8px ${C.teal},0 0 18px rgba(67,238,221,.5)`;
 const IG = (c) => `0 0 6px ${c},inset 0 0 6px ${c}`;
-const T = (c, d) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30' fill='none' stroke='${c}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>${d}</svg>`;
-const I_PLUS = T(C.teal, `<circle cx='15' cy='15' r='11'/><path d='M15 10 V20 M10 15 H20'/>`);
-const I_HOUSE = T(C.pink, `<path d='M5 14 L15 5 L25 14'/><path d='M8 12 V25 H22 V12'/><path d='M13 25 V19 H17 V25'/>`);
-const I_MORE = T(C.teal, `<path d='M4 15 H6 M14 15 H16 M24 15 H26'/>`);
-const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 34' fill='none' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='46' height='28' rx='14' stroke='${C.teal}' stroke-width='2'/><path d='M16 12 H34 Q36 12 36 14 V19 Q36 21 34 21 H23 L19 25 V21 H16 Q14 21 14 19 V14 Q14 12 16 12Z' stroke='${C.ink}' stroke-width='1.6'/></svg>`;
+const T = (c, d, vb = '0 0 30 30') => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='${vb}' fill='none' stroke-linecap='round' stroke-linejoin='round'><g stroke='${c}' stroke-width='3.2' opacity='.45'>${d}</g><g stroke='${c}' stroke-width='1.8'>${d}</g><g stroke='#fff' stroke-width='.7' opacity='.8'>${d}</g></svg>`;
+const I_PLUS = T(C.teal, `<path d='M15 3 L17.5 12.5 L27 15 L17.5 17.5 L15 27 L12.5 17.5 L3 15 L12.5 12.5Z'/>`);
+const I_HOUSE = T(C.pink, `<path d='M4 14 L15 5 L26 14'/><path d='M7 12 V25 H23 V12'/><path d='M12.5 25 V18 H17.5 V25'/><path d='M19 8 V5 H22 V10.5'/>`);
+const I_MORE = T(C.teal, `<circle cx='6' cy='15' r='2.4'/><circle cx='15' cy='15' r='2.4'/><circle cx='24' cy='15' r='2.4'/>`);
+const I_SEND = T(C.pink, `<path d='M4 18 L36 6 L28 30 L20 21 Z'/><path d='M36 6 L20 21 L19 29'/>`, '0 0 40 36');
+const I_REPLY = T(C.teal, `<path d='M6 5 H40 Q46 5 46 11 V21 Q46 27 40 27 H20 L12 32 L13.5 27 H12 Q6 27 6 21 V11 Q6 5 12 5Z'/><path d='M26 21.5 C20 17.5 19.5 15.5 19.5 14 C19.5 12 21 11 22.5 11 C24 11 25.3 12 26 13.2 C26.7 12 28 11 29.5 11 C31 11 32.5 12 32.5 14 C32.5 15.5 32 17.5 26 21.5Z'/>`, '0 0 52 36');
 
+const BRICK = `<svg xmlns='http://www.w3.org/2000/svg' width='48' height='24' viewBox='0 0 48 24'><path d='M0 .5 H48 M0 12.5 H48 M24 0 V12 M.5 12 V24 M47.5 12 V24' stroke='rgba(255,255,255,.035)' stroke-width='1' fill='none'/></svg>`;
 const bubble = { myBg: "transparent", myText: C.ink, myBorder: `2px solid ${C.pink}`, charBg: "transparent", charText: C.ink, charBorder: `2px solid ${C.teal}`, radius: 18, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
 const css = `
 /* ───── 霓虹夜 · 第一批 ───── */
-[data-wk="chat"]{background:radial-gradient(circle at 0% 100%,rgba(196,40,130,.45),transparent 55%),radial-gradient(circle at 100% 0%,rgba(30,150,150,.35),transparent 50%),${C.bg} !important}
+[data-wk="chat"]{background:radial-gradient(circle at 0% 100%,rgba(196,40,130,.45),transparent 55%),radial-gradient(circle at 100% 0%,rgba(30,150,150,.35),transparent 50%),radial-gradient(circle at 80% 55%,rgba(255,95,174,.18),transparent 45%),${svg(BRICK)} 0 0/48px 24px,${C.bg} !important}
 [data-wk="body"]{background:transparent !important}
 
 /* 顶栏：半透明夜色，底边一根洋红灯管 */
@@ -47,14 +49,12 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;background:rgba(14,11,25,.55) !important;border-radius:18px !important;color:${C.ink} !important;padding:11px 20px !important}
 [data-wk="bubble"][data-kind="text"][data-me="1"]{border:2px solid ${C.pink} !important;box-shadow:${IG(C.pink)},0 0 18px rgba(255,95,174,.45) !important}
 [data-wk="bubble"][data-kind="text"][data-me="0"]{border:2px solid ${C.teal} !important;box-shadow:${IG(C.teal)},0 0 18px rgba(67,238,221,.4) !important}
-[data-wk="bubble"][data-kind="text"]::after{content:none !important}
-[data-wk="bubble"][data-kind="text"]::before{content:"" !important;position:absolute !important;pointer-events:none !important;background:transparent !important;transform:none !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]::before{left:-9px !important;top:28% !important;bottom:-7px !important;right:auto !important;width:38% !important;height:auto !important;border:2px solid ${C.pink} !important;border-top:none !important;border-right:none !important;border-radius:0 0 0 16px !important;box-shadow:-2px 2px 8px -2px ${C.pink} !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:-9px !important;top:30% !important;bottom:12% !important;right:auto !important;width:12px !important;height:auto !important;border:2px solid ${C.teal} !important;border-right:none !important;border-radius:10px 0 0 10px !important;box-shadow:-3px 0 8px -2px ${C.teal} !important}
-[data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="1"]::before{content:none !important}
+/* 照参考：灯管顶上正中一个小黑灯座卡扣；右下角灯管断开一小截，像真的弯管接头 */
+[data-wk="bubble"][data-kind="text"]::before{content:"" !important;position:absolute !important;left:calc(50% - 8px) !important;top:-4px !important;right:auto !important;bottom:auto !important;width:16px !important;height:6px !important;border-radius:2px !important;background:#1A1626 !important;border:1px solid #4A4560 !important;box-shadow:none !important;transform:none !important;pointer-events:none !important;z-index:2 !important}
+[data-wk="bubble"][data-kind="text"]::after{content:"" !important;position:absolute !important;right:12px !important;bottom:-4px !important;left:auto !important;top:auto !important;width:12px !important;height:6px !important;border:none !important;border-radius:0 !important;background:#140E20 !important;box-shadow:0 0 4px #140E20 !important;transform:none !important;pointer-events:none !important;z-index:2 !important}
 
 /* 时间：一行暖金灯字，不带底 */
-[data-wk="time"] > span{background:transparent !important;border:none !important;color:${C.gold} !important;font-family:ui-monospace,Menlo,monospace !important;letter-spacing:.18em !important;font-size:12px !important;text-shadow:0 0 6px rgba(246,199,100,.8) !important}
+[data-wk="time"] > span{background:rgba(14,11,25,.6) !important;border:2px solid ${C.gold} !important;border-radius:14px !important;padding:4px 22px !important;box-shadow:0 0 6px ${C.gold},inset 0 0 6px rgba(246,199,100,.6) !important;color:${C.gold} !important;font-family:ui-monospace,Menlo,monospace !important;letter-spacing:.18em !important;font-size:12px !important;text-shadow:0 0 6px rgba(246,199,100,.8) !important}
 /* 已读：小字，前面（我的在后面）一颗亮点 */
 [data-wk="meta"]{color:${C.fog} !important;font-size:10.5px !important;letter-spacing:.1em !important;display:inline-flex !important;align-items:center !important;gap:6px !important}
 [data-wk="meta"]::before{content:"" !important;width:6px !important;height:6px !important;border-radius:50% !important;background:${C.teal} !important;box-shadow:0 0 6px ${C.teal} !important}
@@ -77,14 +77,13 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 [data-wk="sysnotetext"]::before{content:"◦ " !important;color:${C.teal} !important}
 [data-wk="sysnotetext"]::after{content:" ◦" !important;color:${C.teal} !important}
 
-/* 底栏：夜色，顶边一根青色灯管；左加号、发送（洋红灯牌「發送」），右回复（青色灯框） */
+/* 底栏：夜色，顶边一根青色灯管；左加号、发送是一架洋红灯管纸飞机，右回复是青色灯管对话框里一颗心；按键都不包框，换成配套灯管图案 */
 [data-wk="composer"]{background:rgba(14,11,25,.88) !important;border-top:1.5px solid ${C.teal} !important;box-shadow:0 -1px 10px rgba(67,238,221,.35) !important;align-items:center !important;gap:8px !important}
 [data-wk="chatinput"]{background:${C.panel} !important;border:1.5px solid rgba(244,240,255,.25) !important;border-radius:18px !important;color:${C.ink} !important}
 [data-wk="chatinput"]::placeholder{color:${C.fog} !important}
 [data-wk="chatplus"]{width:32px !important;min-width:32px !important;height:32px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_PLUS)} center/contain no-repeat !important;filter:drop-shadow(0 0 4px ${C.teal}) !important}
-[data-wk="send"]{width:58px !important;min-width:58px !important;height:34px !important;border:2px solid ${C.pink} !important;border-radius:17px !important;background:transparent !important;box-shadow:${IG(C.pink)} !important;opacity:1 !important;position:relative !important}
-[data-wk="send"]::after{content:"發送" !important;position:absolute !important;inset:0 !important;display:flex !important;align-items:center !important;justify-content:center !important;color:${C.ink} !important;font-weight:700 !important;font-size:13px !important;letter-spacing:.3em !important;padding-left:.3em !important;text-shadow:0 0 6px ${C.pink} !important}
-[data-wk="chatreply"]{width:52px !important;min-width:52px !important;height:34px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important;filter:drop-shadow(0 0 4px ${C.teal}) !important}
+[data-wk="send"]{width:40px !important;min-width:40px !important;height:36px !important;border:none !important;border-radius:0 !important;background:${svg(I_SEND)} center/contain no-repeat !important;box-shadow:none !important;opacity:1 !important;filter:drop-shadow(0 0 5px ${C.pink}) !important}
+[data-wk="chatreply"]{width:48px !important;min-width:48px !important;height:34px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important;filter:drop-shadow(0 0 5px ${C.teal}) !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.92) !important}
 `;
