@@ -13105,7 +13105,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 她要换的是她自己的头像时，「换成你的头像」那一问整个不给，免得两格打架
       // 同一张照片只问一次换不换（群里 2026-11-12「角色还是在随便换头像」）：原来她发完一张，往后好几轮每轮都再问一遍，
       //   冷却又是 0，问的次数多了总有一轮填 true。问过一次（她没开口要）就在那条上记 avAsked，以后不再拿它问；她开口要的照旧
-      const _seenAvatarOk = !!(_avatarMsg && (_askAvatar || (avatarCoolOk(charId) && !_avatarMsg.avAsked))) && !_myAvatarPick;
+      // 她没开口时，一张照片只有一小半会拿去问（她 2026-11-12「不不不就是当轮就换」）：问一次模型也太爱填 true，
+      //   提示里「默认 false」「只认人像合照宠物画」都压不住——掷轴交给代码。同一张照片骰子固定（照 imageRef 算），重开也一样
+      const _avDice = m => { const k = String((m && (m.imageRef || m.ts)) || ""); let x = 7; for (let i = 0; i < k.length; i++) x = (x * 31 + k.charCodeAt(i)) >>> 0; return x % 100 < AVATAR_AUTO_PCT; };
+      const _seenAvatarOk = !!(_avatarMsg && (_askAvatar || (avatarCoolOk(charId) && !_avatarMsg.avAsked && _avDice(_avatarMsg)))) && !_myAvatarPick;
       // note 只跟【刚看见的那张】走；她翻旧账要换头像时不补记老照片的画面
       const seenHint = _seenMsg ? photoSeenHint(_seenAvatarOk, uName)
         : (_seenAvatarOk ? (_askAvatar ? photoSeenAskHint(uName) : photoSeenAutoHint(uName)) : "");
@@ -29268,6 +29271,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 冷却去掉了（她 2026-10-19：「把冷却去掉」——TA刚自己换过头像，她发的情头重 Roll 多少次都不换）。
   //   闸还留着这一格（=0），换不换照旧由 TA 看照片自己定，只是不再按日子拦。
   const AVATAR_COOLDOWN_MS = 0;
+  const AVATAR_AUTO_PCT = 25;   // 她没开口时，一张照片被拿去问「换不换成你的头像」的概率（百分之几）
   const FRESH_PHOTO_LOOKBACK = 6;
   // ⚠️第二个参数是往回看几条。原来写死 6——于是下面「她开口要换」那一档虽然先 slice(-40)，
   //   进来又被砍回 6 条，发完照片聊几轮再说「换成那张」就永远找不到（她 2026-09-30：「过了几轮他就不行了」）。

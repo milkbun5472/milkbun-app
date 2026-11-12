@@ -48,7 +48,7 @@ test("她提了头像，就往前多找一段——不再卡死在最近 6 条",
 
 test("她开口要的时候，7 天冷却不算数", () => {
   // 后面挂的 && !_myAvatarPick：她要换的是她自己的头像时，换他头像那一问不给
-  assert.match(seg, /const _seenAvatarOk = !!\(_avatarMsg && \(_askAvatar \|\| \(avatarCoolOk\(charId\) && !_avatarMsg\.avAsked\)\)\)( && !_myAvatarPick)?;/);
+  assert.match(seg, /const _seenAvatarOk = !!\(_avatarMsg && \(_askAvatar \|\| \(avatarCoolOk\(charId\) && !_avatarMsg\.avAsked && _avDice\(_avatarMsg\)\)\)\)( && !_myAvatarPick)?;/);
   // 她没开口那一半照旧受冷却管——闸没被拆掉，只是对她让路
   assert.match(app, /const avatarCoolOk = charId => \(Date\.now\(\) - Number\(\(avatarSwapRef\.current\[charId\] \|\| \{\}\)\.ts \|\| 0\)\) >= AVATAR_COOLDOWN_MS;/);
   assert.match(app, /const AVATAR_COOLDOWN_MS = 0;/);   // 她 2026-10-19：「把冷却去掉」
