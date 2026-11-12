@@ -46,7 +46,7 @@ const css = `
 /* 头像：圆的灯圈——他的青、我的粉 */
 button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[data-wk="avatar"] *,[data-wk="chathead"] img{border-radius:50% !important}
 button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chathead"] [data-wk="avatar"]{box-shadow:0 0 0 2px ${C.teal},${GT} !important}
-[data-wk="msg"][data-me="1"] button[data-wk="avatar"],[data-wk="msg"][data-me="1"] span[data-wk="avatar"],[data-wk="cardrow"][data-me="1"] button[data-wk="avatar"]{box-shadow:0 0 0 2px ${C.pink},${GP} !important}
+[data-wk="msg"][data-me="1"] button[data-wk="avatar"],[data-wk="msg"][data-me="1"] span[data-wk="avatar"],[data-wk="cardrow"][data-me="1"] button[data-wk="avatar"],[data-wk="cardrow"][data-me="1"] span[data-wk="avatar"],[data-wk="msg"][data-me="1"] [data-wk="avatar"],[data-wk="cardrow"][data-me="1"] [data-wk="avatar"]{box-shadow:0 0 0 2px ${C.pink},${GP} !important}
 
 /* 气泡：一根霓虹灯管——圆角描边、里外都亮；左下多绕出一截灯管（我的左下拐一个弯，他的左边多一道竖管） */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;background:rgba(14,11,25,.55) !important;border-radius:18px !important;color:${C.ink} !important;padding:11px 20px !important}
@@ -78,7 +78,7 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 [data-wk="sysnotelabel"]{display:none !important}
 [data-wk="sysnotetext"]{background:transparent !important;border:none !important;color:${C.fog} !important;font-family:ui-monospace,Menlo,monospace !important;font-size:11px !important;font-style:normal !important;letter-spacing:.08em !important}
 [data-wk="sysnotetext"]::before{content:"◦ " !important;color:${C.teal} !important}
-[data-wk="sysnotetext"]::after{content:" ◦" !important;color:${C.teal} !important}
+[data-wk="sysnotetext"]::after{content:none !important}
 
 /* 底栏：夜色，顶边一根青色灯管；左加号、发送是一道洋红闪电，右回复是青色灯管对话框里一颗心；按键都不包框，换成配套灯管图案 */
 [data-wk="composer"]{background:rgba(14,11,25,.88) !important;border-top:1.5px solid ${C.teal} !important;box-shadow:0 -1px 10px rgba(67,238,221,.35) !important;align-items:center !important;gap:8px !important}
@@ -89,6 +89,14 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 [data-wk="chatreply"]{width:48px !important;min-width:48px !important;height:34px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important;filter:drop-shadow(0 0 5px ${C.teal}) !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.92) !important}
+/* 顶栏：双头像挤一点、两颗都锁成正圆；名字那块不许被压扁 */
+[data-wk="chathead"] [data-wk="headme"]{margin-left:-16px !important;flex-shrink:0 !important}
+[data-wk="chathead"] [data-wk="headme"] > *,[data-wk="chathead"] [data-wk="headme"] img,[data-wk="chathead"] [data-wk="avatar"]{width:34px !important;height:34px !important;min-width:34px !important;flex-shrink:0 !important;aspect-ratio:1 !important}
+[data-wk="chathead"] [data-wk="headname"]{flex:1 1 auto !important;min-width:64px !important}
+[data-wk="chathead"] [data-wk="headname"] > div:last-child{white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important}
+[data-wk="chathead"] [data-wk="sameroom"],[data-wk="chathead"] [data-wk="chatmore"]{width:26px !important;min-width:26px !important;height:26px !important;flex-shrink:0 !important}
+[data-wk="chathead"] [data-wk="chatmore"]{margin-left:2px !important}
+
 /* ───── 霓虹夜 · 第二批：卡片（形状不动；每张是一块挂墙上的灯牌——深色底、灯管描边、顶上一个灯座卡扣） ───── */
 [data-wk="transfercard"],[data-wk="photocard"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"],[data-wk="rpcard"]{position:relative !important;overflow:visible !important;background:rgba(14,11,25,.78) !important;border:2px solid ${C.teal} !important;border-radius:14px !important;box-shadow:${IG(C.teal)},0 0 16px rgba(67,238,221,.35) !important;color:${C.ink} !important}
 [data-wk="transfercard"]::before,[data-wk="photocard"]::before,[data-wk="namecard"]::before,[data-part="offlog"]::before,[data-wk="wxcard"]::before{content:"" !important;position:absolute !important;left:calc(50% - 9px) !important;top:-5px !important;width:18px !important;height:7px !important;border-radius:2px !important;background:#1A1626 !important;border:1px solid #4A4560 !important;z-index:3 !important}
@@ -265,6 +273,6 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 2px ${C.teal},0 0 10px ${C.teal},0 0 0 10px rgba(14,11,25,.6),0 0 0 12px ${C.pink},0 0 22px 12px rgba(255,95,174,.45) !important}
 `;
 
-const pack = { kind: "chat-look", v: 1, name: "霓虹夜", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
-writeFileSync(join(here, "霓虹夜-美化.json"), JSON.stringify(pack));
+const pack = { kind: "chat-look", v: 1, name: "街角霓虹", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
+writeFileSync(join(here, "街角霓虹-美化.json"), JSON.stringify(pack));
 console.log("ok", css.length);

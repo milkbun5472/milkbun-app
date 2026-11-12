@@ -33,6 +33,7 @@
 
 ## 踩过的坑（只留对的做法；错的旧说法已删）
 - 每套的按键（加号、房子、⋯、发送、回复、线下几颗）都不能只是给原图标包一层框或写字：要换成这套自己画的配套图案（她 2026-11-12：霓虹「發送」灯牌、回复灯框被打回）。
+- 「我的」头像发光框要同时写 `[data-wk="msg"][data-me="1"] [data-wk="avatar"]` 和 `[data-wk="cardrow"][data-me="1"] [data-wk="avatar"]`：卡片那一行的头像是 span 不是 button，只写 button 会让转账、红包旁边我的头像掉回他的颜色。顶栏双头像要锁 width/height/aspect-ratio，否则被名字挤成椭圆。
 - 不要每套都画纸飞机、小房子、三个点：发送、回家、更多也要按这套的主题重新想图案（霓虹夜：闪电、带月亮的门、三根长短不一的灯柱）。
 - 线下顶栏副标题后面会拼「· 第N轮」：别给 `[data-wk="offline"] [data-wk="chathead"] *` 一刀切 nowrap 不放，要给 `[data-wk="headname"] > div:last-child` 放开 `white-space:normal`，右边按键收到 26px，否则轮数被加号压住。
 
