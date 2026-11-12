@@ -31,6 +31,7 @@ const NEONPIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><ci
 const STAMP = (t, c) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><rect x='4' y='14' width='52' height='32' rx='2' fill='none' stroke='${c}' stroke-width='2'/><rect x='8' y='18' width='44' height='24' fill='none' stroke='${c}' stroke-width='.8'/><text x='30' y='36' text-anchor='middle' font-size='15' font-weight='700' fill='${c}' font-family='serif' letter-spacing='3'>${t}</text></svg>`;
 
 // ── 第三批用的图 ──
+const NEONHEART = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 66 60'><path d='M33 56 C14 42 4 32 4 19 C4 10 11 4 19 4 C25 4 30 7 33 12 C36 7 41 4 47 4 C55 4 62 10 62 19 C62 32 52 42 33 56Z'/></svg>`;
 const FRAMEMASK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 180'>${[0,1,2,3,4].map(i=>`<g transform='translate(0 ${i*36}) rotate(-90 18 18)'><path fill-rule='evenodd' d='M4 6 H32 V30 H4Z M7 8 h3 v2 h-3z M14.5 8 h3 v2 h-3z M22 8 h3 v2 h-3z M7 26 h3 v2 h-3z M14.5 26 h3 v2 h-3z M22 26 h3 v2 h-3z'/></g>`).join("")}</svg>`;
 
 const bubble = { myBg: C.red, myText: C.cream, myBorder: "none", charBg: C.brown, charText: C.cream, charBorder: "none", radius: 0, shadow: "none", myAlpha: 100, charAlpha: 100 };
@@ -217,7 +218,7 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="quoteclear"]{color:${C.cream} !important}
 [data-wk="quote"]{background:transparent !important;color:${C.dim} !important;border:none !important;border-left:2px solid ${C.redL} !important;border-radius:0 !important;padding:2px 10px !important;opacity:1 !important;letter-spacing:.08em !important}
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.7 !important}
-/* ───── 港风旧梦 · 第三批：状态卡＝一盒录像带封套：红色片头横条写片名，取景框角，好感是五格菲林逐格亮红 ───── */
+/* ───── 港风旧梦 · 第三批：状态卡＝一盒录像带封套：红色片头横条写片名，取景框角，好感是一颗霓虹心招牌 ───── */
 [data-wk="statecard"]{background:${svg(GRAIN)} 0 0/120px 120px,${svg(GLOW)} center/cover no-repeat,${C.ink} !important;border:1px solid rgba(201,163,106,.45) !important;border-radius:0 !important;box-shadow:0 20px 50px rgba(0,0,0,.6) !important;overflow:visible !important;position:relative !important;padding-top:30px !important;--sc-heart-ink:${C.redL} !important}
 [data-wk="statecard"]::before{content:"● REC   Midnight Romance" !important;white-space:pre !important;position:absolute !important;left:0 !important;right:0 !important;top:0 !important;height:24px !important;display:flex !important;align-items:center !important;padding-left:16px !important;background:#B8262C !important;color:#F3E6CF !important;font:italic 11px/1 Georgia,serif !important;letter-spacing:.2em !important;z-index:3 !important}
 [data-wk="statecard"]::after{content:"" !important;position:absolute !important;inset:-8px !important;background:${CORNERS(C.cream, 14, 1.6)} !important;pointer-events:none !important;z-index:3 !important}
@@ -240,14 +241,14 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="statewear"] > span{background:transparent !important}
 [data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.dim} !important}
 [data-wk="statevoice"] + div > button{background:transparent !important;color:${C.cream} !important;border:1px solid ${C.cream} !important;border-radius:0 !important;letter-spacing:.2em !important}
-/* 好感：五格菲林，按好感一格格亮成红色 */
-[data-wk="stateaff"]{background:transparent !important;border-top:1px solid rgba(201,163,106,.4) !important;position:relative !important;display:block !important;padding:16px 22px 66px !important;overflow:hidden !important}
+/* 好感：街角一块霓虹心招牌——一颗心按好感从下往上亮成红色，外面一圈霓虹光 */
+[data-wk="stateaff"]{background:transparent !important;border-top:1px solid rgba(201,163,106,.4) !important;position:relative !important;display:block !important;padding:16px 22px 84px !important;overflow:hidden !important}
 [data-wk="stateaff"] *{color:${C.cream} !important}
-[data-wk="stateheart"]{position:absolute !important;width:36px !important;left:calc(50% - 18px) !important;height:180px !important;bottom:calc(32px - 90px) !important;transform:rotate(90deg) !important;--sc-heart-mask:${svg(FRAMEMASK)} !important;filter:drop-shadow(0 0 6px rgba(224,53,58,.6)) !important}
+[data-wk="stateheart"]{position:absolute !important;width:66px !important;height:60px !important;left:calc(50% - 33px) !important;bottom:14px !important;transform:none !important;--sc-heart-mask:${svg(NEONHEART)} !important;filter:drop-shadow(0 0 1.5px #FF6A73) drop-shadow(0 0 1.5px #FF6A73) drop-shadow(0 0 10px rgba(255,74,85,.7)) drop-shadow(0 0 22px rgba(255,74,85,.35)) !important}
 [data-wk="stateheart"] > div{-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important}
 [data-wk="stateheartline"]{background:transparent !important;opacity:0 !important}
-[data-wk="stateheartbase"]{background:#4A3C33 !important;opacity:1 !important}
-[data-wk="stateheartfill"] > div{background:linear-gradient(90deg,#FF5A62,#B8262C) !important;opacity:1 !important;border-top:none !important}
+[data-wk="stateheartbase"]{background:#3A1A1C !important;opacity:1 !important}
+[data-wk="stateheartfill"] > div{background:linear-gradient(0deg,#B8262C,#FF5A62 70%,#FFC2C5) !important;opacity:1 !important;border-top:1.5px solid #FFD9DB !important}
 [data-wk="stateheartnum"],[data-wk="stateheartknob"]{display:none !important}
 [data-wk="stateaffval"]{display:block !important;position:absolute !important;right:22px !important;top:10px !important;font:italic 700 26px/1 Georgia,serif !important;color:${C.redL} !important}
 /* 翻旧的：一张张旧戏票票根 */
