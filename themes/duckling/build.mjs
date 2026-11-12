@@ -21,6 +21,9 @@ const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30' fil
 const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30' fill='none' stroke='${C.white}' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M7 25 C9 15 15 7 25 4 C25 13 19 21 9 23Z' fill='rgba(244,246,241,.9)'/><path d='M5 27 L18 12' stroke='${C.dark}' stroke-width='1.2'/><path d='M12 18 L9 17 M15 15 L12 13 M15 20 L13 19' stroke='${C.fog}' stroke-width='1'/></svg>`;
 const DUCKDOT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 12'><circle cx='7' cy='6' r='5' fill='${C.white}'/><path d='M12 4 L18 6 L12 8Z' fill='${C.beak}'/></svg>`;
 
+const I_PIC = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><rect x='3' y='5' width='24' height='20' rx='4' fill='#12424B' stroke='#fff' stroke-width='1.4'/><circle cx='20' cy='11' r='3' fill='#FFF3CF'/><path d='M3.7 17 H26.3' stroke='#06161B' stroke-width='2'/><path d='M17 20 h6 M18 22.5 h4' stroke='#FFF3CF' stroke-width='1' stroke-linecap='round'/></svg>`;
+const EGG = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 46'><ellipse cx='20' cy='42' rx='16' ry='3' fill='rgba(0,0,0,.25)'/><path d='M20 2 C30 2 35 16 35 26 C35 36 28 42 20 42 C12 42 5 36 5 26 C5 16 10 2 20 2Z' fill='#F6D27A' stroke='#fff' stroke-width='1.6'/><path d='M12 10 Q14 6 18 5' stroke='#fff' stroke-width='2' fill='none' stroke-linecap='round' opacity='.8'/><path d='M8 24 L13 20 L17 25 L21 20 L25 25 L29 20 L33 24' fill='none' stroke='#B7832A' stroke-width='1.4' stroke-linejoin='round'/></svg>`;
+const FEATHER = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle cx='20' cy='20' r='17' fill='none' stroke='#F2B24A' stroke-width='1.6'/><circle cx='20' cy='20' r='14' fill='none' stroke='#F2B24A' stroke-width='.8'/><path d='M12 29 C14 19 20 12 29 10 C29 18 23 25 14 27Z' fill='#F2B24A'/><path d='M11 31 L23 17' stroke='#12424B' stroke-width='1.1'/></svg>`;
 const bubble = { myBg: C.teal, myText: C.ink, myBorder: "1px solid rgba(190,230,225,.5)", charBg: C.white, charText: "#21343A", charBorder: "none", radius: 18, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
@@ -103,6 +106,83 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),img[data-wk="av
 [data-wk="chatreply"]{width:38px !important;min-width:38px !important;height:32px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.92) !important}
+/* ───── 丑小鸭 · 第二批：卡片（形状不动；他的白瓷、我的水色玻璃，同气泡；细金线收边） ───── */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"],[data-wk="rpcard"]{position:relative !important;overflow:visible !important;background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;border:1px solid #fff !important;border-radius:14px !important;box-shadow:0 0 16px rgba(255,255,255,.28),inset 0 0 0 4px #F7FAF9,inset 0 0 0 4.6px rgba(242,178,74,.55) !important;color:#0E3138 !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *,[data-wk="photocard"] *{color:#0E3138 !important;border-color:rgba(14,49,56,.15) !important}
+/* 转账：白瓷卡，金额金色衬线；收下盖一枚金色羽毛圆章 */
+[data-wk="transferamount"],[data-wk="transfercur"]{color:#C98A1E !important;font-family:Georgia,serif !important}
+[data-wk="transferrule"]{border:none !important;height:1px !important;background:linear-gradient(90deg,transparent,#F2B24A,transparent) !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:rgba(18,66,75,.06) !important;border-top:1px solid rgba(14,49,56,.12) !important}
+[data-wk="transferbtn"]{border-radius:12px !important}
+[data-wk="transferbtn"][data-part="take"]{background:#12424B !important;color:#fff !important;border:1px solid #fff !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;border:1px solid rgba(14,49,56,.3) !important}
+[data-wk="transferseal"]{background:${svg(FEATHER)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;width:44px !important;height:44px !important;font-size:0 !important;color:transparent !important}
+[data-wk="transferseal"] *{opacity:0 !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{transform:rotate(-10deg) !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.55 !important}
+/* 红包：不是信封——一块水色玻璃，左边卧着一颗金蛋（丑小鸭的蛋）；领完蛋壳裂开变淡 */
+[data-wk="rpcard"]{background:linear-gradient(135deg,rgba(143,227,234,.42),rgba(63,162,176,.30) 55%,rgba(155,231,236,.36)),rgba(18,66,75,.95) !important;border:1.2px solid rgba(255,255,255,.6) !important;border-top-color:rgba(255,255,255,.95) !important;padding-left:58px !important;box-shadow:inset 0 0 0 4px #2A6670,inset 0 0 0 4.6px rgba(242,178,74,.6) !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:12px !important;top:calc(50% - 22px) !important;width:38px !important;height:44px !important;background:${svg(EGG)} center/contain no-repeat !important;filter:drop-shadow(0 0 8px rgba(246,210,122,.6)) !important;z-index:2 !important}
+[data-wk="rpcard"] *{color:#fff !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"][data-status="done"]{opacity:.6 !important}
+[data-wk="rpcard"][data-status="done"]::before{filter:grayscale(.6) !important}
+[data-wk="rpenvelope"]{background:radial-gradient(circle at 70% 18%,#FFFDF2 0 18px,rgba(246,227,176,.3) 20px,transparent 70px),linear-gradient(180deg,#0B1E2E,#2A5560 45%,#1C4C55 46%,#091E24) !important;border:1px solid rgba(255,255,255,.4) !important;border-radius:18px !important;box-shadow:inset 0 0 0 4px #10283A,inset 0 0 0 4.6px rgba(242,178,74,.7),0 10px 30px rgba(0,0,0,.5) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:transparent !important;border:none !important}
+[data-wk="rpenvelope"] *{color:#fff !important}
+[data-wk="rpopenbtn"]{background:${svg(EGG)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;filter:drop-shadow(0 0 12px rgba(246,210,122,.7)) !important}
+[data-wk="rpopenbtn"] *{opacity:0 !important}
+[data-wk="rpamount"]{color:#FFF3CF !important;font-family:Georgia,serif !important;text-shadow:0 0 10px rgba(246,227,176,.6) !important}
+/* 照片：白瓷框里一块湖色小屏；语音：水色玻璃条，波形是奶油色 */
+[data-wk="photocard"]{padding:8px 8px 10px !important}
+[data-wk="photoface"]{border-radius:10px !important;background:linear-gradient(180deg,#1C4C55,#103138) !important;border:none !important}
+[data-wk="photoface"] *,[data-wk="photohint"]{color:#E8F1F0 !important}
+[data-wk="photoface"] svg{stroke:#FFF3CF !important}
+[data-wk="voice"][data-me]{background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;border:1px solid #fff !important;border-radius:13px !important;box-shadow:0 0 14px rgba(255,255,255,.28) !important}
+[data-wk="voice"][data-me="1"]{background:linear-gradient(135deg,rgba(143,227,234,.42),rgba(63,162,176,.30)),rgba(18,66,75,.92) !important;border-color:rgba(255,255,255,.6) !important;box-shadow:none !important}
+[data-wk="voice"] > *{background:transparent !important;border:none !important;box-shadow:none !important;color:#0E3138 !important}
+[data-wk="voice"][data-me="1"] > *{color:#fff !important}
+[data-wk="voicewave"] span{background:#3FA2B0 !important}
+[data-wk="voice"][data-me="1"] [data-wk="voicewave"] span{background:#FFF3CF !important}
+/* 天气、位置、名片 */
+[data-wk="wxcard"]{background:linear-gradient(180deg,#0B1E2E,#1C4C55) !important;border:1px solid rgba(255,255,255,.4) !important;box-shadow:inset 0 0 0 4px #10283A,inset 0 0 0 4.6px rgba(242,178,74,.6) !important}
+[data-wk="wxcard"] *{color:#fff !important}
+[data-wk="wxcardsky"]{background:transparent !important}
+[data-wk="wxcardsky"] > div:first-child{background:radial-gradient(circle,#FFFDF2 0 12px,rgba(246,227,176,.35) 14px,transparent 60%) !important}
+[data-wk="wxcardsky"] svg{stroke:#FFF3CF !important}
+[data-wk="wxcardsky"] span[style*="999"],[data-wk="wxcardrain"]{background:rgba(255,255,255,.1) !important;border:1px solid rgba(255,255,255,.35) !important}
+[data-wk="wxcardtemp"]{font-family:Georgia,serif !important}
+[data-wk="wxcardsay"]{background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;border-top:none !important;border-radius:0 0 13px 13px !important}
+[data-wk="wxcardsay"],[data-wk="wxcardsay"] *{color:#0E3138 !important}
+[data-wk="geopin"]{background:#F2B24A !important;box-shadow:0 0 0 2px #fff,0 0 10px #F2B24A !important}
+[data-wk="geopinstem"]{background:#fff !important}
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 2.5px #fff,0 0 0 3.4px #F2B24A !important}
+/* 拍一拍、通话结束：一行奶油色小字，两头各一道细水纹 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;border:none !important;color:#FFF3CF !important;font-family:Georgia,"Songti SC",serif !important;padding:2px 36px !important;font-size:12px !important;background:${svg(WAVE("rgba(255,243,207,.7)"))} left center/28px 7px no-repeat,${svg(WAVE("rgba(255,243,207,.7)"))} right center/28px 7px no-repeat,rgba(11,39,45,.85) !important;border-radius:12px !important}
+[data-wk="note"][data-part="call"] svg{stroke:#FFF3CF !important}
+[data-wk="note"][data-part="callsum"]{color:${C.fog} !important}
+/* 线下小结 */
+[data-wk="offlogtitle"]{font-family:Georgia,serif !important;font-style:italic !important;letter-spacing:.15em !important;color:#C98A1E !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:#2D6B70 !important}
+[data-wk="offlogtranscript"]{border-top:1px solid rgba(14,49,56,.15) !important}
+/* 加号面板：一片片圆圆的睡莲叶——白瓷和水色交替 */
+[data-wk="chatpanel"]{background:rgba(7,25,30,.92) !important;border-top:1px solid rgba(255,255,255,.2) !important}
+[data-wk="chattoolicon"]{background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;border:1px solid #fff !important;border-radius:50% !important;box-shadow:0 0 12px rgba(255,255,255,.25),inset 0 0 0 3px #F3F8F8,inset 0 0 0 3.6px rgba(242,178,74,.6) !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:#0E3138 !important;color:#0E3138 !important}
+[data-wk="chattool"]:nth-child(odd) [data-wk="chattoolicon"]{background:linear-gradient(135deg,rgba(143,227,234,.42),rgba(63,162,176,.30)),rgba(18,66,75,.95) !important;border-color:rgba(255,255,255,.6) !important;box-shadow:inset 0 0 0 3px #2A6670,inset 0 0 0 3.6px rgba(242,178,74,.6) !important}
+[data-wk="chattool"]:nth-child(odd) [data-wk="chattoolglyph"],[data-wk="chattool"]:nth-child(odd) [data-wk="chattoolglyph"] svg{stroke:#fff !important;color:#fff !important}
+[data-wk="chattoollabel"]{color:#CFE6EA !important}
+/* 引用三处：左边一道奶油色细线 */
+[data-wk="quotedraft"]{background:rgba(7,25,30,.92) !important;border-top:none !important}
+[data-wk="quote"]{background:rgba(11,39,45,.85) !important;color:#CFE6EA !important;border:none !important;border-left:2px solid #FFF3CF !important;border-radius:6px !important;opacity:1 !important}
+[data-wk="quoteicon"],[data-wk="quoteclear"]{color:#F2B24A !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.7 !important}
+/* 线下：提示键是那颗裂开的蛋，照片键是一幅小小的月夜湖 */
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:24px !important;min-width:24px !important;height:28px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;flex-shrink:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PIC)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "丑小鸭", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
