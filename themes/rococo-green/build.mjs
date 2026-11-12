@@ -1,4 +1,4 @@
-// 洛可可墨绿：法式复古。墨绿暗纹底、奶油顶栏底栏、橘红细边；所有框都顶一枚金色洛可可卷叶饰、角上卷一道金涡卷。
+// 翡翠沙龙：法式复古。墨绿暗纹底、奶油顶栏底栏、橘红细边；所有框都顶一枚金色洛可可卷叶饰、角上卷一道金涡卷。
 // 我的话＝橘红圆角牌，他的话＝奶油圆角牌；头像＝金珠圈镜框，上贝壳下涡卷。用法：node themes/rococo-green/build.mjs
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -30,11 +30,17 @@ const I_MORE = RB(C.orange, `<g fill='${C.cream}' stroke='${C.ink}' stroke-width
 const I_REPLY = RB(C.greenL, `<path d='M11 14 H29 V24 H19 L14 28 V24 H11Z' fill='${C.cream}' stroke='${C.ink}' stroke-width='1.4' stroke-linejoin='round'/>`);
 const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 74'><circle cx='35' cy='40' r='27' fill='none' stroke='${C.gold}' stroke-width='5'/><circle cx='35' cy='40' r='27' fill='none' stroke='${C.cream}' stroke-width='2' stroke-dasharray='.1 5.5' stroke-linecap='round'/><circle cx='35' cy='40' r='22' fill='${C.orange}' stroke='${C.goldD}' stroke-width='1'/><path d='M35 52 V29 M26 37 L35 28 L44 37' fill='none' stroke='${C.cream}' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/>${SHELL.replace("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 30'>","<g transform='translate(11 -3) scale(.8)'>").replace('</svg>','</g>')}<path d='M6 50 Q0 56 5 62 Q9 64 10 60 M64 50 Q70 56 65 62 Q61 64 60 60' fill='none' stroke='${C.gold}' stroke-width='2' stroke-linecap='round'/></svg>`;
 
+// ── 第二批用的图 ──
+const WAX = (c, t) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><path d='M30 4 Q38 2 42 8 Q50 8 52 16 Q58 22 54 30 Q58 38 52 44 Q50 52 42 52 Q38 58 30 56 Q22 58 18 52 Q10 52 8 44 Q2 38 6 30 Q2 22 8 16 Q10 8 18 8 Q22 2 30 4Z' fill='${c}'/><circle cx='30' cy='30' r='17' fill='none' stroke='rgba(255,255,255,.35)' stroke-width='1.6'/><text x='30' y='36.5' text-anchor='middle' font-size='17' font-style='italic' font-weight='700' fill='rgba(255,255,255,.75)' font-family='Georgia,serif'>${t}</text></svg>`;
+const ENV = open => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 60'><rect x='3' y='10' width='74' height='46' rx='3' fill='${C.orange}' stroke='${C.gold}' stroke-width='1.6'/>${open ? `<path d='M3 10 L40 -8 L77 10' fill='${C.orangeD}' stroke='${C.gold}' stroke-width='1.4'/><rect x='14' y='2' width='52' height='20' fill='${C.cream}' stroke='${C.gold}' stroke-width='1'/>` : `<path d='M3 10 L40 36 L77 10' fill='${C.orangeD}' stroke='${C.gold}' stroke-width='1.4'/><circle cx='40' cy='34' r='7' fill='#8E2B1C' stroke='${C.gold}' stroke-width='1'/>`}<path d='M3 56 L30 34 M77 56 L50 34' stroke='${C.gold}' stroke-width='1' opacity='.7'/></svg>`;
+const HORN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M4 22 H12 L26 6 Q28 16 26 26 L12 24Z' fill='${C.gold}' stroke='${C.goldD}' stroke-width='1.2' stroke-linejoin='round'/><circle cx='8' cy='24' r='3' fill='${C.green}' stroke='${C.gold}' stroke-width='1'/></svg>`;
+const OVALF = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 120' preserveAspectRatio='none'><ellipse cx='50' cy='62' rx='46' ry='55' fill='none' stroke='${C.gold}' stroke-width='5' vector-effect='non-scaling-stroke'/><ellipse cx='50' cy='62' rx='46' ry='55' fill='none' stroke='${C.cream}' stroke-width='2' stroke-dasharray='.1 6' stroke-linecap='round' vector-effect='non-scaling-stroke'/></svg>`;
+
 const bubble = { myBg: C.orange, myText: C.cream, myBorder: "none", charBg: C.cream, charText: C.ink, charBorder: "none", radius: 14, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
 const css = `
-/* ───── 洛可可墨绿 · 第一批 ───── */
+/* ───── 翡翠沙龙 · 第一批 ───── */
 [data-wk="chat"]{background:${svg(DAMASK)} 0 0/48px 64px,radial-gradient(ellipse at 50% 30%,#245447,${C.green2} 80%) !important}
 [data-wk="body"]{background:transparent !important}
 [data-wk="chat"] *{font-family:${SERIF} !important}
@@ -114,8 +120,108 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.9) !important}
 [data-wk="chatpanel"]{background:${C.cream} !important;border-top:2px solid ${C.gold} !important}
+/* ───── 翡翠沙龙 · 第二批：卡片 ───── */
+/* 卡片统一：奶油底、金边双线，顶上正中一枚洛可可饰 */
+[data-wk="voice"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{background:${C.cream} !important;border:none !important;border-radius:14px !important;box-shadow:0 0 0 2px ${C.gold},0 0 0 3px ${C.goldD},0 6px 14px rgba(0,0,0,.3) !important;color:${C.ink} !important}
+[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:${C.ink} !important;border-color:rgba(156,122,60,.35) !important}
+
+/* 转账＝一张烫金邀请函：奶油卡、双金框、顶洛可可饰；收下盖橘红火漆「R」，退回盖灰火漆 */
+[data-wk="transfercard"]{position:relative !important;overflow:visible !important;background:linear-gradient(${C.cream},${C.cream}) padding-box !important;border:none !important;border-radius:6px !important;box-shadow:0 0 0 2px ${C.gold},0 0 0 5px ${C.cream},0 0 0 6px ${C.goldD},0 8px 18px rgba(0,0,0,.35) !important;margin-top:16px !important;color:${C.ink} !important}
+[data-wk="transfercard"]::before{content:"" !important;position:absolute !important;left:50% !important;top:-20px !important;width:56px !important;height:28px !important;margin-left:-28px !important;background:${svg(SHELL)} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="transfercard"]::after{content:"Invitation" !important;position:absolute !important;right:14px !important;top:10px !important;font:italic 11px/1 Georgia,serif !important;color:${C.orange} !important;letter-spacing:.06em !important}
+[data-wk="transfercard"] *{color:${C.ink} !important;border-color:rgba(156,122,60,.35) !important}
+[data-wk="transferlabel"]{color:#8C7F66 !important;letter-spacing:.2em !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.orangeD} !important;font-weight:700 !important}
+[data-wk="transferrule"]{border:none !important;height:20px !important;background:${svg(CURLB)} left center/16px 16px no-repeat,${svg(CURL)} right center/16px 16px no-repeat,linear-gradient(${C.gold},${C.gold}) center/calc(100% - 44px) 1px no-repeat !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:${C.cream2} !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.orange} !important;color:${C.cream} !important;border:none !important;box-shadow:0 0 0 1.5px ${C.gold} !important}
+[data-wk="transferbtn"][data-part="back"]{background:${C.cream} !important;color:${C.green} !important;border:1.5px solid ${C.greenL} !important}
+[data-wk="transferseal"]{background:${C.cream} !important;border:1.5px solid ${C.gold} !important;color:${C.goldD} !important;border-radius:50% !important;box-shadow:none !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{width:54px !important;height:54px !important;flex-shrink:0 !important;border:none !important;background:${svg(WAX("#B8452A", "R"))} center/contain no-repeat !important;transform:rotate(-10deg) !important;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35)) !important}
+[data-wk="transfercard"][data-status="returned"]{filter:grayscale(.6) !important;opacity:.85 !important}
+[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"]{width:54px !important;height:54px !important;flex-shrink:0 !important;border:none !important;background:${svg(WAX("#8A8478", "×"))} center/contain no-repeat !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *,[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"] *{display:none !important}
+
+/* 红包＝一封橘红信封封着火漆；领完了信封打开、露出一张奶油信纸 */
+[data-wk="rpcard"]{position:relative !important;overflow:visible !important;width:220px !important;min-height:90px !important;padding:16px 16px 16px 98px !important;background:${C.cream} !important;border:none !important;border-radius:14px !important;box-shadow:0 0 0 2px ${C.gold},0 0 0 3px ${C.goldD},0 6px 14px rgba(0,0,0,.3) !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:10px !important;top:50% !important;width:80px !important;height:60px !important;margin-top:-28px !important;background:${svg(ENV(false))} center/contain no-repeat !important;filter:drop-shadow(0 3px 4px rgba(0,0,0,.25)) !important}
+[data-wk="rpcard"]::after{content:"pour toi" !important;position:absolute !important;right:12px !important;bottom:6px !important;font:italic 10.5px/1 Georgia,serif !important;color:${C.orange} !important}
+[data-wk="rpcard"] *{color:${C.ink} !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"] > div:not([data-wk]){padding:0 !important;background:transparent !important}
+[data-wk="rpmsg"]{-webkit-line-clamp:2 !important;color:${C.orangeD} !important}
+[data-wk="rpcard"][data-status="done"]{opacity:.85 !important}
+[data-wk="rpcard"][data-status="done"]::before{background:${svg(ENV(true))} center/contain no-repeat !important}
+[data-wk="rpcard"][data-status="done"]::after{content:"merci" !important}
+[data-wk="rpenvelope"][data-stage="closed"],[data-wk="rpenvelope"][data-stage="open"]{background:${svg(DAMASK)} 0 0/48px 64px,linear-gradient(180deg,#DC6A44,${C.orangeD}) !important;border:none !important;border-radius:20px !important;box-shadow:0 0 0 3px ${C.gold},0 0 0 5px ${C.goldD},0 20px 40px rgba(0,0,0,.5) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:${C.cream} !important;border-color:${C.gold} !important;box-shadow:none !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]::after{content:none !important}
+[data-wk="rpenvelope"] *{color:${C.cream} !important}
+[data-wk="rpenvelope"] [data-wk="rparc"] *{color:${C.ink} !important}
+[data-wk="rpopenbtn"]{background:${svg(WAX("#8E2B1C", "♥"))} center/contain no-repeat !important;border:none !important;box-shadow:none !important;filter:drop-shadow(0 4px 6px rgba(0,0,0,.4)) !important}
+[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important}
+[data-wk="rpavatar"]{border-radius:50% !important;box-shadow:0 0 0 3px ${C.gold},0 0 0 4.5px ${C.goldD} !important}
+[data-wk="rpamount"]{color:${C.cream} !important;background:none !important}
+[data-wk="rpclose"]{background:${C.cream} !important;border:2px solid ${C.gold} !important;color:${C.ink} !important}
+
+/* 照片＝镶在一面椭圆金珠镜框里，顶上洛可可饰 */
+[data-wk="photocard"]{position:relative !important;overflow:visible !important;background:${C.cream} !important;border:none !important;border-radius:50% / 46% !important;padding:24px 30px 36px !important;box-shadow:0 8px 18px rgba(0,0,0,.35) !important;margin-top:16px !important}
+[data-wk="photocard"]::before{content:"" !important;position:absolute !important;inset:0 !important;background:${svg(OVALF)} center/100% 100% no-repeat !important;pointer-events:none !important;z-index:2 !important}
+[data-wk="photocard"]::after{content:"" !important;position:absolute !important;left:50% !important;top:-16px !important;width:52px !important;height:26px !important;margin-left:-26px !important;background:${svg(SHELL)} center/contain no-repeat !important;z-index:3 !important}
+[data-wk="photoface"]{background:${svg(DAMASK)} 0 0/48px 64px,${C.green} !important;border:none !important;border-radius:50% / 46% !important}
+[data-wk="photoface"] *,[data-wk="phototext"]{color:${C.cream} !important}
+[data-wk="photocap"],[data-wk="photohint"]{color:#8C7F66 !important;font-style:italic !important}
+
+/* 语音：前面一只金色留声机喇叭 */
+[data-wk="voice"] > *{background:transparent !important;box-shadow:none !important;border:none !important;color:${C.ink} !important}
+[data-wk="voice"][data-me]{padding:0 14px 0 42px !important;position:relative !important;border-radius:999px !important}
+[data-wk="voice"]::before{content:"" !important;position:absolute !important;left:10px !important;top:50% !important;width:24px !important;height:24px !important;margin-top:-12px !important;background:${svg(HORN)} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="voice"][data-me="1"]{background:linear-gradient(180deg,#DC6A44,${C.orange}) !important}
+[data-wk="voice"][data-me="1"] *{color:${C.cream} !important}
+[data-wk="voicewave"] span{background:${C.green} !important}
+[data-wk="voice"][data-me="1"] [data-wk="voicewave"] span{background:${C.cream} !important}
+
+/* 天气：墨绿叶纹天，金字；下面奶油一行 */
+[data-wk="wxcardsky"]{background:${svg(DAMASK)} 0 0/48px 64px,linear-gradient(170deg,${C.greenL},${C.green2}) !important}
+[data-wk="wxcardsky"] *{color:${C.cream} !important}
+[data-wk="wxcardsky"] svg{stroke:${C.gold} !important}
+[data-wk="wxcardsay"]{background:${C.cream} !important;color:${C.ink} !important;border-top:2px solid ${C.gold} !important}
+/* 位置：一枚洛可可饰当图钉 */
+[data-wk="geopin"]{background:${svg(SHELL)} center/contain no-repeat !important;box-shadow:none !important;border:none !important;width:40px !important;height:20px !important;border-radius:0 !important;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35)) !important}
+[data-wk="geopin"] *{opacity:0 !important}
+[data-wk="geopinstem"]{background:${C.gold} !important}
+/* 名片 */
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 2.5px ${C.gold},0 0 0 4px ${C.goldD} !important}
+
+/* 拍一拍、通话结束：奶油小胶囊，两头小涡卷 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:${svg(CURLB)} 8px center/12px 12px no-repeat,${svg(CURL)} calc(100% - 8px) center/12px 12px no-repeat,${C.cream} !important;border:none !important;border-radius:999px !important;padding:3px 26px !important;color:${C.ink} !important;box-shadow:0 0 0 1.5px ${C.gold} !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.orange} !important}
+[data-wk="note"][data-part="callsum"]{color:${C.dim} !important}
+
+/* 线下小结：一封信，信头一枚洛可可饰，标题是橘红缎带 */
+[data-part="offlog"]{position:relative !important;overflow:visible !important;padding-top:30px !important;margin-top:16px !important;background:repeating-linear-gradient(180deg,transparent 0 27px,rgba(156,122,60,.18) 27px 28px),${C.cream} !important}
+[data-part="offlog"]::before{content:"" !important;position:absolute !important;left:50% !important;top:-18px !important;width:52px !important;height:26px !important;margin-left:-26px !important;background:${svg(SHELL)} center/contain no-repeat !important}
+[data-wk="offlogtitle"]{display:inline-block !important;margin:0 0 6px !important;padding:3px 16px !important;background:${C.orange} !important;color:${C.cream} !important;border-radius:3px !important;box-shadow:0 0 0 1.5px ${C.gold} !important;letter-spacing:.15em !important}
+[data-wk="offlogtitle"] *{color:${C.cream} !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.orangeD} !important}
+[data-wk="offlogtranscript"]{border-top:1.5px dashed ${C.gold} !important;color:#8C7F66 !important}
+
+/* 加号面板：一颗颗墨绿圆钮戴金圈 */
+[data-wk="chattoolicon"]{background:${C.greenL} !important;border:none !important;border-radius:50% !important;box-shadow:0 0 0 2.5px ${C.gold},0 0 0 4px ${C.goldD} !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.cream} !important;color:${C.cream} !important}
+[data-wk="chattoollabel"]{color:${C.ink} !important}
+
+/* 引用三处：待发送那条＝奶油胶囊金边；气泡上方＝奶油小签；气泡里＝左边一道金线 */
+[data-wk="quotedraft"]{background:${C.cream} !important;border:none !important;border-top:1.5px solid ${C.gold} !important;position:relative !important;z-index:3 !important}
+[data-wk="quotedraft"] *{background:transparent !important;color:${C.ink} !important;border:none !important}
+[data-wk="quoteicon"]{display:none !important}
+[data-wk="quoteclear"]{color:${C.orange} !important}
+[data-wk="quote"]{background:${C.cream} !important;color:#6B5E48 !important;border:none !important;border-radius:999px !important;box-shadow:0 0 0 1.2px ${C.gold} !important;padding:3px 12px !important;opacity:1 !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid ${C.gold} !important;padding-left:8px !important;opacity:.85 !important}
 `;
 
-const pack = { kind: "chat-look", v: 1, name: "洛可可墨绿", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
-writeFileSync(join(here, "洛可可墨绿-美化.json"), JSON.stringify(pack));
+const pack = { kind: "chat-look", v: 1, name: "翡翠沙龙", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
+writeFileSync(join(here, "翡翠沙龙-美化.json"), JSON.stringify(pack));
 console.log("ok", css.length);
