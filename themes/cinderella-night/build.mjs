@@ -21,6 +21,7 @@ const I_SEND = CI(`<path d='M13 20 H27 M21.5 14.5 L27 20 L21.5 25.5' fill='none'
 // 最右「让他回复」：一颗发光的珍珠钮，里面一个对话框
 const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'><defs><radialGradient id='p' cx='.38' cy='.32'><stop offset='0' stop-color='#fff'/><stop offset='.7' stop-color='${C.pearl2}'/><stop offset='1' stop-color='#EAD9B0'/></radialGradient></defs><circle cx='25' cy='25' r='21' fill='url(#p)' stroke='${C.goldD}' stroke-width='1.4'/><path d='M16 18 H34 Q36 18 36 20 V28 Q36 30 34 30 H24 L19 34 V30 H16 Q14 30 14 28 V20 Q14 18 16 18Z' fill='none' stroke='${C.ink}' stroke-width='1.6' stroke-linejoin='round'/></svg>`;
 
+const SLIPPER = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 22'><path d='M3 17 Q4 10 12 10 Q18 10 24 6 Q28 4 32 7 Q36 10 37 16 L37 18 H30 L29 14 Q26 15 22 17 Q14 20 6 19 Q3 19 3 17Z' fill='rgba(220,235,255,.55)' stroke='#fff' stroke-width='1.3' stroke-linejoin='round'/><path d='M30 14 L31 21' stroke='#fff' stroke-width='1.8' stroke-linecap='round'/><path d='M10 13 Q14 12 17 12' fill='none' stroke='#fff' stroke-width='1.4' stroke-linecap='round'/><path transform='translate(36 4)' d='M0 -4 Q.4 -.4 3 0 Q.4 .4 0 4 Q-.4 .4 -3 0 Q-.4 -.4 0 -4Z' fill='#FFF6DA'/></svg>`;
 const bubble = { myBg: C.v2, myText: "#fff", myBorder: "none", charBg: C.pearl, charText: C.ink, charBorder: "none", radius: 16, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const PANEL = `background:linear-gradient(180deg,rgba(120,110,200,.55),rgba(90,85,176,.45)) !important;backdrop-filter:blur(10px) !important;-webkit-backdrop-filter:blur(10px) !important;border-radius:20px !important;box-shadow:inset 0 0 0 1.4px rgba(242,217,160,.75),0 8px 20px rgba(40,30,100,.3) !important`;
@@ -96,6 +97,21 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.9) !important}
 [data-wk="chatpanel"]{background:rgba(70,64,150,.95) !important;border-top:1px solid rgba(242,217,160,.6) !important}
 [data-wk="quotedraft"]{position:relative !important;z-index:3 !important}
+/* ───── 王宫台阶：连发一级级错开（他往右、你往左），贴紧，每级底下一道淡金立面；最新那段最后一级落一只玻璃鞋 ───── */
+[data-wk="msg"][data-first="0"]{margin-top:-6px !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{border-radius:6px !important;box-shadow:0 5px 0 rgba(217,180,106,.75),0 0 14px rgba(255,245,220,.5) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{border-radius:6px !important;box-shadow:0 5px 0 rgba(60,52,140,.85),inset 0 1px 0 rgba(255,255,255,.25),0 0 12px rgba(242,217,160,.2) !important}
+[data-wk="msg"][data-me="0"][data-first="0"] [data-wk="bubble"],[data-wk="msg"][data-me="0"][data-first="0"] [data-wk="meta"]{margin-left:20px !important}
+[data-wk="msg"][data-me="0"][data-first="0"] [data-wk="bubble"]{max-width:calc(100% - 20px) !important}
+[data-wk="msg"][data-me="1"][data-first="0"] [data-wk="bubble"]{margin-right:20px !important;max-width:calc(100% - 20px) !important}
+[data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] [data-wk="bubble"],[data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] [data-wk="meta"]{margin-left:40px !important}
+[data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] [data-wk="bubble"]{max-width:calc(100% - 40px) !important}
+[data-wk="msg"][data-me="1"][data-first="0"] + [data-wk="msg"][data-me="1"][data-first="0"] [data-wk="bubble"]{margin-right:40px !important;max-width:calc(100% - 40px) !important}
+[data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] [data-wk="bubble"],[data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] [data-wk="meta"]{margin-left:60px !important}
+[data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] [data-wk="bubble"]{max-width:calc(100% - 60px) !important}
+[data-wk="msg"][data-me="1"][data-first="0"] + [data-wk="msg"][data-me="1"][data-first="0"] + [data-wk="msg"][data-me="1"][data-first="0"] [data-wk="bubble"]{margin-right:60px !important;max-width:calc(100% - 60px) !important}
+[data-wk="meta"]{margin-top:9px !important}
+[data-wk="msg"][data-me="0"][data-last="1"]:not(:has(~ [data-wk="msg"][data-me="0"])) [data-wk="bubble"][data-kind="text"]::after{content:"" !important;position:absolute !important;right:-44px !important;bottom:-4px !important;width:34px !important;height:19px !important;background:${svg(SLIPPER)} center/contain no-repeat !important;filter:drop-shadow(0 0 6px rgba(220,235,255,.9)) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "午夜舞会", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
