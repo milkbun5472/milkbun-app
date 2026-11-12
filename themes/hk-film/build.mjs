@@ -46,14 +46,16 @@ const css = `
 /* 右下竖排红字，贴着屏幕不跟着滚 */
 [data-wk="body"]::after{content:"" !important;position:fixed !important;right:10px !important;bottom:calc(var(--app-safe-bottom, 0px) + 150px) !important;width:50px !important;height:166px !important;background:${svg(VERT)} center/contain no-repeat !important;pointer-events:none !important;z-index:-1 !important;opacity:.75 !important}
 
-/* 顶栏：墨黑，左上一颗会闪的红点 REC，名字后面一行斜体 Midnight Romance；下沿一道金色点线 */
+/* 顶栏：墨黑，左上一颗会闪的红点 REC，名字底下一行斜体 Midnight Romance；下沿一道金色点线 */
 [data-wk="chathead"]{background:${C.ink} !important;border-bottom:none !important;box-shadow:none !important;position:relative !important;overflow:visible !important;gap:6px !important}
 [data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:100% !important;height:2px !important;background:radial-gradient(circle,${C.goldD} .9px,transparent 1.2px) 0 0/5px 2px repeat-x !important;pointer-events:none !important}
 [data-wk="chathead"]::before{content:"REC" !important;position:absolute !important;left:16px !important;top:calc(var(--app-safe-top, 0px) + 2px) !important;font:600 9px/1 ui-monospace,Menlo,monospace !important;letter-spacing:.18em !important;color:${C.cream} !important;padding-left:10px !important;background:radial-gradient(circle,#E0353A 3px,transparent 3.5px) left center/7px 7px no-repeat !important;animation:hkRec 1.6s steps(1) infinite !important;pointer-events:none !important}
 @keyframes hkRec{0%{background-size:7px 7px}50%{background-size:0 0}}
 [data-wk="headink"],[data-wk="headink"] *{color:${C.cream} !important;letter-spacing:.12em !important}
 [data-wk="headname"] > [data-wk="headink"]{font-weight:700 !important;white-space:nowrap !important}
-[data-wk="headname"] > [data-wk="headink"]::after{content:"Midnight Romance" !important;margin-left:10px !important;font:italic 400 12px/1 Georgia,"Times New Roman",serif !important;letter-spacing:.04em !important;color:${C.cream} !important;opacity:.85 !important}
+/* 「说话 · 轻触切换」那行字藏掉，换成斜体 Midnight Romance（放第二行，不跟名字抢一行） */
+[data-wk="headname"] > [data-wk="headdim"]{font-size:0 !important;letter-spacing:0 !important;white-space:nowrap !important;line-height:1 !important;margin-top:3px !important}
+[data-wk="headname"] > [data-wk="headdim"]::before{content:"Midnight Romance" !important;font:italic 400 12.5px/1.2 Georgia,"Times New Roman",serif !important;letter-spacing:.06em !important;color:${C.cream} !important;opacity:.8 !important}
 [data-wk="headdim"]{color:${C.dim} !important;white-space:nowrap !important;letter-spacing:.2em !important}
 [data-wk="chatback"] svg,[data-wk="headdim"] svg{stroke:${C.cream} !important}
 [data-wk="chathead"] [data-wk="headink"] > [data-wk="headdim"]{display:none !important}
