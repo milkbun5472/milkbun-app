@@ -18400,6 +18400,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setNewGroupOpen(false);
     toast(spectate ? "旁观群聊已创建" : "群聊已创建");
   };
+  // 群里的小房间（她 2026-11-13「群聊咋开房间」「弄一下吧」）：房间就是一个普通的群——
+  //   照主群抄一份（成员、群设置、长相），换个 id 和名字，挂一个 roomOf 指回主群。
+  //   生成/线下/设置/记忆全走群原来那套，不另起一套。kind："main"＝接着主线（记忆互通跟主群一样），"closed"＝不带出门（互通关）。
+  const createGroupRoom = (parentId, name, kind) => {
+    const parent = groups.find(g => g && g.id === parentId);
+    if (!parent || parent.roomOf) return null;
+    const nm = String(name || "").trim().slice(0, 30) || "小房间";
+    const g = { ...parent, id: "g_" + Date.now(), name: nm, roomOf: parent.id, createdTs: Date.now() };
+    setGroups(p => { const n = [...p, g]; saveJSON("x_groups", n); return n; });
+    // 主群自己这条聊天的进度（总结到哪、公告、禁言）不抄，房间从头开始
+    const { lastSummarizedCount, notice, mutes, ...gs0 } = gsFor(parent.id);
+    saveGroupSettingsRaw(g.id, { ...gs0, memoryInterop: kind === "closed" ? false : !!gs0.memoryInterop });
+    setActiveGroup(g);
+    setScreen("gthread");
+    toast("开了一间「" + nm + "」");
+    return g;
+  };
   const updateGroup = (groupId, patch) => setGroups(p => {
     const n = p.map(g => g.id === groupId ? { ...g, ...patch } : g);
     saveJSON("x_groups", n);
@@ -18430,13 +18447,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } else toast("已改名");
   };
   const deleteGroup = groupId => {
-    setGroups(p => { const n = p.filter(g => g.id !== groupId); saveJSON("x_groups", n); return n; });
-    setGroupChats(p => { const n = { ...p }; delete n[groupId]; return n; });
-    localStorage.removeItem("x_gchat:" + groupId);
-    setGroupSettings(p => { const n = { ...p }; delete n[groupId]; saveJSON("x_groupSettings", n); return n; });
+    // 删主群＝它的小房间一起删（列表里房间本来就不露面，留着就成了找不回的孤儿）；删房间只删这一间、回主群
+    const self = groups.find(g => g && g.id === groupId);
+    const ids = [groupId, ...groups.filter(g => g && g.roomOf === groupId).map(g => g.id)];
+    setGroups(p => { const n = p.filter(g => !ids.includes(g.id)); saveJSON("x_groups", n); return n; });
+    setGroupChats(p => { const n = { ...p }; ids.forEach(id => delete n[id]); return n; });
+    ids.forEach(id => localStorage.removeItem("x_gchat:" + id));
+    setGroupSettings(p => { const n = { ...p }; ids.forEach(id => delete n[id]); saveJSON("x_groupSettings", n); return n; });
+    const parent = self && self.roomOf ? groups.find(g => g && g.id === self.roomOf) : null;
+    if (parent) { setActiveGroup(parent); setScreen("gthread"); toast("这间小房间删掉了"); return; }
     setActiveGroup(null);
     setScreen("messages");
-    toast("群聊已删除");
+    toast(ids.length > 1 ? "群聊和它的 " + (ids.length - 1) + " 间小房间都删掉了" : "群聊已删除");
   };
   const groupSysLine = (groupId, text, extra) => pGChat(groupId, p => [...p, { role: "system", content: text, ts: Date.now(), ...(extra || {}) }]);
   // 旁观模式下，加/踢人归到群里某个现有成员名下
@@ -35335,6 +35357,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onKickMember: charId => kickGroupMember(activeGroup.id, charId),
     onSetPresence: inGroup => setGroupPresence(activeGroup.id, inGroup),
     onDeleteGroup: () => deleteGroup(activeGroup.id),
+    onSwitchRoom: id => { const g = groups.find(x => x && x.id === id); if (g) { setActiveGroup(g); clearUnread(g.id); } },
+    unreadMap: unreadMap,
+    onNewRoom: (name, kind) => createGroupRoom(activeGroup.roomOf || activeGroup.id, name, kind),
     onClearGroupChat: wipeMem => clearGroupChat(activeGroup.id, wipeMem),
     onOffline: () => openGroupOffline(activeGroup),
     emotes: emotesForGroupMine(activeGroup.memberIds),
