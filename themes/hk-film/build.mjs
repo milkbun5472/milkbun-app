@@ -1,6 +1,6 @@
 // 港风旧梦：午夜录像带。墨黑底上糊着几团霓虹光斑＋颗粒；顶栏左上一颗红点 REC；所有框都只描两只角（取景框）。
 // 我的话＝暗红块右边一道亮红条，他的话＝墨褐块左边一道金条；动描＝虚线框上贴「Voice-over」标签；
-// 右下竖排红字「夜色溫柔 等你回頭」；底栏上面一条录像带进度。用法：node themes/hk-film/build.mjs
+// 右下竖排红字「今晚唔好走 陪我等天光」；底栏上面一条录像带进度。用法：node themes/hk-film/build.mjs
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,7 +15,7 @@ const GLOW = `<svg xmlns='http://www.w3.org/2000/svg' width='390' height='844' v
 // 颗粒
 const GRAIN = `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'>${Array.from({ length: 140 }, (_, i) => { const x = (i * 53) % 120, y = (i * 37 + (i % 7) * 11) % 120; return `<rect x='${x}' y='${y}' width='1' height='1' fill='#fff' opacity='${(0.04 + (i % 5) * 0.025).toFixed(3)}'/>`; }).join("")}</svg>`;
 // 竖排红字
-const VERT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 230'><g font-family='serif' font-weight='700' font-size='26' fill='#D2343A' text-anchor='middle'>${[..."夜色溫柔"].map((c, i) => `<text x='52' y='${30 + i * 32}'>${c}</text>`).join("")}${[..."等你回頭"].map((c, i) => `<text x='18' y='${62 + i * 32}'>${c}</text>`).join("")}</g><path d='M36 4 V226' stroke='#D2343A' stroke-width='1' opacity='.7'/></svg>`;
+const VERT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 262'><g font-family='serif' font-weight='700' font-size='26' fill='#D2343A' text-anchor='middle'>${[..."今晚唔好走"].map((c, i) => `<text x='52' y='${30 + i * 32}'>${c}</text>`).join("")}${[..."陪我等天光"].map((c, i) => `<text x='18' y='${62 + i * 32}'>${c}</text>`).join("")}</g><path d='M36 4 V258' stroke='#D2343A' stroke-width='1' opacity='.7'/></svg>`;
 const I_CIRC = inner => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle cx='20' cy='20' r='17.5' fill='none' stroke='${C.cream}' stroke-width='1.4'/>${inner}</svg>`;
 const I_PLUS = I_CIRC(`<path d='M20 12 V28 M12 20 H28' stroke='${C.cream}' stroke-width='1.4'/>`);
 const I_HOUSE = I_CIRC(`<path d='M12 20 L20 13 L28 20 V27 H12Z' fill='none' stroke='${C.cream}' stroke-width='1.4' stroke-linejoin='round'/>`);
@@ -33,7 +33,7 @@ const css = `
 [data-wk="body"]{background:transparent !important;position:relative !important;z-index:1 !important}
 [data-wk="chat"] *{font-family:${SERIF} !important}
 /* 右下竖排红字，贴着屏幕不跟着滚 */
-[data-wk="body"]::after{content:"" !important;position:fixed !important;right:10px !important;bottom:calc(var(--app-safe-bottom, 0px) + 150px) !important;width:50px !important;height:166px !important;background:${svg(VERT)} center/contain no-repeat !important;pointer-events:none !important;z-index:-1 !important;opacity:.75 !important}
+[data-wk="body"]::after{content:"" !important;position:fixed !important;right:10px !important;bottom:calc(var(--app-safe-bottom, 0px) + 150px) !important;width:50px !important;height:187px !important;background:${svg(VERT)} center/contain no-repeat !important;pointer-events:none !important;z-index:-1 !important;opacity:.75 !important}
 
 /* 顶栏：墨黑，左上一颗会闪的红点 REC，名字后面一行斜体 Midnight Romance；下沿一道金色点线 */
 [data-wk="chathead"]{background:${C.ink} !important;border-bottom:none !important;box-shadow:none !important;position:relative !important;overflow:visible !important;gap:6px !important}
