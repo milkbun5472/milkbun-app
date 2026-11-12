@@ -24,10 +24,17 @@ const OVAL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 60' prese
 const SPIRAL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><circle cx='10' cy='10' r='8.5' fill='none' stroke='${C.orange}' stroke-width='1.6'/><path d='M10 10 Q13 9 12 6.5 Q10 4.5 7.5 6.5 Q5.5 9.5 8 12.5 Q11.5 14.5 14 11.5' fill='none' stroke='${C.orange}' stroke-width='1.4' stroke-linecap='round'/></svg>`;
 const DOT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><circle cx='10' cy='10' r='8' fill='${C.orange}'/></svg>`;
 const RB = (fill, inner) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle cx='20' cy='20' r='18' fill='${fill}' stroke='${C.ink}' stroke-width='1.6'/>${inner}</svg>`;
-const I_PLUS = RB(C.greenL, `<path d='M20 12 V28 M12 20 H28' stroke='${C.cream}' stroke-width='2.2' stroke-linecap='round'/>`);
-const I_HOUSE = RB(C.greenL, `<path d='M12 20 L20 13 L28 20 V27 H12Z' fill='${C.cream}' stroke='${C.ink}' stroke-width='1.6' stroke-linejoin='round'/>`);
-const I_MORE = RB(C.orange, `<g fill='${C.cream}' stroke='${C.ink}' stroke-width='1'><circle cx='13' cy='20' r='2.6'/><circle cx='20' cy='20' r='2.6'/><circle cx='27' cy='20' r='2.6'/></g>`);
-const I_REPLY = RB(C.greenL, `<path d='M11 14 H29 V24 H19 L14 28 V24 H11Z' fill='${C.cream}' stroke='${C.ink}' stroke-width='1.4' stroke-linejoin='round'/>`);
+// 按键：圆钮里换成洛可可小物件
+// 加号＝一个卷尾小十字（四个头都卷成涡卷）
+const I_PLUS = RB(C.greenL, `<g fill='none' stroke='${C.cream}' stroke-width='2' stroke-linecap='round'><path d='M20 11 V29 M11 20 H29'/><path d='M20 11 Q17 10 18 8 M20 29 Q23 30 22 32 M11 20 Q10 23 8 22 M29 20 Q30 17 32 18'/></g><circle cx='20' cy='20' r='2.2' fill='${C.gold}'/>`);
+// 主页＝一座小城堡（圆顶＋两侧尖塔）
+const I_HOUSE = RB(C.greenL, `<g fill='${C.cream}' stroke='${C.ink}' stroke-width='1.1' stroke-linejoin='round'><path d='M13 28 V18 L15 14 L17 18 V28Z'/><path d='M23 28 V18 L25 14 L27 18 V28Z'/><path d='M16.5 28 V20 Q20 13 23.5 20 V28Z'/></g><path d='M18.5 28 V24 Q20 22 21.5 24 V28' fill='${C.greenL}'/><circle cx='20' cy='14.5' r='1' fill='${C.gold}'/>`);
+// 更多＝一把半开的折扇
+const I_MORE = RB(C.orange, `<path d='M20 28 L9 17 Q14 10 20 10 Q26 10 31 17Z' fill='${C.cream}' stroke='${C.ink}' stroke-width='1.1' stroke-linejoin='round'/><g stroke='${C.orangeD}' stroke-width='.9'><path d='M20 28 L12.5 13.5 M20 28 L16 11 M20 28 V10 M20 28 L24 11 M20 28 L27.5 13.5'/></g><circle cx='20' cy='27.5' r='1.6' fill='${C.gold}'/>`);
+// 回复＝一支羽毛笔
+const I_REPLY = RB(C.greenL, `<path d='M28 10 Q19 12 15 24 L17 25 Q23 17 28 10Z' fill='${C.cream}' stroke='${C.ink}' stroke-width='1' stroke-linejoin='round'/><path d='M27 11 L16.5 24' stroke='${C.goldD}' stroke-width='.8'/><path d='M15.5 24.5 L13 29.5' stroke='${C.ink}' stroke-width='1.6' stroke-linecap='round'/><path d='M11 30 H24' stroke='${C.gold}' stroke-width='1.2' stroke-linecap='round'/>`);
+// 线下看真实照片＝一枚浮雕胸针（椭圆金框里一个侧脸剪影）
+const I_CAMEO = RB(C.greenL, `<ellipse cx='20' cy='20' rx='8' ry='10' fill='${C.cream}' stroke='${C.gold}' stroke-width='1.8'/><path d='M21.5 13 Q17 13 17 17.5 Q16 19 17 19.5 Q17 22 18.5 22.5 Q18.5 25 21.5 27 Q24 25 23.5 21 Q25 17 21.5 13Z' fill='${C.orange}'/>`);
 const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 74'><circle cx='35' cy='40' r='27' fill='none' stroke='${C.gold}' stroke-width='5'/><circle cx='35' cy='40' r='27' fill='none' stroke='${C.cream}' stroke-width='2' stroke-dasharray='.1 5.5' stroke-linecap='round'/><circle cx='35' cy='40' r='22' fill='${C.orange}' stroke='${C.goldD}' stroke-width='1'/><path d='M35 52 V29 M26 37 L35 28 L44 37' fill='none' stroke='${C.cream}' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/>${SHELL.replace("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 30'>","<g transform='translate(11 -3) scale(.8)'>").replace('</svg>','</g>')}<path d='M6 50 Q0 56 5 62 Q9 64 10 60 M64 50 Q70 56 65 62 Q61 64 60 60' fill='none' stroke='${C.gold}' stroke-width='2' stroke-linecap='round'/></svg>`;
 
 // ── 第二批用的图 ──
@@ -313,7 +320,7 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="offcomposer"]{background:${C.cream} !important;border-top:none !important;box-shadow:0 -4px 0 ${C.greenL} !important}
 [data-wk="offcomposer"] textarea{background:#FBF5E6 !important;border:1.6px solid ${C.gold} !important;border-radius:18px !important;color:${C.ink} !important}
 [data-wk="offcomposer"] textarea::placeholder{color:#A89B80 !important}
-[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:34px !important;height:34px !important;min-width:34px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PLUS)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:34px !important;height:34px !important;min-width:34px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_CAMEO)} center/contain no-repeat !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
 [data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/44px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
 [data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
