@@ -73,7 +73,7 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="chatplus"],[data-wk="chatreply"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background-color:transparent !important}
 [data-wk="chatplus"]{background:${svg(I_PLUS)} center/26px no-repeat !important}
 [data-wk="chatreply"]{background:${svg(I_REPLY)} center/26px no-repeat !important}
-[data-wk="send"]{order:99 !important;position:relative !important;overflow:visible !important;width:64px !important;min-width:64px !important;height:36px !important;border:${LINE} !important;border-radius:10px !important;background:${C.cel} !important;box-shadow:none !important;opacity:1 !important;margin-right:6px !important}
+[data-wk="send"]{position:relative !important;overflow:visible !important;width:64px !important;min-width:64px !important;height:36px !important;border:${LINE} !important;border-radius:10px !important;background:${C.cel} !important;box-shadow:none !important;opacity:1 !important;margin-right:6px !important}
 [data-wk="send"]::before{content:"发送" !important;position:absolute !important;inset:0 !important;display:flex !important;align-items:center !important;justify-content:center !important;font-size:14px !important;letter-spacing:.2em !important;color:${C.brown} !important}
 [data-wk="send"]::after{content:"" !important;position:absolute !important;right:-9px !important;bottom:-9px !important;width:18px !important;height:18px !important;background:${svg(STAR)} center/contain no-repeat !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}

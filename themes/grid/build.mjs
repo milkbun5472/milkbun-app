@@ -67,7 +67,7 @@ const css = `
 [data-wk="chatplus"],[data-wk="chatreply"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background-color:transparent !important}
 [data-wk="chatplus"]{background:${svg(I_PLUS)} center/20px no-repeat !important}
 [data-wk="chatreply"]{background:${svg(I_REPLY)} center/24px no-repeat !important;margin-right:16px !important}
-[data-wk="send"]{order:99 !important;width:46px !important;min-width:46px !important;height:46px !important;border:1px solid ${C.ink} !important;border-radius:2px !important;background:${C.ink} ${svg(I_SEND)} center/22px no-repeat !important;box-shadow:0 3px 10px rgba(0,0,0,.2) !important;opacity:1 !important}
+[data-wk="send"]{width:46px !important;min-width:46px !important;height:46px !important;border:1px solid ${C.ink} !important;border-radius:2px !important;background:${C.ink} ${svg(I_SEND)} center/22px no-repeat !important;box-shadow:0 3px 10px rgba(0,0,0,.2) !important;opacity:1 !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="msg"][data-first="0"] [data-wk="name"]{display:none !important}
 [data-wk="msg"][data-first="0"]{margin-top:-4px !important}
