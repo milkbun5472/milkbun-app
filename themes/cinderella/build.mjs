@@ -24,6 +24,12 @@ const I_PLUS = L(`<path d='M20 12 V28 M12 20 H28' stroke='INK' stroke-width='1.6
 const I_SEND = L(`<path d='M12 20 H28 M22 14 L28 20 L22 26' fill='none' stroke='INK' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/>`);
 const I_REPLY = L(`<path d='M11 14 H29 Q31 14 31 16 V23 Q31 25 29 25 H19 L14 29 V25 H11 Q9 25 9 23 V16 Q9 14 11 14Z' fill='none' stroke='#fff' stroke-width='1.5' stroke-linejoin='round'/>`);
 
+// 背景一座午夜大钟：很淡的钟面水印，罗马刻度，指针差一分十二点
+const BIGCLOCK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'><g fill='none' stroke='#D9CFC2'><circle cx='150' cy='150' r='140' stroke-width='3'/><circle cx='150' cy='150' r='128' stroke-width='1'/><circle cx='150' cy='150' r='96' stroke-width='1' stroke-dasharray='2 6'/></g>${["XII","I","II","III","IIII","V","VI","VII","VIII","IX","X","XI"].map((t,i)=>{const a=i*30*Math.PI/180;return `<text x='${(150+112*Math.sin(a)).toFixed(1)}' y='${(156-112*Math.cos(a)).toFixed(1)}' text-anchor='middle' font-size='16' font-family='Georgia,serif' fill='#D9CFC2'>${t}</text>`}).join('')}<path d='M150 150 L148 64 L150 54 L152 64Z' fill='#D2C7B8'/><path transform='rotate(-6 150 150)' d='M150 150 L148.5 34 L150 26 L151.5 34Z' fill='#D2C7B8'/><circle cx='150' cy='150' r='6' fill='#D2C7B8'/></svg>`;
+// 裙摆：一排小波浪
+const HEM = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='8'><path d='M0 0 Q4 8 8 0 Q12 8 16 0 V0Z' fill='${C.blue}'/></svg>`;
+const HEMD = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='8'><path d='M0 0 Q4 8 8 0 Q12 8 16 0Z' fill='${C.blueD}'/></svg>`;
+
 const bubble = { myBg: C.blue, myText: "#fff", myBorder: "none", charBg: C.ash, charText: C.ashInk, charBorder: "none", radius: 3, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -111,6 +117,17 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chatplus"]:active,[data-wk="send"]:active{transform:scale(.9) !important}
 [data-wk="chatreply"]:active{transform:translateY(4px) !important;box-shadow:0 1px 0 ${C.blueD} !important}
 [data-wk="chatpanel"]{background:#FBF8F3 !important;border-top:1px solid ${C.line} !important}
+/* ───── 灰姑娘再明显一点：午夜大钟、台阶上的玻璃鞋、裙摆 ───── */
+/* 背景：屏幕正中一座很淡的午夜大钟（贴着屏幕不跟着滚） */
+[data-wk="body"]::before{content:"" !important;position:fixed !important;left:50% !important;top:50% !important;width:min(86vw,340px) !important;height:min(86vw,340px) !important;transform:translate(-50%,-50%) !important;background:${svg(BIGCLOCK)} center/contain no-repeat !important;opacity:.85 !important;pointer-events:none !important;z-index:-1 !important}
+[data-wk="body"]{position:relative !important;z-index:0 !important}
+/* 台阶最后一级旁边落着一只玻璃鞋（替掉橘星） */
+[data-wk="msg"][data-last="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::after{right:-40px !important;width:30px !important;height:17px !important;margin-top:-4px !important;top:auto !important;bottom:-3px !important;background:${svg(SLIPPER)} center/contain no-repeat !important}
+/* 你的气泡：底边一排小波浪，像舞裙下摆 */
+[data-wk="bubble"][data-kind="text"][data-me="1"]{box-shadow:0 9px 12px rgba(80,100,140,.15) !important;margin-bottom:10px !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:100% !important;height:8px !important;background:${svg(HEM)} 0 0/16px 8px repeat-x !important;border:none !important;transform:none !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::after{content:none}
+[data-wk="msg"][data-me="1"] [data-wk="bubble"][data-kind="text"]{filter:drop-shadow(0 4px 0 ${C.blueD}) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "灰与舞裙", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
