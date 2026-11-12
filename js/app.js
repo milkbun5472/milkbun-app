@@ -4741,6 +4741,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     toast(dueTs ? characterText(characters.find(c => c.id === charId), "到那天他会主动来约这件事") : "不定日子了");
   };
   const wishPlanOf = wishId => (promisesRef.current || []).find(x => x && x.wishId === wishId) || null;
+  // 愿望挑了日子，那个日子要跟着愿望一起进上下文（她 2026-11-12：约了明年七月去海边，TA 只知道有这回事，一直说「最近去」）。
+  //   聊天、发呆两处念愿望板都走这一句；没挑日子＝空串。
+  const wishWhenTxt = w => {
+    const pl = w && w.id ? wishPlanOf(w.id) : null;
+    // 走成旅行、在「哪天出发」挑了日子的，按出发日算（存的是 YYYY-MM-DD）
+    const tr = w && w.id ? (coupleTripsRef.current || []).find(t => t && t.wishId === w.id && t.status !== "done" && t.date) : null;
+    const tm = tr ? String(tr.date).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/) : null;
+    const due = tm ? new Date(+tm[1], +tm[2] - 1, +tm[3]).getTime() : pl ? Number(pl.dueTs) : 0;
+    if (!due) return "";
+    const d = new Date(due), left = Math.ceil((due - Date.now()) / 86400000);
+    const far = left <= 0 ? "就是这几天" : left < 14 ? "还有 " + left + " 天" : left < 60 ? "还有约 " + Math.round(left / 7) + " 周" : "还有约 " + Math.round(left / 30) + " 个月";
+    return "（日子定在 " + d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日，" + far + "）";
+  };
   // 到期TA会自己提起——走的是已有那条约回链，不是新机制
   // via：到那天TA【怎么来】——"chat" 发消息（原来只有这一种）／"voice" 打语音／
   // "video" 打视频（她 2026-09-06：「约好了打电话没做」）。
@@ -5753,7 +5766,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 从「还钉着没做成」里长出来的念想，自然就是「要不要去做那件事」。只给一条，别变成待办清单。
     grab(() => A(((loadJSON("x_coupleHome", {})[char.id] || {}).wishes))
       .filter(w => w && w.title && w.status !== "done" && w.status !== "shelved").slice(0, 1)
-      .forEach(w => L.push("· 你俩的愿望板上还钉着「" + String(w.title).slice(0, 30) + "」——说好想做、还没做成的事")));
+      .forEach(w => L.push("· 你俩的愿望板上还钉着「" + String(w.title).slice(0, 30) + "」" + wishWhenTxt(w) + "——说好想做、还没做成的事")));
     if (!L.length) return "";
     return "\n\n【你俩真一起做过的事】（不是聊过，是真做过；这几样都是两个人一起干的）\n"
       + L.slice(0, 6).join("\n")
@@ -5857,7 +5870,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       .filter(w => w && w.title && w.status !== "done" && w.status !== "shelved")
       .slice(0, 5)
       .map(w => "· " + String(w.title).replace(/\s+/g, " ").trim().slice(0, 40)
-        + (w.note ? "（" + String(w.note).replace(/\s+/g, " ").trim().slice(0, 40) + "）" : ""));
+        + (w.note ? "（" + String(w.note).replace(/\s+/g, " ").trim().slice(0, 40) + "）" : "")
+        + wishWhenTxt(w));
     const wishBlock = wishes.length
       ? "\n\n【你俩的愿望板 · " + (profileRef.current && profileRef.current.name || "对方") + "钉在那儿、说好想一起做、还没做成的事】\n"
         + wishes.join("\n")
