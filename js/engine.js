@@ -5748,6 +5748,9 @@ const povSlotsFor = tier => { const t = Math.max(1, Math.min(3, Number(tier) || 
 //   画面描述里写明是 TA 小时候的，就换一套：年纪照描述、参考照只用来认人，编辑接口也不再要求原样保脸。
 //   标记写在提示词开头，generateSelfieImage 认它（选参考图的地方有十来处，都不用改）。
 const PHOTO_YOUNGER_MARK = "【这张是小时候的照片】";
+// TA 帮她拍（她 2026-11-13 连试几张：描述写侧颜、出来是正脸加一条举手机的胳膊）：编辑接口保真开到 high，
+//   为了保住参考照那张正脸，把描述和机位全压掉了。跟小时候那条一样，这一类不要求 high——脸照参考照认，角度跟描述走
+const PHOTO_POV_MARK = "【这张是拍照那个人眼里的她】";
 function photoYoungerOf(scene) {
   const t = String(scene || "");
   const n = "(?:[一二三四五六七八九十两]{1,3}|\\d{1,2})";
@@ -6119,7 +6122,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   if (opts.contRefIndex) parts.push("【第" + opts.contRefIndex + "张参考图=上一张刚生成的图】它只用来延续连贯性:同一个人、同一套衣着配饰、同一个场地与光线时段照它来;但【构图、姿势、机位、表情必须换新的】,不要复制它的画面。若它与前面的人物参考图冲突,一律以人物参考图为准。");
   // TA 的视角要跟着场景走（她 2026-10-11：「在家和在游乐园拍出来的不一样，喝咖啡和看电影也不一样，要根据上下文来」）：
   //   描述里已经写了从哪儿拍，就照它，不再掷；没写才掷一格，并且放话「跟场景对不上就换一个同样分寸的」。
-  if (opts.pov && POV_SCENE_ANGLE_RE.test(String(sceneDesc || ""))) parts.push("【这一张的机位】照上面「场景/正在做什么」里写的拍照位置和距离来，那就是此刻" + (opts.pov.name || "TA") + "站的地方。");
+  if (opts.pov && POV_SCENE_ANGLE_RE.test(String(sceneDesc || ""))) parts.push(PHOTO_POV_MARK + "【这一张的机位】照上面「场景/正在做什么」里写的拍照位置和距离来，那就是此刻" + (opts.pov.name || "TA") + "站的地方。");
   // opts.editorial：杂志封面／电影海报（她 2026-10-13：「还是偏自拍」）——不掷自拍那张机位表，换成摄影棚大片
   else if (opts.editorial) {
     const _ed = "【这一张是专业摄影师拍的" + (opts.editorial === "movie" ? "电影海报剧照" : "时尚杂志封面大片") + "，绝对不是自拍】第三人称，摄影师站在几米外用相机拍；画面里的人手里都没有手机或相机，画面边缘没有伸向镜头的手臂，不要广角怼脸。"
@@ -6167,7 +6170,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     let _pi = Math.floor(Math.random() * pool.length);
     if (pool[_pi] === buildPhotoPrompt._lastPov && pool.length > 1) _pi = (_pi + 1) % pool.length;
     buildPhotoPrompt._lastPov = pool[_pi];
-    const _pl = "【这一张从哪儿拍】" + pool[_pi] + "。镜头就是拍照那个人的眼睛，这一格定的是他站在哪儿、离多远、从什么高度拍过去；"
+    const _pl = PHOTO_POV_MARK + "【这一张从哪儿拍】" + pool[_pi] + "。镜头就是拍照那个人的眼睛，这一格定的是他站在哪儿、离多远、从什么高度拍过去；"
       + "她此刻在做什么、什么表情，照「场景/正在做什么」那一句画，不另编动作；这一格里写到的动作跟描述对不上的，以描述为准，只留下这一格的方位和远近。"
       + "参考图只决定她是谁，姿势、角度、离镜头多远都不照搬参考图。"
       // 正脸冲镜头那几张出图还是会自己补一条举手机的胳膊（她 2026-11-13 更新后截图：左肩抬着、胳膊伸出画面）。写死两样看得见的
@@ -7001,7 +7004,8 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
         // image 整个丢了（模型回「请上传参考图片」）。所以保留新形状为首选，一旦上游回话像
         // 「没收到图」，立刻用出事前验证过的老形状（ref.png + 不带 input_fidelity）重试。
         // 小时候的照片：参考照只是认人用的，不要求原样保脸（不然永远画回现在的年纪）
-        if (!legacyShape && !(typeof PHOTO_YOUNGER_MARK === "string" && String(promptText || "").indexOf(PHOTO_YOUNGER_MARK) >= 0)) fd.append("input_fidelity", "high");
+        if (!legacyShape && !(typeof PHOTO_YOUNGER_MARK === "string" && String(promptText || "").indexOf(PHOTO_YOUNGER_MARK) >= 0)
+          && !(typeof PHOTO_POV_MARK === "string" && String(promptText || "").indexOf(PHOTO_POV_MARK) >= 0)) fd.append("input_fidelity", "high");
         const refFilename = (blob, i) => {
           if (legacyShape) return "ref" + (i == null ? "" : i) + ".png";
           const mime = String((blob && blob.type) || "").toLowerCase();

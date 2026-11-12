@@ -12,7 +12,10 @@ test("现在的照片不算", () => {
 test("提示词换一套、编辑接口不要求原样保脸", () => {
   assert.match(s, /if \(younger\) parts\.push\(PHOTO_YOUNGER_MARK \+/);
   assert.match(s, /if \(!younger && \(multi \|\| kind === "duo" \|\| char\.refPhoto\)\) parts\.push\("【首要任务：人物身份】/);
-  assert.match(s, /if \(!legacyShape && !\(typeof PHOTO_YOUNGER_MARK === "string" && String\(promptText \|\| ""\)\.indexOf\(PHOTO_YOUNGER_MARK\) >= 0\)\) fd\.append\("input_fidelity", "high"\);/);
+  assert.match(s, /if \(!legacyShape && !\(typeof PHOTO_YOUNGER_MARK === "string" && String\(promptText \|\| ""\)\.indexOf\(PHOTO_YOUNGER_MARK\) >= 0\)\s*&& !\(typeof PHOTO_POV_MARK === "string" && String\(promptText \|\| ""\)\.indexOf\(PHOTO_POV_MARK\) >= 0\)\) fd\.append\("input_fidelity", "high"\);/);
+  // TA 帮她拍（她 2026-11-13）：两支 pov 都打上记号，编辑接口不再要 high
+  assert.match(s, /const _pl = PHOTO_POV_MARK \+ "【这一张从哪儿拍】"/);
+  assert.match(s, /parts\.push\(PHOTO_POV_MARK \+ "【这一张的机位】/);
   assert.match(s, /const isMinor = !!younger \|\|/);
 });
 test("合照：点了名只画小那一个，笼统写就都画小；有小孩不抽恋人姿势", () => {
