@@ -9214,6 +9214,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const prevShot = (sess.msgs || []).slice().reverse()
         .find(m => m && m.kind === "selfie" && m.imgKey && m.sid !== sid
           && (!groupId || String(m.senderId || "") === String(char.id))
+          // 拍她的和拍他的各认各的上一张（跟单聊 drawChatSelfie 同一个判据）：原来他帮她拍时，没参考照就拿他上一张自拍当锚，
+          //   画出来是他那张的自拍构图（群里 2026-11-13「char 给我拍照也都是我自拍的角度」）
+          && ((m.photoKind === "me" || m.photoKind === "myself" || m.photoKind === "myshot") === (kind === "me"))
           && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000);
       // me：画面里是她——照「别人拍的」那一档画她（meSubject），这一场她挑的那身照样顶上
       const sub = kind === "me" ? { ...meSubject(char, "我", meWho), photoOutfit: me.outfit || "" } : char;
