@@ -79,6 +79,7 @@
 - 「输入中」：单聊 typing 气泡＋typingdot，**还有通话里的** callbubble[data-kind="typing"]；气泡的装饰伪元素在它上面关掉。
 - Ta 眼里贴条 `gazetape`、线下小结卡、系统提示、拍一拍、通话结束胶囊、动描、引用三处、加号面板。
 - 今天的月相 `html[data-lisa-moon]`、好日子光圈 `[data-halo]` 跟头像框叠在一起，换框时一起看。
+- **顶栏名字要露全**：右边换了大图标、名字就被挤成「测试…」。每套第一批就写：`headname`（和包着它的 button）`flex:1 1 auto; min-width:0`，`sameroom`／`chatmore` 收到 30px 上下，别给 sameroom 写 `margin-left:auto`（它会把名字那块挤窄）。拿长名字（四五个字）的人看一眼。
 - 顶栏高度跟前几套一样矮（约 70px），下沿装饰用负 top 叠进顶栏。
 
 ## 预览
