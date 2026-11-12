@@ -34,6 +34,10 @@ const STAMP = (t, c) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60
 const NEONHEART = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 66 60'><path d='M33 56 C14 42 4 32 4 19 C4 10 11 4 19 4 C25 4 30 7 33 12 C36 7 41 4 47 4 C55 4 62 10 62 19 C62 32 52 42 33 56Z'/></svg>`;
 const FRAMEMASK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 180'>${[0,1,2,3,4].map(i=>`<g transform='translate(0 ${i*36}) rotate(-90 18 18)'><path fill-rule='evenodd' d='M4 6 H32 V30 H4Z M7 8 h3 v2 h-3z M14.5 8 h3 v2 h-3z M22 8 h3 v2 h-3z M7 26 h3 v2 h-3z M14.5 26 h3 v2 h-3z M22 26 h3 v2 h-3z'/></g>`).join("")}</svg>`;
 
+// ── 第四批用的图 ──
+// 一块竖挂的旧霓虹招牌「夜冰室」，霓虹管描边
+const SIGN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 200'><path d='M20 0 V14 M50 0 V14' stroke='#6A5A4A' stroke-width='1.6'/><rect x='6' y='14' width='58' height='178' rx='4' fill='#1A0E0E' stroke='#FF4A55' stroke-width='2.2'/><rect x='11' y='19' width='48' height='168' rx='3' fill='none' stroke='#FF8A6A' stroke-width='.8' opacity='.7'/><g font-family='serif' font-weight='700' font-size='30' text-anchor='middle' fill='none' stroke='#FFD3B0' stroke-width='1.3'><text x='35' y='62'>夜</text><text x='35' y='112'>冰</text><text x='35' y='162'>室</text></g><circle cx='35' cy='178' r='2.4' fill='#3FD0C9'/></svg>`;
+
 const bubble = { myBg: C.red, myText: C.cream, myBorder: "none", charBg: C.brown, charText: C.cream, charBorder: "none", radius: 0, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: true, gap: "normal", time: "show" };
 const SERIF = `"Songti SC","Noto Serif SC","STSong",serif`;
@@ -284,6 +288,53 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="gazeempty"] button{background:#B8262C !important;color:#F3E6CF !important;border:none !important;border-radius:0 !important;letter-spacing:.2em !important}
 /* 好感数字放进图形正中 */
 [data-wk="stateaffval"]{display:block !important;position:absolute !important;left:50% !important;right:auto !important;top:auto !important;bottom:36px !important;transform:translateX(-50%) !important;z-index:3 !important;font-size:18px !important;line-height:1 !important;font-weight:700 !important;color:#FFF1F1 !important;text-shadow:0 0 2px #3A0A0C,0 0 2px #3A0A0C,0 0 8px rgba(255,74,85,.8) !important;pointer-events:none !important}
+/* ───── 港风旧梦 · 第四批：线下＝一格电影画面：上下两道黑边（宽银幕），右边挂一块会闪的霓虹招牌「夜冰室」 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(GRAIN)} 0 0/120px 120px,${svg(GLOW)} center/cover no-repeat,${C.ink} !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important;position:relative !important}
+[data-wk="offline"] [data-wk="offbody"]::before{content:"" !important;position:fixed !important;right:8px !important;top:calc(var(--app-safe-top, 0px) + 120px) !important;width:52px !important;height:150px !important;background:${svg(SIGN)} center/contain no-repeat !important;filter:drop-shadow(0 0 6px rgba(255,74,85,.8)) drop-shadow(0 0 16px rgba(255,74,85,.35)) !important;pointer-events:none !important;z-index:0 !important;animation:hkFlick 5s steps(1) infinite !important;opacity:.85 !important}
+@keyframes hkFlick{0%,44%,48%,100%{opacity:.85}46%{opacity:.35}}
+[data-wk="offline"] *{font-family:${SERIF} !important}
+[data-wk="offline"] [data-wk="chathead"]::before{content:none !important}
+[data-wk="offline"] [data-wk="chathead"]{border-bottom:6px solid #000 !important}
+[data-wk="offline"] [data-wk="chathead"] + *{margin-top:0 !important;padding-top:10px !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:${C.cream} !important;letter-spacing:.12em !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:32px !important;height:32px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:transparent !important;color:${C.cream} !important;border:1px solid ${C.cream} !important;border-radius:0 !important;font-size:12px !important;padding:3px 12px !important;letter-spacing:.2em !important}
+[data-wk="offcomposer"]{background:${C.ink} !important;border-top:6px solid #000 !important}
+[data-wk="offcomposer"] textarea{background:${CORNERS(C.cream, 10, 1.4)},rgba(237,226,207,.04) !important;border:1px solid rgba(237,226,207,.28) !important;border-radius:0 !important;color:${C.cream} !important;letter-spacing:.1em !important}
+[data-wk="offcomposer"] textarea::placeholder{color:${C.dim} !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:34px !important;height:34px !important;min-width:34px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PLUS)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_PLAY)} center/40px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:50% !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{position:relative !important;width:84px !important;min-width:84px !important;height:34px !important;border:1px solid ${C.cream} !important;border-radius:0 !important;background:transparent !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]::before{content:"ACTION" !important;position:absolute !important;inset:0 !important;display:flex !important;align-items:center !important;justify-content:center !important;font:italic 700 11px/1 Georgia,serif !important;letter-spacing:.2em !important;color:${C.cream} !important;padding-left:12px !important;background:radial-gradient(circle,#E0353A 3px,transparent 3.5px) 9px center/8px 8px no-repeat !important}
+/* 卡片：他的＝墨褐块左边金条；你的＝暗红块右边亮红条；两只取景框角 */
+[data-wk="offcard"]{position:relative !important;background:linear-gradient(180deg,#2A1E17,#1C1410) !important;border:none !important;border-left:3px solid ${C.gold} !important;border-radius:0 !important;box-shadow:0 10px 24px rgba(0,0,0,.5) !important;overflow:visible !important;margin-top:20px !important;color:${C.cream} !important}
+[data-wk="offcard"][data-me="1"]{background:linear-gradient(180deg,#5A1517,#3E0F11) !important;border-left:none !important;border-right:3px solid ${C.redL} !important}
+[data-wk="offcard"]::before{content:"" !important;position:absolute !important;inset:-7px !important;background:${CORNERS(C.goldD, 12, 1.4)} !important;pointer-events:none !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:0 !important;box-shadow:none !important}
+[data-wk="offhead"] [data-wk="avatar"]::before{content:none !important}
+[data-wk="offname"],[data-wk="offtext"]{color:${C.cream} !important}
+[data-wk="offname"]{letter-spacing:.25em !important;font-weight:700 !important}
+[data-wk="offtext"]{letter-spacing:.06em !important;line-height:1.9 !important}
+[data-wk="offsay"]{color:#FFF4E2 !important;background:none !important;font-weight:700 !important;border-bottom:1.4px solid ${C.redL} !important}
+[data-wk="offthought"]{position:relative !important;background:linear-gradient(90deg,rgba(20,16,13,.5),rgba(80,20,22,.3)) !important;border:1.2px dashed rgba(237,226,207,.5) !important;border-radius:0 !important;color:${C.cream} !important;font-style:normal !important;letter-spacing:.12em !important;box-shadow:none !important;margin-top:14px !important}
+[data-wk="offthought"]::before{content:"Voice-over" !important;position:absolute !important;left:12px !important;top:-10px !important;padding:1px 12px !important;background:#1C1410 !important;font:italic 10.5px/1.3 Georgia,serif !important;letter-spacing:.12em !important;color:${C.cream} !important}
+[data-wk="offcardacts"] svg{stroke:${C.dim} !important;color:${C.dim} !important}
+[data-wk="offreplyopt"]{background:transparent !important;border:1px solid rgba(237,226,207,.4) !important;border-radius:0 !important;color:${C.cream} !important;letter-spacing:.1em !important}
+
+/* ───── 港风旧梦 · 通话：气泡同线上，大头像方框＋取景框角，外面一圈红光 ───── */
+[data-wk="callbubble"]{background:linear-gradient(180deg,#2E2019,#22180F) !important;color:${C.cream} !important;border:none !important;border-left:3px solid ${C.gold} !important;border-radius:0 !important;letter-spacing:.06em !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:linear-gradient(180deg,#8A2024,${C.red}) !important;border-left:none !important;border-right:3px solid ${C.redL} !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.redL} !important}
+[data-wk="callact"]{color:${C.dim} !important;font-style:italic !important;letter-spacing:.1em !important}
+[data-wk="callavatar"]{border-radius:0 !important;box-shadow:0 0 0 6px ${C.ink},0 0 0 7px rgba(237,226,207,.5),0 0 40px rgba(224,53,58,.45) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "港风旧梦", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
