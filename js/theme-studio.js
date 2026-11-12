@@ -476,8 +476,7 @@
     Object.freeze({zh:"值班室",pages:Object.freeze(["vpscodex"]),hooks:Object.freeze([["vpscodexpage", "值班室整页最外层"]])}),
     Object.freeze({
       zh: "聊天页", pages: Object.freeze(["thread", "gthread"]),
-      hooks: Object.freeze([["heartpage", "心上那本本子的最外层"],["chatsetpage", "聊天设置整页最外层（改聊天设置的背景改这里）"],["peekcutpage", "被剪掉的聊天那一页的最外层"],
-        ["chat", "聊天页整块背景"], ["body", "正文区背景"],
+      hooks: Object.freeze([["heartpage", "心上那本本子的最外层"],["chatsetpage", "聊天设置整页最外层（改聊天设置的背景改这里）"],["chat", "聊天页整块背景"], ["body", "正文区背景"],
         // 「Ta 眼里」那页：聊天里点顶栏名字 → Ta 眼里（群友 2026-10-05：「这个和关于我/关于我们有挂点嘛」）
         ["gazepage","整页那张手记底（data-side=\"me\" 关于我 / \"us\" 关于我们）"],["gazetitle","右上角「关于我/关于我们」大字"],
         ["gazetape","Ta 眼里卡片顶上那条米色贴条（展开的信和旧版也是它）"],["gazetab","两条布书签（data-on=\"1\" 是选中的）"],["gazestatus","书签下面那行复看说明小字"],["gazeempty","一块都还没写时那一整块（这里还是空的＋让他写写看）"],

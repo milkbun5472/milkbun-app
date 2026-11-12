@@ -11917,7 +11917,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 她手机上被删了好友／拉黑的那位（x_peekCut）刷不到她的朋友圈，跟真微信一样（群友 2026-10-22：TA 果断删了人，朋友圈里那人还跟她互动得很好）
   // 你们之间有一方删了好友（她删了他，或者他删了她）：朋友圈互相看不到（她 2026-11-08）
   const friendCut = id => { const b = (blocksRef.current || {})[id] || {}; return !!(b.deleted || (b.theyBlocked && b.cut === "del")); };
-  const momSeen = (m, charId) => !!m && !!m.mine && !friendCut(charId) && !((window.__peekCut || {})[charId]) && !(m.hiddenFrom || []).includes(String(charId)) && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
+  const momSeen = (m, charId) => !!m && !!m.mine && !friendCut(charId) && !(m.hiddenFrom || []).includes(String(charId)) && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
   // 发朋友圈那页挑面具用：主面具一张 + 其余几张（跟论坛挑面具同一份名单）；发出来的那条显示用哪张的名字和头像
   window.__momentMasks = () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage, color: profile.color }]
     .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
@@ -12385,7 +12385,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       setPinnedChats(p => { const n = p.filter(x => x !== tgt.id); saveJSON("x_pinnedChats", n); return n; });
       note(vn + " 把「" + tn + "」取消了置顶", "把「" + tn + "」从她的置顶里拿掉了");
     } else if ((step.do === "unfriend" || step.do === "block") && tgt) {
-      savePeekCut(p => ({ ...p, [tgt.id]: { kind: step.do, by: viewerId, ts: Date.now() } }));
+      // 跟她自己删好友／拉黑是同一套（她 2026-11-13：「现在可以删好友了要不要把他查我手机删好友那个连上去」）：
+      //   原来是另一张 x_peekCut、一页空白假页面；现在落进 x_blocks，「已删除」那条、好友申请、新的朋友、朋友圈都照那一套走，只多记一句是谁翻手机时删的
+      peekCutApply(tgt.id, step.do, viewerId, vn);
       note(vn + (step.do === "unfriend" ? " 删掉了你的好友「" : " 拉黑了「") + tn + "」", (step.do === "unfriend" ? "删掉了她和「" : "替她拉黑了「") + tn + (step.do === "unfriend" ? "」的好友" : "」"));
     } else if (step.do === "impersonate" && tgt && step.text) {
       pChat(tgt.id, p => [...p, { role: "user", content: step.text, ts: Date.now(), peekBy: viewerId }]);
@@ -12393,8 +12395,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       note(vn + " 用你的手机给「" + tn + "」发了一句：「" + step.text + "」", "用她的手机、以她的名义给「" + tn + "」发了一句「" + step.text + "」");
     }
   };
-  const leaveCutPage = () => setScreen("messages");   // 空白页的返回：回消息列表
-  const peekRestore = id => savePeekCut(p => { const n = { ...p }; delete n[id]; return n; });
+  const peekCutApply = (id, kind, byId, byName) => {
+    if (kind === "unfriend") setBlockFor(id, { deleted: true, deletedTs: Date.now(), reqs: [], lastWords: "", deletedBy: byId || "", deletedByName: byName || "" });
+    else setBlockFor(id, { iBlocked: true, blockedBy: byId || "", blockedByName: byName || "" });
+  };
+  // 以前翻手机删掉／拉黑的那几位（存在 x_peekCut 里）：开机挪进 x_blocks 一次，那张旧表清空
+  useEffect(() => {
+    const old = peekCut || {}, ids = Object.keys(old);
+    if (!ids.length) return;
+    ids.forEach(id => { const c = old[id] || {}; peekCutApply(id, c.kind === "block" ? "block" : "unfriend", c.by, (((characters || []).find(x => x.id === c.by) || {}).name) || ""); });
+    savePeekCut(() => ({}));
+  }, []);
   const peekRenamedRef = useRef({});
   // 查手机记事（她 2026-10-02：「后续他查过的有啥能进上下文」）：每翻一趟记一条，之后一周里TA回她时带着最近几条，当成自己记得的事
   //   x_peekLog = { [charId]: [{ ts, how: "given"|"asked"|"sneak"|"refused", who, thoughts, did, hid, end }] }
@@ -35226,10 +35237,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️从庭院退出来是【回这间房的聊天】，不是回消息列表：她本来就在这间房里
       onBack: () => setGardenOpen("")
     };
-  })());else if (screen === "thread" && activeChar && peekCut[activeChar.id]) body = h(PeekCutPage, {
-    character: activeChar, cut: peekCut[activeChar.id], byName: (((characters || []).find(x => x.id === peekCut[activeChar.id].by) || {}).name) || "",
-    onBack: leaveCutPage, onRestore: () => peekRestore(activeChar.id)
-  });else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+  })());else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     apiProfiles: apiProfiles,
     // 换一个群就是一块新的聊天屏（跟单聊 key 一样）：不然从 A 群点弹窗进 B 群，还停在 A 群翻到的那个高度、也不重新钉底
     key: "g::" + activeGroup.id,
