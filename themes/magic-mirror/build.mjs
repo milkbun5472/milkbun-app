@@ -35,6 +35,10 @@ const DROPS3 = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 12'>${[5
 const CUPS7 = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 252'>${Array.from({length:7},(_,i)=>`<g transform='translate(0 ${i*36}) rotate(-90 18 18)'><path d='M7 7 H29 L26 22 Q25 25 22 25 H14 Q11 25 10 22Z'/><rect x='16' y='25' width='4' height='4'/><rect x='11' y='29' width='14' height='3' rx='1'/></g>`).join('')}</svg>`;
 const COMB = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 14'><path d='M2 2 H22 Q22 6 18 6 H6 Q2 6 2 2Z' fill='${C.gold}' stroke='${C.goldD}' stroke-width='.8'/>${Array.from({length:8},(_,i)=>`<path d='M${4+i*2.3} 6 V13' stroke='${C.gold}' stroke-width='1.1' stroke-linecap='round'/>`).join('')}</svg>`;
 
+// ── 第四批：林间一口玻璃棺，金边，四周落满花，后面是暗林、上头落雪 ──
+const FLOWER = (x,y,c,r=4) => `<g transform='translate(${x} ${y})'>${[0,72,144,216,288].map(a=>`<circle cx='${(r*Math.cos(a*Math.PI/180)).toFixed(1)}' cy='${(r*Math.sin(a*Math.PI/180)).toFixed(1)}' r='${(r*.75).toFixed(1)}' fill='${c}'/>`).join('')}<circle r='${(r*.5).toFixed(1)}' fill='#F6E3A6'/></g>`;
+const COFFIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 300'><defs><linearGradient id='gl' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='.38'/><stop offset='.5' stop-color='#BFD8F0' stop-opacity='.12'/><stop offset='1' stop-color='#fff' stop-opacity='.3'/></linearGradient><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${C.goldL}'/><stop offset='.4' stop-color='${C.gold}'/><stop offset='.7' stop-color='${C.goldD}'/><stop offset='1' stop-color='#D9B866'/></linearGradient></defs><g fill='#16202A'><path d='M0 300 V120 L30 60 L60 120 L80 80 L110 140 V300Z'/><path d='M390 300 V110 L355 50 L320 115 L300 85 L270 145 V300Z'/></g><g fill='#1D2833'><path d='M40 300 V150 L70 95 L100 150 V300Z'/><path d='M350 300 V140 L318 90 L290 145 V300Z'/></g><path d='M0 250 Q195 225 390 250 V300 H0Z' fill='#E8EEF5' opacity='.9'/><g><path d='M90 200 L120 165 H270 L300 200Z' fill='url(#gl)' stroke='url(#g)' stroke-width='3' stroke-linejoin='round'/><path d='M90 200 H300 L282 238 H108Z' fill='url(#gl)' stroke='url(#g)' stroke-width='3' stroke-linejoin='round'/><path d='M120 165 L108 238 M270 165 L282 238' stroke='url(#g)' stroke-width='1.6' opacity='.7'/><path d='M135 172 L125 194 M150 172 L140 194' stroke='#fff' stroke-width='2' stroke-linecap='round' opacity='.45'/><path d='M195 180 q-5 7 0 10 q5 -3 0 -10Z' fill='${C.ruby}'/><path d='M190 190 q5 4 10 0' fill='none' stroke='#4E8A55' stroke-width='1.4'/></g>${[[95,240,'#F2C7D2'],[120,246,'#fff'],[150,243,'#E0465A'],[240,244,'#fff'],[270,246,'#F2C7D2'],[296,240,'#E0465A'],[200,248,'#F2C7D2'],[80,230,'#fff'],[310,232,'#fff'],[175,246,'#fff']].map(([x,y,c])=>FLOWER(x,y,c)).join('')}<path d='M118 244 q-6 -6 -12 -2 M276 244 q6 -6 12 -2' fill='none' stroke='#4E8A55' stroke-width='1.6' stroke-linecap='round'/></svg>`;
+
 const bubble = { myBg: C.red, myText: C.cream, myBorder: "none", charBg: "transparent", charText: "#fff", charBorder: "none", radius: 10, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -298,6 +302,51 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="gazeempty"]{background:rgba(255,255,255,.08) !important;border:1.2px dashed rgba(255,255,255,.5) !important;border-radius:16px !important;color:${C.cream} !important}
 [data-wk="gazeempty"] > div:first-child{color:${C.cream} !important}
 [data-wk="gazeempty"] button{background:linear-gradient(180deg,${C.red},${C.redD}) !important;color:${C.cream} !important;border:1px solid ${C.gold} !important;border-radius:999px !important}
+/* ───── 魔镜 · 第四批：线下＝林间雪地里一口金边玻璃棺，四周落满花，后面是暗林 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(COFFIN)} center bottom 70px/100% auto no-repeat,linear-gradient(180deg,#0E141B,#1C2732 60%,#2D3948) !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] *{font-family:${SERIF} !important}
+[data-wk="offline"] [data-wk="chathead"]::after{display:none !important}
+[data-wk="offline"] [data-wk="chathead"] + *{margin:0 !important;padding-top:12px !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:${C.cream} !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:32px !important;height:32px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:linear-gradient(180deg,${C.red},${C.redD}) !important;color:${C.cream} !important;border:1px solid ${C.gold} !important;border-radius:999px !important;font-size:12px !important;padding:3px 14px !important}
+[data-wk="offline"] [data-wk="offbody"]{color:${C.cream} !important}
+[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]),[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]) > :not([data-wk]){color:${C.fog} !important}
+[data-wk="offcomposer"]{background:${C.panel} !important;border-top:1.2px solid ${C.gold} !important}
+[data-wk="offcomposer"] textarea{background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(191,216,240,.06)) !important;border:1px solid rgba(255,255,255,.55) !important;border-radius:12px !important;color:#fff !important}
+[data-wk="offcomposer"] textarea::placeholder{color:#C9D6E4 !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:34px !important;height:34px !important;min-width:34px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(CI(`<ellipse cx='20' cy='20' rx='7' ry='9' fill='none' stroke='${C.cream}' stroke-width='1.4'/><path d='M16 15 Q18 12 20 11' fill='none' stroke='#fff' stroke-width='1.2' stroke-linecap='round'/>`))} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_REPLY)} center/34px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{position:relative !important;width:46px !important;min-width:46px !important;height:46px !important;border:none !important;border-radius:50% !important;background:${svg(APPLE(false))} center/62% no-repeat,radial-gradient(circle,${C.panel} 60%,${C.gold} 62%,${C.gold} 70%,${C.rivet} 72%,transparent 74%) !important;font-size:0 !important;color:transparent !important;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5)) !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+/* 卡片：他的雪白磨砂、你的红丝绒；右上角一颗小星 */
+[data-wk="offcard"]{position:relative !important;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(236,242,250,.86)) !important;border:1.2px solid #fff !important;border-radius:14px !important;box-shadow:0 8px 18px rgba(0,0,0,.45),inset 0 -3px 6px rgba(170,190,215,.35) !important;overflow:visible !important;margin-top:18px !important;color:#26303C !important}
+[data-wk="offcard"][data-me="1"]{background:linear-gradient(180deg,${C.red},${C.redD}) !important;border-color:${C.gold} !important;color:${C.cream} !important;box-shadow:inset 0 0 0 3.5px transparent,inset 0 0 0 4px rgba(201,160,78,.7),0 8px 18px rgba(0,0,0,.45) !important}
+[data-wk="offcard"]::after{content:"" !important;position:absolute !important;right:-10px !important;top:-10px !important;width:22px !important;height:22px !important;background:${svg(STARS)} center/contain no-repeat !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2.5px ${C.gold} !important}
+[data-wk="offhead"] [data-wk="avatar"]::after{content:none !important}
+[data-wk="offname"],[data-wk="offtext"]{color:#26303C !important}
+[data-wk="offname"]{font-weight:700 !important;letter-spacing:.12em !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offname"],[data-wk="offcard"][data-me="1"] [data-wk="offtext"]{color:${C.cream} !important}
+[data-wk="offsay"]{color:#A51A2B !important;background:none !important;font-weight:700 !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{color:${C.goldL} !important}
+[data-wk="offthought"]{background:radial-gradient(ellipse at 50% 50%,rgba(160,190,225,.18),transparent 75%) !important;border:none !important;border-top:1px solid rgba(38,48,60,.2) !important;border-bottom:1px solid rgba(38,48,60,.2) !important;border-radius:0 !important;color:#4A5A70 !important;font-style:italic !important;box-shadow:none !important}
+[data-wk="offcardacts"] svg{stroke:${C.goldD} !important;color:${C.goldD} !important}
+[data-wk="offreplyopt"]{background:${C.panel} !important;border:1px solid ${C.gold} !important;border-radius:999px !important;color:${C.cream} !important}
+
+/* ───── 魔镜 · 通话：气泡同线上，大头像套金框加一圈雪光 ───── */
+[data-wk="callbubble"]{background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(236,242,250,.82)) !important;color:#26303C !important;border:1.2px solid #fff !important;border-radius:10px !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:linear-gradient(180deg,${C.red},${C.redD}) !important;color:${C.cream} !important;border-color:${C.gold} !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.ruby} !important}
+[data-wk="callact"]{color:${C.ice} !important;font-style:italic !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 6px ${C.gold},0 0 0 7px ${C.rivet},0 0 30px 6px rgba(221,235,255,.35) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "魔镜魔镜", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
