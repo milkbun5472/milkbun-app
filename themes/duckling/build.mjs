@@ -1,4 +1,4 @@
-// 丑小鸭：月夜的湖——上半是缀星的夜空和一轮月亮，树影一线，下半是青色湖水和一道月光倒影；湖边一只白天鹅。
+// 月湖天鹅（丑小鸭的故事）：月夜的湖——上半是缀星的夜空和一轮月亮，树影一线，下半是青色湖水和一道月光倒影；湖边一只白天鹅。
 // 气泡像浮在水面上：他的白、我的青，底下一截水里的倒影。用法：node themes/duckling/build.mjs
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -16,7 +16,7 @@ const WAVE = (c) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 8' 
 // 按键：加号是一颗裂开的蛋，回复是一片睡莲叶，发送是小鸭的圆脑袋带一个橘色小嘴（照参考），回家是一弯湖上的月亮，更多是一根羽毛
 const I_PLUS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 34'><path d='M15 2 C23 2 27 13 27 21 C27 28 22 32 15 32 C8 32 3 28 3 21 C3 13 7 2 15 2Z' fill='${C.white}' stroke='${C.gold}' stroke-width='1.4'/><path d='M5 18 L9 15 L12 19 L15 15 L18 19 L21 15 L25 18' fill='none' stroke='${C.dark}' stroke-width='1.4' stroke-linejoin='round'/><path d='M15 21 V28 M11.5 24.5 H18.5' stroke='${C.teal}' stroke-width='1.8' stroke-linecap='round'/></svg>`;
 const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 34'><path d='M20 3 A15 13.5 0 1 0 34.5 13 L20 17Z' fill='#3E8A6A' stroke='${C.white}' stroke-width='1.4' stroke-linejoin='round'/><path d='M20 17 L9 27 M20 17 L8 12 M20 17 L26 30' stroke='rgba(255,255,255,.35)' stroke-width='1'/><circle cx='30' cy='9' r='4.5' fill='#F2D6E0' stroke='${C.white}' stroke-width='1'/><circle cx='30' cy='9' r='1.6' fill='${C.gold}'/><circle cx='13' cy='17' r='1.4' fill='${C.white}'/><circle cx='18' cy='22' r='1.4' fill='${C.white}'/><circle cx='23' cy='24' r='1.4' fill='${C.white}'/></svg>`;
-const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'><circle cx='22' cy='20' r='16' fill='${C.white}'/><path d='M38 13 L54 20 L38 27Z' fill='${C.beak}'/><path d='M38 20 H50' stroke='#C07A20' stroke-width='1'/><circle cx='29' cy='15' r='1.8' fill='${C.dark}'/></svg>`;
+const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'><circle cx='22' cy='20' r='16' fill='#B4BDBF'/><path d='M14 6 Q16 1 20 4 Q21 0 25 4' stroke='#B4BDBF' stroke-width='2.4' fill='none' stroke-linecap='round'/><path d='M38 13 L54 20 L38 27Z' fill='${C.beak}'/><path d='M38 20 H50' stroke='#C07A20' stroke-width='1'/><circle cx='29' cy='15' r='1.8' fill='${C.dark}'/></svg>`;
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30' fill='none' stroke='${C.white}' stroke-width='1.6' stroke-linecap='round'><path d='M17 4 A8 8 0 1 0 25 15 A6.5 6.5 0 0 1 17 4Z' fill='rgba(240,225,170,.85)' stroke='none'/><path d='M3 22 H27 M7 26 H13 M17 26 H24'/></svg>`;
 const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30' fill='none' stroke='${C.white}' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M7 25 C9 15 15 7 25 4 C25 13 19 21 9 23Z' fill='rgba(244,246,241,.9)'/><path d='M5 27 L18 12' stroke='${C.dark}' stroke-width='1.2'/><path d='M12 18 L9 17 M15 15 L12 13 M15 20 L13 19' stroke='${C.fog}' stroke-width='1'/></svg>`;
 const DUCKDOT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 12'><circle cx='7' cy='6' r='5' fill='${C.white}'/><path d='M12 4 L18 6 L12 8Z' fill='${C.beak}'/></svg>`;
@@ -24,13 +24,18 @@ const DUCKDOT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 12'><ci
 const I_PIC = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><rect x='3' y='5' width='24' height='20' rx='4' fill='#12424B' stroke='#fff' stroke-width='1.4'/><circle cx='20' cy='11' r='3' fill='#FFF3CF'/><path d='M3.7 17 H26.3' stroke='#06161B' stroke-width='2'/><path d='M17 20 h6 M18 22.5 h4' stroke='#FFF3CF' stroke-width='1' stroke-linecap='round'/></svg>`;
 const EGG = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 46'><ellipse cx='20' cy='42' rx='16' ry='3' fill='rgba(0,0,0,.25)'/><path d='M20 2 C30 2 35 16 35 26 C35 36 28 42 20 42 C12 42 5 36 5 26 C5 16 10 2 20 2Z' fill='#F6D27A' stroke='#fff' stroke-width='1.6'/><path d='M12 10 Q14 6 18 5' stroke='#fff' stroke-width='2' fill='none' stroke-linecap='round' opacity='.8'/><path d='M8 24 L13 20 L17 25 L21 20 L25 25 L29 20 L33 24' fill='none' stroke='#B7832A' stroke-width='1.4' stroke-linejoin='round'/></svg>`;
 const FEATHER = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle cx='20' cy='20' r='17' fill='none' stroke='#F2B24A' stroke-width='1.6'/><circle cx='20' cy='20' r='14' fill='none' stroke='#F2B24A' stroke-width='.8'/><path d='M12 29 C14 19 20 12 29 10 C29 18 23 25 14 27Z' fill='#F2B24A'/><path d='M11 31 L23 17' stroke='#12424B' stroke-width='1.1'/></svg>`;
+const DUCKLING = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'><path d='M10 30 Q10 22 20 21 Q24 14 30 14 Q36 14 36 20 Q36 23 33 25 Q44 24 46 30 Q44 35 28 35 Q12 35 10 30Z' fill='#9AA4A6'/><circle cx='31' cy='18' r='1' fill='#13252E'/><path d='M36 18.5 L41 19.5 L36 21Z' fill='#F0A23A'/><path d='M22 22 Q20 18 23 16 M26 15 Q25 12 27 11' stroke='#B9C2C4' stroke-width='1.2' fill='none' stroke-linecap='round'/><path d='M6 37 H40 M16 39 H32' stroke='rgba(255,255,255,.3)' stroke-width='1' stroke-linecap='round'/><path d='M46 33 Q54 32 60 34 M44 36 Q52 36 58 38' stroke='rgba(255,255,255,.18)' stroke-width='1' fill='none'/></svg>`;
+const PAIR = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 22'><path d='M2 18 Q2 13 8 12 Q10 8 13 8 Q17 8 17 11 Q17 13 15 14 Q20 14 21 18 Q20 20 12 20 Q3 20 2 18Z' fill='#9AA4A6'/><path d='M17 10.5 L20 11 L17 12Z' fill='#F0A23A'/><circle cx='14' cy='10' r='.7' fill='#13252E'/><path d='M42 18 Q42 14 36 13 L30 13 Q33 11 34 7 Q35 3 33 1.5 Q31 0.5 30 2 L29 3 L31 3.2 Q33 4 32 7 Q31 11 26 13 Q23 15 24 18 Q26 20 33 20 Q42 20 42 18Z' fill='#fff'/><path d='M29 3 L26 3.6 L29.4 4.2Z' fill='#F0A23A'/></svg>`;
+const FLUFF = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M10 18 Q9 12 4 8 M10 18 Q10 10 9 3 M10 18 Q12 11 16 6 M10 18 Q14 14 18 13 M10 18 Q6 15 2 15' stroke='#A8B1B3' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>`;
+const PLUME = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 21 C5 12 11 5 21 2 C21 11 15 18 6 19Z' fill='#fff'/><path d='M3 22 L15 9' stroke='#BFD3D6' stroke-width='1'/><path d='M10 15 L7 14 M13 12 L10 10.5' stroke='#D7E4E6' stroke-width='.8'/></svg>`;
+const PRINT = (c) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 14' fill='${c}'><path d='M6 1 C5 3 1 9 1 10.5 C3 9.6 4.6 10 6 11.8 C7.4 10 9 9.6 11 10.5 C11 9 7 3 6 1Z' transform='rotate(-12 6 7)'/><path d='M17 2.5 C16 4.5 12 10.5 12 12 C14 11.1 15.6 11.5 17 13.3 C18.4 11.5 20 11.1 22 12 C22 10.5 18 4.5 17 2.5Z' transform='rotate(10 17 8)'/></svg>`;
 const bubble = { myBg: C.teal, myText: C.ink, myBorder: "1px solid rgba(190,230,225,.5)", charBg: C.white, charText: "#21343A", charBorder: "none", radius: 18, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
-const BG = `${svg(SWAN)} 52px 150px/44px 74px no-repeat,radial-gradient(circle at 74% 166px,#FFFDF2 0,#F6E3B0 19px,rgba(246,227,176,.4) 20.5px,rgba(246,227,176,.12) 55px,transparent 100px),radial-gradient(ellipse 100px 40px at 74% 200px,rgba(246,227,176,.28),transparent),${svg(TREES)} 0 188px/200px 14px repeat-x,${svg(STARS)} 0 40px/220px 170px repeat-x,linear-gradient(180deg,#0B1E2E 0,#2A5560 200px,#1C4C55 201px,#103138 55%,#091E24 100%)`;
+const BG = `${svg(SWAN)} 52px 150px/44px 74px no-repeat,${svg(DUCKLING)} 100px 176px/36px 24px no-repeat,radial-gradient(circle at 74% 166px,#FFFDF2 0,#F6E3B0 19px,rgba(246,227,176,.4) 20.5px,rgba(246,227,176,.12) 55px,transparent 100px),radial-gradient(ellipse 100px 40px at 74% 200px,rgba(246,227,176,.28),transparent),${svg(TREES)} 0 188px/200px 14px repeat-x,${svg(STARS)} 0 40px/220px 170px repeat-x,linear-gradient(180deg,#0B1E2E 0,#2A5560 200px,#1C4C55 201px,#103138 55%,#091E24 100%)`;
 
 const css = `
-/* ───── 丑小鸭 · 第一批 ───── */
+/* ───── 月湖天鹅 · 第一批 ───── */
 [data-wk="chat"]{background:${BG} !important;background-color:${C.deep} !important}
 [data-wk="body"]{background:transparent !important;position:relative !important;z-index:1 !important;padding-top:118px !important}
 [data-wk="chat"]{position:relative !important}
@@ -102,11 +107,26 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),img[data-wk="av
 [data-wk="chatinput"]{background:linear-gradient(180deg,#24525A,#1A3F46) !important;border:1px solid rgba(190,230,225,.4) !important;border-radius:16px !important;color:${C.ink} !important}
 [data-wk="chatinput"]::placeholder{color:${C.fog} !important}
 [data-wk="chatplus"]{width:28px !important;min-width:28px !important;height:32px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_PLUS)} center/contain no-repeat !important;transform:none !important;rotate:none !important}
-[data-wk="send"]{width:52px !important;min-width:52px !important;height:36px !important;border:none !important;border-radius:0 !important;box-shadow:none !important;background:${svg(I_SEND)} center/contain no-repeat !important;opacity:1 !important;filter:drop-shadow(0 0 8px rgba(255,255,255,.55)) !important}
+[data-wk="send"]{width:52px !important;min-width:52px !important;height:36px !important;border:none !important;border-radius:0 !important;box-shadow:none !important;background:${svg(I_SEND)} center/contain no-repeat !important;opacity:1 !important;filter:drop-shadow(0 0 6px rgba(255,255,255,.35)) !important}
 [data-wk="chatreply"]{width:38px !important;min-width:38px !important;height:32px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.92) !important}
-/* ───── 丑小鸭 · 第二批：卡片（形状不动；他的白瓷、我的水色玻璃，同气泡；细金线收边） ───── */
+/* ───── 更丑小鸭：他是灰小鸭、我是白天鹅 ───── */
+/* 头像：他一圈灰绒毛（毛茸茸的软边），我一圈白羽，右上插一根小白羽毛 */
+[data-wk="msg"][data-me="0"] [data-wk="avatar"],[data-wk="cardrow"][data-me="0"] [data-wk="avatar"],[data-wk="chathead"] > button img[data-wk="avatar"],[data-wk="chathead"] > button > [data-wk="avatar"]{box-shadow:0 0 0 3px #B4BDBF,0 0 0 4px #D6DCDD,0 0 5px 5px rgba(168,177,179,.55) !important}
+/* 顶栏双头像中间：一只灰小鸭和一只白天鹅面对面 */
+[data-wk="chathead"] [data-wk="headme"]::before{left:-22px !important;bottom:-8px !important;width:40px !important;height:20px !important;background:${svg(PAIR)} center/contain no-repeat !important;filter:drop-shadow(0 0 3px rgba(0,0,0,.5)) !important}
+/* 气泡：我的高光挪进底色；每串第一条——他的角上一撮灰绒毛，我的角上一根白羽 */
+[data-wk="bubble"][data-kind="text"][data-me="1"]{background:linear-gradient(rgba(255,255,255,.5),rgba(255,255,255,.5)) 22px 4px/36px 1.4px no-repeat,linear-gradient(135deg,rgba(143,227,234,.42),rgba(63,162,176,.30) 55%,rgba(155,231,236,.36)),rgba(18,66,75,.92) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::before{content:none !important}
+[data-first="1"] [data-wk="bubble"][data-kind="text"]::before,[data-wk="msg"]:not([data-first]) [data-wk="bubble"][data-kind="text"]::before{content:"" !important;position:absolute !important;top:-11px !important;width:20px !important;height:20px !important;border:none !important;background-color:transparent !important;transform:none !important;z-index:2 !important}
+[data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:-4px !important;right:auto !important;background:${svg(FLUFF)} center/contain no-repeat !important}
+[data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]::before{right:-6px !important;left:auto !important;background:${svg(PLUME)} center/contain no-repeat !important;filter:drop-shadow(0 0 3px rgba(255,255,255,.6)) !important}
+/* 已读：一对小鸭掌印——他的橘色、我的白色 */
+[data-wk="msg"][data-me="0"] [data-wk="meta"]::before{content:"" !important;width:20px !important;height:12px !important;background:${svg(PRINT("#F0A23A"))} center/contain no-repeat !important;filter:none !important;border-radius:0 !important}
+[data-wk="msg"][data-me="1"] [data-wk="meta"]::before{content:"" !important;width:20px !important;height:12px !important;background:${svg(PRINT("#FFFFFF"))} center/contain no-repeat !important;border-radius:0 !important;opacity:.85 !important}
+
+/* ───── 月湖天鹅 · 第二批：卡片（形状不动；他的白瓷、我的水色玻璃，同气泡；细金线收边） ───── */
 [data-wk="transfercard"],[data-wk="photocard"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"],[data-wk="rpcard"]{position:relative !important;overflow:visible !important;background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;border:1px solid #fff !important;border-radius:14px !important;box-shadow:0 0 16px rgba(255,255,255,.28),inset 0 0 0 4px #F7FAF9,inset 0 0 0 4.6px rgba(242,178,74,.55) !important;color:#0E3138 !important}
 [data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *,[data-wk="photocard"] *{color:#0E3138 !important;border-color:rgba(14,49,56,.15) !important}
 /* 转账：白瓷卡，金额金色衬线；收下盖一枚金色羽毛圆章 */
@@ -185,6 +205,6 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),img[data-wk="av
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
 `;
 
-const pack = { kind: "chat-look", v: 1, name: "丑小鸭", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
-writeFileSync(join(here, "丑小鸭-美化.json"), JSON.stringify(pack));
+const pack = { kind: "chat-look", v: 1, name: "月湖天鹅", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
+writeFileSync(join(here, "月湖天鹅-美化.json"), JSON.stringify(pack));
 console.log("ok", css.length);
