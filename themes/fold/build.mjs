@@ -12,6 +12,8 @@ const F = 14; // 折角大小
 // 折角：一个三角形——外侧是底色（剪掉角），内侧是折过来的深一档纸背，带一道斜线
 const CORNER = (back) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M0 0 H20 V20Z' fill='${C.bg}'/><path d='M0 0 L20 20 H0Z' fill='${back}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/></svg>`;
 const DOTS = `<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><circle cx='3' cy='3' r='1.1' fill='${C.dot}'/><circle cx='12' cy='12' r='1.1' fill='${C.dot}'/></svg>`;
+const CLIPS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 28'><path d='M4 24 V6 Q4 3 6.5 3 Q9 3 9 6 V22 Q9 25.5 6 25.5 Q2.5 25.5 2.5 22 V9' fill='none' stroke='${C.deep}' stroke-width='1.6' stroke-linecap='round'/></svg>`;
+const I_PLANE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 36'><path d='M3 17 L37 3 L27 33 L19 22Z' fill='${C.deep}' stroke='${C.ink}' stroke-width='1.4' stroke-linejoin='round'/><path d='M37 3 L19 22 L17 32 L23 26' fill='${C.lilac}' stroke='${C.ink}' stroke-width='1.4' stroke-linejoin='round'/><path d='M3 17 L19 22' stroke='#fff' stroke-width='1.1'/></svg>`;
 const NOTE = (inner) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M3 3 H19 L27 11 V27 H3Z' fill='${C.paper}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/><path d='M19 3 V11 H27' fill='${C.lilac}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/>${inner}</svg>`;
 const I_PLUS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M7 3 H25 V21 H7Z' fill='${C.lilac}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round' transform='rotate(8 16 12)'/><path d='M3 8 H19 L25 14 V27 H3Z' fill='${C.paper}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/><path d='M19 8 V14 H25' fill='${C.lilac}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/><path d='M13 13 V22 M8.5 17.5 H17.5' stroke='${C.deep}' stroke-width='2' stroke-linecap='round'/></svg>`;
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M5 14 H25 V27 H5Z' fill='${C.paper}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/><path d='M3 14 L15 3 L27 14Z' fill='${C.lilac}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/><path d='M15 3 L15 14' stroke='${C.line}' stroke-width='1.1'/><path d='M15 3 L27 14 H15Z' fill='${C.deep}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/><path d='M12 27 V20 H18 V27' fill='${C.lilac}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/></svg>`;
@@ -187,6 +189,100 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(NOTE(`<rect x='9' y='13' width='12' height='9' fill='none' stroke='${C.ink}' stroke-width='1.4'/><path d='M9.5 21 L13.5 17.5 L16 19.5 L18 18 L20.5 20.5' fill='none' stroke='${C.ink}' stroke-width='1.2'/>`))} center/contain no-repeat !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+
+/* ───── 折角便签 · 第三批：状态卡是一叠别在一起的便签，每块折一个角、左上一枚回形针 ───── */
+[data-wk="statecard"]{background:${svg(DOTS)} 0 0/18px 18px,${C.bg} !important;border:${LINE} !important;border-radius:2px !important;box-shadow:${SH} !important;--sc-heart-ink:${C.deep} !important}
+[data-wk="statehead"]{background:${C.paper} !important;border-bottom:${LINE} !important}
+[data-wk="statehead"] *{color:${C.ink} !important}
+[data-wk="statehead"] [data-wk="avatar"],[data-wk="statehead"] [data-wk="avatar"] *{border-radius:2px !important}
+[data-wk="statehead"] button{border:${LINE} !important;border-radius:2px !important;background:${C.paper} !important;box-shadow:2px 2px 0 rgba(63,58,82,.16) !important}
+[data-wk="statemood"]{display:inline-block !important;background:${C.lilac} !important;border:1.2px solid ${C.line} !important;color:${C.ink} !important;padding:1px 10px !important;margin-right:4px !important;border-radius:2px !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important;padding:3px !important;margin:12px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:0 !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:${C.lilac} !important;color:${C.ink} !important;box-shadow:inset 0 -2px 0 ${C.deep} !important}
+[data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;overflow:visible !important;background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important;margin:18px 16px 12px !important;color:${C.ink} !important;box-shadow:${SH} !important}
+[data-wk="statevoice"]{background:${C.lilac} !important;transform:rotate(-.6deg) !important}
+[data-wk="stateseen"]::after,[data-wk="statevoice"]::after{content:"" !important;position:absolute !important;right:-1.4px !important;top:-1.4px !important;width:16px !important;height:16px !important;background:${svg(CORNER(C.fold))} center/contain no-repeat !important}
+[data-wk="stateseen"]::before,[data-wk="statevoice"]::before{content:"" !important;position:absolute !important;left:14px !important;top:-12px !important;width:11px !important;height:26px !important;background:${svg(CLIPS)} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="stateseen"] *,[data-wk="statevoice"] *{color:${C.ink} !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:${C.fold} !important;border:1.2px solid ${C.line} !important;border-radius:2px !important}
+[data-wk="statewear"] > span{background:${C.paper} !important;border:1px solid ${C.line} !important;border-radius:2px !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.deep} !important}
+[data-wk="statevoice"] + div > button{background:${C.paper} !important;color:${C.ink} !important;border:${LINE} !important;border-radius:2px !important;box-shadow:2px 2px 0 rgba(63,58,82,.16) !important}
+/* 好感：不做进度条——一颗折纸爱心（中间一道折痕），从下往上灌深紫 */
+[data-wk="stateaff"]{background:${C.paper} !important;border-top:${LINE} !important;position:relative !important;display:block !important;padding:16px 120px 18px 20px !important;min-height:110px !important;overflow:hidden !important}
+[data-wk="stateaff"] *{color:${C.ink} !important}
+[data-wk="stateheart"]{position:absolute !important;left:auto !important;right:24px !important;top:50% !important;bottom:auto !important;width:80px !important;height:72px !important;margin-top:-36px !important;transform:rotate(-5deg) !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 72'><path d='M40 70 L4 30 L18 4 L40 18 L62 4 L76 30Z'/></svg>`)} !important;filter:drop-shadow(3px 3px 0 rgba(63,58,82,.18)) !important}
+[data-wk="stateheart"] > div{-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important}
+[data-wk="stateheartline"]{background:${C.line} !important;opacity:1 !important}
+[data-wk="stateheart"] > div:not([data-wk="stateheartline"]){inset:2px !important}
+[data-wk="stateheartbase"]{background:linear-gradient(90deg,${C.fold} 50%,${C.lilac} 50%) !important;opacity:1 !important}
+[data-wk="stateheartfill"] > div{background:linear-gradient(90deg,${C.deep} 50%,#57498F 50%) !important;opacity:1 !important}
+[data-wk="stateheartknob"]{display:none !important}
+[data-wk="stateheartnum"]{position:absolute !important;inset:0 !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:0 0 10px !important;z-index:3 !important;transform:rotate(5deg) !important;font:700 18px/1 Georgia,serif !important;color:${C.ink} !important;-webkit-text-stroke:4px ${C.paper} !important;paint-order:stroke !important}
+[data-wk="stateaffval"]{display:none !important}
+
+/* 翻旧的：一张张往期便签，左上一枚小纸签写着第几张 */
+[data-wk="statehistbtn"]{background:${C.paper} !important;color:${C.ink} !important;border:${LINE} !important;border-radius:2px !important;box-shadow:2px 2px 0 rgba(63,58,82,.16) !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.ink} !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:${LINE} !important;border-radius:2px !important;background:${C.paper} !important}
+[data-wk="statehistlist"]{counter-reset:pg !important}
+[data-wk="statehistitem"]{counter-increment:pg !important;position:relative !important;background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important;padding:28px 18px 14px !important;margin:18px 0 12px !important;box-shadow:${SH} !important}
+[data-wk="statehistitem"]:nth-child(even){background:${C.lilac} !important;transform:rotate(.5deg) !important}
+[data-wk="statehistitem"]::before{content:"No." counter(pg) !important;position:absolute !important;left:12px !important;top:-10px !important;background:${C.paper} !important;color:${C.deep} !important;border:1.2px solid ${C.line} !important;font:600 11px/1 Georgia,serif !important;padding:4px 8px !important;transform:rotate(-3deg) !important}
+[data-wk="statehistitem"]::after{content:"" !important;position:absolute !important;right:-1.4px !important;top:-1.4px !important;width:16px !important;height:16px !important;background:${svg(CORNER(C.fold))} center/contain no-repeat !important}
+[data-wk="statehistmood"]{background:${C.paper} !important;color:${C.ink} !important;border:1.2px solid ${C.line} !important;border-radius:2px !important}
+[data-wk="statehisttime"]{color:${C.fog} !important}
+[data-wk="statehisttext"],[data-wk="statehistact"],[data-wk="statehistwear"]{color:${C.ink} !important}
+[data-wk="statehistmeta"]{background:${C.fold} !important;border-radius:2px !important}
+[data-wk="statehistend"]{color:${C.fog} !important;letter-spacing:.3em !important}
+
+/* Ta 眼里：贴条换成一枚回形针 */
+[data-wk="gazepage"]{background:${svg(DOTS)} 0 0/18px 18px,${C.bg} !important}
+[data-wk="gazetitle"]{color:${C.ink} !important}
+[data-wk="gazetab"]{background:${C.paper} !important;color:${C.fog} !important;border:${LINE} !important;border-radius:2px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:${C.lilac} !important;color:${C.ink} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{position:relative !important;overflow:visible !important;background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important;box-shadow:${SH} !important}
+[data-wk="gazetape"]{background:${svg(CLIPS)} center/contain no-repeat !important;width:12px !important;height:28px !important;box-shadow:none !important;border:none !important;transform:rotate(-10deg) !important}
+[data-wk="gazecardname"]{color:${C.ink} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:${C.fog} !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important;box-shadow:${SH} !important}
+[data-wk="gazeempty"]{background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important}
+[data-wk="gazeempty"] button{background:${C.lilac} !important;color:${C.ink} !important;border:${LINE} !important;border-radius:2px !important}
+
+/* ───── 线下：一张张折角便签，我的藤紫、他的白；说的话是一张小纸条，心里话是浅一档的虚影纸 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(DOTS)} 0 0/18px 18px,${C.bg} !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:${C.ink} !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:${C.lilac} !important;color:${C.ink} !important;border:${LINE} !important;border-radius:2px !important;font-size:12px !important;padding:3px 12px !important}
+[data-wk="offcomposer"]{background:${C.paper} !important;border-top:${LINE} !important}
+[data-wk="offcomposer"] textarea{background:#fff !important;border:${LINE} !important;border-radius:2px !important;color:${C.ink} !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){width:40px !important;min-width:40px !important;height:36px !important;background:${svg(I_PLANE)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important;filter:drop-shadow(3px 3px 0 rgba(63,58,82,.16)) !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:52px !important;min-width:52px !important;height:34px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important;filter:drop-shadow(2px 3px 0 rgba(74,68,88,.14)) !important;font-size:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcard"]{position:relative !important;background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important;box-shadow:${SH} !important}
+[data-wk="offcard"][data-me="1"]{background:${C.lilac} !important}
+[data-wk="offcard"]::after{content:"" !important;position:absolute !important;right:-1.4px !important;top:-1.4px !important;width:18px !important;height:18px !important;background:${svg(CORNER(C.fold))} center/contain no-repeat !important;pointer-events:none !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:2px !important;box-shadow:0 0 0 1.4px ${C.line} !important}
+[data-wk="offname"]{color:${C.deep} !important;font-weight:700 !important}
+[data-wk="offtext"]{color:${C.ink} !important}
+[data-wk="offsay"]{background:#fff !important;border:1.2px solid ${C.line} !important;border-radius:2px !important;padding:1px 6px !important;color:${C.ink} !important;box-decoration-break:clone !important;-webkit-box-decoration-break:clone !important}
+[data-wk="offthought"]{background:${C.fold} !important;border-left:3px solid ${C.deep} !important;border-radius:0 !important;color:${C.fog} !important;font-style:italic !important}
+[data-wk="offcardacts"] svg{stroke:${C.ink} !important;color:${C.ink} !important}
+[data-wk="offreplyopt"]{background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important;color:${C.ink} !important;box-shadow:2px 2px 0 rgba(63,58,82,.16) !important}
+
+/* ───── 通话：一张张小便签，我藤紫他白，头像别一枚回形针 ───── */
+[data-wk="callbubble"]{position:relative !important;background:${C.paper} !important;color:${C.ink} !important;border:${LINE} !important;border-radius:2px !important;box-shadow:${SH} !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:${C.lilac} !important}
+[data-wk="callbubble"]::before{content:none !important}
+[data-wk="callbubble"]::after{content:"" !important;position:absolute !important;right:-1.4px !important;top:-1.4px !important;width:12px !important;height:12px !important;background:${svg(CORNER(C.fold))} center/contain no-repeat !important}
+[data-wk="callavatar"]{border-radius:2px !important;box-shadow:0 0 0 1.6px ${C.line},0 0 0 8px ${C.paper},0 0 0 9.4px ${C.line},8px 8px 0 9.4px ${C.lilac} !important}
 
 `;
 
