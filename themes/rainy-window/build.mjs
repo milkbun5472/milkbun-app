@@ -361,6 +361,12 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{width:8px !important;height:11px !important;border-radius:0 !important;background:${svg(DROP())} center/contain no-repeat !important}
 [data-wk="callact"]{color:#E6E2FF !important;font-style:italic !important}
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 4px #fff,0 0 0 8px rgba(158,200,255,.55),0 0 0 13px rgba(183,156,255,.3),0 0 30px rgba(255,158,200,.5) !important}
+/* 名字露全：名字那块吃满剩下的宽，右边两颗键收小，名字旁小箭头藏掉 */
+[data-wk="chathead"]{gap:6px !important}
+[data-wk="chathead"] [data-wk="headname"],[data-wk="chathead"] button:has(> [data-wk="headname"]){flex:1 1 auto !important;min-width:0 !important}
+[data-wk="chathead"] [data-wk="headink"] > [data-wk="headdim"]{display:none !important}
+[data-wk="sameroom"]{width:30px !important;min-width:30px !important;height:30px !important;background-size:28px !important;margin-left:0 !important}
+[data-wk="chatmore"]{width:40px !important;min-width:40px !important;background-size:38px auto !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "雨天窗边", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
