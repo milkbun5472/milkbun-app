@@ -45,6 +45,7 @@ const BEADS = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='260'>
 // ── 第四批用的图 ──
 const OFFWIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 230'><defs><linearGradient id='s' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#5B4C8C'/><stop offset='.6' stop-color='#B07AA8'/><stop offset='1' stop-color='#F2A99B'/></linearGradient></defs><path d='M70 226 V90 A125 80 0 0 1 320 90 V226Z' fill='url(#s)' stroke='#fff' stroke-width='10'/><path d='M195 12 V226 M70 128 H320' stroke='#fff' stroke-width='7'/><g stroke='#CFE3FF' stroke-linecap='round' opacity='.7'><path d='M100 60 l-4 18 M150 40 l-4 16 M240 50 l-4 18 M290 90 l-4 16 M110 150 l-4 18 M170 170 l-4 16 M230 150 l-4 18 M280 180 l-4 16 M130 100 l-3 12 M260 120 l-3 12'/></g><circle cx='120' cy='196' r='14' fill='#FFD86B' opacity='.45'/><circle cx='270' cy='176' r='18' fill='#FF9EC8' opacity='.4'/><rect x='54' y='220' width='282' height='12' rx='4' fill='#E9D3C2'/><path d='M60 6 H130 Q112 60 118 226 H60Z' fill='#FFB8D6' stroke='#fff' stroke-width='3' opacity='.95'/><path d='M330 6 H260 Q278 60 272 226 H330Z' fill='#FFB8D6' stroke='#fff' stroke-width='3' opacity='.95'/><rect x='48' y='0' width='294' height='9' rx='4' fill='#E9D3C2'/></svg>`;
 
+const CUPMASK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 54 66'><path d='M4 4 H50 L44 60 Q43.5 63 40 63 H14 Q10.5 63 10 60Z'/></svg>`;
 const bubble = { myBg: C.glass, myText: C.ink, myBorder: "none", charBg: C.cream, charText: C.ink, charBorder: "none", radius: 18, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -278,14 +279,14 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="statewear"] > span{background:rgba(255,255,255,.2) !important;border-radius:999px !important}
 [data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.fog} !important}
 [data-wk="statevoice"] + div > button{background:#fff !important;color:${C.ink} !important;border:1.5px solid #C8B2FF !important;border-radius:999px !important}
-/* 好感：窗台上一排五颗雨滴，按好感灌成蓝紫 */
-[data-wk="stateaff"]{background:#F6E6D8 !important;border-top:3px solid #E9D3C2 !important;border-radius:0 0 18px 18px !important;position:relative !important;display:block !important;padding:16px 20px 64px !important;overflow:hidden !important}
+/* 好感：窗台上一只玻璃杯，好感多少就接了多少雨水 */
+[data-wk="stateaff"]{background:#F6E6D8 !important;border-top:3px solid #E9D3C2 !important;border-radius:0 0 18px 18px !important;position:relative !important;display:block !important;padding:16px 20px 88px !important;overflow:hidden !important}
 [data-wk="stateaff"] *{color:${C.ink} !important}
-[data-wk="stateheart"]{position:absolute !important;width:36px !important;left:calc(50% - 18px) !important;height:180px !important;bottom:calc(32px - 90px) !important;transform:rotate(90deg) !important;--sc-heart-mask:${svg(DROPMASK)} !important;filter:drop-shadow(1.4px 0 0 #fff) drop-shadow(-1.4px 0 0 #fff) drop-shadow(0 1.4px 0 #fff) drop-shadow(0 -1.4px 0 #fff) drop-shadow(0 2px 3px rgba(126,108,208,.5)) !important}
+[data-wk="stateheart"]{position:absolute !important;width:54px !important;height:66px !important;left:calc(50% - 27px) !important;bottom:12px !important;transform:none !important;--sc-heart-mask:${svg(CUPMASK)} !important;filter:drop-shadow(1.6px 0 0 #B79CFF) drop-shadow(-1.6px 0 0 #B79CFF) drop-shadow(0 1.6px 0 #B79CFF) drop-shadow(0 -1.6px 0 #B79CFF) drop-shadow(0 3px 5px rgba(126,108,208,.45)) !important}
 [data-wk="stateheart"] > div{-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important}
 [data-wk="stateheartline"]{background:transparent !important;opacity:0 !important}
-[data-wk="stateheartbase"]{background:#E3DDF4 !important;opacity:1 !important}
-[data-wk="stateheartfill"] > div{background:linear-gradient(90deg,#B79CFF,#7FB0FF) !important;opacity:1 !important;border-top:none !important}
+[data-wk="stateheartbase"]{background:linear-gradient(100deg,rgba(255,255,255,.9) 0 18%,rgba(236,232,255,.85) 18% 26%,rgba(255,255,255,.75) 26%) !important;opacity:1 !important}
+[data-wk="stateheartfill"] > div{background:linear-gradient(100deg,rgba(255,255,255,.35) 0 14%,transparent 14%),linear-gradient(180deg,#9EC8FF,#7FA0F0 60%,#B79CFF) !important;opacity:1 !important;border-top:2px solid #DDEBFF !important}
 [data-wk="stateheartnum"],[data-wk="stateheartknob"]{display:none !important}
 [data-wk="stateaffval"]{display:block !important;position:absolute !important;right:20px !important;top:12px !important;font-size:26px !important;font-weight:700 !important;color:#7E6CD0 !important}
 /* 翻旧的：一张张用粉胶带贴在玻璃上的小纸条，歪着交错 */
