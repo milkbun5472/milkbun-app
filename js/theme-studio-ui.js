@@ -121,6 +121,12 @@
     const [pendingBase, setPendingBase] = useState(null), [pendingWallpaper, setPendingWallpaper] = useState(undefined);
     // 导进来的那一包先摊在这儿，勾了哪几样才合进草稿（她 2026-09-20：不是全有全无）
     const [incoming, setIncoming] = useState(null), [pendingBubble, setPendingBubble] = useState(null);
+    // 我存的主题（群里 2026-11-13「桌面主题包不能存预设然后切换吗」）：跟聊天美化「我存的美化」一个样子——
+    //   存的就是一份完整主题包（跟「导出」同一份打包），换上走「导入」同一条路（先预览、挑几样、确认才落盘）。进 IDB，不进 localStorage
+    const THEME_SHELF_KEY = "x_themeShelf", THEME_SHELF_MAX = 12;
+    const shelfLoad = () => { const a = loadJSON(THEME_SHELF_KEY, []); return Array.isArray(a) ? a.filter(x => x && x.id && x.text) : []; };
+    const [shelf, setShelf] = useState(shelfLoad);
+    const shelfSave = list => { saveJSON(THEME_SHELF_KEY, list); setShelf(list); };
     const [pendingHome, setPendingHome] = useState(null);
     const [pick, setPick] = useState(() => studio.cleanPick(null));
     // 导出也要能只挑一样（她 2026-09-22：「没有单独导入导出某一种美化的选项，
@@ -207,6 +213,16 @@
         const via = await window.saveTextFile("qq-theme-" + new Date().toISOString().slice(0,10) + ".json", text, "application/json");
         toast(via === "cancel" ? "导出取消了" : "主题包（含真实图标素材）" + savedWhere(via)); }
       catch (e) { toast("导出失败：" + e.message); }
+    };
+    const saveToShelf = async () => {
+      try {
+        const all = {}; studio.PACK_KEYS.forEach(k => { all[k] = true; });
+        const text = await studio.exportPackage({ profile: draft, baseTheme: theme, wallpaper,
+          bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null, pick: all });
+        const d = new Date(), name = (String(draft.name || "").trim() || "我的主题") + " · " + (d.getMonth() + 1) + "/" + d.getDate();
+        shelfSave([{ id: "th" + Date.now().toString(36), name, text, at: Date.now() }].concat(shelfLoad()).slice(0, THEME_SHELF_MAX));
+        toast("存好了：「" + name + "」，在下面「我存的主题」里，随时换回来");
+      } catch (e) { toast("没存成：" + ((e && e.message) || e)); }
     };
     // 装包那一份文本 → 预览。文件选一份、或者直接贴一份，两条路都走这里
     // （她 2026-09-20：「导入主题包是死的按钮按不动」——手机上挑不开文件的时候，
@@ -658,6 +674,15 @@
           //   文件选择器可能整个弹不出来。备份恢复那一处（能用的那一处）就是 MIME 在前。
           h("button", { onClick: () => importFile.current && importFile.current.click(), className: "flex-1 py-3", style: { borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY } }, "导入主题包")),
         h("input", { ref: importFile, type: "file", accept: ANY_FILE, className: "hidden", onChange: importTheme }),
+        h("div", { "data-wk": "themeshelf", style: { marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px dashed " + t.line } },
+          h("div", { className: "flex items-center", style: { gap: 8, marginBottom: shelf.length ? 8 : 0 } },
+            h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } }, "我存的主题",
+              h("div", { style: { fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "把现在这一整套（图标、字体、CSS、壁纸、气泡、主屏布局）存在手机里，换来换去不用导文件")),
+            h("button", { "data-wk": "themeshelfsave", onClick: saveToShelf, className: "active:opacity-70", style: { flexShrink: 0, padding: "7px 12px", borderRadius: 999, border: "1px solid " + t.ink, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "存成一套")),
+          shelf.map(x => h("div", { key: x.id, "data-wk": "themeshelfrow", className: "flex items-center", style: { gap: 8, padding: "7px 0", borderTop: "1px solid " + t.line } },
+            h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.name),
+            h("button", { onClick: () => applyPack(x.text), className: "active:opacity-70", style: { padding: "5px 11px", borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "换上"),
+            h("button", { onClick: () => requestAppConfirm("删掉「" + x.name + "」？", "只删这份存着的主题，你现在正用着的样子不动。", () => shelfSave(shelfLoad().filter(y => y.id !== x.id)), "删掉"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "删")))),
         // 导进来之后：这包里带了什么、要哪几样（她 2026-09-20：「不是全有全无」）。
         // 勾一下就立刻改预览，所以她是【看着】挑的，不是盲选完再按确认。
         incoming ? h("div", { style: { marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
