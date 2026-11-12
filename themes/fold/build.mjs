@@ -12,7 +12,7 @@ const F = 14; // 折角大小
 // 折角：一个三角形——外侧是底色（剪掉角），内侧是折过来的深一档纸背，带一道斜线
 const CORNER = (back) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M0 0 H20 V20Z' fill='${C.bg}'/><path d='M0 0 L20 20 H0Z' fill='${back}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/></svg>`;
 const DOTS = `<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><circle cx='3' cy='3' r='1.1' fill='${C.dot}'/><circle cx='12' cy='12' r='1.1' fill='${C.dot}'/></svg>`;
-const CLIPS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 28'><path d='M4 24 V6 Q4 3 6.5 3 Q9 3 9 6 V22 Q9 25.5 6 25.5 Q2.5 25.5 2.5 22 V9' fill='none' stroke='${C.deep}' stroke-width='1.6' stroke-linecap='round'/></svg>`;
+const CLIPS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 40'><path d='M11 13 V31 Q11 36 7 36 Q3 36 3 31 V8 Q3 3 8 3 Q13 3 13 8 V28 Q13 30 11 30' fill='none' stroke='${C.deep}' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/><path d='M7 12 V30' fill='none' stroke='${C.deep}' stroke-width='1.8' stroke-linecap='round'/><path d='M7 12 Q7 9 9 9 Q11 9 11 12 V13' fill='none' stroke='${C.deep}' stroke-width='1.8' stroke-linecap='round'/></svg>`;
 const I_PLANE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 36'><path d='M3 17 L37 3 L27 33 L19 22Z' fill='${C.deep}' stroke='${C.ink}' stroke-width='1.4' stroke-linejoin='round'/><path d='M37 3 L19 22 L17 32 L23 26' fill='${C.lilac}' stroke='${C.ink}' stroke-width='1.4' stroke-linejoin='round'/><path d='M3 17 L19 22' stroke='#fff' stroke-width='1.1'/></svg>`;
 const NOTE = (inner) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M3 3 H19 L27 11 V27 H3Z' fill='${C.paper}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/><path d='M19 3 V11 H27' fill='${C.lilac}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/>${inner}</svg>`;
 const I_PLUS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M7 3 H25 V21 H7Z' fill='${C.lilac}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round' transform='rotate(8 16 12)'/><path d='M3 8 H19 L25 14 V27 H3Z' fill='${C.paper}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/><path d='M19 8 V14 H25' fill='${C.lilac}' stroke='${C.line}' stroke-width='1.4' stroke-linejoin='round'/><path d='M13 13 V22 M8.5 17.5 H17.5' stroke='${C.deep}' stroke-width='2' stroke-linecap='round'/></svg>`;
@@ -203,7 +203,7 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;overflow:visible !important;background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important;margin:18px 16px 12px !important;color:${C.ink} !important;box-shadow:${SH} !important}
 [data-wk="statevoice"]{background:${C.lilac} !important;transform:rotate(-.6deg) !important}
 [data-wk="stateseen"]::after,[data-wk="statevoice"]::after{content:"" !important;position:absolute !important;right:-1.4px !important;top:-1.4px !important;width:16px !important;height:16px !important;background:${svg(CORNER(C.fold))} center/contain no-repeat !important}
-[data-wk="stateseen"]::before,[data-wk="statevoice"]::before{content:"" !important;position:absolute !important;left:14px !important;top:-12px !important;width:11px !important;height:26px !important;background:${svg(CLIPS)} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="stateseen"]::before,[data-wk="statevoice"]::before{content:"" !important;position:absolute !important;left:14px !important;top:-20px !important;width:16px !important;height:40px !important;background:${svg(CLIPS)} center/contain no-repeat !important;z-index:2 !important;transform:rotate(-8deg) !important}
 [data-wk="stateseen"] *,[data-wk="statevoice"] *{color:${C.ink} !important}
 [data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
 [data-wk="statewear"]{background:${C.fold} !important;border:1.2px solid ${C.line} !important;border-radius:2px !important}
@@ -247,7 +247,7 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="gazetab"] *{clip-path:none !important}
 [data-wk="gazestatus"]{color:${C.fog} !important}
 [data-wk="gazecard"]{position:relative !important;overflow:visible !important;background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important;box-shadow:${SH} !important}
-[data-wk="gazetape"]{background:${svg(CLIPS)} center/contain no-repeat !important;width:12px !important;height:28px !important;box-shadow:none !important;border:none !important;transform:rotate(-10deg) !important}
+[data-wk="gazetape"]{background:${svg(CLIPS)} center/contain no-repeat !important;width:16px !important;height:40px !important;box-shadow:none !important;border:none !important;transform:rotate(-10deg) !important}
 [data-wk="gazecardname"]{color:${C.ink} !important}
 [data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:${C.fog} !important}
 [data-wk="gazeletter"],[data-wk="gazehistory"]{background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important;box-shadow:${SH} !important}
