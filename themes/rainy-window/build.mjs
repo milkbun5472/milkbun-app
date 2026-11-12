@@ -370,6 +370,11 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="chatmore"]{width:40px !important;min-width:40px !important;background-size:38px auto !important}
 /* 好感数字放进图形正中 */
 [data-wk="stateaffval"]{display:block !important;position:absolute !important;left:50% !important;right:auto !important;top:auto !important;bottom:34px !important;transform:translateX(-50%) !important;z-index:3 !important;font-size:17px !important;line-height:1 !important;font-weight:700 !important;color:#fff !important;text-shadow:0 0 2px #5B4C8C,0 0 2px #5B4C8C,0 1px 3px #5B4C8C !important;pointer-events:none !important}
+/* 好感一栏照原来的排法：图形在左、字在右，不再底下空一大块放一个摆件 */
+[data-wk="stateaff"]{display:flex !important;align-items:center !important;gap:16px !important;padding:14px 20px 16px !important}
+[data-wk="stateheart"]{position:relative !important;left:auto !important;bottom:auto !important;top:auto !important;flex:none !important;margin:0 !important}
+[data-wk="stateaffval"]{display:none !important}
+[data-wk="stateheartnum"]{display:flex !important;align-items:center !important;justify-content:center !important;padding-top:4px !important;font-size:17px !important;font-weight:700 !important;color:#fff !important;-webkit-text-stroke:0 !important;text-shadow:0 0 2px #5B4C8C,0 0 2px #5B4C8C,0 1px 3px #5B4C8C !important;z-index:3 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "雨天窗边", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
