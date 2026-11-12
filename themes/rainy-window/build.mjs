@@ -368,6 +368,8 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="chathead"] [data-wk="headink"] > [data-wk="headdim"]{display:none !important}
 [data-wk="sameroom"]{width:30px !important;min-width:30px !important;height:30px !important;background-size:28px !important;margin-left:0 !important}
 [data-wk="chatmore"]{width:40px !important;min-width:40px !important;background-size:38px auto !important}
+/* 好感数字放进图形正中 */
+[data-wk="stateaffval"]{display:block !important;position:absolute !important;left:50% !important;right:auto !important;top:auto !important;bottom:34px !important;transform:translateX(-50%) !important;z-index:3 !important;font-size:17px !important;line-height:1 !important;font-weight:700 !important;color:#fff !important;text-shadow:0 0 2px #5B4C8C,0 0 2px #5B4C8C,0 1px 3px #5B4C8C !important;pointer-events:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "雨天窗边", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

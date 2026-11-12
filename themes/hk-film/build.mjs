@@ -280,6 +280,8 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="gazeempty"]{background:transparent !important;border:1.2px dashed rgba(237,226,207,.4) !important;border-radius:0 !important;color:${C.cream} !important}
 [data-wk="gazeempty"] > div:first-child{color:${C.cream} !important}
 [data-wk="gazeempty"] button{background:#B8262C !important;color:#F3E6CF !important;border:none !important;border-radius:0 !important;letter-spacing:.2em !important}
+/* 好感数字放进图形正中 */
+[data-wk="stateaffval"]{display:block !important;position:absolute !important;left:50% !important;right:auto !important;top:auto !important;bottom:36px !important;transform:translateX(-50%) !important;z-index:3 !important;font-size:18px !important;line-height:1 !important;font-weight:700 !important;color:#FFF1F1 !important;text-shadow:0 0 2px #3A0A0C,0 0 2px #3A0A0C,0 0 8px rgba(255,74,85,.8) !important;pointer-events:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "港风旧梦", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
