@@ -64,15 +64,15 @@ const css = `
 [data-wk="composer"]::before{content:"" !important;position:absolute !important;left:10px !important;right:68px !important;top:8px !important;bottom:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) + 0px) !important;${PANEL};pointer-events:none !important;z-index:-1 !important}
 [data-wk="chatinput"]{background:transparent !important;border:none !important;border-left:1px solid ${C.line} !important;border-radius:0 !important;box-shadow:none !important;color:${C.ink} !important;padding-left:14px !important;letter-spacing:.1em !important}
 [data-wk="chatinput"]::placeholder{color:${C.fog} !important}
-[data-wk="chatplus"],[data-wk="chatreply"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background-color:transparent !important}
+[data-wk="chatplus"],[data-wk="send"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background-color:transparent !important}
 [data-wk="chatplus"]{background:${svg(I_PLUS)} center/20px no-repeat !important}
-[data-wk="chatreply"]{background:${svg(I_REPLY)} center/24px no-repeat !important;margin-right:16px !important}
-[data-wk="send"]{width:46px !important;min-width:46px !important;height:46px !important;border:1px solid ${C.ink} !important;border-radius:2px !important;background:${C.ink} ${svg(I_SEND)} center/22px no-repeat !important;box-shadow:0 3px 10px rgba(0,0,0,.2) !important;opacity:1 !important}
-[data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
+[data-wk="send"]{background:${svg(I_REPLY)} center/24px no-repeat !important;margin-right:16px !important}
+[data-wk="chatreply"]{width:46px !important;min-width:46px !important;height:46px !important;border:1px solid ${C.ink} !important;border-radius:2px !important;background:${C.ink} ${svg(I_SEND)} center/22px no-repeat !important;box-shadow:0 3px 10px rgba(0,0,0,.2) !important;opacity:1 !important}
+[data-wk="chatplus"] *,[data-wk="chatreply"] *,[data-wk="send"] *{opacity:0 !important}
 [data-wk="msg"][data-first="0"] [data-wk="name"]{display:none !important}
 [data-wk="msg"][data-first="0"]{margin-top:-4px !important}
 [data-wk="composer"]::before{top:6px !important;bottom:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) + 6px) !important}
-[data-wk="send"]{height:44px !important;width:44px !important;min-width:44px !important}
+[data-wk="chatreply"]{height:44px !important;width:44px !important;min-width:44px !important}
 
 
 /* 顶栏名字露全：图标缩小、名字区撑满、名字旁小箭头藏掉 */
@@ -257,11 +257,11 @@ const css = `
 [data-wk="composer"]{background:${C.panel} !important;border-top:1px solid ${C.line} !important;box-shadow:0 -2px 8px rgba(0,0,0,.04) !important;padding-left:12px !important;padding-right:12px !important}
 [data-wk="composer"]::before{content:none !important}
 [data-wk="chatinput"]{background:#fff !important;border:1px solid ${C.line} !important;border-radius:2px !important;padding-left:12px !important}
-[data-wk="chatreply"]{margin-right:4px !important}
-[data-wk="send"]{width:40px !important;min-width:40px !important;height:40px !important;box-shadow:none !important}
+[data-wk="send"]{margin-right:4px !important}
+[data-wk="chatreply"]{width:40px !important;min-width:40px !important;height:40px !important;box-shadow:none !important}
 
 /* 线上最右那颗也换成同一个圆角三角，线上线下一致 */
-[data-wk="send"]{background:${C.ink} ${svg(I_PLAY)} center/18px no-repeat !important}
+[data-wk="chatreply"]{background:${C.ink} ${svg(I_PLAY)} center/18px no-repeat !important}
 
 `;
 

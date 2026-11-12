@@ -62,25 +62,25 @@ button[data-wk="avatar"] *,span[data-wk="avatar"] *,img[data-wk="avatar"]{border
 
 /* 底栏：白胶囊包住加号、输入、回复；发送是外面单独一颗黑色圆键 */
 [data-wk="composer"]{background:transparent !important;border-top:none !important;position:relative !important;z-index:2 !important;align-items:center !important;padding-left:24px !important;padding-right:14px !important;gap:6px !important}
-[data-wk="composer"]::before{content:"" !important;position:absolute !important;left:10px !important;right:10px !important;top:4px !important;bottom:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) - 6px) !important;border-radius:999px !important;background:rgba(255,255,255,.95) !important;box-shadow:${FLOAT} !important;pointer-events:none !important;z-index:-1 !important}
+[data-wk="composer"]::before{content:"" !important;position:absolute !important;left:10px !important;right:74px !important;top:4px !important;bottom:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) - 6px) !important;border-radius:999px !important;background:rgba(255,255,255,.95) !important;box-shadow:${FLOAT} !important;pointer-events:none !important;z-index:-1 !important}
 [data-wk="chatinput"]{background:transparent !important;border:none !important;box-shadow:none !important;color:${C.ink} !important}
 [data-wk="chatinput"]::placeholder{color:#A1A1A6 !important}
-[data-wk="chatplus"],[data-wk="chatreply"]{width:32px !important;min-width:32px !important;height:32px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background-color:transparent !important;align-self:center !important}
+[data-wk="chatplus"],[data-wk="send"]{width:32px !important;min-width:32px !important;height:32px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background-color:transparent !important;align-self:center !important}
 [data-wk="chatplus"]{background:${svg(I_PLUS)} center/22px no-repeat !important}
-[data-wk="chatreply"]{background:${svg(I_REPLY)} center/26px no-repeat !important;margin-right:14px !important}
-[data-wk="send"]{width:52px !important;min-width:52px !important;height:52px !important;border:none !important;border-radius:50% !important;background:${svg(I_SEND)} center/contain no-repeat !important;box-shadow:0 8px 18px rgba(0,0,0,.25) !important;opacity:1 !important;align-self:center !important}
-[data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
-[data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.9) !important}
+[data-wk="send"]{background:${svg(I_REPLY)} center/26px no-repeat !important;margin-right:14px !important}
+[data-wk="chatreply"]{width:52px !important;min-width:52px !important;height:52px !important;border:none !important;border-radius:50% !important;background:${svg(I_SEND)} center/contain no-repeat !important;box-shadow:0 8px 18px rgba(0,0,0,.25) !important;opacity:1 !important;align-self:center !important}
+[data-wk="chatplus"] *,[data-wk="chatreply"] *,[data-wk="send"] *{opacity:0 !important}
+[data-wk="chatplus"]:active,[data-wk="chatreply"]:active,[data-wk="send"]:active{transform:scale(.9) !important}
 [data-wk="chathead"] img,[data-wk="chathead"] [data-wk="avatar"],[data-wk="chathead"] [data-wk="avatar"] > *{border-radius:50% !important;overflow:hidden !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"]){position:relative !important}
 [data-wk="chathead"] button:has(> [data-wk="avatar"])::after{content:"" !important;position:absolute !important;left:26px !important;top:calc(50% + 8px) !important;width:10px !important;height:10px !important;border-radius:50% !important;background:#E5533D !important;box-shadow:0 0 0 2px #fff !important;z-index:3 !important}
 
 
 /* 底栏缩小：胶囊上下收窄、发送键 44px */
-[data-wk="composer"]::before{top:10px !important;bottom:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) + 2px) !important;right:10px !important}
-[data-wk="send"]{width:44px !important;min-width:44px !important;height:44px !important}
-[data-wk="chatplus"],[data-wk="chatreply"]{width:28px !important;min-width:28px !important;height:28px !important;background-size:20px !important}
-[data-wk="chatreply"]{background-size:22px !important}
+[data-wk="composer"]::before{top:10px !important;bottom:calc(env(safe-area-inset-bottom) * .4 + var(--composer-lift, 0px) + 2px) !important;right:66px !important}
+[data-wk="chatreply"]{width:44px !important;min-width:44px !important;height:44px !important}
+[data-wk="chatplus"],[data-wk="send"]{width:28px !important;min-width:28px !important;height:28px !important;background-size:20px !important}
+[data-wk="send"]{background-size:22px !important}
 [data-wk="chatinput"]{font-size:14px !important}
 
 /* ───── 黑白 · 第二批：卡片。形状不动，统一成白卡＋细黑线＋柔影；小巧思：卡片左上一行小小的等宽标签 ───── */
@@ -267,7 +267,7 @@ button[data-wk="avatar"] *,span[data-wk="avatar"] *,img[data-wk="avatar"]{border
 [data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
 
 /* 线上最右那颗也换成同一个圆角三角，线上线下一致 */
-[data-wk="send"]{background:${svg(I_PLAY)} center/contain no-repeat !important}
+[data-wk="chatreply"]{background:${svg(I_PLAY)} center/contain no-repeat !important}
 
 `;
 

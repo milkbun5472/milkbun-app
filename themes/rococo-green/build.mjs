@@ -32,10 +32,10 @@ const I_HOUSE = RB(C.greenL, `<g fill='${C.cream}' stroke='${C.ink}' stroke-widt
 // 更多＝一把半开的折扇
 const I_MORE = RB(C.orange, `<path d='M20 28 L9 17 Q14 10 20 10 Q26 10 31 17Z' fill='${C.cream}' stroke='${C.ink}' stroke-width='1.1' stroke-linejoin='round'/><g stroke='${C.orangeD}' stroke-width='.9'><path d='M20 28 L12.5 13.5 M20 28 L16 11 M20 28 V10 M20 28 L24 11 M20 28 L27.5 13.5'/></g><circle cx='20' cy='27.5' r='1.6' fill='${C.gold}'/>`);
 // 回复＝一支羽毛笔
-const I_REPLY = RB(C.greenL, `<path d='M28 10 Q19 12 15 24 L17 25 Q23 17 28 10Z' fill='${C.cream}' stroke='${C.ink}' stroke-width='1' stroke-linejoin='round'/><path d='M27 11 L16.5 24' stroke='${C.goldD}' stroke-width='.8'/><path d='M15.5 24.5 L13 29.5' stroke='${C.ink}' stroke-width='1.6' stroke-linecap='round'/><path d='M11 30 H24' stroke='${C.gold}' stroke-width='1.2' stroke-linecap='round'/>`);
+const I_REPLY = RB(C.greenL, `<path d='M20 28 V12 M13 19 L20 12 L27 19' fill='none' stroke='${C.cream}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/>`);
 // 线下看真实照片＝一枚浮雕胸针（椭圆金框里一个侧脸剪影）
 const I_CAMEO = RB(C.greenL, `<ellipse cx='20' cy='20' rx='8' ry='10' fill='${C.cream}' stroke='${C.gold}' stroke-width='1.8'/><path d='M21.5 13 Q17 13 17 17.5 Q16 19 17 19.5 Q17 22 18.5 22.5 Q18.5 25 21.5 27 Q24 25 23.5 21 Q25 17 21.5 13Z' fill='${C.orange}'/>`);
-const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 74'><circle cx='35' cy='40' r='27' fill='none' stroke='${C.gold}' stroke-width='5'/><circle cx='35' cy='40' r='27' fill='none' stroke='${C.cream}' stroke-width='2' stroke-dasharray='.1 5.5' stroke-linecap='round'/><circle cx='35' cy='40' r='22' fill='${C.orange}' stroke='${C.goldD}' stroke-width='1'/><path d='M35 52 V29 M26 37 L35 28 L44 37' fill='none' stroke='${C.cream}' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/>${SHELL.replace("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 30'>","<g transform='translate(11 -3) scale(.8)'>").replace('</svg>','</g>')}<path d='M6 50 Q0 56 5 62 Q9 64 10 60 M64 50 Q70 56 65 62 Q61 64 60 60' fill='none' stroke='${C.gold}' stroke-width='2' stroke-linecap='round'/></svg>`;
+const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 74'><circle cx='35' cy='40' r='27' fill='none' stroke='${C.gold}' stroke-width='5'/><circle cx='35' cy='40' r='27' fill='none' stroke='${C.cream}' stroke-width='2' stroke-dasharray='.1 5.5' stroke-linecap='round'/><circle cx='35' cy='40' r='22' fill='${C.orange}' stroke='${C.goldD}' stroke-width='1'/><path d='M44 28 Q34 30 30 44 L32 45 Q38 36 44 28Z' fill='${C.cream}' stroke='${C.ink}' stroke-width='.9'/><path d='M30.5 44.5 L28 50' stroke='${C.cream}' stroke-width='2' stroke-linecap='round'/>${SHELL.replace("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 30'>","<g transform='translate(11 -3) scale(.8)'>").replace('</svg>','</g>')}<path d='M6 50 Q0 56 5 62 Q9 64 10 60 M64 50 Q70 56 65 62 Q61 64 60 60' fill='none' stroke='${C.gold}' stroke-width='2' stroke-linecap='round'/></svg>`;
 
 // ── 第二批用的图 ──
 const WAX = (c, t) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><path d='M30 4 Q38 2 42 8 Q50 8 52 16 Q58 22 54 30 Q58 38 52 44 Q50 52 42 52 Q38 58 30 56 Q22 58 18 52 Q10 52 8 44 Q2 38 6 30 Q2 22 8 16 Q10 8 18 8 Q22 2 30 4Z' fill='${c}'/><circle cx='30' cy='30' r='17' fill='none' stroke='rgba(255,255,255,.35)' stroke-width='1.6'/><text x='30' y='36.5' text-anchor='middle' font-size='17' font-style='italic' font-weight='700' fill='rgba(255,255,255,.75)' font-family='Georgia,serif'>${t}</text></svg>`;
@@ -131,12 +131,12 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="composer"]::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:calc(100% + 4px) !important;height:20px !important;background:${svg(SCROLLBAND)} 0 0/40px 20px repeat-x !important;transform:scaleY(-1) !important;pointer-events:none !important}
 [data-wk="chatinput"]{background:#FBF5E6 !important;border:1.6px solid ${C.gold} !important;border-radius:999px !important;color:${C.ink} !important;box-shadow:inset 0 0 0 3px #FBF5E6,inset 0 0 0 4px rgba(156,122,60,.4) !important}
 [data-wk="chatinput"]::placeholder{color:#A89B80 !important}
-[data-wk="chatplus"],[data-wk="send"],[data-wk="chatreply"]{border:none !important;box-shadow:none !important;border-radius:0 !important;background-color:transparent !important}
+[data-wk="chatplus"],[data-wk="chatreply"],[data-wk="send"]{border:none !important;box-shadow:none !important;border-radius:0 !important;background-color:transparent !important}
 [data-wk="chatplus"]{width:36px !important;min-width:36px !important;height:36px !important;background:${svg(I_PLUS)} center/contain no-repeat !important}
-[data-wk="chatreply"]{width:36px !important;min-width:36px !important;height:36px !important;background:${svg(I_REPLY)} center/contain no-repeat !important}
-[data-wk="send"]{width:54px !important;min-width:54px !important;height:56px !important;background:${svg(I_SEND)} center/contain no-repeat !important;opacity:1 !important;margin-top:-10px !important}
-[data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
-[data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.9) !important}
+[data-wk="send"]{width:36px !important;min-width:36px !important;height:36px !important;background:${svg(I_REPLY)} center/contain no-repeat !important}
+[data-wk="chatreply"]{width:54px !important;min-width:54px !important;height:56px !important;background:${svg(I_SEND)} center/contain no-repeat !important;opacity:1 !important;margin-top:-10px !important}
+[data-wk="chatplus"] *,[data-wk="chatreply"] *,[data-wk="send"] *{opacity:0 !important}
+[data-wk="chatplus"]:active,[data-wk="chatreply"]:active,[data-wk="send"]:active{transform:scale(.9) !important}
 [data-wk="chatpanel"]{background:${C.cream} !important;border-top:2px solid ${C.gold} !important}
 /* ───── 翡翠沙龙 · 第二批：卡片 ───── */
 /* 卡片统一：奶油底、金边双线，顶上正中一枚洛可可饰 */

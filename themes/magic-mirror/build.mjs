@@ -21,8 +21,8 @@ const CI = inner => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'
 const I_PLUS = CI(`<path d='M13 20 H27 M20 13 V27' stroke='${C.cream}' stroke-width='1.6' stroke-linecap='round'/>`);
 const I_HOUSE = CI(`<path d='M12.5 21 L20 14.5 L27.5 21 V27 H12.5Z' fill='none' stroke='${C.cream}' stroke-width='1.4' stroke-linejoin='round'/>`);
 const I_MORE = CI(`<g fill='${C.cream}'><circle cx='13' cy='20' r='1.8'/><circle cx='20' cy='20' r='1.8'/><circle cx='27' cy='20' r='1.8'/></g>`);
-const I_REPLY = CI(`<path d='M11 14 H29 Q31 14 31 16 V23 Q31 25 29 25 H19 L14 29 V25 H11 Q9 25 9 23 V16 Q9 14 11 14Z' fill='none' stroke='${C.cream}' stroke-width='1.3' stroke-linejoin='round'/>`);
-const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${C.goldL}'/><stop offset='.35' stop-color='${C.gold}'/><stop offset='.6' stop-color='${C.goldD}'/><stop offset='1' stop-color='#D9B866'/></linearGradient><radialGradient id='r' cx='.38' cy='.32' r='.8'><stop offset='0' stop-color='#FF6B7C'/><stop offset='.45' stop-color='${C.ruby}'/><stop offset='1' stop-color='#5E0A14'/></radialGradient></defs><circle cx='25' cy='25' r='24' fill='url(#g)'/><circle cx='25' cy='25' r='19' fill='url(#r)' stroke='#5E0A14' stroke-width='.8'/><path d='M14.5 20.3 A13.3 13.3 0 0 1 24 12.1' fill='none' stroke='#fff' stroke-width='1.7' stroke-linecap='round' opacity='.75'/><path d='M25 33 V17 M19 23 L25 17 L31 23' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>`;
+const I_REPLY = CI(`<path d='M20 28 V12 M14 18 L20 12 L26 18' fill='none' stroke='${C.cream}' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/>`);
+const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${C.goldL}'/><stop offset='.35' stop-color='${C.gold}'/><stop offset='.6' stop-color='${C.goldD}'/><stop offset='1' stop-color='#D9B866'/></linearGradient><radialGradient id='r' cx='.38' cy='.32' r='.8'><stop offset='0' stop-color='#FF6B7C'/><stop offset='.45' stop-color='${C.ruby}'/><stop offset='1' stop-color='#5E0A14'/></radialGradient></defs><circle cx='25' cy='25' r='24' fill='url(#g)'/><circle cx='25' cy='25' r='19' fill='url(#r)' stroke='#5E0A14' stroke-width='.8'/><path d='M14.5 20.3 A13.3 13.3 0 0 1 24 12.1' fill='none' stroke='#fff' stroke-width='1.7' stroke-linecap='round' opacity='.75'/><path d='M16 18 H34 Q36 18 36 20 V28 Q36 30 34 30 H24 L19 34 V30 H16 Q14 30 14 28 V20 Q14 18 16 18Z' fill='none' stroke='#fff' stroke-width='1.8' stroke-linejoin='round'/></svg>`;
 
 const bubble = { myBg: C.red, myText: C.cream, myBorder: "none", charBg: "transparent", charText: "#fff", charBorder: "none", radius: 10, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
@@ -105,17 +105,17 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 /* 深底上的灰字提亮：日程条、线下文风那行 */
 [data-wk="chathead"] + *:not([data-wk="body"]),[data-wk="chathead"] + *:not([data-wk="body"]) *{color:${C.cream} !important}
 
-/* 底栏：金框里嵌一块墨色面板；输入框是一块玻璃；加号、回复是金圈，发送是红宝石钮（最右） */
+/* 底栏：金框里嵌一块墨色面板；输入框是一块玻璃；加号、回复是金圈，最右是红宝石的「让他回复」，发送是左边的金圈 */
 [data-wk="composer"]{position:relative !important;overflow:visible !important;background:transparent !important;border-top:none !important;box-shadow:none !important;align-items:center !important;gap:10px !important;padding-left:22px !important;padding-right:22px !important}
 [data-wk="composer"]::before{content:"" !important;position:absolute !important;left:10px !important;right:10px !important;top:6px !important;bottom:6px !important;border-radius:12px !important;background:${C.panel} !important;box-shadow:0 0 0 1.2px ${C.rivet},inset 0 0 0 3.5px ${C.panel},inset 0 0 0 4.1px rgba(201,160,78,.8) !important;z-index:-1 !important;pointer-events:none !important}
 [data-wk="chatinput"]{background:linear-gradient(135deg,rgba(255,255,255,.18),rgba(191,216,240,.08) 50%,rgba(255,255,255,.14)) !important;border:1px solid rgba(255,255,255,.6) !important;border-radius:10px !important;color:#fff !important;letter-spacing:.1em !important}
 [data-wk="chatinput"]::placeholder{color:#C9D6E4 !important}
-[data-wk="chatplus"],[data-wk="send"],[data-wk="chatreply"]{border:none !important;box-shadow:none !important;border-radius:0 !important;background-color:transparent !important}
+[data-wk="chatplus"],[data-wk="chatreply"],[data-wk="send"]{border:none !important;box-shadow:none !important;border-radius:0 !important;background-color:transparent !important}
 [data-wk="chatplus"]{width:34px !important;min-width:34px !important;height:34px !important;background:${svg(I_PLUS)} center/contain no-repeat !important}
-[data-wk="chatreply"]{width:34px !important;min-width:34px !important;height:34px !important;background:${svg(I_REPLY)} center/contain no-repeat !important}
-[data-wk="send"]{width:46px !important;min-width:46px !important;height:46px !important;background:${svg(I_SEND)} center/contain no-repeat !important;opacity:1 !important;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5)) !important}
-[data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
-[data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.9) !important}
+[data-wk="send"]{width:34px !important;min-width:34px !important;height:34px !important;background:${svg(I_REPLY)} center/contain no-repeat !important}
+[data-wk="chatreply"]{width:46px !important;min-width:46px !important;height:46px !important;background:${svg(I_SEND)} center/contain no-repeat !important;opacity:1 !important;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5)) !important}
+[data-wk="chatplus"] *,[data-wk="chatreply"] *,[data-wk="send"] *{opacity:0 !important}
+[data-wk="chatplus"]:active,[data-wk="chatreply"]:active,[data-wk="send"]:active{transform:scale(.9) !important}
 [data-wk="chatpanel"]{background:${C.panel} !important;border-top:1px solid ${C.gold} !important}
 `;
 
