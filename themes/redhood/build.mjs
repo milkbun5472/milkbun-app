@@ -190,6 +190,10 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){position:relati
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;font-size:0 !important;color:transparent !important;padding:0 !important;background:${svg(WINDOW)} center/contain no-repeat !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+
+/* 头像不是圆的：他是外婆墙上的方相框（圆角方、奶白框）；我是一滴兜帽形——右上收成一个尖，跟斗篷帽尖一个方向 */
+button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[data-wk="avatar"] *,[data-wk="msg"] img[data-wk="avatar"],[data-wk="chathead"] [data-wk="avatar"],[data-wk="chathead"] [data-wk="avatar"] *{border-radius:22% !important}
+[data-wk="msg"][data-me="1"] [data-wk="avatar"],[data-wk="msg"][data-me="1"] [data-wk="avatar"] *,[data-wk="cardrow"][data-me="1"] [data-wk="avatar"],[data-wk="cardrow"][data-me="1"] [data-wk="avatar"] *,[data-wk="chathead"] [data-wk="headme"] > *,[data-wk="chathead"] [data-wk="headme"] img{border-radius:50% 4px 50% 50% !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "红帽夜访", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
