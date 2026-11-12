@@ -15,6 +15,8 @@ const I_MORE = T(C.teal, `<path d='M7 21 V13 M15 24 V6 M23 20 V10'/>`);
 const I_SEND = T(C.pink, `<path d='M23 3 L9 19 H19 L15 33 L31 14 H21 Z'/>`, '0 0 40 36');
 const I_REPLY = T(C.teal, `<path d='M6 5 H40 Q46 5 46 11 V21 Q46 27 40 27 H20 L12 32 L13.5 27 H12 Q6 27 6 21 V11 Q6 5 12 5Z'/><path d='M26 21.5 C20 17.5 19.5 15.5 19.5 14 C19.5 12 21 11 22.5 11 C24 11 25.3 12 26 13.2 C26.7 12 28 11 29.5 11 C31 11 32.5 12 32.5 14 C32.5 15.5 32 17.5 26 21.5Z'/>`, '0 0 52 36');
 
+const I_CAM = T(C.pink, `<path d='M4 10 H9 L11 7 H19 L21 10 H26 V24 H4Z'/><circle cx='15' cy='16.5' r='4.5'/>`);
+const I_BOW = T(C.gold, `<path d='M15 12 C10 4 3 6 5 11 C6 14 11 13 15 12Z'/><path d='M15 12 C20 4 27 6 25 11 C24 14 19 13 15 12Z'/><path d='M15 12 L11 22 M15 12 L19 22'/>`);
 const BRICK = `<svg xmlns='http://www.w3.org/2000/svg' width='48' height='24' viewBox='0 0 48 24'><path d='M0 .5 H48 M0 12.5 H48 M24 0 V12 M.5 12 V24 M47.5 12 V24' stroke='rgba(255,255,255,.035)' stroke-width='1' fill='none'/></svg>`;
 const bubble = { myBg: "transparent", myText: C.ink, myBorder: `2px solid ${C.pink}`, charBg: "transparent", charText: C.ink, charBorder: `2px solid ${C.teal}`, radius: 18, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
@@ -86,6 +88,80 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 [data-wk="chatreply"]{width:48px !important;min-width:48px !important;height:34px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important;filter:drop-shadow(0 0 5px ${C.teal}) !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.92) !important}
+/* ───── 霓虹夜 · 第二批：卡片（形状不动；每张是一块挂墙上的灯牌——深色底、灯管描边、顶上一个灯座卡扣） ───── */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"],[data-wk="rpcard"]{position:relative !important;overflow:visible !important;background:rgba(14,11,25,.78) !important;border:2px solid ${C.teal} !important;border-radius:14px !important;box-shadow:${IG(C.teal)},0 0 16px rgba(67,238,221,.35) !important;color:${C.ink} !important}
+[data-wk="transfercard"]::before,[data-wk="photocard"]::before,[data-wk="namecard"]::before,[data-part="offlog"]::before,[data-wk="wxcard"]::before{content:"" !important;position:absolute !important;left:calc(50% - 9px) !important;top:-5px !important;width:18px !important;height:7px !important;border-radius:2px !important;background:#1A1626 !important;border:1px solid #4A4560 !important;z-index:3 !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *,[data-wk="photocard"] *{color:${C.ink} !important;border-color:rgba(244,240,255,.15) !important}
+/* 转账：金色灯管，金额是会亮的金字；收下以后右上亮一块青色「已收」小灯牌 */
+[data-wk="transfercard"]{border-color:${C.gold} !important;box-shadow:${IG(C.gold)},0 0 16px rgba(246,199,100,.35) !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.gold} !important;text-shadow:0 0 8px rgba(246,199,100,.8) !important}
+[data-wk="transferrule"]{border:none !important;height:1.5px !important;background:${C.gold} !important;box-shadow:0 0 6px ${C.gold} !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:transparent !important;border-top:1px solid rgba(246,199,100,.3) !important}
+[data-wk="transferbtn"]{border-radius:14px !important;background:transparent !important}
+[data-wk="transferbtn"][data-part="take"]{border:2px solid ${C.gold} !important;color:${C.gold} !important;box-shadow:0 0 6px ${C.gold} !important}
+[data-wk="transferbtn"][data-part="back"]{border:1.5px solid rgba(244,240,255,.3) !important;color:${C.fog} !important}
+[data-wk="transferseal"]{background:transparent !important;border:2px solid ${C.teal} !important;border-radius:6px !important;color:${C.teal} !important;box-shadow:0 0 6px ${C.teal} !important;text-shadow:0 0 6px ${C.teal} !important}
+[data-wk="transferseal"] *{color:${C.teal} !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{transform:rotate(-6deg) !important}
+[data-wk="transfercard"][data-status="returned"]{border-color:rgba(244,240,255,.25) !important;box-shadow:none !important;opacity:.6 !important}
+/* 红包：不是信封——一块洋红礼物灯牌，左上一只金色灯管蝴蝶结；领完灯灭（变暗不发光） */
+[data-wk="rpcard"]{background:radial-gradient(circle at 20% 0%,rgba(255,95,174,.25),transparent 60%),rgba(14,11,25,.8) !important;border-color:${C.pink} !important;box-shadow:${IG(C.pink)},0 0 18px rgba(255,95,174,.45) !important;padding-left:46px !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:8px !important;top:-10px !important;width:34px !important;height:34px !important;background:${svg(I_BOW)} center/contain no-repeat !important;filter:drop-shadow(0 0 4px ${C.gold}) !important;z-index:3 !important}
+[data-wk="rpcard"] *{color:${C.ink} !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"][data-status="done"]{border-color:rgba(255,95,174,.35) !important;box-shadow:none !important;opacity:.6 !important}
+[data-wk="rpcard"][data-status="done"]::before{filter:none !important;opacity:.4 !important}
+[data-wk="rpenvelope"]{background:radial-gradient(circle at 50% 0%,rgba(255,95,174,.3),transparent 60%),${C.bg} !important;border:2px solid ${C.pink} !important;border-radius:18px !important;box-shadow:${IG(C.pink)},0 0 30px rgba(255,95,174,.45) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:transparent !important;border:none !important}
+[data-wk="rpenvelope"] *{color:${C.ink} !important}
+[data-wk="rpopenbtn"]{background:transparent !important;border:2px solid ${C.gold} !important;box-shadow:${IG(C.gold)},0 0 14px ${C.gold} !important}
+[data-wk="rpopenbtn"] *{color:${C.gold} !important}
+[data-wk="rpamount"]{color:${C.gold} !important;text-shadow:0 0 10px ${C.gold} !important}
+/* 照片：青色灯框里一块暗屏；语音：小灯管条，波形是一根根亮柱 */
+[data-wk="photocard"]{padding:8px 8px 10px !important}
+[data-wk="photoface"]{border-radius:8px !important;background:#120F20 !important;border:1px solid rgba(67,238,221,.3) !important}
+[data-wk="photoface"] *,[data-wk="phototext"],[data-wk="photocap"],[data-wk="photohint"]{color:${C.ink} !important}
+[data-wk="photoface"] svg{stroke:${C.teal} !important}
+[data-wk="voice"][data-me]{background:rgba(14,11,25,.6) !important;border:2px solid ${C.teal} !important;border-radius:18px !important;box-shadow:${IG(C.teal)} !important}
+[data-wk="voice"][data-me="1"]{border-color:${C.pink} !important;box-shadow:${IG(C.pink)} !important}
+[data-wk="voice"] > *{background:transparent !important;border:none !important;box-shadow:none !important;color:${C.ink} !important}
+[data-wk="voicewave"] span{background:${C.teal} !important;box-shadow:0 0 4px ${C.teal} !important}
+[data-wk="voice"][data-me="1"] [data-wk="voicewave"] span{background:${C.pink} !important;box-shadow:0 0 4px ${C.pink} !important}
+/* 天气、位置、名片 */
+[data-wk="wxcardsky"]{background:radial-gradient(circle at 80% 30%,rgba(67,238,221,.18),transparent 60%),transparent !important}
+[data-wk="wxcardsky"] *{color:${C.ink} !important}
+[data-wk="wxcardsky"] svg{stroke:${C.teal} !important;filter:drop-shadow(0 0 4px ${C.teal}) !important}
+[data-wk="wxcardsay"]{background:transparent !important;color:${C.ink} !important;border-top:1px solid rgba(67,238,221,.3) !important}
+[data-wk="wxcardsay"] *{color:${C.ink} !important}
+[data-wk="geopin"]{background:${C.pink} !important;box-shadow:0 0 10px ${C.pink} !important}
+[data-wk="geopinstem"]{background:${C.pink} !important}
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 2px ${C.teal},${GT} !important}
+/* 拍一拍、通话结束：一行小灯字，两边各一截短灯管 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:transparent !important;border:none !important;color:${C.ink} !important;padding:2px 26px !important;font-size:12px !important;text-shadow:0 0 6px ${C.pink} !important;background:linear-gradient(${C.pink},${C.pink}) left center/16px 2px no-repeat,linear-gradient(${C.pink},${C.pink}) right center/16px 2px no-repeat !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.pink} !important}
+[data-wk="note"][data-part="callsum"]{color:${C.fog} !important}
+/* 线下小结 */
+[data-wk="offlogtitle"]{font-family:ui-monospace,Menlo,monospace !important;letter-spacing:.2em !important;color:${C.teal} !important;text-shadow:0 0 6px ${C.teal} !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.pink} !important}
+[data-wk="offlogtranscript"]{border-top:1px solid rgba(67,238,221,.3) !important}
+/* 加号面板：一格格小灯牌，粉青交替 */
+[data-wk="chatpanel"]{background:rgba(14,11,25,.92) !important;border-top:1.5px solid ${C.teal} !important}
+[data-wk="chattoolicon"]{background:transparent !important;border:2px solid ${C.teal} !important;border-radius:14px !important;box-shadow:${IG(C.teal)} !important}
+[data-wk="chattool"]:nth-child(odd) [data-wk="chattoolicon"]{border-color:${C.pink} !important;box-shadow:${IG(C.pink)} !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.ink} !important;color:${C.ink} !important}
+[data-wk="chattoollabel"]{color:${C.fog} !important}
+/* 引用三处：左边一根青色短灯管 */
+[data-wk="quotedraft"]{background:rgba(14,11,25,.9) !important;border-top:none !important}
+[data-wk="quote"]{background:rgba(23,19,42,.85) !important;color:${C.ink} !important;border:none !important;border-left:3px solid ${C.teal} !important;border-radius:4px !important;box-shadow:-2px 0 6px -2px ${C.teal} !important;opacity:1 !important}
+[data-wk="quote"][data-me="1"]{border-left-color:${C.pink} !important;box-shadow:-2px 0 6px -2px ${C.pink} !important}
+[data-wk="quoteicon"],[data-wk="quoteclear"]{color:${C.teal} !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.7 !important}
+/* 线下：提示键是同一颗四角星，照片键是一台粉色灯管相机 */
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:28px !important;height:28px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;filter:drop-shadow(0 0 4px ${C.teal}) !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_CAM)} center/contain no-repeat !important;filter:drop-shadow(0 0 4px ${C.pink}) !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "霓虹夜", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
