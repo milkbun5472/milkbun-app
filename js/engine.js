@@ -6086,7 +6086,10 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   } else if (kind === "other" && opts.pov) {
     // TA 的视角：被拍的是她（cName＝她），镜头是 pov.name 的眼睛
     const pv = opts.pov;
-    parts.push("【" + pv.name + "的视角·" + pv.name + "拿着手机拍" + cName + "】镜头就是" + pv.name + "的眼睛，画面里只有" + cName + "一个人，" + pv.name + "不露脸。"
+    // 开头跟「别人帮 TA 拍」那一支同一种说法（她 2026-11-13：「为什么让他生成自己的第三人他拍又是可以远景的」）：
+    //   原来写的是「X 的视角·X 拿着手机拍她，镜头就是 X 的眼睛」——出图一读到「视角／拿着手机／镜头是眼睛」就画成第一人称举手机的那张，也就是自拍
+    parts.push("【这是" + pv.name + "帮" + cName + "拍的照片，不是自拍】第三人称：" + pv.name + "站在画面外拍她，画面里只有" + cName + "一个人，" + pv.name + "不露脸，"
+      + cName + "手里没拿相机或手机。姿势和构图自然多变——站着、坐着、走动、回眸、侧身、半身或全身、带着身边的环境都可以，别永远是怼脸的正面近照。"
       + "只有上面那句机位写到了手、肩，才让" + pv.name + "的手或袖子进画面" + (pv.wear ? "（袖子照这一身：" + pv.wear + "）" : "") + (pv.look ? "，手的样子贴合这个人：" + pv.look : "") + "；机位没提就不要出现。"
       + (pv.rel ? "两人是" + pv.rel + "，" : "") + cName + "看镜头的神情、离镜头多近，照这层关系的分寸来，像这个人随手拍下的真实一张，不是写真。");
   } else if (kind === "other") {
@@ -6170,7 +6173,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     let _pi = Math.floor(Math.random() * pool.length);
     if (pool[_pi] === buildPhotoPrompt._lastPov && pool.length > 1) _pi = (_pi + 1) % pool.length;
     buildPhotoPrompt._lastPov = pool[_pi];
-    const _pl = PHOTO_POV_MARK + "【这一张从哪儿拍】" + pool[_pi] + "。镜头就是拍照那个人的眼睛，这一格定的是他站在哪儿、离多远、从什么高度拍过去；"
+    const _pl = PHOTO_POV_MARK + "【这一张从哪儿拍】" + pool[_pi] + "。这一格定的是拍照那个人站在哪儿、离多远、从什么高度拍过去；"
       + "她此刻在做什么、什么表情，照「场景/正在做什么」那一句画，不另编动作；这一格里写到的动作跟描述对不上的，以描述为准，只留下这一格的方位和远近。"
       + "参考图只决定她是谁，姿势、角度、离镜头多远都不照搬参考图。"
       // 正脸冲镜头那几张出图还是会自己补一条举手机的胳膊（她 2026-11-13 更新后截图：左肩抬着、胳膊伸出画面）。写死两样看得见的
