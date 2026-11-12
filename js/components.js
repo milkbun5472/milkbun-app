@@ -12120,7 +12120,7 @@ function ChatThread({
     style: { flexShrink: 0, display: "flex", alignItems: "center", gap: 10, background: "rgba(194,90,74,0.08)", borderBottom: "1px solid rgba(194,90,74,0.22)", padding: "8px 14px 8px 16px" }
   },
     h("div", { style: { flex: 1, minWidth: 0, lineHeight: 1.45 } },
-      h("div", { "data-wk": "blockbartitle", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.accent, fontWeight: 600 } }, "你已删除 TA"),
+      h("div", { "data-wk": "blockbartitle", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.accent, fontWeight: 600 } }, bk.deletedByName ? "「" + bk.deletedByName + "」翻你手机时删了 TA" : "你已删除 TA"),
       h("div", { "data-wk": "blockbarhint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, "你们发不了消息；TA 想你了会发好友申请，在 通讯录 →「新的朋友」里")),
     onReAdd ? h("button", { "data-wk": "blockbarbtn", onClick: onReAdd, className: "active:opacity-60",
       style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "4px 12px", background: "transparent" } }, "加回好友") : null),
@@ -12131,7 +12131,7 @@ function ChatThread({
     h("span", { "data-wk": "blockbaricon", "aria-hidden": "true", style: { flexShrink: 0, width: 16, height: 16, borderRadius: 999, border: "1.5px solid " + t.accent, position: "relative", display: "inline-block" } },
       h("span", { style: { position: "absolute", left: 2, right: 2, top: 6, height: 1.5, background: t.accent, transform: "rotate(-45deg)" } })),
     h("div", { style: { flex: 1, minWidth: 0, lineHeight: 1.45 } },
-      h("div", { "data-wk": "blockbartitle", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.accent, fontWeight: 600 } }, bk.theyBlocked ? (bk.cut === "del" ? "TA 把你删了" : "TA 把你拉黑了") : "你已拉黑 TA"),
+      h("div", { "data-wk": "blockbartitle", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.accent, fontWeight: 600 } }, bk.theyBlocked ? (bk.cut === "del" ? "TA 把你删了" : "TA 把你拉黑了") : (bk.blockedByName ? "「" + bk.blockedByName + "」翻你手机时拉黑了 TA" : "你已拉黑 TA")),
       h("div", { "data-wk": "blockbarhint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, bk.theyBlocked && bk.cut === "del" ? "你们不是好友了，朋友圈互相看不到；点消息旁的 ! 发一条好友申请" : bk.theyBlocked ? "你的消息 TA 看不到；点消息旁的 ! 写一句话求 TA" : "TA 的消息你照样能看到；按「回复」看 TA 的反应")),
     bk.iBlocked && onUnblock ? h("button", { "data-wk": "blockbarbtn", onClick: onUnblock, className: "active:opacity-60",
       style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "4px 12px", background: "transparent" } }, "解除") : null), /*#__PURE__*/React.createElement("div", {
@@ -16397,18 +16397,6 @@ function KinshipCardFace({ character, limit, used, note, width }) {
         : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "刷这张卡花的是" + (c.name || "TA") + "的钱")));
 }
 // 被TA删掉／拉黑的那一栏：聊天记录一条不动，只是盖上一张空白页，点一下就加回来（她 2026-10-02）
-function PeekCutPage({ character, cut, byName, onBack, onRestore }) {
-  const t = useTheme();
-  const nm = character.remark || character.name || "TA", un = cut.kind === "unfriend";
-  return h("div", { "data-wk": "peekcutpage", "data-part": "peekcutpage", className: "h-full flex flex-col" },
-    h(Head, { zh: nm, onBack, bg: "transparent" }),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center", style: { padding: "0 32px", textAlign: "center" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.8 } }, un ? "你和「" + nm + "」已经不是好友了" : "「" + nm + "」已被拉黑"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.7 } },
-        (byName ? byName + "翻你手机的时候" + (un ? "删的" : "拉黑的") + "。" : "") + "聊天记录都还在，加回来就能接着聊。"),
-      h("button", { onClick: onRestore, className: "active:opacity-80", style: { marginTop: 22, minHeight: 44, padding: "0 28px", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))" } },
-        un ? "加回好友" : "解除拉黑")));
-}
 // 点标题摊开、再点收起，收着的时候右边一句说这一格现在是什么状态。
 //   论坛设置先有的这个形状（她 2026-10-01：「搞几个分类 dropdown」）；递手机那张单子是第二处（她 2026-10-02），所以抽成公共的
 function FoldRow({ title, state, open, onToggle, children }) {
