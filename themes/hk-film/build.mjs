@@ -24,7 +24,7 @@ const I_PLAY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><cir
 const TRACK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 14' preserveAspectRatio='none'>${Array.from({ length: 48 }, (_, i) => `<circle cx='${3 + i * 5}' cy='7' r='1.2' fill='${i < 17 ? "#D2343A" : "#9C8E78"}'/>`).join("")}<circle cx='88' cy='7' r='5' fill='${C.ink}' stroke='${C.cream}' stroke-width='1.2'/></svg>`;
 
 const bubble = { myBg: C.red, myText: C.cream, myBorder: "none", charBg: C.brown, charText: C.cream, charBorder: "none", radius: 0, shadow: "none", myAlpha: 100, charAlpha: 100 };
-const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
+const layout = { bubble: "bubble", avatar: "first", name: true, gap: "normal", time: "show" };
 const SERIF = `"Songti SC","Noto Serif SC","STSong",serif`;
 
 const css = `
@@ -81,7 +81,9 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="bubble"][data-kind="typing"]{background:${C.brown} !important;border:none !important;border-left:3px solid ${C.gold} !important;border-radius:0 !important}
 [data-wk="bubble"][data-kind="typing"]::before,[data-wk="bubble"][data-kind="typing"]::after{content:none !important}
 [data-wk="typingdot"]{background:${C.redL} !important}
-[data-wk="name"]{color:${C.dim} !important;letter-spacing:.2em !important}
+[data-wk="name"]{color:${C.dim} !important;letter-spacing:.25em !important;font-size:11px !important;margin-bottom:8px !important}
+[data-wk="name"]::after{content:" ：" !important}
+[data-wk="name"][data-me="1"],[data-wk="msg"][data-me="1"] [data-wk="name"]{display:none !important}
 
 /* 动描：一块虚线框的字幕，左上贴一张「Voice-over」黑标签，字居中、字距松 */
 [data-wk="narr"]{background:transparent !important;border:none !important;box-shadow:none !important;padding-top:12px !important}
