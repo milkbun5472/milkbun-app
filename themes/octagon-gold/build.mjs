@@ -50,6 +50,10 @@ const PIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 36'><path d
 const LANTERNMASK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 180'>${[0,1,2,3,4].map(i=>`<g transform='translate(0 ${i*36}) rotate(-90 18 18)'><rect x='15' y='2' width='6' height='4'/><ellipse cx='18' cy='17' rx='11' ry='10'/><rect x='15' y='27' width='6' height='3'/><rect x='17' y='30' width='2' height='5'/></g>`).join("")}</svg>`;
 const SCREENTOP = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 40'><path d='M20 34 Q150 -6 280 34' fill='none' stroke='${C.gold}' stroke-width='2'/><path d='M150 4 L160 14 L150 24 L140 14Z' fill='${C.gold}' stroke='${C.goldL}' stroke-width='1'/><path d='M110 12 Q120 6 130 12 M170 12 Q180 6 190 12' fill='none' stroke='${C.gold}' stroke-width='1.4'/><circle cx='20' cy='34' r='3.5' fill='${C.gold}'/><circle cx='280' cy='34' r='3.5' fill='${C.gold}'/></svg>`;
 
+// ── 第四批用的图 ──
+// 八角月洞门：墨墙上开一扇八角门洞，门外夜空一轮金月、远山、柳枝
+const GATE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 300'><defs><linearGradient id='n' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#0B1324'/><stop offset='1' stop-color='#22263A'/></linearGradient><clipPath id='g'><path d='M135 30 H255 L330 105 V230 L255 300 H135 L60 230 V105Z'/></clipPath></defs><g clip-path='url(#g)'><rect x='0' y='0' width='390' height='300' fill='url(#n)'/><circle cx='250' cy='95' r='30' fill='#EBD394'/><circle cx='262' cy='88' r='27' fill='#0B1324' opacity='.25'/><g fill='#fff' opacity='.7'><circle cx='120' cy='80' r='1.2'/><circle cx='170' cy='60' r='1'/><circle cx='300' cy='150' r='1.2'/><circle cx='95' cy='140' r='1'/></g><path d='M60 240 Q120 180 180 220 Q240 170 330 230 V300 H60Z' fill='#141A2A'/><path d='M60 262 Q140 225 220 255 Q280 235 330 260 V300 H60Z' fill='#0E121D'/><path d='M100 30 Q110 90 92 150 M100 30 Q125 85 118 140' fill='none' stroke='#5A6B3A' stroke-width='1.4'/></g><path d='M135 30 H255 L330 105 V230 L255 300 H135 L60 230 V105Z' fill='none' stroke='${C.gold}' stroke-width='5'/><path d='M140 40 H250 L320 110 V226 L250 292 H140 L70 226 V110Z' fill='none' stroke='${C.goldD}' stroke-width='1.4'/></svg>`;
+
 const bubble = { myBg: C.gold, myText: C.ink, myBorder: "none", charBg: C.ink2, charText: C.cream, charBorder: "none", radius: 0, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -302,6 +306,48 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="gazeempty"]{background:transparent !important;border:1px dashed ${C.goldD} !important;border-radius:0 !important;color:${C.cream} !important}
 [data-wk="gazeempty"] > div:first-child{color:${C.cream} !important}
 [data-wk="gazeempty"] button{background:${C.gold} !important;color:${C.ink} !important;border:none !important;border-radius:0 !important;clip-path:${OCT("8px")} !important}
+/* ───── 八角 · 墨金 · 第四批：线下＝墙上一扇八角月洞门，门外夜色金月；卡片墨底金边 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(GATE)} center bottom 90px/100% auto no-repeat,${svg(LATTICE)} 0 0/60px 60px,radial-gradient(ellipse at 50% 30%,#1F1B14,${C.ink} 70%) !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"] + *{margin-top:0 !important;padding-top:14px !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:${C.goldL} !important;font-family:serif !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:32px !important;height:32px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:${C.ink2} !important;color:${C.goldL} !important;border:1px solid ${C.gold} !important;border-radius:3px !important;font-size:12px !important;padding:3px 12px !important;font-family:serif !important;letter-spacing:.15em !important}
+[data-wk="offcomposer"]{background:${C.ink2} !important;border-top:1px solid ${C.goldD} !important}
+[data-wk="offcomposer"] textarea{background:#1A1712 !important;border:1.4px solid ${C.goldD} !important;border-radius:9px !important;color:${C.cream} !important}
+[data-wk="offcomposer"] textarea::placeholder{color:${C.dim} !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:34px !important;height:34px !important;min-width:34px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PLUS)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/34px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{position:relative !important;width:58px !important;min-width:58px !important;height:34px !important;border:none !important;border-radius:0 !important;background:${C.gold} !important;clip-path:${OCT("8px")} !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]::before{content:"演 绎" !important;position:absolute !important;inset:0 !important;display:flex !important;align-items:center !important;justify-content:center !important;font-size:13px !important;color:${C.ink} !important;font-family:serif !important;font-weight:700 !important}
+/* 卡片：墨底双层金线框；你的那张是金箔底；卡头左上一颗金菱 */
+[data-wk="offcard"]{position:relative !important;background:linear-gradient(180deg,#262119,${C.ink2}) !important;border:1px solid ${C.gold} !important;border-radius:0 !important;box-shadow:inset 0 0 0 4px ${C.ink2},inset 0 0 0 5px rgba(201,164,92,.35),0 8px 18px rgba(0,0,0,.4) !important;overflow:visible !important;margin-top:18px !important;color:${C.cream} !important}
+[data-wk="offcard"][data-me="1"]{background:linear-gradient(180deg,#E3C47E,${C.gold} 55%,#B8944D) !important;box-shadow:inset 0 0 0 4px transparent,inset 0 0 0 5px rgba(18,16,13,.3),0 8px 18px rgba(0,0,0,.4) !important}
+[data-wk="offcard"]::before{content:"" !important;position:absolute !important;left:-6px !important;top:-6px !important;width:12px !important;height:12px !important;background:${svg(DIA())} center/contain no-repeat !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:0 !important;clip-path:${OCT("29%")} !important;box-shadow:none !important}
+[data-wk="offhead"] [data-wk="avatar"]::before{content:none !important}
+[data-wk="offname"],[data-wk="offtext"]{color:${C.cream} !important;font-family:serif !important}
+[data-wk="offname"]{color:${C.goldL} !important;font-weight:700 !important;letter-spacing:.1em !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offname"],[data-wk="offcard"][data-me="1"] [data-wk="offtext"]{color:${C.ink} !important}
+[data-wk="offsay"]{color:${C.goldL} !important;background:none !important;border-bottom:1px solid ${C.goldD} !important;font-weight:700 !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{color:#5A1A12 !important;border-bottom-color:rgba(18,16,13,.4) !important}
+[data-wk="offthought"]{background:rgba(201,164,92,.07) !important;border:none !important;border-left:2px solid ${C.gold} !important;border-radius:0 !important;color:#CDBE9C !important;font-style:italic !important;box-shadow:none !important}
+[data-wk="offcardacts"] svg{stroke:${C.gold} !important;color:${C.gold} !important}
+[data-wk="offreplyopt"]{background:${C.ink2} !important;border:1px solid ${C.goldD} !important;border-radius:3px !important;color:${C.goldL} !important;font-family:serif !important}
+
+/* ───── 八角 · 墨金 · 通话：气泡同线上，大头像切八角套金框 ───── */
+[data-wk="callbubble"]{background:linear-gradient(180deg,#262119,${C.ink2}) !important;color:${C.cream} !important;border:1px solid ${C.gold} !important;border-radius:3px !important;font-family:serif !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:linear-gradient(180deg,#E3C47E,${C.gold} 55%,#B8944D) !important;color:${C.ink} !important;border-color:${C.goldL} !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{width:8px !important;height:8px !important;border-radius:0 !important;background:${svg(DIA())} center/contain no-repeat !important}
+[data-wk="callact"]{color:#CDBE9C !important;font-style:italic !important;font-family:serif !important}
+[data-wk="callavatar"]{border-radius:0 !important;clip-path:${OCT("29%")} !important;box-shadow:none !important;filter:drop-shadow(0 0 2px ${C.gold}) drop-shadow(0 0 2px ${C.gold}) drop-shadow(0 0 18px rgba(235,211,148,.4)) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "八角墨金", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
