@@ -1,0 +1,109 @@
+// 丑小鸭：月夜的湖——上半是缀星的夜空和一轮月亮，树影一线，下半是青色湖水和一道月光倒影；湖边一只白天鹅。
+// 气泡像浮在水面上：他的白、我的青，底下一截水里的倒影。用法：node themes/duckling/build.mjs
+import { writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+const here = dirname(fileURLToPath(import.meta.url));
+const svg = s => "url(\"data:image/svg+xml;base64," + Buffer.from(s.replace(/>\s+</g, "><")).toString("base64") + "\")";
+const C = { sky: "#0D1F2B", lake: "#123B41", deep: "#0C2A30", teal: "#2D6B70", tealL: "#4F8D8E", white: "#F4F6F1", gold: "#E2A73C", beak: "#F0A23A", fog: "#93AFAE", ink: "#F4F6F1", dark: "#13252E" };
+
+const STARS = `<svg xmlns='http://www.w3.org/2000/svg' width='220' height='170' viewBox='0 0 220 170' fill='#fff'><circle cx='14' cy='20' r='1.1' opacity='.8'/><circle cx='62' cy='48' r='.8' opacity='.6'/><circle cx='110' cy='14' r='1.2' opacity='.9'/><circle cx='160' cy='60' r='.8' opacity='.5'/><circle cx='196' cy='30' r='1' opacity='.7'/><circle cx='36' cy='96' r='.7' opacity='.5'/><circle cx='88' cy='120' r='1' opacity='.7'/><circle cx='140' cy='104' r='.7' opacity='.6'/><circle cx='186' cy='140' r='1.1' opacity='.8'/><circle cx='20' cy='150' r='.8' opacity='.6'/></svg>`;
+const TREES = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='14' viewBox='0 0 200 14' preserveAspectRatio='none'><path d='M0 14 V9 Q8 4 16 8 Q24 3 34 7 Q44 2 52 8 Q62 5 70 9 Q80 3 92 7 Q100 4 110 8 Q120 2 132 7 Q142 5 150 9 Q160 3 172 7 Q182 4 190 8 Q196 6 200 8 V14Z' fill='#06141A'/></svg>`;
+const RIPPLE = `<svg xmlns='http://www.w3.org/2000/svg' width='260' height='120' viewBox='0 0 260 120' stroke='rgba(190,225,220,.16)' stroke-width='1.6' stroke-linecap='round'><path d='M20 14 H70 M150 30 H210 M40 58 H86 M170 76 H240 M10 98 H58 M110 112 H150'/></svg>`;
+const GLINT = `<svg xmlns='http://www.w3.org/2000/svg' width='90' height='60' viewBox='0 0 90 60' stroke='rgba(240,232,190,.5)' stroke-width='2' stroke-linecap='round'><path d='M30 6 H52 M22 18 H44 M50 22 H70 M34 34 H58 M18 46 H38 M48 50 H72'/></svg>`;
+const SWAN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><path d='M14 44 Q14 36 24 34 L36 34 Q30 30 26 22 Q22 12 26 6 Q30 1 34 4 L37 7 L33 8 Q29 8 30 16 Q32 26 40 32 Q46 36 44 42 Q40 48 26 48 Q14 48 14 44Z' fill='#fff'/><path d='M37 7 L42 9 L36 10Z' fill='${C.beak}'/><circle cx='33' cy='6.5' r='.9' fill='#13252E'/><path d='M8 50 H50' stroke='rgba(255,255,255,.35)' stroke-width='1.2' stroke-linecap='round'/><path d='M20 52 Q24 60 22 66' stroke='rgba(255,255,255,.18)' stroke-width='4' fill='none'/></svg>`;
+const WAVE = (c) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 8' fill='none' stroke='${c}' stroke-width='1.2' stroke-linecap='round'><path d='M1 3 Q8 7 16 3 Q24 0 39 4'/><path d='M8 6.5 Q14 8 22 6'/></svg>`;
+// 按键：加号是一颗裂开的蛋，回复是一片睡莲叶，发送是小鸭的圆脑袋带一个橘色小嘴（照参考），回家是一弯湖上的月亮，更多是一根羽毛
+const I_PLUS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 34'><path d='M15 2 C23 2 27 13 27 21 C27 28 22 32 15 32 C8 32 3 28 3 21 C3 13 7 2 15 2Z' fill='${C.white}' stroke='${C.gold}' stroke-width='1.4'/><path d='M5 18 L9 15 L12 19 L15 15 L18 19 L21 15 L25 18' fill='none' stroke='${C.dark}' stroke-width='1.4' stroke-linejoin='round'/><path d='M15 21 V28 M11.5 24.5 H18.5' stroke='${C.teal}' stroke-width='1.8' stroke-linecap='round'/></svg>`;
+const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 34'><path d='M20 3 A15 13.5 0 1 0 34.5 13 L20 17Z' fill='#3E8A6A' stroke='${C.white}' stroke-width='1.4' stroke-linejoin='round'/><path d='M20 17 L9 27 M20 17 L8 12 M20 17 L26 30' stroke='rgba(255,255,255,.35)' stroke-width='1'/><circle cx='30' cy='9' r='4.5' fill='#F2D6E0' stroke='${C.white}' stroke-width='1'/><circle cx='30' cy='9' r='1.6' fill='${C.gold}'/><circle cx='13' cy='17' r='1.4' fill='${C.white}'/><circle cx='18' cy='22' r='1.4' fill='${C.white}'/><circle cx='23' cy='24' r='1.4' fill='${C.white}'/></svg>`;
+const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'><circle cx='22' cy='20' r='16' fill='${C.white}'/><path d='M38 13 L54 20 L38 27Z' fill='${C.beak}'/><path d='M38 20 H50' stroke='#C07A20' stroke-width='1'/><circle cx='29' cy='15' r='1.8' fill='${C.dark}'/></svg>`;
+const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30' fill='none' stroke='${C.white}' stroke-width='1.6' stroke-linecap='round'><path d='M17 4 A8 8 0 1 0 25 15 A6.5 6.5 0 0 1 17 4Z' fill='rgba(240,225,170,.85)' stroke='none'/><path d='M3 22 H27 M7 26 H13 M17 26 H24'/></svg>`;
+const I_MORE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30' fill='none' stroke='${C.white}' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M7 25 C9 15 15 7 25 4 C25 13 19 21 9 23Z' fill='rgba(244,246,241,.9)'/><path d='M5 27 L18 12' stroke='${C.dark}' stroke-width='1.2'/><path d='M12 18 L9 17 M15 15 L12 13 M15 20 L13 19' stroke='${C.fog}' stroke-width='1'/></svg>`;
+const DUCKDOT = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 12'><circle cx='7' cy='6' r='5' fill='${C.white}'/><path d='M12 4 L18 6 L12 8Z' fill='${C.beak}'/></svg>`;
+
+const bubble = { myBg: C.teal, myText: C.ink, myBorder: "1px solid rgba(190,230,225,.5)", charBg: C.white, charText: "#21343A", charBorder: "none", radius: 18, shadow: "none", myAlpha: 100, charAlpha: 100 };
+const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
+
+const BG = `${svg(SWAN)} 50px 278px/46px 46px no-repeat,radial-gradient(circle at 66% 250px,#FBF1CF 0 30px,rgba(246,228,170,.35) 31px,rgba(246,228,170,.08) 70px,transparent 120px),${svg(TREES)} 0 306px/200px 14px repeat-x,${svg(STARS)} 0 60px/220px 170px repeat-x,linear-gradient(180deg,${C.sky} 0,#16343C 315px,${C.lake} 322px,${C.deep} 100%)`;
+
+const css = `
+/* ───── 丑小鸭 · 第一批 ───── */
+[data-wk="chat"]{background:${BG} !important;background-color:${C.deep} !important}
+[data-wk="body"]{background:transparent !important;position:relative !important;z-index:1 !important}
+[data-wk="chat"]{position:relative !important}
+[data-wk="chat"]::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:322px !important;bottom:0 !important;background:${svg(GLINT)} 70% 6px/90px 60px repeat-y,${svg(RIPPLE)} 0 0/260px 120px repeat !important;pointer-events:none !important;z-index:0 !important}
+[data-wk="chathead"],[data-wk="composer"]{position:relative !important;z-index:2 !important}
+
+/* 顶栏：浮在夜空里的一块深色圆角牌，金色双线框（照参考），名字后面一行金色斜体书名 */
+[data-wk="chathead"]{background:rgba(13,31,43,.92) !important;border:1.2px solid ${C.gold} !important;border-radius:22px !important;margin:6px 10px 0 !important;box-shadow:0 0 0 3px rgba(13,31,43,.92),0 0 0 4.2px rgba(226,167,60,.55),0 6px 18px rgba(0,0,0,.35) !important}
+[data-wk="headink"],[data-wk="headink"] *{color:${C.ink} !important}
+[data-wk="headname"] [data-wk="headink"]{font-family:Georgia,"Songti SC",serif !important;letter-spacing:.04em !important}
+[data-wk="headdim"],[data-wk="headname"] > div:last-child{color:${C.fog} !important}
+[data-wk="headname"] > div:last-child::before{content:"The Ugly Duckling · " !important;font:italic 11px/1 Georgia,serif !important;color:${C.gold} !important}
+[data-wk="chathead"] [data-wk="headname"]{flex:1 1 auto !important;min-width:110px !important}
+[data-wk="chathead"] [data-wk="headname"] > div:last-child{white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important}
+[data-wk="chatback"] svg{stroke:${C.ink} !important}
+[data-wk="sameroom"],[data-wk="chatmore"]{width:28px !important;min-width:28px !important;height:28px !important;font-size:0 !important;color:transparent !important;padding:0 !important;border:none !important;box-shadow:none !important;background-color:transparent !important;flex-shrink:0 !important}
+[data-wk="sameroom"]{background:${svg(I_HOUSE)} center/contain no-repeat !important;margin-left:auto !important}
+[data-wk="chatmore"]{background:${svg(I_MORE)} center/contain no-repeat !important;margin-left:6px !important}
+[data-wk="chatmore"] *,[data-wk="sameroom"] *{opacity:0 !important}
+
+/* 头像：圆的，白圈外再一圈金色微光 */
+button[data-wk="avatar"],span[data-wk="avatar"],img[data-wk="avatar"],button[data-wk="avatar"] *,span[data-wk="avatar"] *{border-radius:50% !important}
+button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),img[data-wk="avatar"]{box-shadow:0 0 0 2.5px ${C.white},0 0 0 4px ${C.gold},0 0 12px rgba(226,167,60,.45) !important}
+/* 顶栏双头像：两颗圆挨着，中间浮着一根小羽毛 */
+[data-wk="chathead"] [data-wk="headme"]{display:inline-flex !important;position:relative !important;overflow:visible !important;margin-left:-8px !important;flex-shrink:0 !important}
+[data-wk="chathead"] [data-wk="headme"] > *,[data-wk="chathead"] [data-wk="headme"] img,[data-wk="chathead"] img[data-wk="avatar"]{width:32px !important;height:32px !important;min-width:32px !important;flex-shrink:0 !important}
+[data-wk="chathead"] [data-wk="headme"]::before{content:"" !important;position:absolute !important;left:-12px !important;bottom:-6px !important;width:16px !important;height:16px !important;z-index:3 !important;background:${svg(I_MORE)} center/contain no-repeat !important}
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
+
+/* 气泡：浮在水上——他的白、柔光；我的青、半透，顶上一道高光、右下一道水纹。每串最后一条底下一截水里的倒影 */
+[data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:18px !important;font-family:Georgia,"Songti SC",serif !important;letter-spacing:.06em !important;padding:11px 20px !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{background:linear-gradient(180deg,#FFFFFF,#E9EEEA) !important;color:#21343A !important;border:none !important;box-shadow:0 0 14px rgba(244,246,241,.35),0 2px 0 rgba(255,255,255,.6) inset !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{background:linear-gradient(180deg,rgba(79,141,142,.92),rgba(45,107,112,.92)) !important;color:${C.ink} !important;border:1px solid rgba(190,230,225,.55) !important;box-shadow:0 4px 14px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.25) !important}
+[data-wk="bubble"][data-kind="text"]::before{content:none !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::before{content:"" !important;position:absolute !important;left:22px !important;top:4px !important;width:36px !important;height:2px !important;border-radius:2px !important;background:rgba(255,255,255,.45) !important;border:none !important;transform:none !important}
+[data-wk="bubble"][data-kind="text"]::after{content:none !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::after{content:"" !important;position:absolute !important;right:12px !important;bottom:4px !important;left:auto !important;top:auto !important;width:36px !important;height:8px !important;background:${svg(WAVE("rgba(230,245,240,.6)"))} center/contain no-repeat !important;border:none !important;transform:none !important}
+[data-last="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::after,[data-wk="msg"]:not([data-last]) [data-wk="bubble"][data-kind="text"][data-me="0"]::after{content:"" !important;position:absolute !important;left:4px !important;right:4px !important;top:calc(100% + 4px) !important;height:22px !important;border-radius:0 0 18px 18px !important;background:linear-gradient(180deg,rgba(244,246,241,.22),rgba(244,246,241,0)) !important;-webkit-mask:repeating-linear-gradient(180deg,#000 0 3px,transparent 3px 5px) !important;mask:repeating-linear-gradient(180deg,#000 0 3px,transparent 3px 5px) !important;border:none !important;transform:none !important;pointer-events:none !important}
+[data-last="1"][data-me="0"],[data-wk="msg"][data-me="0"][data-last="1"]{margin-bottom:14px !important}
+
+/* 时间：不居中——左边一行「今天」小字，下面大一号的钟点，底下一道金线（照参考） */
+[data-wk="time"]{text-align:left !important;justify-content:flex-start !important;padding-left:24px !important}
+[data-wk="time"] > span{display:inline-block !important;background:transparent !important;border:none !important;border-bottom:1.5px solid ${C.gold} !important;border-radius:0 !important;color:${C.ink} !important;font-family:Georgia,serif !important;font-size:15px !important;letter-spacing:.12em !important;padding:0 18px 6px 0 !important;text-shadow:0 0 8px rgba(255,255,255,.3) !important}
+
+/* 已读：他的前面一只小鸭（白圆点＋橘嘴），我的后面一颗灰圆点 */
+[data-wk="meta"]{color:${C.fog} !important;font-size:10.5px !important;letter-spacing:.12em !important;display:inline-flex !important;align-items:center !important;gap:6px !important}
+[data-wk="msg"][data-me="0"] [data-wk="meta"]::before{content:"" !important;width:18px !important;height:11px !important;background:${svg(DUCKDOT)} center/contain no-repeat !important;filter:drop-shadow(0 0 3px rgba(255,255,255,.6)) !important}
+[data-wk="msg"][data-me="1"] [data-wk="meta"]{flex-direction:row-reverse !important}
+[data-wk="msg"][data-me="1"] [data-wk="meta"]::before{content:"" !important;width:7px !important;height:7px !important;border-radius:50% !important;background:${C.fog} !important}
+[data-wk="msg"][data-last="0"] [data-wk="meta"]{display:none !important}
+[data-run][data-last="1"] + [data-wk="cardmeta"]{display:block !important;font-size:10.5px !important;color:${C.fog} !important;padding:2px 0 0 62px !important}
+[data-run][data-last="1"] + [data-wk="cardmeta"][data-me="1"]{text-align:right !important;padding:2px 62px 0 0 !important}
+[data-wk="bubble"][data-kind="typing"]{background:${C.white} !important;border:none !important;border-radius:18px !important}
+[data-wk="bubble"][data-kind="typing"]::before,[data-wk="bubble"][data-kind="typing"]::after{content:none !important}
+[data-wk="typingdot"]{background:${C.teal} !important}
+
+/* 动描：不进气泡——像湖面上一行被月光照着的字：不带框，两边各一道细水纹，淡金斜体 */
+[data-wk="narr"]{background:transparent !important;border:none !important;box-shadow:none !important}
+[data-wk="narrink"]{display:block !important;background:${svg(WAVE("rgba(226,167,60,.6)"))} left center/30px 8px no-repeat,${svg(WAVE("rgba(226,167,60,.6)"))} right center/30px 8px no-repeat !important;border:none !important;border-radius:0 !important;box-shadow:none !important;color:#E8D7AE !important;opacity:1 !important;font-family:Georgia,"Songti SC",serif !important;font-style:italic !important;font-size:13px !important;line-height:1.85 !important;padding:6px 40px !important;text-align:center !important;text-shadow:0 0 8px rgba(0,0,0,.5) !important}
+/* 系统提示：一行小字，前面一颗小星 */
+[data-wk="sysnote"]{background:transparent !important;border:none !important;box-shadow:none !important}
+[data-wk="sysnotelabel"]{display:none !important}
+[data-wk="sysnotetext"]{background:transparent !important;border:none !important;color:${C.fog} !important;font-size:11px !important;font-style:normal !important;letter-spacing:.1em !important}
+[data-wk="sysnotetext"]::before{content:"✧ " !important;color:${C.gold} !important}
+
+/* 底栏：同顶栏一块深色圆角牌，金色双线；加号是一颗裂开的蛋，回复是一片睡莲叶，发送是小鸭的脑袋＋橘色小嘴 */
+[data-wk="composer"]{background:rgba(13,31,43,.92) !important;border:1.2px solid ${C.gold} !important;border-radius:22px !important;margin:0 10px 8px !important;box-shadow:0 0 0 3px rgba(13,31,43,.92),0 0 0 4.2px rgba(226,167,60,.55) !important;align-items:center !important;gap:8px !important}
+[data-wk="chatinput"]{background:linear-gradient(180deg,#24525A,#1A3F46) !important;border:1px solid rgba(190,230,225,.4) !important;border-radius:16px !important;color:${C.ink} !important}
+[data-wk="chatinput"]::placeholder{color:${C.fog} !important}
+[data-wk="chatplus"]{width:28px !important;min-width:28px !important;height:32px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_PLUS)} center/contain no-repeat !important;transform:none !important;rotate:none !important}
+[data-wk="send"]{width:52px !important;min-width:52px !important;height:36px !important;border:none !important;border-radius:0 !important;box-shadow:none !important;background:${svg(I_SEND)} center/contain no-repeat !important;opacity:1 !important;filter:drop-shadow(0 0 8px rgba(255,255,255,.55)) !important}
+[data-wk="chatreply"]{width:38px !important;min-width:38px !important;height:32px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important}
+[data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
+[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.92) !important}
+`;
+
+const pack = { kind: "chat-look", v: 1, name: "丑小鸭", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
+writeFileSync(join(here, "丑小鸭-美化.json"), JSON.stringify(pack));
+console.log("ok", css.length);
