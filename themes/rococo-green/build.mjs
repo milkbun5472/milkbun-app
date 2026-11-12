@@ -36,6 +36,9 @@ const ENV = open => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 60'
 const HORN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M4 22 H12 L26 6 Q28 16 26 26 L12 24Z' fill='${C.gold}' stroke='${C.goldD}' stroke-width='1.2' stroke-linejoin='round'/><circle cx='8' cy='24' r='3' fill='${C.green}' stroke='${C.gold}' stroke-width='1'/></svg>`;
 const OVALF = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 120' preserveAspectRatio='none'><ellipse cx='50' cy='62' rx='46' ry='55' fill='none' stroke='${C.gold}' stroke-width='5' vector-effect='non-scaling-stroke'/><ellipse cx='50' cy='62' rx='46' ry='55' fill='none' stroke='${C.cream}' stroke-width='2' stroke-dasharray='.1 6' stroke-linecap='round' vector-effect='non-scaling-stroke'/></svg>`;
 
+// ── 第三批用的图 ──
+const PERFUME = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 76'><rect x='22' y='0' width='12' height='8' rx='2'/><rect x='24' y='8' width='8' height='6'/><path d='M14 14 H42 Q52 14 52 28 V60 Q52 74 38 74 H18 Q4 74 4 60 V28 Q4 14 14 14Z'/></svg>`;
+
 const bubble = { myBg: C.orange, myText: C.cream, myBorder: "none", charBg: C.cream, charText: C.ink, charBorder: "none", radius: 14, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -220,6 +223,74 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="quoteclear"]{color:${C.orange} !important}
 [data-wk="quote"]{background:${C.cream} !important;color:#6B5E48 !important;border:none !important;border-radius:999px !important;box-shadow:0 0 0 1.2px ${C.gold} !important;padding:3px 12px !important;opacity:1 !important}
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid ${C.gold} !important;padding-left:8px !important;opacity:.85 !important}
+/* ───── 翡翠沙龙 · 第三批：状态卡＝一面挂在沙龙墙上的金框画：奶油画布、双金框、顶洛可可饰、四角涡卷；好感是一只香水瓶 ───── */
+[data-wk="statecard"]{background:${C.cream} !important;border:none !important;border-radius:18px !important;box-shadow:0 0 0 3px ${C.gold},0 0 0 7px ${C.green},0 0 0 9px ${C.gold},0 0 0 10px ${C.goldD},0 20px 40px rgba(0,0,0,.5) !important;overflow:visible !important;position:relative !important;padding-top:22px !important;--sc-heart-ink:${C.orange} !important}
+[data-wk="statecard"]::before{content:"" !important;position:absolute !important;left:50% !important;top:-30px !important;width:76px !important;height:38px !important;margin-left:-38px !important;background:${svg(SHELL)} center/contain no-repeat !important;z-index:3 !important;pointer-events:none !important}
+[data-wk="statecard"]::after{content:"" !important;position:absolute !important;inset:-16px !important;background:${svg(CURLB)} left top/22px 22px no-repeat,${svg(CURL)} right top/22px 22px no-repeat,${svg(CURLB)} left bottom/22px 22px no-repeat,${svg(CURL)} right bottom/22px 22px no-repeat !important;pointer-events:none !important;z-index:3 !important;transform:none !important}
+[data-wk="statecard"] *{font-family:${SERIF} !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:1.5px solid ${C.gold} !important}
+[data-wk="statehead"] *{color:${C.ink} !important}
+[data-wk="statehead"] [data-wk="avatar"],[data-wk="statehead"] img{border-radius:50% !important;box-shadow:0 0 0 2.5px ${C.gold},0 0 0 4px ${C.goldD} !important}
+[data-wk="statehead"] [data-wk="avatar"]::before{content:none !important}
+[data-wk="statehead"] button{border:none !important;background:${C.greenL} !important;border-radius:50% !important;box-shadow:0 0 0 2px ${C.gold} !important}
+[data-wk="statehead"] button *{color:${C.cream} !important}
+[data-wk="statemood"]{display:inline-block !important;background:${C.orange} !important;color:${C.cream} !important;border:none !important;border-radius:999px !important;box-shadow:0 0 0 1.5px ${C.gold} !important;padding:0 10px !important;margin-right:4px !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:${C.cream2} !important;border:none !important;border-radius:999px !important;box-shadow:0 0 0 1.5px ${C.gold} !important;padding:3px !important;margin:10px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:#8C7F66 !important;border:none !important;border-radius:999px !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:${C.greenL} !important;color:${C.cream} !important;box-shadow:0 0 0 1.5px ${C.gold} !important}
+/* 看得见的＝一块奶油小牌；心里想的＝墨绿底奶油斜体字，两头卷轴（跟聊天里的动描一样是卷轴） */
+[data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;background:#FBF5E6 !important;border:none !important;border-radius:12px !important;margin:12px 16px !important;color:${C.ink} !important;box-shadow:0 0 0 1.5px ${C.gold},inset 0 0 0 4px #FBF5E6,inset 0 0 0 5px rgba(156,122,60,.35) !important}
+[data-wk="statevoice"]{background:${svg(DAMASK)} 0 0/48px 64px,${C.green} !important;border-radius:2px !important;margin:14px 26px !important;font-style:italic !important;box-shadow:0 0 0 1.5px ${C.gold},0 4px 10px rgba(0,0,0,.25) !important;overflow:visible !important}
+[data-wk="statevoice"]::before,[data-wk="statevoice"]::after{content:"" !important;position:absolute !important;top:-4px !important;bottom:-4px !important;width:12px !important;background:linear-gradient(90deg,${C.goldD},${C.gold} 40%,${C.cream2} 60%,${C.goldD}) !important;border-radius:6px !important}
+[data-wk="statevoice"]::before{left:-9px !important}
+[data-wk="statevoice"]::after{right:-9px !important}
+[data-wk="stateseen"] *{color:${C.ink} !important}
+[data-wk="statevoice"] *{color:${C.cream} !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:${C.cream2} !important;border:none !important;border-radius:999px !important;box-shadow:0 0 0 1px ${C.gold} !important}
+[data-wk="statewear"] > span{background:transparent !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:#8C7F66 !important}
+[data-wk="statevoice"] [data-wk="statevoicedel"]{color:${C.dim} !important}
+[data-wk="statevoice"] + div > button{background:${C.orange} !important;color:${C.cream} !important;border:none !important;border-radius:999px !important;box-shadow:0 0 0 1.5px ${C.gold} !important}
+/* 好感：梳妆台上一只香水瓶，好感多少就装了多少橘红香水；数字写在瓶身上 */
+[data-wk="stateaff"]{background:transparent !important;border-top:1.5px solid ${C.gold} !important;position:relative !important;display:block !important;padding:16px 22px 100px !important;overflow:hidden !important}
+[data-wk="stateaff"] *{color:${C.ink} !important}
+[data-wk="stateheart"]{position:absolute !important;width:56px !important;height:76px !important;left:calc(50% - 28px) !important;bottom:12px !important;transform:none !important;--sc-heart-mask:${svg(PERFUME)} !important;filter:drop-shadow(1.6px 0 0 ${C.gold}) drop-shadow(-1.6px 0 0 ${C.gold}) drop-shadow(0 1.6px 0 ${C.gold}) drop-shadow(0 -1.6px 0 ${C.gold}) drop-shadow(0 4px 6px rgba(0,0,0,.25)) !important}
+[data-wk="stateheart"] > div{-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important}
+[data-wk="stateheartline"]{background:transparent !important;opacity:0 !important}
+[data-wk="stateheartbase"]{background:linear-gradient(100deg,rgba(255,255,255,.85) 0 16%,#F3EAD6 16%) !important;opacity:1 !important}
+[data-wk="stateheartfill"] > div{background:linear-gradient(100deg,rgba(255,255,255,.35) 0 14%,transparent 14%),linear-gradient(180deg,#F08A62,${C.orange} 60%,${C.orangeD}) !important;opacity:1 !important;border-top:2px solid #F7C9A8 !important}
+[data-wk="stateheartnum"],[data-wk="stateheartknob"]{display:none !important}
+[data-wk="stateaffval"]{display:block !important;position:absolute !important;left:50% !important;right:auto !important;top:auto !important;bottom:30px !important;transform:translateX(-50%) !important;z-index:3 !important;font-size:17px !important;line-height:1 !important;font-weight:700 !important;font-style:italic !important;color:#FFF7EC !important;text-shadow:0 0 2px ${C.orangeD},0 0 2px ${C.orangeD},0 1px 3px rgba(0,0,0,.4) !important;pointer-events:none !important}
+/* 翻旧的：一封封奶油信笺，右上角一颗橘红火漆 */
+[data-wk="statehistbtn"]{background:${C.greenL} !important;color:${C.cream} !important;border:none !important;border-radius:999px !important;box-shadow:0 0 0 1.5px ${C.gold} !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:#8C7F66 !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:none !important;border-radius:999px !important;color:${C.orange} !important;background:transparent !important;box-shadow:0 0 0 1.2px ${C.gold} !important}
+[data-wk="statehistitem"]{position:relative !important;background:repeating-linear-gradient(180deg,transparent 0 27px,rgba(156,122,60,.16) 27px 28px),#FBF5E6 !important;border:none !important;border-radius:4px !important;padding:16px 46px 14px 18px !important;margin:0 0 14px !important;box-shadow:0 0 0 1.2px ${C.gold},0 4px 10px rgba(0,0,0,.18) !important;overflow:visible !important}
+[data-wk="statehistitem"]::after{content:"" !important;position:absolute !important;right:8px !important;top:8px !important;width:30px !important;height:30px !important;background:${svg(WAX("#B8452A", "♥"))} center/contain no-repeat !important;transform:rotate(12deg) !important}
+[data-wk="statehistitem"] *{color:${C.ink} !important}
+[data-wk="statehistmood"]{background:${C.orange} !important;border:none !important;color:${C.cream} !important;border-radius:999px !important}
+[data-wk="statehisttime"]{color:#8C7F66 !important;font-style:italic !important}
+[data-wk="statehistmeta"]{background:rgba(31,74,64,.07) !important;border-radius:6px !important}
+[data-wk="statehistend"]{color:#8C7F66 !important}
+/* Ta 眼里：墨绿叶纹底，卡片奶油金边，贴条换成一枚小洛可可饰 */
+[data-wk="gazepage"]{background:${svg(DAMASK)} 0 0/48px 64px,radial-gradient(ellipse at 50% 30%,#245447,${C.green2} 80%) !important}
+[data-wk="gazepage"] *{font-family:${SERIF} !important}
+[data-wk="gazetitle"]{color:${C.cream} !important;letter-spacing:.2em !important}
+[data-wk="gazetab"]{background:${C.cream2} !important;color:#8C7F66 !important;border:none !important;border-radius:999px !important;box-shadow:0 0 0 1.5px ${C.gold} !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:${C.orange} !important;color:${C.cream} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.dim} !important}
+[data-wk="gazecard"]{background:${C.cream} !important;border:none !important;border-radius:14px !important;box-shadow:0 0 0 2px ${C.gold},0 0 0 3px ${C.goldD} !important}
+[data-wk="gazetape"]{background:${svg(SHELL)} center/40px 20px no-repeat !important;box-shadow:none !important;border:none !important;width:44px !important;height:22px !important;transform:none !important}
+[data-wk="gazecardname"]{color:${C.ink} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#8C7F66 !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:${C.cream} !important;border:none !important;border-radius:16px !important;box-shadow:0 0 0 2px ${C.gold} !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
+[data-wk="gazeempty"]{background:rgba(244,234,210,.1) !important;border:1.5px dashed ${C.gold} !important;border-radius:16px !important;color:${C.cream} !important}
+[data-wk="gazeempty"] > div:first-child{color:${C.cream} !important}
+[data-wk="gazeempty"] button{background:${C.orange} !important;color:${C.cream} !important;border:none !important;border-radius:999px !important;box-shadow:0 0 0 1.5px ${C.gold} !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "翡翠沙龙", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
