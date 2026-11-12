@@ -108,7 +108,7 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="transfercard"],[data-wk="photocard"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"],[data-wk="rpcard"]{border:${LINE} !important;border-radius:2px !important;box-shadow:${SH} !important;color:${C.ink} !important;position:relative !important;overflow:visible !important}
 [data-wk="transfercard"],[data-wk="photocard"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{background:${C.paper} !important}
 [data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:${C.ink} !important;border-color:rgba(63,58,82,.25) !important}
-[data-wk="transfercard"]::after,[data-wk="photocard"]::after,[data-wk="namecard"]::after,[data-part="offlog"]::after,[data-wk="rpcard"]::after,[data-wk="voice"]::after{content:"" !important;position:absolute !important;right:-1.4px !important;top:-1.4px !important;left:auto !important;bottom:auto !important;width:18px !important;height:18px !important;background:${svg(CORNER(C.fold))} center/contain no-repeat !important;z-index:3 !important;pointer-events:none !important;border:none !important;transform:none !important}
+[data-wk="transfercard"]::after,[data-wk="photocard"]::after,[data-wk="namecard"]::after,[data-part="offlog"]::after{content:"" !important;position:absolute !important;right:-1.4px !important;top:-1.4px !important;left:auto !important;bottom:auto !important;width:18px !important;height:18px !important;background:${svg(CORNER(C.fold))} center/contain no-repeat !important;z-index:3 !important;pointer-events:none !important;border:none !important;transform:none !important}
 /* 转账：一页信纸——淡横格，金额下一道紫线，收下盖紫色「√ 已收」小方章 */
 [data-wk="transfercard"]{background:repeating-linear-gradient(180deg,transparent 0 23px,rgba(107,91,168,.12) 23px 24px),${C.paper} !important;padding-top:24px !important}
 [data-wk="transfercard"]::before{content:"TRANSFER" !important;position:absolute !important;left:16px !important;top:8px !important;font:600 9px/1 ui-monospace,Menlo,monospace !important;letter-spacing:.25em !important;color:${C.fog} !important}
@@ -123,16 +123,16 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{border:2px solid ${C.deep} !important;color:${C.deep} !important;transform:rotate(-8deg) !important;background:rgba(216,206,240,.5) !important}
 [data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *{color:${C.deep} !important}
 [data-wk="transfercard"][data-status="returned"]{opacity:.6 !important}
-/* 红包：一个藤紫信封——三角封口、封口上一颗深紫小圆封 */
-[data-wk="rpcard"]{background:${C.lilac} !important;overflow:hidden !important}
+/* 红包：一张对折的藤紫小纸条——中间一道折痕、上半亮下半暗，左上角别一枚深紫回形针 */
+[data-wk="rpcard"]{background:linear-gradient(180deg,#E6DEF6 0,#E6DEF6 50%,#C9BCE8 50%,#C9BCE8 100%) !important;overflow:visible !important;padding-left:40px !important;position:relative !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:14px !important;top:-14px !important;width:16px !important;height:40px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 40'><path d='M4 34 V8 a4 4 0 0 1 8 0 V30 a2.5 2.5 0 0 1 -5 0 V12' fill='none' stroke='${C.deep}' stroke-width='2' stroke-linecap='round'/></svg>`)} center/contain no-repeat !important;z-index:3 !important}
 [data-wk="rpcard"] *{color:${C.ink} !important}
-[data-wk="rpflap"]{height:46px !important;bottom:auto !important;border:none !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 46' preserveAspectRatio='none'><path d='M0 0 L50 44 L100 0' fill='#C9BCE8' stroke='${C.line}' stroke-width='1.4' vector-effect='non-scaling-stroke' stroke-linejoin='round'/></svg>`)} center/100% 100% no-repeat !important}
-[data-wk="rpseal"]{border:2px solid ${C.paper} !important;background:${C.deep} !important;width:20px !important;height:20px !important;left:50% !important;margin-left:-10px !important;top:30px !important;border-radius:50% !important}
-[data-wk="rpseal"] *,[data-wk="rpcorner"]{display:none !important}
-[data-wk="rpcard"] > div:not([data-wk]){padding-top:56px !important;text-align:center !important;padding-left:14px !important}
-[data-wk="rpcard"][data-status="done"]{opacity:.65 !important;filter:saturate(.6) !important}
-[data-wk="rpenvelope"]{background:${C.lilac} !important;border:${LINE} !important;border-radius:4px !important;box-shadow:4px 4px 0 rgba(63,58,82,.2) !important}
-[data-wk="rpenvelope"] [data-wk="rparc"]{background:#C9BCE8 !important;border-color:${C.line} !important}
+[data-wk="rpflap"]{height:50% !important;bottom:auto !important;border:none !important;border-bottom:1.4px solid rgba(63,58,82,.35) !important;background:linear-gradient(180deg,rgba(255,255,255,.35),transparent) !important}
+[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"] > div:not([data-wk]){padding-top:12px !important;padding-left:4px !important}
+[data-wk="rpcard"][data-status="done"]{opacity:.6 !important;filter:saturate(.5) !important}
+[data-wk="rpenvelope"]{background:linear-gradient(180deg,#E6DEF6 0,#E6DEF6 50%,#C9BCE8 50%) !important;border:${LINE} !important;border-radius:4px !important;box-shadow:4px 4px 0 rgba(63,58,82,.2) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:transparent !important;border:none !important}
 [data-wk="rpenvelope"] *{color:${C.ink} !important}
 [data-wk="rpenvelope"][data-stage="open"]{background:${svg(DOTS)} 0 0/18px 18px,${C.paper} !important}
 [data-wk="rpopenbtn"]{background:${C.deep} !important;border:2px solid ${C.paper} !important;box-shadow:0 0 0 1.4px ${C.line} !important}
