@@ -381,11 +381,16 @@ function ChatLookPack({ getLook, onApply, fileBase, group }) {
   // 平时只露两行，别把整页往下的东西挤远（她 2026-11-13：「往下翻也不好翻」）；搜着、管理着的时候全摆出来
   const [shelfOpen, setShelfOpen] = useState(false);
   const SHELF_PEEK = 4;
+  // 文件夹收纳（她 2026-11-13「能不能搞几个文件夹收纳」）：每套记一个 folder 名字；顶上一排夹子标签筛着看，
+  //   「管理」里点一套就能挪进某个夹子、新建夹子或删掉。夹子不另存一张表——有套在里面它就在，空了就没了
+  const [shelfDir, setShelfDir] = useState(""), [shelfSel, setShelfSel] = useState(""), [newDir, setNewDir] = useState("");
+  const dirsOf = list => Array.from(new Set(list.map(x => String(x.folder || "").trim()).filter(Boolean)));
+  const moveTo = (id, folder) => { saveJSON("x_chatLooks", chatLookShelf().map(x => x.id === id ? Object.assign({}, x, { folder: String(folder || "").trim().slice(0, 12) }) : x)); setShelf(chatLookShelf()); setShelfSel(""); setNewDir(""); };
   const toast = m => window.__toast && window.__toast(m, 3000);
   // ⚠️不用 window.prompt：iOS 桌面图标打开时它被系统吞掉、点了没反应（她 2026-10-11「点不动啊」）。名字就地填。
   const [naming, setNaming] = useState(null);
   const saveHere = () => setNaming(naming == null ? (fileBase ? fileBase + "那套" : "") : null);
-  const saveNamed = () => { saveChatLookToShelf(getLook(), naming); setShelf(chatLookShelf()); setNaming(null); toast("存好了，别的聊天窗在这一栏点它就能用"); };
+  const saveNamed = () => { const it = saveChatLookToShelf(getLook(), naming); if (shelfDir && it) moveTo(it.id, shelfDir); setShelf(chatLookShelf()); setNaming(null); toast("存好了，别的聊天窗在这一栏点它就能用"); };
   const useOne = it => { onApply(JSON.parse(JSON.stringify(it.look))); toast("换上了，满意再点右上角 ✓ 保存" + (group && (it.look.skin || it.look.bubble || it.look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); };
   const dropOne = it => { if (delId !== it.id) { setDelId(it.id); return; } saveJSON("x_chatLooks", chatLookShelf().filter(x => x.id !== it.id)); setShelf(chatLookShelf()); setDelId(""); };
   const take = async txt => {
@@ -420,16 +425,31 @@ function ChatLookPack({ getLook, onApply, fileBase, group }) {
         style: { minHeight: 40, padding: "0 14px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "存")) : null,
     shelf.length ? h("div", { "data-wk": "lookshelf", style: { marginTop: 10 } },
       h("div", { className: "flex items-center", style: { gap: 8, marginBottom: 6 } },
-        h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "我存的美化 · " + shelf.length + " 套 · " + (shelfEdit ? "点哪套删哪套" : "点名字换上")),
-        h("button", { onClick: () => { setShelfEdit(v => !v); setDelId(""); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: shelfEdit ? t.accent : t.sub } }, shelfEdit ? "好了" : "管理")),
+        h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "我存的美化 · " + shelf.length + " 套 · " + (shelfEdit ? "点一套挪夹子或删掉" : "点名字换上")),
+        h("button", { onClick: () => { setShelfEdit(v => !v); setDelId(""); setShelfSel(""); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: shelfEdit ? t.accent : t.sub } }, shelfEdit ? "好了" : "管理")),
+      dirsOf(shelf).length ? h("div", { "data-wk": "lookshelfdirs", className: "flex", style: { gap: 6, overflowX: "auto", marginBottom: 6, paddingBottom: 2 } },
+        [["", "全部"]].concat(dirsOf(shelf).map(d => [d, "📁 " + d])).concat(shelf.some(x => !String(x.folder || "").trim()) ? [["\u0000", "没放夹子的"]] : []).map(([k, z]) => h("button", { key: k || "all", onClick: () => { setShelfDir(k); setShelfOpen(!!k); }, className: "active:opacity-70 shrink-0",
+          style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + (shelfDir === k ? t.ink : t.line), background: shelfDir === k ? t.ink : "transparent", color: shelfDir === k ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", whiteSpace: "nowrap" } }, z))) : null,
       (shelf.length > 8 && (shelfOpen || shelfEdit)) ? h("input", { "data-wk": "input", value: shelfQ, onChange: e => setShelfQ(e.target.value), placeholder: "搜名字",
         style: { width: "100%", minHeight: 34, padding: "0 10px", marginBottom: 6, borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 16, outline: "none" } }) : null,
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 } },
-        shelf.filter(it => !shelfQ.trim() || String(it.name || "").indexOf(shelfQ.trim()) >= 0).slice(0, (shelfOpen || shelfEdit || shelfQ.trim()) ? undefined : SHELF_PEEK).map(it => h("button", { key: it.id, "data-wk": "lookshelfitem",
-          onClick: () => shelfEdit ? dropOne(it) : useOne(it), className: "active:opacity-70",
-          style: { minHeight: 36, padding: "0 10px", borderRadius: 9, border: "1px solid " + (shelfEdit && delId === it.id ? t.accent : t.line), background: t.bg2, textAlign: "left",
+        shelf.filter(it => !shelfDir || (shelfDir === "\u0000" ? !String(it.folder || "").trim() : String(it.folder || "").trim() === shelfDir)).filter(it => !shelfQ.trim() || String(it.name || "").indexOf(shelfQ.trim()) >= 0).slice(0, (shelfOpen || shelfEdit || shelfQ.trim()) ? undefined : SHELF_PEEK).map(it => h("button", { key: it.id, "data-wk": "lookshelfitem",
+          onClick: () => shelfEdit ? (setShelfSel(shelfSel === it.id ? "" : it.id), setDelId("")) : useOne(it), className: "active:opacity-70",
+          style: { minHeight: 36, padding: "0 10px", borderRadius: 9, border: "1px solid " + (shelfEdit && shelfSel === it.id ? t.accent : t.line), background: t.bg2, textAlign: "left",
             fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: shelfEdit ? (delId === it.id ? t.accent : t.sub) : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-          shelfEdit ? (delId === it.id ? "再点一下删掉" : "✕ " + it.name) : it.name))),
+          it.name))),
+      // 管理里选中一套：挪进哪个夹子／新建夹子／删掉
+      (shelfEdit && shelfSel) ? (function () { const it = shelf.find(x => x.id === shelfSel); if (!it) return null; const ds = dirsOf(shelf);
+        const chip = (z, on, fn) => h("button", { key: z, onClick: fn, className: "active:opacity-70", style: { padding: "5px 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, z);
+        return h("div", { "data-wk": "lookshelfmove", style: { marginTop: 8, padding: "9px 10px", borderRadius: 10, border: "1px dashed " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "「" + it.name + "」放进："),
+          h("div", { className: "flex flex-wrap", style: { gap: 6 } }, chip("不放夹子", !String(it.folder || "").trim(), () => moveTo(it.id, "")), ds.map(d => chip("📁 " + d, String(it.folder || "").trim() === d, () => moveTo(it.id, d)))),
+          h("div", { className: "flex items-center", style: { gap: 6, marginTop: 8 } },
+            h("input", { "data-wk": "input", value: newDir, maxLength: 12, onChange: e => setNewDir(e.target.value), placeholder: "新夹子的名字",
+              style: { flex: 1, minWidth: 0, minHeight: 34, padding: "0 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 16, outline: "none" } }),
+            h("button", { onClick: () => { if (newDir.trim()) moveTo(it.id, newDir); }, className: "active:opacity-70", style: { minHeight: 34, padding: "0 12px", borderRadius: 9, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "新建放进"),
+            h("button", { onClick: () => dropOne(it), className: "active:opacity-70", style: { minHeight: 34, padding: "0 8px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: delId === it.id ? t.accent : t.fog } }, delId === it.id ? "确定删" : "删")));
+      })() : null,
       (shelf.length > SHELF_PEEK && !shelfEdit) ? h("button", { "data-wk": "lookshelfmore", onClick: () => { setShelfOpen(v => !v); setShelfQ(""); }, className: "active:opacity-70",
         style: { display: "block", margin: "6px auto 0", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } }, shelfOpen ? "收起 ︿" : "全部 " + shelf.length + " 套 ﹀") : null) : null,
     window.ThemePackPasteBox ? h("div", { style: { marginTop: 8 } }, h(window.ThemePackPasteBox, { onText: take, open: "挑不开文件？把美化 JSON 贴进来", ph: "把导出的那份 .json 全文贴在这里" })) : null,
