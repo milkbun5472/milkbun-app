@@ -71,7 +71,8 @@ const css = `
 [data-wk="headink"],[data-wk="headink"] *{color:${C.ink} !important}
 [data-wk="headname"] > [data-wk="headink"]{font-weight:700 !important;letter-spacing:.12em !important;white-space:nowrap !important}
 [data-wk="headname"] > [data-wk="headink"] > span{flex:none !important}
-[data-wk="headname"] > [data-wk="headink"]::after{content:"mon ange" !important;flex:0 1 auto !important;min-width:0 !important;overflow:hidden !important;margin-left:8px !important;font:italic 400 13px/1 Georgia,"Times New Roman",serif !important;letter-spacing:.02em !important;color:${C.orange} !important}
+[data-wk="headname"] > [data-wk="headdim"]{font-size:0 !important;letter-spacing:0 !important;white-space:nowrap !important;line-height:1 !important;margin-top:3px !important}
+[data-wk="headname"] > [data-wk="headdim"]::before{content:"mon ange" !important;font:italic 400 12.5px/1.2 Georgia,"Times New Roman",serif !important;letter-spacing:.03em !important;color:${C.orange} !important}
 [data-wk="headdim"]{color:#8C7F66 !important;white-space:nowrap !important;letter-spacing:.12em !important}
 [data-wk="chatback"] svg,[data-wk="headdim"] svg{stroke:${C.ink} !important}
 [data-wk="chathead"] [data-wk="headink"] > [data-wk="headdim"]{display:none !important}
@@ -133,8 +134,7 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chatplus"],[data-wk="send"],[data-wk="chatreply"]{border:none !important;box-shadow:none !important;border-radius:0 !important;background-color:transparent !important}
 [data-wk="chatplus"]{width:36px !important;min-width:36px !important;height:36px !important;background:${svg(I_PLUS)} center/contain no-repeat !important}
 [data-wk="chatreply"]{width:36px !important;min-width:36px !important;height:36px !important;background:${svg(I_REPLY)} center/contain no-repeat !important}
-[data-wk="send"]{width:54px !important;min-width:54px !important;height:56px !important;background:${svg(I_SEND)} center/contain no-repeat !important;opacity:1 !important;margin-top:-10px !important;order:9 !important}
-/* 参考图里回复在左、发送在最右，照图挪 */
+[data-wk="send"]{width:54px !important;min-width:54px !important;height:56px !important;background:${svg(I_SEND)} center/contain no-repeat !important;opacity:1 !important;margin-top:-10px !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.9) !important}
 [data-wk="chatpanel"]{background:${C.cream} !important;border-top:2px solid ${C.gold} !important}

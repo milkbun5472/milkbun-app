@@ -41,9 +41,10 @@ const css = `
 [data-wk="chathead"] + *:not([data-wk="body"]){margin:16px 12px 0 !important}
 [data-wk="body"]{padding-top:26px !important}
 [data-wk="headink"],[data-wk="headink"] *{color:${C.cream} !important}
-[data-wk="headname"] > [data-wk="headink"]{font-weight:700 !important;letter-spacing:.2em !important;white-space:nowrap !important}
+[data-wk="headname"] > [data-wk="headink"]{font-weight:700 !important;letter-spacing:.08em !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important}
 [data-wk="headname"] > [data-wk="headink"] > span{flex:none !important}
-[data-wk="headname"] > [data-wk="headink"]::after{content:"Mirror, mirror" !important;flex:0 1 auto !important;min-width:0 !important;overflow:hidden !important;margin-left:10px !important;font:italic 400 12px/1 Didot,"Bodoni MT","Playfair Display",Georgia,serif !important;letter-spacing:.02em !important;color:${C.gold} !important}
+[data-wk="headname"] > [data-wk="headdim"]{font-size:0 !important;letter-spacing:0 !important;white-space:nowrap !important;line-height:1 !important;margin-top:3px !important}
+[data-wk="headname"] > [data-wk="headdim"]::before{content:"Mirror, mirror" !important;font:italic 400 12.5px/1.2 Didot,"Bodoni MT","Playfair Display",Georgia,serif !important;letter-spacing:.03em !important;color:${C.gold} !important}
 [data-wk="headdim"]{color:#A79C8C !important;white-space:nowrap !important;letter-spacing:.12em !important}
 [data-wk="chatback"],[data-wk="chatback"] *{color:${C.cream} !important}
 [data-wk="chatback"] svg,[data-wk="headdim"] svg{stroke:${C.cream} !important}
@@ -106,13 +107,13 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 
 /* 底栏：金框里嵌一块墨色面板；输入框是一块玻璃；加号、回复是金圈，发送是红宝石钮（最右） */
 [data-wk="composer"]{position:relative !important;overflow:visible !important;background:transparent !important;border-top:none !important;box-shadow:none !important;align-items:center !important;gap:10px !important;padding-left:22px !important;padding-right:22px !important}
-[data-wk="composer"]::before{content:"" !important;position:absolute !important;left:10px !important;right:10px !important;top:8px !important;bottom:calc(var(--app-safe-bottom, 0px) + var(--composer-lift, 0px) - 2px) !important;border-radius:12px !important;background:${C.panel} !important;box-shadow:0 0 0 1.2px ${C.rivet},inset 0 0 0 3.5px ${C.panel},inset 0 0 0 4.1px rgba(201,160,78,.8) !important;z-index:-1 !important;pointer-events:none !important}
+[data-wk="composer"]::before{content:"" !important;position:absolute !important;left:10px !important;right:10px !important;top:6px !important;bottom:6px !important;border-radius:12px !important;background:${C.panel} !important;box-shadow:0 0 0 1.2px ${C.rivet},inset 0 0 0 3.5px ${C.panel},inset 0 0 0 4.1px rgba(201,160,78,.8) !important;z-index:-1 !important;pointer-events:none !important}
 [data-wk="chatinput"]{background:linear-gradient(135deg,rgba(255,255,255,.18),rgba(191,216,240,.08) 50%,rgba(255,255,255,.14)) !important;border:1px solid rgba(255,255,255,.6) !important;border-radius:10px !important;color:#fff !important;letter-spacing:.1em !important}
 [data-wk="chatinput"]::placeholder{color:#C9D6E4 !important}
 [data-wk="chatplus"],[data-wk="send"],[data-wk="chatreply"]{border:none !important;box-shadow:none !important;border-radius:0 !important;background-color:transparent !important}
 [data-wk="chatplus"]{width:34px !important;min-width:34px !important;height:34px !important;background:${svg(I_PLUS)} center/contain no-repeat !important}
 [data-wk="chatreply"]{width:34px !important;min-width:34px !important;height:34px !important;background:${svg(I_REPLY)} center/contain no-repeat !important}
-[data-wk="send"]{width:46px !important;min-width:46px !important;height:46px !important;background:${svg(I_SEND)} center/contain no-repeat !important;opacity:1 !important;order:9 !important;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5)) !important}
+[data-wk="send"]{width:46px !important;min-width:46px !important;height:46px !important;background:${svg(I_SEND)} center/contain no-repeat !important;opacity:1 !important;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5)) !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.9) !important}
 [data-wk="chatpanel"]{background:${C.panel} !important;border-top:1px solid ${C.gold} !important}
