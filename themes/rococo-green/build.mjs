@@ -350,6 +350,11 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="stateheart"]{position:relative !important;left:auto !important;bottom:auto !important;top:auto !important;flex:none !important;margin:0 !important}
 [data-wk="stateheart"]{margin-top:14px !important}
 [data-wk="stateaffval"]{position:static !important;transform:none !important;display:inline-block !important;margin:0 0 6px !important;left:auto !important;bottom:auto !important}
+/* 深底上的灰字：顶栏下面那条日程条、线下「文风」那行、空页那句提示，换成浅色看得清 */
+[data-wk="chathead"] + *:not([data-wk="body"]),[data-wk="chathead"] + *:not([data-wk="body"]) *{color:${C.cream} !important}
+[data-wk="chathead"] + *:not([data-wk="body"]) svg{stroke:${C.cream} !important}
+[data-wk="offline"] [data-wk="offbody"]{color:${C.cream} !important}
+[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]),[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]) > :not([data-wk]){color:${C.dim} !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "翡翠沙龙", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

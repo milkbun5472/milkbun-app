@@ -356,6 +356,12 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="stateheart"]{position:relative !important;left:auto !important;bottom:auto !important;top:auto !important;flex:none !important;margin:0 !important}
 [data-wk="stateaffval"]{display:none !important}
 [data-wk="stateheartnum"]{display:flex !important;align-items:center !important;justify-content:center !important;padding-top:4px !important;font-size:16px !important;font-weight:700 !important;color:#FFF6DC !important;-webkit-text-stroke:0 !important;text-shadow:0 0 2px #12100D,0 0 2px #12100D,0 0 6px #12100D !important;z-index:3 !important}
+/* 深底上的灰字：顶栏下面那条日程条、线下「文风」那行、空页那句提示，换成浅色看得清 */
+[data-wk="chathead"] + *:not([data-wk="body"]),[data-wk="chathead"] + *:not([data-wk="body"]) *{color:${C.goldL} !important}
+[data-wk="chathead"] + *:not([data-wk="body"]) svg{stroke:${C.goldL} !important}
+[data-wk="offline"] [data-wk="offbody"]{color:${C.goldL} !important}
+[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]),[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]) > :not([data-wk]){color:${C.dim} !important}
+[data-wk="chatback"],[data-wk="chatback"] *{color:${C.goldL} !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "八角墨金", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

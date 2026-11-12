@@ -375,6 +375,11 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="stateheart"]{position:relative !important;left:auto !important;bottom:auto !important;top:auto !important;flex:none !important;margin:0 !important}
 [data-wk="stateaffval"]{display:none !important}
 [data-wk="stateheartnum"]{display:flex !important;align-items:center !important;justify-content:center !important;padding-top:4px !important;font-size:17px !important;font-weight:700 !important;color:#fff !important;-webkit-text-stroke:0 !important;text-shadow:0 0 2px #5B4C8C,0 0 2px #5B4C8C,0 1px 3px #5B4C8C !important;z-index:3 !important}
+/* 深底上的灰字：顶栏下面那条日程条、线下「文风」那行、空页那句提示，换成浅色看得清 */
+[data-wk="chathead"] + *:not([data-wk="body"]),[data-wk="chathead"] + *:not([data-wk="body"]) *{color:#F1ECFF !important}
+[data-wk="chathead"] + *:not([data-wk="body"]) svg{stroke:#F1ECFF !important}
+[data-wk="offline"] [data-wk="offbody"]{color:#F1ECFF !important}
+[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]),[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]) > :not([data-wk]){color:#E0D8F4 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "雨天窗边", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
