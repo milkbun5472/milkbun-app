@@ -29,6 +29,12 @@ const APPLE = bitten => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60
 const HANDMIRROR = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${C.goldL}'/><stop offset='.4' stop-color='${C.gold}'/><stop offset='.7' stop-color='${C.goldD}'/><stop offset='1' stop-color='#D9B866'/></linearGradient></defs><rect x='17' y='38' width='6' height='22' rx='3' fill='url(#g)'/><ellipse cx='20' cy='22' rx='17' ry='20' fill='url(#g)'/><ellipse cx='20' cy='22' rx='13' ry='16' fill='${C.mir1}'/><path d='M12 16 Q14 10 20 8' fill='none' stroke='#fff' stroke-width='1.6' stroke-linecap='round' opacity='.6'/></svg>`;
 const OVALFRAME = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 120' preserveAspectRatio='none'><ellipse cx='50' cy='60' rx='47' ry='57' fill='none' stroke='${C.gold}' stroke-width='6' vector-effect='non-scaling-stroke'/><ellipse cx='50' cy='60' rx='47' ry='57' fill='none' stroke='${C.rivet}' stroke-width='1' vector-effect='non-scaling-stroke'/></svg>`;
 
+// ── 白雪公主：雪、三滴血、七只小杯、梳子 ──
+const SNOW = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='260'>${[[20,30,2.2],[90,12,1.4],[150,60,2.6],[60,110,1.6],[180,150,2],[30,200,2.4],[120,230,1.3],[100,170,1.8],[170,240,1.5],[70,60,1.2]].map(([x,y,r])=>`<circle cx='${x}' cy='${y}' r='${r}' fill='#fff' opacity='.85'/>`).join('')}</svg>`;
+const DROPS3 = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 12'>${[5,15,25].map((x,i)=>`<path d='M${x} ${1+i%2} C${x-4.5} 7 ${x-3} 10.5 ${x} 10.5 C${x+3} 10.5 ${x+4.5} 7 ${x} ${1+i%2}Z' fill='#C4182E' stroke='#fff' stroke-width='.6'/>`).join('')}</svg>`;
+const CUPS7 = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 252'>${Array.from({length:7},(_,i)=>`<g transform='translate(0 ${i*36}) rotate(-90 18 18)'><path d='M7 7 H29 L26 22 Q25 25 22 25 H14 Q11 25 10 22Z'/><rect x='16' y='25' width='4' height='4'/><rect x='11' y='29' width='14' height='3' rx='1'/></g>`).join('')}</svg>`;
+const COMB = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 14'><path d='M2 2 H22 Q22 6 18 6 H6 Q2 6 2 2Z' fill='${C.gold}' stroke='${C.goldD}' stroke-width='.8'/>${Array.from({length:8},(_,i)=>`<path d='M${4+i*2.3} 6 V13' stroke='${C.gold}' stroke-width='1.1' stroke-linecap='round'/>`).join('')}</svg>`;
+
 const bubble = { myBg: C.red, myText: C.cream, myBorder: "none", charBg: "transparent", charText: "#fff", charBorder: "none", radius: 10, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -218,6 +224,80 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="quoteclear"]{color:${C.goldL} !important}
 [data-wk="quote"]{background:linear-gradient(135deg,rgba(255,255,255,.18),rgba(191,216,240,.08)) !important;color:${C.ice} !important;border:1px solid rgba(255,255,255,.5) !important;border-radius:8px !important;padding:3px 10px !important;opacity:1 !important}
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.75 !important}
+/* ───── 白雪公主：雪、雪白的他、三滴血、七只小杯 ───── */
+/* 整屏飘细雪（两层不同速度），盖在最上面但点不到 */
+[data-wk="chat"]::after{content:"" !important;position:fixed !important;left:0 !important;top:-260px !important;width:100vw !important;height:calc(100vh + 260px) !important;background:${svg(SNOW)} 0 0/200px 260px repeat,${svg(SNOW)} 70px 40px/140px 180px repeat !important;opacity:.55 !important;pointer-events:none !important;z-index:50 !important;animation:mmSnow 14s linear infinite !important}
+@keyframes mmSnow{0%{transform:translate(0,0)}100%{transform:translate(-40px,260px)}}
+/* 他的话：雪白磨砂，像落了一层薄雪 */
+[data-wk="bubble"][data-kind="text"][data-me="0"]{background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(236,242,250,.82)) !important;color:#26303C !important;text-shadow:none !important;border:1.2px solid #fff !important;box-shadow:0 0 14px rgba(255,255,255,.25),inset 0 -3px 6px rgba(170,190,215,.35) !important}
+[data-wk="bubble"][data-kind="typing"]{background:rgba(255,255,255,.88) !important}
+[data-wk="typingdot"]{background:#C4182E !important;box-shadow:none !important}
+/* 已读：雪上三滴血 */
+[data-wk="meta"][data-read="1"]::before{padding-left:30px !important;background:${svg(DROPS3)} left center/24px 10px no-repeat !important}
+/* 时间底下那行 */
+[data-wk="time"]::after{content:"魔镜，墙上的魔镜" !important;letter-spacing:.3em !important}
+/* 拍一拍、通话结束：两头换成王后的金梳子 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{background:${svg(COMB)} left center/16px 10px no-repeat,${svg(COMB)} right center/16px 10px no-repeat !important;padding:2px 24px !important}
+/* ───── 魔镜 · 第三批：状态卡＝一面挂墙的金框魔镜，顶镶红宝石，镜面落雪；好感是小屋里七只小杯，一只只斟满 ───── */
+[data-wk="statecard"]{position:relative !important;overflow:visible !important;background:${svg(SNOW)} 0 0/200px 260px,${svg(GLARE)} center/cover no-repeat,linear-gradient(170deg,${C.mir1},${C.mir} 50%,${C.mir2}) !important;border:none !important;border-radius:24px !important;box-shadow:0 0 0 7px #C9A04E,0 0 0 8px ${C.rivet},0 0 0 10px ${C.goldL},0 20px 40px rgba(0,0,0,.6) !important;padding-top:20px !important;--sc-heart-ink:${C.ruby} !important}
+[data-wk="statecard"]::before{content:"" !important;position:absolute !important;left:50% !important;top:-18px !important;width:30px !important;height:30px !important;margin-left:-15px !important;background:${svg(RUBY())} center/contain no-repeat !important;z-index:3 !important;filter:drop-shadow(0 3px 3px rgba(0,0,0,.5)) !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:1px solid rgba(201,160,78,.5) !important}
+[data-wk="statehead"] *{color:${C.cream} !important}
+[data-wk="statehead"] [data-wk="avatar"],[data-wk="statehead"] img{border-radius:50% !important;box-shadow:0 0 0 3px ${C.gold} !important}
+[data-wk="statehead"] [data-wk="avatar"]::after{content:none !important}
+[data-wk="statehead"] button{border:1.2px solid ${C.gold} !important;background:${C.panel} !important;border-radius:50% !important}
+[data-wk="statemood"]{display:inline-block !important;background:linear-gradient(180deg,${C.red},${C.redD}) !important;color:${C.cream} !important;border:1px solid ${C.gold} !important;border-radius:999px !important;padding:0 10px !important;margin-right:4px !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:${C.panel} !important;border:1px solid ${C.gold} !important;border-radius:999px !important;padding:3px !important;margin:10px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:999px !important;letter-spacing:.15em !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:linear-gradient(180deg,${C.red},${C.redD}) !important;color:${C.cream} !important}
+/* 看得见的＝雪白磨砂（跟他的气泡一样）；心里想的＝镜面上雾气写的字 */
+[data-wk="stateseen"]{background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(236,242,250,.82)) !important;border:1.2px solid #fff !important;border-radius:12px !important;margin:12px 16px !important;box-shadow:inset 0 -3px 6px rgba(170,190,215,.35) !important}
+[data-wk="stateseen"] *{color:#26303C !important}
+[data-wk="statevoice"]{position:relative !important;background:radial-gradient(ellipse at 50% 50%,rgba(207,230,255,.12),transparent 70%) !important;border:none !important;border-top:1px solid rgba(255,255,255,.35) !important;border-bottom:1px solid rgba(255,255,255,.35) !important;border-radius:0 !important;margin:14px 16px !important;box-shadow:none !important;font-style:italic !important}
+[data-wk="statevoice"] *{color:${C.ice} !important;text-shadow:0 0 8px rgba(207,230,255,.55) !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:rgba(38,48,60,.08) !important;border:1px solid rgba(38,48,60,.25) !important;border-radius:999px !important}
+[data-wk="statewear"] > span{background:transparent !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.fog} !important}
+[data-wk="statevoice"] + div > button{background:${C.panel} !important;color:${C.cream} !important;border:1px solid ${C.gold} !important;border-radius:999px !important}
+/* 好感：七只小杯一排，好感多少就斟满几只（红酒色），数字写在「好感度」旁 */
+[data-wk="stateaff"]{display:block !important;position:relative !important;background:transparent !important;border-top:1px solid rgba(201,160,78,.5) !important;padding:14px 20px 16px !important;overflow:hidden !important}
+[data-wk="stateaff"] *{color:${C.cream} !important}
+[data-wk="stateheart"]{position:relative !important;left:auto !important;bottom:auto !important;width:34px !important;height:238px !important;margin:-96px auto -96px !important;transform:rotate(90deg) !important;--sc-heart-mask:${svg(CUPS7)} !important;filter:drop-shadow(1.2px 0 0 ${C.gold}) drop-shadow(-1.2px 0 0 ${C.gold}) drop-shadow(0 1.2px 0 ${C.gold}) drop-shadow(0 -1.2px 0 ${C.gold}) !important}
+[data-wk="stateheart"] > div{-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important}
+[data-wk="stateheartline"]{background:transparent !important;opacity:0 !important}
+[data-wk="stateheartbase"]{background:#3A4656 !important;opacity:1 !important}
+[data-wk="stateheartfill"] > div{background:linear-gradient(90deg,#E0465A,${C.ruby} 50%,#7A0E1E) !important;opacity:1 !important;border-top:none !important}
+[data-wk="stateheartnum"],[data-wk="stateheartknob"]{display:none !important}
+[data-wk="stateaffval"]{display:block !important;position:absolute !important;right:20px !important;top:12px !important;font:italic 700 22px/1 Didot,"Bodoni MT",Georgia,serif !important;color:${C.goldL} !important}
+/* 翻旧的：一张张雪白卡，左上压三滴血 */
+[data-wk="statehistbtn"]{background:${C.panel} !important;color:${C.cream} !important;border:1px solid ${C.gold} !important;border-radius:999px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.fog} !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1px solid ${C.gold} !important;border-radius:999px !important;color:${C.goldL} !important;background:transparent !important}
+[data-wk="statehistitem"]{position:relative !important;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(236,242,250,.85)) !important;border:1.2px solid #fff !important;border-radius:12px !important;padding:18px 18px 14px !important;margin:0 0 14px !important;box-shadow:0 6px 14px rgba(0,0,0,.35) !important;overflow:visible !important}
+[data-wk="statehistitem"]::before{content:"" !important;position:absolute !important;left:12px !important;top:6px !important;width:24px !important;height:10px !important;background:${svg(DROPS3)} center/contain no-repeat !important}
+[data-wk="statehistitem"] *{color:#26303C !important}
+[data-wk="statehistmood"]{background:linear-gradient(180deg,${C.red},${C.redD}) !important;border:none !important;color:${C.cream} !important;border-radius:999px !important}
+[data-wk="statehisttime"]{color:#6B7889 !important;font-style:italic !important}
+[data-wk="statehistmeta"]{background:rgba(38,48,60,.06) !important;border-radius:8px !important}
+[data-wk="statehistend"]{color:${C.fog} !important}
+/* Ta 眼里：镜面落雪底，卡片雪白 */
+[data-wk="gazepage"]{background:${svg(SNOW)} 0 0/200px 260px,${svg(GLARE)} center/cover no-repeat,linear-gradient(170deg,${C.mir1},${C.mir} 50%,${C.mir2}) !important}
+[data-wk="gazetitle"]{color:${C.cream} !important;letter-spacing:.2em !important}
+[data-wk="gazetab"]{background:${C.panel} !important;color:${C.fog} !important;border:1px solid ${C.gold} !important;border-radius:999px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:linear-gradient(180deg,${C.red},${C.redD}) !important;color:${C.cream} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(236,242,250,.85)) !important;border:1.2px solid #fff !important;border-radius:14px !important;box-shadow:0 4px 10px rgba(0,0,0,.3) !important}
+[data-wk="gazetape"]{background:${svg(DROPS3)} center/24px 10px no-repeat !important;box-shadow:none !important;border:none !important;transform:none !important}
+[data-wk="gazecardname"]{color:#26303C !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#6B7889 !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(236,242,250,.85)) !important;border:1.2px solid #fff !important;border-radius:16px !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:#26303C !important}
+[data-wk="gazeempty"]{background:rgba(255,255,255,.08) !important;border:1.2px dashed rgba(255,255,255,.5) !important;border-radius:16px !important;color:${C.cream} !important}
+[data-wk="gazeempty"] > div:first-child{color:${C.cream} !important}
+[data-wk="gazeempty"] button{background:linear-gradient(180deg,${C.red},${C.redD}) !important;color:${C.cream} !important;border:1px solid ${C.gold} !important;border-radius:999px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "魔镜魔镜", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
