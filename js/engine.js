@@ -5740,7 +5740,7 @@ const POV_SLOTS = [
     "她仰着脸看镜头，离得很近，像要说悄悄话"]
 ];
 // TA 帮她拍：画面里看得见的两样（拍她的那几处共用）
-const POV_HANDS_LINE = "画面里她两只手都看得见，手里没有手机，没有哪条胳膊朝镜头伸出画面——手机在拍照的那个人手里。";
+const POV_HANDS_LINE = "手机在拍照的那个人手里，她手里没有手机，也没有一条胳膊朝镜头伸过来举着它；她的手怎么放照这一刻的动作来。";
 const POV_FAR_LINE = "镜头离她有一臂多远，拍得到她腰部以上和一点身边的环境，不是贴着脸的近景。";
 const povSlotsFor = tier => { const t = Math.max(1, Math.min(3, Number(tier) || 1)); return POV_SLOTS.slice(0, t).flat(); };
 // 小时候的照片（她 2026-10-27 截图：画面写「六七岁的小沈屿白」，出来的是现在的他）。
