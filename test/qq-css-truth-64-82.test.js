@@ -65,6 +65,8 @@ test("清单上的每个钩子，源码里都真的挂着", () => {
     || new RegExp('modeTile\\("' + n + '"').test(src) || new RegExp('cardFilterBar\\([^\n)]*?, "' + n + '"').test(src)
     // 第十种：对局页「跟聊天连起来」那两颗开关 rowOf(c, "know", 标题, 说明, "duelchatlinkknow")——最后一个参数转给 sw 的 "data-wk"
     || new RegExp('rowOf\\(c, "[a-z]+", "[^"]*", "[^"]*", "' + n + '"\\)').test(src)
+    // 第十一种：挂在根节点上的状态属性 setAttribute("data-lisa-moon", …)，CSS 写成 html[data-lisa-moon="3"]
+    || src.indexOf('setAttribute("data-lisa-' + n + '"') >= 0
     || boardHooks.has(n);
   const missing = names.filter(n => !hung(n));
   assert.deepEqual(missing, [], "清单上有、源码里没挂：" + missing.join("、"));
