@@ -15,3 +15,9 @@ test("写成一串字的 {voice,emo} 拆回语音，不把整串念出来", () =
   assert.deepStrictEqual(r.voice, [{ t: "大事……我能有什么大事瞒着你啊", emo: "fearful" }]);
   assert.strictEqual(r.words[1], "嗯");
 });
+test("照包名写成一行字的「（某某 的表情：xx）」也认成表情", () => {
+  const r = emoteSlotWords(["快过来坐下尝一口", "（齐周 的表情：趁热投喂）"], [{ keyword: "趁热投喂" }], x => x);
+  assert.deepStrictEqual(r.words, ["快过来坐下尝一口", "emoteslot0"]);
+  assert.deepStrictEqual(emoteSlotWords(["（我们的表情包：真的假的）"], [], x => x).words, []);
+  assert.deepStrictEqual(emoteSlotWords(["（他看了看表情：有点怪）"], [{ keyword: "x" }], x => x).words.length, 1);
+});

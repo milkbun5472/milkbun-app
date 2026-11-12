@@ -8145,6 +8145,8 @@ function emoteSlotWords(words, emotes, emoteNorm) {
   //   认得出表情就当表情；拼回来还只剩括号冒号逗号的空壳，整串拿掉。
   const _src = Array.isArray(words) ? words : [], _merged = [], _conv = new Set();
   const JUNK = /^[\s{}｛｝:：,，"“”'\[\]]*$/;
+  // 照表情包名字写成一行字（群里 2026-11-12 截图：气泡里冒出「（齐周 的表情：趁热投喂）」）：包名就叫「某某 的表情」，模型照着拼了出来
+  const PACK_EMOTE = /^\s*[（(]\s*[^（）()：:]{0,24}?的表情(?:包)?\s*[:：]\s*([^（）()]+?)\s*[）)]\s*$/;
   for (let i = 0; i < _src.length; i++) {
     const w = _src[i];
     if (typeof w === "string" && /^\s*[{｛]\s*$/.test(w)) {
@@ -8161,7 +8163,7 @@ function emoteSlotWords(words, emotes, emoteNorm) {
   }
   let w0 = _merged.map((w, i) => {
     if (w && typeof w === "object" && !w.voice && typeof w.emote === "string" && w.emote.trim()) { _conv.add(i); return "[表情] " + w.emote.trim(); }
-    const mj = typeof w === "string" ? w.match(JSON_EMOTE) : null;
+    const mj = typeof w === "string" ? (w.match(JSON_EMOTE) || w.match(PACK_EMOTE)) : null;
     if (mj) _conv.add(i);
     return mj ? "[表情] " + mj[1].trim() : w;
   });
