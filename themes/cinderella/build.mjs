@@ -30,6 +30,8 @@ const BIGCLOCK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'>
 const HEM = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='8'><path d='M0 0 Q4 8 8 0 Q12 8 16 0 V0Z' fill='${C.blue}'/></svg>`;
 const HEMD = `<svg xmlns='http://www.w3.org/2000/svg' width='16' height='8'><path d='M0 0 Q4 8 8 0 Q12 8 16 0Z' fill='${C.blueD}'/></svg>`;
 
+// 日期上的小钟：象牙底、淡边、罗马刻度只标十二，指针停在快十二点
+const SMALLCLOCK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle cx='20' cy='20' r='18' fill='#FBF8F3' stroke='${C.ashD}' stroke-width='1.4'/>${Array.from({length:12},(_,i)=>{const a=i*30*Math.PI/180;return `<circle cx='${(20+14.5*Math.sin(a)).toFixed(1)}' cy='${(20-14.5*Math.cos(a)).toFixed(1)}' r='${i%3?0.7:1.2}' fill='${C.ink}' opacity='.6'/>`}).join('')}<path d='M20 20 L19.3 10 L20 8.5 L20.7 10Z' fill='${C.ink}'/><path transform='rotate(-48 20 20)' d='M20 20 L19.4 6 L20 4.5 L20.6 6Z' fill='${C.orange}'/><circle cx='20' cy='20' r='1.6' fill='${C.ink}'/></svg>`;
 const bubble = { myBg: C.blue, myText: "#fff", myBorder: "none", charBg: C.ash, charText: C.ashInk, charBorder: "none", radius: 3, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -76,10 +78,6 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="msg"][data-me="1"][data-first="0"] + [data-wk="msg"][data-me="1"][data-first="0"] [data-wk="bubble"]{transform:none !important;margin-right:40px !important;max-width:calc(100% - 40px) !important}
 [data-wk="msg"][data-me="1"][data-first="0"] + [data-wk="msg"][data-me="1"][data-first="0"] + [data-wk="msg"][data-me="1"][data-first="0"] [data-wk="bubble"]{transform:none !important;margin-right:60px !important;max-width:calc(100% - 60px) !important}
 
-/* 一串最后一条旁边，魔杖点一颗橘星 */
-[data-wk="msg"][data-last="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::after{content:"" !important;position:absolute !important;right:-22px !important;top:50% !important;width:12px !important;height:16px !important;margin-top:-8px !important;background:${svg(SPARK)} center/contain no-repeat !important}
-[data-wk="msg"][data-last="1"][data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="1"]::after{content:"" !important;position:absolute !important;left:-22px !important;top:50% !important;width:12px !important;height:16px !important;margin-top:-8px !important;background:${svg(SPARK)} center/contain no-repeat !important}
-
 /* 时间：「今天 23:52」，旁边一只玻璃鞋，底下一行「在午夜之前」 */
 [data-wk="time"]{display:flex !important;justify-content:center !important;position:relative !important;padding-bottom:14px !important}
 [data-wk="time"] > span{display:inline-block !important;background:transparent !important;border:none !important;box-shadow:none !important;color:${C.ink} !important;letter-spacing:.15em !important;font-size:13px !important;padding:0 0 0 34px !important;background:${svg(SLIPPER)} left center/26px 14px no-repeat !important}
@@ -117,17 +115,32 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chatplus"]:active,[data-wk="send"]:active{transform:scale(.9) !important}
 [data-wk="chatreply"]:active{transform:translateY(4px) !important;box-shadow:0 1px 0 ${C.blueD} !important}
 [data-wk="chatpanel"]{background:#FBF8F3 !important;border-top:1px solid ${C.line} !important}
-/* ───── 灰姑娘再明显一点：午夜大钟、台阶上的玻璃鞋、裙摆 ───── */
-/* 背景：屏幕正中一座很淡的午夜大钟（贴着屏幕不跟着滚） */
-[data-wk="body"]::before{content:"" !important;position:fixed !important;left:50% !important;top:50% !important;width:min(86vw,340px) !important;height:min(86vw,340px) !important;transform:translate(-50%,-50%) !important;background:${svg(BIGCLOCK)} center/contain no-repeat !important;opacity:.85 !important;pointer-events:none !important;z-index:-1 !important}
-[data-wk="body"]{position:relative !important;z-index:0 !important}
-/* 台阶最后一级旁边落着一只玻璃鞋（替掉橘星） */
-[data-wk="msg"][data-last="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::after{right:-40px !important;width:30px !important;height:17px !important;margin-top:-4px !important;top:auto !important;bottom:-3px !important;background:${svg(SLIPPER)} center/contain no-repeat !important}
-/* 你的气泡：底边一排小波浪，像舞裙下摆 */
-[data-wk="bubble"][data-kind="text"][data-me="1"]{box-shadow:0 9px 12px rgba(80,100,140,.15) !important;margin-bottom:10px !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:100% !important;height:8px !important;background:${svg(HEM)} 0 0/16px 8px repeat-x !important;border:none !important;transform:none !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]::after{content:none}
-[data-wk="msg"][data-me="1"] [data-wk="bubble"][data-kind="text"]{filter:drop-shadow(0 4px 0 ${C.blueD}) !important}
+/* ───── 减法版（照她的优化图）：钟只留一面在日期上、鞋只留一只、台阶贴紧、白环头像 ───── */
+/* 星星全删 */
+[data-wk="msg"] [data-wk="bubble"][data-kind="text"]::after{content:none !important}
+[data-wk="narrink"]::before{content:none !important}
+/* 头像：干净的白环 */
+button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{content:none !important}
+button[data-wk="avatar"],span[data-wk="avatar"]{box-shadow:0 0 0 3px #fff,0 2px 6px rgba(120,100,80,.15) !important}
+/* 台阶贴紧：组内零间距，下一级顶着上一级的立面；每级顶面一条细高光 */
+[data-wk="msg"][data-first="0"]{margin-top:-6px !important;padding-top:0 !important}
+[data-wk="msg"][data-first="0"] [data-wk="row"]{margin-top:0 !important;padding-top:0 !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{box-shadow:inset 0 1px 0 rgba(255,255,255,.75),0 5px 0 ${C.ashD} !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 5px 0 ${C.blueD} !important}
+/* 状态字：落在最后一级正下方、跟那一级左边对齐，不压气泡 */
+[data-wk="meta"]{margin-top:9px !important}
+/* 鞋只留一只：最新那段他的台阶，最后一级旁边 */
+[data-wk="msg"][data-me="0"][data-last="1"]:not(:has(~ [data-wk="msg"][data-me="0"])) [data-wk="bubble"][data-kind="text"]::after{content:"" !important;position:absolute !important;right:-42px !important;bottom:-4px !important;top:auto !important;left:auto !important;width:32px !important;height:18px !important;margin:0 !important;background:${svg(SLIPPER)} center/contain no-repeat !important}
+/* 时间：上面一面小钟（指针停在快十二点），下面日期，再下面「午夜之前」——全屏唯一的焦点 */
+[data-wk="time"]{flex-direction:column !important;align-items:center !important;padding-top:44px !important;padding-bottom:16px !important}
+[data-wk="time"]::before{content:"" !important;position:absolute !important;left:50% !important;top:0 !important;width:38px !important;height:38px !important;margin-left:-19px !important;background:${svg(SMALLCLOCK)} center/contain no-repeat !important}
+[data-wk="time"] > span{padding:0 !important;background:none !important}
+[data-wk="time"]::after{content:"午夜之前" !important}
+/* 底栏：发送＝雾蓝台阶块；最右「让他回复」＝线条对话框 */
+[data-wk="send"]{width:58px !important;min-width:58px !important;height:40px !important;border-radius:3px !important;background:${svg(I_SEND.replace(/stroke='[^']*'/g, "stroke='#fff'"))} center/30px no-repeat,${C.blue} !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 5px 0 ${C.blueD} !important;margin-bottom:5px !important}
+[data-wk="send"]:active{transform:translateY(4px) !important;box-shadow:0 1px 0 ${C.blueD} !important}
+[data-wk="chatreply"]{width:34px !important;min-width:34px !important;height:34px !important;border-radius:0 !important;background:${svg(I_REPLY.replace(/stroke='#fff'/g, `stroke='${C.ink}'`))} center/contain no-repeat !important;box-shadow:none !important;margin-bottom:0 !important}
+[data-wk="chatreply"]:active{transform:scale(.9) !important;box-shadow:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "灰与舞裙", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
