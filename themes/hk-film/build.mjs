@@ -62,6 +62,7 @@ const css = `
 [data-wk="headname"] > [data-wk="headdim"]::before{content:"Midnight Romance" !important;font:italic 400 12.5px/1.2 Georgia,"Times New Roman",serif !important;letter-spacing:.06em !important;color:${C.cream} !important;opacity:.8 !important}
 [data-wk="headdim"]{color:${C.dim} !important;white-space:nowrap !important;letter-spacing:.2em !important}
 [data-wk="chatback"] svg,[data-wk="headdim"] svg{stroke:${C.cream} !important}
+[data-wk="chatback"],[data-wk="chatback"] *{color:${C.cream} !important}
 [data-wk="chathead"] [data-wk="headink"] > [data-wk="headdim"]{display:none !important}
 [data-wk="chathead"] [data-wk="headname"],[data-wk="chathead"] button:has(> [data-wk="headname"]){flex:1 1 auto !important;min-width:0 !important}
 [data-wk="sameroom"],[data-wk="chatmore"]{width:32px !important;min-width:32px !important;height:32px !important;font-size:0 !important;color:transparent !important;padding:0 !important;border:none !important;box-shadow:none !important;background-color:transparent !important}
@@ -340,6 +341,11 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="stateheart"]{position:relative !important;left:auto !important;bottom:auto !important;top:auto !important;flex:none !important;margin:0 !important}
 [data-wk="stateaffval"]{display:none !important}
 [data-wk="stateheartnum"]{display:flex !important;align-items:center !important;justify-content:center !important;padding-top:4px !important;font-size:17px !important;font-weight:700 !important;color:#FFF1F1 !important;-webkit-text-stroke:0 !important;text-shadow:0 0 2px #3A0A0C,0 0 2px #3A0A0C,0 0 8px rgba(255,74,85,.8) !important;z-index:3 !important}
+/* 深底上的灰字：顶栏下面那条日程条、线下「文风」那行、空页那句提示，一律换成米色 */
+[data-wk="chathead"] + *:not([data-wk="body"]),[data-wk="chathead"] + *:not([data-wk="body"]) *{color:${C.cream} !important}
+[data-wk="chathead"] + *:not([data-wk="body"]) svg{stroke:${C.cream} !important}
+[data-wk="offline"] [data-wk="offbody"]{color:${C.cream} !important}
+[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]),[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]) > :not([data-wk]){color:${C.dim} !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "港风旧梦", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
