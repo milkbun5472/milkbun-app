@@ -59,13 +59,17 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="bubble"][data-kind="text"]::before,[data-wk="bubble"][data-kind="text"]::after{content:none !important}
 [data-wk="bubble"][data-kind="text"][data-me="0"]{background:${C.ash} !important;color:${C.ashInk} !important;box-shadow:0 5px 0 ${C.ashD},0 9px 12px rgba(120,100,80,.10) !important}
 [data-wk="bubble"][data-kind="text"][data-me="1"]{background:${C.blue} !important;color:#fff !important;box-shadow:0 5px 0 ${C.blueD},0 9px 12px rgba(80,100,140,.15) !important}
-/* 连发一级级错开：他往右走、你往左走，像王宫的台阶（最多错三级） */
-[data-wk="msg"][data-me="0"][data-first="0"] [data-wk="bubble"]{transform:translateX(34px) !important}
-[data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] [data-wk="bubble"]{transform:translateX(68px) !important}
-[data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] [data-wk="bubble"]{transform:translateX(102px) !important}
-[data-wk="msg"][data-me="1"][data-first="0"] [data-wk="bubble"]{transform:translateX(-34px) !important}
-[data-wk="msg"][data-me="1"][data-first="0"] + [data-wk="msg"][data-me="1"][data-first="0"] [data-wk="bubble"]{transform:translateX(-68px) !important}
-[data-wk="msg"][data-me="0"][data-first="0"] [data-wk="meta"]{transform:translateX(34px) !important}
+/* 连发一级级错开：他往右走、你往左走，像王宫的台阶。一级 20px、最多三级；挪了多少这条就窄多少，长句子也不出界 */
+[data-wk="msg"][data-me="0"][data-first="0"] [data-wk="bubble"]{transform:none !important;margin-left:20px !important;max-width:calc(100% - 20px) !important}
+[data-wk="msg"][data-me="0"][data-first="0"] [data-wk="meta"]{transform:none !important;margin-left:20px !important}
+[data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] [data-wk="bubble"]{transform:none !important;margin-left:40px !important;max-width:calc(100% - 40px) !important}
+[data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] [data-wk="meta"]{transform:none !important;margin-left:40px !important}
+[data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] [data-wk="bubble"]{transform:none !important;margin-left:60px !important;max-width:calc(100% - 60px) !important}
+[data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] + [data-wk="msg"][data-me="0"][data-first="0"] [data-wk="meta"]{transform:none !important;margin-left:60px !important}
+[data-wk="msg"][data-me="1"][data-first="0"] [data-wk="bubble"]{transform:none !important;margin-right:20px !important;max-width:calc(100% - 20px) !important}
+[data-wk="msg"][data-me="1"][data-first="0"] + [data-wk="msg"][data-me="1"][data-first="0"] [data-wk="bubble"]{transform:none !important;margin-right:40px !important;max-width:calc(100% - 40px) !important}
+[data-wk="msg"][data-me="1"][data-first="0"] + [data-wk="msg"][data-me="1"][data-first="0"] + [data-wk="msg"][data-me="1"][data-first="0"] [data-wk="bubble"]{transform:none !important;margin-right:60px !important;max-width:calc(100% - 60px) !important}
+
 /* 一串最后一条旁边，魔杖点一颗橘星 */
 [data-wk="msg"][data-last="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::after{content:"" !important;position:absolute !important;right:-22px !important;top:50% !important;width:12px !important;height:16px !important;margin-top:-8px !important;background:${svg(SPARK)} center/contain no-repeat !important}
 [data-wk="msg"][data-last="1"][data-first="0"] [data-wk="bubble"][data-kind="text"][data-me="1"]::after{content:"" !important;position:absolute !important;left:-22px !important;top:50% !important;width:12px !important;height:16px !important;margin-top:-8px !important;background:${svg(SPARK)} center/contain no-repeat !important}
