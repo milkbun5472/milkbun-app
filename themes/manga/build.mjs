@@ -28,7 +28,7 @@ const TAILL = (f) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 29 22
 // 红包里那颗大爆炸：黄底黑边，中间「¥!」
 const BOOM = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><path d='M30 2 L35 17 L50 8 L44 24 L58 28 L44 35 L52 50 L36 43 L30 58 L24 43 L8 50 L16 35 L2 28 L16 24 L10 8 L25 17Z' fill='${C.yellow}' stroke='${C.ink}' stroke-width='2.4' stroke-linejoin='round'/><text x='30' y='36' text-anchor='middle' font-size='17' font-weight='900' fill='${C.ink}' font-family='sans-serif'>¥!</text></svg>`;
 const bubble = { myBg: C.yellow, myText: C.ink, myBorder: LINE, charBg: C.paper, charText: C.ink, charBorder: LINE, radius: 20, shadow: "none", myAlpha: 100, charAlpha: 100 };
-const layout = { bubble: "bubble", avatar: "first", name: true, gap: "normal", time: "show" };
+const layout = { bubble: "bubble", avatar: "all", name: true, gap: "normal", time: "show" };
 
 const css = `
 /* ───── 漫画对白 · 第一批 ───── */
