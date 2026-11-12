@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.483";
+const APP_VERSION = "v89.489";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -29271,7 +29271,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 冷却去掉了（她 2026-10-19：「把冷却去掉」——TA刚自己换过头像，她发的情头重 Roll 多少次都不换）。
   //   闸还留着这一格（=0），换不换照旧由 TA 看照片自己定，只是不再按日子拦。
   const AVATAR_COOLDOWN_MS = 0;
-  const AVATAR_AUTO_PCT = 25;   // 她没开口时，一张照片被拿去问「换不换成你的头像」的概率（百分之几）
+  const AVATAR_AUTO_PCT = 50;   // 她没开口时，一张照片被拿去问「换不换成你的头像」的概率（百分之几）
   const FRESH_PHOTO_LOOKBACK = 6;
   // ⚠️第二个参数是往回看几条。原来写死 6——于是下面「她开口要换」那一档虽然先 slice(-40)，
   //   进来又被砍回 6 条，发完照片聊几轮再说「换成那张」就永远找不到（她 2026-09-30：「过了几轮他就不行了」）。

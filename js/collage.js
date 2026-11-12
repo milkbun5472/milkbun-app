@@ -981,8 +981,7 @@
             h("div", { className: "flex", style: { gap: 5, overflowX: "auto", flex: 1, paddingBottom: 2 } },
               SW.map(c => h("button", { key: c, onClick: () => onCh(c), "aria-label": c, className: "shrink-0",
                 style: { width: 24, height: 24, borderRadius: 12, background: c, border: "2px solid " + (String(val).toLowerCase() === c ? t.accent : t.line) } }))),
-            h("input", { type: "color", value: /^#[0-9a-f]{6}$/i.test(val) ? val : "#cccccc", onChange: e => onCh(e.target.value), "aria-label": label + "自己调",
-              style: { width: 34, height: 28, padding: 0, border: "1px solid " + t.line, borderRadius: 6, background: "transparent", flexShrink: 0 } }));
+            typeof ColorDot === "function" ? h(ColorDot, { value: /^#[0-9a-f]{6}$/i.test(val) ? val : "#cccccc", onChange: onCh, label: label + "自己调", hexOnly: true, size: 28 }) : null);   // 取色走公共的 ColorDot
           return h("div", { "data-part": "collagebgcolor" },
             line(b.from ? "上半截" : "底色", base, c => setLayout(l => Object.assign({}, l, { bgColor: c }))),
             (inkOf(b)) ? line(b.from ? "下半截" : "花纹色", ink, c => setLayout(l => Object.assign({}, l, { bgInk: c }))) : null,
