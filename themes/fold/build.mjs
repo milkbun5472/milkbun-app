@@ -70,9 +70,10 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="bubble"][data-kind="typing"]{background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important}
 [data-wk="bubble"][data-kind="typing"]::before,[data-wk="bubble"][data-kind="typing"]::after{content:none !important}
 [data-wk="typingdot"]{background:${C.line} !important}
-/* 动描：一行斜体，左边一道淡金竖线 */
+/* 动描：一条横格本纸——浅底细横线、左边深紫双线，开头一支小铅笔，斜体灰字；不带框不带影，跟便签气泡分开 */
 [data-wk="narr"]{background:transparent !important;border:none !important;box-shadow:none !important}
-[data-wk="narrink"]{background:transparent !important;border:none !important;border-left:2px solid ${C.gold} !important;border-radius:0 !important;box-shadow:none !important;color:${C.ink} !important;opacity:.8 !important;font-style:italic !important;font-size:13px !important;padding:2px 0 2px 12px !important}
+[data-wk="narrink"]{position:relative !important;display:block !important;background:repeating-linear-gradient(transparent 0 23px,${C.dot} 23px 24px),${C.fold} !important;border:none !important;border-left:4px double ${C.deep} !important;border-radius:0 !important;box-shadow:none !important;color:${C.fog} !important;opacity:1 !important;font-style:italic !important;font-size:13px !important;line-height:24px !important;padding:0 14px 0 34px !important;transform:rotate(-.4deg) !important}
+[data-wk="narrink"]::before{content:"" !important;position:absolute !important;left:9px !important;top:3px !important;width:17px !important;height:17px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M4 16 L5 12 L14 3 L17 6 L8 15Z' fill='${C.lilac}' stroke='${C.ink}' stroke-width='1.3' stroke-linejoin='round'/><path d='M12 5 L15 8' stroke='${C.ink}' stroke-width='1.3'/><path d='M4 16 L5 12 L8 15Z' fill='${C.deep}'/></svg>`)} center/contain no-repeat !important}
 /* 系统提示：不带框的一行小字 */
 [data-wk="sysnote"]{background:transparent !important;border:none !important;box-shadow:none !important}
 [data-wk="sysnotelabel"]{display:none !important}
@@ -97,8 +98,7 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="chathead"] button > [data-wk="avatar"],[data-wk="chathead"] [data-wk="avatar"]{transform:rotate(-4deg) !important}
 [data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
 
-/* 照参考图：折角只在每串第一条——我的折右上、他的折左上；后面几条不折。折过来那块是白的 */
-[data-first="0"] [data-wk="bubble"][data-kind="text"]::before{content:none !important}
+/* 每条气泡都折角——我的折右上、他的折左上。折过来那块是白的 */
 [data-wk="bubble"][data-kind="text"][data-me="0"]::before{right:auto !important;left:-1.4px !important;transform:scaleX(-1) !important}
 [data-wk="msg"][data-me="0"] button[data-wk="avatar"]::after,[data-wk="cardrow"][data-me="0"] button[data-wk="avatar"]::after{right:auto !important;left:-1.4px !important;transform:scaleX(-1) !important}
 [data-wk="msg"][data-me="0"] span[data-wk="avatar"]::after{right:auto !important;left:-1.4px !important;transform:scaleX(-1) !important}
@@ -258,6 +258,9 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="offline"]:not([style*="url("]){background:${svg(DOTS)} 0 0/18px 18px,${C.bg} !important}
 [data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
 [data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="chathead"]{gap:8px !important}
+[data-wk="offline"] [data-wk="headname"] > div:last-child{white-space:normal !important;line-height:1.35 !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"],[data-wk="offline"] [data-wk="chatmore"]{width:26px !important;min-width:26px !important;height:26px !important;flex-shrink:0 !important}
 [data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:${C.ink} !important}
 [data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:${C.lilac} !important;color:${C.ink} !important;border:${LINE} !important;border-radius:2px !important;font-size:12px !important;padding:3px 12px !important}
 [data-wk="offcomposer"]{background:${C.paper} !important;border-top:${LINE} !important}
