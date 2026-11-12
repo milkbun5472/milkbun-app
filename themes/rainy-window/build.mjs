@@ -106,7 +106,8 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 
 /* 时间：一朵白云胶囊 */
 [data-wk="time"]{margin-top:20px !important}
-[data-wk="time"] > span{min-width:150px !important;background:${svg(TIMEC)} center/100% 100% no-repeat !important;border:none !important;border-radius:0 !important;padding:7px 22px 5px !important;color:${C.ink} !important;font-weight:600 !important;letter-spacing:.08em !important;box-shadow:none !important}
+[data-wk="time"]{display:flex !important;justify-content:center !important}
+[data-wk="time"] > span{display:inline-flex !important;justify-content:center !important;align-items:center !important;text-align:center !important;min-width:150px !important;background:${svg(TIMEC)} center/100% 100% no-repeat !important;border:none !important;border-radius:0 !important;padding:7px 22px 5px !important;color:${C.ink} !important;font-weight:600 !important;letter-spacing:.08em !important;box-shadow:none !important}
 /* 已读：前面一颗小水滴 */
 [data-wk="meta"]{color:${C.fog} !important;font-size:10.5px !important}
 [data-wk="meta"][data-read="1"]::before{content:"" !important;display:inline-block !important;width:9px !important;height:12px !important;margin-right:4px !important;vertical-align:-2px !important;background:${svg(DROP())} center/contain no-repeat !important;filter:drop-shadow(0 0 3px rgba(143,194,255,.9)) !important}
@@ -117,13 +118,17 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="name"]{color:#fff !important}
 
 /* 动描：像用手指写在起雾玻璃上——磨砂透明一条，白色斜体字，左边一道往下淌的水痕 */
-[data-wk="narr"]{background:transparent !important;border:none !important;box-shadow:none !important}
-[data-wk="narrink"]{background:rgba(255,255,255,.14) !important;backdrop-filter:blur(4px) !important;-webkit-backdrop-filter:blur(4px) !important;border:1px solid rgba(255,255,255,.35) !important;border-left:3px solid ${C.drop} !important;border-radius:4px 14px 14px 4px !important;box-shadow:none !important;color:#F1F4FF !important;font-style:italic !important;font-size:13px !important;padding:6px 12px !important}
+/* 动描：一块挂在雨里的雾玻璃——上沿一根细绳吊着两颗小云扣，中间一道指尖擦亮的斜痕，字写在擦亮的地方，右下角凝着一颗要掉的水珠 */
+[data-wk="narr"]{background:transparent !important;border:none !important;box-shadow:none !important;position:relative !important;overflow:visible !important;padding-top:14px !important}
+[data-wk="narrink"]{position:relative !important;overflow:visible !important;display:block !important;background:linear-gradient(115deg,transparent 0 18%,rgba(255,255,255,.22) 18% 30%,transparent 30% 100%),linear-gradient(160deg,rgba(255,236,246,.42),rgba(214,200,255,.28) 55%,rgba(255,214,190,.3)) !important;backdrop-filter:blur(6px) !important;-webkit-backdrop-filter:blur(6px) !important;border:1.5px solid rgba(255,255,255,.75) !important;border-radius:18px !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 6px 16px rgba(91,76,140,.28) !important;color:#fff !important;font-style:italic !important;font-size:13px !important;line-height:1.75 !important;letter-spacing:.03em !important;text-shadow:0 1px 6px rgba(91,76,140,.55) !important;padding:12px 18px 12px 18px !important}
+[data-wk="narrink"]::before{content:"" !important;position:absolute !important;left:22px !important;right:22px !important;top:-15px !important;height:16px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 16' preserveAspectRatio='none'><path d='M6 8 Q100 -2 194 8' fill='none' stroke='#fff' stroke-width='1.2' opacity='.85' vector-effect='non-scaling-stroke'/></svg>`)} center/100% 100% no-repeat,${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 18'><path d='M5 16 a4.5 4.5 0 0 1 1.5-8.5 a6.5 6.5 0 0 1 12-1.5 a5 5 0 0 1 3 10Z' fill='#fff' stroke='#C8B2FF' stroke-width='1.2'/></svg>`)} left top/22px 16px no-repeat,${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 18'><path d='M5 16 a4.5 4.5 0 0 1 1.5-8.5 a6.5 6.5 0 0 1 12-1.5 a5 5 0 0 1 3 10Z' fill='#fff' stroke='#C8B2FF' stroke-width='1.2'/></svg>`)} right top/22px 16px no-repeat !important;pointer-events:none !important}
+[data-wk="narrink"]::after{content:"" !important;position:absolute !important;right:16px !important;bottom:-9px !important;width:9px !important;height:12px !important;background:${svg(DROP("rgba(220,235,255,.9)"))} center/contain no-repeat !important;animation:rwDrip 3.6s ease-in infinite !important}
+@keyframes rwDrip{0%,55%{transform:translateY(0) scale(.6);opacity:0}65%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(26px) scale(1);opacity:0}}
 /* 系统提示：不带框的一行小字，前面一把小伞 */
 [data-wk="sysnote"]{background:transparent !important;border:none !important;box-shadow:none !important}
 [data-wk="sysnotelabel"]{display:none !important}
 [data-wk="sysnotetext"]{background:transparent !important;border:none !important;color:${C.fog} !important;font-size:11.5px !important;font-style:normal !important;letter-spacing:.06em !important}
-[data-wk="sysnotetext"]::before{content:"☂ " !important;color:${C.pink} !important}
+[data-wk="sysnotetext"]::before{content:"" !important;display:inline-block !important;width:14px !important;height:14px !important;margin-right:5px !important;vertical-align:-2px !important;background:${svg(UMB("#FF9EC8"))} center/contain no-repeat !important}
 
 /* 底栏：一只悬浮的磨砂玻璃胶囊，加号、输入、发送、回复全包进去 */
 [data-wk="composer"]{background:transparent !important;border-top:none !important;position:relative !important;z-index:2 !important;align-items:center !important;gap:6px !important;padding-left:16px !important;padding-right:16px !important}
@@ -152,7 +157,7 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="transferrule"]{border:none !important;height:2px !important;background:repeating-linear-gradient(90deg,#9EC8FF 0 6px,transparent 6px 10px) !important}
 [data-wk="transfernotch"]{display:none !important}
 [data-wk="transferfoot"]{background:transparent !important;border-radius:0 0 28px 28px !important;overflow:hidden !important}
-[data-wk="transfernote"]::before{content:"☂ " !important;color:${C.pink} !important}
+[data-wk="transfernote"]::before{content:"" !important;display:inline-block !important;width:13px !important;height:13px !important;margin-right:5px !important;vertical-align:-2px !important;background:${svg(UMB("#FF9EC8"))} center/contain no-repeat !important}
 [data-wk="transferbtn"]{border-radius:999px !important}
 [data-wk="transferbtn"][data-part="take"]{background:linear-gradient(135deg,#7FB0FF,#B79CFF) !important;color:#fff !important;border:none !important;box-shadow:0 3px 0 #7E6CD0 !important}
 [data-wk="transferbtn"][data-part="back"]{background:#fff !important;color:#7E78A8 !important;border:1.5px solid #C8B2FF !important}
