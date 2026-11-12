@@ -4,9 +4,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const svg = s => "url(\"data:image/svg+xml;base64," + Buffer.from(s.replace(/>\s+</g, "><")).toString("base64") + "\")";
-const C = { bg: "#E4E0EA", dot: "#CFC8DA", paper: "#FBF9F4", lilac: "#D9CEEA", fold: "#B7A6D2", foldP: "#E9E4DA", ink: "#4A4458", line: "#6E6484", fog: "#9A93A8", gold: "#C9A85C" };
+const C = { bg: "#EEEAF5", dot: "#D3CCE2", paper: "#FFFFFF", lilac: "#D8CEF0", fold: "#FBFAFE", foldP: "#FBFAFE", ink: "#3F3A52", line: "#3F3A52", fog: "#9A93AE", gold: "#6B5BA8", deep: "#6A5AA8" };
 const LINE = `1.4px solid ${C.line}`;
-const SH = "2px 3px 0 rgba(74,68,88,.14)";
+const SH = "3px 3px 0 rgba(63,58,82,.16)";
 const F = 14; // 折角大小
 
 // 折角：一个三角形——外侧是底色（剪掉角），内侧是折过来的深一档纸背，带一道斜线
@@ -86,6 +86,23 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="chatreply"]{width:52px !important;min-width:52px !important;height:34px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important;filter:drop-shadow(2px 3px 0 rgba(74,68,88,.14)) !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.92) !important}
+
+/* 照参考图：折角只在每串第一条——我的折右上、他的折左上；后面几条不折。折过来那块是白的 */
+[data-first="0"] [data-wk="bubble"][data-kind="text"]::before{content:none !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]::before{right:auto !important;left:-1.4px !important;transform:scaleX(-1) !important}
+[data-wk="msg"][data-me="0"] button[data-wk="avatar"]::after,[data-wk="cardrow"][data-me="0"] button[data-wk="avatar"]::after{right:auto !important;left:-1.4px !important;transform:scaleX(-1) !important}
+[data-wk="msg"][data-me="0"] span[data-wk="avatar"]::after{right:auto !important;left:-1.4px !important;transform:scaleX(-1) !important}
+/* 已读：紫色勾放在前面 */
+[data-wk="meta"][data-read="1"]::after{content:none !important}
+[data-wk="meta"]::before{content:"" !important;display:inline-block !important;width:12px !important;height:10px !important;margin-right:4px !important;vertical-align:-1px !important;background:${svg(CHECK)} center/contain no-repeat !important}
+[data-wk="msg"][data-me="1"] [data-wk="meta"]::before{order:2 !important}
+[data-wk="msg"][data-me="1"] [data-wk="meta"]{display:inline-flex !important;flex-direction:row-reverse !important;gap:4px !important}
+/* 底栏：输入框淡紫，发送是深紫折角方块白箭头 */
+[data-wk="chatinput"]{background:#F3EFFA !important}
+[data-wk="send"]{order:99 !important;width:40px !important;min-width:40px !important;height:36px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 36'><path d='M2 2 H30 L38 10 V34 H2Z' fill='${C.deep}' stroke='${C.ink}' stroke-width='1.4' stroke-linejoin='round'/><path d='M30 2 V10 H38' fill='${C.fold}' stroke='${C.ink}' stroke-width='1.4' stroke-linejoin='round'/><path d='M20 28 V12 M14 18 L20 12 L26 18' fill='none' stroke='#fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>`)} center/contain no-repeat !important;filter:drop-shadow(3px 3px 0 rgba(63,58,82,.16)) !important}
+
+[data-wk="msg"][data-last="0"] [data-wk="meta"]{display:none !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "折角便签", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
