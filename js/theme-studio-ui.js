@@ -126,6 +126,7 @@
     const THEME_SHELF_KEY = "x_themeShelf", THEME_SHELF_MAX = 12;
     const shelfLoad = () => { const a = loadJSON(THEME_SHELF_KEY, []); return Array.isArray(a) ? a.filter(x => x && x.id && x.text) : []; };
     const [shelf, setShelf] = useState(shelfLoad);
+    const [shelfRen, setShelfRen] = useState(null);   // { id, val }：正在改名的那一行（不用 window.prompt，那个在桌面图标里会被吞掉）
     const shelfSave = list => { saveJSON(THEME_SHELF_KEY, list); setShelf(list); };
     const [pendingHome, setPendingHome] = useState(null);
     const [pick, setPick] = useState(() => studio.cleanPick(null));
@@ -680,7 +681,12 @@
               h("div", { style: { fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "把现在这一整套（图标、字体、CSS、壁纸、气泡、主屏布局）存在手机里，换来换去不用导文件")),
             h("button", { "data-wk": "themeshelfsave", onClick: saveToShelf, className: "active:opacity-70", style: { flexShrink: 0, padding: "7px 12px", borderRadius: 999, border: "1px solid " + t.ink, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "存成一套")),
           shelf.map(x => h("div", { key: x.id, "data-wk": "themeshelfrow", className: "flex items-center", style: { gap: 8, padding: "7px 0", borderTop: "1px solid " + t.line } },
-            h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.name),
+            shelfRen && shelfRen.id === x.id
+              ? h("input", { "data-wk": "input", autoFocus: true, value: shelfRen.val, maxLength: 30, onChange: e => setShelfRen({ id: x.id, val: e.target.value }),
+                  onKeyDown: e => { if (e.key === "Enter") e.currentTarget.blur(); },
+                  onBlur: () => { const nm = String(shelfRen.val || "").trim(); if (nm) shelfSave(shelfLoad().map(y => y.id === x.id ? Object.assign({}, y, { name: nm.slice(0, 30) }) : y)); setShelfRen(null); },
+                  style: { flex: 1, minWidth: 0, padding: "5px 8px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 16 } })
+              : h("button", { onClick: () => setShelfRen({ id: x.id, val: x.name }), title: "点一下改名", style: { flex: 1, minWidth: 0, textAlign: "left", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.name, h("span", { style: { color: t.fog, fontSize: "calc(10.5px * var(--app-fs, 1))", marginLeft: 6 } }, "✎")),
             h("button", { onClick: () => applyPack(x.text), className: "active:opacity-70", style: { padding: "5px 11px", borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "换上"),
             h("button", { onClick: () => requestAppConfirm("删掉「" + x.name + "」？", "只删这份存着的主题，你现在正用着的样子不动。", () => shelfSave(shelfLoad().filter(y => y.id !== x.id)), "删掉"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "删")))),
         // 导进来之后：这包里带了什么、要哪几样（她 2026-09-20：「不是全有全无」）。

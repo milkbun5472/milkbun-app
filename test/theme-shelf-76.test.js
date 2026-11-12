@@ -7,3 +7,7 @@ test("我存的主题：存的是完整主题包、进 IDB，换上走导入那�
   assert.match(ui, /requestAppConfirm\("删掉「" \+ x\.name/);
   const i = ui.indexOf("const saveToShelf"); assert.ok(!/localStorage|window\.prompt/.test(ui.slice(i, i + 900)));
 });
+test("改名就地一个输入框，失焦存", () => {
+  assert.match(ui, /const \[shelfRen, setShelfRen\] = useState\(null\);/);
+  assert.match(ui, /onBlur: \(\) => \{ const nm = String\(shelfRen\.val \|\| ""\)\.trim\(\); if \(nm\) shelfSave/);
+});
