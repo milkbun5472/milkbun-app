@@ -448,14 +448,15 @@
   }
   // 一面墙：两列，纸条高矮不一，各自往下排（不是一格一格的方阵）。
   //   左右轮流放：最新的在左上、第二新的在右上——不用 CSS 分栏，那样会先把左边一整列排满，第二新的跑到第一张底下去
-  // 首页墙上同一个人连着贴了一大串（她 2026-11-12「我自己上传美化太多了能不能不让我自己的全部一次性显示在主页」）：
-  //   连着的只摆前 FOLD_KEEP 张，后面收成一张「还连着贴了 N 件」，点了去她的小窝看全的。只在首页墙用，她的小窝、收藏、搜索照旧全摆。
+  // 首页墙上管理员连着贴了一大串（她 2026-11-12「我自己上传美化太多了能不能不让我自己的全部一次性显示在主页」，「只给管理员这样」）：
+  //   带管理员牌（badge）的人连着的只摆前 FOLD_KEEP 张，后面收成一张「还连着贴了 N 件」，点了去她的小窝看全的。
+  //   普通人连着贴多少都照旧全摆。只在首页墙用，小窝、收藏、搜索照旧全摆。
   const FOLD_KEEP = 3;
   function foldRuns(items) {
     const out = []; let i = 0;
     while (i < items.length) {
       const uid = items[i].uid; let j = i + 1;
-      if (uid) while (j < items.length && items[j].uid === uid) j++;
+      if (uid && items[i].badge) while (j < items.length && items[j].uid === uid) j++;
       const run = items.slice(i, j);
       if (run.length > FOLD_KEEP + 1) { out.push.apply(out, run.slice(0, FOLD_KEEP)); out.push({ fold: true, id: "fold:" + run[FOLD_KEEP].id, uid, nick: run[0].nick, n: run.length - FOLD_KEEP }); }
       else out.push.apply(out, run);
