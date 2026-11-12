@@ -24,6 +24,11 @@ const I_MORE = CI(`<g fill='${C.cream}'><circle cx='13' cy='20' r='1.8'/><circle
 const I_REPLY = CI(`<path d='M20 28 V12 M14 18 L20 12 L26 18' fill='none' stroke='${C.cream}' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/>`);
 const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${C.goldL}'/><stop offset='.35' stop-color='${C.gold}'/><stop offset='.6' stop-color='${C.goldD}'/><stop offset='1' stop-color='#D9B866'/></linearGradient><radialGradient id='r' cx='.38' cy='.32' r='.8'><stop offset='0' stop-color='#FF6B7C'/><stop offset='.45' stop-color='${C.ruby}'/><stop offset='1' stop-color='#5E0A14'/></radialGradient></defs><circle cx='25' cy='25' r='24' fill='url(#g)'/><circle cx='25' cy='25' r='19' fill='url(#r)' stroke='#5E0A14' stroke-width='.8'/><path d='M14.5 20.3 A13.3 13.3 0 0 1 24 12.1' fill='none' stroke='#fff' stroke-width='1.7' stroke-linecap='round' opacity='.75'/><path d='M16 18 H34 Q36 18 36 20 V28 Q36 30 34 30 H24 L19 34 V30 H16 Q14 30 14 28 V20 Q14 18 16 18Z' fill='none' stroke='#fff' stroke-width='1.8' stroke-linejoin='round'/></svg>`;
 
+// ── 第二批用的图 ──
+const APPLE = bitten => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 64'><defs><radialGradient id='a' cx='.35' cy='.35' r='.75'><stop offset='0' stop-color='#FF6B7C'/><stop offset='.5' stop-color='${C.ruby}'/><stop offset='1' stop-color='#5E0A14'/></radialGradient></defs><path d='M30 16 Q18 8 9 18 Q1 30 9 46 Q16 60 26 58 Q30 56 34 58 Q44 60 51 46 Q59 30 51 18 Q42 8 30 16Z' fill='url(#a)' stroke='#5E0A14' stroke-width='1'/>${bitten ? `<path d='M51 22 Q44 24 46 30 Q42 34 47 38 Q45 44 52 44 Q60 33 51 22Z' fill='#F6EFE2' stroke='#5E0A14' stroke-width='.8'/><circle cx='49' cy='31' r='1' fill='#5E0A14'/><circle cx='50' cy='36' r='1' fill='#5E0A14'/>` : ``}<path d='M30 16 Q31 8 35 3' fill='none' stroke='#5E4414' stroke-width='2.4' stroke-linecap='round'/><path d='M33 9 Q42 2 48 8 Q40 14 33 9Z' fill='#4E8A55' stroke='#2E5A35' stroke-width='.8'/><path d='M14 26 Q16 20 22 19' fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' opacity='.6'/></svg>`;
+const HANDMIRROR = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${C.goldL}'/><stop offset='.4' stop-color='${C.gold}'/><stop offset='.7' stop-color='${C.goldD}'/><stop offset='1' stop-color='#D9B866'/></linearGradient></defs><rect x='17' y='38' width='6' height='22' rx='3' fill='url(#g)'/><ellipse cx='20' cy='22' rx='17' ry='20' fill='url(#g)'/><ellipse cx='20' cy='22' rx='13' ry='16' fill='${C.mir1}'/><path d='M12 16 Q14 10 20 8' fill='none' stroke='#fff' stroke-width='1.6' stroke-linecap='round' opacity='.6'/></svg>`;
+const OVALFRAME = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 120' preserveAspectRatio='none'><ellipse cx='50' cy='60' rx='47' ry='57' fill='none' stroke='${C.gold}' stroke-width='6' vector-effect='non-scaling-stroke'/><ellipse cx='50' cy='60' rx='47' ry='57' fill='none' stroke='${C.rivet}' stroke-width='1' vector-effect='non-scaling-stroke'/></svg>`;
+
 const bubble = { myBg: C.red, myText: C.cream, myBorder: "none", charBg: "transparent", charText: "#fff", charBorder: "none", radius: 10, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -117,6 +122,102 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="chatplus"] *,[data-wk="chatreply"] *,[data-wk="send"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="chatreply"]:active,[data-wk="send"]:active{transform:scale(.9) !important}
 [data-wk="chatpanel"]{background:${C.panel} !important;border-top:1px solid ${C.gold} !important}
+/* ───── 魔镜 · 第二批：卡片 ───── */
+/* 卡片统一：墨色嵌板＋金边＋一道细金线 */
+[data-wk="voice"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{background:${C.panel} !important;border:1.2px solid ${C.gold} !important;border-radius:12px !important;box-shadow:inset 0 0 0 3px ${C.panel},inset 0 0 0 3.6px rgba(201,160,78,.6),0 6px 14px rgba(0,0,0,.45) !important;color:${C.cream} !important}
+[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:${C.cream} !important;border-color:rgba(201,160,78,.35) !important}
+
+/* 转账＝镜子递过来的一张红丝绒礼单，左边一面金柄小手镜；收下手镜亮起来，退回蒙一层灰 */
+[data-wk="transfercard"]{position:relative !important;overflow:visible !important;background:linear-gradient(180deg,${C.red},${C.redD}) !important;border:1.2px solid ${C.gold} !important;border-radius:12px !important;box-shadow:inset 0 0 0 3.5px transparent,inset 0 0 0 4px rgba(201,160,78,.7),0 6px 14px rgba(0,0,0,.45) !important;padding-left:60px !important;color:${C.cream} !important}
+[data-wk="transfercard"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:38px !important;height:60px !important;margin-top:-34px !important;background:${svg(HANDMIRROR)} center/contain no-repeat !important;transform:rotate(-12deg) !important;filter:drop-shadow(0 3px 3px rgba(0,0,0,.5)) !important}
+[data-wk="transfercard"] *{color:${C.cream} !important;border-color:rgba(201,160,78,.4) !important}
+[data-wk="transferlabel"]{color:${C.goldL} !important;letter-spacing:.25em !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.goldL} !important;font-weight:700 !important}
+[data-wk="transferrule"]{border:none !important;height:10px !important;background:${svg(STAR(.9))} center/7px 10px no-repeat,linear-gradient(90deg,transparent,rgba(246,227,166,.6) 20%,rgba(246,227,166,.6) calc(50% - 8px),transparent calc(50% - 8px),transparent calc(50% + 8px),rgba(246,227,166,.6) calc(50% + 8px),rgba(246,227,166,.6) 80%,transparent) center/100% 1px no-repeat !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:rgba(0,0,0,.2) !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:${GOLD} !important;color:${C.panel} !important;border:none !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;color:${C.cream} !important;border:1px solid ${C.gold} !important}
+[data-wk="transferseal"]{background:transparent !important;border:1px solid ${C.gold} !important;color:${C.goldL} !important;border-radius:50% !important;box-shadow:none !important}
+[data-wk="transfercard"][data-status="accepted"]::before{filter:drop-shadow(0 0 8px rgba(246,227,166,.9)) !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{width:40px !important;height:40px !important;flex-shrink:0 !important;border:none !important;background:${svg(STARS)} center/contain no-repeat !important;filter:drop-shadow(0 0 6px #fff) !important}
+[data-wk="transfercard"][data-status="returned"]{filter:grayscale(.75) brightness(.8) !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *{display:none !important}
+
+/* 红包＝一颗红苹果；领完了被咬了一口 */
+[data-wk="rpcard"]{position:relative !important;overflow:visible !important;width:220px !important;min-height:86px !important;padding:16px 16px 16px 84px !important;background:${C.panel} !important;border:1.2px solid ${C.gold} !important;border-radius:12px !important;box-shadow:inset 0 0 0 3px ${C.panel},inset 0 0 0 3.6px rgba(201,160,78,.6),0 6px 14px rgba(0,0,0,.45) !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:58px !important;height:62px !important;margin-top:-32px !important;background:${svg(APPLE(false))} center/contain no-repeat !important;filter:drop-shadow(0 4px 5px rgba(0,0,0,.5)) !important}
+[data-wk="rpcard"]::after{content:"一颗苹果" !important;position:absolute !important;right:12px !important;bottom:6px !important;font-size:10px !important;letter-spacing:.25em !important;color:${C.fog} !important}
+[data-wk="rpcard"] *{color:${C.cream} !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"] > div:not([data-wk]){padding:0 !important;background:transparent !important}
+[data-wk="rpmsg"]{-webkit-line-clamp:2 !important;color:${C.goldL} !important}
+[data-wk="rpcard"][data-status="done"]{opacity:.85 !important}
+[data-wk="rpcard"][data-status="done"]::before{background:${svg(APPLE(true))} center/contain no-repeat !important}
+[data-wk="rpcard"][data-status="done"]::after{content:"咬了一口" !important}
+[data-wk="rpenvelope"][data-stage="closed"],[data-wk="rpenvelope"][data-stage="open"]{background:${svg(GLARE)} center/cover no-repeat,linear-gradient(170deg,${C.mir1},${C.mir} 50%,${C.mir2}) !important;border:none !important;border-radius:26px !important;box-shadow:0 0 0 6px ${C.gold},0 0 0 7px ${C.rivet},0 20px 40px rgba(0,0,0,.6) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:linear-gradient(180deg,${C.red},${C.redD}) !important;border-color:${C.gold} !important;box-shadow:none !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]::after{content:none !important}
+[data-wk="rpenvelope"] *{color:${C.cream} !important}
+[data-wk="rpopenbtn"]{background:${svg(APPLE(false))} center/80% no-repeat,radial-gradient(circle,${C.panel} 60%,${C.gold} 62%,${C.gold} 68%,transparent 70%) !important;border:none !important;box-shadow:none !important;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5)) !important}
+[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important}
+[data-wk="rpavatar"]{border-radius:50% !important;box-shadow:0 0 0 3px ${C.gold} !important}
+[data-wk="rpamount"]{color:${C.goldL} !important;background:none !important;text-shadow:0 0 12px rgba(246,227,166,.5) !important}
+[data-wk="rpclose"]{background:${C.panel} !important;border:1.2px solid ${C.gold} !important;color:${C.cream} !important}
+
+/* 照片＝镜中浮现的画面：一面椭圆金框小镜，画面带一层镜面反光 */
+[data-wk="photocard"]{position:relative !important;overflow:visible !important;background:${C.panel} !important;border:none !important;border-radius:50% / 46% !important;padding:22px 28px 34px !important;box-shadow:0 8px 18px rgba(0,0,0,.5) !important}
+[data-wk="photocard"]::before{content:"" !important;position:absolute !important;inset:0 !important;background:${svg(OVALFRAME)} center/100% 100% no-repeat !important;pointer-events:none !important;z-index:2 !important}
+[data-wk="photocard"]::after{content:"" !important;position:absolute !important;left:50% !important;top:-12px !important;width:24px !important;height:24px !important;margin-left:-12px !important;background:${svg(RUBY())} center/contain no-repeat !important;z-index:3 !important}
+[data-wk="photoface"]{background:${svg(GLARE)} center/cover no-repeat,linear-gradient(170deg,${C.mir1},${C.mir}) !important;border:none !important;border-radius:50% / 46% !important}
+[data-wk="photoface"] *,[data-wk="phototext"]{color:${C.ice} !important;text-shadow:0 0 6px rgba(207,230,255,.6) !important}
+[data-wk="photocap"],[data-wk="photohint"]{color:${C.fog} !important}
+
+/* 语音：前面一颗闪着的星 */
+[data-wk="voice"] > *{background:transparent !important;box-shadow:none !important;border:none !important;color:${C.cream} !important}
+[data-wk="voice"][data-me]{padding:0 14px 0 36px !important;position:relative !important;border-radius:999px !important}
+[data-wk="voice"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:14px !important;height:20px !important;margin-top:-10px !important;background:${svg(STAR(1))} center/contain no-repeat !important;animation:mmTwinkle 1.8s ease-in-out infinite !important;z-index:2 !important}
+[data-wk="voice"][data-me="1"]{background:linear-gradient(180deg,${C.red},${C.redD}) !important}
+[data-wk="voicewave"] span{background:${C.goldL} !important}
+
+/* 天气：镜面里的天 */
+[data-wk="wxcardsky"]{background:${svg(GLARE)} center/cover no-repeat,linear-gradient(170deg,${C.mir1},${C.mir}) !important}
+[data-wk="wxcardsky"] *{color:#fff !important;text-shadow:0 0 6px rgba(207,230,255,.5) !important}
+[data-wk="wxcardsky"] svg{stroke:${C.goldL} !important}
+[data-wk="wxcardsay"]{background:${C.panel} !important;color:${C.cream} !important;border-top:1px solid ${C.gold} !important}
+/* 位置：一颗红宝石钉 */
+[data-wk="geopin"]{background:${svg(RUBY())} center/contain no-repeat !important;box-shadow:none !important;border:none !important;width:24px !important;height:24px !important;border-radius:50% !important}
+[data-wk="geopin"] *{opacity:0 !important}
+[data-wk="geopinstem"]{background:${C.gold} !important}
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 3px ${C.gold} !important}
+
+/* 拍一拍、通话结束：一行小灰字，两头各一颗星 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:${svg(STAR(.9))} left center/7px 10px no-repeat,${svg(STAR(.9))} right center/7px 10px no-repeat !important;border:none !important;border-radius:0 !important;padding:2px 18px !important;color:${C.fog} !important;box-shadow:none !important;letter-spacing:.12em !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.goldL} !important}
+[data-wk="note"][data-part="callsum"]{color:${C.fog} !important}
+
+/* 线下小结：墨色嵌板，标题是一条红丝绒签，右上角一颗红宝石 */
+[data-part="offlog"]{position:relative !important;overflow:visible !important;padding-top:30px !important}
+[data-part="offlog"]::before{content:"" !important;position:absolute !important;right:12px !important;top:10px !important;width:22px !important;height:22px !important;background:${svg(RUBY())} center/contain no-repeat !important}
+[data-wk="offlogtitle"]{display:inline-block !important;margin:0 0 6px !important;padding:3px 16px !important;background:linear-gradient(180deg,${C.red},${C.redD}) !important;color:${C.cream} !important;border:1px solid ${C.gold} !important;border-radius:6px !important;letter-spacing:.2em !important}
+[data-wk="offlogtitle"] *{color:${C.cream} !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.goldL} !important}
+[data-wk="offlogtranscript"]{border-top:1px solid rgba(201,160,78,.5) !important;color:${C.fog} !important}
+
+/* 加号面板：一颗颗金圈 */
+[data-wk="chatpanel"] *{color:${C.cream} !important}
+[data-wk="chattoolicon"]{background:${C.panel} !important;border:1.3px solid ${C.gold} !important;border-radius:50% !important;box-shadow:none !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.cream} !important;color:${C.cream} !important}
+[data-wk="chattoollabel"]{color:${C.fog} !important}
+
+/* 引用三处：玻璃条 */
+[data-wk="quotedraft"]{background:${C.panel} !important;border:none !important;border-top:1px solid ${C.gold} !important;position:relative !important;z-index:3 !important}
+[data-wk="quotedraft"] *{color:${C.ice} !important;border-color:rgba(255,255,255,.5) !important}
+[data-wk="quoteicon"]{display:none !important}
+[data-wk="quoteclear"]{color:${C.goldL} !important}
+[data-wk="quote"]{background:linear-gradient(135deg,rgba(255,255,255,.18),rgba(191,216,240,.08)) !important;color:${C.ice} !important;border:1px solid rgba(255,255,255,.5) !important;border-radius:8px !important;padding:3px 10px !important;opacity:1 !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.75 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "魔镜魔镜", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
