@@ -247,7 +247,7 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="chattoollabel"]{color:#E6E2FF !important}
 
 /* 引用三处：待发送那条＝一块磨砂玻璃条；气泡上方＝一朵小白云条；气泡里＝左边一道蓝紫水痕 */
-[data-wk="quotedraft"]{background:rgba(255,255,255,.92) !important;border:1.5px solid #C8B2FF !important;border-radius:16px !important;position:relative !important;padding-left:30px !important}
+[data-wk="quotedraft"]{background:rgba(255,255,255,.96) !important;border:1.5px solid #C8B2FF !important;border-radius:16px !important;position:relative !important;z-index:3 !important;margin:0 12px 6px !important;padding:6px 10px 6px 30px !important;box-shadow:0 4px 12px rgba(91,76,140,.3) !important}
 [data-wk="quotedraft"]::before{content:"" !important;position:absolute !important;left:10px !important;top:50% !important;width:12px !important;height:15px !important;margin-top:-8px !important;background:${svg(DROP())} center/contain no-repeat !important}
 [data-wk="quotedraft"] *{background:transparent !important;color:${C.ink} !important;border:none !important}
 [data-wk="quoteicon"]{display:none !important}
