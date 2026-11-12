@@ -6158,9 +6158,15 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   else if (opts.pov) {
     const pool = povSlotsFor(opts.pov.tier).slice();
     for (let k = pool.length - 1; k > 0; k--) { const q = Math.floor(Math.random() * (k + 1)); [pool[k], pool[q]] = [pool[q], pool[k]]; }
-    const _pl = "【这一张怎么拍·他自己定】镜头就是拍照那个人的眼睛。她此刻在做什么、什么姿势、看不看镜头、什么表情，一律照「场景/正在做什么」那一句画，不另编动作；"
-      + "远近和角度照这一刻来定，像他举着手机真会怎么拍下这一下的她。参考图只决定她是谁，姿势、角度、离镜头多远都不要照搬参考图。"
-      + "描述里没写她在做什么时，可以从这几种里挑，用不用都行：" + pool.slice(0, 4).join("／") + "。";
+    // 描述里没写从哪儿拍（写了的走上面那一支）：掷一格当这一张的方位，不连着两张一样（她 2026-11-13 转群友：「基本上每次生都是这个姿势和角度」——
+    //   原来只递灵感、写着「用不用都行」，出图就回到它最熟的那张：手机略高往下拍、人仰着脸。她点头：「没写才掷位置」）。
+    //   这一格只定站哪儿、多远、多高；她在做什么照描述（10-15 那条「别把描述里的动作盖掉」还是对的）
+    let _pi = Math.floor(Math.random() * pool.length);
+    if (pool[_pi] === buildPhotoPrompt._lastPov && pool.length > 1) _pi = (_pi + 1) % pool.length;
+    buildPhotoPrompt._lastPov = pool[_pi];
+    const _pl = "【这一张从哪儿拍】" + pool[_pi] + "。镜头就是拍照那个人的眼睛，这一格定的是他站在哪儿、离多远、从什么高度拍过去；"
+      + "她此刻在做什么、什么表情，照「场景/正在做什么」那一句画，不另编动作；这一格里写到的动作跟描述对不上的，以描述为准，只留下这一格的方位和远近。"
+      + "参考图只决定她是谁，姿势、角度、离镜头多远都不照搬参考图。";
     const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
     if (_si >= 0) parts.splice(_si + 1, 0, _pl); else parts.push(_pl);
   }
