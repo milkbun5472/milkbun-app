@@ -345,6 +345,11 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.orange} !important}
 [data-wk="callact"]{color:${C.dim} !important;font-style:italic !important}
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 5px ${C.gold},0 0 0 7px ${C.goldD},0 0 0 12px rgba(216,178,106,.25),0 0 40px rgba(242,180,74,.4) !important}
+/* 好感一栏照原来的排法：图形在左、字在右，不再底下空一大块放一个摆件 */
+[data-wk="stateaff"]{display:flex !important;align-items:center !important;gap:16px !important;padding:14px 20px 16px !important}
+[data-wk="stateheart"]{position:relative !important;left:auto !important;bottom:auto !important;top:auto !important;flex:none !important;margin:0 !important}
+[data-wk="stateheart"]{margin-top:14px !important}
+[data-wk="stateaffval"]{position:static !important;transform:none !important;display:inline-block !important;margin:0 0 6px !important;left:auto !important;bottom:auto !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "翡翠沙龙", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

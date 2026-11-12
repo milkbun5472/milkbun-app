@@ -335,6 +335,11 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.redL} !important}
 [data-wk="callact"]{color:${C.dim} !important;font-style:italic !important;letter-spacing:.1em !important}
 [data-wk="callavatar"]{border-radius:0 !important;box-shadow:0 0 0 6px ${C.ink},0 0 0 7px rgba(237,226,207,.5),0 0 40px rgba(224,53,58,.45) !important}
+/* 好感一栏照原来的排法：图形在左、字在右，不再底下空一大块放一个摆件 */
+[data-wk="stateaff"]{display:flex !important;align-items:center !important;gap:16px !important;padding:14px 20px 16px !important}
+[data-wk="stateheart"]{position:relative !important;left:auto !important;bottom:auto !important;top:auto !important;flex:none !important;margin:0 !important}
+[data-wk="stateaffval"]{display:none !important}
+[data-wk="stateheartnum"]{display:flex !important;align-items:center !important;justify-content:center !important;padding-top:4px !important;font-size:17px !important;font-weight:700 !important;color:#FFF1F1 !important;-webkit-text-stroke:0 !important;text-shadow:0 0 2px #3A0A0C,0 0 2px #3A0A0C,0 0 8px rgba(255,74,85,.8) !important;z-index:3 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "港风旧梦", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
