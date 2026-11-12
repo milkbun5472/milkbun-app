@@ -791,10 +791,12 @@
   //   设备是在公共版新地址门口输口令进来的，一台一行；停用＝那台几分钟内就打不开。
   function GatePanel({ t, props, onClose }) {
     const [d, setD] = useState(null), [err, setErr] = useState(""), [q, setQ] = useState(""), [busy, setBusy] = useState("");
-    const load = (qq, more) => api("/gate/list?q=" + encodeURIComponent(qq || "") + "&off=" + (more ? (d && d.devices.length) || 0 : 0))
+    // 她 2026-11-12：按状态筛、按最近打开排（服务器那头只读）
+    const [fst, setFst] = useState(""), [sort, setSort] = useState("created");
+    const load = (qq, more) => api("/gate/list?q=" + encodeURIComponent(qq || "") + "&st=" + fst + "&sort=" + sort + "&off=" + (more ? (d && d.devices.length) || 0 : 0))
       .then(x => { setErr(""); setD(prev => more && prev ? Object.assign({}, x, { devices: prev.devices.concat(x.devices || []) }) : x); })
       .catch(e => setErr(e.message));
-    useEffect(() => { const tm = setTimeout(() => load(q), q ? 350 : 0); return () => clearTimeout(tm); }, [q]);
+    useEffect(() => { const tm = setTimeout(() => load(q), q ? 350 : 0); return () => clearTimeout(tm); }, [q, fst, sort]);
     const kindOf = ua => /iPhone|iPad/.test(ua) ? "苹果" : /Android/.test(ua) ? "安卓" : /Mac|Windows|Linux/.test(ua) ? "电脑" : "设备";
     const day = ms => { const x = new Date(ms); return (x.getMonth() + 1) + "·" + x.getDate(); };
     const ST = { ok: "能进", pending: "等通过", off: "已停用" };
@@ -831,7 +833,12 @@
             h(ISearch, { size: 15, color: t.fog }),
             h("input", { "data-wk": "input", value: q, onChange: e => setQ(e.target.value), placeholder: "搜 QQ 号或昵称", maxLength: 40, className: "flex-1 min-w-0 outline-none",
               style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, background: "transparent", border: "none", padding: "9px 0" } })),
-          !d.devices.length ? h("div", { style: Object.assign({}, small, { padding: "28px 4px", textAlign: "center" }) }, q ? "没搜到" : "还没有设备进过门") :
+          h("div", { "data-wk": "nestgatefilter", className: "flex flex-wrap items-center", style: { gap: 6, marginBottom: 6 } },
+            [["", "全部"], ["ok", "能进"], ["pending", "等通过"], ["off", "已停用"]].map(([k, z]) => h(React.Fragment, { key: "s" + k }, pill(fst === k, z, () => setFst(k), "nestgatest")))),
+          h("div", { "data-wk": "nestgatesort", className: "flex flex-wrap items-center", style: { gap: 6, marginBottom: 10 } },
+            [["created", "新进门的在前"], ["last", "最近打开的在前"], ["lastOld", "最久没打开的在前"]].map(([k, z]) => h(React.Fragment, { key: "o" + k }, pill(sort === k, z, () => setSort(k), "nestgatesortpill")))),
+          (fst || q) && d.hit != null ? h("div", { style: Object.assign({}, small, { marginBottom: 4 }) }, "筛出 " + d.hit + " 台") : null,
+          !d.devices.length ? h("div", { style: Object.assign({}, small, { padding: "28px 4px", textAlign: "center" }) }, (q || fst) ? "没有对得上的" : "还没有设备进过门") :
           d.devices.map(r => h("div", { key: r.id, "data-wk": "nestgaterow", "data-on": r.status, className: "flex items-center",
               style: { gap: 8, padding: "10px 2px", borderBottom: "1px solid " + t.line, opacity: r.status === "off" ? .55 : 1 } },
             h("div", { className: "flex-1 min-w-0" },
@@ -842,7 +849,7 @@
               : pill(false, busy === r.id ? "…" : "停用", async () => { const rest = sameWho(r.who).filter(x => x !== r.id);
                   await setSt([r.id], "off");
                   if (rest.length) requestAppConfirm("还有 " + rest.length + " 台", "「" + r.who + "」名下还有 " + rest.length + " 台设备，也一起停掉吗？", () => setSt(rest, "off"), "一起停掉"); }, "nestgateoff"))),
-          d.devices.length < d.total && !q ? h("div", { style: { textAlign: "center", marginTop: 12 } }, pill(false, "再往下看", () => load(q, true), "nestgatemore")) : null)));
+          d.devices.length < (d.hit != null ? d.hit : d.total) ? h("div", { style: { textAlign: "center", marginTop: 12 } }, pill(false, "再往下看", () => load(q, true), "nestgatemore")) : null)));
   }
 
   // ── 进群验证（她 2026-10-28）：群链接、开关、验过的记录；只有管理口令看得到 ──────
