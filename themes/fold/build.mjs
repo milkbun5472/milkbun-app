@@ -103,6 +103,83 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 
 [data-wk="msg"][data-last="0"] [data-wk="meta"]{display:none !important}
 
+
+/* ───── 折角便签 · 第二批：卡片（形状不动；方角细线淡影，右上折一个白角；转账、红包像折起一角的信纸） ───── */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"],[data-wk="rpcard"]{border:${LINE} !important;border-radius:2px !important;box-shadow:${SH} !important;color:${C.ink} !important;position:relative !important;overflow:visible !important}
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{background:${C.paper} !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:${C.ink} !important;border-color:rgba(63,58,82,.25) !important}
+[data-wk="transfercard"]::after,[data-wk="photocard"]::after,[data-wk="namecard"]::after,[data-part="offlog"]::after,[data-wk="rpcard"]::after,[data-wk="voice"]::after{content:"" !important;position:absolute !important;right:-1.4px !important;top:-1.4px !important;left:auto !important;bottom:auto !important;width:18px !important;height:18px !important;background:${svg(CORNER(C.fold))} center/contain no-repeat !important;z-index:3 !important;pointer-events:none !important;border:none !important;transform:none !important}
+/* 转账：一页信纸——淡横格，金额下一道紫线，收下盖紫色「√ 已收」小方章 */
+[data-wk="transfercard"]{background:repeating-linear-gradient(180deg,transparent 0 23px,rgba(107,91,168,.12) 23px 24px),${C.paper} !important;padding-top:24px !important}
+[data-wk="transfercard"]::before{content:"TRANSFER" !important;position:absolute !important;left:16px !important;top:8px !important;font:600 9px/1 ui-monospace,Menlo,monospace !important;letter-spacing:.25em !important;color:${C.fog} !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.deep} !important;font-weight:700 !important}
+[data-wk="transferrule"]{border:none !important;height:1.4px !important;background:${C.deep} !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:${C.lilac} !important;border-top:${LINE} !important}
+[data-wk="transferbtn"]{border-radius:2px !important;border:${LINE} !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.deep} !important;color:#fff !important}
+[data-wk="transferbtn"][data-part="back"]{background:${C.paper} !important;color:${C.ink} !important}
+[data-wk="transferseal"]{border:${LINE} !important;border-radius:2px !important;background:${C.paper} !important;color:${C.ink} !important;box-shadow:none !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{border:2px solid ${C.deep} !important;color:${C.deep} !important;transform:rotate(-8deg) !important;background:rgba(216,206,240,.5) !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *{color:${C.deep} !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.6 !important}
+/* 红包：一个藤紫信封——三角封口、封口上一颗深紫小圆封 */
+[data-wk="rpcard"]{background:${C.lilac} !important;overflow:hidden !important}
+[data-wk="rpcard"] *{color:${C.ink} !important}
+[data-wk="rpflap"]{height:46px !important;bottom:auto !important;border:none !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 46' preserveAspectRatio='none'><path d='M0 0 L50 44 L100 0' fill='#C9BCE8' stroke='${C.line}' stroke-width='1.4' vector-effect='non-scaling-stroke' stroke-linejoin='round'/></svg>`)} center/100% 100% no-repeat !important}
+[data-wk="rpseal"]{border:2px solid ${C.paper} !important;background:${C.deep} !important;width:20px !important;height:20px !important;left:50% !important;margin-left:-10px !important;top:30px !important;border-radius:50% !important}
+[data-wk="rpseal"] *,[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"] > div:not([data-wk]){padding-top:56px !important;text-align:center !important;padding-left:14px !important}
+[data-wk="rpcard"][data-status="done"]{opacity:.65 !important;filter:saturate(.6) !important}
+[data-wk="rpenvelope"]{background:${C.lilac} !important;border:${LINE} !important;border-radius:4px !important;box-shadow:4px 4px 0 rgba(63,58,82,.2) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:#C9BCE8 !important;border-color:${C.line} !important}
+[data-wk="rpenvelope"] *{color:${C.ink} !important}
+[data-wk="rpenvelope"][data-stage="open"]{background:${svg(DOTS)} 0 0/18px 18px,${C.paper} !important}
+[data-wk="rpopenbtn"]{background:${C.deep} !important;border:2px solid ${C.paper} !important;box-shadow:0 0 0 1.4px ${C.line} !important}
+[data-wk="rpopenbtn"] *{color:#fff !important}
+[data-wk="rpamount"]{color:${C.deep} !important}
+/* 照片、语音、天气、位置、名片 */
+[data-wk="photocard"]{padding:8px 8px 10px !important}
+[data-wk="photoface"]{border-radius:0 !important;background:${C.bg} !important;border:1px solid rgba(63,58,82,.2) !important}
+[data-wk="photoface"] *,[data-wk="phototext"],[data-wk="photocap"],[data-wk="photohint"]{color:${C.ink} !important}
+[data-wk="voice"][data-me]{background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important;box-shadow:${SH} !important;position:relative !important;overflow:visible !important}
+[data-wk="voice"][data-me="1"]{background:${C.lilac} !important}
+[data-wk="voice"] > *{background:transparent !important;border:none !important;box-shadow:none !important;color:${C.ink} !important}
+[data-wk="voicewave"] span{background:${C.deep} !important}
+[data-wk="wxcardsky"]{background:${C.bg} !important}
+[data-wk="wxcardsky"] *{color:${C.ink} !important}
+[data-wk="wxcardsky"] svg{stroke:${C.deep} !important}
+[data-wk="wxcardsay"]{background:${C.paper} !important;color:${C.ink} !important;border-top:${LINE} !important}
+[data-wk="geopin"]{background:${C.deep} !important;border-radius:2px !important;box-shadow:0 0 0 2px #fff !important}
+[data-wk="geopinstem"]{background:${C.line} !important}
+[data-wk="namecard"] img{border-radius:2px !important;box-shadow:0 0 0 1.4px ${C.line} !important}
+/* 拍一拍、通话结束：小便签条 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:${C.lilac} !important;border:${LINE} !important;border-radius:2px !important;color:${C.ink} !important;padding:2px 14px !important;font-size:12px !important;box-shadow:2px 2px 0 rgba(63,58,82,.16) !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.ink} !important}
+[data-wk="note"][data-part="callsum"]{color:${C.fog} !important}
+/* 线下小结：一页便签，标题等宽 */
+[data-wk="offlogtitle"]{font-family:ui-monospace,Menlo,monospace !important;letter-spacing:.2em !important;color:${C.deep} !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.deep} !important}
+[data-wk="offlogtranscript"]{border-top:${LINE} !important}
+/* 加号面板：一张张折角小便签，白和藤紫交替 */
+[data-wk="chatpanel"]{background:${C.paper} !important;border-top:${LINE} !important}
+[data-wk="chattoolicon"]{background:${C.paper} !important;border:${LINE} !important;border-radius:2px !important;box-shadow:2px 2px 0 rgba(63,58,82,.16) !important;position:relative !important}
+[data-wk="chattool"]:nth-child(odd) [data-wk="chattoolicon"]{background:${C.lilac} !important}
+[data-wk="chattoolicon"]::after{content:"" !important;position:absolute !important;right:-1.4px !important;top:-1.4px !important;width:12px !important;height:12px !important;background:${svg(CORNER(C.fold))} center/contain no-repeat !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.ink} !important;color:${C.ink} !important}
+[data-wk="chattoollabel"]{color:${C.ink} !important}
+/* 引用三处：一张小便签条，左边一道深紫线 */
+[data-wk="quotedraft"]{background:${C.paper} !important;border-top:none !important}
+[data-wk="quote"]{background:${C.paper} !important;color:${C.ink} !important;border:${LINE} !important;border-left:4px solid ${C.deep} !important;border-radius:2px !important;opacity:1 !important}
+[data-wk="quote"][data-me="1"]{background:${C.lilac} !important}
+[data-wk="quoteicon"],[data-wk="quoteclear"]{color:${C.deep} !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid ${C.deep} !important;padding-left:8px !important;opacity:.75 !important}
+/* 线下：顶栏加号、底栏照片键也是折角便签 */
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:30px !important;height:30px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important;box-shadow:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(NOTE(`<rect x='9' y='13' width='12' height='9' fill='none' stroke='${C.ink}' stroke-width='1.4'/><path d='M9.5 21 L13.5 17.5 L16 19.5 L18 18 L20.5 20.5' fill='none' stroke='${C.ink}' stroke-width='1.2'/>`))} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "折角便签", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
