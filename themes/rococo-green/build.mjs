@@ -1,5 +1,5 @@
-// 墨绿贝壳：法式复古。墨绿暗纹底、奶油顶栏底栏、橘红细边；所有框都顶一枚金扇贝、角上卷一道金涡卷。
-// 我的话＝橘红圆角牌，他的话＝奶油圆角牌；头像＝金珠圈镜框，上贝壳下涡卷。用法：node themes/green-shell/build.mjs
+// 洛可可墨绿：法式复古。墨绿暗纹底、奶油顶栏底栏、橘红细边；所有框都顶一枚金色洛可可卷叶饰、角上卷一道金涡卷。
+// 我的话＝橘红圆角牌，他的话＝奶油圆角牌；头像＝金珠圈镜框，上贝壳下涡卷。用法：node themes/rococo-green/build.mjs
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,13 +10,13 @@ const SERIF = `"Songti SC","Noto Serif SC","STSong",serif`;
 
 // 底纹：一排排叶形暗纹
 const DAMASK = `<svg xmlns='http://www.w3.org/2000/svg' width='48' height='64'><g fill='none' stroke='#2C5C50' stroke-width='1.2' opacity='.9'><path d='M24 4 Q34 18 24 32 Q14 18 24 4Z'/><path d='M24 32 Q34 46 24 60 Q14 46 24 32Z'/><path d='M0 18 Q8 32 0 46 M48 18 Q40 32 48 46'/></g></svg>`;
-// 扇贝
-const SHELL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 24'><path d='M20 22 L4 12 Q6 3 20 2 Q34 3 36 12Z' fill='${C.gold}' stroke='${C.goldD}' stroke-width='1'/><path d='M20 22 L8 6 M20 22 L14 3 M20 22 V2 M20 22 L26 3 M20 22 L32 6' stroke='${C.cream}' stroke-width='1' opacity='.85'/><circle cx='20' cy='21' r='2.4' fill='${C.goldD}'/></svg>`;
+// 洛可可饰（rocaille）：正中一簇五瓣卷叶，底下一道托座，两侧各一只朝外卷的 C 形涡卷
+const SHELL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 30'><g fill='${C.gold}' stroke='${C.goldD}' stroke-width='.9' stroke-linejoin='round'><path transform='rotate(-64 30 23)' d='M30 23 C26 18 25.5 9 30 6 C34.5 9 34 18 30 23Z'/><path transform='rotate(64 30 23)' d='M30 23 C26 18 25.5 9 30 6 C34.5 9 34 18 30 23Z'/><path transform='rotate(-32 30 23)' d='M30 23 C26 18 25.5 9 30 6 C34.5 9 34 18 30 23Z'/><path transform='rotate(32 30 23)' d='M30 23 C26 18 25.5 9 30 6 C34.5 9 34 18 30 23Z'/><path transform='rotate(0 30 23)' d='M30 23 C26 18 25.5 9 30 6 C34.5 9 34 18 30 23Z'/></g><g fill='none' stroke='${C.cream}' stroke-width='.8' opacity='.85'><path transform='rotate(-64 30 23)' d='M30 20 V10'/><path transform='rotate(-32 30 23)' d='M30 20 V10'/><path transform='rotate(0 30 23)' d='M30 20 V10'/><path transform='rotate(32 30 23)' d='M30 20 V10'/><path transform='rotate(64 30 23)' d='M30 20 V10'/></g><path d='M20 26 Q30 22 40 26' fill='none' stroke='${C.gold}' stroke-width='2.2' stroke-linecap='round'/><circle cx='30' cy='25' r='2' fill='${C.goldD}'/><g fill='none' stroke='${C.gold}' stroke-width='1.8' stroke-linecap='round'><path d='M20 26 Q12 27 9 21 Q7 15 12 14 Q16 14 15.5 18 Q15 20 12.5 19.5'/><path d='M40 26 Q48 27 51 21 Q53 15 48 14 Q44 14 44.5 18 Q45 20 47.5 19.5'/></g><g fill='${C.gold}'><circle cx='4' cy='24' r='1.4'/><circle cx='56' cy='24' r='1.4'/></g><path d='M9 21 Q5 22 4 24 M51 21 Q55 22 56 24' fill='none' stroke='${C.gold}' stroke-width='1.2'/></svg>`;
 // 涡卷（右上朝外卷）
 const CURL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M2 20 Q10 20 14 14 Q18 8 14 5 Q10 3 9 7 Q9 10 12 10' fill='none' stroke='${C.gold}' stroke-width='1.6' stroke-linecap='round'/><path d='M18 3 L21 1' stroke='${C.gold}' stroke-width='1.6' stroke-linecap='round'/></svg>`;
 const CURLB = CURL.replace("viewBox='0 0 24 24'>", "viewBox='0 0 24 24'><g transform='rotate(180 12 12)'>").replace("</svg>", "</g></svg>");
 // 头像镜框：金珠圈＋顶贝壳＋底涡卷
-const MIRROR = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 120'><circle cx='50' cy='60' r='40' fill='none' stroke='${C.gold}' stroke-width='5'/><circle cx='50' cy='60' r='40' fill='none' stroke='${C.cream}' stroke-width='2' stroke-dasharray='.1 6' stroke-linecap='round'/><circle cx='50' cy='60' r='35.5' fill='none' stroke='${C.goldD}' stroke-width='1'/><g transform='translate(30 2) scale(1)'><path d='M20 22 L4 12 Q6 3 20 2 Q34 3 36 12Z' fill='${C.gold}' stroke='${C.goldD}' stroke-width='1'/><path d='M20 22 L8 6 M20 22 L14 3 M20 22 V2 M20 22 L26 3 M20 22 L32 6' stroke='${C.cream}' stroke-width='1'/></g><path d='M38 104 Q36 112 42 114 Q46 115 46 110 M62 104 Q64 112 58 114 Q54 115 54 110' fill='none' stroke='${C.gold}' stroke-width='2.4' stroke-linecap='round'/><path d='M8 62 Q2 66 6 72 Q10 74 12 70 M92 62 Q98 66 94 72 Q90 74 88 70' fill='none' stroke='${C.gold}' stroke-width='2' stroke-linecap='round'/></svg>`;
+const MIRROR = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 120'><circle cx='50' cy='60' r='40' fill='none' stroke='${C.gold}' stroke-width='5'/><circle cx='50' cy='60' r='40' fill='none' stroke='${C.cream}' stroke-width='2' stroke-dasharray='.1 6' stroke-linecap='round'/><circle cx='50' cy='60' r='35.5' fill='none' stroke='${C.goldD}' stroke-width='1'/>${SHELL.replace("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 30'>","<g transform='translate(20 -2) scale(1)'>").replace('</svg>','</g>')}<path d='M38 104 Q36 112 42 114 Q46 115 46 110 M62 104 Q64 112 58 114 Q54 115 54 110' fill='none' stroke='${C.gold}' stroke-width='2.4' stroke-linecap='round'/><path d='M8 62 Q2 66 6 72 Q10 74 12 70 M92 62 Q98 66 94 72 Q90 74 88 70' fill='none' stroke='${C.gold}' stroke-width='2' stroke-linecap='round'/></svg>`;
 // 涡卷花边带
 const SCROLLBAND = `<svg xmlns='http://www.w3.org/2000/svg' width='40' height='20'><path d='M0 14 Q10 14 14 9 Q17 4 13 3 Q9 3 10 7 Q11 10 16 10 Q24 10 30 14 Q35 17 40 14' fill='none' stroke='${C.gold}' stroke-width='1.5' stroke-linecap='round'/></svg>`;
 // 时间：椭圆徽框
@@ -28,20 +28,20 @@ const I_PLUS = RB(C.greenL, `<path d='M20 12 V28 M12 20 H28' stroke='${C.cream}'
 const I_HOUSE = RB(C.greenL, `<path d='M12 20 L20 13 L28 20 V27 H12Z' fill='${C.cream}' stroke='${C.ink}' stroke-width='1.6' stroke-linejoin='round'/>`);
 const I_MORE = RB(C.orange, `<g fill='${C.cream}' stroke='${C.ink}' stroke-width='1'><circle cx='13' cy='20' r='2.6'/><circle cx='20' cy='20' r='2.6'/><circle cx='27' cy='20' r='2.6'/></g>`);
 const I_REPLY = RB(C.greenL, `<path d='M11 14 H29 V24 H19 L14 28 V24 H11Z' fill='${C.cream}' stroke='${C.ink}' stroke-width='1.4' stroke-linejoin='round'/>`);
-const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 74'><circle cx='35' cy='40' r='27' fill='none' stroke='${C.gold}' stroke-width='5'/><circle cx='35' cy='40' r='27' fill='none' stroke='${C.cream}' stroke-width='2' stroke-dasharray='.1 5.5' stroke-linecap='round'/><circle cx='35' cy='40' r='22' fill='${C.orange}' stroke='${C.goldD}' stroke-width='1'/><path d='M35 52 V29 M26 37 L35 28 L44 37' fill='none' stroke='${C.cream}' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/><g transform='translate(19 0) scale(.8)'><path d='M20 22 L4 12 Q6 3 20 2 Q34 3 36 12Z' fill='${C.gold}' stroke='${C.goldD}' stroke-width='1'/><path d='M20 22 L8 6 M20 22 L14 3 M20 22 V2 M20 22 L26 3 M20 22 L32 6' stroke='${C.cream}' stroke-width='1'/></g><path d='M6 50 Q0 56 5 62 Q9 64 10 60 M64 50 Q70 56 65 62 Q61 64 60 60' fill='none' stroke='${C.gold}' stroke-width='2' stroke-linecap='round'/></svg>`;
+const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 74'><circle cx='35' cy='40' r='27' fill='none' stroke='${C.gold}' stroke-width='5'/><circle cx='35' cy='40' r='27' fill='none' stroke='${C.cream}' stroke-width='2' stroke-dasharray='.1 5.5' stroke-linecap='round'/><circle cx='35' cy='40' r='22' fill='${C.orange}' stroke='${C.goldD}' stroke-width='1'/><path d='M35 52 V29 M26 37 L35 28 L44 37' fill='none' stroke='${C.cream}' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/>${SHELL.replace("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 30'>","<g transform='translate(11 -3) scale(.8)'>").replace('</svg>','</g>')}<path d='M6 50 Q0 56 5 62 Q9 64 10 60 M64 50 Q70 56 65 62 Q61 64 60 60' fill='none' stroke='${C.gold}' stroke-width='2' stroke-linecap='round'/></svg>`;
 
 const bubble = { myBg: C.orange, myText: C.cream, myBorder: "none", charBg: C.cream, charText: C.ink, charBorder: "none", radius: 14, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
 const css = `
-/* ───── 墨绿贝壳 · 第一批 ───── */
+/* ───── 洛可可墨绿 · 第一批 ───── */
 [data-wk="chat"]{background:${svg(DAMASK)} 0 0/48px 64px,radial-gradient(ellipse at 50% 30%,#245447,${C.green2} 80%) !important}
 [data-wk="body"]{background:transparent !important}
 [data-wk="chat"] *{font-family:${SERIF} !important}
 
-/* 顶栏：奶油底，下沿一道橘红边，再垂一条金涡卷花边带、正中一枚扇贝 */
+/* 顶栏：奶油底，下沿一道橘红边，再垂一条金涡卷花边带、正中一枚洛可可饰 */
 [data-wk="chathead"]{background:${C.cream} !important;border-bottom:none !important;box-shadow:0 5px 0 ${C.orange},0 7px 0 ${C.orangeD} !important;position:relative !important;overflow:visible !important;gap:6px !important;z-index:5 !important}
-[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:calc(100% + 8px) !important;height:20px !important;background:${svg(SHELL)} center top/40px 24px no-repeat,${svg(SCROLLBAND)} 0 0/40px 20px repeat-x !important;pointer-events:none !important}
+[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:calc(100% + 8px) !important;height:20px !important;background:${svg(SHELL)} center top/56px 28px no-repeat,${svg(SCROLLBAND)} 0 0/40px 20px repeat-x !important;pointer-events:none !important}
 [data-wk="chathead"] + *:not([data-wk="body"]){margin-top:28px !important}
 [data-wk="body"]{padding-top:14px !important}
 [data-wk="headink"],[data-wk="headink"] *{color:${C.ink} !important}
@@ -57,7 +57,7 @@ const css = `
 [data-wk="chatmore"]{background:${svg(I_MORE)} center/contain no-repeat !important}
 [data-wk="chatmore"] *,[data-wk="sameroom"] *{opacity:0 !important}
 
-/* 头像：圆的，套一面金珠圈镜框，顶上扇贝、底下一对涡卷 */
+/* 头像：圆的，套一面金珠圈镜框，顶上洛可可饰、底下一对涡卷 */
 button[data-wk="avatar"],span[data-wk="avatar"]{position:relative !important;overflow:visible !important;border-radius:50% !important;box-shadow:none !important}
 button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{border-radius:50% !important}
 button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before{content:"" !important;position:absolute !important;left:-25% !important;right:-25% !important;top:-38% !important;bottom:-38% !important;background:${svg(MIRROR)} center/contain no-repeat !important;pointer-events:none !important;border:none !important;border-radius:0 !important;z-index:2 !important}
@@ -65,18 +65,18 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chathead"] button:has(> img[data-wk="avatar"])::before{content:"" !important;position:absolute !important;left:-4px !important;top:50% !important;width:44px !important;height:44px !important;margin-top:-22px !important;border-radius:50% !important;box-shadow:0 0 0 3px ${C.gold},0 0 0 4.5px ${C.goldD} !important;background:radial-gradient(circle,transparent 60%,transparent 61%) !important;pointer-events:none !important;z-index:2 !important}
 [data-wk="chathead"] img[data-wk="avatar"]{border-radius:50% !important}
 
-/* 气泡：圆角牌，金细边；顶上正中一枚扇贝，右上、左下各卷一道金涡卷 */
+/* 气泡：圆角牌，金细边；顶上正中一枚洛可可饰，右上、左下各卷一道金涡卷 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:14px !important;letter-spacing:.06em !important;padding:11px 18px !important}
-[data-wk="bubble"][data-kind="text"]::before{content:"" !important;position:absolute !important;left:50% !important;top:-12px !important;width:30px !important;height:18px !important;margin-left:-15px !important;background:${svg(SHELL)} center/contain no-repeat !important;pointer-events:none !important;border:none !important;transform:none !important;right:auto !important;bottom:auto !important}
+[data-wk="bubble"][data-kind="text"]::before{content:"" !important;position:absolute !important;left:50% !important;top:-13px !important;width:40px !important;height:20px !important;margin-left:-20px !important;background:${svg(SHELL)} center/contain no-repeat !important;pointer-events:none !important;border:none !important;transform:none !important;right:auto !important;bottom:auto !important}
 [data-wk="bubble"][data-kind="text"]::after{content:"" !important;position:absolute !important;inset:-12px !important;background:${svg(CURL)} right top/18px 18px no-repeat,${svg(CURLB)} left bottom/18px 18px no-repeat !important;pointer-events:none !important;border:none !important;transform:none !important;width:auto !important;height:auto !important}
 [data-wk="bubble"][data-kind="text"][data-me="1"]{background:linear-gradient(180deg,#DC6A44,${C.orange}) !important;color:${C.cream} !important;border:none !important;box-shadow:0 0 0 2px ${C.gold},0 0 0 3px ${C.goldD},0 4px 0 3px rgba(0,0,0,.18) !important}
 [data-wk="bubble"][data-kind="text"][data-me="0"]{background:${C.cream} !important;color:${C.ink} !important;border:none !important;box-shadow:0 0 0 2px ${C.gold},0 0 0 3px ${C.goldD},0 4px 0 3px rgba(0,0,0,.18) !important}
 [data-first="0"] [data-wk="bubble"][data-kind="text"]::before{content:none !important}
 
-/* 时间：一枚椭圆徽框，顶上扇贝、两侧涡卷 */
+/* 时间：一枚椭圆徽框，顶上洛可可饰、两侧涡卷 */
 [data-wk="time"]{display:flex !important;justify-content:center !important;margin-top:10px !important}
 [data-wk="time"] > span{position:relative !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:150px !important;height:34px !important;padding:6px 34px 0 !important;background:${svg(OVAL)} center/100% 100% no-repeat !important;border:none !important;box-shadow:none !important;color:${C.ink} !important;letter-spacing:.15em !important;font-size:12.5px !important}
-[data-wk="time"] > span::before{content:"" !important;position:absolute !important;left:50% !important;top:-12px !important;width:28px !important;height:17px !important;margin-left:-14px !important;background:${svg(SHELL)} center/contain no-repeat !important}
+[data-wk="time"] > span::before{content:"" !important;position:absolute !important;left:50% !important;top:-14px !important;width:40px !important;height:20px !important;margin-left:-20px !important;background:${svg(SHELL)} center/contain no-repeat !important}
 [data-wk="time"] > span::after{content:"" !important;position:absolute !important;left:-14px !important;right:-14px !important;top:6px !important;height:26px !important;background:${svg(CURLB)} left center/20px 20px no-repeat,${svg(CURL)} right center/20px 20px no-repeat !important}
 /* 已送达＝后面一颗橘红涡纹；已读＝前面一颗橘红圆点 */
 [data-wk="meta"]{color:${C.dim} !important;font-size:10.5px !important;letter-spacing:.12em !important;display:inline-flex !important;align-items:center !important;gap:6px !important}
@@ -101,7 +101,7 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="sysnotetext"]::before{content:"" !important;display:inline-block !important;width:13px !important;height:13px !important;margin-right:6px !important;vertical-align:-2px !important;background:${svg(CURLB)} center/contain no-repeat !important}
 [data-wk="sysnoteclose"]{color:${C.dim} !important}
 
-/* 底栏：奶油底，上沿一道墨绿边＋一条涡卷花边带；右边是一枚大的橘红发送章，戴金珠圈、顶扇贝 */
+/* 底栏：奶油底，上沿一道墨绿边＋一条涡卷花边带；右边是一枚大的橘红发送章，戴金珠圈、顶洛可可饰 */
 [data-wk="composer"]{background:${C.cream} !important;border-top:none !important;box-shadow:0 -4px 0 ${C.greenL} !important;position:relative !important;overflow:visible !important;align-items:center !important;gap:10px !important}
 [data-wk="composer"]::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:calc(100% + 4px) !important;height:20px !important;background:${svg(SCROLLBAND)} 0 0/40px 20px repeat-x !important;transform:scaleY(-1) !important;pointer-events:none !important}
 [data-wk="chatinput"]{background:#FBF5E6 !important;border:1.6px solid ${C.gold} !important;border-radius:999px !important;color:${C.ink} !important;box-shadow:inset 0 0 0 3px #FBF5E6,inset 0 0 0 4px rgba(156,122,60,.4) !important}
@@ -116,6 +116,6 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chatpanel"]{background:${C.cream} !important;border-top:2px solid ${C.gold} !important}
 `;
 
-const pack = { kind: "chat-look", v: 1, name: "墨绿贝壳", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
-writeFileSync(join(here, "墨绿贝壳-美化.json"), JSON.stringify(pack));
+const pack = { kind: "chat-look", v: 1, name: "洛可可墨绿", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
+writeFileSync(join(here, "洛可可墨绿-美化.json"), JSON.stringify(pack));
 console.log("ok", css.length);
