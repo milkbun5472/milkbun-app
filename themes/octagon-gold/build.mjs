@@ -54,6 +54,7 @@ const SCREENTOP = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 40'>
 // 八角月洞门：墨墙上开一扇八角门洞，门外夜空一轮金月、远山、柳枝
 const GATE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 300'><defs><linearGradient id='n' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#0B1324'/><stop offset='1' stop-color='#22263A'/></linearGradient><clipPath id='g'><path d='M135 30 H255 L330 105 V230 L255 300 H135 L60 230 V105Z'/></clipPath></defs><g clip-path='url(#g)'><rect x='0' y='0' width='390' height='300' fill='url(#n)'/><circle cx='250' cy='95' r='30' fill='#EBD394'/><circle cx='262' cy='88' r='27' fill='#0B1324' opacity='.25'/><g fill='#fff' opacity='.7'><circle cx='120' cy='80' r='1.2'/><circle cx='170' cy='60' r='1'/><circle cx='300' cy='150' r='1.2'/><circle cx='95' cy='140' r='1'/></g><path d='M60 240 Q120 180 180 220 Q240 170 330 230 V300 H60Z' fill='#141A2A'/><path d='M60 262 Q140 225 220 255 Q280 235 330 260 V300 H60Z' fill='#0E121D'/><path d='M100 30 Q110 90 92 150 M100 30 Q125 85 118 140' fill='none' stroke='#5A6B3A' stroke-width='1.4'/></g><path d='M135 30 H255 L330 105 V230 L255 300 H135 L60 230 V105Z' fill='none' stroke='${C.gold}' stroke-width='5'/><path d='M140 40 H250 L320 110 V226 L250 292 H140 L70 226 V110Z' fill='none' stroke='${C.goldD}' stroke-width='1.4'/></svg>`;
 
+const LANTERNONE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 76'><rect x='20' y='0' width='10' height='5'/><path d='M10 6 H40 L44 12 H6Z'/><path d='M16 13 H34 L46 25 V51 L34 63 H16 L4 51 V25Z'/><path d='M6 64 H44 L40 70 H10Z'/><rect x='23' y='70' width='4' height='6'/></svg>`;
 const bubble = { myBg: C.gold, myText: C.ink, myBorder: "none", charBg: C.ink2, charText: C.cream, charBorder: "none", radius: 0, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -267,14 +268,14 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.dim} !important}
 [data-wk="statevoice"] [data-wk="statevoicedel"]{color:#5A4520 !important}
 [data-wk="statevoice"] + div > button{background:${C.ink2} !important;color:${C.goldL} !important;border:1px solid ${C.gold} !important;border-radius:0 !important;font-family:serif !important}
-/* 好感：一排五盏小金灯笼，按好感点亮 */
-[data-wk="stateaff"]{background:transparent !important;border-top:1px solid ${C.goldD} !important;position:relative !important;display:block !important;padding:16px 26px 70px !important;overflow:hidden !important}
+/* 好感：一盏八角宫灯，好感多少就从下往上亮到哪 */
+[data-wk="stateaff"]{background:transparent !important;border-top:1px solid ${C.goldD} !important;position:relative !important;display:block !important;padding:16px 26px 96px !important;overflow:hidden !important}
 [data-wk="stateaff"] *{color:${C.cream} !important;font-family:serif !important}
-[data-wk="stateheart"]{position:absolute !important;width:36px !important;left:calc(50% - 18px) !important;height:180px !important;bottom:calc(36px - 90px) !important;transform:rotate(90deg) !important;--sc-heart-mask:${svg(LANTERNMASK)} !important;filter:drop-shadow(1.2px 0 0 ${C.gold}) drop-shadow(-1.2px 0 0 ${C.gold}) drop-shadow(0 1.2px 0 ${C.gold}) drop-shadow(0 -1.2px 0 ${C.gold}) drop-shadow(0 0 6px rgba(235,211,148,.45)) !important}
+[data-wk="stateheart"]{position:absolute !important;width:50px !important;height:76px !important;left:calc(50% - 25px) !important;bottom:10px !important;transform:none !important;--sc-heart-mask:${svg(LANTERNONE)} !important;filter:drop-shadow(1.3px 0 0 ${C.gold}) drop-shadow(-1.3px 0 0 ${C.gold}) drop-shadow(0 1.3px 0 ${C.gold}) drop-shadow(0 -1.3px 0 ${C.gold}) drop-shadow(0 0 14px rgba(235,211,148,.45)) !important}
 [data-wk="stateheart"] > div{-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important}
 [data-wk="stateheartline"]{background:transparent !important;opacity:0 !important}
 [data-wk="stateheartbase"]{background:#3D3427 !important;opacity:1 !important}
-[data-wk="stateheartfill"] > div{background:linear-gradient(90deg,#FFE7A8,${C.gold} 60%,#C9472E) !important;opacity:1 !important;border-top:none !important}
+[data-wk="stateheartfill"] > div{background:radial-gradient(ellipse at 50% 60%,#FFF1C2,#F2B44A 45%,#C9472E 90%) !important;opacity:1 !important;border-top:none !important}
 [data-wk="stateheartnum"],[data-wk="stateheartknob"]{display:none !important}
 [data-wk="stateaffval"]{display:block !important;position:absolute !important;right:26px !important;top:12px !important;font-size:26px !important;font-weight:700 !important;color:${C.goldL} !important;font-family:serif !important}
 /* 翻旧的：一页页墨底金边的册页，左上角一颗金菱 */
