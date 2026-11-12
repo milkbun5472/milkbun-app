@@ -39,6 +39,10 @@ const OVALF = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 120' pre
 // ── 第三批用的图 ──
 const PERFUME = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 76'><rect x='22' y='0' width='12' height='8' rx='2'/><rect x='24' y='8' width='8' height='6'/><path d='M14 14 H42 Q52 14 52 28 V60 Q52 74 38 74 H18 Q4 74 4 60 V28 Q4 14 14 14Z'/></svg>`;
 
+// ── 第四批用的图 ──
+// 沙龙墙上一面大椭圆金镜，镜里映着两簇烛光
+const MIRRORBIG = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 340'><defs><radialGradient id='m' cx='50%' cy='45%' r='60%'><stop offset='0' stop-color='#3E7466'/><stop offset='1' stop-color='#13302A'/></radialGradient><radialGradient id='f'><stop offset='0' stop-color='#FFE9B0' stop-opacity='.95'/><stop offset='.4' stop-color='#F2B44A' stop-opacity='.4'/><stop offset='1' stop-color='#F2B44A' stop-opacity='0'/></radialGradient></defs><ellipse cx='150' cy='190' rx='118' ry='138' fill='url(#m)'/><circle cx='105' cy='175' r='38' fill='url(#f)'/><circle cx='195' cy='165' r='30' fill='url(#f)'/><path d='M60 120 Q90 90 120 110' fill='none' stroke='#fff' stroke-width='3' opacity='.18' stroke-linecap='round'/><ellipse cx='150' cy='190' rx='118' ry='138' fill='none' stroke='${C.gold}' stroke-width='12'/><ellipse cx='150' cy='190' rx='118' ry='138' fill='none' stroke='${C.cream}' stroke-width='4' stroke-dasharray='.1 11' stroke-linecap='round'/><ellipse cx='150' cy='190' rx='108' ry='128' fill='none' stroke='${C.goldD}' stroke-width='2'/>${SHELL.replace("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 30'>", "<g transform='translate(90 20) scale(2)'>").replace("</svg>", "</g>")}<path d='M100 326 Q90 340 106 338 M200 326 Q210 340 194 338' fill='none' stroke='${C.gold}' stroke-width='4' stroke-linecap='round'/><path d='M28 190 Q14 200 22 214 Q30 218 32 210 M272 190 Q286 200 278 214 Q270 218 268 210' fill='none' stroke='${C.gold}' stroke-width='4' stroke-linecap='round'/></svg>`;
+
 const bubble = { myBg: C.orange, myText: C.cream, myBorder: "none", charBg: C.cream, charText: C.ink, charBorder: "none", radius: 14, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -291,6 +295,53 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="gazeempty"]{background:rgba(244,234,210,.1) !important;border:1.5px dashed ${C.gold} !important;border-radius:16px !important;color:${C.cream} !important}
 [data-wk="gazeempty"] > div:first-child{color:${C.cream} !important}
 [data-wk="gazeempty"] button{background:${C.orange} !important;color:${C.cream} !important;border:none !important;border-radius:999px !important;box-shadow:0 0 0 1.5px ${C.gold} !important}
+/* ───── 翡翠沙龙 · 第四批：线下＝沙龙墙上一面大椭圆金镜，镜里映着烛光；卡片顶洛可可饰 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(MIRRORBIG)} center bottom 70px/86% auto no-repeat,${svg(DAMASK)} 0 0/48px 64px,radial-gradient(ellipse at 50% 30%,#245447,${C.green2} 80%) !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] *{font-family:${SERIF} !important}
+[data-wk="offline"] [data-wk="chathead"]::after{display:none !important}
+[data-wk="offline"] [data-wk="chathead"] + *{margin-top:0 !important;padding-top:14px !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:${C.ink} !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:32px !important;height:32px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:${C.orange} !important;color:${C.cream} !important;border:none !important;border-radius:999px !important;box-shadow:0 0 0 1.5px ${C.gold} !important;font-size:12px !important;padding:3px 14px !important}
+[data-wk="offcomposer"]{background:${C.cream} !important;border-top:none !important;box-shadow:0 -4px 0 ${C.greenL} !important}
+[data-wk="offcomposer"] textarea{background:#FBF5E6 !important;border:1.6px solid ${C.gold} !important;border-radius:18px !important;color:${C.ink} !important}
+[data-wk="offcomposer"] textarea::placeholder{color:#A89B80 !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:34px !important;height:34px !important;min-width:34px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PLUS)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/44px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{position:relative !important;width:60px !important;min-width:60px !important;height:34px !important;border:none !important;border-radius:999px !important;background:${C.greenL} !important;box-shadow:0 0 0 2px ${C.gold},0 0 0 3px ${C.goldD} !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]::before{content:"演绎" !important;position:absolute !important;inset:0 !important;display:flex !important;align-items:center !important;justify-content:center !important;font-size:13px !important;letter-spacing:.15em !important;color:${C.cream} !important}
+/* 卡片：他的奶油、你的橘红，金边双线，顶上正中一枚洛可可饰 */
+[data-wk="offcard"]{position:relative !important;background:${C.cream} !important;border:none !important;border-radius:16px !important;box-shadow:0 0 0 2px ${C.gold},0 0 0 3px ${C.goldD},0 8px 18px rgba(0,0,0,.35) !important;overflow:visible !important;margin-top:24px !important;color:${C.ink} !important}
+[data-wk="offcard"][data-me="1"]{background:linear-gradient(180deg,#DC6A44,${C.orange}) !important;color:${C.cream} !important}
+[data-wk="offcard"]::before{content:"" !important;position:absolute !important;left:50% !important;top:-17px !important;width:48px !important;height:24px !important;margin-left:-24px !important;background:${svg(SHELL)} center/contain no-repeat !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2.5px ${C.gold},0 0 0 4px ${C.goldD} !important}
+[data-wk="offhead"] [data-wk="avatar"]::before{content:none !important}
+[data-wk="offname"],[data-wk="offtext"]{color:${C.ink} !important}
+[data-wk="offname"]{font-weight:700 !important;letter-spacing:.12em !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offname"],[data-wk="offcard"][data-me="1"] [data-wk="offtext"]{color:${C.cream} !important}
+[data-wk="offsay"]{color:${C.orangeD} !important;background:none !important;font-weight:700 !important;border-bottom:1.5px solid ${C.gold} !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{color:#FFF6E4 !important;border-bottom-color:${C.cream} !important}
+[data-wk="offthought"]{position:relative !important;background:${svg(DAMASK)} 0 0/48px 64px,${C.green} !important;border:none !important;border-radius:2px !important;color:${C.cream} !important;font-style:italic !important;box-shadow:0 0 0 1.2px ${C.gold} !important;margin:10px 10px !important;overflow:visible !important}
+[data-wk="offthought"]::before,[data-wk="offthought"]::after{content:"" !important;position:absolute !important;top:-3px !important;bottom:-3px !important;width:10px !important;background:linear-gradient(90deg,${C.goldD},${C.gold} 40%,${C.cream2} 60%,${C.goldD}) !important;border-radius:5px !important}
+[data-wk="offthought"]::before{left:-7px !important}
+[data-wk="offthought"]::after{right:-7px !important}
+[data-wk="offcardacts"] svg{stroke:${C.goldD} !important;color:${C.goldD} !important}
+[data-wk="offreplyopt"]{background:${C.cream} !important;border:none !important;border-radius:999px !important;box-shadow:0 0 0 1.5px ${C.gold} !important;color:${C.ink} !important}
+
+/* ───── 翡翠沙龙 · 通话：气泡同线上，大头像套金珠圈镜框 ───── */
+[data-wk="callbubble"]{background:${C.cream} !important;color:${C.ink} !important;border:none !important;border-radius:14px !important;box-shadow:0 0 0 2px ${C.gold} !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:linear-gradient(180deg,#DC6A44,${C.orange}) !important;color:${C.cream} !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.orange} !important}
+[data-wk="callact"]{color:${C.dim} !important;font-style:italic !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 5px ${C.gold},0 0 0 7px ${C.goldD},0 0 0 12px rgba(216,178,106,.25),0 0 40px rgba(242,180,74,.4) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "翡翠沙龙", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
