@@ -133,6 +133,8 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 [data-wk="wxcardsky"]{background:radial-gradient(circle at 80% 30%,rgba(67,238,221,.18),transparent 60%),transparent !important}
 [data-wk="wxcardsky"] *{color:${C.ink} !important}
 [data-wk="wxcardsky"] svg{stroke:${C.teal} !important;filter:drop-shadow(0 0 4px ${C.teal}) !important}
+[data-wk="wxcardsky"] > div:first-child{background:radial-gradient(circle,rgba(255,95,174,.35),rgba(255,95,174,0) 70%) !important}
+[data-wk="wxcardsky"] span[style*="999"],[data-wk="wxcardrain"]{background:transparent !important;border:1.5px solid ${C.teal} !important;box-shadow:0 0 6px rgba(67,238,221,.6) !important;color:${C.ink} !important}
 [data-wk="wxcardsay"]{background:transparent !important;color:${C.ink} !important;border-top:1px solid rgba(67,238,221,.3) !important}
 [data-wk="wxcardsay"] *{color:${C.ink} !important}
 [data-wk="geopin"]{background:${C.pink} !important;box-shadow:0 0 10px ${C.pink} !important}
