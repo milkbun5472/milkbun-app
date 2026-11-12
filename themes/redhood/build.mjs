@@ -31,6 +31,15 @@ const FERN = X(`viewBox='0 0 60 12' fill='none' stroke='rgba(168,181,168,.7)' st
 const SEAL = X(`viewBox='0 0 40 40'><path d='M20 3 C25 3 27 6 31 7 C35 9 36 13 37 17 C38 22 35 25 34 29 C32 34 27 36 22 37 C17 38 13 36 9 33 C5 30 3 26 3 21 C3 15 5 11 9 7 C12 4 16 3 20 3Z' fill='${C.red}'/><circle cx='20' cy='20' r='11' fill='none' stroke='#E07B66' stroke-width='1.4'/><path d='M20 27 C12 21 12 18 13.5 16 C15 14 18 14.5 20 17 C22 14.5 25 14 26.5 16 C28 18 28 21 20 27Z' fill='#8E281E'/>`);
 const HOODBIG = X(`viewBox='0 0 40 40'><path d='M20 3 C31 3 36 13 35 25 L38 37 H2 L5 25 C4 13 9 3 20 3Z' fill='${C.red}' stroke='${C.red2}' stroke-width='1.2'/><ellipse cx='20' cy='22' rx='9' ry='10' fill='#F3D2B8'/><path d='M11 18 Q20 8 29 18 Q26 13 20 13 Q14 13 11 18Z' fill='#6B3A24'/><path d='M14 33 L20 30 L26 33 L20 35Z' fill='${C.cream}'/>`);
 const WINDOW = X(`viewBox='0 0 30 30'><rect x='3' y='3' width='24' height='24' rx='3' fill='#1E3A30' stroke='${C.cream}' stroke-width='1.6'/><circle cx='20' cy='10' r='3' fill='${C.gold}'/><path d='M3 23 L9 13 L13 19 L17 12 L27 24 V27 H3Z' fill='#0E1E18'/><path d='M15 3 V27 M3 15 H27' stroke='${C.cream}' stroke-width='1' opacity='.6'/>`);
+// 好感：小红帽沿小路走到外婆家——森林口一棵树 → 小路上一只篮子 → 远处小屋亮了一扇窗 → 到了，门开着、窗里一颗心
+const SCN = (inner) => X(`viewBox='0 0 92 84'><rect x='2' y='2' width='88' height='80' rx='10' fill='#0E1E18' stroke='#5A3B2A' stroke-width='3'/><circle cx='72' cy='18' r='6' fill='${C.gold}' opacity='.9'/>${inner}`);
+const PATH = `<path d='M30 82 Q40 66 52 60 Q62 55 60 48' fill='none' stroke='#8A6E52' stroke-width='5' stroke-linecap='round' opacity='.7'/>`;
+const TREE = (x, y, k = 1) => `<path d='M${x} ${y - 26 * k} L${x - 10 * k} ${y - 8 * k} H${x - 5 * k} L${x - 13 * k} ${y + 4 * k} H${x + 13 * k} L${x + 5 * k} ${y - 8 * k} H${x + 10 * k}Z' fill='#2E5A44'/><rect x='${x - 1.5 * k}' y='${y + 4 * k}' width='${3 * k}' height='${6 * k}' fill='#5A3B2A'/>`;
+const COT = (lit, open) => `<path d='M48 48 L62 36 L76 48Z' fill='${C.red2}'/><rect x='51' y='48' width='22' height='16' fill='#B98A55'/><rect x='54' y='51' width='6' height='6' fill='${lit ? C.gold : "#3A2A20"}'/><rect x='64' y='54' width='6' height='10' fill='${open ? C.gold : "#5A3B2A"}'/>`;
+const ST1 = SCN(`${TREE(22, 52, 1.2)}${TREE(46, 60, .9)}${TREE(70, 62, 1)}<path d='M10 74 H82' stroke='#2E5A44' stroke-width='2'/>`);
+const ST2 = SCN(`${TREE(16, 50)}${TREE(78, 56, .9)}${PATH}<g transform='translate(34 58)'><path d='M2 6 Q8 -3 14 6' fill='none' stroke='#E3C79A' stroke-width='1.6'/><path d='M0 6 H16 L14 14 H2Z' fill='#B98A55'/><circle cx='6' cy='4.5' r='2.6' fill='${C.red}'/></g>`);
+const ST3 = SCN(`${TREE(16, 52)}${PATH}${COT(true, false)}<circle cx='36' cy='70' r='4' fill='${C.red}'/><path d='M32 74 L36 64 L40 74Z' fill='${C.red}'/>`);
+const ST4 = SCN(`${TREE(14, 54, .9)}${PATH}${COT(true, true)}<path d='M57 30 C52 26 52 23 54 22 C55.5 21 57 22 57 23.2 C57 22 58.5 21 60 22 C62 23 62 26 57 30Z' fill='${C.red}' transform='translate(5 -6)'/><circle cx='60' cy='70' r='4' fill='${C.red}'/><path d='M56 74 L60 64 L64 74Z' fill='${C.red}'/>`);
 const bubble = { myBg: C.red, myText: C.cream, myBorder: "none", charBg: C.linen, charText: C.ink, charBorder: "none", radius: 10, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 const STITCH = "rgba(251,243,228,.85)";
@@ -190,6 +199,119 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){position:relati
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;font-size:0 !important;color:transparent !important;padding:0 !important;background:${svg(WINDOW)} center/contain no-repeat !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+
+/* 头像不是圆的：他是外婆墙上的方相框（圆角方、奶白框）；我是一滴兜帽形——右上收成一个尖，跟斗篷帽尖一个方向 */
+button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[data-wk="avatar"] *,[data-wk="msg"] img[data-wk="avatar"],[data-wk="chathead"] [data-wk="avatar"],[data-wk="chathead"] [data-wk="avatar"] *{border-radius:22% !important}
+[data-wk="msg"][data-me="1"] [data-wk="avatar"],[data-wk="msg"][data-me="1"] [data-wk="avatar"] *,[data-wk="cardrow"][data-me="1"] [data-wk="avatar"],[data-wk="cardrow"][data-me="1"] [data-wk="avatar"] *,[data-wk="chathead"] [data-wk="headme"] > *,[data-wk="chathead"] [data-wk="headme"] img{border-radius:50% 4px 50% 50% !important}
+
+/* ───── 红帽夜访 · 第三批：状态卡是外婆家一扇木窗——夜林底、木框；看得见的是麻布、心里想的是红斗篷布；好感是走去外婆家的那条路 ───── */
+[data-wk="statecard"]{background:radial-gradient(ellipse at 50% 0%,rgba(242,182,64,.16),transparent 55%),${CURTAIN},linear-gradient(180deg,#1A3229,#0C1814) !important;border:6px solid #5A3B2A !important;border-radius:16px !important;box-shadow:inset 0 0 0 1px #8A6345,0 14px 34px rgba(0,0,0,.55) !important;color:${C.cream} !important}
+[data-wk="statehead"]{background:linear-gradient(180deg,#3A2820,${C.wood}) !important;border-bottom:6px solid transparent !important;border-image:${svg(GING)} 0 0 8 0 / 0 0 6px 0 round !important}
+[data-wk="statehead"] *{color:${C.cream} !important}
+[data-wk="statehead"] [data-wk="avatar"]{border-radius:22% !important;box-shadow:0 0 0 2.5px ${C.cream},0 0 0 4px #6F5A50 !important}
+[data-wk="statehead"] button{border:1px solid rgba(251,243,228,.4) !important;border-radius:50% !important;background:rgba(0,0,0,.25) !important}
+[data-wk="statemood"]{display:inline-block !important;background:${C.red} !important;color:${C.cream} !important;padding:0 10px !important;margin-right:4px !important;border-radius:4px !important;outline:1px dashed ${STITCH} !important;outline-offset:-3px !important;font-family:"Songti SC",serif !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(0,0,0,.3) !important;border:1px solid rgba(251,243,228,.2) !important;border-radius:10px !important;padding:3px !important;margin:12px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:8px !important;background:transparent !important;font-family:"Songti SC",serif !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:${C.linen} !important;color:${C.ink} !important}
+[data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;overflow:visible !important;background:${svg(LINEN)} 0 0/6px 6px,${C.linen} !important;border:none !important;border-radius:10px !important;margin:16px 16px 12px !important;padding-left:30px !important;outline:1.2px dashed rgba(158,46,34,.4) !important;outline-offset:-6px !important;box-shadow:0 3px 0 #CDBB9E,0 8px 14px rgba(0,0,0,.35) !important}
+[data-wk="stateseen"]::before{content:"" !important;position:absolute !important;left:0 !important;top:0 !important;bottom:0 !important;width:16px !important;background:${svg(GING)} 0 0/8px 8px !important;border-radius:10px 0 0 10px !important}
+[data-wk="statevoice"]{background:${svg(LINEN)} 0 0/6px 6px,linear-gradient(180deg,#CF4D3A,${C.red2}) !important;padding-left:18px !important;outline:1.5px dashed ${STITCH} !important;outline-offset:-5px !important;box-shadow:0 3px 0 #7A2219,0 8px 14px rgba(0,0,0,.4) !important}
+[data-wk="statevoice"]::before{content:"" !important;position:absolute !important;right:10px !important;top:-14px !important;width:26px !important;height:26px !important;background:${svg(HOODBIG)} center/contain no-repeat !important}
+[data-wk="stateseen"] *{color:${C.ink} !important}
+[data-wk="statevoice"] *{color:${C.cream} !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:rgba(194,65,47,.06) !important;border:1px solid rgba(90,60,40,.2) !important;border-radius:8px !important}
+[data-wk="statewear"] > span{background:transparent !important;border:1px solid rgba(90,60,40,.2) !important;border-radius:6px !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.gold} !important}
+[data-wk="statevoice"] + div > button{background:rgba(0,0,0,.3) !important;color:${C.cream} !important;border:1px solid rgba(251,243,228,.4) !important;border-radius:8px !important}
+[data-wk="stateaff"]{background:rgba(0,0,0,.28) !important;border-top:1px dashed rgba(242,182,64,.4) !important;position:relative !important;display:block !important;padding:16px 120px 18px 20px !important;min-height:112px !important}
+[data-wk="stateaff"] *{color:${C.cream} !important}
+[data-wk="stateheart"]{position:absolute !important;right:18px !important;left:auto !important;top:50% !important;margin-top:-42px !important;width:92px !important;height:84px !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><rect width='10' height='10'/></svg>`)} !important}
+[data-wk="stateheart"] > div,[data-wk="stateheartknob"]{inset:0 !important;-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important;background-color:transparent !important;border:none !important}
+[data-wk="stateheart"] > div:not([data-wk]){display:none !important}
+[data-wk="stateheartfill"] > div{display:none !important}
+[data-wk="stateheartline"]{background:${svg(ST1)} center/contain no-repeat !important;opacity:calc(1 - clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1)) !important}
+[data-wk="stateheartbase"]{background:${svg(ST2)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1)) !important}
+[data-wk="stateheartfill"]{background:${svg(ST3)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important}
+[data-wk="stateheartknob"]{display:block !important;position:absolute !important;left:0 !important;bottom:0 !important;width:100% !important;height:100% !important;margin:0 !important;transform:none !important;background:${svg(ST4)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important;filter:drop-shadow(0 0 8px rgba(242,182,64,.45)) !important}
+[data-wk="stateheartnum"]{position:absolute !important;inset:auto 0 -8px 0 !important;display:flex !important;justify-content:center !important;padding:0 !important;font:600 13px/1 "Songti SC",serif !important;color:${C.cream} !important;-webkit-text-stroke:0 !important;text-shadow:0 0 4px #000 !important;z-index:3 !important}
+[data-wk="stateaffval"]{display:none !important}
+
+/* 翻旧的：一页页童话书——麻布页和红布页交替，左上红字「第 N 页」 */
+[data-wk="statehistbtn"]{background:rgba(0,0,0,.3) !important;color:${C.cream} !important;border:1px solid rgba(251,243,228,.4) !important;border-radius:8px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.cream} !important;font-family:"Songti SC",serif !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1px solid ${C.gold} !important;border-radius:6px !important;background:transparent !important}
+[data-wk="statehistlist"]{counter-reset:pg !important}
+[data-wk="statehistitem"]{counter-increment:pg !important;position:relative !important;background:${svg(LINEN)} 0 0/6px 6px,${C.linen} !important;border:none !important;border-radius:10px !important;padding:28px 18px 14px !important;margin:16px 0 !important;outline:1.2px dashed rgba(158,46,34,.4) !important;outline-offset:-6px !important;box-shadow:0 3px 0 #CDBB9E,0 8px 14px rgba(0,0,0,.35) !important}
+[data-wk="statehistitem"]:nth-child(even){background:${svg(LINEN)} 0 0/6px 6px,linear-gradient(180deg,#CF4D3A,${C.red2}) !important;outline:1.5px dashed ${STITCH} !important;box-shadow:0 3px 0 #7A2219,0 8px 14px rgba(0,0,0,.4) !important}
+[data-wk="statehistitem"] *{color:${C.ink} !important}
+[data-wk="statehistitem"]:nth-child(even) *{color:${C.cream} !important}
+[data-wk="statehistitem"]::before{content:"第 " counter(pg) " 页" !important;position:absolute !important;left:14px !important;top:9px !important;font:11px/1 "Songti SC",serif !important;color:${C.red} !important;letter-spacing:.15em !important}
+[data-wk="statehistitem"]:nth-child(even)::before{color:${C.gold} !important}
+[data-wk="statehistmood"]{background:transparent !important;border:1px solid currentColor !important;border-radius:4px !important;padding:0 6px !important}
+[data-wk="statehisttime"]{opacity:.6 !important}
+[data-wk="statehisttext"]{font-family:"Songti SC",serif !important}
+[data-wk="statehistmeta"]{background:rgba(90,60,40,.08) !important;border-radius:6px !important}
+[data-wk="statehistend"]{color:${C.fog} !important;letter-spacing:.3em !important}
+
+/* Ta 眼里：贴条换成一颗小苹果 */
+[data-wk="gazepage"]{background:${CURTAIN},linear-gradient(180deg,#1A3229,#0C1814) !important}
+[data-wk="gazetitle"]{color:${C.cream} !important;font-family:"Songti SC",serif !important}
+[data-wk="gazetab"]{background:rgba(0,0,0,.3) !important;color:${C.fog} !important;border:1px solid rgba(251,243,228,.2) !important;border-radius:8px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:${C.linen} !important;color:${C.ink} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{position:relative !important;overflow:visible !important;background:${svg(LINEN)} 0 0/6px 6px,${C.linen} !important;border:none !important;border-radius:10px !important;outline:1.2px dashed rgba(158,46,34,.4) !important;outline-offset:-6px !important;box-shadow:0 3px 0 #CDBB9E,0 8px 14px rgba(0,0,0,.35) !important}
+[data-wk="gazetape"]{background:${svg(APPLE)} center/contain no-repeat !important;width:22px !important;height:22px !important;box-shadow:none !important;border:none !important;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35)) !important}
+[data-wk="gazecardname"]{color:${C.red2} !important;font-family:"Songti SC",serif !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#6A5442 !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:${svg(LINEN)} 0 0/6px 6px,${C.linen} !important;color:${C.ink} !important;border:none !important;border-top:8px solid transparent !important;border-image:${svg(GING)} 8 0 0 0 / 8px 0 0 0 round !important;border-radius:10px !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
+[data-wk="gazeempty"]{background:rgba(0,0,0,.3) !important;color:${C.cream} !important;border:1px solid rgba(251,243,228,.3) !important;border-radius:10px !important}
+[data-wk="gazeempty"] *{color:${C.cream} !important}
+[data-wk="gazeempty"] button{background:${C.red} !important;color:${C.cream} !important;border:none !important;border-radius:8px !important}
+
+/* ───── 线下：同一片丝绒夜林；他一张麻布卡（左红格子）、我一块红斗篷布（右上兜尖）；说的话红色划线，心里话旧金斜体 ───── */
+[data-wk="offline"]:not([style*="url("]){background:radial-gradient(ellipse at 50% 35%,rgba(90,140,110,.22),transparent 65%),${CURTAIN},linear-gradient(180deg,#1A3229,${C.bg} 70%,#0C1814) !important;background-color:${C.bg} !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"]{background:linear-gradient(180deg,#3A2820,${C.wood}) !important;border-radius:0 0 12px 12px !important;margin:0 8px 10px !important}
+[data-wk="offline"] [data-wk="chathead"]::after{left:10px !important;right:10px !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="headname"] > div:last-child{white-space:normal !important;line-height:1.35 !important;color:#C9B48F !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *,[data-wk="offline"] [data-wk="chatback"] *{color:${C.cream} !important}
+[data-wk="offline"] [data-wk="chatback"] svg{stroke:${C.cream} !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:${C.red} !important;color:${C.cream} !important;border:none !important;outline:1px dashed ${STITCH} !important;outline-offset:-3px !important;border-radius:6px !important;font-size:12px !important;padding:3px 10px !important;flex-shrink:0 !important}
+[data-wk="offline"] [data-wk="chatmore"]{width:26px !important;min-width:26px !important;height:26px !important}
+[data-wk="offcomposer"]{background:linear-gradient(180deg,${C.wood},#1E140F) !important;border:none !important;border-top:7px solid transparent !important;border-image:${svg(GING)} 8 0 0 0 / 7px 0 0 0 round !important;border-radius:0 !important}
+[data-wk="offcomposer"] textarea{background:${svg(LINEN)} 0 0/6px 6px,${C.linen} !important;border:none !important;border-radius:8px !important;color:${C.ink} !important;font-family:"Songti SC",serif !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){width:42px !important;min-width:42px !important;height:36px !important;background:${svg(I_BASKET)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:40px !important;min-width:40px !important;height:32px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_LETTER)} center/contain no-repeat !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcard"]{position:relative !important;overflow:visible !important;background:${svg(LINEN)} 0 0/6px 6px,${C.linen} !important;border:none !important;border-radius:10px !important;padding-left:30px !important;outline:1.2px dashed rgba(158,46,34,.35) !important;outline-offset:-6px !important;box-shadow:0 3px 0 #CDBB9E,0 8px 16px rgba(0,0,0,.4) !important}
+[data-wk="offcard"]::before{content:"" !important;position:absolute !important;left:0 !important;top:0 !important;bottom:0 !important;width:16px !important;background:${svg(GING)} 0 0/8px 8px !important;border-radius:10px 0 0 10px !important}
+[data-wk="offcard"][data-me="1"]{background:${svg(LINEN)} 0 0/6px 6px,linear-gradient(180deg,#CF4D3A,${C.red2}) !important;padding-left:18px !important;outline:1.5px dashed ${STITCH} !important;outline-offset:-5px !important;box-shadow:0 3px 0 #7A2219,0 8px 16px rgba(0,0,0,.45) !important}
+[data-wk="offcard"][data-me="1"]::before{left:auto !important;bottom:auto !important;right:-6px !important;top:-12px !important;width:24px !important;height:24px !important;border-radius:0 !important;background:${svg(HOOD)} center/contain no-repeat !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:22% !important;box-shadow:0 0 0 2.5px ${C.cream},0 0 0 3.6px #9C8668 !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offhead"] img,[data-wk="offcard"][data-me="1"] [data-wk="offhead"] [data-wk="avatar"]{border-radius:50% 4px 50% 50% !important;box-shadow:0 0 0 2.5px ${C.cream} !important}
+[data-wk="offname"]{color:${C.red2} !important;font-family:"Songti SC",serif !important;letter-spacing:.08em !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offname"]{color:${C.gold} !important}
+[data-wk="offtext"]{color:#4A3628 !important;font-family:"Songti SC","Noto Serif SC",serif !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offtext"]{color:#F6E4D2 !important}
+[data-wk="offsay"]{color:${C.ink} !important;background:none !important;border:none !important;font-weight:600 !important;text-decoration:underline !important;text-decoration-color:rgba(194,65,47,.7) !important;text-decoration-thickness:2px !important;text-underline-offset:4px !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{color:#fff !important;text-decoration-color:rgba(242,182,64,.85) !important}
+[data-wk="offthought"]{background:transparent !important;border:none !important;color:#8E6E3E !important;font-style:italic !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offthought"]{color:#F1D9A6 !important}
+[data-wk="offcardacts"] svg{stroke:#9C8668 !important;color:#9C8668 !important}
+[data-wk="offreplyopt"]{background:${svg(LINEN)} 0 0/6px 6px,${C.linen} !important;border:none !important;outline:1px dashed rgba(158,46,34,.4) !important;outline-offset:-4px !important;border-radius:8px !important;color:${C.ink} !important}
+
+/* ───── 通话：他麻布、我红布；头像外一圈木框和一盏暖光 ───── */
+[data-wk="callbubble"]{background:${svg(LINEN)} 0 0/6px 6px,${C.linen} !important;color:${C.ink} !important;border:none !important;border-radius:10px !important;box-shadow:0 3px 0 #CDBB9E !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:${svg(LINEN)} 0 0/6px 6px,linear-gradient(180deg,#CF4D3A,${C.red2}) !important;color:${C.cream} !important;outline:1.5px dashed ${STITCH} !important;outline-offset:-4px !important;box-shadow:0 3px 0 #7A2219 !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callavatar"]{border-radius:22% !important;box-shadow:0 0 0 4px ${C.cream},0 0 0 10px #5A3B2A,0 0 0 11px #8A6345,0 0 40px 12px rgba(242,182,64,.3) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "红帽夜访", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
