@@ -13076,7 +13076,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 她开口要的时候往前多找一段：她多半指的是前面发过的某一张
       const _askPick = (_askAvatar && !_seenMsg) ? freshPhotoIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK) : null;
       // TA自己起意：刚发的那张不在了，再往前看一段（冷却照旧）
-      const _autoPick = (!_askAvatar && !_seenMsg && !opts.proactive && avatarCoolOk(charId)) ? freshPhotoIn(chatsRef.current[charId] || [], AUTO_AVATAR_LOOKBACK) : null;
+      const _autoPick = (!_askAvatar && !_seenMsg && !opts.proactive && avatarCoolOk(charId)) ? (m => m && !m.avAsked ? m : null)(freshPhotoIn(chatsRef.current[charId] || [], AUTO_AVATAR_LOOKBACK)) : null;
       // 情头那一档：她开口说了一对／一起换，而且往回真找得到两张她发的照片。
       //   ⚠️只在她开口时给——换的是【她自己的】头像，不能由他起意。
       // 往回看几句她的话（她 2026-10-19：「让他换情头一直不换我的，自己的还会换错」）：原来只看 4 句，
@@ -13103,7 +13103,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const _pn = _pairAuto ? "【第 " : "【情头·第 ";
         return same(m, _pairPick[0]) ? _pn + "1 张】" : same(m, _pairPick[1]) ? _pn + "2 张】" : ""; };
       // 她要换的是她自己的头像时，「换成你的头像」那一问整个不给，免得两格打架
-      const _seenAvatarOk = !!(_avatarMsg && (avatarCoolOk(charId) || _askAvatar)) && !_myAvatarPick;
+      // 同一张照片只问一次换不换（群里 2026-11-12「角色还是在随便换头像」）：原来她发完一张，往后好几轮每轮都再问一遍，
+      //   冷却又是 0，问的次数多了总有一轮填 true。问过一次（她没开口要）就在那条上记 avAsked，以后不再拿它问；她开口要的照旧
+      const _seenAvatarOk = !!(_avatarMsg && (_askAvatar || (avatarCoolOk(charId) && !_avatarMsg.avAsked))) && !_myAvatarPick;
       // note 只跟【刚看见的那张】走；她翻旧账要换头像时不补记老照片的画面
       const seenHint = _seenMsg ? photoSeenHint(_seenAvatarOk, uName)
         : (_seenAvatarOk ? (_askAvatar ? photoSeenAskHint(uName) : photoSeenAutoHint(uName)) : "");
@@ -14822,6 +14824,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         parsed.photoSeen = { ...parsed.photoSeen, avatar: false };   // 话里换的是锁屏、或者在否认：头像不动
       if (_avatarMsg && parsed.photoSeen) applyPhotoSeen(charId, _avatarMsg, parsed.photoSeen, _seenAvatarOk,
         (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)), _askAvatar);
+      if (_avatarMsg && _seenAvatarOk && !_askAvatar) { const _am = _avatarMsg; pChat(chatKey || charId, p => p.map(m => m === _am || (m && m.imageRef && m.imageRef === _am.imageRef && m.ts === _am.ts) ? { ...m, avAsked: true } : m)); }
       // 兜底：这一轮真给了换头像的能力，TA嘴上说「换好了」，字段却没填 true → 照TA说的换
       if (!_pairDone && (!_pairPick || _pairAuto) && !_pairAsked && _avatarMsg && _seenAvatarOk && !(parsed.photoSeen && parsed.photoSeen.avatar === true)
         && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" ")) && avatarTalkOk(parsed.word)) applyPhotoSeen(charId, _avatarMsg, { avatar: true, kind: parsed.photoSeen && parsed.photoSeen.kind }, true, () => {}, _askAvatar);
