@@ -1183,7 +1183,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v89.492",changed: "线下 TA 帮你拍的照片不会再照着 TA 自拍的样子画",none: ""};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v89.493",changed: "TA 帮你拍的照片角度会换着来，不再每张都是俯拍仰脸",none: ""};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
