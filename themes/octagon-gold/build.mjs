@@ -349,6 +349,8 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{width:8px !important;height:8px !important;border-radius:0 !important;background:${svg(DIA())} center/contain no-repeat !important}
 [data-wk="callact"]{color:#CDBE9C !important;font-style:italic !important;font-family:serif !important}
 [data-wk="callavatar"]{border-radius:0 !important;clip-path:${OCT("29%")} !important;box-shadow:none !important;filter:drop-shadow(0 0 2px ${C.gold}) drop-shadow(0 0 2px ${C.gold}) drop-shadow(0 0 18px rgba(235,211,148,.4)) !important}
+/* 好感数字放进图形正中 */
+[data-wk="stateaffval"]{display:block !important;position:absolute !important;left:50% !important;right:auto !important;top:auto !important;bottom:42px !important;transform:translateX(-50%) !important;z-index:3 !important;font-size:17px !important;line-height:1 !important;font-weight:700 !important;color:#FFF6DC !important;text-shadow:0 0 2px #12100D,0 0 2px #12100D,0 0 6px #12100D !important;pointer-events:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "八角墨金", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
