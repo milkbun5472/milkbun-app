@@ -18,3 +18,8 @@ test("拍她的开头跟别人拍 TA 同一种说法：不是自拍、第三人�
   assert.ok(!/的视角·" \+ pv\.name \+ "拿着手机拍/.test(eng));
   assert.ok(!/"[^"\n]*镜头就是拍照那个人的眼睛/.test(eng));
 });
+test("拍她：没提看不看镜头时一多半是抓拍、不看镜头", () => {
+  assert.match(eng, /const POV_CANDID_LINE = "这一张她没在看镜头/);
+  assert.match(eng, /!\/镜头\|看过来\|看向\|对视\|回头\/\.test\(String\(sceneDesc \|\| ""\) \+ pool\[_pi\]\) && Math\.random\(\) < 0\.6 \? POV_CANDID_LINE : ""/);
+  assert.match(eng, /cName \+ "看不看镜头、什么神情、离镜头多近/);
+});

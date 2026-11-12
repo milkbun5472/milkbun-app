@@ -23,7 +23,7 @@ function grab(name) {
   const stubs = "const freshPhotoWearing=()=>\"\";const freshLiveStateValue=()=>\"\";const charAge=()=>25;";
   // 拍她／别人拍 TA 那几支用到的两句，照 engine.js 原文抠进来
   const line = n => { const k = eng.indexOf("const " + n + " ="); return k < 0 ? "" : eng.slice(k, eng.indexOf(";\n", k) + 2); };
-  return new Function(stubs + line("POV_HANDS_LINE") + line("POV_FAR_LINE") + eng.slice(i, j) + "\nreturn " + name + ";")();
+  return new Function(stubs + line("POV_HANDS_LINE") + line("POV_FAR_LINE") + line("POV_CANDID_LINE") + eng.slice(i, j) + "\nreturn " + name + ";")();
 }
 const buildPhotoPrompt = grab("buildPhotoPrompt");
 const char = { name: "沈清和", persona: "二十七岁，做建筑的", appearance: "高个子，短发" };
