@@ -33,10 +33,9 @@ const css = `
 /* 顶栏：深色；底下挂一条酒红糖浆帘子往下滴 */
 [data-wk="chathead"]{background:${C.bar} !important;border-bottom:none !important;box-shadow:none !important;position:relative !important;overflow:visible !important;z-index:5 !important}
 [data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:100% !important;height:63px !important;background:${svg(DRIP)} 0 0/216px 63px repeat-x !important;pointer-events:none !important;z-index:5 !important}
-[data-wk="offline"] [data-wk="chathead"]::after{height:34px !important;background-size:216px 63px !important;background-position:0 0 !important}
 [data-wk="headink"],[data-wk="headink"] *{color:${C.ink} !important}
 [data-wk="headname"] [data-wk="headink"]{font-family:Georgia,"Songti SC",serif !important;letter-spacing:.12em !important}
-[data-wk="chat"] [data-wk="headname"] [data-wk="headink"]::after{content:"my dearest" !important;font:italic 13px/1 Georgia,serif !important;color:${C.pink} !important;margin-left:10px !important;letter-spacing:.04em !important;white-space:nowrap !important}
+[data-wk="chat"] [data-wk="headname"] > div:last-child::before{content:"my dearest · " !important;font:italic 11px/1 Georgia,serif !important;color:${C.pink} !important;letter-spacing:.04em !important}
 [data-wk="headdim"],[data-wk="headname"] > div:last-child{color:${C.fog} !important}
 [data-wk="chatback"] svg{stroke:${C.ink} !important}
 [data-wk="sameroom"],[data-wk="chatmore"]{width:30px !important;min-width:30px !important;height:30px !important;font-size:0 !important;color:transparent !important;padding:0 !important;border:none !important;box-shadow:none !important;background-color:transparent !important;flex-shrink:0 !important}
@@ -297,6 +296,15 @@ img[data-wk="avatar"]{overflow:hidden !important}
 [data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:${C.wine} !important}
 [data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
 [data-wk="callavatar"]{border-radius:50% 50% 4px 4px / 34% 34% 4px 4px !important;overflow:hidden !important;box-shadow:0 0 0 1.8px ${C.line},0 0 0 7px ${C.bg},0 0 0 8.4px rgba(243,233,238,.5) !important}
+/* 名字别被挤成「测试…」：右边按键收小，名字那块至少留够四五个字 */
+[data-wk="chathead"]{gap:8px !important}
+[data-wk="chathead"] [data-wk="headname"]{flex:1 1 auto !important;min-width:84px !important}
+[data-wk="chathead"] [data-wk="headname"] > div:last-child{white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important}
+[data-wk="chathead"] [data-wk="sameroom"]{width:24px !important;min-width:24px !important;height:28px !important}
+[data-wk="chathead"] [data-wk="chatmore"]{width:36px !important;min-width:36px !important;height:22px !important;margin-left:2px !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:22px !important;min-width:22px !important;height:26px !important;flex-shrink:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){padding:3px 8px !important;flex-shrink:0 !important}
+[data-wk="offline"] [data-wk="headname"] > div:last-child{white-space:normal !important;overflow:visible !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "哥特蕾丝", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
