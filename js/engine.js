@@ -2375,8 +2375,11 @@ function seeThroughLast(text) { return SEE_THROUGH_TAIL_RE.test(String(text || "
 //   CANNED_PHRASE_BAN 的【现成的桥段】早写着这一族，照样出；跟撂狠话一样按轮提一句。
 //   只看上一轮最后一条的最后一小句：是不是冲着她的祈使（别…／记得…／不许…），或者带「别又／别再」。问句不算。
 const BOSSING_TAIL_RE = /^(?:你)?(?:可)?(?:千万|一定)?(?:别(?!的|人|处|扭|致|墅|说)|不许|不准|不要|记得|要记得|少|早点|赶紧|快去|先去|乖乖|给我)|别(?:又|再)/;
+// 祈使后面挂一句「听到没有／知道吗／记住没」（她 2026-11-13：「嘴硬很喜欢别xxx 听到没有」）：那一截是给叮嘱加码的，
+//   不是在问她。先把它连同问号摘掉，再看前面是不是叮嘱
+const BOSSING_CHECK_RE = /[，,\s]*(?:听(?:到|见)(?:了)?(?:没有|没|吗)|知道(?:了)?(?:吗|没有|没)|记住(?:了)?(?:没有|没|吗)|明白(?:了)?(?:吗|没有|没)|懂(?:了)?(?:吗|没有|没)|听话|乖)[~～…?？!！。\s]*$/;
 function endsOnBossing(text) {
-  const sents = String(text || "").split(/[。！!\n]+/).map(x => x.trim()).filter(Boolean);
+  const sents = String(text || "").replace(BOSSING_CHECK_RE, "").split(/[。！!\n]+/).map(x => x.trim()).filter(Boolean);
   const last = sents[sents.length - 1] || "";
   if (!last || /[?？吗呢]$/.test(last)) return false;
   const tail = last.split(/[，,；;]/).map(x => x.trim()).filter(Boolean).pop() || "";
