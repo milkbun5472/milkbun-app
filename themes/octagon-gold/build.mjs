@@ -46,6 +46,10 @@ const WINF = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' pres
 const WAVE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M15 4 L26 15 L15 26 L4 15Z' fill='none' stroke='${C.gold}' stroke-width='1.6'/><path d='M15 10 L20 15 L15 20 L10 15Z' fill='${C.gold}'/></svg>`;
 const PIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 36'><path d='M9 2 H21 L28 9 V19 L15 34 L2 19 V9Z' fill='${C.gold}' stroke='${C.goldL}' stroke-width='1.4'/><path d='M15 9 L20 14 L15 19 L10 14Z' fill='${C.ink}'/></svg>`;
 
+// ── 第三批用的图 ──
+const LANTERNMASK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 180'>${[0,1,2,3,4].map(i=>`<g transform='translate(0 ${i*36}) rotate(-90 18 18)'><rect x='15' y='2' width='6' height='4'/><ellipse cx='18' cy='17' rx='11' ry='10'/><rect x='15' y='27' width='6' height='3'/><rect x='17' y='30' width='2' height='5'/></g>`).join("")}</svg>`;
+const SCREENTOP = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 40'><path d='M20 34 Q150 -6 280 34' fill='none' stroke='${C.gold}' stroke-width='2'/><path d='M150 4 L160 14 L150 24 L140 14Z' fill='${C.gold}' stroke='${C.goldL}' stroke-width='1'/><path d='M110 12 Q120 6 130 12 M170 12 Q180 6 190 12' fill='none' stroke='${C.gold}' stroke-width='1.4'/><circle cx='20' cy='34' r='3.5' fill='${C.gold}'/><circle cx='280' cy='34' r='3.5' fill='${C.gold}'/></svg>`;
+
 const bubble = { myBg: C.gold, myText: C.ink, myBorder: "none", charBg: C.ink2, charText: C.cream, charBorder: "none", radius: 0, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -237,6 +241,67 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="quoteclear"]{color:${C.gold} !important}
 [data-wk="quote"]{background:rgba(201,164,92,.08) !important;color:${C.dim} !important;border:none !important;border-left:2px solid ${C.goldD} !important;border-radius:0 !important;padding:3px 10px !important;opacity:1 !important;font-family:serif !important}
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.75 !important}
+/* ───── 八角 · 墨金 · 第三批：状态卡＝一面八角漆屏，顶上一道金弧嵌菱形；好感是一排小金灯笼 ───── */
+[data-wk="statecard"]{background:${svg(LATTICE)} 0 0/60px 60px,linear-gradient(180deg,#221D16,${C.ink}) !important;border:none !important;border-radius:0 !important;clip-path:${OCT("34px")} !important;box-shadow:none !important;overflow:hidden !important;position:relative !important;padding-top:30px !important;--sc-heart-ink:${C.gold} !important;outline:none !important}
+[data-wk="statecard"]::before{content:"" !important;position:absolute !important;left:15% !important;right:15% !important;top:4px !important;height:28px !important;background:${svg(SCREENTOP)} center/100% 100% no-repeat !important;z-index:3 !important;pointer-events:none !important}
+[data-wk="statecard"]::after{content:"" !important;position:absolute !important;inset:5px !important;clip-path:${OCT("31px")} !important;background:linear-gradient(${C.gold},${C.gold}) top/100% 1.6px no-repeat,linear-gradient(${C.gold},${C.gold}) bottom/100% 1.6px no-repeat,linear-gradient(${C.gold},${C.gold}) left/1.6px 100% no-repeat,linear-gradient(${C.gold},${C.gold}) right/1.6px 100% no-repeat !important;pointer-events:none !important;z-index:3 !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:1px solid ${C.goldD} !important}
+[data-wk="statehead"] *{color:${C.goldL} !important;font-family:serif !important}
+[data-wk="statehead"] button{border:none !important;background:${svg(OBTN("", C.ink2, C.gold))} center/contain no-repeat !important;border-radius:0 !important}
+[data-wk="statemood"]{display:inline-block !important;background:${C.gold} !important;color:${C.ink} !important;border:none !important;border-radius:0 !important;clip-path:${OCT("6px")} !important;padding:0 10px !important;margin-right:4px !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:${C.ink} !important;border:1px solid ${C.goldD} !important;border-radius:0 !important;clip-path:${OCT("10px")} !important;padding:3px !important;margin:10px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.dim} !important;border:none !important;border-radius:0 !important;font-family:serif !important;letter-spacing:.15em !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:${C.gold} !important;color:${C.ink} !important;clip-path:${OCT("8px")} !important}
+/* 看得见的＝墨底金边方框；心里想的＝金箔底墨字 */
+[data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;background:${C.ink2} !important;border:1px solid ${C.goldD} !important;border-radius:0 !important;margin:12px 16px !important;color:${C.cream} !important;box-shadow:inset 0 0 0 3px ${C.ink2},inset 0 0 0 4px rgba(201,164,92,.35) !important;font-family:serif !important}
+[data-wk="statevoice"]{background:linear-gradient(180deg,#E3C47E,${C.gold} 55%,#B8944D) !important;border-color:${C.goldL} !important;box-shadow:inset 0 0 0 3px transparent,inset 0 0 0 4px rgba(18,16,13,.35) !important}
+[data-wk="stateseen"] *{color:${C.cream} !important}
+[data-wk="statevoice"] *{color:${C.ink} !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:${C.ink} !important;border:1px solid ${C.goldD} !important;border-radius:0 !important}
+[data-wk="statewear"] > span{background:transparent !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.dim} !important}
+[data-wk="statevoice"] [data-wk="statevoicedel"]{color:#5A4520 !important}
+[data-wk="statevoice"] + div > button{background:${C.ink2} !important;color:${C.goldL} !important;border:1px solid ${C.gold} !important;border-radius:0 !important;font-family:serif !important}
+/* 好感：一排五盏小金灯笼，按好感点亮 */
+[data-wk="stateaff"]{background:transparent !important;border-top:1px solid ${C.goldD} !important;position:relative !important;display:block !important;padding:16px 26px 70px !important;overflow:hidden !important}
+[data-wk="stateaff"] *{color:${C.cream} !important;font-family:serif !important}
+[data-wk="stateheart"]{position:absolute !important;width:36px !important;left:calc(50% - 18px) !important;height:180px !important;bottom:calc(36px - 90px) !important;transform:rotate(90deg) !important;--sc-heart-mask:${svg(LANTERNMASK)} !important;filter:drop-shadow(1.2px 0 0 ${C.gold}) drop-shadow(-1.2px 0 0 ${C.gold}) drop-shadow(0 1.2px 0 ${C.gold}) drop-shadow(0 -1.2px 0 ${C.gold}) drop-shadow(0 0 6px rgba(235,211,148,.45)) !important}
+[data-wk="stateheart"] > div{-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important}
+[data-wk="stateheartline"]{background:transparent !important;opacity:0 !important}
+[data-wk="stateheartbase"]{background:#3D3427 !important;opacity:1 !important}
+[data-wk="stateheartfill"] > div{background:linear-gradient(90deg,#FFE7A8,${C.gold} 60%,#C9472E) !important;opacity:1 !important;border-top:none !important}
+[data-wk="stateheartnum"],[data-wk="stateheartknob"]{display:none !important}
+[data-wk="stateaffval"]{display:block !important;position:absolute !important;right:26px !important;top:12px !important;font-size:26px !important;font-weight:700 !important;color:${C.goldL} !important;font-family:serif !important}
+/* 翻旧的：一页页墨底金边的册页，左上角一颗金菱 */
+[data-wk="statehistbtn"]{background:${C.ink2} !important;color:${C.goldL} !important;border:1px solid ${C.gold} !important;border-radius:3px !important;font-family:serif !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.gold} !important;font-family:serif !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1px solid ${C.goldD} !important;border-radius:0 !important;color:${C.gold} !important;background:${C.ink2} !important}
+[data-wk="statehistitem"]{position:relative !important;background:${C.ink2} !important;border:1px solid ${C.goldD} !important;border-radius:0 !important;padding:18px 20px 16px !important;margin:0 0 14px !important;box-shadow:inset 0 0 0 3px ${C.ink2},inset 0 0 0 4px rgba(201,164,92,.3) !important;overflow:visible !important}
+[data-wk="statehistitem"]::before{content:"" !important;position:absolute !important;left:-5px !important;top:-5px !important;width:10px !important;height:10px !important;background:${svg(DIA())} center/contain no-repeat !important}
+[data-wk="statehistitem"] *{color:${C.cream} !important;font-family:serif !important}
+[data-wk="statehistmood"]{background:${C.gold} !important;border:none !important;color:${C.ink} !important;border-radius:0 !important;clip-path:${OCT("5px")} !important}
+[data-wk="statehisttime"]{color:${C.dim} !important}
+[data-wk="statehistmeta"]{background:${C.ink} !important;border-radius:0 !important;border-left:2px solid ${C.goldD} !important}
+[data-wk="statehistend"]{color:${C.dim} !important}
+/* Ta 眼里：窗格墨底，卡片墨底金边，贴条换成一颗金菱 */
+[data-wk="gazepage"]{background:${svg(LATTICE)} 0 0/60px 60px,linear-gradient(180deg,#221D16,${C.ink}) !important}
+[data-wk="gazepage"] *{font-family:serif !important}
+[data-wk="gazetitle"]{color:${C.goldL} !important;letter-spacing:.2em !important}
+[data-wk="gazetab"]{background:${C.ink} !important;color:${C.dim} !important;border:1px solid ${C.goldD} !important;border-radius:0 !important;clip-path:${OCT("8px")} !important}
+[data-wk="gazetab"][data-on="1"]{background:${C.gold} !important;color:${C.ink} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.dim} !important}
+[data-wk="gazecard"]{background:${C.ink2} !important;border:1px solid ${C.goldD} !important;border-radius:0 !important;box-shadow:inset 0 0 0 3px ${C.ink2},inset 0 0 0 4px rgba(201,164,92,.3) !important}
+[data-wk="gazetape"]{background:${svg(DIA())} center/12px 12px no-repeat !important;box-shadow:none !important;border:none !important;transform:none !important}
+[data-wk="gazecardname"]{color:${C.goldL} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:${C.dim} !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:${C.ink2} !important;border:1px solid ${C.goldD} !important;border-radius:0 !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.cream} !important}
+[data-wk="gazeempty"]{background:transparent !important;border:1px dashed ${C.goldD} !important;border-radius:0 !important;color:${C.cream} !important}
+[data-wk="gazeempty"] > div:first-child{color:${C.cream} !important}
+[data-wk="gazeempty"] button{background:${C.gold} !important;color:${C.ink} !important;border:none !important;border-radius:0 !important;clip-path:${OCT("8px")} !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "八角墨金", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
