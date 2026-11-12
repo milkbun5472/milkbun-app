@@ -20,6 +20,8 @@ const I_REPLY = ARCH(`<path d='M9 19 H27 Q29 19 29 21 V27 Q29 29 27 29 H16 L12 3
 const I_HOUSE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 34' fill='none' stroke='${C.line}' stroke-width='1.6' stroke-linejoin='round'><path d='M15 0 L16.2 4.8 L21 6 L16.2 7.2 L15 12 L13.8 7.2 L9 6 L13.8 4.8Z' fill='${C.pink}' stroke='none'/><path d='M4 22 L15 13 L26 22 V32 H4Z'/><path d='M12.5 32 V25 Q15 22.5 17.5 25 V32'/></svg>`;
 const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 50' stroke-linejoin='round'><path d='M26 18 C18 8 8 9 2 16 C8 16 10 20 8 25 C13 22 16 25 16 29 C19 26 23 27 26 30' fill='none' stroke='${C.line}' stroke-width='1.5'/><path d='M54 18 C62 8 72 9 78 16 C72 16 70 20 72 25 C67 22 64 25 64 29 C61 26 57 27 54 30' fill='none' stroke='${C.line}' stroke-width='1.5'/><path d='M40 48 C24 37 21 30 21 22 C21 14 27 9 33 9 C36.5 9 39 11 40 13.5 C41 11 43.5 9 47 9 C53 9 59 14 59 22 C59 30 56 37 40 48Z' fill='${C.red}' stroke='${C.line}' stroke-width='1.6'/><path d='M40 38 V20 M34 26 L40 20 L46 26' fill='none' stroke='${C.line}' stroke-width='2' stroke-linecap='round'/></svg>`;
 
+const I_PIC = ARCH(`<rect x='9' y='19' width='18' height='13'/><circle cx='14' cy='23.5' r='1.6'/><path d='M9.5 31 L16 25.5 L20 29 L23 26.5 L26.5 30'/>`);
+const SEAL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><path d='M20 2 C25 2 27 5 31 6 C35 8 36 12 37 16 C39 20 38 25 36 29 C34 34 29 36 25 38 C20 39 15 38 11 36 C6 33 3 29 2.5 24 C2 19 3 14 6 10 C9 5 14 2 20 2Z' fill='${C.red}'/><circle cx='20' cy='20' r='12' fill='none' stroke='rgba(255,255,255,.35)' stroke-width='1.2'/><path d='M20 27 C13 22 12.5 19.5 12.5 18 C12.5 15.5 14.5 14 16.5 14 C18 14 19.3 15 20 16.2 C20.7 15 22 14 23.5 14 C25.5 14 27.5 15.5 27.5 18 C27.5 19.5 27 22 20 27Z' fill='none' stroke='#fff' stroke-width='1.5'/></svg>`;
 const bubble = { myBg: C.wine, myText: C.ink, myBorder: W, charBg: C.dark, charText: C.ink, charBorder: W, radius: 6, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
@@ -110,7 +112,85 @@ img[data-wk="avatar"]{overflow:hidden !important}
 [data-wk="send"]{width:62px !important;min-width:62px !important;height:40px !important;border:none !important;border-radius:0 !important;box-shadow:none !important;background:${svg(I_SEND)} center/contain no-repeat !important;opacity:1 !important}
 [data-wk="chatreply"]{width:34px !important;min-width:34px !important;height:38px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
+[data-wk="chatplus"]{transform:none !important;rotate:none !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.92) !important}
+/* ───── 哥特蕾丝 · 第二批：卡片（形状不动；深色底白线框，左边一条束腰系带，像一封封黑色请柬） ───── */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"],[data-wk="rpcard"]{position:relative !important;overflow:visible !important;background:${C.dark} !important;border:${W} !important;border-radius:6px !important;box-shadow:3px 3px 0 rgba(0,0,0,.35),inset 0 0 0 4px ${C.dark},inset 0 0 0 5px rgba(243,233,238,.35) !important;color:${C.ink} !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *,[data-wk="photocard"] *,[data-wk="wxcard"] *{color:${C.ink} !important;border-color:rgba(243,233,238,.2) !important}
+/* 转账：一张黑请柬——金额粉色衬线大字；收下在右上按一枚红色火漆印 */
+[data-wk="transfercard"]{padding-top:22px !important}
+[data-wk="transfercard"]::before{content:"✠  INVITATION  ✠" !important;position:absolute !important;left:0 !important;right:0 !important;top:9px !important;text-align:center !important;font:italic 10px/1 Georgia,serif !important;letter-spacing:.25em !important;color:${C.pink} !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.pink} !important;font-family:Georgia,serif !important}
+[data-wk="transferrule"]{border:none !important;height:1px !important;background:linear-gradient(90deg,transparent,${C.pink},transparent) !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:rgba(138,40,70,.25) !important;border-top:1px solid rgba(243,233,238,.25) !important}
+[data-wk="transferbtn"]{border-radius:4px !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.wine} !important;border:${W} !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;border:1px solid rgba(243,233,238,.4) !important}
+[data-wk="transferseal"]{background:transparent !important;border:none !important;box-shadow:none !important;color:transparent !important;width:46px !important;height:46px !important;background:${svg(SEAL)} center/contain no-repeat !important;font-size:0 !important}
+[data-wk="transferseal"] *{opacity:0 !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{transform:rotate(-12deg) !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.55 !important}
+[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"]{filter:grayscale(1) !important}
+/* 红包：不是信封——酒红小匣子，左边一颗大蝠翼红心，四角四颗小星；领完褪成暗红 */
+[data-wk="rpcard"]{background:${C.wine} !important;padding-left:64px !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:6px !important;top:calc(50% - 18px) !important;width:56px !important;height:36px !important;background:${svg(I_SEND.replace("M40 38 V20 M34 26 L40 20 L46 26","M40 22 V22"))} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="rpcard"]::after{content:"" !important;position:absolute !important;right:8px !important;top:8px !important;width:10px !important;height:10px !important;background:${svg(STAR(C.line))} center/contain no-repeat !important}
+[data-wk="rpcard"] *{color:${C.ink} !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"][data-status="done"]{background:#4A1E2D !important;opacity:.7 !important}
+[data-wk="rpenvelope"]{background:${svg(QUAT)} 0 0/44px 44px,${C.wine} !important;border:${W} !important;border-radius:10px !important;box-shadow:inset 0 0 0 5px ${C.wine},inset 0 0 0 6px rgba(243,233,238,.5),0 10px 30px rgba(0,0,0,.5) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:transparent !important;border:none !important}
+[data-wk="rpenvelope"] *{color:${C.ink} !important}
+[data-wk="rpenvelope"][data-stage="open"]{background:${svg(QUAT)} 0 0/44px 44px,${C.dark} !important}
+[data-wk="rpopenbtn"]{background:${C.red} !important;border:${W} !important;box-shadow:0 0 0 4px ${C.wine},0 0 0 5.4px rgba(243,233,238,.5) !important}
+[data-wk="rpopenbtn"] *{color:#fff !important}
+[data-wk="rpamount"]{color:${C.pink} !important;font-family:Georgia,serif !important}
+/* 照片：拱窗里一张画；语音：黑色小条，侧边一截系带 */
+[data-wk="photocard"]{padding:10px 10px 12px !important}
+[data-wk="photoface"]{border-radius:50% 50% 3px 3px / 26% 26% 3px 3px !important;background:#2A1822 !important;border:1.2px solid rgba(243,233,238,.5) !important}
+[data-wk="photoface"] *,[data-wk="phototext"],[data-wk="photocap"],[data-wk="photohint"]{color:${C.ink} !important}
+[data-wk="photoface"] svg{stroke:${C.pink} !important}
+[data-wk="voice"][data-me]{position:relative !important;background:${C.dark} !important;border:${W} !important;border-radius:6px !important;padding-left:34px !important;overflow:visible !important}
+[data-wk="voice"][data-me="1"]{background:${C.wine} !important}
+[data-wk="voice"][data-me]::before{content:"" !important;position:absolute !important;left:6px !important;top:4px !important;bottom:4px !important;width:18px !important;background:${svg(LACE)} center top/18px 12px repeat-y !important}
+[data-wk="voice"] > *{background:transparent !important;border:none !important;box-shadow:none !important;color:${C.ink} !important}
+[data-wk="voicewave"] span{background:${C.pink} !important}
+/* 天气、位置、名片 */
+[data-wk="wxcardsky"]{background:radial-gradient(circle at 80% 20%,rgba(200,35,77,.3),transparent 60%),transparent !important}
+[data-wk="wxcardsky"] > div:first-child{background:radial-gradient(circle,rgba(230,140,169,.25),transparent 70%) !important}
+[data-wk="wxcardsky"] svg{stroke:${C.pink} !important}
+[data-wk="wxcardsky"] span[style*="999"],[data-wk="wxcardrain"]{background:transparent !important;border:1px solid rgba(243,233,238,.5) !important;border-radius:4px !important}
+[data-wk="wxcardtemp"]{font-family:Georgia,serif !important}
+[data-wk="wxcardsay"]{background:rgba(138,40,70,.2) !important;border-top:1px solid rgba(243,233,238,.25) !important}
+[data-wk="geopin"]{background:${C.red} !important;border-radius:50% 50% 50% 0 !important;box-shadow:0 0 0 2px ${C.line} !important}
+[data-wk="geopinstem"]{background:${C.line} !important}
+[data-wk="namecard"] img{border-radius:50% 50% 3px 3px / 32% 32% 3px 3px !important;box-shadow:0 0 0 1.6px ${C.line} !important}
+/* 拍一拍、通话结束：两颗小星夹着一行衬线小字 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:transparent !important;border:none !important;color:${C.ink} !important;font-family:Georgia,"Songti SC",serif !important;padding:2px 22px !important;font-size:12px !important;letter-spacing:.1em !important;background:${svg(STAR(C.pink))} left center/10px 10px no-repeat,${svg(STAR(C.pink))} right center/10px 10px no-repeat !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.pink} !important}
+[data-wk="note"][data-part="callsum"]{color:${C.fog} !important}
+/* 线下小结 */
+[data-wk="offlogtitle"]{font-family:Georgia,serif !important;font-style:italic !important;letter-spacing:.2em !important;color:${C.pink} !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.pink} !important}
+[data-wk="offlogtranscript"]{border-top:1px solid rgba(243,233,238,.25) !important}
+/* 加号面板：一扇扇小拱门，黑和酒红交替 */
+[data-wk="chatpanel"]{background:${C.bar} !important;border-top:1.6px solid ${C.line} !important}
+[data-wk="chattoolicon"]{background:${C.dark} !important;border:${W} !important;border-radius:50% 50% 4px 4px / 36% 36% 4px 4px !important;box-shadow:none !important}
+[data-wk="chattool"]:nth-child(odd) [data-wk="chattoolicon"]{background:${C.wine} !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.ink} !important;color:${C.ink} !important}
+[data-wk="chattoollabel"]{color:${C.fog} !important}
+/* 引用三处：左边一截系带 */
+[data-wk="quotedraft"]{background:${C.bar} !important;border-top:none !important}
+[data-wk="quote"]{position:relative !important;background:${C.dark} !important;color:${C.ink} !important;border:1px solid rgba(243,233,238,.4) !important;border-radius:4px !important;padding-left:30px !important;opacity:1 !important;background-image:${svg(LACE)} !important;background-repeat:repeat-y !important;background-size:18px 12px !important;background-position:6px 50% !important}
+[data-wk="quote"][data-me="1"]{background-color:${C.wine} !important}
+[data-wk="quoteicon"],[data-wk="quoteclear"]{color:${C.pink} !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:1.5px solid ${C.pink} !important;padding-left:8px !important;opacity:.75 !important}
+/* 线下：提示键、照片键也是小拱门 */
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:28px !important;height:32px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important;box-shadow:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:34px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PIC)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "哥特蕾丝", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
