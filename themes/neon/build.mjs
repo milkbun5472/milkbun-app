@@ -17,6 +17,7 @@ const I_REPLY = T(C.teal, `<path d='M6 5 H40 Q46 5 46 11 V21 Q46 27 40 27 H20 L1
 
 const I_CAM = T(C.pink, `<path d='M4 10 H9 L11 7 H19 L21 10 H26 V24 H4Z'/><circle cx='15' cy='16.5' r='4.5'/>`);
 const I_BOW = T(C.gold, `<path d='M15 12 C10 4 3 6 5 11 C6 14 11 13 15 12Z'/><path d='M15 12 C20 4 27 6 25 11 C24 14 19 13 15 12Z'/><path d='M15 12 L11 22 M15 12 L19 22'/>`);
+const STAR = T(C.gold, `<path d='M15 4 L17.6 12.4 L26 15 L17.6 17.6 L15 26 L12.4 17.6 L4 15 L12.4 12.4Z'/>`);
 const BRICK = `<svg xmlns='http://www.w3.org/2000/svg' width='48' height='24' viewBox='0 0 48 24'><path d='M0 .5 H48 M0 12.5 H48 M24 0 V12 M.5 12 V24 M47.5 12 V24' stroke='rgba(255,255,255,.035)' stroke-width='1' fill='none'/></svg>`;
 const bubble = { myBg: "transparent", myText: C.ink, myBorder: `2px solid ${C.pink}`, charBg: "transparent", charText: C.ink, charBorder: `2px solid ${C.teal}`, radius: 18, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
@@ -162,6 +163,104 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_CAM)} center/contain no-repeat !important;filter:drop-shadow(0 0 4px ${C.pink}) !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+/* ───── 霓虹夜 · 第三批：状态卡是一面挂满灯牌的墙——每块一圈灯管、顶上灯座；好感是一颗灯管爱心 ───── */
+[data-wk="statecard"]{background:radial-gradient(circle at 0% 100%,rgba(196,40,130,.35),transparent 55%),radial-gradient(circle at 100% 0%,rgba(30,150,150,.3),transparent 50%),${svg(BRICK)} 0 0/48px 24px,${C.bg} !important;border:2px solid ${C.pink} !important;border-radius:18px !important;box-shadow:${IG(C.pink)},0 0 24px rgba(255,95,174,.35) !important;--sc-heart-ink:${C.pink} !important}
+[data-wk="statehead"]{background:rgba(14,11,25,.7) !important;border-bottom:1.5px solid ${C.pink} !important}
+[data-wk="statehead"] *{color:${C.ink} !important}
+[data-wk="statehead"] [data-wk="avatar"],[data-wk="statehead"] [data-wk="avatar"] *{border-radius:50% !important}
+[data-wk="statehead"] button{border:1.5px solid ${C.teal} !important;border-radius:50% !important;background:transparent !important;box-shadow:0 0 6px ${C.teal} !important}
+[data-wk="statemood"]{display:inline-block !important;background:transparent !important;border:1.5px solid ${C.gold} !important;color:${C.gold} !important;padding:1px 10px !important;margin-right:4px !important;border-radius:12px !important;box-shadow:0 0 6px rgba(246,199,100,.7) !important;text-shadow:0 0 6px ${C.gold} !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(14,11,25,.7) !important;border:1.5px solid rgba(244,240,255,.2) !important;border-radius:18px !important;padding:3px !important;margin:12px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:15px !important;background:transparent !important}
+[data-wk="statecard"] button[aria-pressed="true"]{color:${C.ink} !important;box-shadow:inset 0 0 0 2px ${C.teal},0 0 8px ${C.teal} !important;text-shadow:0 0 6px ${C.teal} !important}
+[data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;overflow:visible !important;background:rgba(14,11,25,.75) !important;border:2px solid ${C.teal} !important;border-radius:14px !important;margin:18px 16px 12px !important;color:${C.ink} !important;box-shadow:${IG(C.teal)} !important}
+[data-wk="statevoice"]{border-color:${C.pink} !important;box-shadow:${IG(C.pink)} !important}
+[data-wk="stateseen"]::before,[data-wk="statevoice"]::before{content:"" !important;position:absolute !important;left:calc(50% - 9px) !important;top:-5px !important;width:18px !important;height:7px !important;border-radius:2px !important;background:#1A1626 !important;border:1px solid #4A4560 !important;z-index:2 !important}
+[data-wk="stateseen"] *,[data-wk="statevoice"] *{color:${C.ink} !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:rgba(67,238,221,.06) !important;border:1px solid rgba(67,238,221,.4) !important;border-radius:10px !important}
+[data-wk="statewear"] > span{background:transparent !important;border:1px solid rgba(67,238,221,.5) !important;border-radius:8px !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.pink} !important}
+[data-wk="statevoice"] + div > button{background:transparent !important;color:${C.ink} !important;border:1.5px solid ${C.teal} !important;border-radius:16px !important;box-shadow:0 0 6px ${C.teal} !important}
+/* 好感：不做进度条——一颗灯管爱心，从下往上灌粉光，数字亮在心里 */
+[data-wk="stateaff"]{background:rgba(14,11,25,.7) !important;border-top:1.5px solid ${C.pink} !important;position:relative !important;display:block !important;padding:16px 120px 18px 20px !important;min-height:110px !important;overflow:hidden !important}
+[data-wk="stateaff"] *{color:${C.ink} !important}
+[data-wk="stateheart"]{position:absolute !important;left:auto !important;right:26px !important;top:50% !important;bottom:auto !important;width:80px !important;height:72px !important;margin-top:-36px !important;transform:none !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 84 76'><path d='M42 74 C14 54 2 40 2 23 C2 10 12 2 24 2 C32 2 38 6 42 13 C46 6 52 2 60 2 C72 2 82 10 82 23 C82 40 70 54 42 74Z'/></svg>`)} !important;filter:drop-shadow(0 0 6px ${C.pink}) drop-shadow(0 0 14px rgba(255,95,174,.6)) !important}
+[data-wk="stateheart"] > div{-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important}
+[data-wk="stateheartline"]{background:${C.pink} !important;opacity:1 !important}
+[data-wk="stateheart"] > div:not([data-wk="stateheartline"]){inset:3px !important}
+[data-wk="stateheartbase"]{background:${C.bg} !important;opacity:1 !important}
+[data-wk="stateheartfill"] > div{background:linear-gradient(180deg,#FF8CC6,${C.pink}) !important;opacity:.85 !important}
+[data-wk="stateheartknob"]{display:none !important}
+[data-wk="stateheartnum"]{position:absolute !important;inset:0 !important;display:flex !important;align-items:center !important;justify-content:center !important;padding:0 0 8px !important;z-index:3 !important;transform:none !important;font:700 19px/1 ui-monospace,Menlo,monospace !important;color:#fff !important;text-shadow:0 0 6px ${C.pink},0 0 2px #000 !important;-webkit-text-stroke:0 !important}
+[data-wk="stateaffval"]{display:none !important}
+
+/* 翻旧的：一块块旧灯牌，左上一行金色「No.01」灯字 */
+[data-wk="statehistbtn"]{background:transparent !important;color:${C.ink} !important;border:1.5px solid ${C.teal} !important;border-radius:16px !important;box-shadow:0 0 6px ${C.teal} !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.ink} !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1.5px solid ${C.pink} !important;border-radius:16px !important;background:transparent !important}
+[data-wk="statehistlist"]{counter-reset:pg !important}
+[data-wk="statehistitem"]{counter-increment:pg !important;position:relative !important;background:rgba(14,11,25,.75) !important;border:2px solid ${C.teal} !important;border-radius:14px !important;padding:30px 18px 14px !important;margin:16px 0 12px !important;box-shadow:${IG(C.teal)} !important}
+[data-wk="statehistitem"]:nth-child(even){border-color:${C.pink} !important;box-shadow:${IG(C.pink)} !important}
+[data-wk="statehistitem"]::before{content:"No.0" counter(pg) !important;position:absolute !important;left:16px !important;top:9px !important;color:${C.gold} !important;font:700 11px/1 ui-monospace,Menlo,monospace !important;letter-spacing:.15em !important;text-shadow:0 0 6px ${C.gold} !important}
+[data-wk="statehistmood"]{background:transparent !important;color:${C.gold} !important;border:1.2px solid ${C.gold} !important;border-radius:10px !important;padding:1px 8px !important}
+[data-wk="statehisttime"]{color:${C.fog} !important}
+[data-wk="statehisttext"],[data-wk="statehistact"],[data-wk="statehistwear"]{color:${C.ink} !important}
+[data-wk="statehistmeta"]{background:rgba(67,238,221,.06) !important;border-radius:8px !important}
+[data-wk="statehistend"]{color:${C.fog} !important;letter-spacing:.3em !important}
+
+/* Ta 眼里：贴条换成一颗金色灯管星 */
+[data-wk="gazepage"]{background:${svg(BRICK)} 0 0/48px 24px,${C.bg} !important}
+[data-wk="gazetitle"]{color:${C.ink} !important;text-shadow:0 0 8px ${C.pink} !important}
+[data-wk="gazetab"]{background:transparent !important;color:${C.fog} !important;border:1.5px solid rgba(244,240,255,.2) !important;border-radius:16px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{color:${C.ink} !important;border-color:${C.teal} !important;box-shadow:${IG(C.teal)} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{position:relative !important;overflow:visible !important;background:rgba(14,11,25,.75) !important;border:2px solid ${C.teal} !important;border-radius:14px !important;box-shadow:${IG(C.teal)} !important}
+[data-wk="gazecard"]:nth-child(even){border-color:${C.pink} !important;box-shadow:${IG(C.pink)} !important}
+[data-wk="gazetape"]{background:${svg(STAR)} center/contain no-repeat !important;width:22px !important;height:22px !important;box-shadow:none !important;border:none !important;filter:drop-shadow(0 0 4px ${C.gold}) !important}
+[data-wk="gazecardname"]{color:${C.ink} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:${C.fog} !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:rgba(14,11,25,.85) !important;color:${C.ink} !important;border:2px solid ${C.pink} !important;border-radius:16px !important;box-shadow:${IG(C.pink)} !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
+[data-wk="gazeempty"]{background:rgba(14,11,25,.75) !important;color:${C.ink} !important;border:2px solid ${C.teal} !important;border-radius:14px !important;box-shadow:${IG(C.teal)} !important}
+[data-wk="gazeempty"] *{color:${C.ink} !important}
+[data-wk="gazeempty"] button{background:transparent !important;border:2px solid ${C.pink} !important;border-radius:16px !important;box-shadow:${IG(C.pink)} !important}
+
+/* ───── 线下：一块块长灯牌，他的青、我的粉；说的话亮起来，心里话是灭着的暗字 ───── */
+[data-wk="offline"]:not([style*="url("]){background:radial-gradient(circle at 0% 100%,rgba(196,40,130,.4),transparent 55%),radial-gradient(circle at 100% 0%,rgba(30,150,150,.3),transparent 50%),${svg(BRICK)} 0 0/48px 24px,${C.bg} !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="headname"] > div:last-child{white-space:normal !important;line-height:1.35 !important;color:${C.fog} !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *,[data-wk="offline"] [data-wk="chatback"] *{color:${C.ink} !important}
+[data-wk="offline"] [data-wk="chatback"] svg{stroke:${C.ink} !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:transparent !important;color:${C.pink} !important;border:1.5px solid ${C.pink} !important;border-radius:14px !important;font-size:12px !important;padding:3px 12px !important;box-shadow:0 0 6px ${C.pink} !important;text-shadow:0 0 4px ${C.pink} !important}
+[data-wk="offline"] [data-wk="chatmore"]{width:26px !important;min-width:26px !important;height:26px !important;flex-shrink:0 !important}
+[data-wk="offcomposer"]{background:rgba(14,11,25,.88) !important;border-top:1.5px solid ${C.teal} !important;box-shadow:0 -1px 10px rgba(67,238,221,.35) !important}
+[data-wk="offcomposer"] textarea{background:${C.panel} !important;border:1.5px solid rgba(244,240,255,.25) !important;border-radius:16px !important;color:${C.ink} !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){width:40px !important;min-width:40px !important;height:36px !important;background:${svg(I_SEND)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important;filter:drop-shadow(0 0 5px ${C.pink}) !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:48px !important;min-width:48px !important;height:34px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important;filter:drop-shadow(0 0 5px ${C.teal}) !important;font-size:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcard"]{position:relative !important;overflow:visible !important;background:rgba(14,11,25,.8) !important;border:2px solid ${C.teal} !important;border-radius:16px !important;box-shadow:${IG(C.teal)},0 0 16px rgba(67,238,221,.3) !important}
+[data-wk="offcard"][data-me="1"]{border-color:${C.pink} !important;box-shadow:${IG(C.pink)},0 0 16px rgba(255,95,174,.3) !important}
+[data-wk="offcard"]::before{content:"" !important;position:absolute !important;left:calc(50% - 9px) !important;top:-5px !important;width:18px !important;height:7px !important;border-radius:2px !important;background:#1A1626 !important;border:1px solid #4A4560 !important;z-index:2 !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2px ${C.teal},${GT} !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offhead"] img,[data-wk="offcard"][data-me="1"] [data-wk="offhead"] [data-wk="avatar"]{box-shadow:0 0 0 2px ${C.pink},${GP} !important}
+[data-wk="offname"]{color:${C.gold} !important;text-shadow:0 0 6px rgba(246,199,100,.7) !important;letter-spacing:.1em !important}
+[data-wk="offtext"]{color:#DCD5F2 !important}
+[data-wk="offsay"]{color:#fff !important;font-weight:700 !important;background:transparent !important;border:none !important;text-shadow:0 0 6px ${C.pink},0 0 12px rgba(255,95,174,.6) !important}
+[data-wk="offcard"]:not([data-me="1"]) [data-wk="offsay"]{text-shadow:0 0 6px ${C.teal},0 0 12px rgba(67,238,221,.6) !important}
+[data-wk="offthought"]{background:transparent !important;border:none !important;border-left:2px solid rgba(244,240,255,.25) !important;border-radius:0 !important;color:${C.fog} !important;font-style:italic !important;opacity:.85 !important}
+[data-wk="offcardacts"] svg{stroke:${C.fog} !important;color:${C.fog} !important}
+[data-wk="offreplyopt"]{background:transparent !important;border:1.5px solid ${C.teal} !important;border-radius:16px !important;color:${C.ink} !important;box-shadow:0 0 6px ${C.teal} !important}
+
+/* ───── 通话：灯管气泡，头像外两圈灯环 ───── */
+[data-wk="callbubble"]{position:relative !important;background:rgba(14,11,25,.6) !important;color:${C.ink} !important;border:2px solid ${C.teal} !important;border-radius:18px !important;box-shadow:${IG(C.teal)} !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{border-color:${C.pink} !important;box-shadow:${IG(C.pink)} !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 2px ${C.teal},0 0 10px ${C.teal},0 0 0 10px rgba(14,11,25,.6),0 0 0 12px ${C.pink},0 0 22px 12px rgba(255,95,174,.45) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "霓虹夜", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
