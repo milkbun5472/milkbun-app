@@ -43,17 +43,23 @@ const css = `
 [data-wk="chatmore"] *,[data-wk="sameroom"] *{opacity:0 !important}
 
 /* 头像：尖拱窗——白线框，顶上一颗小星 */
-button[data-wk="avatar"],span[data-wk="avatar"],[data-wk="chathead"] [data-wk="avatar"]{border-radius:50% 50% 3px 3px / 42% 42% 3px 3px !important;box-shadow:0 0 0 1.6px ${C.line},0 0 0 4px ${C.bg},0 0 0 5.4px rgba(243,233,238,.5) !important;position:relative !important;overflow:visible !important}
-button[data-wk="avatar"] *,span[data-wk="avatar"] *,[data-wk="chathead"] [data-wk="avatar"] *{border-radius:50% 50% 3px 3px / 42% 42% 3px 3px !important}
+button[data-wk="avatar"],span[data-wk="avatar"],[data-wk="chathead"] [data-wk="avatar"]{border-radius:50% 50% 3px 3px / 32% 32% 3px 3px !important;box-shadow:0 0 0 1.6px ${C.line},0 0 0 4px ${C.bg},0 0 0 5.4px rgba(243,233,238,.5) !important;position:relative !important;overflow:visible !important}
+button[data-wk="avatar"] *,span[data-wk="avatar"] *,[data-wk="chathead"] [data-wk="avatar"] *{border-radius:50% 50% 3px 3px / 32% 32% 3px 3px !important}
 [data-wk="msg"] [data-wk="avatar"]::before,[data-wk="cardrow"] [data-wk="avatar"]::before{content:"" !important;position:absolute !important;left:calc(50% - 6px) !important;top:-17px !important;width:12px !important;height:12px !important;background:${svg(STAR(C.line))} center/contain no-repeat !important;z-index:2 !important}
 [data-first="0"] [data-wk="avatar"]::before{content:none !important}
-[data-wk="chathead"] [data-wk="headme"] *,[data-wk="chathead"] [data-wk="avatar"] *,[data-wk="chathead"] img,[data-wk="chathead"] button > span:first-child,[data-wk="chathead"] button > span:first-child *{border-radius:50% 50% 3px 3px / 42% 42% 3px 3px !important;overflow:hidden !important}
+[data-wk="chathead"] [data-wk="headme"] *,[data-wk="chathead"] [data-wk="avatar"] *,[data-wk="chathead"] img,[data-wk="chathead"] button > span:first-child,[data-wk="chathead"] button > span:first-child *{border-radius:50% 50% 3px 3px / 32% 32% 3px 3px !important;overflow:hidden !important}
 /* 顶栏双头像：两扇拱窗并排，中间一颗蝙蝠翅膀小心 */
 [data-wk="chathead"] [data-wk="headme"]{display:inline-flex !important;position:relative !important;overflow:visible !important;margin-left:-4px !important;flex-shrink:0 !important}
 [data-wk="chathead"] [data-wk="headme"] > *,[data-wk="chathead"] [data-wk="headme"] img,[data-wk="chathead"] [data-wk="avatar"]{width:34px !important;height:38px !important;min-width:34px !important;flex-shrink:0 !important;overflow:hidden !important}
 img[data-wk="avatar"]{overflow:hidden !important}
 [data-wk="chathead"] [data-wk="headme"]::before{content:"" !important;position:absolute !important;left:-17px !important;bottom:-6px !important;width:30px !important;height:14px !important;z-index:3 !important;background:${svg(BATHEART(C.red, C.line))} center/contain no-repeat !important}
 [data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
+
+/* 拱窗要瘦高，像参考里的鸟笼——宽 38 高 50，照片铺满 */
+[data-wk="msg"] button[data-wk="avatar"],[data-wk="msg"] span[data-wk="avatar"],[data-wk="cardrow"] button[data-wk="avatar"],[data-wk="cardrow"] span[data-wk="avatar"]{width:38px !important;min-width:38px !important;height:50px !important}
+[data-wk="msg"] [data-wk="avatar"] img,[data-wk="cardrow"] [data-wk="avatar"] img,[data-wk="msg"] img[data-wk="avatar"],[data-wk="cardrow"] img[data-wk="avatar"]{width:100% !important;height:100% !important;object-fit:cover !important}
+[data-wk="msg"] img[data-wk="avatar"],[data-wk="cardrow"] img[data-wk="avatar"]{width:38px !important;height:50px !important}
+[data-wk="chathead"] [data-wk="headme"] > *,[data-wk="chathead"] [data-wk="headme"] img,[data-wk="chathead"] [data-wk="avatar"]{width:30px !important;min-width:30px !important;height:40px !important;object-fit:cover !important}
 
 /* 气泡：方角白线；靠头像那一侧一条束腰交叉系带，每串第一条在系带顶上打一个蝴蝶结 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border:${W} !important;border-radius:6px !important;box-shadow:3px 3px 0 rgba(0,0,0,.35) !important;color:${C.ink} !important;font-family:Georgia,"Songti SC",serif !important;letter-spacing:.06em !important}
