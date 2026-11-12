@@ -305,6 +305,12 @@ img[data-wk="avatar"]{overflow:hidden !important}
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:22px !important;min-width:22px !important;height:26px !important;flex-shrink:0 !important}
 [data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){padding:3px 8px !important;flex-shrink:0 !important}
 [data-wk="offline"] [data-wk="headname"] > div:last-child{white-space:normal !important;overflow:visible !important}
+/* 名字要完整：两扇小窗再收小、叠一点；名字字距收紧；名字那块至少 120px */
+[data-wk="chathead"] [data-wk="headme"] > *,[data-wk="chathead"] [data-wk="headme"] img,[data-wk="chathead"] [data-wk="avatar"]{width:26px !important;min-width:26px !important;height:34px !important}
+[data-wk="chathead"] [data-wk="headme"]{margin-left:-10px !important}
+[data-wk="chathead"] [data-wk="headname"]{min-width:120px !important}
+[data-wk="chathead"] [data-wk="headname"] [data-wk="headink"]{letter-spacing:.02em !important}
+[data-wk="chathead"] [data-wk="headink"] > span:first-child{overflow:visible !important;text-overflow:clip !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "哥特蕾丝", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
