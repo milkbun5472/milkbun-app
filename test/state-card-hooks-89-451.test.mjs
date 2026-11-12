@@ -49,3 +49,18 @@ test("Ta 眼里的贴条挂点", () => {
   assert.match(gaze, /const tape = extra => h\("div", \{ "data-wk": "gazetape"/);
   assert.ok(studio.includes('"gazetape"'));
 });
+test("已读那一行报 data-read，美化分得出已送达／已读", () => {
+  assert.match(comp, /"data-wk": "meta", "data-me": m && m\.role === "user" \? "1" : "0", "data-read": \/已读\/\.test/);
+});
+test("隔了 3 分钟以上再说话算新的一串，头像重新露出来", () => {
+  const src = comp.slice(comp.indexOf("const MSG_RUN_GAP"), comp.indexOf("// ── 排版开关"));
+  const fn = new Function(src.replace("function msgRunAttrs", "return function msgRunAttrs").replace(/^const MSG_RUN_BREAK.*$/m, ""));
+  globalThis.MSG_RUN_BREAK = {};
+  const run = new Function("MSG_RUN_BREAK", src.replace("function msgRunAttrs", "return function msgRunAttrs"))({});
+  const same = (a, b) => a.role === b.role;
+  const t0 = 1e12;
+  const list = [{ role: "assistant", ts: t0 }, { role: "assistant", ts: t0 + 60000 }, { role: "assistant", ts: t0 + 60000 + 600000 }];
+  assert.equal(run(list, 1, 0, true, same)["data-first"], "0", "一分钟内接着说还是同一串");
+  assert.equal(run(list, 2, 0, true, same)["data-first"], "1", "隔了十分钟再说就是新的一串");
+  assert.equal(run(list, 1, 0, true, same)["data-last"], "1");
+});

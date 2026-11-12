@@ -124,13 +124,17 @@ function stickerSrc(v) { return v ? (typeof resolveImg === "function" ? resolveI
 //   data-recent＝刚进来十几秒内（做入场动画用）。单聊、群聊两处都调这一份（one-public-mechanism）。
 //   same(a, b)：两条是不是同一个人连着说的——单聊看 role，群聊还要看 senderId，由调用方给。
 const MSG_RUN_BREAK = { narration: 1, system: 1, callend: 1, watchlog: 1, listenlog: 1, offlinelog: 1, ooc: 1, pat: 1 };
+const MSG_RUN_GAP = 180000;
 function msgRunAttrs(list, i, part, last, same) {
   const m = list[i] || {};
   const talk = x => !!x && !x.recalled && !MSG_RUN_BREAK[x.kind] && (x.role === "user" || x.role === "assistant");
   // 他那句括号动描（role narration、who char）夹在他自己的话中间，不算断开一串（她 2026-11-10：收了转账、一句动描、再说话，同一轮却又冒出头像）
   const hop = (k, d) => { while (list[k] && list[k].kind === "narration" && list[k].who === "char" && m.role === "assistant") k += d; return list[k]; };
-  const prevSame = part > 0 || (talk(m) && talk(hop(i - 1, -1)) && same(hop(i - 1, -1), m));
-  const nextSame = !last || (talk(m) && talk(hop(i + 1, 1)) && same(m, hop(i + 1, 1)));
+  // 隔了一阵子再开口就是新的一串（她 2026-11-11：「过一段时间他主动发消息还是不显示头像」）——
+  //   跟时间戳同一个分寸：两条之间超过 3 分钟（会冒出时间那一行）就断开，头像和名字重新露出来
+  const near = (a, b) => { const x = Number(a && a.ts) || 0, y = Number(b && b.ts) || 0; return !x || !y || Math.abs(y - x) <= MSG_RUN_GAP; };
+  const prevSame = part > 0 || (talk(m) && talk(hop(i - 1, -1)) && same(hop(i - 1, -1), m) && near(hop(i - 1, -1), m));
+  const nextSame = !last || (talk(m) && talk(hop(i + 1, 1)) && same(m, hop(i + 1, 1)) && near(m, hop(i + 1, 1)));
   const ts = Number(m.ts) || 0;
   return { "data-first": prevSame ? "0" : "1", "data-last": nextSame ? "0" : "1",
     "data-recent": ts && Date.now() - ts < 15000 ? "1" : "0" };
@@ -15244,7 +15248,8 @@ const markTtsCached = (text, voiceId, emo) => {
 //   onState：他那条底下的「状态」——平时藏着（点头像就能看），排版里把头像藏了才由 chatLayoutCSS 在一串最后一条底下露出来（群友 2026-10-26）
 function chatMsgFoot(t, m, sub, dot, onState) {
   if (!dot && !sub && !onState) return null;
-  return h("span", { "data-wk": "meta", "data-me": m && m.role === "user" ? "1" : "0",
+  // data-read：这条已读了没（她 2026-11-11 做 Y2K：「已送达是空心、已读是实心」）——美化分得出两种状态才画得出不同的样子
+  return h("span", { "data-wk": "meta", "data-me": m && m.role === "user" ? "1" : "0", "data-read": /已读/.test(String(sub || "")) ? "1" : "0",
     className: "flex items-center", style: { gap: 7, marginTop: 2, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog } },
     sub ? h("span", null, sub) : null, dot,
     onState ? h("button", { "data-wk": "stlink", onClick: e => { e.stopPropagation(); onState(); }, "aria-label": "看状态卡",
