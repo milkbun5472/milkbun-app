@@ -10,9 +10,9 @@ const GT = `0 0 2px ${C.teal},0 0 8px ${C.teal},0 0 18px rgba(67,238,221,.5)`;
 const IG = (c) => `0 0 6px ${c},inset 0 0 6px ${c}`;
 const T = (c, d, vb = '0 0 30 30') => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='${vb}' fill='none' stroke-linecap='round' stroke-linejoin='round'><g stroke='${c}' stroke-width='3.2' opacity='.45'>${d}</g><g stroke='${c}' stroke-width='1.8'>${d}</g><g stroke='#fff' stroke-width='.7' opacity='.8'>${d}</g></svg>`;
 const I_PLUS = T(C.teal, `<path d='M15 3 L17.5 12.5 L27 15 L17.5 17.5 L15 27 L12.5 17.5 L3 15 L12.5 12.5Z'/>`);
-const I_HOUSE = T(C.pink, `<path d='M4 14 L15 5 L26 14'/><path d='M7 12 V25 H23 V12'/><path d='M12.5 25 V18 H17.5 V25'/><path d='M19 8 V5 H22 V10.5'/>`);
-const I_MORE = T(C.teal, `<circle cx='6' cy='15' r='2.4'/><circle cx='15' cy='15' r='2.4'/><circle cx='24' cy='15' r='2.4'/>`);
-const I_SEND = T(C.pink, `<path d='M4 18 L36 6 L28 30 L20 21 Z'/><path d='M36 6 L20 21 L19 29'/>`, '0 0 40 36');
+const I_HOUSE = T(C.pink, `<path d='M8 27 V9 Q8 4 15 4 Q22 4 22 9 V27Z'/><path d='M17 11 A3.5 3.5 0 1 1 13.5 7.5 A2.6 2.6 0 0 0 17 11Z'/><circle cx='18.5' cy='18' r='.9'/><path d='M5 27 H25'/>`);
+const I_MORE = T(C.teal, `<path d='M7 21 V13 M15 24 V6 M23 20 V10'/>`);
+const I_SEND = T(C.pink, `<path d='M23 3 L9 19 H19 L15 33 L31 14 H21 Z'/>`, '0 0 40 36');
 const I_REPLY = T(C.teal, `<path d='M6 5 H40 Q46 5 46 11 V21 Q46 27 40 27 H20 L12 32 L13.5 27 H12 Q6 27 6 21 V11 Q6 5 12 5Z'/><path d='M26 21.5 C20 17.5 19.5 15.5 19.5 14 C19.5 12 21 11 22.5 11 C24 11 25.3 12 26 13.2 C26.7 12 28 11 29.5 11 C31 11 32.5 12 32.5 14 C32.5 15.5 32 17.5 26 21.5Z'/>`, '0 0 52 36');
 
 const BRICK = `<svg xmlns='http://www.w3.org/2000/svg' width='48' height='24' viewBox='0 0 48 24'><path d='M0 .5 H48 M0 12.5 H48 M24 0 V12 M.5 12 V24 M47.5 12 V24' stroke='rgba(255,255,255,.035)' stroke-width='1' fill='none'/></svg>`;
@@ -77,7 +77,7 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 [data-wk="sysnotetext"]::before{content:"◦ " !important;color:${C.teal} !important}
 [data-wk="sysnotetext"]::after{content:" ◦" !important;color:${C.teal} !important}
 
-/* 底栏：夜色，顶边一根青色灯管；左加号、发送是一架洋红灯管纸飞机，右回复是青色灯管对话框里一颗心；按键都不包框，换成配套灯管图案 */
+/* 底栏：夜色，顶边一根青色灯管；左加号、发送是一道洋红闪电，右回复是青色灯管对话框里一颗心；按键都不包框，换成配套灯管图案 */
 [data-wk="composer"]{background:rgba(14,11,25,.88) !important;border-top:1.5px solid ${C.teal} !important;box-shadow:0 -1px 10px rgba(67,238,221,.35) !important;align-items:center !important;gap:8px !important}
 [data-wk="chatinput"]{background:${C.panel} !important;border:1.5px solid rgba(244,240,255,.25) !important;border-radius:18px !important;color:${C.ink} !important}
 [data-wk="chatinput"]::placeholder{color:${C.fog} !important}
