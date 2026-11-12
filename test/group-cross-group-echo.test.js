@@ -7,7 +7,7 @@ test("群里每个人也带着他在别的互通群最近聊的：按时间窗�
   const j = app.indexOf("const crossRecentFor = (charId, opts = {}) => {"), cr = app.slice(j, app.indexOf("\n  };", j));
   assert.match(cr, /if \(surfaces\.includes\("group"\)\)/);
   assert.match(cr, /g\.id === opts\.excludeGroup \|\| !gsFor\(g\.id\)\.memoryInterop/);
-  assert.match(app, /spectate: !imInGroup\(group\) \|\| !!gs\.spectate, groupId: group\.id \}\)/);
+  assert.match(app, /spectate: !imInGroup\(group\) \|\| !!gs\.spectate, groupId: group\.id, parallel: _gPar \}\)/);
 });
 
 test("单聊带的群聊近况也走同一份（她 2026-10-27「换了」）", () => {

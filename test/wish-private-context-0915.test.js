@@ -11,7 +11,7 @@ test('心愿清单所有入口共用最新八条；单人措辞、旁观身份�
  assert.doesNotMatch(env.wishLine(text,'我',{group:true,gift:false}),/填 gift/);
  env.wishRef.current=[];assert.equal(env.wishLine(env.wishFor(),'我',{group:true}),'');
  assert.match(app,/wishLog: !isBody\(char\.id\) \? wishFor\(char\.id\) : ""/);
- assert.match(app,/wishLog: wishFor\(\)/);
+ assert.match(app,/wishLog: _par \? \"\" : wishFor\(\)/);
  assert.match(engine,/wishLine\(ctx.wishLog, userName, \{ group: true, gift: false \}\)/);
 });
 test('共用私有背景保持记忆三层；封闭群/零窗口无实时近况，NPC无主线私事',()=>{

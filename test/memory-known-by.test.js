@@ -80,13 +80,13 @@ test("群聊记忆按在场成员的可见交集分流，不再拿一个人的�
 test("线上群与群线下都改用分流，不再用 members[0] 的身份代表全群", () => {
   assert.doesNotMatch(app, /retrieveMemories\(memLibRef\.current, members\[0\]/,
     "线上群不许再拿第一个成员的可见结果当公共记忆");
-  assert.match(app, /const gSplit = splitGroupMemories\(memLibRef\.current, members\.map\(c => c\.id\), hist/);
+  assert.match(app, /const gSplit = groupMemSplit\(groupId, members\.map\(c => c\.id\), hist/);
   assert.match(app, /const groupMem = formatMemLib\(gSplit\.shared\)/);
   assert.match(app, /只有 " \+ c\.name \+ " 知道】的事/, "私有条目要落进本人那段并标明别人不知情");
-  assert.match(app, /return splitGroupMemories\(memLibRef\.current, group\.memberIds \|\| \[\], qtext/,
+  assert.match(app, /return groupMemSplit\(group\.id, group\.memberIds \|\| \[\], qtext/,
     "群线下同样走分流");
   assert.match(app, /const picked = memSplit\.shared;/, "群线下的公共记忆只取 shared");
   // 向量预热必须排在召回之前，否则分流那次召回退化成纯关键词
-  assert.ok(app.indexOf("await primeQueryVec(hist)") < app.indexOf("const gSplit = splitGroupMemories"),
+  assert.ok(app.indexOf("await primeQueryVec(hist)") < app.indexOf("const gSplit = groupMemSplit"),
     "primeQueryVec 要在 splitGroupMemories 之前");
 });

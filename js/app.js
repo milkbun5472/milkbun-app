@@ -9953,6 +9953,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 群线下的记忆按在场成员的可见交集分流（v53.61，同线上群）：全员都知道的进公共【记忆库】段，
   // 只有部分成员知道的落进各自那段〔仅本人知道〕里，别的成员的上下文里根本不出现。
+  // 平行世界房间（她 2026-11-13「加吧」）：AU／如果线／换个身份重新认识——人设、世界书、她的面具照旧，
+  //   主线上发生过的一概不知道。判据只问这一处；它住在群对象上（createGroupRoom 写），互通也一并关着，所以写回那头走 groupClosed 那道闸。
+  const groupParallel = gid => !!gid && !!((groupsRef.current || []).find(g => g && g.id === gid) || {}).parallel;
+  // 群里召记忆库只走这一份：平行房间一条不召。房间互通关着、从不往记忆库写，所以库里也没有「这间里发生的」可留。
+  const groupMemSplit = (gid, ids, text, opts) => groupParallel(gid) ? { shared: [], perChar: {} } : splitGroupMemories(memLibRef.current, ids, text, opts);
+  // 成员之间的关系线＋她的面具：平行房间只留面具，主线上谁跟谁是什么关系不带进去
+  // 六层背景在平行房间里只留人设那一侧（住哪儿、作息）：长出来的自我／情绪底色／随身物／情侣档案／账单都是主线上攒的
+  const groupParallelBackground = b => ({ sleep: (b && b.sleep) || "", home: (b && b.home) || "" });
+  const groupRelLines = (gid, people, me) => (groupParallel(gid) ? "" : people.map(c => directedRelationLines(c, rels, characters, me)).join("\n")) + (gid && groupMaskNote(gid) ? "\n" + groupMaskNote(gid) : "");
   const groupOfflineMemSplit = group => {
     // 读一律给（她 2026-08-24「只进不出」）：封闭群照样读得到记忆库，
     // 只是里头发生的事不写回去——写那一侧的闸在 addMemEntry 那几处，一个没松。
@@ -9961,7 +9970,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!Number.isFinite(limit) || limit <= 0) return { shared: [], perChar: {} };
     const sess = (groupOfflinesRef.current[group.id] || []).find(s => !s.endTs);
     const qtext = sess && Array.isArray(sess.msgs) ? sess.msgs.slice(-6).map(m => m.content || "").join("\n") : "";
-    return splitGroupMemories(memLibRef.current, group.memberIds || [], qtext, { limit, touch: false });
+    return groupMemSplit(group.id, group.memberIds || [], qtext, { limit, touch: false });
   };
   // 三条群路共用六层背景的读取；NPC 不拥有主角色的私有背景。
   const groupBackgroundFor = c => {
@@ -9980,7 +9989,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const ctxForGroupOffline = group => {
   const memSplit = groupOfflineMemSplit(group);
-  const backgrounds = groupMembers(group).filter(c => !c.npc).map(c => [c.id, groupBackgroundFor(c)]);
+  const _par = groupParallel(group.id);   // 平行房间：下面凡是主线上攒的（背景、心情好感、关系、印象卡、近况、记忆）都不给
+  const backgrounds = groupMembers(group).filter(c => !c.npc).map(c => [c.id, groupBackgroundFor(c)]).map(([id, b]) => [id, _par ? groupParallelBackground(b) : b]);
   const backgroundMap = field => Object.fromEntries(backgrounds.filter(([, b]) => b[field]).map(([id, b]) => [id, b[field]]));
   // 旁观群里她不在场：站位跟着一起递给引擎（群线上早就认，群线下以前一层都没有——
   // 她 2026-09-26 报「旁观群我都不在怎么开口」）。判据走 groupSpectating 那一处，
@@ -9994,7 +10004,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     profile: groupProfileFor(group.id),
     clockId: "g:" + group.id,
     maskNote: groupMaskNote(group.id),
-    rels,
+    rels: _par ? {} : rels,
     chars: characters,
     // A（v50.78）：群线下补上每个成员「长出来的自我」（心上毕业念想）——之前只单人线下/线上带，群线下漏了(Codex 抓到)。
     memberGrown: backgroundMap("grown"),
@@ -10006,6 +10016,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 不是【你们之间发生过什么】，所以封闭群照给。
     memberMood: (() => {
       const m = {};
+      if (_par) return m;
       (group.memberIds || []).forEach(id => {
         // 配角的心情不走这一份：他那四样整段由 npcGroupLine 拼好（见 npcRoster），
         // 两边都给就是同一层写在两处（施工规则/one-public-mechanism.md）。
@@ -10019,6 +10030,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     })(),
     memberAff: (() => {
       const m = {};
+      if (_par) return m;
       (group.memberIds || []).forEach(id => {
         if ((characters.find(x => x.id === id) || {}).npc) return;   // 配角没有好感度
         m[id] = Math.round(affOf(id));
@@ -10067,13 +10079,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     })(),
     // 她今天身上带着的（四处一样喂）：以前只有走 buildBundle 的那几处看得见
     // ⚠️旁观群她不在场，这一条整个不给——跟线上那路同一个判据
-    onMe: groupSpectating(group) ? "" : onMeFor(),
+    onMe: groupSpectating(group) || _par ? "" : onMeFor(),
     // 她想要什么（四处一样喂）：同线上群聊，共享一份
-    wishLog: wishFor(),
+    wishLog: _par ? "" : wishFor(),
     // 随身物（四处一样喂）：和线上群聊同一份、同一个额度
     memberCarry: backgroundMap("carry"),
     memberSched: (() => {
       const m = {};
+      if (_par) return m;
       (group.memberIds || []).forEach(id => {
         const c = characters.find(x => x.id === id);
         if (!c || c.npc || !timeAwareFor(id)) return; // 配角/关闭时间感知的角色没有现实行程
@@ -10085,6 +10098,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     memberTimeAware: Object.fromEntries((group.memberIds || []).map(id => [id, timeAwareFor(id)])),
     memberCouple: (() => {
       const m = {};
+      if (_par) return m;
       (group.memberIds || []).forEach(id => {
         const c = characters.find(x => x.id === id);
         if (!c || c.npc) return;            // 配角跟用户没有关系线
@@ -10097,7 +10111,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 带同一道隐私围栏。四处一样喂——单聊有的这一层，群里两处也要有。
     memberCoupleArchive: backgroundMap("archive"),
     // 印象卡读一律给，封闭群只限制写回；engine 放在每位成员自己的隐私段。
-    memberGaze: Object.fromEntries((group.memberIds || []).map(id => [id, gazeFor(id)]).filter(([, text]) => text)),
+    memberGaze: _par ? {} : Object.fromEntries((group.memberIds || []).map(id => [id, gazeFor(id)]).filter(([, text]) => text)),
     // 世界书走和单人线下/线上群同一套筛选引擎（v50.74）：之前群线下用 deriveWorldbook 全量拼接——只认没绑角色的全局词条、还无视 scope、绑了角色的一律看不见。
     //   改成 loreText 检索式：在场成员绑定的 + 全局的，聊天 scope，用本场近段做关键词命中；常驻/无关键词照常进。
     worldbook: (() => {
@@ -10111,7 +10125,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     groupNotice: gsFor(group.id).notice || null,
     // 跨情境近况（v50.66）：每个成员各自最近在【单聊线上 + 单人线下】和用户之间发生的事，带时间戳，
     //   让群线下接得上刚在别处聊过的细节。own-chat-only：只带该成员自己那份，engine 侧再加隐私铁律(别的成员不知情)。
-    memberRecent: (group.memberIds || []).map(id => {
+    memberRecent: _par ? [] : (group.memberIds || []).map(id => {
       const c = characters.find(x => x.id === id);
       if (!c) return null;
       const own = (memSplit && memSplit.perChar[String(id)]) || [];
@@ -16004,7 +16018,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   （跟 v55.87 群里王爷变霸总是同一个病：剩下的只有标签）。
       //   她显式拉到 0 的群照旧是 0 —— 那是她的选择，不是没设过。
       const _preJoinN = gs.preJoinN == null ? 20 : Number(gs.preJoinN) || 0;
-      if (_preJoinN > 0 && !gs.memoryInterop) {
+      const _gPar = groupParallel(groupId);   // 平行房间：入群前私聊、别的群刚说的、今天行程、群外熟人、她身上带的和想要的都是主线，不带
+      if (_preJoinN > 0 && !gs.memoryInterop && !_gPar) {
         const cutTs = groupCreatedTs(group);
         const pj = members.map(c => {
           const before = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !m.kind && (!cutTs || (m.ts || 0) < cutTs)).slice(-_preJoinN);
@@ -16028,7 +16043,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const _pl = (listenRef.current.playlists || []).find(x => x.charId === c.id);
         const _pls = (_pl && _pl.songs) || [];
         const pn = _pls.length ? "（TA 最近在听：" + _pls.slice(0, 4).map(s => s.title).join("、") + "，对上了能认出来）" : "";
-        const _now = groupNowSegs(c, { interop: gs.memoryInterop, act: !!gs.actDesc, drama: !!gs.drama });
+        const _now = groupNowSegs(c, { interop: gs.memoryInterop, act: !!gs.actDesc, drama: !!gs.drama, parallel: _gPar });
         const live = _now.live;
         const { grownSeg, aSeg, zSeg, hcSeg, cySeg, caSeg } = _now;
         // 「四处一样喂」（施工规则/four-surfaces-same-context.md）：单聊经 buildBundle
@@ -16052,12 +16067,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         }
             // 别的群里刚说过的话：只给 TA 本人这一段，别的成员看不到（同隐私铁律的落法）
         const xgSeg = (() => {
-          const said = crossChannelSaid(c.id, groupId);
+          const said = _gPar ? "" : crossChannelSaid(c.id, groupId);
           return said ? "\n〔你刚在别的群里说过这些（是你本人说的，这儿要跟它对得上：时间、安排、答应过的事都要接得上。别的成员不一定知道，他们只知道自己听到的；这件事自然接着说，不用提『我刚在群里说过』）〕\n" + said : "";
         })();
         // 今天此刻的安排（她 2026-10-20「群聊能改日程吗→接上吧」）：跟群线下 memberSched 同一份 schedBriefFor、同一句规矩；
         //   只给开着时间感知的本人，下面 schedNow 才有东西可对照
-        const schSeg = (() => { try { const b = timeAwareFor(c.id) ? schedBriefFor(c) : ""; return b ? "\n〔今天此刻在做什么〕" + b + "（" + SCHEDULE_CONTEXT_RULE + "）" : ""; } catch (e) { return ""; } })();
+        const schSeg = (() => { try { const b = timeAwareFor(c.id) && !_gPar ? schedBriefFor(c) : ""; return b ? "\n〔今天此刻在做什么〕" + b + "（" + SCHEDULE_CONTEXT_RULE + "）" : ""; } catch (e) { return ""; } })();
         if (schSeg) _gSchedNames.push(memberLabel(members, c));
         return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, gPersonaCap) + charLangLine(c) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + hcSeg + ageSeg + schSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
       }).join("\n\n");
@@ -16077,7 +16092,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const gBiHint = (typeof bilingualRule === "function"
         ? members.filter(c => !c.npc && (settingsFor(c.id) || {}).bilingual).map(c => "\n\n" + bilingualRule(c.name, hanLangOf(c)) + "（只对 " + c.name + "，别的成员照常写。）").join("")
         : "");
-      const relLines = members.map(c => directedRelationLines(c, rels, characters, profile)).join("\n") + (groupMaskNote(groupId) ? "\n" + groupMaskNote(groupId) : "");
+      const relLines = groupRelLines(groupId, members, profile);
       let interop = "";
       // ⭐封闭群改成【只进不出】（她 2026-08-24：「长出来的自我、记忆库这些要只进不出，
       // 封闭群不应该影响主要世界」）。以前 memoryInterop 一个开关同时管两个方向，
@@ -16091,9 +16106,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (typeof primeQueryVec === "function") await primeQueryVec(hist); // 向量记忆预热（失败自动纯关键词）
         // 记忆按在场成员的可见交集分流（v53.61）：全员都知道的进公共段，
         // 只有部分成员知道的（比如 A 私下说了自己受伤、没告诉别人）只落进那几个人各自的私密段。
-        const gSplit = splitGroupMemories(memLibRef.current, members.map(c => c.id), hist, { limit: memCfgRef.current.topK || 5 });
+        const gSplit = groupMemSplit(groupId, members.map(c => c.id), hist, { limit: memCfgRef.current.topK || 5 });
         const memLines = members.map(c => {
-          const seg = memberPrivateContextFor(c, gSplit, { interop: gs.memoryInterop, privateCtxN: gs.privateCtxN, spectate: !imInGroup(group) || !!gs.spectate, groupId: group.id });
+          const seg = memberPrivateContextFor(c, gSplit, { interop: gs.memoryInterop, privateCtxN: gs.privateCtxN, spectate: !imInGroup(group) || !!gs.spectate, groupId: group.id, parallel: _gPar });
           return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
         }).filter(Boolean).join("\n\n");
         const groupMem = formatMemLib(gSplit.shared);
@@ -16188,7 +16203,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 悄悄话（她 2026-10-30「可以开发一个悄悄话做灰字」）：背着全群只对一个人说的一句。只有那个人听得见
       const gWhisperHint = members.length >= 2 ? "\n【悄悄话】成员想背着群里别人、只对某一个人（另一位成员，或 " + userName(profile) + "）说一句时，在自己的发言对象里加 whisper:{\"to\":\"那个人的名字\",\"text\":\"那句话\"}。悄悄话只有 to 那个人听得见：别的成员不知道这句、也接不上它；被说的那个人可以回一句悄悄话、装没事，或者当场说破。真有背着人的话才说，一整轮最多一句。上文里标着【悄悄话】的，照它写的谁听得见来。" : "";
       // 拉人、踢人（她 2026-10-26「群聊可以踢人拉人」）：群外、跟群里谁有关系线的人才拉得进来
-      const _gOutside = liveChars.filter(c => !(group.memberIds || []).includes(c.id) && members.some(m => (rels || {})[m.id + "->" + c.id] || (rels || {})[c.id + "->" + m.id])).slice(0, 12);
+      const _gOutside = _gPar ? [] : liveChars.filter(c => !(group.memberIds || []).includes(c.id) && members.some(m => (rels || {})[m.id + "->" + c.id] || (rels || {})[c.id + "->" + m.id])).slice(0, 12);
       const gKickInviteHint = "\n【拉人和踢人】"
         + (_gOutside.length ? "群外认识的人：" + _gOutside.map(c => "「" + c.name + "」（" + members.filter(m => (rels || {})[m.id + "->" + c.id] || (rels || {})[c.id + "->" + m.id]).map(m => m.name).join("、") + " 认识）").join("、")
           + "。群里谁想把认识的人拉进来，在自己那条发言对象里加 \"invite\":\"那人的名字\"，只能拉自己认识的。" : "")
@@ -16376,9 +16391,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 她今天身上带着什么（四处一样喂）：这一条原来只在单聊那几处有——
       // 她带着东西来见【他们】，群里却一个字都看不到（群里那位 2026-09-15 报的）。
       // ⚠️句子走 engine 的 onMeLine 一份，别在这儿另写一版。
-      const _gOnMe = onMeFor();
+      const _gOnMe = _gPar ? "" : onMeFor();
       const gOnMeHint = (_gOnMe && !groupSpectating(group)) ? "\n\n" + onMeLine(_gOnMe, userName(profile)) : "";
-      const gWishHint = wishLine(wishFor(), userName(profile), { group: true, spectate: gs.spectate, gift: true });
+      const gWishHint = wishLine(_gPar ? "" : wishFor(), userName(profile), { group: true, spectate: gs.spectate, gift: true });
       // 同处一室（她 2026-09-10：「群里也接共处一室吧」）：句子跟单聊共用同一份，
       // 只多传一个 group 参数。⚠️线下正开着就不发——那一段自己已经把面对面讲清楚了
       // （跟单聊 offlineNow 那处同一条判据）。旁观群不发：她不在场。
@@ -17423,12 +17438,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       const hist = groupContextRows(groupId).map(groupHistLineStk).join("\n");
       const gsp = gsFor(groupId);
-      const split = splitGroupMemories(memLibRef.current, members.map(c => c.id), hist, { limit: memCfgRef.current.topK || 5 });
+      const split = groupMemSplit(groupId, members.map(c => c.id), hist, { limit: memCfgRef.current.topK || 5 });
       const memberDesc = members.map(c => {
         // 配角那一行走公共的 npcRosterLine：在场的谁跟 TA 有边，四处都该看得见（不止群线上）
         if (c.npc) return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c) + npcGroupLine(c, members.map(x => x.id));
-        const now = groupNowSegs(c, { interop: gsp.memoryInterop });
-        const privateText = [memories[c.id], formatMemLib(split.perChar[String(c.id)] || []), gsp.memoryInterop ? memberPrivLines(c, gsp.privateCtxN) : ""].filter(Boolean).join("\n");
+        const now = groupNowSegs(c, { interop: gsp.memoryInterop, parallel: groupParallel(groupId) });
+        const privateText = [groupParallel(groupId) ? "" : memories[c.id], formatMemLib(split.perChar[String(c.id)] || []), gsp.memoryInterop ? memberPrivLines(c, gsp.privateCtxN) : ""].filter(Boolean).join("\n");
         // ⚠️分母跟别处一样排掉配角：配角走 NPC_PERSONA_CAP 那 3000 字，不参与平分
         //   （群线上／群线下／群通话三处都是 filter(!npc)，只有投票这处漏了）。
         return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.filter(x => !x.npc).length)) + charLangLine(c) + Object.values(now).join("")
@@ -18402,16 +18417,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 群里的小房间（她 2026-11-13「群聊咋开房间」「弄一下吧」）：房间就是一个普通的群——
   //   照主群抄一份（成员、群设置、长相），换个 id 和名字，挂一个 roomOf 指回主群。
-  //   生成/线下/设置/记忆全走群原来那套，不另起一套。kind："main"＝接着主线（记忆互通跟主群一样），"closed"＝不带出门（互通关）。
+  //   生成/线下/设置/记忆全走群原来那套，不另起一套。kind："main"＝接着主线（记忆互通跟主群一样），"closed"＝不带出门（互通关），
+  //   "parallel"＝平行世界（她 2026-11-13「加吧」）：互通关＋群上挂 parallel，主线一概不带进来（判据 groupParallel）。
   const createGroupRoom = (parentId, name, kind) => {
     const parent = groups.find(g => g && g.id === parentId);
     if (!parent || parent.roomOf) return null;
     const nm = String(name || "").trim().slice(0, 30) || "小房间";
-    const g = { ...parent, id: "g_" + Date.now(), name: nm, roomOf: parent.id, createdTs: Date.now() };
+    const par = kind === "parallel";
+    const g = { ...parent, id: "g_" + Date.now(), name: nm, roomOf: parent.id, createdTs: Date.now(), ...(par ? { parallel: true } : {}) };
+    groupsRef.current = [...(groupsRef.current || []), g];   // 建完马上就会生成，别等下一次渲染才认得它是平行房间
     setGroups(p => { const n = [...p, g]; saveJSON("x_groups", n); return n; });
     // 主群自己这条聊天的进度（总结到哪、公告、禁言）不抄，房间从头开始
     const { lastSummarizedCount, notice, mutes, ...gs0 } = gsFor(parent.id);
-    saveGroupSettingsRaw(g.id, { ...gs0, memoryInterop: kind === "closed" ? false : !!gs0.memoryInterop });
+    // 平行房间连修罗场也不开：修罗场摆的是主线上谁跟她什么关系，这间里没有这一层
+    saveGroupSettingsRaw(g.id, { ...gs0, memoryInterop: kind === "closed" || par ? false : !!gs0.memoryInterop, ...(par ? { drama: false } : {}) });
     setActiveGroup(g);
     setScreen("gthread");
     toast("开了一间「" + nm + "」");
@@ -22490,6 +22509,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const md = window.MoodLabel && window.MoodLabel.settle
       ? window.MoodLabel.settle((moods[c.id] || {}).label, (moods[c.id] || {}).ts, Date.now())
       : { label: (moods[c.id] || {}).label || "", note: "" };
+    // 平行房间（调用方按 groupParallel 递 opts.parallel）：只剩人设那一侧——年龄、住哪儿、作息；主线上的心情好感、穿着动作、关系、行程都不给
+    if (o.parallel) return {
+      ...groupBackgroundSegments(c, groupParallelBackground(groupBackgroundFor(c)), userName(profile)),
+      ageSeg: (() => { const a = ageLineFor(c); return a ? "\n〔你现在〕" + a : ""; })(),
+      sbSeg: timeAwareFor(c.id) ? "" : "\n〔时间感知关闭〕不要根据现实日期、时段或行程调整发言。"
+    };
     return {
       ...groupBackgroundSegments(c, groupBackgroundFor(c), userName(profile)),
       // ⚠️「上一动作」原来只在【记忆互通】开着时才给。可 action 这一格是
@@ -22528,6 +22553,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 群文字与多人通话共用私有背景；实时窗口的开关同时约束线上与线下近况。
   const memberPrivateContextFor = (c, split, opts) => {
     if (!c || c.npc) return "";
+    if (opts && opts.parallel) return "";   // 平行房间（调用方按 groupParallel 递）：长期记忆、印象卡、私聊近况一样都不带
     const mem = memories[c.id];
     const gz = gazeFor(c.id);
     const onlyMine = formatMemLib((split.perChar || {})[String(c.id)] || []);
@@ -23023,7 +23049,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // ⚠️别再砍到 160 字：只剩一个标签的角色，空白由训练先验补上，那就是网文霸总
         //   （v55.87 群聊那次就是这么变的，那次还有 200 字）。按在场人数分预算，同群聊。
         const gCallCap = groupPersonaBudget(people.filter(c => !c.npc).length || 1);
-        const relLines = people.map(c => directedRelationLines(c, rels, characters, callMe)).join("\n") + (cur.groupId && groupMaskNote(cur.groupId) ? "\n" + groupMaskNote(cur.groupId) : "");
+        const relLines = groupRelLines(cur.groupId, people, callMe);
         const cWorld = loreText(loreRef.current, { charIds: people.map(c => c.id), scope: "chat", text: hist.map(m => m.content).join("\n") });
         // 群通话补记忆：群 OOC 规矩 + 记忆库检索（不互通的群守封闭分区，不读全局记忆库）——之前群通话两样都没接
         const cgs = cur.groupId ? gsFor(cur.groupId) : null;
@@ -23034,15 +23060,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const gcHistText = hist.slice(-8).map(m => m.content).join("\n");
         if (typeof primeQueryVec === "function") await primeQueryVec(gcHistText);
         const gcMembers = people.filter(c => !c.npc);
-        const gcSplit = splitGroupMemories(memLibRef.current, gcMembers.map(c => c.id), gcHistText, { limit: 5 });
+        const gcSplit = groupMemSplit(cur.groupId, gcMembers.map(c => c.id), gcHistText, { limit: 5 });
         const cMem = formatMemLib(gcSplit.shared);
         // 每人那一段【此刻】跟群聊同一份（v60.31）：原来电话里只有一份人设——
         // TA不知道现在几点，也不知道她刚在私聊里说过什么，只能瞎猜
         //（她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」）。
         const gcInterop = !cur.groupId || !cgs || cgs.memoryInterop !== false;
+        const gcPar = groupParallel(cur.groupId);   // 平行房间的群通话：主线上攒的、她身上带的和想要的都不带
         const memberDesc = people.map(c => {
           if (c.npc) return "【" + memberLabel(people, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c) + npcGroupLine(c, people.map(x => x.id));
-          const n = groupNowSegs(c, { interop: gcInterop });
+          const n = groupNowSegs(c, { interop: gcInterop, parallel: gcPar });
           return "【" + memberLabel(people, c) + "】" + groupPersonaText(c.persona, gCallCap) + charLangLine(c) + n.live + n.grownSeg + n.mdSeg + n.afSeg + n.aSeg + n.zSeg + n.hcSeg + n.ageSeg + n.sbSeg + n.cySeg + n.cpSeg + n.caSeg;
         }).join("\n\n");
         // 实时私聊窗口：只落在本人那一段，围栏照抄群聊那一份，一个字都不放松
@@ -23051,7 +23078,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         //   只有不挂在任何群上的临时多人通话（没有 cgs）才按单聊那一档给。
         const gcPrivN = cgs ? (Number(cgs.privateCtxN) || 0) : 6;
         const gcPriv = gcMembers.map(c => {
-          const seg = memberPrivateContextFor(c, gcSplit, { interop: gcInterop, privateCtxN: gcPrivN, groupId: cur.groupId });
+          const seg = memberPrivateContextFor(c, gcSplit, { interop: gcInterop, privateCtxN: gcPrivN, groupId: cur.groupId, parallel: gcPar });
           return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
         }).filter(Boolean).join("\n\n");
         const gcPrivBlock = gcPriv ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么" + (cgs && cgs.drama ? "" : "、是什么关系") + "**——除非那位成员【自己在这通电话或群里主动说了出来】。每个成员只凭『自己那一段』和『这通电话里公开说过的话』行动。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + gcPriv : "";
@@ -23072,12 +23099,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 群通话是【第三处群路】，成长准则原来一个字都没有——群线上和群线下各有一份、
         // 电话里没有，于是同一个人在电话里退回原卡的旧倾向（v55.87「换个入口换个人」）。
         const gcGrowth = groupGrowthLine(gcMembers.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name));
-        const gcOnMe = onMeFor();
+        const gcOnMe = gcPar ? "" : onMeFor();
         // 群通话一轮几条跟着人数长（她 2026-09-29「开吧」）：原来写死 3~7，七个人一人一条都不够。上限是许可，模型不会写满
         const sys = groupBans({ echo: true })
           + (gcOnMe ? "\n\n" + onMeLine(gcOnMe, uName) : "")
           + gcGrowth
-          + wishLine(wishFor(), uName, { group: true, gift: false })
+          + wishLine(gcPar ? "" : wishFor(), uName, { group: true, gift: false })
           + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (typeof THOUGHT_EACH_OWN === "string" ? "thought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + THOUGHT_EACH_OWN : "") + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cur.groupId ? groupNoticeBlock(gsFor(cur.groupId).notice) : "") + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
         const raw = await callAI(groupApiFor(groupId), sys + callBiHint + callVoiceHint + cameraHint, window.CallCamera.withFrame(hist, cameraFrame), { use: "call", logLabel: "群通话", maxTokens: 65000 });
         const arr = extractJSON(raw);

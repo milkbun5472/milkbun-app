@@ -20918,19 +20918,21 @@ function GroupThread({
     const mainG = all.find(g => g && g.id === mainId);
     const rooms = all.filter(g => g && g.roomOf === mainId);
     if (!onSwitchRoom || (!rooms.length && !group.roomOf && !roomForm)) return null;
-    const chip = (key, label, on, fn, wk, dot) => h("button", { key, "data-wk": wk, "data-on": on ? "1" : "0", onClick: fn, className: "shrink-0 active:opacity-60",
+    const chip = (key, label, on, fn, wk, dot, tag) => h("button", { key, "data-wk": wk, "data-on": on ? "1" : "0", onClick: fn, className: "shrink-0 active:opacity-60",
       style: { position: "relative", padding: "3px 11px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", whiteSpace: "nowrap" } },
-      label, dot ? h("span", { style: { position: "absolute", top: 1, right: 2, width: 6, height: 6, borderRadius: 3, background: t.accent } }) : null);
+      label, tag ? h("span", { "data-wk": "groomtag", style: { marginLeft: 5, fontSize: "calc(10px * var(--app-fs, 1))", opacity: .7 } }, tag) : null,
+      dot ? h("span", { style: { position: "absolute", top: 1, right: 2, width: 6, height: 6, borderRadius: 3, background: t.accent } }) : null);
     const un = id => (unreadMap || {})[id] > 0;
     return h("div", { "data-wk": "groomstrip", className: "shrink-0", style: { position: "relative", zIndex: 2, background: gChatBg ? "rgba(255,255,255,0.55)" : t.bg2, borderBottom: "1px solid " + t.line } },
       h("div", { className: "flex items-center", style: { gap: 6, padding: "6px 16px", overflowX: "auto" } },
         chip("main", "主群" + (mainG && mainG.name ? " · " + mainG.name : ""), !group.roomOf, () => onSwitchRoom(mainId), "groomchip", group.roomOf && un(mainId)),
-        rooms.map(r => chip(r.id, r.name, r.id === group.id, () => onSwitchRoom(r.id), "groomchip", r.id !== group.id && un(r.id))),
+        // 平行世界的房间挂个「平行」（她 2026-11-13「加吧」）：一眼分得清哪间是主线外的
+        rooms.map(r => chip(r.id, r.name, r.id === group.id, () => onSwitchRoom(r.id), "groomchip", r.id !== group.id && un(r.id), r.parallel ? "平行" : "")),
         chip("new", "＋新开一间", false, () => setRoomForm(f => f ? null : { name: "", kind: "main" }), "groomnew")),
       roomForm ? h("div", { "data-wk": "groomform", style: { padding: "2px 16px 10px" } },
         h("input", { "data-wk": "groomname", value: roomForm.name, maxLength: 30, placeholder: "房间名，比如：深夜食堂", onChange: e => setRoomForm({ ...roomForm, name: e.target.value }),
           style: { width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", outline: "none" } }),
-        [["main", "接着主线", "记忆互通跟主群一样：这里聊的会记进大家的记忆，主群也知道"], ["closed", "不带出门", "大家记得主线，但这里聊的只留在这间，不往外带"]].map(([k, lb, note]) =>
+        [["main", "接着主线", "记忆互通跟主群一样：这里聊的会记进大家的记忆，主群也知道"], ["closed", "不带出门", "大家记得主线，但这里聊的只留在这间，不往外带"], ["parallel", "平行世界", "人设、世界书和你的面具照旧，但谁都不知道主线发生过什么；这里聊的也不往外带"]].map(([k, lb, note]) =>
           h("button", { key: k, "data-wk": "groomkind", "data-on": roomForm.kind === k ? "1" : "0", onClick: () => setRoomForm({ ...roomForm, kind: k }), className: "w-full text-left active:opacity-70",
             style: { display: "block", marginTop: 6, padding: "7px 10px", borderRadius: 10, border: "1px solid " + (roomForm.kind === k ? t.ink : t.line) } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, (roomForm.kind === k ? "● " : "○ ") + lb),
@@ -22209,10 +22211,12 @@ function GroupSettingsSheet({ apiProfiles, onSuggestName, onDrawTitles, lucky, o
             strangers.join("、") + " 认识的不是这张：在这个群里，他们会把你当成一个换了身份、不认识的人。") : null;
         })())) : null,
     gCard({ title: "记忆互通 · 他们自己聊", char: "通", tint: "#687f73", state: "记忆互通 " + gOnOff(interop) + (interop ? " · 自己聊 " + gOnOff(autoChat) : "") }, "这个群跟单聊通不通气，以及你不在的时候他们要不要自己往下聊。",
+    // 平行世界的房间不给开互通（她 2026-11-13「加吧」）：开了就成了一半带主线、一半不带，换种玩法另开一间
+    group && group.parallel ? h("div", { className: "pt-5", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, "这是一间平行世界：人设、世界书和你的面具照旧，主线上发生过的谁都不知道，这里聊的也不往外带。所以没有「记忆互通」这一项。") :
     row("记忆互通", "开：群实时抽取每位成员跟你的单聊+长期记忆+记忆库，双向记得，带心声/实时好感。关：本群是封闭空间——长期记忆、记忆库、印象卡照样读得到，但群里发生的事一个字都不回流主线（只进不出）；你俩平时怎么说话，靠下面的『入群前上文』。", interop, setInterop),
     interop
       ? sliderRow("带入私聊条数", "互通时，每位成员最近多少条私聊会被实时带进群聊上下文，跟他的单人线下、他在别的互通群里聊的按时间排成一条（0＝只带长期记忆）。人多的群拉大了每轮会贵一些。", privN, setPrivN, 0, 60, 2, " 条")
-      : sliderRow("入群前上文条数", "封闭群的前情提要：抓每位成员『入群前』和你的私聊各最近多少条当背景（0＝不带）。这是模型唯一能看到 TA 平时真怎么跟你说话的地方——拉成 0，角色就只剩人设标签，容易演成刻板印象。开了记忆互通就用不上、自动让位给实时抽取。", preJoinN, setPreJoinN, 0, 50, 1, " 条"),
+      : group && group.parallel ? null : sliderRow("入群前上文条数", "封闭群的前情提要：抓每位成员『入群前』和你的私聊各最近多少条当背景（0＝不带）。这是模型唯一能看到 TA 平时真怎么跟你说话的地方——拉成 0，角色就只剩人设标签，容易演成刻板印象。开了记忆互通就用不上、自动让位给实时抽取。", preJoinN, setPreJoinN, 0, 50, 1, " 条"),
     interop && row("群里自己聊起来", "开互通后，你不看着这个群也没关系：只要 App 还活着，成员就会自己顺着聊，聊出来的内容会在消息页挂未读。额度到顶会歇一阵，时间到或你再开口就恢复。", autoChat, setAutoChat),
     interop && autoChat && sliderRow("自发间隔", "两轮自发之间隔多久（绕着这个数上下浮动，不死板）。嫌太闹就往大调。想让他们先别聊、把话头留给你，点顶栏设置左边那颗圆点——它会变白，底下那颗按钮也跟着变白。", autoChatMin, setAutoChatMin, 1, 60, 1, " 分钟"),
     interop && autoChat && sliderRow("自发轮数上限", "这一段自发最多聊几【轮】就停。和下面的总条数上限【谁先到就停】。", autoChatRounds, setAutoChatRounds, 1, 60, 1, " 轮"),

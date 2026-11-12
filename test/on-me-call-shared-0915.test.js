@@ -16,8 +16,8 @@ test('随身物共用读取真实 onMe 标记和写入端额度，库存变化�
   // v68.81：群线下那一处加了旁观群的闸（她不在场，就不该有「她今天身上带着」），
   //   所以只剩单聊那一处是光秃秃的 onMeFor()
   assert.equal((app.match(/onMe: onMeFor\(\)/g)||[]).length,1);
-  assert.match(app,/onMe: groupSpectating\(group\) \? "" : onMeFor\(\)/);
-  assert.match(app,/const _gOnMe = onMeFor\(\)/);
+  assert.match(app,/onMe: groupSpectating\(group\) \|\| _par \? "" : onMeFor\(\)/);
+  assert.match(app,/const _gOnMe = _gPar \? \"\" : onMeFor\(\)/);
   assert.match(app,/const gOnMeHint = \(_gOnMe && !groupSpectating\(group\)\)/);
   // 判据只许有一份：两路问同一个函数
   assert.equal((app.match(/const groupSpectating = group =>/g)||[]).length,1);
@@ -26,7 +26,7 @@ for(const modeZh of ['语音通话','视频通话']) test('多人'+modeZh+'发�
   const env=wire(fixture()); let sent='';
   Object.assign(env,{ON_ME_CAP:2,modeZh,uName:'读者',callMe:{},groupMaskNote:()=>'',cur:{groupId:'g'},hist:[],rels:{},loreRef:{current:[]},directives:{},
     groupPersonaBudget:()=>6000,directedRelationLines:()=>'',loreText:()=>'',gsFor:()=>({memoryInterop:false,privateCtxN:0}),
-    primeQueryVec:async()=>{},memLibRef:{current:[]},splitGroupMemories:()=>({shared:[],perChar:{}}),formatMemLib:()=>'',
+    primeQueryVec:async()=>{},memLibRef:{current:[]},splitGroupMemories:()=>({shared:[],perChar:{}}),groupParallel:()=>false,groupMemSplit:()=>({shared:[],perChar:{}}),groupRelLines:()=>'',formatMemLib:()=>'',
     memories:{},settingsFor:()=>({}),isBody:()=>false,noGaze:()=>false,memberPrivLines:(c,n)=>Number(n)>0?'私聊_'+c.id:'',// v76.761 起 crossRecentFor 两种用法：surfaces:["offline"] 是线下，surfaces:["group"] 是他在别的互通群聊的
     memCfgRef:{current:{}},crossRecentFor:(id,o)=>{const f=(o&&o.surfaces||['offline'])[0];/* v89.117 起私聊、线下、别的群并成一条时间线 */return f==='online'?'私聊_'+id+' 线下_'+id+' 别群_'+id:(f==='group'?'别群_':'线下_')+id;},groupContextRows:()=>[],
     PERSONA_EVOLVE_IDS:[],groupGrowthLine:()=>'',groupBans:()=>'',groupNoticeBlock:()=>'',callerIsChar:false,callerName:'',

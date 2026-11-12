@@ -30,6 +30,8 @@ function fixture() {
     nickLineFor: () => '',
     // v68.70：拉黑／刚解除跟情侣状态、称呼同一档，落在【那位成员自己那一段】里
     blockLineFor: () => '',
+    // 平行世界房间（她 2026-11-13「加吧」）：这张金牌是普通群，判据一律答「不是」
+    groupParallel: () => false, _gPar: false, gcPar: false,
     crossChannelSaid: id => id + '跨群消息', listenRef: { current: { playlists: [{ charId: 'a', songs: [{ title: '甲的歌' }] }] } },
     window: { HeartKit: { personaText: x => x }, MoodLabel: { settle: label => ({ label, note: '' }) } },
   };

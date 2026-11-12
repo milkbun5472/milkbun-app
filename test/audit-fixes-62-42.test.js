@@ -7,7 +7,7 @@ const src = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
 test("群通话：记忆走 splitGroupMemories 分流，不再只按 people[0] 全群共享", () => {
   const seg = src.slice(src.indexOf("// 群通话：多角色你一言我一语"), src.indexOf("const arr = extractJSON(raw);", src.indexOf("// 群通话：多角色你一言我一语")));
-  assert.match(seg, /const gcSplit = splitGroupMemories\(/);
+  assert.match(seg, /const gcSplit = groupMemSplit\(cur\.groupId, /);
   assert.match(seg, /memberPrivateContextFor\(c, gcSplit,/);
   assert.doesNotMatch(seg, /retrieveMemories\(memLibRef\.current, people\[0\]/);
 });

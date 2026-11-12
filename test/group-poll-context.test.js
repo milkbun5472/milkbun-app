@@ -15,7 +15,7 @@ function setup() {
     pushGroupRich:(id,m)=>{b.groupChatsRef.current[id].push({...m,ts:Date.now()})},
     pGChat:(id,fn)=>{b.groupChatsRef.current[id]=fn(b.groupChatsRef.current[id]||[])},
     memLibRef:{current:[]},memCfgRef:{current:{}},memories:{a:'甲私密长期记忆',b:'乙私密长期记忆'},
-    splitGroupMemories:()=>({shared:[],perChar:{}}),formatMemLib:x=>x.map(v=>v.text).join('\n'),
+    splitGroupMemories:()=>({shared:[],perChar:{}}),groupMemSplit:()=>({shared:[],perChar:{}}),groupParallel:()=>false,formatMemLib:x=>x.map(v=>v.text).join('\n'),
     groupPersonaText:p=>p,charLangLine:()=>'',groupPersonaBudget:()=>1000,NPC_PERSONA_CAP:1000,
     groupNowSegs:()=>({mdSeg:'心情层'}),memberPrivLines:()=>{throw Error('封闭群不能读实时私聊')},
     groupBans:()=>'',loreForContext:()=>'',parseJSONLoose:JSON.parse,

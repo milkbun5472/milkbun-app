@@ -67,14 +67,14 @@ test("她不在场 ≠ 她不存在：好感、情侣、关系铁律、她是谁
   assert.match(app, /const gMeBlock = \(profile && \(profile\.name \|\| profile\.persona\)\)/, "旁观群里她是谁被删了");
   assert.match(app, /gSpec \? "他们各自认识的那个人 · 「" \+ _uN \+ "」的设定（Ta 此刻不在这个群里）" : "和大家说话的人/);
   // 想要清单：照给，只把「在场的人」换成「认识她的人」
-  assert.match(app, /const gWishHint = wishLine\(wishFor\(\)/);
+  assert.match(app, /const gWishHint = wishLine\(_gPar \? \"\" : wishFor\(\)/);
   assert.match(app, /spectate: gs.spectate, gift: true/);
 });
 
 test("撤掉的东西是删掉，不是留个没人读的形参", () => {
   // groupNowSegs 那个 spectate 参数第一版加过，这一版不需要了——三处调用点都要回到原样
   assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop[^)]*\}\);/);
-  assert.match(app, /const n = groupNowSegs\(c, \{ interop: gcInterop \}\);/);
+  assert.match(app, /const n = groupNowSegs\(c, \{ interop: gcInterop, parallel: gcPar \}\);/);
   assert.ok(app.indexOf("gcSpectate") < 0, "群通话那个没人读的常量还留着");
   assert.ok(app.indexOf("o.spectate") < 0, "groupNowSegs 里还留着没人传的分支");
 });
@@ -83,6 +83,6 @@ test("普通群一个字都没变（这一轮只动旁观那一支）", () => {
   // 普通群仍要有的那几样
   assert.match(app, /绝不生成用户的新台词、动作或心声/);
   assert.match(app, /每个成员和用户「" \+ _uN \+ "」是什么关系（恋人\/暧昧\/朋友…）【只有该成员本人知道】/);
-  assert.match(app, /wishLine\(wishFor\(\), userName\(profile\)/);
+  assert.match(app, /wishLine\(_gPar \? \"\" : wishFor\(\), userName\(profile\)/);
   assert.match(app, /〔对 " \+ userName\(profile\) \+ " 的好感〕/);
 });
