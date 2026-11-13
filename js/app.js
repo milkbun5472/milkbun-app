@@ -2745,7 +2745,9 @@ function App() {
   const paintChatLook = draft => {
     if (typeof applyChatLook !== "function") return;
     // 单人通话（不是群通话）优先：通话盖在哪一页上都按通话里那个人来
-    const callOne = call && !call.groupId && call.participants && call.participants.length === 1 ? call.participants[0] : null;
+    // ⚠️只在通话屏真摆在眼前时按通话那个人来（群友 2026-11-13：「和其中一个 char 打电话，其他 char 的气泡都变成这个 char 的颜色」）——
+    //   通话缩小了、她去翻别人的聊天，那一页是别人的，照别人的来
+    const callOne = call && !call.min && !call.groupId && call.participants && call.participants.length === 1 ? call.participants[0] : null;
     const who = callOne || (activeChar && (screen === "thread" || (halfWin && halfWin.charId === activeChar.id)) ? activeChar : null);
     const inChat = !!who;
     document.documentElement.setAttribute("data-lisa-char", inChat ? String(who.id) : "");
@@ -2774,7 +2776,7 @@ function App() {
       chatBg: s.chatBg || ""
     });
   };
-  useEffect(() => { paintChatLook(null); }, [activeChar && activeChar.id, halfWin && halfWin.charId, chatSettings, screen, call && call.participants && call.participants.map(c => c.id).join(","), call && call.groupId]);
+  useEffect(() => { paintChatLook(null); }, [activeChar && activeChar.id, halfWin && halfWin.charId, chatSettings, screen, call && call.participants && call.participants.map(c => c.id).join(","), call && call.groupId, call && !!call.min]);
   // 原生壳的 view 底色写死米白，屏幕最底那一条若露出来就是它。把聊天页输入栏的
   // 实际底色报到 theme-color 上，壳那头跟着换；别的页、输入栏透明时回到主题底色。
   useEffect(() => {
