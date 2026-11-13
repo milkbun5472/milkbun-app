@@ -14,6 +14,15 @@ const GING = X(`width='8' height='8' viewBox='0 0 8 8'><rect width='8' height='8
 const CURTAIN = `repeating-linear-gradient(90deg,rgba(0,0,0,.42) 0,rgba(0,0,0,.08) 22px,rgba(120,170,140,.10) 40px,rgba(0,0,0,.05) 56px,rgba(0,0,0,.42) 78px)`;
 // 狼眼（已读）
 const EYES = X(`viewBox='0 0 40 14'><g fill='${C.gold}'><path d='M3 7 Q9 2 15 7 Q9 11 3 7Z'/><path d='M25 7 Q31 2 37 7 Q31 11 25 7Z'/></g><g fill='#2A1406'><ellipse cx='9' cy='7' rx='1' ry='2.6'/><ellipse cx='31' cy='7' rx='1' ry='2.6'/></g>`);
+const SHUT = X(`viewBox='0 0 40 14' fill='none' stroke='rgba(168,181,168,.8)' stroke-width='1.6' stroke-linecap='round'><path d='M3 6 Q9 11 15 6'/><path d='M25 6 Q31 11 37 6'/>`);
+const CLAW = X(`viewBox='0 0 20 20'><path d='M3 17 Q2 9 8 6 Q14 4 17 9 Q18 14 14 17Z' fill='#4A4040' stroke='#2B2424'/><g fill='#EDE3D0'><path d='M7 6 L5 1 L9 5Z'/><path d='M11 5 L11 0 L13 5Z'/><path d='M15 7 L18 2 L17 8Z'/></g>`);
+// 他的相框：外婆的旧肖像框——深木框、内圈奶白蕾丝；上面两个角冒出灰狼耳，右下三道爪痕划穿木框，左下一道裂缝
+const FRAME = X(`viewBox='0 0 120 120'><path d='M22 22 H98 V98 H22Z' fill='none' stroke='#4A3024' stroke-width='12'/><path d='M15.5 15.5 H104.5 V104.5 H15.5Z' fill='none' stroke='#2A1A12' stroke-width='1.5'/><path d='M28.5 28.5 H91.5 V91.5 H28.5Z' fill='none' stroke='${C.cream}' stroke-width='2.4'/><g fill='#4A4040' stroke='#1E1818' stroke-width='1.2'><path d='M10 24 L12 2 L28 16Z'/><path d='M110 24 L108 2 L92 16Z'/></g><g fill='#9A7C78'><path d='M14 19 L14.5 9 L22 15Z'/><path d='M106 19 L105.5 9 L98 15Z'/></g><g stroke='#E9DCC4' stroke-width='2.2' stroke-linecap='round'><path d='M86 108 L108 86'/><path d='M93 110 L110 93'/><path d='M100 111 L111 100'/></g><path d='M16 82 L22 88 L18 93 L24 99' fill='none' stroke='#E9DCC4' stroke-width='1.4'/>`);
+// ── 怪诞：林子里的眼睛、狼毛、荆棘、渗色 ──
+const EYESBG = X(`width='260' height='420' viewBox='0 0 260 420'><g fill='${C.gold}'><g opacity='.55'><path d='M30 60 Q36 55 42 60 Q36 64 30 60Z'/><path d='M50 60 Q56 55 62 60 Q56 64 50 60Z'/></g><g opacity='.3'><path d='M200 150 Q203 147.5 206 150 Q203 152 200 150Z'/><path d='M211 150 Q214 147.5 217 150 Q214 152 211 150Z'/></g><g opacity='.45'><path d='M120 300 Q128 293 136 300 Q128 305 120 300Z'/><path d='M148 300 Q156 293 164 300 Q156 305 148 300Z'/></g><g opacity='.22'><path d='M228 380 Q231 378 234 380 Q231 382 228 380Z'/><path d='M238 380 Q241 378 244 380 Q241 382 238 380Z'/></g><g opacity='.35' fill='#E0503A'><path d='M16 250 Q19 247.5 22 250 Q19 252 16 250Z'/><path d='M27 250 Q30 247.5 33 250 Q30 252 27 250Z'/></g></g><g fill='#1A0A04'><rect x='35.5' y='57' width='1' height='6'/><rect x='55.5' y='57' width='1' height='6'/><rect x='127.5' y='296' width='1' height='8'/><rect x='155.5' y='296' width='1' height='8'/></g>`);
+const FUR = X(`viewBox='0 0 40 20' fill='none' stroke='#5E5654' stroke-width='.9' stroke-linecap='round'><path d='M4 16 Q10 8 15 3'/><path d='M8 18 Q15 12 22 9'/><path d='M14 15 Q20 13 27 5'/><path d='M20 18 Q28 15 35 12' stroke='#7A706C'/><path d='M6 12 Q9 9 12 8' stroke='#8C827E'/>`);
+const THORN = X(`viewBox='0 0 60 12' fill='none' stroke='#6E4A3A' stroke-width='1.2' stroke-linecap='round'><path d='M2 7 Q15 2 30 7 T58 6'/><path d='M10 5 L8 1 M18 4 L20 0 M26 6 L24 10 M36 7 L38 11 M44 5 L42 1 M52 5 L55 9'/>`);
+const SNAG = X(`viewBox='0 0 30 16' fill='none' stroke='rgba(251,243,228,.85)' stroke-width='1' stroke-linecap='round'><path d='M3 2 Q5 9 2 15'/><path d='M9 1 Q12 7 10 12 Q9 14 11 15'/><path d='M17 2 Q16 8 19 11'/><path d='M24 1 Q27 6 25 14'/>`);
 // 狼耳朵（他的头像顶上）
 const EARS = X(`viewBox='0 0 60 24'><g fill='#4A4040' stroke='#2B2424' stroke-width='1'><path d='M6 24 L11 1 L24 18Z'/><path d='M54 24 L49 1 L36 18Z'/></g><g fill='#9A7C78'><path d='M10 20 L12 7 L19 17Z'/><path d='M50 20 L48 7 L41 17Z'/></g>`);
 // 小红帽兜尖 + 白蝴蝶结（我的头像）
@@ -39,7 +48,7 @@ const COT = (lit, open) => `<path d='M48 48 L62 36 L76 48Z' fill='${C.red2}'/><r
 const ST1 = SCN(`${TREE(22, 52, 1.2)}${TREE(46, 60, .9)}${TREE(70, 62, 1)}<path d='M10 74 H82' stroke='#2E5A44' stroke-width='2'/>`);
 const ST2 = SCN(`${TREE(16, 50)}${TREE(78, 56, .9)}${PATH}<g transform='translate(34 58)'><path d='M2 6 Q8 -3 14 6' fill='none' stroke='#E3C79A' stroke-width='1.6'/><path d='M0 6 H16 L14 14 H2Z' fill='#B98A55'/><circle cx='6' cy='4.5' r='2.6' fill='${C.red}'/></g>`);
 const ST3 = SCN(`${TREE(16, 52)}${PATH}${COT(true, false)}<circle cx='36' cy='70' r='4' fill='${C.red}'/><path d='M32 74 L36 64 L40 74Z' fill='${C.red}'/>`);
-const ST4 = SCN(`${TREE(14, 54, .9)}${PATH}${COT(true, true)}<path d='M57 30 C52 26 52 23 54 22 C55.5 21 57 22 57 23.2 C57 22 58.5 21 60 22 C62 23 62 26 57 30Z' fill='${C.red}' transform='translate(5 -6)'/><circle cx='60' cy='70' r='4' fill='${C.red}'/><path d='M56 74 L60 64 L64 74Z' fill='${C.red}'/>`);
+const ST4 = SCN(`<path d='M66 64 V46 Q66 38 69 38 L68 33 L70.5 37 L72.5 37 L75 33 L74 38 Q77 38 77 46 V64Z' fill='#050A08' opacity='.85'/><circle cx='70' cy='42' r='.9' fill='${C.gold}'/><circle cx='73.5' cy='42' r='.9' fill='${C.gold}'/>${TREE(14, 54, .9)}${PATH}${COT(true, true)}<path d='M57 30 C52 26 52 23 54 22 C55.5 21 57 22 57 23.2 C57 22 58.5 21 60 22 C62 23 62 26 57 30Z' fill='${C.red}' transform='translate(5 -6)'/><circle cx='60' cy='70' r='4' fill='${C.red}'/><path d='M56 74 L60 64 L64 74Z' fill='${C.red}'/>`);
 const bubble = { myBg: C.red, myText: C.cream, myBorder: "none", charBg: C.linen, charText: C.ink, charBorder: "none", radius: 10, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 const STITCH = "rgba(251,243,228,.85)";
@@ -141,7 +150,7 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){position:relati
 [data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:10px !important;top:calc(50% - 21px) !important;width:40px !important;height:42px !important;background:${svg(HOODBIG)} center/contain no-repeat !important;z-index:2 !important}
 [data-wk="rpcard"] *{color:${C.cream} !important}
 [data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
-[data-wk="rpcard"][data-status="done"]{opacity:.6 !important;filter:saturate(.5) !important}
+[data-wk="rpcard"][data-status="done"]{opacity:.72 !important}
 [data-wk="rpenvelope"]{background:radial-gradient(ellipse at 50% 20%,rgba(242,182,64,.25),transparent 60%),${svg(LINEN)} 0 0/6px 6px,linear-gradient(180deg,#CF4D3A,#7A2219) !important;border:none !important;outline:2px dashed ${STITCH} !important;outline-offset:-8px !important;border-radius:16px !important;box-shadow:0 12px 30px rgba(0,0,0,.5) !important}
 [data-wk="rpenvelope"] [data-wk="rparc"]{background:transparent !important;border:none !important}
 [data-wk="rpenvelope"] *{color:${C.cream} !important}
@@ -312,6 +321,46 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:${svg(LINEN)} 0 0/6px 6px,linear-gradient(180deg,#CF4D3A,${C.red2}) !important;color:${C.cream} !important;outline:1.5px dashed ${STITCH} !important;outline-offset:-4px !important;box-shadow:0 3px 0 #7A2219 !important}
 [data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
 [data-wk="callavatar"]{border-radius:22% !important;box-shadow:0 0 0 4px ${C.cream},0 0 0 10px #5A3B2A,0 0 0 11px #8A6345,0 0 40px 12px rgba(242,182,64,.3) !important}
+
+/* 还没读：狼眼闭着（两道弯弯的线），读了才睁开 */
+[data-wk="meta"][data-read="0"]::before{background:${svg(SHUT)} center/contain no-repeat !important;filter:none !important}
+
+/* ───── 红帽夜访 · 怪诞一点 ───── */
+/* 底色不加眼睛了，怪劲都放在他的相框上 */
+[data-wk="chat"]{background:radial-gradient(ellipse at 50% 35%,rgba(90,140,110,.22),transparent 65%),${CURTAIN},linear-gradient(180deg,#1A3229,${C.bg} 70%,#0C1814) !important}
+/* 他的麻布：右上边沿挂着几根灰狼毛 */
+[data-wk="bubble"][data-kind="text"][data-me="0"]::after{content:"" !important;position:absolute !important;right:8px !important;top:-9px !important;width:30px !important;height:15px !important;background:${svg(FUR)} center/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
+/* 我的红布：底边被荆棘勾出几根线头 */
+[data-wk="bubble"][data-kind="text"][data-me="1"]::after{content:"" !important;position:absolute !important;left:18px !important;bottom:-11px !important;width:24px !important;height:13px !important;background:${svg(SNAG)} center/contain no-repeat !important;pointer-events:none !important}
+/* 时间两边：带刺的荆棘藤 */
+[data-wk="time"] > span::before,[data-wk="time"] > span::after{background:${svg(THORN)} center/contain no-repeat !important}
+/* 动描：红墨竖线变成一道划痕，字底下渗出一点暗红 */
+[data-wk="narrink"]{border-left:none !important;background:linear-gradient(180deg,rgba(120,20,14,0),rgba(120,20,14,.22) 70%,rgba(120,20,14,.32)),linear-gradient(90deg,rgba(242,226,196,.1),rgba(242,226,196,.03)) !important;box-shadow:inset 3px 0 0 -1px rgba(160,30,20,.85),inset 5px 0 0 -1px rgba(0,0,0,0),inset 6px 0 0 -4px rgba(160,30,20,.5) !important}
+
+/* 他的头像：外婆家墙上一幅挂歪了的旧肖像——厚木框、里圈奶白、照片泛黄发旧；一幅比一幅歪得不一样 */
+[data-wk="msg"][data-me="0"] [data-wk="avatar"],[data-wk="cardrow"][data-me="0"] [data-wk="avatar"]{border-radius:3px !important;box-shadow:0 0 0 2px ${C.cream},0 0 0 3px #2A1A12,0 0 0 8px #4A3024,0 0 0 9px #7A5238,0 0 0 10px #1A0E08,4px 8px 10px rgba(0,0,0,.6) !important;filter:sepia(.45) contrast(1.08) saturate(.8) !important;transform:rotate(-5deg) !important}
+[data-wk="msg"][data-me="0"]:nth-child(3n) [data-wk="avatar"]{transform:rotate(4deg) !important}
+[data-wk="msg"][data-me="0"]:nth-child(3n+1) [data-wk="avatar"]{transform:rotate(-2deg) !important}
+[data-wk="chathead"] [data-wk="avatar"]:not([data-wk="headme"] *):not([data-wk="headme"]){border-radius:3px !important;box-shadow:0 0 0 2px ${C.cream},0 0 0 5px #4A3024,0 0 0 6px #1A0E08 !important;filter:sepia(.45) saturate(.8) !important;transform:rotate(-6deg) !important}
+[data-wk="msg"][data-me="0"] button[data-wk="avatar"]::before,[data-wk="cardrow"][data-me="0"] [data-wk="avatar"]::before{content:none !important}
+
+/* 旧肖像里的眼睛：照片眼睛那一带隐约亮着两点金光，时亮时暗（挂在消息行上、压在相框位置；img 自己挂不上伪元素） */
+[data-wk="msg"][data-me="0"]{position:relative !important}
+[data-wk="msg"][data-me="0"]::after{content:"" !important;position:absolute !important;left:13px !important;top:12px !important;width:24px !important;height:8px !important;background:radial-gradient(circle at 4px 4px,#FFE9A8 0 1.2px,rgba(242,182,64,.85) 1.8px,rgba(242,182,64,0) 4px),radial-gradient(circle at 16px 4px,#FFE9A8 0 1.2px,rgba(242,182,64,.85) 1.8px,rgba(242,182,64,0) 4px) !important;transform:rotate(-5deg) !important;pointer-events:none !important;z-index:5 !important;animation:rhGlint 5s ease-in-out infinite !important}
+@keyframes rhGlint{0%,55%,100%{opacity:0}65%,85%{opacity:.9}}
+
+/* 私聊红包那一行是 rpsingle，没有 data-me：他的头像是第一个孩子，我的紧跟在红包卡后面 */
+[data-wk="rpsingle"] > [data-wk="avatar"]:first-child,[data-wk="rpsingle"] > :first-child [data-wk="avatar"]{border-radius:3px !important;box-shadow:0 0 0 2px ${C.cream},0 0 0 3px #2A1A12,0 0 0 8px #4A3024,0 0 0 9px #7A5238,0 0 0 10px #1A0E08,4px 8px 10px rgba(0,0,0,.6) !important;filter:sepia(.45) contrast(1.08) saturate(.8) !important;transform:rotate(-4deg) !important}
+[data-wk="rpsingle"] > [data-wk="rpcard"] + [data-wk="avatar"],[data-wk="rpsingle"] > [data-wk="rpcard"] + * [data-wk="avatar"],[data-wk="rpsingle"] > [data-wk="rpcard"] + * > [data-wk="avatar"]{border-radius:50% 4px 50% 50% !important;box-shadow:0 0 0 4px ${C.red},0 0 0 5px ${C.red2},0 3px 8px rgba(0,0,0,.45) !important;filter:none !important;transform:none !important}
+
+/* 我写的动作（myact）：跟他的动描一样是童话书那页，但靠右、划痕在右边 */
+[data-wk="myactink"]{display:inline-block !important;background:linear-gradient(180deg,rgba(120,20,14,0),rgba(120,20,14,.18) 70%,rgba(120,20,14,.28)),linear-gradient(270deg,rgba(242,226,196,.1),rgba(242,226,196,.03)) !important;border:none !important;border-radius:0 !important;box-shadow:inset -3px 0 0 -1px rgba(160,30,20,.85) !important;color:#E7D8BC !important;font-family:"Songti SC","Noto Serif SC",serif !important;font-style:italic !important;padding:6px 14px !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important}
+[data-wk="narrink"]{backdrop-filter:none !important;-webkit-backdrop-filter:none !important}
+/* 旁白栏：木色底，一排小签条 */
+[data-wk="narrbar"]{background:linear-gradient(180deg,${C.wood},#1E140F) !important;border-top:1px dashed rgba(242,182,64,.4) !important}
+[data-wk="narrbar"] *{color:#C9B48F !important}
+[data-wk="narrkind"]{border:1px solid rgba(251,243,228,.25) !important;border-radius:4px !important;background:transparent !important;font-family:"Songti SC",serif !important}
+[data-wk="narrkind"][data-on="1"]{background:${C.red} !important;border-color:${C.red} !important;color:${C.cream} !important;outline:1px dashed ${STITCH} !important;outline-offset:-3px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "红帽夜访", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
