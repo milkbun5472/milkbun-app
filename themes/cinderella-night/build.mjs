@@ -37,6 +37,9 @@ const CARD = `background:linear-gradient(135deg,#FFFFFF 0%,#FCEFF5 40%,#EEF1FF 7
 // 照片＝南瓜马车的车窗：拱顶窗，两边系起来的纱帘，顶上一截南瓜藤
 const CARWIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 240' preserveAspectRatio='none'><path d='M10 236 V80 Q10 10 100 10 Q190 10 190 80 V236' fill='none' stroke='${C.goldD}' stroke-width='6' vector-effect='non-scaling-stroke'/><path d='M18 236 V82 Q18 20 100 20 Q182 20 182 82 V236' fill='none' stroke='#FFF6DA' stroke-width='1.6' vector-effect='non-scaling-stroke'/><path d='M18 50 Q17 120 30 170 Q22 200 18 236 Z' fill='rgba(255,226,240,.85)' stroke='#F2C7D9' stroke-width='1'/><path d='M182 50 Q183 120 170 170 Q178 200 182 236 Z' fill='rgba(255,226,240,.85)' stroke='#F2C7D9' stroke-width='1'/><circle cx='29' cy='170' r='4' fill='${C.goldD}'/><circle cx='171' cy='170' r='4' fill='${C.goldD}'/></svg>`;
 const VINE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 26'><path d='M4 20 Q20 6 40 14 Q58 22 76 8' fill='none' stroke='#8FB07A' stroke-width='2.4' stroke-linecap='round'/><path d='M22 12 Q28 2 36 8 Q30 14 22 12Z' fill='#A7C58E'/><path d='M52 18 Q60 8 68 14 Q60 22 52 18Z' fill='#A7C58E'/><path d='M74 8 Q80 4 78 0' fill='none' stroke='#8FB07A' stroke-width='1.6' stroke-linecap='round'/></svg>`;
+// 好感：一面午夜钟，指针按好感转——满好感正好走到十二点（钟声敲响的那一刻）
+const LOVECLOCK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><radialGradient id='f' cx='.4' cy='.35'><stop offset='0' stop-color='#fff'/><stop offset='1' stop-color='#F3ECFF'/></radialGradient></defs><circle cx='50' cy='50' r='44' fill='url(#f)' stroke='${C.goldD}' stroke-width='4'/><circle cx='50' cy='50' r='39' fill='none' stroke='${C.gold}' stroke-width='1'/>${Array.from({length:12},(_,i)=>{const a=i*30*Math.PI/180,r1=i%3?32:29,r2=36;return `<path d='M${(50+r1*Math.sin(a)).toFixed(1)} ${(50-r1*Math.cos(a)).toFixed(1)} L${(50+r2*Math.sin(a)).toFixed(1)} ${(50-r2*Math.cos(a)).toFixed(1)}' stroke='${C.ink}' stroke-width='${i%3?1:2}'/>`}).join('')}<path transform='translate(50 21)' d='M0 -5 Q.4 -.4 3.5 0 Q.4 .4 0 5 Q-.4 .4 -3.5 0 Q-.4 -.4 0 -5Z' fill='${C.goldD}'/><circle cx='50' cy='50' r='3' fill='${C.goldD}'/></svg>`;
+const HAND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 40'><path d='M5 2 L7.5 30 L5 38 L2.5 30Z' fill='${C.ink}'/><path transform='translate(5 8)' d='M0 -4 Q.3 -.3 2.6 0 Q.3 .3 0 4 Q-.3 .3 -2.6 0 Q-.3 -.3 0 -4Z' fill='${C.goldD}'/></svg>`;
 const bubble = { myBg: C.v2, myText: "#fff", myBorder: "none", charBg: C.pearl, charText: C.ink, charBorder: "none", radius: 16, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const PANEL = `background:linear-gradient(180deg,rgba(120,110,200,.55),rgba(90,85,176,.45)) !important;backdrop-filter:blur(10px) !important;-webkit-backdrop-filter:blur(10px) !important;border-radius:20px !important;box-shadow:inset 0 0 0 1.4px rgba(242,217,160,.75),0 8px 20px rgba(40,30,100,.3) !important`;
@@ -251,6 +254,63 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="quoteclear"]{color:${C.gold} !important}
 [data-wk="quote"]{background:rgba(255,255,255,.14) !important;color:#E6E2FA !important;border:1px solid rgba(242,217,160,.5) !important;border-radius:10px !important;padding:3px 10px !important;opacity:1 !important}
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.75 !important}
+/* ───── 午夜舞会 · 第三批：状态卡＝舞会大厅的一面拱窗，窗外紫夜；好感是一面午夜钟 ───── */
+[data-wk="statecard"]{position:relative !important;overflow:visible !important;background:${svg(STAR)} left 22px top 60px/9px 12px no-repeat,${svg(STAR)} right 26px top 120px/8px 11px no-repeat,radial-gradient(ellipse at 80% 20%,rgba(140,170,240,.35),transparent 55%),linear-gradient(180deg,${C.v1},${C.v2} 55%,${C.v3}) !important;border:1.4px solid rgba(242,217,160,.85) !important;border-radius:120px 120px 22px 22px / 70px 70px 22px 22px !important;box-shadow:0 0 0 5px rgba(255,255,255,.08),0 0 30px rgba(255,230,180,.3),0 20px 40px rgba(30,20,80,.5) !important;padding-top:26px !important}
+[data-wk="statecard"]::before{content:"" !important;position:absolute !important;left:50% !important;top:-6px !important;width:12px !important;height:16px !important;margin-left:-6px !important;background:${svg(STAR)} center/contain no-repeat !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:1px solid rgba(242,217,160,.4) !important}
+[data-wk="statehead"] *{color:#fff !important}
+[data-wk="statehead"] [data-wk="avatar"]::before{content:none !important}
+[data-wk="statehead"] [data-wk="avatar"],[data-wk="statehead"] img{box-shadow:0 0 0 3px ${C.pearl2},0 0 0 4px ${C.goldD} !important;border-radius:50% !important}
+[data-wk="statehead"] button{border:1px solid rgba(242,217,160,.7) !important;background:rgba(255,255,255,.1) !important;border-radius:50% !important}
+[data-wk="statemood"]{display:inline-block !important;background:linear-gradient(135deg,#fff,#FCEFF5) !important;color:${C.ink} !important;border:1px solid ${C.gold} !important;border-radius:999px !important;padding:0 10px !important;margin-right:4px !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(255,255,255,.1) !important;border:1px solid rgba(242,217,160,.6) !important;border-radius:999px !important;padding:3px !important;margin:10px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.lilac} !important;border:none !important;border-radius:999px !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:linear-gradient(135deg,#fff,#FCEFF5 50%,#EEF1FF) !important;color:${C.ink} !important}
+[data-wk="stateseen"]{${CARD};margin:12px 16px !important}
+[data-wk="stateseen"] *{color:${C.ink} !important}
+[data-wk="statevoice"]{background:transparent !important;border:none !important;border-top:1px solid rgba(242,217,160,.4) !important;border-bottom:1px solid rgba(242,217,160,.4) !important;border-radius:0 !important;margin:14px 16px !important;box-shadow:none !important;font-style:italic !important}
+[data-wk="statevoice"] *{color:#FFF0CC !important;text-shadow:0 0 8px rgba(255,230,170,.45) !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:rgba(90,85,176,.08) !important;border:1px solid rgba(90,85,176,.25) !important;border-radius:999px !important}
+[data-wk="statewear"] > span{background:transparent !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.lilac} !important}
+[data-wk="statevoice"] + div > button{background:rgba(255,255,255,.12) !important;color:#fff !important;border:1px solid rgba(242,217,160,.7) !important;border-radius:999px !important}
+/* 好感：一面午夜钟，左钟右字；指针按好感转，满分正好敲十二点 */
+[data-wk="stateaff"]{background:transparent !important;border-top:1px solid rgba(242,217,160,.4) !important;display:flex !important;align-items:center !important;gap:16px !important;padding:14px 20px 16px !important}
+[data-wk="stateaff"] *{color:#fff !important}
+[data-wk="stateheart"]{position:relative !important;width:72px !important;height:72px !important;flex:none !important;background:${svg(LOVECLOCK)} center/contain no-repeat !important;filter:drop-shadow(0 0 10px rgba(255,230,180,.55)) !important}
+[data-wk="stateheart"] > div{display:none !important}
+[data-wk="stateheartknob"]{display:block !important;position:absolute !important;left:50% !important;bottom:50% !important;top:auto !important;width:7px !important;height:28px !important;margin-left:-3.5px !important;background:${svg(HAND)} center/contain no-repeat !important;transform-origin:50% 100% !important;transform:rotate(calc(var(--sc-heart-lvl) * 360deg)) !important}
+[data-wk="stateheartnum"]{display:none !important}
+[data-wk="stateaffval"]{display:inline-block !important;margin:0 0 6px !important;padding:2px 12px !important;background:linear-gradient(135deg,#fff,#FCEFF5) !important;border:1px solid ${C.gold} !important;border-radius:999px !important;color:${C.ink} !important;font:italic 700 14px/1.3 Georgia,serif !important}
+/* 翻旧的：一张张珠光请柬 */
+[data-wk="statehistbtn"]{background:rgba(255,255,255,.12) !important;color:#fff !important;border:1px solid rgba(242,217,160,.7) !important;border-radius:999px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.lilac} !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1px solid rgba(242,217,160,.7) !important;border-radius:999px !important;color:#fff !important;background:transparent !important}
+[data-wk="statehistitem"]{position:relative !important;${CARD};padding:16px 18px 14px !important;margin:0 0 14px !important}
+[data-wk="statehistitem"]::before{content:"" !important;position:absolute !important;right:12px !important;top:10px !important;width:9px !important;height:12px !important;background:${svg(STAR)} center/contain no-repeat !important;filter:drop-shadow(0 0 1px ${C.goldD}) !important}
+[data-wk="statehistitem"] *{color:${C.ink} !important}
+[data-wk="statehistmood"]{background:linear-gradient(180deg,#8C7CE0,#5A55B0) !important;border:none !important;color:#fff !important;border-radius:999px !important}
+[data-wk="statehisttime"]{color:#8C84B8 !important;font-style:italic !important}
+[data-wk="statehistmeta"]{background:rgba(90,85,176,.07) !important;border-radius:8px !important}
+[data-wk="statehistend"]{color:${C.lilac} !important}
+/* Ta 眼里 */
+[data-wk="gazepage"]{background:radial-gradient(ellipse at 80% 20%,rgba(140,170,240,.35),transparent 55%),linear-gradient(180deg,${C.v1},${C.v2} 55%,${C.v3}) !important}
+[data-wk="gazetitle"]{color:#fff !important;letter-spacing:.2em !important}
+[data-wk="gazetab"]{background:rgba(255,255,255,.1) !important;color:${C.lilac} !important;border:1px solid rgba(242,217,160,.6) !important;border-radius:999px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:linear-gradient(135deg,#fff,#FCEFF5 50%,#EEF1FF) !important;color:${C.ink} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.lilac} !important}
+[data-wk="gazecard"]{${CARD}}
+[data-wk="gazetape"]{background:${svg(SLIPPER)} center/26px 17px no-repeat !important;box-shadow:none !important;border:none !important;transform:none !important;width:30px !important;height:20px !important}
+[data-wk="gazecardname"]{color:${C.ink} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#6A6290 !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{${CARD}}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
+[data-wk="gazeempty"]{background:rgba(255,255,255,.08) !important;border:1px dashed rgba(242,217,160,.6) !important;border-radius:16px !important;color:#fff !important}
+[data-wk="gazeempty"] > div:first-child{color:#fff !important}
+[data-wk="gazeempty"] button{background:linear-gradient(135deg,#fff,#FCEFF5) !important;color:${C.ink} !important;border:1px solid ${C.gold} !important;border-radius:999px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "午夜舞会", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
