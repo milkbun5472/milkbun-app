@@ -18963,6 +18963,8 @@ function OfflineMode({
   const [sMinW, setSMinW] = useState(os.minWords || 0);
   const [sLengthMode, setSLengthMode] = useState(os.lengthMode === "immersive" ? "immersive" : "natural");
   const [sLoose, setSLoose] = useState(os.looseOld !== false);
+  // 只写一遍（她 2026-11-13「或者a搞个开关可以选？」）：有些人设会让他先写一稿、再在同一次回复里改成终稿，额度对半分；开了就只写一遍，额度全给正文
+  const [sOnce, setSOnce] = useState(!!os.writeOnce);
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
   const [sOnlineN, setSOnlineN] = useState(os.onlineCtxN != null ? os.onlineCtxN : 50);
   const [sSelf, setSSelf] = useState(os.selfP || "first");
@@ -19009,7 +19011,7 @@ function OfflineMode({
     { key: "scene", char: "场", title: "这一场长什么样", tint: "#687f73",
       state: () => (sBg ? "有背景图" : "没有背景图") + " · " + offTasteBrief },
     { key: "write", char: "写", title: characterText(char, "他每一轮写多长"), tint: "#c0904f",
-      state: () => offLenBrief + " · 上限 " + sMax + " tok" + (sMinW ? " · 最低 " + sMinW + " 字" : "") },
+      state: () => offLenBrief + " · 上限 " + sMax + " tok" + (sMinW ? " · 最低 " + sMinW + " 字" : "") + (sOnce ? " · 只写一遍" : "") },
     { key: "pers", char: "称", title: "人称 · 写不写我的动作", tint: "#d97c86",
       state: () => (sSelf === "first" ? characterText(char, "他称「我」") : characterText(char, "他称名字")) + " · " + (sUser === "second" ? "叫我「你」" : "叫我名字")
         + " · 描写我 " + (sDesc ? "开" : "关") },
@@ -19026,7 +19028,7 @@ function OfflineMode({
     h(Head, { zh: offSetTab ? (offSetPages.find(x => x.key === offSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (offSetTab) { setOffSetTab(""); setOffSec(""); } else setSetOpen(false); },
-      right: h("button", { onClick: () => { onSaveSettings({ hideThought: !sShowTh, noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, looseOld: sLoose, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss, fontSize: sFont, font: (window.FontChoice ? window.FontChoice.clean(sFace, ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts) : sFace), replyOpts: sOpts }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSaveSettings({ hideThought: !sShowTh, noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, looseOld: sLoose, writeOnce: sOnce, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss, fontSize: sFont, font: (window.FontChoice ? window.FontChoice.clean(sFace, ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts) : sFace), replyOpts: sOpts }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
       !offSetTab && h(SettingCatalog, { pages: offSetPages, onOpen: k => { setOffSetTab(k); setOffSec(""); } }),
       offShow("scene", "bg", "场景背景图",
@@ -19054,6 +19056,11 @@ function OfflineMode({
       // 中转会自行 clamp 到模型上限）。这是天花板不是花销：按次计费，
       // 给宽了一分钱也多花不到，给窄了才会写一半停住（施工规则/max-tokens-floor）。
       h(Slider, { value: sMax, min: 1000, max: 65000, step: 1000, onChange: setSMax }))),
+      offShow("write", "once", "只写一遍",
+    h("div", { className: "pt-3", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
+        characterText(char, "有些人设容易写成套路，他会先写一稿、再在同一次回复里改成终稿，你只看到终稿——等于写了两遍，额度对半分。开了就只写一遍，额度全给正文，篇幅更容易写够；代价是那股套路味可能回来一点。只管单人见面，下一轮生效。")),
+      h(Toggle, { on: sOnce, onChange: setSOnce }))),
       offShow("write", "floor", "高级 · 最低字数目标",
     h(WordFloorSection, { value: sMinW, onChange: setSMinW, title: "高级 · 最低字数目标",
       note: "只有明确需要字数时再开；固定下限可能增加扩写感，0 为关闭。" })),
