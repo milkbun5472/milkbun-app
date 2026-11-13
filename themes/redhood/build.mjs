@@ -16,6 +16,8 @@ const CURTAIN = `repeating-linear-gradient(90deg,rgba(0,0,0,.42) 0,rgba(0,0,0,.0
 const EYES = X(`viewBox='0 0 40 14'><g fill='${C.gold}'><path d='M3 7 Q9 2 15 7 Q9 11 3 7Z'/><path d='M25 7 Q31 2 37 7 Q31 11 25 7Z'/></g><g fill='#2A1406'><ellipse cx='9' cy='7' rx='1' ry='2.6'/><ellipse cx='31' cy='7' rx='1' ry='2.6'/></g>`);
 const SHUT = X(`viewBox='0 0 40 14' fill='none' stroke='rgba(168,181,168,.8)' stroke-width='1.6' stroke-linecap='round'><path d='M3 6 Q9 11 15 6'/><path d='M25 6 Q31 11 37 6'/>`);
 const CLAW = X(`viewBox='0 0 20 20'><path d='M3 17 Q2 9 8 6 Q14 4 17 9 Q18 14 14 17Z' fill='#4A4040' stroke='#2B2424'/><g fill='#EDE3D0'><path d='M7 6 L5 1 L9 5Z'/><path d='M11 5 L11 0 L13 5Z'/><path d='M15 7 L18 2 L17 8Z'/></g>`);
+// 他的相框：外婆的旧肖像框——深木框、内圈奶白蕾丝；上面两个角冒出灰狼耳，右下三道爪痕划穿木框，左下一道裂缝
+const FRAME = X(`viewBox='0 0 120 120'><path d='M22 22 H98 V98 H22Z' fill='none' stroke='#4A3024' stroke-width='12'/><path d='M15.5 15.5 H104.5 V104.5 H15.5Z' fill='none' stroke='#2A1A12' stroke-width='1.5'/><path d='M28.5 28.5 H91.5 V91.5 H28.5Z' fill='none' stroke='${C.cream}' stroke-width='2.4'/><g fill='#4A4040' stroke='#1E1818' stroke-width='1.2'><path d='M10 24 L12 2 L28 16Z'/><path d='M110 24 L108 2 L92 16Z'/></g><g fill='#9A7C78'><path d='M14 19 L14.5 9 L22 15Z'/><path d='M106 19 L105.5 9 L98 15Z'/></g><g stroke='#E9DCC4' stroke-width='2.2' stroke-linecap='round'><path d='M86 108 L108 86'/><path d='M93 110 L110 93'/><path d='M100 111 L111 100'/></g><path d='M16 82 L22 88 L18 93 L24 99' fill='none' stroke='#E9DCC4' stroke-width='1.4'/>`);
 // ── 怪诞：林子里的眼睛、狼毛、荆棘、渗色 ──
 const EYESBG = X(`width='260' height='420' viewBox='0 0 260 420'><g fill='${C.gold}'><g opacity='.55'><path d='M30 60 Q36 55 42 60 Q36 64 30 60Z'/><path d='M50 60 Q56 55 62 60 Q56 64 50 60Z'/></g><g opacity='.3'><path d='M200 150 Q203 147.5 206 150 Q203 152 200 150Z'/><path d='M211 150 Q214 147.5 217 150 Q214 152 211 150Z'/></g><g opacity='.45'><path d='M120 300 Q128 293 136 300 Q128 305 120 300Z'/><path d='M148 300 Q156 293 164 300 Q156 305 148 300Z'/></g><g opacity='.22'><path d='M228 380 Q231 378 234 380 Q231 382 228 380Z'/><path d='M238 380 Q241 378 244 380 Q241 382 238 380Z'/></g><g opacity='.35' fill='#E0503A'><path d='M16 250 Q19 247.5 22 250 Q19 252 16 250Z'/><path d='M27 250 Q30 247.5 33 250 Q30 252 27 250Z'/></g></g><g fill='#1A0A04'><rect x='35.5' y='57' width='1' height='6'/><rect x='55.5' y='57' width='1' height='6'/><rect x='127.5' y='296' width='1' height='8'/><rect x='155.5' y='296' width='1' height='8'/></g>`);
 const FUR = X(`viewBox='0 0 40 20' fill='none' stroke='#5E5654' stroke-width='.9' stroke-linecap='round'><path d='M4 16 Q10 8 15 3'/><path d='M8 18 Q15 12 22 9'/><path d='M14 15 Q20 13 27 5'/><path d='M20 18 Q28 15 35 12' stroke='#7A706C'/><path d='M6 12 Q9 9 12 8' stroke='#8C827E'/>`);
@@ -324,8 +326,8 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="meta"][data-read="0"]::before{background:${svg(SHUT)} center/contain no-repeat !important;filter:none !important}
 
 /* ───── 红帽夜访 · 怪诞一点 ───── */
-/* 窗帘缝里藏着几双眼睛，大小远近不一 */
-[data-wk="chat"]{background:${svg(EYESBG)} 0 40px/260px 420px,radial-gradient(ellipse at 50% 35%,rgba(90,140,110,.22),transparent 65%),${CURTAIN},linear-gradient(180deg,#1A3229,${C.bg} 70%,#0C1814) !important}
+/* 底色不加眼睛了，怪劲都放在他的相框上 */
+[data-wk="chat"]{background:radial-gradient(ellipse at 50% 35%,rgba(90,140,110,.22),transparent 65%),${CURTAIN},linear-gradient(180deg,#1A3229,${C.bg} 70%,#0C1814) !important}
 /* 他的麻布：右上边沿挂着几根灰狼毛 */
 [data-wk="bubble"][data-kind="text"][data-me="0"]::after{content:"" !important;position:absolute !important;right:8px !important;top:-9px !important;width:30px !important;height:15px !important;background:${svg(FUR)} center/contain no-repeat !important;pointer-events:none !important;z-index:2 !important}
 /* 我的红布：底边被荆棘勾出几根线头 */
@@ -334,8 +336,13 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="time"] > span::before,[data-wk="time"] > span::after{background:${svg(THORN)} center/contain no-repeat !important}
 /* 动描：红墨竖线变成一道划痕，字底下渗出一点暗红 */
 [data-wk="narrink"]{border-left:none !important;background:linear-gradient(180deg,rgba(120,20,14,0),rgba(120,20,14,.22) 70%,rgba(120,20,14,.32)),linear-gradient(90deg,rgba(242,226,196,.1),rgba(242,226,196,.03)) !important;box-shadow:inset 3px 0 0 -1px rgba(160,30,20,.85),inset 5px 0 0 -1px rgba(0,0,0,0),inset 6px 0 0 -4px rgba(160,30,20,.5) !important}
-/* 他的头像：相框右下角扣着一只狼爪（按钮头像才挂得上） */
-[data-wk="msg"][data-me="0"] button[data-wk="avatar"]::after,[data-wk="cardrow"][data-me="0"] button[data-wk="avatar"]::after{content:"" !important;position:absolute !important;right:-7px !important;bottom:-6px !important;width:18px !important;height:18px !important;background:${svg(CLAW)} center/contain no-repeat !important;z-index:3 !important;pointer-events:none !important}
+
+/* 他的头像：外婆家墙上一幅挂歪了的旧肖像——厚木框、里圈奶白、照片泛黄发旧；一幅比一幅歪得不一样 */
+[data-wk="msg"][data-me="0"] [data-wk="avatar"],[data-wk="cardrow"][data-me="0"] [data-wk="avatar"]{border-radius:3px !important;box-shadow:0 0 0 2px ${C.cream},0 0 0 3px #2A1A12,0 0 0 8px #4A3024,0 0 0 9px #7A5238,0 0 0 10px #1A0E08,4px 8px 10px rgba(0,0,0,.6) !important;filter:sepia(.45) contrast(1.08) saturate(.8) !important;transform:rotate(-5deg) !important}
+[data-wk="msg"][data-me="0"]:nth-child(3n) [data-wk="avatar"]{transform:rotate(4deg) !important}
+[data-wk="msg"][data-me="0"]:nth-child(3n+1) [data-wk="avatar"]{transform:rotate(-2deg) !important}
+[data-wk="chathead"] [data-wk="avatar"]:not([data-wk="headme"] *):not([data-wk="headme"]){border-radius:3px !important;box-shadow:0 0 0 2px ${C.cream},0 0 0 5px #4A3024,0 0 0 6px #1A0E08 !important;filter:sepia(.45) saturate(.8) !important;transform:rotate(-6deg) !important}
+[data-wk="msg"][data-me="0"] button[data-wk="avatar"]::before,[data-wk="cardrow"][data-me="0"] [data-wk="avatar"]::before{content:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "红帽夜访", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
