@@ -33,6 +33,9 @@ const CARD = `background:${C.bread} !important;border:2.5px solid ${C.crust} !im
 const EGG2 = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M15 2 Q22 1 25 6 Q30 9 28 16 Q30 23 24 26 Q18 30 11 27 Q3 27 3 19 Q0 12 5 8 Q8 2 15 2Z' fill='#fff' stroke='#E6DCCB'/><circle cx='15.5' cy='15' r='6.5' fill='${C.yolk}'/><circle cx='13.5' cy='13' r='1.8' fill='#fff' opacity='.85'/></svg>`;
 // 煎蛋的小铲子：带孔的铲面＋木柄
 const SPATULA = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 48'><path d='M4 3 H20 Q21 3 21 4 V17 Q21 20 18 20 H6 Q3 20 3 17 V4 Q3 3 4 3Z' fill='#E9E4DA' stroke='#9C9285' stroke-width='1.3'/><g fill='#9C9285'><rect x='7' y='6' width='2' height='9' rx='1'/><rect x='11' y='6' width='2' height='9' rx='1'/><rect x='15' y='6' width='2' height='9' rx='1'/></g><path d='M10.5 20 H13.5 V27 H10.5Z' fill='#B9B0A2'/><rect x='9' y='27' width='6' height='19' rx='3' fill='${C.crust}' stroke='${C.crustD}' stroke-width='1'/><circle cx='12' cy='42' r='1.1' fill='${C.bg}'/></svg>`;
+// 好感：一片吐司，好感越高烤得越黄——白吐司底，上面叠一片烤金黄的，透明度跟着好感走
+const SLICE = (fill, crust) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><path d='M12 56 V25 Q4 24 4.5 16.5 Q6 7 16 8 Q21 2 30 4.5 Q39 2 44 8 Q54 7 55.5 16.5 Q56 24 48 25 V56Z' fill='${fill}' stroke='${crust}' stroke-width='3.5' stroke-linejoin='round'/></svg>`;
+const SLICEFACE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><circle cx='23' cy='34' r='2' fill='${C.ink}'/><circle cx='37' cy='34' r='2' fill='${C.ink}'/><path d='M27 39 Q30 42 33 39' fill='none' stroke='${C.ink}' stroke-width='1.6' stroke-linecap='round'/><circle cx='19' cy='39' r='2.6' fill='#F2A3A0' opacity='.6'/><circle cx='41' cy='39' r='2.6' fill='#F2A3A0' opacity='.6'/></svg>`;
 const bubble = { myBg: C.toast, myText: C.ink, myBorder: "none", charBg: C.bread, charText: C.ink, charBorder: "none", radius: 8, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -206,6 +209,63 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chathead"] [data-wk="sameroom"]{margin-left:auto !important}
 [data-wk="chathead"] button:has(> img[data-wk="avatar"])::after{content:"" !important;position:absolute !important;left:52px !important;top:50% !important;width:18px !important;height:36px !important;margin-top:-18px !important;background:${svg(SPATULA)} center/contain no-repeat !important;transform:rotate(18deg) !important;z-index:2 !important;pointer-events:none !important;filter:drop-shadow(0 2px 2px rgba(140,100,60,.25)) !important}
 
+/* ───── 早安吐司 · 第三批：状态卡＝一整片大吐司（鼓起的面包顶＋烤黄的边）；好感是一片会被烤黄的吐司 ───── */
+[data-wk="statecard"]{position:relative !important;overflow:visible !important;background:${C.bread} !important;border:4px solid ${C.crust} !important;border-top:none !important;border-radius:0 0 26px 26px !important;box-shadow:0 8px 20px rgba(140,100,60,.25) !important;margin-top:40px !important;padding-top:0 !important}
+[data-wk="statecard"]::before{content:"" !important;position:absolute !important;left:-14px !important;right:-14px !important;top:-44px !important;height:48px !important;background:${svg(CAP(C.bread).replace("stroke-width='3'", "stroke-width='4'"))} center/100% 100% no-repeat !important;pointer-events:none !important;z-index:0 !important}
+[data-wk="statecard"] > *{position:relative !important;z-index:1 !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:2px dashed #EADBC3 !important;margin-top:-18px !important}
+[data-wk="statehead"] *{color:${C.ink} !important}
+[data-wk="statehead"] [data-wk="avatar"]::before{inset:-30% !important}
+[data-wk="statehead"] button{border:2px solid ${C.crust} !important;background:#fff !important;border-radius:50% !important}
+[data-wk="statemood"]{display:inline-block !important;background:${C.yolk} !important;color:${C.ink} !important;border:none !important;border-radius:999px !important;padding:0 10px !important;margin-right:4px !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:#F5EDDF !important;border:none !important;border-radius:999px !important;padding:3px !important;margin:10px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:999px !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:${C.crust} !important;color:#fff !important}
+/* 看得见的＝一张白盘子上的便签；心里想的＝金黄烤吐司色、斜体 */
+[data-wk="stateseen"],[data-wk="statevoice"]{background:#fff !important;border:2px solid #EADBC3 !important;border-radius:16px !important;margin:12px 16px !important;color:${C.ink} !important;box-shadow:none !important}
+[data-wk="statevoice"]{background:linear-gradient(180deg,#F6D39C,${C.toast}) !important;border-color:${C.crust} !important;font-style:italic !important}
+[data-wk="stateseen"] *,[data-wk="statevoice"] *{color:${C.ink} !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:#F5EDDF !important;border:none !important;border-radius:999px !important}
+[data-wk="statewear"] > span{background:transparent !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:#8E7258 !important}
+[data-wk="statevoice"] + div > button{background:#fff !important;color:${C.crust} !important;border:2px solid ${C.crust} !important;border-radius:999px !important}
+/* 好感：左边一片小吐司，好感越高烤得越黄（不是灌满，是整片变色），脸上一个笑；数字写在「好感度」底下 */
+[data-wk="stateaff"]{background:transparent !important;border-top:2px dashed #EADBC3 !important;display:flex !important;align-items:center !important;gap:16px !important;padding:14px 20px 18px !important}
+[data-wk="stateaff"] *{color:${C.ink} !important}
+[data-wk="stateheart"]{position:relative !important;width:66px !important;height:66px !important;flex:none !important;background:${svg(SLICE("#FFFCF5", "#D9B98E"))} center/contain no-repeat !important}
+[data-wk="stateheart"] > div{display:none !important}
+[data-wk="stateheartknob"]{display:block !important;position:absolute !important;inset:0 !important;left:0 !important;bottom:0 !important;width:auto !important;height:auto !important;margin:0 !important;transform:none !important;background:${svg(SLICE("#D9963F", "#8E5A2A"))} center/contain no-repeat !important;opacity:var(--sc-heart-lvl) !important}
+[data-wk="stateheartnum"]{display:block !important;position:absolute !important;inset:0 !important;background:${svg(SLICEFACE)} center/contain no-repeat !important;font-size:0 !important;color:transparent !important;-webkit-text-stroke:0 !important}
+[data-wk="stateaffval"]{display:inline-block !important;margin:0 0 6px !important;padding:1px 12px !important;background:${C.yolk} !important;border-radius:999px !important;color:${C.ink} !important;font-weight:700 !important;font-size:14px !important}
+[data-wk="stateaffval"]::after{content:" 分熟" !important;font-size:11px !important;font-weight:400 !important}
+/* 翻旧的：一片片小吐司 */
+[data-wk="statehistbtn"]{background:#fff !important;color:${C.crust} !important;border:2px solid ${C.crust} !important;border-radius:999px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.fog} !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1.5px solid ${C.crust} !important;border-radius:999px !important;color:${C.crust} !important;background:#fff !important}
+[data-wk="statehistitem"]{position:relative !important;background:${C.bread} !important;border:2.5px solid ${C.crust} !important;border-top:none !important;border-radius:0 0 14px 14px !important;padding:8px 18px 14px !important;margin:22px 0 14px !important;box-shadow:0 3px 6px rgba(140,100,60,.12) !important;overflow:visible !important}
+[data-wk="statehistitem"]::before{content:"" !important;position:absolute !important;left:-8px !important;right:-8px !important;top:-20px !important;height:22px !important;background:${svg(CAP(C.bread))} center/100% 100% no-repeat !important}
+[data-wk="statehistitem"] *{color:${C.ink} !important}
+[data-wk="statehistmood"]{background:${C.yolk} !important;border:none !important;color:${C.ink} !important;border-radius:999px !important}
+[data-wk="statehisttime"]{color:${C.fog} !important}
+[data-wk="statehistmeta"]{background:#F5EDDF !important;border-radius:8px !important}
+[data-wk="statehistend"]{color:${C.fog} !important}
+/* Ta 眼里 */
+[data-wk="gazepage"]{background:${C.bg} !important}
+[data-wk="gazetitle"]{color:${C.ink} !important}
+[data-wk="gazetab"]{background:#F5EDDF !important;color:${C.fog} !important;border:none !important;border-radius:999px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:${C.crust} !important;color:#fff !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{${CARD}}
+[data-wk="gazetape"]{background:${svg(EGG2)} center/22px 22px no-repeat !important;box-shadow:none !important;border:none !important;transform:none !important;width:26px !important;height:26px !important}
+[data-wk="gazecardname"]{color:${C.ink} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#8E7258 !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{${CARD}}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
+[data-wk="gazeempty"]{background:#fff !important;border:2px dashed #E6D3B8 !important;border-radius:16px !important;color:${C.ink} !important}
+[data-wk="gazeempty"] button{background:${C.crust} !important;color:#fff !important;border:none !important;border-radius:999px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "早安吐司", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
