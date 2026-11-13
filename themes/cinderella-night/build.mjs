@@ -27,6 +27,13 @@ const SLIPPER = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 38'><de
 // 头像框＝南瓜马车的小窗：一颗珠光金南瓜（几道瓣棱），正中开一扇圆窗露出头像，顶上卷藤＋小皇冠，底下两只小轮子
 const PUMPKIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 140'><defs><radialGradient id='pk' cx='.4' cy='.35' r='.75'><stop offset='0' stop-color='#FFF4DC'/><stop offset='.55' stop-color='#F6D69C'/><stop offset='1' stop-color='#D9A85A'/></radialGradient><mask id='win'><rect width='140' height='140' fill='#fff'/><circle cx='70' cy='74' r='36' fill='#000'/></mask></defs><g mask='url(#win)'><path d='M70 24 C40 22 16 38 14 70 C12 100 34 120 70 120 C106 120 128 100 126 70 C124 38 100 22 70 24Z' fill='url(#pk)' stroke='${C.goldD}' stroke-width='2'/><g fill='none' stroke='#D9A85A' stroke-width='1.6' opacity='.8'><path d='M44 30 C30 50 30 98 46 116'/><path d='M96 30 C110 50 110 98 94 116'/><path d='M26 46 C18 66 20 92 30 106'/><path d='M114 46 C122 66 120 92 110 106'/></g></g><circle cx='70' cy='74' r='36' fill='none' stroke='${C.goldD}' stroke-width='3'/><circle cx='70' cy='74' r='39.5' fill='none' stroke='#FFF6DA' stroke-width='1.6' stroke-dasharray='.1 5' stroke-linecap='round'/><path d='M70 24 Q68 14 74 9 Q80 6 82 12' fill='none' stroke='#8FB07A' stroke-width='3' stroke-linecap='round'/><path d='M74 12 Q86 6 92 14 Q84 18 76 15Z' fill='#A7C58E' stroke='#6F9060' stroke-width='1'/><path d='M56 22 L58 13 L63 18 L67 10 L71 18 L76 13 L78 22Z' fill='#F6E3A6' stroke='${C.goldD}' stroke-width='1.2' stroke-linejoin='round' transform='rotate(-12 67 17)'/><circle cx='66' cy='15' r='1.6' fill='#9FC4F0' transform='rotate(-12 67 17)'/><g fill='#fff' stroke='${C.goldD}' stroke-width='2'><circle cx='38' cy='124' r='9'/><circle cx='102' cy='124' r='9'/></g><g stroke='${C.goldD}' stroke-width='1.2'><path d='M38 115 V133 M29 124 H47 M102 115 V133 M93 124 H111'/></g><path d='M16 64 Q6 60 8 52 Q12 48 16 54 M124 64 Q134 60 132 52 Q128 48 124 54' fill='none' stroke='${C.goldD}' stroke-width='2' stroke-linecap='round'/></svg>`;
 
+// ── 第二批用的图 ──
+const SEALCROWN = (c) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'><path d='M25 3 Q32 2 35 7 Q42 7 44 14 Q49 19 46 26 Q49 33 44 38 Q42 45 35 44 Q32 49 25 47 Q18 49 15 44 Q8 45 6 38 Q1 33 4 26 Q1 19 6 14 Q8 7 15 7 Q18 2 25 3Z' fill='${c}'/><path d='M15 31 L14 20 L19.5 24.5 L25 16 L30.5 24.5 L36 20 L35 31Z' fill='none' stroke='rgba(255,255,255,.75)' stroke-width='1.6' stroke-linejoin='round'/></svg>`;
+const PUMP = (lit) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 64'><defs><radialGradient id='p' cx='.4' cy='.35' r='.75'><stop offset='0' stop-color='${lit ? "#FFF4DC" : "#F7B776"}'/><stop offset='.6' stop-color='${lit ? "#F6D69C" : "#E8823A"}'/><stop offset='1' stop-color='${lit ? "#D9A85A" : "#B5541C"}'/></radialGradient></defs><path d='M35 14 C18 12 4 22 4 38 C4 54 18 60 35 60 C52 60 66 54 66 38 C66 22 52 12 35 14Z' fill='url(#p)' stroke='${lit ? C.goldD : "#8E3E14"}' stroke-width='1.6'/><g fill='none' stroke='${lit ? "#D9A85A" : "#B5541C"}' stroke-width='1.4' opacity='.85'><path d='M22 17 C14 28 14 50 23 58'/><path d='M48 17 C56 28 56 50 47 58'/><path d='M35 14 V60'/></g><path d='M35 14 Q34 6 39 3' fill='none' stroke='#6F9060' stroke-width='2.6' stroke-linecap='round'/>${lit ? `<circle cx='35' cy='38' r='10' fill='#fff' stroke='${C.goldD}' stroke-width='2'/><circle cx='35' cy='38' r='10' fill='none' stroke='#FFF6DA' stroke-width='1' stroke-dasharray='.1 3' stroke-linecap='round'/><circle cx='21' cy='60' r='4' fill='#fff' stroke='${C.goldD}' stroke-width='1.4'/><circle cx='49' cy='60' r='4' fill='#fff' stroke='${C.goldD}' stroke-width='1.4'/>` : ``}</svg>`;
+const OVALM = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 120' preserveAspectRatio='none'><ellipse cx='50' cy='60' rx='47' ry='57' fill='none' stroke='${C.goldD}' stroke-width='5' vector-effect='non-scaling-stroke'/><ellipse cx='50' cy='60' rx='47' ry='57' fill='none' stroke='#FFF6DA' stroke-width='2' stroke-dasharray='.1 6' stroke-linecap='round' vector-effect='non-scaling-stroke'/></svg>`;
+const NOTE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 24'><path d='M7 18 V5 L17 2.5 V15' fill='none' stroke='${C.goldD}' stroke-width='1.8' stroke-linejoin='round'/><ellipse cx='5' cy='18.5' rx='3.4' ry='2.6' fill='${C.goldD}'/><ellipse cx='15' cy='15.5' rx='3.4' ry='2.6' fill='${C.goldD}'/></svg>`;
+const CARD = `background:linear-gradient(135deg,#FFFFFF 0%,#FCEFF5 40%,#EEF1FF 75%,#FFF7E8 100%) !important;border:1.2px solid rgba(242,217,160,.85) !important;border-radius:14px !important;box-shadow:0 0 18px rgba(255,220,180,.4) !important;color:${C.ink} !important`;
+
 const bubble = { myBg: C.v2, myText: "#fff", myBorder: "none", charBg: C.pearl, charText: C.ink, charBorder: "none", radius: 16, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const PANEL = `background:linear-gradient(180deg,rgba(120,110,200,.55),rgba(90,85,176,.45)) !important;backdrop-filter:blur(10px) !important;-webkit-backdrop-filter:blur(10px) !important;border-radius:20px !important;box-shadow:inset 0 0 0 1.4px rgba(242,217,160,.75),0 8px 20px rgba(40,30,100,.3) !important`;
@@ -145,6 +152,101 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 /* 底栏也不做框：透明底往下晕一点深紫，上沿一条横贯的细金线、正中一颗星 */
 [data-wk="composer"]::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:-6px !important;bottom:auto !important;height:12px !important;border-radius:0 !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;box-shadow:none !important;background:${svg(STAR)} center/8px 11px no-repeat,linear-gradient(90deg,rgba(242,217,160,0),rgba(242,217,160,.85) 20%,rgba(242,217,160,.85) calc(50% - 10px),transparent calc(50% - 10px),transparent calc(50% + 10px),rgba(242,217,160,.85) calc(50% + 10px),rgba(242,217,160,.85) 80%,rgba(242,217,160,0)) center/100% 1px no-repeat !important;z-index:1 !important}
 [data-wk="composer"]{background:linear-gradient(180deg,rgba(140,124,200,0),rgba(110,96,180,.45)) !important;padding-left:16px !important;padding-right:16px !important}
+/* ───── 午夜舞会 · 第二批：卡片 ───── */
+[data-wk="voice"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{${CARD}}
+[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:${C.ink} !important;border-color:rgba(217,180,106,.4) !important}
+
+/* 转账＝一封王宫的舞会请柬：珠光卡、金线框，右上「Invitation」；收下压一枚紫色皇冠火漆，退回压灰色的 */
+[data-wk="transfercard"]{position:relative !important;overflow:visible !important;${CARD};box-shadow:inset 0 0 0 4px rgba(255,255,255,.6),inset 0 0 0 5px rgba(217,180,106,.6),0 0 18px rgba(255,220,180,.4) !important}
+[data-wk="transfercard"]::after{content:"Invitation" !important;position:absolute !important;right:14px !important;top:10px !important;font:italic 11px/1 Georgia,serif !important;color:${C.goldD} !important;letter-spacing:.06em !important}
+[data-wk="transfercard"] *{color:${C.ink} !important;border-color:rgba(217,180,106,.4) !important}
+[data-wk="transferlabel"]{color:#8C84B8 !important;letter-spacing:.25em !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:#5A4FB0 !important;font-weight:700 !important}
+[data-wk="transferrule"]{border:none !important;height:12px !important;background:${svg(STAR)} center/8px 11px no-repeat,linear-gradient(90deg,transparent,rgba(217,180,106,.7) 20%,rgba(217,180,106,.7) calc(50% - 9px),transparent calc(50% - 9px),transparent calc(50% + 9px),rgba(217,180,106,.7) calc(50% + 9px),rgba(217,180,106,.7) 80%,transparent) center/100% 1px no-repeat !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:rgba(140,124,200,.08) !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:linear-gradient(180deg,#8C7CE0,#5A55B0) !important;color:#fff !important;border:1px solid ${C.gold} !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;color:${C.ink} !important;border:1px solid rgba(90,85,176,.4) !important}
+[data-wk="transferseal"]{background:transparent !important;border:1px solid ${C.goldD} !important;color:${C.goldD} !important;border-radius:50% !important;box-shadow:none !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{width:48px !important;height:48px !important;flex-shrink:0 !important;border:none !important;background:${svg(SEALCROWN("#6A5AC8"))} center/contain no-repeat !important;transform:rotate(-10deg) !important;filter:drop-shadow(0 2px 3px rgba(40,30,100,.35)) !important}
+[data-wk="transfercard"][data-status="returned"]{filter:grayscale(.7) !important;opacity:.8 !important}
+[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"]{width:48px !important;height:48px !important;flex-shrink:0 !important;border:none !important;background:${svg(SEALCROWN("#9A96B0"))} center/contain no-repeat !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"] *,[data-wk="transfercard"][data-status="returned"] [data-wk="transferseal"] *{display:none !important}
+
+/* 红包＝一颗珠光南瓜马车；领完了过了午夜，变回一颗普通的橙南瓜 */
+[data-wk="rpcard"]{position:relative !important;overflow:visible !important;width:220px !important;min-height:86px !important;padding:16px 16px 16px 88px !important;${CARD}}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:64px !important;height:58px !important;margin-top:-30px !important;background:${svg(PUMP(true))} center/contain no-repeat !important;filter:drop-shadow(0 0 8px rgba(255,230,180,.7)) !important}
+[data-wk="rpcard"]::after{content:"午夜之前有效" !important;position:absolute !important;right:12px !important;bottom:6px !important;font-size:9.5px !important;letter-spacing:.2em !important;color:#8C84B8 !important}
+[data-wk="rpcard"] *{color:${C.ink} !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"] > div:not([data-wk]){padding:0 !important;background:transparent !important}
+[data-wk="rpmsg"]{-webkit-line-clamp:2 !important;color:#5A4FB0 !important}
+[data-wk="rpcard"][data-status="done"]{opacity:.85 !important}
+[data-wk="rpcard"][data-status="done"]::before{background:${svg(PUMP(false))} center/contain no-repeat !important;filter:none !important}
+[data-wk="rpcard"][data-status="done"]::after{content:"钟响了，变回南瓜" !important}
+[data-wk="rpenvelope"][data-stage="closed"],[data-wk="rpenvelope"][data-stage="open"]{background:${svg(STAR)} left 18px top 30px/9px 12px no-repeat,${svg(STAR)} right 22px top 70px/8px 11px no-repeat,linear-gradient(180deg,${C.v1},${C.v2} 50%,${C.v3}) !important;border:1.4px solid rgba(242,217,160,.8) !important;border-radius:24px !important;box-shadow:0 0 30px rgba(255,230,180,.35),0 20px 40px rgba(30,20,80,.5) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:linear-gradient(135deg,#fff,#FCEFF5 50%,#EEF1FF) !important;border-color:${C.gold} !important;box-shadow:none !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]::after{content:none !important}
+[data-wk="rpenvelope"] *{color:#fff !important}
+[data-wk="rpenvelope"] [data-wk="rparc"] *{color:${C.ink} !important}
+[data-wk="rpopenbtn"]{background:${svg(PUMP(true))} center/86% no-repeat !important;border:none !important;box-shadow:none !important;filter:drop-shadow(0 0 12px rgba(255,230,180,.85)) !important}
+[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important}
+[data-wk="rpavatar"]{border-radius:50% !important;box-shadow:0 0 0 3px ${C.pearl2},0 0 0 4px ${C.goldD} !important}
+[data-wk="rpamount"]{color:#FFF0CC !important;background:none !important;text-shadow:0 0 12px rgba(255,230,170,.6) !important}
+[data-wk="rpclose"]{background:rgba(255,255,255,.12) !important;border:1px solid ${C.gold} !important;color:#fff !important}
+
+/* 照片＝一面椭圆珍珠镜框 */
+[data-wk="photocard"]{position:relative !important;overflow:visible !important;background:linear-gradient(135deg,#fff,#FCEFF5 50%,#EEF1FF) !important;border:none !important;border-radius:50% / 46% !important;padding:22px 28px 34px !important;box-shadow:0 0 18px rgba(255,220,180,.45) !important}
+[data-wk="photocard"]::before{content:"" !important;position:absolute !important;inset:0 !important;background:${svg(OVALM)} center/100% 100% no-repeat !important;pointer-events:none !important;z-index:2 !important}
+[data-wk="photoface"]{background:linear-gradient(170deg,${C.v2},${C.v3}) !important;border:none !important;border-radius:50% / 46% !important}
+[data-wk="photoface"] *,[data-wk="phototext"]{color:#fff !important}
+[data-wk="photocap"],[data-wk="photohint"]{color:#8C84B8 !important;font-style:italic !important}
+
+/* 语音：前面一颗金色音符（舞会的音乐） */
+[data-wk="voice"] > *{background:transparent !important;box-shadow:none !important;border:none !important;color:${C.ink} !important}
+[data-wk="voice"][data-me]{padding:0 14px 0 36px !important;position:relative !important;border-radius:999px !important}
+[data-wk="voice"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:16px !important;height:19px !important;margin-top:-10px !important;background:${svg(NOTE)} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="voice"][data-me="1"]{background:linear-gradient(180deg,rgba(170,160,240,.7),rgba(135,125,225,.6)) !important}
+[data-wk="voice"][data-me="1"] *{color:#fff !important}
+[data-wk="voicewave"] span{background:${C.goldD} !important}
+
+/* 天气：紫夜的天 */
+[data-wk="wxcardsky"]{background:linear-gradient(170deg,${C.v1},${C.v2} 60%,${C.v3}) !important}
+[data-wk="wxcardsky"] *{color:#fff !important}
+[data-wk="wxcardsky"] svg{stroke:${C.gold} !important}
+[data-wk="wxcardsay"]{background:transparent !important;color:${C.ink} !important;border-top:1px solid rgba(217,180,106,.5) !important}
+/* 位置：一只玻璃鞋当图钉 */
+[data-wk="geopin"]{background:${svg(SLIPPER)} center/contain no-repeat !important;box-shadow:none !important;border:none !important;width:40px !important;height:26px !important;border-radius:0 !important;filter:drop-shadow(0 0 4px rgba(150,170,230,.9)) !important}
+[data-wk="geopin"] *{opacity:0 !important}
+[data-wk="geopinstem"]{background:${C.goldD} !important}
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 3px ${C.pearl2},0 0 0 4px ${C.goldD} !important}
+
+/* 拍一拍、通话结束：一行近白小字，两头各一颗星 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:${svg(STAR)} left center/8px 11px no-repeat,${svg(STAR)} right center/8px 11px no-repeat !important;border:none !important;border-radius:0 !important;padding:2px 18px !important;color:#E6E2FA !important;box-shadow:none !important;letter-spacing:.12em !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.gold} !important}
+[data-wk="note"][data-part="callsum"]{color:#E6E2FA !important}
+
+/* 线下小结：一张珠光请柬，标题是紫色缎带 */
+[data-part="offlog"]{position:relative !important;overflow:visible !important;padding-top:30px !important}
+[data-wk="offlogtitle"]{display:inline-block !important;margin:0 0 6px !important;padding:3px 16px !important;background:linear-gradient(180deg,#8C7CE0,#5A55B0) !important;color:#fff !important;border:1px solid ${C.gold} !important;border-radius:999px !important;letter-spacing:.15em !important}
+[data-wk="offlogtitle"] *{color:#fff !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:#5A4FB0 !important}
+[data-wk="offlogtranscript"]{border-top:1px solid rgba(217,180,106,.5) !important;color:#6A6290 !important}
+
+/* 加号面板：珍珠圆钮 */
+[data-wk="chatpanel"] *{color:#fff !important}
+[data-wk="chattoolicon"]{background:radial-gradient(circle at 38% 32%,#fff,${C.pearl2} 70%,#EAD9B0) !important;border:1.2px solid ${C.goldD} !important;border-radius:50% !important;box-shadow:0 0 10px rgba(255,236,190,.45) !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.ink} !important;color:${C.ink} !important}
+[data-wk="chattoollabel"]{color:${C.lilac} !important}
+
+/* 引用三处 */
+[data-wk="quotedraft"]{background:rgba(70,64,150,.9) !important;border:none !important;border-top:1px solid rgba(242,217,160,.6) !important}
+[data-wk="quotedraft"] *{color:#E6E2FA !important;border-color:rgba(242,217,160,.6) !important}
+[data-wk="quoteicon"]{display:none !important}
+[data-wk="quoteclear"]{color:${C.gold} !important}
+[data-wk="quote"]{background:rgba(255,255,255,.14) !important;color:#E6E2FA !important;border:1px solid rgba(242,217,160,.5) !important;border-radius:10px !important;padding:3px 10px !important;opacity:1 !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.75 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "午夜舞会", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
