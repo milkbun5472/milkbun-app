@@ -1647,6 +1647,36 @@ function salvageByKeys(raw, keys) {
   });
   return got ? out : null;
 }
+// 模型没写 JSON、写成了一行一个字段的样子（群里 2026-11-13 截图）：
+//   word:
+//   - 一句
+//   - 一句
+//   mood: {"label":"温柔"}
+//   thought: ……
+// 只认【给定的键名】出现在行首的那几行；word 这类列表按「- 」一条一条拆，值是 {…}/[…] 的照 JSON 读。认不出两格以上就返回 null，不猜
+function parseKeyLines(raw, keys, listKeys) {
+  const text = String(raw || "").replace(/```[a-z]*/gi, "").replace(/\r/g, "");
+  const re = new RegExp("(^|\\n)\\s*[\"'“”‘’*]*(" + keys.join("|") + ")[\"'“”‘’*]*\\s*[:：]", "gi");
+  const marks = [];
+  let m;
+  while ((m = re.exec(text))) marks.push({ key: keys.find(k => k.toLowerCase() === m[2].toLowerCase()), at: m.index + m[1].length, body: m.index + m[0].length });
+  if (marks.length < 2) return null;
+  const out = {};
+  marks.forEach((mk, i) => {
+    let v = text.slice(mk.body, i + 1 < marks.length ? marks[i + 1].at : text.length).trim().replace(/,\s*$/, "");
+    if (!v) return;
+    if ((listKeys || []).indexOf(mk.key) >= 0) {
+      let items = /\n/.test(v) ? v.split(/\n+/) : (/^[-•·]\s/.test(v) ? v.split(/\s+[-•·]\s+/) : [v]);
+      items = items.map(x => x.replace(/^\s*(?:[-•·*]|\d+[.、])\s*/, "").replace(/^["“]|["”],?$/g, "").trim()).filter(Boolean);
+      if (items.length) out[mk.key] = items;
+      return;
+    }
+    if (/^[\[{]/.test(v)) { try { out[mk.key] = JSON.parse(v); return; } catch (e) {} }
+    if (/^(true|false|null|-?\d+(\.\d+)?)$/.test(v)) { try { out[mk.key] = JSON.parse(v); return; } catch (e) {} }
+    out[mk.key] = v.replace(/^["“]|["”]$/g, "");
+  });
+  return Object.keys(out).length >= 2 ? out : null;
+}
 function parseJSONLoose(raw) {
   let v = null;
   for (const cand of [String(raw || ""), escapeJsonStringControls(raw)]) {

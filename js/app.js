@@ -14188,6 +14188,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 极简线路偶尔直接回字符串数组，把它按 word 数组接住。
       if (Array.isArray(parsed)) parsed = parsed.every(x => typeof x === "string") ? { word: parsed } : null;
       if (!parsed && typeof repairJSON === "function") { try { parsed = JSON.parse(repairJSON(raw)); } catch (e) {} }
+      // 一行一个字段、没写 JSON 的那种（「word: - 一句 - 一句 / mood: … / thought: …」，群里 2026-11-13）：按字段名拆回来
+      if (!parsed && typeof parseKeyLines === "function") {
+        const _kl = parseKeyLines(raw, ["word", "mood", "thought", "action", "wearing", "affinityDelta", "emote", "voice", "quote", "silent", "whisper"], ["word", "voice"]);
+        if (_kl && _kl.word) { if (typeof _kl.mood === "string") _kl.mood = { label: _kl.mood }; parsed = _kl; }
+      }
       if (!parsed) parsed = { word: salvageWords() };
       // JSON 里只交了表情包之类、话写在 JSON 外面（群里 2026-10-22：「{"emote":"看你编"}……？你脑子被门夹了？」——
       //   表情发了，后面那几句被扔了，还报「这一轮没回上来」）：word 空着、JSON 外头有正文，就把那段当她收到的话
