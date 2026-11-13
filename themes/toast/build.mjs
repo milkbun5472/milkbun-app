@@ -31,6 +31,8 @@ const CRUMBS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 8'><g fi
 const CARD = `background:${C.bread} !important;border:2.5px solid ${C.crust} !important;border-radius:14px !important;box-shadow:0 3px 0 #E6D3B8 !important;color:${C.ink} !important`;
 
 const EGG2 = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M15 2 Q22 1 25 6 Q30 9 28 16 Q30 23 24 26 Q18 30 11 27 Q3 27 3 19 Q0 12 5 8 Q8 2 15 2Z' fill='#fff' stroke='#E6DCCB'/><circle cx='15.5' cy='15' r='6.5' fill='${C.yolk}'/><circle cx='13.5' cy='13' r='1.8' fill='#fff' opacity='.85'/></svg>`;
+// 煎蛋的小铲子：带孔的铲面＋木柄
+const SPATULA = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 48'><path d='M4 3 H20 Q21 3 21 4 V17 Q21 20 18 20 H6 Q3 20 3 17 V4 Q3 3 4 3Z' fill='#E9E4DA' stroke='#9C9285' stroke-width='1.3'/><g fill='#9C9285'><rect x='7' y='6' width='2' height='9' rx='1'/><rect x='11' y='6' width='2' height='9' rx='1'/><rect x='15' y='6' width='2' height='9' rx='1'/></g><path d='M10.5 20 H13.5 V27 H10.5Z' fill='#B9B0A2'/><rect x='9' y='27' width='6' height='19' rx='3' fill='${C.crust}' stroke='${C.crustD}' stroke-width='1'/><circle cx='12' cy='42' r='1.1' fill='${C.bg}'/></svg>`;
 const bubble = { myBg: C.toast, myText: C.ink, myBorder: "none", charBg: C.bread, charText: C.ink, charBorder: "none", radius: 8, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -202,6 +204,7 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chathead"] [data-wk="headme"] > *,[data-wk="chathead"] [data-wk="headme"] img{border-radius:50% !important;box-shadow:0 0 0 2.5px ${C.yolk} !important}
 [data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
 [data-wk="chathead"] [data-wk="sameroom"]{margin-left:auto !important}
+[data-wk="chathead"] button:has(> img[data-wk="avatar"])::after{content:"" !important;position:absolute !important;left:52px !important;top:50% !important;width:18px !important;height:36px !important;margin-top:-18px !important;background:${svg(SPATULA)} center/contain no-repeat !important;transform:rotate(18deg) !important;z-index:2 !important;pointer-events:none !important;filter:drop-shadow(0 2px 2px rgba(140,100,60,.25)) !important}
 
 `;
 
