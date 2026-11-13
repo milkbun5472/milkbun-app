@@ -22169,6 +22169,11 @@ function GroupSettingsSheet({ apiProfiles, onSuggestName, onDrawTitles, lucky, o
         className: "active:opacity-60",
         style: { flexShrink: 0, minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: spec ? t.tint : t.sub }
       }, spec ? "回到群里" : "退出群聊"))),
+    // 小房间（她 2026-11-13「群聊咋开房间」「没找到」）：原来压在最底下「清掉」那一栏里、挨着删除群聊，没人会去那儿找。
+    //   单独一栏，挨着群名放；房间自己里面不再往下开
+    onNewRoom && !group.roomOf ? gCard({ title: "小房间", char: "房", tint: "#5f8f8a", state: roomCount ? "已有 " + roomCount + " 间 · 在顶栏下面那排切换" : "还没开过" },
+      "把一段想单独演的（另一条线、AU、换个身份）开成一间房，有自己的聊天记录。开好以后群聊顶栏下面多一排，主群和每间房点一下就切。",
+      h("button", { "data-wk": "groomentry", onClick: onNewRoom, className: "w-full rounded-xl py-3 mt-1 active:opacity-70", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "开一间小房间")) : null,
     onSetNotice ? gCard({ title: "群公告", char: "告", tint: "#7a8f4a", state: gs && gs.notice && gs.notice.text ? String(gs.notice.text).replace(/\s+/g, " ").slice(0, 30) : "还没有公告" },
       "钉在群聊顶上，群里每个人都看得到。他们聊天、见面、打电话时都知道这段公告，会照着聊，也可能提起它、吐槽它。" + (spec ? "你在旁观，公告算群主发的。" : ""),
       h("textarea", { "data-wk": "gnotice", value: noticeDraft, onChange: e => { setNoticeDraft(e.target.value); fitTextarea(e.target); }, rows: 3, placeholder: "比如：周六晚上七点老地方聚餐，都别迟到",
@@ -22365,7 +22370,6 @@ function GroupSettingsSheet({ apiProfiles, onSuggestName, onDrawTitles, lucky, o
 
     // 删除群聊
     // 小房间（她 2026-11-13「群聊咋开房间」）：在主群里开第一间的入口；房间自己不再往下开
-    onNewRoom && !group.roomOf ? h("button", { "data-wk": "groomentry", onClick: onNewRoom, className: "w-full rounded-xl py-3 mt-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "开一间小房间" + (roomCount ? "（已有 " + roomCount + " 间，在顶栏下面切换）" : "")) : null,
     h("button", { onClick: () => requestAppConfirm(group.roomOf ? "删掉这间小房间？" : "删掉这个群聊？", (group.roomOf ? "这间的聊天记录会一并清除，主群不受影响。" : "聊天记录会一并清除" + (roomCount ? "，它下面的 " + roomCount + " 间小房间也一起删掉" : "") + "。") + "不可恢复。删之前想留底的话，先去 设置 → 数据 → 导入与导出 → 导出全部数据。", () => { onDelete(); }, "删除"), className: "w-full rounded-xl py-3 mt-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, "删除群聊")))), document.body);
 }
 // 群主和管理员挑选（建群页和群设置共用这一块）：一排名字点选。群主单选，管理员多选；她不在群里（旁观）就没有「我」这一格
