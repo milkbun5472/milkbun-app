@@ -5167,7 +5167,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const runCcAutoMemory = async (charId, ownerId) => {
     if (!memCfgRef.current.autoExtract || !bgActive || !window.CcMemoryAuto || ccMemExtractBusyRef.current) return 0;
     if (memExtractInflightRef.current[charId]) return 0;
+    // 切在后台不抽：手机会把连接掐断，结果拿不到、钱照扣；失败过的歇一阵再试（cooling）
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return 0;
     const state = window.CcMemoryAuto.load(localStorage, ownerId, charId);
+    if (window.CcMemoryAuto.cooling && window.CcMemoryAuto.cooling(state, Date.now())) return 0;
     const plan = window.CcMemoryAuto.plan(chatsRef.current[charId] || [], state, { minNew: 2 });
     if (!plan) return 0;
     ccMemExtractBusyRef.current = true;

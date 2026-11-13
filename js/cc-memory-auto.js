@@ -47,6 +47,7 @@
     next.processed_keys = [...new Set([...(next.processed_keys || []), ...(keys || []).map(String)])].slice(-CAP);
     next.last_success_at = new Date(Number(nowValue) || Date.now()).toISOString();
     next.last_error = null;
+    next.fail_count = 0;
     storage.setItem(KEY, JSON.stringify(next));
     return next;
   }
@@ -55,9 +56,19 @@
     const next = normalize(state, state && state.owner_id, state && state.char_id);
     next.last_error = String(error && error.message || error || "unknown");
     next.last_attempt_at = new Date(Number(nowValue) || Date.now()).toISOString();
+    next.fail_count = Math.max(0, Number(next.fail_count) || 0) + 1;
     storage.setItem(KEY, JSON.stringify(next));
     return next;
   }
 
-  return { KEY, eligible, normalize, load, plan, commit, fail };
+  // 失败后要歇一阵再试（她 2026-11-13：一夜每分钟扣一次钱）：账本每分钟同步一次，失败了不歇就每分钟再抽一遍，
+  //   而后台被掐断的那一枪中转站照样计费。歇 10 分钟起、每失败一次翻倍，最多 6 小时；成功一次清零。
+  function cooling(state, nowValue) {
+    const n = Math.max(0, Number(state && state.fail_count) || 0);
+    if (!n || !state.last_attempt_at) return false;
+    const wait = Math.min(6 * 3600e3, 10 * 60e3 * Math.pow(2, n - 1));
+    return (Number(nowValue) || Date.now()) - Date.parse(state.last_attempt_at) < wait;
+  }
+
+  return { KEY, eligible, normalize, load, plan, commit, fail, cooling };
 });
