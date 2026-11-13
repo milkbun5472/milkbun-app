@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.509";
+const APP_VERSION = "v89.511";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9470,7 +9470,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _offListenSongs = _offListenOn ? (_offListenL.songs || []).concat((_offListenL.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), [])).map(x => x && x.title).filter(Boolean).filter((t, i, arr) => arr.indexOf(t) === i).slice(0, 30) : [];
       if (typeof vclockUse === "function") vclockUse(charId);
       const _oocSoon = oocSoonLive(sideRoom ? scopeKey : charId);
-      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, sayZhOn: !!(settingsFor(charId) || {}).bilingual && !(settingsFor(charId) || {}).engineerEyes, customNotes: [...(workSess.customNotes || []), ..._oocSoon], signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), photoMe: _offPhotoOn && canShootMe(char.id) ? ((povFor(char) || {}).tier || true) : false, replyOpts: !!osFor(charId).replyOpts, listenOn: _offListenOn, listenSongs: _offListenSongs, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", looseOld: osFor(charId).looseOld, maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, sayZhOn: !!(settingsFor(charId) || {}).bilingual && !(settingsFor(charId) || {}).engineerEyes, customNotes: [...(workSess.customNotes || []), ..._oocSoon], signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), photoMe: _offPhotoOn && canShootMe(char.id) ? ((povFor(char) || {}).tier || true) : false, replyOpts: !!osFor(charId).replyOpts, listenOn: _offListenOn, listenSongs: _offListenSongs, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", looseOld: osFor(charId).looseOld, writeOnce: !!osFor(charId).writeOnce, maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       // 邮票册：线下写了一拍（重写那一拍不算）
       if (res && !(workSess && workSess.rerollAvoid) && typeof stampGain === "function") stampGain("beat");
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这一拍不落地

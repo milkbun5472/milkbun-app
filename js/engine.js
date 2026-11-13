@@ -10060,7 +10060,8 @@ async function generateOffline(p, ctx, session) {
   const explicitRevisionRequested = !isDigital && !!rewriteRequested;
   // ⚠️这一道只看人设卡里的风险词。不许再把 offlineRendererScore 那一分接进来：
   //   那一分是故意只记不用的（她 2026-09-22：「不要这个！这是之前特意没接上的！」）。
-  const archetypeRevisionRequested = !isDigital && !!archetypePerformanceRisk;
+  // 线下设置里开了「只写一遍」（她 2026-11-13）：人设风险词不再触发先写一稿再改，额度全给正文。她自己点的重写不受影响
+  const archetypeRevisionRequested = !isDigital && !session.writeOnce && !!archetypePerformanceRisk;
   rewriteRequested = explicitRevisionRequested || archetypeRevisionRequested;
   const singlePassRevisionRequested = explicitRevisionRequested || archetypeRevisionRequested;
   const singlePassRevisionProtocol = explicitRevisionRequested
