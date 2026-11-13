@@ -410,6 +410,18 @@ span[data-wk="avatar"]:not([data-halo])::before{transform:scaleX(-1) !important}
 [data-wk="offlogtext"],[data-wk="offlogtext"] *{color:#F4F1FF !important;line-height:1.8 !important}
 [data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{display:inline-block !important;margin:8px 6px 0 0 !important;padding:3px 12px !important;border:1px solid rgba(255,217,138,.55) !important;border-radius:999px !important;color:${C.gold} !important;font-size:11px !important;background:rgba(11,15,43,.5) !important}
 [data-wk="offlogtranscript"]{border-top:1px solid rgba(255,217,138,.3) !important;color:${C.dim} !important}
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle at 70% 15%,rgba(255,217,138,.3),transparent 40%),linear-gradient(180deg,#070A22,#1B1A52 50%,#4A2A78) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(255,255,255,.65) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(255,255,255,.12) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#fff !important}
+[data-wk="callbtns"] button > span:first-child{background:rgba(11,15,43,.55) !important;border-radius:50% !important;box-shadow:0 0 0 1.5px #FFD98A,0 0 16px rgba(255,217,138,.45) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#FFD98A !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#A2477F !important;box-shadow:0 0 0 1.5px #FFD98A,0 0 16px rgba(240,154,120,.5) !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(255,255,255,.65) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星空", look: { bubble, layout: { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" }, customCSS: css.trim() }, assets: {} };

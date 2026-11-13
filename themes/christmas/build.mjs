@@ -523,6 +523,18 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 /* 顶栏底下那条日程不被雪帽彩灯盖住：往下让到灯串下面 */
 [data-wk="chathead"] + *:not([data-wk="body"]){margin-top:18px !important;position:relative !important;z-index:1 !important;border-top:none !important}
 
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle at 50% 20%,rgba(232,184,90,.25),transparent 55%),linear-gradient(180deg,#264A3D,#1E3B31) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(255,255,255,.65) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(255,255,255,.12) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#fff !important}
+[data-wk="callbtns"] button > span:first-child{background:#FFF8EA !important;border-radius:50% !important;box-shadow:0 0 0 3px #3E7A55,0 0 16px rgba(232,184,90,.4) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#1E3B31 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#B5383A !important;box-shadow:0 0 0 3px #E8B85A,0 0 16px rgba(232,184,90,.5) !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(255,255,255,.65) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "灯下雪夜", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

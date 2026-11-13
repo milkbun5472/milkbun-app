@@ -419,6 +419,18 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{l
 [data-wk="narrink"]{display:inline-block !important;position:relative !important;background:#FBF8FF !important;color:#3A2A55 !important;font-style:italic !important;border:2px solid #fff !important;border-radius:12px !important;box-shadow:0 0 0 1.5px #B9A8EA,0 6px 14px rgba(30,20,60,.35) !important;padding:26px 16px 10px !important;line-height:1.7 !important}
 [data-wk="narrink"]::before{content:"action.txt" !important;position:absolute !important;left:0 !important;right:0 !important;top:0 !important;height:18px !important;border-radius:10px 10px 0 0 !important;font:800 9px/18px monospace !important;font-style:normal !important;letter-spacing:.06em !important;color:#fff !important;padding-left:10px !important;text-align:left !important;background:${svg(DOTS)} right 8px center/26px 8px no-repeat,linear-gradient(90deg,#B9A6F0,#9D88E6) !important}
 
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle at 30% 20%,rgba(255,126,200,.35),transparent 50%),radial-gradient(circle at 80% 80%,rgba(124,200,255,.3),transparent 50%),linear-gradient(180deg,#3A1E5C,#1E1640) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(255,255,255,.65) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(255,255,255,.12) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#fff !important}
+[data-wk="callbtns"] button > span:first-child{background:linear-gradient(180deg,#FFFFFF,#EFE8FF) !important;border-radius:20px !important;box-shadow:0 0 0 2px #fff,0 3px 0 2px #B9A8EA,0 0 20px rgba(255,159,214,.5) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#3B2A66 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:linear-gradient(180deg,#FFC2E6,#FF7EC8) !important;box-shadow:0 0 0 2px #fff,0 3px 0 2px #E05AA8,0 0 20px rgba(255,126,200,.6) !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(255,255,255,.65) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "千禧果冻", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

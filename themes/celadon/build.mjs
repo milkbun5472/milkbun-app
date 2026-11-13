@@ -317,6 +317,18 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){box-shadow:0 0 
 [data-wk="rpcard"][data-status="done"]{background:${C.cel} !important;opacity:.8 !important}
 [data-wk="rpcard"][data-status="done"] [data-wk="rpflap"]{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60' preserveAspectRatio='none'><path d='M0 0 L50 58 L100 0' fill='${C.cel}' stroke='${C.brown}' stroke-width='1.6' vector-effect='non-scaling-stroke' stroke-linejoin='round'/></svg>`)} center/100% 100% no-repeat !important}
 
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle,#D9CDB4 1px,transparent 1.3px) 0 0/16px 16px,#F3EBDA !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#2E2A28 !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(0,0,0,.5) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(0,0,0,.06) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#2E2A28 !important}
+[data-wk="callbtns"] button > span:first-child{background:#FFF5DE !important;border-radius:18px !important;box-shadow:0 0 0 2px #4A3A30,4px 4px 0 2px #A9D3C3 !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#4A3A30 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#A9D3C3 !important;box-shadow:0 0 0 2px #4A3A30,4px 4px 0 2px #4A3A30 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(0,0,0,.5) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "青瓷焦茶", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
