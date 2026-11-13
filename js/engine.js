@@ -79,10 +79,18 @@ function normalizedOpenAIBase(value) {
   } while (base !== previous);
   return base.replace(/\/+$/, "");
 }
+// OpenAI 格式线路的根：接口地址后面再拼 /models、/chat/completions。
+//   结尾已经是 /v数字 的（智谱 /api/paas/v4、豆包 /api/v3）原样用，别再补成 /v4/v1（群友 2026-10-21：智谱官网聊天全挂）；
+//   结尾写了 # 的原样用、一个字不补（她 2026-11-13：…/api/relay 这种站直接接 /models，补了 /v1 就 404）——跟别家软件同一个约定
+function oaRootOf(base) {
+  const b = String(base || "");
+  if (/#\s*$/.test(b)) return b.replace(/#+\s*$/, "").replace(/\/+$/, "");
+  return /\/v\d+$/i.test(b) ? b : b + "/v1";
+}
 function openAICompatibleRoot(value) {
-  const base = normalizedOpenAIBase(value);
-  // 结尾已经是 /v数字 的（智谱 /api/paas/v4、豆包 /api/v3）原样用，别再补成 /v4/v1（群友 2026-10-21：智谱官网聊天全挂）
-  return /\/v\d+$/i.test(base) ? base : base + "/v1";
+  const raw = String(value == null ? "" : value), keep = /#\s*$/.test(raw);
+  const base = normalizedOpenAIBase(raw.replace(/#+\s*$/, ""));
+  return oaRootOf(keep ? base + "#" : base);
 }
 function nativeHttpHandler() {
   try { return window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeHttp; }
@@ -195,7 +203,7 @@ async function testEmbedding(p) {
   const fmt = detectFormat(base);
   if (fmt === "anthropic") return { ok: false, msg: "Anthropic 原生不提供 embedding。若你用的是中转站，把地址换成它的 OpenAI 兼容端点(通常 .../v1)再测。" };
   if (fmt === "gemini") return { ok: false, msg: "Gemini 的 embedding 端点是 :embedContent，和这里不同。多数中转站有 OpenAI 兼容的 /v1/embeddings，把地址换成那个再测。" };
-  const root = /\/v\d+$/i.test(base) ? base : base + "/v1";   // 智谱 /api/paas/v4、豆包 /api/v3 这种自带版本号的不再补 /v1
+  const root = oaRootOf(base);   // 自带版本号的、结尾写了 # 的都不再补 /v1
   // 手填的排最前（优先试你指定的）；后面是各家常见 embedding 模型名，尽量多撞几个
   const candidates = [p.embedModel, "text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002", "bge-m3", "text-embedding-v3", "text-embedding-v2", "embedding-2", "doubao-embedding"].filter(Boolean);
   const tried = [];   // 逐个记下失败原因，别只留最后一个（否则会误以为只是那一个模型的问题）
@@ -258,7 +266,7 @@ async function embedTexts(texts, opts) {
   const c = loadEmbApi();
   if (!(c.enabled && c.baseUrl && c.apiKey && c.model)) return null;
   const base = cleanBaseUrl(c.baseUrl);
-  const root = /\/v\d+$/i.test(base) ? base : base + "/v1";   // 智谱 /api/paas/v4、豆包 /api/v3 这种自带版本号的不再补 /v1
+  const root = oaRootOf(base);   // 自带版本号的、结尾写了 # 的都不再补 /v1
   const isBge = /bge/i.test(c.model);
   // bge 单条输入上限 512 token：中文按字截 420 字兜底（加上前缀仍在限内）
   const input = texts.map(t => { let s = String(t || "").slice(0, 420); if (opts.isQuery && isBge) s = BGE_QUERY_PREFIX + s; return s || " "; });
@@ -1455,7 +1463,7 @@ async function callAIOnce(p, system, messages, opts) {
     }
     return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));
   }
-  const root = /\/v\d+$/i.test(base) ? base : base + "/v1";   // 智谱 /api/paas/v4、豆包 /api/v3 这种自带版本号的不再补 /v1
+  const root = oaRootOf(base);   // 自带版本号的、结尾写了 # 的都不再补 /v1
   // openai 兼容：同样兜底——推理类模型（o系/部分中转）不吃 temperature，报错就去掉重试一次
   let _streamTried = false, _streamGot = false;
   const postOpenAI = async (withTemp, noStream) => {
