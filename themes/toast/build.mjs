@@ -208,6 +208,6 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 
 `;
 
-const pack = { kind: "chat-look", v: 1, name: "吐司", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
-writeFileSync(join(here, "吐司-美化.json"), JSON.stringify(pack));
+const pack = { kind: "chat-look", v: 1, name: "早安吐司", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
+writeFileSync(join(here, "早安吐司-美化.json"), JSON.stringify(pack));
 console.log("ok", css.length);
