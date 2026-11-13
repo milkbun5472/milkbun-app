@@ -218,15 +218,18 @@
 
     // 收集所有 x_ 键为纯对象（原始字符串），与导出/导入格式一致
     // x_neteaseCookie 是账号凭据：界面承诺「只存这台设备」，永不进云快照（2026-08-20 抓漏）
+    // 只留在这台手机上、不往云上传的：撤销历史（秋秋改动的撤回、美化每一步的退回）。它们只是方便在这台手机上往回退，
+    //   换设备用不着，却一份就几 MB——她 2026-11-13 的存档 52 MB 超了云端上限，这两样占了 6.5 MB
     collect() {
+      const LOCAL_ONLY = { x_neteaseCookie: 1, x_assistUndo: 1, x_look_hist: 1 };
       const dump = {};
       Object.keys(localStorage)
-        .filter((k) => k.startsWith("x_") && k !== "x_neteaseCookie" && !(tableMemoryMode() && k === "x_memLib"))
+        .filter((k) => k.startsWith("x_") && !LOCAL_ONLY[k] && !(tableMemoryMode() && k === "x_memLib"))
         .forEach((k) => {
           dump[k] = localStorage.getItem(k);
         });
       // 已迁进 IDB 文字库的键(同人文等)不在 localStorage，从内存镜像补进存档，否则云端备份会漏掉。
-      try { if (window.__txtMirror) window.__txtMirror.forEach((v, k) => { if (v != null && !(tableMemoryMode() && k === "x_memLib")) dump[k] = v; }); } catch (e) {}
+      try { if (window.__txtMirror) window.__txtMirror.forEach((v, k) => { if (v != null && !LOCAL_ONLY[k] && !(tableMemoryMode() && k === "x_memLib")) dump[k] = v; }); } catch (e) {}
       return dump;
     },
 
