@@ -55,7 +55,7 @@ test("跟三件套同进同出——漏一处整族就回来", () => {
   assert.ok(GB.allGroupsHave("STOCK_REPLY_BAN"), "群那三处没跟上");
   // 2026-10-26 talkBans 合并：落点是 talkBans 那张清单 + 各处调用它
   assert.match(eng, /function talkBans\(o\) \{[\s\S]{0,200}?STOCK_REPLY_BAN/, "talkBans 清单里没有它");
-  assert.match(eng, /talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => parts\.push\(x\)\)/, "buildBundle 那一处没跟上");
+  assert.match(eng, /talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => pushRule\(x\)\)/, "buildBundle 那一处没跟上");
   // 同人文：RP 那一路自己调 talkBans()
   assert.match(fic, /talkBans\(\)\.forEach\(x => parts\.push\(x\)\)/, "同人文那一路断了");
 });

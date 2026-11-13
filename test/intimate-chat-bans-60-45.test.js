@@ -17,7 +17,7 @@ const narrCore = eng.slice(eng.indexOf("function narrativeCore(opts) {"), eng.in
 
 test("单人线上（＝单人通话也走这份）终于吃得到情欲反八股", () => {
   const rp = bundle.slice(bundle.indexOf("} else {"));
-  assert.match(rp, /parts\.push\(INTIMATE_CHAT_ANTI_CLICHE\);/,
+  assert.match(rp, /pushRule\(INTIMATE_CHAT_ANTI_CLICHE\);/,
     "buildBundle 的扮演支没接上——单聊线上和单人通话就是这么一条都没有的");
 });
 

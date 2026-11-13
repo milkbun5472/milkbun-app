@@ -79,11 +79,11 @@ test("群那几处：走 groupBans（群线上 / 群线下 / 群通话 / 群投�
 });
 
 test("单聊线上/线下 · 单人通话 · 匿名信箱 · 解梦馆：走 buildBundle 白送", () => {
-  const bb = eng.slice(eng.indexOf("parts.push(ANTI_CLICHE);"), eng.indexOf("parts.push(CHARCARD_RULE);"));
+  const bb = eng.slice(eng.indexOf("pushRule(ANTI_CLICHE);"), eng.indexOf("pushRule(CHARCARD_RULE);"));
   // 单人线下面对面不发（2026-10-26 起由 faceToFace 传进 talkBans）
-  assert.match(bb, /talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => parts\.push\(x\)\);/);
+  assert.match(bb, /talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => pushRule\(x\)\);/);
   // ⚠️它在 notRoleplay 的 else 分支里：言秋不吃扮演类规则，那是写着理由的合法差异
-  const nr = eng.slice(eng.indexOf("if (ctx.notRoleplay) {"), eng.indexOf("parts.push(CHARCARD_RULE);"));
+  const nr = eng.slice(eng.indexOf("if (ctx.notRoleplay) {"), eng.indexOf("pushRule(CHARCARD_RULE);"));
   assert.ok(nr.indexOf("talkBans(") > nr.indexOf("} else {"), "跑到言秋那一支里去了");
 });
 
@@ -97,7 +97,7 @@ test("穿书（加笔）：第六处，靠自己调 talkBans()——最容易漏
 test("八处一个都不少（按分发点点名，不是按文件）", () => {
   const hubs = [
     ["群线上 / 群线下 / 群通话 / 群投票", /talkBans\(\{ faceToFace: !!opts\.narrative \}\)\.forEach\(x => P\.push\(x\)\)/.test(eng)],
-    ["单聊线上 / 单聊线下 / 单人通话 / 匿名信箱 / 解梦馆", /talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => parts\.push\(x\)\)/.test(eng)],
+    ["单聊线上 / 单聊线下 / 单人通话 / 匿名信箱 / 解梦馆", /talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => pushRule\(x\)\)/.test(eng)],
     ["穿书（加笔）", /talkBans\(\)\.forEach\(x => parts\.push\(x\)\)/.test(fic)]
   ];
   const miss = hubs.filter(h => !h[1]).map(h => h[0]);

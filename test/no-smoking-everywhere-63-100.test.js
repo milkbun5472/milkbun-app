@@ -31,7 +31,7 @@ test("写连续正文的地方靠 narrativeCore 白得，不用一处处 push", 
   assert.match(nc, /parts\.push\(ContentBoundaries\.prompt\)/, "narrativeCore 里没有这一层");
   // 别的两条老路照旧
   assert.match(eng, /if \(typeof ContentBoundaries !== "undefined"\) P\.push\(ContentBoundaries\.prompt\);/, "群聊那条（groupBans）掉了");
-  assert.match(eng, /if \(!ctx\.notRoleplay && typeof ContentBoundaries !== "undefined"\) parts\.push\(ContentBoundaries\.prompt\);/, "buildBundle 那条掉了");
+  assert.match(eng, /if \(!ctx\.notRoleplay && typeof ContentBoundaries !== "undefined"\) pushRule\(ContentBoundaries\.prompt\);/, "buildBundle 那条掉了");
 });
 
 // 名单：每一处【自己拼 sys】的角色向调用点，都要能拿到这一层。
