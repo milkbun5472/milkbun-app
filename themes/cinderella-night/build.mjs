@@ -142,6 +142,9 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chathead"]{background:linear-gradient(180deg,rgba(62,60,142,.55),rgba(62,60,142,0)) !important}
 [data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:0 !important;height:12px !important;margin-bottom:-6px !important;background:${svg(STAR)} center/8px 11px no-repeat,linear-gradient(90deg,rgba(242,217,160,0),rgba(242,217,160,.85) 20%,rgba(242,217,160,.85) calc(50% - 10px),transparent calc(50% - 10px),transparent calc(50% + 10px),rgba(242,217,160,.85) calc(50% + 10px),rgba(242,217,160,.85) 80%,rgba(242,217,160,0)) center/100% 1px no-repeat !important;pointer-events:none !important}
 [data-wk="chatmore"]{margin-right:0 !important}
+/* 底栏也不做框：透明底往下晕一点深紫，上沿一条横贯的细金线、正中一颗星 */
+[data-wk="composer"]::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:-6px !important;bottom:auto !important;height:12px !important;border-radius:0 !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;box-shadow:none !important;background:${svg(STAR)} center/8px 11px no-repeat,linear-gradient(90deg,rgba(242,217,160,0),rgba(242,217,160,.85) 20%,rgba(242,217,160,.85) calc(50% - 10px),transparent calc(50% - 10px),transparent calc(50% + 10px),rgba(242,217,160,.85) calc(50% + 10px),rgba(242,217,160,.85) 80%,rgba(242,217,160,0)) center/100% 1px no-repeat !important;z-index:1 !important}
+[data-wk="composer"]{background:linear-gradient(180deg,rgba(140,124,200,0),rgba(110,96,180,.45)) !important;padding-left:16px !important;padding-right:16px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "午夜舞会", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
