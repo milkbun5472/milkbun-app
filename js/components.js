@@ -21995,6 +21995,8 @@ function GroupSettingsSheet({ apiProfiles, onSuggestName, onDrawTitles, lucky, o
   // 建完群就再也改不了名（她 2026-08-28 找了一圈没找到）——「群名称」那个输入框
   // 一直只在 NewGroupSheet 里，设置页从来没有过。
   const [gName, setGName] = useState((group && group.name) || "");
+  // 这个名字是谁起的：点「起个新群名」填进来的记那个人，她自己动手改过就算她的（她 2026-11-13：TA 单聊里以为是我起的）
+  const [gNameBy, setGNameBy] = useState("");
   const [gNamer, setGNamer] = useState("");
   const [gNaming, setGNaming] = useState(false);
   // 群主和管理员、谁被禁言着（群友 2026-10-25）
@@ -22096,7 +22098,7 @@ function GroupSettingsSheet({ apiProfiles, onSuggestName, onDrawTitles, lucky, o
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
   return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", "data-page": "1", ref: pageShellPin, className: "h-full flex flex-col", style: pageShellStyle(240, { background: t.bg }) },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
-      right: h("button", { onClick: () => { onSave({ apiId: gApiId, offlineApiId: gOffApiId, actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showMyName: showMyName, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, titles: Object.fromEntries(Object.entries(gTitles).map(([k, v]) => [k, String(v || "").trim().slice(0, 12)]).filter(x => x[1])), owner: gOwner, admins: gAdmins.filter(x => x !== gOwner), mutes: gMutes, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSave({ apiId: gApiId, offlineApiId: gOffApiId, actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showMyName: showMyName, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, chatBgFx: chatBgFx, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, nameBy: gNameBy, titles: Object.fromEntries(Object.entries(gTitles).map(([k, v]) => [k, String(v || "").trim().slice(0, 12)]).filter(x => x[1])), owner: gOwner, admins: gAdmins.filter(x => x !== gOwner), mutes: gMutes, avatarImage: gAvatar, myAvatar: gMyAv || "", maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
@@ -22113,7 +22115,7 @@ function GroupSettingsSheet({ apiProfiles, onSuggestName, onDrawTitles, lucky, o
     h("div", { className: "pt-4" },
       h("input", {
         value: gName,
-        onChange: e => setGName(e.target.value),
+        onChange: e => { setGName(e.target.value); setGNameBy(""); },
         placeholder: "群名称",
         maxLength: 24,
         className: "w-full outline-none pb-2",
@@ -22129,7 +22131,7 @@ function GroupSettingsSheet({ apiProfiles, onSuggestName, onDrawTitles, lucky, o
         " ",
         h("button", { disabled: gNaming, className: "active:opacity-60 disabled:opacity-40", style: { color: t.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" },
           onClick: async () => { setGNaming(true);
-            try { const nm = await onSuggestName(gNamer || members[0].id, [...((group && group.oldNames) || []), group && group.name, gName].filter(Boolean)); if (nm) setGName(nm); }
+            try { const nm = await onSuggestName(gNamer || members[0].id, [...((group && group.oldNames) || []), group && group.name, gName].filter(Boolean)); if (nm) { setGName(nm); setGNameBy(gNamer || members[0].id); } }
             finally { setGNaming(false); } } }, gNaming ? "起着…" : "起个新群名"),
         " · 花一次调用，填进上面那格，点勾才改") : null),
 
