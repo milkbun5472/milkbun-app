@@ -14975,9 +14975,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (_canDraw) {
         const sid = "sf_" + Date.now();
         await new Promise(r => setTimeout(r, 420));
-        pChat(chatKey, p => [...p, { role: "assistant", kind: "selfie", sid, imgKey: null, pending: true, desc: photoScene, photoKind, ts: Date.now(), turnId, read: false }]);
+        // 她自己点名的角度（「正脸自拍」「拍个全身」）跟着这张走，重拍也照它
+        const askAngle = photoAskAngle(chatsRef.current[chatKey] || []);
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "selfie", sid, imgKey: null, pending: true, desc: photoScene, photoKind, ...(askAngle ? { askAngle } : {}), ts: Date.now(), turnId, read: false }]);
         delivered = true;
-        drawChatSelfie({ chatKey, charId, sid, photoKind, photoScene });
+        drawChatSelfie({ chatKey, charId, sid, photoKind, photoScene, askAngle });
       }
       // 配件·触发硬件（安全铁律：再核一遍 toyOn——授权门在生成时已挡掉所有主动/后台路径；这里防御性再查一次）
       if (toyOn && parsed.toy && typeof parsed.toy === "object" && typeof toyPlay === "function") {
@@ -15530,7 +15532,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     pChat(chatKey, p => [...p, { role: "user", kind: "selfie", sid, imgKey: null, pending: true, desc, photoKind: pk, content: (third ? "[照片] " : "[自拍] ") + desc, ts: Date.now() }]);
     drawChatSelfie({ chatKey, charId, sid, photoKind: pk, photoScene: desc });
   };
-  const drawChatSelfie = async ({ chatKey, charId, sid, photoKind, photoScene, keySuffix }) => {
+  // 她最近一两句里点名的拍法（她 2026-11-13：「这一回让他正脸自拍」，TA 的画面描述没写正脸，机位那一格就掷成了回头看）。
+  //   认到了就把那一句原话交给画图，机位不再掷。只看她最近两句、只认说拍法的词
+  const PHOTO_ANGLE_RE = /正脸|正面|侧脸|侧面|背影|背面|全身|半身|特写|怼脸|大头|近景|远景|俯拍|仰拍|平视|对镜|镜子里|看镜头|不看镜头/;
+  const photoAskAngle = rows => {
+    const mine = (rows || []).filter(m => m && m.role === "user" && typeof m.content === "string" && !m.kind).slice(-2).reverse();
+    for (const m of mine) {
+      const t = m.content.replace(/\s+/g, " ").trim();
+      if (!PHOTO_ANGLE_RE.test(t)) continue;
+      const seg = t.split(/[。！？!?\n]/).find(x => PHOTO_ANGLE_RE.test(x)) || t;
+      return seg.trim().slice(0, 60);
+    }
+    return "";
+  };
+  const drawChatSelfie = async ({ chatKey, charId, sid, photoKind, photoScene, keySuffix, askAngle }) => {
     const realChar = characters.find(c => c.id === charId);
     if (!realChar) return;
     const uName = userName(profileFor(charId));
@@ -15569,7 +15584,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const wRef = isPart ? null : worldRefFor(realChar, photoScene + " " + (freshPlace || ""));
       if (wRef) refs.push(wRef.img);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
-      const photoOpts = { pov: meShot && !mySelf ? povFor(realChar) : null, kind: photoKind, me, closet: meShot ? char._closet : closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" };
+      const photoOpts = { ...(askAngle ? { shotLine: "【这一张的机位·她点名要的】她说的是：「" + askAngle + "」。机位、脸的朝向、看不看镜头照她这句来，参考图里是什么角度都不算。" } : {}), pov: meShot && !mySelf ? povFor(realChar) : null, kind: photoKind, me, closet: meShot ? char._closet : closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" };
       // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
       const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" }) : isPart ? buildScenePrompt(char, photoScene, { body: true }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
       // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
@@ -15671,7 +15686,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const m = (chatsRef.current[chatKey] || [])[idx];
     if (!m || m.kind !== "selfie" || m.role !== "assistant" || m.pending || !m.sid) return;
     pChat(chatKey, p => p.map(x => x.sid === m.sid ? { ...x, pending: true, failed: false, imgKey: null, imgUrl: null, pendingSince: Date.now() } : x));
-    drawChatSelfie({ chatKey, charId, sid: m.sid, photoKind: m.photoKind, photoScene: m.desc || "", keySuffix: "_r" + Date.now() });
+    drawChatSelfie({ chatKey, charId, sid: m.sid, photoKind: m.photoKind, photoScene: m.desc || "", askAngle: m.askAngle || "", keySuffix: "_r" + Date.now() });
   };
   // 收进时刻：起个名，存进 x_shikePins[角色]——时刻那头每人一张「收着的」卡。单聊、群聊共用这一处。
   // ⚠️一句、多选的几句、首尾圈出来的一长段，都走这一处：ms 可以是一条也可以是一串（按时间排好）
@@ -15739,7 +15754,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (m.pending) return;
         // 直接拿新描述去画，别回头读状态（setState 还没落，读到的是旧描述）
         pChat(threadKey, p => p.map(x => x.sid === m.sid ? { ...x, desc: nv, pending: true, failed: false, imgKey: null, imgUrl: null } : x));
-        drawChatSelfie({ chatKey: threadKey, charId: activeChar.id, sid: m.sid, photoKind: m.photoKind, photoScene: nv, keySuffix: "_r" + Date.now() });
+        drawChatSelfie({ chatKey: threadKey, charId: activeChar.id, sid: m.sid, photoKind: m.photoKind, photoScene: nv, askAngle: m.askAngle || "", keySuffix: "_r" + Date.now() });
       } });
     } else if (act === "edit") {
       const cid = activeChar.id;
