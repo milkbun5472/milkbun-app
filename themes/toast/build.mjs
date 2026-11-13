@@ -16,8 +16,9 @@ const CI = (inner, fill = "none", stroke = C.crust) => `<svg xmlns='http://www.w
 // 按键：主页＝一只小烤面包机；更多＝三粒面包屑；加号；发送＝细箭头；最右「让他回复」＝焦糖色圆钮里一个对话框
 const I_HOUSE = CI(`<rect x='11' y='16' width='18' height='12' rx='3' fill='none' stroke='${C.ink}' stroke-width='1.5'/><path d='M15 16 V12.5 Q15 11 16.5 11 H18.5 Q20 11 20 12.5 V16 M21 16 V12.5 Q21 11 22.5 11 H24.5 Q26 11 26 12.5 V16' fill='${C.toast}' stroke='${C.ink}' stroke-width='1.3'/><path d='M29 21 H31' stroke='${C.ink}' stroke-width='1.5' stroke-linecap='round'/>`, "#fff");
 const I_MORE = CI(`<g fill='${C.crust}'><ellipse cx='13' cy='21' rx='2.4' ry='1.9'/><ellipse cx='20' cy='19' rx='2.2' ry='2.1'/><ellipse cx='27' cy='21' rx='2.4' ry='1.8'/></g>`, "#fff");
-const I_PLUS = CI(`<path d='M20 13 V27 M13 20 H27' stroke='${C.ink}' stroke-width='1.8' stroke-linecap='round'/>`, "#fff", "#E6DCCB");
-const I_SEND = CI(`<path d='M13 20 H27 M21.5 14.5 L27 20 L21.5 25.5' fill='none' stroke='${C.crust}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>`, "#fff", "#E6DCCB");
+// 加号＝一片小吐司，中间一个加号；发送＝一把往右指的黄油刀
+const I_PLUS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><path d='M10 34 V18 Q5 17 5.5 12.5 Q6.5 7 13 7.5 Q16 4 20 6 Q24 4 27 7.5 Q33.5 7 34.5 12.5 Q35 17 30 18 V34Z' fill='${C.bread}' stroke='${C.crust}' stroke-width='2' stroke-linejoin='round'/><path d='M20 15 V28 M13.5 21.5 H26.5' stroke='${C.crust}' stroke-width='2' stroke-linecap='round'/></svg>`;
+const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect x='4' y='17' width='12' height='6' rx='3' fill='${C.crust}'/><path d='M16 17.5 H30 Q36 17.5 36 20 Q36 22.5 30 22.5 H16Z' fill='#E9E4DA' stroke='#B9B0A2' stroke-width='1.2'/><path d='M18 19.2 H30' stroke='#fff' stroke-width='1' stroke-linecap='round'/><rect x='27' y='13' width='7' height='5' rx='2' fill='${C.butter}' stroke='#E8C24E' stroke-width='1'/></svg>`;
 const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46'><circle cx='23' cy='23' r='21' fill='${C.crust}'/><path d='M14 16 H32 Q34 16 34 18 V26 Q34 28 32 28 H22 L17 32 V28 H14 Q12 28 12 26 V18 Q12 16 14 16Z' fill='none' stroke='#fff' stroke-width='2' stroke-linejoin='round'/></svg>`;
 const DOT = c => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><circle cx='5' cy='5' r='3.2' fill='${c}'/></svg>`;
 
@@ -29,6 +30,7 @@ const CUP = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d
 const CRUMBS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 8'><g fill='${C.crust}'><ellipse cx='3' cy='5' rx='1.8' ry='1.4'/><ellipse cx='8' cy='3' rx='1.4' ry='1.3'/><ellipse cx='12' cy='5.5' rx='1.2' ry='1'/></g></svg>`;
 const CARD = `background:${C.bread} !important;border:2.5px solid ${C.crust} !important;border-radius:14px !important;box-shadow:0 3px 0 #E6D3B8 !important;color:${C.ink} !important`;
 
+const EGG2 = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M15 2 Q22 1 25 6 Q30 9 28 16 Q30 23 24 26 Q18 30 11 27 Q3 27 3 19 Q0 12 5 8 Q8 2 15 2Z' fill='#fff' stroke='#E6DCCB'/><circle cx='15.5' cy='15' r='6.5' fill='${C.yolk}'/><circle cx='13.5' cy='13' r='1.8' fill='#fff' opacity='.85'/></svg>`;
 const bubble = { myBg: C.toast, myText: C.ink, myBorder: "none", charBg: C.bread, charText: C.ink, charBorder: "none", radius: 8, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -190,6 +192,12 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="quoteclear"]{color:${C.crust} !important}
 [data-wk="quote"]{background:#FFF8EC !important;color:#8E7258 !important;border:1.5px solid #E6D3B8 !important;border-radius:10px !important;padding:3px 10px !important;opacity:1 !important}
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.7 !important}
+/* 顶栏头像：两颗荷包蛋——头像坐在大的那颗里当蛋黄，旁边挨着一颗小的 */
+[data-wk="chathead"] button:has(> img[data-wk="avatar"]){position:relative !important;overflow:visible !important;isolation:isolate !important}
+[data-wk="chathead"] button:has(> img[data-wk="avatar"])::before{content:"" !important;position:absolute !important;left:-11px !important;top:-10px !important;width:58px !important;height:58px !important;background:${svg(EGG)} center/contain no-repeat !important;z-index:-1 !important;pointer-events:none !important;filter:drop-shadow(0 2px 3px rgba(140,100,60,.15)) !important}
+[data-wk="chathead"] button:has(> img[data-wk="avatar"])::after{content:"" !important;position:absolute !important;left:36px !important;top:16px !important;width:26px !important;height:26px !important;background:${svg(EGG2)} center/contain no-repeat !important;z-index:-1 !important;pointer-events:none !important;transform:rotate(18deg) !important}
+[data-wk="chathead"] img[data-wk="avatar"]{position:relative !important;z-index:1 !important;box-shadow:0 0 0 2.5px ${C.yolk} !important}
+[data-wk="chathead"] button:has(> img[data-wk="avatar"]) > [data-wk="headname"]{margin-left:14px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "吐司", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
