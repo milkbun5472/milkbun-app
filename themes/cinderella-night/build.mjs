@@ -357,7 +357,12 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 5px ${C.pearl2},0 0 0 6.5px ${C.goldD},0 0 40px 8px rgba(255,236,190,.45) !important}
 /* 钟和光带做常驻背景：钉在顶栏下面不跟着滚，聊天从它上面滑过去 */
 [data-wk="body"]{background:transparent !important;padding-top:16px !important}
-[data-wk="chat"]{background:${svg(RIBBON)} center 38%/100% auto no-repeat,${svg(STAR)} left 10px top 34%/8px 11px no-repeat,${svg(STAR)} right 12px top 48%/8px 11px no-repeat,${svg(STAR)} left 14px top 64%/8px 11px no-repeat,${svg(STAR)} right 10px top 78%/10px 14px no-repeat,${svg(STAR)} left 8px top 88%/7px 10px no-repeat,radial-gradient(ellipse at 20% 85%,rgba(200,150,220,.45),transparent 55%),radial-gradient(ellipse at 85% 60%,rgba(140,170,240,.35),transparent 50%),linear-gradient(180deg,${C.v1} 0%,${C.v2} 45%,${C.v3} 80%,${C.v4} 100%) !important}
+[data-wk="chat"]{background:${svg(RIBBON.replace('</defs>','</defs><g opacity=\'.4\'>').replace(/<\/svg>$/,'</g></svg>'))} center 38%/100% auto no-repeat,${svg(STAR)} left 10px top 34%/8px 11px no-repeat,${svg(STAR)} right 12px top 48%/8px 11px no-repeat,${svg(STAR)} left 14px top 64%/8px 11px no-repeat,${svg(STAR)} right 10px top 78%/10px 14px no-repeat,${svg(STAR)} left 8px top 88%/7px 10px no-repeat,radial-gradient(ellipse at 20% 85%,rgba(200,150,220,.45),transparent 55%),radial-gradient(ellipse at 85% 60%,rgba(140,170,240,.35),transparent 50%),linear-gradient(180deg,${C.v1} 0%,${C.v2} 45%,${C.v3} 80%,${C.v4} 100%) !important}
+/* 我的话：换成午夜深蓝，比背景深一大截，金顶线、金边，字是暖白 */
+[data-wk="bubble"][data-kind="text"][data-me="1"],[data-wk="voice"][data-me="1"],[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:linear-gradient(180deg,#2F2C78,#221F5E) !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;color:#FFF6E4 !important;border:1px solid rgba(242,217,160,.75) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{box-shadow:inset 0 1.6px 0 rgba(255,236,190,.95),0 5px 0 #15123F,0 6px 18px rgba(20,16,70,.35) !important}
+[data-wk="offcard"][data-me="1"]{background:linear-gradient(180deg,#2F2C78,#221F5E) !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;box-shadow:inset 0 1.6px 0 rgba(255,236,190,.95),0 5px 0 #15123F !important}
+[data-wk="voice"][data-me="1"] *{color:#FFF6E4 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "午夜舞会", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
