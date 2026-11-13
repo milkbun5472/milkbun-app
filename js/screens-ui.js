@@ -7266,7 +7266,8 @@ function Config(props) {
   };
   const m = meta[page] || meta.home;
   // 回哪一层：api* 归 api，长相三兄弟归 look，小稿/问答归 write，其余回首页
-  const back = page === "home" ? props.onBack : () => {
+  // 从悬浮切线路那颗跳进来的（她 2026-11-13「返回从哪儿跳转的，这样我不用来回翻」）：在模型那一页按返回，回到跳来的地方
+  const back = page === "home" ? props.onBack : (props.returnTo && page === "api") ? props.returnTo : () => {
     if (/^api[A-Z]/.test(page)) return setPage("api");
     if (page === "theme" || page === "themeStudio" || page === "bubble" || page === "chatCss") return setPage("look");
     if (page === "cot") return setPage("write");

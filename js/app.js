@@ -214,7 +214,7 @@ function ScreenBoundaryClass() {
 //   论坛、一起听、备忘录、手记都拿掉了：主屏一路找过去最容易点错，也没翻出过一句戳人的心声。
 const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"], ["moments", "我的朋友圈"], ["daily", "日常联系人（照我的人设自动编几个：同事、家人、群）"]];
 if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
-function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock, vclock, onVClock }) {
+function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock, vclock, onVClock, onOpenApi }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   // 三档收着，点哪一档才摊开哪一档（她 2026-09-22：「点开悬浮球是三项收着的
@@ -360,7 +360,10 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
             transform: tab === lane.key ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
         tab === lane.key
           ? h("div", { style: { marginTop: 4 } }, (lane.follow ? [choice(lane, null)] : []).concat(lane.key === "bg" ? [choice(lane, { id: "__off__", name: "无（记忆、日程这些后台活不跑）" })] : []).concat((lane.list || profiles || []).map(p => choice(lane, p))))
-          : null)), clockRow) : null,
+          : null)), clockRow,
+      onOpenApi ? h("button", { "data-wk": "modelfloatapi", onClick: () => { setOpen(false); onOpenApi(); }, className: "w-full active:opacity-60",
+        style: { marginTop: 8, minHeight: 38, padding: "7px 8px", borderRadius: 10, border: "1px dashed " + t.line, background: "transparent",
+          fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, textAlign: "center" } }, "去模型设置改线路 ›") : null) : null,
     h("div", { style: Object.assign({ position: "fixed", zIndex: 90, display: "flex", alignItems: "center", gap: 8 }, anchor) },
     // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）──────────────────
     // 原来是一颗近黑的圆 + 一圈白边 + 一个等宽字体的 ⇄：那是随便哪个 app 都有的
@@ -1809,6 +1812,9 @@ function App() {
   //   所以这一版【不另画一份预览】——它就是把她送到那一页上，改完再送回来。
   const [themePeek, setThemePeek] = useState(null);   // { page, zh } 或 null
   const [configPage, setConfigPage] = useState("");   // 设置页要落在哪一栏（回程条用）
+  // 从悬浮切线路那颗跳进模型设置时记下来的出发点：在那一页按返回就回到这儿。离开设置就忘掉
+  const [configBack, setConfigBack] = useState(null);
+  useEffect(() => { if (screen !== "config" && configBack) setConfigBack(null); }, [screen]);
   const [loaded, setLoaded] = useState(false);
   // 周期账单一打开就补（她 2026-10-15）：开机读完存档补一次，切回前台（可能隔了一夜）再补一次
   useEffect(() => {
@@ -37648,6 +37654,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 预览台回来时直接落在主题工作台那一栏，不用她再翻一次（v65.00）
     initialPage: configPage,
     onLandedPage: () => setConfigPage(""),
+    returnTo: configBack ? () => { const b = configBack; setConfigBack(null); setScreen(b.screen); } : null,
     apiProfiles: apiProfiles,
     activeId: activeId,
     offlineApiId: offlineApiId,
@@ -38398,6 +38405,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     idOf: who => { const x = (characters || []).find(c => c.remark === who || c.name === who); if (x) return x.id; const g = (groupsRef.current || []).find(g => g && g.name === who); return g ? g.id : null; },
     selfName: (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || (((characters || []).find(x => x.id === peekPlay.charId) || {}).name) || ""
   }), modelFloatOn && h(ModelQuickSwitch, {
+    // 面板里「去模型设置」：直接落到 设置 → 模，返回回到现在这一页
+    onOpenApi: () => { setConfigBack({ screen }); setConfigPage("api"); setScreen("config"); },
     profiles: apiProfiles,
     activeId: activeId,
     offlineApiId: offlineApiId,
