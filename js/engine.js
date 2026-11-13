@@ -857,6 +857,18 @@ function callTagLabel(tag) {
   return k ? CALL_TAG_LABEL[k] : "";
 }
 const CALL_SKIP_FN = { callAI: 1, callAIOnce: 1, once: 1, logIt: 1, runProbe: 1, runProbeInner: 1, runProbeRetry: 1 };
+// 认不出名字时退一步：调用栈里第一个不是转手的那个函数名（只用来让「其他」那一行看得出是谁）
+function callerFnOf(stack) {
+  const lines = String(stack || "").split("\n").slice(1, 14);
+  for (const ln of lines) {
+    const m = ln.match(/at\s+(?:async\s+)?([\w$.<>/]+)\s+\(.*?\/js\/([\w-]+)\.js/) || ln.match(/^\s*([\w$.<>/]*)@.*?\/js\/([\w-]+)\.js/);
+    if (!m) continue;
+    const fn = String(m[1] || "").split(/[./]/).pop().replace(/[^\w$]/g, "");
+    if (!fn || fn === "callAI" || fn === "callAIOnce" || (typeof CALL_SKIP_FN === "object" && CALL_SKIP_FN[fn])) continue;
+    return fn;
+  }
+  return "";
+}
 function callerLabelOf(stack) {
   const lines = String(stack || "").split("\n").slice(1, 14);
   for (const ln of lines) {
@@ -898,6 +910,8 @@ async function callAI(p, system, messages, opts) {
   // 调用栈只在进门这一刻是全的（await 之后就丢了），所以先取下来
   let logFrom = (opts && opts.logFrom) || "";
   if (!logFrom && !(opts && (opts.logLabel || opts.use)) && typeof callerLabelOf === "function") { try { logFrom = callerLabelOf(new Error().stack); } catch (e) {} }
+  // 两张表都认不出、又没起 tag 的直调（她 2026-11-13 截图：一夜一排光秃秃的「其他」）：记下是哪个函数叫的，「其他·函数名」，拿着截图就能找到是谁
+  if (!logFrom && !(opts && (opts.logLabel || opts.use || opts.tag)) && typeof callerFnOf === "function") { try { const _fn = callerFnOf(new Error().stack); if (_fn) logFrom = "其他·" + _fn; } catch (e) {} }
   // 没有线路就当场报，不进重试那一层（跟 callAIOnce 头一句同一个说法）
   if (!p) throw new Error("没有可用的文字模型，请到设置检查主模型或已选择的后台模型");
   // ⚠️这两张表写在函数里面：好几条测试会把 callAI 单独抠出来跑，放外面就抠不到
