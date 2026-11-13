@@ -287,6 +287,18 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="callbubble"]::after{content:"" !important;position:absolute !important;right:-1.4px !important;top:-1.4px !important;width:12px !important;height:12px !important;background:${svg(CORNER(C.fold))} center/contain no-repeat !important}
 [data-wk="callavatar"]{border-radius:2px !important;box-shadow:0 0 0 1.6px ${C.line},0 0 0 8px ${C.paper},0 0 0 9.4px ${C.line},8px 8px 0 9.4px ${C.lilac} !important}
 
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle,#D3CCE2 1px,transparent 1.3px) 0 0/16px 16px,#EEEAF5 !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#2E2A28 !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(0,0,0,.5) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(0,0,0,.06) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#2E2A28 !important}
+[data-wk="callbtns"] button > span:first-child{background:#FFFFFF !important;border-radius:4px 4px 18px 4px !important;box-shadow:0 0 0 1.6px #3F3A52,5px 5px 0 1.6px #D8CEF0 !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#3F3A52 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#6A5AA8 !important;box-shadow:0 0 0 1.6px #3F3A52,5px 5px 0 1.6px #3F3A52 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(0,0,0,.5) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "折角便签", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

@@ -110,9 +110,9 @@ test("想要清单进四处的上下文，且不是「快去给她买」", () =>
   // 四处一样喂：单聊经 buildBundle、线上群聊、群线下
   assert.match(app, /wishLog: !isBody\(char\.id\) \? wishFor\(char\.id\) : ""/);
   assert.match(engine, /parts\.push\(wishLine\(ctx.wishLog, uName\)\)/);
-  assert.match(app, /const gWishHint = wishLine\(wishFor\(\), userName\(profile\), \{ group: true, spectate: gs.spectate, gift: true \}\)/);
+  assert.match(app, /const gWishHint = wishLine\(_gPar \? \"\" : wishFor\(\), userName\(profile\), \{ group: true, spectate: gs.spectate, gift: true \}\)/);
   assert.match(engine, /opts.spectate \? "认识她的人都可能知道。" : "在场的人都可能知道。"/);
-  assert.match(app, /wishLog: wishFor\(\)/);
+  assert.match(app, /wishLog: _par \? \"\" : wishFor\(\)/);
   assert.match(engine, /wishLine\(ctx.wishLog, userName, \{ group: true, gift: false \}\)/);
   assert.match(engine, /!ctx\.notRoleplay && ctx\.wishLog/);
   const seg = engine.slice(engine.indexOf('function wishLine('), engine.indexOf('function onMeLine('));

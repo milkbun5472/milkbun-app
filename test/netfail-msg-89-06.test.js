@@ -28,9 +28,9 @@ test("三种成因都说到，不把话说死在「写太长」上", () => {
 
 test("fetchT 和拉模型列表走同一段话，不各写一份", () => {
   const f = src.indexOf("async function fetchT(");
-  assert.ok(src.slice(f, src.indexOf("\n}\n", f)).includes("netFailMsg(e)"), "fetchT 没用公共那段");
+  assert.ok(src.slice(f, src.indexOf("\n}\n", f)).includes("netFailMsg(e"), "fetchT 没用公共那段");
   const g = src.indexOf("async function fetchModelList(p)");
-  assert.ok(g > 0 && src.slice(g, src.indexOf("async function fetchModelListRaw", g)).includes("netFailMsg(e)"),
+  assert.ok(g > 0 && src.slice(g, src.indexOf("async function fetchModelListRaw", g)).includes("netFailMsg(e"),
     "拉模型列表还在裸抛英文 Failed to fetch");
   assert.strictEqual(src.split("多半是这次要写得太长").length - 1, 0, "旧那句断言式的话还留着");
 });

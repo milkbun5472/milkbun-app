@@ -218,15 +218,18 @@
 
     // 收集所有 x_ 键为纯对象（原始字符串），与导出/导入格式一致
     // x_neteaseCookie 是账号凭据：界面承诺「只存这台设备」，永不进云快照（2026-08-20 抓漏）
+    // 只留在这台手机上、不往云上传的：撤销历史（秋秋改动的撤回、美化每一步的退回）。它们只是方便在这台手机上往回退，
+    //   换设备用不着，却一份就几 MB——她 2026-11-13 的存档 52 MB 超了云端上限，这两样占了 6.5 MB
     collect() {
+      const LOCAL_ONLY = { x_neteaseCookie: 1, x_assistUndo: 1, x_look_hist: 1 };
       const dump = {};
       Object.keys(localStorage)
-        .filter((k) => k.startsWith("x_") && k !== "x_neteaseCookie" && !(tableMemoryMode() && k === "x_memLib"))
+        .filter((k) => k.startsWith("x_") && !LOCAL_ONLY[k] && !(tableMemoryMode() && k === "x_memLib"))
         .forEach((k) => {
           dump[k] = localStorage.getItem(k);
         });
       // 已迁进 IDB 文字库的键(同人文等)不在 localStorage，从内存镜像补进存档，否则云端备份会漏掉。
-      try { if (window.__txtMirror) window.__txtMirror.forEach((v, k) => { if (v != null && !(tableMemoryMode() && k === "x_memLib")) dump[k] = v; }); } catch (e) {}
+      try { if (window.__txtMirror) window.__txtMirror.forEach((v, k) => { if (v != null && !LOCAL_ONLY[k] && !(tableMemoryMode() && k === "x_memLib")) dump[k] = v; }); } catch (e) {}
       return dump;
     },
 
@@ -282,7 +285,67 @@
       }
       // 世界书防呆（本地→推云方向）：本机世界书是空的、但云端那份还有词条 → 别用空的盖掉云端，把云端那份原样带回。
       // 只在本机空时才多读一次云（正常有词条时零额外开销）。
+      await this.fgOutline(dump);
       return dump;
+    },
+
+    // ── 小镇相册的照片不跟着存档整张上云（她 2026-11-13「弄吧」）──────────────────────
+    // 宠物小镇（x_fairyGarden::<房间>）把生活照、兼职照整张 jpg 写在存档文字里，一张近 1 MB、不限张数，
+    //   每次自动备份都整张整张重传，存档一路涨过 50 MB。
+    // 手机上那份【一个字不动】（游戏照旧读写原图，最稳）：只在往云上推的这一份里，把每张照片换成「fgimg:编号」，
+    //   照片本身照编号单独传进云端图库 media/<用户>/fgimg/<编号>，传过一次就不再传。
+    //   ⚠️先传图、传成了才换编号；没传上去的那张照旧原图留在存档里——云上那份永远不会出现找不到图的编号。
+    //   从云端恢复（apply）时按编号把图取回来、装回原图再落地；有一张取不回就整次不恢复，绝不半份落地。
+    _fgHave: null,
+    // 编号＝格式一个字母＋整串的指纹＋长度。格式写进编号：取回来时云端可能只给个 octet-stream，
+    //   游戏只认 data:image/jpeg 开头的，类型错了那张会被当坏图扔掉
+    _fgId(s) {
+      let h = 0x811c9dc5, h2 = 0;
+      for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); h ^= c; h = Math.imul(h, 0x01000193) >>> 0; h2 = (Math.imul(h2, 31) + c) >>> 0; }
+      const t = /^data:image\/png/.test(s) ? "p" : /^data:image\/webp/.test(s) ? "w" : "j";
+      return "fg" + t + h.toString(36) + h2.toString(36) + "_" + s.length.toString(36);
+    },
+    async fgOutline(dump) {
+      const RE = /"(data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+\/=]{2000,})"/g;
+      const keys = Object.keys(dump || {}).filter(k => k.indexOf("x_fairyGarden::") === 0 && typeof dump[k] === "string" && dump[k].indexOf("data:image/") >= 0);
+      if (!keys.length) return 0;
+      if (!this._fgHave) { const got = await this.mediaList("fgimg"); if (!got) return 0; this._fgHave = got; }   // 桶没开／没登录：原样传，不冒险
+      let moved = 0;
+      for (const k of keys) {
+        const urls = [...new Set([...dump[k].matchAll(RE)].map(m => m[1]))];
+        const ok = new Map();
+        for (const u of urls) {
+          const id = this._fgId(u);
+          if (!this._fgHave.has(id)) {
+            let put = false;
+            try { const blob = await (await fetch(u)).blob(); put = await this.mediaPut("fgimg", id, blob); } catch (e) { put = false; }
+            if (!put) continue;
+            this._fgHave.add(id);
+          }
+          ok.set(u, id);
+        }
+        if (!ok.size) continue;
+        dump[k] = dump[k].replace(RE, (all, u) => ok.has(u) ? '"fgimg:' + ok.get(u) + '"' : all);
+        moved += ok.size;
+      }
+      return moved;
+    },
+    async fgInline(data) {
+      const keys = Object.keys(data || {}).filter(k => k.indexOf("x_fairyGarden::") === 0 && typeof data[k] === "string" && data[k].indexOf('"fgimg:') >= 0);
+      let miss = 0;
+      for (const k of keys) {
+        const ids = [...new Set([...data[k].matchAll(/"fgimg:([A-Za-z0-9_]+)"/g)].map(m => m[1]))], got = new Map();
+        for (const id of ids) {
+          const got0 = await this.mediaGet("fgimg", id);
+          if (!got0) { miss++; continue; }
+          const blob = new Blob([got0], { type: id.charAt(2) === "p" ? "image/png" : id.charAt(2) === "w" ? "image/webp" : "image/jpeg" });
+          const url = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(String(fr.result || "")); fr.onerror = () => res(""); fr.readAsDataURL(blob); });
+          if (url.indexOf("data:image/") === 0) got.set(id, url); else miss++;
+        }
+        data[k] = data[k].replace(/"fgimg:([A-Za-z0-9_]+)"/g, (all, id) => got.has(id) ? JSON.stringify(got.get(id)) : all);
+      }
+      if (miss) throw new Error("小镇相册有 " + miss + " 张照片没能从云上取回来，这次先不恢复（本机的东西一样没动）。等网络好一点再点一次。");
+      return true;
     },
 
     // 用云端数据覆盖本地：先清掉本地 x_ 键，再写回
@@ -301,6 +364,8 @@
     //   idbTxtApplySnapshot 自己逐键写入并核对，它中途抛错时那边已经是混的——
     //   那种情况只能靠禁推旗兜住（绝不让混的那份上云），并让她重载重来。
     async apply(data) {
+      // 小镇照片先按编号取回来装回原图（见 fgOutline）：取不全就在动本机任何东西之前停下
+      if (data && typeof data === "object") await this.fgInline(data);
       suspend = true;
       // 回滚材料：删之前把旧的 x_* 原样留一份。这一份只活在内存里，不占存储。
       const rollback = new Map();
@@ -584,7 +649,9 @@
       // 太大的存档服务器门口直接拒（nginx 上限 52MB），拒的那一下不带跨域头，浏览器只报一句「Failed to fetch」——
       //   开梯子换网都没用（群友 2026-10-15）。先量一下，超了就说清是多大、该怎么办；没超但还是连不上，也把大小带上便于判断。
       let mb = 0; try { mb = new Blob([JSON.stringify(saveData)]).size / 1048576; } catch (e) {}
-      if (mb > 50) throw new Error("存档有 " + mb.toFixed(1) + " MB，超过云端一次能收的 50 MB，传不上去。先去 设置 → 数据 → 本地空间 看谁占地方、清掉一些（大图、超长聊天可以先归档），或者导出一份 json 存好");
+      // 50 MB 是她那台 VPS 门口 nginx 的上限（tools/vps/lisa-cloud/nginx.conf）。连自己 Supabase 的人没有这道门（她 2026-11-13），
+      //   不挡，照传；真传不上去，下面那句报错里带着这次多大
+      if (mb > 50 && /yanqiu-vps/.test(String((client && client.supabaseUrl) || VPS_SUPABASE_URL))) throw new Error("存档有 " + mb.toFixed(1) + " MB，超过云端一次能收的 50 MB，传不上去。先去 设置 → 数据 → 本地空间 看谁占地方、清掉一些（大图、超长聊天可以先归档），或者导出一份 json 存好");
       let res;
       try { res = await client.from("saves").upsert({ user_id: user.id, data: saveData, updated_at: ts }); }
       catch (e) { throw new Error((e && e.message || "连不上云端") + "（这次要传 " + mb.toFixed(1) + " MB）"); }

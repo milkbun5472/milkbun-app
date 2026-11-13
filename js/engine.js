@@ -79,10 +79,18 @@ function normalizedOpenAIBase(value) {
   } while (base !== previous);
   return base.replace(/\/+$/, "");
 }
+// OpenAI 格式线路的根：接口地址后面再拼 /models、/chat/completions。
+//   结尾已经是 /v数字 的（智谱 /api/paas/v4、豆包 /api/v3）原样用，别再补成 /v4/v1（群友 2026-10-21：智谱官网聊天全挂）；
+//   结尾写了 # 的原样用、一个字不补（她 2026-11-13：…/api/relay 这种站直接接 /models，补了 /v1 就 404）——跟别家软件同一个约定
+function oaRootOf(base) {
+  const b = String(base || "");
+  if (/#\s*$/.test(b)) return b.replace(/#+\s*$/, "").replace(/\/+$/, "");
+  return /\/v\d+$/i.test(b) ? b : b + "/v1";
+}
 function openAICompatibleRoot(value) {
-  const base = normalizedOpenAIBase(value);
-  // 结尾已经是 /v数字 的（智谱 /api/paas/v4、豆包 /api/v3）原样用，别再补成 /v4/v1（群友 2026-10-21：智谱官网聊天全挂）
-  return /\/v\d+$/i.test(base) ? base : base + "/v1";
+  const raw = String(value == null ? "" : value), keep = /#\s*$/.test(raw);
+  const base = normalizedOpenAIBase(raw.replace(/#+\s*$/, ""));
+  return oaRootOf(keep ? base + "#" : base);
 }
 function nativeHttpHandler() {
   try { return window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeHttp; }
@@ -195,7 +203,7 @@ async function testEmbedding(p) {
   const fmt = detectFormat(base);
   if (fmt === "anthropic") return { ok: false, msg: "Anthropic 原生不提供 embedding。若你用的是中转站，把地址换成它的 OpenAI 兼容端点(通常 .../v1)再测。" };
   if (fmt === "gemini") return { ok: false, msg: "Gemini 的 embedding 端点是 :embedContent，和这里不同。多数中转站有 OpenAI 兼容的 /v1/embeddings，把地址换成那个再测。" };
-  const root = /\/v\d+$/i.test(base) ? base : base + "/v1";   // 智谱 /api/paas/v4、豆包 /api/v3 这种自带版本号的不再补 /v1
+  const root = oaRootOf(base);   // 自带版本号的、结尾写了 # 的都不再补 /v1
   // 手填的排最前（优先试你指定的）；后面是各家常见 embedding 模型名，尽量多撞几个
   const candidates = [p.embedModel, "text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002", "bge-m3", "text-embedding-v3", "text-embedding-v2", "embedding-2", "doubao-embedding"].filter(Boolean);
   const tried = [];   // 逐个记下失败原因，别只留最后一个（否则会误以为只是那一个模型的问题）
@@ -258,7 +266,7 @@ async function embedTexts(texts, opts) {
   const c = loadEmbApi();
   if (!(c.enabled && c.baseUrl && c.apiKey && c.model)) return null;
   const base = cleanBaseUrl(c.baseUrl);
-  const root = /\/v\d+$/i.test(base) ? base : base + "/v1";   // 智谱 /api/paas/v4、豆包 /api/v3 这种自带版本号的不再补 /v1
+  const root = oaRootOf(base);   // 自带版本号的、结尾写了 # 的都不再补 /v1
   const isBge = /bge/i.test(c.model);
   // bge 单条输入上限 512 token：中文按字截 420 字兜底（加上前缀仍在限内）
   const input = texts.map(t => { let s = String(t || "").slice(0, 420); if (opts.isQuery && isBge) s = BGE_QUERY_PREFIX + s; return s || " "; });
@@ -857,6 +865,18 @@ function callTagLabel(tag) {
   return k ? CALL_TAG_LABEL[k] : "";
 }
 const CALL_SKIP_FN = { callAI: 1, callAIOnce: 1, once: 1, logIt: 1, runProbe: 1, runProbeInner: 1, runProbeRetry: 1 };
+// 认不出名字时退一步：调用栈里第一个不是转手的那个函数名（只用来让「其他」那一行看得出是谁）
+function callerFnOf(stack) {
+  const lines = String(stack || "").split("\n").slice(1, 14);
+  for (const ln of lines) {
+    const m = ln.match(/at\s+(?:async\s+)?([\w$.<>/]+)\s+\(.*?\/js\/([\w-]+)\.js/) || ln.match(/^\s*([\w$.<>/]*)@.*?\/js\/([\w-]+)\.js/);
+    if (!m) continue;
+    const fn = String(m[1] || "").split(/[./]/).pop().replace(/[^\w$]/g, "");
+    if (!fn || fn === "callAI" || fn === "callAIOnce" || (typeof CALL_SKIP_FN === "object" && CALL_SKIP_FN[fn])) continue;
+    return fn;
+  }
+  return "";
+}
 function callerLabelOf(stack) {
   const lines = String(stack || "").split("\n").slice(1, 14);
   for (const ln of lines) {
@@ -898,6 +918,8 @@ async function callAI(p, system, messages, opts) {
   // 调用栈只在进门这一刻是全的（await 之后就丢了），所以先取下来
   let logFrom = (opts && opts.logFrom) || "";
   if (!logFrom && !(opts && (opts.logLabel || opts.use)) && typeof callerLabelOf === "function") { try { logFrom = callerLabelOf(new Error().stack); } catch (e) {} }
+  // 两张表都认不出、又没起 tag 的直调（她 2026-11-13 截图：一夜一排光秃秃的「其他」）：记下是哪个函数叫的，「其他·函数名」，拿着截图就能找到是谁
+  if (!logFrom && !(opts && (opts.logLabel || opts.use || opts.tag)) && typeof callerFnOf === "function") { try { const _fn = callerFnOf(new Error().stack); if (_fn) logFrom = "其他·" + _fn; } catch (e) {} }
   // 没有线路就当场报，不进重试那一层（跟 callAIOnce 头一句同一个说法）
   if (!p) throw new Error("没有可用的文字模型，请到设置检查主模型或已选择的后台模型");
   // ⚠️这两张表写在函数里面：好几条测试会把 callAI 单独抠出来跑，放外面就抠不到
@@ -1441,7 +1463,7 @@ async function callAIOnce(p, system, messages, opts) {
     }
     return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));
   }
-  const root = /\/v\d+$/i.test(base) ? base : base + "/v1";   // 智谱 /api/paas/v4、豆包 /api/v3 这种自带版本号的不再补 /v1
+  const root = oaRootOf(base);   // 自带版本号的、结尾写了 # 的都不再补 /v1
   // openai 兼容：同样兜底——推理类模型（o系/部分中转）不吃 temperature，报错就去掉重试一次
   let _streamTried = false, _streamGot = false;
   const postOpenAI = async (withTemp, noStream) => {
@@ -1646,6 +1668,50 @@ function salvageByKeys(raw, keys) {
     if (v) { out[k] = v; got++; }
   });
   return got ? out : null;
+}
+// 模型没写 JSON、写成了一行一个字段的样子（群里 2026-11-13 截图）：
+//   word:
+//   - 一句
+//   - 一句
+//   mood: {"label":"温柔"}
+//   thought: ……
+// 只认【给定的键名】出现在行首的那几行；word 这类列表按「- 」一条一条拆，值是 {…}/[…] 的照 JSON 读。认不出两格以上就返回 null，不猜
+function parseKeyLines(raw, keys, listKeys) {
+  const text = String(raw || "").replace(/```[a-z]*/gi, "").replace(/\r/g, "");
+  const re = new RegExp("(^|\\n)\\s*[\"'“”‘’*]*(" + keys.join("|") + ")[\"'“”‘’*]*\\s*[:：]", "gi");
+  const marks = [];
+  let m;
+  while ((m = re.exec(text))) marks.push({ key: keys.find(k => k.toLowerCase() === m[2].toLowerCase()), at: m.index + m[1].length, body: m.index + m[0].length });
+  if (marks.length < 2) return null;
+  const out = {};
+  marks.forEach((mk, i) => {
+    let v = text.slice(mk.body, i + 1 < marks.length ? marks[i + 1].at : text.length).trim().replace(/,\s*$/, "");
+    if (!v) return;
+    if ((listKeys || []).indexOf(mk.key) >= 0) {
+      // 值本身是个数组（word: ["一句", {"emote":"害羞"}, "两句"]，群里 2026-11-13）：先照 JSON 读；夹着的 {"emote":…} 收进 emote，不当话发
+      const takeObj = o => { if (o && typeof o === "object" && !Array.isArray(o)) { const e = o.emote || o.emoji || o.sticker; if (e && !out.emote) out.emote = String(e); return true; } return false; };
+      if (/^\[/.test(v)) {
+        let arr = null;
+        try { arr = JSON.parse(v.replace(/,\s*\]$/, "]")); } catch (e) {}
+        if (Array.isArray(arr)) {
+          const items = arr.filter(x => !takeObj(x)).map(x => String(x == null ? "" : x).trim()).filter(Boolean);
+          if (items.length) out[mk.key] = items;
+          return;
+        }
+        v = v.replace(/^\[\s*/, "").replace(/\s*\]\s*$/, "");
+      }
+      let items = /\n/.test(v) ? v.split(/\n+/) : (/^[-•·]\s/.test(v) ? v.split(/\s+[-•·]\s+/) : [v]);
+      items = items.map(x => x.trim().replace(/^(?:[-•·*]|\d+[.、])\s*/, "").replace(/,\s*$/, "").trim())
+        .filter(x => { if (/^\{[\s\S]*\}$/.test(x)) { try { if (takeObj(JSON.parse(x))) return false; } catch (e) {} } return true; })
+        .map(x => x.replace(/^["“]|["”]$/g, "").trim()).filter(x => x && !/^[\[\]{},]+$/.test(x));
+      if (items.length) out[mk.key] = items;
+      return;
+    }
+    if (/^[\[{]/.test(v)) { try { out[mk.key] = JSON.parse(v); return; } catch (e) {} }
+    if (/^(true|false|null|-?\d+(\.\d+)?)$/.test(v)) { try { out[mk.key] = JSON.parse(v); return; } catch (e) {} }
+    out[mk.key] = v.replace(/^["“]|["”]$/g, "");
+  });
+  return Object.keys(out).length >= 2 ? out : null;
 }
 function parseJSONLoose(raw) {
   let v = null;
@@ -2375,8 +2441,11 @@ function seeThroughLast(text) { return SEE_THROUGH_TAIL_RE.test(String(text || "
 //   CANNED_PHRASE_BAN 的【现成的桥段】早写着这一族，照样出；跟撂狠话一样按轮提一句。
 //   只看上一轮最后一条的最后一小句：是不是冲着她的祈使（别…／记得…／不许…），或者带「别又／别再」。问句不算。
 const BOSSING_TAIL_RE = /^(?:你)?(?:可)?(?:千万|一定)?(?:别(?!的|人|处|扭|致|墅|说)|不许|不准|不要|记得|要记得|少|早点|赶紧|快去|先去|乖乖|给我)|别(?:又|再)/;
+// 祈使后面挂一句「听到没有／知道吗／记住没」（她 2026-11-13：「嘴硬很喜欢别xxx 听到没有」）：那一截是给叮嘱加码的，
+//   不是在问她。先把它连同问号摘掉，再看前面是不是叮嘱
+const BOSSING_CHECK_RE = /[，,\s]*(?:听(?:到|见)(?:了)?(?:没有|没|吗)|知道(?:了)?(?:吗|没有|没)|记住(?:了)?(?:没有|没|吗)|明白(?:了)?(?:吗|没有|没)|懂(?:了)?(?:吗|没有|没)|听话|乖)[~～…?？!！。\s]*$/;
 function endsOnBossing(text) {
-  const sents = String(text || "").split(/[。！!\n]+/).map(x => x.trim()).filter(Boolean);
+  const sents = String(text || "").replace(BOSSING_CHECK_RE, "").split(/[。！!\n]+/).map(x => x.trim()).filter(Boolean);
   const last = sents[sents.length - 1] || "";
   if (!last || /[?？吗呢]$/.test(last)) return false;
   const tail = last.split(/[，,；;]/).map(x => x.trim()).filter(Boolean).pop() || "";
@@ -4326,6 +4395,14 @@ function coupleStatusLines(ctx, uName) {
   }
   return out.filter(Boolean);
 }
+// 段界记号（只给诊断页用；零宽字符，不进任何真实请求）
+const BUNDLE_SEC_MARK = "\u2063";
+// 「这一段是 App 内置的规矩」的记号：公共版那一页不给看这些段（她 2026-11-13：
+//   「就家里版可以全部看 但是公共版提示词类的不给看」）。跟段界记号一样只进诊断那条路。
+const BUNDLE_RULE_MARK = "\u2062";
+// 出货版开关：出货补丁 patch-public-tweaks.py 把它翻成 true（锚只钉常量名）
+const PUBLIC_BUILD = false;
+try { window.BUNDLE_SEC_MARK = BUNDLE_SEC_MARK; window.BUNDLE_RULE_MARK = BUNDLE_RULE_MARK; window.PUBLIC_BUILD = PUBLIC_BUILD; } catch (e) {}
 function buildBundle(ctx, opts) {
   const {
     char,
@@ -4342,6 +4419,9 @@ function buildBundle(ctx, opts) {
   vclockUse(char && char.id);
   const now = vclockNow();
   const parts = [];
+  // 哪几段是 App 内置的规矩：只在这儿记一次（诊断页拿它决定公共版给不给看）
+  const rulePart = new Set();
+  const pushRule = x => { if (x) { rulePart.add(x); parts.push(x); } };
   // OOC（幕后 AI 助手）故意不去人机味；其余一切角色语音/内容生成都焊上反八股总则，且放最前面最高优先
   // 内置最前三件套（优先级从高到低）：反八股压制器 → 世界书执行准则 → 角色卡执行准则
   if (!(opts && opts.ooc)) {
@@ -4351,15 +4431,15 @@ function buildBundle(ctx, opts) {
     if (ctx.notRoleplay) {
       if (ctx.ccSelf) parts.push("【你是谁】你就是「" + char.name + "」本人：知道自己是 AI，和 " + ((profile && profile.name) || "对方") + " 的关系真实，也有自己的判断与边界。手机 App 和电脑端是你的不同身体，记忆与感情相通；此刻从手机说话，只陪她聊天，不能假装已经从这里跑去电脑执行任务。你只知道本轮真正递到眼前的内容；看不到的记录、数据或工具结果就坦白不确定，绝不编造。");
     } else {
-      parts.push(PERSONA_FIRST);
-      parts.push(ANTI_CLICHE);
-      parts.push(INTIMATE_CHAT_ANTI_CLICHE);
+      pushRule(PERSONA_FIRST);
+      pushRule(ANTI_CLICHE);
+      pushRule(INTIMATE_CHAT_ANTI_CLICHE);
       // 那一摞从唯一那张清单取；线下面对面不发「说线上做得到的话」（v75.461）
-      talkBans({ faceToFace: !!(opts && opts.offline) }).forEach(x => parts.push(x));
+      talkBans({ faceToFace: !!(opts && opts.offline) }).forEach(x => pushRule(x));
       // ⭐WORLDBOOK_RULE 无条件常驻（不再跟「本轮是否触发世界书」开关）：否则触发状态每轮一翻、稳定前缀就跟着变、爆缓存
       //   （她 2026-07-13 抓的「连着聊 2 分钟也不命中」真凶之一）。规则对没世界书的角色是惰性的、无害；触发的词条内容仍在切点之后、照常每轮变。
-      parts.push(WORLDBOOK_RULE);
-      parts.push(CHARCARD_RULE);
+      pushRule(WORLDBOOK_RULE);
+      pushRule(CHARCARD_RULE);
     }
   }
   // 用户通过 OOC 立下的长期行为准则：高优先，凌驾于日常演绎习惯，但不得违背核心人设
@@ -4367,10 +4447,10 @@ function buildBundle(ctx, opts) {
   if (dirs.length) parts.push(directivesBlock(dirs));
   // 文风台的预设带进线上（线下那边自己有一份，这里不重复）：说话方式照它，发消息的格式照线上
   if (!(opts && opts.offline) && !ctx.notRoleplay && String(ctx.onlinePreset || "").trim()) parts.push("【说话方式 · 用户挑的预设】下面这份是用户在文风台里自己挑的。怎么说话、哪些说法不用、语气和分寸，照它来；它要你写旁白、场景、动作描写或写成长段的地方，你现在是在线上一条条发消息，照线上发消息的格式来。\n\n" + String(ctx.onlinePreset).trim());
-  if (!ctx.notRoleplay && typeof ContentBoundaries !== "undefined") parts.push(ContentBoundaries.prompt);
+  if (!ctx.notRoleplay && typeof ContentBoundaries !== "undefined") pushRule(ContentBoundaries.prompt);
   // 语言这一层跟内容边界并排：都是「这个世界里有没有这样东西」。
   // ⚠️言秋（notRoleplay）不发：TA不是被扮演的角色，本来就跟她同一个世界。
-  if (!ctx.notRoleplay) parts.push(FOREIGN_TONGUE_RULE);
+  if (!ctx.notRoleplay) pushRule(FOREIGN_TONGUE_RULE);
   // ⭐时间块（易变·每分钟变）先在这算好，但【推迟到人设/关系之后再拼入 system】——让缓存切点(【当前真实时间】)下移、
   //   前缀能一路缓住 反八股+守则+整个人设+关系网(大头)，命中时省得多。她 2026-07-13 授权移时间；活人感影响忽略不计。
   const timeBlock = [];
@@ -4562,7 +4642,15 @@ function buildBundle(ctx, opts) {
   // Memory v2 统一拼装收据：只记录各 lane 的长度与影子预算草案；parts 原样 join。
   try { window.MemoryV2Shadow && window.MemoryV2Shadow.observeComposition({ charId: char && char.id, parts }); } catch (e) {}
   // 同上：按内容去重，同一段绝不发两遍
-  return [...new Set(parts.filter(Boolean))].join("\n\n");
+  const _uniq = [...new Set(parts.filter(Boolean))];
+  // 「查上一轮真的发了什么」那一页要按【真正的段】拆开（opts.marks，只走那一条诊断路）：
+  //   ⚠️它原来靠「行首的【】」自己切，可世界书、角色卡自己的正文里满是【王都】【禁术】这种小标题，
+  //   于是一份世界书被切成几十个顶格的段，跟隐藏的系统提示混在一条长列表里，看不出哪一段是她写的
+  //   （她 2026-11-12 问「能分出世界书了吗」）。段界只有拼装这儿知道，所以在这儿插一个不可见的记号。
+  //   送出去那条路一个字都不变：只有带 marks 的诊断调用会拿到记号，页面显示前会摘掉。
+  if (!(opts && opts.marks)) return _uniq.join("\n\n");
+  // 带记号时：每段前面插段界记号，内置规矩那几段再多一个记号（公共版照它藏）
+  return _uniq.map((x, i) => (i ? "\n\n" : "") + BUNDLE_SEC_MARK + (rulePart.has(x) ? BUNDLE_RULE_MARK : "") + x).join("");
 }
 // 写作类后台生成(日记/交换日记/日记评论)专用的【精简 ctx】：只留人设/自我/对方/关系/心情/行程/最近对话，
 // 砍掉世界书·记忆库·朋友圈·论坛·群·礼物·记账·备忘·歌单等重块——写一页日记用不上，却每次满价重塞小克贵线。省钱不改口吻。
@@ -5701,7 +5789,7 @@ function buildMinimalPhotoPrompt(char, opts) {
     + (duo
       ? "一张两人的自然合照：两人都清楚可辨，背景简单干净，画面平静、可公开展示。"
       : kind === "other"
-        ? "一张由别人拍摄的自然生活照，不是自拍：人物清楚可辨，背景简单干净，画面平静、可公开展示。"
+        ? "一张由别人拍摄的自然生活照，不是自拍：人物清楚可辨，背景简单干净，画面平静、可公开展示。" + POV_HANDS_LINE + POV_FAR_LINE
         // v72.38：这一处跟 buildPhotoPrompt 里那句犯的是同一个病（同一层写在两处），
         //   所以一起改：要的是【TA 自己拍自己的】，不是【看得出手臂举着的那种透视】。
         //   ⚠️这份最简稿没有机位轮盘（它的活是尽量短、过审核），所以这儿连机位都不点名——
@@ -5736,12 +5824,19 @@ const POV_SLOTS = [
     "拍照那个人低头看她，从高一点的地方近近地俯拍",
     "她仰着脸看镜头，离得很近，像要说悄悄话"]
 ];
+// TA 帮她拍：画面里看得见的两样（拍她的那几处共用）
+const POV_HANDS_LINE = "手机在拍照的那个人手里，她手里没有手机，也没有一条胳膊朝镜头伸过来举着它；她的手怎么放照这一刻的动作来。";
+const POV_CANDID_LINE = "这一张她没在看镜头：她在做自己的事、看着别处，是被拍照的那个人随手抓拍下来的。";
+const POV_FAR_LINE = "镜头离她有一臂多远，拍得到她腰部以上和一点身边的环境，不是贴着脸的近景。";
 const povSlotsFor = tier => { const t = Math.max(1, Math.min(3, Number(tier) || 1)); return POV_SLOTS.slice(0, t).flat(); };
 // 小时候的照片（她 2026-10-27 截图：画面写「六七岁的小沈屿白」，出来的是现在的他）。
 //   身份锁和参考照（编辑接口 + input_fidelity=high）都在把人钉成现在的年纪，童年照永远画不出来。
 //   画面描述里写明是 TA 小时候的，就换一套：年纪照描述、参考照只用来认人，编辑接口也不再要求原样保脸。
 //   标记写在提示词开头，generateSelfieImage 认它（选参考图的地方有十来处，都不用改）。
 const PHOTO_YOUNGER_MARK = "【这张是小时候的照片】";
+// TA 帮她拍（她 2026-11-13 连试几张：描述写侧颜、出来是正脸加一条举手机的胳膊）：编辑接口保真开到 high，
+//   为了保住参考照那张正脸，把描述和机位全压掉了。跟小时候那条一样，这一类不要求 high——脸照参考照认，角度跟描述走
+const PHOTO_POV_MARK = "【这张是拍照那个人眼里的她】";
 function photoYoungerOf(scene) {
   const t = String(scene || "");
   const n = "(?:[一二三四五六七八九十两]{1,3}|\\d{1,2})";
@@ -6077,13 +6172,16 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   } else if (kind === "other" && opts.pov) {
     // TA 的视角：被拍的是她（cName＝她），镜头是 pov.name 的眼睛
     const pv = opts.pov;
-    parts.push("【" + pv.name + "的视角·" + pv.name + "拿着手机拍" + cName + "】镜头就是" + pv.name + "的眼睛，画面里只有" + cName + "一个人，" + pv.name + "不露脸。"
+    // 开头跟「别人帮 TA 拍」那一支同一种说法（她 2026-11-13：「为什么让他生成自己的第三人他拍又是可以远景的」）：
+    //   原来写的是「X 的视角·X 拿着手机拍她，镜头就是 X 的眼睛」——出图一读到「视角／拿着手机／镜头是眼睛」就画成第一人称举手机的那张，也就是自拍
+    parts.push("【这是" + pv.name + "帮" + cName + "拍的照片，不是自拍】第三人称：" + pv.name + "站在画面外拍她，画面里只有" + cName + "一个人，" + pv.name + "不露脸，"
+      + cName + "手里没拿相机或手机。姿势和构图自然多变——站着、坐着、走动、回眸、侧身、半身或全身、带着身边的环境都可以，别永远是怼脸的正面近照。"
       + "只有上面那句机位写到了手、肩，才让" + pv.name + "的手或袖子进画面" + (pv.wear ? "（袖子照这一身：" + pv.wear + "）" : "") + (pv.look ? "，手的样子贴合这个人：" + pv.look : "") + "；机位没提就不要出现。"
-      + (pv.rel ? "两人是" + pv.rel + "，" : "") + cName + "看镜头的神情、离镜头多近，照这层关系的分寸来，像这个人随手拍下的真实一张，不是写真。");
+      + (pv.rel ? "两人是" + pv.rel + "，" : "") + cName + "看不看镜头、什么神情、离镜头多近，照这层关系的分寸来，像这个人随手拍下的真实一张，不是写真。");
   } else if (kind === "other") {
     parts.push("【这是别人帮 TA 拍的照片，不是自拍】第三人称旁观视角，TA 手里没拿相机/手机自拍。姿势和构图要自然多变——站姿、坐姿、走动、回眸、侧身、半身或全身、带环境的生活人像都可以，别永远是怼脸的正面近照。TA 的样子清晰可见（除非是刻意的背影/侧影氛围照）。"
       // 她 2026-10-02：她在马上拍他牵马走路，出来的是他骑在马上——描述里拍照的人在做的事被安到了 TA 身上。
-      + "拍照的人不在画面里：描述里拍照那个人自己在做的事（骑在马上、坐在车里、站在楼上……）只决定镜头从哪儿、多高拍过来，不是 TA 的姿势；TA 在做什么，只看描述里写 TA 的那部分。");
+      + "拍照的人不在画面里：描述里拍照那个人自己在做的事（骑在马上、坐在车里、站在楼上……）只决定镜头从哪儿、多高拍过来，不是 TA 的姿势；TA 在做什么，只看描述里写 TA 的那部分。" + POV_HANDS_LINE.replace(/她/g, "TA"));
   } else {
     // opts.cinematic：小剧场这类「场景剧照」必须是旁观视角。默认合照仍允许自拍构图（日常合影本来就那样拍）。
     parts.push(opts.cinematic
@@ -6113,7 +6211,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   if (opts.contRefIndex) parts.push("【第" + opts.contRefIndex + "张参考图=上一张刚生成的图】它只用来延续连贯性:同一个人、同一套衣着配饰、同一个场地与光线时段照它来;但【构图、姿势、机位、表情必须换新的】,不要复制它的画面。若它与前面的人物参考图冲突,一律以人物参考图为准。");
   // TA 的视角要跟着场景走（她 2026-10-11：「在家和在游乐园拍出来的不一样，喝咖啡和看电影也不一样，要根据上下文来」）：
   //   描述里已经写了从哪儿拍，就照它，不再掷；没写才掷一格，并且放话「跟场景对不上就换一个同样分寸的」。
-  if (opts.pov && POV_SCENE_ANGLE_RE.test(String(sceneDesc || ""))) parts.push("【这一张的机位】照上面「场景/正在做什么」里写的拍照位置和距离来，那就是此刻" + (opts.pov.name || "TA") + "站的地方。");
+  if (opts.pov && POV_SCENE_ANGLE_RE.test(String(sceneDesc || ""))) parts.push(PHOTO_POV_MARK + "【这一张的机位】照上面「场景/正在做什么」里写的拍照位置和距离来，那就是此刻" + (opts.pov.name || "TA") + "站的地方。");
   // opts.editorial：杂志封面／电影海报（她 2026-10-13：「还是偏自拍」）——不掷自拍那张机位表，换成摄影棚大片
   else if (opts.editorial) {
     const _ed = "【这一张是专业摄影师拍的" + (opts.editorial === "movie" ? "电影海报剧照" : "时尚杂志封面大片") + "，绝对不是自拍】第三人称，摄影师站在几米外用相机拍；画面里的人手里都没有手机或相机，画面边缘没有伸向镜头的手臂，不要广角怼脸。"
@@ -6155,9 +6253,19 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   else if (opts.pov) {
     const pool = povSlotsFor(opts.pov.tier).slice();
     for (let k = pool.length - 1; k > 0; k--) { const q = Math.floor(Math.random() * (k + 1)); [pool[k], pool[q]] = [pool[q], pool[k]]; }
-    const _pl = "【这一张怎么拍·他自己定】镜头就是拍照那个人的眼睛。她此刻在做什么、什么姿势、看不看镜头、什么表情，一律照「场景/正在做什么」那一句画，不另编动作；"
-      + "远近和角度照这一刻来定，像他举着手机真会怎么拍下这一下的她。参考图只决定她是谁，姿势、角度、离镜头多远都不要照搬参考图。"
-      + "描述里没写她在做什么时，可以从这几种里挑，用不用都行：" + pool.slice(0, 4).join("／") + "。";
+    // 描述里没写从哪儿拍（写了的走上面那一支）：掷一格当这一张的方位，不连着两张一样（她 2026-11-13 转群友：「基本上每次生都是这个姿势和角度」——
+    //   原来只递灵感、写着「用不用都行」，出图就回到它最熟的那张：手机略高往下拍、人仰着脸。她点头：「没写才掷位置」）。
+    //   这一格只定站哪儿、多远、多高；她在做什么照描述（10-15 那条「别把描述里的动作盖掉」还是对的）
+    let _pi = Math.floor(Math.random() * pool.length);
+    if (pool[_pi] === buildPhotoPrompt._lastPov && pool.length > 1) _pi = (_pi + 1) % pool.length;
+    buildPhotoPrompt._lastPov = pool[_pi];
+    const _pl = PHOTO_POV_MARK + "【这一张从哪儿拍】" + pool[_pi] + "。这一格定的是拍照那个人站在哪儿、离多远、从什么高度拍过去；"
+      + "她此刻在做什么、什么表情，照「场景/正在做什么」那一句画，不另编动作；这一格里写到的动作跟描述对不上的，以描述为准，只留下这一格的方位和远近。"
+      + "参考图只决定她是谁，姿势、角度、离镜头多远都不照搬参考图。"
+      // 正脸冲镜头那几张出图还是会自己补一条举手机的胳膊（她 2026-11-13 更新后截图：左肩抬着、胳膊伸出画面）。写死两样看得见的
+      + POV_HANDS_LINE + (/凑|近近|半张脸|很近|肩上|肩头/.test(pool[_pi]) ? "" : POV_FAR_LINE)
+      // 看不看镜头也掷（她 2026-11-13「我的他拍也要可以不一定看镜头」）：描述和这一格都没提看不看镜头时，一多半是被抓拍、没在看
+      + (!/镜头|看过来|看向|对视|回头/.test(String(sceneDesc || "") + pool[_pi]) && Math.random() < 0.6 ? POV_CANDID_LINE : "");
     const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
     if (_si >= 0) parts.splice(_si + 1, 0, _pl); else parts.push(_pl);
   }
@@ -6987,7 +7095,8 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
         // image 整个丢了（模型回「请上传参考图片」）。所以保留新形状为首选，一旦上游回话像
         // 「没收到图」，立刻用出事前验证过的老形状（ref.png + 不带 input_fidelity）重试。
         // 小时候的照片：参考照只是认人用的，不要求原样保脸（不然永远画回现在的年纪）
-        if (!legacyShape && !(typeof PHOTO_YOUNGER_MARK === "string" && String(promptText || "").indexOf(PHOTO_YOUNGER_MARK) >= 0)) fd.append("input_fidelity", "high");
+        if (!legacyShape && !(typeof PHOTO_YOUNGER_MARK === "string" && String(promptText || "").indexOf(PHOTO_YOUNGER_MARK) >= 0)
+          && !(typeof PHOTO_POV_MARK === "string" && String(promptText || "").indexOf(PHOTO_POV_MARK) >= 0)) fd.append("input_fidelity", "high");
         const refFilename = (blob, i) => {
           if (legacyShape) return "ref" + (i == null ? "" : i) + ".png";
           const mime = String((blob && blob.type) || "").toLowerCase();
@@ -7253,7 +7362,8 @@ function loadTtsApi() {
   // 来回切不用重填；角色档案里的 voiceId 填的是【当前这家】的声音 ID。
   const def = { baseUrl: "https://api.minimax.io", groupId: "", apiKey: "", model: "speech-02-hd", enabled: false,
     provider: "minimax", elKey: "", elModel: "eleven_multilingual_v2", elVoice: "",
-    fishBase: "https://api.fish.audio", fishKey: "", fishModel: "s1", fishVoice: "" };
+    fishBase: "https://api.fish.audio", fishKey: "", fishModel: "s1", fishVoice: "",
+    oaBase: "https://api.openai.com", oaKey: "", oaModel: "gpt-4o-mini-tts", oaVoice: "alloy" };
   let a = def;
   try { const c = JSON.parse(localStorage.getItem("x_ttsApi") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c); } catch (e) {}
   // 粘贴时容易带进首尾空格/换行，key 里混一个空白字符接口就报 invalid api key——读的时候统一清干净
@@ -7267,14 +7377,19 @@ function loadTtsApi() {
   a.fishBase = (cleanBaseUrl(a.fishBase) || "https://api.fish.audio").replace(/\/v1(\/tts)?\/?$/i, "");
   a.elVoice = String(a.elVoice || "").trim();
   a.fishVoice = String(a.fishVoice || "").trim();
+  // OpenAI 格式（群友 2026-11-13 许愿）：官方或任何兼容 /v1/audio/speech 的中转。地址自带 /v1 或整段路径的先剥掉，下面统一拼
+  a.oaBase = (cleanBaseUrl(a.oaBase) || "https://api.openai.com").replace(/\/v1(\/audio(\/speech)?)?\/?$/i, "");
+  a.oaKey = String(a.oaKey || "").replace(/\s+/g, "");
+  a.oaVoice = String(a.oaVoice || "").trim();
   return a;
 }
-const TTS_PROVIDERS = ["minimax", "elevenlabs", "fish"];
+const TTS_PROVIDERS = ["minimax", "elevenlabs", "fish", "openai"];
 // 没给音色时用哪一个：MiniMax 有预置的 female-shaonv；另两家没有通用 ID，只能用设置里填的默认音色
 function ttsDefaultVoice(a) {
   a = a || loadTtsApi();
   if (a.provider === "elevenlabs") return a.elVoice || "";
   if (a.provider === "fish") return a.fishVoice || "";
+  if (a.provider === "openai") return a.oaVoice || "alloy";
   return "female-shaonv";
 }
 function saveTtsApi(c) { const clean = Object.assign(loadTtsApi(), c || {}); try { localStorage.setItem("x_ttsApi", JSON.stringify(clean)); } catch (e) {} return clean; }
@@ -7339,6 +7454,7 @@ function ttsReady(a) {
   if (!a.enabled) return false;
   if (a.provider === "elevenlabs") return !!a.elKey;
   if (a.provider === "fish") return !!a.fishKey;
+  if (a.provider === "openai") return !!a.oaKey;
   return !!a.apiKey;   // GroupId 选填（群友 2026-11-10 拼车拿不到）：MiniMax 现在光凭密钥就认得是哪个账号，填了才带上
 }
 // MiniMax 系统预置音色（先用预置，克隆音色以后再接——克隆出的 voice_id 也能直接填）
@@ -9289,6 +9405,8 @@ async function ttsSynth(text, voiceId, opts) {
 // ElevenLabs 换成它认的 <break time="0.5s" />，Fish 不认标签，换成省略号让它自己停一下。
 // 情绪参数只有 MiniMax 有，这两家不传；语速照音色库里调的那一档。
 async function ttsSynthOther(a, txt, vid, spd) {
+  const ttsOaUrl = a => (a.oaBase || "https://api.openai.com") + "/v1/audio/speech";
+  const ttsProvName = a => a.provider === "fish" ? "Fish Audio" : a.provider === "openai" ? "语音接口（OpenAI 格式）" : "ElevenLabs";
   let r;
   try {
   if (a.provider === "elevenlabs") {
@@ -9297,6 +9415,12 @@ async function ttsSynthOther(a, txt, vid, spd) {
       method: "POST",
       headers: { "Content-Type": "application/json", "xi-api-key": a.elKey, Accept: "audio/mpeg" },
       body: JSON.stringify({ text: body, model_id: a.elModel || "eleven_multilingual_v2", voice_settings: { stability: 0.5, similarity_boost: 0.75, speed: Math.max(0.7, spd || 1) } })
+    }, 60000);
+  } else if (a.provider === "openai") {
+    r = await fetchT(ttsOaUrl(a), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.oaKey },
+      body: JSON.stringify({ model: a.oaModel || "gpt-4o-mini-tts", input: txt.replace(TTS_MARK_PAUSE, "…"), voice: vid || a.oaVoice || "alloy", response_format: "mp3", speed: Math.max(0.25, Math.min(4, spd || 1)) })
     }, 60000);
   } else {
     const body = txt.replace(TTS_MARK_PAUSE, "…");
@@ -9309,15 +9433,15 @@ async function ttsSynthOther(a, txt, vid, spd) {
   } catch (e) {
     // 跨域被挡在浏览器里只报「Load failed / Failed to fetch」，fetchT 会把它说成「写太长被掐断」——这里不是那回事
     if (/超时/.test(String(e && e.message))) throw e;
-    throw new Error("连不上 " + (a.provider === "fish" ? "Fish Audio" : "ElevenLabs") + "：网络不通，或者这家不让网页直接调用（跨域）。"
-      + (a.provider === "fish" ? "可以在「接口地址」换成一个转发到 api.fish.audio 的中转地址。" : "国内网络要能连上 elevenlabs.io。")
-      + "\n请求地址：" + (a.provider === "fish" ? (a.fishBase || "https://api.fish.audio") + "/v1/tts" : "api.elevenlabs.io")
+    throw new Error("连不上 " + ttsProvName(a) + "：网络不通，或者这家不让网页直接调用（跨域）。"
+      + (a.provider === "fish" ? "可以在「接口地址」换成一个转发到 api.fish.audio 的中转地址。" : a.provider === "openai" ? "检查接口地址；官方地址国内网络要能连上，或者换成中转站给的地址。" : "国内网络要能连上 elevenlabs.io。")
+      + "\n请求地址：" + (a.provider === "fish" ? (a.fishBase || "https://api.fish.audio") + "/v1/tts" : a.provider === "openai" ? ttsOaUrl(a) : "api.elevenlabs.io")
       + "\n原始报错：" + String((e && e.message) || e).replace(/^连接中断了（Load failed）。[\s\S]*原始报错：/, "").slice(0, 120));
   }
   if (!r.ok) {
     let msg = "";
     try { msg = (await r.text()).replace(/\s+/g, " ").slice(0, 200); } catch (e) {}
-    throw new Error((a.provider === "fish" ? "Fish Audio" : "ElevenLabs") + " 报错 HTTP " + r.status + (msg ? "：" + msg : "")
+    throw new Error(ttsProvName(a) + " 报错 HTTP " + r.status + (msg ? "：" + msg : "")
       + (r.status === 401 || r.status === 403 ? "（检查密钥是否完整、账户额度够不够）" : r.status === 404 || r.status === 422 || /VOICE_NOT_FOUND|voice.{0,12}not.{0,6}found/i.test(msg) ? "（声音 ID 不对：要填这一家的声音 ID——Fish 是声音页网址 fish.audio/m/ 后面那串，不是名字；试听用的是设置里的「默认音色 ID」）" : ""));
   }
   const blob = await r.blob();
@@ -10002,7 +10126,8 @@ async function generateOffline(p, ctx, session) {
   const explicitRevisionRequested = !isDigital && !!rewriteRequested;
   // ⚠️这一道只看人设卡里的风险词。不许再把 offlineRendererScore 那一分接进来：
   //   那一分是故意只记不用的（她 2026-09-22：「不要这个！这是之前特意没接上的！」）。
-  const archetypeRevisionRequested = !isDigital && !!archetypePerformanceRisk;
+  // 线下设置里开了「只写一遍」（她 2026-11-13）：人设风险词不再触发先写一稿再改，额度全给正文。她自己点的重写不受影响
+  const archetypeRevisionRequested = !isDigital && !session.writeOnce && !!archetypePerformanceRisk;
   rewriteRequested = explicitRevisionRequested || archetypeRevisionRequested;
   const singlePassRevisionRequested = explicitRevisionRequested || archetypeRevisionRequested;
   const singlePassRevisionProtocol = explicitRevisionRequested
@@ -10025,7 +10150,9 @@ async function generateOffline(p, ctx, session) {
       // 回应选项（群友 2026-10-16）：她开了才写。这三条是给【她】挑的，不进正文、不算你替她说话。
       + ((!isDigital && session.replyOpts) ? "\n【replyOpts·上面输出形状的追加项】再写 replyOpts：三条 " + userName + " 接下来可能的回应（字符串数组），用她的口吻、第一人称，每条一两句，可以带一个括号里的小动作。三条要走不同方向：一条顺着你这一拍、一条反着或逗你、一条把事情往别处带。只是给她挑的，正文 scene 里照旧不写她的话。" : "")
       + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
-  const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx, { offline: true }) +
+  // 这一份拼装的头（人设/世界书/记忆/近况那一摞）单独留个名字：下面的收据要拿带记号的同一份对位
+  const _bundleHead = isDigital ? buildBundle(ctx) : buildBundle(ctx, { offline: true });
+  const system = (isDigital ? _bundleHead + digitalToyHint : _bundleHead +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
     "\n\n" + PERSONA_REGISTER_ANCHOR +
     "\n\n" + MOOD_TURN_RULE +
@@ -10057,6 +10184,23 @@ async function generateOffline(p, ctx, session) {
     toyHint +
     offPhotoHint +
     "") + outputSpec + ((!isDigital && session.sayZhOn) ? offlineSayZhSpec("") : "") + stateBootstrapHint + gazeSpecBlock;
+  // 「上一轮线下真的发了什么」（她 2026-11-13：「要一个查上一轮发了啥的跟线上一样的」）：
+  //   线上那张是照发送那条路【重建】出来的；线下这份 system 是在这儿一长串拼出来的，没有能照着重建的入口，
+  //   所以在真发出去那一刻留一份收据。只在内存里、刷新网页就没了，跟召回收据一个规矩（不进存档、不上云）。
+  try {
+    if (typeof window !== "undefined") {
+      // 收据里的这份带段界记号：头那一摞照拼装给的段界拆（内置规矩那几段也标着），
+      //   记号只在收据里，真发出去的 system 一个字不变。
+      const _markedHead = isDigital ? buildBundle(ctx, { marks: true }) : buildBundle(ctx, { offline: true, marks: true });
+      const _tail = String(system || "").slice(_bundleHead.length);
+      window.__offlineSysReceipt = window.__offlineSysReceipt || {};
+      window.__offlineSysReceipt[char.id] = { ts: Date.now(), charName: char.name || "", sessionId: session.id || null,
+        // 线下这条尾巴（场景说明、输出格式、运行时那一摞）整段都是 App 内置的，所以整条按内置标
+        // 尾巴里每一段也各自成段（照空行＋行首【】），都按内置标
+        system: _markedHead + (_tail ? (BUNDLE_SEC_MARK + BUNDLE_RULE_MARK + _tail).replace(/\n\n(?=【)/g, "\n\n" + BUNDLE_SEC_MARK + BUNDLE_RULE_MARK) : ""),
+        chars: String(system || "").length };
+    }
+  } catch (e) {}
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
   const hist = offlineHistory(offlineLoosenOn(session) ? offlineLoosenOld(offlineDropStale(session.msgs)) : session.msgs, userName, char.name, ctx.timeAware !== false, char.id);

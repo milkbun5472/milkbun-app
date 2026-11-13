@@ -8,19 +8,19 @@ const scr = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "ut
 // 它没停——那底下所有带日期的都是它，新浓缩出来的接在后面。
 // 是这一页把【一段】按行首的【】切成了几十条，看着像几十个各自独立的东西。
 test("长期记忆里那些带日期的小段，并回它自己那一段", () => {
-  const i = scr.indexOf("const secs = (() => {");
-  const seg = scr.slice(i, scr.indexOf("return out;\n  })();", i) + 20);
+  const i = scr.indexOf("const splitBundleText = src => {");
+  const seg = scr.slice(i, scr.indexOf("return out;\n  };", i) + 18);
   assert.match(seg, /if \(out\.length && \/\^【\\d\+月\\d\+日\/\.test\(sec\.title\)\)/, "带日期的小段还在冒充顶层段");
   assert.match(seg, /prev\.body = prev\.body \+ "\\n" \+ sec\.body/, "并回去了但正文没接上");
   assert.match(seg, /prev\.inner = \(prev\.inner \|\| 0\) \+ 1/, "没记住它吃进去几段");
   // 标题上要看得出它是一大段，不然又变成「886 字，很小嘛」
-  assert.match(scr, /s\.inner \? h\("span"[\s\S]{0,180}"含 " \+ s\.inner \+ " 段"/, "标题上看不出它含着几段");
+  assert.match(scr, /\.inner \? h\("span"[\s\S]{0,180}"含 " \+ \w+\.inner \+ " 段"/, "标题上看不出它含着几段");
 });
 
 // 真跑一遍：切完之后长期记忆必须是【一段】，而且体量算的是全部
 test("真跑一遍：切完是一段，占比按合起来的算", () => {
   const split = text => {
-    const raw = text.split(/\n(?=【)/).map((p, i) => {
+    const raw = text.split(/\n\n(?=【)/).map((p, i) => {
       const m = p.match(/^【[^】]*】/);
       return { title: m ? m[0] : (i === 0 ? "【开头】" : "【段落 " + (i + 1) + "】"), body: p };
     });
@@ -40,7 +40,7 @@ test("真跑一遍：切完是一段，占比按合起来的算", () => {
     "【长期记忆摘要（过往对话浓缩）】" + "旧".repeat(200),
     "【7月8日】" + "甲".repeat(200),
     "【7月9日–7月12日】" + "乙".repeat(200),
-    "【今天的日期时间】九月一日"].join("\n");
+    "【今天的日期时间】九月一日"].join("\n\n");
   const secs = split(txt);
   assert.equal(secs.length, 3, "还是被切成了五段");
   assert.equal(secs[1].title, "【长期记忆摘要（过往对话浓缩）】");

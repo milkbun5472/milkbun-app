@@ -457,6 +457,18 @@ ${ktAlong()}
 [data-wk="gazecard"]::before,[data-wk="photocard"]::before{top:-14px !important;width:46px !important;height:17px !important;background:${svg(SOFTEARS("#fff"))} center bottom/100% 100% no-repeat !important;border:none !important;border-radius:0 !important}
 /* Ta 眼里的卡片：猫耳一左一右交替 */
 [data-wk="gazecard"]:nth-of-type(even)::before{left:auto !important;right:20px !important}
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle at 50% 22%,#fff,transparent 60%),linear-gradient(180deg,#EEF3F9,#DCE6F2) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#2E2A28 !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(0,0,0,.5) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(0,0,0,.06) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#2E2A28 !important}
+[data-wk="callbtns"] button > span:first-child{background:#FBFAF7 !important;border-radius:50% !important;box-shadow:0 0 0 2px #8C9BB8,0 6px 14px rgba(75,84,112,.18) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#4B5470 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#E58FA2 !important;box-shadow:0 0 0 2px #fff,0 6px 14px rgba(229,143,162,.4) !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(0,0,0,.5) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "猫猫", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

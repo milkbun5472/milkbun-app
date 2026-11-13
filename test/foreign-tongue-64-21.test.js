@@ -43,18 +43,18 @@ test("规则里不许有内容示范", () => {
 
 test("三个总口都发了，一处不漏", () => {
   // 单聊线上/线下/通话/匿名箱/解梦馆 —— 走 buildBundle
-  assert.match(code, /if \(!ctx\.notRoleplay\) parts\.push\(FOREIGN_TONGUE_RULE\);/);
+  assert.match(code, /if \(!ctx\.notRoleplay\) pushRule\(FOREIGN_TONGUE_RULE\);/);
   // 群三处 —— 走 groupBans
   assert.match(code, /^\s*P\.push\(FOREIGN_TONGUE_RULE\);/m);
   // 小剧场/穿书/梦境/跑团/如果馆 —— 走 narrativeCore
   assert.match(code, /if \(typeof FOREIGN_TONGUE_RULE !== "undefined"\) parts\.push\(FOREIGN_TONGUE_RULE\);/);
   // 声明 1 次 + 三处引用（narrativeCore 那处写了 typeof 守卫，所以名字出现两次）＝5
   assert.equal((code.match(/FOREIGN_TONGUE_RULE/g) || []).length, 5, "多一处就是重复发了，少一处就是漏了");
-  assert.equal((code.match(/parts\.push\(FOREIGN_TONGUE_RULE\)|P\.push\(FOREIGN_TONGUE_RULE\)/g) || []).length, 3, "真正 push 的地方不是三处");
+  assert.equal((code.match(/pushRule\(FOREIGN_TONGUE_RULE\)|parts\.push\(FOREIGN_TONGUE_RULE\)|P\.push\(FOREIGN_TONGUE_RULE\)/g) || []).length, 3, "真正 push 的地方不是三处");
 });
 
 test("言秋不发：他不是被扮演的角色，本来就跟她同一个世界", () => {
-  const i = eng.indexOf("if (!ctx.notRoleplay) parts.push(FOREIGN_TONGUE_RULE);");
+  const i = eng.indexOf("if (!ctx.notRoleplay) pushRule(FOREIGN_TONGUE_RULE);");
   assert.ok(i > 0);
   assert.match(eng.slice(i - 200, i), /言秋（notRoleplay）不发/);
 });

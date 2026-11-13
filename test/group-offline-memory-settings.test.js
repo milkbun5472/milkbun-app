@@ -15,7 +15,7 @@ assert(app.includes('osFor("g_" + group.id).memN'), "group offline recall must r
 // v53.61：轮流合并搬进 engine 的 splitGroupMemories（顺带按可见交集分流），群线下只是调用方。
 const engine = fs.readFileSync("js/engine.js", "utf8");
 assert(engine.includes('pools.some(pool => rank < pool.length)'), "group offline recall must merge member pools instead of anchoring to the first member");
-assert(app.includes('splitGroupMemories(memLibRef.current, group.memberIds || [], qtext'), "group offline recall must go through the shared visibility split");
+assert(app.includes('groupMemSplit(group.id, group.memberIds || [], qtext'), "group offline recall must go through the shared visibility split");
 assert(!app.includes('const anchor = (group.memberIds || [])[0];'), "group offline recall must not depend on first-member ordering");
 assert(app.includes('let charsLeft = 2400;'), "group offline memory prompt must have a total character budget");
 assert(app.includes('Math.min(360, charsLeft)'), "group offline memory prompt must cap each imported memory");

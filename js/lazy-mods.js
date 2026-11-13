@@ -82,14 +82,21 @@
   }
   // 闲下来只下载不执行：浏览器 / service worker 存下来，下次点进去不用等网，断网也打得开
   //   2026-10-20：开机后 6 秒就开始（原来 20 秒，很多人点进去时还没轮到），两份一起下
+  // ⚠️2026-11-13 她转来「今天秋秋机有一点卡」：预热是开机 6 秒后两份一起、每 150ms 接着下，
+  //   一共八兆多。手机在 4G/5G 上跟你当下这条回复抢带宽，慢网的手机更明显。
+  //   改成：慢网或开了省流量就不预热（点进去再现下，那时才真的需要）；
+  //   其余情况一次只下一份、每份之间等浏览器真的闲下来，切到后台也停。
   function warm() {
     const srcs = [...document.querySelectorAll('script[type="text/lazy"][data-src]')].map(s => s.getAttribute("data-src"));
     let i = 0;
+    const idle = window.requestIdleCallback || (f => setTimeout(f, 300));
+    const net = navigator.connection || {};
+    if (net.saveData || /(^|-)[23]g$/.test(String(net.effectiveType || ""))) return;
     const next = () => {
       if (i >= srcs.length || document.hidden) return;
-      fetch(srcs[i++], { credentials: "same-origin" }).catch(() => {}).finally(() => setTimeout(next, 150));
+      fetch(srcs[i++], { credentials: "same-origin" }).catch(() => {}).finally(() => idle(next, { timeout: 3000 }));
     };
-    next(); next();
+    next();
   }
   try {
     if (typeof window !== "undefined" && typeof document !== "undefined")

@@ -10,7 +10,7 @@ test("人设第一放在去人机味前面，三处都接上", () => {
   assert.match(eng, /const PERSONA_FIRST = `【总纲 · 人设第一】/);
   assert.ok(!/【去人机味 · 最高准则】/.test(eng), "去人机味又自称最高准则了");
   assert.match(eng, /const P = \[PERSONA_FIRST, ANTI_CLICHE\];/, "群聊");
-  assert.match(eng, /parts\.push\(PERSONA_FIRST\);\n\s*parts\.push\(ANTI_CLICHE\);/, "单聊");
+  assert.match(eng, /pushRule\(PERSONA_FIRST\);\n\s*pushRule\(ANTI_CLICHE\);/, "单聊");
   assert.match(eng, /PERSONA_FIRST, ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME/, "线下叙事");
 });
 

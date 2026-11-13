@@ -158,6 +158,6 @@ test("两个选择器都留着【跟随全局】那一档，不然退不回去",
 
 // 她 2026-10-05：给 TA 写的贴纸 CSS 一进通话就没了。单人通话也算 TA 这一页；群通话不算。
 test("跟 TA 单独通话时，TA 那份聊天 CSS 照样生效", () => {
-  assert.match(app, /const callOne = call && !call\.groupId && call\.participants && call\.participants\.length === 1 \? call\.participants\[0\] : null;/);
+  assert.match(app, /const callOne = call && !call\.min && !call\.groupId && call\.participants && call\.participants\.length === 1 \? call\.participants\[0\] : null;/);
   assert.match(app, /setAttribute\("data-lisa-call", callOne \?/);
 });

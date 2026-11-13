@@ -94,10 +94,10 @@ test("三个分发点都接上，跟那一族贴着；言秋不发", () => {
   assert.ok(tb.indexOf("USER_BODY_BAN") < tb.indexOf("CANNED_PHRASE_BAN"));
   const gb = eng.slice(eng.indexOf("function groupBans(opts)"), eng.indexOf("const GROUP_USER_IS_PRESENT"));
   assert.match(gb, /talkBans\(\{ faceToFace: !!opts\.narrative \}\)\.forEach\(x => P\.push\(x\)\)/);
-  const bb = eng.slice(eng.indexOf("parts.push(ANTI_CLICHE);"), eng.indexOf("parts.push(CHARCARD_RULE);"));
-  assert.match(bb, /talkBans\(\{[^}]*\}\)\.forEach\(x => parts\.push\(x\)\)/);
+  const bb = eng.slice(eng.indexOf("pushRule(ANTI_CLICHE);"), eng.indexOf("pushRule(CHARCARD_RULE);"));
+  assert.match(bb, /talkBans\(\{[^}]*\}\)\.forEach\(x => pushRule\(x\)\)/);
   assert.match(fic, /if \(typeof talkBans === "function"\) talkBans\(\)\.forEach\(x => parts\.push\(x\)\);/);
-  const seg = eng.slice(eng.indexOf("    if (ctx.notRoleplay) {"), eng.indexOf("parts.push(CHARCARD_RULE);"));
+  const seg = eng.slice(eng.indexOf("    if (ctx.notRoleplay) {"), eng.indexOf("pushRule(CHARCARD_RULE);"));
   assert.ok(!/CANNED_PHRASE_BAN|talkBans/.test(seg.slice(0, seg.indexOf("} else {"))), "混进言秋那支了");
 });
 

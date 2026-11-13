@@ -416,7 +416,7 @@ function CastForm({
   const ttsProv = typeof loadTtsApi === "function" ? loadTtsApi().provider : "minimax";
   const voiceFields = h("div", null,
     ttsProv === "minimax" && h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, (typeof TTS_VOICES !== "undefined" ? TTS_VOICES : []).map(v => h("button", { "data-wk": "block", key: v.id, onClick: () => setVoiceId(voiceId === v.id ? "" : v.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, background: voiceId === v.id ? t.ink : t.bg, color: voiceId === v.id ? t.bg2 : t.sub, border: "1px solid " + t.line } }, v.name))),
-    h("input", { "data-wk": "input", value: voiceId, onChange: e => setVoiceId(e.target.value), placeholder: ttsProv === "minimax" ? "或直接填 voice_id（含克隆音色）" : (ttsProv === "fish" ? "填 Fish Audio 的声音 ID" : "填 ElevenLabs 的 Voice ID"), className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+    h("input", { "data-wk": "input", value: voiceId, onChange: e => setVoiceId(e.target.value), placeholder: ttsProv === "minimax" ? "或直接填 voice_id（含克隆音色）" : (ttsProv === "fish" ? "填 Fish Audio 的声音 ID" : ttsProv === "openai" ? "填声音名，比如 alloy、nova" : "填 ElevenLabs 的 Voice ID"), className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "接好语音 API 并选音色后，Ta 的语音消息才能真听。"));
   return h("div", { "data-wk": "castfpage", className: "h-full flex flex-col", style: { background: dossierDeskBg(accent) } },
     h(Head, { zh: initial ? "编辑档案" : "新建档案", onBack,
@@ -2825,7 +2825,8 @@ function Forum({
               h("button", { onClick: () => { if(r.authorType==="character")goProfile(r.authorId, r);else if(isAlt(r))goAltProfile(r);else goNpcProfile(r); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName)),
               accountBadge(r),
               r.isOp && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: xhs ? "#fff" : t.bg2, background: xhs ? FORUM_SKIN.accent : t.tint, borderRadius: 4, padding: "0 4px", marginLeft: 4 } }, xhs ? "作者" : "楼主"),
-              r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, " 回复 @" + r.toName),
+              // 匿名帖里不点名（她 2026-11-13「匿名吧结果还是互相点名这对吗」）：回的是谁照样标出来，只是也写成匿名
+              r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, (p.anon || cm.anon || r.anon) ? " 回复 匿名用户" : " 回复 @" + r.toName),
               isFreshReply(r) && newTag(),
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, "："),
               h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, STW(r, STX(atClean(r.content)))),
@@ -6217,7 +6218,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "关掉后普通文字气泡底下不再挂「听一下」；语音条照样能点开听。")),
         h(Toggle, { on: !c.noListen, onChange: v => set({ noListen: !v }) })),
       row("声音从哪来（角色档案填对应的音色 ID）", h("div", { style: { display: "flex", gap: 6 } },
-        [["minimax", "MiniMax"], ["elevenlabs", "ElevenLabs"], ["fish", "Fish Audio"]].map(pair =>
+        [["minimax", "MiniMax"], ["elevenlabs", "ElevenLabs"], ["fish", "Fish Audio"], ["openai", "OpenAI 格式"]].map(pair =>
           h("button", { key: pair[0], onClick: () => set({ provider: pair[0] }), className: "active:opacity-70",
             style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "8px 2px", borderRadius: 8, background: c.provider === pair[0] ? t.tint : t.bg2, border: "1px solid " + (c.provider === pair[0] ? t.tint : t.line), color: c.provider === pair[0] ? "#fff" : t.sub } }, pair[1])))),
       c.provider === "elevenlabs" ? h("div", null,
@@ -6233,6 +6234,12 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
         //   原来是写死三个的下拉，新模型填不进去。改成输入框＋候选，候选点一下就填，新名字照 fish.audio 文档写。
         row("模型（可以自己填，照 fish.audio 文档上的模型名）", voiceModelInput(c.fishModel, "s1", "fish-models", [["s1", "推荐"], ["speech-1.6", ""], ["speech-1.5", ""]], v => set({ fishModel: v }), inSt)),
         row("默认音色 ID（试听和音色库里没写 ID 的地方用它）", h("input", { "data-wk": "input", value: c.fishVoice || "", onChange: e => set({ fishVoice: e.target.value }), placeholder: "声音页网址最后那串 ID", style: inSt }))) : null,
+      // OpenAI 格式（群友 2026-11-13 许愿）：官方或任何兼容 /v1/audio/speech 的中转都行
+      c.provider === "openai" ? h("div", null,
+        row("接口地址（官方或中转站给的地址，带不带 /v1 都行）", h("input", { "data-wk": "input", value: c.oaBase || "", onChange: e => set({ oaBase: e.target.value }), placeholder: "https://api.openai.com", style: inSt })),
+        row("密钥 API Key", h("input", { "data-wk": "input", value: c.oaKey || "", onChange: e => set({ oaKey: e.target.value }), placeholder: "sk-…", type: "password", style: inSt })),
+        row("模型（可以自己填，照这家文档上的模型名）", voiceModelInput(c.oaModel, "gpt-4o-mini-tts", "oa-tts-models", [["gpt-4o-mini-tts", "推荐"], ["tts-1-hd", ""], ["tts-1", "快"]], v => set({ oaModel: v }), inSt)),
+        row("默认声音（试听和音色库里没写的地方用它）", h("input", { "data-wk": "input", value: c.oaVoice || "", onChange: e => set({ oaVoice: e.target.value }), placeholder: "alloy", style: inSt }))) : null,
       c.provider !== "minimax" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "声音 ID 去这家官网的声音库里挑或自己克隆，复制下来填进角色档案的「音色」。下面音色库里的「语速」对这家也管用；情绪模式和语气标记只有 MiniMax 认。") : null,
       c.provider === "minimax" ? h("div", null,
       row("接口地址（key 在哪个平台申请的就点哪个，别混）", h("div", null,
@@ -7260,7 +7267,8 @@ function Config(props) {
   };
   const m = meta[page] || meta.home;
   // 回哪一层：api* 归 api，长相三兄弟归 look，小稿/问答归 write，其余回首页
-  const back = page === "home" ? props.onBack : () => {
+  // 从悬浮切线路那颗跳进来的（她 2026-11-13「返回从哪儿跳转的，这样我不用来回翻」）：在模型那一页按返回，回到跳来的地方
+  const back = page === "home" ? props.onBack : (props.returnTo && page === "api") ? props.returnTo : () => {
     if (/^api[A-Z]/.test(page)) return setPage("api");
     if (page === "theme" || page === "themeStudio" || page === "bubble" || page === "chatCss") return setPage("look");
     if (page === "cot") return setPage("write");

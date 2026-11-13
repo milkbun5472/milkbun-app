@@ -43,7 +43,9 @@ test("挂点只是一个写死的名字，夹带不了任何东西", () => {
   // ⚠️挂点写在对象最后一项时后面跟的是 }（v65.05 的时钟那一处），别把它一起捞进来
   const all = [...comp.matchAll(/"data-wk":\s*([^,\n}]+)/g)].map(m => m[1].trim());
   assert.ok(all.length >= 30, "挂点只剩 " + all.length + " 个，是不是被删了");
-  const PASS = ["wk || undefined", 'wk || "toggle"', 'wk || "datetap"'];  // 后者兜底也是字面量               // ②：转交，值由调用点保证
+  // ②：转交，值由调用点保证。"wk" 是没写兜底的那种转交（群里分房那排 chip），
+  //    它的调用点在下面单独查一遍。
+  const PASS = ["wk", "wk || undefined", 'wk || "toggle"', 'wk || "datetap"'];  // 后几个兜底也是字面量
   // ①：三元（可以一串接一串）的每个【取值位】都必须是字面量或 undefined。
   //    a ? x : b ? y : z 拆开是 [a, x, b, y, z]：单数位和最后那一位是取值位，
   //    双数位是条件——条件里写什么都不会进 DOM，不管。
@@ -60,6 +62,15 @@ test("挂点只是一个写死的名字，夹带不了任何东西", () => {
     const calls = [...src.matchAll(/\bwk:\s*([^,\n}]+)/g)].map(m => m[1].trim());
     const bad2 = calls.filter(v => !(lit.test(v) || litChain(v)));
     assert.deepEqual(bad2, [], "这几处把变量当挂点名递进去了：\n  " + bad2.join("\n  "));
+  }
+  // 没写兜底的那一支（分房 chip）：它自己的调用点也必须递写死的名字
+  {
+    const d = comp.indexOf("const chip = (key, label, on, fn, wk, dot, tag) =>");
+    assert.ok(d > 0, "分房那排 chip 不见了（改过名字？连它的调用点一起查）");
+    const seg = comp.slice(d, comp.indexOf("\nfunction ", d));
+    const calls = seg.split("\n").filter(l => /\bchip\(/.test(l) && !l.includes("const chip ="));
+    assert.ok(calls.length >= 2, "抠不到分房 chip 的调用点");
+    calls.forEach(l => assert.match(l, /"[a-z]+"\s*[,)]/, "这一处没递写死的挂点名：" + l.trim().slice(0, 80)));
   }
   // Svg / Marquee 收到什么就原样放上去，自己不许再拼
   const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");

@@ -4,7 +4,7 @@ const fs = require("fs");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
 test("TA 的照片长按有「只重拍这张图」，只换像素；重Roll 照旧整轮", () => {
-  assert.ok(app.includes("drawChatSelfie({ chatKey, charId, sid, photoKind, photoScene });"));
+  assert.ok(app.includes("drawChatSelfie({ chatKey, charId, sid, photoKind, photoScene, askAngle });"));
   assert.ok(app.includes('if (act === "reshoot") { reshootChatSelfie(threadKey, idx, activeChar.id); return; }'));
   const src = comp.slice(comp.indexOf("const MSG_MENU"), comp.indexOf("// 编辑消息弹层"));
   const f = new Function(src + "; return menuItemsForKind;")();

@@ -380,6 +380,18 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="chathead"] + *:not([data-wk="body"]) svg{stroke:#F1ECFF !important}
 [data-wk="offline"] [data-wk="offbody"]{color:#F1ECFF !important}
 [data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]),[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]) > :not([data-wk]){color:#E0D8F4 !important}
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle at 50% 20%,rgba(255,158,200,.3),transparent 55%),linear-gradient(180deg,#3B3F8C,#1B2552) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(255,255,255,.65) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(255,255,255,.12) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#fff !important}
+[data-wk="callbtns"] button > span:first-child{background:rgba(255,255,255,.18) !important;border-radius:50% !important;box-shadow:0 0 0 1.5px rgba(255,255,255,.6),0 0 18px rgba(158,200,255,.5) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#FFFBF4 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#FF9EC8 !important;box-shadow:0 0 0 1.5px #fff,0 0 18px rgba(255,158,200,.6) !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(255,255,255,.65) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "雨天窗边", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

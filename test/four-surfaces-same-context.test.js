@@ -87,7 +87,7 @@ test("群聊线上补上心情/好感/印象卡", () => {
 test("群聊线下也补上，同样的分档", () => {
   assert.match(app, /memberMood: \(\(\) => \{/);
   assert.match(app, /memberAff: \(\(\) => \{/);
-  assert.match(app, /memberGaze: Object.fromEntries/);
+  assert.match(app, /memberGaze: _par \? \{\} : Object.fromEntries/);
   assert.match(app, /const gazeFor = charId =>/, "读一律给：封闭群也拿得到印象卡");
   assert.match(engine, /\(ctx\.memberMood && ctx\.memberMood\[c\.id\]\) \? "\\n〔此刻心情〕"/);
   assert.match(engine, /\(ctx\.memberAff && ctx\.memberAff\[c\.id\] != null\)/);
@@ -96,9 +96,9 @@ test("群聊线下也补上，同样的分档", () => {
 
 test("封闭群的读侧一个都不许挡", () => {
   const i = app.indexOf("memberMood: (() => {");
-  const j = app.indexOf("memberGaze: Object.fromEntries");
+  const j = app.indexOf("memberGaze: _par ? {} : Object.fromEntries");
   assert.ok(app.slice(i, j).indexOf("memoryInterop") < 0, "心情/好感不该被封闭群挡掉");
-  const k = app.indexOf("memberGaze: Object.fromEntries");
+  const k = app.indexOf("memberGaze: _par ? {} : Object.fromEntries");
   assert.ok(app.slice(k, k + 400).indexOf("memoryInterop") < 0, "印象卡现在也读一律给");
 });
 
@@ -152,7 +152,7 @@ test("实时私聊窗口仍归互通群，别和 preJoin 叠加", () => {
   assert.match(app, /memberPrivLines = \(c, n\) =>[\s\S]{0,400}aiStampFor\(c\.id, m\.ts\)/);
   // v73.05：没设过的群按 20 条算（原来默认 0 ＝闭群里一句真话都没有，只剩人设标签）
   assert.match(app, /const _preJoinN = gs\.preJoinN == null \? 20 : Number\(gs\.preJoinN\) \|\| 0;/);
-  assert.match(app, /if \(_preJoinN > 0 && !gs\.memoryInterop\)/, "闭群走 preJoin");
+  assert.match(app, /if \(_preJoinN > 0 && !gs\.memoryInterop && !_gPar\)/, "闭群走 preJoin");
   assert.match(app, /否则同一段私聊会进两遍/);
 });
 

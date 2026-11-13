@@ -9,5 +9,8 @@ assert.match(eng, /const boss = !threat && endsOnBossing\(tail\) \? BOSSING_TAIL
 assert.match(app, /_threatTailHint \+ _bossTailHint \+ _seeThroughHint/);
 assert.ok(!/BOSSING_TAIL_HINT = [^\n]*「/.test(eng), "提醒里不引原句、不举例");
 assert.match(eng, /最常见的一种是拿一句替她安排她自己的事/);
+// 她 2026-11-13：「别xxx 听到没有」——后面挂的那句加码不算问句
+for (const t of ["别再熬夜了，听到没有？", "不许偷偷哭，知道吗", "别乱跑 听见没"]) assert.ok(f(t), t);
+for (const t of ["你听到没有？外面在下雨", "你知道吗"]) assert.ok(!f(t), t);
 console.log("ok");
 assert.match(eng, /· 她平时过日子的习惯和毛病/); assert.match(eng, /最容易被顺手编出来的是这四类/);

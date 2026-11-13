@@ -33,7 +33,7 @@ test("四处都吃得到这条刀（言秋那支不发扮演类规则）", () =>
   //   buildBundle 的扮演支在 ANTI_CLICHE 之后调用 talkBans(...)。
   const tb = engine.slice(engine.indexOf("function talkBans(o)"), engine.indexOf("function groupBans(opts)"));
   assert.match(tb, /return \[CONDESCENDING_TONE_BAN,/, "talkBans 清单里得有这一条");
-  assert.match(bb, /parts\.push\(ANTI_CLICHE\);[\s\S]{0,400}?talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => parts\.push\(x\)\)/);
+  assert.match(bb, /pushRule\(ANTI_CLICHE\);[\s\S]{0,400}?talkBans\(\{ faceToFace: !!\(opts && opts\.offline\) \}\)\.forEach\(x => pushRule\(x\)\)/);
   // 必须落在 notRoleplay 的 else 里——言秋不是被扮演的角色，扮演类规则一律不发
   const nr = bb.indexOf("if (ctx.notRoleplay)");
   assert.ok(nr > 0 && bb.indexOf("talkBans(") > nr, "要在 notRoleplay 分支之后的 else 里");

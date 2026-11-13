@@ -324,6 +324,18 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="chath
 [data-wk="stateaff"]::after{right:112px !important;top:18px !important}
 [data-wk="stateaff"]::before{right:118px !important}
 
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle,#E2E2DC 1.2px,transparent 1.5px) 0 0/10px 10px,#FAFAF7 !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#2E2A28 !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(0,0,0,.5) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(0,0,0,.06) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#2E2A28 !important}
+[data-wk="callbtns"] button > span:first-child{background:#FFFFFF !important;border-radius:50% !important;box-shadow:0 0 0 3px #1A1A1A,5px 5px 0 3px #FBE27A !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#1A1A1A !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#1A1A1A !important;box-shadow:0 0 0 3px #1A1A1A,5px 5px 0 3px #FBE27A !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(0,0,0,.5) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "漫画对白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

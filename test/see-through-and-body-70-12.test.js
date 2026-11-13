@@ -115,13 +115,13 @@ test("三个分发点都接上了，而且跟那一族贴着", () => {
   assert.match(tb, /\bUSER_BODY_BAN\b/);
   const gb = eng.slice(eng.indexOf("function groupBans(opts)"), eng.indexOf("const GROUP_USER_IS_PRESENT"));
   assert.match(gb, /talkBans\(\{[^}]*\}\)\.forEach\(x => P\.push\(x\)\)/);
-  const bb = eng.slice(eng.indexOf("parts.push(ANTI_CLICHE);"), eng.indexOf("parts.push(CHARCARD_RULE);"));
-  assert.match(bb, /talkBans\(\{[^}]*\}\)\.forEach\(x => parts\.push\(x\)\)/);
+  const bb = eng.slice(eng.indexOf("pushRule(ANTI_CLICHE);"), eng.indexOf("pushRule(CHARCARD_RULE);"));
+  assert.match(bb, /talkBans\(\{[^}]*\}\)\.forEach\(x => pushRule\(x\)\)/);
   assert.match(fic, /if \(typeof talkBans === "function"\) talkBans\(\)\.forEach\(x => parts\.push\(x\)\);/);
 });
 
 test("言秋（notRoleplay）那一支不发——写着理由的合法差异", () => {
-  const seg = eng.slice(eng.indexOf("    if (ctx.notRoleplay) {"), eng.indexOf("parts.push(CHARCARD_RULE);"));
+  const seg = eng.slice(eng.indexOf("    if (ctx.notRoleplay) {"), eng.indexOf("pushRule(CHARCARD_RULE);"));
   const e = seg.indexOf("} else {");
   assert.ok(!/SEE_THROUGH_BAN|USER_BODY_BAN|talkBans/.test(seg.slice(0, e)), "混进言秋那一支了");
 });

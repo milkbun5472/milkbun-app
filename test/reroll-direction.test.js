@@ -18,7 +18,7 @@ test("方向只管这一次：点一下清空，一分钟没取走作废", () =>
 test("单聊、群聊、线下、群线下四处重写尾巴都接上同一句", () => {
   assert.match(E, /上一版之前已经成立的事实照旧，其余由你此刻重新想。" \+ rerollDirLine\(\);/);
   assert.match(E, /\+ \(session\.rerollAvoid \? rerollDirLine\(\) : ""\);\n  const characterSupplyInjected/);
-  assert.match(E, /const gTail = gContinueCue[^\n]*\+ \(session\.rerollAvoid \? rerollDirLine\(\) : ""\);/);
+  assert.match(E, /const gTail = [^\n]*gContinueCue[^\n]*\+ \(session\.rerollAvoid \? rerollDirLine\(\) : ""\);/);
   assert.match(C, /k === "reroll" \? Object\.assign\(\{ "data-wk": "rerollpress" \}, rerollPress\(\(\) => onAction\(k\)\)\)/);
   assert.match(C, /rerollPress\(\(\) => onReroll\(m\.id\)\)/);
   const fn = C.slice(C.indexOf("function rerollPress("), C.indexOf("// 风格统一的输入弹窗。"));

@@ -83,7 +83,7 @@ test("不在那个群里的人，拿不到那个群的话", () => {
 
 // —— 接线：群聊落在那位成员自己那一段里，单聊也要有
 test("群里这一段落在成员自己那一段，别的成员看不到", () => {
-  assert.match(app, /const said = crossChannelSaid\(c\.id, groupId\);/, "群聊没接");
+  assert.match(app, /const said = _gPar \? \"\" : crossChannelSaid\(c\.id, groupId\);/, "群聊没接");
   // 别冻整串拼接顺序——那一段以后还会长（v57.83 中间插了随身物 cySeg）。
   // 要守的是：xgSeg 拼在【这位成员自己那一段】的 return 里，不是合成一块共享注入。
   const seg = (app.match(/return "【" \+ memberLabel\(members, c\) \+ "】" \+ groupPersonaText\(c\.persona, gPersonaCap\)[^;]*;/) || [])[0] || "";

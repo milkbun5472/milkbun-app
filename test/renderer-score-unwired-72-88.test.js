@@ -9,7 +9,8 @@ const R = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 
 test("自我修订那一道只看人设卡的风险词，不看正文打的分", () => {
   const engine = R("js/engine.js");
-  assert.match(engine, /const archetypeRevisionRequested = !isDigital && !!archetypePerformanceRisk;/,
+  // 「只写一遍」开关（她 2026-11-13）只会关掉这一道，不会加宽
+  assert.match(engine, /const archetypeRevisionRequested = !isDigital && !session\.writeOnce && !!archetypePerformanceRisk;/,
     "archetypeRevisionRequested 的判据被加宽了；那一分不许接进来");
 });
 

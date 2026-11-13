@@ -84,7 +84,12 @@ test("记账数在【发出去】那一刻，不是进 callAI 那一刻", () => 
   assert.ok(note > seg.indexOf('!/^https?:\\/\\/\\S+$/i.test(base)'), "记账排在 baseUrl 那道检查前面了");
   // runProbe 把 tag 带下去（它自己还会重试一次，那一次也要算）
   assert.match(engine, /const _tag = probe\.tag \|\| "";/);
-  assert.equal((engine.match(/tag: _tag/g) || []).length, 3, "runProbe 三处调用没都带上 tag");
+  // ⚠️别写死条数：这里真要证的是 runProbeInner 里【每一次】callAI 都把 tag 带下去
+  //   （2026-11-13：图太大退回那一次是后来加的，写死 3 就红了）。
+  const probeBody = engine.slice(engine.indexOf("async function runProbeInner("), engine.indexOf("async function generateDiary("));
+  const calls = probeBody.match(/callAI\(p,[\s\S]*?\);/g) || [];
+  assert.ok(calls.length >= 3, "runProbe 里的 callAI 一个都没抠到");
+  for (const c of calls) assert.ok(c.includes("tag: _tag"), "runProbe 有一处调用没带上 tag：" + c.slice(0, 80));
 });
 
 test("六条链逐个点名走公共闸（少一处才红）", () => {

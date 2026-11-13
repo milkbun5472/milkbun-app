@@ -448,9 +448,30 @@
   }
   // 一面墙：两列，纸条高矮不一，各自往下排（不是一格一格的方阵）。
   //   左右轮流放：最新的在左上、第二新的在右上——不用 CSS 分栏，那样会先把左边一整列排满，第二新的跑到第一张底下去
-  const Wall = ({ t, items, onOpen }) => h("div", { "data-wk": "nestwall", className: "flex items-start", style: { gap: 14, paddingTop: 10 } },
+  // 首页墙上管理员连着贴了一大串（她 2026-11-12「我自己上传美化太多了能不能不让我自己的全部一次性显示在主页」，「只给管理员这样」）：
+  //   带管理员牌（badge）的人连着的只摆前 FOLD_KEEP 张，后面收成一张「还连着贴了 N 件」，点了去她的小窝看全的。
+  //   普通人连着贴多少都照旧全摆。只在首页墙用，小窝、收藏、搜索照旧全摆。
+  const FOLD_KEEP = 3;
+  function foldRuns(items) {
+    const out = []; let i = 0;
+    while (i < items.length) {
+      const uid = items[i].uid; let j = i + 1;
+      if (uid && items[i].badge) while (j < items.length && items[j].uid === uid) j++;
+      const run = items.slice(i, j);
+      if (run.length > FOLD_KEEP + 1) { out.push.apply(out, run.slice(0, FOLD_KEEP)); out.push({ fold: true, id: "fold:" + run[FOLD_KEEP].id, uid, nick: run[0].nick, n: run.length - FOLD_KEEP }); }
+      else out.push.apply(out, run);
+      i = j;
+    }
+    return out;
+  }
+  const FoldSlip = ({ t, it, onUser }) => h("button", { "data-wk": "nestfold", onClick: () => onUser && onUser(it.uid), className: "active:opacity-70",
+    style: { display: "block", width: "100%", margin: "0 0 16px", padding: "14px 11px", textAlign: "center", background: "transparent", border: "1px dashed " + t.line, borderRadius: 4,
+      fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
+    (it.nick || "无名") + " 还连着贴了 " + it.n + " 件", h("br"), "去 TA 的小窝看全 ›");
+  const Wall = ({ t, items, onOpen, onUser, fold }) => { const list = fold ? foldRuns(items) : items;
+    return h("div", { "data-wk": "nestwall", className: "flex items-start", style: { gap: 14, paddingTop: 10 } },
     [0, 1].map(col => h("div", { key: col, className: "flex-1 min-w-0" },
-      items.filter((_, i) => i % 2 === col).map(it => h(Slip, { key: it.id, t, it, onOpen })))));
+      list.filter((_, i) => i % 2 === col).map(it => it.fold ? h(FoldSlip, { key: it.id, t, it, onUser }) : h(Slip, { key: it.id, t, it, onOpen }))))); };
 
   // ── 一条东西点进去（她 2026-10-16 定的 B：揭下来的那张纸条 + 一本留言簿）──────────
   function Detail({ t, id, props, me, onClose, onGone, onUser, onLogin, onEdit }) {
@@ -1440,11 +1461,11 @@
           h("div", { className: "flex-1 min-w-0" }, "网太慢，先给你看上次的。" + err), h(Btn, { t, onClick: () => load(0), wk: "nestretry" }, "再试一次")) : null,
         err && !(stale && items.length) ? h("div", null, empty(err), h("div", { style: { textAlign: "center" } }, h(Btn, { t, onClick: () => load(0), wk: "nestretry" }, "再试一次")))
         : (!items.length && !loading) ? empty(qLive ? "没找到。" : "这面墙还空着。\n右上角「＋ 传一个」，贴第一张上去。")
-        : h(Wall, { t, items, onOpen: openItem }),
+        : h(Wall, { t, items, onOpen: openItem, onUser: openUser, fold: !qLive }),
         loading ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "16px 4px", textAlign: "center" } }, stale ? "在拿新的……" : "在拿……")
         : more ? h("div", { style: { padding: "6px 0 14px", textAlign: "center" } }, h(Btn, { t, onClick: () => load(items.length) }, "再往下翻")) : null));
   }
 
   window.NestApp = NestApp;
-  window.Nest = { KINDS, embeddedImages, imgProblem, shrinkImages, packCurrentTheme, lookSources, packLook, cssSources, packCss, importInto, cssInto, lookInto, fromFile, unWord, CSS_SLOTS, packLore, packStyle, packPreset, packPersona, api, setSession, clearSession, sessionTok, cachedMe, tilt };
+  window.Nest = { KINDS, embeddedImages, imgProblem, shrinkImages, packCurrentTheme, lookSources, packLook, cssSources, packCss, importInto, cssInto, lookInto, fromFile, unWord, CSS_SLOTS, packLore, packStyle, packPreset, packPersona, api, setSession, clearSession, sessionTok, cachedMe, tilt, foldRuns };
 })();

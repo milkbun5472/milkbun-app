@@ -274,10 +274,11 @@ test("翻手机：置顶／取消置顶／删好友／拉黑／用她名义回�
   const out = PP.cleanScript({ steps: [{ do: "open", app: "messages" }, { do: "think", text: "嗯" }, { do: "pin" }, { do: "pin", who: "甲" },
     { do: "unfriend", who: "甲" }, { do: "block", who: "不在名单" }, { do: "impersonate", who: "乙", text: "她有男朋友了" }, { do: "impersonate", who: "乙" }] }, ["messages", "chat"], { who: ["甲", "乙"] });
   assert.deepStrictEqual(out.filter(s => ["pin", "unfriend", "block", "impersonate"].includes(s.do)).map(s => s.do + ":" + (s.who || "")), ["pin:", "unfriend:甲", "impersonate:乙"]);
-  assert.match(a, /savePeekCut\(p => \(\{ \.\.\.p, \[tgt\.id\]: \{ kind: step\.do, by: viewerId, ts: Date\.now\(\) \} \}\)\)/);
-  assert.match(a, /peekCut\[activeChar\.id\]\) body = h\(PeekCutPage, \{/);
-  assert.match(c, /function PeekCutPage\(/);
-  assert.match(c, /un \? "加回好友" : "解除拉黑"/);
+  // 2026-11-13 跟她自己删好友／拉黑并成一套：落进 x_blocks，不再有那张 x_peekCut 和空白假页面
+  assert.match(a, /peekCutApply\(tgt\.id, step\.do, viewerId, vn\);/);
+  assert.match(a, /if \(kind === "unfriend"\) setBlockFor\(id, \{ deleted: true, deletedTs: Date\.now\(\), reqs: \[\], lastWords: "", deletedBy: byId \|\| "", deletedByName: byName \|\| "" \}\);/);
+  assert.ok(!/function PeekCutPage\(/.test(c) && !/h\(PeekCutPage/.test(a));
+  assert.match(c, /bk\.deletedByName \? "「" \+ bk\.deletedByName \+ "」翻你手机时删了 TA"/);
   assert.match(a, /pChat\(tgt\.id, p => \[\.\.\.p, \{ role: "user", content: step\.text, ts: Date\.now\(\), peekBy: viewerId \}\]\)/);
 });
 

@@ -49,7 +49,7 @@ test('补总结走的是和收尾同一套规矩', () => {
 
 test('单聊和群聊两处都挂得上这个按钮', () => {
   assert.equal((comp.match(/onResummarize: onResummarizeOffline \? \(\) => onResummarizeOffline\(i\) : null/g) || []).length, 2);
-  assert.match(comp, /onResummarize \? h\("button", \{ onClick: redo/);
+  assert.match(comp, /onResummarize \? h\("button", \{ "data-wk": "offlogredo", onClick: redo/);
   assert.equal((app.match(/onResummarizeOffline: i => resummarizeOffline\("(char|group)"/g) || []).length, 2);
   // 单聊那一处要按【当前房间】的 key 取消息，不能一律用角色 id（侧房会取错数组）
   assert.match(app, /resummarizeOffline\("char", activeChar\.id, window\.ChatRooms \? window\.ChatRooms\.chatKey\(activeChar\.id, activeRoomId\)/);

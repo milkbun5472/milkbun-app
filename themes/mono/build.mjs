@@ -269,6 +269,18 @@ button[data-wk="avatar"] *,span[data-wk="avatar"] *,img[data-wk="avatar"]{border
 /* 线上最右那颗也换成同一个圆角三角，线上线下一致 */
 [data-wk="chatreply"]{background:${svg(I_PLAY)} center/contain no-repeat !important}
 
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:linear-gradient(180deg,#FFFFFF,#F4F4F2) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#2E2A28 !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(0,0,0,.5) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(0,0,0,.06) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#2E2A28 !important}
+[data-wk="callbtns"] button > span:first-child{background:#FFFFFF !important;border-radius:50% !important;box-shadow:0 0 0 1px rgba(0,0,0,.08),0 8px 20px rgba(0,0,0,.1) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#1C1C1E !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#E5533D !important;box-shadow:0 8px 20px rgba(229,83,61,.35) !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(0,0,0,.5) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "奶油留白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

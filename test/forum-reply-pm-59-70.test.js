@@ -18,7 +18,7 @@ test("楼中楼里每一条都能回，不只是楼层那一行", () => {
   assert.match(inReplies, /setReplyTo\(\{ floorId: cm\.id, name: \(r\.authorType === "me" \? \(r\.alt \|\| r\.anon \? r\.authorName : meChar\.name\) : r\.authorName\), toName:/,
     "楼中楼那一条没有自己的「回复」");
   // 回的是谁要看得出来
-  assert.match(inReplies, /r\.toName && h\("span"[\s\S]{0,120}" 回复 @" \+ r\.toName/, "楼里谁在跟谁说话看不出来");
+  assert.match(inReplies, /r\.toName && h\("span"[\s\S]{0,260}" 回复 @" \+ r\.toName/, "楼里谁在跟谁说话看不出来");
 });
 
 test("回楼中楼仍然落在同一层，用 @ 标对象，不做第三层嵌套", () => {

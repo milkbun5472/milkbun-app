@@ -215,11 +215,17 @@
         toast(via === "cancel" ? "导出取消了" : "主题包（含真实图标素材）" + savedWhere(via)); }
       catch (e) { toast("导出失败：" + e.message); }
     };
+    // 现在这一整套打成一包（存新的、更新旧的都用这一份）
+    const packNow = () => { const all = {}; studio.PACK_KEYS.forEach(k => { all[k] = true; });
+      return studio.exportPackage({ profile: draft, baseTheme: theme, wallpaper, bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null, pick: all }); };
+    // 更新存好的那一份（她 2026-11-13「存好了但是我想上传更新，现在只能删了原来那套重新起名」）：名字和位置不动，里面换成现在这一整套
+    const updateShelf = x => requestAppConfirm("用现在这一套更新「" + x.name + "」？", "名字不变，里面换成你现在这一整套（图标、字体、CSS、壁纸、气泡、主屏布局）；原来存的那份就没了。", async () => {
+      try { const text = await packNow(); shelfSave(shelfLoad().map(y => y.id === x.id ? Object.assign({}, y, { text, at: Date.now() }) : y)); toast("「" + x.name + "」更新好了"); }
+      catch (e) { toast("没更新成：" + ((e && e.message) || e)); }
+    }, "更新");
     const saveToShelf = async () => {
       try {
-        const all = {}; studio.PACK_KEYS.forEach(k => { all[k] = true; });
-        const text = await studio.exportPackage({ profile: draft, baseTheme: theme, wallpaper,
-          bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null, pick: all });
+        const text = await packNow();
         const d = new Date(), name = (String(draft.name || "").trim() || "我的主题") + " · " + (d.getMonth() + 1) + "/" + d.getDate();
         shelfSave([{ id: "th" + Date.now().toString(36), name, text, at: Date.now() }].concat(shelfLoad()).slice(0, THEME_SHELF_MAX));
         toast("存好了：「" + name + "」，在下面「我存的主题」里，随时换回来");
@@ -687,6 +693,7 @@
                   onBlur: () => { const nm = String(shelfRen.val || "").trim(); if (nm) shelfSave(shelfLoad().map(y => y.id === x.id ? Object.assign({}, y, { name: nm.slice(0, 30) }) : y)); setShelfRen(null); },
                   style: { flex: 1, minWidth: 0, padding: "5px 8px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 16 } })
               : h("button", { onClick: () => setShelfRen({ id: x.id, val: x.name }), title: "点一下改名", style: { flex: 1, minWidth: 0, textAlign: "left", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.name, h("span", { style: { color: t.fog, fontSize: "calc(10.5px * var(--app-fs, 1))", marginLeft: 6 } }, "✎")),
+            h("button", { "data-wk": "themeshelfupdate", onClick: () => updateShelf(x), className: "active:opacity-70", style: { padding: "5px 9px", borderRadius: 999, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "更新"),
             h("button", { onClick: () => applyPack(x.text), className: "active:opacity-70", style: { padding: "5px 11px", borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "换上"),
             h("button", { onClick: () => requestAppConfirm("删掉「" + x.name + "」？", "只删这份存着的主题，你现在正用着的样子不动。", () => shelfSave(shelfLoad().filter(y => y.id !== x.id)), "删掉"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "删")))),
         // 导进来之后：这包里带了什么、要哪几样（她 2026-09-20：「不是全有全无」）。
