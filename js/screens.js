@@ -4270,8 +4270,11 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
   // 段界记号：带记号的就照它拆（世界书、角色卡正文里的【小标题】不再被当成顶格的段），
   //   没有记号（旧路、别处调的）才退回按行首【】自己猜。显示前一律摘掉记号。
   const SEC_MARK = (typeof window !== "undefined" && window.BUNDLE_SEC_MARK) || "\u2063";
+  const RULE_MARK = (typeof window !== "undefined" && window.BUNDLE_RULE_MARK) || "\u2062";
+  // 出货版：App 内置的规矩那几段整段不显示，抓请求也不给（她 2026-11-13）。家里照旧全看。
+  const PUB = typeof window !== "undefined" && !!window.PUBLIC_BUILD;
   const readBundle = id => String((getBundle && getBundle(id)) || "（空）");
-  const stripMarks = s => String(s).split(SEC_MARK).join("");
+  const stripMarks = s => String(s).split(SEC_MARK).join("").split(RULE_MARK).join("");
   const readRecall = id => typeof window !== "undefined" && window.MemoryRecallSnapshot ? window.MemoryRecallSnapshot.get(id) : null;
   const [cid, setCid] = useState(initialCid);
   const [bundleRaw, setBundleRaw] = useState(() => initialCid ? readBundle(initialCid) : "");
@@ -4387,10 +4390,11 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
     const text = stripMarks(one);
     const chunks = marked ? one.split(SEC_MARK) : text.split(/\n\n(?=【)/);
     const raw = chunks.map((p, i) => {
+      const rule = String(p).startsWith(RULE_MARK);
       const body = stripMarks(p).replace(/^\n+/, "");
       const m = body.match(/^【[^】]*】/);
-      return { title: m ? m[0] : (i === 0 ? "【开头】" : "【段落 " + (i + 1) + "】"), body: body };
-    }).filter(x => x.body.trim());
+      return { title: m ? m[0] : (i === 0 ? "【开头】" : "【段落 " + (i + 1) + "】"), body: body, rule: rule };
+    }).filter(x => x.body.trim()).filter(x => !(PUB && x.rule));
     if (marked) return raw;
     // ⚠️长期记忆自己内部就是一段一段的【7月8日】，而这儿按【行首的【】】切段，
     // 于是【一段】被切成几十条，看着像几十个各自独立的东西——她 2026-09-01 就是
@@ -4413,6 +4417,7 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
     });
     return out;
   };
+  const sumLen = list => list.reduce((a, x) => a + x.body.length, 0);
   const secs = cid ? splitBundleText(bundleRaw) : [];
   const offSecs = cid && offReceipt ? splitBundleText(offReceipt.system) : [];
   // 段列表（占比 + 肥度条 + 展开）这一处线上线下共用（one-public-mechanism）
@@ -4444,7 +4449,7 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
     h(Eyebrow, { style: { marginBottom: 8 } }, compact ? "本轮注入 · " + ((((characters || [])[0] || {}).remark) || (((characters || [])[0] || {}).name) || "当前角色") : "上下文透视"),
     h(React.Fragment, null,
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 10 } }, compact ? "刚聊完就来这里看：上面是上一轮真正选中的记忆，下面是此刻重建的完整提示词预览。" : "看看此刻和 TA 聊天时，到底喂了什么给模型（人设 / 记忆 / 世界书 / 行程…按段拆开）。角色变笨、OOC、忘事时来这里排查是哪一段出了问题。"),
-    h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 12px", marginBottom: 12, background: t.bg2 } },
+    PUB ? null : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 12px", marginBottom: 12, background: t.bg2 } },
       h("div", { className: "flex items-center justify-between gap-2" },
         h("div", null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "本轮请求诊断 · 仅本机内存"),
@@ -4509,13 +4514,15 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.6 } }, r.n + " 条 · " + r.chars + " 字" + (r.first ? " · 最早一条：「" + r.first + "…」" : "")),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.55 } }, new Date(r.ts).toLocaleString() + " 那一轮。聊天记录是一条条单独发的，不在下面这些段里；带多少看聊天设置的「记忆上下文条数」和召回设置的「短期窗字符预算」。刷新 App 即清空。"));
     })() : null,
-    cid ? secList(secs, text.length, () => load(cid), "on") : null,
+    cid && PUB ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 8 } },
+      "这里列的是你自己那几段（人设、世界书、记忆、近况这些）。App 内置的那几段规矩不在列表里，字数和占比也按列出来的这些算。") : null,
+    cid ? secList(secs, PUB ? sumLen(secs) : text.length, () => load(cid), "on") : null,
     // 线下那一轮：真发出去的 system 原件（engine 在发的那一刻留的收据），跟线上同一种拆法、同一张表
     cid && offReceipt ? h("div", { "data-wk": "offsysreceipt", style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + t.line } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "上一轮线下真的发了什么"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55, margin: "3px 0 9px" } },
         new Date(offReceipt.ts).toLocaleString() + " 那一拍线下真正发出去的原件（上面线上那张是此刻重建的预览）。线下的场景正文跟聊天记录一样是单独发的，不在这些段里。刷新 App 即清空。"),
-      secList(offSecs, stripMarks(offReceipt.system).length, () => setOffReceipt(readOffReceipt(cid)), "off")) : null));
+      secList(offSecs, PUB ? sumLen(offSecs) : stripMarks(offReceipt.system).length, () => setOffReceipt(readOffReceipt(cid)), "off")) : null));
 }
 
 // ============================================================

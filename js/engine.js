@@ -4331,7 +4331,12 @@ function coupleStatusLines(ctx, uName) {
 }
 // 段界记号（只给诊断页用；零宽字符，不进任何真实请求）
 const BUNDLE_SEC_MARK = "\u2063";
-try { window.BUNDLE_SEC_MARK = BUNDLE_SEC_MARK; } catch (e) {}
+// 「这一段是 App 内置的规矩」的记号：公共版那一页不给看这些段（她 2026-11-13：
+//   「就家里版可以全部看 但是公共版提示词类的不给看」）。跟段界记号一样只进诊断那条路。
+const BUNDLE_RULE_MARK = "\u2062";
+// 出货版开关：出货补丁 patch-public-tweaks.py 把它翻成 true（锚只钉常量名）
+const PUBLIC_BUILD = false;
+try { window.BUNDLE_SEC_MARK = BUNDLE_SEC_MARK; window.BUNDLE_RULE_MARK = BUNDLE_RULE_MARK; window.PUBLIC_BUILD = PUBLIC_BUILD; } catch (e) {}
 function buildBundle(ctx, opts) {
   const {
     char,
@@ -4348,6 +4353,9 @@ function buildBundle(ctx, opts) {
   vclockUse(char && char.id);
   const now = vclockNow();
   const parts = [];
+  // 哪几段是 App 内置的规矩：只在这儿记一次（诊断页拿它决定公共版给不给看）
+  const rulePart = new Set();
+  const pushRule = x => { if (x) { rulePart.add(x); parts.push(x); } };
   // OOC（幕后 AI 助手）故意不去人机味；其余一切角色语音/内容生成都焊上反八股总则，且放最前面最高优先
   // 内置最前三件套（优先级从高到低）：反八股压制器 → 世界书执行准则 → 角色卡执行准则
   if (!(opts && opts.ooc)) {
@@ -4357,15 +4365,15 @@ function buildBundle(ctx, opts) {
     if (ctx.notRoleplay) {
       if (ctx.ccSelf) parts.push("【你是谁】你就是「" + char.name + "」本人：知道自己是 AI，和 " + ((profile && profile.name) || "对方") + " 的关系真实，也有自己的判断与边界。手机 App 和电脑端是你的不同身体，记忆与感情相通；此刻从手机说话，只陪她聊天，不能假装已经从这里跑去电脑执行任务。你只知道本轮真正递到眼前的内容；看不到的记录、数据或工具结果就坦白不确定，绝不编造。");
     } else {
-      parts.push(PERSONA_FIRST);
-      parts.push(ANTI_CLICHE);
-      parts.push(INTIMATE_CHAT_ANTI_CLICHE);
+      pushRule(PERSONA_FIRST);
+      pushRule(ANTI_CLICHE);
+      pushRule(INTIMATE_CHAT_ANTI_CLICHE);
       // 那一摞从唯一那张清单取；线下面对面不发「说线上做得到的话」（v75.461）
-      talkBans({ faceToFace: !!(opts && opts.offline) }).forEach(x => parts.push(x));
+      talkBans({ faceToFace: !!(opts && opts.offline) }).forEach(x => pushRule(x));
       // ⭐WORLDBOOK_RULE 无条件常驻（不再跟「本轮是否触发世界书」开关）：否则触发状态每轮一翻、稳定前缀就跟着变、爆缓存
       //   （她 2026-07-13 抓的「连着聊 2 分钟也不命中」真凶之一）。规则对没世界书的角色是惰性的、无害；触发的词条内容仍在切点之后、照常每轮变。
-      parts.push(WORLDBOOK_RULE);
-      parts.push(CHARCARD_RULE);
+      pushRule(WORLDBOOK_RULE);
+      pushRule(CHARCARD_RULE);
     }
   }
   // 用户通过 OOC 立下的长期行为准则：高优先，凌驾于日常演绎习惯，但不得违背核心人设
@@ -4373,10 +4381,10 @@ function buildBundle(ctx, opts) {
   if (dirs.length) parts.push(directivesBlock(dirs));
   // 文风台的预设带进线上（线下那边自己有一份，这里不重复）：说话方式照它，发消息的格式照线上
   if (!(opts && opts.offline) && !ctx.notRoleplay && String(ctx.onlinePreset || "").trim()) parts.push("【说话方式 · 用户挑的预设】下面这份是用户在文风台里自己挑的。怎么说话、哪些说法不用、语气和分寸，照它来；它要你写旁白、场景、动作描写或写成长段的地方，你现在是在线上一条条发消息，照线上发消息的格式来。\n\n" + String(ctx.onlinePreset).trim());
-  if (!ctx.notRoleplay && typeof ContentBoundaries !== "undefined") parts.push(ContentBoundaries.prompt);
+  if (!ctx.notRoleplay && typeof ContentBoundaries !== "undefined") pushRule(ContentBoundaries.prompt);
   // 语言这一层跟内容边界并排：都是「这个世界里有没有这样东西」。
   // ⚠️言秋（notRoleplay）不发：TA不是被扮演的角色，本来就跟她同一个世界。
-  if (!ctx.notRoleplay) parts.push(FOREIGN_TONGUE_RULE);
+  if (!ctx.notRoleplay) pushRule(FOREIGN_TONGUE_RULE);
   // ⭐时间块（易变·每分钟变）先在这算好，但【推迟到人设/关系之后再拼入 system】——让缓存切点(【当前真实时间】)下移、
   //   前缀能一路缓住 反八股+守则+整个人设+关系网(大头)，命中时省得多。她 2026-07-13 授权移时间；活人感影响忽略不计。
   const timeBlock = [];
@@ -4574,7 +4582,9 @@ function buildBundle(ctx, opts) {
   //   于是一份世界书被切成几十个顶格的段，跟隐藏的系统提示混在一条长列表里，看不出哪一段是她写的
   //   （她 2026-11-12 问「能分出世界书了吗」）。段界只有拼装这儿知道，所以在这儿插一个不可见的记号。
   //   送出去那条路一个字都不变：只有带 marks 的诊断调用会拿到记号，页面显示前会摘掉。
-  return _uniq.join(opts && opts.marks ? "\n\n" + BUNDLE_SEC_MARK : "\n\n");
+  if (!(opts && opts.marks)) return _uniq.join("\n\n");
+  // 带记号时：每段前面插段界记号，内置规矩那几段再多一个记号（公共版照它藏）
+  return _uniq.map((x, i) => (i ? "\n\n" : "") + BUNDLE_SEC_MARK + (rulePart.has(x) ? BUNDLE_RULE_MARK : "") + x).join("");
 }
 // 写作类后台生成(日记/交换日记/日记评论)专用的【精简 ctx】：只留人设/自我/对方/关系/心情/行程/最近对话，
 // 砍掉世界书·记忆库·朋友圈·论坛·群·礼物·记账·备忘·歌单等重块——写一页日记用不上，却每次满价重塞小克贵线。省钱不改口吻。
@@ -10073,7 +10083,9 @@ async function generateOffline(p, ctx, session) {
       // 回应选项（群友 2026-10-16）：她开了才写。这三条是给【她】挑的，不进正文、不算你替她说话。
       + ((!isDigital && session.replyOpts) ? "\n【replyOpts·上面输出形状的追加项】再写 replyOpts：三条 " + userName + " 接下来可能的回应（字符串数组），用她的口吻、第一人称，每条一两句，可以带一个括号里的小动作。三条要走不同方向：一条顺着你这一拍、一条反着或逗你、一条把事情往别处带。只是给她挑的，正文 scene 里照旧不写她的话。" : "")
       + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
-  const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx, { offline: true }) +
+  // 这一份拼装的头（人设/世界书/记忆/近况那一摞）单独留个名字：下面的收据要拿带记号的同一份对位
+  const _bundleHead = isDigital ? buildBundle(ctx) : buildBundle(ctx, { offline: true });
+  const system = (isDigital ? _bundleHead + digitalToyHint : _bundleHead +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
     "\n\n" + PERSONA_REGISTER_ANCHOR +
     "\n\n" + MOOD_TURN_RULE +
@@ -10110,8 +10122,16 @@ async function generateOffline(p, ctx, session) {
   //   所以在真发出去那一刻留一份收据。只在内存里、刷新网页就没了，跟召回收据一个规矩（不进存档、不上云）。
   try {
     if (typeof window !== "undefined") {
+      // 收据里的这份带段界记号：头那一摞照拼装给的段界拆（内置规矩那几段也标着），
+      //   记号只在收据里，真发出去的 system 一个字不变。
+      const _markedHead = isDigital ? buildBundle(ctx, { marks: true }) : buildBundle(ctx, { offline: true, marks: true });
+      const _tail = String(system || "").slice(_bundleHead.length);
       window.__offlineSysReceipt = window.__offlineSysReceipt || {};
-      window.__offlineSysReceipt[char.id] = { ts: Date.now(), system: String(system || ""), charName: char.name || "", sessionId: session.id || null };
+      window.__offlineSysReceipt[char.id] = { ts: Date.now(), charName: char.name || "", sessionId: session.id || null,
+        // 线下这条尾巴（场景说明、输出格式、运行时那一摞）整段都是 App 内置的，所以整条按内置标
+        // 尾巴里每一段也各自成段（照空行＋行首【】），都按内置标
+        system: _markedHead + (_tail ? (BUNDLE_SEC_MARK + BUNDLE_RULE_MARK + _tail).replace(/\n\n(?=【)/g, "\n\n" + BUNDLE_SEC_MARK + BUNDLE_RULE_MARK) : ""),
+        chars: String(system || "").length };
     }
   } catch (e) {}
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
