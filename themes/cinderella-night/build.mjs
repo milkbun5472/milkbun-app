@@ -34,6 +34,9 @@ const OVALM = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 120' pre
 const NOTE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 24'><path d='M7 18 V5 L17 2.5 V15' fill='none' stroke='${C.goldD}' stroke-width='1.8' stroke-linejoin='round'/><ellipse cx='5' cy='18.5' rx='3.4' ry='2.6' fill='${C.goldD}'/><ellipse cx='15' cy='15.5' rx='3.4' ry='2.6' fill='${C.goldD}'/></svg>`;
 const CARD = `background:linear-gradient(135deg,#FFFFFF 0%,#FCEFF5 40%,#EEF1FF 75%,#FFF7E8 100%) !important;border:1.2px solid rgba(242,217,160,.85) !important;border-radius:14px !important;box-shadow:0 0 18px rgba(255,220,180,.4) !important;color:${C.ink} !important`;
 
+// 照片＝南瓜马车的车窗：拱顶窗，两边系起来的纱帘，顶上一截南瓜藤
+const CARWIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 240' preserveAspectRatio='none'><path d='M10 236 V80 Q10 10 100 10 Q190 10 190 80 V236' fill='none' stroke='${C.goldD}' stroke-width='6' vector-effect='non-scaling-stroke'/><path d='M18 236 V82 Q18 20 100 20 Q182 20 182 82 V236' fill='none' stroke='#FFF6DA' stroke-width='1.6' vector-effect='non-scaling-stroke'/><path d='M18 50 Q17 120 30 170 Q22 200 18 236 Z' fill='rgba(255,226,240,.85)' stroke='#F2C7D9' stroke-width='1'/><path d='M182 50 Q183 120 170 170 Q178 200 182 236 Z' fill='rgba(255,226,240,.85)' stroke='#F2C7D9' stroke-width='1'/><circle cx='29' cy='170' r='4' fill='${C.goldD}'/><circle cx='171' cy='170' r='4' fill='${C.goldD}'/></svg>`;
+const VINE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 26'><path d='M4 20 Q20 6 40 14 Q58 22 76 8' fill='none' stroke='#8FB07A' stroke-width='2.4' stroke-linecap='round'/><path d='M22 12 Q28 2 36 8 Q30 14 22 12Z' fill='#A7C58E'/><path d='M52 18 Q60 8 68 14 Q60 22 52 18Z' fill='#A7C58E'/><path d='M74 8 Q80 4 78 0' fill='none' stroke='#8FB07A' stroke-width='1.6' stroke-linecap='round'/></svg>`;
 const bubble = { myBg: C.v2, myText: "#fff", myBorder: "none", charBg: C.pearl, charText: C.ink, charBorder: "none", radius: 16, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const PANEL = `background:linear-gradient(180deg,rgba(120,110,200,.55),rgba(90,85,176,.45)) !important;backdrop-filter:blur(10px) !important;-webkit-backdrop-filter:blur(10px) !important;border-radius:20px !important;box-shadow:inset 0 0 0 1.4px rgba(242,217,160,.75),0 8px 20px rgba(40,30,100,.3) !important`;
@@ -196,12 +199,13 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="rpamount"]{color:#FFF0CC !important;background:none !important;text-shadow:0 0 12px rgba(255,230,170,.6) !important}
 [data-wk="rpclose"]{background:rgba(255,255,255,.12) !important;border:1px solid ${C.gold} !important;color:#fff !important}
 
-/* 照片＝一面椭圆珍珠镜框 */
-[data-wk="photocard"]{position:relative !important;overflow:visible !important;background:linear-gradient(135deg,#fff,#FCEFF5 50%,#EEF1FF) !important;border:none !important;border-radius:50% / 46% !important;padding:22px 28px 34px !important;box-shadow:0 0 18px rgba(255,220,180,.45) !important}
-[data-wk="photocard"]::before{content:"" !important;position:absolute !important;inset:0 !important;background:${svg(OVALM)} center/100% 100% no-repeat !important;pointer-events:none !important;z-index:2 !important}
-[data-wk="photoface"]{background:linear-gradient(170deg,${C.v2},${C.v3}) !important;border:none !important;border-radius:50% / 46% !important}
+/* 照片＝从南瓜马车的车窗里看出去：拱顶窗、两边系起来的粉纱帘、顶上一截南瓜藤 */
+[data-wk="photocard"]{position:relative !important;overflow:visible !important;background:linear-gradient(135deg,#fff,#FCEFF5 50%,#EEF1FF) !important;border:none !important;border-radius:50% 50% 10px 10px / 34% 34% 10px 10px !important;padding:30px 30px 30px !important;box-shadow:0 0 18px rgba(255,220,180,.45) !important;margin-top:14px !important}
+[data-wk="photocard"]::before{content:"" !important;position:absolute !important;inset:0 !important;background:${svg(CARWIN)} center/100% 100% no-repeat !important;pointer-events:none !important;z-index:2 !important}
+[data-wk="photocard"]::after{content:"" !important;position:absolute !important;left:50% !important;top:-12px !important;width:80px !important;height:26px !important;margin-left:-40px !important;background:${svg(VINE)} center/contain no-repeat !important;z-index:3 !important}
+[data-wk="photoface"]{background:linear-gradient(170deg,${C.v2},${C.v3}) !important;border:none !important;border-radius:50% 50% 4px 4px / 40% 40% 4px 4px !important}
 [data-wk="photoface"] *,[data-wk="phototext"]{color:#fff !important}
-[data-wk="photocap"],[data-wk="photohint"]{color:#8C84B8 !important;font-style:italic !important}
+[data-wk="photocap"],[data-wk="photohint"]{color:#8C84B8 !important;font-style:italic !important;position:relative !important;z-index:3 !important}
 
 /* 语音：前面一颗金色音符（舞会的音乐） */
 [data-wk="voice"] > *{background:transparent !important;box-shadow:none !important;border:none !important;color:${C.ink} !important}
