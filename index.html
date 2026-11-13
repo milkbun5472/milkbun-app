@@ -126,12 +126,16 @@
   function verdict(waited) {
     var root = document.getElementById("root");
     if (root && root.childElementCount > 0) return;            // 装上了，收工
-    if (stillLoading() && waited < 60000) {
-      if (!window.__bootSlowShown) {
-        window.__bootSlowShown = true;
-        card("还在下载，没卡住", "这次更新换了新的一份，要重新下一遍（两三兆）。网慢的时候要等上一会儿，"
-          + "先别关掉、也别反复重新加载（一按就得从头下）。能连 Wi-Fi 会快很多。<b>你的存档一个字都没少</b>。");
-      }
+    // ⚠️她 2026-11-13 转来两个人「一个小时都进不去」：那天一小时内连发了三版，
+    //   每发一版这一整份（压缩后两兆多）就得从头下一遍，而这里原本只等到 60 秒
+    //   就改口说「秋秋没装进来」劝人重新加载——一按又从头下，于是循环。
+    //   网慢的手机下两兆要好几分钟是正常的，所以只要文件还在路上就一直等到 5 分钟，
+    //   并且把已经等了多久写在卡上，让人知道它在动、不用去按那颗按钮。
+    if (stillLoading() && waited < 300000) {
+      window.__bootSlowShown = true;
+      card("还在下载，没卡住（已等 " + Math.round(waited / 1000) + " 秒）",
+        "这次更新换了新的一份，要整份重新下一遍（两兆多）。网慢的手机要等上几分钟，"
+        + "<b>这期间别按「重新加载」——一按就得从头下</b>。连 Wi-Fi 会快很多。<b>你的存档一个字都没少</b>。");
       setTimeout(function () { verdict(waited + 6000); }, 6000);
       return;
     }

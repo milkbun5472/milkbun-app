@@ -188,13 +188,15 @@ test("还有文件在路上就别下判词：先说「还在下载」，等下�
   assert.match(html, /function stillLoading\(\) \{[\s\S]*?performance\.getEntriesByType\("resource"\)/,
     "没有「还有文件在路上吗」这一问");
   assert.match(html, /script\[src\]/, "要拿页面上的 script 跟下完的名单比，才知道还差几个");
-  assert.ok(html.includes('card("还在下载，没卡住"'), "缺那张不吓人的「还在下载」卡");
-  assert.match(html, /waited < 60000/, "没有等待上限：下不动的人会被永远吊着");
+  assert.ok(html.includes('card("还在下载，没卡住（已等 "'), "缺那张不吓人的「还在下载」卡（要带已等多久）");
+  // 上限 2026-11-13 从 60 秒放宽到 5 分钟：整份两兆多，网慢的手机几分钟才下得完，
+  // 一分钟就改口劝人重新加载＝把人踢回从头下。仍要有上限：下不动的人不能被永远吊着。
+  assert.match(html, /waited < 300000/, "没有等待上限：下不动的人会被永远吊着");
   assert.match(html, /setTimeout\(function \(\) \{ verdict\(waited \+ 6000\); \}, 6000\)/,
     "摆完「还在下载」要接着再看，不能摆上就不管了");
-  assert.ok(html.includes("别反复重新加载"), "这张卡的重点就是别按重新加载——一按就从头下");
-  const slow = html.slice(html.indexOf('card("还在下载，没卡住"'));
-  assert.ok(slow.slice(0, 400).includes("你的存档一个字都没少"), "这张卡也不能少这句");
+  assert.ok(html.includes("一按就得从头下"), "这张卡的重点就是别按重新加载——一按就从头下");
+  const slow = html.slice(html.indexOf('card("还在下载，没卡住（已等 "'));
+  assert.ok(slow.slice(0, 500).includes("你的存档一个字都没少"), "这张卡也不能少这句");
 });
 
 // 同一张卡要能换内容：先摆「还在下载」，下完了还是空的再换成判词。
