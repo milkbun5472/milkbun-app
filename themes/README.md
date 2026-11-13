@@ -101,3 +101,4 @@
 - **动描不只 narr/narrink 一处**：她自己写的动作是 `myact`/`myactink`，旁白模式底下还有一条 `narrbar`/`narrkind`。三处一起做，漏一处就会冒出通用灰字。
 - **电话小结（`note[data-part="callsum"]`）每套都要做**：通话结束那一行底下的那段总结，不写就是一段裸灰字。顺手把 `noteink`、`callact`、拆红包里的 `rpavatar` 一起带上。
 - **别把装饰挂在 `msg` 行的伪元素上**：那一行可能连着上面的时间条，装饰会飘到时间旁边、离头像老远（饭团的竹叶就这么飞走的）。
+- **打电话那一屏也要做**：`[data-wk="call"][data-video="0"]` 是整屏底色（原本深灰渐变写在行内），`callbtns button > span:first-child` 是三个圆按键（中间那个是挂断），`calltitle` 是名字。只做 callbubble/callavatar 等于没做。预览可用 `themes/_preview/callpv.cjs <outdir> <pack>`（点开面板里的语音通话，截 call.png）。

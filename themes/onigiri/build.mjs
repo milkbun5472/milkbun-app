@@ -297,6 +297,16 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 [data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:linear-gradient(135deg,${C.nori2},${C.nori}) !important;color:#fff !important;box-shadow:0 2px 0 #1E2823 !important}
 [data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
 [data-wk="callavatar"]{border-radius:${ONI} !important;box-shadow:0 0 0 6px #fff,0 0 0 7px ${C.grain},0 10px 0 6px ${C.nori},0 14px 30px rgba(0,0,0,.25) !important}
+
+/* 打电话那一屏（语音）：海苔深绿底撒白芝麻，顶上一团米色暖光；三个按键是白米饭团扣子，挂断是一颗梅子 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(ellipse at 50% 22%,rgba(255,250,235,.16),transparent 55%),${svg(X(`width='90' height='90' viewBox='0 0 90 90'><g fill='rgba(255,255,255,.16)'><ellipse cx='12' cy='18' rx='1.6' ry='.9' transform='rotate(30 12 18)'/><ellipse cx='60' cy='9' rx='1.6' ry='.9' transform='rotate(-20 60 9)'/><ellipse cx='40' cy='52' rx='1.6' ry='.9' transform='rotate(60 40 52)'/><ellipse cx='80' cy='70' rx='1.6' ry='.9' transform='rotate(10 80 70)'/><ellipse cx='20' cy='78' rx='1.6' ry='.9' transform='rotate(-40 20 78)'/></g>`))} 0 0/90px 90px,linear-gradient(180deg,${C.nori2},#1E2823) !important}
+[data-wk="call"] > button:first-child{background:rgba(255,255,255,.12) !important}
+[data-wk="calltitle"]{color:#fff !important;font-weight:600 !important}
+[data-wk="callbtns"] button > span:first-child{background:#fff !important;border-radius:${ONI} !important;box-shadow:0 0 0 1px ${C.grain},0 5px 0 1px ${C.nori},0 10px 18px rgba(0,0,0,.3) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:${C.nori} !important}
+[data-wk="callbtns"] button[aria-label*="挂"] > span:first-child,[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:radial-gradient(circle at 35% 30%,#F07B7C,${C.ume} 60%) !important;border-radius:50% !important;box-shadow:0 5px 0 #B5383B,0 10px 18px rgba(0,0,0,.3) !important}
+[data-wk="callbtns"] button[aria-label*="挂"] > span:first-child svg,[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="callcomposer"] textarea,[data-wk="callcomposer"] input{background:#fff !important;color:${C.ink} !important;border:none !important;border-radius:14px !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "梅子饭团", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "梅子饭团-美化.json"), JSON.stringify(pack));
