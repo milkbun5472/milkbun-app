@@ -72,3 +72,13 @@ test("公共版：内置那几段不列、抓请求不给；家里照旧全看",
   const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
   assert.ok(eng.includes("const PUBLIC_BUILD = false;"), "家里那份必须是 false");
 });
+
+// 出货补丁里那张【可见标题白名单】2026-11-13 退役（它把【世界书 · 常驻设定】算成过内置）：
+// 脱敏搬回源码之后，补丁不许再自己改透视页，锚也得跟上 PUB 那一道闸。
+test("出货补丁不再自己猜哪几段是内置的", () => {
+  const f = fs.readFileSync("/Users/lisa/yanqiu-den/qiuqiu-release/patches/patch-features.py", "utf8");
+  assert.ok(!f.includes('"【系统内置提示词 · "'), "那张字数收据卡还在补丁里");
+  assert.ok(!f.includes("concealed"), "那张卡的几刀还在补丁里");
+  assert.ok(!f.includes("inspect_old"), "补丁还在替换 inspectBundleFor");
+  assert.ok(f.includes("wire_ui_start = '    PUB ? null : h(\"div\""), "抓请求那一块的锚没跟上 PUB");
+});
