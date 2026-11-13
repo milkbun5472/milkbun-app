@@ -343,6 +343,11 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="msg"][data-me="0"]:nth-child(3n+1) [data-wk="avatar"]{transform:rotate(-2deg) !important}
 [data-wk="chathead"] [data-wk="avatar"]:not([data-wk="headme"] *):not([data-wk="headme"]){border-radius:3px !important;box-shadow:0 0 0 2px ${C.cream},0 0 0 5px #4A3024,0 0 0 6px #1A0E08 !important;filter:sepia(.45) saturate(.8) !important;transform:rotate(-6deg) !important}
 [data-wk="msg"][data-me="0"] button[data-wk="avatar"]::before,[data-wk="cardrow"][data-me="0"] [data-wk="avatar"]::before{content:none !important}
+
+/* 旧肖像里的眼睛：照片眼睛那一带隐约亮着两点金光，时亮时暗（挂在消息行上、压在相框位置；img 自己挂不上伪元素） */
+[data-wk="msg"][data-me="0"]{position:relative !important}
+[data-wk="msg"][data-me="0"]::after{content:"" !important;position:absolute !important;left:13px !important;top:12px !important;width:24px !important;height:8px !important;background:radial-gradient(circle at 4px 4px,#FFE9A8 0 1.2px,rgba(242,182,64,.85) 1.8px,rgba(242,182,64,0) 4px),radial-gradient(circle at 16px 4px,#FFE9A8 0 1.2px,rgba(242,182,64,.85) 1.8px,rgba(242,182,64,0) 4px) !important;transform:rotate(-5deg) !important;pointer-events:none !important;z-index:5 !important;animation:rhGlint 5s ease-in-out infinite !important}
+@keyframes rhGlint{0%,55%,100%{opacity:0}65%,85%{opacity:.9}}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "红帽夜访", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
