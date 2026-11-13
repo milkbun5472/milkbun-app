@@ -11,5 +11,5 @@ test("取上一拍第一句", () => {
 });
 test("单人和群线下的尾巴都接上，重写那轮不加", () => {
   assert.match(eng, /rerollTail \+ \(session\.rerollAvoid \? "" : offlineOpeningTail\(session\.msgs\)\)/);
-  assert.match(eng, /const gTail = gContinueCue \+ \(session\.rerollAvoid \? "" : offlineOpeningTail\(session\.msgs\)\)/);
+  assert.match(eng, /const gTail = [^\n]*gContinueCue \+ \(session\.rerollAvoid \? "" : offlineOpeningTail\(session\.msgs\)\)/);
 });

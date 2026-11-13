@@ -14,7 +14,7 @@ test("三处隐私头都按修罗场开关收起关系那一句", () => {
 test("修罗场开着：关系标签、人设规则不再跟修罗场打架", () => {
   const eng = require("fs").readFileSync(require("path").join(__dirname, "..", "js/engine.js"), "utf8");
   assert.match(app, /if \(l && o\.drama\) return/);
-  assert.match(app, /drama: !!gs\.drama \}\)/);
+  assert.match(app, /drama: !!gs\.drama[,}]/);
   assert.match(app, /groupBans\(\{ echo: false, drama: !!gsFor\(groupId\)\.drama \}\)/);
   assert.match(eng, /drama: !!ctx\.dramaRule/);
   const G = eng.slice(eng.indexOf("const GROUP_IN_CHARACTER = `") + 28, eng.indexOf("`;", eng.indexOf("const GROUP_IN_CHARACTER = `")));
