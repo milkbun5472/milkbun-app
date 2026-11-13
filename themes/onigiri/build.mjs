@@ -54,14 +54,11 @@ const css = `
 [data-wk="chathead"] [data-wk="headname"]{flex:1 1 auto !important;min-width:84px !important}
 [data-wk="chathead"] [data-wk="headname"] > div:last-child{white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important}
 
-/* 头像：饭团形——上圆下宽，一圈白米，底下垫一弯海苔（我的垫梅子红），角上一片竹叶（竹叶挂在消息行上，img 挂不住） */
+/* 头像：饭团形——上圆下宽，一圈白米，底下垫一弯海苔（我的垫梅子红）， */
 button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[data-wk="avatar"] *,[data-wk="msg"] [data-wk="avatar"],[data-wk="cardrow"] [data-wk="avatar"],[data-wk="rpsingle"] [data-wk="avatar"]{border-radius:${ONI} !important}
 button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"] [data-wk="avatar"],[data-wk="cardrow"] [data-wk="avatar"],[data-wk="rpsingle"] > :first-child[data-wk="avatar"]{box-shadow:${RING_HIS} !important}
 [data-wk="msg"][data-me="1"] [data-wk="avatar"],[data-wk="cardrow"][data-me="1"] [data-wk="avatar"],[data-wk="rpsingle"] > [data-wk="rpcard"] + [data-wk="avatar"]{box-shadow:${RING_ME} !important}
 [data-wk="msg"]{position:relative !important}
-[data-wk="msg"][data-first="1"][data-me="0"]::after,[data-wk="msg"][data-first="1"][data-me="1"]::after{content:"" !important;position:absolute !important;top:-4px !important;width:22px !important;height:16px !important;background:${svg(LEAF)} center/contain no-repeat !important;pointer-events:none !important;z-index:4 !important}
-[data-wk="msg"][data-first="1"][data-me="0"]::after{left:6px !important;transform:scaleX(-1) rotate(10deg) !important}
-[data-wk="msg"][data-first="1"][data-me="1"]::after{right:6px !important;transform:rotate(10deg) !important}
 
 /* 气泡：他是白米饭团、左边包一截海苔；我是整张海苔、右边一颗梅子 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:14px !important;line-height:1.6 !important;letter-spacing:.03em !important}
@@ -170,7 +167,11 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 /* 拍一拍、通话结束 */
 [data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;border:none !important;background:#fff !important;border-radius:999px !important;padding:3px 14px !important;color:${C.fog} !important;box-shadow:0 1px 0 ${C.grain} !important}
 [data-wk="note"][data-part="call"] svg{stroke:${C.fog} !important}
-[data-wk="note"][data-part="callsum"]{color:${C.fog} !important}
+[data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;background:#fff !important;border:none !important;border-left:5px solid ${C.nori} !important;border-radius:6px 12px 12px 6px !important;padding:8px 14px !important;color:#6E716B !important;font-size:12px !important;line-height:1.65 !important;text-align:left !important;box-shadow:0 2px 0 ${C.grain} !important}
+[data-wk="noteink"]{color:${C.fog} !important}
+[data-wk="callact"]{color:${C.ume} !important}
+[data-wk="rpavatar"],[data-wk="rpavatar"] *{border-radius:${ONI} !important}
+[data-wk="rpavatar"]{box-shadow:0 0 0 3px #fff,0 3px 0 3px ${C.nori} !important}
 /* 线下小结 */
 [data-wk="offlogtitle"]{letter-spacing:.15em !important;color:${C.nori} !important;font-weight:600 !important}
 [data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.ume} !important}
