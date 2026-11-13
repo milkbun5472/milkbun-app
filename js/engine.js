@@ -7286,7 +7286,8 @@ function loadTtsApi() {
   // 来回切不用重填；角色档案里的 voiceId 填的是【当前这家】的声音 ID。
   const def = { baseUrl: "https://api.minimax.io", groupId: "", apiKey: "", model: "speech-02-hd", enabled: false,
     provider: "minimax", elKey: "", elModel: "eleven_multilingual_v2", elVoice: "",
-    fishBase: "https://api.fish.audio", fishKey: "", fishModel: "s1", fishVoice: "" };
+    fishBase: "https://api.fish.audio", fishKey: "", fishModel: "s1", fishVoice: "",
+    oaBase: "https://api.openai.com", oaKey: "", oaModel: "gpt-4o-mini-tts", oaVoice: "alloy" };
   let a = def;
   try { const c = JSON.parse(localStorage.getItem("x_ttsApi") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c); } catch (e) {}
   // 粘贴时容易带进首尾空格/换行，key 里混一个空白字符接口就报 invalid api key——读的时候统一清干净
@@ -7300,14 +7301,19 @@ function loadTtsApi() {
   a.fishBase = (cleanBaseUrl(a.fishBase) || "https://api.fish.audio").replace(/\/v1(\/tts)?\/?$/i, "");
   a.elVoice = String(a.elVoice || "").trim();
   a.fishVoice = String(a.fishVoice || "").trim();
+  // OpenAI 格式（群友 2026-11-13 许愿）：官方或任何兼容 /v1/audio/speech 的中转。地址自带 /v1 或整段路径的先剥掉，下面统一拼
+  a.oaBase = (cleanBaseUrl(a.oaBase) || "https://api.openai.com").replace(/\/v1(\/audio(\/speech)?)?\/?$/i, "");
+  a.oaKey = String(a.oaKey || "").replace(/\s+/g, "");
+  a.oaVoice = String(a.oaVoice || "").trim();
   return a;
 }
-const TTS_PROVIDERS = ["minimax", "elevenlabs", "fish"];
+const TTS_PROVIDERS = ["minimax", "elevenlabs", "fish", "openai"];
 // 没给音色时用哪一个：MiniMax 有预置的 female-shaonv；另两家没有通用 ID，只能用设置里填的默认音色
 function ttsDefaultVoice(a) {
   a = a || loadTtsApi();
   if (a.provider === "elevenlabs") return a.elVoice || "";
   if (a.provider === "fish") return a.fishVoice || "";
+  if (a.provider === "openai") return a.oaVoice || "alloy";
   return "female-shaonv";
 }
 function saveTtsApi(c) { const clean = Object.assign(loadTtsApi(), c || {}); try { localStorage.setItem("x_ttsApi", JSON.stringify(clean)); } catch (e) {} return clean; }
@@ -7372,6 +7378,7 @@ function ttsReady(a) {
   if (!a.enabled) return false;
   if (a.provider === "elevenlabs") return !!a.elKey;
   if (a.provider === "fish") return !!a.fishKey;
+  if (a.provider === "openai") return !!a.oaKey;
   return !!a.apiKey;   // GroupId 选填（群友 2026-11-10 拼车拿不到）：MiniMax 现在光凭密钥就认得是哪个账号，填了才带上
 }
 // MiniMax 系统预置音色（先用预置，克隆音色以后再接——克隆出的 voice_id 也能直接填）
@@ -9322,6 +9329,8 @@ async function ttsSynth(text, voiceId, opts) {
 // ElevenLabs 换成它认的 <break time="0.5s" />，Fish 不认标签，换成省略号让它自己停一下。
 // 情绪参数只有 MiniMax 有，这两家不传；语速照音色库里调的那一档。
 async function ttsSynthOther(a, txt, vid, spd) {
+  const ttsOaUrl = a => (a.oaBase || "https://api.openai.com") + "/v1/audio/speech";
+  const ttsProvName = a => a.provider === "fish" ? "Fish Audio" : a.provider === "openai" ? "语音接口（OpenAI 格式）" : "ElevenLabs";
   let r;
   try {
   if (a.provider === "elevenlabs") {
@@ -9330,6 +9339,12 @@ async function ttsSynthOther(a, txt, vid, spd) {
       method: "POST",
       headers: { "Content-Type": "application/json", "xi-api-key": a.elKey, Accept: "audio/mpeg" },
       body: JSON.stringify({ text: body, model_id: a.elModel || "eleven_multilingual_v2", voice_settings: { stability: 0.5, similarity_boost: 0.75, speed: Math.max(0.7, spd || 1) } })
+    }, 60000);
+  } else if (a.provider === "openai") {
+    r = await fetchT(ttsOaUrl(a), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.oaKey },
+      body: JSON.stringify({ model: a.oaModel || "gpt-4o-mini-tts", input: txt.replace(TTS_MARK_PAUSE, "…"), voice: vid || a.oaVoice || "alloy", response_format: "mp3", speed: Math.max(0.25, Math.min(4, spd || 1)) })
     }, 60000);
   } else {
     const body = txt.replace(TTS_MARK_PAUSE, "…");
@@ -9342,15 +9357,15 @@ async function ttsSynthOther(a, txt, vid, spd) {
   } catch (e) {
     // 跨域被挡在浏览器里只报「Load failed / Failed to fetch」，fetchT 会把它说成「写太长被掐断」——这里不是那回事
     if (/超时/.test(String(e && e.message))) throw e;
-    throw new Error("连不上 " + (a.provider === "fish" ? "Fish Audio" : "ElevenLabs") + "：网络不通，或者这家不让网页直接调用（跨域）。"
-      + (a.provider === "fish" ? "可以在「接口地址」换成一个转发到 api.fish.audio 的中转地址。" : "国内网络要能连上 elevenlabs.io。")
-      + "\n请求地址：" + (a.provider === "fish" ? (a.fishBase || "https://api.fish.audio") + "/v1/tts" : "api.elevenlabs.io")
+    throw new Error("连不上 " + ttsProvName(a) + "：网络不通，或者这家不让网页直接调用（跨域）。"
+      + (a.provider === "fish" ? "可以在「接口地址」换成一个转发到 api.fish.audio 的中转地址。" : a.provider === "openai" ? "检查接口地址；官方地址国内网络要能连上，或者换成中转站给的地址。" : "国内网络要能连上 elevenlabs.io。")
+      + "\n请求地址：" + (a.provider === "fish" ? (a.fishBase || "https://api.fish.audio") + "/v1/tts" : a.provider === "openai" ? ttsOaUrl(a) : "api.elevenlabs.io")
       + "\n原始报错：" + String((e && e.message) || e).replace(/^连接中断了（Load failed）。[\s\S]*原始报错：/, "").slice(0, 120));
   }
   if (!r.ok) {
     let msg = "";
     try { msg = (await r.text()).replace(/\s+/g, " ").slice(0, 200); } catch (e) {}
-    throw new Error((a.provider === "fish" ? "Fish Audio" : "ElevenLabs") + " 报错 HTTP " + r.status + (msg ? "：" + msg : "")
+    throw new Error(ttsProvName(a) + " 报错 HTTP " + r.status + (msg ? "：" + msg : "")
       + (r.status === 401 || r.status === 403 ? "（检查密钥是否完整、账户额度够不够）" : r.status === 404 || r.status === 422 || /VOICE_NOT_FOUND|voice.{0,12}not.{0,6}found/i.test(msg) ? "（声音 ID 不对：要填这一家的声音 ID——Fish 是声音页网址 fish.audio/m/ 后面那串，不是名字；试听用的是设置里的「默认音色 ID」）" : ""));
   }
   const blob = await r.blob();
