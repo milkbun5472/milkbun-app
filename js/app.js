@@ -5176,7 +5176,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     ccMemExtractBusyRef.current = true;
     try {
       const n = await extractAndAddForChar(charId, plan.messages, { liveMessages: chatsRef.current[charId] || [] });
-      window.CcMemoryAuto.commit(localStorage, state, plan.keys, Date.now());
+      window.CcMemoryAuto.commit(localStorage, state, plan.keys, Date.now(), plan.throughTs);
       return n;
     } catch (e) {
       window.CcMemoryAuto.fail(localStorage, state, e, Date.now());

@@ -18,3 +18,14 @@ test("后台不抽、冷却中不抽", () => {
   const i = A.indexOf("const runCcAutoMemory"); const seg = A.slice(i, i + 1200);
   assert.match(seg, /visibilityState === "hidden"\) return 0/); assert.match(seg, /CcMemoryAuto\.cooling\(state, Date\.now\(\)\)\) return 0/);
 });
+test("账本超过 2000 条：掉出名单的老话不再被当成没审过", () => {
+  const msgs = Array.from({ length: 2500 }, (_, i) => ({ role: i % 2 ? "assistant" : "user", content: "第" + i + "句", ledgerImported: true, ledgerKey: "k" + i, ts: 1000 + i }));
+  const st = { owner_id: "o", char_id: "c", processed_keys: msgs.slice(500).map(m => m.ledgerKey) };
+  assert.equal(M.plan(msgs, M.normalize(st, "o", "c"), { minNew: 2 }), null);
+  const more = msgs.concat([{ role: "user", content: "新的", ledgerImported: true, ledgerKey: "n1", ts: 9000 }, { role: "assistant", content: "新的回", ledgerImported: true, ledgerKey: "n2", ts: 9001 }]);
+  const p = M.plan(more, M.normalize(st, "o", "c"), { minNew: 2 });
+  assert.deepStrictEqual(p.keys, ["n1", "n2"]); assert.equal(p.throughTs, 9001);
+  const mem = (() => { const d = {}; return { getItem: k => d[k] || null, setItem: (k, v) => { d[k] = v; } }; })();
+  const s2 = M.commit(mem, M.normalize(st, "o", "c"), p.keys, 1, p.throughTs);
+  assert.equal(s2.through_ts, 9001); assert.equal(M.plan(more, s2, { minNew: 2 }), null);
+});
