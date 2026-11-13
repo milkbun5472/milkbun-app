@@ -34470,7 +34470,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 这一块真的没发——但直接留空她会以为是坏了。写清楚它去哪儿了：
       // 这一页答的是「发了什么」，「这一块为什么不在」也是答案的一部分。
       if (shape.blankRecent) gated.recentChat = "（这一轮没有这一块：聊天记录是作为单独的消息记录发出去的，没有在这儿重复第二份。）";
-      return buildBundle(gated);
+      // marks：让拼装那头告诉这一页哪儿是真的段界（世界书正文里的【小标题】不该被当成一段）
+      return buildBundle(gated, { marks: true });
     } catch (e) { return "生成失败：" + (e.message || e); }
   };
   const activeOfflineScopeKey = offlineChar

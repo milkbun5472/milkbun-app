@@ -4267,10 +4267,15 @@ function RecallShadowPanel() {
 function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
   const t = useTheme();
   const initialCid = lockedCharId || null;
+  // 段界记号：带记号的就照它拆（世界书、角色卡正文里的【小标题】不再被当成顶格的段），
+  //   没有记号（旧路、别处调的）才退回按行首【】自己猜。显示前一律摘掉记号。
+  const SEC_MARK = (typeof window !== "undefined" && window.BUNDLE_SEC_MARK) || "\u2063";
   const readBundle = id => String((getBundle && getBundle(id)) || "（空）");
+  const stripMarks = s => String(s).split(SEC_MARK).join("");
   const readRecall = id => typeof window !== "undefined" && window.MemoryRecallSnapshot ? window.MemoryRecallSnapshot.get(id) : null;
   const [cid, setCid] = useState(initialCid);
-  const [text, setText] = useState(() => initialCid ? readBundle(initialCid) : "");
+  const [bundleRaw, setBundleRaw] = useState(() => initialCid ? readBundle(initialCid) : "");
+  const text = stripMarks(bundleRaw);
   const [recall, setRecall] = useState(() => initialCid ? readRecall(initialCid) : null);
   // 房间自己那份记忆的召回收据（ChatRooms.memRecall 只在真发出去的那一轮留）。跟主线那份分开放、分开画。
   const readRoomRecall = id => typeof window !== "undefined" && window.__roomRecallSnapshots ? window.__roomRecallSnapshots[String(id)] || null : null;
@@ -4363,17 +4368,21 @@ function CtxDebug({ characters, getBundle, lockedCharId, compact }) {
   })();
   const load = id => {
     setCid(id);
-    setText(readBundle(id));
+    setBundleRaw(readBundle(id));
     setRecall(readRecall(id));
     setRoomRecall(readRoomRecall(id));
     setOpen({});
   };
   const secs = (() => {
     if (!cid || !text) return [];
-    const raw = text.split(/\n(?=【)/).map((p, i) => {
-      const m = p.match(/^【[^】]*】/);
-      return { title: m ? m[0] : (i === 0 ? "【开头】" : "【段落 " + (i + 1) + "】"), body: p };
-    });
+    const marked = bundleRaw.includes(SEC_MARK);
+    const chunks = marked ? bundleRaw.split(SEC_MARK) : text.split(/\n(?=【)/);
+    const raw = chunks.map((p, i) => {
+      const body = stripMarks(p).replace(/^\n+/, "");
+      const m = body.match(/^【[^】]*】/);
+      return { title: m ? m[0] : (i === 0 ? "【开头】" : "【段落 " + (i + 1) + "】"), body: body };
+    }).filter(x => x.body.trim());
+    if (marked) return raw;
     // ⚠️长期记忆自己内部就是一段一段的【7月8日】，而这儿按【行首的【】】切段，
     // 于是【一段】被切成几十条，看着像几十个各自独立的东西——她 2026-09-01 就是
     // 这么被绕进去的：「这个长期记忆是 7/8 之前的，而且一直没变过」。

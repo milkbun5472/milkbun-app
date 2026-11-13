@@ -4329,6 +4329,9 @@ function coupleStatusLines(ctx, uName) {
   }
   return out.filter(Boolean);
 }
+// 段界记号（只给诊断页用；零宽字符，不进任何真实请求）
+const BUNDLE_SEC_MARK = "\u2063";
+try { window.BUNDLE_SEC_MARK = BUNDLE_SEC_MARK; } catch (e) {}
 function buildBundle(ctx, opts) {
   const {
     char,
@@ -4565,7 +4568,13 @@ function buildBundle(ctx, opts) {
   // Memory v2 统一拼装收据：只记录各 lane 的长度与影子预算草案；parts 原样 join。
   try { window.MemoryV2Shadow && window.MemoryV2Shadow.observeComposition({ charId: char && char.id, parts }); } catch (e) {}
   // 同上：按内容去重，同一段绝不发两遍
-  return [...new Set(parts.filter(Boolean))].join("\n\n");
+  const _uniq = [...new Set(parts.filter(Boolean))];
+  // 「查上一轮真的发了什么」那一页要按【真正的段】拆开（opts.marks，只走那一条诊断路）：
+  //   ⚠️它原来靠「行首的【】」自己切，可世界书、角色卡自己的正文里满是【王都】【禁术】这种小标题，
+  //   于是一份世界书被切成几十个顶格的段，跟隐藏的系统提示混在一条长列表里，看不出哪一段是她写的
+  //   （她 2026-11-12 问「能分出世界书了吗」）。段界只有拼装这儿知道，所以在这儿插一个不可见的记号。
+  //   送出去那条路一个字都不变：只有带 marks 的诊断调用会拿到记号，页面显示前会摘掉。
+  return _uniq.join(opts && opts.marks ? "\n\n" + BUNDLE_SEC_MARK : "\n\n");
 }
 // 写作类后台生成(日记/交换日记/日记评论)专用的【精简 ctx】：只留人设/自我/对方/关系/心情/行程/最近对话，
 // 砍掉世界书·记忆库·朋友圈·论坛·群·礼物·记账·备忘·歌单等重块——写一页日记用不上，却每次满价重塞小克贵线。省钱不改口吻。
