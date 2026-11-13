@@ -36,6 +36,8 @@ const SPATULA = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 48'><pa
 // 好感：一片吐司，好感越高烤得越黄——白吐司底，上面叠一片烤金黄的，透明度跟着好感走
 const SLICE = (fill, crust) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><path d='M12 56 V25 Q4 24 4.5 16.5 Q6 7 16 8 Q21 2 30 4.5 Q39 2 44 8 Q54 7 55.5 16.5 Q56 24 48 25 V56Z' fill='${fill}' stroke='${crust}' stroke-width='3.5' stroke-linejoin='round'/></svg>`;
 const SLICEFACE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><circle cx='23' cy='34' r='2' fill='${C.ink}'/><circle cx='37' cy='34' r='2' fill='${C.ink}'/><path d='M27 39 Q30 42 33 39' fill='none' stroke='${C.ink}' stroke-width='1.6' stroke-linecap='round'/><circle cx='19' cy='39' r='2.6' fill='#F2A3A0' opacity='.6'/><circle cx='41' cy='39' r='2.6' fill='#F2A3A0' opacity='.6'/></svg>`;
+// 线下：早餐桌——格子桌布上一只白盘子，盘里一片吐司叠一颗荷包蛋，旁边一杯冒热气的咖啡，后面一扇透着晨光的窗
+const TABLE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 300'><defs><pattern id='ck' width='26' height='26' patternUnits='userSpaceOnUse'><rect width='26' height='26' fill='#FFF6E8'/><rect width='13' height='13' fill='#F3C6B5' opacity='.6'/><rect x='13' y='13' width='13' height='13' fill='#F3C6B5' opacity='.6'/></pattern><radialGradient id='sun'><stop offset='0' stop-color='#FFE9B8' stop-opacity='.9'/><stop offset='1' stop-color='#FFE9B8' stop-opacity='0'/></radialGradient></defs><rect x='110' y='10' width='170' height='110' rx='10' fill='#FFF3DA' stroke='#E6D3B8' stroke-width='5'/><path d='M195 10 V120 M110 65 H280' stroke='#E6D3B8' stroke-width='4'/><circle cx='240' cy='45' r='34' fill='url(#sun)'/><circle cx='240' cy='45' r='12' fill='#FFD27A'/><path d='M0 170 H390 V300 H0Z' fill='url(#ck)'/><path d='M0 170 H390' stroke='#E6C3B0' stroke-width='3'/><ellipse cx='175' cy='225' rx='92' ry='30' fill='#fff' stroke='#E6DCCB' stroke-width='2'/><ellipse cx='175' cy='222' rx='70' ry='20' fill='none' stroke='#F0E8DA' stroke-width='1.5'/><path d='M138 230 V205 Q128 204 129 196 Q131 188 141 189 Q146 183 156 186 Q165 182 171 188 Q181 187 183 196 Q184 204 174 205 V230Z' fill='${C.toast}' stroke='${C.crust}' stroke-width='3' stroke-linejoin='round'/><path d='M180 214 Q186 202 200 204 Q214 200 220 212 Q230 218 222 226 Q214 234 198 231 Q182 232 178 224 Q174 218 180 214Z' fill='#fff' stroke='#EFE6D6' stroke-width='1.5'/><circle cx='200' cy='217' r='8' fill='${C.yolk}'/><circle cx='197' cy='214' r='2.4' fill='#fff' opacity='.85'/><path d='M290 196 H326 V226 Q326 238 314 238 H302 Q290 238 290 226Z' fill='#fff' stroke='${C.crust}' stroke-width='2.5'/><path d='M326 204 Q338 204 338 213 Q338 222 326 222' fill='none' stroke='${C.crust}' stroke-width='2.5'/><ellipse cx='308' cy='198' rx='15' ry='3' fill='#8E5A2A'/><path d='M300 186 Q296 178 301 170 M310 186 Q306 176 312 168 M320 186 Q316 178 321 172' fill='none' stroke='#D9CCB8' stroke-width='2' stroke-linecap='round'/></svg>`;
 const bubble = { myBg: C.toast, myText: C.ink, myBorder: "none", charBg: C.bread, charText: C.ink, charBorder: "none", radius: 8, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -266,6 +268,47 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
 [data-wk="gazeempty"]{background:#fff !important;border:2px dashed #E6D3B8 !important;border-radius:16px !important;color:${C.ink} !important}
 [data-wk="gazeempty"] button{background:${C.crust} !important;color:#fff !important;border:none !important;border-radius:999px !important}
+/* ───── 早安吐司 · 第四批：线下＝早餐桌（晨光窗、格子桌布、盘里吐司叠荷包蛋、一杯咖啡） ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(TABLE)} center bottom 70px/100% auto no-repeat,${C.bg} !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"] + *{margin-top:0 !important;padding-top:10px !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headname"]{display:block !important}
+[data-wk="offline"] [data-wk="chathead"] button:has(> img[data-wk="avatar"])::after{content:none !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:${C.ink} !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:32px !important;height:32px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:#fff !important;color:${C.crust} !important;border:2px solid ${C.crust} !important;border-radius:999px !important;font-size:12px !important;padding:3px 14px !important}
+[data-wk="offcomposer"]{background:#fff !important;border-top:1px solid #EFE4D2 !important}
+[data-wk="offcomposer"] textarea{background:#F5F1EA !important;border:none !important;border-radius:14px !important;color:${C.ink} !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:34px !important;height:34px !important;min-width:34px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PLUS)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/34px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{position:relative !important;width:46px !important;min-width:46px !important;height:46px !important;border:none !important;border-radius:50% !important;background:${svg(EGG2)} center/76% no-repeat,${C.crust} !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+/* 卡片：一片片吐司，他的白、你的烤黄 */
+[data-wk="offcard"]{position:relative !important;overflow:visible !important;background:${C.bread} !important;border:3px solid ${C.crust} !important;border-top:none !important;border-radius:0 0 16px 16px !important;margin-top:30px !important;box-shadow:0 3px 8px rgba(140,100,60,.15) !important;color:${C.ink} !important}
+[data-wk="offcard"]::before{content:"" !important;position:absolute !important;left:-9px !important;right:-9px !important;top:-24px !important;height:26px !important;background:${svg(CAP(C.bread))} center/100% 100% no-repeat !important}
+[data-wk="offcard"][data-me="1"]{background:linear-gradient(180deg,${C.toast},${C.toast2}) !important}
+[data-wk="offcard"][data-me="1"]::before{background:${svg(CAP(C.toast))} center/100% 100% no-repeat !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2.5px ${C.yolk} !important}
+[data-wk="offhead"] [data-wk="avatar"]::before{content:none !important}
+[data-wk="offname"],[data-wk="offtext"]{color:${C.ink} !important}
+[data-wk="offname"]{font-weight:700 !important}
+[data-wk="offsay"]{color:${C.crustD} !important;background:linear-gradient(transparent 62%,rgba(255,201,60,.5) 62%) !important;font-weight:700 !important}
+[data-wk="offthought"]{background:transparent !important;border:none !important;border-left:2px dotted ${C.crust} !important;border-radius:0 !important;color:#8E7258 !important;font-style:italic !important;box-shadow:none !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offthought"]{color:${C.ink} !important}
+[data-wk="offcardacts"] svg{stroke:${C.crust} !important;color:${C.crust} !important}
+[data-wk="offreplyopt"]{background:#fff !important;border:2px solid ${C.crust} !important;border-radius:999px !important;color:${C.ink} !important}
+
+/* ───── 早安吐司 · 通话 ───── */
+[data-wk="callbubble"]{background:${C.bread} !important;color:${C.ink} !important;border:2.5px solid ${C.crust} !important;border-radius:14px !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:linear-gradient(180deg,${C.toast},${C.toast2}) !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.crust} !important}
+[data-wk="callact"]{color:#8E7258 !important;font-style:italic !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 5px ${C.yolk},0 0 0 22px #fff,0 0 0 24px #EFE6D6 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "早安吐司", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
