@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.506";
+const APP_VERSION = "v89.509";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -34498,7 +34498,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 这一块真的没发——但直接留空她会以为是坏了。写清楚它去哪儿了：
       // 这一页答的是「发了什么」，「这一块为什么不在」也是答案的一部分。
       if (shape.blankRecent) gated.recentChat = "（这一轮没有这一块：聊天记录是作为单独的消息记录发出去的，没有在这儿重复第二份。）";
-      return buildBundle(gated);
+      // marks：让拼装那头告诉这一页哪儿是真的段界（世界书正文里的【小标题】不该被当成一段）
+      return buildBundle(gated, { marks: true });
     } catch (e) { return "生成失败：" + (e.message || e); }
   };
   const activeOfflineScopeKey = offlineChar
