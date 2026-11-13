@@ -587,7 +587,9 @@
       // 太大的存档服务器门口直接拒（nginx 上限 52MB），拒的那一下不带跨域头，浏览器只报一句「Failed to fetch」——
       //   开梯子换网都没用（群友 2026-10-15）。先量一下，超了就说清是多大、该怎么办；没超但还是连不上，也把大小带上便于判断。
       let mb = 0; try { mb = new Blob([JSON.stringify(saveData)]).size / 1048576; } catch (e) {}
-      if (mb > 50) throw new Error("存档有 " + mb.toFixed(1) + " MB，超过云端一次能收的 50 MB，传不上去。先去 设置 → 数据 → 本地空间 看谁占地方、清掉一些（大图、超长聊天可以先归档），或者导出一份 json 存好");
+      // 50 MB 是她那台 VPS 门口 nginx 的上限（tools/vps/lisa-cloud/nginx.conf）。连自己 Supabase 的人没有这道门（她 2026-11-13），
+      //   不挡，照传；真传不上去，下面那句报错里带着这次多大
+      if (mb > 50 && /yanqiu-vps/.test(String((client && client.supabaseUrl) || VPS_SUPABASE_URL))) throw new Error("存档有 " + mb.toFixed(1) + " MB，超过云端一次能收的 50 MB，传不上去。先去 设置 → 数据 → 本地空间 看谁占地方、清掉一些（大图、超长聊天可以先归档），或者导出一份 json 存好");
       let res;
       try { res = await client.from("saves").upsert({ user_id: user.id, data: saveData, updated_at: ts }); }
       catch (e) { throw new Error((e && e.message || "连不上云端") + "（这次要传 " + mb.toFixed(1) + " MB）"); }

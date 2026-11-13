@@ -5,3 +5,6 @@ test("撤销历史不进云端备份", () => {
   assert.match(S, /!LOCAL_ONLY\[k\] && !\(tableMemoryMode\(\) && k === "x_memLib"\)\)\s*\n\s*\.forEach/);
   assert.match(S, /if \(v != null && !LOCAL_ONLY\[k\]/);
 });
+test("50 MB 只挡她那台 VPS，自己的 Supabase 不挡", () => {
+  assert.match(S, /if \(mb > 50 && \/yanqiu-vps\/\.test\(String\(\(client && client\.supabaseUrl\) \|\| VPS_SUPABASE_URL\)\)\) throw/);
+});
