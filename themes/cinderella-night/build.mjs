@@ -137,6 +137,11 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chathead"] img[data-wk="avatar"],[data-wk="chathead"] [data-wk="avatar"]{box-shadow:0 0 0 2.5px ${C.pearl2},0 0 0 3.5px ${C.goldD} !important}
 /* 头像框比头像大，给台阶让一点位置 */
 [data-wk="msg"] [data-wk="row"]{gap:14px !important}
+/* 顶栏不做框：底子透明，底下一条横贯全宽的细金线（两头淡出），正中一颗小星 */
+[data-wk="chathead"]::before{content:none !important}
+[data-wk="chathead"]{background:linear-gradient(180deg,rgba(62,60,142,.55),rgba(62,60,142,0)) !important}
+[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:0 !important;height:12px !important;margin-bottom:-6px !important;background:${svg(STAR)} center/8px 11px no-repeat,linear-gradient(90deg,rgba(242,217,160,0),rgba(242,217,160,.85) 20%,rgba(242,217,160,.85) calc(50% - 10px),transparent calc(50% - 10px),transparent calc(50% + 10px),rgba(242,217,160,.85) calc(50% + 10px),rgba(242,217,160,.85) 80%,rgba(242,217,160,0)) center/100% 1px no-repeat !important;pointer-events:none !important}
+[data-wk="chatmore"]{margin-right:0 !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "午夜舞会", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
