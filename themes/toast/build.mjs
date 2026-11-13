@@ -328,6 +328,29 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.crust} !important}
 [data-wk="callact"]{color:#8E7258 !important;font-style:italic !important}
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 5px ${C.yolk},0 0 0 22px #fff,0 0 0 24px #EFE6D6 !important}
+/* ───── 早安吐司 · 补齐（照 README 新加的几条） ───── */
+/* 打电话那一屏：整屏是晨光奶油色，中间大头像是一颗大荷包蛋；三颗按键是小吐司片，中间挂断是一颗烤焦的红色 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle at 50% 22%,rgba(255,226,140,.55),transparent 55%),linear-gradient(180deg,#FFF3DE,${C.bg} 60%,#F4E3CF) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:${C.ink} !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:${C.fog} !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:#fff !important;box-shadow:0 0 0 2px ${C.crust} !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:${C.crust} !important}
+[data-wk="callbtns"] button > span:first-child{background:${C.bread} !important;border-radius:22px 22px 14px 14px !important;box-shadow:0 0 0 3px ${C.crust},0 4px 0 3px ${C.crustD} !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:${C.crust} !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#D9473F !important;box-shadow:0 0 0 3px #A8322B,0 4px 0 3px #7E2520 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:${C.ink} !important}
+/* 电话小结：一张小吐司签，左边一道焦糖边 */
+[data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;background:${C.bread} !important;border:2px solid #E6D3B8 !important;border-left:5px solid ${C.crust} !important;border-radius:6px 14px 14px 6px !important;padding:8px 14px !important;color:#8E7258 !important;max-width:86% !important}
+[data-wk="noteink"]{color:#8E7258 !important}
+/* 她自己写的动作（myact）、旁白模式那一栏（narrbar） */
+[data-wk="myactink"]{background:transparent !important;border:none !important;border-right:2px dotted ${C.crust} !important;border-radius:0 !important;box-shadow:none !important;color:#8E7258 !important;font-style:italic !important;padding:2px 14px 2px 0 !important}
+[data-wk="narrbar"]{background:#fff !important;border-top:1px solid #EFE4D2 !important}
+[data-wk="narrkind"]{border:1.5px solid #E6D3B8 !important;border-radius:999px !important;background:#fff !important;color:${C.fog} !important}
+[data-wk="narrkind"][data-on="1"]{background:${C.crust} !important;border-color:${C.crust} !important;color:#fff !important}
+/* 私聊红包那一行的头像也套荷包蛋 */
+[data-wk="rpsingle"] [data-wk="avatar"]{position:relative !important;overflow:visible !important;isolation:isolate !important;border-radius:50% !important;box-shadow:0 0 0 2.5px ${C.yolk} !important}
+[data-wk="rpsingle"] [data-wk="avatar"]::before{content:"" !important;position:absolute !important;inset:-34% !important;background:${svg(EGG)} center/contain no-repeat !important;z-index:-1 !important;pointer-events:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "早安吐司", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
