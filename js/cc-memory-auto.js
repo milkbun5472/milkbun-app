@@ -30,23 +30,40 @@
     return normalize(raw, ownerId, charId);
   }
 
+  // 审到哪儿了（她 2026-11-13：一天写进 194 条、大多是老事重嚼）：processed_keys 只留最近 2000 个，
+  //   账本超过 2000 条后最老的那批掉出名单，又被当成「没审过」——每抽一批就挤掉一批老的，老的再回来，一直循环。
+  //   所以另记一道水位线 through_ts：这个时间以前的一律算审过，名单只管水位线附近那一截。
+  //   旧存档没有水位线：拿名单里还认得的那几条里最新的时间当起点。
+  function throughOf(all, state, done) {
+    const t = Number(state && state.through_ts) || 0;
+    if (t) return t;
+    let max = 0;
+    all.forEach(m => { if (eligible(m) && done.has(String(m.ledgerKey))) max = Math.max(max, Number(m.ts) || 0); });
+    return max;
+  }
+
   function plan(messages, state, options) {
     const all = Array.isArray(messages) ? messages : [], done = new Set((state && state.processed_keys) || []);
-    const pending = all.filter(m => eligible(m) && !done.has(String(m.ledgerKey)));
+    const through = throughOf(all, state, done);
+    const pending = all.filter(m => eligible(m) && !done.has(String(m.ledgerKey)) && (Number(m.ts) || 0) > through);
     const minNew = Math.max(2, Number(options && options.minNew) || 2);
     if (pending.length < minNew) return null;
     const first = all.indexOf(pending[0]), start = Math.max(0, first - 4);
     // 从最早未审处向后分批，不能只截最新 120 条却把更老的 pending 一并盖章。
     const context = all.slice(start).filter(m => m && !m.recalled && ["user", "assistant"].includes(m.role) && text(m.content)).slice(0, 120);
-    const keys = context.filter(m => eligible(m) && !done.has(String(m.ledgerKey))).map(m => String(m.ledgerKey));
-    return { messages: context, keys, pending: pending.length };
+    const fresh = context.filter(m => eligible(m) && !done.has(String(m.ledgerKey)) && (Number(m.ts) || 0) > through);
+    const keys = fresh.map(m => String(m.ledgerKey));
+    const throughTs = fresh.reduce((x, m) => Math.max(x, Number(m.ts) || 0), through);
+    return { messages: context, keys, pending: pending.length, throughTs };
   }
 
-  function commit(storage, state, keys, nowValue) {
+  function commit(storage, state, keys, nowValue, throughTs) {
     const next = normalize(state, state && state.owner_id, state && state.char_id);
+    if (Number(throughTs) > (Number(next.through_ts) || 0)) next.through_ts = Number(throughTs);
     next.processed_keys = [...new Set([...(next.processed_keys || []), ...(keys || []).map(String)])].slice(-CAP);
     next.last_success_at = new Date(Number(nowValue) || Date.now()).toISOString();
     next.last_error = null;
+    next.fail_count = 0;
     storage.setItem(KEY, JSON.stringify(next));
     return next;
   }
@@ -55,9 +72,19 @@
     const next = normalize(state, state && state.owner_id, state && state.char_id);
     next.last_error = String(error && error.message || error || "unknown");
     next.last_attempt_at = new Date(Number(nowValue) || Date.now()).toISOString();
+    next.fail_count = Math.max(0, Number(next.fail_count) || 0) + 1;
     storage.setItem(KEY, JSON.stringify(next));
     return next;
   }
 
-  return { KEY, eligible, normalize, load, plan, commit, fail };
+  // 失败后要歇一阵再试（她 2026-11-13：一夜每分钟扣一次钱）：账本每分钟同步一次，失败了不歇就每分钟再抽一遍，
+  //   而后台被掐断的那一枪中转站照样计费。歇 10 分钟起、每失败一次翻倍，最多 6 小时；成功一次清零。
+  function cooling(state, nowValue) {
+    const n = Math.max(0, Number(state && state.fail_count) || 0);
+    if (!n || !state.last_attempt_at) return false;
+    const wait = Math.min(6 * 3600e3, 10 * 60e3 * Math.pow(2, n - 1));
+    return (Number(nowValue) || Date.now()) - Date.parse(state.last_attempt_at) < wait;
+  }
+
+  return { KEY, eligible, normalize, load, plan, commit, fail, cooling };
 });

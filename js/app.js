@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.517";
+const APP_VERSION = "v89.521";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -646,7 +646,18 @@ function App() {
     saveJSON("x_memExtractCtr", all);
     return all[k];
   };
-  const memExtractMarkRef = useRef({}); // 每角色「上次抽到的最后一条 ts」——防话痨多气泡溢出漏抽（她 2026-07-13 抓的账）
+  // 每个聊天「上次抽到的最后一条 ts」——防话痨多气泡溢出漏抽（她 2026-07-13 抓的账）。
+  //   跟上面的计数存在同一份 x_memExtractCtr 里（她 2026-11-13「普通角色会不会也有这个问题」）：原来只在内存里，
+  //   每次重开 app 书签归零，开机后头一回自动抽会把最近二十几条老话再抽一遍。kind：chat／off／room
+  const memMarkGet = (kind, id) => {
+    if (!extractCtrRef.current) extractCtrRef.current = loadJSON("x_memExtractCtr", {}) || {};
+    return Number(extractCtrRef.current["mark:" + kind + ":" + id]) || 0;
+  };
+  const memMarkSet = (kind, id, ts) => {
+    if (!extractCtrRef.current) extractCtrRef.current = loadJSON("x_memExtractCtr", {}) || {};
+    extractCtrRef.current["mark:" + kind + ":" + id] = Number(ts) || 0;
+    saveJSON("x_memExtractCtr", extractCtrRef.current);
+  };
   const ccMemExtractBusyRef = useRef(false); // CC 自动记忆独立串行锁；持久书签在 cc-memory-auto.js
   const ccToolManagerRef = useRef(null); // App→固定言秋 CC 异步只读工具队列
   const saveMemCfg = patch => setMemCfg(p => { const n = { ...p, ...patch }; memCfgRef.current = n; saveJSON("x_memCfg", n); return n; });
@@ -5051,6 +5062,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     toast("已恢复归档记忆、撤除对应精炼摘要");
   };
   // 共享抽取：把 msgs 抽成记忆条、双重去重后入库，返回实际新增条数（手动/自动共用）
+  // 一条抽出来的记忆是哪天的事：它引的那几条消息里最晚的那条的时间（消息编号的认法跟证据闸 memory-extraction-gate 同一套）
+  const memEvidenceTs = (it, msgs) => {
+    const ids = new Set((Array.isArray(it && it.evidence_message_ids) ? it.evidence_message_ids : []).map(String));
+    if (!ids.size || !Array.isArray(msgs)) return 0;
+    let t = 0;
+    msgs.forEach((m, i) => { const id = String((m && (m.id || m.mid)) || (m && m.ts ? "ts_" + m.ts : "idx_" + i)); if (ids.has(id)) t = Math.max(t, Number(m.ts) || 0); });
+    return t && t <= Date.now() ? t : 0;
+  };
   const pastMemEntry = (e, when) => ({ ...e, tags: [...new Set([...(e.tags || []), "过去"])], past: true, when: String(when || "").trim().slice(0, 40), open: false });
   const extractAndAddForChar = async (charId, msgs, exOpts = {}) => {
     const char = characters.find(c => c.id === charId);
@@ -5092,7 +5111,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         window.RerollBranch && window.RerollBranch.candidateStillLive(it, liveMessages)
       ).map((it, i) => {
         const entry = {
-          id: uniqMemId(now, i), text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], charIds: [charId], ts: now, source: "auto", pinned: false,
+          // 日期照那件事说出口的那天，不照抽的这天（她 2026-11-13：九月的 CFE、你爸出差被重抽进来，全盖着今天的日期，
+          //   言秋就当成了本周新闻）：取证据那几条消息里最晚的时间；对不上才用现在。抽的时候另记在 addedTs
+          id: uniqMemId(now, i), text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], charIds: [charId], ts: memEvidenceTs(it, msgs) || now, addedTs: now, source: "auto", pinned: false,
           v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open,
           evidenceMessageIds: Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : [],
           ...memTtlPatch(it, now)
@@ -5151,7 +5172,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // ⭐防溢出漏抽（她 2026-07-13 抓的账）：不用固定 24 窗，从「上次抽到的位置」之后的【全部新消息】都覆盖到——
     //   话痨一轮 17 条、间隔 3 轮攒 50+ 条时，窗口自动放大到够装（新消息+4 条重叠），封顶 120 防 prompt 过大。
     //   抽取走便宜后台池(bgActive)、不烧小克的 fable 线。mark 只在成功后前移；失败/漏了下次自动补覆盖。
-    const mark = memExtractMarkRef.current[charId] || 0;
+    const mark = memMarkGet("chat", charId);
     const newCount = all.filter(m => (m.ts || 0) > mark).length;
     if (mark && newCount < 4) return;                         // 有书签且没攒够新消息就先不跑
     if (!memExtractWorthy(all.filter(m => (m.ts || 0) > mark))) return; // 全是嗯嗯好的：不花这一次，书签不动
@@ -5159,7 +5180,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const msgs = all.slice(-take);
     try {
       await extractAndAddForChar(charId, msgs);
-      memExtractMarkRef.current[charId] = all[all.length - 1].ts || Date.now();
+      memMarkSet("chat", charId, all[all.length - 1].ts || Date.now());
     } catch (e) {/* 静默：不动 mark，下次重覆盖 */}
   };
   // CC 回流自动记忆：独立于“每几轮抽一次”的聊天计数，避免一次 pull 合并多泡却只算一轮。
@@ -5167,13 +5188,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const runCcAutoMemory = async (charId, ownerId) => {
     if (!memCfgRef.current.autoExtract || !bgActive || !window.CcMemoryAuto || ccMemExtractBusyRef.current) return 0;
     if (memExtractInflightRef.current[charId]) return 0;
+    // 切在后台不抽：手机会把连接掐断，结果拿不到、钱照扣；失败过的歇一阵再试（cooling）
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return 0;
     const state = window.CcMemoryAuto.load(localStorage, ownerId, charId);
+    if (window.CcMemoryAuto.cooling && window.CcMemoryAuto.cooling(state, Date.now())) return 0;
     const plan = window.CcMemoryAuto.plan(chatsRef.current[charId] || [], state, { minNew: 2 });
     if (!plan) return 0;
     ccMemExtractBusyRef.current = true;
     try {
       const n = await extractAndAddForChar(charId, plan.messages, { liveMessages: chatsRef.current[charId] || [] });
-      window.CcMemoryAuto.commit(localStorage, state, plan.keys, Date.now());
+      window.CcMemoryAuto.commit(localStorage, state, plan.keys, Date.now(), plan.throughTs);
       return n;
     } catch (e) {
       window.CcMemoryAuto.fail(localStorage, state, e, Date.now());
@@ -9041,7 +9065,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 线下自动抽取（她 2026-07-23：自动抽取也加进线下）：仿线上 maybeAutoExtract，但读【进行中线下 session】的 msgs，
   //   走独立书签/计数，liveMessages 传线下自己这段（否则线上核验会把线下证据全过滤掉）。与滚动总结并行、各抽各的粒度。
-  const memExtractMarkOffRef = useRef({});
   const maybeAutoExtractOffline = async scopeKey => {
     // 侧房的线下：同单聊那条——抽这场自己的，开着「进记忆」进主线，关着记在房里
     if (offlineIsRoom(scopeKey)) {
@@ -9061,14 +9084,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (cnt % interval !== 0) return;
     const all = (sess.msgs || []).filter(m => m && !isOocMsg(m));
     if (all.length < 4) return;
-    const mark = memExtractMarkOffRef.current[charId] || 0;
+    const mark = memMarkGet("off", charId);
     const newCount = all.filter(m => (m.ts || 0) > mark).length;
     if (mark && newCount < 4) return;
     const take = Math.min(120, Math.max(24, newCount + 4));
     const msgs = all.slice(-take);
     try {
       await extractAndAddForChar(charId, msgs, { liveMessages: all });
-      memExtractMarkOffRef.current[charId] = all[all.length - 1].ts || Date.now();
+      memMarkSet("off", charId, all[all.length - 1].ts || Date.now());
     } catch (e) {/* 静默：不动 mark，下次重覆盖 */ }
   };
   // ── 线下拍照 ────────────────────────────────────────────────
@@ -11306,7 +11329,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 现在照同一个抽取器（extractMemories）抽，落点换成 ChatRooms.memAdd：只这间房读得到。
   // ⚠️不接开环 / 约回 / 了结：那一整条链是主线的（到点TA会从主聊天来找她），房里的约定不许漏出门。
   // 节拍、开关照主线那份（记忆库·召回设置里的 autoExtract / extractInterval），不另立一套。
-  const roomExtractMarkRef = useRef({}), roomExtractBusyRef = useRef({});
+  const roomExtractBusyRef = useRef({});
   const maybeAutoExtractRoom = async (char, room, msgsAll, laneKey) => {
     const K = window.ChatRooms, cfg = memCfgRef.current;
     if (!K || !char || !room || room.main || !cfg.autoExtract || !bgActive || bgOff()) return;
@@ -11320,7 +11343,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (cnt % Math.max(1, cfg.extractInterval || 1) !== 0) return;
     const all = (msgsAll || []).filter(m => m && !m.recalled && !m.forkSeed && m.content && !isOocMsg(m) && contextAllowsMessage(m));
     if (all.length < 4) return;
-    const mark = roomExtractMarkRef.current[key] || 0;
+    const mark = memMarkGet("room", key);
     const newCount = all.filter(m => (m.ts || 0) > mark).length;
     if (mark && newCount < 4) return;
     const msgs = all.slice(-Math.min(120, Math.max(24, newCount + 4)));
@@ -11329,7 +11352,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _past = room.writeback && room.writeback.pastMemory ? { when: room.pastWhen || "" } : null;
       if (toMain) {
         await extractAndAddForChar(char.id, msgs, { liveMessages: all, past: _past });
-        roomExtractMarkRef.current[key] = all[all.length - 1].ts || Date.now();
+        memMarkSet("room", key, all[all.length - 1].ts || Date.now());
         return;
       }
       const existing = K.memList(char.id, room.id).slice(0, 40).map(e => e.text);
@@ -11340,7 +11363,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         .map(it => ({ text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], v: it.v, a: it.a, source: "auto" }))
         .map(it => _past ? pastMemEntry(it, _past.when) : it);
       if (keep.length) K.memAdd(char.id, room.id, keep);
-      roomExtractMarkRef.current[key] = all[all.length - 1].ts || Date.now();
+      memMarkSet("room", key, all[all.length - 1].ts || Date.now());
     } catch (e) {/* 静默：不动 mark，下次重覆盖 */}
     finally { roomExtractBusyRef.current[key] = false; }
   };
@@ -15806,7 +15829,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (!isSideRoom) rollbackCharTurns(activeChar.id,removedTurns,false);
         // 抽取书签退回旧分支之前，让新分支能重新参加自动抽取。
         const firstTs = Math.min(...removed.map(x => Number(x.ts) || Date.now()));
-        if (!isSideRoom && Number.isFinite(firstTs)) memExtractMarkRef.current[activeChar.id] = Math.min(memExtractMarkRef.current[activeChar.id] || firstTs, firstTs - 1);
+        if (!isSideRoom && Number.isFinite(firstTs)) memMarkSet("chat", activeChar.id, Math.min(memMarkGet("chat", activeChar.id) || firstTs, firstTs - 1));
         // 正常回合：删掉这一轮 AI 回复（保留用户最后一条）重生成
         pChat(threadKey, p => {
           const liveBranch=window.RerollBranch&&window.RerollBranch.truncateChatBranch?window.RerollBranch.truncateChatBranch(p,idx,turnId):branch;
