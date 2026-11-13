@@ -29,7 +29,7 @@ test("删主群连房间一起删，确认框说有几间", () => {
 });
 
 test("小房间的挂点都登记进美化工作室", () => {
-  ["groomstrip", "groomchip", "groomnew", "groomform", "groomname", "groomkind", "groomopen", "groomentry", "groomtag"].forEach(wk => {
+  ["groomstrip", "groomchip", "groomnew", "groomform", "groomname", "groomkind", "groomopen", "groomtag"].forEach(wk => {
     assert.ok(comp.includes('"' + wk + '"'), "components 缺 " + wk);
     assert.ok(studio.includes('["' + wk + '"'), "theme-studio 没登记 " + wk);
   });
@@ -98,4 +98,10 @@ test("平行世界：新开小表有第三项、房间上挂「平行」、群�
   assert.match(comp, /r\.parallel \? "平行" : ""/);
   assert.match(comp, /group && group\.parallel \? h\("div"/);
   assert.ok(manual.includes("**平行世界**"));
+});
+
+test("小房间放在点群名弹出来的那一排里", () => {
+  const C = require("fs").readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.match(C, /\["room:new", "新开一间小房间"/);
+  assert.match(C, /if \(String\(mk\)\.indexOf\("room:"\) === 0\)/);
 });

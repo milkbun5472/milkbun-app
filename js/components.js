@@ -21556,10 +21556,17 @@ function GroupThread({
       ["narr", "旁白", "不是谁说的话——下雨了、有人推门进来。写完他们就当已经发生"],
       ["ooc", "出戏", "绕过所有人，直接跟演他们的那位说（OOC）"]
     ],
-    elsewhere: [["offline", "见面", "一屋子人不隔着屏幕了"]],
+    // 小房间放在这儿（她 2026-11-13「放轻触顶栏群名字那里吧」）：点群名就看得到能去哪几间、能新开一间
+    elsewhere: [["offline", "见面", "一屋子人不隔着屏幕了"]].concat(onSwitchRoom ? (() => {
+      const mainId = group.roomOf || group.id, rooms = (groups || []).filter(g => g && g.roomOf === mainId);
+      return (group.roomOf ? [["room:" + mainId, "回主群", "回到大家平时待的那个群"]] : [])
+        .concat(rooms.filter(r => r.id !== group.id).map(r => ["room:" + r.id, "去小房间「" + r.name + "」", r.parallel ? "平行世界：谁都不知道主线的事" : "这一间自己的聊天记录"]))
+        .concat([["room:new", "新开一间小房间", "把一段想单独演的（另一条线、AU、换个身份）开成一间，有自己的聊天记录"]]);
+    })() : []),
     cur: chatMode,
     onPick: mk => {
       setModeOpen(false);
+      if (String(mk).indexOf("room:") === 0) { const id = String(mk).slice(5); if (id === "new") setRoomForm({ name: "", kind: "main" }); else onSwitchRoom && onSwitchRoom(id); return; }
       if (mk === "offline") onOffline && onOffline();
       else setChatMode(mk);
     }
@@ -22169,11 +22176,6 @@ function GroupSettingsSheet({ apiProfiles, onSuggestName, onDrawTitles, lucky, o
         className: "active:opacity-60",
         style: { flexShrink: 0, minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: spec ? t.tint : t.sub }
       }, spec ? "回到群里" : "退出群聊"))),
-    // 小房间（她 2026-11-13「群聊咋开房间」「没找到」）：原来压在最底下「清掉」那一栏里、挨着删除群聊，没人会去那儿找。
-    //   单独一栏，挨着群名放；房间自己里面不再往下开
-    onNewRoom && !group.roomOf ? gCard({ title: "小房间", char: "房", tint: "#5f8f8a", state: roomCount ? "已有 " + roomCount + " 间 · 在顶栏下面那排切换" : "还没开过" },
-      "把一段想单独演的（另一条线、AU、换个身份）开成一间房，有自己的聊天记录。开好以后群聊顶栏下面多一排，主群和每间房点一下就切。",
-      h("button", { "data-wk": "groomentry", onClick: onNewRoom, className: "w-full rounded-xl py-3 mt-1 active:opacity-70", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "开一间小房间")) : null,
     onSetNotice ? gCard({ title: "群公告", char: "告", tint: "#7a8f4a", state: gs && gs.notice && gs.notice.text ? String(gs.notice.text).replace(/\s+/g, " ").slice(0, 30) : "还没有公告" },
       "钉在群聊顶上，群里每个人都看得到。他们聊天、见面、打电话时都知道这段公告，会照着聊，也可能提起它、吐槽它。" + (spec ? "你在旁观，公告算群主发的。" : ""),
       h("textarea", { "data-wk": "gnotice", value: noticeDraft, onChange: e => { setNoticeDraft(e.target.value); fitTextarea(e.target); }, rows: 3, placeholder: "比如：周六晚上七点老地方聚餐，都别迟到",
