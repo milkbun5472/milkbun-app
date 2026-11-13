@@ -1680,8 +1680,22 @@ function parseKeyLines(raw, keys, listKeys) {
     let v = text.slice(mk.body, i + 1 < marks.length ? marks[i + 1].at : text.length).trim().replace(/,\s*$/, "");
     if (!v) return;
     if ((listKeys || []).indexOf(mk.key) >= 0) {
+      // 值本身是个数组（word: ["一句", {"emote":"害羞"}, "两句"]，群里 2026-11-13）：先照 JSON 读；夹着的 {"emote":…} 收进 emote，不当话发
+      const takeObj = o => { if (o && typeof o === "object" && !Array.isArray(o)) { const e = o.emote || o.emoji || o.sticker; if (e && !out.emote) out.emote = String(e); return true; } return false; };
+      if (/^\[/.test(v)) {
+        let arr = null;
+        try { arr = JSON.parse(v.replace(/,\s*\]$/, "]")); } catch (e) {}
+        if (Array.isArray(arr)) {
+          const items = arr.filter(x => !takeObj(x)).map(x => String(x == null ? "" : x).trim()).filter(Boolean);
+          if (items.length) out[mk.key] = items;
+          return;
+        }
+        v = v.replace(/^\[\s*/, "").replace(/\s*\]\s*$/, "");
+      }
       let items = /\n/.test(v) ? v.split(/\n+/) : (/^[-•·]\s/.test(v) ? v.split(/\s+[-•·]\s+/) : [v]);
-      items = items.map(x => x.replace(/^\s*(?:[-•·*]|\d+[.、])\s*/, "").replace(/^["“]|["”],?$/g, "").trim()).filter(Boolean);
+      items = items.map(x => x.trim().replace(/^(?:[-•·*]|\d+[.、])\s*/, "").replace(/,\s*$/, "").trim())
+        .filter(x => { if (/^\{[\s\S]*\}$/.test(x)) { try { if (takeObj(JSON.parse(x))) return false; } catch (e) {} } return true; })
+        .map(x => x.replace(/^["“]|["”]$/g, "").trim()).filter(x => x && !/^[\[\]{},]+$/.test(x));
       if (items.length) out[mk.key] = items;
       return;
     }

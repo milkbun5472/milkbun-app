@@ -20,3 +20,11 @@ test("普通一句话不当成字段", () => {
 test("聊天接进来了", () => {
   assert.match(fs.readFileSync(__dirname + "/../js/app.js", "utf8"), /parseKeyLines\(raw, \["word", "mood", "thought", "action"/);
 });
+test("word 后面是数组、中间夹着表情", () => {
+  const raw = 'word: [\n  "晃荡",\n  "连人带身子全被你盖戳了",\n  {"emote":"害羞炸毛"},\n  "等我下课过去当面跟你核对合同条款"\n]\nmood: {"label":"得意"}';
+  const r = parseKeyLines(raw, K.concat(["emote"]), ["word"]);
+  assert.deepStrictEqual(r.word, ["晃荡", "连人带身子全被你盖戳了", "等我下课过去当面跟你核对合同条款"]);
+  assert.equal(r.emote, "害羞炸毛");
+  const bad = 'word: [\n  "一句",\n  "两句"\n  "三句",\n]\nthought: 想';
+  assert.deepStrictEqual(parseKeyLines(bad, K, ["word"]).word, ["一句", "两句", "三句"]);
+});
