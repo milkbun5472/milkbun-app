@@ -14,6 +14,7 @@ const GING = X(`width='8' height='8' viewBox='0 0 8 8'><rect width='8' height='8
 const CURTAIN = `repeating-linear-gradient(90deg,rgba(0,0,0,.42) 0,rgba(0,0,0,.08) 22px,rgba(120,170,140,.10) 40px,rgba(0,0,0,.05) 56px,rgba(0,0,0,.42) 78px)`;
 // 狼眼（已读）
 const EYES = X(`viewBox='0 0 40 14'><g fill='${C.gold}'><path d='M3 7 Q9 2 15 7 Q9 11 3 7Z'/><path d='M25 7 Q31 2 37 7 Q31 11 25 7Z'/></g><g fill='#2A1406'><ellipse cx='9' cy='7' rx='1' ry='2.6'/><ellipse cx='31' cy='7' rx='1' ry='2.6'/></g>`);
+const SHUT = X(`viewBox='0 0 40 14' fill='none' stroke='rgba(168,181,168,.8)' stroke-width='1.6' stroke-linecap='round'><path d='M3 6 Q9 11 15 6'/><path d='M25 6 Q31 11 37 6'/>`);
 // 狼耳朵（他的头像顶上）
 const EARS = X(`viewBox='0 0 60 24'><g fill='#4A4040' stroke='#2B2424' stroke-width='1'><path d='M6 24 L11 1 L24 18Z'/><path d='M54 24 L49 1 L36 18Z'/></g><g fill='#9A7C78'><path d='M10 20 L12 7 L19 17Z'/><path d='M50 20 L48 7 L41 17Z'/></g>`);
 // 小红帽兜尖 + 白蝴蝶结（我的头像）
@@ -312,6 +313,9 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:${svg(LINEN)} 0 0/6px 6px,linear-gradient(180deg,#CF4D3A,${C.red2}) !important;color:${C.cream} !important;outline:1.5px dashed ${STITCH} !important;outline-offset:-4px !important;box-shadow:0 3px 0 #7A2219 !important}
 [data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
 [data-wk="callavatar"]{border-radius:22% !important;box-shadow:0 0 0 4px ${C.cream},0 0 0 10px #5A3B2A,0 0 0 11px #8A6345,0 0 40px 12px rgba(242,182,64,.3) !important}
+
+/* 还没读：狼眼闭着（两道弯弯的线），读了才睁开 */
+[data-wk="meta"][data-read="0"]::before{background:${svg(SHUT)} center/contain no-repeat !important;filter:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "红帽夜访", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
