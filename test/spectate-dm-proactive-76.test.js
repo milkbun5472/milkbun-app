@@ -4,5 +4,5 @@ const app = fs.readFileSync("js/app.js", "utf8");
 assert.match(app, /const gDmToHerOk = c => imInGroup\(group\) \|\| autoRefreshOn\("proactive", c\.id\);/);
 assert.match(app, /theyBlocked\)\) && gDmToHerOk\(c\)\)/);
 assert.match(app, /if \(gDmList\.length && spk && !gDmToHerOk\(spk\)\) gDmList = \[\];/);
-assert.match(app, /const gcm = item\.call && spk && gDmToHerOk\(spk\) && /);
+assert.match(app, /const _gcWant = item\.call && spk && gDmToHerOk\(spk\) && /);
 console.log("ok");

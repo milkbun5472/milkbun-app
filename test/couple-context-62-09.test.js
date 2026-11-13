@@ -30,7 +30,9 @@ test("愿望板进 togetherLines：只给一条、做成的和搁着的不进", 
   assert.match(src, /w\.status !== "done" && w\.status !== "shelved"/, "做成的/搁着的也进去了");
   assert.match(src, /\.slice\(0, 1\)\s*\n?\s*\.forEach\(w =>/, "愿望不止一条——会变成待办清单");
   // 真跑一遍：钉着的那条进、做成的不进
-  const mk = store => new Function("loadJSON", src + "\nreturn togetherLines;")((k, d) => (k in store ? store[k] : d));
+  // ⚠️grab() 会把闭包外的函数缺失一声不响地吞掉（整段就变空字符串），所以外头用到的
+  //   都得喂进来：wishWhenTxt 是 2026-11-13 加的「说好什么时候做」那半句。
+  const mk = store => new Function("loadJSON", "wishWhenTxt", src + "\nreturn togetherLines;")((k, d) => (k in store ? store[k] : d), () => "");
   const out = mk({
     x_coupleHome: { c1: { wishes: [
       { title: "去看一次海", status: "wish" },

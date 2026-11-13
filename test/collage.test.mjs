@@ -43,7 +43,8 @@ test("底：花纹照旧、颜色自己挑；自己传的底存在图库里按�
   assert.match(src, /const MY_BG = "img_collagebg_"/);
   assert.match(src, /base = \(layout && layout\.bgColor\) \|\| b\.base \|\| b\.from, ink = \(layout && layout\.bgInk\) \|\| inkOf\(b\)/);
   assert.match(src, /idbImgKeys\(\)/);
-  assert.match(src, /type: "color"/);
+  // 取色不再自己写一个 <input type="color">，走公共的 ColorDot（2026-11-13 它换过去了）
+  assert.match(src, /h\(ColorDot, \{ value:/);
   assert.match(src, /"data-part": "collagemybg"/);
 });
 test("贴纸能传自己的图（PNG 留透明）；粉格绿格换成条纹、小爱心、牛皮纸", () => {
