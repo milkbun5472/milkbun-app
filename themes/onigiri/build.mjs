@@ -18,6 +18,13 @@ const I_BENTO = X(`viewBox='0 0 30 30'><rect x='3' y='7' width='24' height='18' 
 const I_CHOP = X(`viewBox='0 0 30 30' fill='none' stroke-linecap='round'><path d='M7 3 L13 27' stroke='#B8875A' stroke-width='2.6'/><path d='M20 3 L16 27' stroke='#B8875A' stroke-width='2.6'/><path d='M7 3 L8.3 8 M20 3 L19.1 8' stroke='${C.ume}' stroke-width='2.8'/>`);
 const TAMAGO = X(`viewBox='0 0 40 30'><rect x='3' y='6' width='34' height='20' rx='5' fill='#F6D168' stroke='#E0B23C' stroke-width='1.4'/><path d='M3 12 H37 M3 19 H37' stroke='#E8BC45' stroke-width='1'/><path d='M16 6 H24 V26 H16Z' fill='${C.nori}'/>`);
 const NIGIRI = X(`viewBox='0 0 40 40'><path d='M20 4 C27 4 37 24 37 29 C37 35 32 37 20 37 C8 37 3 35 3 29 C3 24 13 4 20 4Z' fill='#fff' stroke='${C.grain}' stroke-width='1.6'/><path d='M9 26 H31 V37 H9Z' fill='${C.nori}'/><circle cx='20' cy='17' r='4.5' fill='${C.ume}'/>`);
+// 好感：一粒米 → 一小团米 → 包上海苔的饭团 → 加了梅子、红脸蛋笑着的饭团
+const SC = (inner) => X(`viewBox='0 0 92 84'>${inner}`);
+const ST1 = SC(`<ellipse cx='46' cy='44' rx='9' ry='14' fill='#fff' stroke='${C.grain}' stroke-width='2' transform='rotate(-20 46 44)'/><ellipse cx='42' cy='38' rx='2' ry='4' fill='rgba(255,255,255,.9)' transform='rotate(-20 42 38)'/>`);
+const ST2 = SC(`<g fill='#fff' stroke='${C.grain}' stroke-width='1.5'><ellipse cx='36' cy='52' rx='6' ry='9' transform='rotate(-30 36 52)'/><ellipse cx='50' cy='50' rx='6' ry='9' transform='rotate(20 50 50)'/><ellipse cx='43' cy='40' rx='6' ry='9'/><ellipse cx='57' cy='38' rx='6' ry='9' transform='rotate(40 57 38)'/><ellipse cx='30' cy='40' rx='6' ry='9' transform='rotate(-50 30 40)'/></g>`);
+const ONIP = `M46 10 C56 10 78 50 78 62 C78 74 68 78 46 78 C24 78 14 74 14 62 C14 50 36 10 46 10Z`;
+const ST3 = SC(`<path d='${ONIP}' fill='#fff' stroke='${C.grain}' stroke-width='2'/><path d='M30 56 H62 V78 H30Z' fill='${C.nori}'/><circle cx='38' cy='44' r='2' fill='${C.nori}'/><circle cx='54' cy='44' r='2' fill='${C.nori}'/>`);
+const ST4 = SC(`<path d='${ONIP}' fill='#fff' stroke='${C.grain}' stroke-width='2'/><path d='M30 58 H62 V78 H30Z' fill='${C.nori}'/><circle cx='46' cy='30' r='7' fill='${C.ume}'/><ellipse cx='43.5' cy='27.5' rx='2' ry='1.2' fill='rgba(255,255,255,.55)'/><path d='M35 46 q3 -3 6 0 M51 46 q3 -3 6 0' stroke='${C.nori}' stroke-width='2' fill='none' stroke-linecap='round'/><path d='M42 51 q4 4 8 0' stroke='${C.nori}' stroke-width='1.8' fill='none' stroke-linecap='round'/><ellipse cx='30' cy='51' rx='4' ry='2.4' fill='#F4A6A0'/><ellipse cx='62' cy='51' rx='4' ry='2.4' fill='#F4A6A0'/><path d='M76 18 C70 14 66 18 69 22 C66 24 70 30 76 26' fill='${C.leaf}'/>`);
 const bubble = { myBg: C.nori, myText: "#fff", myBorder: "none", charBg: C.rice, charText: C.ink, charBorder: "none", radius: 14, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 // 饭团形头像：上头圆、下头宽一点；外一圈白米、底下多垫一弯海苔
@@ -137,7 +144,7 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 [data-wk="rpamount"]{color:#fff !important}
 /* 照片：白米框里一块浅米色小屏；语音跟气泡一样 */
 [data-wk="photocard"]{padding:8px 8px 10px !important}
-[data-wk="photoface"]{border-radius:10px !important;background:#F1EEE6 !important;border:none !important}
+[data-wk="photoface"]{border-radius:10px !important;background:#F1EEE6 !important;border:none !important;box-shadow:none !important;outline:none !important}
 [data-wk="photoface"] *,[data-wk="photohint"]{color:#6E716B !important}
 [data-wk="photoface"] svg{stroke:${C.nori} !important}
 [data-wk="voice"][data-me]{background:linear-gradient(90deg,${C.nori} 0 14px,transparent 14px),#fff !important;border:none !important;border-radius:14px !important;padding-left:22px !important;box-shadow:0 2px 0 ${C.grain} !important}
@@ -184,6 +191,111 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;font-size:0 !important;color:transparent !important;padding:0 !important;background:${svg(NIGIRI)} center/contain no-repeat !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+
+/* ───── 梅子饭团 · 第三批：状态卡是一只便当盒——米白盒身、顶上一条海苔；看得见的是白米、心里想的是海苔；好感是一粒米长成饭团 ───── */
+[data-wk="statecard"]{background:${svg(SESAME)} 0 0/90px 90px,${C.bg} !important;border:none !important;border-top:8px solid ${C.nori} !important;border-radius:20px !important;box-shadow:0 0 0 3px #fff,0 0 0 4px ${C.grain},0 14px 30px rgba(44,58,51,.2) !important;color:${C.ink} !important}
+[data-wk="statehead"]{background:${svg(GRAINS)} 0 0/40px 30px,#fff !important;border-bottom:1px solid ${C.grain} !important}
+[data-wk="statehead"] *{color:${C.ink} !important}
+[data-wk="statehead"] [data-wk="avatar"]{border-radius:${ONI} !important;box-shadow:${RING_HIS} !important}
+[data-wk="statehead"] button{border:1px solid ${C.grain} !important;border-radius:50% !important;background:#fff !important}
+[data-wk="statemood"]{display:inline-block !important;background:${C.ume} !important;color:#fff !important;padding:0 10px !important;margin-right:4px !important;border-radius:999px !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:#fff !important;border:1px solid ${C.grain} !important;border-radius:999px !important;padding:3px !important;margin:12px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:999px !important;background:transparent !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:${C.nori} !important;color:#fff !important}
+[data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;overflow:hidden !important;background:${svg(GRAINS)} 0 0/40px 30px,#fff !important;border:none !important;border-radius:14px !important;margin:14px 16px 12px !important;box-shadow:0 2px 0 ${C.grain},0 4px 10px rgba(44,58,51,.08) !important}
+[data-wk="stateseen"]{padding-left:30px !important;background:linear-gradient(90deg,${C.nori} 0 16px,transparent 16px),${svg(GRAINS)} 0 0/40px 30px,#fff !important}
+[data-wk="statevoice"]{background:linear-gradient(135deg,${C.nori2},${C.nori}) !important;box-shadow:0 2px 0 #1E2823 !important}
+[data-wk="statevoice"]::before{content:"" !important;position:absolute !important;right:auto !important;left:82px !important;top:10px !important;width:20px !important;height:20px !important;background:${svg(UME)} center/contain no-repeat !important}
+[data-wk="stateseen"] *{color:${C.ink} !important}
+[data-wk="statevoice"] *{color:#fff !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:#F7F5EF !important;border:1px solid ${C.grain} !important;border-radius:10px !important}
+[data-wk="statewear"] > span{background:transparent !important;border:1px solid ${C.grain} !important;border-radius:8px !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.ume} !important}
+[data-wk="statevoice"] + div > button{background:#fff !important;color:${C.ink} !important;border:1px solid ${C.grain} !important;border-radius:999px !important}
+[data-wk="stateaff"]{background:#fff !important;border-top:1px solid ${C.grain} !important;position:relative !important;display:block !important;padding:16px 120px 18px 20px !important;min-height:112px !important}
+[data-wk="stateaff"] *{color:${C.ink} !important}
+[data-wk="stateheart"]{position:absolute !important;right:18px !important;left:auto !important;top:50% !important;margin-top:-42px !important;width:92px !important;height:84px !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><rect width='10' height='10'/></svg>`)} !important}
+[data-wk="stateheart"] > div,[data-wk="stateheartknob"]{inset:0 !important;-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important;background-color:transparent !important;border:none !important}
+[data-wk="stateheart"] > div:not([data-wk]){display:none !important}
+[data-wk="stateheartfill"] > div{display:none !important}
+[data-wk="stateheartline"]{background:${svg(ST1)} center/contain no-repeat !important;opacity:calc(1 - clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1)) !important}
+[data-wk="stateheartbase"]{background:${svg(ST2)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1)) !important}
+[data-wk="stateheartfill"]{background:${svg(ST3)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important}
+[data-wk="stateheartknob"]{display:block !important;position:absolute !important;left:0 !important;bottom:0 !important;width:100% !important;height:100% !important;margin:0 !important;transform:none !important;background:${svg(ST4)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important}
+[data-wk="stateheartnum"]{position:absolute !important;inset:auto 0 -10px 0 !important;display:flex !important;justify-content:center !important;padding:0 !important;font:600 13px/1 system-ui,sans-serif !important;color:${C.nori} !important;-webkit-text-stroke:0 !important;text-shadow:0 0 3px #fff !important;z-index:3 !important}
+[data-wk="stateaffval"]{display:none !important}
+
+/* 翻旧的：白米卡和海苔卡交替，左上一行「第 N 个饭团」 */
+[data-wk="statehistbtn"]{background:#fff !important;color:${C.ink} !important;border:1px solid ${C.grain} !important;border-radius:999px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.ink} !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1px solid ${C.ume} !important;border-radius:999px !important;background:transparent !important}
+[data-wk="statehistlist"]{counter-reset:pg !important}
+[data-wk="statehistitem"]{counter-increment:pg !important;position:relative !important;background:${svg(GRAINS)} 0 0/40px 30px,#fff !important;border:none !important;border-radius:14px !important;padding:28px 18px 14px !important;margin:14px 0 !important;box-shadow:0 2px 0 ${C.grain},0 4px 10px rgba(44,58,51,.08) !important}
+[data-wk="statehistitem"]:nth-child(even){background:linear-gradient(135deg,${C.nori2},${C.nori}) !important;box-shadow:0 2px 0 #1E2823 !important}
+[data-wk="statehistitem"] *{color:${C.ink} !important}
+[data-wk="statehistitem"]:nth-child(even) *{color:#fff !important}
+[data-wk="statehistitem"]::before{content:"第 " counter(pg) " 个饭团" !important;position:absolute !important;left:14px !important;top:9px !important;font-size:11px !important;color:${C.ume} !important;letter-spacing:.12em !important}
+[data-wk="statehistitem"]:nth-child(even)::before{color:#F4B3B0 !important}
+[data-wk="statehistmood"]{background:transparent !important;border:1px solid currentColor !important;border-radius:999px !important;padding:0 6px !important}
+[data-wk="statehisttime"]{opacity:.6 !important}
+[data-wk="statehistmeta"]{background:rgba(44,58,51,.05) !important;border-radius:8px !important}
+[data-wk="statehistend"]{color:${C.fog} !important;letter-spacing:.3em !important}
+
+/* Ta 眼里：贴条换成一小条海苔 */
+[data-wk="gazepage"]{background:${svg(SESAME)} 0 0/90px 90px,${C.bg} !important}
+[data-wk="gazetitle"]{color:${C.ink} !important}
+[data-wk="gazetab"]{background:#fff !important;color:${C.fog} !important;border:1px solid ${C.grain} !important;border-radius:999px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:${C.nori} !important;color:#fff !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{position:relative !important;overflow:visible !important;background:${svg(GRAINS)} 0 0/40px 30px,#fff !important;border:none !important;border-radius:14px !important;box-shadow:0 2px 0 ${C.grain},0 4px 10px rgba(44,58,51,.08) !important}
+[data-wk="gazetape"]{background:${C.nori} !important;width:30px !important;height:12px !important;border-radius:2px !important;box-shadow:none !important;border:none !important}
+[data-wk="gazecardname"]{color:${C.ink} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#6E716B !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:${svg(GRAINS)} 0 0/40px 30px,#fff !important;color:${C.ink} !important;border:none !important;border-top:7px solid ${C.nori} !important;border-radius:14px !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
+[data-wk="gazeempty"]{background:#fff !important;color:${C.ink} !important;border:1px solid ${C.grain} !important;border-radius:14px !important}
+[data-wk="gazeempty"] *{color:${C.ink} !important}
+[data-wk="gazeempty"] button{background:${C.nori} !important;color:#fff !important;border:none !important;border-radius:999px !important}
+
+/* ───── 线下：芝麻米白底；他白米卡左包海苔、我整张海苔右上一颗梅子；说的话下面一道梅子粉，心里话灰绿斜体 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(SESAME)} 0 0/90px 90px,${C.bg} !important;background-color:${C.bg} !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"]{border-radius:0 0 16px 16px !important;margin-bottom:6px !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="headname"] > div:last-child{white-space:normal !important;line-height:1.35 !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *,[data-wk="offline"] [data-wk="chatback"] *{color:${C.ink} !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:${C.nori} !important;color:#fff !important;border:none !important;border-radius:999px !important;font-size:12px !important;padding:3px 12px !important;flex-shrink:0 !important}
+[data-wk="offline"] [data-wk="chatmore"]{width:26px !important;min-width:26px !important;height:26px !important}
+[data-wk="offcomposer"]{background:#fff !important;border:none !important;border-radius:18px 18px 0 0 !important;box-shadow:0 -3px 10px rgba(44,58,51,.08) !important}
+[data-wk="offcomposer"] textarea{background:#F4F2EC !important;border:none !important;border-radius:14px !important;color:${C.ink} !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){width:36px !important;min-width:36px !important;height:36px !important;background:${svg(I_SEND)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:36px !important;min-width:36px !important;height:32px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcard"]{position:relative !important;overflow:hidden !important;background:linear-gradient(90deg,${C.nori} 0 14px,transparent 14px),${svg(GRAINS)} 0 0/40px 30px,#fff !important;border:none !important;border-radius:16px !important;padding-left:26px !important;box-shadow:0 2px 0 ${C.grain},0 4px 12px rgba(44,58,51,.1) !important}
+[data-wk="offcard"][data-me="1"]{background:linear-gradient(135deg,${C.nori2},${C.nori}) !important;padding-left:16px !important;box-shadow:0 2px 0 #1E2823,0 4px 12px rgba(44,58,51,.18) !important}
+[data-wk="offcard"][data-me="1"]::before{content:"" !important;position:absolute !important;right:12px !important;top:12px !important;width:18px !important;height:18px !important;background:${svg(UME)} center/contain no-repeat !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:${ONI} !important;box-shadow:0 0 0 2.5px #fff,0 3px 0 2.5px ${C.nori} !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offhead"] img,[data-wk="offcard"][data-me="1"] [data-wk="offhead"] [data-wk="avatar"]{box-shadow:0 0 0 2.5px #fff,0 3px 0 2.5px ${C.ume} !important}
+[data-wk="offname"]{color:${C.nori} !important;font-weight:600 !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offname"]{color:#fff !important}
+[data-wk="offtext"]{color:#3E4540 !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offtext"]{color:#E6ECE8 !important}
+[data-wk="offsay"]{color:${C.ink} !important;background:linear-gradient(transparent 62%,rgba(217,71,74,.22) 62%) !important;border:none !important;font-weight:600 !important;box-decoration-break:clone !important;-webkit-box-decoration-break:clone !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{color:#fff !important;background:linear-gradient(transparent 62%,rgba(217,71,74,.45) 62%) !important}
+[data-wk="offthought"]{background:transparent !important;border:none !important;color:#6E8A6A !important;font-style:italic !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offthought"]{color:#B9D3B4 !important}
+[data-wk="offcardacts"] svg{stroke:${C.fog} !important;color:${C.fog} !important}
+[data-wk="offreplyopt"]{background:#fff !important;border:1px solid ${C.grain} !important;border-radius:12px !important;color:${C.ink} !important}
+
+/* ───── 通话：他白米、我海苔；头像是饭团形，外一圈白米、底下一弯海苔 ───── */
+[data-wk="callbubble"]{background:#fff !important;color:${C.ink} !important;border:none !important;border-radius:14px !important;box-shadow:0 2px 0 ${C.grain} !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:linear-gradient(135deg,${C.nori2},${C.nori}) !important;color:#fff !important;box-shadow:0 2px 0 #1E2823 !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callavatar"]{border-radius:${ONI} !important;box-shadow:0 0 0 6px #fff,0 0 0 7px ${C.grain},0 10px 0 6px ${C.nori},0 14px 30px rgba(0,0,0,.25) !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "梅子饭团", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "梅子饭团-美化.json"), JSON.stringify(pack));
