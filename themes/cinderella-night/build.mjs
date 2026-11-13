@@ -355,6 +355,9 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.goldD} !important}
 [data-wk="callact"]{color:#FFF0CC !important;font-style:italic !important}
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 5px ${C.pearl2},0 0 0 6.5px ${C.goldD},0 0 40px 8px rgba(255,236,190,.45) !important}
+/* 钟和光带做常驻背景：钉在顶栏下面不跟着滚，聊天从它上面滑过去 */
+[data-wk="body"]{background:transparent !important;padding-top:16px !important}
+[data-wk="chat"]{background:${svg(RIBBON)} center 38%/100% auto no-repeat,${svg(STAR)} left 10px top 34%/8px 11px no-repeat,${svg(STAR)} right 12px top 48%/8px 11px no-repeat,${svg(STAR)} left 14px top 64%/8px 11px no-repeat,${svg(STAR)} right 10px top 78%/10px 14px no-repeat,${svg(STAR)} left 8px top 88%/7px 10px no-repeat,radial-gradient(ellipse at 20% 85%,rgba(200,150,220,.45),transparent 55%),radial-gradient(ellipse at 85% 60%,rgba(140,170,240,.35),transparent 50%),linear-gradient(180deg,${C.v1} 0%,${C.v2} 45%,${C.v3} 80%,${C.v4} 100%) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "午夜舞会", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
