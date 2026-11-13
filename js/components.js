@@ -19688,6 +19688,24 @@ function SelfieBubble({ m }) {
     }
     return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
   }, [m.imgKey]);
+  // 显示时解不开（她 2026-11-13「怎么又坏了」）：存进去时验过能开，到显示这一下 iPhone 却解不开——图太大、内存紧时常见。
+  //   原来一次失败就永远写「坏了」。现在先把那块读出来，能解开就缩到长边 1600 重存一份 jpg 再显示；真解不开才算坏。只试一次
+  const healTried = useRef(false);
+  const healImg = async () => {
+    if (healTried.current || !m.imgKey || typeof idbImgGet !== "function" || typeof createImageBitmap !== "function") { setImgErr(true); return; }
+    healTried.current = true;
+    try {
+      const b = await idbImgGet(m.imgKey);
+      const bm = await createImageBitmap(b);
+      const k = Math.min(1, 1600 / Math.max(bm.width, bm.height));
+      const c = document.createElement("canvas"); c.width = Math.round(bm.width * k); c.height = Math.round(bm.height * k);
+      c.getContext("2d").drawImage(bm, 0, 0, c.width, c.height); if (bm.close) bm.close();
+      const nb = await new Promise(res => c.toBlob(res, "image/jpeg", 0.9));
+      if (!nb || !nb.size) throw new Error("empty");
+      if (typeof idbImgPut === "function") idbImgPut(m.imgKey, nb).catch(() => {});
+      setUrl(URL.createObjectURL(nb));
+    } catch (e) { setImgErr(true); }
+  };
   const shown = imgErr ? null : (url || m.imgUrl || null); // imgUrl = 跨域取不到 blob 时直接用的图片链接
   const box = { maxWidth: 200, borderRadius: 14, overflow: "hidden", border: "1px solid " + t.line, background: t.bg2 };
   // 所有非正常态都用这个卡片：说清人话原因 + 带上这张图本来拍的是什么
@@ -19718,7 +19736,7 @@ function SelfieBubble({ m }) {
   if (imgErr) return note(m.imgUrl && !url ? "图的临时链接已过期，看过就没啦" : "图数据坏了，显示不出来");
   if (shown) return h(React.Fragment, null,
     h("button", { onClick: () => setZoom(true), className: "active:opacity-80", style: Object.assign({}, box, { position: "relative", display: "block" }) },
-      h("img", { src: shown, onError: () => setImgErr(true), style: { display: "block", width: "100%", maxWidth: 200, maxHeight: 300, objectFit: "cover" } }),
+      h("img", { src: shown, onError: healImg, style: { display: "block", width: "100%", maxWidth: 200, maxHeight: 300, objectFit: "cover" } }),
       // 「这个站不锁脸」出的图不另外标注（她 2026-10-05 不要那个角标）
       null),
     // 点开那一层：她 2026-09-07 要的「实际保存他们发的照片到手机」。
