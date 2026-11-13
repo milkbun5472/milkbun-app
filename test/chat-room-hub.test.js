@@ -19,7 +19,7 @@ test.beforeEach(() => bag.clear());
 test("主聊天不新增顶栏按钮，房间入口收进原有输入模式弹层", () => {
   const thread = components.slice(components.indexOf("function ChatThread("), components.indexOf("// ---- chat settings"));
   assert.match(thread, /modeOpen && h\(Sheet/);
-  assert.match(thread, /onOpenRooms && h\("button"/);
+  assert.match(thread, /onOpenRooms && h\(ModeRoomsRow/);
   assert.match(thread, /把一件想慢慢继续的事单独收起来/);
   assert.match(thread, /room && !room\.main && h\("button", \{\s*onClick: onOpenRooms/);
   assert.match(app, /onOpenRooms: \(\) => setChatRoomsOpen\(true\)/);

@@ -13003,17 +13003,8 @@ function ChatThread({
     elsewhere: [["offline", "见面", "不隔着屏幕了，写你人在场做什么"]],
     cur: chatMode,
     onPick: mk => { setModeOpen(false); onModeTap(mk); }
-  }, onOpenRooms && h("button", {
-    onClick: () => { setModeOpen(false); onOpenRooms(); },
-    className: "w-full flex items-center gap-2.5 active:opacity-60 text-left",
-    style: { padding: "8px 10px 8px 7px" }
-  }, h("div", { style: { width: 3, flexShrink: 0 } }),
-    h("div", { style: { width: 54, display: "flex", justifyContent: "center", opacity: 0.42 } },
-      h(IChevR, { size: 20, color: t.ink })),
-    h("div", { className: "flex-1 min-w-0" },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", color: t.ink } }, "小房间"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, room && !room.main ? "现在在「" + room.name + "」· 点这里换房" : "把一件想慢慢继续的事单独收起来"))
-  ))), menu != null && h(MsgMenu, {
+  }, onOpenRooms && h(ModeRoomsRow, { onOpen: () => { setModeOpen(false); onOpenRooms(); },
+    sub: room && !room.main ? "现在在「" + room.name + "」· 点这里换房" : "把一件想慢慢继续的事单独收起来" }))), menu != null && h(MsgMenu, {
     message: messages[menu],
     idx: menu,
     isMine: messages[menu] && messages[menu].role === "user",
@@ -17258,6 +17249,17 @@ function ModePicker({ modes, elsewhere, cur, onPick, children, head, tail }) {
       children) : null);
 }
 
+// 点名字弹出来那一排最底下的「小房间」那一行：单聊、群聊共用这一份（她 2026-11-13「你看单聊怎么做房间的你抄那个公共的」）
+function ModeRoomsRow({ sub, onOpen }) {
+  const t = useTheme();
+  return h("button", { onClick: onOpen, className: "w-full flex items-center gap-2.5 active:opacity-60 text-left", style: { padding: "8px 10px 8px 7px" } },
+    h("div", { style: { width: 3, flexShrink: 0 } }),
+    h("div", { style: { width: 54, display: "flex", justifyContent: "center", opacity: 0.42 } }, h(IChevR, { size: 20, color: t.ink })),
+    h("div", { className: "flex-1 min-w-0" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", color: t.ink } }, "小房间"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.45 } }, sub)));
+}
+
 // 代付请求卡
 function PayLaterCard({ m }) {
   const t = useTheme();
@@ -20588,6 +20590,7 @@ function GroupThread({
   const [panel, setPanel] = useState(false);
   const [gInviteOpen, setGInviteOpen] = useState(false);
   const [roomForm, setRoomForm] = useState(null); // 「＋新开一间」那张就地小表：{ name, kind }
+  const [roomSheet, setRoomSheet] = useState(false); // 点群名 →「小房间」那一行打开的房间面板（跟单聊同一个进法）
   const [modeOpen, setModeOpen] = useState(false);
   const [chatMode, setChatMode] = useState("chat"); // chat | narr | ooc
   // 旁白那一栏的几档：此刻发生了什么／往后的方向（导演便签）／替谁说（只有旁观群：她不在群里，替某个成员开口带话题）
@@ -20839,6 +20842,35 @@ function GroupThread({
   // 不另立一个会跟它打架的状态（她 2026-08-27 定的形状：开关放设置旁，状态画在底下那颗按钮上）。
   const gHold = gs.autoChat === false;
   const kbPadRef = useBrowserKbPad();
+  const roomsBlock = inSheet => {
+    const mainId = group.roomOf || group.id, all = groups || [];
+    const mainG = all.find(g => g && g.id === mainId);
+    const rooms = all.filter(g => g && g.roomOf === mainId);
+    if (!onSwitchRoom || (!inSheet && !rooms.length && !group.roomOf && !roomForm)) return null;
+    const chip = (key, label, on, fn, wk, dot, tag) => h("button", { key, "data-wk": wk, "data-on": on ? "1" : "0", onClick: fn, className: "shrink-0 active:opacity-60",
+      style: { position: "relative", padding: "3px 11px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", whiteSpace: "nowrap" } },
+      label, tag ? h("span", { "data-wk": "groomtag", style: { marginLeft: 5, fontSize: "calc(10px * var(--app-fs, 1))", opacity: .7 } }, tag) : null,
+      dot ? h("span", { style: { position: "absolute", top: 1, right: 2, width: 6, height: 6, borderRadius: 3, background: t.accent } }) : null);
+    const un = id => (unreadMap || {})[id] > 0;
+    return h("div", { "data-wk": "groomstrip", className: "shrink-0", style: { position: "relative", zIndex: 2, background: gChatBg ? "rgba(255,255,255,0.55)" : t.bg2, borderBottom: "1px solid " + t.line } },
+      h("div", { className: "flex items-center", style: { gap: 6, padding: "6px 16px", overflowX: "auto" } },
+        chip("main", "主群" + (mainG && mainG.name ? " · " + mainG.name : ""), !group.roomOf, () => { setRoomSheet(false); onSwitchRoom(mainId); }, "groomchip", group.roomOf && un(mainId)),
+        // 平行世界的房间挂个「平行」（她 2026-11-13「加吧」）：一眼分得清哪间是主线外的
+        rooms.map(r => chip(r.id, r.name, r.id === group.id, () => { setRoomSheet(false); onSwitchRoom(r.id); }, "groomchip", r.id !== group.id && un(r.id), r.parallel ? "平行" : "")),
+        chip("new", "＋新开一间", false, () => setRoomForm(f => f ? null : { name: "", kind: "main" }), "groomnew")),
+      roomForm && (inSheet || !roomSheet) ? h("div", { "data-wk": "groomform", style: { padding: "2px 16px 10px" } },
+        h("input", { "data-wk": "groomname", value: roomForm.name, maxLength: 30, placeholder: "房间名，比如：深夜食堂", onChange: e => setRoomForm({ ...roomForm, name: e.target.value }),
+          style: { width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", outline: "none" } }),
+        [["main", "接着主线", "记忆互通跟主群一样：这里聊的会记进大家的记忆，主群也知道"], ["closed", "不带出门", "大家记得主线，但这里聊的只留在这间，不往外带"], ["parallel", "平行世界", "人设、世界书和你的面具照旧，但谁都不知道主线发生过什么；这里聊的也不往外带"]].map(([k, lb, note]) =>
+          h("button", { key: k, "data-wk": "groomkind", "data-on": roomForm.kind === k ? "1" : "0", onClick: () => setRoomForm({ ...roomForm, kind: k }), className: "w-full text-left active:opacity-70",
+            style: { display: "block", marginTop: 6, padding: "7px 10px", borderRadius: 10, border: "1px solid " + (roomForm.kind === k ? t.ink : t.line) } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, (roomForm.kind === k ? "● " : "○ ") + lb),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5 } }, note))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "6px 0", lineHeight: 1.5 } }, "成员照主群现在的抄一份，之后两边加人踢人各管各的。改名、删掉在这间的群设置里。"),
+        h("button", { "data-wk": "groomopen", disabled: !roomForm.name.trim(), onClick: () => { if (!roomForm.name.trim()) return; onNewRoom && onNewRoom(roomForm.name.trim(), roomForm.kind); setRoomForm(null); setRoomSheet(false); }, className: "active:opacity-70",
+          style: { minHeight: 34, padding: "0 18px", borderRadius: 999, border: "1px solid " + t.ink, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", opacity: roomForm.name.trim() ? 1 : .45 } }, "开")) : null);
+
+  };
   return h("div", {
     "data-wk": "chat",
     ref: kbPadRef,
@@ -20927,35 +20959,9 @@ function GroupThread({
     h("span", { style: { flexShrink: 0, color: t.tint, fontSize: "calc(11.5px * var(--app-fs, 1))", marginTop: 1 } }, "群公告"),
     h("span", { className: "flex-1 min-w-0", style: noticeOpen ? { whiteSpace: "pre-wrap", maxHeight: "40vh", overflowY: "auto" } : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, String(gs.notice.text).trim()),
     h("span", { style: { flexShrink: 0, color: t.fog, transform: noticeOpen ? "rotate(-90deg)" : "rotate(90deg)", display: "inline-block" } }, "›")) : null,
-  // 小房间那一排（她 2026-11-13「群聊咋开房间」「弄一下吧」）：这个群有房间、或者本身就是房间时才出现
-  (() => {
-    const mainId = group.roomOf || group.id, all = groups || [];
-    const mainG = all.find(g => g && g.id === mainId);
-    const rooms = all.filter(g => g && g.roomOf === mainId);
-    if (!onSwitchRoom || (!rooms.length && !group.roomOf && !roomForm)) return null;
-    const chip = (key, label, on, fn, wk, dot, tag) => h("button", { key, "data-wk": wk, "data-on": on ? "1" : "0", onClick: fn, className: "shrink-0 active:opacity-60",
-      style: { position: "relative", padding: "3px 11px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", whiteSpace: "nowrap" } },
-      label, tag ? h("span", { "data-wk": "groomtag", style: { marginLeft: 5, fontSize: "calc(10px * var(--app-fs, 1))", opacity: .7 } }, tag) : null,
-      dot ? h("span", { style: { position: "absolute", top: 1, right: 2, width: 6, height: 6, borderRadius: 3, background: t.accent } }) : null);
-    const un = id => (unreadMap || {})[id] > 0;
-    return h("div", { "data-wk": "groomstrip", className: "shrink-0", style: { position: "relative", zIndex: 2, background: gChatBg ? "rgba(255,255,255,0.55)" : t.bg2, borderBottom: "1px solid " + t.line } },
-      h("div", { className: "flex items-center", style: { gap: 6, padding: "6px 16px", overflowX: "auto" } },
-        chip("main", "主群" + (mainG && mainG.name ? " · " + mainG.name : ""), !group.roomOf, () => onSwitchRoom(mainId), "groomchip", group.roomOf && un(mainId)),
-        // 平行世界的房间挂个「平行」（她 2026-11-13「加吧」）：一眼分得清哪间是主线外的
-        rooms.map(r => chip(r.id, r.name, r.id === group.id, () => onSwitchRoom(r.id), "groomchip", r.id !== group.id && un(r.id), r.parallel ? "平行" : "")),
-        chip("new", "＋新开一间", false, () => setRoomForm(f => f ? null : { name: "", kind: "main" }), "groomnew")),
-      roomForm ? h("div", { "data-wk": "groomform", style: { padding: "2px 16px 10px" } },
-        h("input", { "data-wk": "groomname", value: roomForm.name, maxLength: 30, placeholder: "房间名，比如：深夜食堂", onChange: e => setRoomForm({ ...roomForm, name: e.target.value }),
-          style: { width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", outline: "none" } }),
-        [["main", "接着主线", "记忆互通跟主群一样：这里聊的会记进大家的记忆，主群也知道"], ["closed", "不带出门", "大家记得主线，但这里聊的只留在这间，不往外带"], ["parallel", "平行世界", "人设、世界书和你的面具照旧，但谁都不知道主线发生过什么；这里聊的也不往外带"]].map(([k, lb, note]) =>
-          h("button", { key: k, "data-wk": "groomkind", "data-on": roomForm.kind === k ? "1" : "0", onClick: () => setRoomForm({ ...roomForm, kind: k }), className: "w-full text-left active:opacity-70",
-            style: { display: "block", marginTop: 6, padding: "7px 10px", borderRadius: 10, border: "1px solid " + (roomForm.kind === k ? t.ink : t.line) } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, (roomForm.kind === k ? "● " : "○ ") + lb),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5 } }, note))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "6px 0", lineHeight: 1.5 } }, "成员照主群现在的抄一份，之后两边加人踢人各管各的。改名、删掉在这间的群设置里。"),
-        h("button", { "data-wk": "groomopen", disabled: !roomForm.name.trim(), onClick: () => { if (!roomForm.name.trim()) return; onNewRoom && onNewRoom(roomForm.name.trim(), roomForm.kind); setRoomForm(null); }, className: "active:opacity-70",
-          style: { minHeight: 34, padding: "0 18px", borderRadius: 999, border: "1px solid " + t.ink, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", opacity: roomForm.name.trim() ? 1 : .45 } }, "开")) : null);
-  })(),
+  // 小房间那一排（她 2026-11-13「群聊咋开房间」「弄一下吧」）：这个群有房间、或者本身就是房间时才出现；
+  //   点群名 →「小房间」打开的房间面板也是这一块（inSheet），不另画一份
+  roomsBlock(false),
   h("div", {
     ref: ref,
     style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
@@ -21556,21 +21562,15 @@ function GroupThread({
       ["narr", "旁白", "不是谁说的话——下雨了、有人推门进来。写完他们就当已经发生"],
       ["ooc", "出戏", "绕过所有人，直接跟演他们的那位说（OOC）"]
     ],
-    // 小房间放在这儿（她 2026-11-13「放轻触顶栏群名字那里吧」）：点群名就看得到能去哪几间、能新开一间
-    elsewhere: [["offline", "见面", "一屋子人不隔着屏幕了"]].concat(onSwitchRoom ? (() => {
-      const mainId = group.roomOf || group.id, rooms = (groups || []).filter(g => g && g.roomOf === mainId);
-      return (group.roomOf ? [["room:" + mainId, "回主群", "回到大家平时待的那个群"]] : [])
-        .concat(rooms.filter(r => r.id !== group.id).map(r => ["room:" + r.id, "去小房间「" + r.name + "」", r.parallel ? "平行世界：谁都不知道主线的事" : "这一间自己的聊天记录"]))
-        .concat([["room:new", "新开一间小房间", "把一段想单独演的（另一条线、AU、换个身份）开成一间，有自己的聊天记录"]]);
-    })() : []),
+    elsewhere: [["offline", "见面", "一屋子人不隔着屏幕了"]],
     cur: chatMode,
     onPick: mk => {
       setModeOpen(false);
-      if (String(mk).indexOf("room:") === 0) { const id = String(mk).slice(5); if (id === "new") setRoomForm({ name: "", kind: "main" }); else onSwitchRoom && onSwitchRoom(id); return; }
       if (mk === "offline") onOffline && onOffline();
       else setChatMode(mk);
     }
-  })), menu != null && h(MsgMenu, {
+  }, onSwitchRoom && h(ModeRoomsRow, { onOpen: () => { setModeOpen(false); setRoomSheet(true); },
+    sub: group.roomOf ? "现在在「" + group.name + "」· 点这里换房" : "把一段想单独演的开成一间，有自己的聊天记录" }))), roomSheet && h(Sheet, { onClose: () => setRoomSheet(false) }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, margin: "0 16px 6px" } }, "小房间"), roomsBlock(true)), menu != null && h(MsgMenu, {
     message: messages[menu],
     idx: menu,
     isMine: messages[menu] && messages[menu].role === "user",

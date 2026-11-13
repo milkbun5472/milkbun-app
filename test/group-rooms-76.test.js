@@ -100,8 +100,11 @@ test("平行世界：新开小表有第三项、房间上挂「平行」、群�
   assert.ok(manual.includes("**平行世界**"));
 });
 
-test("小房间放在点群名弹出来的那一排里", () => {
+test("群房间跟单聊同一个进法：点名字那一排最底下的「小房间」，打开房间面板", () => {
   const C = require("fs").readFileSync(__dirname + "/../js/components.js", "utf8");
-  assert.match(C, /\["room:new", "新开一间小房间"/);
-  assert.match(C, /if \(String\(mk\)\.indexOf\("room:"\) === 0\)/);
+  assert.match(C, /function ModeRoomsRow\(\{ sub, onOpen \}\)/);
+  assert.equal((C.match(/h\(ModeRoomsRow, \{/g) || []).length, 2, "单聊、群聊都用这一份");
+  assert.ok(!/"room:new"/.test(C), "别再往那一排里塞房间");
+  assert.match(C, /roomSheet && h\(Sheet, \{ onClose: \(\) => setRoomSheet\(false\) \}[\s\S]{0,300}roomsBlock\(true\)/);
+  assert.match(C, /roomsBlock\(false\),/);
 });
