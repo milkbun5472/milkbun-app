@@ -237,6 +237,7 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 [data-wk="statehistitem"] *{color:${C.ink} !important}
 [data-wk="statehistitem"]:nth-child(even) *{color:#fff !important}
 [data-wk="statehistitem"]::before{content:"第 " counter(pg) " 个饭团" !important;position:absolute !important;left:14px !important;top:9px !important;font-size:11px !important;color:${C.ume} !important;letter-spacing:.12em !important}
+[data-wk="statehistitem"]:nth-child(even)::before{color:#F4B3B0 !important}
 [data-wk="statehistmood"]{background:transparent !important;border:1px solid currentColor !important;border-radius:999px !important;padding:0 6px !important}
 [data-wk="statehisttime"]{opacity:.6 !important}
 [data-wk="statehistmeta"]{background:rgba(44,58,51,.05) !important;border-radius:8px !important}
