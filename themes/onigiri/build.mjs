@@ -13,9 +13,11 @@ const UME = X(`viewBox='0 0 20 20'><circle cx='10' cy='11' r='7.5' fill='${C.ume
 // 按键
 const I_SEND = X(`viewBox='0 0 36 36'><circle cx='18' cy='20' r='14' fill='${C.ume}'/><ellipse cx='13' cy='15' rx='4' ry='2.4' fill='rgba(255,255,255,.5)'/><path d='M18 7 q2 -5 7 -5' stroke='#4E8C4A' stroke-width='2' fill='none' stroke-linecap='round'/><path d='M21 4 C24 0 30 1 31 3 C28 6 24 6 21 4Z' fill='${C.leaf}'/>`);
 const I_REPLY = X(`viewBox='0 0 40 36'><path d='M20 3 C27 3 37 22 37 27 C37 32 33 34 20 34 C7 34 3 32 3 27 C3 22 13 3 20 3Z' fill='#fff' stroke='${C.nori}' stroke-width='1.8'/><path d='M9 23 H31 V34 H9Z' fill='${C.nori}'/><circle cx='15' cy='18' r='1.4' fill='${C.nori}'/><circle cx='25' cy='18' r='1.4' fill='${C.nori}'/><path d='M18 20.5 q2 1.6 4 0' stroke='${C.nori}' stroke-width='1.3' fill='none' stroke-linecap='round'/><ellipse cx='12' cy='21' rx='2' ry='1.1' fill='#F4A6A0'/><ellipse cx='28' cy='21' rx='2' ry='1.1' fill='#F4A6A0'/>`);
-const I_PLUS = X(`viewBox='0 0 30 30'><path d='M4 26 C6 12 15 5 27 3 C26 15 18 24 4 26Z' fill='${C.leaf}'/><path d='M5 25 C11 18 18 11 25 5' stroke='#4E8C4A' stroke-width='1.2' fill='none'/><path d='M19 17 V27 M14 22 H24' stroke='#fff' stroke-width='2.4' stroke-linecap='round'/><path d='M19 17 V27 M14 22 H24' stroke='${C.nori}' stroke-width='1.3' stroke-linecap='round'/>`);
+const I_PLUS = X(`viewBox='0 0 30 30'><path d='M4 26 C6 12 15 5 27 3 C26 15 18 24 4 26Z' fill='${C.leaf}'/><path d='M5 25 C11 18 18 11 25 5' stroke='#4E8C4A' stroke-width='1.2' fill='none'/>`);
 const I_BENTO = X(`viewBox='0 0 30 30'><rect x='3' y='7' width='24' height='18' rx='3' fill='#fff' stroke='${C.nori}' stroke-width='1.8'/><path d='M15 7 V25' stroke='${C.nori}' stroke-width='1.4'/><circle cx='9' cy='16' r='3' fill='${C.ume}'/><path d='M18 12 h6 M18 16 h6 M18 20 h6' stroke='#E9B949' stroke-width='2.2' stroke-linecap='round'/><path d='M3 7 Q15 1 27 7' fill='none' stroke='${C.nori}' stroke-width='1.6'/>`);
 const I_CHOP = X(`viewBox='0 0 30 30' fill='none' stroke-linecap='round'><path d='M7 3 L13 27' stroke='#B8875A' stroke-width='2.6'/><path d='M20 3 L16 27' stroke='#B8875A' stroke-width='2.6'/><path d='M7 3 L8.3 8 M20 3 L19.1 8' stroke='${C.ume}' stroke-width='2.8'/>`);
+const TAMAGO = X(`viewBox='0 0 40 30'><rect x='3' y='6' width='34' height='20' rx='5' fill='#F6D168' stroke='#E0B23C' stroke-width='1.4'/><path d='M3 12 H37 M3 19 H37' stroke='#E8BC45' stroke-width='1'/><path d='M16 6 H24 V26 H16Z' fill='${C.nori}'/>`);
+const NIGIRI = X(`viewBox='0 0 40 40'><path d='M20 4 C27 4 37 24 37 29 C37 35 32 37 20 37 C8 37 3 35 3 29 C3 24 13 4 20 4Z' fill='#fff' stroke='${C.grain}' stroke-width='1.6'/><path d='M9 26 H31 V37 H9Z' fill='${C.nori}'/><circle cx='20' cy='17' r='4.5' fill='${C.ume}'/>`);
 const bubble = { myBg: C.nori, myText: "#fff", myBorder: "none", charBg: C.rice, charText: C.ink, charBorder: "none", radius: 14, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 // 饭团形头像：上头圆、下头宽一点；外一圈白米、底下多垫一弯海苔
@@ -99,11 +101,89 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 [data-wk="composer"]{background:#fff !important;border-top:none !important;box-shadow:0 -3px 10px rgba(44,58,51,.08) !important;align-items:center !important;gap:8px !important;border-radius:18px 18px 0 0 !important}
 [data-wk="chatinput"]{background:#F4F2EC !important;border:none !important;border-radius:14px !important;color:${C.ink} !important}
 [data-wk="chatinput"]::placeholder{color:#B3B5AE !important}
-[data-wk="chatplus"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_PLUS)} center/contain no-repeat !important}
+[data-wk="chatplus"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_PLUS)} center/contain no-repeat !important;font-size:0 !important;color:transparent !important;padding:0 !important}
+[data-wk="chatplus"] svg{display:none !important}
 [data-wk="send"]{width:36px !important;min-width:36px !important;height:36px !important;border:none !important;border-radius:0 !important;background:${svg(I_SEND)} center/contain no-repeat !important;box-shadow:none !important;opacity:1 !important}
 [data-wk="chatreply"]{width:38px !important;min-width:38px !important;height:34px !important;border:none !important;box-shadow:none !important;border-radius:0 !important;background:${svg(I_REPLY)} center/contain no-repeat !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.92) !important}
+
+/* ───── 梅子饭团 · 第二批：卡片（形状不动；都是一块白米，顶上包一条海苔，底下一点米色厚度） ───── */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{position:relative !important;overflow:hidden !important;background:${svg(GRAINS)} 0 0/40px 30px,#fff !important;border:none !important;border-top:7px solid ${C.nori} !important;border-radius:14px !important;box-shadow:0 2px 0 ${C.grain},0 4px 12px rgba(44,58,51,.12) !important;color:${C.ink} !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *,[data-wk="photocard"] *{color:${C.ink} !important;border-color:${C.grain} !important}
+/* 转账：金额是海苔黑，收下盖一颗梅子章 */
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.nori} !important}
+[data-wk="transferrule"]{border:none !important;height:1px !important;background:${C.grain} !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:#FAF8F3 !important;border-top:1px solid ${C.grain} !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.nori} !important;color:#fff !important;border:none !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;border:1px solid ${C.grain} !important}
+[data-wk="transferseal"]{background:${svg(UME)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;width:38px !important;height:38px !important;font-size:0 !important;color:transparent !important}
+[data-wk="transferseal"] *{opacity:0 !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{transform:rotate(-10deg) !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.55 !important}
+/* 红包：不是信封——一块梅子红的布巾，左边卧一个小饭团；领完变淡 */
+[data-wk="rpcard"]{position:relative !important;overflow:visible !important;background:linear-gradient(135deg,#E25A5C,${C.ume}) !important;border:none !important;border-radius:14px !important;box-shadow:0 2px 0 #B5383B,0 4px 12px rgba(217,71,74,.25) !important;padding-left:56px !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:10px !important;top:calc(50% - 20px) !important;width:40px !important;height:40px !important;background:${svg(NIGIRI)} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="rpcard"] *{color:#fff !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"][data-status="done"]{opacity:.7 !important}
+[data-wk="rpenvelope"]{background:radial-gradient(circle at 50% 18%,rgba(255,255,255,.25),transparent 55%),linear-gradient(180deg,#E25A5C,#B5383B) !important;border:none !important;border-radius:20px !important;box-shadow:0 12px 30px rgba(0,0,0,.25) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:transparent !important;border:none !important}
+[data-wk="rpenvelope"] *{color:#fff !important}
+[data-wk="rpopenbtn"]{background:${svg(NIGIRI)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;filter:drop-shadow(0 4px 6px rgba(0,0,0,.25)) !important}
+[data-wk="rpopenbtn"] *{opacity:0 !important}
+[data-wk="rpamount"]{color:#fff !important}
+/* 照片：白米框里一块浅米色小屏；语音跟气泡一样 */
+[data-wk="photocard"]{padding:8px 8px 10px !important}
+[data-wk="photoface"]{border-radius:10px !important;background:#F1EEE6 !important;border:none !important}
+[data-wk="photoface"] *,[data-wk="photohint"]{color:#6E716B !important}
+[data-wk="photoface"] svg{stroke:${C.nori} !important}
+[data-wk="voice"][data-me]{background:linear-gradient(90deg,${C.nori} 0 14px,transparent 14px),#fff !important;border:none !important;border-radius:14px !important;padding-left:22px !important;box-shadow:0 2px 0 ${C.grain} !important}
+[data-wk="voice"][data-me="1"]{background:linear-gradient(135deg,${C.nori2},${C.nori}) !important;padding-left:12px !important;box-shadow:0 2px 0 #1E2823 !important}
+[data-wk="voice"] > *{background:transparent !important;border:none !important;box-shadow:none !important;color:${C.ink} !important}
+[data-wk="voice"][data-me="1"] > *{color:#fff !important}
+[data-wk="voicewave"] span{background:${C.nori} !important}
+[data-wk="voice"][data-me="1"] [data-wk="voicewave"] span{background:#fff !important}
+/* 天气：白米卡，太阳是一个煎蛋黄；下面那句话垫浅米色 */
+[data-wk="wxcard"]{overflow:hidden !important;background:${svg(GRAINS)} 0 0/40px 30px,#fff !important;border:none !important;border-top:7px solid ${C.nori} !important;border-radius:14px !important;box-shadow:0 2px 0 ${C.grain},0 4px 12px rgba(44,58,51,.12) !important}
+[data-wk="wxcard"] *{color:${C.ink} !important}
+[data-wk="wxcardsky"]{background:transparent !important}
+[data-wk="wxcardsky"] > div:first-child{background:radial-gradient(circle,#F6C445 0 11px,#fff 12px 17px,transparent 18px) !important}
+[data-wk="wxcardsky"] svg{stroke:${C.nori} !important}
+[data-wk="wxcardsky"] span[style*="999"],[data-wk="wxcardrain"]{background:#F4F2EC !important;border:none !important}
+[data-wk="wxcardsay"]{background:#F7F5EF !important;border-top:1px solid ${C.grain} !important}
+[data-wk="wxcardsay"],[data-wk="wxcardsay"] *{color:${C.ink} !important}
+[data-wk="geopin"]{background:${C.ume} !important;box-shadow:0 0 0 2px #fff !important}
+[data-wk="geopinstem"]{background:${C.nori} !important}
+[data-wk="namecard"] img{border-radius:${ONI} !important;box-shadow:0 0 0 3px #fff,0 3px 0 3px ${C.nori} !important}
+/* 卡片下面的已读也是一粒芝麻 */
+[data-run][data-last="1"] + [data-wk="cardmeta"]::before{content:"" !important;display:inline-block !important;vertical-align:middle !important;width:7px !important;height:4px !important;border-radius:50% !important;background:${C.nori} !important;transform:rotate(-25deg) !important;margin:0 6px !important}
+/* 拍一拍、通话结束 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;border:none !important;background:#fff !important;border-radius:999px !important;padding:3px 14px !important;color:${C.fog} !important;box-shadow:0 1px 0 ${C.grain} !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.fog} !important}
+[data-wk="note"][data-part="callsum"]{color:${C.fog} !important}
+/* 线下小结 */
+[data-wk="offlogtitle"]{letter-spacing:.15em !important;color:${C.nori} !important;font-weight:600 !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.ume} !important}
+[data-wk="offlogtranscript"]{border-top:1px solid ${C.grain} !important}
+/* 加号面板：一颗颗小饭团形的白米扣子，底下垫海苔 */
+[data-wk="chatpanel"]{background:#fff !important;border-top:1px solid ${C.grain} !important}
+[data-wk="chattoolicon"]{background:#fff !important;border:none !important;border-radius:${ONI} !important;box-shadow:0 0 0 1px ${C.grain},0 4px 0 1px ${C.nori} !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.nori} !important;color:${C.nori} !important}
+[data-wk="chattool"]:nth-child(3n+2) [data-wk="chattoolicon"]{box-shadow:0 0 0 1px ${C.grain},0 4px 0 1px ${C.ume} !important}
+[data-wk="chattoollabel"]{color:${C.fog} !important}
+/* 引用：左边一条海苔 */
+[data-wk="quotedraft"]{background:#fff !important;border-top:1px solid ${C.grain} !important}
+[data-wk="quote"]{background:#F4F2EC !important;color:#6E716B !important;border:none !important;border-left:4px solid ${C.nori} !important;border-radius:6px !important;opacity:1 !important}
+[data-wk="quoteicon"],[data-wk="quoteclear"]{color:${C.ume} !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.7 !important}
+/* 线下：提示键是一块玉子烧，照片键是一个小饭团 */
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:30px !important;min-width:30px !important;height:24px !important;background:${svg(TAMAGO)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;font-size:0 !important;color:transparent !important;padding:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;border:none !important;box-shadow:none !important;font-size:0 !important;color:transparent !important;padding:0 !important;background:${svg(NIGIRI)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "梅子饭团", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "梅子饭团-美化.json"), JSON.stringify(pack));
