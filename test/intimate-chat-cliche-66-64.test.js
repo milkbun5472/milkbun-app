@@ -25,8 +25,8 @@ test("这一族靠判据认人，不是靠例句", () => {
 
 test("那一份【确实】发到单聊线上——不是漏发（查过才动手）", () => {
   // ⚠️这条不许删：下次再报八股时，第一件事仍然是确认它到底有没有发出去
-  const bb = eng.slice(eng.indexOf("      parts.push(ANTI_CLICHE);"), eng.indexOf("      parts.push(STOCK_REPLY_BAN);"));
-  assert.match(bb, /parts\.push\(INTIMATE_CHAT_ANTI_CLICHE\);/, "线上那条路上没有它——那才是漏发，改法就完全不同了");
+  const bb = eng.slice(eng.indexOf("      pushRule(ANTI_CLICHE);"), eng.indexOf("      pushRule(STOCK_REPLY_BAN);"));
+  assert.match(bb, /pushRule\(INTIMATE_CHAT_ANTI_CLICHE\);/, "线上那条路上没有它——那才是漏发，改法就完全不同了");
   assert.match(eng, /P\.push\(INTIMATE_CHAT_ANTI_CLICHE\);/, "线下那条路上的那一份也不许丢");
 });
 
