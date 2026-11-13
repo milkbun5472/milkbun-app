@@ -10105,6 +10105,15 @@ async function generateOffline(p, ctx, session) {
     toyHint +
     offPhotoHint +
     "") + outputSpec + ((!isDigital && session.sayZhOn) ? offlineSayZhSpec("") : "") + stateBootstrapHint + gazeSpecBlock;
+  // 「上一轮线下真的发了什么」（她 2026-11-13：「要一个查上一轮发了啥的跟线上一样的」）：
+  //   线上那张是照发送那条路【重建】出来的；线下这份 system 是在这儿一长串拼出来的，没有能照着重建的入口，
+  //   所以在真发出去那一刻留一份收据。只在内存里、刷新网页就没了，跟召回收据一个规矩（不进存档、不上云）。
+  try {
+    if (typeof window !== "undefined") {
+      window.__offlineSysReceipt = window.__offlineSysReceipt || {};
+      window.__offlineSysReceipt[char.id] = { ts: Date.now(), system: String(system || ""), charName: char.name || "", sessionId: session.id || null };
+    }
+  } catch (e) {}
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
   const hist = offlineHistory(offlineLoosenOn(session) ? offlineLoosenOld(offlineDropStale(session.msgs)) : session.msgs, userName, char.name, ctx.timeAware !== false, char.id);
