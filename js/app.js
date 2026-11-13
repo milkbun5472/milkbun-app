@@ -5051,6 +5051,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     toast("已恢复归档记忆、撤除对应精炼摘要");
   };
   // 共享抽取：把 msgs 抽成记忆条、双重去重后入库，返回实际新增条数（手动/自动共用）
+  // 一条抽出来的记忆是哪天的事：它引的那几条消息里最晚的那条的时间（消息编号的认法跟证据闸 memory-extraction-gate 同一套）
+  const memEvidenceTs = (it, msgs) => {
+    const ids = new Set((Array.isArray(it && it.evidence_message_ids) ? it.evidence_message_ids : []).map(String));
+    if (!ids.size || !Array.isArray(msgs)) return 0;
+    let t = 0;
+    msgs.forEach((m, i) => { const id = String((m && (m.id || m.mid)) || (m && m.ts ? "ts_" + m.ts : "idx_" + i)); if (ids.has(id)) t = Math.max(t, Number(m.ts) || 0); });
+    return t && t <= Date.now() ? t : 0;
+  };
   const pastMemEntry = (e, when) => ({ ...e, tags: [...new Set([...(e.tags || []), "过去"])], past: true, when: String(when || "").trim().slice(0, 40), open: false });
   const extractAndAddForChar = async (charId, msgs, exOpts = {}) => {
     const char = characters.find(c => c.id === charId);
@@ -5092,7 +5100,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         window.RerollBranch && window.RerollBranch.candidateStillLive(it, liveMessages)
       ).map((it, i) => {
         const entry = {
-          id: uniqMemId(now, i), text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], charIds: [charId], ts: now, source: "auto", pinned: false,
+          // 日期照那件事说出口的那天，不照抽的这天（她 2026-11-13：九月的 CFE、你爸出差被重抽进来，全盖着今天的日期，
+          //   言秋就当成了本周新闻）：取证据那几条消息里最晚的时间；对不上才用现在。抽的时候另记在 addedTs
+          id: uniqMemId(now, i), text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], charIds: [charId], ts: memEvidenceTs(it, msgs) || now, addedTs: now, source: "auto", pinned: false,
           v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open,
           evidenceMessageIds: Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : [],
           ...memTtlPatch(it, now)
