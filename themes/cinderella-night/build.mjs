@@ -40,6 +40,8 @@ const VINE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 26'><path 
 // 好感：一面午夜钟，指针按好感转——满好感正好走到十二点（钟声敲响的那一刻）
 const LOVECLOCK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><radialGradient id='f' cx='.4' cy='.35'><stop offset='0' stop-color='#fff'/><stop offset='1' stop-color='#F3ECFF'/></radialGradient></defs><circle cx='50' cy='50' r='44' fill='url(#f)' stroke='${C.goldD}' stroke-width='4'/><circle cx='50' cy='50' r='39' fill='none' stroke='${C.gold}' stroke-width='1'/>${Array.from({length:12},(_,i)=>{const a=i*30*Math.PI/180,r1=i%3?32:29,r2=36;return `<path d='M${(50+r1*Math.sin(a)).toFixed(1)} ${(50-r1*Math.cos(a)).toFixed(1)} L${(50+r2*Math.sin(a)).toFixed(1)} ${(50-r2*Math.cos(a)).toFixed(1)}' stroke='${C.ink}' stroke-width='${i%3?1:2}'/>`}).join('')}<path transform='translate(50 21)' d='M0 -5 Q.4 -.4 3.5 0 Q.4 .4 0 5 Q-.4 .4 -3.5 0 Q-.4 -.4 0 -5Z' fill='${C.goldD}'/><circle cx='50' cy='50' r='3' fill='${C.goldD}'/></svg>`;
 const HAND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 40'><path d='M5 2 L7.5 30 L5 38 L2.5 30Z' fill='${C.ink}'/><path transform='translate(5 8)' d='M0 -4 Q.3 -.3 2.6 0 Q.3 .3 0 4 Q-.3 .3 -2.6 0 Q-.3 -.3 0 -4Z' fill='${C.goldD}'/></svg>`;
+// 线下：王宫大台阶——远处一座城堡剪影亮着窗，近处一层层宽台阶往下铺，台阶上落着一只玻璃鞋
+const STAIRS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 320'><defs><linearGradient id='st' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#E8E2FA'/><stop offset='1' stop-color='#C9BEEA'/></linearGradient></defs><g fill='#3A3488' opacity='.85'><path d='M120 120 V70 L130 52 L140 70 V120Z'/><path d='M250 120 V70 L260 52 L270 70 V120Z'/><path d='M140 120 V80 H250 V120Z'/><path d='M175 80 V46 L195 20 L215 46 V80Z'/></g><g fill='#FFE9B0' opacity='.9'><rect x='190' y='52' width='10' height='14' rx='5'/><rect x='155' y='92' width='8' height='12' rx='4'/><rect x='227' y='92' width='8' height='12' rx='4'/><rect x='126' y='84' width='7' height='10' rx='3.5'/><rect x='257' y='84' width='7' height='10' rx='3.5'/></g>${Array.from({length:7},(_,i)=>{const y=126+i*27,w=90+i*44,x=195-w/2;return `<rect x='${x}' y='${y}' width='${w}' height='22' fill='url(#st)'/><rect x='${x}' y='${y+22}' width='${w}' height='5' fill='#A99CD8'/><path d='M${x} ${y+.5} H${x+w}' stroke='#fff' stroke-width='1.2' opacity='.8'/>`}).join('')}<g transform='translate(236 196) scale(1.15)'><path d='M4 29 Q4 24 12 22.5 Q17 21.5 20 21 Q30 19 40 13 Q45 10 49 10 L50.5 10.5 L50.5 18 L47.8 35 L45.2 35 L44.6 23.5 Q38 24.5 32 28 Q26 31.5 14 31.5 Q4 32 4 29Z' fill='rgba(220,232,255,.75)' stroke='#fff' stroke-width='1.4' stroke-linejoin='round'/><path d='M9 27 Q14 25.5 19 25.5' fill='none' stroke='#fff' stroke-width='1.6' stroke-linecap='round'/></g><circle cx='290' cy='216' r='26' fill='#FFF6DA' opacity='.18'/></svg>`;
 const bubble = { myBg: C.v2, myText: "#fff", myBorder: "none", charBg: C.pearl, charText: C.ink, charBorder: "none", radius: 16, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const PANEL = `background:linear-gradient(180deg,rgba(120,110,200,.55),rgba(90,85,176,.45)) !important;backdrop-filter:blur(10px) !important;-webkit-backdrop-filter:blur(10px) !important;border-radius:20px !important;box-shadow:inset 0 0 0 1.4px rgba(242,217,160,.75),0 8px 20px rgba(40,30,100,.3) !important`;
@@ -311,6 +313,48 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="gazeempty"]{background:rgba(255,255,255,.08) !important;border:1px dashed rgba(242,217,160,.6) !important;border-radius:16px !important;color:#fff !important}
 [data-wk="gazeempty"] > div:first-child{color:#fff !important}
 [data-wk="gazeempty"] button{background:linear-gradient(135deg,#fff,#FCEFF5) !important;color:${C.ink} !important;border:1px solid ${C.gold} !important;border-radius:999px !important}
+/* ───── 午夜舞会 · 第四批：线下＝王宫大台阶，远处城堡亮着窗，台阶上落着一只玻璃鞋 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(STAIRS)} center bottom 70px/100% auto no-repeat,${svg(STAR)} left 30px top 140px/9px 12px no-repeat,${svg(STAR)} right 40px top 200px/8px 11px no-repeat,radial-gradient(ellipse at 50% 60%,rgba(255,230,180,.25),transparent 55%),linear-gradient(180deg,${C.v1},${C.v2} 50%,${C.v3}) !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important;color:#fff !important}
+[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]),[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]) > :not([data-wk]){color:#E6E2FA !important}
+[data-wk="offline"] [data-wk="chathead"] + *{margin-top:0 !important;padding-top:12px !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:#fff !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:32px !important;height:32px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;border:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:rgba(255,255,255,.12) !important;color:#fff !important;border:1px solid rgba(242,217,160,.7) !important;border-radius:999px !important;font-size:12px !important;padding:3px 14px !important}
+[data-wk="offcomposer"]{background:linear-gradient(180deg,rgba(140,124,200,0),rgba(110,96,180,.5)) !important;border-top:1px solid rgba(242,217,160,.6) !important}
+[data-wk="offcomposer"] textarea{background:rgba(255,255,255,.12) !important;border:1px solid rgba(216,210,242,.55) !important;border-radius:14px !important;color:#fff !important}
+[data-wk="offcomposer"] textarea::placeholder{color:${C.lilac} !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:34px !important;height:34px !important;min-width:34px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PLUS)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/34px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{position:relative !important;width:48px !important;min-width:48px !important;height:48px !important;border:none !important;border-radius:50% !important;background:${svg(PUMP(true))} center/78% no-repeat,radial-gradient(circle at 38% 32%,#fff,${C.pearl2} 70%,#EAD9B0) !important;box-shadow:0 0 0 1.4px ${C.goldD} !important;font-size:0 !important;color:transparent !important;filter:drop-shadow(0 0 10px rgba(255,236,190,.8)) !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+/* 卡片：他的珠光、你的半透明亮紫，跟线上台阶同一套；右上一颗小星 */
+[data-wk="offcard"]{position:relative !important;${CARD};overflow:visible !important;margin-top:18px !important;box-shadow:inset 0 1px 0 #fff,0 5px 0 rgba(217,180,106,.8),0 6px 22px rgba(255,210,160,.45) !important}
+[data-wk="offcard"][data-me="1"]{background:linear-gradient(180deg,rgba(170,160,240,.6),rgba(135,125,225,.5)) !important;backdrop-filter:blur(6px) !important;-webkit-backdrop-filter:blur(6px) !important;color:#fff !important;box-shadow:inset 0 1.6px 0 rgba(255,236,190,.95),0 5px 0 rgba(70,60,160,.75) !important}
+[data-wk="offcard"]::after{content:"" !important;position:absolute !important;right:-6px !important;top:-8px !important;width:10px !important;height:14px !important;background:${svg(STAR)} center/contain no-repeat !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2.5px ${C.pearl2},0 0 0 3.5px ${C.goldD} !important}
+[data-wk="offhead"] [data-wk="avatar"]::before{content:none !important}
+[data-wk="offname"],[data-wk="offtext"]{color:${C.ink} !important}
+[data-wk="offname"]{font-weight:700 !important;letter-spacing:.12em !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offname"],[data-wk="offcard"][data-me="1"] [data-wk="offtext"]{color:#fff !important}
+[data-wk="offsay"]{color:#5A4FB0 !important;background:none !important;font-weight:700 !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{color:#FFF0CC !important}
+[data-wk="offthought"]{background:transparent !important;border:none !important;border-top:1px solid rgba(217,180,106,.5) !important;border-bottom:1px solid rgba(217,180,106,.5) !important;border-radius:0 !important;color:#7A6FB0 !important;font-style:italic !important;box-shadow:none !important}
+[data-wk="offcardacts"] svg{stroke:${C.goldD} !important;color:${C.goldD} !important}
+[data-wk="offreplyopt"]{background:rgba(255,255,255,.14) !important;border:1px solid rgba(242,217,160,.6) !important;border-radius:999px !important;color:#fff !important}
+
+/* ───── 午夜舞会 · 通话：气泡同线上，大头像套珍珠光环 ───── */
+[data-wk="callbubble"]{background:linear-gradient(135deg,#FFFFFF 0%,#FCEFF5 40%,#EEF1FF 75%,#FFF7E8 100%) !important;color:${C.ink} !important;border:1px solid rgba(242,217,160,.8) !important;border-radius:12px !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:linear-gradient(180deg,rgba(170,160,240,.65),rgba(135,125,225,.55)) !important;color:#fff !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.goldD} !important}
+[data-wk="callact"]{color:#FFF0CC !important;font-style:italic !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 5px ${C.pearl2},0 0 0 6.5px ${C.goldD},0 0 40px 8px rgba(255,236,190,.45) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "午夜舞会", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
