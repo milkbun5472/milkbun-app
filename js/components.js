@@ -393,6 +393,14 @@ function ChatLookPack({ getLook, onApply, fileBase, group }) {
   const saveNamed = () => { const it = saveChatLookToShelf(getLook(), naming); if (shelfDir && it) moveTo(it.id, shelfDir); setShelf(chatLookShelf()); setNaming(null); toast("存好了，别的聊天窗在这一栏点它就能用"); };
   const useOne = it => { onApply(JSON.parse(JSON.stringify(it.look))); toast("换上了，满意再点右上角 ✓ 保存" + (group && (it.look.skin || it.look.bubble || it.look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); };
   const dropOne = it => { if (delId !== it.id) { setDelId(it.id); return; } saveJSON("x_chatLooks", chatLookShelf().filter(x => x.id !== it.id)); setShelf(chatLookShelf()); setDelId(""); };
+  // 拿现在这一套盖掉存好的那套（她 2026-11-13「存好了但是我想上传更新，现在只能删了重新起名再存」）：
+  //   名字、夹子、位置都不变，只换里面的内容。先导入新版、或者在这页改好，再在「管理」里点那套 →「换成现在这套」。点两下才换，免得手滑
+  const [overId, setOverId] = useState("");
+  const overwriteOne = it => {
+    if (overId !== it.id) { setOverId(it.id); return; }
+    saveJSON("x_chatLooks", chatLookShelf().map(x => x.id === it.id ? Object.assign({}, x, { look: chatLookClean(getLook()), at: Date.now() }) : x));
+    setShelf(chatLookShelf()); setOverId(""); toast("「" + it.name + "」换成了现在这一套");
+  };
   const take = async txt => {
     try { const look = await importChatLook(txt); onApply(look); toast("导进来了，顶栏已自动让开这台手机的刘海；看看效果，满意再点右上角 ✓ 保存" + (group && (look.skin || look.bubble || look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); return true; }
     catch (e) {
@@ -448,6 +456,7 @@ function ChatLookPack({ getLook, onApply, fileBase, group }) {
             h("input", { "data-wk": "input", value: newDir, maxLength: 12, onChange: e => setNewDir(e.target.value), placeholder: "新夹子的名字",
               style: { flex: 1, minWidth: 0, minHeight: 34, padding: "0 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 16, outline: "none" } }),
             h("button", { onClick: () => { if (newDir.trim()) moveTo(it.id, newDir); }, className: "active:opacity-70", style: { minHeight: 34, padding: "0 12px", borderRadius: 9, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "新建放进"),
+            h("button", { "data-wk": "lookshelfover", onClick: () => overwriteOne(it), className: "active:opacity-70", style: { minHeight: 34, padding: "0 8px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: overId === it.id ? t.accent : t.sub } }, overId === it.id ? "再点一下换掉" : "换成现在这套"),
             h("button", { onClick: () => dropOne(it), className: "active:opacity-70", style: { minHeight: 34, padding: "0 8px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: delId === it.id ? t.accent : t.fog } }, delId === it.id ? "确定删" : "删")));
       })() : null,
       (shelf.length > SHELF_PEEK && !shelfEdit) ? h("button", { "data-wk": "lookshelfmore", onClick: () => { setShelfOpen(v => !v); setShelfQ(""); }, className: "active:opacity-70",
