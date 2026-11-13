@@ -150,7 +150,7 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]){position:relati
 [data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:10px !important;top:calc(50% - 21px) !important;width:40px !important;height:42px !important;background:${svg(HOODBIG)} center/contain no-repeat !important;z-index:2 !important}
 [data-wk="rpcard"] *{color:${C.cream} !important}
 [data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
-[data-wk="rpcard"][data-status="done"]{opacity:.6 !important;filter:saturate(.5) !important}
+[data-wk="rpcard"][data-status="done"]{opacity:.72 !important}
 [data-wk="rpenvelope"]{background:radial-gradient(ellipse at 50% 20%,rgba(242,182,64,.25),transparent 60%),${svg(LINEN)} 0 0/6px 6px,linear-gradient(180deg,#CF4D3A,#7A2219) !important;border:none !important;outline:2px dashed ${STITCH} !important;outline-offset:-8px !important;border-radius:16px !important;box-shadow:0 12px 30px rgba(0,0,0,.5) !important}
 [data-wk="rpenvelope"] [data-wk="rparc"]{background:transparent !important;border:none !important}
 [data-wk="rpenvelope"] *{color:${C.cream} !important}
@@ -348,6 +348,19 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="msg"][data-me="0"]{position:relative !important}
 [data-wk="msg"][data-me="0"]::after{content:"" !important;position:absolute !important;left:13px !important;top:12px !important;width:24px !important;height:8px !important;background:radial-gradient(circle at 4px 4px,#FFE9A8 0 1.2px,rgba(242,182,64,.85) 1.8px,rgba(242,182,64,0) 4px),radial-gradient(circle at 16px 4px,#FFE9A8 0 1.2px,rgba(242,182,64,.85) 1.8px,rgba(242,182,64,0) 4px) !important;transform:rotate(-5deg) !important;pointer-events:none !important;z-index:5 !important;animation:rhGlint 5s ease-in-out infinite !important}
 @keyframes rhGlint{0%,55%,100%{opacity:0}65%,85%{opacity:.9}}
+
+/* 私聊红包那一行是 rpsingle，没有 data-me：他的头像是第一个孩子，我的紧跟在红包卡后面 */
+[data-wk="rpsingle"] > [data-wk="avatar"]:first-child,[data-wk="rpsingle"] > :first-child [data-wk="avatar"]{border-radius:3px !important;box-shadow:0 0 0 2px ${C.cream},0 0 0 3px #2A1A12,0 0 0 8px #4A3024,0 0 0 9px #7A5238,0 0 0 10px #1A0E08,4px 8px 10px rgba(0,0,0,.6) !important;filter:sepia(.45) contrast(1.08) saturate(.8) !important;transform:rotate(-4deg) !important}
+[data-wk="rpsingle"] > [data-wk="rpcard"] + [data-wk="avatar"],[data-wk="rpsingle"] > [data-wk="rpcard"] + * [data-wk="avatar"],[data-wk="rpsingle"] > [data-wk="rpcard"] + * > [data-wk="avatar"]{border-radius:50% 4px 50% 50% !important;box-shadow:0 0 0 4px ${C.red},0 0 0 5px ${C.red2},0 3px 8px rgba(0,0,0,.45) !important;filter:none !important;transform:none !important}
+
+/* 我写的动作（myact）：跟他的动描一样是童话书那页，但靠右、划痕在右边 */
+[data-wk="myactink"]{display:inline-block !important;background:linear-gradient(180deg,rgba(120,20,14,0),rgba(120,20,14,.18) 70%,rgba(120,20,14,.28)),linear-gradient(270deg,rgba(242,226,196,.1),rgba(242,226,196,.03)) !important;border:none !important;border-radius:0 !important;box-shadow:inset -3px 0 0 -1px rgba(160,30,20,.85) !important;color:#E7D8BC !important;font-family:"Songti SC","Noto Serif SC",serif !important;font-style:italic !important;padding:6px 14px !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important}
+[data-wk="narrink"]{backdrop-filter:none !important;-webkit-backdrop-filter:none !important}
+/* 旁白栏：木色底，一排小签条 */
+[data-wk="narrbar"]{background:linear-gradient(180deg,${C.wood},#1E140F) !important;border-top:1px dashed rgba(242,182,64,.4) !important}
+[data-wk="narrbar"] *{color:#C9B48F !important}
+[data-wk="narrkind"]{border:1px solid rgba(251,243,228,.25) !important;border-radius:4px !important;background:transparent !important;font-family:"Songti SC",serif !important}
+[data-wk="narrkind"][data-on="1"]{background:${C.red} !important;border-color:${C.red} !important;color:${C.cream} !important;outline:1px dashed ${STITCH} !important;outline-offset:-3px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "红帽夜访", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
