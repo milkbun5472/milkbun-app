@@ -402,6 +402,18 @@ span[data-wk="avatar"]:not([data-halo])::before{background:${svg(FRAME(35))} cen
 [data-wk="offlogtext"]{color:#6B4A2E !important}
 [data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:#c98f55 !important}
 [data-wk="offlogtranscript"]{border-top:1.5px dashed #D9A86C !important;color:#a07a5a !important}
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle at 50% 22%,#FFF8EC,transparent 60%),linear-gradient(180deg,#FBE9C4,#F3D7A8) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#2E2A28 !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(0,0,0,.5) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(0,0,0,.06) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#2E2A28 !important}
+[data-wk="callbtns"] button > span:first-child{background:#FFFDF8 !important;border-radius:50% !important;box-shadow:0 0 0 2px #D9A86C,0 5px 0 2px #C98F55 !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#6B5448 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#E58A6A !important;box-shadow:0 5px 0 #B9654A !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(0,0,0,.5) !important}
 `;
 
 const look = { bubble, customCSS: css.trim() };

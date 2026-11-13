@@ -361,6 +361,18 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="narrbar"] *{color:#C9B48F !important}
 [data-wk="narrkind"]{border:1px solid rgba(251,243,228,.25) !important;border-radius:4px !important;background:transparent !important;font-family:"Songti SC",serif !important}
 [data-wk="narrkind"][data-on="1"]{background:${C.red} !important;border-color:${C.red} !important;color:${C.cream} !important;outline:1px dashed ${STITCH} !important;outline-offset:-3px !important}
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(ellipse at 50% 30%,rgba(242,182,64,.18),transparent 60%),repeating-linear-gradient(90deg,rgba(0,0,0,.42) 0,rgba(0,0,0,.08) 22px,rgba(120,170,140,.10) 40px,rgba(0,0,0,.05) 56px,rgba(0,0,0,.42) 78px),linear-gradient(180deg,#1A3229,#0C1814) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(255,255,255,.65) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(255,255,255,.12) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#fff !important}
+[data-wk="callbtns"] button > span:first-child{background:#F1E6D2 !important;border-radius:22% !important;box-shadow:0 0 0 3px #5A3B2A,0 0 0 4px #8A6345,0 6px 14px rgba(0,0,0,.5) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#3A2A20 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#C2412F !important;box-shadow:0 0 0 3px #FBF3E4,0 6px 14px rgba(0,0,0,.5) !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(255,255,255,.65) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "红帽夜访", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

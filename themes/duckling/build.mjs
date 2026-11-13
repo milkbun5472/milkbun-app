@@ -317,6 +317,18 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),img[data-wk="av
 [data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:linear-gradient(135deg,rgba(143,227,234,.42),rgba(63,162,176,.30)),rgba(18,66,75,.95) !important;color:#fff !important;border-color:rgba(255,255,255,.6) !important;box-shadow:none !important}
 [data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 3px #fff,0 0 0 8px #133B42,0 0 0 9px rgba(242,178,74,.9),0 0 40px 10px rgba(246,227,176,.35) !important}
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle at 70% 18%,#FFFDF2 0 18px,rgba(246,227,176,.3) 20px,transparent 80px),linear-gradient(180deg,#0B1E2E,#1C4C55 50%,#091E24) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(255,255,255,.65) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(255,255,255,.12) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#fff !important}
+[data-wk="callbtns"] button > span:first-child{background:linear-gradient(180deg,#FFFFFF,#E6F1F2) !important;border-radius:50% !important;box-shadow:0 0 0 1px #fff,0 0 0 5px #133B42,0 0 0 5.6px rgba(242,178,74,.8) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#0E3138 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#E2A73C !important;box-shadow:0 0 0 1px #fff,0 0 18px rgba(246,227,176,.6) !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(255,255,255,.65) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "月湖天鹅", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

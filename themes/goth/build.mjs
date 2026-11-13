@@ -311,6 +311,18 @@ img[data-wk="avatar"]{overflow:hidden !important}
 [data-wk="chathead"] [data-wk="headname"]{min-width:120px !important}
 [data-wk="chathead"] [data-wk="headname"] [data-wk="headink"]{letter-spacing:.02em !important}
 [data-wk="chathead"] [data-wk="headink"] > span:first-child{overflow:visible !important;text-overflow:clip !important}
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:radial-gradient(ellipse at 50% 25%,rgba(138,40,70,.35),transparent 60%),#1D1219 !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(255,255,255,.65) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(255,255,255,.12) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#fff !important}
+[data-wk="callbtns"] button > span:first-child{background:#160D13 !important;border-radius:50% 50% 6px 6px / 40% 40% 6px 6px !important;box-shadow:0 0 0 1.6px #F3E9EE,0 0 0 5px #1D1219,0 0 0 6px rgba(243,233,238,.5) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#F3E9EE !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#8A2846 !important;box-shadow:0 0 0 1.6px #F3E9EE,0 0 14px rgba(200,35,77,.6) !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(255,255,255,.65) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "哥特蕾丝", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

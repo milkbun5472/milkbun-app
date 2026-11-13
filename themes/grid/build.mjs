@@ -263,6 +263,18 @@ const css = `
 /* 线上最右那颗也换成同一个圆角三角，线上线下一致 */
 [data-wk="send"]{background:${C.ink} ${svg(I_PLAY)} center/18px no-repeat !important}
 
+
+/* 打电话那一屏（语音）：整屏底色跟这套走；三个按键换成这套的扣子，中间挂断单独一色 */
+[data-wk="call"][data-video="0"]{background:linear-gradient(#C9C7C1 1px,transparent 1px) 0 0/20px 20px,linear-gradient(90deg,#C9C7C1 1px,transparent 1px) 0 0/20px 20px,#F1F0EC !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#2E2A28 !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:rgba(0,0,0,.5) !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(0,0,0,.06) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#2E2A28 !important}
+[data-wk="callbtns"] button > span:first-child{background:#F6F5F2 !important;border-radius:2px !important;box-shadow:0 0 0 1.5px #1E1E1E,3px 3px 0 1.5px #1E1E1E !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#1E1E1E !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#1E1E1E !important;box-shadow:3px 3px 0 0 #8A8984 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:rgba(0,0,0,.5) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "方格手稿", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
