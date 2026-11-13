@@ -3439,7 +3439,20 @@ function App() {
     };
     return () => { delete window.__shrinkRestore; };
   });
-  const pChat = (id, u) => setChats(p => {
+  // 切到后台时当场落盘（群友 Arlota 2026-11-13：「弹窗收到的消息，进入秋秋机收不到」）：
+  //   下面这段（连同 saveJSON）是 setChats 的 updater，React 要等下一次渲染才跑它；页面一到后台渲染就停了，
+  //   气泡的通知已经当场弹出去，这几条却还排在队里——系统把页面收掉，它们就没了。后台时用 flushSync 当场跑完。
+  const pChat = (id, u) => {
+    const run = () => setChats(p => pChatNext(p, id, u));
+    if (hiddenFlush(run)) return;
+    run();
+  };
+  // 页面在后台：当场把这一笔状态跑完（连同里面的落盘），不等渲染。单聊、群聊两处共用
+  const hiddenFlush = run => {
+    if (typeof document === "undefined" || document.visibilityState !== "hidden" || typeof ReactDOM === "undefined" || !ReactDOM || typeof ReactDOM.flushSync !== "function") return false;
+    try { ReactDOM.flushSync(run); return true; } catch (e) { return false; }
+  };
+  const pChatNext = (p, id, u) => {
     const pl = p[id] || [];
     let n = typeof u === "function" ? u(pl) : u;
     // 他拉黑了她：她这会儿新发出去的每一条都送不到，挂红感叹号——打字、引用、照片、表情、转账……不管从哪条路发，都在这一处认
@@ -3500,7 +3513,7 @@ function App() {
       ...p,
       [id]: n
     };
-  });
+  };
   const summarizeChatRoom = async (character, room, frame) => {
     if (!window.ChatRooms || !character || !room || room.main) return null;
     const key = window.ChatRooms.chatKey(character.id, room.id);
@@ -3791,7 +3804,8 @@ function App() {
     luckySave(gid, r.st);
     if (r.ev.length) setTimeout(() => luckyLines(gid, r.ev), 0);
   };
-  const pGChat = (id, u) => setGroupChats(p => {
+  const pGChat = (id, u) => { const run = () => setGroupChats(p => pGChatNext(p, id, u)); if (hiddenFlush(run)) return; run(); };
+  const pGChatNext = (p, id, u) => {
     const pl = p[id] || [];
     const n = typeof u === "function" ? u(pl) : u;
     saveJSON("x_gchat:" + id, n);
@@ -3813,7 +3827,7 @@ function App() {
       ...p,
       [id]: n
     };
-  });
+  };
   const setAff = (id, v) => setAffinities(p => {
     const value = typeof v === "function" ? v(p[id] != null ? p[id] : baseAff(id)) : v;
     if (typeof value !== "number" || !Number.isFinite(value)) return p;
