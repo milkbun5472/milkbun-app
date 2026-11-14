@@ -9,7 +9,8 @@ const C = { bg: "#F7F1EA", foam: "#FFFCF7", cocoa: "#7A4E36", cocoa2: "#5E3826",
 const DOTS = X(`width='80' height='80' viewBox='0 0 80 80'><g fill='rgba(122,78,54,.08)'><rect x='10' y='14' width='6' height='5' rx='1.6' transform='rotate(12 13 16)'/><rect x='52' y='40' width='6' height='5' rx='1.6' transform='rotate(-18 55 42)'/></g><g fill='rgba(246,211,214,.5)'><rect x='30' y='62' width='6' height='5' rx='1.6' transform='rotate(30 33 64)'/><rect x='66' y='8' width='5' height='4' rx='1.4'/></g>`);
 // 淌下来的那一圈：可可（他）/ 奶泡（我）
 // 照参考：薄薄一层，底边是一串连续的圆拱（拱是奶泡往上顶的弧），拱和拱之间挂一颗小圆滴
-const DRIP = c => X(`width='24' height='17' viewBox='0 0 24 17' preserveAspectRatio='none'><path d='M0 0 H24 V11.5 C24 15.6 21.6 16.8 20 14.8 C18.4 12.6 16.6 9.2 12 9.2 C7.4 9.2 5.6 12.6 4 14.8 C2.4 16.8 0 15.6 0 11.5Z' fill='${c}'/>`);
+// 滴放在每一小段的正中间，拼缝落在拱顶（拱顶是平的切线，拼起来看不出缝；滴要是落在拼缝上就会裂成两半）
+const DRIP = c => X(`width='24' height='17' viewBox='0 0 24 17' preserveAspectRatio='none'><path d='M0 0 H24 V9.2 C19.4 9.2 17.6 12.6 16 14.8 C14.6 16.6 13.4 16.9 12 16.9 C10.6 16.9 9.4 16.6 8 14.8 C6.4 12.6 4.6 9.2 0 9.2Z' fill='${c}'/>`);
 // 奶泡的绵密小气孔
 const FOAM = X(`width='34' height='26' viewBox='0 0 34 26'><g fill='none' stroke='rgba(200,175,150,.28)' stroke-width='.8'><circle cx='5' cy='6' r='2.2'/><circle cx='11' cy='4' r='1.3'/><circle cx='20' cy='9' r='2.6'/><circle cx='28' cy='5' r='1.5'/><circle cx='8' cy='16' r='1.6'/><circle cx='15' cy='20' r='2.4'/><circle cx='25' cy='18' r='1.4'/><circle cx='31' cy='22' r='2'/><circle cx='2' cy='23' r='1.2'/></g>`);
 const FOAMD = X(`width='34' height='26' viewBox='0 0 34 26'><g fill='none' stroke='rgba(255,236,220,.13)' stroke-width='.8'><circle cx='5' cy='6' r='2.2'/><circle cx='20' cy='9' r='2.6'/><circle cx='15' cy='20' r='2.4'/><circle cx='31' cy='22' r='2'/><circle cx='26' cy='15' r='1.3'/></g>`);
