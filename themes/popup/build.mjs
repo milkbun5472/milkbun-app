@@ -1,4 +1,4 @@
-// 系统弹窗：老电脑的青绿桌面；每个气泡是一扇老系统的弹窗——灰色凸起的窗体、顶上一条标题栏（他深蓝「Ta.exe」、我紫红「你.txt」）、右上一个关闭键；头像嵌在凸起的灰按钮里；已读是进度条走满。用法：node themes/popup/build.mjs
+// 系统弹窗：老电脑的青绿桌面；每个气泡是一扇老系统的弹窗——灰色凸起的窗体、顶上一条标题栏（他深蓝「Ta.exe」、我紫红「ni.txt」）、右上一个关闭键；头像嵌在凸起的灰按钮里；已读是进度条走满。用法：node themes/popup/build.mjs
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -49,10 +49,10 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"] [data-wk="avatar"],[data-wk="cardrow"] [data-wk="avatar"],[data-wk="rpsingle"] > :first-child[data-wk="avatar"],[data-wk="rpsingle"] > [data-wk="rpcard"] + [data-wk="avatar"]{box-shadow:${AV} !important}
 [data-wk="msg"] [data-wk="avatar"],[data-wk="cardrow"] [data-wk="avatar"],[data-wk="rpsingle"] [data-wk="avatar"]{margin:4px 6px !important}
 
-/* 气泡：一扇老系统的弹窗——灰窗体凸起、顶上标题栏（他深蓝 Ta.exe、我紫红 你.txt）、右上关闭键 */
+/* 气泡：一扇老系统的弹窗——灰窗体凸起、顶上标题栏（他深蓝 Ta.exe、我紫红 ni.txt）、右上关闭键 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;background:${C.grey} !important;color:${C.ink} !important;border:none !important;border-radius:0 !important;box-shadow:${UP},4px 4px 0 rgba(0,0,0,.3) !important;padding:30px 18px 11px !important;min-width:120px !important;line-height:1.55 !important}
 [data-wk="bubble"][data-kind="text"]::before{content:"Ta.exe" !important;position:absolute !important;left:3px !important;right:3px !important;top:3px !important;height:19px !important;background:linear-gradient(90deg,${C.navy},${C.navy2}) !important;color:#fff !important;font:700 11.5px/19px Tahoma,Verdana,sans-serif !important;padding-left:6px !important;letter-spacing:.02em !important;text-align:left !important;pointer-events:none !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]::before{content:"你.txt" !important;background:linear-gradient(90deg,${C.plum},${C.plum2}) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::before{content:"ni.txt" !important;background:linear-gradient(90deg,${C.plum},${C.plum2}) !important}
 [data-wk="bubble"][data-kind="text"]::after{content:"" !important;position:absolute !important;right:6px !important;top:5.5px !important;width:16px !important;height:14px !important;background:${svg(XBTN)} center/100% 100% no-repeat !important;pointer-events:none !important}
 
 /* 时间：一张黄色小提示条 */
@@ -114,6 +114,10 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 [data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{background:${C.grey} !important;border-radius:0 !important;box-shadow:${UP} !important;color:#000 !important;padding:2px 12px !important}
 [data-wk="noteink"]{color:#202020 !important}
 [data-wk="callact"]{color:${C.navy} !important}
+
+/* 头像照参考：外面是一块方的凸起灰按钮，里面的照片是圆的、嵌一圈凹下去的圆环（左上暗、右下亮） */
+[data-wk="row"] > button[data-wk="avatar"],[data-wk="row"] > span[data-wk="avatar"],[data-wk="cardrow"] > button[data-wk="avatar"],[data-wk="cardrow"] > span[data-wk="avatar"],[data-wk="rpsingle"] > button[data-wk="avatar"],[data-wk="rpsingle"] > span[data-wk="avatar"]{display:inline-flex !important;padding:7px !important;background:${C.grey} !important;border-radius:0 !important;box-shadow:${UP},4px 4px 0 rgba(0,0,0,.3) !important;margin:0 4px !important}
+[data-wk="row"] [data-wk="avatar"] > img[data-wk="avatar"],[data-wk="cardrow"] [data-wk="avatar"] > img[data-wk="avatar"],[data-wk="rpsingle"] [data-wk="avatar"] > img[data-wk="avatar"],[data-wk="msg"] [data-wk="avatar"] > img[data-wk="avatar"]{border-radius:50% !important;border:3px solid !important;border-color:#404040 #FFFFFF #FFFFFF #404040 !important;box-shadow:none !important;margin:0 !important;box-sizing:content-box !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "系统弹窗", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "系统弹窗-美化.json"), JSON.stringify(pack));
