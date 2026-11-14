@@ -5159,6 +5159,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       memExtractInflightRef.current[charId] = false;
     }
   };
+  // 日记这一类（TA 写日记、评论她的日记、交换日记回页）共用这一份上下文（她 2026-11-14「日记带上公共那一套」）：
+  //   瘦身照旧（不塞朋友圈、论坛、礼物、记账这些），但世界书按「日记」挑过的词条、随身物、跟这一篇相关的记忆库都放回去，
+  //   三处一个口子，不再一处带一处不带
+  const diaryCtxFor = (char, ctx) => {
+    const c = leanWriteCtx(ctx || ctxFor(char));
+    c.worldbook = loreFor(char, "diary");
+    // 随身物：包里那把伞、衣柜里那件外套——日记里最见人的就是这种东西
+    c.carryLog = String((typeof carryContextText === "function" ? carryContextText(carryRef.current[char.id], carryPinsRef.current[char.id]) : "") || "").slice(0, 900);
+    c.memLib = (ctx || {}).memLib || [];
+    return c;
+  };
   const extractMemForChar = async charId => {
     if (!bgActive) { toast("请先到设置配置 API"); return; }
     const msgs = (chatsRef.current[charId] || []).filter(m => !m.recalled && m.kind !== "offlinelog" && !isOocMsg(m) && contextAllowsMessage(m)).slice(-40);
@@ -20257,11 +20268,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 但上面那句 loreFor(char, "diary") 是【特意按日记这个 scope 挑过的】词条——
       // 算完又被抹掉，等于她在世界书里勾的「日记可见」从来没生效过（v55.95 那个形状）。
       // 瘦身之后再把这几层按日记自己的需要放回去：
-      const leanCtx = leanWriteCtx(ctx);
-      leanCtx.worldbook = loreFor(char, "diary");
-      // 随身物：包里那把伞、衣柜里那件外套——日记里最见人的就是这种东西。
-      // 聊天那条链一直在发，日记这条被瘦身顺手削掉了（合法差异该有理由，这里没有）。封顶免得撑爆。
-      leanCtx.carryLog = String((typeof carryContextText === "function" ? carryContextText(carryRef.current[charId], carryPinsRef.current[charId]) : "") || "").slice(0, 900);
+      const leanCtx = diaryCtxFor(char, ctx);
       // 那一天的身体读数。⚠️不能拿 x_phone 里那份健康报告——它是 ♻️「今天」，
       // 补写昨天的日记时读到的会是今天那份，等于拿错了一天。x_phoneVitals 是一天一条、带日期的。
       const vRow = (typeof vitalsFor === "function" ? (vitalsFor(charId) || []) : []).find(x => x && x.day === targetKey);
@@ -20452,7 +20459,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const prevSaid = (diariesRef.current.__me || []).filter(e => e.id !== entryId)
           .flatMap(e => (e.comments || []).filter(cm => cm.charId === cid).map(cm => cm.text)).filter(Boolean).slice(0, 2);
         let text;
-        try { text = await generateDiaryComment(offlineApiFor(char.id), leanWriteCtx(ctx), entryText, { prevSaid }); } catch (e) { toast(char.name + " 评论失败：" + ((e && e.message) || e)); continue; }
+        try { text = await generateDiaryComment(offlineApiFor(char.id), diaryCtxFor(char, ctx), entryText, { prevSaid }); } catch (e) { toast(char.name + " 评论失败：" + ((e && e.message) || e)); continue; }
         if (!text) continue;
         const comment = { id: "cm_" + Date.now() + "_" + cid, charId: cid, name: char.name, text, ts: Date.now() };
         setDiaries(p => {
@@ -31121,7 +31128,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 自己前几页怎么起头的（她 2026-10-26 去重）：回页总用同一句开场
       const exOwn = (coupleExDiaryRef.current || []).filter(x => x && x.characterId === cid && x.author === cid && x.content).sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0)).slice(0, 3).map(x => "· " + String(x.content).replace(/\s+/g, " ").slice(0, 30));
       const exSeen = exOwn.length ? "\n【你前几页的开头】你前几页写过的，别再用同一个说法起头：\n" + exOwn.join("\n") + "\n" : "";
-      const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 交换日记回页=TA 亲笔，跟随专线（v48.37）；瘦身省贵线（v48.92）
+      const d = await runProbe(apiFor(char.id), diaryCtxFor(char), { // 交换日记回页=TA 亲笔，跟随专线（v48.37）；瘦身省贵线（v48.92）
         voice: true,
         instruction: exSeen + relSay(char) + "，共用一本【交换日记】——一人一页轮流写、只给彼此看，比聊天更松弛、更没防备。\n【" + uN + " 在 " + page.date + " 写给你的那页】" + (page.mood ? "（Ta 当时心情：" + page.mood + "）" : "") + "\n" + page.content + "\n\n现在轮到你写你这一页（今天是 " + ymd(new Date()) + (page.date !== ymd(new Date()) ? "，你隔了几天才提笔，可以自然提到为什么现在才回" : "") + "）。要求：\n· 以「" + char.name + "」第一人称手写日记的口吻，文风完全按你的人设来——可以写脆弱、别扭、矫情、只给 Ta 看的真心话。\n· 必须回应 Ta 那页写的东西（呼应、回答、心疼、反驳都行），再写你【今天】的真实处境（结合上面你今天的行程与心情），以及你们最近相处里【没说出口的潜台词】（比如「那天其实我…」）。\n· 不许写成聊天记录摘要或汇报体；不用括号动作；像手写的字，100~300 字。\n· mood 填你写这页时的心情短词；weather 按你那边今天的天气写个短语（上面行程里有真实天气就用它）。",
         schemaHint: "{\"content\":\"日记正文\",\"mood\":\"心情短词\",\"weather\":\"天气短语\"}",

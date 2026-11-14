@@ -43,13 +43,16 @@ test("日记自己挑的世界书和随身物，瘦身之后要放回去", () =>
   const lean = grab(eng, "function leanWriteCtx(ctx)", "\n// =====", "leanWriteCtx");
   assert.match(lean, /worldbook: ""/, "leanWriteCtx 不再清空 worldbook 了？那这条测试的前提变了");
   assert.match(lean, /carryLog: ""/);
+  // 日记三处（写日记、评论她的日记、交换日记）共用 diaryCtxFor：瘦身之后把这几层放回去
+  const one = grab(app, "  const diaryCtxFor = (char, ctx) =>", "  const extractMemForChar", "diaryCtxFor");
+  assert.match(one, /c\.worldbook = loreFor\(char, "diary"\)/, "按 diary scope 挑的世界书又被瘦身抹掉了");
+  assert.match(one, /c\.carryLog =/, "随身物没给日记");
+  assert.ok(one.indexOf("leanWriteCtx(") < one.indexOf("c.worldbook ="), "放回去的顺序反了，等于没放");
+  assert.match(one, /slice\(0, 900\)/, "随身物没封顶");
   const gen = grab(app, "  const genDiary = async (charId, opts = {})", "  const genDiaryCommentsFor", "genDiary");
-  assert.match(gen, /leanCtx\.worldbook = loreFor\(char, "diary"\)/, "按 diary scope 挑的世界书又被瘦身抹掉了");
-  assert.match(gen, /leanCtx\.carryLog =/, "随身物没给日记——包里那把伞、衣柜里那件外套，日记里最见人的就是这种");
-  // 放回去必须在 leanWriteCtx 之后，不然照样被抹掉
-  assert.ok(gen.indexOf("const leanCtx = leanWriteCtx(ctx)") < gen.indexOf("leanCtx.worldbook ="), "放回去的顺序反了，等于没放");
+  assert.match(gen, /const leanCtx = diaryCtxFor\(char, ctx\)/);
   assert.ok(!/leanWriteCtx\(ctx\), \{ scheduleText/.test(gen), "还在直接把 leanWriteCtx(ctx) 传下去");
-  assert.match(gen, /slice\(0, 900\)/, "随身物没封顶，长起来会撑爆贵线");
+  assert.ok(app.includes("generateDiaryComment(offlineApiFor(char.id), diaryCtxFor(char, ctx)"), "评论日记没走同一份");
 });
 
 // 她问「更新了一堆功能后喂给日记的要不要也更新」——身体读数是能对得上日期又免费的那一层
