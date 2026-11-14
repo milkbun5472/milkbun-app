@@ -2712,6 +2712,9 @@ function App() {
   const actDescFor = id => !!(settingsFor(id) || {}).actDesc;
   // 限时动态（她 2026-11-14）：没单独设过的跟着「自由发朋友圈」走
   const storyOnFor = id => { const s = settingsFor(id) || {}; return s.autoStory != null ? !!s.autoStory : !!s.autoMoment; };
+  // 每 24 小时最多发几条（她 2026-11-14）：挂着的满了，这一格就不给 TA 了（省得 TA 填了又白排一张）
+  const storyMaxFor = id => { const n = Number((settingsFor(id) || {}).storyMax); return Number.isFinite(n) && n >= 1 ? Math.min(10, Math.round(n)) : 3; };
+  const storyRoomFor = id => storyOnFor(id) && !(window.Stories && window.Stories.activeOf(id).length >= storyMaxFor(id));
   // 群里那一份（她 2026-09-10）。⚠️故意挨着上面两行写：以后改「同处一室」这件事，
   //   一眼能看见它有单聊和群聊两处，别再只改一处。存在群设置里，不跟单聊的按人存混。
   // ⚠️它调用的 gsFor 声明在下面很远处：这是个箭头函数，只在渲染/回调里跑，那时 gsFor 早就有了。
@@ -13330,7 +13333,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           })());
       }
       if (_s.autoMoment) openCaps.push("moment");
-      if (!char.npc && storyOnFor(charId)) openCaps.push("story");
+      if (!char.npc && storyRoomFor(charId)) openCaps.push("story");
       if (isCouple) openCaps.push("whisper");
       // ── 刻一首歌进你俩的唱片（她 2026-09-03 点的，「言秋也给」）────────────
       // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
@@ -13395,7 +13398,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       // 顺手发朋友圈 / 留悄悄话：条件不成立时这一格根本不给，别让TA以为自己发得出去
       if (_s.autoMoment) openCaps.push("moment");
-      if (!char.npc && storyOnFor(charId)) openCaps.push("story");
+      if (!char.npc && storyRoomFor(charId)) openCaps.push("story");
       if (isCouple) openCaps.push("whisper");
       if (ambientHint) capState.push(ambientHint.trim());
       // ⚠️一起听那两句也是从被删的旧基线里救回来的（她 2026-09-09 点名要）：
@@ -15261,7 +15264,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         comments: []
       }, ...p]); notifyApp("moments"); if (window.Notify) window.Notify.push({ title: char.name + " 发了条朋友圈", body: mo, tag: "mom-" + charId, charId: charId }); }
       // 限时动态（她 2026-11-14）：TA 在回复里填了 story＝想顺手发一条，后台再花一次调用把它排成竖版卡，不卡着这一轮
-      const _st = !char.npc && storyOnFor(charId) && parsed.story && String(parsed.story).toLowerCase() !== "null" ? String(parsed.story).trim().slice(0, 120) : "";
+      const _st = !char.npc && storyRoomFor(charId) && parsed.story && String(parsed.story).toLowerCase() !== "null" ? String(parsed.story).trim().slice(0, 120) : "";
       if (_st) storyMake(char, _st);
       // 这一轮 TA 的上下文里带着她挂着的动态（ctxFor 的 storyLine）＝TA 看过了：她那边「看过的」里记上
       if (!char.npc && window.Stories) window.Stories.activeOf("me").forEach(s0 => window.Stories.markSeen(s0.id, charId));
@@ -38364,6 +38367,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             autoMoment: s.autoMoment,
             autoStory: !!s.autoStory,
             storyPhoto: !!s.storyPhoto,
+            storyMax: Math.max(1, Math.min(10, Number(s.storyMax) || 3)),
             proactive: s.proactive,
             proactiveMin: s.proactiveMin,
             showMyAvatar: s.showMyAvatar,

@@ -23509,6 +23509,7 @@ function ChatSettings({
   // 限时动态（她 2026-11-14）：没单独设过的，跟着「自由发朋友圈」走；配不配照片单独一格（配就要生图）
   const [autoStory, setAutoStory] = useState(settings.autoStory != null ? !!settings.autoStory : !!settings.autoMoment);
   const [storyPhoto, setStoryPhoto] = useState(!!settings.storyPhoto);
+  const [storyMax, setStoryMax] = useState(Math.max(1, Math.min(10, Number(settings.storyMax) || 3)));
   // 模型思考链（v56.42）：默认关。她要它是为了看模型当时在想什么、以及验中转有没有换模型。
   const [showReasoning, setShowReasoning] = useState(!!settings.showReasoning);
   // 双语（v56.56）：让模型生成的时候顺手把中译一起给出来，替掉事后调免费接口那条路
@@ -23911,6 +23912,7 @@ function ChatSettings({
       autoMoment,
       autoStory,
       storyPhoto,
+      storyMax,
       showReasoning,
       bilingual,
       proactive,
@@ -24391,7 +24393,15 @@ function ChatSettings({
       h("div", { style: { paddingRight: 12 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, zh),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, note)),
-      h(Toggle, { on, onChange: v => set(v), color: t.tint }))), h("div", {
+      h(Toggle, { on, onChange: v => set(v), color: t.tint }))),
+  autoStory ? h("div", { "data-wk": "storymax", className: "flex items-center justify-between pt-5" },
+    h("div", { style: { paddingRight: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "24 小时里最多挂几条"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "Ta 挂着的到了这个数，就先不发新的，等最早那条过了 24 小时再说")),
+    h("div", { className: "flex items-center", style: { gap: 10, flexShrink: 0 } },
+      h("button", { onClick: () => setStoryMax(n => Math.max(1, n - 1)), className: "active:opacity-60", style: { width: 30, height: 30, borderRadius: 999, border: "1px solid " + t.line, color: t.ink } }, "−"),
+      h("span", { style: { minWidth: 18, textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, storyMax),
+      h("button", { onClick: () => setStoryMax(n => Math.min(10, n + 1)), className: "active:opacity-60", style: { width: 30, height: 30, borderRadius: 999, border: "1px solid " + t.line, color: t.ink } }, "+"))) : null, h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", { style: { paddingRight: 12 } }, h("div", {
     style: {

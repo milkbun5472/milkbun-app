@@ -21,3 +21,9 @@ test("接线：聊天回复里的 story、开关跟着朋友圈、TA 看得到�
   assert.match(C, /settings\.autoStory != null \? !!settings\.autoStory : !!settings\.autoMoment/);
   assert.match(I, /<script src="js\/stories\.js\?v=/);
 });
+test("每 24 小时最多挂几条：满了就不给 story 这一格", () => {
+  const A = R("app.js"), C = R("components.js");
+  assert.match(A, /const storyRoomFor = id => storyOnFor\(id\) && !\(window\.Stories && window\.Stories\.activeOf\(id\)\.length >= storyMaxFor\(id\)\);/);
+  assert.equal((A.match(/storyRoomFor\(charId\)\) openCaps\.push\("story"\)/g) || []).length, 2);
+  assert.match(C, /"data-wk": "storymax"/); assert.match(A, /storyMax: Math\.max\(1, Math\.min\(10, Number\(s\.storyMax\) \|\| 3\)\)/);
+});
