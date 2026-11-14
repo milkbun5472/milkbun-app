@@ -32,6 +32,8 @@ const CARD = `background:#fff !important;border:none !important;border-radius:4p
 // 好感：一封信上的一枚蜡封——底下是浅灰的空蜡印轮廓，上面那枚暗红蜡封按好感从小长到满
 const SEALBASE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 60'><rect x='4' y='8' width='72' height='46' rx='2' fill='#fff' stroke='${C.ink}' stroke-width='1'/><path d='M4 8 L40 34 L76 8' fill='none' stroke='${C.ink}' stroke-width='1'/><circle cx='40' cy='34' r='13' fill='none' stroke='${C.line}' stroke-width='1' stroke-dasharray='2 2'/></svg>`;
 const SEAL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 60'><path d='M40 21 Q46 20 49 24 Q54 25 54 30 Q57 34 54 38 Q54 43 49 44 Q46 48 40 47 Q34 48 31 44 Q26 43 26 38 Q23 34 26 30 Q26 25 31 24 Q34 20 40 21Z' fill='#8C2A2A'/><circle cx='40' cy='34' r='8.5' fill='none' stroke='#B85050' stroke-width='1'/><text x='40' y='38.5' text-anchor='middle' font-size='11' font-style='italic' font-family='Georgia,serif' fill='#E8BDBD'>M</text></svg>`;
+// 线下：街角咖啡馆的线稿——一面条纹遮阳篷、拱窗、一张小圆桌两把椅子、桌上两杯咖啡，远处一点铁塔
+const CAFE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 300' fill='none' stroke='${C.ink}' stroke-width='1.1' stroke-linecap='round' stroke-linejoin='round'><path d='M330 40 L338 130 M346 40 L338 130 M332 70 H344 M330 100 H346 M338 30 V40' stroke='${C.fog}'/><path d='M60 150 H330 V270 H60Z'/><path d='M50 120 H340 L330 150 H60Z'/>${Array.from({length:10},(_,i)=>`<path d='M${60+i*27} 150 L${50+i*29} 120' />`).join('')}<path d='M60 150 Q66 160 72 150 Q78 160 84 150 Q90 160 96 150 Q102 160 108 150 Q114 160 120 150 Q126 160 132 150 Q138 160 144 150 Q150 160 156 150 Q162 160 168 150 Q174 160 180 150 Q186 160 192 150 Q198 160 204 150 Q210 160 216 150 Q222 160 228 150 Q234 160 240 150 Q246 160 252 150 Q258 160 264 150 Q270 160 276 150 Q282 160 288 150 Q294 160 300 150 Q306 160 312 150 Q318 160 324 150 Q330 160 330 150'/><path d='M90 255 V195 Q90 175 115 175 Q140 175 140 195 V255Z M115 175 V255 M90 215 H140'/><path d='M250 255 V195 Q250 175 275 175 Q300 175 300 195 V255Z M275 175 V255 M250 215 H300'/><text x='195' y='140' text-anchor='middle' font-family='Georgia,serif' font-style='italic' font-size='13' fill='${C.ink}' stroke='none'>Café · Le Matin</text><ellipse cx='195' cy='262' rx='34' ry='6'/><path d='M195 262 V292 M182 292 H208'/><path d='M180 252 H190 V258 Q190 262 185 262 Q180 262 180 258Z M200 252 H210 V258 Q210 262 205 262 Q200 262 200 258Z'/><path d='M184 246 Q182 242 185 238 M205 246 Q203 242 206 238' stroke='${C.fog}'/><path d='M150 292 V268 Q150 262 158 262 H164 M240 292 V268 Q240 262 232 262 H226'/><path d='M0 294 H390' stroke='${C.line}'/></svg>`;
 const bubble = { myBg: C.grey, myText: C.ink, myBorder: "none", charBg: C.card, charText: C.ink, charBorder: "none", radius: 4, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
@@ -286,6 +288,39 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
 [data-wk="gazeempty"]{background:transparent !important;border:.8px dashed ${C.line} !important;border-radius:3px !important;color:${C.ink} !important}
 [data-wk="gazeempty"] button{background:${C.ink} !important;color:${C.paper} !important;border:none !important;border-radius:2px !important}
+/* ───── 巴黎留白 · 第四批：线下＝一张街角咖啡馆的线稿（条纹遮阳篷、拱窗、小圆桌两杯咖啡、远处铁塔） ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(CAFE)} center bottom 96px/100% auto no-repeat,${C.paper} !important}
+[data-wk="offline"] *{font-family:${SERIF} !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]),[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]) > :not([data-wk]){color:${C.sub} !important;font-style:italic !important}
+[data-wk="offline"] [data-wk="chathead"] + *{margin-top:0 !important;padding-top:10px !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:${C.ink} !important;letter-spacing:.2em !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:30px !important;height:30px !important;background:${svg(I_MORE)} center/contain no-repeat !important;border:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:transparent !important;color:${C.ink} !important;border:.8px solid ${C.ink} !important;border-radius:2px !important;font-size:12px !important;padding:3px 14px !important;font-style:italic !important}
+[data-wk="offcomposer"]{background:${C.paper} !important;border-top:.8px solid ${C.line} !important}
+[data-wk="offcomposer"] textarea{background:transparent !important;border:none !important;border-bottom:1px solid ${C.ink} !important;border-radius:0 !important;color:${C.ink} !important}
+[data-wk="offcomposer"] textarea::placeholder{color:${C.fog} !important;font-style:italic !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;height:30px !important;min-width:30px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PLUS)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/30px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{position:relative !important;width:42px !important;min-width:42px !important;height:42px !important;border:none !important;border-radius:50% !important;background:${svg(CUP(false))} center/62% no-repeat,${C.ink} !important;font-size:0 !important;color:transparent !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{background:${svg(CUP(false).replace(/stroke='#1E1D1B'/g,"stroke='#FAF8F4'").replace("fill='#fff'","fill='none'"))} center/62% no-repeat,${C.ink} !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+/* 卡片：他的白卡发丝线、你的浅灰纸，跟线上一样 */
+[data-wk="offcard"]{position:relative !important;background:#fff !important;border:none !important;border-radius:6px 6px 6px 1px !important;box-shadow:0 0 0 .8px ${C.line},0 4px 14px rgba(30,29,27,.06) !important;margin-top:16px !important;color:${C.ink} !important}
+[data-wk="offcard"][data-me="1"]{background:${C.grey} !important;border-radius:6px 6px 1px 6px !important;box-shadow:none !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2px #fff,0 0 0 3px ${C.ink} !important}
+[data-wk="offname"],[data-wk="offtext"]{color:${C.ink} !important}
+[data-wk="offname"]{font-weight:400 !important;letter-spacing:.2em !important;font-style:italic !important}
+[data-wk="offtext"]{line-height:1.9 !important;letter-spacing:.05em !important}
+[data-wk="offsay"]{color:${C.ink} !important;background:none !important;font-weight:600 !important;border-bottom:.8px solid ${C.ink} !important}
+[data-wk="offthought"]{background:transparent !important;border:none !important;border-left:1px solid ${C.ink} !important;border-radius:0 !important;color:${C.sub} !important;font-style:italic !important;box-shadow:none !important}
+[data-wk="offcardacts"] svg{stroke:${C.sub} !important;color:${C.sub} !important}
+[data-wk="offreplyopt"]{background:#fff !important;border:.8px solid ${C.ink} !important;border-radius:2px !important;color:${C.ink} !important;font-style:italic !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "巴黎留白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
