@@ -146,4 +146,4 @@ test("互动贴纸不被底下那块压住", () => { const st = fs.readFileSync(
 
 test("顶上一截让给头像名字", () => { const st = fs.readFileSync("js/stories.js", "utf8"); assert.ok(st.includes("num(tx.y, 0.2,") && st.includes("num(c.y, 0.2,") && st.includes('className: "truncate", style: { fontWeight: 600')); });
 
-test("日程换段有几率发一条", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("window.__storySeg") && /Math\.random\(\) >= 0\.2\) return;\s*storyMake\(c, ""\)/.test(a)); });
+test("日程换段有几率发一条", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("window.__storySeg") && a.includes("saveJSON(\"x_storySeg\"") && /Math\.random\(\) >= 0\.2\) return;\s*storyMake\(c, ""\)/.test(a)); });
