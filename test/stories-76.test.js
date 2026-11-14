@@ -133,3 +133,5 @@ test("她发动态的编辑器不是壁纸那一套", () => {
   assert.ok(cp.includes('startTpl: "blank", story: true'));
   assert.ok(c.includes('story ? "发一条限时动态"') && c.includes('story ? "下一步"') && c.includes("def.n > 0 ? h(\"div\", { style: { display: \"grid\""));
 });
+
+test("拼卡贴纸能自己打 emoji", () => { const c = fs.readFileSync("js/collage.js", "utf8"); assert.ok(c.includes('"collageemojiin"') && c.includes("x_collageEmoji")); });

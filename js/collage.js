@@ -513,6 +513,7 @@
   function CollageMaker({ partner, photos, extra, onBack, onArrange, onSave, onLook, onChoose, onDraft, autoDraft, startTpl, story }) {
     // story：发限时动态时借这个编辑器——只留摆字、贴纸、底、照片这些用得上的，合照墙那一套（样式页签、一人一半、格子）不出（她 2026-11-14）
     const [ups, setUps] = useState([]), upRef = React.useRef(null);
+    const [emoIn, setEmoIn] = useState(""), [myEmo, setMyEmo] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON("x_collageEmoji", []) : []; return Array.isArray(v) ? v : []; } catch (e) { return []; } });
     const t = useTheme();
     const name = partner.remark || partner.name;
     // 合照墙的照片在前，TA 自己的东西（手机里存的照片、抽屉里画的画）接在后面，标着是TA的
@@ -993,8 +994,14 @@
             (layout.bgColor || layout.bgInk) ? h("button", { onClick: () => setLayout(l => Object.assign({}, l, { bgColor: "", bgInk: "" })), style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "颜色换回原样") : null);
         })() : null,
         h("div", { style: lab }, "贴纸（点一下加一颗，按住拖到想放的地方）"),
+        // 预设里没有的 emoji：用手机键盘打一个贴上，打过的留在这一排前面（她 2026-11-14）
+        h("div", { "data-part": "collageemojiin", className: "flex", style: { gap: 6, marginBottom: 6 } },
+          h("input", { value: emoIn, onChange: e => setEmoIn(e.target.value), placeholder: "预设里没有？用键盘打一个 emoji", style: Object.assign({}, inp, { marginBottom: 0, flex: 1 }) }),
+          h("button", { onClick: () => { const ch = Array.from(String(emoIn).trim()).slice(0, 4).join(""); if (!ch) return; addSticker(ch); setEmoIn("");
+            setMyEmo(p => { const n = [ch].concat(p.filter(x => x !== ch)).slice(0, 16); try { saveJSON("x_collageEmoji", n); } catch (e) {} return n; }); },
+            style: { flexShrink: 0, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.ink, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "贴")),
         h("div", { "data-part": "collagestickers", style: { display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 } },
-          STICKERS.map(ch => h("button", { key: ch, onClick: () => addSticker(ch), className: "active:opacity-60",
+          myEmo.concat(STICKERS.filter(x => myEmo.indexOf(x) < 0)).map(ch => h("button", { key: ch, onClick: () => addSticker(ch), className: "active:opacity-60",
             style: { aspectRatio: "1", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, fontSize: 20, color: /[♥♡]/.test(ch) ? "#d0465c" : t.ink } }, ch))),
         // 我的贴纸：自己传的图（透明底的 PNG 最好看），存在图库里，下次还在
         h("div", { className: "flex items-center justify-between", style: { margin: "12px 2px 6px" } },
