@@ -20,6 +20,12 @@ const HOURGLASS = X(`viewBox='0 0 12 16'><path d='M1 1 H11 M1 15 H11' stroke='#0
 const I_HELP = X(`viewBox='0 0 30 30'><rect x='4' y='3' width='20' height='24' fill='#1E5BD8' stroke='${C.black}' stroke-width='1.2'/><rect x='7' y='3' width='17' height='24' fill='#3D7BF0'/><path d='M7 27 V3' stroke='#0B2E8A' stroke-width='1.4'/><text x='16' y='20' text-anchor='middle' font-family='Tahoma,Verdana,sans-serif' font-size='14' font-weight='700' fill='#fff'>?</text>`);
 const I_PIC = X(`viewBox='0 0 30 30'><rect x='3' y='5' width='24' height='20' fill='#fff' stroke='${C.black}' stroke-width='1.2'/><rect x='5' y='7' width='20' height='16' fill='#7EC8F0'/><circle cx='20' cy='11' r='2.4' fill='#F4D35E'/><path d='M5 23 L12 14 L17 19 L20 16 L25 23Z' fill='#3E8E3E'/>`);
 const WIN = (title, c1, c2) => `content:"${title}" !important;position:absolute !important;left:3px !important;right:3px !important;top:3px !important;height:19px !important;background:linear-gradient(90deg,${c1},${c2}) !important;color:#fff !important;font:700 11.5px/19px Tahoma,Verdana,sans-serif !important;padding-left:6px !important;text-align:left !important;pointer-events:none !important;z-index:3 !important;border:none !important;border-radius:0 !important;transform:none !important;width:auto !important`;
+// 好感：一扇小窗口里的东西慢慢变——沙漏在转（<20）→ 一个问号（20–49）→ 一张笑脸（50–79）→ 一颗粉心、标题栏变紫红（80+）
+const MW = (bar, inner) => X(`viewBox='0 0 92 84'><rect x='6' y='8' width='80' height='68' fill='${C.grey}'/><path d='M6 76 V8 H86' stroke='#fff' stroke-width='2' fill='none'/><path d='M6 76 H86 V8' stroke='#000' stroke-width='2' fill='none'/><rect x='10' y='12' width='72' height='13' fill='${bar}'/><rect x='70' y='14' width='10' height='9' fill='${C.grey}'/><path d='M72.5 16 L77.5 21 M77.5 16 L72.5 21' stroke='#000' stroke-width='1.4'/><rect x='14' y='30' width='64' height='40' fill='#fff'/><path d='M14 70 V30 H78' stroke='${C.dark}' stroke-width='1.6' fill='none'/>${inner}`);
+const ST1 = MW(C.dark, `<g transform='translate(38 34)'><path d='M1 1 H15 M1 31 H15' stroke='#000' stroke-width='2.4'/><path d='M3 2 H13 C13 9 9 12 8 16 C9 20 13 23 13 30 H3 C3 23 7 20 8 16 C7 12 3 9 3 2Z' fill='#fff' stroke='#000' stroke-width='1.4'/><path d='M5 28 H11 L8 22Z' fill='#C9A227'/></g>`);
+const ST2 = MW(C.navy, `<circle cx='46' cy='50' r='13' fill='#1E5BD8'/><text x='46' y='56' text-anchor='middle' font-family='Tahoma,Verdana,sans-serif' font-size='17' font-weight='700' fill='#fff'>?</text>`);
+const ST3 = MW(C.navy, `<circle cx='46' cy='50' r='13' fill='#F4D35E' stroke='#000' stroke-width='1.4'/><circle cx='41.5' cy='47' r='1.6' fill='#000'/><circle cx='50.5' cy='47' r='1.6' fill='#000'/><path d='M40 53 Q46 58 52 53' stroke='#000' stroke-width='1.6' fill='none'/>`);
+const ST4 = MW(C.plum, `<path d='M46 63 C33 54 31 48 31 44 C31 39 35 36 39 36 C42 36 44.5 38 46 40.5 C47.5 38 50 36 53 36 C57 36 61 39 61 44 C61 48 59 54 46 63Z' fill='#FF6FAE' stroke='#000' stroke-width='1.4'/><rect x='38' y='40' width='4' height='4' fill='#fff' opacity='.8'/>`);
 const bubble = { myBg: C.grey, myText: C.ink, myBorder: "none", charBg: C.grey, charText: C.ink, charBorder: "none", radius: 0, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 const HIDE = `font-size:0 !important;color:transparent !important;padding:0 !important;border:none !important;box-shadow:none !important;border-radius:0 !important`;
@@ -193,6 +199,102 @@ const css = `
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;${HIDE};background:${svg(I_PIC)} center/contain no-repeat !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+
+/* ───── 系统弹窗 · 第三批：状态卡是一扇大窗口——标题栏「Ta 的状态」；看得见的是凹下的白框、心里想的是一扇 Ni 色小窗；好感是小窗里的东西慢慢变 ───── */
+[data-wk="statecard"]{position:relative !important;background:${C.grey} !important;border:none !important;border-radius:0 !important;box-shadow:${UP},8px 8px 0 rgba(0,0,0,.35) !important;color:#000 !important;padding-top:24px !important}
+[data-wk="statecard"]::before{${WIN("状态.exe", C.navy, C.navy2)}}
+[data-wk="statecard"]::after{content:"" !important;position:absolute !important;right:6px !important;top:5.5px !important;width:16px !important;height:14px !important;background:${svg(XBTN)} center/100% 100% no-repeat !important;pointer-events:none !important;z-index:4 !important}
+[data-wk="statecard"] *{font-family:Tahoma,"Microsoft YaHei","PingFang SC",sans-serif !important}
+[data-wk="statehead"]{background:${C.grey} !important;border-bottom:none !important;box-shadow:inset 0 -1px 0 ${C.dark},inset 0 -2px 0 #fff !important}
+[data-wk="statehead"] *{color:#000 !important}
+[data-wk="statehead"] [data-wk="avatar"]{border-radius:50% !important;border:3px solid !important;border-color:#404040 #fff #fff #404040 !important;box-shadow:0 0 0 4px ${C.grey},0 0 0 5px #000 !important}
+[data-wk="statehead"] button{border:none !important;border-radius:0 !important;background:${C.grey} !important;box-shadow:${UP} !important}
+[data-wk="statemood"]{display:inline-block !important;background:${C.tip} !important;color:#000 !important;padding:0 8px !important;margin-right:4px !important;border:1px solid #000 !important;border-radius:0 !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:${C.grey} !important;border:none !important;border-radius:0 !important;padding:0 !important;margin:10px 14px !important;gap:2px !important}
+[data-wk="statecard"] button[aria-pressed]{color:#000 !important;border:none !important;border-radius:0 !important;background:${C.grey} !important;box-shadow:${UP} !important}
+[data-wk="statecard"] button[aria-pressed="true"]{box-shadow:${DOWN} !important;background:#D8D8D8 !important;font-weight:700 !important}
+[data-wk="stateseen"]{position:relative !important;background:#fff !important;border:none !important;border-radius:0 !important;box-shadow:${DOWN} !important;margin:12px 14px 10px !important}
+[data-wk="stateseen"] *{color:#000 !important}
+[data-wk="statevoice"]{position:relative !important;overflow:visible !important;background:${C.grey} !important;border:none !important;border-radius:0 !important;box-shadow:${UP},4px 4px 0 rgba(0,0,0,.3) !important;margin:12px 14px 12px !important;padding-top:30px !important}
+[data-wk="statevoice"]::before{${WIN("心里想的.txt", C.plum, C.plum2)}}
+[data-wk="statevoice"] *{color:#000 !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:${C.grey} !important;border:none !important;border-radius:0 !important;box-shadow:${UP} !important}
+[data-wk="statewear"] > span{background:transparent !important;border:none !important;border-radius:0 !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.navy} !important;text-decoration:underline !important}
+[data-wk="statevoice"] + div > button{background:${C.grey} !important;color:#000 !important;border:none !important;border-radius:0 !important;box-shadow:${UP} !important}
+[data-wk="stateaff"]{background:${C.grey} !important;border-top:none !important;box-shadow:inset 0 1px 0 ${C.dark},inset 0 2px 0 #fff !important;position:relative !important;display:block !important;padding:16px 120px 18px 20px !important;min-height:112px !important}
+[data-wk="stateaff"] *{color:#000 !important}
+[data-wk="stateheart"]{position:absolute !important;right:18px !important;left:auto !important;top:50% !important;margin-top:-44px !important;width:92px !important;height:84px !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><rect width='10' height='10'/></svg>`)} !important}
+[data-wk="stateheart"] > div,[data-wk="stateheartknob"]{inset:0 !important;-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important;background-color:transparent !important;border:none !important}
+[data-wk="stateheart"] > div:not([data-wk]){display:none !important}
+[data-wk="stateheartfill"] > div{display:none !important}
+[data-wk="stateheartline"]{background:${svg(ST1)} center/contain no-repeat !important;opacity:calc(1 - clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1)) !important}
+[data-wk="stateheartbase"]{background:${svg(ST2)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1)) !important}
+[data-wk="stateheartfill"]{background:${svg(ST3)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important}
+[data-wk="stateheartknob"]{display:block !important;position:absolute !important;left:0 !important;bottom:0 !important;width:100% !important;height:100% !important;margin:0 !important;transform:none !important;background:${svg(ST4)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important}
+[data-wk="stateheartnum"]{position:absolute !important;inset:auto 0 -10px 0 !important;display:flex !important;justify-content:center !important;padding:0 !important;font:700 12px/1 Tahoma,Verdana,sans-serif !important;color:#000 !important;-webkit-text-stroke:0 !important;text-shadow:none !important;z-index:3 !important}
+[data-wk="stateaffval"]{display:none !important}
+
+/* 翻旧的：一扇扇叠起来的旧窗口，标题栏写「记录_N.txt」，焦点窗口深蓝、其余灰的 */
+[data-wk="statehistbtn"]{background:${C.grey} !important;color:#000 !important;border:none !important;border-radius:0 !important;box-shadow:${UP} !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:#000 !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{background:${C.grey} !important;border:none !important;border-radius:0 !important;box-shadow:${UP} !important;text-decoration:none !important;color:#000 !important}
+[data-wk="statehistlist"]{counter-reset:pg !important}
+[data-wk="statehistitem"]{counter-increment:pg !important;position:relative !important;background:${C.grey} !important;border:none !important;border-radius:0 !important;padding:32px 16px 12px !important;margin:12px 0 !important;box-shadow:${UP},4px 4px 0 rgba(0,0,0,.3) !important}
+[data-wk="statehistitem"]::before{content:"记录_" counter(pg) ".txt" !important;position:absolute !important;left:3px !important;right:3px !important;top:3px !important;height:19px !important;background:linear-gradient(90deg,#808080,#B5B5B5) !important;color:#fff !important;font:700 11.5px/19px Tahoma,Verdana,sans-serif !important;padding-left:6px !important;text-align:left !important}
+[data-wk="statehistitem"]:first-child::before{background:linear-gradient(90deg,${C.navy},${C.navy2}) !important}
+[data-wk="statehistitem"] *{color:#000 !important}
+[data-wk="statehistmood"]{background:${C.tip} !important;border:1px solid #000 !important;border-radius:0 !important;padding:0 6px !important}
+[data-wk="statehisttime"]{opacity:.7 !important}
+[data-wk="statehistmeta"]{background:#fff !important;box-shadow:${DOWN} !important;border-radius:0 !important}
+[data-wk="statehistend"]{color:#000 !important;letter-spacing:.2em !important}
+
+/* Ta 眼里：贴条换成一枚黄色便签贴，卡片是凹下的白框 */
+[data-wk="gazepage"]{background:${C.grey} !important}
+[data-wk="gazetitle"]{color:#000 !important}
+[data-wk="gazetab"]{background:${C.grey} !important;color:#000 !important;border:none !important;border-radius:0 !important;box-shadow:${UP} !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{box-shadow:${DOWN} !important;background:#D8D8D8 !important;font-weight:700 !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:#333 !important}
+[data-wk="gazecard"]{position:relative !important;overflow:visible !important;background:#fff !important;border:none !important;border-radius:0 !important;box-shadow:${DOWN} !important}
+[data-wk="gazetape"]{background:${C.tip} !important;width:30px !important;height:12px !important;border:1px solid #000 !important;border-radius:0 !important;box-shadow:2px 2px 0 rgba(0,0,0,.25) !important}
+[data-wk="gazecardname"]{color:${C.navy} !important;font-weight:700 !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#333 !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:${C.grey} !important;color:#000 !important;border:none !important;border-radius:0 !important;box-shadow:${UP},6px 6px 0 rgba(0,0,0,.3) !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:#000 !important}
+[data-wk="gazeempty"]{background:#fff !important;color:#000 !important;border:none !important;border-radius:0 !important;box-shadow:${DOWN} !important}
+[data-wk="gazeempty"] *{color:#000 !important}
+[data-wk="gazeempty"] button{background:${C.grey} !important;color:#000 !important;border:none !important;border-radius:0 !important;box-shadow:${UP} !important}
+
+/* ───── 线下：同一张青绿桌面；他一扇深蓝标题栏的窗（Ta.exe）、我一扇紫红的（Ni.txt）；说的话加粗下划线，心里话是灰色斜体 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${C.desk} !important;background-color:${C.desk} !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="headname"] > div:last-child{white-space:normal !important;line-height:1.35 !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *,[data-wk="offline"] [data-wk="chatback"] *{color:#fff !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:${C.grey} !important;color:#000 !important;border:none !important;border-radius:0 !important;box-shadow:${UP} !important;font-size:12px !important;padding:3px 10px !important;flex-shrink:0 !important}
+[data-wk="offline"] [data-wk="chatmore"]{width:28px !important;min-width:28px !important;height:28px !important}
+[data-wk="offcomposer"]{background:${C.grey} !important;border:none !important;border-radius:0 !important;box-shadow:inset 0 1px 0 #DFDFDF,inset 0 2px 0 #fff !important}
+[data-wk="offcomposer"] textarea{background:#fff !important;border:none !important;border-radius:0 !important;box-shadow:${DOWN} !important;color:#000 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){width:46px !important;min-width:46px !important;height:30px !important;background:${svg(I_OK)} center/contain no-repeat !important;${HIDE}}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:34px !important;min-width:34px !important;height:34px !important;${HIDE};background:${svg(I_INFO)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcard"]{position:relative !important;overflow:visible !important;background:${C.grey} !important;border:none !important;border-radius:0 !important;box-shadow:${UP},5px 5px 0 rgba(0,0,0,.3) !important;padding-top:30px !important}
+[data-wk="offcard"]::before{${WIN("Ta.exe", C.navy, C.navy2)}}
+[data-wk="offcard"][data-me="1"]::before{content:"Ni.txt" !important;background:linear-gradient(90deg,${C.plum},${C.plum2}) !important}
+[data-wk="offcard"]::after{content:"" !important;position:absolute !important;right:6px !important;top:5.5px !important;width:16px !important;height:14px !important;background:${svg(XBTN)} center/100% 100% no-repeat !important;pointer-events:none !important;z-index:4 !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;border:2px solid !important;border-color:#404040 #fff #fff #404040 !important;box-shadow:0 0 0 3px ${C.grey},0 0 0 4px #000 !important}
+[data-wk="offname"]{color:${C.navy} !important;font-weight:700 !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offname"]{color:${C.plum} !important}
+[data-wk="offtext"]{color:#000 !important}
+[data-wk="offsay"]{color:#000 !important;background:none !important;border:none !important;font-weight:700 !important;text-decoration:underline !important;text-decoration-color:${C.navy} !important;text-underline-offset:3px !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{text-decoration-color:${C.plum} !important}
+[data-wk="offthought"]{background:transparent !important;border:none !important;color:#555 !important;font-style:italic !important}
+[data-wk="offcardacts"] svg{stroke:#000 !important;color:#000 !important}
+[data-wk="offreplyopt"]{background:${C.grey} !important;border:none !important;border-radius:0 !important;box-shadow:${UP} !important;color:#000 !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "系统弹窗", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "系统弹窗-美化.json"), JSON.stringify(pack));
