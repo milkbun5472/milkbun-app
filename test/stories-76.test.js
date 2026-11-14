@@ -184,3 +184,10 @@ test("朋友圈能带定位：她发时取「我在哪」那一份、TA 能写 m
 });
 
 test("朋友圈新消息提醒在封面下面", () => { const c = fs.readFileSync("js/components.js", "utf8"); assert.ok(c.includes("newsBar: momNews.length ? h(\"div\", { \"data-wk\": \"momnews\"") && c.includes(", newsBar || null, gen &&")); });
+
+test("朋友圈五样：小锁、点名字进主页、看过没吭声、转进聊天、最近多久可见", () => {
+  const c = fs.readFileSync("js/components.js", "utf8"), a = fs.readFileSync("js/app.js", "utf8");
+  assert.ok(c.includes('"data-wk": "molock"') && c.includes('"data-wk": "molikername"') && c.includes('"data-wk": "moseen"') && c.includes('"data-wk": "momshare"') && c.includes('"data-wk": "momrange"'));
+  assert.ok(a.includes("seenBy: [...(m.seenBy || []), charId]") && a.includes("const shareMomentTo = (m, cid) =>") && a.includes("momInRange(m) && !friendCut(charId)"));
+  assert.ok(!/pChat\(cid[\s\S]{0,200}replyNow/.test(a.slice(a.indexOf("const shareMomentTo"), a.indexOf("const openMomProfile"))), "转过去不许替 TA 开口");
+});

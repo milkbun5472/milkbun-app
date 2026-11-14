@@ -12043,7 +12043,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 她手机上被删了好友／拉黑的那位（x_peekCut）刷不到她的朋友圈，跟真微信一样（群友 2026-10-22：TA 果断删了人，朋友圈里那人还跟她互动得很好）
   // 你们之间有一方删了好友（她删了他，或者他删了她）：朋友圈互相看不到（她 2026-11-08）
   const friendCut = id => { const b = (blocksRef.current || {})[id] || {}; return !!(b.deleted || (b.theyBlocked && b.cut === "del")); };
-  const momSeen = (m, charId) => !!m && !!m.mine && !friendCut(charId) && !(m.hiddenFrom || []).includes(String(charId)) && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
+  // 朋友圈「最近多久可见」（她 2026-11-14「三天可见、半年可见」）：她自己那几条超过这个范围的，谁都刷不到了（删不删照旧是她的事）
+  const [momRange, setMomRangeS] = useState(() => loadJSON("x_momRange", "all") || "all");
+  const setMomRange = v => { setMomRangeS(v); saveJSON("x_momRange", v); };
+  const momInRange = m => { const d = momRange === "3d" ? 3 : momRange === "1m" ? 30 : momRange === "6m" ? 182 : 0; return !d || Date.now() - (m.ts || 0) <= d * 86400000; };
+  const momSeen = (m, charId) => !!m && !!m.mine && momInRange(m) && !friendCut(charId) && !(m.hiddenFrom || []).includes(String(charId)) && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
   // 发朋友圈那页挑面具用：主面具一张 + 其余几张（跟论坛挑面具同一份名单）；发出来的那条显示用哪张的名字和头像
   window.__momentMasks = () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage, color: profile.color }]
     .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
@@ -15344,6 +15348,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       // 这一轮 TA 的上下文里带着她挂着的动态（ctxFor 的 storyLine）＝TA 看过了：她那边「看过的」里记上
       if (!char.npc && window.Stories) window.Stories.activeFor("me", charId).forEach(s0 => window.Stories.markSeen(s0.id, charId));
+      // 她朋友圈里 TA 这一轮刷到了的那几条（跟 momentLog 带给 TA 的是同三条）：记一笔「看过」，她那边能看到谁看了没吭声（她 2026-11-14）
+      if (!char.npc) { const _seenIds = (moments || []).filter(m => momSeen(m, charId)).slice(0, 3).filter(m => !(m.seenBy || []).includes(charId)).map(m => m.id);
+        if (_seenIds.length) pMom(p => p.map(m => _seenIds.includes(m.id) ? { ...m, seenBy: [...(m.seenBy || []), charId].slice(-30) } : m)); }
       // #A 给恋人留悄悄话（论坛发帖已移除每轮自发，改由 tickAmbient 计数器按 50轮/3天 定时发）
       let ambForum = false, ambWhisper = false;
       if (parsed.whisper && String(parsed.whisper).toLowerCase() !== "null" && couples[charId] && couples[charId].status === "together") {
@@ -25322,6 +25329,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const topMoment = id => pMom(p => p.map(m => m.id === id ? { ...m, top: !m.top } : m));
   // 朋友圈封面（me 或某角色）：存 x_momentsCover
   const setMomentCover = (key, uri) => setMomentsCover(p => { const n = { ...p, [key]: uri || "" }; saveJSON("x_momentsCover", n); return n; });
+  // 把一条朋友圈转进跟某个人的单聊（她 2026-11-14）：落成她发的一条，TA 照常等她按回复再接（施工规则/wait-for-her）
+  const shareMomentTo = (m, cid) => {
+    const c = (characters || []).find(x => x && x.id === cid); if (!m || !c) return;
+    const who = m.mine ? "我" : ((((characters || []).find(x => x && x.id === m.characterId) || {}).remark) || (((characters || []).find(x => x && x.id === m.characterId) || {}).name) || "某人");
+    const body = "【转发了" + (m.mine ? "我自己" : "「" + who + "」") + "的一条朋友圈】" + (m.content || "") + (m.location ? "（📍" + m.location + "）" : "") + (m.music && m.music.title ? "（配的歌：《" + m.music.title + "》）" : "") + ((m.image || (m.images || []).length) ? "（配了图）" : "");
+    pChat(cid, p => [...p, { role: "user", content: body, ts: Date.now(), momShare: m.id }]);
+    toast("转给了 " + (c.remark || c.name) + "，去聊天里点回复让 TA 接");
+  };
   const openMomProfile = (id, isMe) => { setMomTarget({ id, isMe: !!isMe }); setScreen("momprofile"); };
   // 朋友圈里显示谁，只有这一处说了算（她 2026-09-14：「角色发朋友圈是原名，
   // 我回复后他们回复显示的是备注名，能不能统一显示备注名」）。
@@ -35473,7 +35488,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onTopMoment: topMoment,
     onPinMoment: pinMomentToShike,
     onOpenMomProfile: openMomProfile,
-    momCover: momentsCover.me || "", momCoverPos: momentsCover["me@pos"] || "", onSetMomCover: uri => { setMomentCover("me", uri); setMomentCover("me@pos", ""); },
+    momCover: momentsCover.me || "", momCoverPos: momentsCover["me@pos"] || "", onShareMoment: shareMomentTo, onSetMomCover: uri => { setMomentCover("me", uri); setMomentCover("me@pos", ""); },
     onEditProfile: () => setProfileOpen(true),
     onOpenWallet: () => setScreen("wallet"),
     onOpenFavorites: () => setScreen("favorites"),
@@ -35504,6 +35519,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 位置跟图存在同一份 x_momentsCover 里，键是「谁@pos」，值是 "x% y%"（不是图，迁移图库那一步不碰它）
     coverPos: (momentsCover[((momTarget && momTarget.isMe) ? "me" : (momTarget && momTarget.id)) + "@pos"]) || "",
     onSetCoverPos: pos => setMomentCover(((momTarget && momTarget.isMe) ? "me" : (momTarget && momTarget.id)) + "@pos", pos),
+    momRange: momRange, onSetMomRange: setMomRange,
     onDelMoment: delMoment,
     onDelMomentComment: delMomentComment,
     onTopMoment: topMoment,
