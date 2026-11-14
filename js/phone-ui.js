@@ -1640,12 +1640,14 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     // 挂点挂在【谁发的】上：TA半夜翻谁的朋友圈，圆点要落在那一条上（原来朋友圈那一栏
     // 一个挂点都没有，切过去之后圆点还停在别处，看着像卡住）。
     const momentCard = (m, i) => h("div", { key: i, "data-watch": "item:" + (m.author || ""), "data-wk": "pitem", className: "flex gap-3", style: { padding: "15px 14px", borderBottom: "1px solid #eee" } },
-      h(Avatar, { character: person(m.author), size: 40, radius: 6 }),
+      // 机主自己发的那条用机主的脸（她 2026-11-14「他自己的朋友圈没有头像」）：名字对得上 TA 的名字或备注就是 TA 本人
+      h(Avatar, { character: (char && [char.name, char.remark].some(n => n && String(n).trim() === String(m.author || "").trim())) ? selfFace : person(m.author), size: 40, radius: 6 }),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#526786" } }, PTX(m.author)),
         h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.7, color: "#222", marginTop: 5 } }, PTX(m.content)),
         h("div", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#999", marginTop: 7 } }, phoneAgo(m) || m.time || ""),
-        h("div", { "data-wk": "block", style: { background: "#f3f3f3", borderRadius: 4, marginTop: 8, padding: "7px 9px" } },
+        // 没人赞也没人评就不摆这块灰底（原来空着也画一条灰条）
+        !arr(m.likes).length && !arr(m.comments).length ? null : h("div", { "data-wk": "block", style: { background: "#f3f3f3", borderRadius: 4, marginTop: 8, padding: "7px 9px" } },
           arr(m.likes).length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#526786", paddingBottom: arr(m.comments).length ? 5 : 0, borderBottom: arr(m.comments).length ? "1px solid #ddd" : "none" } }, "♡ " + arr(m.likes).join("、")) : null,
           arr(m.comments).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: "calc(11.8px * var(--app-fs, 1))", lineHeight: 1.55, color: "#333", marginTop: 4 } }, h("b", { style: { color: "#526786" } }, x.from + "："), PTX(x.text))))));
     body = h("div", { style: { background: "#fff" } },

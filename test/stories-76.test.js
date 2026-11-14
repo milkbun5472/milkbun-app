@@ -191,3 +191,5 @@ test("朋友圈五样：小锁、点名字进主页、看过没吭声、转进�
   assert.ok(a.includes("seenBy: [...(m.seenBy || []), charId]") && a.includes("const shareMomentTo = (m, cid) =>") && a.includes("momInRange(m) && !friendCut(charId)"));
   assert.ok(!/pChat\(cid[\s\S]{0,200}replyNow/.test(a.slice(a.indexOf("const shareMomentTo"), a.indexOf("const openMomProfile"))), "转过去不许替 TA 开口");
 });
+
+test("查手机朋友圈：机主自己那条用机主的脸、没人赞评不画空灰条", () => { const p = fs.readFileSync("js/phone-ui.js", "utf8"); assert.ok(p.includes("String(m.author || \"\").trim()) ? selfFace : person(m.author)") && p.includes("!arr(m.likes).length && !arr(m.comments).length ? null")); });
