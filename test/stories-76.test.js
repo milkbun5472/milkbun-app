@@ -166,3 +166,9 @@ test("朋友圈顶上照微信：封面、相机菜单（发朋友圈／让角�
   const c = fs.readFileSync("js/components.js", "utf8");
   assert.ok(c.includes('"data-wk": "mocoverhead"') && c.includes('"data-wk": "mocammenu"') && c.includes('"data-wk": "mocompose"') && c.includes("h(MomentAutoImgSwitch, null)"));
 });
+
+test("朋友圈：按面具看、换封面、每条的操作收进「··」（首页和主页同一份）", () => {
+  const c = fs.readFileSync("js/components.js", "utf8"), a = fs.readFileSync("js/app.js", "utf8");
+  assert.ok(c.includes("function MomentActions(") && (c.match(/h\(MomentActions, \{/g) || []).length === 2);
+  assert.ok(c.includes('"data-wk": "momaskview"') && c.includes('"data-wk": "mocovernew"') && a.includes("window.__momMaskOf =") && a.includes("onSetMomCover:"));
+});

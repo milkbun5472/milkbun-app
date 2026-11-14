@@ -12047,7 +12047,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 发朋友圈那页挑面具用：主面具一张 + 其余几张（跟论坛挑面具同一份名单）；发出来的那条显示用哪张的名字和头像
   window.__momentMasks = () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage, color: profile.color }]
     .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
-  window.__maskKeyOf = id => maskKeyOf(id);   // 群设置里挑面具时，看哪些成员认的不是这张
+  window.__maskKeyOf = id => maskKeyOf(id);
+  // 朋友圈按面具看（她 2026-11-14）：这个人（或配角）跟你用的是哪张面具——配角跟着带 TA 的那位走，你自己身边的配角看它自己记的那张
+  window.__momMaskOf = c => { if (!c) return ""; if (c.npc) { if (String(c.ownerId) === "me") { const k = String(c.maskId || ""); return !k || k === maskPrimary ? "" : k; } return maskKeyOf(c.ownerId); } return maskKeyOf(c.id); };   // 群设置里挑面具时，看哪些成员认的不是这张
   const forumKnows = (charId, x) => String((x && x.mask) || "") === maskKeyOf(charId);
   // 这个号在场谁认得出：一句话交给提示词（主面具发的、在场又都是主面具的，就不必说）
   const forumMaskNote = (x, pool, asWho) => {
@@ -35462,7 +35464,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onTopMoment: topMoment,
     onPinMoment: pinMomentToShike,
     onOpenMomProfile: openMomProfile,
-    momCover: momentsCover.me || "", momCoverPos: momentsCover["me@pos"] || "",
+    momCover: momentsCover.me || "", momCoverPos: momentsCover["me@pos"] || "", onSetMomCover: uri => { setMomentCover("me", uri); setMomentCover("me@pos", ""); },
     onEditProfile: () => setProfileOpen(true),
     onOpenWallet: () => setScreen("wallet"),
     onOpenFavorites: () => setScreen("favorites"),

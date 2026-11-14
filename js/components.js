@@ -9275,7 +9275,7 @@ function BackupBanner({ onOpenSettings }) {
       style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none" } }, "×"));
 }
 function Messages({
-  momCover, momCoverPos,
+  momCover, momCoverPos, onSetMomCover,
   onStoryNow,     // 让某个 TA 现在发一条限时动态（不占名额）
   onStoryReply,   // 回别人的限时动态（她 2026-11-14）：(story, text) → 落进跟 TA 的聊天
   onPinMoment,
@@ -9766,7 +9766,7 @@ function Messages({
     onTop: onTopMoment,
     onPin: onPinMoment,
     onOpenProfile: cid => onOpenMomProfile && onOpenMomProfile(cid, false),
-    cover: momCover, coverPos: momCoverPos, onOpenMine: () => onOpenMomProfile && onOpenMomProfile(null, true)
+    cover: momCover, coverPos: momCoverPos, onSetCover: onSetMomCover, onOpenMine: () => onOpenMomProfile && onOpenMomProfile(null, true)
   }), tab === "me" && h("div", {
     className: "p-5"
   }, h("button", {
@@ -10042,6 +10042,22 @@ function MomentGrid({ refs }) {
       style: { width: 84, height: 84, padding: 0, borderRadius: 6, overflow: "hidden", display: "block" } },
       h("img", { src: resolveImg(r), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }))),
     at >= 0 && h(ImageViewer, { items: list.map(r => ({ src: resolveImg(r) })), at, onClose: () => setAt(-1) }));
+}
+// 一条朋友圈底下那几样（赞、评论、收进时刻、置顶、删除）收进右边的「··」，点开才有（她 2026-11-14「跟微信一样三个点在右边点开才有选项」）
+//   首页和个人主页共用这一份；原来各颗键的挂点（molike、mompin、momtop）照旧挂在菜单里那几颗上
+function MomentActions({ m, open, setOpen, onLike, onComment, onPin, onTop, onDelete }) {
+  const t = useTheme();
+  const item = (label, fn, attrs) => h("button", Object.assign({ key: attrs["data-wk"], onClick: () => { setOpen(false); fn(); }, className: "active:opacity-60 flex items-center gap-1",
+    style: { minHeight: 38, padding: "0 11px", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", whiteSpace: "nowrap" } }, attrs), label);
+  return h("div", { "data-wk": "moactions", style: { position: "relative", display: "flex", alignItems: "center", flexShrink: 0 } },
+    open ? h("div", { "data-wk": "momoremenu", className: "flex items-center", style: { position: "absolute", right: 40, top: "50%", transform: "translateY(-50%)", zIndex: 4, padding: "0 4px", borderRadius: 6, background: "rgba(40,40,40,.93)" } },
+      item(h(Fragment, null, h(IHeart, { size: 13, color: "#fff", filled: !!m.liked }), m.liked ? " 取消" : " 赞"), onLike, { "data-wk": "molike", "data-on": m.liked ? "1" : undefined }),
+      item("评论", onComment, { "data-wk": "mocomment" }),
+      onPin ? item("收进时刻", onPin, { "data-wk": "mompin" }) : null,
+      onTop ? item(m.top ? "取消置顶" : "置顶", onTop, { "data-wk": "momtop", "data-on": m.top ? "1" : "0" }) : null,
+      onDelete ? item("删除", onDelete, { "data-wk": "model" }) : null) : null,
+    h("button", { "data-wk": "momore", "aria-label": "更多", onClick: () => setOpen(!open), className: "active:opacity-60",
+      style: { minWidth: 32, height: 22, padding: "0 6px", borderRadius: 4, background: t.bg, color: t.tint || t.accent, fontFamily: F_BODY, fontWeight: 700, letterSpacing: 1, lineHeight: "22px" } }, "··"));
 }
 // 朋友圈里分享的那首歌：一张小卡，点「听」用 App 的播放器真的放（她 2026-11-14）
 function MomentMusic({ music }) {
@@ -10604,9 +10620,12 @@ function MomentsFeed({
   onPin,
   onOpenProfile,
   onDelComment,
-  cover, coverPos, onOpenMine
+  cover, coverPos, onOpenMine, onSetCover
 }) {
-  const [camOpen, setCamOpen] = useState(false);   // 封面右上角相机：发朋友圈／让角色发／自动配图
+  const [camOpen, setCamOpen] = useState(false);
+  const [maskView, setMaskView] = useState(null);   // null＝看全部；某张面具的 id（主面具是 ""）＝只看认这张面具的人
+  const [moreFor, setMoreFor] = useState(null);     // 哪一条的「··」点开了
+  const coverRef = useRef(null);   // 封面右上角相机：发朋友圈／让角色发／自动配图
   // 长按一条评论删掉（群友 2026-11-02）：按住 600ms，挪开手指就算了；按出来之后那一下不算点
   const [delCm, setDelCm] = useState(null);
   const cmPress = useRef({ t: null, fired: false });
@@ -10678,7 +10697,18 @@ function MomentsFeed({
           h(PGlyph, { k: "album", size: 15, color: t.ink }), "发朋友圈"),
         h("button", { "data-wk": "mocharpost", onClick: () => { setCamOpen(false); setPick(true); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
           h(IRefresh, { size: 14, color: t.ink }), "让角色发一条"),
+        onSetCover ? h("button", { "data-wk": "mocovernew", onClick: () => { setCamOpen(false); coverRef.current && coverRef.current.click(); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
+          h(PGlyph, { k: "album", size: 15, color: t.ink }), "换封面") : null,
+        (() => { const ms = window.__momentMasks ? window.__momentMasks() : []; if (ms.length < 2) return null;
+          return h("div", { "data-wk": "momaskview", style: { padding: "8px 14px", borderTop: "1px solid " + t.line } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "看谁的朋友圈"),
+            h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+              [{ id: null, name: "全部" }].concat(ms).map(mk => { const on = maskView === mk.id;
+                return h("button", { key: String(mk.id), "data-on": on ? "1" : "0", onClick: () => { setMaskView(mk.id); setCamOpen(false); }, style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, mk.id === null ? "全部" : mk.name); }))); })(),
         h("div", { style: { padding: "6px 14px 8px", borderTop: "1px solid " + t.line } }, h(MomentAutoImgSwitch, null))) : null,
+      onSetCover ? h("input", { ref: coverRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) resizeImageFile(f, 1400, 0.82).then(d => d && onSetCover(d)); } }) : null,
+      maskView !== null ? h("button", { "data-wk": "momaskchip", onClick: () => setMaskView(null), style: { position: "absolute", top: 16, left: 14, padding: "5px 11px", borderRadius: 999, background: "rgba(0,0,0,.35)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
+        "只看「" + (((window.__momentMasks ? window.__momentMasks() : []).find(x => x.id === maskView) || {}).name || "这张面具") + "」 ×") : null,
       h("div", { className: "flex items-end", style: { position: "absolute", right: 16, bottom: -30, gap: 12 } },
         h("button", { onClick: onOpenMine, "data-wk": "momyname", className: "active:opacity-70", style: { marginBottom: 38, fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,.55)" } }, (profile && profile.name) || "我"),
         h("button", { onClick: onOpenMine, "data-wk": "momyavatar", className: "active:opacity-70" }, h(Avatar, { character: { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: profile && profile.color }, size: 68, radius: 10 })))), gen && /*#__PURE__*/React.createElement(Spinner, {
@@ -10687,7 +10717,10 @@ function MomentsFeed({
     text: "朋友圈还没有动态",
     sub: "点封面右上角的相机，发一条或者让角色发"
   }), // 首页刷的那一列只按时间（她 2026-11-02：「置顶不应该挂在刷的地方，只在他朋友圈主页看得到」）；置顶只在个人主页排最前
-    (moments || []).filter(m => !m || m.mine || !momMutedIds().includes(String(m.characterId))).map(m => {
+    (moments || []).filter(m => !m || m.mine || !momMutedIds().includes(String(m.characterId)))
+      .filter(m => { if (maskView === null || !m) return true; if (m.mine) return String(m.mask || "") === maskView || (!m.mask && maskView === "");
+        const cc = characters.find(x => x.id === m.characterId) || (npcs || []).find(x => x && x.id === m.characterId); return !!cc && window.__momMaskOf && window.__momMaskOf(cc) === maskView; })
+      .map(m => {
     const isMine = m.mine;
     // 开了「发朋友圈」的配角发的那条也摆出来（她 2026-10-22）
     const c = isMine ? null : (characters.find(x => x.id === m.characterId) || (npcs || []).find(x => x && x.id === m.characterId));
@@ -10785,42 +10818,9 @@ function MomentsFeed({
         color: t.fog
       }
       , "data-wk": "motime"
-    }, typeof timeAgoOn === "function" ? timeAgoOn(m.ts, isMine ? null : m.characterId) : timeAgo(m.ts)), /*#__PURE__*/React.createElement("button", {
-      onClick: () => onLike(m.id),
-      "data-wk": "molike", "data-on": m.liked ? "1" : undefined,
-      className: "active:opacity-60 flex items-center gap-1"
-    }, /*#__PURE__*/React.createElement(IHeart, {
-      size: 13,
-      color: m.liked ? t.accent : t.fog,
-      filled: m.liked
-    }), (m.likeCount || 0) > 0 && /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontFamily: F_BODY,
-        fontSize: "calc(10.5px * var(--app-fs, 1))",
-        color: t.fog
-      }
-    }, m.likeCount)), /*#__PURE__*/React.createElement("button", {
-      onClick: () => {
-        setCommenting(m.id);
-        setCReply(null);
-        setCText("");
-      },
-      style: {
-        fontFamily: F_BODY,
-        fontSize: "calc(11px * var(--app-fs, 1))",
-        color: t.fog
-      }
-    }, "评论"), onPin && m.characterId && h("button", {
-      // 收进时刻：连同底下的评论一起，收进发这条的那位名下（她 2026-10-06）
-      onClick: () => onPin(m), "data-wk": "mompin",
-      style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog }
-    }, "收进时刻"), onTop && isMine && h("button", {
-      onClick: () => onTop(m.id), "data-wk": "momtop", "data-on": m.top ? "1" : "0",
-      style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: m.top ? t.accent : t.fog }
-    }, m.top ? "取消置顶" : "置顶"), onDelete && h("button", {
-      onClick: () => setDelId(m.id),
-      style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog }
-    }, "删除")), h(MomentRemindLine, { m, characters }), m.music && h(MomentMusic, { music: m.music }), m.poll && h(MomentPoll, { poll: m.poll, characters }), m.likers && m.likers.length > 0 && h("div", {
+    }, typeof timeAgoOn === "function" ? timeAgoOn(m.ts, isMine ? null : m.characterId) : timeAgo(m.ts)), h("span", { className: "flex-1" }), h(MomentActions, { m, open: moreFor === m.id, setOpen: v => setMoreFor(v ? m.id : null),
+      onLike: () => onLike(m.id), onComment: () => { setCommenting(m.id); setCReply(null); setCText(""); },
+      onPin: onPin && m.characterId ? () => onPin(m) : null, onTop: onTop && isMine ? () => onTop(m.id) : null, onDelete: onDelete ? () => setDelId(m.id) : null })), h(MomentRemindLine, { m, characters }), m.music && h(MomentMusic, { music: m.music }), m.poll && h(MomentPoll, { poll: m.poll, characters }), m.likers && m.likers.length > 0 && h("div", {
       className: "flex items-center gap-1.5 mt-2",
       "data-wk": "molikers"
     }, h(IHeart, {
@@ -11003,6 +11003,7 @@ function momMutedIds() { try { const v = loadJSON("x_momMute", []); return Array
 // 朋友圈个人页（仿微信「我的相册/TA 的朋友圈」）：封面 + 头像 + 签名 + 此人所有动态；me 可发/删/换封面
 function MomentsProfile({ isMe, character: rawCharacter, profile, characters: rawCharacters, moments, cover, coverPos, onSetCoverPos, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onTopMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
   const [stArch, setStArch] = useState(null);   // 点开的那条过往限时动态（hook 放最前，下面有提前 return）
+  const [moreFor, setMoreFor] = useState(null);   // 哪一条的「··」点开了
   const character = chatFace(rawCharacter), characters = (rawCharacters || []).map(chatFace);   // 主页上的头像也认聊天那张
   const t = useTheme();
   const [compose, setCompose] = useState(false);
@@ -11054,10 +11055,9 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
       : h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2 flex items-center gap-2 px-3 py-2 active:opacity-70", style: { background: t.bg, borderRadius: 10, border: "1px solid " + t.line } }, h(PGlyph, { k: "album", size: 16, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "[图片] 点开看描述"))) : null,
     h("div", { className: "flex items-center gap-4 mt-2" },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, typeof timeAgoOn === "function" ? timeAgoOn(m.ts, m.mine ? null : m.characterId) : timeAgo(m.ts)),
-      h("button", { onClick: () => onLikeMoment(m.id), className: "active:opacity-60 flex items-center gap-1" }, h(IHeart, { size: 13, color: m.liked ? t.accent : t.fog, filled: m.liked }), (m.likeCount || 0) > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, m.likeCount)),
-      h("button", { onClick: () => { setCommenting(m.id); setCReply(null); setCText(""); }, style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "评论"),
-      onTopMoment && m.mine && h("button", { "data-wk": "momtop", "data-on": m.top ? "1" : "0", onClick: () => onTopMoment(m.id), style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: m.top ? t.accent : t.fog } }, m.top ? "取消置顶" : "置顶"),
-      onDelMoment && h("button", { onClick: () => setDelId(m.id), style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "删除")),
+      h("span", { className: "flex-1" }),
+      h(MomentActions, { m, open: moreFor === m.id, setOpen: v => setMoreFor(v ? m.id : null), onLike: () => onLikeMoment(m.id), onComment: () => { setCommenting(m.id); setCReply(null); setCText(""); },
+        onTop: onTopMoment && m.mine ? () => onTopMoment(m.id) : null, onDelete: onDelMoment ? () => setDelId(m.id) : null })),
     h(MomentRemindLine, { m, characters }),
     m.music ? h(MomentMusic, { music: m.music }) : null,
     m.poll ? h(MomentPoll, { poll: m.poll, characters }) : null,
