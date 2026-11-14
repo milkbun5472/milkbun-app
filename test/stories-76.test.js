@@ -149,3 +149,5 @@ test("顶上一截让给头像名字", () => { const st = fs.readFileSync("js/st
 test("日程换段有几率发一条", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("window.__storySeg") && a.includes("saveJSON(\"x_storySeg\"") && /Math\.random\(\) >= 0\.2\) return;\s*storyMake\(c, ""\)/.test(a)); });
 
 test("TA 翻到健康就翻到这周", () => { const a = fs.readFileSync("js/app.js", "utf8"), hl = fs.readFileSync("js/health.js", "utf8"); assert.ok(a.includes('window.__openSub = { screen: "health", sub: "week" }') && hl.includes('["today", "body", "week"]') && hl.includes('["走路",')); });
+
+test("健康每天步数一格、查手机能快进", () => { const hl = fs.readFileSync("js/health.js", "utf8"), pk = fs.readFileSync("js/peek-phone.js", "utf8"); assert.ok(hl.includes('"healthsteps"') && pk.includes('"peekspeed"') && pk.includes("ms / speed()")); });

@@ -16,7 +16,9 @@
   "use strict";
   const STEP_CAP = 64;   // 翻透几个人的聊天要更多步（她 2026-10-02：「太短了」）
   const THOUGHT_FREE = 2;
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  // 快进（她 2026-11-14 转群友「查手机很慢」）：×2 时每一下停顿都减半；选过的下次还是这个速度
+  const speed = () => { try { return Number(window.__peekSpeed || localStorage.getItem("x_peekSpeed")) || 1; } catch (e) { return 1; } };
+  const sleep = ms => new Promise(r => setTimeout(r, ms / speed()));
   const S = v => String(v == null ? "" : v);
 
   // 脚本收拾：认得的动作才留，心声按点开次数封顶。
@@ -237,6 +239,7 @@
     const [dot, setDot] = React.useState({ x: window.innerWidth / 2, y: window.innerHeight * 0.62, down: false });
     const [thought, setThought] = React.useState("");
     const [caption, setCaption] = React.useState("接过了你的手机…");
+    const [spd, setSpd] = React.useState(speed);
     const [renameBox, setRenameBox] = React.useState(null);   // { old, typed }：改备注那个假框
     const stopRef = React.useRef(false);
     const doneRef = React.useRef(false);
@@ -475,10 +478,12 @@
     return h("div", { "data-peek-overlay": "1", style: { position: "fixed", inset: 0, zIndex: 9990, background: "transparent" },
         onClickCapture: e => { if (!e.target.closest("[data-peek-skip]")) { e.stopPropagation(); e.preventDefault(); } } },
       // 顶上那一行：谁在翻、在翻什么
-      h("div", { style: { position: "absolute", left: 12, right: 76, top: "calc(env(safe-area-inset-top, 0px) + 10px)", display: "flex", alignItems: "center", gap: 8,
+      h("div", { style: { position: "absolute", left: 12, right: 136, top: "calc(env(safe-area-inset-top, 0px) + 10px)", display: "flex", alignItems: "center", gap: 8,
           padding: "7px 12px", borderRadius: 999, background: "rgba(20,20,20,.62)", color: "#fff", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" } },
         props.avatarChar && typeof Avatar === "function" ? h(Avatar, { character: props.avatarChar, size: 22, radius: 11 }) : null,
         h("span", { style: { fontSize: "calc(12.5px * var(--app-fs, 1))", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, (props.charName || "TA") + " " + caption)),
+      h("button", { "data-peek-skip": "1", "data-wk": "peekspeed", onClick: () => { const n = spd >= 2 ? 1 : 2; window.__peekSpeed = n; try { localStorage.setItem("x_peekSpeed", String(n)); } catch (e) {} setSpd(n); },
+          style: { position: "absolute", right: 76, top: "calc(env(safe-area-inset-top, 0px) + 8px)", minHeight: 36, padding: "0 12px", borderRadius: 999, background: spd >= 2 ? "rgba(255,255,255,.85)" : "rgba(20,20,20,.62)", color: spd >= 2 ? "#222" : "#fff", fontSize: "calc(12.5px * var(--app-fs, 1))" } }, spd >= 2 ? "×2" : "×1"),
       h("button", { "data-peek-skip": "1", onClick: finish, style: { position: "absolute", right: 12, top: "calc(env(safe-area-inset-top, 0px) + 8px)", minHeight: 36, padding: "0 14px",
           borderRadius: 999, background: "rgba(20,20,20,.62)", color: "#fff", fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "跳过"),
       // 触控圆点

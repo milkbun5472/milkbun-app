@@ -553,6 +553,12 @@
           ["不舒服的日子", wk.filter(x => x.sym.length).length + " 天"]].map(r =>
           h("div", { key: r[0], className: "flex", style: { minHeight: 40, alignItems: "center", borderBottom: "1px dashed " + S.line, fontFamily: F_BODY } },
             h("span", { style: { flex: 1, fontSize: "calc(13.5px * var(--app-fs, 1))", color: S.sub } }, r[0]), h("span", { style: { fontSize: "calc(14px * var(--app-fs, 1))", color: S.ink } }, r[1]))),
+        // 每天走了几步，一天一格（她 2026-11-14：TA 翻手机说到哪天几步，屏幕上要对得上）
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: S.sub, margin: "14px 0 2px" } }, "每天走了几步"),
+        h("div", { "data-wk": "healthsteps", className: "flex items-center" },
+          wk.map(x => h("div", { key: x.day, style: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "4px 0", fontFamily: F_BODY } },
+            h("span", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: x.steps ? (x.day === today ? S.accent : S.ink) : S.fog, whiteSpace: "nowrap" } }, x.steps ? (x.steps >= 10000 ? (x.steps / 10000).toFixed(1) + "万" : x.steps) : "·"),
+            h("span", { style: { fontSize: "calc(10px * var(--app-fs, 1))", color: x.day === today ? S.ink : S.fog } }, x.day === today ? "今天" : (p => +p[1] + "/" + +p[2])(String(x.day).split("-")))))),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: S.sub, margin: "14px 0 2px" } }, "每天的心情"),
         h("div", { className: "flex items-center" },
           wk.map(x => h("div", { key: x.day, style: { flex: 1, height: 44, display: "flex", alignItems: "center", justifyContent: "center", color: S.fog } },
