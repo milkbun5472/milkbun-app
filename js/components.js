@@ -9498,7 +9498,7 @@ function Messages({
   // 聊天格子是白的（t.bg2），地是灰的（外壳 t.bg）——置顶的在白格上再压一层淡灰
   const rowBg = id => pinnedSet.has(id) ? "linear-gradient(rgba(0,0,0,0.035),rgba(0,0,0,0.035)) " + t.bg2 : t.bg2;
   // 限时动态（她 2026-11-14）：头像外一圈框——没看过的是彩色，看过了是灰的；点头像看，点这一行照常进聊天
-  const [stView, setStView] = useState(null), [stMake, setStMake] = useState(false), [stAsk, setStAsk] = useState(false), [stPend, setStPend] = useState(null), [stMenu, setStMenu] = useState(false), [, stTick] = useState(0);
+  const [stView, setStView] = useState(null), [stMake, setStMake] = useState(false), [stAsk, setStAsk] = useState(false), [stPend, setStPend] = useState(null), [stMenu, setStMenu] = useState(false), [stPast, setStPast] = useState(false), [, stTick] = useState(0);
   useEffect(() => { const f = () => stTick(x => x + 1); window.addEventListener("lisa-stories", f); return () => window.removeEventListener("lisa-stories", f); }, []);
   const SK = window.Stories;
   const storyRing = (id, kid) => {
@@ -9559,13 +9559,19 @@ function Messages({
         h("input", { "data-wk": "input", value: q, onChange: e => setQ(e.target.value), placeholder: "搜索",
           className: "flex-1 outline-none", style: { background: "transparent", padding: "8px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }),
         q ? h("button", { onClick: () => setQ(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.fog, padding: "0 2px" } }, "×") : null)),
+    // 我发过的（她 2026-11-14「点哪儿可以看到自己发过的」）：跟朋友圈主页里那块是同一份精选＋过往
+    stPast && SK ? h(Sheet, { onClose: () => setStPast(false) },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "我发过的限时动态"),
+      h(SK.StoryHighlights, { by: "me", onOpen: (list, k) => setStView({ list, k, archive: true }) }),
+      h(SK.StoryArchive, { by: "me", title: "过往", onOpen: (list, k) => setStView({ list, k, archive: true }) })) : null,
     // 点头像弹的那一小张：看自己挂着的／我发一条／让 TA 发
     stMenu && SK ? h(Sheet, { onClose: () => setStMenu(false) },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "限时动态"),
       [SK.activeOf("me").length ? ["看我挂着的 " + SK.activeOf("me").length + " 条", "谁看过、谁回了什么", () => setStView({ list: SK.activeOf("me") }), "mystoryview"] : null,
+        SK.pastOf("me").length ? ["我发过的 " + SK.pastOf("me").length + " 条", "过了 24 小时收起来的，还有精选", () => setStPast(true), "mystorypast"] : null,
         ["我发一条", "拼一张竖版卡，挂 24 小时", () => setStMake(true), "mystorynew"],
         onStoryNow ? ["让 TA 发", "挑一个人，TA 马上发一条（不占 TA 的名额，花一次调用）", () => setStAsk(true), "storynow"] : null].filter(Boolean)
-        .map(([zh, note, fn, wk]) => h("button", { key: wk, "data-wk": wk === "mystoryview" ? "mystoryview" : wk === "mystorynew" ? "mystorynew" : "storynow", onClick: () => { setStMenu(false); fn(); }, className: "w-full text-left active:opacity-60", style: { display: "block", padding: "11px 4px", borderTop: "1px solid " + t.line } },
+        .map(([zh, note, fn, wk]) => h("button", { key: wk, "data-wk": wk === "mystoryview" ? "mystoryview" : wk === "mystorypast" ? "mystorypast" : wk === "mystorynew" ? "mystorynew" : "storynow", onClick: () => { setStMenu(false); fn(); }, className: "w-full text-left active:opacity-60", style: { display: "block", padding: "11px 4px", borderTop: "1px solid " + t.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, zh),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, note)))) : null,
     // 「让 TA 发」（她 2026-11-14「放一个更容易找到的入口」）：挑一个人，TA 马上排一张；这一条不占 TA 24 小时的名额，花一次调用
@@ -9576,7 +9582,7 @@ function Messages({
         (characters || []).filter(c => c && !c.npc).map(c => h("button", { key: c.id, onClick: () => { setStAsk(false); onStoryNow(c.id); }, className: "active:opacity-60", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4 } },
           h(Avatar, { character: c, size: 46, radius: 10 }),
           h("span", { className: "truncate", style: { maxWidth: "100%", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, c.remark || c.name))))) : null,
-    stView && SK ? h(SK.StoryViewer, { list: stView.list, start: 0, viewer: "me", nameOf: stName, onClose: () => setStView(null),
+    stView && SK ? h(SK.StoryViewer, { list: stView.list, start: stView.k || 0, archive: !!stView.archive, viewer: "me", nameOf: stName, onClose: () => setStView(null),
       onDelete: st => SK.remove(st.id), onReply: (st, tx, kind) => onStoryReply && onStoryReply(st, tx, kind) }) : null,
     // 她自己发：拼壁纸那个编辑器，从「自己摆」那张空纸开始；存下来就是一条
     stMake && SK && window.Collage ? h("div", { style: { position: "fixed", inset: 0, zIndex: 115, background: t.bg, overflowY: "auto" } },
