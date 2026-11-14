@@ -249,7 +249,12 @@
         h("button", { "aria-label": "下一条", onClick: () => { if (!holdLong.current) go(1); }, onPointerDown: () => holdStart(), onPointerUp: holdEnd, onPointerLeave: holdEnd, onPointerCancel: holdEnd, style: { position: "absolute", right: 0, top: 0, bottom: 0, width: "65%" } }),
         stickerUI,
         // 印在图底上的一行（像短视频的描述），不另占一条
-        (cur.photoDesc && !cur.photo) || cur.photoKey ? h("div", { "data-wk": "storyphotoline", className: "flex items-center", style: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 3, gap: 8, padding: "28px 12px 10px", background: "linear-gradient(transparent, rgba(0,0,0,.55))", textShadow: "0 1px 3px rgba(0,0,0,.7)", color: "#ddd", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5 } },
+        cur.ghost ? h("div", { "data-wk": "storyghost", style: { position: "absolute", inset: 0, zIndex: 4, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.55)", color: "#eee", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", textAlign: "center", padding: 30, lineHeight: 1.7 } },
+          (mine ? "你" : nameOf(s.by)) + " 把这条删了", h("br"), h("span", { style: { fontSize: "calc(12px * var(--app-fs, 1))", opacity: .8 } }, "删之前你已经看到了")) : null),
+      // 这张图会画什么（她 2026-11-14）：TA 排卡时写好的，没配图的卡点「生图」就照这句补一张（自拍、随手拍的风景、手边的东西都行）
+      // 底下这一块（描述、快捷表情、回复）也是叠在图上的，不另占一截（她 2026-11-14）
+      h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 5, padding: "40px 12px calc(env(safe-area-inset-bottom, 0px) + 10px)", background: "linear-gradient(transparent, rgba(0,0,0,.55) 45%)", textShadow: "0 1px 3px rgba(0,0,0,.6)" } },
+        (cur.photoDesc && !cur.photo) || cur.photoKey ? h("div", { "data-wk": "storyphotoline", className: "flex items-center", style: { gap: 8, padding: "0 0 8px", textShadow: "0 1px 3px rgba(0,0,0,.7)", color: "#ddd", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5 } },
         h("button", { "data-wk": "storyphototoggle", onClick: () => setPhotoOpen(v => !v), className: "flex-1 min-w-0 text-left", style: { color: "#ddd", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: photoOpen ? "normal" : "nowrap" } },
           "📷 " + ({ self: "自拍", view: "随手拍的", thing: "手边的东西" }[cur.photoKind] || "照片") + (photoOpen ? "：" + cur.photoDesc + " ︿" : " · 这张图会画什么 ﹀")),
         // 画好了：藏字只看照片、单独存这张
@@ -258,10 +263,6 @@
           style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff" } }, "存照片") : null,
         !cur.photoKey && !cur.photo && window.__storyGenPhoto ? h("button", { "data-wk": "storyphotogen", disabled: genBusy, onClick: async () => { setGenBusy(true); try { await window.__storyGenPhoto(cur); bump(x => x + 1); } finally { setGenBusy(false); } },
           style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff", opacity: genBusy ? .5 : 1 } }, genBusy ? "画着…" : "生图") : null) : null,
-        cur.ghost ? h("div", { "data-wk": "storyghost", style: { position: "absolute", inset: 0, zIndex: 4, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.55)", color: "#eee", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", textAlign: "center", padding: 30, lineHeight: 1.7 } },
-          (mine ? "你" : nameOf(s.by)) + " 把这条删了", h("br"), h("span", { style: { fontSize: "calc(12px * var(--app-fs, 1))", opacity: .8 } }, "删之前你已经看到了")) : null),
-      // 这张图会画什么（她 2026-11-14）：TA 排卡时写好的，没配图的卡点「生图」就照这句补一张（自拍、随手拍的风景、手边的东西都行）
-      h("div", { style: { padding: "10px 12px calc(env(safe-area-inset-bottom, 0px) + 10px)", background: "rgba(0,0,0,.6)" } },
         archive ? h("div", { "data-wk": "storyhl", className: "flex items-center", style: { gap: 8, color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
           hlName == null
             ? h("button", { onClick: () => setHlName(cur.hl || ""), style: { color: "#fff", opacity: .9 } }, cur.hl ? "在精选「" + cur.hl + "」里 · 改" : "收进精选")
