@@ -13,3 +13,6 @@ test("两颗按钮按下去就算", () => {
   assert.match(card, /tap\(document\.getElementById\("__bg_r"\)/);
   assert.match(card, /tap\(document\.getElementById\("__bg_h"\), nuke\)/);
 });
+test("「重新加载」是真链接，脚本被卡住时浏览器也会自己跳", () => {
+  assert.match(card, /<a id="__bg_r" href="\.\/"/);
+});

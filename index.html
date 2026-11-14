@@ -78,7 +78,8 @@
     d.innerHTML = '<div data-bg-t="1" style="font-size:15px;margin-bottom:6px">' + title + '</div>'
       + '<div data-bg-b="1" style="font-size:12px;opacity:.75;margin-bottom:12px">' + body + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + '<button id="__bg_r" style="flex:1;min-width:120px;min-height:42px;border:0;border-radius:10px;background:#f3f4f6;color:#1f2937;font:14px -apple-system,system-ui,sans-serif">重新加载</button>'
+      // 「重新加载」是一个真链接：脚本被卡住、点击事件迟迟轮不到的时候，浏览器自己也会跳过去
+      + '<a id="__bg_r" href="./" style="flex:1;min-width:120px;min-height:42px;display:flex;align-items:center;justify-content:center;text-decoration:none;border:0;border-radius:10px;background:#f3f4f6;color:#1f2937;font:14px -apple-system,system-ui,sans-serif">重新加载</a>'
       + '<button id="__bg_h" style="flex:1;min-width:120px;min-height:42px;border:1px solid rgba(243,244,246,.35);border-radius:10px;background:transparent;color:#f3f4f6;font:13px -apple-system,system-ui,sans-serif">清掉离线缓存再加载</button>'
       + '</div>'
       + '<div style="font-size:11px;opacity:.6;margin-top:10px">还是白屏的话：<a href="rescue.html" style="color:#93c5fd">进救援页</a>（数据都在）'
