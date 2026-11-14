@@ -2179,7 +2179,7 @@ function lazyScreen(name, group, zh) {
  // 瘦身第八批：秋秋小窝整份；跑团、片刻、番茄钟的页面那半（开机那半在 trpg-core.js / shua-core.js / pomodoro-core.js）
  // 瘦身第九批：健康、星测、时刻、月度印象、同居、一起看的页面那半（开机那半在各自的 *-core.js）
  ["HealthApp", "health", "健康"], ["AstroApp", "astro", "星测"], ["ZhaoyingApp", "zhaoying", "照影"], ["StampBookApp", "stamps", "邮票册"], ["ShikeApp", "shike", "时刻"], ["ImpressionApp", "impression", "月度印象"], ["DwellApp", "dwell", "同居"], ["WatchTogether", "watch", "一起看"],
- ["NestApp", "nest", "秋秋小窝"], ["StyleLabApp", "stylelab", "文风台"], ["TrpgApp", "trpg", "跑团"], ["ShuaApp", "shua", "片刻"], ["Pomodoro", "pomodoro", "番茄钟"],
+ ["Us", "screens", "情侣空间"], ["NestApp", "nest", "秋秋小窝"], ["StyleLabApp", "stylelab", "文风台"], ["TrpgApp", "trpg", "跑团"], ["ShuaApp", "shua", "片刻"], ["Pomodoro", "pomodoro", "番茄钟"],
  ["Cast", "screens", "人格档案馆"], ["CastForm", "screens", "角色档案"], ["Ties", "screens", "关系网"], ["WorldBook", "screens", "世界书"], ["ForumAnonWrap", "screens", "匿名"], ["Shop", "screens", "购物"], ["Takeout", "screens", "外卖"], ["MyKinPage", "screens", "亲属卡"], ["KinshipBill", "screens", "亲属卡账单"], ["ListenTogether", "screens", "一起听"], ["Config", "screens", "设置"], ["MemoryLib", "screens", "记忆库"], ["Diary", "screens", "日记"], ["MyWallet", "screens", "钱包"], ["CharWallet", "screens", "TA 的钱包"], ["EmoteMatrix", "screens", "表情包"], ["Favorites", "screens", "收藏"], ["Carry", "screens", "随身"], ["MyCloset", "screens", "衣柜"]].forEach(a => lazyScreen(a[0], a[1], a[2]));
 function ImageViewer({ items, at, onClose, actions, zoomable }) {
   const list = (items || []).filter(x => x && x.src);

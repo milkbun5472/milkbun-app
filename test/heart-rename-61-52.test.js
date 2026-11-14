@@ -57,7 +57,7 @@ test("「人格档案」换成了我们自己的说法，但【人格档案馆�
   }));
   assert.deepEqual(bad, [], "还写着「人格档案」：\n  " + bad.join("\n  "));
   // 界面名必须还在
-  const scr = all.find(x => x[0] === "screens.js")[1];
+  const scr = all.find(x => x[0] === "screens-ui.js")[1];   // 2026-11-14 写着界面名的那几页都在页面那半了
   assert.match(scr, /人格档案馆/, "把她的界面名一起改掉了");
   // 换成的说法是代码里本来就在用的那个
   const app = all.find(x => x[0] === "app.js")[1];

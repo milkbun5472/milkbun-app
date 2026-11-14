@@ -5,8 +5,8 @@ const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const K = require("../js/couple-firsts.js");
 const app = R("app.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js"));
-// 2026-10-18 起 screens.js 拆成两半：「切到文件尾」只切它所在的 screens.js 那一半，别切进 screens-ui.js
-const scrCore = R("screens.js");
+// 2026-10-18 起 screens.js 拆成两半；2026-11-14 情侣空间这几页也搬到了页面那半（screens-ui.js 的末尾），「切到文件尾」切的是它
+const scrCore = R("screens-ui.js");
 const DAY = 86400000;
 const NOW = Date.UTC(2026, 7, 31, 12);
 

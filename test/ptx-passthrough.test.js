@@ -12,7 +12,7 @@ const grab = (file, fn) => {
   return new Function("h", "TransText", c.slice(a, b + 2) + s.slice(i, j + 2) + "\nreturn " + fn + ";")((c, p) => ({ c, p }), function TransText() {});
 };
 // 2026-10-18 起 PTX 跟着查手机页面那半在 phone-ui.js
-["phone-ui.js:PTX", "screens.js:STX"].forEach(x => {
+["phone-ui.js:PTX", "screens-ui.js:STX"].forEach(x => {
   const [f, fn] = x.split(":");
   test(fn + " 遇到元素／数组原样放过，字才包译", () => {
     const P = grab(f, fn);

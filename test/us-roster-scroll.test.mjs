@@ -2,8 +2,7 @@ import { test } from "node:test"; import assert from "node:assert/strict"; impor
 const r = f => readFileSync(new URL("../js/" + f, import.meta.url), "utf8");
 // 「点进去再出来停在原处」只有 core.js 的 keepScroll 一份；这些页原来各自手写过一份，都换成它了
 const USES = {
-  "screens.js": ['keepScroll("us:roster")', 'keepScroll("us:" + partner.id, bodyRef)'],
-  "screens-ui.js": ['keepScroll("forum:feed", feedScrollRef)', 'keepScroll("takeout:list", listRef)'],
+  "screens-ui.js": ['keepScroll("us:roster")', 'keepScroll("us:" + partner.id, bodyRef)', 'keepScroll("forum:feed", feedScrollRef)', 'keepScroll("takeout:list", listRef)'],
   "nest.js": ['keepScroll("nest:wall", listRef)'],
   "tarot.js": ['keepScroll("tarot:home", homeScrollRef)'],
   "pomodoro.js": ['keepScroll("pomo:setup")', 'keepScroll("pomo:archive:" + archWho)'],

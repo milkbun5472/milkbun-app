@@ -1,5 +1,5 @@
 import test from "node:test"; import assert from "node:assert/strict"; import fs from "node:fs";
-const app = fs.readFileSync("js/app.js", "utf8"), scr = fs.readFileSync("js/screens.js", "utf8");
+const app = fs.readFileSync("js/app.js", "utf8"), scr = (fs.readFileSync("js/screens.js", "utf8") + "\n" + fs.readFileSync("js/screens-ui.js", "utf8"));
 test("我种的花和他种的走同一条路", () => {
   assert.match(app, /const plantPot = \(char, o\)/);
   assert.match(app, /gardenPlantGen[\s\S]{0,4000}plantPot\(char, \{[^}]*by: "char"/);
