@@ -10069,7 +10069,9 @@ function MomentActions({ m, open, setOpen, onLike, onComment, onPin, onTop, onDe
       onTop ? item(m.top ? "取消置顶" : "置顶", onTop, { "data-wk": "momtop", "data-on": m.top ? "1" : "0" }) : null,
       onDelete ? item("删除", onDelete, { "data-wk": "model" }) : null) : null,
     h("button", { "data-wk": "momore", "aria-label": "更多", onClick: () => setOpen(!open), className: "active:opacity-60",
-      style: { minWidth: 32, height: 22, padding: "0 6px", borderRadius: 4, background: t.bg, color: t.tint || t.accent, fontFamily: F_BODY, fontWeight: 700, letterSpacing: 1, lineHeight: "22px" } }, "··"));
+      // 两颗点自己画，不用字：换了字体（尤其手写体）两个「·」会被撑得老远（她 2026-11-14）
+      style: { width: 30, height: 20, borderRadius: 4, background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", gap: 3 } },
+      h("span", { style: { width: 4, height: 4, borderRadius: 999, background: t.tint || t.accent } }), h("span", { style: { width: 4, height: 4, borderRadius: 999, background: t.tint || t.accent } })));
 }
 // 朋友圈里分享的那首歌：一张小卡，点「听」用 App 的播放器真的放（她 2026-11-14）
 function MomentMusic({ music }) {
