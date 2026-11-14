@@ -93,7 +93,7 @@ test("第三版：表情回应、存图、秒删、深夜、信息贴纸、转�
 test("动态上的歌真的能听", () => {
   const J = R("stories.js"), A = R("app.js"), C = R("components.js");
   assert.match(J, /"data-wk": "storymusic", onClick: \(\) => window\.__storyPlay\(cur\.music\)/);
-  assert.match(A, /window\.__storyPlay = async \(m, auto\) => \{[\s\S]{0,200}await playSong\(/); assert.match(A, /music: _music,/);
+  assert.match(A, /window\.__storyPlay = async \(m, auto, keep\) => \{[\s\S]{0,900}await playSong\(/); assert.match(A, /music: _music,/);
   assert.match(C, /"data-wk": "storywithsong"/);
 });
 test("没一起听也能挂歌：TA 点名一首，去云村搜到才挂；搜歌跟唱片共用一份", () => {
@@ -106,7 +106,7 @@ test("歌自动放、做成顶上的横幅；补的图贴在原卡上", () => {
   const J = R("stories.js"), A = R("app.js");
   assert.match(J, /window\.__storyPlay\(m, true\);\s*\n\s*return \(\) => \{ if \(window\.__storyStop\) window\.__storyStop\(\); \};/);
   assert.match(J, /async function overlayPhoto\(cardBlob, photoBlob, raw\)/); assert.match(J, /await overlayPhoto\(card, photoBlob, s0\.raw\)/);
-  assert.match(A, /window\.__storyStop = \(\) =>/);
+  assert.match(A, /window\.__storyStop = async \(\) =>/);
   assert.ok(J.indexOf("window.__storyPlay(m, true)") < J.indexOf("if (!s) return null;"), "hook 在提前 return 前面");
 });
 test("歌能从中间一段开始放，她和 TA 都能挑", () => {
