@@ -11047,7 +11047,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
       window.Stories ? h("div", { style: { padding: "0 14px" } }, h(window.Stories.StoryHighlights, { by: isMe ? "me" : character.id, onOpen: (list, k) => setStArch({ list, k }) })) : null,
       window.Stories ? h("div", { style: { padding: "0 14px" } }, h(window.Stories.StoryArchive, { by: isMe ? "me" : character.id, onOpen: (list, k) => setStArch({ list, k }) })) : null,
       stArch && window.Stories ? h(window.Stories.StoryViewer, { list: stArch.list, start: stArch.k, viewer: "me", archive: true, nameOf: by => by === "me" ? "我" : name, onClose: () => setStArch(null),
-        onDelete: isMe ? st => window.Stories.remove(st.id) : null }) : null,
+        onDelete: st => window.Stories.remove(st.id) }) : null,
       isMe && h("div", { className: "px-5 pb-1 flex justify-end" }, h("button", { onClick: () => setCompose(true), className: "flex items-center gap-1.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, h(PGlyph, { k: "album", size: 14, color: t.ink }), " 发一条")),
       gen && h(Spinner, { label: "正在发朋友圈…" }),
       list.length === 0 && !gen && h(Empty, { text: isMe ? "你还没发过朋友圈" : name + " 还没有朋友圈", sub: isMe ? "点右上「发一条」" : "" }),

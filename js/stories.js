@@ -121,6 +121,7 @@
     const [ans, setAns] = React.useState(""), [hlName, setHlName] = React.useState(null), [, bump] = React.useState(0);
     // 自己往下翻（她 2026-11-14）：每条停 6 秒；按着屏幕中间、在打字、点开了看过的人／收精选时停住
     const DUR = 6000, holdT = React.useRef(0), holdLong = React.useRef(false);   // hook 都放在下面那个提前 return 之前
+    const [photoOpen, setPhotoOpen] = React.useState(false);   // 「这张图会画什么」默认收着（她 2026-11-14「生图描述可以收起」）
     const [held, setHeld] = React.useState(false), [typing, setTyping] = React.useState(false), [el, setEl] = React.useState(0), [genBusy, setGenBusy] = React.useState(false);
     const paused = held || typing || !!draft || !!ans || seenOpen || hlName != null || genBusy;
     React.useEffect(() => { setEl(0); }, [i]);
@@ -166,7 +167,9 @@
           h("span", { style: { fontWeight: 600 } }, nameOf(s.by)),
           h("span", { style: { opacity: .7, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, archive ? new Date(s.ts).toLocaleDateString() : ago(s.ts)),
           h("span", { style: { flex: 1 } }),
-          mine && onDelete ? h("button", { "data-wk": "storydel", onClick: () => { onDelete(s); onClose(); }, style: { color: "#fff", opacity: .8, padding: "4px 8px" } }, "删掉") : null,
+          // 谁的都能删（她 2026-11-14「动态可以删除」）：先问一句，删了这张图一起清掉
+          h("button", { "data-wk": "storydel", onClick: () => { const doIt = () => { (onDelete || (x => remove(x.id)))(s); onClose(); };
+            if (typeof requestAppConfirm === "function") requestAppConfirm("删掉这条限时动态？", mine ? "删了就没了，看过、回过的记录一起清掉。" : "只从你这儿删掉，TA 那边也就当没发过。", doIt, "删掉"); else doIt(); }, style: { color: "#fff", opacity: .8, padding: "4px 8px" } }, "删掉"),
           h("button", { "data-wk": "storyclose", "aria-label": "关掉", onClick: onClose, style: { color: "#fff", fontSize: 22, padding: "0 6px" } }, "×"))),
       h("div", { style: { flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" } },
         url ? h("img", { src: url, alt: s.text || "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain" } }) : h("div", { style: { color: "#aaa", fontFamily: F_BODY } }, "载入中…"),
@@ -176,7 +179,8 @@
         stickerUI),
       // 这张图会画什么（她 2026-11-14）：TA 排卡时写好的，没配图的卡点「生图」就照这句补一张（自拍、随手拍的风景、手边的东西都行）
       cur.photoDesc && !cur.photo ? h("div", { "data-wk": "storyphotoline", className: "flex items-center", style: { gap: 8, padding: "8px 12px 0", background: "rgba(0,0,0,.6)", color: "#ddd", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5 } },
-        h("span", { className: "flex-1 min-w-0" }, "📷 " + ({ self: "自拍", view: "随手拍的", thing: "手边的东西" }[cur.photoKind] || "照片") + "：" + cur.photoDesc),
+        h("button", { "data-wk": "storyphototoggle", onClick: () => setPhotoOpen(v => !v), className: "flex-1 min-w-0 text-left", style: { color: "#ddd", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: photoOpen ? "normal" : "nowrap" } },
+          "📷 " + ({ self: "自拍", view: "随手拍的", thing: "手边的东西" }[cur.photoKind] || "照片") + (photoOpen ? "：" + cur.photoDesc + " ︿" : " · 这张图会画什么 ﹀")),
         window.__storyGenPhoto ? h("button", { "data-wk": "storyphotogen", disabled: genBusy, onClick: async () => { setGenBusy(true); try { await window.__storyGenPhoto(cur); bump(x => x + 1); } finally { setGenBusy(false); } },
           style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff", opacity: genBusy ? .5 : 1 } }, genBusy ? "画着…" : "生图") : null) : null,
       h("div", { style: { padding: "10px 12px calc(env(safe-area-inset-bottom, 0px) + 10px)", background: "rgba(0,0,0,.6)" } },

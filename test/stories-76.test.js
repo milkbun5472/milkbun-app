@@ -68,3 +68,8 @@ test("去重、自动翻页、头像、补图", () => {
   assert.match(A, /raw: d \|\| null, photoDesc: d && d\.photo, photoKind: d && d\.photoKind,/);
   assert.ok(J.indexOf("const DUR = 6000") < J.indexOf("if (!s) return null;"), "hook 在提前 return 前面");
 });
+test("谁的动态都能删、图会画什么默认收着", () => {
+  const J = R("stories.js");
+  assert.match(J, /"data-wk": "storydel", onClick: \(\) => \{ const doIt/); assert.ok(!/mine && onDelete \? h\("button", \{ "data-wk": "storydel"/.test(J));
+  assert.match(J, /const \[photoOpen, setPhotoOpen\] = React\.useState\(false\)/);
+});
