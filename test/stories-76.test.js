@@ -182,3 +182,5 @@ test("朋友圈能带定位：她发时取「我在哪」那一份、TA 能写 m
   assert.ok(c.includes("function MomentLoc(") && (c.match(/h\(MomentLoc, \{/g) || []).length === 2 && c.includes("fetchLocalEnv()"));
   assert.ok(a.includes("momentPlace:string=") && a.includes('"（定位：" + m.location'));
 });
+
+test("朋友圈新消息提醒在封面下面", () => { const c = fs.readFileSync("js/components.js", "utf8"); assert.ok(c.includes("newsBar: momNews.length ? h(\"div\", { \"data-wk\": \"momnews\"") && c.includes(", newsBar || null, gen &&")); });

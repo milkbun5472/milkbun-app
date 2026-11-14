@@ -9738,18 +9738,8 @@ function Messages({
         "收起来以后不在通讯录和消息列表里，也不会自己发消息、发朋友圈；人格档案馆里的档案、聊天记录、记忆都留着。通讯录最底下「收起来的人」能放回来。"),
       h("button", { "data-wk": "ctmenushelve", onClick: () => { const id = ctMenu.id; setCtMenu(null); onShelve(id); }, className: "w-full text-left py-3 active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.tint, borderTop: "1px solid " + t.line } }, "收起来（档案和聊天都留着）"))),
-  tab === "moments" && momNews.length ? h("div", { "data-wk": "momnews", style: { margin: "10px 14px 0", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, overflow: "hidden" } },
-    h("button", { onClick: () => setNewsOpen(v => !v), className: "w-full flex items-center active:opacity-70", style: { gap: 8, padding: "10px 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } },
-      h(Avatar, { character: (characters || []).find(c => c && (c.name === momNews[0].who || c.remark === momNews[0].who)) || { name: momNews[0].who }, size: 24, radius: 6 }),
-      h("span", { className: "flex-1 text-left" }, momNews.length + " 条新消息"), h("span", { style: { color: t.fog, fontSize: "calc(12px * var(--app-fs, 1))" } }, newsOpen ? "收起" : "看看")),
-    newsOpen ? h("div", { style: { borderTop: "1px solid " + t.line } },
-      momNews.slice(0, 50).map((x, i) => h("div", { key: i, "data-wk": "momnewsrow", className: "flex", style: { gap: 9, padding: "9px 12px", borderBottom: "1px solid " + t.line } },
-        h(Avatar, { character: (characters || []).find(c => c && (c.name === x.who || c.remark === x.who)) || { name: x.who }, size: 32, radius: 7 }),
-        h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint } }, x.who),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } }, x.like ? "赞了你" : (x.reply ? "回复了你：" : "评论：") + x.text)),
-        h("div", { style: { width: 44, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.4, overflow: "hidden", maxHeight: 44 } }, String(x.m.text || x.m.content || "").slice(0, 24)))),
-      h("button", { "data-wk": "momnewsclear", onClick: () => { setNewsOpen(false); onMomentsSeen && onMomentsSeen(); }, className: "w-full active:opacity-70", style: { padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "都看过了")) : null) : null, tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryReply,
+  // 「N 条新消息」挪进朋友圈那一页、封面下面第一条上面（她 2026-11-14），见 MomentsFeed 的 newsBar
+tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryReply,
     characters: characters,
     npcs: npcAll,
     moments: peekMomentsView(moments),
@@ -9768,6 +9758,18 @@ function Messages({
     onTop: onTopMoment,
     onPin: onPinMoment,
     onOpenProfile: cid => onOpenMomProfile && onOpenMomProfile(cid, false),
+    newsBar: momNews.length ? h("div", { "data-wk": "momnews", style: { margin: "10px 14px 0", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, overflow: "hidden" } },
+    h("button", { onClick: () => setNewsOpen(v => !v), className: "w-full flex items-center active:opacity-70", style: { gap: 8, padding: "10px 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } },
+      h(Avatar, { character: (characters || []).find(c => c && (c.name === momNews[0].who || c.remark === momNews[0].who)) || { name: momNews[0].who }, size: 24, radius: 6 }),
+      h("span", { className: "flex-1 text-left" }, momNews.length + " 条新消息"), h("span", { style: { color: t.fog, fontSize: "calc(12px * var(--app-fs, 1))" } }, newsOpen ? "收起" : "看看")),
+    newsOpen ? h("div", { style: { borderTop: "1px solid " + t.line } },
+      momNews.slice(0, 50).map((x, i) => h("div", { key: i, "data-wk": "momnewsrow", className: "flex", style: { gap: 9, padding: "9px 12px", borderBottom: "1px solid " + t.line } },
+        h(Avatar, { character: (characters || []).find(c => c && (c.name === x.who || c.remark === x.who)) || { name: x.who }, size: 32, radius: 7 }),
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint } }, x.who),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } }, x.like ? "赞了你" : (x.reply ? "回复了你：" : "评论：") + x.text)),
+        h("div", { style: { width: 44, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.4, overflow: "hidden", maxHeight: 44 } }, String(x.m.text || x.m.content || "").slice(0, 24)))),
+      h("button", { "data-wk": "momnewsclear", onClick: () => { setNewsOpen(false); onMomentsSeen && onMomentsSeen(); }, className: "w-full active:opacity-70", style: { padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "都看过了")) : null) : null,
     cover: momCover, coverPos: momCoverPos, onSetCover: onSetMomCover, camOpen: momCam, setCamOpen: setMomCam, onOpenMine: () => onOpenMomProfile && onOpenMomProfile(null, true)
   }), tab === "me" && h("div", {
     className: "p-5"
@@ -10650,7 +10652,7 @@ function MomentsFeed({
   onPin,
   onOpenProfile,
   onDelComment,
-  cover, coverPos, onOpenMine, onSetCover, camOpen, setCamOpen
+  cover, coverPos, onOpenMine, onSetCover, camOpen, setCamOpen, newsBar
 }) {
   const [maskView, setMaskView] = useState(null);   // null＝看全部；某张面具的 id（主面具是 ""）＝只看认这张面具的人
   const [moreFor, setMoreFor] = useState(null);     // 哪一条的「··」点开了
@@ -10735,7 +10737,7 @@ function MomentsFeed({
         "只看「" + (((window.__momentMasks ? window.__momentMasks() : []).find(x => x.id === maskView) || {}).name || "这张面具") + "」 ×") : null,
       h("div", { className: "flex items-end", style: { position: "absolute", right: 16, bottom: -30, gap: 12 } },
         h("button", { onClick: onOpenMine, "data-wk": "momyname", className: "active:opacity-70", style: { marginBottom: 38, fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,.55)" } }, (profile && profile.name) || "我"),
-        h("button", { onClick: onOpenMine, "data-wk": "momyavatar", className: "active:opacity-70" }, h(Avatar, { character: { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: profile && profile.color }, size: 68, radius: 10 })))), gen && /*#__PURE__*/React.createElement(Spinner, {
+        h("button", { onClick: onOpenMine, "data-wk": "momyavatar", className: "active:opacity-70" }, h(Avatar, { character: { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: profile && profile.color }, size: 68, radius: 10 })))), newsBar || null, gen && /*#__PURE__*/React.createElement(Spinner, {
     label: "正在发朋友圈…"
   }), !gen && moments.length === 0 && /*#__PURE__*/React.createElement(Empty, {
     text: "朋友圈还没有动态",
