@@ -205,30 +205,32 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.7 !important}
 /* 顶栏：我和他的头像并排，各坐在一颗荷包蛋里当蛋黄；名字和小字不显示 */
 [data-wk="chathead"] [data-wk="headname"]{display:none !important}
-[data-wk="chathead"] button:has(> img[data-wk="avatar"]){position:relative !important;overflow:visible !important;isolation:isolate !important;display:flex !important;align-items:center !important;gap:30px !important;padding-left:10px !important;flex:0 0 auto !important}
-[data-wk="chathead"] button:has(> img[data-wk="avatar"])::before{content:"" !important;position:absolute !important;left:-1px !important;top:50% !important;width:58px !important;height:58px !important;margin-top:-29px !important;background:${svg(EGG)} center/contain no-repeat !important;z-index:-1 !important;pointer-events:none !important;filter:drop-shadow(0 2px 3px rgba(140,100,60,.15)) !important}
+[data-wk="chathead"] button:has(> img[data-wk="avatar"]){position:relative !important;overflow:visible !important;isolation:isolate !important;display:flex !important;align-items:center !important;gap:24px !important;padding-left:8px !important}
+[data-wk="chathead"] button:has(> img[data-wk="avatar"])::before{content:"" !important;position:absolute !important;left:1px !important;top:50% !important;width:50px !important;height:50px !important;margin-top:-25px !important;background:${svg(EGG)} center/contain no-repeat !important;z-index:-1 !important;pointer-events:none !important;filter:drop-shadow(0 2px 3px rgba(140,100,60,.15)) !important}
 [data-wk="chathead"] img[data-wk="avatar"]{position:relative !important;z-index:1 !important;box-shadow:0 0 0 2.5px ${C.yolk} !important;border-radius:50% !important}
-[data-wk="chathead"] [data-wk="headme"]{display:inline-flex !important;position:relative !important;overflow:visible !important;isolation:isolate !important}
-[data-wk="chathead"] [data-wk="headme"]::before{content:"" !important;position:absolute !important;left:50% !important;top:50% !important;width:58px !important;height:58px !important;margin:-29px 0 0 -29px !important;background:${svg(EGG)} center/contain no-repeat !important;z-index:-1 !important;pointer-events:none !important;transform:rotate(140deg) !important;filter:drop-shadow(0 2px 3px rgba(140,100,60,.15)) !important}
+[data-wk="chathead"] [data-wk="headme"]{display:inline-flex !important;position:relative !important;overflow:visible !important;isolation:auto !important;z-index:auto !important}
+[data-wk="chathead"] [data-wk="headme"]::before{content:"" !important;position:absolute !important;left:50% !important;top:50% !important;width:50px !important;height:50px !important;margin:-25px 0 0 -25px !important;background:${svg(EGG)} center/contain no-repeat !important;z-index:-1 !important;pointer-events:none !important;transform:rotate(140deg) !important;filter:drop-shadow(0 2px 3px rgba(140,100,60,.15)) !important}
 [data-wk="chathead"] [data-wk="headme"] > *,[data-wk="chathead"] [data-wk="headme"] img{border-radius:50% !important;box-shadow:0 0 0 2.5px ${C.yolk} !important}
 [data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
 [data-wk="chathead"] [data-wk="headname"] + *,[data-wk="chathead"] button:has(> img[data-wk="avatar"]){isolation:isolate !important}
 [data-wk="chathead"] button:has(> img[data-wk="avatar"]) > [data-wk="headname"]{display:none !important}
 [data-wk="chathead"] [data-wk="sameroom"]{margin-left:auto !important}
 /* 两颗蛋放进一口平底锅里 */
-[data-wk="chathead"] button:has(> img[data-wk="avatar"]) > img[data-wk="avatar"]{margin-left:6px !important}
-[data-wk="chathead"] [data-wk="headme"]{margin-right:10px !important}
-[data-wk="chathead"] > button:has(> img[data-wk="avatar"]){padding-right:58px !important}
+[data-wk="chathead"] button:has(> img[data-wk="avatar"]) > img[data-wk="avatar"]{margin-left:0 !important}
+[data-wk="chathead"] [data-wk="headme"]{margin-right:46px !important}
+[data-wk="chathead"] [data-wk="headme"]::after{content:"" !important;position:absolute !important;left:-74px !important;top:50% !important;width:168px !important;height:52px !important;margin-top:-26px !important;background:${svg(PAN)} center/100% 100% no-repeat !important;z-index:-2 !important;pointer-events:none !important;filter:drop-shadow(0 3px 4px rgba(60,40,20,.25)) !important}
+[data-wk="chathead"] > button:has(> img[data-wk="avatar"]){padding-right:0 !important;min-width:0 !important;flex:0 1 auto !important}
 [data-wk="chathead"] button:has(> img[data-wk="avatar"]) ~ *{position:relative !important;z-index:2 !important}
-[data-wk="chathead"] button:has(> img[data-wk="avatar"]) > *{position:relative !important;z-index:1 !important}
+[data-wk="chathead"] button:has(> img[data-wk="avatar"]) > img{position:relative !important;z-index:1 !important}
+[data-wk="chathead"] [data-wk="headme"] > *{position:relative !important;z-index:1 !important}
 /* 顶栏底下一圈波浪的烤面包边 */
 [data-wk="chathead"]{position:relative !important;overflow:visible !important;box-shadow:none !important;background:linear-gradient(180deg,#FFF6E6,${C.bg}) !important;z-index:5 !important}
 [data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:100% !important;height:10px !important;background:${svg(CRUSTEDGE)} 0 0/40px 10px repeat-x !important;pointer-events:none !important}
 [data-wk="chathead"] + *:not([data-wk="body"]){margin-top:10px !important}
-[data-wk="chathead"]::before{content:"" !important;position:absolute !important;left:36px !important;top:calc(100% - 62px) !important;width:204px !important;height:58px !important;background:${svg(PAN)} center/100% 100% no-repeat !important;pointer-events:none !important;z-index:0 !important;filter:drop-shadow(0 3px 4px rgba(60,40,20,.25)) !important}
+[data-wk="chathead"]::before{content:none !important}
 [data-wk="chathead"] > *{position:relative !important;z-index:1 !important}
 [data-wk="offline"] [data-wk="chathead"]::before{content:none !important}
-[data-wk="chathead"] button:has(> img[data-wk="avatar"])::after{content:"" !important;position:absolute !important;left:52px !important;top:50% !important;width:18px !important;height:36px !important;margin-top:-18px !important;background:${svg(SPATULA)} center/contain no-repeat !important;transform:rotate(18deg) !important;z-index:2 !important;pointer-events:none !important;filter:drop-shadow(0 2px 2px rgba(140,100,60,.25)) !important}
+[data-wk="chathead"] button:has(> img[data-wk="avatar"])::after{content:"" !important;position:absolute !important;left:48px !important;top:50% !important;width:15px !important;height:30px !important;margin-top:-15px !important;background:${svg(SPATULA)} center/contain no-repeat !important;transform:rotate(18deg) !important;z-index:2 !important;pointer-events:none !important;filter:drop-shadow(0 2px 2px rgba(140,100,60,.25)) !important}
 
 /* ───── 早安吐司 · 第三批：状态卡＝一整片大吐司（鼓起的面包顶＋烤黄的边）；好感是一片会被烤黄的吐司 ───── */
 [data-wk="statecard"]{position:relative !important;overflow:visible !important;background:${C.bread} !important;border:4px solid ${C.crust} !important;border-top:none !important;border-radius:0 0 26px 26px !important;box-shadow:0 8px 20px rgba(140,100,60,.25) !important;margin-top:40px !important;padding-top:0 !important}
@@ -351,6 +353,7 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 /* 私聊红包那一行的头像也套荷包蛋 */
 [data-wk="rpsingle"] [data-wk="avatar"]{position:relative !important;overflow:visible !important;isolation:isolate !important;border-radius:50% !important;box-shadow:0 0 0 2.5px ${C.yolk} !important}
 [data-wk="rpsingle"] [data-wk="avatar"]::before{content:"" !important;position:absolute !important;inset:-34% !important;background:${svg(EGG)} center/contain no-repeat !important;z-index:-1 !important;pointer-events:none !important}
+[data-wk="sameroom"],[data-wk="chatmore"]{flex:none !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "早安吐司", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
