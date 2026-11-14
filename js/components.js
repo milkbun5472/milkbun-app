@@ -10935,7 +10935,7 @@ function MomentsFeed({
       className: "flex-1 outline-none px-3 py-1.5 rounded-full",
       style: {
         fontFamily: F_BODY,
-        fontSize: "calc(13px * var(--app-fs, 1))",
+        fontSize: 16,   // 小于 16 苹果一点进去就把整页放大（她 2026-11-14「点评论会撑爆」）
         background: t.bg,
         color: t.ink,
         border: `1px solid ${t.line}`,
@@ -11114,8 +11114,8 @@ function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter
     (m.likers && m.likers.length) ? h("div", { className: "flex items-center gap-1.5 mt-2" }, h(IHeart, { size: 12, color: t.accent, filled: true }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, m.likers.map(x => momentDisplayName(characters, x)).join("、"))) : null,
     (m.comments && m.comments.length) ? h("div", { className: "mt-2.5 rounded-xl px-3 py-2", style: { background: t.bg } }, m.comments.map((cm, i) => h("div", { key: i, className: "active:opacity-60", onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && !cm.mine && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7 } }, h("span", { style: { color: t.tint, fontWeight: 500 } }, momentDisplayName(characters, cm.author)), h("span", { style: { color: t.ink } }, "：", h(MomentCommentText, { cm: cm }))))) : null,
     commenting === m.id ? h("div", { className: "flex gap-2 mt-2" },
-      h("input", { "data-wk": "input", value: cText, onChange: e => setCText(e.target.value), autoFocus: true, placeholder: cReply ? "回复 " + cReply + "…" : "评论…", onKeyDown: e => { if (e.key === "Enter") sendC(m); }, className: "flex-1 outline-none px-3 py-1.5 rounded-full", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-      h("button", { onClick: () => sendC(m), className: "px-3 rounded-full", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "发")) : null);
+      h("input", { "data-wk": "input", value: cText, onChange: e => setCText(e.target.value), autoFocus: true, placeholder: cReply ? "回复 " + cReply + "…" : "评论…", onKeyDown: e => { if (e.key === "Enter") sendC(m); }, className: "flex-1 outline-none px-3 py-1.5 rounded-full", style: { minWidth: 0, width: 0, fontFamily: F_BODY, fontSize: 16, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),   // 16 号字：小于 16 苹果一点进去就把整页放大，看着像撑爆（她 2026-11-14）
+      h("button", { onClick: () => sendC(m), className: "px-3 rounded-full", style: { flexShrink: 0, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "发")) : null);
 
   // 封面底下那一整段自己铺白底：原来没写 background，父层给什么就是什么——
   // 这一页是某个人的朋友圈主页，封面以下就该是TA自己那张白纸

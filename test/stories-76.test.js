@@ -201,3 +201,5 @@ test("查手机能用 TA 的名义评论朋友圈；TA 主页只许上下滑", (
   assert.ok(p.includes('"data-wk": "pmomreply"') && a.includes("window.__peekMomentComment = (cid, mid, text)") && a.includes("_real: true, _id: m.id"));
   assert.ok(c.includes('overscrollBehavior: "contain", overflowX: "hidden" }'));
 });
+
+test("朋友圈评论框 16 号字、不撑宽（首页和主页）", () => { const c = fs.readFileSync("js/components.js", "utf8"); assert.ok(c.includes('style: { minWidth: 0, width: 0, fontFamily: F_BODY, fontSize: 16, background: t.bg2,') && c.includes("fontSize: 16,   // 小于 16 苹果")); });
