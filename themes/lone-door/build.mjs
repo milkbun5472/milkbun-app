@@ -1,4 +1,4 @@
-// 门后有光：夜里的空地上立着一扇扇没有墙的门。每条气泡都是一扇开着的门，门里透出光，门底下接几级发光的台阶；
+// 星野门扉：夜里的空地上立着一扇扇没有墙的门。每条气泡都是一扇开着的门，门里透出光，门底下接几级发光的台阶；
 // 他的门里是暖白粉的光、门扇开在右边，我的门里是一道彩虹光、门扇开在左边。头像＝从一个发光的锁孔里看出去。
 // 用法：node themes/lone-door/build.mjs
 import { writeFileSync } from "node:fs";
@@ -27,13 +27,22 @@ const I_PLUS = CI(`<circle cx='14' cy='20' r='4.5' fill='none' stroke='#fff' str
 const I_SEND = CI(`<path d='M10 28 H16 V23 H21 V18 H26 V13 H30' fill='none' stroke='${C.step}' stroke-width='1.8' stroke-linejoin='round' stroke-linecap='round'/><path d='M26 10 L30 13 L26 16' fill='none' stroke='#fff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/>`);
 const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><defs><linearGradient id='l' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#FFF6E0'/><stop offset='.5' stop-color='#FFD6EE'/><stop offset='1' stop-color='#C8E8FF'/></linearGradient></defs><rect x='9' y='6' width='26' height='36' rx='2' fill='url(#l)' stroke='${C.frame}' stroke-width='3'/><path d='M35 8 L43 12 V38 L35 42Z' fill='#4A3F86' stroke='#2A2358' stroke-width='1.5'/><circle cx='38' cy='25' r='1.5' fill='#F2D28A'/><path d='M15 18 H29 Q31 18 31 20 V26 Q31 28 29 28 H21 L17 31 V28 H15 Q13 28 13 26 V20 Q13 18 15 18Z' fill='none' stroke='${C.ink}' stroke-width='1.6' stroke-linejoin='round'/></svg>`;
 
+// ── 第二批用的图 ──
+// 一把金钥匙挂着小牌；turned＝插在锁里转开、发光
+const KEY = st => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'>${st === "turned" ? `<rect x='34' y='6' width='22' height='28' rx='3' fill='${C.frame}' stroke='#2A2358' stroke-width='1.4'/><circle cx='45' cy='17' r='3' fill='#FFF3D0'/><path d='M43.5 19 L42.5 26 H47.5 L46.5 19Z' fill='#FFF3D0'/><circle cx='45' cy='20' r='12' fill='#FFE7A8' opacity='.25'/>` : ``}<g transform='${st === "turned" ? "translate(-4 0)" : ""}'><circle cx='12' cy='20' r='7' fill='none' stroke='#F2D28A' stroke-width='3'/><path d='M19 20 H${st === "turned" ? 40 : 46} M${st === "turned" ? 34 : 40} 20 V26 M${st === "turned" ? 38 : 44} 20 V24' stroke='#F2D28A' stroke-width='3' stroke-linecap='round'/></g>${st === "back" ? `<path d='M6 6 L54 34' stroke='${C.fog}' stroke-width='2' opacity='.6'/>` : ``}</svg>`;
+// 一扇小门；open＝门开着，光泼出来
+const MINIDOOR = open => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 64'><rect x='8' y='6' width='30' height='50' rx='2' fill='${open ? "#FFF2D8" : "#2A2358"}' stroke='${C.frame}' stroke-width='4'/>${open ? `<path d='M38 8 L48 12 V52 L38 56Z' fill='#4A3F86' stroke='#2A2358' stroke-width='1.2'/><path d='M12 56 L4 64 H44 L38 56Z' fill='#FFE7A8' opacity='.5'/>` : `<rect x='12' y='10' width='22' height='42' fill='#4A3F86'/><circle cx='30' cy='32' r='2' fill='#F2D28A'/><path d='M23 6 V56' stroke='#E85A7A' stroke-width='3'/><path d='M23 20 Q16 14 18 22 Q21 24 23 20 Q25 24 28 22 Q30 14 23 20Z' fill='#E85A7A'/>`}</svg>`;
+const KNOCKER = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='7' r='3' fill='#F2D28A'/><circle cx='12' cy='14' r='6' fill='none' stroke='#F2D28A' stroke-width='2'/></svg>`;
+const KEYHOLEPIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 34'><path d='M13 1 C6 1 2 6 2 12 C2 20 13 33 13 33 C13 33 24 20 24 12 C24 6 20 1 13 1Z' fill='${C.frame}' stroke='#C9C2F0' stroke-width='1.4'/><circle cx='13' cy='11' r='3.2' fill='#FFE7A8'/><path d='M11.5 13 L10.5 19 H15.5 L14.5 13Z' fill='#FFE7A8'/></svg>`;
+const CARD = `background:linear-gradient(180deg,#2A2560,#1E1B48) !important;border:4px solid ${C.frame} !important;border-radius:3px !important;box-shadow:inset 0 0 0 1.5px #5A4FA0,0 0 16px 3px rgba(127,240,240,.18) !important;color:#fff !important`;
+
 const bubble = { myBg: "#FFE0F0", myText: C.ink, myBorder: "none", charBg: C.warm, charText: C.ink, charBorder: "none", radius: 2, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const RAINBOW = "linear-gradient(110deg,#FFE3F1 0%,#FFF1C9 22%,#E2FFD8 42%,#D5F2FF 62%,#E6DBFF 82%,#FFE3F1 100%)";
 const WARM = "radial-gradient(ellipse at 50% 50%,#FFFDF6,#FFE6D0 70%,#FFD3D8)";
 
 const css = `
-/* ───── 门后有光 · 第一批 ───── */
+/* ───── 星野门扉 · 第一批 ───── */
 [data-wk="chat"]{background:${svg(STARS)} 0 0/220px 260px,radial-gradient(ellipse at 50% 112%,${C.ground} 0 30%,transparent 55%),linear-gradient(180deg,${C.n1} 0%,${C.n2} 55%,${C.n3} 100%) !important}
 [data-wk="chat"] *{font-family:${SERIF} !important}
 [data-wk="body"]{background:transparent !important}
@@ -114,8 +123,120 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.9) !important}
 [data-wk="chatpanel"]{background:rgba(20,20,51,.96) !important;border-top:1px solid rgba(127,240,240,.4) !important}
 [data-wk="quotedraft"]{position:relative !important;z-index:3 !important}
+/* ───── 星野门扉 · 第二批：卡片 ───── */
+[data-wk="voice"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{${CARD}}
+[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:#fff !important;border-color:rgba(201,194,240,.35) !important}
+
+/* 转账＝一把挂着小牌的金钥匙：收下了钥匙插进锁里转开、锁亮起来；退回了钥匙上划一道 */
+[data-wk="transfercard"]{position:relative !important;overflow:visible !important;${CARD};padding-left:78px !important}
+[data-wk="transfercard"]::before{content:"" !important;position:absolute !important;left:10px !important;top:50% !important;width:60px !important;height:40px !important;margin-top:-24px !important;background:${svg(KEY("full"))} center/contain no-repeat !important;filter:drop-shadow(0 0 5px rgba(242,210,138,.7)) !important}
+[data-wk="transfercard"] *{color:#fff !important;border-color:rgba(201,194,240,.35) !important}
+[data-wk="transferlabel"]{color:${C.fog} !important;letter-spacing:.2em !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:#FFE9B8 !important;font-weight:700 !important;text-shadow:0 0 10px rgba(255,220,150,.6) !important}
+[data-wk="transferrule"]{border:none !important;height:2px !important;background:repeating-linear-gradient(90deg,${C.step} 0 10px,transparent 10px 16px) !important;opacity:.7 !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:rgba(0,0,0,.2) !important}
+[data-wk="transferbtn"]{border-radius:2px !important}
+[data-wk="transferbtn"][data-part="take"]{background:linear-gradient(110deg,#FFE3F1,#FFF1C9 40%,#D5F2FF) !important;color:${C.ink} !important;border:none !important;font-weight:700 !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;color:#fff !important;border:1px solid rgba(201,194,240,.6) !important}
+[data-wk="transferseal"]{background:transparent !important;border:1px solid rgba(201,194,240,.6) !important;color:#fff !important;border-radius:4px !important;box-shadow:none !important}
+[data-wk="transfercard"][data-status="accepted"]::before{background:${svg(KEY("turned"))} center/contain no-repeat !important}
+[data-wk="transfercard"][data-status="returned"]::before{background:${svg(KEY("back"))} center/contain no-repeat !important;filter:none !important;opacity:.6 !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.75 !important}
+
+/* 红包＝一扇系着红丝带的小门；领完了门开了，光泼出来 */
+[data-wk="rpcard"]{position:relative !important;overflow:visible !important;width:220px !important;min-height:88px !important;padding:16px 16px 16px 76px !important;${CARD}}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:50px !important;height:64px !important;margin-top:-34px !important;background:${svg(MINIDOOR(false))} center/contain no-repeat !important}
+[data-wk="rpcard"]::after{content:"一扇门" !important;position:absolute !important;right:12px !important;bottom:6px !important;font-size:10px !important;letter-spacing:.25em !important;color:${C.fog} !important}
+[data-wk="rpcard"] *{color:#fff !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"] > div:not([data-wk]){padding:0 !important;background:transparent !important}
+[data-wk="rpmsg"]{-webkit-line-clamp:2 !important;color:#FFE9C8 !important}
+[data-wk="rpcard"][data-status="done"]::before{background:${svg(MINIDOOR(true))} center/contain no-repeat !important;filter:drop-shadow(0 0 8px rgba(255,220,150,.8)) !important}
+[data-wk="rpcard"][data-status="done"]::after{content:"门开了" !important}
+[data-wk="rpenvelope"][data-stage="closed"],[data-wk="rpenvelope"][data-stage="open"]{background:${svg(STARS)} 0 0/220px 260px,linear-gradient(180deg,${C.n1},${C.n2} 60%,${C.n3}) !important;border:6px solid ${C.frame} !important;border-radius:4px !important;box-shadow:inset 0 0 0 2px #5A4FA0,0 0 30px rgba(127,240,240,.25) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:${WARM} !important;border-color:${C.frame} !important;box-shadow:none !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]::after{content:none !important}
+[data-wk="rpenvelope"] *{color:#fff !important}
+[data-wk="rpenvelope"] [data-wk="rparc"] *{color:${C.ink} !important}
+[data-wk="rpopenbtn"]{background:${svg(MINIDOOR(false))} center/60% no-repeat,radial-gradient(circle,#FFF2D8 58%,${C.frame} 60%,${C.frame} 66%,transparent 68%) !important;border:none !important;box-shadow:none !important;filter:drop-shadow(0 0 12px rgba(255,220,150,.7)) !important}
+[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important}
+[data-wk="rpavatar"]{border-radius:50% !important;box-shadow:0 0 0 3px #E8E0D4,0 0 12px rgba(255,230,180,.6) !important}
+[data-wk="rpamount"]{color:#FFE9B8 !important;background:none !important}
+[data-wk="rpclose"]{background:transparent !important;border:1.5px solid #fff !important;color:#fff !important}
+
+/* 照片＝从一扇门里看出去：门框框着照片，门扇开在旁边 */
+[data-wk="photocard"]{position:relative !important;overflow:visible !important;background:${C.frame} !important;border:none !important;border-radius:3px !important;padding:8px 8px 24px !important;margin-right:22px !important;box-shadow:inset 0 0 0 2px #5A4FA0,0 0 16px rgba(255,214,190,.3) !important}
+[data-wk="photocard"]::after{content:"" !important;position:absolute !important;right:-22px !important;top:-4px !important;bottom:-4px !important;width:18px !important;background:${svg(KNOB)} 4px 55%/6px 6px no-repeat,${svg(PANEL("r"))} center/100% 100% no-repeat !important}
+[data-wk="photoface"]{background:${WARM} !important;border:none !important;border-radius:1px !important}
+[data-wk="photoface"] *,[data-wk="phototext"]{color:${C.ink} !important}
+[data-wk="photocap"],[data-wk="photohint"]{color:${C.fog} !important}
+
+/* 语音：前面一只金色门环 */
+[data-wk="voice"] > *{background:transparent !important;box-shadow:none !important;border:none !important;color:#fff !important}
+[data-wk="voice"][data-me]{padding:0 14px 0 38px !important;position:relative !important}
+[data-wk="voice"]::before{content:"" !important;position:absolute !important;left:11px !important;top:50% !important;width:18px !important;height:18px !important;margin-top:-10px !important;background:${svg(KNOCKER)} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="voice"][data-me="1"]{background:${RAINBOW} !important}
+[data-wk="voice"][data-me="1"] *{color:${C.ink} !important}
+[data-wk="voicewave"] span{background:${C.step} !important}
+[data-wk="voice"][data-me="1"] [data-wk="voicewave"] span{background:${C.frame} !important}
+
+[data-wk="wxcardsky"]{background:${svg(STARS)} 0 0/220px 260px,linear-gradient(180deg,${C.n1},${C.n3}) !important}
+[data-wk="wxcardsky"] *{color:#fff !important}
+[data-wk="wxcardsky"] svg{stroke:${C.step} !important}
+[data-wk="wxcardsay"]{background:rgba(0,0,0,.2) !important;color:#fff !important;border-top:1px solid rgba(201,194,240,.35) !important}
+/* 位置：一枚锁孔图钉 */
+[data-wk="geopin"]{background:${svg(KEYHOLEPIN)} center/contain no-repeat !important;box-shadow:none !important;border:none !important;width:26px !important;height:34px !important;border-radius:0 !important;filter:drop-shadow(0 0 5px rgba(255,220,150,.7)) !important}
+[data-wk="geopin"] *{opacity:0 !important}
+[data-wk="geopinstem"]{background:#C9C2F0 !important}
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 2px #E8E0D4 !important}
+
+/* 拍一拍、通话结束：一行淡字，两头各一级小台阶 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:linear-gradient(${C.step},${C.step}) left center/10px 2px no-repeat,linear-gradient(${C.step},${C.step}) right center/10px 2px no-repeat !important;border:none !important;border-radius:0 !important;padding:2px 18px !important;color:${C.fog} !important;box-shadow:none !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.step} !important}
+[data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;max-width:86% !important;background:rgba(42,37,96,.75) !important;border:none !important;border-left:3px solid #FFE0A8 !important;border-radius:2px 10px 10px 2px !important;padding:8px 14px !important;color:#FFE9C8 !important}
+[data-wk="noteink"]{color:${C.fog} !important}
+
+/* 线下小结：一块门牌，标题是钉在门上的铜牌 */
+[data-part="offlog"]{position:relative !important;padding-top:28px !important}
+[data-wk="offlogtitle"]{display:inline-block !important;margin:0 0 6px !important;padding:3px 16px !important;background:linear-gradient(180deg,#F2D28A,#C9A04E) !important;color:${C.ink} !important;border-radius:2px !important;box-shadow:0 2px 0 #8F6A26 !important;letter-spacing:.15em !important;font-weight:700 !important}
+[data-wk="offlogtitle"] *{color:${C.ink} !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.step} !important}
+[data-wk="offlogtranscript"]{border-top:1px solid rgba(201,194,240,.35) !important;color:${C.fog} !important}
+
+/* 加号面板：一格格小门洞，里面透光 */
+[data-wk="chatpanel"] *{color:#fff !important}
+[data-wk="chattoolicon"]{background:${WARM} !important;border:3px solid ${C.frame} !important;border-radius:3px !important;box-shadow:0 0 10px rgba(255,214,190,.3) !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.ink} !important;color:${C.ink} !important}
+[data-wk="chattoollabel"]{color:${C.fog} !important}
+
+/* 引用 */
+[data-wk="quotedraft"]{background:rgba(20,20,51,.95) !important;border:none !important;border-top:1px solid rgba(127,240,240,.4) !important}
+[data-wk="quotedraft"] *{color:${C.fog} !important;border-color:${C.step} !important}
+[data-wk="quoteicon"]{display:none !important}
+[data-wk="quoteclear"]{color:#fff !important}
+[data-wk="quote"]{background:rgba(255,255,255,.08) !important;color:${C.fog} !important;border:1px solid rgba(201,194,240,.4) !important;border-radius:4px !important;padding:3px 10px !important;opacity:1 !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.7 !important}
+
+/* 打电话那一屏：夜里，三颗键是三扇小门洞，中间挂断是一扇关着的红门 */
+[data-wk="call"][data-video="0"]{background:${svg(STARS)} 0 0/220px 260px,radial-gradient(ellipse at 50% 112%,${C.ground} 0 30%,transparent 55%),linear-gradient(180deg,${C.n1},${C.n2} 55%,${C.n3}) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:${C.fog} !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:transparent !important;box-shadow:0 0 0 1.5px #C9C2F0 !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#fff !important}
+[data-wk="callbtns"] button > span:first-child{background:${WARM} !important;border-radius:4px 4px 2px 2px !important;box-shadow:0 0 0 4px ${C.frame},0 0 16px 3px rgba(255,214,190,.35) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:${C.ink} !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#C9475E !important;box-shadow:0 0 0 4px #7A2638 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:${C.fog} !important}
+[data-wk="callbubble"]{background:${WARM} !important;color:${C.ink} !important;border:4px solid ${C.frame} !important;border-radius:2px !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:${RAINBOW} !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.frame} !important}
+[data-wk="callact"]{color:#FFE9C8 !important;font-style:italic !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 4px #E8E0D4,0 0 0 18px ${C.stone},0 0 30px 18px rgba(255,220,150,.35) !important}
 `;
 
-const pack = { kind: "chat-look", v: 1, name: "门后有光", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
-writeFileSync(join(here, "门后有光-美化.json"), JSON.stringify(pack));
+const pack = { kind: "chat-look", v: 1, name: "星野门扉", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
+writeFileSync(join(here, "星野门扉-美化.json"), JSON.stringify(pack));
 console.log("ok", css.length);
