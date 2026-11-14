@@ -8008,6 +8008,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const pFail = window.__pFail = window.__pFail || {};
       const pSkip = k => Date.now() - (pFail[k] || 0) < 30 * 60000;
       const pOnce = (k, key, send, commit) => { pFail[k] = Date.now(); Promise.resolve(window.DeliveryCommit.once(key, send, commit)).then(ok => { if (ok) delete pFail[k]; }); };
+      // —— 日程换段时有几率发一条限时动态（她 2026-11-14）：TA 从上一段换到下一段（下班、出门、到家……），五次里大约一次顺手发；
+      //   睡觉那段不发，名额满了不发；只看 App 开着时换的段，刚打开 App 那一下只记住现在是哪段、不算换段 ——
+      try {
+        const segSeen = window.__storySeg = window.__storySeg || {};
+        (characters || []).forEach(c => {
+          if (!c || c.npc || !storyOnFor(c.id)) return;
+          const sg = typeof schedNowSegFor === "function" ? schedNowSegFor(c) : null;
+          if (!sg || !sg.cur || sg.cur.type === "sleep") return;
+          const k = schedLocalDayKey(c) + "#" + (sg.cur.time || sg.idx), was = segSeen[c.id];
+          segSeen[c.id] = k;
+          if (!was || was === k || !storyRoomFor(c.id) || Math.random() >= 0.2) return;
+          storyMake(c, "");
+        });
+      } catch (e) {}
       // —— 生日主动祝福：今天是用户生日 → 能看到你日历、真在聊的角色主动祝一次（每年每人一次，只白天发）——
       const nowD = new Date();
       // 「今天是几号」照这个人那只虚拟钟（2026-10-31 全 app 排查）；几点才发这种时机照旧看现实
