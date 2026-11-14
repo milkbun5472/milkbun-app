@@ -28,7 +28,16 @@ const I_REPLY = X(`viewBox='0 0 40 34'><path d='M6 4 H34 Q37 4 37 7 V21 Q37 24 3
 const MOONFACE = X(`viewBox='0 0 120 120'><circle cx='60' cy='60' r='56' fill='#FFFCEB'/><g fill='none' stroke='#C9BFA0' stroke-width='3' stroke-linecap='round'><path d='M36 54 Q44 60 52 54'/><path d='M68 54 Q76 60 84 54'/><path d='M48 78 Q60 88 72 78'/></g>`);
 const MOONEYES = X(`viewBox='0 0 120 120'><g fill='#5A5470'><circle cx='44' cy='55' r='5'/><circle cx='76' cy='55' r='5'/></g><g fill='#fff'><circle cx='45.5' cy='53.5' r='1.6'/><circle cx='77.5' cy='53.5' r='1.6'/></g>`);
 // 远处一片粉白格子地板（透视）
+const FLOOR = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 200' preserveAspectRatio='none'><defs><linearGradient id='f' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='.5' stop-color='#fff' stop-opacity='1'/></linearGradient><mask id='m'><rect width='400' height='200' fill='url(#f)'/></mask></defs><g mask='url(#m)'><rect width='400' height='200' fill='#EEF1F2'/><path d='M134.0 0.0 L142.2 0.0 L137.1 3.2 L128.1 3.2ZM150.5 0.0 L158.8 0.0 L155.0 3.2 L146.1 3.2ZM167.0 0.0 L175.2 0.0 L173.0 3.2 L164.0 3.2ZM183.5 0.0 L191.8 0.0 L191.0 3.2 L182.0 3.2ZM200.0 0.0 L208.2 0.0 L209.0 3.2 L200.0 3.2ZM216.5 0.0 L224.8 0.0 L227.0 3.2 L218.0 3.2ZM233.0 0.0 L241.2 0.0 L245.0 3.2 L236.0 3.2ZM249.5 0.0 L257.8 0.0 L262.9 3.2 L253.9 3.2ZM137.1 3.2 L146.1 3.2 L135.0 11.0 L124.2 11.0ZM155.0 3.2 L164.0 3.2 L156.7 11.0 L145.8 11.0ZM173.0 3.2 L182.0 3.2 L178.3 11.0 L167.5 11.0ZM191.0 3.2 L200.0 3.2 L200.0 11.0 L189.2 11.0ZM209.0 3.2 L218.0 3.2 L221.7 11.0 L210.8 11.0ZM227.0 3.2 L236.0 3.2 L243.3 11.0 L232.5 11.0ZM245.0 3.2 L253.9 3.2 L265.0 11.0 L254.2 11.0ZM262.9 3.2 L271.9 3.2 L286.6 11.0 L275.8 11.0ZM113.4 11.0 L124.2 11.0 L104.8 22.9 L91.2 22.9ZM135.0 11.0 L145.8 11.0 L132.0 22.9 L118.4 22.9ZM156.7 11.0 L167.5 11.0 L159.2 22.9 L145.6 22.9ZM178.3 11.0 L189.2 11.0 L186.4 22.9 L172.8 22.9ZM200.0 11.0 L210.8 11.0 L213.6 22.9 L200.0 22.9ZM221.7 11.0 L232.5 11.0 L240.8 22.9 L227.2 22.9ZM243.3 11.0 L254.2 11.0 L268.0 22.9 L254.4 22.9ZM265.0 11.0 L275.8 11.0 L295.2 22.9 L281.6 22.9ZM104.8 22.9 L118.4 22.9 L96.6 38.4 L79.4 38.4ZM132.0 22.9 L145.6 22.9 L131.1 38.4 L113.8 38.4ZM159.2 22.9 L172.8 22.9 L165.5 38.4 L148.3 38.4ZM186.4 22.9 L200.0 22.9 L200.0 38.4 L182.8 38.4ZM213.6 22.9 L227.2 22.9 L234.5 38.4 L217.2 38.4ZM240.8 22.9 L254.4 22.9 L268.9 38.4 L251.7 38.4ZM268.0 22.9 L281.6 22.9 L303.4 38.4 L286.2 38.4ZM295.2 22.9 L308.8 22.9 L337.9 38.4 L320.6 38.4ZM62.1 38.4 L79.4 38.4 L48.3 57.4 L26.6 57.4ZM96.6 38.4 L113.8 38.4 L91.6 57.4 L69.9 57.4ZM131.1 38.4 L148.3 38.4 L135.0 57.4 L113.3 57.4ZM165.5 38.4 L182.8 38.4 L178.3 57.4 L156.6 57.4ZM200.0 38.4 L217.2 38.4 L221.7 57.4 L200.0 57.4ZM234.5 38.4 L251.7 38.4 L265.0 57.4 L243.4 57.4ZM268.9 38.4 L286.2 38.4 L308.4 57.4 L286.7 57.4ZM303.4 38.4 L320.6 38.4 L351.7 57.4 L330.1 57.4ZM48.3 57.4 L69.9 57.4 L38.7 79.7 L11.8 79.7ZM91.6 57.4 L113.3 57.4 L92.4 79.7 L65.5 79.7ZM135.0 57.4 L156.6 57.4 L146.2 79.7 L119.3 79.7ZM178.3 57.4 L200.0 57.4 L200.0 79.7 L173.1 79.7ZM221.7 57.4 L243.4 57.4 L253.8 79.7 L226.9 79.7ZM265.0 57.4 L286.7 57.4 L307.6 79.7 L280.7 79.7ZM308.4 57.4 L330.1 57.4 L361.3 79.7 L334.5 79.7ZM351.7 57.4 L373.4 57.4 L415.1 79.7 L388.2 79.7ZM-15.1 79.7 L11.8 79.7 L-30.0 105.2 L-62.8 105.2ZM38.7 79.7 L65.5 79.7 L35.7 105.2 L2.9 105.2ZM92.4 79.7 L119.3 79.7 L101.4 105.2 L68.6 105.2ZM146.2 79.7 L173.1 79.7 L167.1 105.2 L134.3 105.2ZM200.0 79.7 L226.9 79.7 L232.9 105.2 L200.0 105.2ZM253.8 79.7 L280.7 79.7 L298.6 105.2 L265.7 105.2ZM307.6 79.7 L334.5 79.7 L364.3 105.2 L331.4 105.2ZM361.3 79.7 L388.2 79.7 L430.0 105.2 L397.1 105.2ZM-30.0 105.2 L2.9 105.2 L-37.2 133.8 L-76.7 133.8ZM35.7 105.2 L68.6 105.2 L41.9 133.8 L2.3 133.8ZM101.4 105.2 L134.3 105.2 L120.9 133.8 L81.4 133.8ZM167.1 105.2 L200.0 105.2 L200.0 133.8 L160.5 133.8ZM232.9 105.2 L265.7 105.2 L279.1 133.8 L239.5 133.8ZM298.6 105.2 L331.4 105.2 L358.1 133.8 L318.6 133.8ZM364.3 105.2 L397.1 105.2 L437.2 133.8 L397.7 133.8ZM430.0 105.2 L462.8 105.2 L516.3 133.8 L476.7 133.8ZM-116.3 133.8 L-76.7 133.8 L-128.5 165.4 L-175.4 165.4ZM-37.2 133.8 L2.3 133.8 L-34.6 165.4 L-81.5 165.4ZM41.9 133.8 L81.4 133.8 L59.2 165.4 L12.3 165.4ZM120.9 133.8 L160.5 133.8 L153.1 165.4 L106.2 165.4ZM200.0 133.8 L239.5 133.8 L246.9 165.4 L200.0 165.4ZM279.1 133.8 L318.6 133.8 L340.8 165.4 L293.8 165.4ZM358.1 133.8 L397.7 133.8 L434.6 165.4 L387.7 165.4ZM437.2 133.8 L476.7 133.8 L528.5 165.4 L481.5 165.4ZM-128.5 165.4 L-81.5 165.4 L-130.0 200.0 L-185.0 200.0ZM-34.6 165.4 L12.3 165.4 L-20.0 200.0 L-75.0 200.0ZM59.2 165.4 L106.2 165.4 L90.0 200.0 L35.0 200.0ZM153.1 165.4 L200.0 165.4 L200.0 200.0 L145.0 200.0ZM246.9 165.4 L293.8 165.4 L310.0 200.0 L255.0 200.0ZM340.8 165.4 L387.7 165.4 L420.0 200.0 L365.0 200.0ZM434.6 165.4 L481.5 165.4 L530.0 200.0 L475.0 200.0ZM528.5 165.4 L575.4 165.4 L640.0 200.0 L585.0 200.0Z' fill='#CBD3D7'/></g></svg>`;
 const CHECK = X(`width='40' height='40' viewBox='0 0 40 40'><rect width='40' height='40' fill='#DADFE2'/><rect width='20' height='20' fill='#fff'/><rect x='20' y='20' width='20' height='20' fill='#fff'/>`);
+// 好感：月相——新月一线（<20）→ 弯月（20–49）→ 半月（50–79）→ 满月闭眼笑（80+）
+const PH = (inner) => X(`viewBox='0 0 92 84'><circle cx='46' cy='42' r='32' fill='#E6EBED'/>${inner}`);
+const ST1 = PH(`<path d='M46 10 A32 32 0 0 1 46 74 A30 32 0 0 0 46 10Z' fill='#FFF6CF'/>`);
+const ST2 = PH(`<path d='M46 10 A32 32 0 0 1 46 74 A18 32 0 0 0 46 10Z' fill='#FFF6CF'/>`);
+const ST3 = PH(`<path d='M46 10 A32 32 0 0 1 46 74Z' fill='#FFF6CF'/>`);
+const ST4 = X(`viewBox='0 0 92 84'><circle cx='46' cy='42' r='32' fill='#FFF6CF'/><g fill='none' stroke='#C9BFA0' stroke-width='2.4' stroke-linecap='round'><path d='M32 39 Q37 43 42 39'/><path d='M50 39 Q55 43 60 39'/><path d='M38 53 Q46 60 54 53'/></g>${S(74, 8, C.pink, 10)}${S(10, 60, C.mint, 8)}`);
+const WHITE_CARD = `background:rgba(255,255,255,.82) !important;border:none !important;border-radius:14px !important;box-shadow:inset 0 0 0 1.5px #fff,0 0 18px 4px rgba(255,248,226,.8) !important`;
+const GLASS_CARD = `background:linear-gradient(180deg,rgba(226,234,238,.95),rgba(208,219,225,.95)) !important;border:none !important;border-radius:14px !important;box-shadow:inset 0 0 0 1.5px #fff,0 0 16px 4px rgba(190,214,224,.7) !important`;
 const bubble = { myBg: C.tv, myText: C.fog, myBorder: "none", charBg: C.moon, charText: C.ink, charBorder: "none", radius: 14, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 const HIDE = `font-size:0 !important;color:transparent !important;padding:0 !important;border:none !important;box-shadow:none !important;border-radius:0 !important`;
@@ -37,13 +46,13 @@ const MOONAV = `0 0 0 3px #fff,0 0 18px 5px rgba(255,240,214,.9),6px -4px 0 5px 
 const css = `
 /* ───── 月下星路 · 第一批 ───── */
 /* 底色：褪色的米灰，颗粒、暗角、零星糖果色星星；一轮太近太亮的月亮压在右上 */
-[data-wk="chat"]{position:relative !important;background:radial-gradient(circle at 80% 18%,rgba(255,252,235,.9) 0 70px,rgba(255,252,240,.5) 90px,transparent 220px),${svg(FIELD)} 0 0/240px 300px,linear-gradient(180deg,#F6F5F0 0%,#ECEEEC 55%,#E3E8EA 100%) !important}
+[data-wk="chat"]{position:relative !important;background:${svg(FLOOR)} center bottom/100% 30% no-repeat,radial-gradient(circle at 80% 18%,rgba(255,252,235,.9) 0 70px,rgba(255,252,240,.5) 90px,transparent 220px),${svg(FIELD)} 0 0/240px 300px,linear-gradient(180deg,#F6F5F0 0%,#ECEEEC 55%,#E3E8EA 100%) !important}
 /* 一张太近的月亮脸：闭眼笑着，隔一阵睁一下眼 */
 [data-wk="chat"]::before{content:"" !important;position:absolute !important;right:-40px !important;top:90px !important;width:220px !important;height:220px !important;background:${svg(MOONFACE)} center/contain no-repeat !important;filter:drop-shadow(0 0 40px rgba(255,250,232,.9)) !important;opacity:.85 !important;pointer-events:none !important;z-index:0 !important}
 [data-wk="chat"]::after{content:"" !important;position:absolute !important;right:-40px !important;top:90px !important;width:220px !important;height:220px !important;background:${svg(MOONEYES)} center/contain no-repeat !important;opacity:0 !important;pointer-events:none !important;z-index:0 !important;animation:mpBlink 9s steps(1) infinite !important}
 @keyframes mpBlink{0%,88%{opacity:0}89%,93%{opacity:.85}94%,100%{opacity:0}}
 /* 底下一片透视的粉白格子地板，一直铺到看不见的地方 */
-[data-wk="body"]::after{content:"" !important;position:fixed !important;left:-50% !important;right:-50% !important;bottom:0 !important;height:34vh !important;background:${svg(CHECK)} 0 0/40px 40px !important;transform:perspective(260px) rotateX(58deg) !important;transform-origin:50% 100% !important;opacity:.9 !important;-webkit-mask:linear-gradient(to top,#000 40%,transparent) !important;mask:linear-gradient(to top,#000 30%,transparent) !important;pointer-events:none !important;z-index:0 !important}
+[data-wk="body"]::after{content:none !important}
 [data-wk="body"] > *{position:relative !important;z-index:1 !important}
 [data-wk="body"]{background:transparent !important}
 
@@ -130,6 +139,160 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;background:#fff !important;border:none !important;border-radius:2px !important;box-shadow:0 0 0 5px #fff !important;padding:8px 14px !important;color:#A39CBC !important;font-size:12px !important;font-style:italic !important;text-align:left !important}
 [data-wk="noteink"]{color:${C.fog} !important}
 [data-wk="callact"]{color:${C.lila} !important}
+
+/* ───── 月下星路 · 第二批：卡片（形状不动；都是一张发光的月光卡，底下也跟着一串星星） ───── */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"],[data-wk="wxcard"],[data-wk="rpcard"]{position:relative !important;overflow:visible !important;${WHITE_CARD};color:${C.ink} !important;margin-bottom:10px !important}
+[data-wk="transfercard"]::after,[data-wk="photocard"]::after,[data-wk="wxcard"]::after,[data-wk="rpcard"]::after{content:"" !important;position:absolute !important;left:14px !important;right:14px !important;bottom:-12px !important;top:auto !important;width:auto !important;height:14px !important;background:${svg(TRAIL_HIS)} 0 0/120px 16px repeat-x !important;border:none !important;box-shadow:none !important;pointer-events:none !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *,[data-wk="photocard"] *,[data-wk="wxcard"] *{color:${C.ink} !important;border-color:#E3E7E9 !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:#8C8460 !important}
+[data-wk="transferrule"]{border:none !important;height:1px !important;background:#E3E7E9 !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:transparent !important;border-top:1px solid #E3E7E9 !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:#FFF6CF !important;color:${C.ink} !important;border:1px solid #E6CF7A !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;border:1px solid #D5DADD !important}
+[data-wk="transferseal"]{background:${svg(EYE_OPEN)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;width:36px !important;height:36px !important;font-size:0 !important;color:transparent !important;filter:drop-shadow(0 0 4px ${C.yel}) !important}
+[data-wk="transferseal"] *{opacity:0 !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.5 !important}
+/* 红包：一块冷灰玻璃，左边一轮小月亮；领完月亮暗下去 */
+[data-wk="rpcard"]{${GLASS_CARD};padding-left:54px !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:12px !important;top:calc(50% - 17px) !important;width:34px !important;height:34px !important;background:${svg(I_MOON)} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="rpcard"] *{color:#3E4A52 !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"][data-status="done"]{opacity:.6 !important}
+[data-wk="rpcard"][data-status="done"]::before{filter:grayscale(1) !important}
+[data-wk="rpenvelope"]{${WHITE_CARD};background:radial-gradient(circle at 50% 22%,#FFFCEB 0 50px,transparent 130px),linear-gradient(180deg,#F6F5F0,#E3E8EA) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:transparent !important;border:none !important}
+[data-wk="rpenvelope"] *{color:${C.ink} !important}
+[data-wk="rpopenbtn"]{background:${svg(I_MOON)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;filter:drop-shadow(0 0 12px rgba(255,240,200,.9)) !important}
+[data-wk="rpopenbtn"] *{opacity:0 !important}
+[data-wk="rpamount"]{color:#8C8460 !important}
+[data-wk="rpavatar"],[data-wk="rpavatar"] *{border-radius:50% !important}
+[data-wk="rpavatar"]{box-shadow:${MOONAV} !important}
+/* 照片：一张过曝的旧照片；语音跟气泡一样 */
+[data-wk="photocard"]{padding:8px 8px 10px !important}
+[data-wk="photoface"]{border-radius:6px !important;background:linear-gradient(180deg,#FBFAF5,#E6EBED) !important;border:none !important;box-shadow:inset 0 0 30px rgba(255,255,255,.9) !important}
+[data-wk="photoface"] *,[data-wk="photohint"]{color:#9AA0A4 !important}
+[data-wk="photoface"] svg{stroke:#9AA0A4 !important}
+[data-wk="voice"][data-me]{${WHITE_CARD}}
+[data-wk="voice"][data-me="1"]{${GLASS_CARD}}
+[data-wk="voice"] > *{background:transparent !important;border:none !important;box-shadow:none !important;color:${C.ink} !important}
+[data-wk="voicewave"] span{background:${C.lila} !important}
+[data-wk="voice"][data-me="1"] [data-wk="voicewave"] span{background:${C.mint} !important}
+/* 天气：太阳换成那轮月亮 */
+[data-wk="wxcardsky"]{background:transparent !important}
+[data-wk="wxcardsky"] > div:first-child{background:radial-gradient(circle,#FFF6CF 0 12px,rgba(255,246,207,.4) 14px,transparent 60%) !important}
+[data-wk="wxcardsky"] svg{stroke:#9AA0A4 !important}
+[data-wk="wxcardsky"] span[style*="999"],[data-wk="wxcardrain"]{background:rgba(230,235,237,.7) !important;border:none !important}
+[data-wk="wxcardsay"]{background:rgba(246,245,240,.8) !important;border-top:1px solid #E3E7E9 !important}
+[data-wk="wxcardsay"],[data-wk="wxcardsay"] *{color:${C.ink} !important}
+[data-wk="geopin"]{background:${C.pink} !important;box-shadow:0 0 0 2px #fff,0 0 8px ${C.pink} !important}
+[data-wk="geopinstem"]{background:#9AA0A4 !important}
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:${MOONAV} !important}
+[data-run][data-last="1"] + [data-wk="cardmeta"]::before{content:"" !important;display:inline-block !important;vertical-align:middle !important;width:14px !important;height:14px !important;margin:0 6px !important;background:${svg(EYE_OPEN)} center/contain no-repeat !important}
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;border:none !important;background:rgba(255,255,255,.7) !important;border-radius:999px !important;padding:3px 14px !important;color:${C.fog} !important;box-shadow:0 0 10px rgba(255,255,255,.9) !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.fog} !important}
+[data-wk="offlogtitle"]{letter-spacing:.2em !important;color:${C.ink} !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:#8C8460 !important}
+[data-wk="offlogtranscript"]{border-top:1px solid #E3E7E9 !important}
+/* 加号面板：一颗颗发光的小圆窗 */
+[data-wk="chatpanel"]{background:rgba(246,245,240,.9) !important;border-top:1px solid #fff !important}
+[data-wk="chattoolicon"]{background:rgba(255,255,255,.85) !important;border:none !important;border-radius:50% !important;box-shadow:inset 0 0 0 1.5px #fff,0 0 14px 3px rgba(255,248,226,.9) !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.ink} !important;color:${C.ink} !important}
+[data-wk="chattoollabel"]{color:${C.fog} !important}
+[data-wk="quotedraft"]{background:rgba(246,245,240,.9) !important;border-top:1px solid #fff !important}
+[data-wk="quote"]{background:rgba(255,255,255,.7) !important;color:${C.fog} !important;border:none !important;border-left:3px solid #E6CF7A !important;border-radius:6px !important;opacity:1 !important}
+[data-wk="quoteicon"],[data-wk="quoteclear"]{color:#8C8460 !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.7 !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:26px !important;min-width:26px !important;height:26px !important;background:${svg(I_DOOR)} center/contain no-repeat !important;${HIDE}}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;${HIDE};background:${svg(I_TV)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+
+/* ───── 月下星路 · 第三批：状态卡是一扇过曝的窗——白光、远处格子地板；好感是月相 ───── */
+[data-wk="statecard"]{background:${svg(FLOOR)} center bottom/100% 22% no-repeat,radial-gradient(circle at 80% 8%,#FFFCEB 0 40px,transparent 140px),linear-gradient(180deg,#F6F5F0,#E3E8EA) !important;border:none !important;border-radius:22px !important;box-shadow:inset 0 0 0 2px #fff,0 0 40px 10px rgba(255,248,226,.6),0 14px 30px rgba(80,90,95,.2) !important;color:${C.ink} !important;overflow:hidden !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:1px solid #fff !important}
+[data-wk="statehead"] *{color:${C.ink} !important}
+[data-wk="statehead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:${MOONAV} !important}
+[data-wk="statehead"] button{border:1px solid #D5DADD !important;border-radius:50% !important;background:rgba(255,255,255,.7) !important}
+[data-wk="statemood"]{display:inline-block !important;background:#FFF6CF !important;color:${C.ink} !important;padding:0 10px !important;margin-right:4px !important;border-radius:999px !important;box-shadow:0 0 8px rgba(255,240,200,.9) !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(255,255,255,.6) !important;border:1px solid #fff !important;border-radius:999px !important;padding:3px !important;margin:12px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:999px !important;background:transparent !important;letter-spacing:.15em !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:#fff !important;color:${C.ink} !important;box-shadow:0 0 10px rgba(255,248,226,.9) !important}
+[data-wk="stateseen"]{position:relative !important;${WHITE_CARD};margin:14px 16px 12px !important}
+[data-wk="statevoice"]{position:relative !important;${GLASS_CARD};margin:14px 16px 12px !important}
+[data-wk="stateseen"] *,[data-wk="statevoice"] *{color:${C.ink} !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:rgba(230,235,237,.6) !important;border:1px solid #fff !important;border-radius:10px !important}
+[data-wk="statewear"] > span{background:transparent !important;border:none !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:#8C8460 !important}
+[data-wk="statevoice"] + div > button{background:rgba(255,255,255,.7) !important;color:${C.ink} !important;border:1px solid #fff !important;border-radius:999px !important}
+[data-wk="stateaff"]{background:rgba(255,255,255,.55) !important;border-top:1px solid #fff !important;position:relative !important;display:block !important;padding:16px 120px 18px 20px !important;min-height:112px !important}
+[data-wk="stateaff"] *{color:${C.ink} !important}
+[data-wk="stateheart"]{position:absolute !important;right:18px !important;left:auto !important;top:50% !important;margin-top:-44px !important;width:92px !important;height:84px !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><rect width='10' height='10'/></svg>`)} !important}
+[data-wk="stateheart"] > div,[data-wk="stateheartknob"]{inset:0 !important;-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important;background-color:transparent !important;border:none !important}
+[data-wk="stateheart"] > div:not([data-wk]){display:none !important}
+[data-wk="stateheartfill"] > div{display:none !important}
+[data-wk="stateheartline"]{background:${svg(ST1)} center/contain no-repeat !important;opacity:calc(1 - clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1)) !important}
+[data-wk="stateheartbase"]{background:${svg(ST2)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1)) !important}
+[data-wk="stateheartfill"]{background:${svg(ST3)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important}
+[data-wk="stateheartknob"]{display:block !important;position:absolute !important;left:0 !important;bottom:0 !important;width:100% !important;height:100% !important;margin:0 !important;transform:none !important;background:${svg(ST4)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important;filter:drop-shadow(0 0 10px rgba(255,240,200,.9)) !important}
+[data-wk="stateheartnum"]{position:absolute !important;inset:auto 0 -10px 0 !important;display:flex !important;justify-content:center !important;padding:0 !important;font:500 12px/1 system-ui,sans-serif !important;letter-spacing:.2em !important;color:${C.fog} !important;-webkit-text-stroke:0 !important;text-shadow:0 0 4px #fff !important;z-index:3 !important}
+[data-wk="stateaffval"]{display:none !important}
+/* 翻旧的：一张张过曝的拍立得，底下写「第 N 次来过」 */
+[data-wk="statehistbtn"]{background:rgba(255,255,255,.7) !important;color:${C.ink} !important;border:1px solid #fff !important;border-radius:999px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.ink} !important}
+[data-wk="statehistlist"]{counter-reset:pg !important}
+[data-wk="statehistitem"]{counter-increment:pg !important;position:relative !important;background:#fff !important;border:none !important;border-radius:2px !important;padding:14px 16px 30px !important;margin:16px 4px !important;box-shadow:0 0 0 6px #fff,0 6px 16px rgba(120,130,135,.2) !important}
+[data-wk="statehistitem"]:nth-child(odd){transform:rotate(-1deg) !important}
+[data-wk="statehistitem"]:nth-child(even){transform:rotate(1deg) !important}
+[data-wk="statehistitem"] *{color:${C.ink} !important}
+[data-wk="statehistitem"]::after{content:"第 " counter(pg) " 次来过" !important;position:absolute !important;left:16px !important;bottom:8px !important;font-size:11px !important;font-style:italic !important;color:${C.fog} !important;letter-spacing:.15em !important}
+[data-wk="statehistmood"]{background:#FFF6CF !important;border:none !important;border-radius:999px !important;padding:0 6px !important}
+[data-wk="statehisttime"]{opacity:.6 !important}
+[data-wk="statehistmeta"]{background:rgba(230,235,237,.5) !important;border-radius:6px !important}
+[data-wk="statehistend"]{color:${C.fog} !important;letter-spacing:.3em !important}
+/* Ta 眼里：贴条换成一颗睁眼的小星星 */
+[data-wk="gazepage"]{background:${svg(FLOOR)} center bottom/100% 25% no-repeat,linear-gradient(180deg,#F6F5F0,#E3E8EA) !important}
+[data-wk="gazetitle"]{color:${C.ink} !important;letter-spacing:.2em !important}
+[data-wk="gazetab"]{background:rgba(255,255,255,.6) !important;color:${C.fog} !important;border:1px solid #fff !important;border-radius:999px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:#fff !important;color:${C.ink} !important;box-shadow:0 0 10px rgba(255,248,226,.9) !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{position:relative !important;overflow:visible !important;${WHITE_CARD}}
+[data-wk="gazetape"]{background:${svg(EYE_OPEN)} center/contain no-repeat !important;width:20px !important;height:20px !important;box-shadow:none !important;border:none !important;filter:drop-shadow(0 0 4px ${C.yel}) !important}
+[data-wk="gazecardname"]{color:${C.ink} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:${C.fog} !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{${WHITE_CARD};color:${C.ink} !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
+[data-wk="gazeempty"]{background:rgba(255,255,255,.7) !important;color:${C.ink} !important;border:1px solid #fff !important;border-radius:14px !important}
+[data-wk="gazeempty"] *{color:${C.ink} !important}
+[data-wk="gazeempty"] button{background:#FFF6CF !important;color:${C.ink} !important;border:none !important;border-radius:999px !important}
+
+/* ───── 线下：同一间过曝的空房间；他月光卡、我冷灰玻璃卡，底下都跟着星星 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(FLOOR)} center bottom/100% 30% no-repeat,radial-gradient(circle at 80% 18%,rgba(255,252,235,.9) 0 70px,transparent 220px),${svg(FIELD)} 0 0/240px 300px,linear-gradient(180deg,#F6F5F0,#E3E8EA) !important;background-color:#ECEEEC !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:${C.ink} !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:rgba(255,255,255,.7) !important;color:${C.ink} !important;border:1px solid #fff !important;border-radius:999px !important;font-size:12px !important;padding:3px 12px !important;flex-shrink:0 !important}
+[data-wk="offcomposer"]{background:rgba(255,255,255,.55) !important;backdrop-filter:blur(8px) !important;-webkit-backdrop-filter:blur(8px) !important;border:none !important;box-shadow:0 -1px 0 #fff !important}
+[data-wk="offcomposer"] textarea{background:rgba(255,255,255,.7) !important;border:1px solid #fff !important;border-radius:14px !important;color:${C.ink} !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){width:36px !important;min-width:36px !important;height:36px !important;background:${svg(I_MOON)} center/contain no-repeat !important;${HIDE}}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:38px !important;min-width:38px !important;height:32px !important;${HIDE};background:${svg(I_REPLY)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcard"]{position:relative !important;overflow:visible !important;${WHITE_CARD};margin-bottom:16px !important}
+[data-wk="offcard"][data-me="1"]{${GLASS_CARD}}
+[data-wk="offcard"]::after{content:"" !important;position:absolute !important;left:14px !important;right:14px !important;bottom:-12px !important;height:14px !important;background:${svg(TRAIL_HIS)} 0 0/120px 16px repeat-x !important;pointer-events:none !important}
+[data-wk="offcard"][data-me="1"]::after{background:${svg(TRAIL_ME)} right 0 top 0/120px 16px repeat-x !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:${MOONAV} !important}
+[data-wk="offname"]{color:${C.ink} !important;letter-spacing:.1em !important}
+[data-wk="offtext"]{color:#5A5F63 !important;letter-spacing:.04em !important}
+[data-wk="offsay"]{color:${C.ink} !important;background:linear-gradient(transparent 60%,rgba(255,240,180,.8) 60%) !important;border:none !important;box-decoration-break:clone !important;-webkit-box-decoration-break:clone !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{background:linear-gradient(transparent 60%,rgba(255,255,255,.8) 60%) !important}
+[data-wk="offthought"]{background:transparent !important;border:none !important;color:#A0A7AB !important;font-style:italic !important}
+[data-wk="offcardacts"] svg{stroke:${C.fog} !important;color:${C.fog} !important}
+[data-wk="offreplyopt"]{background:rgba(255,255,255,.75) !important;border:1px solid #fff !important;border-radius:12px !important;color:${C.ink} !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "月下星路", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "月下星路-美化.json"), JSON.stringify(pack));
