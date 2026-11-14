@@ -101,6 +101,8 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.92) !important}
 [data-wk="chatpanel"]{background:${C.paper} !important;border-top:.8px solid ${C.line} !important}
 [data-wk="quotedraft"]{position:relative !important;z-index:3 !important}
+/* 聊天最开头、第一个气泡之前：一句小小的法语，像信纸抬头 */
+[data-wk="body"]::before{content:"Un café, et puis toi." !important;display:block !important;text-align:center !important;font:italic 400 13px/1.6 Georgia,"Times New Roman",serif !important;letter-spacing:.12em !important;color:${C.sub} !important;padding:22px 0 6px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "巴黎留白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
