@@ -10041,6 +10041,19 @@ function MomentGrid({ refs }) {
       h("img", { src: resolveImg(r), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }))),
     at >= 0 && h(ImageViewer, { items: list.map(r => ({ src: resolveImg(r) })), at, onClose: () => setAt(-1) }));
 }
+// 朋友圈里分享的那首歌：一张小卡，点「听」用 App 的播放器真的放（她 2026-11-14）
+function MomentMusic({ music }) {
+  const t = useTheme();
+  if (!music || !music.title) return null;
+  return h("button", { "data-wk": "momusic", onClick: () => window.__storyPlay && window.__storyPlay(music), className: "w-full flex items-center active:opacity-70 mt-2",
+    style: { gap: 10, padding: "8px 10px", borderRadius: 10, background: t.bg, border: "1px solid " + t.line, textAlign: "left" } },
+    h("span", { style: { width: 34, height: 34, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: t.ink, color: t.bg2, fontSize: 15,
+      backgroundImage: music.song && music.song.cover ? "url(" + music.song.cover + ")" : "none", backgroundSize: "cover", backgroundPosition: "center" } }, music.song && music.song.cover ? "" : "♪"),
+    h("span", { className: "flex-1 min-w-0" },
+      h("span", { className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, music.title),
+      music.artist ? h("span", { className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, music.artist) : null),
+    h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, flexShrink: 0 } }, "▶ 听"));
+}
 function MomentCompose({
   friendGroups,
   characters,
@@ -10064,6 +10077,12 @@ function MomentCompose({
   // 投票（群里 2026-10-09 许愿：「犹豫不决的事让角色们在朋友圈投票」）：2~4 个选项
   const [withPoll, setWithPoll] = useState(false);
   const [pollOpts, setPollOpts] = useState(["", ""]);
+  // 分享音乐（她 2026-11-14）：正在听的那首一点就带上，或者搜一首
+  const [withMusic, setWithMusic] = useState(false), [music, setMusic] = useState(null), [musicQ, setMusicQ] = useState(""), [musicBusy, setMusicBusy] = useState(false);
+  const nowSong = withMusic && window.__storyNowSong ? window.__storyNowSong() : null;
+  const findSong = async () => { const q = musicQ.trim(); if (!q || !window.__momentSongSearch) return; setMusicBusy(true);
+    try { const sg = await window.__momentSongSearch(q); if (sg) { setMusic({ id: sg.id, title: sg.title || "", artist: sg.artist || "", song: sg }); setMusicQ(""); } else if (window.__toast) window.__toast("没搜到这首，换个写法试试（歌名 + 歌手）"); }
+    finally { setMusicBusy(false); } };
   const fileRef = useRef(null);
   const bgRef = useRef(null);
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
@@ -10076,7 +10095,7 @@ function MomentCompose({
     const realPics = withImg ? pics.slice(0, 9) : [];
     const image = realPics[0] || (withImg && img.trim() && !String(img).startsWith("data:") ? img.trim() : null);
     const opts = withPoll ? pollOpts.map(x => x.trim()).filter(Boolean).slice(0, 4) : [];
-    if (!body && !image) {
+    if (!body && !image && !music) {
       onClose();
       return;
     }
@@ -10088,7 +10107,8 @@ function MomentCompose({
       hiddenFrom: vis === "hide" ? sel.filter(id => !remind.includes(id)) : null,
       remind: remind.length ? remind : null,
       poll: opts.length >= 2 ? { options: opts, votes: {} } : null,
-      mask: mask || undefined
+      mask: mask || undefined,
+      music: withMusic && music ? music : null
     });
     onClose();
   };
@@ -10142,6 +10162,8 @@ function MomentCompose({
     size: 14,
     color: withImg ? t.ink : t.fog
   }), withImg ? "已配图" : "配图"),
+    window.__momentSongSearch ? h("button", { "data-wk": "momusicbtn", "data-on": withMusic ? "1" : "0", onClick: () => setWithMusic(v => !v), className: "px-3 py-1.5 active:opacity-70",
+      style: { borderRadius: 8, border: `1px solid ${withMusic ? t.ink : t.line}`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: withMusic ? t.ink : t.fog } }, music && withMusic ? "♪ 已带歌" : "♪ 分享音乐") : null,
     h("button", { "data-wk": "mopollbtn", "data-on": withPoll ? "1" : "0", onClick: () => setWithPoll(v => !v), className: "px-3 py-1.5 active:opacity-70",
       style: { borderRadius: 8, border: `1px solid ${withPoll ? t.ink : t.line}`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: withPoll ? t.ink : t.fog } }, withPoll ? "已加投票" : "投票"),
     withImg && h("button", { onClick: () => fileRef.current && fileRef.current.click(), className: "px-3 py-1.5 flex items-center gap-1.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, pics.length ? "📷 再选几张（" + pics.length + "/9）" : "📷 从相册选真图（可多选，最多 9 张）"),
@@ -10168,6 +10190,18 @@ function MomentCompose({
       border: `1px solid ${t.line}`
     }
   })),
+  withMusic && h("div", { "data-wk": "momusicpick", className: "mb-2" },
+    music ? h("div", { className: "flex items-center", style: { gap: 8, padding: "8px 10px", borderRadius: 10, background: t.bg, border: "1px solid " + t.line } },
+        h("span", { style: { color: t.accent } }, "♪"),
+        h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, music.title + (music.artist ? " · " + music.artist : "")),
+        h("button", { "aria-label": "换一首", onClick: () => setMusic(null), style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "换一首"))
+      : h(Fragment, null,
+        nowSong ? h("button", { onClick: () => setMusic({ id: nowSong.id, title: nowSong.title, artist: nowSong.artist, song: nowSong.song }), className: "w-full text-left active:opacity-70 mb-2", style: { padding: "8px 10px", borderRadius: 10, border: "1px dashed " + t.accent, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } },
+          "带上正在听的：" + nowSong.title + (nowSong.artist ? " · " + nowSong.artist : "")) : null,
+        h("div", { className: "flex items-center gap-2" },
+          h("input", { value: musicQ, onChange: e => setMusicQ(e.target.value), onKeyDown: e => { if (e.key === "Enter") findSong(); }, placeholder: "搜一首：歌名 歌手", className: "flex-1 outline-none px-3 py-2 rounded-lg",
+            style: { fontFamily: F_BODY, fontSize: 16, background: t.bg, color: t.ink, border: `1px solid ${t.line}` } }),
+          h("button", { onClick: findSong, disabled: musicBusy, className: "active:opacity-70 disabled:opacity-40", style: { padding: "8px 14px", borderRadius: 8, border: "1px solid " + t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, musicBusy ? "在搜…" : "搜")))),
   withPoll && h("div", { "data-wk": "mopollopts", className: "mb-2" },
     pollOpts.map((v, i) => h("div", { key: i, className: "flex items-center gap-2 mb-2" },
       h("input", { "data-wk": "input", value: v, onChange: e => { const x = e.target.value; setPollOpts(p => p.map((y, j) => j === i ? x : y)); }, placeholder: "选项 " + (i + 1),
@@ -10799,7 +10833,7 @@ function MomentsFeed({
     }, m.top ? "取消置顶" : "置顶"), onDelete && h("button", {
       onClick: () => setDelId(m.id),
       style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog }
-    }, "删除")), h(MomentRemindLine, { m, characters }), m.poll && h(MomentPoll, { poll: m.poll, characters }), m.likers && m.likers.length > 0 && h("div", {
+    }, "删除")), h(MomentRemindLine, { m, characters }), m.music && h(MomentMusic, { music: m.music }), m.poll && h(MomentPoll, { poll: m.poll, characters }), m.likers && m.likers.length > 0 && h("div", {
       className: "flex items-center gap-1.5 mt-2",
       "data-wk": "molikers"
     }, h(IHeart, {
@@ -11038,6 +11072,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
       onTopMoment && m.mine && h("button", { "data-wk": "momtop", "data-on": m.top ? "1" : "0", onClick: () => onTopMoment(m.id), style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: m.top ? t.accent : t.fog } }, m.top ? "取消置顶" : "置顶"),
       onDelMoment && h("button", { onClick: () => setDelId(m.id), style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "删除")),
     h(MomentRemindLine, { m, characters }),
+    m.music ? h(MomentMusic, { music: m.music }) : null,
     m.poll ? h(MomentPoll, { poll: m.poll, characters }) : null,
     (m.likers && m.likers.length) ? h("div", { className: "flex items-center gap-1.5 mt-2" }, h(IHeart, { size: 12, color: t.accent, filled: true }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, m.likers.map(x => momentDisplayName(characters, x)).join("、"))) : null,
     (m.comments && m.comments.length) ? h("div", { className: "mt-2.5 rounded-xl px-3 py-2", style: { background: t.bg } }, m.comments.map((cm, i) => h("div", { key: i, className: "active:opacity-60", onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && !cm.mine && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7 } }, h("span", { style: { color: t.tint, fontWeight: 500 } }, momentDisplayName(characters, cm.author)), h("span", { style: { color: t.ink } }, "：", h(MomentCommentText, { cm: cm }))))) : null,

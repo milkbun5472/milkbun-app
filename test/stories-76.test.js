@@ -155,3 +155,9 @@ test("健康每天步数一格、查手机能快进", () => { const hl = fs.read
 test("翻手机等待那句提示", () => { const pk = fs.readFileSync("js/peek-phone.js", "utf8"); assert.ok(pk.includes('"peekwait"') && fs.readFileSync("js/app.js", "utf8").includes("waitStage:")); });
 
 test("记忆库选了人能手动抽、能导入旧长期记忆", () => { const u = fs.readFileSync("js/screens-ui.js", "utf8"); assert.ok(u.includes('"memextract"') && u.includes('"memimportold"') && fs.readFileSync("js/app.js", "utf8").includes("onExtractFor: extractMemForChar")); });
+
+test("朋友圈分享音乐：她能带歌、TA 能配歌、模型看得到", () => {
+  const c = fs.readFileSync("js/components.js", "utf8"), a = fs.readFileSync("js/app.js", "utf8");
+  assert.ok(c.includes("function MomentMusic(") && c.includes('"momusicpick"') && c.includes("music: withMusic && music ? music : null"));
+  assert.ok(a.includes("momentSong:string=") && a.includes("parsed.momentSong") && (a.match(/momMusicLine\(m/g) || []).length >= 3);
+});
