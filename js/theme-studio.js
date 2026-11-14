@@ -1147,6 +1147,8 @@
     const chat = page === "thread" || page === "gthread";
     return (chat ? [
           ["顶栏让开刘海、换手机不飘", "调顶栏上下留白时用这条，刘海高低不同的手机都贴着状态栏下沿", '[data-wk="chathead"] {\n  padding-top: calc(var(--app-safe-top) + 6px) !important;\n  height: auto !important;\n}'],
+          ["悬浮胶囊顶栏、换手机不飘", "顶栏做成一颗浮着的圆角卡、跟屏幕边留空时用这条：顶栏本身透明、胶囊用 ::before 画，顶端跟着刘海走；别给顶栏写 margin-top、top 或 fixed，那样会抬太高、跟底下日程条之间漏一截底色", '[data-wk="chathead"] {\n  background: transparent !important;\n  border-bottom: none !important;\n  box-shadow: none !important;\n  position: relative !important;\n  z-index: 5 !important;\n  padding-left: 24px !important;\n  padding-right: 24px !important;\n}\n[data-wk="chathead"]::before {\n  content: "" !important;\n  position: absolute !important;\n  left: 12px !important;\n  right: 12px !important;\n  top: calc(var(--app-safe-top, 0px) + 4px) !important;\n  bottom: 4px !important;\n  border-radius: 28px !important;\n  background: #fff !important;\n  z-index: -1 !important;\n}'],
+          ["日程条贴着胶囊顶栏", "顶栏下面那条「此刻在做什么」（now）也做成一颗小胶囊、紧贴在顶栏下面；第一个 2px 是两颗之间的缝，想完全贴住写 0", '[data-wk="now"] {\n  width: auto !important;\n  margin: 2px 16px 0 !important;\n  border-radius: 999px !important;\n  border-bottom: none !important;\n  background: rgba(255,255,255,.85) !important;\n}'],
           ["顶部按屏幕高度留白", "给顶上的装饰图让位，高手机留得多、矮手机留得少", '[data-wk="body"] {\n  padding-top: calc(var(--app-vh) * 12) !important;\n}'],
           ["气泡最宽占屏幕七成", "换宽屏、窄屏，气泡都不会撑得太满", '[data-wk="bubble"] {\n  max-width: calc(var(--app-w) * 0.72) !important;\n}'],
           ["背景图随手机铺满", "背景图不会在长手机上露白边、也不会被拉变形", '[data-wk="chat"] {\n  background-size: cover !important;\n  background-position: center !important;\n}'],
