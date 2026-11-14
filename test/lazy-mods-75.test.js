@@ -18,6 +18,8 @@ test("登记延后的脚本：浏览器不执行、地址带 ?v=、文件都在�
   assert.ok(lazy.length >= 12, "只认出 " + lazy.length + " 份");
   lazy.forEach(x => {
     // 小世界那组（2026-10-18）里有 apps/fairy-garden/ 下的几份，版本号是游戏构建那一套（fg-…）
+    // 地图库（2026-11-14）是 vendor/ 下的第三方文件，指纹用它自己的库版本号：同一个号字节永远一样
+    if (x.group === "leaflet") { assert.equal(x.src, "vendor/leaflet.js?v=1.9.4"); assert.ok(fs.existsSync(path.join(__dirname, "..", "vendor/leaflet.js"))); return; }
     assert.match(x.src, /^(js\/[a-z0-9-]+|apps\/fairy-garden\/(day\/)?[a-z0-9-]+)\.js\?v=(\d+\.\d+|fg-[0-9a-f]+)$/, x.src);
     assert.ok(fs.existsSync(path.join(__dirname, "..", x.src.split("?")[0])), "文件不在：" + x.src);
     assert.ok(!html.includes('<script src="' + x.src.split("?")[0]), "又当普通脚本加载了：" + x.src);
@@ -33,7 +35,15 @@ test("登记延后的脚本：浏览器不执行、地址带 ?v=、文件都在�
 test("每一组都有人接：页面那几组开机放了替身，攻略那组由值班室外面那层和秋秋接", () => {
   const groups = new Set(lazy.map(x => x.group));
   const stubbed = [...stubTable.matchAll(/\["([A-Za-z]+)", "([a-z]+)", "[^"]+"\]/g)].map(m => m[2]);
-  [...groups].filter(g => g !== "manual").forEach(g => assert.ok(stubbed.includes(g), g + " 没有替身：点进去会报「没定义」"));
+  [...groups].filter(g => g !== "manual" && g !== "leaflet").forEach(g => assert.ok(stubbed.includes(g), g + " 没有替身：点进去会报「没定义」"));
+  // 地图库不是一页，没有替身：由画地图的那块画布自己去拿，拿到了重画；没拿到停在占位上
+  const map = R("js/map.js"), i = map.indexOf("function MapCanvas("), j = map.indexOf("function meDotHtml(", i);
+  assert.ok(i > 0 && j > i, "抠不出 MapCanvas");
+  const canvas = map.slice(i, j);
+  assert.match(canvas, /window\.LazyMods\.load\("leaflet"\)\.then\(function \(\) \{ if \(live && window\.L\) setLeafOk\(true\); \}/, "画布没去拿地图库");
+  assert.match(canvas, /\}, \[leafOk\]\);/, "地图库到了以后建图那段没重跑");
+  assert.match(canvas, /\}, \[pins, leafOk\]\);/, "地图库到了以后放图钉那段没重跑");
+  assert.ok(!html.includes('<script src="vendor/leaflet.js'), "地图库又在开机加载了");
   assert.match(app, /screen === "codex"\) body = h\(LazyGate, \{ key: "lazy-manual", group: "manual"/);
   assert.match(asst, /if \(window\.LazyMods\) await window\.LazyMods\.load\("manual"\)/, "问秋秋之前没先装攻略");
   assert.match(asst, /p\.target === "open" && window\.LazyMods && !window\.LazyMods\.isLoaded\("manual"\)/, "「带你去那一页」没先装攻略");

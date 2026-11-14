@@ -201,6 +201,15 @@ function mapSubSkin(t) {
     const fittedRef = useRef(false);
     const sigRef = useRef("");
     const o = opts || {};
+    // Leaflet 用到才加载（2026-11-14 开机瘦身第二步）：真要画地图了才去拿，拿到了重画一次，下面两段才动手。
+    //   拿不到就停在底下那张占位上，别的都不受影响。
+    const [leafOk, setLeafOk] = useState(!!window.L);
+    useEffect(function () {
+      if (leafOk || !window.LazyMods) return;
+      let live = true;
+      window.LazyMods.load("leaflet").then(function () { if (live && window.L) setLeafOk(true); }, function () {});
+      return function () { live = false; };
+    }, []);
     useEffect(function () {
       if (!window.L || !elRef.current || mapRef.current) return;
       const L = window.L;
@@ -225,7 +234,7 @@ function mapSubSkin(t) {
       setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 120);
       if (o.onReady) o.onReady(map); // 把地图实例交出去，供外部飞到某点/看全部
       return function () { try { map.remove(); } catch (e) {} mapRef.current = null; lgRef.current = null; fittedRef.current = false; };
-    }, []);
+    }, [leafOk]);
     useEffect(function () {
       const L = window.L, map = mapRef.current, lg = lgRef.current;
       if (!L || !map || !lg) return;
@@ -258,7 +267,7 @@ function mapSubSkin(t) {
       fit();
       const t1 = setTimeout(fit, 250), t2 = setTimeout(fit, 750);
       return function () { clearTimeout(t1); clearTimeout(t2); };
-    }, [pins]);
+    }, [pins, leafOk]);
     // 降级：没 Leaflet 时给个占位
     if (!window.L) return h("div", { className: className, style: Object.assign({ display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(160deg,#cfe0ea,#e6ddd0)", color: "#6a7a86", fontSize: "calc(12px * var(--app-fs, 1))", textAlign: "center", padding: 12 }, style || {}), "data-wk": "mapmapcanvas" }, "地图组件加载中…（需要联网）");
     return h("div", { ref: elRef, className: className, style: Object.assign({ background: "#dfe6ea" }, style || {}), "data-wk": "mapmapcanvas", "data-part": "r2" });
