@@ -16,7 +16,7 @@ const cut = (from, to) => { const i = comp.indexOf(from); assert.ok(i > 0, "找�
   const j = comp.indexOf(to, i + 10); return comp.slice(i, j > i ? j : i + 20000); };
 
 test("朋友圈个人页跟消息同一种底", () => {
-  const mp = cut("function MomentsProfile({ isMe, character", "\nfunction ");
+  const mp = cut("function MomentsProfile({ momRange, onSetMomRange, isMe, character", "\nfunction ");
   assert.match(mp, /return h\("div", \{ (?:"data-wk": "[a-z]+",(?: "data-part": "[a-z]+",)? )?className: "h-full flex flex-col", style: msgAppBg\(t\) \},/,
     "个人页的底没跟消息对齐");
   assert.ok(!/className: "h-full flex flex-col", style: \{ background: t\.bg2 \} \}/.test(mp), "还是 t.bg2");
