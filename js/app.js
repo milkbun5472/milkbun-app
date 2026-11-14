@@ -29274,7 +29274,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       const S = settingsFor(char.id) || {};
       const canPhoto = !!S.storyPhoto && typeof imgApiReady === "function" && imgApiReady() && (char.appearance || char.refPhoto);
-      const bgs = Object.keys(window.Collage.BGS || {}).map(k => k + "（" + window.Collage.BGS[k].name + "）").join("、");
+      const bgs = Object.keys(window.Collage.BGS || { size: "1024x1536" }).map(k => k + "（" + window.Collage.BGS[k].name + "）").join("、");
       // 跟 TA 连着关系线的人（角色、配角都算）也会刷到（她 2026-11-14「别的角色和 npc 也可以投吧，如果设定和他有关系的话」）：
       //   不另花调用——排卡这一次里顺便写他们谁看了、投了哪个、回答了什么、私下回了一句什么
       const _rl = (a, b) => { const r = (rels || {})[a + "->" + b]; return r && (r.label || r.type) ? (r.label || r.type) : (r ? "认识" : ""); };
