@@ -428,7 +428,7 @@ function CastForm({
         style: { display: "block", padding: "13px 4px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: (opt && opt.color) || t.ink, background: "transparent" } }, label);
       return h("div", { "data-wk": "castfphotomenu" },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: ".08em", color: t.fog, marginBottom: 8 } }, "这张照片"),
-        h(FilePick, { accept: "image/*", label: "从相册换一张", onChange: async e => { const f = e.target.files && e.target.files[0]; if (!f) return; setPhotoMenu(false); try { setAvatarImage(await resizeImageFile(f, 400, 0.85)); } catch (err) {} e.target.value = ""; } },
+        h(FilePick, { accept: "image/*", label: "从相册换一张", onChange: async e => { const f = e.target.files && e.target.files[0]; if (!f) return; setPhotoMenu(false); try { const d = await cropAvatarFile(f, 400, 0.85); if (d) setAvatarImage(d); } catch (err) {} e.target.value = ""; } },
           h("span", { style: { display: "block", padding: "13px 4px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "从相册换一张")),
         row("贴一张图（相册打不开时）", () => requestAppPrompt("贴一张图", "相册打不开时走这儿：把图片地址粘进来（http 开头，或者 data: 开头的那种长串都行）。", "", v => { const u = String(v || "").trim(); if (u && /^(https?:|data:image\/)/i.test(u)) setAvatarImage(u); }, "用这张")),
         genAvatar ? row(avBusy ? "生成中…" : avatarImage ? "重新生成" : "生成头像", () => { if (!avBusy) genAvatar(); }, { color: t.tint }) : null,
@@ -3631,7 +3631,7 @@ function Forum({
         emAltAv ? h("button", { onClick: () => setEmAltAv(""), className: "active:opacity-70", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "用回自动的") : null,
         h("input", { ref: emAltAvRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: async e => {
           const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
-          try { const d = await resizeImageFile(f, 400, 0.85); const ref = typeof imgToVault === "function" ? await imgToVault(d) : d; setEmAltAv(ref || d); } catch (er) { toast && toast("这张图读不出来，换一张试试"); }
+          try { const d = await cropAvatarFile(f, 400, 0.85); if (!d) return; const ref = typeof imgToVault === "function" ? await imgToVault(d) : d; setEmAltAv(ref || d); } catch (er) { toast && toast("这张图读不出来，换一张试试"); }
         } })),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "12px 0 4px" } }, "小号粉丝数"),
       h("input", { "data-wk": "forumfans", value: emAltFans, onChange: e => setEmAltFans(e.target.value.replace(/[^\d]/g, "").slice(0, 10)), inputMode: "numeric", placeholder: "比如 36",

@@ -1663,7 +1663,7 @@ function AvatarPicker({
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     try {
-      onPick(await resizeImageFile(f, imageMaxDim, imageQuality));
+      const d = await (imageMaxDim >= 1000 ? resizeImageFile(f, imageMaxDim, imageQuality) : cropAvatarFile(f, imageMaxDim, imageQuality)); if (d) onPick(d);
     } catch {}
     e.target.value = "";
   };
@@ -1677,7 +1677,7 @@ function AvatarPicker({
           const f = items[i].getAsFile();
           if (!f) continue;
           ev.preventDefault();
-          try { onPick(await resizeImageFile(f, imageMaxDim, imageQuality)); } catch (e) {}
+          try { const d = await (imageMaxDim >= 1000 ? resizeImageFile(f, imageMaxDim, imageQuality) : cropAvatarFile(f, imageMaxDim, imageQuality)); if (d) onPick(d); } catch (e) {}
           return;
         }
       } },
@@ -9018,7 +9018,7 @@ function HomeCardSheet({ card, profile, onSave, onClose }) {
   const inp = { width: "100%", outline: "none", padding: "10px 2px", fontFamily: F_BODY, fontSize: 16, color: t.ink, background: "transparent", border: "none", borderBottom: "1px solid " + t.line };
   const save = () => onSave({ name: name.trim(), sign: sign.trim(), cover: cover || "", avatar: avatar || "", tags: tagStr.split(/[,，]/).map(s => s.trim()).filter(Boolean) });
   const pickCover = e => { const f = e.target.files && e.target.files[0]; if (f && typeof resizeImageFile === "function") resizeImageFile(f, 900, 0.82).then(d => setCover(d)); e.target.value = ""; };
-  const pickAvatar = e => { const f = e.target.files && e.target.files[0]; if (f && typeof resizeImageFile === "function") resizeImageFile(f, 400, 0.85).then(d => setAvatar(d)); e.target.value = ""; };
+  const pickAvatar = e => { const f = e.target.files && e.target.files[0]; if (f && typeof resizeImageFile === "function") cropAvatarFile(f, 400, 0.85).then(d => { if (d) setAvatar(d); }); e.target.value = ""; };
   // ⚠️「去掉」原来是最右边一行 12px 的灰字，没边框没底，还被右下角那只浮标压住半边——
   //   她 2026-09-04：「名片的背景放了照片没办法移除」。功能一直在，是那颗按钮看不见。
   //   现在两处都用这一个：真按钮、有框、跟在说明底下自己占一行，浮标压不到。
@@ -17620,6 +17620,47 @@ function openWallPreview(o) {
     onRepick: o.onRepick ? () => { close(); o.onRepick(); } : null }));
 }
 if (typeof window !== "undefined") window.openWallPreview = openWallPreview;
+// 选完头像先框一块（群友 2026-11-14「选头像之后可以调整吗，选中部分放大缩小」）：
+//   单指拖动挪位置，双指捏或底下滑杆放大缩小，框里那一块就是头像；点「用这块」才存。动图不裁，照原样走
+function AvatarCrop({ src, onDone, onCancel }) {
+  const VIEW = Math.min(300, (typeof window !== "undefined" ? window.innerWidth : 360) - 48);
+  const [img, setImg] = useState(null), [z, setZ] = useState(1), [pos, setPos] = useState({ x: 0, y: 0 });
+  const drag = useRef(null), pts = useRef({});
+  useEffect(() => { const im = new Image(); im.onload = () => setImg(im); im.src = src; }, [src]);
+  const base = img ? VIEW / Math.min(img.width, img.height) : 1, sc = base * z;
+  const clamp = (p, zz) => { if (!img) return p; const w = img.width * base * zz, hh = img.height * base * zz, mx = Math.max(0, (w - VIEW) / 2), my = Math.max(0, (hh - VIEW) / 2); return { x: Math.max(-mx, Math.min(mx, p.x)), y: Math.max(-my, Math.min(my, p.y)) }; };
+  const setZoom = v => { const zz = Math.max(1, Math.min(5, v)); setZ(zz); setPos(p => clamp(p, zz)); };
+  const down = e => { e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); pts.current[e.pointerId] = { x: e.clientX, y: e.clientY }; const ks = Object.keys(pts.current);
+    drag.current = ks.length >= 2 ? { pinch: Math.hypot(pts.current[ks[0]].x - pts.current[ks[1]].x, pts.current[ks[0]].y - pts.current[ks[1]].y), z } : { x: e.clientX, y: e.clientY, p: pos }; };
+  const move = e => { if (!pts.current[e.pointerId] || !drag.current) return; pts.current[e.pointerId] = { x: e.clientX, y: e.clientY }; const ks = Object.keys(pts.current), d = drag.current;
+    if (d.pinch && ks.length >= 2) { const dist = Math.hypot(pts.current[ks[0]].x - pts.current[ks[1]].x, pts.current[ks[0]].y - pts.current[ks[1]].y); setZoom(d.z * dist / (d.pinch || 1)); }
+    else if (!d.pinch) setPos(clamp({ x: d.p.x + e.clientX - d.x, y: d.p.y + e.clientY - d.y }, z)); };
+  const up = e => { delete pts.current[e.pointerId]; const ks = Object.keys(pts.current); drag.current = ks.length === 1 ? { x: pts.current[ks[0]].x, y: pts.current[ks[0]].y, p: pos } : null; };
+  const use = () => { if (!img) return; const OUT = 512, c = document.createElement("canvas"); c.width = c.height = OUT; const x = c.getContext("2d"), k = OUT / VIEW;
+    x.fillStyle = "#fff"; x.fillRect(0, 0, OUT, OUT);
+    const w = img.width * sc * k, hh = img.height * sc * k; x.drawImage(img, OUT / 2 + pos.x * k - w / 2, OUT / 2 + pos.y * k - hh / 2, w, hh); onDone(c.toDataURL("image/jpeg", 0.9)); };
+  const btn = (label, onClick, main) => h("button", { onClick, style: { flex: 1, minHeight: 44, borderRadius: 12, fontFamily: F_BODY, fontSize: 15, background: main ? "#fff" : "rgba(255,255,255,.14)", color: main ? "#111" : "#fff" } }, label);
+  return h("div", { "data-wk": "avatarcrop", style: { position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18, padding: "16px", touchAction: "none" } },
+    h("div", { style: { color: "#fff", fontFamily: F_BODY, fontSize: 14, opacity: .85 } }, "拖动挪位置，双指或滑杆放大缩小"),
+    h("div", { onPointerDown: down, onPointerMove: move, onPointerUp: up, onPointerCancel: up,
+      style: { position: "relative", width: VIEW, height: VIEW, overflow: "hidden", borderRadius: 16, background: "#222", touchAction: "none", cursor: "grab" } },
+      img ? h("img", { src, alt: "", draggable: false, style: { position: "absolute", left: "50%", top: "50%", width: img.width * sc, height: img.height * sc, maxWidth: "none", transform: "translate(calc(-50% + " + pos.x + "px), calc(-50% + " + pos.y + "px))", userSelect: "none", pointerEvents: "none" } }) : null,
+      h("div", { style: { position: "absolute", inset: 0, borderRadius: "50%", boxShadow: "0 0 0 999px rgba(0,0,0,.35)", border: "1.5px solid rgba(255,255,255,.7)", pointerEvents: "none" } })),
+    h("input", { "data-wk": "avatarcropzoom", type: "range", min: 1, max: 5, step: 0.01, value: z, onChange: e => setZoom(Number(e.target.value)), style: { width: VIEW } }),
+    h("div", { className: "flex", style: { gap: 10, width: VIEW } }, btn("取消", onCancel), btn("用这块", use, true)));
+}
+// 选头像的地方都调这一个：cropAvatarFile(file, maxDim, q) → 框好的那块（dataURL）；取消返回 null
+function cropAvatarFile(file, maxDim = 400, q = 0.85) {
+  if (!file) return Promise.resolve(null);
+  if (/gif/i.test(file.type || "") || typeof document === "undefined") return resizeImageFile(file, maxDim, q);
+  return resizeImageFile(file, 1600, 0.92).then(src => new Promise(res => {
+    const host = document.createElement("div"); document.body.appendChild(host);
+    const root = ReactDOM.createRoot(host), close = () => { try { root.unmount(); } catch (e) {} try { host.remove(); } catch (e) {} };
+    root.render(h(AvatarCrop, { src, onCancel: () => { close(); res(null); },
+      onDone: d => { close(); if (maxDim >= 512) { res(d); return; } fetch(d).then(r => r.blob()).then(b => resizeImageFile(b, maxDim, q)).then(res, () => res(d)); } }));
+  }));
+}
+if (typeof window !== "undefined") window.cropAvatarFile = cropAvatarFile;
 function CoupleInviteCard({
   m,
   character,

@@ -1178,7 +1178,7 @@
               h("span", { style: { position: "absolute", right: -2, bottom: -2, fontSize: 11, padding: "1px 5px", borderRadius: 99, background: P.accent, color: "#fff" } }, "换"),
               h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: async e => {
                 const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
-                try { const d = await resizeImageFile(f, 400, 0.85); const ref = typeof imgToVault === "function" ? await imgToVault(d) : d;
+                try { const d = await cropAvatarFile(f, 400, 0.85); if (!d) return; const ref = typeof imgToVault === "function" ? await imgToVault(d) : d;
                   save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { altAvatar: ref || d }) })); } catch (er) { toast("这张图读不出来，换一张试试"); }
               } }))
           : h(Avatar, { character: { name: maskUse ? maskName : uName, avatarImage: (maskUse && (maskList.find(m => m.id === maskUse) || {}).avatarImage) || (profile && profile.avatarImage) }, size: 70 }),
