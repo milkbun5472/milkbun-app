@@ -65,13 +65,18 @@
   function card(title, body) {
     shown = true;
     // 同一张卡可以换内容：下载那张先摆上，下完了还是空的再换成判词（见最下面那道）
-    try { var prev = document.querySelector('[data-boot-guard="1"]'); if (prev) prev.remove(); } catch (x) {}
+    // ⚠️卡已经在了就只换字，按钮不动（她 2026-11-14 转来「好多人说点不了重新加载」）：
+    //   「还在下载」那张每 6 秒刷一次秒数，原来是整张拆掉重建——手指按下去的那颗按钮
+    //   转眼就被换成新的一颗，松手时落在新按钮上，iPhone 不认这是一次点击。
+    try { var prev = document.querySelector('[data-boot-guard="1"]');
+      if (prev && prev.querySelector("[data-bg-t]")) { prev.querySelector("[data-bg-t]").innerHTML = title; prev.querySelector("[data-bg-b]").innerHTML = body; return; }
+      if (prev) prev.remove(); } catch (x) {}
     window.__bootGuardShown = true;   // engine.js 那条红条就别再叠一层了
     var d = document.createElement("div");
     d.setAttribute("data-boot-guard", "1");
     d.style.cssText = "position:fixed;left:14px;right:14px;top:50%;transform:translateY(-50%);z-index:2147483647;background:#1f2937;color:#f3f4f6;padding:18px 18px 16px;border-radius:14px;font:14px/1.7 -apple-system,system-ui,sans-serif;box-shadow:0 10px 40px rgba(0,0,0,.35)";
-    d.innerHTML = '<div style="font-size:15px;margin-bottom:6px">' + title + '</div>'
-      + '<div style="font-size:12px;opacity:.75;margin-bottom:12px">' + body + '</div>'
+    d.innerHTML = '<div data-bg-t="1" style="font-size:15px;margin-bottom:6px">' + title + '</div>'
+      + '<div data-bg-b="1" style="font-size:12px;opacity:.75;margin-bottom:12px">' + body + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
       + '<button id="__bg_r" style="flex:1;min-width:120px;min-height:42px;border:0;border-radius:10px;background:#f3f4f6;color:#1f2937;font:14px -apple-system,system-ui,sans-serif">重新加载</button>'
       + '<button id="__bg_h" style="flex:1;min-width:120px;min-height:42px;border:1px solid rgba(243,244,246,.35);border-radius:10px;background:transparent;color:#f3f4f6;font:13px -apple-system,system-ui,sans-serif">清掉离线缓存再加载</button>'
@@ -79,8 +84,11 @@
       + '<div style="font-size:11px;opacity:.6;margin-top:10px">还是白屏的话：<a href="rescue.html" style="color:#93c5fd">进救援页</a>（数据都在）'
       + '，或者<a href="rescue.html?log=1" style="color:#93c5fd">看出错记录</a>（能一键复制发群里）</div>';
     document.body.appendChild(d);
-    document.getElementById("__bg_r").onclick = function () { location.reload(); };
-    document.getElementById("__bg_h").onclick = nuke;
+    // 按下去就算（pointerup），不等 click：页面还在拉脚本时 iPhone 的 click 有时迟迟不来
+    var tap = function (el, fn) { var done = false; var go = function (e) { if (done) return; done = true; try { e.preventDefault(); } catch (x) {} el.textContent = "正在重新加载…"; fn(); };
+      el.addEventListener("pointerup", go); el.addEventListener("click", go); el.style.touchAction = "manipulation"; };
+    tap(document.getElementById("__bg_r"), function () { location.reload(); });
+    tap(document.getElementById("__bg_h"), nuke);
   }
   function show() {
     if (shown) return;
