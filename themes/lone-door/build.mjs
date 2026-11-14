@@ -36,6 +36,8 @@ const KNOCKER = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><ci
 const KEYHOLEPIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 34'><path d='M13 1 C6 1 2 6 2 12 C2 20 13 33 13 33 C13 33 24 20 24 12 C24 6 20 1 13 1Z' fill='${C.frame}' stroke='#C9C2F0' stroke-width='1.4'/><circle cx='13' cy='11' r='3.2' fill='#FFE7A8'/><path d='M11.5 13 L10.5 19 H15.5 L14.5 13Z' fill='#FFE7A8'/></svg>`;
 const CARD = `background:linear-gradient(180deg,#2A2560,#1E1B48) !important;border:4px solid ${C.frame} !important;border-radius:3px !important;box-shadow:inset 0 0 0 1.5px #5A4FA0,0 0 16px 3px rgba(127,240,240,.18) !important;color:#fff !important`;
 
+// 好感：一段往上走的五级台阶，每级上立一盏小灯；好感多少就从下往上亮到哪一级，最上面是一扇小门
+const STAIR = lit => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 110 70'>${[0,1,2,3,4].map(i=>{const x=i*18,y=58-i*11;return `<rect x='${x}' y='${y}' width='22' height='${70-y}' fill='${lit?"#2E5E78":"#24234E"}' stroke='${lit?C.step:"#4A4888"}' stroke-width='1.4'/><path d='M${x+11} ${y-2} V${y-8}' stroke='${lit?"#FFE7A8":"#5A5890"}' stroke-width='1.4'/><circle cx='${x+11}' cy='${y-10}' r='3' fill='${lit?"#FFE7A8":"#3A3870"}'/>${lit?`<circle cx='${x+11}' cy='${y-10}' r='7' fill='#FFE7A8' opacity='.25'/>`:""}`}).join("")}<rect x='92' y='2' width='14' height='22' rx='1' fill='${lit?"#FFF2D8":"#2A2358"}' stroke='${C.frame}' stroke-width='2.4'/></svg>`;
 const bubble = { myBg: "#FFE0F0", myText: C.ink, myBorder: "none", charBg: C.warm, charText: C.ink, charBorder: "none", radius: 2, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const RAINBOW = "linear-gradient(110deg,#FFE3F1 0%,#FFF1C9 22%,#E2FFD8 42%,#D5F2FF 62%,#E6DBFF 82%,#FFE3F1 100%)";
@@ -242,6 +244,63 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.frame} !important}
 [data-wk="callact"]{color:#FFE9C8 !important;font-style:italic !important}
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 4px #E8E0D4,0 0 0 18px ${C.stone},0 0 30px 18px rgba(255,220,150,.35) !important}
+/* ───── 星野门扉 · 第三批：状态卡＝一扇大门洞（深紫门框、门扇开在右边），门里是夜；好感是一段亮灯的台阶 ───── */
+[data-wk="statecard"]{position:relative !important;overflow:visible !important;background:${svg(STARS)} 0 0/220px 260px,linear-gradient(180deg,${C.n1},${C.n2} 60%,${C.n3}) !important;border:10px solid ${C.frame} !important;border-radius:6px 6px 2px 2px !important;box-shadow:inset 0 0 0 2px ${C.frameD},0 0 0 2px #5A4FA0,0 0 30px 6px rgba(127,240,240,.18) !important;margin-right:30px !important}
+[data-wk="statecard"]::after{content:"" !important;position:absolute !important;right:-46px !important;top:-14px !important;bottom:-14px !important;width:34px !important;background:radial-gradient(circle at 35% 52%,#F2D28A 0 4px,transparent 4.5px),${svg(PANEL("r"))} center/100% 100% no-repeat !important;pointer-events:none !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:1px solid rgba(201,194,240,.3) !important}
+[data-wk="statehead"] *{color:#fff !important}
+[data-wk="statehead"] [data-wk="avatar"]{margin-bottom:0 !important}
+[data-wk="statehead"] [data-wk="avatar"]::before,[data-wk="statehead"] [data-wk="avatar"]::after{content:none !important}
+[data-wk="statehead"] button{border:1.4px solid #C9C2F0 !important;background:transparent !important;border-radius:6px !important}
+[data-wk="statemood"]{display:inline-block !important;background:${WARM} !important;color:${C.ink} !important;border:none !important;border-radius:2px !important;padding:0 10px !important;margin-right:4px !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(255,255,255,.06) !important;border:1px solid rgba(201,194,240,.4) !important;border-radius:4px !important;padding:3px !important;margin:10px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:2px !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:${RAINBOW} !important;color:${C.ink} !important}
+/* 看得见的＝一块透光的门洞（暖光）；心里想的＝一道门缝里的光（彩虹、斜体） */
+[data-wk="stateseen"],[data-wk="statevoice"]{background:${WARM} !important;border:4px solid ${C.frame} !important;border-radius:2px !important;margin:12px 16px !important;color:${C.ink} !important;box-shadow:0 0 14px rgba(255,214,190,.3) !important}
+[data-wk="statevoice"]{background:${RAINBOW} !important;font-style:italic !important}
+[data-wk="stateseen"] *,[data-wk="statevoice"] *{color:${C.ink} !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:rgba(58,49,112,.1) !important;border:1px solid rgba(58,49,112,.25) !important;border-radius:2px !important}
+[data-wk="statewear"] > span{background:transparent !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:#6A5EA8 !important}
+[data-wk="statevoice"] + div > button{background:transparent !important;color:#fff !important;border:1px solid #C9C2F0 !important;border-radius:2px !important}
+/* 好感：一段往上的台阶，每级一盏灯；好感多少就从下往上亮到哪一级，满分时最上面那扇小门也亮 */
+[data-wk="stateaff"]{background:transparent !important;border-top:1px solid rgba(201,194,240,.3) !important;display:flex !important;align-items:center !important;gap:16px !important;padding:14px 18px 16px !important}
+[data-wk="stateaff"] *{color:#fff !important}
+[data-wk="stateheart"]{position:relative !important;width:110px !important;height:70px !important;flex:none !important;background:${svg(STAIR(false))} left bottom/110px 70px no-repeat !important;overflow:hidden !important}
+[data-wk="stateheart"] > div{display:none !important}
+[data-wk="stateheartknob"]{display:block !important;position:absolute !important;left:0 !important;bottom:0 !important;top:0 !important;height:auto !important;margin:0 !important;transform:none !important;width:calc(var(--sc-heart-lvl) * 110px) !important;background:${svg(STAIR(true))} left bottom/110px 70px no-repeat !important;filter:drop-shadow(0 0 4px rgba(127,240,240,.6)) !important}
+[data-wk="stateheartnum"]{display:none !important}
+[data-wk="stateaffval"]{display:inline-block !important;margin:0 0 6px !important;padding:1px 12px !important;background:linear-gradient(180deg,#F2D28A,#C9A04E) !important;border-radius:2px !important;color:${C.ink} !important;font-weight:700 !important;font-size:14px !important}
+/* 翻旧的：一扇扇小门，门扇在右 */
+[data-wk="statehistbtn"]{background:transparent !important;color:#fff !important;border:1px solid #C9C2F0 !important;border-radius:2px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.fog} !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1px solid #C9C2F0 !important;border-radius:2px !important;color:#fff !important;background:transparent !important}
+[data-wk="statehistitem"]{position:relative !important;background:${WARM} !important;border:4px solid ${C.frame} !important;border-radius:2px !important;padding:14px 16px 12px !important;margin:0 22px 16px 0 !important;box-shadow:0 0 12px rgba(255,214,190,.25) !important;overflow:visible !important}
+[data-wk="statehistitem"]::after{content:"" !important;position:absolute !important;right:-22px !important;top:-6px !important;bottom:-6px !important;width:16px !important;background:${svg(KNOB)} 3px 55%/5px 5px no-repeat,${svg(PANEL("r"))} center/100% 100% no-repeat !important}
+[data-wk="statehistitem"] *{color:${C.ink} !important}
+[data-wk="statehistmood"]{background:${C.frame} !important;border:none !important;color:#fff !important;border-radius:2px !important}
+[data-wk="statehisttime"]{color:#6A5EA8 !important}
+[data-wk="statehistmeta"]{background:rgba(58,49,112,.08) !important;border-radius:2px !important}
+[data-wk="statehistend"]{color:${C.fog} !important}
+/* Ta 眼里 */
+[data-wk="gazepage"]{background:${svg(STARS)} 0 0/220px 260px,linear-gradient(180deg,${C.n1},${C.n2} 60%,${C.n3}) !important}
+[data-wk="gazetitle"]{color:#fff !important}
+[data-wk="gazetab"]{background:rgba(255,255,255,.06) !important;color:${C.fog} !important;border:1px solid rgba(201,194,240,.4) !important;border-radius:2px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:${RAINBOW} !important;color:${C.ink} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{background:${WARM} !important;border:4px solid ${C.frame} !important;border-radius:2px !important;box-shadow:0 0 12px rgba(255,214,190,.25) !important}
+[data-wk="gazetape"]{background:${svg(KEYHOLEPIN)} center/14px 18px no-repeat !important;box-shadow:none !important;border:none !important;transform:none !important;width:18px !important;height:22px !important}
+[data-wk="gazecardname"]{color:${C.ink} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#6A5EA8 !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:${WARM} !important;border:4px solid ${C.frame} !important;border-radius:2px !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
+[data-wk="gazeempty"]{background:rgba(255,255,255,.05) !important;border:1px dashed rgba(201,194,240,.5) !important;border-radius:4px !important;color:#fff !important}
+[data-wk="gazeempty"] > div:first-child{color:#fff !important}
+[data-wk="gazeempty"] button{background:${RAINBOW} !important;color:${C.ink} !important;border:none !important;border-radius:2px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "星野门扉", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
