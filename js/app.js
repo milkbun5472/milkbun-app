@@ -2714,7 +2714,8 @@ function App() {
   const storyOnFor = id => { const s = settingsFor(id) || {}; return s.autoStory != null ? !!s.autoStory : !!s.autoMoment; };
   // 每 24 小时最多发几条（她 2026-11-14）：挂着的满了，这一格就不给 TA 了（省得 TA 填了又白排一张）
   const storyMaxFor = id => { const n = Number((settingsFor(id) || {}).storyMax); return Number.isFinite(n) && n >= 1 ? Math.min(10, Math.round(n)) : 3; };
-  const storyRoomFor = id => storyOnFor(id) && !(window.Stories && window.Stories.activeOf(id).length >= storyMaxFor(id));
+  //   她点「让 TA 现在发一条」叫出来的（manual）不占名额（她 2026-11-14「能不能主动选择让他发不占用这个限额」）
+  const storyRoomFor = id => storyOnFor(id) && !(window.Stories && window.Stories.activeOf(id).filter(s => !s.manual).length >= storyMaxFor(id));
   // 群里那一份（她 2026-09-10）。⚠️故意挨着上面两行写：以后改「同处一室」这件事，
   //   一眼能看见它有单聊和群聊两处，别再只改一处。存在群设置里，不跟单聊的按人存混。
   // ⚠️它调用的 gsFor 声明在下面很远处：这是个箭头函数，只在渲染/回调里跑，那时 gsFor 早就有了。
@@ -29191,7 +29192,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   TA 只说「想发什么」，排版这一下单独一次调用：背景、字体、几块字放哪、多大、什么颜色、贴纸——跟拼壁纸那一套同一份版面，
   //   画的也是同一支 Collage.draw。聊天设置里开了「限时动态配照片」、又能拍 TA 时，再多一次生图放一张 TA 此刻的照片。
   const storyBusyRef = useRef({});
-  const storyMake = async (char, idea) => {
+  const storyMake = async (char, idea, manual) => {
     if (!char || !window.Stories || !window.Collage || storyBusyRef.current[char.id]) return;
     storyBusyRef.current[char.id] = true;
     try {
@@ -29200,7 +29201,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const bgs = Object.keys(window.Collage.BGS || {}).map(k => k + "（" + window.Collage.BGS[k].name + "）").join("、");
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true, logLabel: "限时动态",
-        instruction: relSay(char) + "。你要发一条限时动态（挂 24 小时就收起来），此刻想发的是：「" + idea + "」。把它排成一张竖版手机卡，照你自己的审美来："
+        instruction: relSay(char) + "。你要发一条限时动态（挂 24 小时就收起来），" + (idea ? "此刻想发的是：「" + idea + "」。" : "发什么由你自己定：照你此刻在干嘛、在想什么、跟她最近聊的来。") + "把它排成一张竖版手机卡，照你自己的审美来："
           + "bg 背景从这几种里挑一个：" + bgs + "；font 字体：hand 花体英文、brush 中文手写、serif 宋体、sans 黑体；"
           + "texts 是卡上的字，1 到 4 块，每块 t 写什么、x 和 y 是在卡上的位置（0 到 1，左上角是 0,0）、size 字号（40 到 160）、color 颜色（#hex）、r 歪多少度（-15 到 15）、font 可以单独换；"
           + "stickers 是贴纸，0 到 5 个 emoji，ch 是哪个、x y 位置、size 大小（60 到 200）。"
@@ -29219,10 +29220,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         } catch (e) { /* 照片没拍成就发纯字卡，不拦这一条 */ }
       }
       const texts = ((d && d.texts) || []).map(x => x && (x.t || x.text)).filter(Boolean);
-      await window.Stories.add({ by: char.id, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea }] }, !!photoBlob), photoBlob,
-        text: idea, desc: texts.join(" / ") + (photoBlob && d.photo ? "（配了一张照片：" + String(d.photo).slice(0, 80) + "）" : "") });
+      await window.Stories.add({ by: char.id, manual: !!manual, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea || "…" }] }, !!photoBlob), photoBlob,
+        text: idea || texts.join(" "), desc: texts.join(" / ") + (photoBlob && d.photo ? "（配了一张照片：" + String(d.photo).slice(0, 80) + "）" : "") });
       toast((char.remark || char.name) + " 发了一条限时动态");
-      if (window.Notify) window.Notify.push({ title: (char.remark || char.name) + " 发了一条限时动态", body: idea, tag: "story-" + char.id, charId: char.id });
+      if (window.Notify) window.Notify.push({ title: (char.remark || char.name) + " 发了一条限时动态", body: idea || texts.join(" "), tag: "story-" + char.id, charId: char.id });
     } catch (e) { toast("限时动态没发出来：" + ((e && e.message) || "")); }
     finally { storyBusyRef.current[char.id] = false; }
   };
@@ -38233,6 +38234,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onSaveImage: () => zhaoyingSaveImage(zyWatch.testId, rec, c ? (c.remark || c.name) : "他"),
       onPin: c ? () => zhaoyingPin(zyWatch.charId, zyWatch.testId, rec) : null }) : null;
   })() : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
+    // 「让 TA 现在发一条」（她 2026-11-14）：她叫出来的不占 24 小时那个名额；发什么 TA 自己定
+    onStoryNow: () => { if (!window.Stories) return; toast((activeChar.remark || activeChar.name) + " 在排一张限时动态…"); storyMake(activeChar, "", true); },
     lucky: luckyOf("c:" + activeChar.id), luckyTick: luckyTickN,
     onDrawLucky: () => drawLucky("c:" + activeChar.id),
     onPickLucky: i => pickLucky("c:" + activeChar.id, i),

@@ -23439,6 +23439,7 @@ function ChatLorePicker({ character, entries, onBulk }) {
     }));
 }
 function ChatSettings({
+  onStoryNow,   // 让 TA 现在发一条限时动态（不占名额）
   lucky, onDrawLucky, onPickLucky,   // 你俩的幸运字符（2026-10-26）
   onSetProactive,  // 「允许 Ta 主动发消息」点了当场存（群友 2026-10-31：开了、点返回出去，再进来又是关的——原来要点右上角 ✓ 才存）
   loreEntries,     // 世界书：这个人用哪几条（2026-10-26 群友许愿），点了当场生效
@@ -24401,7 +24402,9 @@ function ChatSettings({
     h("div", { className: "flex items-center", style: { gap: 10, flexShrink: 0 } },
       h("button", { onClick: () => setStoryMax(n => Math.max(1, n - 1)), className: "active:opacity-60", style: { width: 30, height: 30, borderRadius: 999, border: "1px solid " + t.line, color: t.ink } }, "−"),
       h("span", { style: { minWidth: 18, textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, storyMax),
-      h("button", { onClick: () => setStoryMax(n => Math.min(10, n + 1)), className: "active:opacity-60", style: { width: 30, height: 30, borderRadius: 999, border: "1px solid " + t.line, color: t.ink } }, "+"))) : null, h("div", {
+      h("button", { onClick: () => setStoryMax(n => Math.min(10, n + 1)), className: "active:opacity-60", style: { width: 30, height: 30, borderRadius: 999, border: "1px solid " + t.line, color: t.ink } }, "+"))) : null,
+  onStoryNow ? h("button", { "data-wk": "storynow", onClick: () => onStoryNow(), className: "w-full active:opacity-70", style: { marginTop: 14, minHeight: 40, borderRadius: 12, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } },
+    "让 Ta 现在发一条限时动态（不占上面的名额，花一次调用）") : null, h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", { style: { paddingRight: 12 } }, h("div", {
     style: {

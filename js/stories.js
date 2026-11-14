@@ -40,13 +40,13 @@
     return await new Promise(ok => cv.toBlob(b => ok(b), "image/jpeg", 0.88));
   }
   // 存一条。blob 有了就直接存（她在拼壁纸编辑器里存的），没有就照 layout 画
-  async function add({ by, layout, photoBlob, blob, text, desc }) {
+  async function add({ by, layout, photoBlob, blob, text, desc, manual }) {
     const id = "st_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const img = blob || await renderCard(layout, photoBlob);
     if (!img || !img.size) throw new Error("卡没画出来");
     const imgKey = "img_" + id;
     await idbImgPut(imgKey, img);
-    const row = { id, by: String(by), ts: Date.now(), imgKey, text: String(text || "").slice(0, 200), desc: String(desc || "").slice(0, 400), seen: {}, replies: [] };
+    const row = { id, by: String(by), ts: Date.now(), imgKey, text: String(text || "").slice(0, 200), desc: String(desc || "").slice(0, 400), seen: {}, replies: [], ...(manual ? { manual: true } : {}) };
     save(all().concat([row]));
     return row;
   }
