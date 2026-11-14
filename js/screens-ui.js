@@ -2119,9 +2119,22 @@ function forumTag(board) { return "#" + (String(board || "").replace(/吧$/, "")
 // 小红书的「IP 属地」（她 2026-10-26「都来」）：你的人照他在好友地图上的家（城市名取前两三个字，像「上海」「广州」），
 //   别人按名字固定挑一个省份——同一个人每次都是同一处，不会一楼一个地方
 const FORUM_IP_POOL = ["北京", "上海", "广东", "浙江", "江苏", "四川", "湖北", "湖南", "山东", "福建", "河南", "重庆", "天津", "陕西", "辽宁", "安徽", "江西", "云南", "广西", "河北", "黑龙江", "吉林", "山西", "贵州", "海南", "内蒙古", "新疆", "甘肃", "香港", "台湾"];
+// 跟着设定走（群友 2026-11-14「论坛里的 ip 不跟着设定走」）：
+//   你自己发的照你开了定位的那一处（虚构世界就是你在那张图上的位置）；角色没在好友地图上安家的，先从人设里找一个认得的城市
+const forumIpTrim = v => String(v || "").trim().replace(/[,，·\s].*$/, "").replace(/(市|省|特别行政区|自治区)$/, "").slice(0, 6);
 function forumIpOf(x, ch) {
   const city = ch && ch.home && ch.home.city ? String(ch.home.city).trim() : "";
-  if (city) return city.replace(/[,，\s].*$/, "").replace(/(市|省|特别行政区|自治区)$/, "").slice(0, 6);
+  if (city) return forumIpTrim(city);
+  try {
+    const mine = !ch && x && (x.authorType === "me" || x.authorId === "me") && !x.alt;
+    if (mine && window.MapKit && window.MapKit.userRealm && typeof loadJSON === "function") {
+      const rl = window.MapKit.userRealm(loadJSON("x_prefs", {}), loadJSON("x_geo", null), loadJSON("x_worlds", []));
+      const v = rl && (rl.kind === "real" ? (rl.geo.city || rl.geo.label) : (rl.node || (rl.world && rl.world.name)));
+      if (v) return forumIpTrim(v);
+    }
+    if (ch && window.MapKit && window.MapKit.CITY_DB) { const txt = [ch.persona, ch.description, ch.desc].filter(Boolean).join(" ");
+      const hit = Object.keys(window.MapKit.CITY_DB).map(k => [k, txt.indexOf(k)]).filter(z => z[1] >= 0).sort((a, b) => a[1] - b[1])[0]; if (hit) return hit[0]; }
+  } catch (e) {}
   const key = String((x && (x.authorName || x.authorId)) || "?");
   let hsh = 0; for (const ch2 of key) hsh = (hsh * 31 + ch2.charCodeAt(0)) >>> 0;
   return FORUM_IP_POOL[hsh % FORUM_IP_POOL.length];
