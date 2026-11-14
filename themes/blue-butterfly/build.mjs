@@ -23,6 +23,14 @@ const I_SEND = CI(`<path d='M11 20 H26 M21 15 L27 20 L21 25' fill='none' stroke=
 // 最右「让他回复」：一团白光，里面一个深蓝对话框
 const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46'><circle cx='23' cy='23' r='20' fill='#fff'/><path d='M14 16 H32 Q34 16 34 18 V26 Q34 28 32 28 H22 L17 32 V28 H14 Q12 28 12 26 V18 Q12 16 14 16Z' fill='none' stroke='${C.ink}' stroke-width='2' stroke-linejoin='round'/></svg>`;
 
+// ── 第二批用的图 ──
+const BFIN = (o=1) => BF(o).replace(/<svg[^>]*>|<\/svg>/g, "");
+// 标本盒：玻璃盒里钉着一只蝴蝶；open＝盖子掀开、蝴蝶飞出盒外；empty＝空盒
+const BOX = st => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><rect x='6' y='14' width='48' height='40' rx='4' fill='rgba(255,255,255,.08)' stroke='#fff' stroke-width='1.6'/><rect x='10' y='18' width='40' height='32' rx='2' fill='none' stroke='rgba(255,255,255,.45)' stroke-width='1'/>${st === "open" ? `<path d='M6 14 L18 2 L60 2 L54 14' fill='rgba(255,255,255,.1)' stroke='#fff' stroke-width='1.4' stroke-linejoin='round'/><g transform='translate(30 -2) rotate(-18) scale(.6)'>${BFIN()}</g>` : st === "empty" ? `<path d='M30 26 V38' stroke='rgba(255,255,255,.5)' stroke-width='1'/><circle cx='30' cy='26' r='1.4' fill='rgba(255,255,255,.6)'/>` : `<g transform='translate(15 20) scale(.7)'>${BFIN()}</g><circle cx='30' cy='26' r='1.4' fill='#E8ECFF'/>`}</svg>`;
+// 茧：一颗发光的茧；done＝茧裂开，蝴蝶飞出来
+const COCOON = done => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 64'><path d='M30 2 V10' stroke='#fff' stroke-width='1.2'/><path d='M30 10 C18 12 16 30 20 44 C24 58 36 58 40 44 C44 30 42 12 30 10Z' fill='${done ? "rgba(255,255,255,.12)" : "#fff"}' stroke='#fff' stroke-width='1.6'/>${done ? `<path d='M22 26 L26 22 L30 27 L34 21 L38 26' fill='none' stroke='#fff' stroke-width='1.4' stroke-linejoin='round'/><g transform='translate(18 -4) scale(.75) rotate(-12)'>${BFIN()}</g>` : `<g fill='none' stroke='#C9D4FF' stroke-width='1'><path d='M22 22 Q30 26 38 22'/><path d='M20 32 Q30 36 40 32'/><path d='M22 42 Q30 46 38 42'/></g>`}</svg>`;
+const CARD = `background:rgba(26,42,158,.55) !important;border:1.6px solid #fff !important;border-radius:14px !important;box-shadow:inset 0 0 12px rgba(200,215,255,.35),0 0 14px 2px rgba(200,215,255,.55) !important;color:#fff !important`;
+
 const bubble = { myBg: C.glass, myText: "#fff", myBorder: "none", charBg: "#fff", charText: C.ink, charBorder: "none", radius: 10, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -111,6 +119,120 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="msg"][data-me="0"] [data-wk="avatar"]::after,[data-wk="cardrow"]:not([data-me="1"]) [data-wk="avatar"]::after{right:auto !important;left:-14% !important;transform:rotate(-14deg) !important}
 [data-wk="msg"][data-me="1"] [data-wk="avatar"]::before,[data-wk="msg"][data-me="1"] [data-wk="avatar"]::after,[data-wk="cardrow"][data-me="1"] [data-wk="avatar"]::before,[data-wk="cardrow"][data-me="1"] [data-wk="avatar"]::after{transform:rotate(14deg) !important}
 
+/* ───── 蓝夜蝴蝶 · 第二批：卡片 ───── */
+[data-wk="voice"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{${CARD}}
+[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:#fff !important;border-color:rgba(255,255,255,.35) !important}
+
+/* 转账＝一只蝴蝶标本盒：玻璃盒里钉着一只蝴蝶；收下了盒盖掀开、蝴蝶飞出来，退回了盒子空了 */
+[data-wk="transfercard"]{position:relative !important;overflow:visible !important;${CARD};padding-left:66px !important}
+[data-wk="transfercard"]::before{content:"" !important;position:absolute !important;left:10px !important;top:50% !important;width:50px !important;height:50px !important;margin-top:-28px !important;background:${svg(BOX("full"))} center/contain no-repeat !important;filter:drop-shadow(0 0 6px rgba(200,215,255,.8)) !important}
+[data-wk="transfercard"] *{color:#fff !important;border-color:rgba(255,255,255,.35) !important}
+[data-wk="transferlabel"]{color:${C.fog} !important;letter-spacing:.2em !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:#fff !important;font-weight:700 !important;text-shadow:0 0 10px rgba(200,215,255,.9) !important}
+[data-wk="transferrule"]{border:none !important;height:1px !important;background:linear-gradient(90deg,transparent,rgba(255,255,255,.8),transparent) !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:rgba(11,20,80,.4) !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:#fff !important;color:${C.ink} !important;border:none !important;box-shadow:0 0 12px rgba(200,215,255,.8) !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;color:#fff !important;border:1px solid rgba(255,255,255,.7) !important}
+[data-wk="transferseal"]{background:transparent !important;border:1px solid rgba(255,255,255,.7) !important;color:#fff !important;border-radius:50% !important;box-shadow:none !important}
+[data-wk="transfercard"][data-status="accepted"]::before{background:${svg(BOX("open"))} center/contain no-repeat !important}
+[data-wk="transfercard"][data-status="returned"]::before{background:${svg(BOX("empty"))} center/contain no-repeat !important;filter:none !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.7 !important}
+
+/* 红包＝一颗发光的茧；领完了茧裂开，飞出一只蝴蝶 */
+[data-wk="rpcard"]{position:relative !important;overflow:visible !important;width:220px !important;min-height:84px !important;padding:16px 16px 16px 80px !important;${CARD}}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:56px !important;height:60px !important;margin-top:-32px !important;background:${svg(COCOON(false))} center/contain no-repeat !important;filter:drop-shadow(0 0 10px rgba(200,215,255,.9)) !important}
+[data-wk="rpcard"]::after{content:"一颗茧" !important;position:absolute !important;right:12px !important;bottom:6px !important;font-size:10px !important;letter-spacing:.25em !important;color:${C.fog} !important}
+[data-wk="rpcard"] *{color:#fff !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"] > div:not([data-wk]){padding:0 !important;background:transparent !important}
+[data-wk="rpmsg"]{-webkit-line-clamp:2 !important}
+[data-wk="rpcard"][data-status="done"]::before{background:${svg(COCOON(true))} center/contain no-repeat !important}
+[data-wk="rpcard"][data-status="done"]::after{content:"飞走啦" !important}
+[data-wk="rpenvelope"][data-stage="closed"],[data-wk="rpenvelope"][data-stage="open"]{background:${svg(DUST)} left bottom/200px 160px repeat-x,linear-gradient(180deg,${C.n1},${C.n2} 50%,${C.n3}) !important;border:2px solid #fff !important;border-radius:24px !important;box-shadow:0 0 30px 6px rgba(200,215,255,.5) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:#fff !important;border-color:#fff !important;box-shadow:0 0 20px rgba(200,215,255,.8) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]::after{content:none !important}
+[data-wk="rpenvelope"] *{color:#fff !important}
+[data-wk="rpenvelope"] [data-wk="rparc"] *{color:${C.ink} !important}
+[data-wk="rpopenbtn"]{background:${svg(COCOON(false))} center/70% no-repeat,radial-gradient(circle,rgba(26,42,158,.9) 55%,#fff 57%,#fff 62%,transparent 64%) !important;border:none !important;box-shadow:none !important;filter:drop-shadow(0 0 14px rgba(200,215,255,.95)) !important}
+[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important}
+[data-wk="rpavatar"]{border-radius:50% !important;box-shadow:0 0 0 3px #fff,0 0 14px 4px rgba(200,215,255,.8) !important}
+[data-wk="rpamount"]{color:#fff !important;background:none !important;text-shadow:0 0 12px rgba(200,215,255,.9) !important}
+[data-wk="rpclose"]{background:transparent !important;border:1.5px solid #fff !important;color:#fff !important}
+
+/* 照片：镶一圈白光，右上角停一只蝴蝶 */
+[data-wk="photocard"]{position:relative !important;overflow:visible !important;background:#fff !important;border:none !important;border-radius:12px !important;padding:8px 8px 24px !important;box-shadow:0 0 22px 6px rgba(200,215,255,.6) !important}
+[data-wk="photocard"]::after{content:"" !important;position:absolute !important;right:-14px !important;top:-14px !important;width:32px !important;height:24px !important;background:${svg(BF())} center/contain no-repeat !important;transform:rotate(-14deg) !important;filter:drop-shadow(0 0 5px rgba(200,215,255,.95)) !important}
+[data-wk="photoface"]{background:linear-gradient(180deg,${C.n2},${C.n3}) !important;border:none !important;border-radius:8px !important}
+[data-wk="photoface"] *,[data-wk="phototext"]{color:#fff !important}
+[data-wk="photocap"],[data-wk="photohint"]{color:${C.ink} !important}
+
+/* 语音：前面一只小蝴蝶 */
+[data-wk="voice"] > *{background:transparent !important;box-shadow:none !important;border:none !important;color:#fff !important}
+[data-wk="voice"][data-me]{padding:0 14px 0 40px !important;position:relative !important;border-radius:999px !important}
+[data-wk="voice"]::before{content:"" !important;position:absolute !important;left:10px !important;top:50% !important;width:22px !important;height:17px !important;margin-top:-9px !important;background:${svg(BF())} center/contain no-repeat !important;z-index:2 !important;animation:bbFlap 2.6s ease-in-out infinite !important}
+[data-wk="voice"][data-me="0"]{background:#fff !important;box-shadow:0 0 18px 4px rgba(200,215,255,.6) !important}
+[data-wk="voice"][data-me="0"] *{color:${C.ink} !important}
+[data-wk="voice"][data-me="0"]::before{filter:drop-shadow(0 0 1px ${C.ink}) drop-shadow(0 0 1px ${C.ink}) !important}
+[data-wk="voicewave"] span{background:#fff !important}
+[data-wk="voice"][data-me="0"] [data-wk="voicewave"] span{background:${C.ink} !important}
+
+[data-wk="wxcardsky"]{background:${svg(DUST)} left bottom/200px 160px repeat-x,linear-gradient(170deg,${C.n1},${C.n3}) !important}
+[data-wk="wxcardsky"] *{color:#fff !important}
+[data-wk="wxcardsky"] svg{stroke:#fff !important}
+[data-wk="wxcardsay"]{background:rgba(11,20,80,.5) !important;color:#fff !important;border-top:1px solid rgba(255,255,255,.4) !important}
+/* 位置：一只蝴蝶停在那儿 */
+[data-wk="geopin"]{background:${svg(BF())} center/contain no-repeat !important;box-shadow:none !important;border:none !important;width:34px !important;height:26px !important;border-radius:0 !important;filter:drop-shadow(0 0 6px rgba(200,215,255,.95)) !important}
+[data-wk="geopin"] *{opacity:0 !important}
+[data-wk="geopinstem"]{background:#fff !important}
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 2.5px #fff,0 0 12px 3px rgba(200,215,255,.7) !important}
+
+/* 拍一拍、通话结束：一行带光的小字，两头各一点光 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:radial-gradient(circle,#fff 1.6px,transparent 2.2px) left center/8px 8px no-repeat,radial-gradient(circle,#fff 1.6px,transparent 2.2px) right center/8px 8px no-repeat !important;border:none !important;border-radius:0 !important;padding:2px 18px !important;color:${C.fog} !important;box-shadow:none !important;text-shadow:0 0 6px rgba(200,215,255,.6) !important}
+[data-wk="note"][data-part="call"] svg{stroke:#fff !important}
+[data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;max-width:86% !important;background:rgba(26,42,158,.5) !important;border:none !important;border-left:3px solid #fff !important;border-radius:4px 12px 12px 4px !important;padding:8px 14px !important;color:#fff !important;box-shadow:0 0 12px rgba(200,215,255,.4) !important}
+[data-wk="noteink"]{color:${C.fog} !important}
+
+/* 线下小结：一封发光的信，标题是白光小签 */
+[data-part="offlog"]{position:relative !important;overflow:visible !important;padding-top:28px !important}
+[data-part="offlog"]::after{content:"" !important;position:absolute !important;right:-12px !important;top:-12px !important;width:30px !important;height:23px !important;background:${svg(BF())} center/contain no-repeat !important;transform:rotate(-14deg) !important;filter:drop-shadow(0 0 5px rgba(200,215,255,.95)) !important}
+[data-wk="offlogtitle"]{display:inline-block !important;margin:0 0 6px !important;padding:3px 14px !important;background:#fff !important;color:${C.ink} !important;border-radius:999px !important;box-shadow:0 0 12px rgba(200,215,255,.8) !important;letter-spacing:.15em !important}
+[data-wk="offlogtitle"] *{color:${C.ink} !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.fog} !important}
+[data-wk="offlogtranscript"]{border-top:1px solid rgba(255,255,255,.35) !important;color:${C.fog} !important}
+
+/* 加号面板：一颗颗发光的白圈 */
+[data-wk="chatpanel"] *{color:#fff !important}
+[data-wk="chattoolicon"]{background:rgba(255,255,255,.08) !important;border:1.5px solid #fff !important;border-radius:50% !important;box-shadow:0 0 10px rgba(200,215,255,.6) !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:#fff !important;color:#fff !important}
+[data-wk="chattoollabel"]{color:${C.fog} !important}
+
+/* 引用三处 */
+[data-wk="quotedraft"]{background:rgba(11,20,80,.92) !important;border:none !important;border-top:1px solid rgba(255,255,255,.4) !important}
+[data-wk="quotedraft"] *{color:${C.fog} !important;border-color:#fff !important}
+[data-wk="quoteicon"]{display:none !important}
+[data-wk="quoteclear"]{color:#fff !important}
+[data-wk="quote"]{background:rgba(255,255,255,.1) !important;color:${C.fog} !important;border:1px solid rgba(255,255,255,.4) !important;border-radius:10px !important;padding:3px 10px !important;opacity:1 !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.7 !important}
+
+/* 打电话那一屏 */
+[data-wk="call"][data-video="0"]{background:${svg(DUST)} left bottom/200px 160px repeat-x,radial-gradient(circle at 50% 24%,rgba(200,215,255,.35),transparent 50%),linear-gradient(180deg,${C.n1},${C.n2} 50%,${C.n3}) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#fff !important;text-shadow:0 0 10px rgba(200,215,255,.8) !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:${C.fog} !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:transparent !important;box-shadow:0 0 0 1.5px #fff,0 0 10px rgba(200,215,255,.6) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#fff !important}
+[data-wk="callbtns"] button > span:first-child{background:rgba(255,255,255,.08) !important;border-radius:50% !important;box-shadow:0 0 0 1.5px #fff,0 0 14px rgba(200,215,255,.7) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#fff !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#fff !important;box-shadow:0 0 22px 6px rgba(200,215,255,.8) !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:${C.ink} !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:${C.fog} !important}
+[data-wk="callbubble"]{background:#fff !important;color:${C.ink} !important;border:none !important;border-radius:10px !important;box-shadow:0 0 16px 4px rgba(200,215,255,.6) !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:rgba(26,42,158,.9) !important;color:#fff !important;border:1.5px solid #fff !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.ink} !important}
+[data-wk="callact"]{color:${C.fog} !important;font-style:italic !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 4px #fff,0 0 40px 12px rgba(200,215,255,.7) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "蓝夜蝴蝶", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
