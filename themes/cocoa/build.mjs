@@ -25,6 +25,13 @@ const STEAM = X(`viewBox='0 0 20 14' fill='none' stroke='${C.fog}' stroke-width=
 // 糖霜：彩色小糖针，撒在顶栏的可可上
 const SPRINK = X(`width='70' height='18' viewBox='0 0 70 18'><g stroke-linecap='round' stroke-width='2.2'><path d='M6 6 l4 2' stroke='#F6D3D6'/><path d='M22 13 l2 -4' stroke='#FFF6EC'/><path d='M38 5 l4 -1' stroke='#F2C46B'/><path d='M54 12 l3 3' stroke='#BFE0D2'/><path d='M64 4 l-2 3' stroke='#BFD3F2'/><path d='M30 15 l4 1' stroke='#F6D3D6'/></g>`);
 const HEART = X(`viewBox='0 0 20 20'><path d='M10 17 C3 12 2 9 2 7 C2 4 4 2.5 6.5 2.5 C8 2.5 9.3 3.4 10 4.6 C10.7 3.4 12 2.5 13.5 2.5 C16 2.5 18 4 18 7 C18 9 17 12 10 17Z' fill='${C.pink}' stroke='#fff' stroke-width='1.4'/>`);
+// 好感：空杯 → 半杯可可 → 满杯带奶泡 → 满杯堆棉花糖、冒一颗心形热气
+const SC = (inner) => X(`viewBox='0 0 92 84'>${inner}`);
+const CUP = (fill) => `<path d='M18 26 H66 V58 Q66 74 50 74 H34 Q18 74 18 58Z' fill='#fff' stroke='${C.cocoa}' stroke-width='3'/><path d='M66 34 Q80 34 80 46 Q80 58 66 58' fill='none' stroke='${C.cocoa}' stroke-width='3.5'/>${fill}`;
+const ST1 = SC(CUP(`<path d='M24 66 Q42 70 60 66' stroke='${C.milk}' stroke-width='2' fill='none'/>`));
+const ST2 = SC(CUP(`<path d='M19.5 50 H64.5 V58 Q64.5 72.5 50 72.5 H34 Q19.5 72.5 19.5 58Z' fill='${C.cocoa}'/>`));
+const ST3 = SC(CUP(`<path d='M19.5 32 H64.5 V58 Q64.5 72.5 50 72.5 H34 Q19.5 72.5 19.5 58Z' fill='${C.cocoa}'/><path d='M19.5 31 H64.5 V36 C61 36 60 40 57 40 C54 40 54 36 50 36 C46 36 46 40 42 40 C38 40 38 36 34 36 C30 36 30 40 27 40 C24 40 23 36 19.5 36Z' fill='${C.foam}'/>`));
+const ST4 = SC(CUP(`<path d='M19.5 32 H64.5 V58 Q64.5 72.5 50 72.5 H34 Q19.5 72.5 19.5 58Z' fill='${C.cocoa}'/><path d='M19.5 31 H64.5 V36 C61 36 60 40 57 40 C54 40 54 36 50 36 C46 36 46 40 42 40 C38 40 38 36 34 36 C30 36 30 40 27 40 C24 40 23 36 19.5 36Z' fill='${C.foam}'/><g stroke='${C.milk}' stroke-width='1'><rect x='24' y='18' width='12' height='11' rx='3.5' fill='#fff' transform='rotate(-12 30 23)'/><rect x='38' y='20' width='11' height='10' rx='3.2' fill='${C.pink}' transform='rotate(10 43 25)'/><rect x='50' y='17' width='12' height='11' rx='3.5' fill='#fff' transform='rotate(20 56 22)'/></g><path d='M44 13 C38 8 38 4 41 3 C43 2.4 44 3.6 44 4.4 C44 3.6 45 2.4 47 3 C50 4 50 8 44 13Z' fill='${C.pink}'/>`));
 const bubble = { myBg: C.cocoa, myText: "#fff", myBorder: "none", charBg: C.foam, charText: C.ink, charBorder: "none", radius: 16, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 // 马克杯头像：一圈奶白、杯沿可可棕；杯把是往旁边挪出去的一个小环（负扩散的阴影）
@@ -149,7 +156,8 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 [data-wk="rpamount"]{color:#fff !important}
 [data-wk="rpavatar"]{box-shadow:0 0 0 3px ${C.foam},0 0 0 5px ${C.cocoa} !important}
 /* 照片：奶白框里一块浅奶茶色小屏；语音跟气泡一样 */
-[data-wk="photocard"]{padding:24px 8px 10px !important}
+[data-wk="photocard"]{padding:12px 8px 10px !important;background:${C.foam} !important}
+[data-wk="photocard"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:0 !important;height:25px !important;background:${svg(DRIP(C.cocoa))} 0 0/36px 25px repeat-x !important;pointer-events:none !important;z-index:3 !important}
 [data-wk="photoface"]{border-radius:10px !important;background:#F1E6DA !important;border:none !important;box-shadow:none !important;outline:none !important}
 [data-wk="photoface"] *,[data-wk="photohint"]{color:#8A7466 !important}
 [data-wk="photoface"] svg{stroke:${C.cocoa} !important}
@@ -197,6 +205,104 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 [data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;${HIDE};background:${svg(I_MUG)} center/contain no-repeat !important}
 [data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+
+/* ───── 棉花可可 · 第三批：状态卡是一只大马克杯——奶油底、顶上淌可可；看得见的是奶泡、心里想的是可可；好感是杯子慢慢满起来 ───── */
+[data-wk="statecard"]{background:${svg(DOTS)} 0 0/80px 80px,${C.bg} !important;border:none !important;border-radius:22px !important;box-shadow:0 0 0 4px ${C.foam},0 0 0 7px ${C.cocoa},0 14px 30px rgba(94,56,38,.25) !important;color:${C.ink} !important;overflow:hidden !important}
+[data-wk="statehead"]{background:${svg(SPRINK)} 0 100%/70px 18px repeat-x,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;border-bottom:none !important;position:relative !important;padding-bottom:16px !important}
+[data-wk="statehead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:-13px !important;height:14px !important;background:${svg(DRIP(C.cocoa2))} 0 -11px/36px 25px repeat-x !important;z-index:2 !important}
+[data-wk="statehead"] *{color:#fff !important}
+[data-wk="statehead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 3px ${C.foam},0 0 0 5px ${C.milk} !important}
+[data-wk="statehead"] button{border:1px solid rgba(255,255,255,.4) !important;border-radius:50% !important;background:rgba(255,255,255,.12) !important}
+[data-wk="statemood"]{display:inline-block !important;background:${C.pink} !important;color:${C.cocoa2} !important;padding:0 10px !important;margin-right:4px !important;border-radius:999px !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:${C.foam} !important;border:1px solid ${C.milk} !important;border-radius:999px !important;padding:3px !important;margin:22px 16px 12px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:999px !important;background:transparent !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:${C.cocoa} !important;color:#fff !important}
+[data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;overflow:hidden !important;background:${svg(DRIP(C.cocoa))} 0 0/36px 25px repeat-x,${C.foam} !important;padding-top:28px !important;border:none !important;border-radius:16px !important;margin:14px 16px 12px !important;box-shadow:0 3px 0 ${C.milk},0 6px 12px rgba(94,56,38,.1) !important}
+[data-wk="statevoice"]{background:${svg(DRIP(C.foam))} 0 0/36px 25px repeat-x,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;box-shadow:0 3px 0 #48291B !important}
+[data-wk="statevoice"]::before{content:"" !important;position:absolute !important;left:82px !important;top:24px !important;width:30px !important;height:10px !important;background:${svg(MALLOW)} center/contain no-repeat !important}
+[data-wk="stateseen"] *{color:${C.ink} !important}
+[data-wk="statevoice"] *{color:#fff !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:${C.cream} !important;border:1px solid ${C.milk} !important;border-radius:10px !important}
+[data-wk="statewear"] > span{background:transparent !important;border:1px solid ${C.milk} !important;border-radius:8px !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.pink} !important}
+[data-wk="statevoice"] + div > button{background:${C.foam} !important;color:${C.ink} !important;border:1px solid ${C.milk} !important;border-radius:999px !important}
+[data-wk="stateaff"]{background:${C.foam} !important;border-top:1px solid ${C.milk} !important;position:relative !important;display:block !important;padding:16px 120px 18px 20px !important;min-height:112px !important}
+[data-wk="stateaff"] *{color:${C.ink} !important}
+[data-wk="stateheart"]{position:absolute !important;right:18px !important;left:auto !important;top:50% !important;margin-top:-44px !important;width:92px !important;height:84px !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><rect width='10' height='10'/></svg>`)} !important}
+[data-wk="stateheart"] > div,[data-wk="stateheartknob"]{inset:0 !important;-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important;background-color:transparent !important;border:none !important}
+[data-wk="stateheart"] > div:not([data-wk]){display:none !important}
+[data-wk="stateheartfill"] > div{display:none !important}
+[data-wk="stateheartline"]{background:${svg(ST1)} center/contain no-repeat !important;opacity:calc(1 - clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1)) !important}
+[data-wk="stateheartbase"]{background:${svg(ST2)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1)) !important}
+[data-wk="stateheartfill"]{background:${svg(ST3)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important}
+[data-wk="stateheartknob"]{display:block !important;position:absolute !important;left:0 !important;bottom:0 !important;width:100% !important;height:100% !important;margin:0 !important;transform:none !important;background:${svg(ST4)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important}
+[data-wk="stateheartnum"]{position:absolute !important;inset:auto 0 -8px 0 !important;display:flex !important;justify-content:center !important;padding:0 !important;font:600 13px/1 system-ui,sans-serif !important;color:${C.cocoa} !important;-webkit-text-stroke:0 !important;text-shadow:0 0 3px #fff !important;z-index:3 !important}
+[data-wk="stateaffval"]{display:none !important}
+
+/* 翻旧的：奶白杯和可可杯交替，左上「第 N 杯」 */
+[data-wk="statehistbtn"]{background:${C.foam} !important;color:${C.ink} !important;border:1px solid ${C.milk} !important;border-radius:999px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.ink} !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1px solid ${C.pink} !important;border-radius:999px !important;background:transparent !important;color:#C77F86 !important}
+[data-wk="statehistlist"]{counter-reset:pg !important}
+[data-wk="statehistitem"]{counter-increment:pg !important;position:relative !important;background:${svg(DRIP(C.cocoa))} 0 0/36px 25px repeat-x,${C.foam} !important;border:none !important;border-radius:16px !important;padding:34px 18px 14px !important;margin:14px 0 !important;box-shadow:0 3px 0 ${C.milk},0 6px 12px rgba(94,56,38,.1) !important}
+[data-wk="statehistitem"]:nth-child(even){background:${svg(DRIP(C.foam))} 0 0/36px 25px repeat-x,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;box-shadow:0 3px 0 #48291B !important}
+[data-wk="statehistitem"] *{color:${C.ink} !important}
+[data-wk="statehistitem"]:nth-child(even) *{color:#fff !important}
+[data-wk="statehistitem"]::before{content:"第 " counter(pg) " 杯" !important;position:absolute !important;left:16px !important;top:3px !important;font-size:11px !important;color:#fff !important;letter-spacing:.12em !important}
+[data-wk="statehistitem"]:nth-child(even)::before{color:${C.cocoa} !important}
+[data-wk="statehistmood"]{background:transparent !important;border:1px solid currentColor !important;border-radius:999px !important;padding:0 6px !important}
+[data-wk="statehisttime"]{opacity:.6 !important}
+[data-wk="statehistmeta"]{background:rgba(122,78,54,.06) !important;border-radius:8px !important}
+[data-wk="statehistend"]{color:${C.fog} !important;letter-spacing:.3em !important}
+
+/* Ta 眼里：贴条换成一块粉棉花糖 */
+[data-wk="gazepage"]{background:${svg(DOTS)} 0 0/80px 80px,${C.bg} !important}
+[data-wk="gazetitle"]{color:${C.ink} !important}
+[data-wk="gazetab"]{background:${C.foam} !important;color:${C.fog} !important;border:1px solid ${C.milk} !important;border-radius:999px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:${C.cocoa} !important;color:#fff !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{position:relative !important;overflow:visible !important;background:${C.foam} !important;border:none !important;border-radius:16px !important;box-shadow:0 3px 0 ${C.milk},0 6px 12px rgba(94,56,38,.1) !important}
+[data-wk="gazetape"]{background:${C.pink} !important;width:22px !important;height:18px !important;border-radius:6px !important;box-shadow:0 0 0 1.5px #fff,0 2px 3px rgba(0,0,0,.15) !important;border:none !important}
+[data-wk="gazecardname"]{color:${C.cocoa} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#8A7466 !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:${svg(DRIP(C.cocoa))} 0 0/36px 25px repeat-x,${C.foam} !important;padding-top:28px !important;color:${C.ink} !important;border:none !important;border-radius:16px !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
+[data-wk="gazeempty"]{background:${C.foam} !important;color:${C.ink} !important;border:1px solid ${C.milk} !important;border-radius:16px !important}
+[data-wk="gazeempty"] *{color:${C.ink} !important}
+[data-wk="gazeempty"] button{background:${C.cocoa} !important;color:#fff !important;border:none !important;border-radius:999px !important}
+
+/* ───── 线下：奶油底；他奶白卡淌可可、我可可卡淌奶泡；说的话下面一道粉，心里话奶茶色斜体 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(DOTS)} 0 0/80px 80px,${C.bg} !important;background-color:${C.bg} !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"]{border-radius:0 0 18px 18px !important;margin-bottom:16px !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="headname"] > div:last-child{white-space:normal !important;line-height:1.35 !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *,[data-wk="offline"] [data-wk="chatback"] *{color:#fff !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:${C.pink} !important;color:${C.cocoa2} !important;border:none !important;border-radius:999px !important;font-size:12px !important;padding:3px 12px !important;flex-shrink:0 !important}
+[data-wk="offline"] [data-wk="chatmore"]{width:26px !important;min-width:26px !important;height:26px !important}
+[data-wk="offcomposer"]{background:${C.foam} !important;border:none !important;border-radius:20px 20px 0 0 !important;box-shadow:0 -3px 12px rgba(94,56,38,.1) !important}
+[data-wk="offcomposer"] textarea{background:#F3EBE2 !important;border:none !important;border-radius:16px !important;color:${C.ink} !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){width:36px !important;min-width:36px !important;height:36px !important;background:${svg(I_MUG)} center/contain no-repeat !important;${HIDE}}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:38px !important;min-width:38px !important;height:32px !important;${HIDE};background:${svg(I_SPOON)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcard"]{position:relative !important;overflow:hidden !important;background:${svg(DRIP(C.cocoa))} 0 0/36px 25px repeat-x,${C.foam} !important;padding-top:30px !important;border:none !important;border-radius:18px !important;box-shadow:0 3px 0 ${C.milk},0 6px 14px rgba(94,56,38,.12) !important}
+[data-wk="offcard"][data-me="1"]{background:${svg(DRIP(C.foam))} 0 0/36px 25px repeat-x,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;box-shadow:0 3px 0 #48291B,0 6px 14px rgba(94,56,38,.22) !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2.5px ${C.foam},0 0 0 4px ${C.cocoa} !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offhead"] img,[data-wk="offcard"][data-me="1"] [data-wk="offhead"] [data-wk="avatar"]{box-shadow:0 0 0 2.5px ${C.foam},0 0 0 4px ${C.pink} !important}
+[data-wk="offname"]{color:${C.cocoa} !important;font-weight:600 !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offname"]{color:${C.pink} !important}
+[data-wk="offtext"]{color:#5E4A3E !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offtext"]{color:#F3E6DC !important}
+[data-wk="offsay"]{color:${C.ink} !important;background:linear-gradient(transparent 62%,rgba(246,211,214,.7) 62%) !important;border:none !important;font-weight:600 !important;box-decoration-break:clone !important;-webkit-box-decoration-break:clone !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{color:#fff !important;background:linear-gradient(transparent 62%,rgba(246,211,214,.35) 62%) !important}
+[data-wk="offthought"]{background:transparent !important;border:none !important;color:#A8865F !important;font-style:italic !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offthought"]{color:#E8C9A4 !important}
+[data-wk="offcardacts"] svg{stroke:${C.fog} !important;color:${C.fog} !important}
+[data-wk="offreplyopt"]{background:${C.foam} !important;border:1px solid ${C.milk} !important;border-radius:12px !important;color:${C.ink} !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "棉花可可", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "棉花可可-美化.json"), JSON.stringify(pack));
