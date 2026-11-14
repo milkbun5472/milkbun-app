@@ -9586,7 +9586,7 @@ function Messages({
       onDelete: st => SK.remove(st.id), onReply: (st, tx, kind) => onStoryReply && onStoryReply(st, tx, kind) }) : null,
     // 她自己发：拼壁纸那个编辑器，从「自己摆」那张空纸开始；存下来就是一条
     stMake && SK && window.Collage ? h("div", { style: { position: "fixed", inset: 0, zIndex: 115, background: t.bg, overflowY: "auto" } },
-      h(window.Collage.CollageMaker, { partner: { id: "me", name: "我" }, photos: [], startTpl: "blank", onBack: () => setStMake(false),
+      h(window.Collage.CollageMaker, { partner: { id: "me", name: "我" }, photos: [], startTpl: "blank", story: true, onBack: () => setStMake(false),
         onSave: async r => { setStMake(false); setStPend({ blob: r.mine, desc: [].concat(r.words || [], r.texts || []).filter(Boolean).join(" / "), aud: [], stk: "", q: "", a: "", b: "", days: 3 }); } })) : null,
     // 发出去前（第二版）：只给谁看、加不加一个互动贴纸
     stPend && SK ? h(Sheet, { onClose: () => setStPend(null) },

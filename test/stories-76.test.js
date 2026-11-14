@@ -127,3 +127,9 @@ test("第四批：TA 回她的动态、时间贴纸、连发、月回顾", () =>
   assert.ok(st.includes('time: "🕐"') && app.includes("_chipVals.time"));
   assert.ok(app.includes("const _more =") && st.includes("async function recap"));
 });
+
+test("她发动态的编辑器不是壁纸那一套", () => {
+  const c = fs.readFileSync("js/collage.js", "utf8"), cp = fs.readFileSync("js/components.js", "utf8");
+  assert.ok(cp.includes('startTpl: "blank", story: true'));
+  assert.ok(c.includes('story ? "发一条限时动态"') && c.includes('story ? "下一步"') && c.includes("def.n > 0 ? h(\"div\", { style: { display: \"grid\""));
+});
