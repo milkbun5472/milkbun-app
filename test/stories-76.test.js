@@ -176,3 +176,9 @@ test("朋友圈：按面具看、换封面、每条的操作收进「··」（�
 test("朋友圈相机在顶栏、换封面小图标两处共用一份", () => { const c = fs.readFileSync("js/components.js", "utf8"); assert.ok(c.includes('tab === "moments" ? h("button", { "data-wk": "mocam"') && (c.match(/h\(MomentCoverPick, \{/g) || []).length === 2); });
 
 test("看完动态换回原来在放的那首", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("if (!storySongRef.current) roomMusicEnter(() => false, null);") && a.includes("await roomMusicLeave(() => String(playerSongIdRef.current) === sid);")); });
+
+test("朋友圈能带定位：她发时取「我在哪」那一份、TA 能写 momentPlace、模型看得到", () => {
+  const c = fs.readFileSync("js/components.js", "utf8"), a = fs.readFileSync("js/app.js", "utf8");
+  assert.ok(c.includes("function MomentLoc(") && (c.match(/h\(MomentLoc, \{/g) || []).length === 2 && c.includes("fetchLocalEnv()"));
+  assert.ok(a.includes("momentPlace:string=") && a.includes('"（定位：" + m.location'));
+});

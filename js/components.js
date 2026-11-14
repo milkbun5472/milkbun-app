@@ -10073,6 +10073,11 @@ function MomentActions({ m, open, setOpen, onLike, onComment, onPin, onTop, onDe
       style: { width: 30, height: 20, borderRadius: 4, background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", gap: 3 } },
       h("span", { style: { width: 4, height: 4, borderRadius: 999, background: t.tint || t.accent } }), h("span", { style: { width: 4, height: 4, borderRadius: 999, background: t.tint || t.accent } })));
 }
+// 朋友圈底下那行小字定位（她 2026-11-14）
+function MomentLoc({ place }) {
+  const t = useTheme();
+  return place ? h("div", { "data-wk": "moloc", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint || t.accent } }, "📍 " + place) : null;
+}
 // 朋友圈里分享的那首歌：一张小卡，点「听」用 App 的播放器真的放（她 2026-11-14）
 function MomentMusic({ music }) {
   const t = useTheme();
@@ -10110,6 +10115,10 @@ function MomentCompose({
   const [withPoll, setWithPoll] = useState(false);
   const [pollOpts, setPollOpts] = useState(["", ""]);
   // 分享音乐（她 2026-11-14）：正在听的那首一点就带上，或者搜一首
+  // 所在位置（她 2026-11-14）：点一下照「我在哪」那一份取（填过地方就用填的、选了架空世界就是那个世界的地名），取完还能自己改
+  const [withLoc, setWithLoc] = useState(false), [loc, setLoc] = useState(""), [locBusy, setLocBusy] = useState(false);
+  const pickLoc = async () => { if (withLoc) { setWithLoc(false); return; } setWithLoc(true); if (loc || typeof fetchLocalEnv !== "function") return; setLocBusy(true);
+    try { const env = await fetchLocalEnv(); if (env && env.location) setLoc(String(env.location)); } catch (e) {} finally { setLocBusy(false); } };
   const [withMusic, setWithMusic] = useState(false), [music, setMusic] = useState(null), [musicQ, setMusicQ] = useState(""), [musicBusy, setMusicBusy] = useState(false);
   const nowSong = withMusic && window.__storyNowSong ? window.__storyNowSong() : null;
   const findSong = async () => { const q = musicQ.trim(); if (!q || !window.__momentSongSearch) return; setMusicBusy(true);
@@ -10140,7 +10149,8 @@ function MomentCompose({
       remind: remind.length ? remind : null,
       poll: opts.length >= 2 ? { options: opts, votes: {} } : null,
       mask: mask || undefined,
-      music: withMusic && music ? music : null
+      music: withMusic && music ? music : null,
+      location: withLoc && loc.trim() ? loc.trim().slice(0, 40) : null
     });
     onClose();
   };
@@ -10194,6 +10204,8 @@ function MomentCompose({
     size: 14,
     color: withImg ? t.ink : t.fog
   }), withImg ? "已配图" : "配图"),
+    h("button", { "data-wk": "molocbtn", "data-on": withLoc ? "1" : "0", onClick: pickLoc, className: "px-3 py-1.5 active:opacity-70",
+      style: { borderRadius: 8, border: `1px solid ${withLoc ? t.ink : t.line}`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: withLoc ? t.ink : t.fog } }, "📍 所在位置"),
     window.__momentSongSearch ? h("button", { "data-wk": "momusicbtn", "data-on": withMusic ? "1" : "0", onClick: () => setWithMusic(v => !v), className: "px-3 py-1.5 active:opacity-70",
       style: { borderRadius: 8, border: `1px solid ${withMusic ? t.ink : t.line}`, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: withMusic ? t.ink : t.fog } }, music && withMusic ? "♪ 已带歌" : "♪ 分享音乐") : null,
     h("button", { "data-wk": "mopollbtn", "data-on": withPoll ? "1" : "0", onClick: () => setWithPoll(v => !v), className: "px-3 py-1.5 active:opacity-70",
@@ -10222,6 +10234,10 @@ function MomentCompose({
       border: `1px solid ${t.line}`
     }
   })),
+  withLoc && h("div", { "data-wk": "molocpick", className: "mb-2 flex items-center gap-2" },
+    h("span", null, "📍"),
+    h("input", { value: loc, onChange: e => setLoc(e.target.value), maxLength: 40, placeholder: locBusy ? "在找你在哪…" : "写个地方，比如「家楼下的咖啡店」", className: "flex-1 outline-none px-3 py-2 rounded-lg",
+      style: { fontFamily: F_BODY, fontSize: 16, background: t.bg, color: t.ink, border: `1px solid ${t.line}` } })),
   withMusic && h("div", { "data-wk": "momusicpick", className: "mb-2" },
     music ? h("div", { className: "flex items-center", style: { gap: 8, padding: "8px 10px", borderRadius: 10, background: t.bg, border: "1px solid " + t.line } },
         h("span", { style: { color: t.accent } }, "♪"),
@@ -10817,7 +10833,7 @@ function MomentsFeed({
         fontSize: "calc(12px * var(--app-fs, 1))",
         color: t.fog
       }
-    }, "[图片] 点开看描述"))), /*#__PURE__*/React.createElement("div", {
+    }, "[图片] 点开看描述"))), m.location && h(MomentLoc, { place: m.location }), /*#__PURE__*/React.createElement("div", {
       className: "flex items-center gap-4 mt-2"
     },/*#__PURE__*/React.createElement("span", {
       style: {
@@ -11061,6 +11077,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
     Array.isArray(m.images) && m.images.length > 1 ? h(MomentGrid, { refs: m.images }) : m.image ? (isImgRef(m.image)
       ? h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2.5 block active:opacity-80" }, h("img", { src: resolveImg(m.image), style: { maxWidth: 160, maxHeight: 160, borderRadius: 10, display: "block" } }))
       : h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2 flex items-center gap-2 px-3 py-2 active:opacity-70", style: { background: t.bg, borderRadius: 10, border: "1px solid " + t.line } }, h(PGlyph, { k: "album", size: 16, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "[图片] 点开看描述"))) : null,
+    m.location ? h(MomentLoc, { place: m.location }) : null,
     h("div", { className: "flex items-center gap-4 mt-2" },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, typeof timeAgoOn === "function" ? timeAgoOn(m.ts, m.mine ? null : m.characterId) : timeAgo(m.ts)),
       h("span", { className: "flex-1" }),
