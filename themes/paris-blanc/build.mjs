@@ -29,8 +29,11 @@ const STAMP = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 46'><path
 const PIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 30'><path d='M10 1 C5 1 2 5 2 9 C2 15 10 28 10 28 C10 28 18 15 18 9 C18 5 15 1 10 1Z' fill='${C.ink}'/><circle cx='10' cy='9' r='3' fill='${C.paper}'/></svg>`;
 const CARD = `background:#fff !important;border:none !important;border-radius:4px !important;box-shadow:0 0 0 .8px ${C.line},0 4px 14px rgba(30,29,27,.06) !important;color:${C.ink} !important`;
 
+// 好感：一封信上的一枚蜡封——底下是浅灰的空蜡印轮廓，上面那枚暗红蜡封按好感从小长到满
+const SEALBASE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 60'><rect x='4' y='8' width='72' height='46' rx='2' fill='#fff' stroke='${C.ink}' stroke-width='1'/><path d='M4 8 L40 34 L76 8' fill='none' stroke='${C.ink}' stroke-width='1'/><circle cx='40' cy='34' r='13' fill='none' stroke='${C.line}' stroke-width='1' stroke-dasharray='2 2'/></svg>`;
+const SEAL = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 60'><path d='M40 21 Q46 20 49 24 Q54 25 54 30 Q57 34 54 38 Q54 43 49 44 Q46 48 40 47 Q34 48 31 44 Q26 43 26 38 Q23 34 26 30 Q26 25 31 24 Q34 20 40 21Z' fill='#8C2A2A'/><circle cx='40' cy='34' r='8.5' fill='none' stroke='#B85050' stroke-width='1'/><text x='40' y='38.5' text-anchor='middle' font-size='11' font-style='italic' font-family='Georgia,serif' fill='#E8BDBD'>M</text></svg>`;
 const bubble = { myBg: C.grey, myText: C.ink, myBorder: "none", charBg: C.card, charText: C.ink, charBorder: "none", radius: 4, shadow: "none", myAlpha: 100, charAlpha: 100 };
-const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
+const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
 const css = `
 /* ───── 巴黎留白 · 第一批 ───── */
@@ -229,6 +232,60 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.ink} !important}
 [data-wk="callact"]{color:${C.sub} !important;font-style:italic !important}
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 5px ${C.paper},0 0 0 6px ${C.ink},0 0 0 12px ${C.paper},0 0 0 12.8px ${C.line} !important}
+/* ───── 巴黎留白 · 第三批：状态卡＝一张白信纸（横格、抬头日期线），好感是信上一枚蜡封 ───── */
+[data-wk="statecard"]{background:repeating-linear-gradient(180deg,transparent 0 31px,#EFEDE9 31px 32px) 0 120px/100% calc(100% - 120px) no-repeat,#fff !important;border:none !important;border-radius:3px !important;box-shadow:0 0 0 .8px ${C.line},0 20px 50px rgba(30,29,27,.12) !important}
+[data-wk="statecard"] *{font-family:${SERIF} !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:.8px solid ${C.ink} !important}
+[data-wk="statehead"] *{color:${C.ink} !important}
+[data-wk="statehead"] button{border:.8px solid ${C.ink} !important;background:transparent !important;border-radius:50% !important}
+[data-wk="statemood"]{display:inline-block !important;background:transparent !important;color:${C.ink} !important;border:none !important;border-bottom:.8px solid ${C.ink} !important;border-radius:0 !important;padding:0 2px !important;margin-right:6px !important;font-style:italic !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:transparent !important;border:none !important;border-bottom:.8px solid ${C.line} !important;border-radius:0 !important;padding:0 !important;margin:10px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:0 !important;font-style:italic !important;letter-spacing:.15em !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:transparent !important;color:${C.ink} !important;box-shadow:inset 0 -1.5px 0 ${C.ink} !important}
+/* 看得见的＝一张浅灰便条；心里想的＝信纸上一段斜体，« » 括起来 */
+[data-wk="stateseen"]{background:${C.grey} !important;border:none !important;border-radius:2px !important;margin:12px 16px !important;color:${C.ink} !important;box-shadow:none !important}
+[data-wk="statevoice"]{background:transparent !important;border:none !important;border-left:1px solid ${C.ink} !important;border-radius:0 !important;margin:14px 20px !important;color:${C.ink} !important;box-shadow:none !important;font-style:italic !important}
+[data-wk="stateseen"] *,[data-wk="statevoice"] *{color:${C.ink} !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:transparent !important;border:.8px solid ${C.line} !important;border-radius:2px !important}
+[data-wk="statewear"] > span{background:transparent !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.sub} !important;font-style:italic !important}
+[data-wk="statevoice"] + div > button{background:transparent !important;color:${C.ink} !important;border:.8px solid ${C.ink} !important;border-radius:2px !important;font-style:italic !important}
+/* 好感：一只信封，封口一枚暗红蜡封；好感多少蜡封就长多大（低分只是一圈虚线印子，满分整枚盖满） */
+[data-wk="stateaff"]{background:transparent !important;border-top:.8px solid ${C.ink} !important;display:flex !important;align-items:center !important;gap:16px !important;padding:14px 20px 16px !important}
+[data-wk="stateaff"] *{color:${C.ink} !important}
+[data-wk="stateheart"]{position:relative !important;width:80px !important;height:60px !important;flex:none !important;background:${svg(SEALBASE)} center/contain no-repeat !important}
+[data-wk="stateheart"] > div{display:none !important}
+[data-wk="stateheartknob"]{display:block !important;position:absolute !important;inset:0 !important;left:0 !important;bottom:0 !important;width:auto !important;height:auto !important;margin:0 !important;background:${svg(SEAL)} center/contain no-repeat !important;transform-origin:50% 56.6% !important;transform:scale(calc(.15 + var(--sc-heart-lvl) * .85)) rotate(calc(var(--sc-heart-lvl) * -12deg)) !important;opacity:calc(.35 + var(--sc-heart-lvl) * .65) !important}
+[data-wk="stateheartnum"]{display:none !important}
+[data-wk="stateaffval"]{display:inline-block !important;margin:0 0 6px !important;padding:0 4px !important;background:transparent !important;border-bottom:.8px solid ${C.ink} !important;color:${C.ink} !important;font:italic 400 18px/1.2 Georgia,serif !important}
+/* 翻旧的：一页页信纸，右下角签名 */
+[data-wk="statehistbtn"]{background:transparent !important;color:${C.ink} !important;border:.8px solid ${C.ink} !important;border-radius:2px !important;font-style:italic !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.sub} !important;font-style:italic !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:.8px solid ${C.ink} !important;border-radius:2px !important;color:${C.ink} !important;background:transparent !important}
+[data-wk="statehistitem"]{position:relative !important;background:repeating-linear-gradient(180deg,transparent 0 27px,#EFEDE9 27px 28px),${C.paper} !important;border:none !important;border-radius:2px !important;padding:16px 18px 26px !important;margin:0 0 14px !important;box-shadow:0 0 0 .8px ${C.line} !important}
+[data-wk="statehistitem"]::after{content:"— M." !important;position:absolute !important;right:14px !important;bottom:8px !important;font:italic 400 11px/1 Georgia,serif !important;color:${C.sub} !important}
+[data-wk="statehistitem"] *{color:${C.ink} !important}
+[data-wk="statehistmood"]{background:transparent !important;border:none !important;border-bottom:.8px solid ${C.ink} !important;color:${C.ink} !important;border-radius:0 !important;font-style:italic !important}
+[data-wk="statehisttime"]{color:${C.sub} !important;font-style:italic !important}
+[data-wk="statehistmeta"]{background:${C.grey} !important;border-radius:2px !important}
+[data-wk="statehistend"]{color:${C.sub} !important}
+/* Ta 眼里 */
+[data-wk="gazepage"]{background:${C.paper} !important}
+[data-wk="gazetitle"]{color:${C.ink} !important;font-style:italic !important;letter-spacing:.2em !important}
+[data-wk="gazetab"]{background:transparent !important;color:${C.fog} !important;border:none !important;border-bottom:.8px solid ${C.line} !important;border-radius:0 !important;clip-path:none !important;font-style:italic !important}
+[data-wk="gazetab"][data-on="1"]{color:${C.ink} !important;border-bottom:1.5px solid ${C.ink} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.sub} !important}
+[data-wk="gazecard"]{background:#fff !important;border:none !important;border-radius:3px !important;box-shadow:0 0 0 .8px ${C.line},0 4px 12px rgba(30,29,27,.05) !important}
+[data-wk="gazetape"]{background:${svg(STAMP)} center/16px 18px no-repeat !important;box-shadow:none !important;border:none !important;transform:rotate(6deg) !important;width:18px !important;height:20px !important}
+[data-wk="gazecardname"]{color:${C.ink} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:${C.sub} !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:#fff !important;border:none !important;border-radius:3px !important;box-shadow:0 0 0 .8px ${C.line} !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
+[data-wk="gazeempty"]{background:transparent !important;border:.8px dashed ${C.line} !important;border-radius:3px !important;color:${C.ink} !important}
+[data-wk="gazeempty"] button{background:${C.ink} !important;color:${C.paper} !important;border:none !important;border-radius:2px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "巴黎留白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
