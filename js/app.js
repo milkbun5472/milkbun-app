@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.537";
+const APP_VERSION = "v89.541";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12240,7 +12240,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 接了对局邀请 / 从聊天里点「打一把」：带着对手和彩头进邮票册的对局页
   const stampShopChat = async (charId,d) => {
     const char=liveChars.find(c=>c.id===charId);if(!char)throw Error("找不到这位角色。");if(!active)throw Error("先到设置配置API。");const uN=userName(meOf(char.id));
-    const cast=[...new Set([d.visitorId,d.staffId,...(d.staffIds||[])].filter(Boolean))].map(id=>liveChars.find(c=>c.id===id)).filter(Boolean).map(c=>{
+    const castChars=[...new Set([d.visitorId,d.staffId,...(d.staffIds||[])].filter(Boolean))].map(id=>liveChars.find(c=>c.id===id)).filter(Boolean);
+    // 在场几个人之间的关系（她 2026-11-13「设了学长学弟，寄信时像不认识」）：照论坛那份关系表，同一个口子
+    const relLinesShop=castChars.length>1&&typeof forumRelLines==="function"?forumRelLines(castChars,null):[];
+    const cast=castChars.map(c=>{
       // 每个人最近跟她聊天时说的几句，只拿来学口气（她 2026-11-09「没有参考最近聊天的口气」）
       const said=(chatsRef.current[c.id]||[]).filter(m=>m&&m.role==="assistant"&&!m.recalled&&!isOocMsg(m)&&contextAllowsMessage(m)&&typeof m.content==="string"&&m.content.trim()).slice(-6).map(m=>"- "+m.content.replace(/\s+/g," ").slice(0,140));
       return c.id+" · "+(c.remark||c.name)+"\n"+[c.persona,c.description,c.desc,c.personality].filter(Boolean).join("\n")+(said.length?"\n下面是"+(c.remark||c.name)+"最近跟"+userName(meOf(c.id))+"聊天时说话的样子，只照着学口气，聊天里的事别搬进店里：\n"+said.join("\n"):"");
@@ -12252,9 +12255,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               ? "今天上班的：" + (d.staff || "") + "。今天来过的客人：" + (d.customers || "没什么人") + "。今天收了 " + (d.coins || 0) + " 枚邮花。\n"
                 + (d.window ? "橱窗里摆着她抽到的这几张卡：" + d.window + "。\n" : "") + (d.missed ? "这是那天晚上的事：她那天忘了来打烊，是店里上班的这几个人自己把店关了，她不在场。\n" : "") + (d.badges ? "店员挂着当工牌的卡：" + d.badges + "。\n" : "")
                 + (d.pairs ? "老搭档：" + d.pairs + "。\n" : "") + (d.regulars ? "今天来的熟客：" + d.regulars + "。\n" : "")
-                + (d.missed ? "写那天晚上他们自己关店的一小段：" : "现在打烊了。写打烊时店里的一小段：") + "今天上班的这几个人各自怎么样、彼此说了什么、谁累了、谁跟谁拌了两句或者帮了一把、有没有给她留什么话或东西；橱窗里的卡、挂着的工牌是店里的样子，你心里有数就行；不用每张都提，真跟今天的事有关才写一笔，写到卡上的那一刻要照上面写的。每个人照各自的人设说话做事，你写的时候把他们都写进去，不只写你自己；写正在发生的这一段，有动作有对话，别写成总结。"
+                + (d.missed ? "写那天晚上他们自己关店的一小段：" : "现在打烊了。写打烊时店里的一小段：") + "从这家邮局本身出发去想：这几个人在这儿上了一整天班，她看不到的那些时候店里发生过什么——后门、库房、分拣台底下、客人走了以后、两个人单独守柜台的那一阵，谁偷偷做了什么、谁跟谁之间多了一点什么。上面给的客人、收入只是今天的底子，不用照着复述。挑其中一件当这一段的芯，写成打烊时被翻出来、提起来或者收尾的那一刻：有个起头，中间有一点转折，最后有个收尾。不用把今天的账和每个人的近况挨个交代；在场的人在这件事里各有各的反应就行，不用轮流发言。有没有给她留话、留东西，自然带到就好。橱窗里的卡、挂着的工牌是店里的样子，你心里有数就行；不用每张都提，真跟今天的事有关才写一笔，写到卡上的那一刻要照上面写的。每个人照各自的人设说话做事；写正在发生的这一段，有动作有对话，别写成总结。"
               : (d.visitor || "一位客人") + "今天来店里寄东西，正好碰上在" + (d.post || "柜台") + "上班的" + (d.staffName || "店员") + "。\n写他们俩在店里碰上的这一小段：只写你们两个之间的事，照两个人各自的人设和你们俩之间的关系，有对话，几段就够。")
             + "\n当场参与者的身份与完整人设：\n"+cast
+            + (relLinesShop.length?"\n【他们之间的关系——按这层关系说话，绝不当陌生人】\n"+relLinesShop.slice(0,12).join("\n"):"")
+            // 她 2026-11-14：认识的关系会怎么动、不认识的性格怎么碰、半熟或隔着共同认识的人又怎样——写成一句话，不给清单
+            + (castChars.length>1?"\n想这一段的时候从他们之间本来的样子出发：本来就认识的，这一天在店里会让那层关系往哪边挪一点；上面没写关系、人设里也没提到对方的，就当是在这家店里才碰上，看两个人的性子挤在一个柜台后面会磨出什么；只认识一点、或者是通过别人才知道对方的，那份半生不熟、那个没在场的人，本身就能成为故事。":"")
             + "\n这是一小段故事，不是对话记录：说话之间要有旁白，写动作、神情、手上在做的事和店里的样子，一般两三句话之间就有一段旁白；别写成一问一答的对话流水账。"   // 她 2026-11-11 同意
             + "\nlines 按正文顺序一段一项：某个人说的一段话是一项，旁白一段是一项；text 是原文，speakerId 是说话人的角色 id（只用上面参与者的 id），旁白留空。" + (close?"\nnotes 是今天上班的每个人下班前在柜台留给" + uN + "的一张便条，一人一张，今天上班的 " + (d.staffIds || []).length + " 个人每人都要有、一个不漏：speakerId 写这个人的角色 id（" + (d.staffIds || []).map(id => { const c = liveChars.find(x => x.id === id); return id + "＝" + (c ? (c.remark || c.name) : id); }).join("、") + "），text 是他自己写的一两句，照他的人设和写字的样子，写今天店里他记得的一件小事或想跟她说的话。":""),
           schemaHint: JSON.stringify({lines:[{speakerId:"角色id或空",text:"正文原文"}],...(close?{notes:[{speakerId:"角色id",text:"便条"}]}:{})}) });
