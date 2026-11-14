@@ -55,9 +55,10 @@
     return { tpl: "blank", bg, font, free, deco, words: [], picks: [] };
   }
   const blobToImg = b => new Promise(res => { const u = URL.createObjectURL(b), im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = u; });
-  async function renderCard(layout, photoBlob) {
+  async function renderCard(layout, photoBlob, bgBlob) {
     if (!window.Collage || !window.Collage.draw) throw new Error("排版部件还没载入");
     const imgs = {}; if (photoBlob) { const im = await blobToImg(photoBlob); if (im) imgs[0] = im; }
+    if (bgBlob) { const im = await blobToImg(bgBlob); if (im) imgs[layout.bg] = im; }
     const cv = document.createElement("canvas"); window.Collage.draw(cv, layout, imgs, "", {});
     return await new Promise(ok => cv.toBlob(b => ok(b), "image/jpeg", 0.88));
   }
@@ -133,11 +134,22 @@
   }
   async function addPhoto(id, photoBlob) {
     const s0 = all().find(x => x.id === id); if (!s0 || !photoBlob) throw new Error("这一条补不了图");
-    const card = s0.imgKey && typeof idbImgGet === "function" ? await idbImgGet(s0.imgKey) : null;
-    const img = card ? await overlayPhoto(card, photoBlob, s0.raw) : await renderCard(layoutFrom(s0.raw || {}, true), photoBlob);
+    // 竖版照片铺满整张卡当底，TA 排的字、贴纸照原位压在上面（字加一层阴影才看得清）；没有原稿的（她自己拼的那种）照旧像拍立得贴上去
+    //   照片本身另存一份（photoKey）：查看时能把字藏起来只看照片、也能单独存这张（她 2026-11-14）
+    let img;
+    if (s0.raw) {
+      const L = layoutFrom(s0.raw, false); L.bg = "img_collagebg_story";
+      L.free = (L.free || []).map(f => f.type === "text" && !f.tstyle ? Object.assign({}, f, { tstyle: "shadow", color: "#ffffff" }) : f);
+      img = await renderCard(L, null, photoBlob);
+    } else {
+      const card = s0.imgKey && typeof idbImgGet === "function" ? await idbImgGet(s0.imgKey) : null;
+      img = card ? await overlayPhoto(card, photoBlob, s0.raw) : await renderCard(layoutFrom({}, true), photoBlob);
+    }
+    const photoKey = "img_" + id + "_raw";
+    await idbImgPut(photoKey, photoBlob);
     const key = "img_" + id + "_p" + Date.now().toString(36);
     await idbImgPut(key, img);
-    patch(id, x => Object.assign({}, x, { imgKey: key, photo: true }));
+    patch(id, x => Object.assign({}, x, { imgKey: key, photo: true, photoKey }));
     if (s0.imgKey && typeof idbImgDel === "function") idbImgDel(s0.imgKey).catch(() => {});
   }
   // 去重：跟挂着的那几条说的是一回事，就不再发（她 2026-11-14「做一下去重」）
@@ -168,7 +180,7 @@
     const [ans, setAns] = React.useState(""), [hlName, setHlName] = React.useState(null), [, bump] = React.useState(0);
     // 自己往下翻（她 2026-11-14）：每条停 6 秒；按着屏幕中间、在打字、点开了看过的人／收精选时停住
     const DUR = 6000, holdT = React.useRef(0), holdLong = React.useRef(false);   // hook 都放在下面那个提前 return 之前
-    const [photoOpen, setPhotoOpen] = React.useState(false);   // 「这张图会画什么」默认收着（她 2026-11-14「生图描述可以收起」）
+    const [photoOpen, setPhotoOpen] = React.useState(false), [bare, setBare] = React.useState(false);   // bare＝把字藏起来只看照片   // 「这张图会画什么」默认收着（她 2026-11-14「生图描述可以收起」）
     const [held, setHeld] = React.useState(false), [typing, setTyping] = React.useState(false), [el, setEl] = React.useState(0), [genBusy, setGenBusy] = React.useState(false);
     const paused = held || typing || !!draft || !!ans || seenOpen || hlName != null || genBusy;
     React.useEffect(() => { setEl(0); }, [i]);
@@ -180,6 +192,7 @@
     }, [paused, i]);
     const s = (list || [])[i];
     const url = useBlobUrl(s && ((all().find(x => x.id === s.id) || s).imgKey));   // 补了图换了键，现读一次才跟得上
+    const rawUrl = useBlobUrl(s && (all().find(x => x.id === s.id) || s).photoKey);
     React.useEffect(() => { if (s && viewer && String(s.by) !== String(viewer)) markSeen(s.id, viewer); }, [s && s.id]);
     // 有歌的那一条：一打开就放，翻走、关掉就停（她 2026-11-14「听能不能自动播放然后放顶上做横幅」）
     React.useEffect(() => {
@@ -230,7 +243,7 @@
         cur.music && window.__storyPlay ? h("button", { "data-wk": "storymusic", onClick: () => window.__storyPlay(cur.music), className: "flex items-center", style: { gap: 6, marginTop: 6, maxWidth: "100%", padding: "4px 10px", borderRadius: 999, background: "rgba(0,0,0,.35)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
           h("span", null, "♪"), h("span", { className: "truncate" }, (cur.music.title || "这首歌") + (cur.music.artist ? " · " + cur.music.artist : ""))) : null),
       h("div", { style: { flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" } },
-        url ? h("img", { src: url, alt: s.text || "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain" } }) : h("div", { style: { color: "#aaa", fontFamily: F_BODY } }, "载入中…"),
+        url ? h("img", { src: bare && rawUrl ? rawUrl : url, alt: s.text || "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain" } }) : h("div", { style: { color: "#aaa", fontFamily: F_BODY } }, "载入中…"),
         // 左边三成点一下回上一条、右边点一下下一条；按住不放＝停在这一条（松手接着走）
         h("button", { "aria-label": "上一条", onClick: () => { if (!holdLong.current) go(-1); }, onPointerDown: () => holdStart(), onPointerUp: holdEnd, onPointerLeave: holdEnd, onPointerCancel: holdEnd, style: { position: "absolute", left: 0, top: 0, bottom: 0, width: "35%" } }),
         h("button", { "aria-label": "下一条", onClick: () => { if (!holdLong.current) go(1); }, onPointerDown: () => holdStart(), onPointerUp: holdEnd, onPointerLeave: holdEnd, onPointerCancel: holdEnd, style: { position: "absolute", right: 0, top: 0, bottom: 0, width: "65%" } }),
@@ -238,10 +251,14 @@
         cur.ghost ? h("div", { "data-wk": "storyghost", style: { position: "absolute", inset: 0, zIndex: 4, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.55)", color: "#eee", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", textAlign: "center", padding: 30, lineHeight: 1.7 } },
           (mine ? "你" : nameOf(s.by)) + " 把这条删了", h("br"), h("span", { style: { fontSize: "calc(12px * var(--app-fs, 1))", opacity: .8 } }, "删之前你已经看到了")) : null),
       // 这张图会画什么（她 2026-11-14）：TA 排卡时写好的，没配图的卡点「生图」就照这句补一张（自拍、随手拍的风景、手边的东西都行）
-      cur.photoDesc && !cur.photo ? h("div", { "data-wk": "storyphotoline", className: "flex items-center", style: { gap: 8, padding: "8px 12px 0", background: "rgba(0,0,0,.6)", color: "#ddd", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5 } },
+      (cur.photoDesc && !cur.photo) || cur.photoKey ? h("div", { "data-wk": "storyphotoline", className: "flex items-center", style: { gap: 8, padding: "8px 12px 0", background: "rgba(0,0,0,.6)", color: "#ddd", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5 } },
         h("button", { "data-wk": "storyphototoggle", onClick: () => setPhotoOpen(v => !v), className: "flex-1 min-w-0 text-left", style: { color: "#ddd", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: photoOpen ? "normal" : "nowrap" } },
           "📷 " + ({ self: "自拍", view: "随手拍的", thing: "手边的东西" }[cur.photoKind] || "照片") + (photoOpen ? "：" + cur.photoDesc + " ︿" : " · 这张图会画什么 ﹀")),
-        window.__storyGenPhoto ? h("button", { "data-wk": "storyphotogen", disabled: genBusy, onClick: async () => { setGenBusy(true); try { await window.__storyGenPhoto(cur); bump(x => x + 1); } finally { setGenBusy(false); } },
+        // 画好了：藏字只看照片、单独存这张
+        cur.photoKey ? h("button", { "data-wk": "storybare", onClick: () => setBare(v => !v), style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff" } }, bare ? "显示字" : "隐藏字") : null,
+        cur.photoKey && rawUrl ? h("button", { "data-wk": "storyphotosave", onClick: async () => { try { const b = await (await fetch(rawUrl)).blob(); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "照片.jpg"; a.click(); window.__toast && window.__toast("存好了"); } catch (e) {} },
+          style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff" } }, "存照片") : null,
+        !cur.photoKey && !cur.photo && window.__storyGenPhoto ? h("button", { "data-wk": "storyphotogen", disabled: genBusy, onClick: async () => { setGenBusy(true); try { await window.__storyGenPhoto(cur); bump(x => x + 1); } finally { setGenBusy(false); } },
           style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff", opacity: genBusy ? .5 : 1 } }, genBusy ? "画着…" : "生图") : null) : null,
       h("div", { style: { padding: "10px 12px calc(env(safe-area-inset-bottom, 0px) + 10px)", background: "rgba(0,0,0,.6)" } },
         archive ? h("div", { "data-wk": "storyhl", className: "flex items-center", style: { gap: 8, color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },

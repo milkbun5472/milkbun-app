@@ -29227,7 +29227,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const st = (statesRef.current || {})[char.id] || {};
     const prompt = self ? buildPhotoPrompt(char, desc, st, { kind: "self", me: photoMe(userName(profileFor(char.id)), char.id), closet: closetTextFor(char.id) })
       : buildScenePrompt(char, desc, kind === "thing" ? { body: false } : { forText: false });
-    const out = await generateSelfieImage(prompt, self && char.refPhoto ? [char.refPhoto] : null, {});
+    const out = await generateSelfieImage(prompt, self && char.refPhoto ? [char.refPhoto] : null, { size: "1024x1536" });
     if (!out || !out.blob) throw new Error("没画出来");
     return out.blob;
   };

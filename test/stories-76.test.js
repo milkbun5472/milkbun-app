@@ -114,3 +114,9 @@ test("歌能从中间一段开始放，她和 TA 都能挑", () => {
   assert.match(A, /const at = Math\.max\(0, Number\(m\.at\) \|\| 0\)/); assert.match(A, /at: Math\.max\(0, Math\.min\(600, Math\.round\(Number\(d\.songAt\) \|\| 0\)\)\)/);
   assert.match(C, /"data-wk": "storysongat"/);
 });
+
+test("生图竖版、可藏字、可单独存照片", () => {
+  const fs = require("fs"); const st = fs.readFileSync("js/stories.js", "utf8"), app = fs.readFileSync("js/app.js", "utf8");
+  assert.ok(/size: "1024x1536"/.test(app));
+  assert.ok(st.includes("photoKey") && st.includes('"storybare"') && st.includes('"storyphotosave"'));
+});
