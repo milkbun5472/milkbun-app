@@ -143,3 +143,5 @@ test("按住只看图", () => { const st = fs.readFileSync("js/stories.js", "utf
 test("论坛楼中楼回复匿名标签用的是 post", () => { const s = fs.readFileSync("js/screens-ui.js", "utf8"); assert.ok(!s.includes("(p.anon || cm.anon || r.anon)")); });
 
 test("互动贴纸不被底下那块压住", () => { const st = fs.readFileSync("js/stories.js", "utf8"); assert.ok(st.includes('top: "52%", transform: "translateY(-50%)", zIndex: 6,')); });
+
+test("顶上一截让给头像名字", () => { const st = fs.readFileSync("js/stories.js", "utf8"); assert.ok(st.includes("num(tx.y, 0.2,") && st.includes("num(c.y, 0.2,") && st.includes('className: "truncate", style: { fontWeight: 600')); });
