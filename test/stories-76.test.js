@@ -16,7 +16,7 @@ test("接线：聊天回复里的 story、开关跟着朋友圈、TA 看得到�
   assert.match(A, /const storyOnFor = id => \{ const s = settingsFor\(id\) \|\| \{\}; return s\.autoStory != null \? !!s\.autoStory : !!s\.autoMoment; \};/);
   assert.match(A, /story:string=顺手发一条限时动态/); assert.match(A, /if \(_st\) storyMake\(char, _st\);/);
   assert.match(A, /storyLine: \(\(\) => \{/); assert.match(E, /if \(!ctx\.notRoleplay && ctx\.storyLine\) parts\.push\(ctx\.storyLine\);/);
-  assert.match(A, /onStoryReply: \(st, tx\) => \{/);
+  assert.match(A, /onStoryReply: \(st, tx, kind\) => \{/);
   assert.match(C, /storyRing\(c\.id, h\(Avatar/); assert.match(C, /startTpl: "blank"/); assert.match(C, /h\(window\.Stories\.StoryArchive/);
   assert.match(C, /settings\.autoStory != null \? !!settings\.autoStory : !!settings\.autoMoment/);
   assert.match(I, /<script src="js\/stories\.js\?v=/);
@@ -38,4 +38,16 @@ test("朋友圈里头像带框、点头像看动态、点名字进主页", () =>
   assert.match(C, /onClick: \(\) => \{ const act = mfAct\(c\.id\); if \(act\.length\) setMfStory\(act\); else onOpenProfile\(c\.id\); \}/);
   assert.match(C, /role: "button", onClick: \(\) => onOpenProfile\(c\.id\)/);
   assert.match(C, /MomentsFeed, \{ onStoryReply,/);
+});
+test("第二版：贴纸、只给谁看、精选", () => {
+  const S = window.Stories;
+  assert.equal(S.normSticker({ type: "poll", q: "吃啥", opts: ["火锅"] }), null);
+  assert.deepStrictEqual(S.normSticker({ type: "poll", q: "吃啥", opts: ["火锅", "烤肉"] }).opts, ["火锅", "烤肉"]);
+  assert.ok(S.normSticker({ type: "countdown", q: "见面", days: 3 }).at > Date.now());
+  assert.equal(S.visibleTo({ by: "me", audience: ["a"] }, "b"), false); assert.equal(S.visibleTo({ by: "me", audience: ["a"] }, "a"), true);
+  assert.equal(S.visibleTo({ by: "c1" }, "b"), true);
+  const A = R("app.js"), C = R("components.js");
+  assert.match(A, /storyVote:string=投她限时动态上那个投票/); assert.match(A, /window\.Stories\.vote\(_p\.id, charId, _k\)/);
+  assert.match(A, /SK\.activeFor\("me", char\.id\)/); assert.match(A, /sticker: d && d\.sticker,/);
+  assert.match(C, /"data-wk": "storypost"/); assert.match(C, /h\(window\.Stories\.StoryHighlights/);
 });

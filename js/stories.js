@@ -40,16 +40,38 @@
     return await new Promise(ok => cv.toBlob(b => ok(b), "image/jpeg", 0.88));
   }
   // 存一条。blob 有了就直接存（她在拼壁纸编辑器里存的），没有就照 layout 画
-  async function add({ by, layout, photoBlob, blob, text, desc, manual }) {
+  async function add({ by, layout, photoBlob, blob, text, desc, manual, sticker, audience }) {
     const id = "st_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const img = blob || await renderCard(layout, photoBlob);
     if (!img || !img.size) throw new Error("卡没画出来");
     const imgKey = "img_" + id;
     await idbImgPut(imgKey, img);
-    const row = { id, by: String(by), ts: Date.now(), imgKey, text: String(text || "").slice(0, 200), desc: String(desc || "").slice(0, 400), seen: {}, replies: [], ...(manual ? { manual: true } : {}) };
+    const row = { id, by: String(by), ts: Date.now(), imgKey, text: String(text || "").slice(0, 200), desc: String(desc || "").slice(0, 400), seen: {}, replies: [], ...(manual ? { manual: true } : {}),
+      ...(normSticker(sticker) ? { sticker: normSticker(sticker) } : {}), ...(Array.isArray(audience) && audience.length ? { audience: audience.map(String) } : {}) };
     save(all().concat([row]));
     return row;
   }
+  // ── 第二版（她 2026-11-14「还没做完的继续做」）：互动贴纸、只给谁看、精选 ─────────────
+  // 贴纸不画进图里，是叠在卡上的一层，点得动：ask 提问框（q）／poll 投票（q＋两个选项）／countdown 倒计时（q＋到哪天）
+  function normSticker(st) {
+    if (!st || typeof st !== "object") return null;
+    const type = ["ask", "poll", "countdown"].indexOf(st.type) >= 0 ? st.type : "";
+    const q = String(st.q || "").trim().slice(0, 40);
+    if (!type || !q) return null;
+    if (type === "poll") { const opts = (Array.isArray(st.opts) ? st.opts : []).map(x => String(x || "").trim().slice(0, 16)).filter(Boolean).slice(0, 2); if (opts.length < 2) return null; return { type, q, opts, votes: st.votes || {} }; }
+    if (type === "countdown") { const at = Number(st.at) || (Date.now() + Math.max(1, Math.min(365, Number(st.days) || 1)) * DAY); return { type, q, at }; }
+    return { type, q, answers: Array.isArray(st.answers) ? st.answers : [] };
+  }
+  // 她发的那条只给哪几个人看（audience 空＝谁都看得到）；角色发的都公开
+  const visibleTo = (s, viewer) => !(s.by === "me" && Array.isArray(s.audience) && s.audience.length) || s.audience.indexOf(String(viewer)) >= 0;
+  const activeFor = (by, viewer) => activeOf(by).filter(s => visibleTo(s, viewer));
+  const vote = (id, who, k) => patch(id, s => s.sticker && s.sticker.type === "poll" ? Object.assign({}, s, { sticker: Object.assign({}, s.sticker, { votes: Object.assign({}, s.sticker.votes || {}, { [who]: k }) }) }) : s);
+  const answer = (id, who, text) => patch(id, s => s.sticker && s.sticker.type === "ask" ? Object.assign({}, s, { sticker: Object.assign({}, s.sticker, { answers: (s.sticker.answers || []).concat([{ who, text: String(text || "").slice(0, 200), ts: Date.now() }]).slice(-30) }) }) : s);
+  const daysLeft = at => Math.ceil((Number(at) - Date.now()) / DAY);
+  const stickerLine = st => !st ? "" : st.type === "ask" ? "贴着一个提问框「" + st.q + "」" : st.type === "poll" ? "贴着一个投票「" + st.q + "」：" + st.opts.join(" / ") : "贴着倒计时「" + st.q + "」" + (daysLeft(st.at) > 0 ? "，还有 " + daysLeft(st.at) + " 天" : "，已经到了");
+  // 精选：过期的挑几条收成一组，起个名，挂在朋友圈主页顶上
+  const setHl = (id, name) => patch(id, s => Object.assign({}, s, { hl: String(name || "").trim().slice(0, 12) || undefined }));
+  const hlOf = by => { const m = new Map(); all().filter(s => String(s.by) === String(by) && s.hl).sort((a, b) => a.ts - b.ts).forEach(s => { if (!m.has(s.hl)) m.set(s.hl, []); m.get(s.hl).push(s); }); return [...m.entries()]; };
   const addReply = (id, who, text) => patch(id, s => Object.assign({}, s, { replies: (s.replies || []).concat([{ who, text: String(text || "").slice(0, 300), ts: Date.now() }]).slice(-30) }));
 
   // ── 全屏看：顶上一排进度条，点左右翻，底下回一句 ──────────────────────
@@ -63,11 +85,28 @@
     const h = React.createElement;
     const [i, setI] = React.useState(Math.max(0, Math.min((list || []).length - 1, start || 0)));
     const [draft, setDraft] = React.useState(""), [seenOpen, setSeenOpen] = React.useState(false);
+    const [ans, setAns] = React.useState(""), [hlName, setHlName] = React.useState(null), [, bump] = React.useState(0);
     const s = (list || [])[i];
     const url = useBlobUrl(s && s.imgKey);
     React.useEffect(() => { if (s && viewer && String(s.by) !== String(viewer)) markSeen(s.id, viewer); }, [s && s.id]);
     if (!s) return null;
     const mine = String(s.by) === String(viewer);
+    const cur = all().find(x => x.id === s.id) || s, st = cur.sticker;   // 投票、回答是刚写进去的，现读一次
+    const card = { position: "absolute", left: "12%", right: "12%", bottom: "16%", zIndex: 3, padding: "12px 14px", borderRadius: 16, background: "rgba(255,255,255,.92)", color: "#222", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", textAlign: "center", boxShadow: "0 6px 18px rgba(0,0,0,.25)" };
+    const stickerUI = !st ? null : h("div", { "data-wk": "storysticker", "data-kind": st.type, style: card },
+      h("div", { style: { fontWeight: 600, marginBottom: 8 } }, st.q),
+      st.type === "poll" ? h("div", { className: "flex", style: { gap: 8 } }, st.opts.map((o, k) => {
+        const vs = Object.values(st.votes || {}), n = vs.filter(v => v === k).length, picked = (st.votes || {})[viewer] === k, voted = (st.votes || {})[viewer] != null || mine;
+        return h("button", { key: k, disabled: mine || archive, onClick: () => { vote(s.id, viewer, k); bump(x => x + 1); },
+          style: { flex: 1, padding: "8px 6px", borderRadius: 10, border: "1.5px solid " + (picked ? "#e85d75" : "#ccc"), background: picked ? "#fde8ec" : "#fff" } },
+          o, voted ? h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#888", marginTop: 2 } }, n + " 票" + (mine && n ? "：" + Object.keys(st.votes).filter(w => st.votes[w] === k).map(nameOf).join("、") : "")) : null);
+      })) : null,
+      st.type === "countdown" ? h("div", { style: { fontSize: "calc(22px * var(--app-fs, 1))", fontWeight: 700 } }, daysLeft(st.at) > 0 ? "还有 " + daysLeft(st.at) + " 天" : "就是今天") : null,
+      st.type === "ask" ? (mine || archive
+        ? h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: "#555", textAlign: "left", lineHeight: 1.6 } }, (st.answers || []).length ? st.answers.map((a, k) => h("div", { key: k }, nameOf(a.who) + "：" + a.text)) : "还没人回答")
+        : h("div", { className: "flex", style: { gap: 6 } },
+            h("input", { "data-wk": "storyask", value: ans, onChange: e => setAns(e.target.value), placeholder: "回答…", style: { flex: 1, minWidth: 0, minHeight: 36, padding: "0 10px", borderRadius: 9, border: "1px solid #ccc", fontSize: 16 } }),
+            h("button", { onClick: () => { const tx = ans.trim(); if (!tx) return; answer(s.id, viewer, tx); onReply && onReply(s, tx, "ask"); setAns(""); onClose(); }, style: { padding: "0 10px", color: "#e85d75" } }, "回答"))) : null);
     const go = d => { const n = i + d; if (n < 0) return; if (n >= list.length) { onClose(); return; } setI(n); setSeenOpen(false); };
     const seen = Object.entries(s.seen || {}).sort((a, b) => b[1] - a[1]);
     const send = () => { const tx = draft.trim(); if (!tx) return; onReply && onReply(s, tx); setDraft(""); onClose(); };
@@ -85,9 +124,15 @@
       h("div", { style: { flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" } },
         url ? h("img", { src: url, alt: s.text || "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain" } }) : h("div", { style: { color: "#aaa", fontFamily: F_BODY } }, "载入中…"),
         h("button", { "aria-label": "上一条", onClick: () => go(-1), style: { position: "absolute", left: 0, top: 0, bottom: 0, width: "35%" } }),
-        h("button", { "aria-label": "下一条", onClick: () => go(1), style: { position: "absolute", right: 0, top: 0, bottom: 0, width: "65%" } })),
+        h("button", { "aria-label": "下一条", onClick: () => go(1), style: { position: "absolute", right: 0, top: 0, bottom: 0, width: "65%" } }),
+        stickerUI),
       h("div", { style: { padding: "10px 12px calc(env(safe-area-inset-bottom, 0px) + 10px)", background: "rgba(0,0,0,.6)" } },
-        mine ? h("div", null,
+        archive ? h("div", { "data-wk": "storyhl", className: "flex items-center", style: { gap: 8, color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
+          hlName == null
+            ? h("button", { onClick: () => setHlName(cur.hl || ""), style: { color: "#fff", opacity: .9 } }, cur.hl ? "在精选「" + cur.hl + "」里 · 改" : "收进精选")
+            : [h("input", { key: "i", value: hlName, maxLength: 12, onChange: e => setHlName(e.target.value), placeholder: "精选叫什么（空着＝拿出来）", style: { flex: 1, minWidth: 0, minHeight: 36, padding: "0 10px", borderRadius: 9, border: "1px solid rgba(255,255,255,.5)", background: "transparent", color: "#fff", fontSize: 16 } }),
+               h("button", { key: "b", onClick: () => { setHl(s.id, hlName); setHlName(null); bump(x => x + 1); }, style: { color: "#fff" } }, "好")])
+        : mine ? h("div", null,
           h("button", { "data-wk": "storyseen", onClick: () => setSeenOpen(v => !v), style: { color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", opacity: .85 } }, seen.length ? "看过的 " + seen.length + " 人 ›" : "还没人看过"),
           seenOpen ? h("div", { style: { marginTop: 6, color: "#ddd", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.8 } },
             seen.map(([who, ts]) => h("div", { key: who }, nameOf(who) + " · " + ago(ts))),
@@ -109,5 +154,17 @@
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "0 2px 6px" } }, (title || "过往限时动态") + " · " + past.length),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 } }, past.slice(0, 60).map((s, k) => h(Cell, { key: s.id, s, k }))));
   }
-  window.Stories = { KEY, DAY, all, live, activeOf, pastOf, unseenBy, markSeen, remove, layoutFrom, renderCard, add, addReply, StoryViewer, StoryArchive };
+  // 精选那一排：一组一个圆，点开照样全屏翻（朋友圈主页顶上）
+  function StoryHighlights({ by, onOpen }) {
+    const h = React.createElement, t = typeof useTheme === "function" ? useTheme() : {};
+    const [, tick] = React.useState(0);
+    React.useEffect(() => { const f = () => tick(x => x + 1); window.addEventListener("lisa-stories", f); return () => window.removeEventListener("lisa-stories", f); }, []);
+    const groups = hlOf(by);
+    if (!groups.length) return null;
+    const Dot = ({ name, list }) => { const u = useBlobUrl(list[0].imgKey); return h("button", { onClick: () => onOpen(list, 0), className: "active:opacity-70", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0, width: 62 } },
+      h("span", { style: { width: 56, height: 56, borderRadius: 999, border: "2px solid " + (t.line || "#ddd"), background: (t.bg2 || "#eee") + (u ? " center/cover no-repeat url(" + u + ")" : "") } }),
+      h("span", { className: "truncate", style: { maxWidth: 62, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, name)); };
+    return h("div", { "data-wk": "storyhighlights", className: "flex", style: { gap: 10, overflowX: "auto", padding: "8px 0" } }, groups.map(([name, list]) => h(Dot, { key: name, name, list })));
+  }
+  window.Stories = { KEY, DAY, all, live, activeOf, activeFor, visibleTo, pastOf, unseenBy, markSeen, remove, layoutFrom, renderCard, add, addReply, vote, answer, setHl, hlOf, normSticker, stickerLine, daysLeft, StoryViewer, StoryArchive, StoryHighlights };
 })();

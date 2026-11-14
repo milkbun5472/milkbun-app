@@ -9498,7 +9498,7 @@ function Messages({
   // 聊天格子是白的（t.bg2），地是灰的（外壳 t.bg）——置顶的在白格上再压一层淡灰
   const rowBg = id => pinnedSet.has(id) ? "linear-gradient(rgba(0,0,0,0.035),rgba(0,0,0,0.035)) " + t.bg2 : t.bg2;
   // 限时动态（她 2026-11-14）：头像外一圈框——没看过的是彩色，看过了是灰的；点头像看，点这一行照常进聊天
-  const [stView, setStView] = useState(null), [stMake, setStMake] = useState(false), [stAsk, setStAsk] = useState(false), [, stTick] = useState(0);
+  const [stView, setStView] = useState(null), [stMake, setStMake] = useState(false), [stAsk, setStAsk] = useState(false), [stPend, setStPend] = useState(null), [, stTick] = useState(0);
   useEffect(() => { const f = () => stTick(x => x + 1); window.addEventListener("lisa-stories", f); return () => window.removeEventListener("lisa-stories", f); }, []);
   const SK = window.Stories;
   const storyRing = (id, kid) => {
@@ -9569,12 +9569,34 @@ function Messages({
           h(Avatar, { character: c, size: 46, radius: 10 }),
           h("span", { className: "truncate", style: { maxWidth: "100%", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, c.remark || c.name))))) : null,
     stView && SK ? h(SK.StoryViewer, { list: stView.list, start: 0, viewer: "me", nameOf: stName, onClose: () => setStView(null),
-      onDelete: st => SK.remove(st.id), onReply: (st, tx) => onStoryReply && onStoryReply(st, tx) }) : null,
+      onDelete: st => SK.remove(st.id), onReply: (st, tx, kind) => onStoryReply && onStoryReply(st, tx, kind) }) : null,
     // 她自己发：拼壁纸那个编辑器，从「自己摆」那张空纸开始；存下来就是一条
     stMake && SK && window.Collage ? h("div", { style: { position: "fixed", inset: 0, zIndex: 115, background: t.bg, overflowY: "auto" } },
       h(window.Collage.CollageMaker, { partner: { id: "me", name: "我" }, photos: [], startTpl: "blank", onBack: () => setStMake(false),
-        onSave: async r => { try { await SK.add({ by: "me", blob: r.mine, desc: [].concat(r.words || [], r.texts || []).filter(Boolean).join(" / ") }); setStMake(false); window.__toast && window.__toast("发出去了，挂 24 小时"); }
-          catch (e) { window.__toast && window.__toast("没发出去：" + ((e && e.message) || "")); } } })) : null,
+        onSave: async r => { setStMake(false); setStPend({ blob: r.mine, desc: [].concat(r.words || [], r.texts || []).filter(Boolean).join(" / "), aud: [], stk: "", q: "", a: "", b: "", days: 3 }); } })) : null,
+    // 发出去前（第二版）：只给谁看、加不加一个互动贴纸
+    stPend && SK ? h(Sheet, { onClose: () => setStPend(null) },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "发出去之前"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "10px 0 6px" } }, "谁看得到" + (stPend.aud.length ? "（只给勾上的 " + stPend.aud.length + " 个人；别人不知道有这一条）" : "（谁都看得到）")),
+      h("div", { "data-wk": "storyaud", className: "flex flex-wrap", style: { gap: 6 } },
+        (characters || []).filter(c => c && !c.npc).map(c => { const on = stPend.aud.indexOf(c.id) >= 0;
+          return h("button", { key: c.id, onClick: () => setStPend(p => Object.assign({}, p, { aud: on ? p.aud.filter(x => x !== c.id) : p.aud.concat([c.id]) })), style: { padding: "5px 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, c.remark || c.name); })),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "14px 0 6px" } }, "贴一个互动贴纸（叠在卡上，看的人点得动）"),
+      h("div", { "data-wk": "storystk", className: "flex flex-wrap", style: { gap: 6 } },
+        [["", "不贴"], ["ask", "提问框"], ["poll", "投票"], ["countdown", "倒计时"]].map(([k, zh]) => h("button", { key: k || "none", onClick: () => setStPend(p => Object.assign({}, p, { stk: k })), style: { padding: "5px 12px", borderRadius: 999, border: "1px solid " + (stPend.stk === k ? t.ink : t.line), background: stPend.stk === k ? t.ink : "transparent", color: stPend.stk === k ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, zh))),
+      stPend.stk ? h("input", { "data-wk": "input", value: stPend.q, maxLength: 40, onChange: e => setStPend(p => Object.assign({}, p, { q: e.target.value })), placeholder: stPend.stk === "ask" ? "问什么，比如：问我点什么吧" : stPend.stk === "poll" ? "投票的问题，比如：今晚吃什么" : "倒计时叫什么，比如：见面",
+        style: { width: "100%", marginTop: 8, minHeight: 38, padding: "0 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontSize: 16 } }) : null,
+      stPend.stk === "poll" ? h("div", { className: "flex", style: { gap: 6, marginTop: 6 } }, ["a", "b"].map(k => h("input", { key: k, "data-wk": "input", value: stPend[k], maxLength: 16, onChange: e => setStPend(p => Object.assign({}, p, { [k]: e.target.value })), placeholder: k === "a" ? "选项一" : "选项二",
+        style: { flex: 1, minWidth: 0, minHeight: 38, padding: "0 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontSize: 16 } }))) : null,
+      stPend.stk === "countdown" ? h("div", { className: "flex items-center", style: { gap: 8, marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "还有",
+        h("button", { onClick: () => setStPend(p => Object.assign({}, p, { days: Math.max(1, p.days - 1) })), style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + t.line } }, "−"), stPend.days,
+        h("button", { onClick: () => setStPend(p => Object.assign({}, p, { days: Math.min(365, p.days + 1) })), style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + t.line } }, "+"), "天") : null,
+      h("button", { "data-wk": "storypost", onClick: async () => {
+        const p0 = stPend, sticker = p0.stk ? { type: p0.stk, q: p0.q, opts: [p0.a, p0.b], days: p0.days } : null;
+        if (p0.stk && !SK.normSticker(sticker)) { window.__toast && window.__toast(p0.stk === "poll" ? "投票要写问题和两个选项" : "贴纸上写点字"); return; }
+        try { await SK.add({ by: "me", blob: p0.blob, desc: p0.desc, audience: p0.aud, sticker }); setStPend(null); window.__toast && window.__toast("发出去了，挂 24 小时"); }
+        catch (e) { window.__toast && window.__toast("没发出去：" + ((e && e.message) || "")); } }, className: "w-full active:opacity-80",
+        style: { marginTop: 16, minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "发出去")) : null,
     characters.length === 0 && groups.length === 0 && h(Empty, { text: "还没有对话", sub: "先去通讯录或人格档案馆录入角色" }),
     kw && shownItems.length === 0 && msgHits.length === 0 ? h(Empty, { text: "没搜到「" + q.trim() + "」", sub: "换个名字或关键词试试" }) : null,
     shownItems.map(it => it.type === "group" ? renderGroupRow(it) : renderCharRow(it)),
@@ -10540,7 +10562,7 @@ function MomentsFeed({
     style: { background: t.bg2 }
   }, mfStory && window.Stories ? h(window.Stories.StoryViewer, { list: mfStory, start: 0, viewer: "me", onClose: () => setMfStory(null),
       nameOf: by => by === "me" ? "我" : ((characters || []).find(x => x && String(x.id) === String(by)) || {}).name || "TA",
-      onReply: onStoryReply ? (st, tx) => onStoryReply(st, tx) : null }) : null,
+      onReply: onStoryReply ? (st, tx, kind) => onStoryReply(st, tx, kind) : null }) : null,
     delId && h(ConfirmDialog, { title: "删掉这条朋友圈？", body: "删掉后连同点赞评论一起没了。", confirmLabel: "删掉", danger: true, onConfirm: () => { onDelete(delId); setDelId(null); }, onCancel: () => setDelId(null) }), imgView && h(Sheet, {
     onClose: () => setImgView(null),
     tall: true
@@ -11022,6 +11044,7 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
     h("div", { "data-wk": "moprofile", "data-me": isMe ? "1" : undefined, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingTop: sign ? 0 : 44, overscrollBehavior: "contain" } },
       !isMe && h(MomMuteToggle, { id: character.id }),
       // 过往限时动态（她 2026-11-14）：过了 24 小时的收在这儿，三列小格，点开照样全屏翻
+      window.Stories ? h("div", { style: { padding: "0 14px" } }, h(window.Stories.StoryHighlights, { by: isMe ? "me" : character.id, onOpen: (list, k) => setStArch({ list, k }) })) : null,
       window.Stories ? h("div", { style: { padding: "0 14px" } }, h(window.Stories.StoryArchive, { by: isMe ? "me" : character.id, onOpen: (list, k) => setStArch({ list, k }) })) : null,
       stArch && window.Stories ? h(window.Stories.StoryViewer, { list: stArch.list, start: stArch.k, viewer: "me", archive: true, nameOf: by => by === "me" ? "我" : name, onClose: () => setStArch(null),
         onDelete: isMe ? st => window.Stories.remove(st.id) : null }) : null,
