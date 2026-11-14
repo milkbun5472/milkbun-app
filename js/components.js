@@ -11146,7 +11146,7 @@ function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter
     // 名牌，不是动态流里的第一条，翻上去就等于这一页没有主人了）。
     sign ? h("div", { className: "shrink-0", "data-wk": "mosign", style: { textAlign: "right", padding: "46px 18px 6px" } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: t.sub, lineHeight: 1.5 } }, "“" + sign + "”")) : null,
-    h("div", { "data-wk": "moprofile", "data-me": isMe ? "1" : undefined, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingTop: sign ? 0 : 44, overscrollBehavior: "contain" } },
+    h("div", { "data-wk": "moprofile", "data-me": isMe ? "1" : undefined, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingTop: sign ? 0 : 44, overscrollBehavior: "contain", overflowX: "hidden" } },   // 只许上下滑（她 2026-11-14「上下滑也会左右滑」）
       !isMe && h(MomMuteToggle, { id: character.id }),
       // 过往限时动态（她 2026-11-14）：过了 24 小时的收在这儿，三列小格，点开照样全屏翻
       window.Stories ? h("div", { style: { padding: "0 14px" } }, h(window.Stories.StoryHighlights, { by: isMe ? "me" : character.id, onOpen: (list, k) => setStArch({ list, k }) })) : null,

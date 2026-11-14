@@ -1322,6 +1322,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const selfFace = typeof chatFace === "function" ? chatFace(char) : char;
   const herAv = (char && char.myChatAvatar) || (profile && profile.avatarImage);
   const [tab, setTab] = useState("chats");
+  const [mReply, setMReply] = useState(null), [mText, setMText] = useState("");   // 用 TA 的名义回一条朋友圈：点开的是哪一条（她 2026-11-14）
   const [thread, setThread] = useState(null);
   // 她改TA通讯录里的备注（她 2026-10-07）：null＝没在改，字符串＝正在改的草稿
   const [remarkDraft, setRemarkDraft] = useState(null);
@@ -1649,7 +1650,13 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
         // 没人赞也没人评就不摆这块灰底（原来空着也画一条灰条）
         !arr(m.likes).length && !arr(m.comments).length ? null : h("div", { "data-wk": "block", style: { background: "#f3f3f3", borderRadius: 4, marginTop: 8, padding: "7px 9px" } },
           arr(m.likes).length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#526786", paddingBottom: arr(m.comments).length ? 5 : 0, borderBottom: arr(m.comments).length ? "1px solid #ddd" : "none" } }, "♡ " + arr(m.likes).join("、")) : null,
-          arr(m.comments).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: "calc(11.8px * var(--app-fs, 1))", lineHeight: 1.55, color: "#333", marginTop: 4 } }, h("b", { style: { color: "#526786" } }, x.from + "："), PTX(x.text))))));
+          arr(m.comments).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: "calc(11.8px * var(--app-fs, 1))", lineHeight: 1.55, color: "#333", marginTop: 4 } }, h("b", { style: { color: "#526786" } }, x.from + "："), PTX(x.text)))),
+        // 真发在她 App 里的那几条（m._id）能用 TA 的名义评论：落成 TA 本人写的一条评论，TA 下次说话知道自己手机被你拿去回过
+        m._id && !drive && window.__peekMomentComment ? (mReply === m._id
+          ? h("div", { "data-wk": "pmomreply", className: "flex items-center", style: { gap: 6, marginTop: 8 } },
+              h("input", { value: mText, onChange: e => setMText(e.target.value), autoFocus: true, placeholder: "用 " + ((char && char.name) || "TA") + " 的名义评论…", style: { flex: 1, minWidth: 0, padding: "7px 10px", borderRadius: 6, border: "1px solid #ddd", fontFamily: F_BODY, fontSize: 16, background: "#fff", color: "#222" } }),
+              h("button", { onClick: () => { const tx = mText.trim(); if (!tx) return; window.__peekMomentComment(char.id, m._id, tx); setMText(""); setMReply(null); }, style: { padding: "7px 12px", borderRadius: 6, background: "#07c160", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "发送"))
+          : h("button", { "data-wk": "pmomreplybtn", onClick: () => { setMReply(m._id); setMText(""); }, style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#526786" } }, "评论")) : null));
     body = h("div", { style: { background: "#fff" } },
       h("div", { style: { height: 140, background: "linear-gradient(135deg,#4d6655,#c6c2ad)", position: "relative", marginBottom: 34 } }, h("div", { style: { position: "absolute", right: 18, bottom: -28, display: "flex", alignItems: "center", gap: 10 } }, h("span", { style: { color: "#fff", fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", textShadow: "0 1px 3px #000" } }, d.me && d.me.wechatName || char.name), h(Avatar, { character: selfFace, size: 60, radius: 7 }))),
       // 真发过的那几条（TA自己和关系网上的人）跟推演出来的混在一起，按时间新的在上（她 2026-10-21：「按实际顺序，推演的按推演时间穿插」）；

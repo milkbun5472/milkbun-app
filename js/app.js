@@ -21275,7 +21275,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 真角色（不是配角）的朋友圈只认真发的：推演那一路不许替他们编（她 2026-10-21：「跟他的聊天一样」）。配角不在她那边发朋友圈，照旧推演
     const realNames = [...ids].map(id => (characters || []).find(x => x && String(x.id) === id)).filter(o => o && (!o.npc || o.npcMoments)).flatMap(o => [o.name, o.remark].filter(Boolean));
     const out = (momentsRef.current || []).filter(m => m && m.characterId && ids.has(String(m.characterId)) && String(m.content || "").trim()).slice(0, 12).map(m => ({
-      author: nameOf(m.characterId), content: String(m.content || ""), _ts: Number(m.ts) || null, time: "", _real: true,
+      author: nameOf(m.characterId), content: String(m.content || ""), _ts: Number(m.ts) || null, time: "", _real: true, _id: m.id,
       // 他自己发的那条：底下赞的、评的都是他的好友（配角、同事这些也是），全抄上（她 2026-11-14「那轮的回复也没抄上去」）；
       //   别人发的那条只留他也认识的（共同好友才看得见），跟微信一样
       likes: [...(m.likers || []).filter(n => String(m.characterId) === String(char.id) || known.has(n)), ...(m.liked ? [meName] : [])],
@@ -21284,6 +21284,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     out.realAuthors = realNames;
     out.relNames = relatedNames(char);   // 通讯录兜底用：关系网上的人都是TA认识的
     return out;
+  };
+  // 查 TA 手机时用 TA 的名义评论一条朋友圈（她 2026-11-14）：评论落在那条真朋友圈底下、署 TA 的名字；
+  //   TA 那边记一笔，下次说话知道是她拿着自己的手机回的（跟翻手机时替 TA 发消息同一个口径）
+  if (typeof window !== "undefined") window.__peekMomentComment = (cid, mid, text) => {
+    const c = (characters || []).find(x => x && x.id === cid); if (!c || !text) return;
+    const m0 = (momentsRef.current || []).find(x => x && x.id === mid); if (!m0) return;
+    pMom(p => p.map(x => x.id === mid ? { ...x, comments: [...(x.comments || []), { author: c.name, text: String(text).slice(0, 200), ts: Date.now(), byPeek: true }] } : x));
+    const whose = m0.mine ? "她自己" : ((((characters || []).find(x => x && x.id === m0.characterId) || {}).name) || "某人");
+    pChat(cid, p => [...p, { role: "system", kind: "system", content: "你拿着 " + c.name + " 的手机，用 TA 的名义在" + (m0.mine ? "你自己" : "「" + whose + "」") + "那条朋友圈底下评论了：「" + String(text).slice(0, 60) + "」", ts: Date.now() }]);
+    toast("评论好了，署的是 " + (c.remark || c.name));
   };
   if (typeof window !== "undefined") window.__phoneRealMomentAuthors = char => (phoneMomentsActual(char).realAuthors || []);
   const phoneWechatActual = char => {
