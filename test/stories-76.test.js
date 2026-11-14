@@ -96,3 +96,8 @@ test("动态上的歌真的能听", () => {
   assert.match(A, /window\.__storyPlay = m => \{[^\n]*playSong\(/); assert.match(A, /music: _music,/);
   assert.match(C, /"data-wk": "storywithsong"/);
 });
+test("没一起听也能挂歌：TA 点名一首，去云村搜到才挂；搜歌跟唱片共用一份", () => {
+  const A = R("app.js");
+  assert.match(A, /const searchSong = async query =>/); assert.match(A, /const song = Object\.assign\(songFromSearch\(sr\), \{ by: "me"/);
+  assert.match(A, /if \(!_song && d && d\.song\) \{ const sg = await searchSong\(/);
+});

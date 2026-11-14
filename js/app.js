@@ -29291,10 +29291,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 信息小贴纸（第三版，她 2026-11-14「他可以选带什么放哪儿」）：位置、天气、心情、正在听，带不带、放哪由 TA 定，内容 App 照现成的填
           + "chips 是可选的信息小贴纸，想带哪几样就写哪几样（0 到 3 个）：type 是 location 位置、weather 天气、mood 心情、music 正在听，x y 是放在卡上哪儿（0 到 1）"
             + (_chipVals.weather ? "" : "；带 weather 的话 text 写此刻你那边的天气（几个字）") + "。现成能填的：" + (Object.keys(_chipVals).map(k => ({ location: "位置", weather: "天气", mood: "心情", music: "正在听" })[k] + "「" + _chipVals[k] + "」").join("、") || "暂时没有") + "。"
+          + (!_song && musicReady ? "想给这条配一首歌就写 song（「歌名 歌手」，要是真有的歌），会挂在卡底下，看的人点了能听；同时可以在 chips 里放一个 music 小贴纸。" : "")
           + "regret 是你发完会不会后悔删掉：不会就写 0；会的话写过几分钟删（3 到 60）。"
           + (_night ? "现在是深夜，这条是半夜发的，卡会是夜色的底。" : "")
           + "字是你会发出去的那几句，不是解说。想的话可以加一个互动贴纸 sticker（不加就不写这一格）：提问框 {\"type\":\"ask\",\"q\":\"问她什么\"}、投票 {\"type\":\"poll\",\"q\":\"问题\",\"opts\":[\"选项一\",\"选项二\"]}、倒计时 {\"type\":\"countdown\",\"q\":\"倒数什么\",\"days\":几天后}。",
-        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + ",\"photo\":\"照片拍的是什么\",\"photoKind\":\"self|view|thing\",\"photoY\":0.45" + ",\"chips\":[{\"type\":\"location|weather|mood|music\",\"x\":0.2,\"y\":0.1}],\"regret\":0" + ",\"who\":\"all|me" + (related.length ? "|close\",\"closeNames\":[\"名字\"]" : "\"") + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
+        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + ",\"photo\":\"照片拍的是什么\",\"photoKind\":\"self|view|thing\",\"photoY\":0.45" + (!_song && musicReady ? ",\"song\":\"歌名 歌手\"" : "") + ",\"chips\":[{\"type\":\"location|weather|mood|music\",\"x\":0.2,\"y\":0.1}],\"regret\":0" + ",\"who\":\"all|me" + (related.length ? "|close\",\"closeNames\":[\"名字\"]" : "\"") + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
         maxTokens: 8000
       });
       let photoBlob = null;
@@ -29309,11 +29310,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _close = _who === "close" ? related.filter(c => ((d && d.closeNames) || []).some(n => n === c.name || n === c.remark)).map(c => c.id) : [];
       const _aud = _who === "me" ? ["me"] : _who === "close" && _close.length ? ["me"].concat(_close) : null;
       if (d && Array.isArray(d.crowd) && _aud) d.crowd = d.crowd.filter(x => { const c = related.find(r => x && (r.name === x.name || r.remark === x.name)); return c && _aud.indexOf(c.id) >= 0; });
+      // 没跟她一起听也能挂歌（她 2026-11-14）：TA 点名的那首去云村搜，搜到才挂，搜不到就当没写
+      if (!_song && d && d.song) { const sg = await searchSong(String(d.song).slice(0, 40)); if (sg) { _song = sg; _chipVals.music = String(sg.title || "").slice(0, 20); } }
       // 深夜换夜色底；信息小贴纸按 TA 挑的位置排进卡里
       if (d && _night) d.bg = "night";
       if (d) d.chips = ((d.chips || []).slice(0, 3)).map(c0 => { const tp = ["location", "weather", "mood", "music"].indexOf(c0 && c0.type) >= 0 ? c0.type : ""; const v = tp && (_chipVals[tp] || (tp === "weather" ? String(c0.text || "").slice(0, 12) : "")); return v ? { type: tp, text: v, x: c0.x, y: c0.y } : null; }).filter(Boolean);
       const _regret = d && Number(d.regret) >= 3 ? Math.min(60, Number(d.regret)) : 0;
-      const _music = _song && d && (d.chips || []).some(c0 => c0.type === "music") ? { id: _song.id, title: _song.title || "", artist: _song.artist || "", song: _song } : null;
+      const _music = _song && d && (d.song || (d.chips || []).some(c0 => c0.type === "music")) ? { id: _song.id, title: _song.title || "", artist: _song.artist || "", song: _song } : null;
       const _row = await window.Stories.add({ by: char.id, manual: !!manual, music: _music, sticker: d && d.sticker, audience: _aud, night: _night, deleteAt: _regret ? Date.now() + _regret * 60000 : 0, raw: d || null, photoDesc: d && d.photo, photoKind: d && d.photoKind, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea || "…" }] }, !!photoBlob), photoBlob,
         text: idea || texts.join(" "), desc: texts.join(" / ") + (photoBlob && d.photo ? "（配了一张照片：" + String(d.photo).slice(0, 80) + "）" : "") });
       // 那几个人的反应落到这一条上：名字对得上关系线里的人才算，不认识的名字不收
@@ -31913,13 +31916,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const saveCoupleDisc = fn => setCoupleDisc(prev => { const n = fn(coupleDiscRef.current || prev); coupleDiscRef.current = n; saveJSON("x_coupleDisc", n); return n; });
   const discSongsOf = cid => (((coupleDiscRef.current || {})[cid] || {}).songs || []);
   const discAutoOf = cid => !((coupleDiscRef.current || {})[cid] || {}).noAuto;   // 进空间要不要自己落针（她 2026-10-26 加的开关，默认要）
+  // 云村搜到的那一条 → App 里一首能放的歌（唱片刻歌、限时动态挂歌共用这一份）
+  const songFromSearch = sr => { const info = neteaseTrackInfo(sr); return { id: "sgd_" + sr.id, source: "netease", neteaseId: String(sr.id), title: sr.name, artist: info.artist, cover: info.cover || null, gdPicId: info.gdPicId, gdLyricId: info.gdLyricId }; };
+  // 拿一句「歌名 歌手」去云村搜一首能放的歌；搜不到返回 null
+  const searchSong = async query => { if (!musicReady || !String(query || "").trim()) return null; try { const sr = await neteaseSearchOne(String(query).trim()); return sr ? songFromSearch(sr) : null; } catch (e) { return null; } };
   const discAdd = async (cid, query, note) => {
     if (!musicReady) { toast("先在一起听里选择音乐源"); return false; }
     try {
       const sr = await neteaseSearchOne(query, { throwOnError: true });
       if (!sr) { toast("云村没搜到这首"); return false; }
-      const info = neteaseTrackInfo(sr);
-      const song = { id: "sgd_" + sr.id, source: "netease", neteaseId: String(sr.id), title: sr.name, artist: info.artist, cover: info.cover || null, gdPicId: info.gdPicId, gdLyricId: info.gdLyricId, by: "me", note: String(note || "").trim(), ts: Date.now() };
+      const song = Object.assign(songFromSearch(sr), { by: "me", note: String(note || "").trim(), ts: Date.now() });
       saveCoupleDisc(pp => { const cur = pp[cid] || {}; return { ...pp, [cid]: { ...cur, songs: [song, ...(cur.songs || []).filter(x => x.neteaseId !== song.neteaseId)].slice(0, 30) } }; });
       // ⚠️返回【刻好的那一首】而不是 true：聊天里那张卡要显示云村搜到的真歌名和歌手，
       //   不能把模型写的那串搜索词原样贴上去（那多半是「歌名 歌手」拼一起的）。
