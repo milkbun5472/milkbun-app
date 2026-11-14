@@ -65,7 +65,9 @@
     return { type, q, answers: Array.isArray(st.answers) ? st.answers : [] };
   }
   // 她发的那条只给哪几个人看（audience 空＝谁都看得到）；角色发的都公开
-  const visibleTo = (s, viewer) => !(s.by === "me" && Array.isArray(s.audience) && s.audience.length) || s.audience.indexOf(String(viewer)) >= 0;
+  //   TA 发的也能挑（仅她可见 / 密友），她（"me"）一直看得到
+  const visibleTo = (s, viewer) => String(viewer) === "me" || !(Array.isArray(s.audience) && s.audience.length) || s.audience.indexOf(String(viewer)) >= 0;
+  const audLabel = s => !(Array.isArray(s.audience) && s.audience.length) ? "" : s.by === "me" ? "部分可见" : (s.audience.length === 1 && s.audience[0] === "me") ? "仅你可见" : "密友可见";
   const activeFor = (by, viewer) => activeOf(by).filter(s => visibleTo(s, viewer));
   const vote = (id, who, k) => patch(id, s => s.sticker && s.sticker.type === "poll" ? Object.assign({}, s, { sticker: Object.assign({}, s.sticker, { votes: Object.assign({}, s.sticker.votes || {}, { [who]: k }) }) }) : s);
   const answer = (id, who, text) => patch(id, s => s.sticker && s.sticker.type === "ask" ? Object.assign({}, s, { sticker: Object.assign({}, s.sticker, { answers: (s.sticker.answers || []).concat([{ who, text: String(text || "").slice(0, 200), ts: Date.now() }]).slice(-30) }) }) : s);
@@ -166,6 +168,7 @@
           (avatarOf || window.__storyAvatar) ? (avatarOf || window.__storyAvatar)(s.by) : null,
           h("span", { style: { fontWeight: 600 } }, nameOf(s.by)),
           h("span", { style: { opacity: .7, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, archive ? new Date(s.ts).toLocaleDateString() : ago(s.ts)),
+          audLabel(cur) ? h("span", { "data-wk": "storyaudtag", style: { padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", fontSize: "calc(10.5px * var(--app-fs, 1))" } }, audLabel(cur)) : null,
           h("span", { style: { flex: 1 } }),
           // 谁的都能删（她 2026-11-14「动态可以删除」）：先问一句，删了这张图一起清掉
           h("button", { "data-wk": "storydel", onClick: () => { const doIt = () => { (onDelete || (x => remove(x.id)))(s); onClose(); };
@@ -225,5 +228,5 @@
       h("span", { className: "truncate", style: { maxWidth: 62, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, name)); };
     return h("div", { "data-wk": "storyhighlights", className: "flex", style: { gap: 10, overflowX: "auto", padding: "8px 0" } }, groups.map(([name, list]) => h(Dot, { key: name, name, list })));
   }
-  window.Stories = { KEY, DAY, all, live, activeOf, activeFor, visibleTo, pastOf, unseenBy, markSeen, remove, layoutFrom, renderCard, add, addReply, applyCrowd, addPhoto, dupOf, similar, vote, answer, setHl, hlOf, normSticker, stickerLine, daysLeft, StoryViewer, StoryArchive, StoryHighlights };
+  window.Stories = { KEY, DAY, all, live, activeOf, activeFor, visibleTo, audLabel, pastOf, unseenBy, markSeen, remove, layoutFrom, renderCard, add, addReply, applyCrowd, addPhoto, dupOf, similar, vote, answer, setHl, hlOf, normSticker, stickerLine, daysLeft, StoryViewer, StoryArchive, StoryHighlights };
 })();

@@ -7135,7 +7135,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const L = [];
       if (hers.length) L.push(un + "挂着的限时动态（24 小时后自己收起；你刷到了，她那边看得到你看过）：\n" + hers.map(s => "· " + ago(s.ts) + "：" + (s.desc || s.text || "一张卡") + (s.sticker ? "；" + SK.stickerLine(s.sticker) + (s.sticker.type === "poll" && (s.sticker.votes || {})[char.id] != null ? "（你已经投了「" + s.sticker.opts[s.sticker.votes[char.id]] + "」）" : "") : "")).join("\n")
         + "\n想提就在这一轮顺嘴提一句，不想提就当看过了。");
-      if (his.length) L.push("你自己挂着的限时动态：" + his.map(s => "「" + (s.text || s.desc) + "」（" + ago(s.ts) + "）"
+      if (his.length) L.push("你自己挂着的限时动态：" + his.map(s => "「" + (s.text || s.desc) + "」（" + ago(s.ts) + (SK.audLabel(s) ? "，" + SK.audLabel(s).replace("你", un) : "") + "）"
         + (s.sticker ? "，" + SK.stickerLine(s.sticker)
           + (s.sticker.type === "poll" && (s.sticker.votes || {}).me != null ? "，" + un + "投了「" + s.sticker.opts[s.sticker.votes.me] + "」" : "")
           + (s.sticker.type === "ask" && (s.sticker.answers || []).some(a => a.who === "me") ? "，" + un + "回答了：" + s.sticker.answers.filter(a => a.who === "me").map(a => a.text).join("／") : "") : "")
@@ -29251,8 +29251,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + ((window.Stories.activeOf(char.id) || []).length ? "你已经挂着这几条，别跟它们重样：" + window.Stories.activeOf(char.id).map(s0 => "「" + (s0.text || s0.desc) + "」").join("、") + "。" : "")
           + (related.length ? "跟你有关系的这几个人也会刷到这条：" + related.map(c => c.name + "（" + (_rl(char.id, c.id) || _rl(c.id, char.id)) + "）").join("、")
             + "。crowd 写他们里真会看到、会有反应的那几个（0 到 4 个，不是人人都理你）：name 是谁、answer 是回答你的提问框（你贴了才写）、vote 是投第几个选项（你贴了投票才写，0 或 1）、reply 是私下回你的一句（可空）。照各人跟你的关系和性子来。" : "")
+          + "who 是这条给谁看（照你此刻想让谁看见来）：all 所有人可见、me 仅" + userName(profileFor(char.id)) + "可见" + (related.length ? "、close 密友可见（closeNames 列出你圈进密友的那几个名字，只能从上面跟你有关系的人里挑；" + userName(profileFor(char.id)) + "一直看得到）" : "") + "。"
           + "字是你会发出去的那几句，不是解说。想的话可以加一个互动贴纸 sticker（不加就不写这一格）：提问框 {\"type\":\"ask\",\"q\":\"问她什么\"}、投票 {\"type\":\"poll\",\"q\":\"问题\",\"opts\":[\"选项一\",\"选项二\"]}、倒计时 {\"type\":\"countdown\",\"q\":\"倒数什么\",\"days\":几天后}。",
-        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + ",\"photo\":\"照片拍的是什么\",\"photoKind\":\"self|view|thing\",\"photoY\":0.45" + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
+        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + ",\"photo\":\"照片拍的是什么\",\"photoKind\":\"self|view|thing\",\"photoY\":0.45" + ",\"who\":\"all|me" + (related.length ? "|close\",\"closeNames\":[\"名字\"]" : "\"") + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
         maxTokens: 8000
       });
       let photoBlob = null;
@@ -29262,7 +29263,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 照片会画成什么那句写过来了，最后排出来的字跟挂着的重样也不发
       if (!idea && window.Stories.dupOf(char.id, ((d && d.texts) || []).map(x => x && (x.t || x.text)).filter(Boolean).join(" "))) return;
       const texts = ((d && d.texts) || []).map(x => x && (x.t || x.text)).filter(Boolean);
-      const _row = await window.Stories.add({ by: char.id, manual: !!manual, sticker: d && d.sticker, raw: d || null, photoDesc: d && d.photo, photoKind: d && d.photoKind, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea || "…" }] }, !!photoBlob), photoBlob,
+      // 谁看得到（她 2026-11-14「他可以选择谁能看 比如仅我可见 全部人可见 密友」）：她一直看得到；密友只认关系线里的人
+      const _who = d && d.who === "me" ? "me" : d && d.who === "close" ? "close" : "all";
+      const _close = _who === "close" ? related.filter(c => ((d && d.closeNames) || []).some(n => n === c.name || n === c.remark)).map(c => c.id) : [];
+      const _aud = _who === "me" ? ["me"] : _who === "close" && _close.length ? ["me"].concat(_close) : null;
+      if (d && Array.isArray(d.crowd) && _aud) d.crowd = d.crowd.filter(x => { const c = related.find(r => x && (r.name === x.name || r.remark === x.name)); return c && _aud.indexOf(c.id) >= 0; });
+      const _row = await window.Stories.add({ by: char.id, manual: !!manual, sticker: d && d.sticker, audience: _aud, raw: d || null, photoDesc: d && d.photo, photoKind: d && d.photoKind, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea || "…" }] }, !!photoBlob), photoBlob,
         text: idea || texts.join(" "), desc: texts.join(" / ") + (photoBlob && d.photo ? "（配了一张照片：" + String(d.photo).slice(0, 80) + "）" : "") });
       // 那几个人的反应落到这一条上：名字对得上关系线里的人才算，不认识的名字不收
       if (_row && Array.isArray(d && d.crowd)) window.Stories.applyCrowd(_row.id, d.crowd.map(x => { const c = related.find(r => x && (r.name === x.name || r.remark === x.name)); return c ? Object.assign({}, x, { who: c.id }) : null; }).filter(Boolean));

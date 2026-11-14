@@ -73,3 +73,9 @@ test("谁的动态都能删、图会画什么默认收着", () => {
   assert.match(J, /"data-wk": "storydel", onClick: \(\) => \{ const doIt/); assert.ok(!/mine && onDelete \? h\("button", \{ "data-wk": "storydel"/.test(J));
   assert.match(J, /const \[photoOpen, setPhotoOpen\] = React\.useState\(false\)/);
 });
+test("TA 自己挑谁能看：仅她、密友、所有人", () => {
+  const S = window.Stories, A = R("app.js");
+  assert.equal(S.visibleTo({ by: "c1", audience: ["me"] }, "c2"), false); assert.equal(S.visibleTo({ by: "c1", audience: ["me"] }, "me"), true);
+  assert.equal(S.audLabel({ by: "c1", audience: ["me"] }), "仅你可见"); assert.equal(S.audLabel({ by: "c1", audience: ["me", "c2"] }), "密友可见");
+  assert.match(A, /const _aud = _who === "me" \? \["me"\] : _who === "close" && _close\.length \? \["me"\]\.concat\(_close\) : null;/);
+});
