@@ -21276,8 +21276,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const realNames = [...ids].map(id => (characters || []).find(x => x && String(x.id) === id)).filter(o => o && (!o.npc || o.npcMoments)).flatMap(o => [o.name, o.remark].filter(Boolean));
     const out = (momentsRef.current || []).filter(m => m && m.characterId && ids.has(String(m.characterId)) && String(m.content || "").trim()).slice(0, 12).map(m => ({
       author: nameOf(m.characterId), content: String(m.content || ""), _ts: Number(m.ts) || null, time: "", _real: true,
-      likes: [...(m.likers || []).filter(n => known.has(n)), ...(m.liked ? [meName] : [])],
-      comments: (m.comments || []).filter(c => c && (known.has(c.author) || c.author === meName || c.author === "我")).map(c => ({ from: c.author === "我" ? meName : c.author, text: c.text }))
+      // 他自己发的那条：底下赞的、评的都是他的好友（配角、同事这些也是），全抄上（她 2026-11-14「那轮的回复也没抄上去」）；
+      //   别人发的那条只留他也认识的（共同好友才看得见），跟微信一样
+      likes: [...(m.likers || []).filter(n => String(m.characterId) === String(char.id) || known.has(n)), ...(m.liked ? [meName] : [])],
+      comments: (m.comments || []).filter(c => c && (String(m.characterId) === String(char.id) || known.has(c.author) || c.author === meName || c.author === "我")).map(c => ({ from: c.author === "我" ? meName : c.author, text: c.text }))
     }));
     out.realAuthors = realNames;
     out.relNames = relatedNames(char);   // 通讯录兜底用：关系网上的人都是TA认识的

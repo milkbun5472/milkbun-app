@@ -193,3 +193,5 @@ test("朋友圈五样：小锁、点名字进主页、看过没吭声、转进�
 });
 
 test("查手机朋友圈：机主自己那条用机主的脸、没人赞评不画空灰条", () => { const p = fs.readFileSync("js/phone-ui.js", "utf8"); assert.ok(p.includes("? selfFace : person(m.author)") && p.includes("!arr(m.likes).length && !arr(m.comments).length ? null")); });
+
+test("查手机朋友圈：他自己那条底下的赞和评论全抄上", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("(m.comments || []).filter(c => c && (String(m.characterId) === String(char.id) || known.has(c.author)")); });
