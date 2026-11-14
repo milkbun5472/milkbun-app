@@ -125,9 +125,11 @@ const css = `
 /* 头像照参考：外面一块方的凸起灰按钮，里面的照片是圆的、嵌一圈凹下去的圆环（左上暗、右下亮）——聊天、卡片、红包那一行、顶栏都一样 */
 [data-wk="body"] button[data-wk="avatar"],[data-wk="body"] span[data-wk="avatar"]:not([data-halo]){display:inline-flex !important;padding:6px !important;background:${C.grey} !important;border-radius:0 !important;box-shadow:${UP},3px 3px 0 rgba(0,0,0,.3) !important;flex-shrink:0 !important}
 [data-wk="body"] [data-wk="avatar"] > img[data-wk="avatar"],[data-wk="chathead"] button > img[data-wk="avatar"],[data-wk="chathead"] [data-wk="headme"] > img{border-radius:50% !important;border:3px solid !important;border-color:#404040 #FFFFFF #FFFFFF #404040 !important;box-shadow:none !important;margin:0 !important;box-sizing:content-box !important;outline:none !important}
-[data-wk="chathead"] [data-wk="headname"]{display:none !important}
+[data-wk="chat"] [data-wk="chathead"] [data-wk="headname"]{display:none !important}
+/* 线下的顶栏不藏名字（线下没有双人头像，藏了就只剩一排按钮） */
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headname"]{display:block !important}
 [data-wk="chathead"] [data-wk="headme"]{display:inline-flex !important;margin-left:-10px !important}
-[data-wk="chathead"] > button:has([data-wk="headname"]){justify-content:center !important}
+[data-wk="chat"] [data-wk="chathead"] > button:has([data-wk="headname"]){justify-content:center !important}
 [data-wk="chathead"] button > img[data-wk="avatar"],[data-wk="chathead"] [data-wk="headme"] > img{width:38px !important;height:38px !important;min-width:38px !important;box-sizing:content-box !important;border:7px solid transparent !important;border-image:${svg(AVFRAME)} 7 fill / 7px stretch !important;border-radius:50% !important;background:transparent !important;box-shadow:none !important;filter:drop-shadow(3px 3px 0 rgba(0,0,0,.3)) !important;outline:none !important}
 
 /* ───── 系统弹窗 · 第二批：卡片（形状不动；每张都是一扇灰窗口，顶上一条标题栏写着它是什么） ───── */
@@ -300,6 +302,11 @@ const css = `
 [data-wk="offthought"]{background:transparent !important;border:none !important;color:#555 !important;font-style:italic !important}
 [data-wk="offcardacts"] svg{stroke:#000 !important;color:#000 !important}
 [data-wk="offreplyopt"]{background:${C.grey} !important;border:none !important;border-radius:0 !important;box-shadow:${UP} !important;color:#000 !important}
+
+/* 线下顶栏：「← 离开」那颗按钮让字放得下；底下「文风」那行在青绿底上用浅色 */
+[data-wk="offline"] [data-wk="chatback"]{width:auto !important;min-width:0 !important;padding:2px 8px !important;white-space:nowrap !important;color:#000 !important}
+[data-wk="offline"] [data-wk="chatback"] *{color:#000 !important}
+[data-wk="offline"] [data-wk="chathead"] + *{color:#D8F2F2 !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "系统弹窗", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "系统弹窗-美化.json"), JSON.stringify(pack));
