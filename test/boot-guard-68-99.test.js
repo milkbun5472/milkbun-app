@@ -32,7 +32,7 @@ function runGuard() {
     setTimeout: (fn, ms) => { timers.push({ fn: fn, at: ms || 0, n: timers.length }); return timers.length; },
     document: {
       getElementById: id => (id === "root" ? rootEl : nodes.find(n => n.id === id) || null),
-      createElement: () => { const n = { style: { cssText: "" }, setAttribute(k, v) { this[k === "data-boot-guard" ? "guard" : k] = v; }, set innerHTML(v) { this._html = v; const m = v.match(/id="(__bg_\w)"/g) || []; m.forEach(x => nodes.push({ id: x.slice(4, -1) })); }, get innerHTML() { return this._html; } }; return n; },
+      createElement: () => { const n = { style: { cssText: "" }, setAttribute(k, v) { this[k === "data-boot-guard" ? "guard" : k] = v; }, set innerHTML(v) { this._html = v; const m = v.match(/id="(__bg_\w)"/g) || []; m.forEach(x => nodes.push({ id: x.slice(4, -1), style: {}, on: {}, addEventListener(k, fn) { this.on[k] = fn; } })); }, get innerHTML() { return this._html; } }; return n; },
       body: { appendChild: n => nodes.push(n) }
     },
     URL: URL, caches: undefined, navigator: {}

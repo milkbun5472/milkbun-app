@@ -1,6 +1,6 @@
 // 情书回信接上聊天那套按轮提醒（她 2026-11-04）
 const test = require("node:test"), assert = require("node:assert/strict"), fs = require("fs");
-const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8"), scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
+const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8"), scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 test("回信前看他上一次回信的收尾、最近几次反复说到的；往来里她标「她：」不标「我：」", () => {
   assert.match(app, /tailHintsFor\(_last\[_last\.length - 1\], _last\.join\("\\n"\)\)/);
   assert.match(app, /beatEchoTail\(_mine\.map\(x => x\.join\("\\n"\)\), \{ lead: "你前两次回信"/);

@@ -1,6 +1,6 @@
 // 她 2026-11-02：「情书换不了字体」——圆体／楷体／行楷这些是苹果电脑自带的，iPhone 没有，全落到苹方
 const assert = require("node:assert/strict");
-const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "screens.js"), "utf8");
+const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "screens-ui.js"), "utf8");   // 2026-11-14 情书那几页搬到页面那半了
 const seg = src.slice(src.indexOf("const LETTER_FONTS = ["), src.indexOf("const LETTER_PAPERS = ["));
 const doc = { head: { kids: [], appendChild(x) { this.kids.push(x); } }, createElement: () => ({}) };
 const { LETTER_FONTS, letterFontCss } = new Function("document", seg + "; return { LETTER_FONTS, letterFontCss };")(doc);

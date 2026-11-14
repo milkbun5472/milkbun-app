@@ -9,7 +9,9 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const S = (() => {
   const a = screens.indexOf("const CARRY_SECTIONS = [");
   // ⚠️终点要在同一份文件里：原来钉的那句注释在 screens-ui.js，中间整段都被吃进来（window.FloatLyric 一跑就炸）
-  const b = screens.indexOf("const GACHA_SKIN = {", a);
+  //   2026-11-14 扭蛋那段搬去了 screens-ui.js，终点改钉这一段最后一个函数自己的尾巴
+  const last = screens.indexOf("function carryProbeSpecAll(", a);
+  const b = last > a ? screens.indexOf("\n}\n", last) + 3 : -1;
   assert.ok(a > 0 && b > a, "抠不出随身物那几个函数");
   return new Function(screens.slice(a, b) + "\nreturn { carryProbeSpecAll, carryProbeSpec, CARRY_SECTIONS };")();
 })();

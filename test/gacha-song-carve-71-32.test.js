@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const app = P("js/app.js"), screens = P("js/screens.js"), gacha = P("js/gacha.js");
+const app = P("js/app.js"), screens = (P("js/screens.js") + "\n" + P("js/screens-ui.js")), gacha = P("js/gacha.js");
 
 const carve = () => {
   const i = app.indexOf("    onGachaCarve: async card => {"), j = app.indexOf("    coupleExDiary:", i);

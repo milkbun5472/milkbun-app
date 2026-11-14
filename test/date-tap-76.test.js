@@ -1,6 +1,6 @@
 const test = require("node:test"), assert = require("node:assert");
 const fs = require("fs"), R = f => fs.readFileSync(__dirname + "/../js/" + f, "utf8");
-const comp = R("components.js"), app = R("app.js"), scr = R("screens.js"), sui = R("screens-ui.js");
+const comp = R("components.js"), app = R("app.js"), scr = (R("screens.js") + "\n" + R("screens-ui.js")), sui = R("screens-ui.js");
 const grab = (src, n) => { const i = src.indexOf("function " + n + "("); let d = 0; for (let k = src.indexOf("{", i); k < src.length; k++) { if (src[k] === "{") d++; else if (src[k] === "}" && !--d) return src.slice(i, k + 1); } };
 test("改日子只换日期、几点照旧", () => {
   const f = new Function(grab(comp, "dateTapTs") + "; return dateTapTs;")();

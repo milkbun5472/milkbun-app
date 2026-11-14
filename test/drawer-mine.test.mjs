@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 const app = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
-const scr = readFileSync(new URL("../js/screens.js", import.meta.url), "utf8");
+const scr = (readFileSync(new URL("../js/screens.js", import.meta.url), "utf8") + "\n" + readFileSync(new URL("../js/screens-ui.js", import.meta.url), "utf8"));
 test("我放的纸条：摊开放进抽屉，标 from:me", () => {
   assert.match(app, /kind: "mine", from: "me",[^}]*openedTs: Date\.now\(\)/);
 });

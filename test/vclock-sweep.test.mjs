@@ -16,5 +16,5 @@ for (const re of [/date: ymd\(new Date\(typeof vclockMap[^\n]*vclockMap\(Date\.n
 assert.match(app, /realm\.terrain, new Date\(typeof vclockMap[^\n]*char\.id\)/);
 assert.match(app, /"平原", new Date\(typeof vclockMap[^\n]*c\.id\)/);
 assert.match(app, /const due = new Date\(typeof vclockMap[^\n]*pm\.dueTs[^\n]*char\.id/);
-assert.match(r("screens.js"), /const _cal = new Date\(typeof vclockMap[^\n]*bCid\)/);
+assert.match((r("screens.js") + "\n" + r("screens-ui.js")), /const _cal = new Date\(typeof vclockMap[^\n]*bCid\)/);
 console.log("vclock sweep ok");

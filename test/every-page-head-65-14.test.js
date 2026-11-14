@@ -79,7 +79,7 @@ test("故意保留原样的那几条，写清了为什么，而且真的只加�
     ["js/debate.js", "这一条【不换成公共 Head】：它没有标题"],
     ["js/weekly.js", "封面这一条【不换成 Head】：它是刊头"],
     ["js/phone-ui.js", "查手机里这些内层 app【不换成公共 Head】"],   // 2026-10-18 起页面那半在 phone-ui.js
-    ["js/screens.js", "信纸这两页【不换成公共 Head】"]
+    ["js/screens-ui.js", "信纸这两页【不换成公共 Head】"]   // 2026-11-14 情书那几页也搬到页面那半了
   ];
   cases.forEach(([f, why]) => assert.ok(R(f).indexOf(why) >= 0, f + " 里那条「为什么不换」的理由没了：" + why));
   // 淘宝那条搜索栏：形状没动（橙描边＋橙搜索钮还在），只是多了属性

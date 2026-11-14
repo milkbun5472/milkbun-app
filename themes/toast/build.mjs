@@ -15,6 +15,14 @@ const I_KNIFE = X(`viewBox='0 0 40 36'><rect x='5' y='17' width='13' height='6' 
 const I_SLICE = X(`viewBox='0 0 40 36'><path d='M9 12 C3 12 3 3 11 3 H29 C37 3 37 12 31 12 V31 Q31 33 29 33 H11 Q9 33 9 31Z' fill='#FFF3DC' stroke='${C.crust}' stroke-width='2.4'/><path d='M20 26 C14 22 13.5 19.5 13.5 18 C13.5 16 15 15 16.5 15 C18 15 19.3 16 20 17.2 C20.7 16 22 15 23.5 15 C25 15 26.5 16 26.5 18 C26.5 19.5 26 22 20 26Z' fill='${C.jam}'/>`);
 const I_TOASTER = X(`viewBox='0 0 30 30'><path d='M9 9 C7 9 7 5 10 5 H13 C15 5 15 9 13 9Z M17 9 C15 9 15 5 18 5 H21 C23 5 23 9 21 9Z' fill='#FFF3DC' stroke='${C.crust}' stroke-width='1.3'/><rect x='4' y='9' width='22' height='16' rx='5' fill='#F1A8A0' stroke='${C.crust2}' stroke-width='1.5'/><rect x='8' y='13' width='14' height='2.4' rx='1.2' fill='${C.crust2}'/><circle cx='22.5' cy='20' r='1.6' fill='#fff'/>`);
 const I_JAM = X(`viewBox='0 0 30 30'><rect x='7' y='4' width='16' height='5' rx='1.5' fill='#E8D2B0' stroke='${C.crust}' stroke-width='1.2'/><path d='M8 9 H22 V24 Q22 27 19 27 H11 Q8 27 8 24Z' fill='${C.jam}' stroke='${C.crust2}' stroke-width='1.3'/><rect x='10.5' y='14' width='9' height='7' rx='1.5' fill='#FFF3DC'/><circle cx='15' cy='17.5' r='1.8' fill='${C.jam}'/>`);
+const EGGICON = X(`viewBox='0 0 40 40'><path d='M20 4 C29 4 36 9 35 17 C38 22 36 31 28 34 C22 38 12 37 7 31 C2 25 4 17 8 12 C11 7 15 4 20 4Z' fill='#fff' stroke='${C.line}' stroke-width='1.4'/><circle cx='20' cy='20' r='8' fill='${C.yolk}'/><ellipse cx='17.5' cy='17.5' rx='2.4' ry='1.6' fill='rgba(255,255,255,.7)'/>`);
+const SLICE = (bg, bd) => `background:${bg} !important;border:3px solid ${bd} !important;border-radius:22px 22px 12px 12px / 18px 18px 12px 12px !important`;
+// 好感：一片吐司慢慢烤好——白面包片（<20）→ 烤得微黄（20–49）→ 金黄抹黄油（50–79）→ 金黄、黄油化开、上面放一个荷包蛋和一颗果酱心（80+）
+const TS = (fill, inner) => X(`viewBox='0 0 92 84'><path d='M22 30 C10 30 10 10 26 10 H66 C82 10 82 30 70 30 V74 Q70 78 66 78 H26 Q22 78 22 74Z' fill='${fill}' stroke='${C.crust}' stroke-width='4'/>${inner}`);
+const ST1 = TS('#FFF8EA', `<g fill='${C.line}'><circle cx='38' cy='44' r='1.4'/><circle cx='52' cy='52' r='1.2'/><circle cx='44' cy='62' r='1.3'/></g>`);
+const ST2 = TS('#F8DFB0', `<g fill='rgba(184,122,69,.25)'><circle cx='38' cy='44' r='1.6'/><circle cx='52' cy='52' r='1.4'/><circle cx='44' cy='62' r='1.5'/></g>`);
+const ST3 = TS(C.gold, `<rect x='36' y='36' width='20' height='15' rx='4' fill='${C.butter}' stroke='#E3B83A' stroke-width='1.4' transform='rotate(-8 46 43)'/>`);
+const ST4 = TS(C.gold, `<path d='M30 40 C34 34 58 33 62 40 C66 48 58 56 46 55 C34 56 26 48 30 40Z' fill='rgba(247,211,94,.75)'/><path d='M46 30 C56 30 62 36 60 44 C63 52 55 60 46 59 C36 60 29 53 32 45 C30 37 36 30 46 30Z' fill='#fff'/><circle cx='46' cy='45' r='7' fill='${C.yolk}'/><path d='M62 70 C57 66 56 64 56 63 C56 61.5 57 60.6 58.4 60.6 C59.6 60.6 60.6 61.4 61 62.3 C61.4 61.4 62.4 60.6 63.6 60.6 C65 60.6 66 61.5 66 63 C66 64 65 66 62 70Z' fill='${C.jam}'/>`);
 const bubble = { myBg: C.gold, myText: "#fff", myBorder: "none", charBg: C.crumb, charText: C.ink, charBorder: "none", radius: 12, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 // 荷包蛋：蛋黄一圈，蛋白是几团错开的白，软软地摊成不规则一片
@@ -116,6 +124,175 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 [data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;background:${C.crumb} !important;border:2px solid ${C.crust} !important;border-radius:12px !important;padding:8px 14px !important;color:#8F7660 !important;font-size:12px !important;line-height:1.65 !important;text-align:left !important}
 [data-wk="noteink"]{color:${C.fog} !important}
 [data-wk="callact"]{color:${C.crust} !important}
+
+/* ───── 黄油吐司 · 第二批：卡片（形状不动；都是一片厚吐司——奶油芯、焦黄面包边、顶上圆一点） ───── */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"],[data-wk="wxcard"]{position:relative !important;overflow:hidden !important;${SLICE(C.crumb, C.crust)};box-shadow:0 4px 0 ${C.crust2},0 8px 14px rgba(154,98,54,.15) !important;color:${C.ink} !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *,[data-wk="photocard"] *,[data-wk="wxcard"] *{color:${C.ink} !important;border-color:${C.line} !important}
+/* 转账：金额烤焦黄色；收下盖一个荷包蛋 */
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.crust} !important}
+[data-wk="transferrule"]{border:none !important;height:2px !important;background:${C.line} !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:#FFF1D6 !important;border-top:2px solid ${C.line} !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.gold} !important;color:#fff !important;border:2px solid ${C.crust2} !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;border:2px solid ${C.line} !important}
+[data-wk="transferseal"]{background:${svg(EGGICON)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;width:42px !important;height:42px !important;font-size:0 !important;color:transparent !important}
+[data-wk="transferseal"] *{opacity:0 !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{transform:rotate(-12deg) !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.55 !important}
+/* 红包：不是信封——一片抹满果酱的吐司，左边一罐果酱；领完果酱变淡 */
+[data-wk="rpcard"]{position:relative !important;overflow:hidden !important;${SLICE("linear-gradient(180deg,#E8686B," + C.jam + ")", C.crust)};box-shadow:0 4px 0 ${C.crust2},0 8px 14px rgba(154,98,54,.2) !important;padding-left:56px !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:12px !important;top:calc(50% - 17px) !important;width:34px !important;height:34px !important;background:${svg(I_JAM)} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="rpcard"] *{color:#fff !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"][data-status="done"]{opacity:.65 !important}
+[data-wk="rpenvelope"]{${SLICE("linear-gradient(180deg,#E8686B,#B23F44)", C.crust)};box-shadow:0 6px 0 ${C.crust2},0 14px 30px rgba(0,0,0,.25) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:transparent !important;border:none !important}
+[data-wk="rpenvelope"] *{color:#fff !important}
+[data-wk="rpopenbtn"]{background:${svg(BUTTER)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;filter:drop-shadow(0 4px 6px rgba(0,0,0,.25)) !important}
+[data-wk="rpopenbtn"] *{opacity:0 !important}
+[data-wk="rpamount"]{color:#fff !important}
+[data-wk="rpavatar"],[data-wk="rpavatar"] *{border-radius:50% !important}
+[data-wk="rpavatar"]{box-shadow:0 0 0 3px ${C.yolk},0 0 0 7px #fff !important}
+/* 照片：吐司框里一块浅奶黄小屏；语音：他白吐司、我金黄吐司 */
+[data-wk="photocard"]{padding:8px 8px 10px !important}
+[data-wk="photoface"]{border-radius:10px !important;background:#FFF1D6 !important;border:none !important;box-shadow:inset 0 0 0 2px ${C.line} !important}
+[data-wk="photoface"] *,[data-wk="photohint"]{color:#9C7B5C !important}
+[data-wk="photoface"] svg{stroke:${C.crust} !important}
+[data-wk="voice"][data-me]{${SLICE(C.crumb, C.crust)};box-shadow:0 3px 0 ${C.crust2} !important}
+[data-wk="voice"][data-me="1"]{background:linear-gradient(180deg,${C.gold},${C.gold2}) !important;border-color:${C.crust2} !important}
+[data-wk="voice"] > *{background:transparent !important;border:none !important;box-shadow:none !important;color:${C.ink} !important}
+[data-wk="voice"][data-me="1"] > *{color:#fff !important}
+[data-wk="voicewave"] span{background:${C.crust} !important}
+[data-wk="voice"][data-me="1"] [data-wk="voicewave"] span{background:#fff !important}
+/* 天气：太阳是一颗蛋黄；下面那句话垫奶黄 */
+[data-wk="wxcardsky"]{background:transparent !important}
+[data-wk="wxcardsky"] > div:first-child{background:radial-gradient(circle,${C.yolk} 0 10px,#fff 11px 17px,transparent 18px) !important}
+[data-wk="wxcardsky"] svg{stroke:${C.crust} !important}
+[data-wk="wxcardsky"] span[style*="999"],[data-wk="wxcardrain"]{background:#FFF1D6 !important;border:none !important}
+[data-wk="wxcardsay"]{background:#FFF1D6 !important;border-top:2px solid ${C.line} !important}
+[data-wk="wxcardsay"],[data-wk="wxcardsay"] *{color:${C.ink} !important}
+[data-wk="geopin"]{background:${C.jam} !important;box-shadow:0 0 0 2px #fff !important}
+[data-wk="geopinstem"]{background:${C.crust} !important}
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 3px ${C.yolk},0 0 0 7px #fff !important}
+/* 卡片下的已读：一小块黄油 */
+[data-run][data-last="1"] + [data-wk="cardmeta"]::before{content:"" !important;display:inline-block !important;vertical-align:middle !important;width:9px !important;height:7px !important;border-radius:2.5px !important;background:${C.butter} !important;box-shadow:0 0 0 1px #E3B83A !important;margin:0 6px !important}
+/* 拍一拍、通话结束 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;border:2px solid ${C.line} !important;background:#FFF8EA !important;border-radius:999px !important;padding:2px 14px !important;color:${C.fog} !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.fog} !important}
+/* 线下小结 */
+[data-wk="offlogtitle"]{letter-spacing:.15em !important;color:${C.crust} !important;font-weight:600 !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.jam} !important}
+[data-wk="offlogtranscript"]{border-top:2px solid ${C.line} !important}
+/* 加号面板：一片片小吐司 */
+[data-wk="chatpanel"]{background:#FFF8EA !important;border-top:3px solid ${C.crust} !important}
+[data-wk="chattoolicon"]{${SLICE(C.crumb, C.crust)};box-shadow:0 3px 0 ${C.crust2} !important}
+[data-wk="chattool"]:nth-child(odd) [data-wk="chattoolicon"]{background:linear-gradient(180deg,#F6CB8E,${C.gold}) !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.crust2} !important;color:${C.crust2} !important}
+[data-wk="chattoollabel"]{color:#9C7B5C !important}
+/* 引用：左边一道面包边 */
+[data-wk="quotedraft"]{background:#FFF8EA !important;border-top:2px solid ${C.line} !important}
+[data-wk="quote"]{background:#FFF1D6 !important;color:#9C7B5C !important;border:none !important;border-left:4px solid ${C.crust} !important;border-radius:6px !important;opacity:1 !important}
+[data-wk="quoteicon"],[data-wk="quoteclear"]{color:${C.crust} !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.7 !important}
+/* 线下：提示键是一台烤面包机，照片键是一个荷包蛋 */
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:26px !important;min-width:26px !important;height:26px !important;background:${svg(I_TOASTER)} center/contain no-repeat !important;${HIDE}}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;${HIDE};background:${svg(EGGICON)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+
+/* ───── 黄油吐司 · 第三批：状态卡是一块面包板——奶油底、焦黄面包边；看得见的是白吐司、心里想的是金黄吐司；好感是吐司慢慢烤好 ───── */
+[data-wk="statecard"]{background:${svg(CRUMBS)} 0 0/90px 90px,${C.bg} !important;border:4px solid ${C.crust} !important;border-radius:28px 28px 18px 18px / 24px 24px 18px 18px !important;box-shadow:0 6px 0 ${C.crust2},0 16px 34px rgba(154,98,54,.25) !important;color:${C.ink} !important;overflow:hidden !important}
+[data-wk="statehead"]{background:linear-gradient(180deg,#F8E4BF,#F1D19C) !important;border-bottom:3px solid ${C.crust} !important}
+[data-wk="statehead"] *{color:${C.ink} !important}
+[data-wk="statehead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 3px ${C.yolk},0 0 0 7px #fff !important}
+[data-wk="statehead"] button{border:2px solid ${C.crust} !important;border-radius:50% !important;background:#FFF8EA !important}
+[data-wk="statemood"]{display:inline-block !important;background:${C.butter} !important;color:${C.ink} !important;padding:0 10px !important;margin-right:4px !important;border-radius:6px !important;border:1px solid #E3B83A !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:#FFF8EA !important;border:2px solid ${C.line} !important;border-radius:999px !important;padding:3px !important;margin:12px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:999px !important;background:transparent !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:${C.gold} !important;color:#fff !important}
+[data-wk="stateseen"],[data-wk="statevoice"]{position:relative !important;overflow:hidden !important;${SLICE(C.crumb, C.crust)};margin:14px 16px 12px !important;box-shadow:0 3px 0 ${C.crust2} !important}
+[data-wk="statevoice"]{background:linear-gradient(180deg,${C.gold},${C.gold2}) !important;border-color:${C.crust2} !important;padding-right:44px !important}
+[data-wk="statevoice"]::before{content:"" !important;position:absolute !important;right:12px !important;bottom:12px !important;width:24px !important;height:20px !important;background:${svg(BUTTER)} center/contain no-repeat !important}
+[data-wk="stateseen"] *{color:${C.ink} !important}
+[data-wk="statevoice"] *{color:#fff !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:#FFF1D6 !important;border:2px solid ${C.line} !important;border-radius:10px !important}
+[data-wk="statewear"] > span{background:transparent !important;border:1px solid ${C.line} !important;border-radius:8px !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:#FFF1D6 !important}
+[data-wk="statevoice"] + div > button{background:#FFF8EA !important;color:${C.ink} !important;border:2px solid ${C.line} !important;border-radius:999px !important}
+[data-wk="stateaff"]{background:#FFF8EA !important;border-top:3px solid ${C.line} !important;position:relative !important;display:block !important;padding:16px 120px 18px 20px !important;min-height:112px !important}
+[data-wk="stateaff"] *{color:${C.ink} !important}
+[data-wk="stateheart"]{position:absolute !important;right:18px !important;left:auto !important;top:50% !important;margin-top:-44px !important;width:92px !important;height:84px !important;--sc-heart-mask:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><rect width='10' height='10'/></svg>`)} !important}
+[data-wk="stateheart"] > div,[data-wk="stateheartknob"]{inset:0 !important;-webkit-mask-size:100% 100% !important;mask-size:100% 100% !important;background-color:transparent !important;border:none !important}
+[data-wk="stateheart"] > div:not([data-wk]){display:none !important}
+[data-wk="stateheartfill"] > div{display:none !important}
+[data-wk="stateheartline"]{background:${svg(ST1)} center/contain no-repeat !important;opacity:calc(1 - clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1)) !important}
+[data-wk="stateheartbase"]{background:${svg(ST2)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.195)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1)) !important}
+[data-wk="stateheartfill"]{background:${svg(ST3)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.495)*1000,1) - clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important}
+[data-wk="stateheartknob"]{display:block !important;position:absolute !important;left:0 !important;bottom:0 !important;width:100% !important;height:100% !important;margin:0 !important;transform:none !important;background:${svg(ST4)} center/contain no-repeat !important;opacity:calc(clamp(0,(var(--sc-heart-lvl) - 0.795)*1000,1)) !important}
+[data-wk="stateheartnum"]{position:absolute !important;inset:auto 0 -10px 0 !important;display:flex !important;justify-content:center !important;padding:0 !important;font:600 13px/1 system-ui,sans-serif !important;color:${C.crust2} !important;-webkit-text-stroke:0 !important;text-shadow:0 0 3px #fff !important;z-index:3 !important}
+[data-wk="stateaffval"]{display:none !important}
+
+/* 翻旧的：白吐司和金黄吐司交替，左上「第 N 片」 */
+[data-wk="statehistbtn"]{background:#FFF8EA !important;color:${C.ink} !important;border:2px solid ${C.line} !important;border-radius:999px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.ink} !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:2px solid ${C.jam} !important;border-radius:999px !important;background:transparent !important;color:${C.jam} !important}
+[data-wk="statehistlist"]{counter-reset:pg !important}
+[data-wk="statehistitem"]{counter-increment:pg !important;position:relative !important;${SLICE(C.crumb, C.crust)};padding:30px 18px 14px !important;margin:14px 0 !important;box-shadow:0 3px 0 ${C.crust2} !important}
+[data-wk="statehistitem"]:nth-child(even){background:linear-gradient(180deg,${C.gold},${C.gold2}) !important;border-color:${C.crust2} !important}
+[data-wk="statehistitem"] *{color:${C.ink} !important}
+[data-wk="statehistitem"]:nth-child(even) *{color:#fff !important}
+[data-wk="statehistitem"]::before{content:"第 " counter(pg) " 片" !important;position:absolute !important;left:16px !important;top:8px !important;font-size:11px !important;color:${C.crust} !important;letter-spacing:.12em !important}
+[data-wk="statehistitem"]:nth-child(even)::before{color:#FFF1D6 !important}
+[data-wk="statehistmood"]{background:transparent !important;border:1px solid currentColor !important;border-radius:999px !important;padding:0 6px !important}
+[data-wk="statehisttime"]{opacity:.65 !important}
+[data-wk="statehistmeta"]{background:rgba(184,122,69,.08) !important;border-radius:8px !important}
+[data-wk="statehistend"]{color:${C.fog} !important;letter-spacing:.3em !important}
+
+/* Ta 眼里：贴条换成一小块黄油 */
+[data-wk="gazepage"]{background:${svg(CRUMBS)} 0 0/90px 90px,${C.bg} !important}
+[data-wk="gazetitle"]{color:${C.ink} !important}
+[data-wk="gazetab"]{background:#FFF8EA !important;color:${C.fog} !important;border:2px solid ${C.line} !important;border-radius:999px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:${C.gold} !important;color:#fff !important;border-color:${C.crust2} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{position:relative !important;overflow:visible !important;${SLICE(C.crumb, C.crust)};box-shadow:0 3px 0 ${C.crust2} !important}
+[data-wk="gazetape"]{background:${svg(BUTTER)} center/contain no-repeat !important;width:26px !important;height:20px !important;box-shadow:none !important;border:none !important}
+[data-wk="gazecardname"]{color:${C.crust} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#9C7B5C !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{${SLICE(C.crumb, C.crust)};color:${C.ink} !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
+[data-wk="gazeempty"]{background:#FFF8EA !important;color:${C.ink} !important;border:2px solid ${C.line} !important;border-radius:16px !important}
+[data-wk="gazeempty"] *{color:${C.ink} !important}
+[data-wk="gazeempty"] button{background:${C.gold} !important;color:#fff !important;border:none !important;border-radius:999px !important}
+
+/* ───── 线下：奶油底撒面包屑；他白吐司卡、我金黄吐司卡右边一块黄油；说的话下面一道黄油色，心里话焦糖色斜体 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(CRUMBS)} 0 0/90px 90px,${C.bg} !important;background-color:${C.bg} !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="headname"] > div:last-child{white-space:normal !important;line-height:1.35 !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *,[data-wk="offline"] [data-wk="chatback"] *{color:${C.ink} !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:${C.jam} !important;color:#fff !important;border:none !important;border-radius:999px !important;font-size:12px !important;padding:3px 12px !important;flex-shrink:0 !important}
+[data-wk="offline"] [data-wk="chatmore"]{width:26px !important;min-width:26px !important;height:26px !important}
+[data-wk="offcomposer"]{background:#FFF8EA !important;border:none !important;border-top:4px solid ${C.crust} !important;border-radius:0 !important}
+[data-wk="offcomposer"] textarea{background:#fff !important;border:1.5px solid ${C.line} !important;border-radius:12px !important;color:${C.ink} !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){width:40px !important;min-width:40px !important;height:36px !important;background:${svg(I_KNIFE)} center/contain no-repeat !important;${HIDE}}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:36px !important;min-width:36px !important;height:32px !important;${HIDE};background:${svg(I_SLICE)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+[data-wk="offcard"]{position:relative !important;overflow:hidden !important;${SLICE(C.crumb, C.crust)};box-shadow:0 4px 0 ${C.crust2},0 8px 14px rgba(154,98,54,.12) !important}
+[data-wk="offcard"][data-me="1"]{background:${svg(BUTTER)} right 12px top 12px/24px 20px no-repeat,linear-gradient(180deg,#F6CB8E,${C.gold}) !important;border-color:${C.crust2} !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2.5px ${C.yolk},0 0 0 5px #fff !important}
+[data-wk="offname"]{color:${C.crust} !important;font-weight:600 !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offname"]{color:${C.crust2} !important}
+[data-wk="offtext"]{color:#6A4C36 !important}
+[data-wk="offsay"]{color:${C.ink} !important;background:linear-gradient(transparent 62%,rgba(247,211,94,.6) 62%) !important;border:none !important;font-weight:600 !important;box-decoration-break:clone !important;-webkit-box-decoration-break:clone !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{background:linear-gradient(transparent 62%,rgba(255,248,234,.6) 62%) !important}
+[data-wk="offthought"]{background:transparent !important;border:none !important;color:#A8743F !important;font-style:italic !important}
+[data-wk="offcardacts"] svg{stroke:${C.fog} !important;color:${C.fog} !important}
+[data-wk="offreplyopt"]{background:#FFF8EA !important;border:2px solid ${C.line} !important;border-radius:12px !important;color:${C.ink} !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "黄油吐司", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "黄油吐司-美化.json"), JSON.stringify(pack));

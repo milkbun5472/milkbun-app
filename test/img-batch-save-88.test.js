@@ -55,7 +55,7 @@ test("她在面板上点了取消：什么都不算存了", async () => {
   assert.strictEqual(r.via, "cancel"); assert.strictEqual(r.n, 0);
 });
 test("五处都接上公共那一份，不各写一条", () => {
-  for (const f of ["stamps.js", "shike.js", "phone-ui.js", "screens.js"]) {
+  for (const f of ["stamps.js", "shike.js", "phone-ui.js", "screens-ui.js"]) {
     const s = rd(f); assert.match(s, /const imgPick = useImgPick\(\);/, f); assert.match(s, /h\(ImgPickBar, \{ pick: imgPick/, f); assert.match(s, /h\(ImgPickMark, \{ pick: imgPick/, f);
   }
   const c = rd("components.js");

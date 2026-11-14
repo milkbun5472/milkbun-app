@@ -1,7 +1,7 @@
 import { test } from "node:test"; import assert from "node:assert/strict"; import { readFileSync } from "node:fs"; import vm from "node:vm";
 const src = readFileSync(new URL("../js/collage.js", import.meta.url), "utf8");
 const app = readFileSync(new URL("../js/app.js", import.meta.url), "utf8");
-const scr = readFileSync(new URL("../js/screens.js", import.meta.url), "utf8");
+const scr = (readFileSync(new URL("../js/screens.js", import.meta.url), "utf8") + "\n" + readFileSync(new URL("../js/screens-ui.js", import.meta.url), "utf8"));
 const idx = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const ctx = { console, React: { createElement() {} }, window: {} }; vm.createContext(ctx); vm.runInContext(src, ctx);
 const C = ctx.window.Collage;

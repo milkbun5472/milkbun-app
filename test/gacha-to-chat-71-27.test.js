@@ -8,7 +8,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
-const app = P("js/app.js"), comp = P("js/components.js"), screens = P("js/screens.js");
+const app = P("js/app.js"), comp = P("js/components.js"), screens = (P("js/screens.js") + "\n" + P("js/screens-ui.js"));
 
 const show = () => {
   const i = app.indexOf("    onGachaShow: card => {"), j = app.indexOf("    coupleExDiary:", i);
