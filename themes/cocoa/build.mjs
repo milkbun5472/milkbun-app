@@ -8,7 +8,7 @@ const X = s => `<svg xmlns='http://www.w3.org/2000/svg' ${s}</svg>`;
 const C = { bg: "#F7F1EA", foam: "#FFFCF7", cocoa: "#7A4E36", cocoa2: "#5E3826", milk: "#EADBCB", ink: "#4A3328", fog: "#A8968A", pink: "#F6D3D6", cream: "#FFF6EC" };
 const DOTS = X(`width='80' height='80' viewBox='0 0 80 80'><g fill='rgba(122,78,54,.08)'><rect x='10' y='14' width='6' height='5' rx='1.6' transform='rotate(12 13 16)'/><rect x='52' y='40' width='6' height='5' rx='1.6' transform='rotate(-18 55 42)'/></g><g fill='rgba(246,211,214,.5)'><rect x='30' y='62' width='6' height='5' rx='1.6' transform='rotate(30 33 64)'/><rect x='66' y='8' width='5' height='4' rx='1.4'/></g>`);
 // 淌下来的那一圈：可可（他）/ 奶泡（我）
-const DRIP = c => X(`width='48' height='26' viewBox='0 0 48 26'><path d='M0 0 H48 V11 C48 11 46 11 45 13 C44 15 44 22 37 22 C30 22 30.5 13 28 12 C26.5 11.4 25.5 12 25 14 C24.3 17 23.5 19 20 19 C16.5 19 15.6 17 15 14.5 C14.5 12 13 11 11 11.5 C9 12 9 15 8 18 C7 21 5 23.5 2.5 23 C0.5 22.6 0 20 0 17Z' fill='${c}'/><g fill='rgba(255,255,255,.4)'><ellipse cx='35' cy='18' rx='2.6' ry='1.4'/><ellipse cx='19' cy='16' rx='1.8' ry='1'/><ellipse cx='4' cy='19' rx='1.3' ry='.8'/></g>`);
+const DRIP = c => X(`width='96' height='36' viewBox='0 0 96 36'><g fill='${c}'><rect width='96' height='14'/><path d='M8 13 C12 13 13 16 13 20 C13 29 19 34 27 34 C35 34 41 29 41 20 C41 16 42 13 47 13Z'/><path d='M58 13 C61 13 62 15 62 18 C62 24 66 27 71 27 C76 27 80 24 80 18 C80 15 81 13 85 13Z'/></g><g fill='rgba(255,255,255,.4)'><ellipse cx='33' cy='27' rx='3.4' ry='1.8' transform='rotate(-20 33 27)'/><ellipse cx='75' cy='21' rx='2.4' ry='1.3' transform='rotate(-20 75 21)'/></g>`);
 // 奶泡的绵密小气孔
 const FOAM = X(`width='34' height='26' viewBox='0 0 34 26'><g fill='none' stroke='rgba(200,175,150,.28)' stroke-width='.8'><circle cx='5' cy='6' r='2.2'/><circle cx='11' cy='4' r='1.3'/><circle cx='20' cy='9' r='2.6'/><circle cx='28' cy='5' r='1.5'/><circle cx='8' cy='16' r='1.6'/><circle cx='15' cy='20' r='2.4'/><circle cx='25' cy='18' r='1.4'/><circle cx='31' cy='22' r='2'/><circle cx='2' cy='23' r='1.2'/></g>`);
 const FOAMD = X(`width='34' height='26' viewBox='0 0 34 26'><g fill='none' stroke='rgba(255,236,220,.13)' stroke-width='.8'><circle cx='5' cy='6' r='2.2'/><circle cx='20' cy='9' r='2.6'/><circle cx='15' cy='20' r='2.4'/><circle cx='31' cy='22' r='2'/><circle cx='26' cy='15' r='1.3'/></g>`);
@@ -33,7 +33,7 @@ const css = `
 
 /* 顶栏：一层可可，底边往下淌一圈 */
 [data-wk="chathead"]{position:relative !important;overflow:visible !important;background:linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;border-bottom:none !important;box-shadow:none !important}
-[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:-35px !important;height:36px !important;background:${svg(DRIP(C.cocoa2))} 0 0/66px 36px repeat-x !important;pointer-events:none !important;z-index:2 !important}
+[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:-35px !important;height:36px !important;background:${svg(DRIP(C.cocoa2))} 0 0/96px 36px repeat-x !important;pointer-events:none !important;z-index:2 !important}
 [data-wk="headink"],[data-wk="headink"] *{color:#fff !important;font-weight:600 !important}
 [data-wk="headdim"],[data-wk="headname"] > div:last-child{color:#E3CDB9 !important}
 [data-wk="chatback"] svg{stroke:#fff !important}
@@ -55,8 +55,8 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 
 /* 气泡：他是一杯奶泡、顶上淌一圈可可；我是一杯可可、顶上一圈奶泡，泡上两颗小棉花糖 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:16px !important;line-height:1.6 !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]{background:${svg(DRIP(C.cocoa))} 0 0/66px 36px repeat-x,${svg(FOAM)} 0 0/34px 26px,radial-gradient(ellipse at 30% 40%,#fff,${C.foam} 70%) !important;color:${C.ink} !important;padding:40px 18px 13px !important;box-shadow:0 3px 0 ${C.milk},0 6px 12px rgba(94,56,38,.1) !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]{background:${svg(DRIP(C.foam))} 0 0/66px 36px repeat-x,${svg(FOAMD)} 0 0/34px 26px,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;color:#fff !important;padding:40px 18px 13px !important;box-shadow:0 3px 0 #48291B,0 6px 12px rgba(94,56,38,.2) !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{background:${svg(DRIP(C.cocoa))} 0 0/96px 36px repeat-x,${svg(FOAM)} 0 0/34px 26px,radial-gradient(ellipse at 30% 40%,#fff,${C.foam} 70%) !important;color:${C.ink} !important;padding:40px 18px 13px !important;box-shadow:0 3px 0 ${C.milk},0 6px 12px rgba(94,56,38,.1) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{background:${svg(DRIP(C.foam))} 0 0/96px 36px repeat-x,${svg(FOAMD)} 0 0/34px 26px,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;color:#fff !important;padding:40px 18px 13px !important;box-shadow:0 3px 0 #48291B,0 6px 12px rgba(94,56,38,.2) !important}
 [data-wk="bubble"][data-kind="text"][data-me="1"]::after{content:"" !important;position:absolute !important;right:12px !important;top:-6px !important;width:48px !important;height:15px !important;background:${svg(MALLOW)} center/contain no-repeat !important;pointer-events:none !important}
 [data-wk="bubble"][data-kind="text"]::before,[data-wk="bubble"][data-kind="text"][data-me="0"]::after{content:none !important}
 
