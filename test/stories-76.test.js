@@ -175,4 +175,4 @@ test("朋友圈：按面具看、换封面、每条的操作收进「··」（�
 
 test("朋友圈相机在顶栏、换封面小图标两处共用一份", () => { const c = fs.readFileSync("js/components.js", "utf8"); assert.ok(c.includes('tab === "moments" ? h("button", { "data-wk": "mocam"') && (c.match(/h\(MomentCoverPick, \{/g) || []).length === 2); });
 
-test("看完动态换回原来在放的那首", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("storyPrevRef.current = { id: player.songId") && a.includes("if (prev && prev.id && prev.playing)")); });
+test("看完动态换回原来在放的那首", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("if (!storySongRef.current) roomMusicEnter(() => false, null);") && a.includes("await roomMusicLeave(() => String(playerSongIdRef.current) === sid);")); });
