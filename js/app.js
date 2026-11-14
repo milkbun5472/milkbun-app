@@ -29250,11 +29250,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       catch (e) { toast("没画出来：" + ((e && e.message) || "")); }
     };
     // 动态上那首歌：用 App 的播放器真的放
-    window.__storyPlay = (m, auto) => { if (!m) return; storySongRef.current = String((m.song && m.song.id) || m.id); playSong((m.song && m.song.id) ? m.song : (resolveSong(m.id) || m.id)); if (!auto) toast("在放《" + (m.title || "这首歌") + "》"); };
+    // 从哪一秒开始放（她 2026-11-14「歌能不能不要从开头开始，可以选中间片段，他和我都是可以」）：m.at 秒
+    window.__storyPlay = async (m, auto) => {
+      if (!m) return; const sid = String((m.song && m.song.id) || m.id); storySongRef.current = sid;
+      await playSong((m.song && m.song.id) ? m.song : (resolveSong(m.id) || m.id));
+      const at = Math.max(0, Number(m.at) || 0), el = audioElRef.current;
+      if (at && el) { const go = () => { if (playerSongIdRef.current === sid) { try { el.currentTime = at; } catch (e) {} } };
+        if (el.readyState >= 1) go(); else el.addEventListener("loadedmetadata", go, { once: true }); }
+      if (!auto) toast("在放《" + (m.title || "这首歌") + "》");
+    };
     // 翻走、关掉那条动态：还在放的是动态那首就停下（她自己后来换的歌不动）
     window.__storyStop = () => { const sid = storySongRef.current; storySongRef.current = ""; if (sid && playerSongIdRef.current === sid && player.playing) togglePlay(); };
     // 她发动态时能带上正在听的那首
-    window.__storyNowSong = () => { const sg = player.songId && player.songId !== KEEPALIVE_ID ? resolveSong(player.songId) : null; return sg ? { id: sg.id, title: sg.title || "", artist: sg.artist || "", song: sg } : null; };
+    window.__storyNowSong = () => { const sg = player.songId && player.songId !== KEEPALIVE_ID ? resolveSong(player.songId) : null; return sg ? { id: sg.id, title: sg.title || "", artist: sg.artist || "", song: sg, at: Math.floor(Number(player.t) || 0), dur: Math.floor(Number(player.dur) || 0) } : null; };
     // 查看页左上角的头像（她 2026-11-14「左上角名字换成他的头像加名字」）
     window.__storyAvatar = by => h(Avatar, { character: by === "me" ? { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage } : ((characters || []).find(x => x && String(x.id) === String(by)) || { name: "TA" }), size: 30, radius: 8 });
   });
@@ -29294,11 +29302,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 信息小贴纸（第三版，她 2026-11-14「他可以选带什么放哪儿」）：位置、天气、心情、正在听，带不带、放哪由 TA 定，内容 App 照现成的填
           + "chips 是可选的信息小贴纸，想带哪几样就写哪几样（0 到 3 个）：type 是 location 位置、weather 天气、mood 心情、music 正在听，x y 是放在卡上哪儿（0 到 1）"
             + (_chipVals.weather ? "" : "；带 weather 的话 text 写此刻你那边的天气（几个字）") + "。现成能填的：" + (Object.keys(_chipVals).map(k => ({ location: "位置", weather: "天气", mood: "心情", music: "正在听" })[k] + "「" + _chipVals[k] + "」").join("、") || "暂时没有") + "。"
-          + (!_song && musicReady ? "想给这条配一首歌就写 song（「歌名 歌手」，要是真有的歌），会挂在卡底下，看的人点了能听；同时可以在 chips 里放一个 music 小贴纸。" : "")
+          + (!_song && musicReady ? "想给这条配一首歌就写 song（「歌名 歌手」，要是真有的歌），看的人一打开就会听到；同时可以在 chips 里放一个 music 小贴纸。" : "")
+          + (musicReady ? "配了歌的话，songAt 写从第几秒开始放（挑你想让她听的那一段，比如副歌；不写就从头）。" : "")
           + "regret 是你发完会不会后悔删掉：不会就写 0；会的话写过几分钟删（3 到 60）。"
           + (_night ? "现在是深夜，这条是半夜发的，卡会是夜色的底。" : "")
           + "字是你会发出去的那几句，不是解说。想的话可以加一个互动贴纸 sticker（不加就不写这一格）：提问框 {\"type\":\"ask\",\"q\":\"问她什么\"}、投票 {\"type\":\"poll\",\"q\":\"问题\",\"opts\":[\"选项一\",\"选项二\"]}、倒计时 {\"type\":\"countdown\",\"q\":\"倒数什么\",\"days\":几天后}。",
-        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + ",\"photo\":\"照片拍的是什么\",\"photoKind\":\"self|view|thing\",\"photoY\":0.45" + (!_song && musicReady ? ",\"song\":\"歌名 歌手\"" : "") + ",\"chips\":[{\"type\":\"location|weather|mood|music\",\"x\":0.2,\"y\":0.1}],\"regret\":0" + ",\"who\":\"all|me" + (related.length ? "|close\",\"closeNames\":[\"名字\"]" : "\"") + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
+        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + ",\"photo\":\"照片拍的是什么\",\"photoKind\":\"self|view|thing\",\"photoY\":0.45" + (!_song && musicReady ? ",\"song\":\"歌名 歌手\"" : "") + (musicReady ? ",\"songAt\":60" : "") + ",\"chips\":[{\"type\":\"location|weather|mood|music\",\"x\":0.2,\"y\":0.1}],\"regret\":0" + ",\"who\":\"all|me" + (related.length ? "|close\",\"closeNames\":[\"名字\"]" : "\"") + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
         maxTokens: 8000
       });
       let photoBlob = null;
@@ -29319,7 +29328,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (d && _night) d.bg = "night";
       if (d) d.chips = ((d.chips || []).slice(0, 3)).map(c0 => { const tp = ["location", "weather", "mood", "music"].indexOf(c0 && c0.type) >= 0 ? c0.type : ""; const v = tp && (_chipVals[tp] || (tp === "weather" ? String(c0.text || "").slice(0, 12) : "")); return v ? { type: tp, text: v, x: c0.x, y: c0.y } : null; }).filter(Boolean);
       const _regret = d && Number(d.regret) >= 3 ? Math.min(60, Number(d.regret)) : 0;
-      const _music = _song && d && (d.song || (d.chips || []).some(c0 => c0.type === "music")) ? { id: _song.id, title: _song.title || "", artist: _song.artist || "", song: _song } : null;
+      const _music = _song && d && (d.song || (d.chips || []).some(c0 => c0.type === "music")) ? { id: _song.id, title: _song.title || "", artist: _song.artist || "", song: _song, at: Math.max(0, Math.min(600, Math.round(Number(d.songAt) || 0))) } : null;
       const _row = await window.Stories.add({ by: char.id, manual: !!manual, music: _music, sticker: d && d.sticker, audience: _aud, night: _night, deleteAt: _regret ? Date.now() + _regret * 60000 : 0, raw: d || null, photoDesc: d && d.photo, photoKind: d && d.photoKind, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea || "…" }] }, !!photoBlob), photoBlob,
         text: idea || texts.join(" "), desc: texts.join(" / ") + (photoBlob && d.photo ? "（配了一张照片：" + String(d.photo).slice(0, 80) + "）" : "") });
       // 那几个人的反应落到这一条上：名字对得上关系线里的人才算，不认识的名字不收

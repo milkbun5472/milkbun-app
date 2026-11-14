@@ -9599,6 +9599,13 @@ function Messages({
       window.__storyNowSong && window.__storyNowSong() ? h("button", { "data-wk": "storywithsong", onClick: () => setStPend(p => Object.assign({}, p, { music: p.music ? null : window.__storyNowSong() })), className: "w-full active:opacity-70 flex items-center",
         style: { gap: 8, marginTop: 12, padding: "8px 10px", borderRadius: 10, border: "1px solid " + (stPend.music ? t.ink : t.line), fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } },
         h("span", null, stPend.music ? "☑" : "☐"), h("span", { className: "flex-1 min-w-0 truncate" }, "带上正在听的《" + window.__storyNowSong().title + "》")) : null,
+      // 从哪一段开始（勾上时默认就是现在放到的地方）
+      stPend.music ? h("div", { "data-wk": "storysongat", className: "flex items-center", style: { gap: 8, marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "从",
+        h("button", { onClick: () => setStPend(p => Object.assign({}, p, { music: Object.assign({}, p.music, { at: Math.max(0, (p.music.at || 0) - 5) }) })), style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + t.line } }, "−"),
+        h("span", { style: { minWidth: 40, textAlign: "center", color: t.ink } }, Math.floor((stPend.music.at || 0) / 60) + ":" + String((stPend.music.at || 0) % 60).padStart(2, "0")),
+        h("button", { onClick: () => setStPend(p => Object.assign({}, p, { music: Object.assign({}, p.music, { at: Math.min(p.music.dur || 600, (p.music.at || 0) + 5) }) })), style: { width: 28, height: 28, borderRadius: 999, border: "1px solid " + t.line } }, "+"),
+        "开始放",
+        h("button", { onClick: () => { const nw = window.__storyNowSong && window.__storyNowSong(); if (nw) setStPend(p => Object.assign({}, p, { music: Object.assign({}, p.music, { at: nw.at }) })); }, style: { marginLeft: "auto", color: t.tint } }, "用现在放到的地方")) : null,
       // 同框（第三版）：挑一个人一起发，这一条同时挂在你和 TA 的头像上
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "14px 0 6px" } }, "和谁一起发（同框，挂在你们两个人的头像上）"),
       h("div", { "data-wk": "storyco", className: "flex flex-wrap", style: { gap: 6 } },
