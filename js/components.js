@@ -9344,6 +9344,7 @@ function Messages({
   const tab = tabProp != null ? tabProp : tabInner;
   const setTab = onTab || setTabInner;
   const [composeOpen, setComposeOpen] = useState(false);
+  const [momCam, setMomCam] = useState(false);   // 朋友圈顶栏那颗相机点开的菜单（她 2026-11-14「相机放顶栏，不会被滑走」）
   const [groupMgr, setGroupMgr] = useState(false);
   const [groupList, setGroupList] = useState(false);   // 通讯录里的「群聊」入口
   const [reqOpen, setReqOpen] = useState(false);
@@ -9550,7 +9551,8 @@ function Messages({
     }, h(IPlus, {
       size: 20,
       color: t.ink
-    }))) : null
+    }))) : tab === "moments" ? h("button", { "data-wk": "mocam", "aria-label": "发朋友圈", onClick: () => setMomCam(v => !v), className: "active:opacity-50 flex items-center justify-center", style: { width: 46, height: 34 } },
+      h(ICamera, { size: 21, color: t.ink })) : null
   }),
   // ── 备份坏了要看得见：固定横幅读取 Cloud 的公共状态与标题。
   h(BackupBanner, { onOpenSettings }),
@@ -9766,7 +9768,7 @@ function Messages({
     onTop: onTopMoment,
     onPin: onPinMoment,
     onOpenProfile: cid => onOpenMomProfile && onOpenMomProfile(cid, false),
-    cover: momCover, coverPos: momCoverPos, onSetCover: onSetMomCover, onOpenMine: () => onOpenMomProfile && onOpenMomProfile(null, true)
+    cover: momCover, coverPos: momCoverPos, onSetCover: onSetMomCover, camOpen: momCam, setCamOpen: setMomCam, onOpenMine: () => onOpenMomProfile && onOpenMomProfile(null, true)
   }), tab === "me" && h("div", {
     className: "p-5"
   }, h("button", {
@@ -10042,6 +10044,16 @@ function MomentGrid({ refs }) {
       style: { width: 84, height: 84, padding: 0, borderRadius: 6, overflow: "hidden", display: "block" } },
       h("img", { src: resolveImg(r), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }))),
     at >= 0 && h(ImageViewer, { items: list.map(r => ({ src: resolveImg(r) })), at, onClose: () => setAt(-1) }));
+}
+// 朋友圈封面右上角那颗换封面的小图标：首页和个人主页同一份（她 2026-11-14「跟自己朋友圈主页那块一样做个公共的」）
+//   点了从相册挑一张，缩到 1400 宽交给 onPicked
+function MomentCoverPick({ onPicked, style }) {
+  const ref = useRef(null);
+  return h(Fragment, null,
+    h("button", { "data-wk": "mocoverpick", "aria-label": "换封面", onClick: () => ref.current && ref.current.click(), className: "active:opacity-70",
+      style: Object.assign({ width: 36, height: 36, borderRadius: 999, background: "rgba(0,0,0,.32)", display: "flex", alignItems: "center", justifyContent: "center" }, style || {}) },
+      h(PGlyph, { k: "album", size: 17, color: "#fff" })),
+    h("input", { ref, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) resizeImageFile(f, 1400, 0.82).then(d => d && onPicked(d)); } }));
 }
 // 一条朋友圈底下那几样（赞、评论、收进时刻、置顶、删除）收进右边的「··」，点开才有（她 2026-11-14「跟微信一样三个点在右边点开才有选项」）
 //   首页和个人主页共用这一份；原来各颗键的挂点（molike、mompin、momtop）照旧挂在菜单里那几颗上
@@ -10620,12 +10632,10 @@ function MomentsFeed({
   onPin,
   onOpenProfile,
   onDelComment,
-  cover, coverPos, onOpenMine, onSetCover
+  cover, coverPos, onOpenMine, onSetCover, camOpen, setCamOpen
 }) {
-  const [camOpen, setCamOpen] = useState(false);
   const [maskView, setMaskView] = useState(null);   // null＝看全部；某张面具的 id（主面具是 ""）＝只看认这张面具的人
   const [moreFor, setMoreFor] = useState(null);     // 哪一条的「··」点开了
-  const coverRef = useRef(null);   // 封面右上角相机：发朋友圈／让角色发／自动配图
   // 长按一条评论删掉（群友 2026-11-02）：按住 600ms，挪开手指就算了；按出来之后那一下不算点
   const [delCm, setDelCm] = useState(null);
   const cmPress = useRef({ t: null, fired: false });
@@ -10689,16 +10699,13 @@ function MomentsFeed({
     //   原来那颗「发朋友圈」的挂点 mocompose 照旧挂在菜单里那一颗上
     h("div", { "data-wk": "mocoverhead", style: { position: "relative", marginBottom: 46 } },
       h("div", { "data-wk": "mocover", style: { height: 270, background: cover ? "center/cover no-repeat url(" + resolveImg(cover) + ")" : "linear-gradient(160deg," + t.bg + "," + t.line + ")", backgroundPosition: cover ? (coverPos || "center") : undefined } }),
-      h("button", { "data-wk": "mocam", "aria-label": "发朋友圈", onClick: () => setCamOpen(v => !v), className: "active:opacity-70",
-        style: { position: "absolute", top: 12, right: 14, width: 40, height: 40, borderRadius: 999, background: "rgba(0,0,0,.28)", display: "flex", alignItems: "center", justifyContent: "center" } },
-        h(ICamera, { size: 20, color: "#fff" })),
-      camOpen ? h("div", { "data-wk": "mocammenu", style: { position: "absolute", top: 58, right: 14, zIndex: 5, minWidth: 190, padding: "4px 0", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 8px 24px rgba(0,0,0,.18)" } },
+      onSetCover ? h(MomentCoverPick, { onPicked: d => onSetCover(d), style: { position: "absolute", top: 12, right: 14 } }) : null,
+      camOpen ? h("div", { onClick: () => setCamOpen(false), style: { position: "fixed", inset: 0, zIndex: 59 } }) : null,
+      camOpen ? h("div", { "data-wk": "mocammenu", style: { position: "fixed", top: "calc(env(safe-area-inset-top, 0px) + 58px)", right: 14, zIndex: 60, minWidth: 190, padding: "4px 0", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 8px 24px rgba(0,0,0,.18)" } },
         h("button", { "data-wk": "mocompose", onClick: () => { setCamOpen(false); onCompose(); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
           h(PGlyph, { k: "album", size: 15, color: t.ink }), "发朋友圈"),
         h("button", { "data-wk": "mocharpost", onClick: () => { setCamOpen(false); setPick(true); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
           h(IRefresh, { size: 14, color: t.ink }), "让角色发一条"),
-        onSetCover ? h("button", { "data-wk": "mocovernew", onClick: () => { setCamOpen(false); coverRef.current && coverRef.current.click(); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
-          h(PGlyph, { k: "album", size: 15, color: t.ink }), "换封面") : null,
         (() => { const ms = window.__momentMasks ? window.__momentMasks() : []; if (ms.length < 2) return null;
           return h("div", { "data-wk": "momaskview", style: { padding: "8px 14px", borderTop: "1px solid " + t.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "看谁的朋友圈"),
@@ -10706,7 +10713,6 @@ function MomentsFeed({
               [{ id: null, name: "全部" }].concat(ms).map(mk => { const on = maskView === mk.id;
                 return h("button", { key: String(mk.id), "data-on": on ? "1" : "0", onClick: () => { setMaskView(mk.id); setCamOpen(false); }, style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, mk.id === null ? "全部" : mk.name); }))); })(),
         h("div", { style: { padding: "6px 14px 8px", borderTop: "1px solid " + t.line } }, h(MomentAutoImgSwitch, null))) : null,
-      onSetCover ? h("input", { ref: coverRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) resizeImageFile(f, 1400, 0.82).then(d => d && onSetCover(d)); } }) : null,
       maskView !== null ? h("button", { "data-wk": "momaskchip", onClick: () => setMaskView(null), style: { position: "absolute", top: 16, left: 14, padding: "5px 11px", borderRadius: 999, background: "rgba(0,0,0,.35)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
         "只看「" + (((window.__momentMasks ? window.__momentMasks() : []).find(x => x.id === maskView) || {}).name || "这张面具") + "」 ×") : null,
       h("div", { className: "flex items-end", style: { position: "absolute", right: 16, bottom: -30, gap: 12 } },
@@ -11085,9 +11091,8 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
       (!cover && coverText) ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 18px 44px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "rgba(255,255,255,.88)", textShadow: "0 1px 5px rgba(0,0,0,.5)", maxWidth: 250 } }, coverText)) : null,
       h("button", { onClick: onBack, className: "active:opacity-60", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 10px)", left: 14, width: 34, height: 34, borderRadius: 999, background: "rgba(0,0,0,0.32)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IArrow, { size: 19, color: "#fff" })),
-      h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "active:opacity-70", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", right: 14, padding: "6px 12px", borderRadius: 999, background: "rgba(0,0,0,0.32)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#fff" } }, cover ? "换封面" : "设封面"),
-      cover && onSetCoverPos && !adj && h("button", { onClick: startAdj, className: "active:opacity-70", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", right: 86, padding: "6px 12px", borderRadius: 999, background: "rgba(0,0,0,0.32)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#fff" } }, "调位置"),
-      h("input", { ref: coverRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: pickCover }),
+      onSetCover ? h(MomentCoverPick, { onPicked: d => { onSetCover(d); if (onSetCoverPos) { onSetCoverPos(""); setAdj({ x: 50, y: 50 }); } }, style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 10px)", right: 14 } }) : null,
+      cover && onSetCoverPos && !adj && h("button", { onClick: startAdj, className: "active:opacity-70", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", right: 58, padding: "6px 12px", borderRadius: 999, background: "rgba(0,0,0,0.32)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#fff" } }, "调位置"),
       h("div", { "data-wk": "moprofilehead", style: { position: "absolute", right: 16, bottom: -30, display: "flex", alignItems: "flex-start", gap: 12 } },
         h("div", { style: { textAlign: "right", maxWidth: 190, paddingTop: 2 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", lineHeight: 1, color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,0.55)" } }, name)),
