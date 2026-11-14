@@ -10302,6 +10302,7 @@ function MemoryLib({
   onUpdate,
   onDelete,
   onExtract,
+  onExtractFor,
   onSaveCfg,
   onImportOld,
   onBackfillEmotion,
@@ -10776,6 +10777,10 @@ function MemoryLib({
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } },
         "给这些约定挑个日子", h("span", { style: { display: "block", fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "到那天那个点，TA会自己来找你、打给你或视频")),
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, flexShrink: 0 } }, "我们说好的 ›")) : null,
+    // 选了一个人：手动抽一次、把旧长期记忆拆进来（她 2026-11-14：原来这两颗在一张已经停用的整理单里，点不到）
+    !inRoom && focusChar && (onExtractFor || importable) ? h("div", { "data-wk": "memcharTools", className: "flex", style: { gap: 7, margin: "0 0 10px" } },
+      onExtractFor ? h("button", { "data-wk": "memextract", onClick: () => onExtractFor(focusChar.id), disabled: busy, className: "flex-1 active:opacity-60 disabled:opacity-40", style: { minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, busy ? "抽取中…" : "从最近的聊天抽一次") : null,
+      importable && onImportOld ? h("button", { "data-wk": "memimportold", onClick: () => onImportOld(focusChar.id), disabled: busy, className: "flex-1 active:opacity-60 disabled:opacity-40", style: { minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "导入旧长期记忆") : null) : null,
     !inRoom && h("div", { className: "flex items-center justify-between", style: { margin: "2px 2px 9px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } },
         "这一摞 " + list.length + " 张"

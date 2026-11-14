@@ -37710,6 +37710,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onExtract: activeChar ? () => extractMemForChar(activeChar.id) : null,
     onSaveCfg: saveMemCfg,
     onImportOld: importOldMemoryToLib,
+    onExtractFor: extractMemForChar,
     onBackfillEmotion: backfillMemEmotion,
     onPurgeWithered: purgeWithered,
     onDowngradeRoutineOpen: downgradeRoutineOpen,

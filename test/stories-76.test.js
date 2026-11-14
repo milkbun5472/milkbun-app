@@ -153,3 +153,5 @@ test("TA 翻到健康就翻到这周", () => { const a = fs.readFileSync("js/app
 test("健康每天步数一格、查手机能快进", () => { const hl = fs.readFileSync("js/health.js", "utf8"), pk = fs.readFileSync("js/peek-phone.js", "utf8"); assert.ok(hl.includes('"healthsteps"') && pk.includes('"peekspeed"') && pk.includes("ms / speed()")); });
 
 test("翻手机等待那句提示", () => { const pk = fs.readFileSync("js/peek-phone.js", "utf8"); assert.ok(pk.includes('"peekwait"') && fs.readFileSync("js/app.js", "utf8").includes("waitStage:")); });
+
+test("记忆库选了人能手动抽、能导入旧长期记忆", () => { const u = fs.readFileSync("js/screens-ui.js", "utf8"); assert.ok(u.includes('"memextract"') && u.includes('"memimportold"') && fs.readFileSync("js/app.js", "utf8").includes("onExtractFor: extractMemForChar")); });
