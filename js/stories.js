@@ -43,14 +43,14 @@
     if (hasPhoto) free.push({ type: "photo", p: 0, x: W / 2, y: num(d && d.photoY, 0.15, 0.85, 0.42) * H, w: 860, h: 1080, frame: "scrap", s: 1, r: num(d && d.photoR, -8, 8, -2) });
     ((d && d.texts) || []).slice(0, 6).forEach(tx => {
       const t = String((tx && (tx.t || tx.text)) || "").trim().slice(0, 40); if (!t) return;
-      free.push({ type: "text", text: t, x: num(tx.x, 0.08, 0.92, 0.5) * W, y: num(tx.y, 0.05, 0.95, 0.5) * H, size: num(tx.size, 36, 180, 80),
+      free.push({ type: "text", text: t, x: num(tx.x, 0.08, 0.92, 0.5) * W, y: num(tx.y, 0.13, 0.93, 0.5) * H, size: num(tx.size, 36, 180, 80),
         color: (bg === "night" && dark(hex(tx.color))) ? "#f3eee8" : (hex(tx.color) || (bg === "night" ? "#f3eee8" : "#2b2b2b")), font: fonts.indexOf(tx.font) >= 0 ? tx.font : font, r: num(tx.r, -20, 20, 0), s: 1 });
     });
     // 信息小贴纸（位置／天气／心情／正在听）：纸条样式的一小块字，放在 TA 挑的位置
     const CHIP = { location: "📍", weather: "☁️", mood: "🙂", music: "🎵" };
     ((d && d.chips) || []).slice(0, 3).forEach(c => { const t = String((c && c.text) || "").trim(); if (!t || !CHIP[c.type]) return;
-      free.push({ type: "text", text: CHIP[c.type] + " " + t.slice(0, 20), x: num(c.x, 0.15, 0.85, 0.3) * W, y: num(c.y, 0.04, 0.96, 0.1) * H, size: 44, color: "#2b2b2b", font: "sans", tstyle: "strip", r: 0, s: 1 }); });
-    const deco = ((d && d.stickers) || []).slice(0, 8).map(st => ({ ch: String((st && (st.ch || st.emoji)) || "").slice(0, 4), x: num(st && st.x, 0.05, 0.95, 0.5) * W, y: num(st && st.y, 0.03, 0.97, 0.5) * H,
+      free.push({ type: "text", text: CHIP[c.type] + " " + t.slice(0, 20), x: num(c.x, 0.15, 0.85, 0.3) * W, y: num(c.y, 0.13, 0.93, 0.15) * H, size: 44, color: "#2b2b2b", font: "sans", tstyle: "strip", r: 0, s: 1 }); });
+    const deco = ((d && d.stickers) || []).slice(0, 8).map(st => ({ ch: String((st && (st.ch || st.emoji)) || "").slice(0, 4), x: num(st && st.x, 0.05, 0.95, 0.5) * W, y: num(st && st.y, 0.12, 0.95, 0.5) * H,
       size: num(st && st.size, 50, 220, 110), r: num(st && st.r, -30, 30, 0) })).filter(x => x.ch);
     return { tpl: "blank", bg, font, free, deco, words: [], picks: [] };
   }
@@ -112,9 +112,29 @@
   const setHl = (id, name) => patch(id, s => Object.assign({}, s, { hl: String(name || "").trim().slice(0, 12) || undefined }));
   const hlOf = by => { const m = new Map(); all().filter(s => String(s.by) === String(by) && s.hl).sort((a, b) => a.ts - b.ts).forEach(s => { if (!m.has(s.hl)) m.set(s.hl, []); m.get(s.hl).push(s); }); return [...m.entries()]; };
   // 补一张图：照原稿加一格照片重画，换一把新的图库键（查看页认键变了才重读）
+  // ⚠️补图是【贴】上去，不是重排（她 2026-11-14「生图能不能 overlay 到这个图上面而不是顶上去」）：
+  //   原来那张卡一个字不动，照片像拍立得一样贴在卡上最空的那一段，带白边、歪一点、带点影子
+  async function overlayPhoto(cardBlob, photoBlob, raw) {
+    const base = await blobToImg(cardBlob), ph = await blobToImg(photoBlob);
+    if (!base || !ph) throw new Error("图读不出来");
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const ctx = cv.getContext("2d");
+    ctx.drawImage(base, 0, 0, W, H);
+    // 找卡上最空的一段：字和贴纸占掉的高度挖掉，挑最长的那一截空白放照片
+    const ys = []; ((raw && raw.texts) || []).forEach(t => ys.push(num(t.y, 0.13, 0.93, 0.5))); ((raw && raw.stickers) || []).forEach(t => ys.push(num(t.y, 0.12, 0.95, 0.5)));
+    const cuts = [0.12].concat(ys.sort((a, b) => a - b)).concat([0.96]); let best = [0.3, 0.7];
+    for (let k = 1; k < cuts.length; k++) if (cuts[k] - cuts[k - 1] > best[1] - best[0]) best = [cuts[k - 1], cuts[k]];
+    const cy = (best[0] + best[1]) / 2 * H, room = Math.max(0.3, best[1] - best[0]) * H;
+    const ph0 = Math.min(1100, room * 0.92), pw0 = Math.min(820, ph0 * ph.width / ph.height), phh = pw0 * ph.height / ph.width, pad = 26;
+    ctx.save(); ctx.translate(W / 2, cy); ctx.rotate(-2.5 * Math.PI / 180);
+    ctx.shadowColor = "rgba(0,0,0,.28)"; ctx.shadowBlur = 30; ctx.shadowOffsetY = 10; ctx.fillStyle = "#fff";
+    ctx.fillRect(-pw0 / 2 - pad, -phh / 2 - pad, pw0 + pad * 2, phh + pad * 3.2);
+    ctx.shadowColor = "transparent"; ctx.drawImage(ph, -pw0 / 2, -phh / 2, pw0, phh); ctx.restore();
+    return await new Promise(ok => cv.toBlob(b => ok(b), "image/jpeg", 0.88));
+  }
   async function addPhoto(id, photoBlob) {
-    const s0 = all().find(x => x.id === id); if (!s0 || !s0.raw || !photoBlob) throw new Error("这一条补不了图");
-    const img = await renderCard(layoutFrom(s0.raw, true), photoBlob);
+    const s0 = all().find(x => x.id === id); if (!s0 || !photoBlob) throw new Error("这一条补不了图");
+    const card = s0.imgKey && typeof idbImgGet === "function" ? await idbImgGet(s0.imgKey) : null;
+    const img = card ? await overlayPhoto(card, photoBlob, s0.raw) : await renderCard(layoutFrom(s0.raw || {}, true), photoBlob);
     const key = "img_" + id + "_p" + Date.now().toString(36);
     await idbImgPut(key, img);
     patch(id, x => Object.assign({}, x, { imgKey: key, photo: true }));
@@ -161,6 +181,13 @@
     const s = (list || [])[i];
     const url = useBlobUrl(s && ((all().find(x => x.id === s.id) || s).imgKey));   // 补了图换了键，现读一次才跟得上
     React.useEffect(() => { if (s && viewer && String(s.by) !== String(viewer)) markSeen(s.id, viewer); }, [s && s.id]);
+    // 有歌的那一条：一打开就放，翻走、关掉就停（她 2026-11-14「听能不能自动播放然后放顶上做横幅」）
+    React.useEffect(() => {
+      const m = s && (all().find(x => x.id === s.id) || s).music;
+      if (!m || !window.__storyPlay) return;
+      window.__storyPlay(m, true);
+      return () => { if (window.__storyStop) window.__storyStop(); };
+    }, [s && s.id]);
     if (!s) return null;
     const mine = String(s.by) === String(viewer);
     const cur = all().find(x => x.id === s.id) || s, st = cur.sticker;   // 投票、回答是刚写进去的，现读一次
@@ -198,7 +225,10 @@
           // 谁的都能删（她 2026-11-14「动态可以删除」）：先问一句，删了这张图一起清掉
           h("button", { "data-wk": "storydel", onClick: () => { const doIt = () => { (onDelete || (x => remove(x.id)))(s); onClose(); };
             if (typeof requestAppConfirm === "function") requestAppConfirm("删掉这条限时动态？", mine ? "删了就没了，看过、回过的记录一起清掉。" : "只从你这儿删掉，TA 那边也就当没发过。", doIt, "删掉"); else doIt(); }, style: { color: "#fff", opacity: .8, padding: "4px 8px" } }, "删掉"),
-          h("button", { "data-wk": "storyclose", "aria-label": "关掉", onClick: onClose, style: { color: "#fff", fontSize: 22, padding: "0 6px" } }, "×"))),
+          h("button", { "data-wk": "storyclose", "aria-label": "关掉", onClick: onClose, style: { color: "#fff", fontSize: 22, padding: "0 6px" } }, "×")),
+        // 歌的横幅：名字底下一条，打开就在放；点一下从头再放
+        cur.music && window.__storyPlay ? h("button", { "data-wk": "storymusic", onClick: () => window.__storyPlay(cur.music), className: "flex items-center", style: { gap: 6, marginTop: 6, maxWidth: "100%", padding: "4px 10px", borderRadius: 999, background: "rgba(0,0,0,.35)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
+          h("span", null, "♪"), h("span", { className: "truncate" }, (cur.music.title || "这首歌") + (cur.music.artist ? " · " + cur.music.artist : ""))) : null),
       h("div", { style: { flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" } },
         url ? h("img", { src: url, alt: s.text || "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain" } }) : h("div", { style: { color: "#aaa", fontFamily: F_BODY } }, "载入中…"),
         // 左边三成点一下回上一条、右边点一下下一条；按住不放＝停在这一条（松手接着走）
@@ -208,9 +238,6 @@
         cur.ghost ? h("div", { "data-wk": "storyghost", style: { position: "absolute", inset: 0, zIndex: 4, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.55)", color: "#eee", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", textAlign: "center", padding: 30, lineHeight: 1.7 } },
           (mine ? "你" : nameOf(s.by)) + " 把这条删了", h("br"), h("span", { style: { fontSize: "calc(12px * var(--app-fs, 1))", opacity: .8 } }, "删之前你已经看到了")) : null),
       // 这张图会画什么（她 2026-11-14）：TA 排卡时写好的，没配图的卡点「生图」就照这句补一张（自拍、随手拍的风景、手边的东西都行）
-      // 卡上那首歌真的能听（她 2026-11-14「音乐是真的可以听」）：点一下用 App 的播放器放
-      cur.music && window.__storyPlay ? h("button", { "data-wk": "storymusic", onClick: () => window.__storyPlay(cur.music), className: "flex items-center", style: { gap: 8, width: "100%", padding: "8px 12px 0", background: "rgba(0,0,0,.6)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", textAlign: "left" } },
-        h("span", null, "🎵"), h("span", { className: "flex-1 min-w-0 truncate" }, (cur.music.title || "这首歌") + (cur.music.artist ? " · " + cur.music.artist : "")), h("span", { style: { padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)" } }, "▶ 听")) : null,
       cur.photoDesc && !cur.photo ? h("div", { "data-wk": "storyphotoline", className: "flex items-center", style: { gap: 8, padding: "8px 12px 0", background: "rgba(0,0,0,.6)", color: "#ddd", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5 } },
         h("button", { "data-wk": "storyphototoggle", onClick: () => setPhotoOpen(v => !v), className: "flex-1 min-w-0 text-left", style: { color: "#ddd", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: photoOpen ? "normal" : "nowrap" } },
           "📷 " + ({ self: "自拍", view: "随手拍的", thing: "手边的东西" }[cur.photoKind] || "照片") + (photoOpen ? "：" + cur.photoDesc + " ︿" : " · 这张图会画什么 ﹀")),

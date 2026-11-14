@@ -29219,6 +29219,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   TA 只说「想发什么」，排版这一下单独一次调用：背景、字体、几块字放哪、多大、什么颜色、贴纸——跟拼壁纸那一套同一份版面，
   //   画的也是同一支 Collage.draw。聊天设置里开了「限时动态配照片」、又能拍 TA 时，再多一次生图放一张 TA 此刻的照片。
   const storyBusyRef = useRef({});
+  const storySongRef = useRef("");   // 限时动态自动放的那首（停的时候只停它）
   // 拍限时动态那张：self 自拍走人像那条（锁脸），风景、手边的东西走空景那条（不画人，不喂参考照）
   const storyShoot = async (char, desc, kind) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先在设置里配好生图");
@@ -29249,7 +29250,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       catch (e) { toast("没画出来：" + ((e && e.message) || "")); }
     };
     // 动态上那首歌：用 App 的播放器真的放
-    window.__storyPlay = m => { if (!m) return; playSong((m.song && m.song.id) ? m.song : (resolveSong(m.id) || m.id)); toast("在放《" + (m.title || "这首歌") + "》"); };
+    window.__storyPlay = (m, auto) => { if (!m) return; storySongRef.current = String((m.song && m.song.id) || m.id); playSong((m.song && m.song.id) ? m.song : (resolveSong(m.id) || m.id)); if (!auto) toast("在放《" + (m.title || "这首歌") + "》"); };
+    // 翻走、关掉那条动态：还在放的是动态那首就停下（她自己后来换的歌不动）
+    window.__storyStop = () => { const sid = storySongRef.current; storySongRef.current = ""; if (sid && playerSongIdRef.current === sid && player.playing) togglePlay(); };
     // 她发动态时能带上正在听的那首
     window.__storyNowSong = () => { const sg = player.songId && player.songId !== KEEPALIVE_ID ? resolveSong(player.songId) : null; return sg ? { id: sg.id, title: sg.title || "", artist: sg.artist || "", song: sg } : null; };
     // 查看页左上角的头像（她 2026-11-14「左上角名字换成他的头像加名字」）
