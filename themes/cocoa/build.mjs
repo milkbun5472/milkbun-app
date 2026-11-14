@@ -33,7 +33,7 @@ const css = `
 
 /* 顶栏：一层可可，底边往下淌一圈 */
 [data-wk="chathead"]{position:relative !important;overflow:visible !important;background:linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;border-bottom:none !important;box-shadow:none !important}
-[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:-35px !important;height:36px !important;background:${svg(DRIP(C.cocoa2))} 0 0/96px 36px repeat-x !important;pointer-events:none !important;z-index:2 !important}
+[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:-26px !important;height:27px !important;background:${svg(DRIP(C.cocoa2))} 0 0/72px 27px repeat-x !important;pointer-events:none !important;z-index:2 !important}
 [data-wk="headink"],[data-wk="headink"] *{color:#fff !important;font-weight:600 !important}
 [data-wk="headdim"],[data-wk="headname"] > div:last-child{color:#E3CDB9 !important}
 [data-wk="chatback"] svg{stroke:#fff !important}
@@ -55,8 +55,8 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 
 /* 气泡：他是一杯奶泡、顶上淌一圈可可；我是一杯可可、顶上一圈奶泡，泡上两颗小棉花糖 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:16px !important;line-height:1.6 !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]{background:${svg(DRIP(C.cocoa))} 0 0/96px 36px repeat-x,${svg(FOAM)} 0 0/34px 26px,radial-gradient(ellipse at 30% 40%,#fff,${C.foam} 70%) !important;color:${C.ink} !important;padding:40px 18px 13px !important;box-shadow:0 3px 0 ${C.milk},0 6px 12px rgba(94,56,38,.1) !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]{background:${svg(DRIP(C.foam))} 0 0/96px 36px repeat-x,${svg(FOAMD)} 0 0/34px 26px,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;color:#fff !important;padding:40px 18px 13px !important;box-shadow:0 3px 0 #48291B,0 6px 12px rgba(94,56,38,.2) !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{background:${svg(DRIP(C.cocoa))} 0 0/72px 27px repeat-x,${svg(FOAM)} 0 0/34px 26px,radial-gradient(ellipse at 30% 40%,#fff,${C.foam} 70%) !important;color:${C.ink} !important;padding:33px 17px 12px !important;box-shadow:0 3px 0 ${C.milk},0 6px 12px rgba(94,56,38,.1) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{background:${svg(DRIP(C.foam))} 0 0/72px 27px repeat-x,${svg(FOAMD)} 0 0/34px 26px,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;color:#fff !important;padding:33px 17px 12px !important;box-shadow:0 3px 0 #48291B,0 6px 12px rgba(94,56,38,.2) !important}
 [data-wk="bubble"][data-kind="text"][data-me="1"]::after{content:"" !important;position:absolute !important;right:12px !important;top:-6px !important;width:48px !important;height:15px !important;background:${svg(MALLOW)} center/contain no-repeat !important;pointer-events:none !important}
 [data-wk="bubble"][data-kind="text"]::before,[data-wk="bubble"][data-kind="text"][data-me="0"]::after{content:none !important}
 
