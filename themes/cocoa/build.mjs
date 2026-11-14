@@ -67,8 +67,8 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 
 /* 气泡：他是一杯奶泡、顶上淌一圈可可；我是一杯可可、顶上一圈奶泡，泡上两颗小棉花糖 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:16px !important;line-height:1.6 !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]{background:${svg(DRIP(C.cocoa))} 0 0/36px 25px repeat-x,${C.foam} !important;color:${C.ink} !important;padding:30px 18px 12px !important;box-shadow:0 3px 0 ${C.milk},0 6px 12px rgba(94,56,38,.1) !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]{background:${svg(DRIP(C.foam))} 0 0/36px 25px repeat-x,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;color:#fff !important;padding:30px 18px 12px !important;box-shadow:0 3px 0 #48291B,0 6px 12px rgba(94,56,38,.2) !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{background:${svg(DRIP(C.cocoa))} 0 0/28px 19px repeat-x,${C.foam} !important;color:${C.ink} !important;padding:21px 16px 9px !important;box-shadow:0 3px 0 ${C.milk},0 6px 12px rgba(94,56,38,.1) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{background:${svg(DRIP(C.foam))} 0 0/28px 19px repeat-x,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;color:#fff !important;padding:21px 16px 9px !important;box-shadow:0 3px 0 #48291B,0 6px 12px rgba(94,56,38,.2) !important}
 [data-wk="bubble"][data-kind="text"][data-me="1"]::after{content:"" !important;position:absolute !important;right:12px !important;top:-6px !important;width:48px !important;height:15px !important;background:${svg(MALLOW)} center/contain no-repeat !important;pointer-events:none !important}
 [data-wk="bubble"][data-kind="text"]::before,[data-wk="bubble"][data-kind="text"][data-me="0"]::after{content:none !important}
 
