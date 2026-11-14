@@ -8,7 +8,7 @@ const X = s => `<svg xmlns='http://www.w3.org/2000/svg' ${s}</svg>`;
 const C = { bg: "#F7F1EA", foam: "#FFFCF7", cocoa: "#7A4E36", cocoa2: "#5E3826", milk: "#EADBCB", ink: "#4A3328", fog: "#A8968A", pink: "#F6D3D6", cream: "#FFF6EC" };
 const DOTS = X(`width='80' height='80' viewBox='0 0 80 80'><g fill='rgba(122,78,54,.08)'><rect x='10' y='14' width='6' height='5' rx='1.6' transform='rotate(12 13 16)'/><rect x='52' y='40' width='6' height='5' rx='1.6' transform='rotate(-18 55 42)'/></g><g fill='rgba(246,211,214,.5)'><rect x='30' y='62' width='6' height='5' rx='1.6' transform='rotate(30 33 64)'/><rect x='66' y='8' width='5' height='4' rx='1.4'/></g>`);
 // 淌下来的那一圈：可可（他）/ 奶泡（我）
-const DRIP = c => X(`width='60' height='18' viewBox='0 0 60 18'><path d='M0 0 H60 V7 C58 7 57.5 13 55 13 C52.5 13 52.5 8 50 8 C48 8 48 10.5 46 10.5 C44 10.5 44 7 41.5 7 C39 7 39.5 16 36 16 C32.5 16 33 8 30.5 8 C28.5 8 28.5 11 26 11 C23.5 11 24 7 21.5 7 C19 7 19.5 14 16.5 14 C13.5 14 14 8 11.5 8 C9.5 8 9.5 10 7.5 10 C5 10 5.5 6.5 3 6.5 C1.5 6.5 0 7.5 0 7Z' fill='${c}'/><g fill='rgba(255,255,255,.35)'><circle cx='36' cy='13' r='1.2'/><circle cx='16.5' cy='11.5' r='1'/><circle cx='55' cy='10.5' r='.9'/></g>`);
+const DRIP = c => X(`width='60' height='30' viewBox='0 0 60 30'><path d='M0 0 H60 V15 C58 15 57.5 23 55 23 C52.5 23 52.5 16 50 16 C48 16 48 19.5 46 19.5 C44 19.5 44 15 41.5 15 C39 15 39.5 28 36 28 C32.5 28 33 16 30.5 16 C28.5 16 28.5 20 26 20 C23.5 20 24 15 21.5 15 C19 15 19.5 25 16.5 25 C13.5 25 14 16 11.5 16 C9.5 16 9.5 19 7.5 19 C5 19 5.5 14.5 3 14.5 C1.5 14.5 0 15.5 0 15Z' fill='${c}'/><g fill='rgba(255,255,255,.35)'><circle cx='36' cy='24.5' r='1.3'/><circle cx='16.5' cy='22' r='1.1'/><circle cx='55' cy='20' r='1'/><circle cx='8' cy='6' r='1.6'/><circle cx='27' cy='9' r='1.2'/><circle cx='47' cy='5' r='1.5'/></g>`);
 // 奶泡的绵密小气孔
 const FOAM = X(`width='34' height='26' viewBox='0 0 34 26'><g fill='none' stroke='rgba(200,175,150,.28)' stroke-width='.8'><circle cx='5' cy='6' r='2.2'/><circle cx='11' cy='4' r='1.3'/><circle cx='20' cy='9' r='2.6'/><circle cx='28' cy='5' r='1.5'/><circle cx='8' cy='16' r='1.6'/><circle cx='15' cy='20' r='2.4'/><circle cx='25' cy='18' r='1.4'/><circle cx='31' cy='22' r='2'/><circle cx='2' cy='23' r='1.2'/></g>`);
 const FOAMD = X(`width='34' height='26' viewBox='0 0 34 26'><g fill='none' stroke='rgba(255,236,220,.13)' stroke-width='.8'><circle cx='5' cy='6' r='2.2'/><circle cx='20' cy='9' r='2.6'/><circle cx='15' cy='20' r='2.4'/><circle cx='31' cy='22' r='2'/><circle cx='26' cy='15' r='1.3'/></g>`);
@@ -33,7 +33,7 @@ const css = `
 
 /* 顶栏：一层可可，底边往下淌一圈 */
 [data-wk="chathead"]{position:relative !important;overflow:visible !important;background:linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;border-bottom:none !important;box-shadow:none !important}
-[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:-17px !important;height:18px !important;background:${svg(DRIP(C.cocoa2))} 0 0/60px 18px repeat-x !important;pointer-events:none !important;z-index:2 !important}
+[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:-29px !important;height:30px !important;background:${svg(DRIP(C.cocoa2))} 0 0/60px 30px repeat-x !important;pointer-events:none !important;z-index:2 !important}
 [data-wk="headink"],[data-wk="headink"] *{color:#fff !important;font-weight:600 !important}
 [data-wk="headdim"],[data-wk="headname"] > div:last-child{color:#E3CDB9 !important}
 [data-wk="chatback"] svg{stroke:#fff !important}
@@ -55,8 +55,8 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 
 /* 气泡：他是一杯奶泡、顶上淌一圈可可；我是一杯可可、顶上一圈奶泡，泡上两颗小棉花糖 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:16px !important;line-height:1.6 !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]{background:${svg(DRIP(C.cocoa))} 0 0/60px 18px repeat-x,${svg(FOAM)} 0 0/34px 26px,radial-gradient(ellipse at 30% 40%,#fff,${C.foam} 70%) !important;color:${C.ink} !important;padding:25px 16px 11px !important;box-shadow:0 3px 0 ${C.milk},0 6px 12px rgba(94,56,38,.1) !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]{background:${svg(DRIP(C.foam))} 0 0/60px 18px repeat-x,${svg(FOAMD)} 0 0/34px 26px,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;color:#fff !important;padding:25px 16px 11px !important;box-shadow:0 3px 0 #48291B,0 6px 12px rgba(94,56,38,.2) !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{background:${svg(DRIP(C.cocoa))} 0 0/60px 30px repeat-x,${svg(FOAM)} 0 0/34px 26px,radial-gradient(ellipse at 30% 40%,#fff,${C.foam} 70%) !important;color:${C.ink} !important;padding:36px 16px 12px !important;box-shadow:0 3px 0 ${C.milk},0 6px 12px rgba(94,56,38,.1) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{background:${svg(DRIP(C.foam))} 0 0/60px 30px repeat-x,${svg(FOAMD)} 0 0/34px 26px,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;color:#fff !important;padding:36px 16px 12px !important;box-shadow:0 3px 0 #48291B,0 6px 12px rgba(94,56,38,.2) !important}
 [data-wk="bubble"][data-kind="text"][data-me="1"]::after{content:"" !important;position:absolute !important;right:12px !important;top:-6px !important;width:48px !important;height:15px !important;background:${svg(MALLOW)} center/contain no-repeat !important;pointer-events:none !important}
 [data-wk="bubble"][data-kind="text"]::before,[data-wk="bubble"][data-kind="text"][data-me="0"]::after{content:none !important}
 
