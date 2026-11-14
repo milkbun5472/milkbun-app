@@ -10077,7 +10077,7 @@ function MomentActions({ m, open, setOpen, onLike, onComment, onPin, onTop, onDe
 function MomentMusic({ music }) {
   const t = useTheme();
   if (!music || !music.title) return null;
-  return h("button", { "data-wk": "momusic", onClick: () => window.__storyPlay && window.__storyPlay(music), className: "w-full flex items-center active:opacity-70 mt-2",
+  return h("button", { "data-wk": "momusic", onClick: () => window.__storyPlay && window.__storyPlay(music, false, true), className: "w-full flex items-center active:opacity-70 mt-2",
     style: { gap: 10, padding: "8px 10px", borderRadius: 10, background: t.bg, border: "1px solid " + t.line, textAlign: "left" } },
     h("span", { style: { width: 34, height: 34, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: t.ink, color: t.bg2, fontSize: 15,
       backgroundImage: music.song && music.song.cover ? "url(" + music.song.cover + ")" : "none", backgroundSize: "cover", backgroundPosition: "center" } }, music.song && music.song.cover ? "" : "♪"),

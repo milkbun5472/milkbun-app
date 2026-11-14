@@ -29268,7 +29268,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   TA 只说「想发什么」，排版这一下单独一次调用：背景、字体、几块字放哪、多大、什么颜色、贴纸——跟拼壁纸那一套同一份版面，
   //   画的也是同一支 Collage.draw。聊天设置里开了「限时动态配照片」、又能拍 TA 时，再多一次生图放一张 TA 此刻的照片。
   const storyBusyRef = useRef({});
-  const storySongRef = useRef("");   // 限时动态自动放的那首（停的时候只停它）
+  const storySongRef = useRef(""), storyPrevRef = useRef(null);   // 限时动态自动放的那首（停的时候只停它）
   // 拍限时动态那张：self 自拍走人像那条（锁脸），风景、手边的东西走空景那条（不画人，不喂参考照）
   const storyShoot = async (char, desc, kind) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先在设置里配好生图");
@@ -29300,8 +29300,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     };
     // 动态上那首歌：用 App 的播放器真的放
     // 从哪一秒开始放（她 2026-11-14「歌能不能不要从开头开始，可以选中间片段，他和我都是可以」）：m.at 秒
-    window.__storyPlay = async (m, auto) => {
-      if (!m) return; const sid = String((m.song && m.song.id) || m.id); storySongRef.current = sid;
+    window.__storyPlay = async (m, auto, keep) => {
+      if (!m) return; const sid = String((m.song && m.song.id) || m.id);
+      // 看动态前在放的那首记下来（她 2026-11-14「退出不会重新播放原来在播的歌」）：只在这一轮第一次换歌时记，翻到下一条动态不覆盖
+      //   keep：朋友圈那张歌卡点「听」是她自己要换歌，不记、退出也不换回去
+      if (!keep) { if (!storySongRef.current && player.songId && player.songId !== KEEPALIVE_ID && String(player.songId) !== sid) storyPrevRef.current = { id: player.songId, t: Number(player.t) || 0, playing: !!player.playing }; storySongRef.current = sid; }
       await playSong((m.song && m.song.id) ? m.song : (resolveSong(m.id) || m.id));
       const at = Math.max(0, Number(m.at) || 0), el = audioElRef.current;
       if (at && el) { const go = () => { if (playerSongIdRef.current === sid) { try { el.currentTime = at; } catch (e) {} } };
@@ -29309,7 +29312,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!auto) toast("在放《" + (m.title || "这首歌") + "》");
     };
     // 翻走、关掉那条动态：还在放的是动态那首就停下（她自己后来换的歌不动）
-    window.__storyStop = () => { const sid = storySongRef.current; storySongRef.current = ""; if (sid && playerSongIdRef.current === sid && player.playing) togglePlay(); };
+    window.__storyStop = async () => { const sid = storySongRef.current, prev = storyPrevRef.current; storySongRef.current = ""; storyPrevRef.current = null;
+      if (!sid || playerSongIdRef.current !== sid) return;   // 她中途自己换了歌：不动
+      // 原来在放别的：换回那首、接着原来的位置放；原来没在放（或者停着）：动态那首停下
+      if (prev && prev.id && prev.playing) { const sg = resolveSong(prev.id); if (sg) { await playSong(sg); const el = audioElRef.current;
+          if (el && prev.t) { const go = () => { try { el.currentTime = prev.t; } catch (e) {} }; if (el.readyState >= 1) go(); else el.addEventListener("loadedmetadata", go, { once: true }); }
+          return; } }
+      if (player.playing) togglePlay(); };
     // 她发动态时能带上正在听的那首
     window.__momentSongSearch = q => searchSong(q);
     window.__storyNowSong = () => { const sg = player.songId && player.songId !== KEEPALIVE_ID ? resolveSong(player.songId) : null; return sg ? { id: sg.id, title: sg.title || "", artist: sg.artist || "", song: sg, at: Math.floor(Number(player.t) || 0), dur: Math.floor(Number(player.dur) || 0) } : null; };
