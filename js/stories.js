@@ -47,7 +47,7 @@
         color: (bg === "night" && dark(hex(tx.color))) ? "#f3eee8" : (hex(tx.color) || (bg === "night" ? "#f3eee8" : "#2b2b2b")), font: fonts.indexOf(tx.font) >= 0 ? tx.font : font, r: num(tx.r, -20, 20, 0), s: 1 });
     });
     // 信息小贴纸（位置／天气／心情／正在听）：纸条样式的一小块字，放在 TA 挑的位置
-    const CHIP = { location: "📍", weather: "☁️", mood: "🙂", music: "🎵" };
+    const CHIP = { location: "📍", weather: "☁️", mood: "🙂", music: "🎵", time: "🕐" };
     ((d && d.chips) || []).slice(0, 3).forEach(c => { const t = String((c && c.text) || "").trim(); if (!t || !CHIP[c.type]) return;
       free.push({ type: "text", text: CHIP[c.type] + " " + t.slice(0, 20), x: num(c.x, 0.15, 0.85, 0.3) * W, y: num(c.y, 0.13, 0.93, 0.15) * H, size: 44, color: "#2b2b2b", font: "sans", tstyle: "strip", r: 0, s: 1 }); });
     const deco = ((d && d.stickers) || []).slice(0, 8).map(st => ({ ch: String((st && (st.ch || st.emoji)) || "").slice(0, 4), x: num(st && st.x, 0.05, 0.95, 0.5) * W, y: num(st && st.y, 0.12, 0.95, 0.5) * H,
@@ -270,7 +270,7 @@
         : mine ? h("div", null,
           h("button", { "data-wk": "storyseen", onClick: () => setSeenOpen(v => !v), style: { color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", opacity: .85 } }, seen.length ? "看过的 " + seen.length + " 人 ›" : "还没人看过"),
           seenOpen ? h("div", { style: { marginTop: 6, color: "#ddd", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.8 } },
-            seen.map(([who, ts]) => h("div", { key: who }, nameOf(who) + " · " + ago(ts))),
+            seen.map(([who, ts]) => h("div", { key: who }, nameOf(who) + " · " + ago(ts) + ((s.reacts || {})[who] ? " " + s.reacts[who] : ""))),
             (s.replies || []).map((r, k) => h("div", { key: "r" + k, style: { color: "#fff" } }, nameOf(r.who) + "：" + r.text))) : null)
         : (!archive && onReply ? h("div", null,
           (() => { const others = Object.keys(cur.seen || {}).filter(w => w !== String(viewer)); return others.length ? h("div", { "data-wk": "storyothers", style: { color: "#ccc", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", marginBottom: 6 } }, others.map(nameOf).join("、") + " 也看过") : null; })(),
@@ -286,6 +286,23 @@
             h("button", { onClick: send, style: { color: "#fff", fontFamily: F_BODY, padding: "0 6px" } }, "发送"))) : null)));
   }
   // 过往：三列小格，点开照样全屏看
+  // 这个月回顾（她 2026-11-14）：这个月挂过的卡拼成一张大图存下来，不花调用
+  async function recap(by, past) {
+    const now = new Date(), m0 = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const list = all().filter(x => String(x.by) === String(by) && x.ts >= m0 && !x.ghost).sort((a, b) => a.ts - b.ts).slice(0, 24);
+    if (!list.length) { window.__toast && window.__toast("这个月还没有"); return; }
+    const cols = list.length <= 4 ? 2 : 3, cw = 360, ch = 780, gap = 16, head = 140, rows = Math.ceil(list.length / cols);
+    const cv = document.createElement("canvas"); cv.width = cols * cw + (cols + 1) * gap; cv.height = head + rows * (ch + gap) + gap;
+    const g = cv.getContext("2d"); g.fillStyle = "#f4efe6"; g.fillRect(0, 0, cv.width, cv.height);
+    g.fillStyle = "#2b2b2b"; g.font = "bold 56px serif"; g.textAlign = "center"; g.fillText((now.getMonth() + 1) + " 月 · " + list.length + " 条限时动态", cv.width / 2, 90);
+    for (let i = 0; i < list.length; i++) {
+      const b = typeof idbImgGet === "function" ? await idbImgGet(list[i].imgKey) : null; const im = b ? await blobToImg(b) : null; if (!im) continue;
+      const x = gap + (i % cols) * (cw + gap), y = head + Math.floor(i / cols) * (ch + gap);
+      const sc = Math.max(cw / im.width, ch / im.height); g.save(); g.beginPath(); g.rect(x, y, cw, ch); g.clip();
+      g.drawImage(im, x + (cw - im.width * sc) / 2, y + (ch - im.height * sc) / 2, im.width * sc, im.height * sc); g.restore();
+    }
+    cv.toBlob(b => { if (!b) return; const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = (now.getMonth() + 1) + "月限时动态.jpg"; a.click(); window.__toast && window.__toast("拼好了"); }, "image/jpeg", 0.9);
+  }
   function StoryArchive({ by, title, onOpen }) {
     const h = React.createElement, t = typeof useTheme === "function" ? useTheme() : {};
     const [, tick] = React.useState(0);
@@ -294,7 +311,8 @@
     if (!past.length) return null;
     const Cell = ({ s, k }) => { const u = useBlobUrl(s.imgKey); return h("button", { onClick: () => onOpen(past, k), className: "active:opacity-70", style: { aspectRatio: "9 / 19.5", borderRadius: 8, overflow: "hidden", background: (t.bg2 || "#eee") + (u ? " center/cover no-repeat url(" + u + ")" : "") } }); };
     return h("div", { "data-wk": "storyarchive", style: { margin: "10px 0" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "0 2px 6px" } }, (title || "过往限时动态") + " · " + past.length),
+      h("div", { className: "flex items-center", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "0 2px 6px" } }, h("span", { className: "flex-1" }, (title || "过往限时动态") + " · " + past.length),
+        h("button", { "data-wk": "storyrecap", onClick: () => recap(by, past), style: { color: t.sub } }, "拼这个月")),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 } }, past.slice(0, 60).map((s, k) => h(Cell, { key: s.id, s, k }))));
   }
   // 精选那一排：一组一个圆，点开照样全屏翻（朋友圈主页顶上）

@@ -120,3 +120,10 @@ test("生图竖版、可藏字、可单独存照片", () => {
   assert.ok(/size: "1024x1536"/.test(app));
   assert.ok(st.includes("photoKey") && st.includes('"storybare"') && st.includes('"storyphotosave"'));
 });
+
+test("第四批：TA 回她的动态、时间贴纸、连发、月回顾", () => {
+  const st = fs.readFileSync("js/stories.js", "utf8"), app = fs.readFileSync("js/app.js", "utf8");
+  assert.ok(app.includes('openCaps.push("storyReact")') && app.includes("parsed.storyReact"));
+  assert.ok(st.includes('time: "🕐"') && app.includes("_chipVals.time"));
+  assert.ok(app.includes("const _more =") && st.includes("async function recap"));
+});
