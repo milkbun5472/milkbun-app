@@ -101,8 +101,12 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.92) !important}
 [data-wk="chatpanel"]{background:${C.paper} !important;border-top:.8px solid ${C.line} !important}
 [data-wk="quotedraft"]{position:relative !important;z-index:3 !important}
-/* 聊天最开头、第一个气泡之前：一句小小的法语，像信纸抬头 */
-[data-wk="body"]::before{content:"Un café, et puis toi." !important;display:block !important;text-align:center !important;font:italic 400 13px/1.6 Georgia,"Times New Roman",serif !important;letter-spacing:.12em !important;color:${C.sub} !important;padding:22px 0 6px !important}
+/* 每个人每一串的第一句上面，一行小小的法语 */
+[data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]{margin-top:20px !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]::before{content:"Mon petit bonheur" !important;position:absolute !important;bottom:100% !important;margin-bottom:4px !important;white-space:nowrap !important;font:italic 400 11px/1 Georgia,"Times New Roman",serif !important;letter-spacing:.1em !important;color:${C.sub} !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:2px !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]::before{right:2px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "巴黎留白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
