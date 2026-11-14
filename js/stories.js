@@ -204,7 +204,7 @@
     if (!s) return null;
     const mine = String(s.by) === String(viewer);
     const cur = all().find(x => x.id === s.id) || s, st = cur.sticker;   // 投票、回答是刚写进去的，现读一次
-    const card = { position: "absolute", left: "12%", right: "12%", bottom: "16%", zIndex: 3, padding: "12px 14px", borderRadius: 16, background: "rgba(255,255,255,.92)", color: "#222", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", textAlign: "center", boxShadow: "0 6px 18px rgba(0,0,0,.25)" };
+    const card = { position: "absolute", left: "10%", right: "10%", top: "52%", transform: "translateY(-50%)", zIndex: 6, padding: "12px 14px", borderRadius: 16, background: "rgba(255,255,255,.92)", color: "#222", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", textAlign: "center", boxShadow: "0 6px 18px rgba(0,0,0,.25)" };
     const stickerUI = !st ? null : h("div", { "data-wk": "storysticker", "data-kind": st.type, style: card },
       h("div", { style: { fontWeight: 600, marginBottom: 8 } }, st.q),
       st.type === "poll" ? h("div", { className: "flex", style: { gap: 8 } }, st.opts.map((o, k) => {
