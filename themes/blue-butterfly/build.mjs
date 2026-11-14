@@ -60,8 +60,8 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:10px !important;letter-spacing:.12em !important;padding:12px 22px !important}
 [data-wk="bubble"][data-kind="text"]::before,[data-wk="bubble"][data-kind="text"]::after{content:none !important}
 [data-wk="bubble"][data-kind="text"][data-me="0"]{background:#fff !important;color:${C.ink} !important;border:none !important;box-shadow:0 0 0 3px rgba(255,255,255,.55),0 0 22px 6px rgba(200,215,255,.7),0 0 46px 10px rgba(140,165,255,.35) !important}
-[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::after{content:"" !important;position:absolute !important;right:-16px !important;top:-14px !important;width:30px !important;height:23px !important;background:${svg(BF())} center/contain no-repeat !important;transform:rotate(-14deg) !important;filter:drop-shadow(0 0 5px rgba(200,215,255,.95)) !important;animation:bbFlap 2.6s ease-in-out infinite !important}
-@keyframes bbFlap{0%,100%{transform:rotate(-14deg) scaleX(1)}50%{transform:rotate(-14deg) scaleX(.72)}}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::after{content:"" !important;position:absolute !important;right:-16px !important;top:-14px !important;width:30px !important;height:23px !important;background:${svg(BF())} center/contain no-repeat !important;transform:rotate(14deg) !important;filter:drop-shadow(0 0 5px rgba(200,215,255,.95)) !important;animation:bbFlap 2.6s ease-in-out infinite !important}
+@keyframes bbFlap{0%,100%{transform:rotate(14deg) scaleX(1)}50%{transform:rotate(14deg) scaleX(.72)}}
 /* 我的话：深蓝玻璃，镶一圈白光，左上停一只蝴蝶 */
 [data-wk="bubble"][data-kind="text"][data-me="1"]{background:linear-gradient(180deg,rgba(40,60,200,.9),rgba(26,42,158,.92)) !important;color:#fff !important;border:2px solid #fff !important;box-shadow:inset 0 0 12px rgba(200,215,255,.45),0 0 14px 2px rgba(200,215,255,.7) !important;text-shadow:0 0 6px rgba(200,215,255,.6) !important}
 [data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]::before{content:"" !important;position:absolute !important;left:-14px !important;top:-14px !important;width:30px !important;height:23px !important;background:${svg(BF())} center/contain no-repeat !important;transform:rotate(-14deg) !important;filter:drop-shadow(0 0 5px rgba(200,215,255,.95)) !important;border:none !important}
@@ -106,6 +106,9 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.9) !important}
 [data-wk="chatpanel"]{background:rgba(11,20,80,.95) !important;border-top:1px solid rgba(255,255,255,.4) !important}
 [data-wk="quotedraft"]{position:relative !important;z-index:3 !important}
+/* 头像上的蝴蝶：他那边往右歪，我这边往左歪 */
+[data-wk="msg"][data-me="0"] button[data-wk="avatar"]::before,[data-wk="msg"][data-me="0"] button[data-wk="avatar"]::after,[data-wk="msg"][data-me="0"] span[data-wk="avatar"]::before,[data-wk="msg"][data-me="0"] span[data-wk="avatar"]::after,[data-wk="cardrow"]:not([data-me="1"]) [data-wk="avatar"]::before,[data-wk="cardrow"]:not([data-me="1"]) [data-wk="avatar"]::after{transform:rotate(14deg) !important}
+[data-wk="msg"][data-me="1"] [data-wk="avatar"]::before,[data-wk="msg"][data-me="1"] [data-wk="avatar"]::after,[data-wk="cardrow"][data-me="1"] [data-wk="avatar"]::before,[data-wk="cardrow"][data-me="1"] [data-wk="avatar"]::after{transform:rotate(-14deg) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "蓝夜蝴蝶", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
