@@ -1107,7 +1107,13 @@
         const iv = await genInterview(active, c, matText(mat, c.id, CHAR_CHARS), userName, win.label, interviewer);
         const one = Object.assign({ id: uid("iv"), charId: c.id, charName: c.name, auto: true }, iv);
         entries.push(one); ivDone[c.id] = one; keep({ interviews: ivDone });
-      } catch (e) { if (e && e.message === STOPPED) throw e; /* 单角色硬失败就跳过，不拖垮整期 */ }
+      } catch (e) {
+        if (e && e.message === STOPPED) throw e;
+        // 单角色失败不拖垮整期，但要留个位子（她 2026-11-14「失败后看不出原本刷的是哪几个，没办法补」）：
+        //   摆一篇写着谁没写成、为什么，点这一篇的重刷就照原来那位再写一次
+        entries.push({ id: uid("iv"), charId: c.id, charName: c.name, auto: true, failed: true,
+          interview: { headline: "这一篇没写成", lead: "「" + c.name + "」的采访这次没写成" + (e && e.message ? "（" + String(e.message).slice(0, 80) + "）" : "") + "。点这一篇的重刷，照原来这位再写一次。", qa: [] } });
+      }
       done++;
     }
     // 媒体腔（全局，每版 3~4 篇）
@@ -1212,7 +1218,8 @@
         const list = orderedIssues([issue].concat(loadIssues().filter(function (x) { return x.key !== issue.key; })));
         saveIssues(list);
         _gen.busy = false; _gen.prog = null; _gen.promise = null; _emit();
-        if (opts.toast) opts.toast("第 " + issueNo(issue, list) + " 期已出刊");
+        const _fail = ((issue.sections || []).find(function (x) { return x.type === "interview"; }) || { entries: [] }).entries.filter(function (x) { return x && x.failed; }).map(function (x) { return "「" + x.charName + "」"; });
+        if (opts.toast) opts.toast("第 " + issueNo(issue, list) + " 期已出刊" + (_fail.length ? "；" + _fail.join("") + "的采访没写成，翻到那篇点重刷" : ""));
         return issue;
       } catch (e) {
         _gen.busy = false; _gen.prog = null; _gen.promise = null; _gen.stop = false; _emit();
@@ -1917,7 +1924,7 @@
         props.onPatch(issue.id, function (iss) {
           iss.sections = iss.sections.map(function (s) {
             if (s.type !== "interview") return s;
-            return Object.assign({}, s, { entries: s.entries.map(function (en) { return en.id === entry.id ? Object.assign({}, en, fresh) : en; }) });
+            return Object.assign({}, s, { entries: s.entries.map(function (en) { return en.id === entry.id ? Object.assign({}, en, fresh, { failed: false }) : en; }) });
           });
           return iss;
         });
