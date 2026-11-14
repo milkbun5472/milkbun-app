@@ -126,7 +126,8 @@ const css = `
 [data-wk="body"] button[data-wk="avatar"],[data-wk="body"] span[data-wk="avatar"]:not([data-halo]){display:inline-flex !important;padding:6px !important;background:${C.grey} !important;border-radius:0 !important;box-shadow:${UP},3px 3px 0 rgba(0,0,0,.3) !important;flex-shrink:0 !important}
 [data-wk="body"] [data-wk="avatar"] > img[data-wk="avatar"],[data-wk="chathead"] button > img[data-wk="avatar"],[data-wk="chathead"] [data-wk="headme"] > img{border-radius:50% !important;border:3px solid !important;border-color:#404040 #FFFFFF #FFFFFF #404040 !important;box-shadow:none !important;margin:0 !important;box-sizing:content-box !important;outline:none !important}
 [data-wk="chathead"] [data-wk="headname"]{display:none !important}
-[data-wk="chathead"] [data-wk="headme"]{display:inline-flex !important;margin-left:2px !important}
+[data-wk="chathead"] [data-wk="headme"]{display:inline-flex !important;margin-left:-10px !important}
+[data-wk="chathead"] > button:has([data-wk="headname"]){justify-content:center !important}
 [data-wk="chathead"] button > img[data-wk="avatar"],[data-wk="chathead"] [data-wk="headme"] > img{width:38px !important;height:38px !important;min-width:38px !important;box-sizing:content-box !important;border:7px solid transparent !important;border-image:${svg(AVFRAME)} 7 fill / 7px stretch !important;border-radius:50% !important;background:transparent !important;box-shadow:none !important;filter:drop-shadow(3px 3px 0 rgba(0,0,0,.3)) !important;outline:none !important}
 
 /* ───── 系统弹窗 · 第二批：卡片（形状不动；每张都是一扇灰窗口，顶上一条标题栏写着它是什么） ───── */
