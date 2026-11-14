@@ -11937,6 +11937,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return;
     }
     if (app === "moments") { setMsgTab("moments"); setScreen("messages"); return; }   // 朋友圈是「信息」顶上那一栏，不是单独一页
+    // 健康：他读的是近 7 天那份，屏幕就翻到「这周」，别停在今天那页让人以为他对着错的页面说话（她 2026-11-14）
+    if (app === "health") { window.__openSub = { screen: "health", sub: "week" }; if (screen === "health") { setScreen("home"); setTimeout(() => setScreen("health"), 0); return; } }
     if (PEEK_APP_ZH[app]) setScreen(app);
   };
   const peekBack = () => {

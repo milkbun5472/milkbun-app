@@ -335,7 +335,7 @@
     // 网关在后台拉到了新的一份：页面跟着刷新
     React.useEffect(() => { const f = () => setD(load()); g.addEventListener && g.addEventListener("qq-health-updated", f); pullGateway(false);
       return () => g.removeEventListener && g.removeEventListener("qq-health-updated", f); }, []);
-    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("health", ["today", "body"])) || "today");
+    const [tab, setTab] = useState(() => (typeof takeOpenSub === "function" && takeOpenSub("health", ["today", "body", "week"])) || "today");
     const [page, setPage] = useState(null);          // { kind: "add", meal } | { kind: "watch" }
     const [kg, setKg] = useState("");
     const [sp, setSp] = useState(null), [spMin, setSpMin] = useState(30), [stepIn, setStepIn] = useState("");
@@ -549,6 +549,7 @@
           ["体重", dW == null ? "这周记得不够两次" : (dW > 0 ? "+" : "") + dW + " 公斤"],
           ["运动", wk.reduce((a, x) => a + x.sportMin, 0) + " 分钟 · " + wk.filter(x => x.sportMin).length + " 天"],
           ["平均睡眠", wk.filter(x => x.sleep).length ? hrs(Math.round(wk.filter(x => x.sleep).reduce((a, x) => a + x.sleep, 0) / wk.filter(x => x.sleep).length)) : "没记"],
+          ["走路", wk.filter(x => x.steps).length ? "平均 " + Math.round(wk.filter(x => x.steps).reduce((a, x) => a + x.steps, 0) / wk.filter(x => x.steps).length) + " 步 · " + wk.filter(x => x.steps).length + " 天" : "—"],
           ["不舒服的日子", wk.filter(x => x.sym.length).length + " 天"]].map(r =>
           h("div", { key: r[0], className: "flex", style: { minHeight: 40, alignItems: "center", borderBottom: "1px dashed " + S.line, fontFamily: F_BODY } },
             h("span", { style: { flex: 1, fontSize: "calc(13.5px * var(--app-fs, 1))", color: S.sub } }, r[0]), h("span", { style: { fontSize: "calc(14px * var(--app-fs, 1))", color: S.ink } }, r[1]))),
