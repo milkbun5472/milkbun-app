@@ -26,6 +26,8 @@ const ST1 = MW(C.dark, `<g transform='translate(38 34)'><path d='M1 1 H15 M1 31 
 const ST2 = MW(C.navy, `<circle cx='46' cy='50' r='13' fill='#1E5BD8'/><text x='46' y='56' text-anchor='middle' font-family='Tahoma,Verdana,sans-serif' font-size='17' font-weight='700' fill='#fff'>?</text>`);
 const ST3 = MW(C.navy, `<circle cx='46' cy='50' r='13' fill='#F4D35E' stroke='#000' stroke-width='1.4'/><circle cx='41.5' cy='47' r='1.6' fill='#000'/><circle cx='50.5' cy='47' r='1.6' fill='#000'/><path d='M40 53 Q46 58 52 53' stroke='#000' stroke-width='1.6' fill='none'/>`);
 const ST4 = MW(C.plum, `<path d='M46 63 C33 54 31 48 31 44 C31 39 35 36 39 36 C42 36 44.5 38 46 40.5 C47.5 38 50 36 53 36 C57 36 61 39 61 44 C61 48 59 54 46 63Z' fill='#FF6FAE' stroke='#000' stroke-width='1.4'/><rect x='38' y='40' width='4' height='4' fill='#fff' opacity='.8'/>`);
+// 顶栏头像框：一整块方灰按钮（凸起边）中间压一个圆凹槽——用 border-image 画，border-image 不受圆角裁切，照片本身照样被裁成圆
+const AVFRAME = X(`width='60' height='60' viewBox='0 0 60 60'><rect width='60' height='60' fill='${C.grey}'/><path d='M.5 59.5 V.5 H59.5' stroke='#fff' fill='none'/><path d='M.5 59.5 H59.5 V.5' stroke='#000' fill='none'/><path d='M1.5 58.5 H58.5 V1.5' stroke='${C.dark}' fill='none'/><circle cx='30' cy='30' r='22.6' fill='none' stroke='#fff' stroke-width='2.2'/><path d='M14 46 A22.6 22.6 0 0 1 46 14' fill='none' stroke='#404040' stroke-width='2.4'/>`);
 const bubble = { myBg: C.grey, myText: C.ink, myBorder: "none", charBg: C.grey, charText: C.ink, charBorder: "none", radius: 0, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 const HIDE = `font-size:0 !important;color:transparent !important;padding:0 !important;border:none !important;box-shadow:none !important;border-radius:0 !important`;
@@ -123,7 +125,12 @@ const css = `
 /* 头像照参考：外面一块方的凸起灰按钮，里面的照片是圆的、嵌一圈凹下去的圆环（左上暗、右下亮）——聊天、卡片、红包那一行、顶栏都一样 */
 [data-wk="body"] button[data-wk="avatar"],[data-wk="body"] span[data-wk="avatar"]:not([data-halo]){display:inline-flex !important;padding:6px !important;background:${C.grey} !important;border-radius:0 !important;box-shadow:${UP},3px 3px 0 rgba(0,0,0,.3) !important;flex-shrink:0 !important}
 [data-wk="body"] [data-wk="avatar"] > img[data-wk="avatar"],[data-wk="chathead"] button > img[data-wk="avatar"],[data-wk="chathead"] [data-wk="headme"] > img{border-radius:50% !important;border:3px solid !important;border-color:#404040 #FFFFFF #FFFFFF #404040 !important;box-shadow:none !important;margin:0 !important;box-sizing:content-box !important;outline:none !important}
-[data-wk="chathead"] button > img[data-wk="avatar"],[data-wk="chathead"] [data-wk="headme"] > img{width:28px !important;height:28px !important;min-width:28px !important;border-width:3px !important;background:${C.grey} !important;box-shadow:0 0 0 3px ${C.grey},0 0 0 4px #000 !important}
+[data-wk="chat"] [data-wk="chathead"] [data-wk="headname"]{display:none !important}
+/* 线下的顶栏不藏名字（线下没有双人头像，藏了就只剩一排按钮） */
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headname"]{display:block !important}
+[data-wk="chathead"] [data-wk="headme"]{display:inline-flex !important;margin-left:-10px !important}
+[data-wk="chat"] [data-wk="chathead"] > button:has([data-wk="headname"]){justify-content:center !important}
+[data-wk="chathead"] button > img[data-wk="avatar"],[data-wk="chathead"] [data-wk="headme"] > img{width:38px !important;height:38px !important;min-width:38px !important;box-sizing:content-box !important;border:7px solid transparent !important;border-image:${svg(AVFRAME)} 7 fill / 7px stretch !important;border-radius:50% !important;background:transparent !important;box-shadow:none !important;filter:drop-shadow(3px 3px 0 rgba(0,0,0,.3)) !important;outline:none !important}
 
 /* ───── 系统弹窗 · 第二批：卡片（形状不动；每张都是一扇灰窗口，顶上一条标题栏写着它是什么） ───── */
 [data-wk="transfercard"],[data-wk="photocard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"],[data-wk="wxcard"],[data-wk="rpcard"]{position:relative !important;overflow:visible !important;background:${C.grey} !important;border:none !important;border-radius:0 !important;box-shadow:${UP},4px 4px 0 rgba(0,0,0,.3) !important;padding-top:26px !important;color:#000 !important}
@@ -295,6 +302,11 @@ const css = `
 [data-wk="offthought"]{background:transparent !important;border:none !important;color:#555 !important;font-style:italic !important}
 [data-wk="offcardacts"] svg{stroke:#000 !important;color:#000 !important}
 [data-wk="offreplyopt"]{background:${C.grey} !important;border:none !important;border-radius:0 !important;box-shadow:${UP} !important;color:#000 !important}
+
+/* 线下顶栏：「← 离开」那颗按钮让字放得下；底下「文风」那行在青绿底上用浅色 */
+[data-wk="offline"] [data-wk="chatback"]{width:auto !important;min-width:0 !important;padding:2px 8px !important;white-space:nowrap !important;color:#000 !important}
+[data-wk="offline"] [data-wk="chatback"] *{color:#000 !important}
+[data-wk="offline"] [data-wk="chathead"] + *{color:#D8F2F2 !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "系统弹窗", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "系统弹窗-美化.json"), JSON.stringify(pack));
