@@ -38631,6 +38631,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     charName: (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || (((characters || []).find(x => x.id === peekPlay.charId) || {}).name) || "TA",
     avatarChar: (characters || []).find(x => x.id === peekPlay.charId),
     script: peekPlay.script,
+    waitStage: peekPlay.script ? "" : (!peekPlay.seen && (peekPlay.allow || []).includes("daily") ? "daily" : "think"),
     labelOf: (app, who) => app === "chat" && who ? "和" + who + "的聊天" : app === "offline" && who ? "和" + who + "线下见面的往期" : (PEEK_APP_ZH[app] || app),
     // 回主屏、去信息都要先把线下那层收掉（群友 2026-10-26：翻完线下去朋友圈，朋友圈开了却被线下那一层盖着）——
     //   线下盖在所有页面上面，只换底下那一页，屏幕上还是线下

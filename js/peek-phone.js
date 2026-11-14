@@ -240,6 +240,9 @@
     const [thought, setThought] = React.useState("");
     const [caption, setCaption] = React.useState("接过了你的手机…");
     const [spd, setSpd] = React.useState(speed);
+    // 等他想好怎么翻的那一段（她 2026-11-14 转群友「查手机很慢」）：说一句在干嘛、过了几秒，看得出没卡住
+    const [waitS, setWaitS] = React.useState(0);
+    React.useEffect(() => { if (props.script) return; const t0 = Date.now(); setWaitS(0); const iv = setInterval(() => setWaitS(Math.round((Date.now() - t0) / 1000)), 1000); return () => clearInterval(iv); }, [!!props.script]);
     const [renameBox, setRenameBox] = React.useState(null);   // { old, typed }：改备注那个假框
     const stopRef = React.useRef(false);
     const doneRef = React.useRef(false);
@@ -486,6 +489,10 @@
           style: { position: "absolute", right: 76, top: "calc(env(safe-area-inset-top, 0px) + 8px)", minHeight: 36, padding: "0 12px", borderRadius: 999, background: spd >= 2 ? "rgba(255,255,255,.85)" : "rgba(20,20,20,.62)", color: spd >= 2 ? "#222" : "#fff", fontSize: "calc(12.5px * var(--app-fs, 1))" } }, spd >= 2 ? "×2" : "×1"),
       h("button", { "data-peek-skip": "1", onClick: finish, style: { position: "absolute", right: 12, top: "calc(env(safe-area-inset-top, 0px) + 8px)", minHeight: 36, padding: "0 14px",
           borderRadius: 999, background: "rgba(20,20,20,.62)", color: "#fff", fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "跳过"),
+      !props.script && props.waitStage ? h("div", { "data-wk": "peekwait", style: { position: "absolute", left: 24, right: 24, top: "42%", padding: "16px 18px", borderRadius: 16, background: "rgba(20,20,20,.72)", color: "#fff", textAlign: "center",
+          backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.7, pointerEvents: "none" } },
+        props.waitStage === "daily" ? "先照你的人设编几个你生活里的人…" : (props.charName || "TA") + " 拿着你的手机，正在想从哪儿翻起…",
+        h("div", { style: { fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .7, marginTop: 4 } }, (waitS ? "已经 " + waitS + " 秒 · " : "") + "手机里东西多、勾得多会久一点，想好了就开始翻")) : null,
       // 触控圆点
       props.script ? h("div", { style: { position: "absolute", left: dot.x - 17, top: dot.y - 17, width: 34, height: 34, borderRadius: 999,
           background: dot.down ? "rgba(255,255,255,.72)" : "rgba(255,255,255,.45)", border: "2px solid rgba(0,0,0,.35)",
