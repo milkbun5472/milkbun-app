@@ -29248,6 +29248,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       try { await window.Stories.addPhoto(st.id, await storyShoot(c, st.photoDesc, st.photoKind)); toast("画好了"); }
       catch (e) { toast("没画出来：" + ((e && e.message) || "")); }
     };
+    // 动态上那首歌：用 App 的播放器真的放
+    window.__storyPlay = m => { if (!m) return; playSong((m.song && m.song.id) ? m.song : (resolveSong(m.id) || m.id)); toast("在放《" + (m.title || "这首歌") + "》"); };
+    // 她发动态时能带上正在听的那首
+    window.__storyNowSong = () => { const sg = player.songId && player.songId !== KEEPALIVE_ID ? resolveSong(player.songId) : null; return sg ? { id: sg.id, title: sg.title || "", artist: sg.artist || "", song: sg } : null; };
     // 查看页左上角的头像（她 2026-11-14「左上角名字换成他的头像加名字」）
     window.__storyAvatar = by => h(Avatar, { character: by === "me" ? { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage } : ((characters || []).find(x => x && String(x.id) === String(by)) || { name: "TA" }), size: 30, radius: 8 });
   });
@@ -29268,7 +29272,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _chipVals = {};
       { const pl = (typeof freshLiveStateValue === "function" && freshLiveStateValue(_st0, "place")) || ""; if (pl) _chipVals.location = String(pl).slice(0, 16); }
       { const md = (moodsRef.current || {})[char.id]; const lb = md && (md.label || md.mood || (typeof md === "string" ? md : "")); if (lb) _chipVals.mood = String(lb).slice(0, 8); }
-      { const L = listenRef.current || {}; if (L.partnerId === char.id && player.songId && typeof resolveSong === "function") { const sg = resolveSong(player.songId); if (sg) _chipVals.music = String(sg.title || "").slice(0, 20); } }
+      let _song = null;
+      { const L = listenRef.current || {}; if (L.partnerId === char.id && player.songId && player.songId !== KEEPALIVE_ID && typeof resolveSong === "function") { const sg = resolveSong(player.songId); if (sg) { _song = sg; _chipVals.music = String(sg.title || "").slice(0, 20); } } }
       const _hr = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now()).getHours(), _night = _hr < 5 || _hr >= 23;
       const related = (characters || []).filter(c => c && c.id !== char.id && ((rels || {})[char.id + "->" + c.id] || (rels || {})[c.id + "->" + char.id])).slice(0, 8);
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
@@ -29308,7 +29313,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (d && _night) d.bg = "night";
       if (d) d.chips = ((d.chips || []).slice(0, 3)).map(c0 => { const tp = ["location", "weather", "mood", "music"].indexOf(c0 && c0.type) >= 0 ? c0.type : ""; const v = tp && (_chipVals[tp] || (tp === "weather" ? String(c0.text || "").slice(0, 12) : "")); return v ? { type: tp, text: v, x: c0.x, y: c0.y } : null; }).filter(Boolean);
       const _regret = d && Number(d.regret) >= 3 ? Math.min(60, Number(d.regret)) : 0;
-      const _row = await window.Stories.add({ by: char.id, manual: !!manual, sticker: d && d.sticker, audience: _aud, night: _night, deleteAt: _regret ? Date.now() + _regret * 60000 : 0, raw: d || null, photoDesc: d && d.photo, photoKind: d && d.photoKind, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea || "…" }] }, !!photoBlob), photoBlob,
+      const _music = _song && d && (d.chips || []).some(c0 => c0.type === "music") ? { id: _song.id, title: _song.title || "", artist: _song.artist || "", song: _song } : null;
+      const _row = await window.Stories.add({ by: char.id, manual: !!manual, music: _music, sticker: d && d.sticker, audience: _aud, night: _night, deleteAt: _regret ? Date.now() + _regret * 60000 : 0, raw: d || null, photoDesc: d && d.photo, photoKind: d && d.photoKind, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea || "…" }] }, !!photoBlob), photoBlob,
         text: idea || texts.join(" "), desc: texts.join(" / ") + (photoBlob && d.photo ? "（配了一张照片：" + String(d.photo).slice(0, 80) + "）" : "") });
       // 那几个人的反应落到这一条上：名字对得上关系线里的人才算，不认识的名字不收
       if (_row && Array.isArray(d && d.crowd)) window.Stories.applyCrowd(_row.id, d.crowd.map(x => { const c = related.find(r => x && (r.name === x.name || r.remark === x.name)); return c ? Object.assign({}, x, { who: c.id }) : null; }).filter(Boolean));

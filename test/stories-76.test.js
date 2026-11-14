@@ -90,3 +90,9 @@ test("第三版：表情回应、存图、秒删、深夜、信息贴纸、转�
   assert.match(A, /看过了，什么也没说/); assert.match(A, /把这张存下来了/);
   assert.match(C, /"data-wk": "storyco"/); assert.match(A, /const gStoryHint = /);
 });
+test("动态上的歌真的能听", () => {
+  const J = R("stories.js"), A = R("app.js"), C = R("components.js");
+  assert.match(J, /"data-wk": "storymusic", onClick: \(\) => window\.__storyPlay\(cur\.music\)/);
+  assert.match(A, /window\.__storyPlay = m => \{[^\n]*playSong\(/); assert.match(A, /music: _music,/);
+  assert.match(C, /"data-wk": "storywithsong"/);
+});

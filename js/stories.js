@@ -62,7 +62,7 @@
     return await new Promise(ok => cv.toBlob(b => ok(b), "image/jpeg", 0.88));
   }
   // 存一条。blob 有了就直接存（她在拼壁纸编辑器里存的），没有就照 layout 画
-  async function add({ by, layout, photoBlob, blob, text, desc, manual, sticker, audience, raw, photoDesc, photoKind, deleteAt, co, night, repostOf }) {
+  async function add({ by, layout, photoBlob, blob, text, desc, manual, sticker, audience, raw, photoDesc, photoKind, deleteAt, co, night, repostOf, music }) {
     const id = "st_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const img = blob || await renderCard(layout, photoBlob);
     if (!img || !img.size) throw new Error("卡没画出来");
@@ -71,7 +71,7 @@
     const row = { id, by: String(by), ts: Date.now(), imgKey, text: String(text || "").slice(0, 200), desc: String(desc || "").slice(0, 400), seen: {}, replies: [], ...(manual ? { manual: true } : {}),
       ...(normSticker(sticker) ? { sticker: normSticker(sticker) } : {}),
       // 这张卡还能补一张图（她 2026-11-14）：留着排版原稿和「这张图会画什么」，点生图就照它画了重排
-      ...(raw ? { raw } : {}), ...(deleteAt ? { deleteAt } : {}), ...(co ? { co: String(co) } : {}), ...(night ? { night: true } : {}), ...(repostOf ? { repostOf } : {}), ...(photoDesc ? { photoDesc: String(photoDesc).slice(0, 200), photoKind: ["self", "view", "thing"].indexOf(photoKind) >= 0 ? photoKind : "self" } : {}), ...(photoBlob ? { photo: true } : {}), ...(Array.isArray(audience) && audience.length ? { audience: audience.map(String) } : {}) };
+      ...(raw ? { raw } : {}), ...(deleteAt ? { deleteAt } : {}), ...(co ? { co: String(co) } : {}), ...(night ? { night: true } : {}), ...(repostOf ? { repostOf } : {}), ...(music && music.id ? { music } : {}), ...(photoDesc ? { photoDesc: String(photoDesc).slice(0, 200), photoKind: ["self", "view", "thing"].indexOf(photoKind) >= 0 ? photoKind : "self" } : {}), ...(photoBlob ? { photo: true } : {}), ...(Array.isArray(audience) && audience.length ? { audience: audience.map(String) } : {}) };
     save(all().concat([row]));
     return row;
   }
@@ -208,6 +208,9 @@
         cur.ghost ? h("div", { "data-wk": "storyghost", style: { position: "absolute", inset: 0, zIndex: 4, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.55)", color: "#eee", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", textAlign: "center", padding: 30, lineHeight: 1.7 } },
           (mine ? "你" : nameOf(s.by)) + " 把这条删了", h("br"), h("span", { style: { fontSize: "calc(12px * var(--app-fs, 1))", opacity: .8 } }, "删之前你已经看到了")) : null),
       // 这张图会画什么（她 2026-11-14）：TA 排卡时写好的，没配图的卡点「生图」就照这句补一张（自拍、随手拍的风景、手边的东西都行）
+      // 卡上那首歌真的能听（她 2026-11-14「音乐是真的可以听」）：点一下用 App 的播放器放
+      cur.music && window.__storyPlay ? h("button", { "data-wk": "storymusic", onClick: () => window.__storyPlay(cur.music), className: "flex items-center", style: { gap: 8, width: "100%", padding: "8px 12px 0", background: "rgba(0,0,0,.6)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", textAlign: "left" } },
+        h("span", null, "🎵"), h("span", { className: "flex-1 min-w-0 truncate" }, (cur.music.title || "这首歌") + (cur.music.artist ? " · " + cur.music.artist : "")), h("span", { style: { padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)" } }, "▶ 听")) : null,
       cur.photoDesc && !cur.photo ? h("div", { "data-wk": "storyphotoline", className: "flex items-center", style: { gap: 8, padding: "8px 12px 0", background: "rgba(0,0,0,.6)", color: "#ddd", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5 } },
         h("button", { "data-wk": "storyphototoggle", onClick: () => setPhotoOpen(v => !v), className: "flex-1 min-w-0 text-left", style: { color: "#ddd", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: photoOpen ? "normal" : "nowrap" } },
           "📷 " + ({ self: "自拍", view: "随手拍的", thing: "手边的东西" }[cur.photoKind] || "照片") + (photoOpen ? "：" + cur.photoDesc + " ︿" : " · 这张图会画什么 ﹀")),
