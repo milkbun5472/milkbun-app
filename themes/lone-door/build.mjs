@@ -154,16 +154,23 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="rpmsg"]{-webkit-line-clamp:2 !important;color:#FFE9C8 !important}
 [data-wk="rpcard"][data-status="done"]::before{background:${svg(MINIDOOR(true))} center/contain no-repeat !important;filter:drop-shadow(0 0 8px rgba(255,220,150,.8)) !important}
 [data-wk="rpcard"][data-status="done"]::after{content:"门开了" !important}
-[data-wk="rpenvelope"][data-stage="closed"],[data-wk="rpenvelope"][data-stage="open"]{background:${svg(STARS)} 0 0/220px 260px,linear-gradient(180deg,${C.n1},${C.n2} 60%,${C.n3}) !important;border:6px solid ${C.frame} !important;border-radius:4px !important;box-shadow:inset 0 0 0 2px #5A4FA0,0 0 30px rgba(127,240,240,.25) !important}
-[data-wk="rpenvelope"] [data-wk="rparc"]{background:${WARM} !important;border-color:${C.frame} !important;box-shadow:none !important}
-[data-wk="rpenvelope"] [data-wk="rparc"]::after{content:none !important}
-[data-wk="rpenvelope"] *{color:#fff !important}
-[data-wk="rpenvelope"] [data-wk="rparc"] *{color:${C.ink} !important}
-[data-wk="rpopenbtn"]{background:${svg(MINIDOOR(false))} center/60% no-repeat,radial-gradient(circle,#FFF2D8 58%,${C.frame} 60%,${C.frame} 66%,transparent 68%) !important;border:none !important;box-shadow:none !important;filter:drop-shadow(0 0 12px rgba(255,220,150,.7)) !important}
+/* 拆红包＝一扇大门：关着时是一整扇深紫木门（四块门板、金门把、门缝漏光），「开」是门上的锁孔；
+   拆开后门扇转到一边，门洞里是一片暖光，金额站在光里，门底下接三级发光台阶 */
+[data-wk="rpenvelope"]{position:relative !important;overflow:visible !important;border-radius:6px 6px 2px 2px !important}
+[data-wk="rpenvelope"][data-stage="closed"]{background:radial-gradient(circle at 82% 52%,#F2D28A 0 7px,#B8913E 7.5px 9px,transparent 9.5px),linear-gradient(#2A2358,#2A2358) 50% 8%/76% 2px no-repeat,linear-gradient(90deg,transparent 12%,rgba(255,255,255,.07) 12% 44%,transparent 44% 56%,rgba(255,255,255,.07) 56% 88%,transparent 88%) center 14%/100% 30% no-repeat,linear-gradient(90deg,transparent 12%,rgba(255,255,255,.07) 12% 44%,transparent 44% 56%,rgba(255,255,255,.07) 56% 88%,transparent 88%) center 86%/100% 30% no-repeat,linear-gradient(180deg,#4A3F86,#3A3170) !important;border:8px solid ${C.frameD} !important;box-shadow:0 0 0 2px #5A4FA0,0 0 22px 4px rgba(255,220,150,.55),0 0 60px 10px rgba(255,214,190,.25) !important}
+[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rparc"]{display:none !important}
+[data-wk="rpenvelope"][data-stage="closed"] *{color:#FFE9C8 !important}
+[data-wk="rpopenbtn"]{background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><circle cx='30' cy='30' r='27' fill='#F2D28A' stroke='#8F6A26' stroke-width='3'/><circle cx='30' cy='24' r='7' fill='#1E1B48'/><path d='M26.5 28 L24 44 H36 L33.5 28Z' fill='#1E1B48'/><circle cx='30' cy='24' r='3' fill='#FFE7A8' opacity='.8'/></svg>`)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;filter:drop-shadow(0 0 10px rgba(255,220,150,.8)) !important}
 [data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important}
+[data-wk="rpenvelope"][data-stage="open"]{background:radial-gradient(ellipse at 50% 60%,#FFFDF4,#FFE9C8 55%,#FFD3D8) !important;border:8px solid ${C.frame} !important;box-shadow:0 0 0 2px #5A4FA0,0 0 40px 10px rgba(255,220,170,.6) !important}
+[data-wk="rpenvelope"][data-stage="open"]::after{content:"" !important;position:absolute !important;right:-46px !important;top:-10px !important;bottom:-10px !important;width:40px !important;background:radial-gradient(circle at 40% 52%,#F2D28A 0 4px,transparent 4.5px),${svg(PANEL("r"))} center/100% 100% no-repeat !important;pointer-events:none !important}
+[data-wk="rpenvelope"][data-stage="open"]::before{content:"" !important;position:absolute !important;left:10% !important;right:10% !important;bottom:-46px !important;height:38px !important;background:linear-gradient(${C.step},${C.step}) center 4px/70% 4px no-repeat,linear-gradient(${C.step},${C.step}) center 17px/84% 4px no-repeat,linear-gradient(${C.step},${C.step}) center 30px/100% 4px no-repeat !important;filter:drop-shadow(0 0 6px rgba(127,240,240,.9)) !important;opacity:.9 !important;pointer-events:none !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"]{display:none !important}
+[data-wk="rpenvelope"][data-stage="open"] *{color:${C.ink} !important}
 [data-wk="rpavatar"]{border-radius:50% !important;box-shadow:0 0 0 3px #E8E0D4,0 0 12px rgba(255,230,180,.6) !important}
-[data-wk="rpamount"]{color:#FFE9B8 !important;background:none !important}
+[data-wk="rpamount"]{color:${C.ink} !important;background:none !important;text-shadow:0 0 14px rgba(255,255,255,.9) !important}
 [data-wk="rpclose"]{background:transparent !important;border:1.5px solid #fff !important;color:#fff !important}
+[data-wk="rpenvelope"][data-stage="open"] ~ [data-wk="rpclose"],[data-wk="rpenvelope"][data-stage="open"] + * [data-wk="rpclose"]{margin-top:46px !important}
 
 /* 照片＝从一扇门里看出去：门框框着照片，门扇开在旁边 */
 [data-wk="photocard"]{position:relative !important;overflow:visible !important;background:${C.frame} !important;border:none !important;border-radius:3px !important;padding:8px 8px 24px !important;margin-right:22px !important;box-shadow:inset 0 0 0 2px #5A4FA0,0 0 16px rgba(255,214,190,.3) !important}
