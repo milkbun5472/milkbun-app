@@ -67,6 +67,19 @@
   const activeFor = (by, viewer) => activeOf(by).filter(s => visibleTo(s, viewer));
   const vote = (id, who, k) => patch(id, s => s.sticker && s.sticker.type === "poll" ? Object.assign({}, s, { sticker: Object.assign({}, s.sticker, { votes: Object.assign({}, s.sticker.votes || {}, { [who]: k }) }) }) : s);
   const answer = (id, who, text) => patch(id, s => s.sticker && s.sticker.type === "ask" ? Object.assign({}, s, { sticker: Object.assign({}, s.sticker, { answers: (s.sticker.answers || []).concat([{ who, text: String(text || "").slice(0, 200), ts: Date.now() }]).slice(-30) }) }) : s);
+  // 别人（跟 TA 有关系的角色、配角）的反应：看过、投票、回答、私下回一句——排卡那一次调用顺便写的，一次落进去
+  const applyCrowd = (id, list) => patch(id, s => {
+    const n = Object.assign({}, s, { seen: Object.assign({}, s.seen || {}), replies: (s.replies || []).slice() }), st = n.sticker ? Object.assign({}, n.sticker) : null;
+    (list || []).slice(0, 6).forEach((x, k) => {
+      const who = String(x.who), at = Date.now() + k;
+      n.seen[who] = at;
+      if (st && st.type === "poll" && (x.vote === 0 || x.vote === 1)) st.votes = Object.assign({}, st.votes || {}, { [who]: x.vote });
+      if (st && st.type === "ask" && String(x.answer || "").trim()) st.answers = (st.answers || []).concat([{ who, text: String(x.answer).trim().slice(0, 200), ts: at }]);
+      if (String(x.reply || "").trim()) n.replies.push({ who, text: String(x.reply).trim().slice(0, 300), ts: at });
+    });
+    if (st) n.sticker = st;
+    return n;
+  });
   const daysLeft = at => Math.ceil((Number(at) - Date.now()) / DAY);
   const stickerLine = st => !st ? "" : st.type === "ask" ? "贴着一个提问框「" + st.q + "」" : st.type === "poll" ? "贴着一个投票「" + st.q + "」：" + st.opts.join(" / ") : "贴着倒计时「" + st.q + "」" + (daysLeft(st.at) > 0 ? "，还有 " + daysLeft(st.at) + " 天" : "，已经到了");
   // 精选：过期的挑几条收成一组，起个名，挂在朋友圈主页顶上
@@ -99,7 +112,7 @@
         const vs = Object.values(st.votes || {}), n = vs.filter(v => v === k).length, picked = (st.votes || {})[viewer] === k, voted = (st.votes || {})[viewer] != null || mine;
         return h("button", { key: k, disabled: mine || archive, onClick: () => { vote(s.id, viewer, k); bump(x => x + 1); },
           style: { flex: 1, padding: "8px 6px", borderRadius: 10, border: "1.5px solid " + (picked ? "#e85d75" : "#ccc"), background: picked ? "#fde8ec" : "#fff" } },
-          o, voted ? h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#888", marginTop: 2 } }, n + " 票" + (mine && n ? "：" + Object.keys(st.votes).filter(w => st.votes[w] === k).map(nameOf).join("、") : "")) : null);
+          o, voted ? h("div", { style: { fontSize: "calc(11px * var(--app-fs, 1))", color: "#888", marginTop: 2 } }, n + " 票" + (n ? "：" + Object.keys(st.votes).filter(w => st.votes[w] === k).map(nameOf).join("、") : "")) : null);
       })) : null,
       st.type === "countdown" ? h("div", { style: { fontSize: "calc(22px * var(--app-fs, 1))", fontWeight: 700 } }, daysLeft(st.at) > 0 ? "还有 " + daysLeft(st.at) + " 天" : "就是今天") : null,
       st.type === "ask" ? (mine || archive
@@ -137,10 +150,12 @@
           seenOpen ? h("div", { style: { marginTop: 6, color: "#ddd", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.8 } },
             seen.map(([who, ts]) => h("div", { key: who }, nameOf(who) + " · " + ago(ts))),
             (s.replies || []).map((r, k) => h("div", { key: "r" + k, style: { color: "#fff" } }, nameOf(r.who) + "：" + r.text))) : null)
-        : (!archive && onReply ? h("div", { className: "flex items-center", style: { gap: 8 } },
+        : (!archive && onReply ? h("div", null,
+          (() => { const others = Object.keys(cur.seen || {}).filter(w => w !== String(viewer)); return others.length ? h("div", { "data-wk": "storyothers", style: { color: "#ccc", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", marginBottom: 6 } }, others.map(nameOf).join("、") + " 也看过") : null; })(),
+          h("div", { className: "flex items-center", style: { gap: 8 } },
             h("input", { "data-wk": "storyreply", value: draft, onChange: e => setDraft(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); }, placeholder: "回复 " + nameOf(s.by) + "…",
               style: { flex: 1, minWidth: 0, minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid rgba(255,255,255,.5)", background: "transparent", color: "#fff", fontFamily: F_BODY, fontSize: 16, outline: "none" } }),
-            h("button", { onClick: send, style: { color: "#fff", fontFamily: F_BODY, padding: "0 6px" } }, "发送")) : null)));
+            h("button", { onClick: send, style: { color: "#fff", fontFamily: F_BODY, padding: "0 6px" } }, "发送"))) : null)));
   }
   // 过往：三列小格，点开照样全屏看
   function StoryArchive({ by, title, onOpen }) {
@@ -166,5 +181,5 @@
       h("span", { className: "truncate", style: { maxWidth: 62, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, name)); };
     return h("div", { "data-wk": "storyhighlights", className: "flex", style: { gap: 10, overflowX: "auto", padding: "8px 0" } }, groups.map(([name, list]) => h(Dot, { key: name, name, list })));
   }
-  window.Stories = { KEY, DAY, all, live, activeOf, activeFor, visibleTo, pastOf, unseenBy, markSeen, remove, layoutFrom, renderCard, add, addReply, vote, answer, setHl, hlOf, normSticker, stickerLine, daysLeft, StoryViewer, StoryArchive, StoryHighlights };
+  window.Stories = { KEY, DAY, all, live, activeOf, activeFor, visibleTo, pastOf, unseenBy, markSeen, remove, layoutFrom, renderCard, add, addReply, applyCrowd, vote, answer, setHl, hlOf, normSticker, stickerLine, daysLeft, StoryViewer, StoryArchive, StoryHighlights };
 })();

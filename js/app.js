@@ -7138,7 +7138,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (his.length) L.push("你自己挂着的限时动态：" + his.map(s => "「" + (s.text || s.desc) + "」（" + ago(s.ts) + "）"
         + (s.sticker ? "，" + SK.stickerLine(s.sticker)
           + (s.sticker.type === "poll" && (s.sticker.votes || {}).me != null ? "，" + un + "投了「" + s.sticker.opts[s.sticker.votes.me] + "」" : "")
-          + (s.sticker.type === "ask" && (s.sticker.answers || []).some(a => a.who === "me") ? "，" + un + "回答了：" + s.sticker.answers.filter(a => a.who === "me").map(a => a.text).join("／") : "") : "")).join("；"));
+          + (s.sticker.type === "ask" && (s.sticker.answers || []).some(a => a.who === "me") ? "，" + un + "回答了：" + s.sticker.answers.filter(a => a.who === "me").map(a => a.text).join("／") : "") : "")
+          + ((s.replies || []).filter(r => r.who !== "me").length ? "，底下别人私下回你：" + s.replies.filter(r => r.who !== "me").slice(-4).map(r => (((characters || []).find(c => c.id === r.who) || {}).name || "某人") + "「" + r.text + "」").join("、") : "")).join("；"));
       return L.length ? "【限时动态】" + L.join("\n") : "";
     })(),
     momentLog: (() => {
@@ -29211,6 +29212,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const S = settingsFor(char.id) || {};
       const canPhoto = !!S.storyPhoto && typeof imgApiReady === "function" && imgApiReady() && (char.appearance || char.refPhoto);
       const bgs = Object.keys(window.Collage.BGS || {}).map(k => k + "（" + window.Collage.BGS[k].name + "）").join("、");
+      // 跟 TA 连着关系线的人（角色、配角都算）也会刷到（她 2026-11-14「别的角色和 npc 也可以投吧，如果设定和他有关系的话」）：
+      //   不另花调用——排卡这一次里顺便写他们谁看了、投了哪个、回答了什么、私下回了一句什么
+      const _rl = (a, b) => { const r = (rels || {})[a + "->" + b]; return r && (r.label || r.type) ? (r.label || r.type) : (r ? "认识" : ""); };
+      const related = (characters || []).filter(c => c && c.id !== char.id && ((rels || {})[char.id + "->" + c.id] || (rels || {})[c.id + "->" + char.id])).slice(0, 8);
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true, logLabel: "限时动态",
         instruction: relSay(char) + "。你要发一条限时动态（挂 24 小时就收起来），" + (idea ? "此刻想发的是：「" + idea + "」。" : "发什么由你自己定：照你此刻在干嘛、在想什么、跟她最近聊的来。") + "把它排成一张竖版手机卡，照你自己的审美来："
@@ -29218,8 +29223,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "texts 是卡上的字，1 到 4 块，每块 t 写什么、x 和 y 是在卡上的位置（0 到 1，左上角是 0,0）、size 字号（40 到 160）、color 颜色（#hex）、r 歪多少度（-15 到 15）、font 可以单独换；"
           + "stickers 是贴纸，0 到 5 个 emoji，ch 是哪个、x y 位置、size 大小（60 到 200）。"
           + (canPhoto ? "这条会配一张你此刻的照片，photo 写这张照片拍的是什么（一句画面描述），photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。" : "这条没有照片，就是一张排好字的卡。")
+          + (related.length ? "跟你有关系的这几个人也会刷到这条：" + related.map(c => c.name + "（" + (_rl(char.id, c.id) || _rl(c.id, char.id)) + "）").join("、")
+            + "。crowd 写他们里真会看到、会有反应的那几个（0 到 4 个，不是人人都理你）：name 是谁、answer 是回答你的提问框（你贴了才写）、vote 是投第几个选项（你贴了投票才写，0 或 1）、reply 是私下回你的一句（可空）。照各人跟你的关系和性子来。" : "")
           + "字是你会发出去的那几句，不是解说。想的话可以加一个互动贴纸 sticker（不加就不写这一格）：提问框 {\"type\":\"ask\",\"q\":\"问她什么\"}、投票 {\"type\":\"poll\",\"q\":\"问题\",\"opts\":[\"选项一\",\"选项二\"]}、倒计时 {\"type\":\"countdown\",\"q\":\"倒数什么\",\"days\":几天后}。",
-        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + (canPhoto ? ",\"photo\":\"照片拍的是什么\",\"photoY\":0.45" : "") + "}",
+        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + (canPhoto ? ",\"photo\":\"照片拍的是什么\",\"photoY\":0.45" : "") + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
         maxTokens: 8000
       });
       let photoBlob = null;
@@ -29232,8 +29239,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         } catch (e) { /* 照片没拍成就发纯字卡，不拦这一条 */ }
       }
       const texts = ((d && d.texts) || []).map(x => x && (x.t || x.text)).filter(Boolean);
-      await window.Stories.add({ by: char.id, manual: !!manual, sticker: d && d.sticker, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea || "…" }] }, !!photoBlob), photoBlob,
+      const _row = await window.Stories.add({ by: char.id, manual: !!manual, sticker: d && d.sticker, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea || "…" }] }, !!photoBlob), photoBlob,
         text: idea || texts.join(" "), desc: texts.join(" / ") + (photoBlob && d.photo ? "（配了一张照片：" + String(d.photo).slice(0, 80) + "）" : "") });
+      // 那几个人的反应落到这一条上：名字对得上关系线里的人才算，不认识的名字不收
+      if (_row && Array.isArray(d && d.crowd)) window.Stories.applyCrowd(_row.id, d.crowd.map(x => { const c = related.find(r => x && (r.name === x.name || r.remark === x.name)); return c ? Object.assign({}, x, { who: c.id }) : null; }).filter(Boolean));
       toast((char.remark || char.name) + " 发了一条限时动态");
       if (window.Notify) window.Notify.push({ title: (char.remark || char.name) + " 发了一条限时动态", body: idea || texts.join(" "), tag: "story-" + char.id, charId: char.id });
     } catch (e) { toast("限时动态没发出来：" + ((e && e.message) || "")); }

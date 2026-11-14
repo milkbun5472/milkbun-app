@@ -51,3 +51,10 @@ test("第二版：贴纸、只给谁看、精选", () => {
   assert.match(A, /SK\.activeFor\("me", char\.id\)/); assert.match(A, /sticker: d && d\.sticker,/);
   assert.match(C, /"data-wk": "storypost"/); assert.match(C, /h\(window\.Stories\.StoryHighlights/);
 });
+test("跟 TA 有关系的人也会看、会投、会回——排卡那一次顺便写，不另花调用", () => {
+  const S = window.Stories, A = R("app.js");
+  assert.equal(typeof S.applyCrowd, "function");
+  assert.match(A, /const related = \(characters \|\| \[\]\)\.filter\(c => c && c\.id !== char\.id && \(\(rels \|\| \{\}\)\[char\.id \+ "->" \+ c\.id\]/);
+  assert.match(A, /window\.Stories\.applyCrowd\(_row\.id, d\.crowd\.map/);
+  assert.match(A, /\\"crowd\\":\[/);
+});
