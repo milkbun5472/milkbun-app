@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const svg = s => "url(\"data:image/svg+xml;base64," + Buffer.from(s.replace(/>\s+</g, "><")).toString("base64") + "\")";
-const C = { paper: "#FAF8F4", card: "#FFFFFF", grey: "#EFEDE9", line: "#D8D4CD", ink: "#1E1D1B", sub: "#8A857D", fog: "#B5B0A8" };
+const C = { paper: "#FAF8F4", card: "#FFFFFF", grey: "#F5F3EF", line: "#D8D4CD", ink: "#1E1D1B", sub: "#8A857D", fog: "#B5B0A8" };
 const SERIF = `"Didot","Bodoni 72","Playfair Display","Songti SC","Noto Serif SC",Georgia,serif`;
 const IT = `italic 400 12px/1 Georgia,"Times New Roman",serif`;
 
@@ -67,7 +67,7 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="bubble"][data-kind="text"]{border:none !important;letter-spacing:.1em !important;padding:12px 20px !important;color:${C.ink} !important;font-size:14.5px !important;line-height:1.75 !important}
 [data-wk="bubble"][data-kind="text"]::before,[data-wk="bubble"][data-kind="text"]::after{content:none !important}
 [data-wk="bubble"][data-kind="text"][data-me="0"]{background:${C.card} !important;border-radius:6px 6px 6px 1px !important;box-shadow:0 0 0 .8px ${C.line},0 3px 10px rgba(30,29,27,.05) !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]{background:${C.grey} !important;border-radius:6px 6px 1px 6px !important;box-shadow:none !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{background:${C.grey} !important;border-radius:6px 6px 1px 6px !important;box-shadow:0 0 0 .8px ${C.line} !important}
 
 /* 时间：两侧一根细线，线头一颗菱形，中间斜体小字 */
 [data-wk="time"]{display:flex !important;justify-content:center !important}
@@ -159,7 +159,7 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="rpenvelope"][data-stage="closed"] *{color:${C.ink} !important}
 [data-wk="rpopenbtn"]{background:radial-gradient(circle at 42% 38%,#A83A3A,#8C2A2A 60%,#6E1E1E) !important;border:none !important;border-radius:50% !important;box-shadow:0 0 0 3px rgba(140,42,42,.25),0 3px 6px rgba(0,0,0,.25) !important}
 [data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important}
-[data-wk="rpenvelope"][data-stage="open"]{background:repeating-linear-gradient(180deg,transparent 0 27px,${C.line} 27px 28px) 0 80px/100% calc(100% - 120px) no-repeat,${C.paper} !important;border:none !important;border-radius:2px !important;box-shadow:0 0 0 .8px ${C.line},0 18px 40px rgba(30,29,27,.18) !important}
+[data-wk="rpenvelope"][data-stage="open"]{background:repeating-linear-gradient(180deg,transparent 0 27px,#F1EEE9 27px 28px) 0 80px/100% calc(100% - 120px) no-repeat,${C.paper} !important;border:none !important;border-radius:2px !important;box-shadow:0 0 0 .8px ${C.line},0 18px 40px rgba(30,29,27,.18) !important}
 [data-wk="rpenvelope"][data-stage="open"]::after{content:"— avec amour" !important;position:absolute !important;right:22px !important;bottom:18px !important;font:italic 400 13px/1 Georgia,serif !important;letter-spacing:.1em !important;color:${C.sub} !important}
 [data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"]{display:none !important}
 [data-wk="rpenvelope"][data-stage="open"] *{color:${C.ink} !important}
@@ -178,7 +178,7 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="voice"] > *{background:transparent !important;box-shadow:none !important;border:none !important;color:${C.ink} !important}
 [data-wk="voice"][data-me]{padding:0 14px 0 34px !important;position:relative !important;border-radius:4px !important}
 [data-wk="voice"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:14px !important;height:14px !important;margin-top:-7px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><circle cx='7' cy='7' r='6' fill='none' stroke='${C.ink}' stroke-width='.9'/><path d='M5.6 4.4 L9.6 7 L5.6 9.6Z' fill='${C.ink}'/></svg>`)} center/contain no-repeat !important;z-index:2 !important}
-[data-wk="voice"][data-me="1"]{background:${C.grey} !important;box-shadow:none !important}
+[data-wk="voice"][data-me="1"]{background:${C.grey} !important;box-shadow:0 0 0 .8px ${C.line} !important}
 [data-wk="voicewave"] span{background:${C.ink} !important}
 
 [data-wk="wxcardsky"]{background:${C.grey} !important}
@@ -197,7 +197,7 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="noteink"]{color:${C.sub} !important}
 
 /* 线下小结：一张横格信纸，标题是斜体抬头，底下签名 */
-[data-part="offlog"]{position:relative !important;background:repeating-linear-gradient(180deg,transparent 0 27px,#EDEAE4 27px 28px),#fff !important;padding-top:26px !important;padding-bottom:30px !important}
+[data-part="offlog"]{position:relative !important;background:repeating-linear-gradient(180deg,transparent 0 27px,#F4F2EE 27px 28px),#fff !important;padding-top:26px !important;padding-bottom:30px !important}
 [data-part="offlog"]::after{content:"— à toi" !important;position:absolute !important;right:16px !important;bottom:10px !important;font:italic 400 12px/1 Georgia,serif !important;color:${C.sub} !important}
 [data-wk="offlogtitle"]{display:inline-block !important;margin:0 0 8px !important;padding:0 !important;background:none !important;color:${C.ink} !important;font-style:italic !important;letter-spacing:.2em !important;border-bottom:.8px solid ${C.ink} !important}
 [data-wk="offlogtitle"] *{color:${C.ink} !important}
@@ -229,13 +229,13 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:${C.paper} !important}
 [data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:${C.sub} !important}
 [data-wk="callbubble"]{background:#fff !important;color:${C.ink} !important;border:none !important;border-radius:6px 6px 6px 1px !important;box-shadow:0 0 0 .8px ${C.line} !important}
-[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:${C.grey} !important;border-radius:6px 6px 1px 6px !important;box-shadow:none !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:${C.grey} !important;border-radius:6px 6px 1px 6px !important;box-shadow:0 0 0 .8px ${C.line} !important}
 [data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
 [data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.ink} !important}
 [data-wk="callact"]{color:${C.sub} !important;font-style:italic !important}
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 5px ${C.paper},0 0 0 6px ${C.ink},0 0 0 12px ${C.paper},0 0 0 12.8px ${C.line} !important}
 /* ───── 巴黎留白 · 第三批：状态卡＝一张白信纸（横格、抬头日期线），好感是信上一枚蜡封 ───── */
-[data-wk="statecard"]{background:repeating-linear-gradient(180deg,transparent 0 31px,#EFEDE9 31px 32px) 0 120px/100% calc(100% - 120px) no-repeat,#fff !important;border:none !important;border-radius:3px !important;box-shadow:0 0 0 .8px ${C.line},0 20px 50px rgba(30,29,27,.12) !important}
+[data-wk="statecard"]{background:repeating-linear-gradient(180deg,transparent 0 31px,#F4F2EE 31px 32px) 0 120px/100% calc(100% - 120px) no-repeat,#fff !important;border:none !important;border-radius:3px !important;box-shadow:0 0 0 .8px ${C.line},0 20px 50px rgba(30,29,27,.12) !important}
 [data-wk="statecard"] *{font-family:${SERIF} !important}
 [data-wk="statehead"]{background:transparent !important;border-bottom:.8px solid ${C.ink} !important}
 [data-wk="statehead"] *{color:${C.ink} !important}
@@ -266,7 +266,7 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
 [data-wk="statehisthead"] > :first-child{color:${C.sub} !important;font-style:italic !important}
 [data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:.8px solid ${C.ink} !important;border-radius:2px !important;color:${C.ink} !important;background:transparent !important}
-[data-wk="statehistitem"]{position:relative !important;background:repeating-linear-gradient(180deg,transparent 0 27px,#EFEDE9 27px 28px),${C.paper} !important;border:none !important;border-radius:2px !important;padding:16px 18px 26px !important;margin:0 0 14px !important;box-shadow:0 0 0 .8px ${C.line} !important}
+[data-wk="statehistitem"]{position:relative !important;background:repeating-linear-gradient(180deg,transparent 0 27px,#F4F2EE 27px 28px),${C.paper} !important;border:none !important;border-radius:2px !important;padding:16px 18px 26px !important;margin:0 0 14px !important;box-shadow:0 0 0 .8px ${C.line} !important}
 [data-wk="statehistitem"]::after{content:"— M." !important;position:absolute !important;right:14px !important;bottom:8px !important;font:italic 400 11px/1 Georgia,serif !important;color:${C.sub} !important}
 [data-wk="statehistitem"] *{color:${C.ink} !important}
 [data-wk="statehistmood"]{background:transparent !important;border:none !important;border-bottom:.8px solid ${C.ink} !important;color:${C.ink} !important;border-radius:0 !important;font-style:italic !important}
@@ -312,7 +312,7 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
 /* 卡片：他的白卡发丝线、你的浅灰纸，跟线上一样 */
 [data-wk="offcard"]{position:relative !important;background:#fff !important;border:none !important;border-radius:6px 6px 6px 1px !important;box-shadow:0 0 0 .8px ${C.line},0 4px 14px rgba(30,29,27,.06) !important;margin-top:16px !important;color:${C.ink} !important}
-[data-wk="offcard"][data-me="1"]{background:${C.grey} !important;border-radius:6px 6px 1px 6px !important;box-shadow:none !important}
+[data-wk="offcard"][data-me="1"]{background:${C.grey} !important;border-radius:6px 6px 1px 6px !important;box-shadow:0 0 0 .8px ${C.line} !important}
 [data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2px #fff,0 0 0 3px ${C.ink} !important}
 [data-wk="offname"],[data-wk="offtext"]{color:${C.ink} !important}
 [data-wk="offname"]{font-weight:400 !important;letter-spacing:.2em !important;font-style:italic !important}
