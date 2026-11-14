@@ -2123,6 +2123,8 @@ const FORUM_IP_POOL = ["北京", "上海", "广东", "浙江", "江苏", "四川
 //   你自己发的照你开了定位的那一处（虚构世界就是你在那张图上的位置）；角色没在好友地图上安家的，先从人设里找一个认得的城市
 const forumIpTrim = v => String(v || "").trim().replace(/[,，·\s].*$/, "").replace(/(市|省|特别行政区|自治区)$/, "").slice(0, 6);
 function forumIpOf(x, ch) {
+  // 钉进架空世界的角色就住在那个世界（跟地图同一个判据 charRealm）：显示他钉的那个地名，不读现实里的家
+  try { if (ch && window.MapKit && window.MapKit.charRealm && typeof loadJSON === "function") { const rl = window.MapKit.charRealm(ch, loadJSON("x_worlds", [])); if (rl && rl.kind === "world") return forumIpTrim(rl.node || (rl.world && rl.world.name)); } } catch (e) {}
   const city = ch && ch.home && ch.home.city ? String(ch.home.city).trim() : "";
   if (city) return forumIpTrim(city);
   try {
