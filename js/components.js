@@ -9987,7 +9987,7 @@ function WeatherChatCard({ m, character }) {
         x.pp != null ? h("span", { "data-wk": "wxcardrain", style: { padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,.28)" } }, "降雨 " + x.pp + "%") : null)),
     m.say ? h("div", { "data-wk": "wxcardsay", style: { padding: "11px 15px 13px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.6, color: "#3b3631", borderTop: "1px dashed rgba(120,110,95,.25)" } },
       h("div", { style: { fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".12em", color: "#a39a8d", marginBottom: 3 } }, (character ? (character.remark || character.name) : "TA") + " 说"),
-      m.say) : null);
+      h(TransText, { text: m.say, zhReady: m.sayZh })) : null);
 }
 // 推荐名片（群里 2026-10-10：「可以加个转发名片」）：微信「推荐给朋友」那张卡——头像、名字、一句话
 function NameCardMsg({ m, characters, onOpen }) {
@@ -12589,7 +12589,7 @@ function ChatThread({
         h("div", { className: "flex items-center gap-1.5", style: { marginBottom: 6 } },
           h("span", { style: { fontSize: "calc(13px * var(--app-fs, 1))" } }, "🎧"),
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: 1, color: "rgba(255,255,255,0.7)" } }, "一起听邀请")),
-        m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fff", lineHeight: 1.5, marginBottom: m.song ? 4 : 8 } }, m.say) : null,
+        m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fff", lineHeight: 1.5, marginBottom: m.song ? 4 : 8 } }, h(TransText, { text: m.say, zhReady: m.sayZh })) : null,
         m.song ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#f0d9a8", marginBottom: 8 } }, "《" + m.song + "》") : null,
         h("button", { "data-wk": "block", onClick: () => onAcceptListen && onAcceptListen(character.id, m.song || ""), className: "w-full active:opacity-80", style: { background: "#fff", color: "#17171b", fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "8px", borderRadius: 10 } }, "和 TA 一起听 →")));
     // 一起学和小游戏是同一张卡（TA在房里开口约你，点了才真进那一屏）。
@@ -12604,7 +12604,7 @@ function ChatThread({
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".12em", color: t.fog, marginBottom: 5 } }, done ? characterText(character, "他写好了") : "一起写"),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, m.subject || "接着写一章"),
           !done && m.sessionTitle ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 5 } }, m.sessionTitle) : null,
-          m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, m.say) : null,
+          m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, h(TransText, { text: m.say, zhReady: m.sayZh })) : null,
           // 写好的那张只放开头两百字，全文在同人文里——房间里不放第二份正文
           done && m.content ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.85, marginTop: 8, paddingTop: 8, borderTop: "1px solid " + t.line, whiteSpace: "pre-wrap" } }, m.content + "…") : null,
           // ⚠️这一行原来是【死字】：写好了还得她自己翻去同人文里找
@@ -12630,7 +12630,7 @@ function ChatThread({
           // TA觉得该问的那件事（可空）——点开之后这句会替她填进问题那一栏
           isTarot && m.ask ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 5, lineHeight: 1.6 } },
             (m.asker === "me" ? characterText(character, "他自己想问的：") : "想替你问的：") + m.ask) : null,
-          m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, m.say) : null,
+          m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, h(TransText, { text: m.say, zhReady: m.sayZh })) : null,
           h("button", { onClick: function () { if (isTarot) { onOpenTarotInvite && onOpenTarotInvite(m); } else if (isRead) { onOpenReadInvite && onOpenReadInvite(m); } else if (isGame) { onOpenGameInvite && onOpenGameInvite(m); } else { onOpenStudyInvite && onOpenStudyInvite(m); } }, className: "active:opacity-70", style: { marginTop: 9, width: "100%", padding: "8px 10px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, go)));
     }
     const isU = m.role === "user";
@@ -16140,7 +16140,7 @@ function LedgerTicketCard({ m }) {
       mt && mt[4] ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", fontWeight: 700, color: ink, marginTop: 2 } }, mt[4]) : null,
       h("div", { style: { borderTop: "1px dashed rgba(160,150,220,.6)", margin: "10px 0 8px" } }),
       m.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: sub, textAlign: "center" } }, m.sub) : null,
-      m.note ? h("div", { style: { fontFamily: "'Kaiti SC','STKaiti','KaiTi',cursive", fontSize: "calc(13px * var(--app-fs, 1))", color: ink, lineHeight: 1.5, marginTop: 6, textAlign: "center", paddingRight: 30 } }, "“" + m.note + "”") : null,
+      m.note ? h("div", { style: { fontFamily: "'Kaiti SC','STKaiti','KaiTi',cursive", fontSize: "calc(13px * var(--app-fs, 1))", color: ink, lineHeight: 1.5, marginTop: 6, textAlign: "center", paddingRight: 30 } }, "“", h(TransText, { text: m.note, inline: true }), "”") : null,
       h("div", { "aria-hidden": "true", style: { height: 16, margin: "10px 34px 0 12px", opacity: .55, background: "repeating-linear-gradient(90deg," + ink + " 0 1px,transparent 1px 3px," + ink + " 3px 5px,transparent 5px 6px," + ink + " 6px 7px,transparent 7px 10px)" } }),
       h("img", { src: A + "rc-stamp.webp" + V, alt: "RECORDED", draggable: false, style: { position: "absolute", right: -34, bottom: -30, width: 66, height: "auto", transform: "rotate(-12deg)", opacity: .92, pointerEvents: "none" } })));
 }
@@ -16679,7 +16679,7 @@ function DuelChatCard({ m, character, avatar, onGo }) {
       ask ? h(React.Fragment, null,
           h("div", { style: { fontSize: fz(10.5), color: SUB, letterSpacing: ".15em" } }, "邮票对局 · 邀请"),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: fz(15), margin: "3px 44px 6px 0", lineHeight: 1.4 } }, who + " 约你用邮票册的卡打一把"),
-          m.say ? h("div", { style: { fontSize: fz(12.5), lineHeight: 1.6, marginBottom: 6 } }, "「" + m.say + "」") : null,
+          m.say ? h("div", { style: { fontSize: fz(12.5), lineHeight: 1.6, marginBottom: 6 } }, h(TransText, { text: m.say, zhReady: m.sayZh })) : null,
           m.wager ? h("div", { style: { fontSize: fz(11.5), color: RED, marginBottom: 6 } }, "赌：" + m.wager) : null)
         : h(React.Fragment, null,
           h("div", { style: { fontSize: fz(10.5), color: SUB, letterSpacing: ".15em" } }, "邮票对局 · 战报"),
@@ -16744,7 +16744,7 @@ function DateInviteCard({ m, character, onGo, onGoMine, onAnswer, avatar, myAvat
       w.now ? row(I.clk, "现在，说走就走") : w.date ? row(I.cal, dateLabel(w.date)) : w.text ? row(I.cal, w.text) : null,
       !w.now && w.time ? row(I.clk, w.time) : null,
       // 只写她（或TA）亲口说的那句；没写就空着，不拿地点备注顶上——架空世界的地点备注是地图上那段描述（她 2026-10-02）
-      m.say ? row(I.pen, m.say, true) : null,
+      m.say ? row(I.pen, h(TransText, { text: m.say, zhReady: m.sayZh }), true) : null,
       h("div", { className: "flex items-center justify-between", style: { marginTop: 8 } },
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, foot),
         ask && st === "pending" && onAnswer ? h("span", { className: "flex", style: { gap: 14 } },
@@ -17493,7 +17493,7 @@ function TransferCard({
     // ── 附言栏：写在单据的横线上 ──
     h("div", { className: "px-4 pt-3 pb-3.5" },
       h("div", { "data-wk": "transfernote", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: m.note ? INK : FADE, lineHeight: 1.5, wordBreak: "break-word" } },
-        m.note || "（没留话）")),
+        m.note ? h(TransText, { text: m.note, inline: true }) : "（没留话）")),
     // ── 下沿：要么两格按钮，要么一行状态 ──
     canAct ? h("div", { "data-wk": "transferfoot", className: "flex", style: { borderTop: "1px solid " + RULE, background: PAPER_D } },
       h("button", {
