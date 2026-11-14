@@ -8,10 +8,7 @@
 (function () {
   const useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
 
-  // 图标：三条粗细不同的横杠，像调音台的推子
-  window.GStyleLab = p => h(Svg, p,
-    h("path", { d: "M4 7h16" }), h("path", { d: "M4 12h16" }), h("path", { d: "M4 17h16" }),
-    h("circle", { cx: 9, cy: 7, r: 2 }), h("circle", { cx: 15, cy: 12, r: 2 }), h("circle", { cx: 7, cy: 17, r: 2 }));
+  // 主屏图标 GStyleLab 在 components.js（这一份点进文风台才加载，图标开机就要画）
 
   const rid2 = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const cnt = s => String(s || "").replace(/\s/g, "").length;

@@ -2105,6 +2105,10 @@ if (typeof window !== "undefined") {
   window.GNest = p => h(Svg, p,
     h("path", { d: "M3 10l9-6 9 6" }), h("path", { d: "M5 9v11h14V9" }),
     h("path", { d: "M5 14h14" }), h("path", { d: "M12 14v6" }));
+  // 文风台：三条横杠各带一颗推子，像调音台（js/style-lab.js 点进去才加载，2026-11-14 开机瘦身第二步搬来）
+  window.GStyleLab = p => h(Svg, p,
+    h("path", { d: "M4 7h16" }), h("path", { d: "M4 12h16" }), h("path", { d: "M4 17h16" }),
+    h("circle", { cx: 9, cy: 7, r: 2 }), h("circle", { cx: 15, cy: 12, r: 2 }), h("circle", { cx: 7, cy: 17, r: 2 }));
   // 解梦馆：月亮抱着一本摊开的书（和「梦境」app 的图标区分开）
   window.GDreamBook = function (props) {
     const size = (props && props.size) || 34, color = (props && props.color) || "#1b1a17";
@@ -2175,7 +2179,7 @@ function lazyScreen(name, group, zh) {
  // 瘦身第八批：秋秋小窝整份；跑团、片刻、番茄钟的页面那半（开机那半在 trpg-core.js / shua-core.js / pomodoro-core.js）
  // 瘦身第九批：健康、星测、时刻、月度印象、同居、一起看的页面那半（开机那半在各自的 *-core.js）
  ["HealthApp", "health", "健康"], ["AstroApp", "astro", "星测"], ["ZhaoyingApp", "zhaoying", "照影"], ["StampBookApp", "stamps", "邮票册"], ["ShikeApp", "shike", "时刻"], ["ImpressionApp", "impression", "月度印象"], ["DwellApp", "dwell", "同居"], ["WatchTogether", "watch", "一起看"],
- ["NestApp", "nest", "秋秋小窝"], ["TrpgApp", "trpg", "跑团"], ["ShuaApp", "shua", "片刻"], ["Pomodoro", "pomodoro", "番茄钟"],
+ ["NestApp", "nest", "秋秋小窝"], ["StyleLabApp", "stylelab", "文风台"], ["TrpgApp", "trpg", "跑团"], ["ShuaApp", "shua", "片刻"], ["Pomodoro", "pomodoro", "番茄钟"],
  ["Cast", "screens", "人格档案馆"], ["CastForm", "screens", "角色档案"], ["Ties", "screens", "关系网"], ["WorldBook", "screens", "世界书"], ["ForumAnonWrap", "screens", "匿名"], ["Shop", "screens", "购物"], ["Takeout", "screens", "外卖"], ["MyKinPage", "screens", "亲属卡"], ["KinshipBill", "screens", "亲属卡账单"], ["ListenTogether", "screens", "一起听"], ["Config", "screens", "设置"], ["MemoryLib", "screens", "记忆库"], ["Diary", "screens", "日记"], ["MyWallet", "screens", "钱包"], ["CharWallet", "screens", "TA 的钱包"], ["EmoteMatrix", "screens", "表情包"], ["Favorites", "screens", "收藏"], ["Carry", "screens", "随身"], ["MyCloset", "screens", "衣柜"]].forEach(a => lazyScreen(a[0], a[1], a[2]));
 function ImageViewer({ items, at, onClose, actions, zoomable }) {
   const list = (items || []).filter(x => x && x.src);
