@@ -226,7 +226,7 @@
     const send = () => { const tx = draft.trim(); if (!tx) return; onReply && onReply(s, tx); setDraft(""); onClose(); };
     const bar = { position: "absolute", left: 0, right: 0, zIndex: 2 };
     return h("div", { "data-wk": "storyview", style: { position: "fixed", inset: 0, zIndex: 120, background: "#000", display: "flex", flexDirection: "column" } },
-      h("div", { style: Object.assign({}, bar, { top: 0, padding: "calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px", background: "linear-gradient(rgba(0,0,0,.45),transparent)" }) },
+      h("div", { style: Object.assign({}, bar, { top: 0, padding: "calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px", background: "linear-gradient(rgba(0,0,0,.45),transparent)", transition: "opacity .18s", opacity: held ? 0 : 1, pointerEvents: held ? "none" : undefined }) },   // 按住只看图：顶上、底下都藏起来（她 2026-11-14「跟 ins 一样」）
         h("div", { className: "flex", style: { gap: 4 } }, list.map((x, k) => h("div", { key: x.id, style: { flex: 1, height: 2.5, borderRadius: 2, overflow: "hidden", background: "rgba(255,255,255,.35)" } },
           h("div", { style: { height: "100%", background: "#fff", width: k < i ? "100%" : k > i ? "0%" : Math.min(100, el / DUR * 100) + "%" } })))),
         h("div", { className: "flex items-center", style: { gap: 8, marginTop: 8, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
@@ -253,7 +253,7 @@
           (mine ? "你" : nameOf(s.by)) + " 把这条删了", h("br"), h("span", { style: { fontSize: "calc(12px * var(--app-fs, 1))", opacity: .8 } }, "删之前你已经看到了")) : null),
       // 这张图会画什么（她 2026-11-14）：TA 排卡时写好的，没配图的卡点「生图」就照这句补一张（自拍、随手拍的风景、手边的东西都行）
       // 底下这一块（描述、快捷表情、回复）也是叠在图上的，不另占一截（她 2026-11-14）
-      h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 5, padding: "40px 12px calc(env(safe-area-inset-bottom, 0px) + 10px)", background: "linear-gradient(transparent, rgba(0,0,0,.55) 45%)", textShadow: "0 1px 3px rgba(0,0,0,.6)" } },
+      h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 5, padding: "40px 12px calc(env(safe-area-inset-bottom, 0px) + 10px)", transition: "opacity .18s", opacity: held ? 0 : 1, pointerEvents: held ? "none" : undefined, background: "linear-gradient(transparent, rgba(0,0,0,.55) 45%)", textShadow: "0 1px 3px rgba(0,0,0,.6)" } },
         (cur.photoDesc && !cur.photo) || cur.photoKey ? h("div", { "data-wk": "storyphotoline", className: "flex items-center", style: { gap: 8, padding: "0 0 8px", textShadow: "0 1px 3px rgba(0,0,0,.7)", color: "#ddd", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5 } },
         h("button", { "data-wk": "storyphototoggle", onClick: () => setPhotoOpen(v => !v), className: "flex-1 min-w-0 text-left", style: { color: "#ddd", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: photoOpen ? "normal" : "nowrap" } },
           "📷 " + ({ self: "自拍", view: "随手拍的", thing: "手边的东西" }[cur.photoKind] || "照片") + (photoOpen ? "：" + cur.photoDesc + " ︿" : " · 这张图会画什么 ﹀")),
