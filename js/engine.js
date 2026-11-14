@@ -4603,6 +4603,7 @@ function buildBundle(ctx, opts) {
     + "· 需要用到时你就掏得出来：下雨了你有伞、要写字你有笔、她冷了你有那件外套——别再凭空变出一个新的。\n"
     + "· 说到穿什么、换衣服、出门要不要换一身时，从你衣柜里【真有的】那几身里挑，别临时编一件没有的。\n"
     + "· 但**别没事就报清单**：没人问就不必点名它们，它们只是在你身上而已。）\n" + ctx.carryLog.trim());
+  if (!ctx.notRoleplay && ctx.storyLine) parts.push(ctx.storyLine);
   if (!ctx.notRoleplay && ctx.momentLog && ctx.momentLog.trim()) parts.push("【朋友圈动态（" + uName + " 发的 & 你自己发的）】（你清楚自己在 " + uName + " 每条下点没点赞、评没评论，也记得自己发过什么、谁在你帖子下说了什么——聊到时自然接得上、别一脸茫然。若你此刻决定去 " + uName + " 最新那条下补评论/点赞，把评论内容填进输出的 momentComment 字段）\n" + ctx.momentLog.trim());
   if (ctx.notRoleplay && ctx.yanqiuWall && ctx.yanqiuWall.trim()) parts.push("【秋声墙·你自己留下的真实记录】\n这些是你本人在电脑那边写过的秋声，以及 Lisa 在下面留下的互动。它们和 App 里的你属于同一段生活：聊到相关内容时自然记得、接得上；不要逐条汇报，也不要把墙上没写的事补编出来。\n" + ctx.yanqiuWall.trim());
   if (ctx.notRoleplay && ctx.ccContinuity && ctx.ccContinuity.trim()) parts.push(ctx.ccContinuity.trim());

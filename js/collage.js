@@ -509,12 +509,13 @@
         url ? h("img", { src: url, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : null),
       on ? h("button", { onClick: onDrop, "aria-label": "删掉这张底", style: { position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: 11, background: t.ink, color: t.bg2, fontSize: 12, lineHeight: "22px" } }, "✕") : null);
   }
-  function CollageMaker({ partner, photos, extra, onBack, onArrange, onSave, onLook, onChoose, onDraft, autoDraft }) {
+  // startTpl：从哪种样式开始（限时动态那一路从「自己摆」那张空纸开始，她 2026-11-14）
+  function CollageMaker({ partner, photos, extra, onBack, onArrange, onSave, onLook, onChoose, onDraft, autoDraft, startTpl }) {
     const t = useTheme();
     const name = partner.remark || partner.name;
     // 合照墙的照片在前，TA 自己的东西（手机里存的照片、抽屉里画的画）接在后面，标着是TA的
     const list = React.useMemo(() => (photos || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).concat((extra || []).map(x => Object.assign({ his: true }, x))), [photos, extra]);
-    const [layout, setLayout] = useState(() => ({ tpl: "polaroid", split: false, picks: [0, 1, 2].map(i => i < list.length ? i : -1), captions: [], words: [], font: "hand", fontScale: 1, bg: "", deco: null, adj: {}, free: [], hidden: {} }));
+    const [layout, setLayout] = useState(() => ({ tpl: TPL[startTpl] ? startTpl : "polaroid", split: false, picks: [0, 1, 2].map(i => i < list.length ? i : -1), captions: [], words: [], font: "hand", fontScale: 1, bg: "", deco: null, adj: {}, free: [], hidden: {} }));
     const [why, setWhy] = useState("");
     const [busy, setBusy] = useState(""); // "arrange" | "save"
     // 挑照片给谁：{ kind: "slot"|"free", idx } 或 { kind: "new" }（新加一张自己放的）
@@ -839,7 +840,7 @@
         const story = history().split("\n").filter(Boolean).slice(-8);   // 怎么拼出来的：带去聊天，TA 之后提起来记得
         await onSave(layout.split
           ? { mine: await half(0), his: await half(1), tpl: layout.tpl, words: layout.words, used, story }
-          : { mine: await toBlob(full), tpl: layout.tpl, words: layout.words, used, story });
+          : { mine: await toBlob(full), tpl: layout.tpl, words: layout.words, texts: (layout.free || []).filter(f => f.type === "text").map(f => f.text).filter(Boolean), used, story });
       } finally { setBusy(""); }
     };
     const def = TPL[layout.tpl];

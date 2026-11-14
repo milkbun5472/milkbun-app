@@ -2710,6 +2710,8 @@ function App() {
   //   · 穿书 / 匿名信箱 / 解梦馆 —— 不适用：那几处不是你俩此刻在同一个地方说话。
   const sameRoomFor = id => !!(settingsFor(id) || {}).sameRoom;
   const actDescFor = id => !!(settingsFor(id) || {}).actDesc;
+  // 限时动态（她 2026-11-14）：没单独设过的跟着「自由发朋友圈」走
+  const storyOnFor = id => { const s = settingsFor(id) || {}; return s.autoStory != null ? !!s.autoStory : !!s.autoMoment; };
   // 群里那一份（她 2026-09-10）。⚠️故意挨着上面两行写：以后改「同处一室」这件事，
   //   一眼能看见它有单聊和群聊两处，别再只改一处。存在群设置里，不跟单聊的按人存混。
   // ⚠️它调用的 gsFor 声明在下面很远处：这是个箭头函数，只在渲染/回调里跑，那时 gsFor 早就有了。
@@ -7121,6 +7123,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       ? carryContextText(carryRef.current[char.id], carryPinsRef.current[char.id]) : "",
     // ⚠️她 2026-09-19：原来正文只截 40 字、评论 30 字——长一点的动态他只看得见开头，
     //   聊到后半段就一脸茫然。这一栏是【常驻】的（每轮都在），所以放宽也要有个准数。
+    // 限时动态（她 2026-11-14）：她挂着的那几条 TA 看得到（看到就算看过，她那边会显示）；TA 自己挂着的 TA 也记得
+    storyLine: (() => {
+      const SK = window.Stories; if (!SK || !char || char.npc) return "";
+      const hers = SK.activeOf("me"), his = SK.activeOf(char.id), un = userName(profileFor(char.id));
+      const ago = ts => { const m = Math.round((Date.now() - ts) / 60000); return m < 60 ? Math.max(1, m) + " 分钟前" : Math.round(m / 60) + " 小时前"; };
+      const L = [];
+      if (hers.length) L.push(un + "挂着的限时动态（24 小时后自己收起；你刷到了，她那边看得到你看过）：\n" + hers.map(s => "· " + ago(s.ts) + "：" + (s.desc || s.text || "一张卡")).join("\n")
+        + "\n想提就在这一轮顺嘴提一句，不想提就当看过了。");
+      if (his.length) L.push("你自己挂着的限时动态：" + his.map(s => "「" + (s.text || s.desc) + "」（" + ago(s.ts) + "）").join("；"));
+      return L.length ? "【限时动态】" + L.join("\n") : "";
+    })(),
     momentLog: (() => {
       if (ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes) return "";
       const out = [];
@@ -13311,6 +13324,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           })());
       }
       if (_s.autoMoment) openCaps.push("moment");
+      if (!char.npc && storyOnFor(charId)) openCaps.push("story");
       if (isCouple) openCaps.push("whisper");
       // ── 刻一首歌进你俩的唱片（她 2026-09-03 点的，「言秋也给」）────────────
       // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
@@ -13375,6 +13389,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       // 顺手发朋友圈 / 留悄悄话：条件不成立时这一格根本不给，别让TA以为自己发得出去
       if (_s.autoMoment) openCaps.push("moment");
+      if (!char.npc && storyOnFor(charId)) openCaps.push("story");
       if (isCouple) openCaps.push("whisper");
       if (ambientHint) capState.push(ambientHint.trim());
       // ⚠️一起听那两句也是从被删的旧基线里救回来的（她 2026-09-09 点名要）：
@@ -13764,7 +13779,7 @@ ${SCHED_LATER_SPEC}
 ${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；redPacket:{"amount":数字,"note":"写在红包上的一句"}=发红包（她拆开前看不到多少）；location:{"name":"地点"}=位置；stick:{"quote":"她某句话里的原话，照抄几个字","emoji":"一个 emoji"}=往她那句话上贴一个表情（像 QQ 的贴表情，贴在她气泡角上，不是一句话）；想贴的是你自己的表情包，就把 emoji 换成 "emote":"表情包关键词"；pat:true=用微信「拍一拍」戳她一下（聊天里只出现一行灰字，不是一句话；想拍就拍，不用再在 word 里写「拍了拍你」）${char.myPatSig ? "，那一行显示「你拍了拍她 " + char.myPatSig + "」" : ""}；patSig:"新后缀"=把你自己的拍一拍后缀换掉（她拍你时显示「她拍了拍你 ＋这半句」${char.patSig ? "，现在是「" + char.patSig + "」" : "，现在没有"}；真想换才换）；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有","at":"想让它几点送到（HH:MM，你那边的钟点），不填就是尽快"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回。text 照原话抄：抄的是你前面几轮已经发出去的某一条（说错了、发错了、漏了不该露的字），就撤那一条；是这一轮新写的，会先正常显示一秒再变成「已撤回」；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；redPacket:{"amount":数字,"note":"写在红包上的一句"}=发红包（她拆开前看不到多少）；location:{"name":"地点"}=位置；stick:{"quote":"她某句话里的原话，照抄几个字","emoji":"一个 emoji"}=往她那句话上贴一个表情（像 QQ 的贴表情，贴在她气泡角上，不是一句话）；想贴的是你自己的表情包，就把 emoji 换成 "emote":"表情包关键词"；pat:true=用微信「拍一拍」戳她一下（聊天里只出现一行灰字，不是一句话；想拍就拍，不用再在 word 里写「拍了拍你」）${char.myPatSig ? "，那一行显示「你拍了拍她 " + char.myPatSig + "」" : ""}；patSig:"新后缀"=把你自己的拍一拍后缀换掉（她拍你时显示「她拍了拍你 ＋这半句」${char.patSig ? "，现在是「" + char.patSig + "」" : "，现在没有"}；真想换才换）；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有","at":"想让它几点送到（HH:MM，你那边的钟点），不填就是尽快"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回。text 照原话抄：抄的是你前面几轮已经发出去的某一条（说错了、发错了、漏了不该露的字），就撤那一条；是这一轮新写的，会先正常显示一秒再变成「已撤回」；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；story:string=顺手发一条限时动态（挂 24 小时）：写你此刻想发的那一下是什么，一句话，App 另外把它排成一张竖版卡；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账；health:[{\"kind\":\"meal\",\"meal\":\"breakfast|lunch|dinner|snack\",\"name\":\"吃了什么\",\"kcal\":估的整数} 或 {\"kind\":\"water\",\"cups\":杯数} 或 {\"kind\":\"sport\",\"sport\":\"跑步等\",\"min\":分钟} 或 {\"kind\":\"weight\",\"kg\":数字} 或 {\"kind\":\"sleep\",\"bed\":\"HH:MM\",\"wake\":\"HH:MM\"} 或 {\"kind\":\"steps\",\"steps\":数字} 或 {\"kind\":\"mood\",\"v\":0到4}，每条都可带 \"date\":\"YYYY-MM-DD\"]=替她记进健康。这几个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，一句话就够。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不填 minutes）","about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填；**说了「我现在过去，二十分钟到」这种正往她那儿赶的话也算**；**约好了几点（「五点半门口逮你」「七点来接你」）也算，那就填 at，不填 minutes**（about 写「到了跟她说一声」，minutes 就是你说的路上要多久），minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}${_luckyLine}`;
@@ -15239,6 +15254,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         likeCount: 0,
         comments: []
       }, ...p]); notifyApp("moments"); if (window.Notify) window.Notify.push({ title: char.name + " 发了条朋友圈", body: mo, tag: "mom-" + charId, charId: charId }); }
+      // 限时动态（她 2026-11-14）：TA 在回复里填了 story＝想顺手发一条，后台再花一次调用把它排成竖版卡，不卡着这一轮
+      const _st = !char.npc && storyOnFor(charId) && parsed.story && String(parsed.story).toLowerCase() !== "null" ? String(parsed.story).trim().slice(0, 120) : "";
+      if (_st) storyMake(char, _st);
+      // 这一轮 TA 的上下文里带着她挂着的动态（ctxFor 的 storyLine）＝TA 看过了：她那边「看过的」里记上
+      if (!char.npc && window.Stories) window.Stories.activeOf("me").forEach(s0 => window.Stories.markSeen(s0.id, charId));
       // #A 给恋人留悄悄话（论坛发帖已移除每轮自发，改由 tickAmbient 计数器按 50轮/3天 定时发）
       let ambForum = false, ambWhisper = false;
       if (parsed.whisper && String(parsed.whisper).toLowerCase() !== "null" && couples[charId] && couples[charId].status === "together") {
@@ -29158,6 +29178,45 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const n = typeof updater === "function" ? updater(p) : updater;
     coupleTripsRef.current = n; saveJSON("x_coupleTrips", n); return n;
   });
+  // ── 限时动态：TA 那一条（她 2026-11-14）──────────────────────────────
+  //   TA 只说「想发什么」，排版这一下单独一次调用：背景、字体、几块字放哪、多大、什么颜色、贴纸——跟拼壁纸那一套同一份版面，
+  //   画的也是同一支 Collage.draw。聊天设置里开了「限时动态配照片」、又能拍 TA 时，再多一次生图放一张 TA 此刻的照片。
+  const storyBusyRef = useRef({});
+  const storyMake = async (char, idea) => {
+    if (!char || !window.Stories || !window.Collage || storyBusyRef.current[char.id]) return;
+    storyBusyRef.current[char.id] = true;
+    try {
+      const S = settingsFor(char.id) || {};
+      const canPhoto = !!S.storyPhoto && typeof imgApiReady === "function" && imgApiReady() && (char.appearance || char.refPhoto);
+      const bgs = Object.keys(window.Collage.BGS || {}).map(k => k + "（" + window.Collage.BGS[k].name + "）").join("、");
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true, logLabel: "限时动态",
+        instruction: relSay(char) + "。你要发一条限时动态（挂 24 小时就收起来），此刻想发的是：「" + idea + "」。把它排成一张竖版手机卡，照你自己的审美来："
+          + "bg 背景从这几种里挑一个：" + bgs + "；font 字体：hand 花体英文、brush 中文手写、serif 宋体、sans 黑体；"
+          + "texts 是卡上的字，1 到 4 块，每块 t 写什么、x 和 y 是在卡上的位置（0 到 1，左上角是 0,0）、size 字号（40 到 160）、color 颜色（#hex）、r 歪多少度（-15 到 15）、font 可以单独换；"
+          + "stickers 是贴纸，0 到 5 个 emoji，ch 是哪个、x y 位置、size 大小（60 到 200）。"
+          + (canPhoto ? "这条会配一张你此刻的照片，photo 写这张照片拍的是什么（一句画面描述），photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。" : "这条没有照片，就是一张排好字的卡。")
+          + "字是你会发出去的那几句，不是解说。",
+        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + (canPhoto ? ",\"photo\":\"照片拍的是什么\",\"photoY\":0.45" : "") + "}",
+        maxTokens: 8000
+      });
+      let photoBlob = null;
+      if (canPhoto && d && d.photo) {
+        try {
+          const st = (statesRef.current || {})[char.id] || {};
+          const prompt = buildPhotoPrompt(char, String(d.photo).slice(0, 200), st, { kind: "self", me: photoMe(userName(profileFor(char.id)), char.id), closet: closetTextFor(char.id) });
+          const out = await generateSelfieImage(prompt, char.refPhoto ? [char.refPhoto] : null, {});
+          photoBlob = out && out.blob ? out.blob : null;
+        } catch (e) { /* 照片没拍成就发纯字卡，不拦这一条 */ }
+      }
+      const texts = ((d && d.texts) || []).map(x => x && (x.t || x.text)).filter(Boolean);
+      await window.Stories.add({ by: char.id, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea }] }, !!photoBlob), photoBlob,
+        text: idea, desc: texts.join(" / ") + (photoBlob && d.photo ? "（配了一张照片：" + String(d.photo).slice(0, 80) + "）" : "") });
+      toast((char.remark || char.name) + " 发了一条限时动态");
+      if (window.Notify) window.Notify.push({ title: (char.remark || char.name) + " 发了一条限时动态", body: idea, tag: "story-" + char.id, charId: char.id });
+    } catch (e) { toast("限时动态没发出来：" + ((e && e.message) || "")); }
+    finally { storyBusyRef.current[char.id] = false; }
+  };
   const tripStart = (charId, wish) => {
     const cur = (coupleTripsRef.current || []).find(t => t && t.charId === charId && t.status !== "done");
     if (cur) { toast("上一趟还没收行李"); return; }
@@ -35140,6 +35199,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       } catch (e) { toast("生成失败：" + ((e && e.message) || e)); return null; }
     }
   });else if (screen === "messages") body = /*#__PURE__*/React.createElement(Messages, {
+    // 回 TA 的限时动态：落进跟 TA 的聊天，上面挂一小截「回的是哪条动态」；TA 照常等她按回复再接
+    onStoryReply: (st, tx) => {
+      const c = (characters || []).find(x => x && String(x.id) === String(st.by));
+      if (!c) return;
+      pChat(c.id, p => [...p, { role: "user", content: tx, replyTo: "【限时动态】" + (st.text || st.desc || "一张卡"), ts: Date.now(), read: true }]);
+      if (window.Stories) window.Stories.addReply(st.id, "me", tx);
+      toast("回复发到跟 " + (c.remark || c.name) + " 的聊天里了");
+    },
     onMomentsSeen: () => setMoments(p => { const n = (p || []).map(m => (m.newLikes || (m.comments || []).some(c => c && c.unseen)) ? { ...m, newLikes: undefined, comments: (m.comments || []).map(c => c && c.unseen ? { ...c, unseen: undefined } : c) } : m); saveJSON("x_moments", n); return n; }),
     characters: liveChars.filter(c => !c.shelved).map(chatFace),
     shelvedChars: liveChars.filter(c => c.shelved).map(chatFace),
@@ -38289,6 +38356,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             sumThresh: s.sumThresh,
             sumBuffer: s.sumBuffer,
             autoMoment: s.autoMoment,
+            autoStory: !!s.autoStory,
+            storyPhoto: !!s.storyPhoto,
             proactive: s.proactive,
             proactiveMin: s.proactiveMin,
             showMyAvatar: s.showMyAvatar,

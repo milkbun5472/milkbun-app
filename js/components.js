@@ -9271,6 +9271,7 @@ function BackupBanner({ onOpenSettings }) {
       style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none" } }, "×"));
 }
 function Messages({
+  onStoryReply,   // 回别人的限时动态（她 2026-11-14）：(story, text) → 落进跟 TA 的聊天
   onPinMoment,
   characters,
   allChars,
@@ -9495,8 +9496,21 @@ function Messages({
   const unreadBadge = un => un > 0 && h("span", { "data-wk": "mlbadge", style: { position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: t.accent, color: "#fff", fontSize: "calc(10px * var(--app-fs, 1))", fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px" } }, un > 99 ? "99+" : un);
   // 聊天格子是白的（t.bg2），地是灰的（外壳 t.bg）——置顶的在白格上再压一层淡灰
   const rowBg = id => pinnedSet.has(id) ? "linear-gradient(rgba(0,0,0,0.035),rgba(0,0,0,0.035)) " + t.bg2 : t.bg2;
+  // 限时动态（她 2026-11-14）：头像外一圈框——没看过的是彩色，看过了是灰的；点头像看，点这一行照常进聊天
+  const [stView, setStView] = useState(null), [stMake, setStMake] = useState(false), [, stTick] = useState(0);
+  useEffect(() => { const f = () => stTick(x => x + 1); window.addEventListener("lisa-stories", f); return () => window.removeEventListener("lisa-stories", f); }, []);
+  const SK = window.Stories;
+  const storyRing = (id, kid) => {
+    const act = SK ? SK.activeOf(id) : [];
+    if (!act.length) return kid;
+    const unseen = id !== "me" && act.some(s => !(s.seen || {}).me);
+    return h("span", { "data-wk": "storyring", "data-on": unseen ? "1" : "0", role: "button", onClick: e => { e.stopPropagation(); setStView({ list: act }); },
+      style: { display: "inline-block", padding: 2, borderRadius: 13, background: unseen || id === "me" ? "linear-gradient(45deg,#f2a65a,#e85d75,#b05cd6)" : t.line } },
+      h("span", { style: { display: "block", padding: 1.5, borderRadius: 11, background: t.bg2 } }, kid));
+  };
+  const stName = by => by === "me" ? "我" : (((allChars || characters || []).find(c => c && String(c.id) === String(by)) || {}).remark || ((allChars || characters || []).find(c => c && String(c.id) === String(by)) || {}).name || "TA");
   const renderCharRow = it => { const c = it.c, last = it.last, un = unreadMap[c.id] || 0; return h("button", Object.assign({ key: it.key, "data-chatid": c.id, "data-wk": "mlrow", "data-kind": "char", "data-pinned": pinnedSet.has(c.id) ? "1" : "0", "data-unread": un > 0 ? "1" : "0", onClick: () => guardClick(() => onOpenThread(c)), className: "w-full flex items-center gap-3 px-5 py-3.5 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, background: rowBg(c.id) } }, longProps(c.id)),
-    h("div", { "data-wk": "mlavatar", className: "relative shrink-0" }, h(Avatar, { character: c, size: 50, radius: 10 }), unreadBadge(un)),
+    h("div", { "data-wk": "mlavatar", className: "relative shrink-0" }, storyRing(c.id, h(Avatar, { character: c, size: 50, radius: 10 })), unreadBadge(un)),
     h("div", { className: "flex-1 text-left min-w-0" },
       h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(c.id) && h(IPin, { size: 12, color: t.fog }), h("div", { "data-wk": "mlname", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name)),
       h("div", { "data-wk": "mllast", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog }, className: "truncate" }, last ? last.content : "打个招呼吧")),
@@ -9538,6 +9552,19 @@ function Messages({
         h("input", { "data-wk": "input", value: q, onChange: e => setQ(e.target.value), placeholder: "搜索",
           className: "flex-1 outline-none", style: { background: "transparent", padding: "8px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }),
         q ? h("button", { onClick: () => setQ(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.fog, padding: "0 2px" } }, "×") : null)),
+    // 我的限时动态：挂着的点头像看（看谁看过），右边「发一条」进拼卡
+    SK && !q ? h("div", { "data-wk": "mystory", className: "flex items-center", style: { gap: 10, padding: "8px 16px", background: t.bg2, borderBottom: "1px solid " + t.line } },
+      storyRing("me", h(Avatar, { character: { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage }, size: 34, radius: 8 })),
+      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } },
+        SK.activeOf("me").length ? "我的限时动态 · 挂着 " + SK.activeOf("me").length + " 条，点头像看谁看过" : "限时动态 · 发一条，挂 24 小时"),
+      h("button", { "data-wk": "mystorynew", onClick: () => setStMake(true), className: "active:opacity-60", style: { padding: "5px 12px", borderRadius: 999, border: "1px solid " + t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, "发一条")) : null,
+    stView && SK ? h(SK.StoryViewer, { list: stView.list, start: 0, viewer: "me", nameOf: stName, onClose: () => setStView(null),
+      onDelete: st => SK.remove(st.id), onReply: (st, tx) => onStoryReply && onStoryReply(st, tx) }) : null,
+    // 她自己发：拼壁纸那个编辑器，从「自己摆」那张空纸开始；存下来就是一条
+    stMake && SK && window.Collage ? h("div", { style: { position: "fixed", inset: 0, zIndex: 115, background: t.bg, overflowY: "auto" } },
+      h(window.Collage.CollageMaker, { partner: { id: "me", name: "我" }, photos: [], startTpl: "blank", onBack: () => setStMake(false),
+        onSave: async r => { try { await SK.add({ by: "me", blob: r.mine, desc: [].concat(r.words || [], r.texts || []).filter(Boolean).join(" / ") }); setStMake(false); window.__toast && window.__toast("发出去了，挂 24 小时"); }
+          catch (e) { window.__toast && window.__toast("没发出去：" + ((e && e.message) || "")); } } })) : null,
     characters.length === 0 && groups.length === 0 && h(Empty, { text: "还没有对话", sub: "先去通讯录或人格档案馆录入角色" }),
     kw && shownItems.length === 0 && msgHits.length === 0 ? h(Empty, { text: "没搜到「" + q.trim() + "」", sub: "换个名字或关键词试试" }) : null,
     shownItems.map(it => it.type === "group" ? renderGroupRow(it) : renderCharRow(it)),
@@ -10876,6 +10903,7 @@ function MomentAutoImgSwitch() { return h(AutoImgSwitch, { storeKey: "x_momentAu
 function momMutedIds() { try { const v = loadJSON("x_momMute", []); return Array.isArray(v) ? v.map(String) : []; } catch (e) { return []; } }
 // 朋友圈个人页（仿微信「我的相册/TA 的朋友圈」）：封面 + 头像 + 签名 + 此人所有动态；me 可发/删/换封面
 function MomentsProfile({ isMe, character: rawCharacter, profile, characters: rawCharacters, moments, cover, coverPos, onSetCoverPos, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onTopMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
+  const [stArch, setStArch] = useState(null);   // 点开的那条过往限时动态（hook 放最前，下面有提前 return）
   const character = chatFace(rawCharacter), characters = (rawCharacters || []).map(chatFace);   // 主页上的头像也认聊天那张
   const t = useTheme();
   const [compose, setCompose] = useState(false);
@@ -10971,6 +10999,10 @@ function MomentsProfile({ isMe, character: rawCharacter, profile, characters: ra
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: t.sub, lineHeight: 1.5 } }, "“" + sign + "”")) : null,
     h("div", { "data-wk": "moprofile", "data-me": isMe ? "1" : undefined, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingTop: sign ? 0 : 44, overscrollBehavior: "contain" } },
       !isMe && h(MomMuteToggle, { id: character.id }),
+      // 过往限时动态（她 2026-11-14）：过了 24 小时的收在这儿，三列小格，点开照样全屏翻
+      window.Stories ? h("div", { style: { padding: "0 14px" } }, h(window.Stories.StoryArchive, { by: isMe ? "me" : character.id, onOpen: (list, k) => setStArch({ list, k }) })) : null,
+      stArch && window.Stories ? h(window.Stories.StoryViewer, { list: stArch.list, start: stArch.k, viewer: "me", archive: true, nameOf: by => by === "me" ? "我" : name, onClose: () => setStArch(null),
+        onDelete: isMe ? st => window.Stories.remove(st.id) : null }) : null,
       isMe && h("div", { className: "px-5 pb-1 flex justify-end" }, h("button", { onClick: () => setCompose(true), className: "flex items-center gap-1.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, h(PGlyph, { k: "album", size: 14, color: t.ink }), " 发一条")),
       gen && h(Spinner, { label: "正在发朋友圈…" }),
       list.length === 0 && !gen && h(Empty, { text: isMe ? "你还没发过朋友圈" : name + " 还没有朋友圈", sub: isMe ? "点右上「发一条」" : "" }),
@@ -23474,6 +23506,9 @@ function ChatSettings({
   const [sumThresh, setSumThresh] = useState(settings.sumThresh || 150);
   const [sumBuffer, setSumBuffer] = useState(settings.sumBuffer || 20);
   const [autoMoment, setAutoMoment] = useState(!!settings.autoMoment);
+  // 限时动态（她 2026-11-14）：没单独设过的，跟着「自由发朋友圈」走；配不配照片单独一格（配就要生图）
+  const [autoStory, setAutoStory] = useState(settings.autoStory != null ? !!settings.autoStory : !!settings.autoMoment);
+  const [storyPhoto, setStoryPhoto] = useState(!!settings.storyPhoto);
   // 模型思考链（v56.42）：默认关。她要它是为了看模型当时在想什么、以及验中转有没有换模型。
   const [showReasoning, setShowReasoning] = useState(!!settings.showReasoning);
   // 双语（v56.56）：让模型生成的时候顺手把中译一起给出来，替掉事后调免费接口那条路
@@ -23874,6 +23909,8 @@ function ChatSettings({
       sumThresh,
       sumBuffer,
       autoMoment,
+      autoStory,
+      storyPhoto,
       showReasoning,
       bilingual,
       proactive,
@@ -24346,7 +24383,15 @@ function ChatSettings({
       color: t.fog,
       marginTop: 2
     }
-  }, "开启后聊天中 Ta 会主动发动态")), h(Toggle, { on: autoMoment, onChange: v => setAutoMoment(v), color: t.tint })), h("div", {
+  }, "开启后聊天中 Ta 会主动发动态")), h(Toggle, { on: autoMoment, onChange: v => setAutoMoment(v), color: t.tint })),
+  [["允许发限时动态", "聊着天 Ta 想顺手发一条时，就排一张竖版卡挂 24 小时（头像外一圈彩框），过后收进 Ta 朋友圈主页的「过往限时动态」。发一条花一次调用", autoStory, setAutoStory, "storyauto"],
+    ["限时动态配照片", "开了，Ta 发的动态里会有一张 Ta 此刻的照片（多花一次生图）；关着就是纯排版的字卡", storyPhoto, setStoryPhoto, "storyphoto"]]
+    .filter((x, k) => k === 0 || autoStory)
+    .map(([zh, note, on, set, wk]) => h("div", { key: wk, "data-wk": wk === "storyauto" ? "storyauto" : "storyphoto", className: "flex items-center justify-between pt-5" },
+      h("div", { style: { paddingRight: 12 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, zh),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, note)),
+      h(Toggle, { on, onChange: v => set(v), color: t.tint }))), h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", { style: { paddingRight: 12 } }, h("div", {
     style: {
