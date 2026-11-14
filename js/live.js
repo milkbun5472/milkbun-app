@@ -269,7 +269,7 @@
     if (styleIn || typeof document === "undefined") return;
     styleIn = true;
     const st = document.createElement("style");
-    st.textContent = "@keyframes liveFly{from{transform:translateX(0)}to{transform:translateX(-160vw)}}"
+    st.textContent = "@keyframes liveFly{from{transform:translateX(0)}to{transform:translateX(calc(-100vw - 100%))}}"   // 长弹幕也整条飞出去（她 2026-11-14「太长了截断了」）
       + "@keyframes liveFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}"
       + "@keyframes liveSlide{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:none}}"
       // 自动往下播那根拉条：一根细线＋一颗小红点，不要系统那根粗白条
@@ -288,8 +288,10 @@
         key: seed + "_" + i,
         style: { position: "absolute", left: "100%", top: (8 + (i * 37) % 70) + "%", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
           color: "rgba(255,255,255,.78)", textShadow: "0 1px 3px rgba(0,0,0,.6)",
-          animation: "liveFly " + (7 + (i % 4) * 1.6) + "s linear " + (i * 0.9) + "s 1 both" }
-      }, t)));
+          animation: "liveFly " + (7 + (i % 4) * 1.6 + Math.min(8, String(t || "").length / 12)) + "s linear " + (i * 0.9) + "s 1 both" }
+      }, (() => { // 外语弹幕带着「原文 | 中文」：拆开，中文跟在后面小一号
+        const sp = typeof splitBilingual === "function" ? splitBilingual(String(t || "")) : null;
+        return sp && sp.zh ? [sp.text, h("span", { key: "zh", style: { marginLeft: 8, fontSize: ".82em", opacity: .72 } }, sp.zh)] : t; })())));
   }
 
   function GlyphDot() { return h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 99, background: LIVE_RED, marginRight: 5, verticalAlign: "1px" } }); }

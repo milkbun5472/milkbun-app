@@ -42,14 +42,18 @@
     const free = [];
     if (hasPhoto) free.push({ type: "photo", p: 0, x: W / 2, y: num(d && d.photoY, 0.15, 0.85, 0.42) * H, w: 860, h: 1080, frame: "scrap", s: 1, r: num(d && d.photoR, -8, 8, -2) });
     ((d && d.texts) || []).slice(0, 6).forEach(tx => {
-      const t = String((tx && (tx.t || tx.text)) || "").trim().slice(0, 40); if (!t) return;
-      free.push({ type: "text", text: t, x: num(tx.x, 0.08, 0.92, 0.5) * W, y: num(tx.y, 0.2, 0.93, 0.5) * H, size: num(tx.size, 36, 180, 80),
+      // 卡上只印原文（「原文 | 中文」的中文放到看的时候底下那条译文里）；字再长也缩到卡里，不出边（她 2026-11-14「太长了截断了，没有翻译」）
+      const raw0 = String((tx && (tx.t || tx.text)) || "").trim(), sp = typeof splitBilingual === "function" ? splitBilingual(raw0) : null;
+      const t = String(sp && sp.zh ? sp.text : raw0).trim().slice(0, 40); if (!t) return;
+      const fx = num(tx.x, 0.08, 0.92, 0.5) * W;
+      free.push({ type: "text", text: t, maxW: Math.max(240, 2 * Math.min(fx, W - fx) - 60), x: fx, y: num(tx.y, 0.2, 0.93, 0.5) * H, size: num(tx.size, 36, 180, 80),
         color: (bg === "night" && dark(hex(tx.color))) ? "#f3eee8" : (hex(tx.color) || (bg === "night" ? "#f3eee8" : "#2b2b2b")), font: fonts.indexOf(tx.font) >= 0 ? tx.font : font, r: num(tx.r, -20, 20, 0), s: 1 });
     });
     // 信息小贴纸（位置／天气／心情／正在听）：纸条样式的一小块字，放在 TA 挑的位置
     const CHIP = { location: "📍", weather: "☁️", mood: "🙂", music: "🎵", time: "🕐" };
     ((d && d.chips) || []).slice(0, 3).forEach(c => { const t = String((c && c.text) || "").trim(); if (!t || !CHIP[c.type]) return;
-      free.push({ type: "text", text: CHIP[c.type] + " " + t.slice(0, 20), x: num(c.x, 0.15, 0.85, 0.3) * W, y: num(c.y, 0.2, 0.93, 0.22) * H, size: 44, color: "#2b2b2b", font: "sans", tstyle: "strip", r: 0, s: 1 }); });
+      const cx = num(c.x, 0.15, 0.85, 0.3) * W;
+      free.push({ type: "text", text: CHIP[c.type] + " " + t.slice(0, 20), maxW: Math.max(240, 2 * Math.min(cx, W - cx) - 60), x: cx, y: num(c.y, 0.2, 0.93, 0.22) * H, size: 44, color: "#2b2b2b", font: "sans", tstyle: "strip", r: 0, s: 1 }); });
     const deco = ((d && d.stickers) || []).slice(0, 8).map(st => ({ ch: String((st && (st.ch || st.emoji)) || "").slice(0, 4), x: num(st && st.x, 0.05, 0.95, 0.5) * W, y: num(st && st.y, 0.2, 0.95, 0.5) * H,
       size: num(st && st.size, 50, 220, 110), r: num(st && st.r, -30, 30, 0) })).filter(x => x.ch);
     return { tpl: "blank", bg, font, free, deco, words: [], picks: [] };
@@ -254,6 +258,12 @@
       // 这张图会画什么（她 2026-11-14）：TA 排卡时写好的，没配图的卡点「生图」就照这句补一张（自拍、随手拍的风景、手边的东西都行）
       // 底下这一块（描述、快捷表情、回复）也是叠在图上的，不另占一截（她 2026-11-14）
       h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 5, padding: "40px 12px calc(env(safe-area-inset-bottom, 0px) + 10px)", transition: "opacity .18s", opacity: held ? 0 : 1, pointerEvents: held ? "none" : undefined, background: "linear-gradient(transparent, rgba(0,0,0,.55) 45%)", textShadow: "0 1px 3px rgba(0,0,0,.6)" } },
+        // 卡上的外语：底下挂一条译文（模型带了中文就直接摆，没带的给「译」现翻）
+        (() => { const tx = ((cur.raw && cur.raw.texts) || []).map(x => String((x && (x.t || x.text)) || "").trim()).filter(Boolean);
+          const rows = tx.map((t, k) => { const sp = typeof splitBilingual === "function" ? splitBilingual(t) : null;
+            if (sp && sp.zh) return h("div", { key: k }, sp.zh);
+            return typeof translatableLang === "function" && translatableLang(t) && typeof TransText === "function" ? h("div", { key: k }, h(TransText, { text: t })) : null; }).filter(Boolean);
+          return rows.length && !bare ? h("div", { "data-wk": "storytrans", style: { marginBottom: 8, padding: "6px 10px", borderRadius: 10, background: "rgba(0,0,0,.45)", color: "#eee", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6 } }, rows) : null; })(),
         (cur.photoDesc && !cur.photo) || cur.photoKey ? h("div", { "data-wk": "storyphotoline", className: "flex items-center", style: { gap: 8, padding: "0 0 8px", textShadow: "0 1px 3px rgba(0,0,0,.7)", color: "#ddd", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5 } },
         h("button", { "data-wk": "storyphototoggle", onClick: () => setPhotoOpen(v => !v), className: "flex-1 min-w-0 text-left", style: { color: "#ddd", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: photoOpen ? "normal" : "nowrap" } },
           "📷 " + ({ self: "自拍", view: "随手拍的", thing: "手边的东西" }[cur.photoKind] || "照片") + (photoOpen ? "：" + cur.photoDesc + " ︿" : " · 这张图会画什么 ﹀")),

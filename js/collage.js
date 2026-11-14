@@ -342,7 +342,7 @@
         const s = String(f.text || "").trim(); if (!s) return;
         const ff = (FONTS[f.font] || FONTS[layout.font] || FONTS.hand).css, size = (f.size || 70) * (f.s || 1);
         ctx.save(); ctx.translate(f.x, f.y); ctx.rotate((f.r || 0) * Math.PI / 180);
-        const dim = paintText(ctx, s, size, ff, f.color || "#2b2b2b", f.tstyle, 4000); ctx.restore();
+        const dim = paintText(ctx, s, size, ff, f.color || "#2b2b2b", f.tstyle, f.maxW || 4000); ctx.restore();
         boxes.push({ key: "f" + i, kind: "ftext", idx: i, x: f.x, y: f.y, w: dim.w + 40, h: dim.h });
       }
     });
