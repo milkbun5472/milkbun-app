@@ -1,4 +1,4 @@
-// 巴黎留白：一张象牙白的信纸，墨黑细线，法语小字。他的话＝白卡描一根发丝线；我的话＝浅灰纸；
+// 左岸来信：一张象牙白的信纸，墨黑细线，法语小字。他的话＝白卡描一根发丝线；我的话＝浅灰纸；
 // 头像外两圈细线像一枚邮戳；时间两侧细线带菱形；已读写「lu」、已送达写「envoyé」；动描用 « » 括起来。
 // 用法：node themes/paris-blanc/build.mjs
 import { writeFileSync } from "node:fs";
@@ -38,7 +38,7 @@ const bubble = { myBg: C.grey, myText: C.ink, myBorder: "none", charBg: C.card, 
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 
 const css = `
-/* ───── 巴黎留白 · 第一批 ───── */
+/* ───── 左岸来信 · 第一批 ───── */
 [data-wk="chat"]{background:${C.paper} !important}
 [data-wk="chat"] *{font-family:${SERIF} !important}
 [data-wk="body"]{background:transparent !important}
@@ -121,7 +121,7 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]::before{content:"Mon petit bonheur" !important;position:absolute !important;bottom:100% !important;margin-bottom:4px !important;white-space:nowrap !important;font:italic 400 11px/1 Georgia,"Times New Roman",serif !important;letter-spacing:.1em !important;color:${C.sub} !important}
 [data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:2px !important;content:"Je pense à toi" !important}
 [data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]::before{right:2px !important}
-/* ───── 巴黎留白 · 第二批：卡片 ───── */
+/* ───── 左岸来信 · 第二批：卡片 ───── */
 [data-wk="voice"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{${CARD}}
 [data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:${C.ink} !important;border-color:${C.line} !important}
 
@@ -234,7 +234,7 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.ink} !important}
 [data-wk="callact"]{color:${C.sub} !important;font-style:italic !important}
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 5px ${C.paper},0 0 0 6px ${C.ink},0 0 0 12px ${C.paper},0 0 0 12.8px ${C.line} !important}
-/* ───── 巴黎留白 · 第三批：状态卡＝一张白信纸（横格、抬头日期线），好感是信上一枚蜡封 ───── */
+/* ───── 左岸来信 · 第三批：状态卡＝一张白信纸（横格、抬头日期线），好感是信上一枚蜡封 ───── */
 [data-wk="statecard"]{background:repeating-linear-gradient(180deg,transparent 0 31px,#F4F2EE 31px 32px) 0 120px/100% calc(100% - 120px) no-repeat,#fff !important;border:none !important;border-radius:3px !important;box-shadow:0 0 0 .8px ${C.line},0 20px 50px rgba(30,29,27,.12) !important}
 [data-wk="statecard"] *{font-family:${SERIF} !important}
 [data-wk="statehead"]{background:transparent !important;border-bottom:.8px solid ${C.ink} !important}
@@ -288,7 +288,7 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
 [data-wk="gazeempty"]{background:transparent !important;border:.8px dashed ${C.line} !important;border-radius:3px !important;color:${C.ink} !important}
 [data-wk="gazeempty"] button{background:${C.ink} !important;color:${C.paper} !important;border:none !important;border-radius:2px !important}
-/* ───── 巴黎留白 · 第四批：线下＝一张街角咖啡馆的线稿（条纹遮阳篷、拱窗、小圆桌两杯咖啡、远处铁塔） ───── */
+/* ───── 左岸来信 · 第四批：线下＝一张街角咖啡馆的线稿（条纹遮阳篷、拱窗、小圆桌两杯咖啡、远处铁塔） ───── */
 [data-wk="offline"]:not([style*="url("]){background:${svg(CAFE)} center bottom 96px/100% auto no-repeat,${C.paper} !important}
 [data-wk="offline"] *{font-family:${SERIF} !important}
 [data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
@@ -323,6 +323,6 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="offreplyopt"]{background:#fff !important;border:.8px solid ${C.ink} !important;border-radius:2px !important;color:${C.ink} !important;font-style:italic !important}
 `;
 
-const pack = { kind: "chat-look", v: 1, name: "巴黎留白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
-writeFileSync(join(here, "巴黎留白-美化.json"), JSON.stringify(pack));
+const pack = { kind: "chat-look", v: 1, name: "左岸来信", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
+writeFileSync(join(here, "左岸来信-美化.json"), JSON.stringify(pack));
 console.log("ok", css.length);
