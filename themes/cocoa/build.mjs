@@ -22,6 +22,9 @@ const I_SPOON = X(`viewBox='0 0 40 34'><path d='M5 5 H35 Q38 5 38 8 V22 Q38 25 3
 const I_TIN = X(`viewBox='0 0 30 30'><rect x='6' y='7' width='18' height='20' rx='3' fill='${C.cocoa}'/><rect x='5' y='4' width='20' height='5' rx='2' fill='${C.cocoa2}'/><rect x='9' y='12' width='12' height='9' rx='2' fill='${C.cream}'/><path d='M12 18 q3 -5 6 0' stroke='${C.cocoa}' stroke-width='1.4' fill='none'/><circle cx='15' cy='15' r='1.3' fill='${C.pink}'/>`);
 const I_CINN = X(`viewBox='0 0 30 30' fill='none' stroke-linecap='round'><path d='M8 25 L18 4' stroke='#9A5B34' stroke-width='4'/><path d='M8 25 L18 4' stroke='#C68A57' stroke-width='1.4'/><path d='M14 27 L23 7' stroke='#9A5B34' stroke-width='4'/><path d='M14 27 L23 7' stroke='#C68A57' stroke-width='1.4'/><path d='M9 12 q4 -2 6 2' stroke='${C.pink}' stroke-width='2'/>`);
 const STEAM = X(`viewBox='0 0 20 14' fill='none' stroke='${C.fog}' stroke-width='1.3' stroke-linecap='round'><path d='M5 13 q-3 -3 0 -6 q3 -3 0 -6'/><path d='M12 13 q-3 -3 0 -6 q3 -3 0 -6'/>`);
+// 糖霜：彩色小糖针，撒在顶栏的可可上
+const SPRINK = X(`width='70' height='18' viewBox='0 0 70 18'><g stroke-linecap='round' stroke-width='2.2'><path d='M6 6 l4 2' stroke='#F6D3D6'/><path d='M22 13 l2 -4' stroke='#FFF6EC'/><path d='M38 5 l4 -1' stroke='#F2C46B'/><path d='M54 12 l3 3' stroke='#BFE0D2'/><path d='M64 4 l-2 3' stroke='#BFD3F2'/><path d='M30 15 l4 1' stroke='#F6D3D6'/></g>`);
+const HEART = X(`viewBox='0 0 20 20'><path d='M10 17 C3 12 2 9 2 7 C2 4 4 2.5 6.5 2.5 C8 2.5 9.3 3.4 10 4.6 C10.7 3.4 12 2.5 13.5 2.5 C16 2.5 18 4 18 7 C18 9 17 12 10 17Z' fill='${C.pink}' stroke='#fff' stroke-width='1.4'/>`);
 const bubble = { myBg: C.cocoa, myText: "#fff", myBorder: "none", charBg: C.foam, charText: C.ink, charBorder: "none", radius: 16, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 // 马克杯头像：一圈奶白、杯沿可可棕；杯把是往旁边挪出去的一个小环（负扩散的阴影）
@@ -34,8 +37,8 @@ const css = `
 [data-wk="body"]{background:transparent !important}
 
 /* 顶栏：一层可可，底边往下淌一圈 */
-[data-wk="chathead"]{position:relative !important;overflow:visible !important;background:linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;border-bottom:none !important;box-shadow:none !important}
-[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:-24px !important;height:25px !important;background:${svg(DRIP(C.cocoa2))} 0 0/36px 25px repeat-x !important;pointer-events:none !important;z-index:2 !important}
+[data-wk="chathead"]{position:relative !important;overflow:visible !important;background:${svg(SPRINK)} 0 100%/70px 18px repeat-x,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;border-bottom:none !important;box-shadow:none !important}
+[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;bottom:-13px !important;height:14px !important;background:${svg(DRIP(C.cocoa2))} 0 -11px/36px 25px repeat-x !important;pointer-events:none !important;z-index:2 !important}
 [data-wk="headink"],[data-wk="headink"] *{color:#fff !important;font-weight:600 !important}
 [data-wk="headdim"],[data-wk="headname"] > div:last-child{color:#E3CDB9 !important}
 [data-wk="chatback"] svg{stroke:#fff !important}
@@ -116,6 +119,84 @@ button[data-wk="avatar"],span[data-wk="avatar"]:not([data-halo]),[data-wk="msg"]
 [data-wk="callbubble"]{background:${C.foam} !important;color:${C.ink} !important;border:none !important;border-radius:16px !important}
 [data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:${C.cream} !important;color:${C.cocoa2} !important}
 [data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+
+/* ───── 棉花可可 · 第二批：卡片（形状不动；都是一张奶白卡，顶上淌一层可可，跟他的气泡同一个做法） ───── */
+[data-wk="transfercard"],[data-wk="photocard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"],[data-wk="wxcard"]{position:relative !important;overflow:hidden !important;background:${svg(DRIP(C.cocoa))} 0 0/36px 25px repeat-x,${C.foam} !important;padding-top:22px !important;border:none !important;border-radius:16px !important;box-shadow:0 3px 0 ${C.milk},0 6px 14px rgba(94,56,38,.12) !important;color:${C.ink} !important}
+[data-wk="transfercard"] *,[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *,[data-wk="photocard"] *,[data-wk="wxcard"] *{color:${C.ink} !important;border-color:${C.milk} !important}
+/* 转账：金额可可棕，收下盖一颗粉心糖章 */
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.cocoa} !important}
+[data-wk="transferrule"]{border:none !important;height:1px !important;background:${C.milk} !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:${C.cream} !important;border-top:1px solid ${C.milk} !important}
+[data-wk="transferbtn"]{border-radius:999px !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.cocoa} !important;color:#fff !important;border:none !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;border:1px solid ${C.milk} !important}
+[data-wk="transferseal"]{background:${svg(HEART)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;width:38px !important;height:38px !important;font-size:0 !important;color:transparent !important}
+[data-wk="transferseal"] *{opacity:0 !important}
+[data-wk="transfercard"][data-status="accepted"] [data-wk="transferseal"]{transform:rotate(-10deg) !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.55 !important}
+/* 红包：不是信封——一杯可可色的卡，顶上淌奶泡，左边一杯冒热气的可可；领完变淡 */
+[data-wk="rpcard"]{position:relative !important;overflow:hidden !important;background:${svg(DRIP(C.foam))} 0 0/36px 25px repeat-x,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;border:none !important;border-radius:16px !important;box-shadow:0 3px 0 #48291B,0 6px 14px rgba(94,56,38,.25) !important;padding-left:58px !important;padding-top:20px !important}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:12px !important;top:calc(50% - 14px) !important;width:38px !important;height:38px !important;background:${svg(I_MUG)} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="rpcard"] *{color:#fff !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"][data-status="done"]{opacity:.7 !important}
+[data-wk="rpenvelope"]{background:${svg(DRIP(C.foam))} 0 0/48px 33px repeat-x,radial-gradient(circle at 50% 30%,rgba(255,246,236,.25),transparent 60%),linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;border:none !important;border-radius:22px !important;box-shadow:0 12px 30px rgba(0,0,0,.3) !important}
+[data-wk="rpenvelope"] [data-wk="rparc"]{background:transparent !important;border:none !important}
+[data-wk="rpenvelope"] *{color:#fff !important}
+[data-wk="rpopenbtn"]{background:${svg(I_MALLOW)} center/contain no-repeat !important;border:none !important;box-shadow:none !important;filter:drop-shadow(0 4px 6px rgba(0,0,0,.25)) !important}
+[data-wk="rpopenbtn"] *{opacity:0 !important}
+[data-wk="rpamount"]{color:#fff !important}
+[data-wk="rpavatar"]{box-shadow:0 0 0 3px ${C.foam},0 0 0 5px ${C.cocoa} !important}
+/* 照片：奶白框里一块浅奶茶色小屏；语音跟气泡一样 */
+[data-wk="photocard"]{padding:24px 8px 10px !important}
+[data-wk="photoface"]{border-radius:10px !important;background:#F1E6DA !important;border:none !important;box-shadow:none !important;outline:none !important}
+[data-wk="photoface"] *,[data-wk="photohint"]{color:#8A7466 !important}
+[data-wk="photoface"] svg{stroke:${C.cocoa} !important}
+[data-wk="voice"][data-me]{background:${svg(DRIP(C.cocoa))} 0 0/36px 25px repeat-x,${C.foam} !important;border:none !important;border-radius:16px !important;padding-top:18px !important;box-shadow:0 3px 0 ${C.milk} !important}
+[data-wk="voice"][data-me="1"]{background:${svg(DRIP(C.foam))} 0 0/36px 25px repeat-x,linear-gradient(180deg,${C.cocoa},${C.cocoa2}) !important;box-shadow:0 3px 0 #48291B !important}
+[data-wk="voice"] > *{background:transparent !important;border:none !important;box-shadow:none !important;color:${C.ink} !important}
+[data-wk="voice"][data-me="1"] > *{color:#fff !important}
+[data-wk="voicewave"] span{background:${C.cocoa} !important}
+[data-wk="voice"][data-me="1"] [data-wk="voicewave"] span{background:#fff !important}
+/* 天气：太阳是一颗暖黄的焦糖；下面那句话垫奶茶色 */
+[data-wk="wxcardsky"]{background:transparent !important}
+[data-wk="wxcardsky"] > div:first-child{background:radial-gradient(circle,#F2C46B 0 11px,rgba(242,196,107,.3) 13px,transparent 60%) !important}
+[data-wk="wxcardsky"] svg{stroke:${C.cocoa} !important}
+[data-wk="wxcardsky"] span[style*="999"],[data-wk="wxcardrain"]{background:${C.cream} !important;border:none !important}
+[data-wk="wxcardsay"]{background:${C.cream} !important;border-top:1px solid ${C.milk} !important}
+[data-wk="wxcardsay"],[data-wk="wxcardsay"] *{color:${C.ink} !important}
+[data-wk="geopin"]{background:${C.pink} !important;box-shadow:0 0 0 2px ${C.cocoa} !important}
+[data-wk="geopinstem"]{background:${C.cocoa} !important}
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 3px ${C.foam},0 0 0 5px ${C.cocoa} !important}
+/* 卡片下的已读也是一颗巧克力豆 */
+[data-run][data-last="1"] + [data-wk="cardmeta"]::before{content:"" !important;display:inline-block !important;vertical-align:middle !important;width:7px !important;height:7px !important;border-radius:50% 50% 50% 0 !important;background:${C.cocoa2} !important;transform:rotate(-45deg) !important;margin:0 6px !important}
+/* 拍一拍、通话结束、电话小结 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;border:none !important;background:${C.foam} !important;border-radius:999px !important;padding:3px 14px !important;color:${C.fog} !important;box-shadow:0 2px 0 ${C.milk} !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.fog} !important}
+[data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;background:${svg(DRIP(C.cocoa))} 0 0/36px 25px repeat-x,${C.foam} !important;border:none !important;border-radius:14px !important;padding:22px 14px 9px !important;color:#8A7466 !important;font-size:12px !important;line-height:1.65 !important;text-align:left !important;box-shadow:0 2px 0 ${C.milk} !important}
+[data-wk="noteink"]{color:${C.fog} !important}
+[data-wk="callact"]{color:${C.cocoa} !important}
+/* 线下小结 */
+[data-wk="offlogtitle"]{letter-spacing:.15em !important;color:${C.cocoa} !important;font-weight:600 !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:#C77F86 !important}
+[data-wk="offlogtranscript"]{border-top:1px solid ${C.milk} !important}
+/* 加号面板：一块块棉花糖，白粉交替 */
+[data-wk="chatpanel"]{background:${C.foam} !important;border-top:1px solid ${C.milk} !important}
+[data-wk="chattoolicon"]{background:#fff !important;border:none !important;border-radius:30% !important;box-shadow:0 0 0 1px ${C.milk},0 4px 0 1px ${C.milk} !important}
+[data-wk="chattool"]:nth-child(odd) [data-wk="chattoolicon"]{background:#FDECEE !important;box-shadow:0 0 0 1px #F2C9CD,0 4px 0 1px #F2C9CD !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.cocoa} !important;color:${C.cocoa} !important}
+[data-wk="chattoollabel"]{color:${C.fog} !important}
+/* 引用：左边一条可可 */
+[data-wk="quotedraft"]{background:${C.foam} !important;border-top:1px solid ${C.milk} !important}
+[data-wk="quote"]{background:#F3EBE2 !important;color:#8A7466 !important;border:none !important;border-left:4px solid ${C.cocoa} !important;border-radius:6px !important;opacity:1 !important}
+[data-wk="quoteicon"],[data-wk="quoteclear"]{color:${C.cocoa} !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.7 !important}
+/* 线下：提示键是一罐可可粉，照片键是一杯可可 */
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:26px !important;min-width:26px !important;height:26px !important;background:${svg(I_TIN)} center/contain no-repeat !important;${HIDE}}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:30px !important;min-width:30px !important;height:30px !important;${HIDE};background:${svg(I_MUG)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "棉花可可", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "棉花可可-美化.json"), JSON.stringify(pack));
