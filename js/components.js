@@ -9271,6 +9271,7 @@ function BackupBanner({ onOpenSettings }) {
       style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none" } }, "×"));
 }
 function Messages({
+  onStoryNow,     // 让某个 TA 现在发一条限时动态（不占名额）
   onStoryReply,   // 回别人的限时动态（她 2026-11-14）：(story, text) → 落进跟 TA 的聊天
   onPinMoment,
   characters,
@@ -9497,7 +9498,7 @@ function Messages({
   // 聊天格子是白的（t.bg2），地是灰的（外壳 t.bg）——置顶的在白格上再压一层淡灰
   const rowBg = id => pinnedSet.has(id) ? "linear-gradient(rgba(0,0,0,0.035),rgba(0,0,0,0.035)) " + t.bg2 : t.bg2;
   // 限时动态（她 2026-11-14）：头像外一圈框——没看过的是彩色，看过了是灰的；点头像看，点这一行照常进聊天
-  const [stView, setStView] = useState(null), [stMake, setStMake] = useState(false), [, stTick] = useState(0);
+  const [stView, setStView] = useState(null), [stMake, setStMake] = useState(false), [stAsk, setStAsk] = useState(false), [, stTick] = useState(0);
   useEffect(() => { const f = () => stTick(x => x + 1); window.addEventListener("lisa-stories", f); return () => window.removeEventListener("lisa-stories", f); }, []);
   const SK = window.Stories;
   const storyRing = (id, kid) => {
@@ -9557,7 +9558,16 @@ function Messages({
       storyRing("me", h(Avatar, { character: { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage }, size: 34, radius: 8 })),
       h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } },
         SK.activeOf("me").length ? "我的限时动态 · 挂着 " + SK.activeOf("me").length + " 条，点头像看谁看过" : "限时动态 · 发一条，挂 24 小时"),
+      onStoryNow ? h("button", { "data-wk": "storynow", onClick: () => setStAsk(true), className: "active:opacity-60", style: { padding: "5px 10px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "让 TA 发") : null,
       h("button", { "data-wk": "mystorynew", onClick: () => setStMake(true), className: "active:opacity-60", style: { padding: "5px 12px", borderRadius: 999, border: "1px solid " + t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, "发一条")) : null,
+    // 「让 TA 发」（她 2026-11-14「放一个更容易找到的入口」）：挑一个人，TA 马上排一张；这一条不占 TA 24 小时的名额，花一次调用
+    stAsk ? h(Sheet, { onClose: () => setStAsk(false) },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "让谁现在发一条限时动态"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, margin: "4px 0 10px", lineHeight: 1.5 } }, "发什么 TA 自己定。这一条不占 TA「24 小时里最多挂几条」的名额，花一次调用（开了配照片再多一次生图）。"),
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 } },
+        (characters || []).filter(c => c && !c.npc).map(c => h("button", { key: c.id, onClick: () => { setStAsk(false); onStoryNow(c.id); }, className: "active:opacity-60", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4 } },
+          h(Avatar, { character: c, size: 46, radius: 10 }),
+          h("span", { className: "truncate", style: { maxWidth: "100%", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, c.remark || c.name))))) : null,
     stView && SK ? h(SK.StoryViewer, { list: stView.list, start: 0, viewer: "me", nameOf: stName, onClose: () => setStView(null),
       onDelete: st => SK.remove(st.id), onReply: (st, tx) => onStoryReply && onStoryReply(st, tx) }) : null,
     // 她自己发：拼壁纸那个编辑器，从「自己摆」那张空纸开始；存下来就是一条
@@ -9680,7 +9690,7 @@ function Messages({
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint } }, x.who),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } }, x.like ? "赞了你" : (x.reply ? "回复了你：" : "评论：") + x.text)),
         h("div", { style: { width: 44, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.4, overflow: "hidden", maxHeight: 44 } }, String(x.m.text || x.m.content || "").slice(0, 24)))),
-      h("button", { "data-wk": "momnewsclear", onClick: () => { setNewsOpen(false); onMomentsSeen && onMomentsSeen(); }, className: "w-full active:opacity-70", style: { padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "都看过了")) : null) : null, tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, {
+      h("button", { "data-wk": "momnewsclear", onClick: () => { setNewsOpen(false); onMomentsSeen && onMomentsSeen(); }, className: "w-full active:opacity-70", style: { padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "都看过了")) : null) : null, tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryReply,
     characters: characters,
     npcs: npcAll,
     moments: peekMomentsView(moments),
@@ -10483,6 +10493,7 @@ function peekMomentsView(list) {
     }));
 }
 function MomentsFeed({
+  onStoryReply,   // 在朋友圈里看 TA 的限时动态时回一句（跟聊天列表那边同一个出口）
   npcs,
   characters: rawCharacters,
   moments,
@@ -10517,6 +10528,9 @@ function MomentsFeed({
   const [imgView, setImgView] = useState(null);
   const [imgMid, setImgMid] = useState(null);
   const [delId, setDelId] = useState(null);
+  // 限时动态（她 2026-11-14）：TA 挂着动态时，头像外一圈彩框，点头像看动态；点名字进 TA 的朋友圈主页
+  const [mfStory, setMfStory] = useState(null);
+  const mfAct = id => (window.Stories ? window.Stories.activeOf(id) : []);
   // 信息流自己铺白底（外壳的地是灰的）：朋友圈那种 app 的正文从来是一张白纸，
   // 格子靠分隔线认，不靠父层透过来的那点米色
   return /*#__PURE__*/React.createElement("div", {
@@ -10524,7 +10538,10 @@ function MomentsFeed({
     "data-wk": "mofeed",
     className: "pb-8 min-h-full",
     style: { background: t.bg2 }
-  }, delId && h(ConfirmDialog, { title: "删掉这条朋友圈？", body: "删掉后连同点赞评论一起没了。", confirmLabel: "删掉", danger: true, onConfirm: () => { onDelete(delId); setDelId(null); }, onCancel: () => setDelId(null) }), imgView && h(Sheet, {
+  }, mfStory && window.Stories ? h(window.Stories.StoryViewer, { list: mfStory, start: 0, viewer: "me", onClose: () => setMfStory(null),
+      nameOf: by => by === "me" ? "我" : ((characters || []).find(x => x && String(x.id) === String(by)) || {}).name || "TA",
+      onReply: onStoryReply ? (st, tx) => onStoryReply(st, tx) : null }) : null,
+    delId && h(ConfirmDialog, { title: "删掉这条朋友圈？", body: "删掉后连同点赞评论一起没了。", confirmLabel: "删掉", danger: true, onConfirm: () => { onDelete(delId); setDelId(null); }, onCancel: () => setDelId(null) }), imgView && h(Sheet, {
     onClose: () => setImgView(null),
     tall: true
   }, h(Eyebrow, {
@@ -10614,7 +10631,10 @@ function MomentsFeed({
       style: {
         borderBottom: `1px solid ${t.line}`
       }
-    }, (!isMine && c && onOpenProfile) ? h("button", { onClick: () => onOpenProfile(c.id), className: "shrink-0 self-start active:opacity-70" /* 按钮会被撑满整条动态的高、把头像挤到中间；贴顶，跟名字齐平（她 2026-09-26） */ }, h(Avatar, { character: author, size: 40, radius: 9 })) : /*#__PURE__*/React.createElement(Avatar, {
+    }, (!isMine && c && onOpenProfile) ? h("button", { onClick: () => { const act = mfAct(c.id); if (act.length) setMfStory(act); else onOpenProfile(c.id); }, className: "shrink-0 self-start active:opacity-70" /* 按钮会被撑满整条动态的高、把头像挤到中间；贴顶，跟名字齐平（她 2026-09-26） */ }, (() => { const act = mfAct(c.id), av = h(Avatar, { character: author, size: 40, radius: 9 }); if (!act.length) return av;
+      const unseen = act.some(x => !(x.seen || {}).me);
+      return h("span", { "data-wk": "storyring", "data-on": unseen ? "1" : "0", style: { display: "inline-block", padding: 2, borderRadius: 12, background: unseen ? "linear-gradient(45deg,#f2a65a,#e85d75,#b05cd6)" : t.line } },
+        h("span", { style: { display: "block", padding: 1.5, borderRadius: 10, background: t.bg2 } }, av)); })()) : /*#__PURE__*/React.createElement(Avatar, {
       character: author,
       size: 40,
       radius: 9
@@ -10627,6 +10647,8 @@ function MomentsFeed({
         color: t.tint
       }
       , "data-wk": "moname"
+      // 头像有动态时点头像是看动态，所以名字也能点：点名字进 TA 的朋友圈主页
+      , ...((!isMine && c && onOpenProfile) ? { role: "button", onClick: () => onOpenProfile(c.id) } : {})
     }, authorName), /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: F_BODY,
@@ -23439,7 +23461,6 @@ function ChatLorePicker({ character, entries, onBulk }) {
     }));
 }
 function ChatSettings({
-  onStoryNow,   // 让 TA 现在发一条限时动态（不占名额）
   lucky, onDrawLucky, onPickLucky,   // 你俩的幸运字符（2026-10-26）
   onSetProactive,  // 「允许 Ta 主动发消息」点了当场存（群友 2026-10-31：开了、点返回出去，再进来又是关的——原来要点右上角 ✓ 才存）
   loreEntries,     // 世界书：这个人用哪几条（2026-10-26 群友许愿），点了当场生效
@@ -24403,8 +24424,7 @@ function ChatSettings({
       h("button", { onClick: () => setStoryMax(n => Math.max(1, n - 1)), className: "active:opacity-60", style: { width: 30, height: 30, borderRadius: 999, border: "1px solid " + t.line, color: t.ink } }, "−"),
       h("span", { style: { minWidth: 18, textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, storyMax),
       h("button", { onClick: () => setStoryMax(n => Math.min(10, n + 1)), className: "active:opacity-60", style: { width: 30, height: 30, borderRadius: 999, border: "1px solid " + t.line, color: t.ink } }, "+"))) : null,
-  onStoryNow ? h("button", { "data-wk": "storynow", onClick: () => onStoryNow(), className: "w-full active:opacity-70", style: { marginTop: 14, minHeight: 40, borderRadius: 12, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } },
-    "让 Ta 现在发一条限时动态（不占上面的名额，花一次调用）") : null, h("div", {
+ h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", { style: { paddingRight: 12 } }, h("div", {
     style: {

@@ -35209,6 +35209,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       } catch (e) { toast("生成失败：" + ((e && e.message) || e)); return null; }
     }
   });else if (screen === "messages") body = /*#__PURE__*/React.createElement(Messages, {
+    // 「让 TA 发」（她 2026-11-14）：她叫出来的不占 24 小时那个名额；发什么 TA 自己定
+    onStoryNow: id => { const c = (characters || []).find(x => x && x.id === id); if (!c || !window.Stories) return; toast((c.remark || c.name) + " 在排一张限时动态…"); storyMake(c, "", true); },
     // 回 TA 的限时动态：落进跟 TA 的聊天，上面挂一小截「回的是哪条动态」；TA 照常等她按回复再接
     onStoryReply: (st, tx) => {
       const c = (characters || []).find(x => x && String(x.id) === String(st.by));
@@ -38234,8 +38236,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onSaveImage: () => zhaoyingSaveImage(zyWatch.testId, rec, c ? (c.remark || c.name) : "他"),
       onPin: c ? () => zhaoyingPin(zyWatch.charId, zyWatch.testId, rec) : null }) : null;
   })() : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
-    // 「让 TA 现在发一条」（她 2026-11-14）：她叫出来的不占 24 小时那个名额；发什么 TA 自己定
-    onStoryNow: () => { if (!window.Stories) return; toast((activeChar.remark || activeChar.name) + " 在排一张限时动态…"); storyMake(activeChar, "", true); },
     lucky: luckyOf("c:" + activeChar.id), luckyTick: luckyTickN,
     onDrawLucky: () => drawLucky("c:" + activeChar.id),
     onPickLucky: i => pickLucky("c:" + activeChar.id, i),

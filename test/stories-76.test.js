@@ -30,6 +30,12 @@ test("每 24 小时最多挂几条：满了就不给 story 这一格", () => {
 test("她叫出来的那条不占名额", () => {
   const A = R("app.js"), C = R("components.js");
   assert.match(A, /activeOf\(id\)\.filter\(s => !s\.manual\)\.length >= storyMaxFor\(id\)/);
-  assert.match(A, /onStoryNow: \(\) => \{[^\n]*storyMake\(activeChar, "", true\)/);
-  assert.match(C, /"data-wk": "storynow", onClick: \(\) => onStoryNow\(\)/);
+  assert.match(A, /onStoryNow: id => \{[^\n]*storyMake\(c, "", true\)/);
+  assert.match(C, /"data-wk": "storynow", onClick: \(\) => setStAsk\(true\)/); assert.match(C, /onStoryNow\(c\.id\)/);
+});
+test("朋友圈里头像带框、点头像看动态、点名字进主页", () => {
+  const C = R("components.js");
+  assert.match(C, /onClick: \(\) => \{ const act = mfAct\(c\.id\); if \(act\.length\) setMfStory\(act\); else onOpenProfile\(c\.id\); \}/);
+  assert.match(C, /role: "button", onClick: \(\) => onOpenProfile\(c\.id\)/);
+  assert.match(C, /MomentsFeed, \{ onStoryReply,/);
 });
