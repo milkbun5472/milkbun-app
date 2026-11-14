@@ -40,6 +40,12 @@ const CARD = `background:linear-gradient(180deg,#2A2560,#1E1B48) !important;bord
 const STAIR = lit => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 110 70'>${[0,1,2,3,4].map(i=>{const x=i*18,y=58-i*11;return `<rect x='${x}' y='${y}' width='22' height='${70-y}' fill='${lit?"#2E5E78":"#24234E"}' stroke='${lit?C.step:"#4A4888"}' stroke-width='1.4'/><path d='M${x+11} ${y-2} V${y-8}' stroke='${lit?"#FFE7A8":"#5A5890"}' stroke-width='1.4'/><circle cx='${x+11}' cy='${y-10}' r='3' fill='${lit?"#FFE7A8":"#3A3870"}'/>${lit?`<circle cx='${x+11}' cy='${y-10}' r='7' fill='#FFE7A8' opacity='.25'/>`:""}`}).join("")}<rect x='92' y='2' width='14' height='22' rx='1' fill='${lit?"#FFF2D8":"#2A2358"}' stroke='${C.frame}' stroke-width='2.4'/></svg>`;
 // 线下：星空下一片草地，草地中间孤零零立着一扇开着的大门，门里是另一片暖光，门口一段发光台阶通过来
 const FIELD = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 300'><defs><radialGradient id='g'><stop offset='0' stop-color='#FFE7C8' stop-opacity='.8'/><stop offset='1' stop-color='#FFE7C8' stop-opacity='0'/></radialGradient><linearGradient id='in' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#FFFDF4'/><stop offset='.6' stop-color='#FFE6D0'/><stop offset='1' stop-color='#FFD3D8'/></linearGradient></defs><path d='M0 300 V220 Q100 196 195 206 Q290 196 390 218 V300Z' fill='#1F5A52'/><path d='M0 300 V246 Q120 228 195 236 Q280 226 390 244 V300Z' fill='#17463F'/><circle cx='195' cy='150' r='110' fill='url(#g)'/><rect x='160' y='80' width='70' height='130' fill='url(#in)'/><rect x='156' y='76' width='78' height='136' fill='none' stroke='#3A3170' stroke-width='9'/><path d='M234 82 L262 92 L262 202 L234 212Z' fill='#4A3F86' stroke='#2A2358' stroke-width='2'/><circle cx='252' cy='148' r='3.2' fill='#F2D28A'/>${[0,1,2,3].map(i=>`<rect x='${165-i*18}' y='${216+i*14}' width='${60+i*36}' height='5' rx='2' fill='${C.step}' opacity='${(.95-i*.18).toFixed(2)}'/>`).join('')}</svg>`;
+// 动描：左边一扇只开了一条缝的门，门缝里斜斜泼出一扇形的暖光，字就写在光里
+const CRACK = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 60' preserveAspectRatio='none'><rect x='2' y='2' width='22' height='56' fill='#3A3170' stroke='#241E4E' stroke-width='2'/><rect x='6' y='7' width='14' height='20' fill='none' stroke='#5A4FA0' stroke-width='1'/><rect x='6' y='33' width='14' height='20' fill='none' stroke='#5A4FA0' stroke-width='1'/><rect x='24' y='2' width='3' height='56' fill='#FFF2D0'/><circle cx='19' cy='31' r='1.8' fill='#F2D28A'/></svg>`;
+const BEAM = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'><defs><linearGradient id='b' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='#FFE9C0' stop-opacity='.55'/><stop offset='1' stop-color='#FFE9C0' stop-opacity='0'/></linearGradient></defs><path d='M0 4 L300 -20 L300 80 L0 56Z' fill='url(#b)'/></svg>`;
+// 系统提示：一块钉在门上的小铜门牌，两颗螺丝
+const PLAQUE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 30' preserveAspectRatio='none'><rect x='1' y='1' width='198' height='28' rx='4' fill='#C9A04E' stroke='#8F6A26' stroke-width='1.6' vector-effect='non-scaling-stroke'/><rect x='5' y='4.5' width='190' height='21' rx='2.5' fill='none' stroke='#F2D28A' stroke-width='1' vector-effect='non-scaling-stroke'/></svg>`;
+const SCREW = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><circle cx='5' cy='5' r='3.6' fill='#F2D28A' stroke='#8F6A26' stroke-width='1'/><path d='M3 5 H7' stroke='#8F6A26' stroke-width='1.1'/></svg>`;
 const bubble = { myBg: "#FFE0F0", myText: C.ink, myBorder: "none", charBg: C.warm, charText: C.ink, charBorder: "none", radius: 2, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 const RAINBOW = "linear-gradient(110deg,#FFE3F1 0%,#FFF1C9 22%,#E2FFD8 42%,#D5F2FF 62%,#E6DBFF 82%,#FFE3F1 100%)";
@@ -101,18 +107,21 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="typingdot"]{background:${C.frame} !important}
 [data-wk="name"]{color:${C.fog} !important}
 
-/* 动描、我的动作：没有框，像门缝里漏出来的一道光——左边一道细光线，淡金斜体 */
+/* 动描：左边一扇只开了一条缝的门，门缝里泼出一扇形的暖光，字就落在光里 */
 [data-wk="narr"]{background:transparent !important;border:none !important;box-shadow:none !important}
-[data-wk="narrink"],[data-wk="myactink"]{display:block !important;background:linear-gradient(90deg,rgba(255,230,180,.12),transparent 70%) !important;border:none !important;border-left:2px solid #FFE0A8 !important;border-radius:0 !important;box-shadow:none !important;color:#FFE9C8 !important;font-style:italic !important;font-size:13px !important;line-height:1.9 !important;letter-spacing:.08em !important;padding:4px 0 4px 14px !important}
-[data-wk="myactink"]{border-left:none !important;border-right:2px solid ${C.step} !important;padding:4px 14px 4px 0 !important;text-align:right !important;background:linear-gradient(270deg,rgba(127,240,240,.1),transparent 70%) !important;color:#D8FBFB !important}
+[data-wk="narrink"],[data-wk="myactink"]{position:relative !important;display:block !important;background:${svg(BEAM)} 26px center/calc(100% - 26px) 100% no-repeat !important;border:none !important;border-radius:0 !important;box-shadow:none !important;color:#FFEBD0 !important;font-style:italic !important;font-size:13px !important;line-height:1.9 !important;letter-spacing:.08em !important;text-shadow:0 0 8px rgba(255,220,160,.5) !important;padding:10px 12px 10px 42px !important;min-height:52px !important}
+[data-wk="narrink"]::before,[data-wk="myactink"]::before{content:"" !important;position:absolute !important;left:0 !important;top:0 !important;bottom:0 !important;width:28px !important;background:${svg(CRACK)} center/100% 100% no-repeat !important;filter:drop-shadow(2px 0 6px rgba(255,220,160,.6)) !important}
+/* 我的动作：门在右边，光往左泼，光是青色的 */
+[data-wk="myactink"]{background:${svg(BEAM.replace(/#FFE9C0/g,"#BFF8F8"))} 0 center/calc(100% - 26px) 100% no-repeat !important;transform:none !important;padding:10px 42px 10px 12px !important;text-align:right !important;color:#D8FBFB !important;text-shadow:0 0 8px rgba(127,240,240,.5) !important}
+[data-wk="myactink"]::before{left:auto !important;right:0 !important;transform:scaleX(-1) !important}
+/* 系统提示：一块钉在门上的小铜门牌，左右两颗螺丝 */
+[data-wk="sysnote"]{background:transparent !important;border:none !important;box-shadow:none !important}
+[data-wk="sysnotelabel"]{display:none !important}
+[data-wk="sysnotetext"]{display:inline-block !important;background:${svg(SCREW)} 7px center/8px 8px no-repeat,${svg(SCREW)} calc(100% - 7px) center/8px 8px no-repeat,${svg(PLAQUE)} center/100% 100% no-repeat !important;border:none !important;color:#3A2A10 !important;font-size:11.5px !important;font-style:normal !important;font-weight:600 !important;letter-spacing:.1em !important;padding:4px 24px !important;box-shadow:0 2px 0 #6E5020,0 4px 8px rgba(0,0,0,.4) !important;border-radius:4px !important}
+[data-wk="sysnoteclose"]{color:${C.fog} !important}
 [data-wk="narrbar"]{background:rgba(20,20,51,.95) !important;border-top:1px solid rgba(127,240,240,.4) !important}
 [data-wk="narrkind"]{border:1px solid rgba(201,194,240,.5) !important;border-radius:999px !important;background:transparent !important;color:${C.fog} !important}
 [data-wk="narrkind"][data-on="1"]{background:${C.step} !important;border-color:${C.step} !important;color:${C.n1} !important}
-/* 系统提示 */
-[data-wk="sysnote"]{background:transparent !important;border:none !important;box-shadow:none !important}
-[data-wk="sysnotelabel"]{display:none !important}
-[data-wk="sysnotetext"]{background:transparent !important;border:none !important;color:${C.fog} !important;font-size:11px !important;font-style:normal !important;letter-spacing:.1em !important}
-[data-wk="sysnoteclose"]{color:${C.fog} !important}
 
 /* 底栏：不做框，往上淡出，上沿一道细光线；输入框是一块淡紫玻璃；最右「让他回复」是一扇推开一半、透出光的门 */
 [data-wk="composer"]{position:relative !important;background:linear-gradient(180deg,rgba(23,62,74,0),rgba(20,40,60,.9)) !important;border-top:none !important;box-shadow:none !important;align-items:center !important;gap:10px !important}
