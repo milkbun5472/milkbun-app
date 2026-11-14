@@ -20,6 +20,15 @@ const I_PLUS = L(`<path d='M20 12 V28 M12 20 H28' stroke='${C.ink}' stroke-width
 const I_SEND = L(`<path d='M20 8 L27 19 L23 30 H17 L13 19Z' fill='none' stroke='${C.ink}' stroke-width='1.2' stroke-linejoin='round'/><path d='M20 8 V21' stroke='${C.ink}' stroke-width='1'/><circle cx='20' cy='22' r='1.6' fill='none' stroke='${C.ink}' stroke-width='1'/><path d='M16 34 H24' stroke='${C.ink}' stroke-width='1.2' stroke-linecap='round'/>`);
 const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'><circle cx='22' cy='22' r='20' fill='${C.ink}'/><path d='M13 16 H31 Q32.5 16 32.5 17.5 V25 Q32.5 26.5 31 26.5 H21 L16 30 V26.5 H13 Q11.5 26.5 11.5 25 V17.5 Q11.5 16 13 16Z' fill='none' stroke='#fff' stroke-width='1.3' stroke-linejoin='round'/></svg>`;
 
+// ── 第二批用的图 ──
+// 一只牛皮纸小信封，封口一枚蜡封；open＝信封打开、信纸露出来
+const ENV = st => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 44'><rect x='3' y='8' width='54' height='33' rx='2' fill='#fff' stroke='${C.ink}' stroke-width='1.1'/>${st === "open" ? `<path d='M3 8 L30 -8 L57 8' fill='none' stroke='${C.ink}' stroke-width='1.1' stroke-linejoin='round'/><rect x='11' y='0' width='38' height='22' fill='${C.paper}' stroke='${C.ink}' stroke-width='.9'/><path d='M16 7 H44 M16 12 H40 M16 17 H36' stroke='${C.fog}' stroke-width='.9'/>` : `<path d='M3 8 L30 28 L57 8' fill='none' stroke='${C.ink}' stroke-width='1.1' stroke-linejoin='round'/><circle cx='30' cy='26' r='5' fill='${st === "back" ? C.fog : "#8C2A2A"}'/><path d='M27.5 26 Q30 23 32.5 26 Q30 29 27.5 26Z' fill='none' stroke='#fff' stroke-width='.8' opacity='.8'/>`}<path d='M3 41 L24 22 M57 41 L36 22' stroke='${C.line}' stroke-width='.9'/></svg>`;
+// 一只小咖啡杯（红包）；done＝喝完了，杯里空了
+const CUP = done => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 50'>${done ? `` : `<path d='M22 10 Q20 5 23 2 M30 10 Q28 5 31 2 M38 10 Q36 5 39 2' fill='none' stroke='${C.fog}' stroke-width='1.1' stroke-linecap='round'/>`}<path d='M12 14 H48 V30 Q48 42 36 42 H24 Q12 42 12 30Z' fill='#fff' stroke='${C.ink}' stroke-width='1.2'/><path d='M48 18 Q56 18 56 25 Q56 32 48 32' fill='none' stroke='${C.ink}' stroke-width='1.2'/>${done ? `<path d='M15 17 H45' stroke='#C9B8A4' stroke-width='1.6' opacity='.6'/>` : `<ellipse cx='30' cy='17' rx='16' ry='3' fill='#6B4A33'/><path d='M26 17 Q30 14 34 17 Q30 20 26 17Z' fill='#E8D5BE'/>`}<path d='M6 46 H54' stroke='${C.ink}' stroke-width='1.2' stroke-linecap='round'/></svg>`;
+const STAMP = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 46'><path d='M3 3 H37 V43 H3Z' fill='#fff' stroke='${C.ink}' stroke-width='1' stroke-dasharray='2 2'/><rect x='7' y='7' width='26' height='28' fill='${C.grey}'/><path d='M14 31 V16 Q14 11 20 11 Q26 11 26 16 V31Z' fill='none' stroke='${C.ink}' stroke-width='1'/><path d='M20 11.5 V31 M14 22 H26' stroke='${C.ink}' stroke-width='.8'/><text x='20' y='41' text-anchor='middle' font-size='4.5' font-style='italic' font-family='Georgia,serif' fill='${C.ink}'>PARIS</text></svg>`;
+const PIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 30'><path d='M10 1 C5 1 2 5 2 9 C2 15 10 28 10 28 C10 28 18 15 18 9 C18 5 15 1 10 1Z' fill='${C.ink}'/><circle cx='10' cy='9' r='3' fill='${C.paper}'/></svg>`;
+const CARD = `background:#fff !important;border:none !important;border-radius:4px !important;box-shadow:0 0 0 .8px ${C.line},0 4px 14px rgba(30,29,27,.06) !important;color:${C.ink} !important`;
+
 const bubble = { myBg: C.grey, myText: C.ink, myBorder: "none", charBg: C.card, charText: C.ink, charBorder: "none", radius: 4, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -105,8 +114,121 @@ button[data-wk="avatar"] > *,span[data-wk="avatar"] > *,img[data-wk="avatar"]{bo
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important}
 [data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]{margin-top:20px !important}
 [data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]::before{content:"Mon petit bonheur" !important;position:absolute !important;bottom:100% !important;margin-bottom:4px !important;white-space:nowrap !important;font:italic 400 11px/1 Georgia,"Times New Roman",serif !important;letter-spacing:.1em !important;color:${C.sub} !important}
-[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:2px !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="0"]::before{left:2px !important;content:"Je pense à toi" !important}
 [data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]::before{right:2px !important}
+/* ───── 巴黎留白 · 第二批：卡片 ───── */
+[data-wk="voice"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{${CARD}}
+[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:${C.ink} !important;border-color:${C.line} !important}
+
+/* 转账＝一封信：白信封、暗红蜡封，金额像信上写的数；收下了信封打开露出信纸，退回了蜡封变灰 */
+[data-wk="transfercard"]{position:relative !important;${CARD};padding-left:76px !important}
+[data-wk="transfercard"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:54px !important;height:40px !important;margin-top:-24px !important;background:${svg(ENV("full"))} center/contain no-repeat !important}
+[data-wk="transfercard"] *{color:${C.ink} !important;border-color:${C.line} !important}
+[data-wk="transferlabel"]{color:${C.sub} !important;font-style:italic !important;letter-spacing:.15em !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:${C.ink} !important;font-weight:400 !important;letter-spacing:.04em !important}
+[data-wk="transferrule"]{border:none !important;height:8px !important;background:${svg(DIA(C.ink))} center/6px 6px no-repeat,linear-gradient(90deg,transparent,${C.ink} 30%,${C.ink} calc(50% - 8px),transparent calc(50% - 8px),transparent calc(50% + 8px),${C.ink} calc(50% + 8px),${C.ink} 70%,transparent) center/100% .8px no-repeat !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:${C.paper} !important}
+[data-wk="transferbtn"]{border-radius:2px !important;letter-spacing:.15em !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.ink} !important;color:${C.paper} !important;border:none !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;color:${C.ink} !important;border:.8px solid ${C.ink} !important}
+[data-wk="transferseal"]{background:transparent !important;border:.8px solid ${C.ink} !important;color:${C.ink} !important;border-radius:50% !important;box-shadow:none !important;font-style:italic !important}
+[data-wk="transfercard"][data-status="accepted"]::before{background:${svg(ENV("open"))} center/contain no-repeat !important}
+[data-wk="transfercard"][data-status="returned"]::before{background:${svg(ENV("back"))} center/contain no-repeat !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.65 !important}
+
+/* 红包＝一杯冒着热气的拿铁；领完了杯子空了 */
+[data-wk="rpcard"]{position:relative !important;width:220px !important;min-height:80px !important;padding:16px 16px 16px 82px !important;${CARD}}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:58px !important;height:48px !important;margin-top:-26px !important;background:${svg(CUP(false))} center/contain no-repeat !important}
+[data-wk="rpcard"]::after{content:"un café" !important;position:absolute !important;right:12px !important;bottom:6px !important;font:italic 400 10.5px/1 Georgia,serif !important;letter-spacing:.12em !important;color:${C.sub} !important}
+[data-wk="rpcard"] *{color:${C.ink} !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"] > div:not([data-wk]){padding:0 !important;background:transparent !important}
+[data-wk="rpmsg"]{-webkit-line-clamp:2 !important}
+[data-wk="rpcard"][data-status="done"]::before{background:${svg(CUP(true))} center/contain no-repeat !important}
+[data-wk="rpcard"][data-status="done"]::after{content:"merci" !important}
+/* 拆红包：关着是一封合上的信，「开」是那枚暗红蜡封；拆开后是一张摊开的信纸，金额写在信上，底下一行签名 */
+[data-wk="rpenvelope"]{position:relative !important;overflow:visible !important}
+[data-wk="rpenvelope"][data-stage="closed"]{background:linear-gradient(155deg,transparent 49.6%,${C.ink} 49.8%,${C.ink} 50.2%,transparent 50.4%) left top/50% 46% no-repeat,linear-gradient(205deg,transparent 49.6%,${C.ink} 49.8%,${C.ink} 50.2%,transparent 50.4%) right top/50% 46% no-repeat,#fff !important;border:none !important;border-radius:3px !important;box-shadow:0 0 0 .8px ${C.line},0 18px 40px rgba(30,29,27,.18) !important}
+[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rparc"]{display:none !important}
+[data-wk="rpenvelope"][data-stage="closed"] *{color:${C.ink} !important}
+[data-wk="rpopenbtn"]{background:radial-gradient(circle at 42% 38%,#A83A3A,#8C2A2A 60%,#6E1E1E) !important;border:none !important;border-radius:50% !important;box-shadow:0 0 0 3px rgba(140,42,42,.25),0 3px 6px rgba(0,0,0,.25) !important}
+[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important}
+[data-wk="rpenvelope"][data-stage="open"]{background:repeating-linear-gradient(180deg,transparent 0 27px,${C.line} 27px 28px) 0 80px/100% calc(100% - 120px) no-repeat,${C.paper} !important;border:none !important;border-radius:2px !important;box-shadow:0 0 0 .8px ${C.line},0 18px 40px rgba(30,29,27,.18) !important}
+[data-wk="rpenvelope"][data-stage="open"]::after{content:"— avec amour" !important;position:absolute !important;right:22px !important;bottom:18px !important;font:italic 400 13px/1 Georgia,serif !important;letter-spacing:.1em !important;color:${C.sub} !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"]{display:none !important}
+[data-wk="rpenvelope"][data-stage="open"] *{color:${C.ink} !important}
+[data-wk="rpavatar"]{border-radius:50% !important;box-shadow:0 0 0 3px #fff,0 0 0 4px ${C.ink} !important}
+[data-wk="rpamount"]{color:${C.ink} !important;background:none !important;font-weight:400 !important}
+[data-wk="rpclose"]{background:#fff !important;border:.8px solid ${C.ink} !important;color:${C.ink} !important}
+
+/* 照片：一张白边相片，右下角贴一枚巴黎窗邮票 */
+[data-wk="photocard"]{position:relative !important;overflow:visible !important;background:#fff !important;border:none !important;border-radius:2px !important;padding:8px 8px 26px !important;box-shadow:0 0 0 .8px ${C.line},0 6px 16px rgba(30,29,27,.08) !important}
+[data-wk="photocard"]::after{content:"" !important;position:absolute !important;right:-10px !important;bottom:-14px !important;width:30px !important;height:35px !important;background:${svg(STAMP)} center/contain no-repeat !important;transform:rotate(6deg) !important}
+[data-wk="photoface"]{background:${C.grey} !important;border:none !important;border-radius:1px !important}
+[data-wk="photoface"] *,[data-wk="phototext"]{color:${C.ink} !important}
+[data-wk="photocap"],[data-wk="photohint"]{color:${C.sub} !important;font-style:italic !important}
+
+/* 语音：白卡，前面一颗细圈播放三角，波纹是墨线 */
+[data-wk="voice"] > *{background:transparent !important;box-shadow:none !important;border:none !important;color:${C.ink} !important}
+[data-wk="voice"][data-me]{padding:0 14px 0 34px !important;position:relative !important;border-radius:4px !important}
+[data-wk="voice"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:14px !important;height:14px !important;margin-top:-7px !important;background:${svg(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'><circle cx='7' cy='7' r='6' fill='none' stroke='${C.ink}' stroke-width='.9'/><path d='M5.6 4.4 L9.6 7 L5.6 9.6Z' fill='${C.ink}'/></svg>`)} center/contain no-repeat !important;z-index:2 !important}
+[data-wk="voice"][data-me="1"]{background:${C.grey} !important;box-shadow:none !important}
+[data-wk="voicewave"] span{background:${C.ink} !important}
+
+[data-wk="wxcardsky"]{background:${C.grey} !important}
+[data-wk="wxcardsky"] *{color:${C.ink} !important}
+[data-wk="wxcardsky"] svg{stroke:${C.ink} !important}
+[data-wk="wxcardsay"]{background:#fff !important;color:${C.ink} !important;border-top:.8px solid ${C.line} !important;font-style:italic !important}
+[data-wk="geopin"]{background:${svg(PIN)} center/contain no-repeat !important;box-shadow:none !important;border:none !important;width:18px !important;height:27px !important;border-radius:0 !important}
+[data-wk="geopin"] *{opacity:0 !important}
+[data-wk="geopinstem"]{background:${C.ink} !important}
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 2px #fff,0 0 0 3px ${C.ink} !important}
+
+/* 拍一拍、通话结束：一行小字，前后细线 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:linear-gradient(${C.line},${C.line}) left center/14px .8px no-repeat,linear-gradient(${C.line},${C.line}) right center/14px .8px no-repeat !important;border:none !important;border-radius:0 !important;padding:2px 22px !important;color:${C.sub} !important;box-shadow:none !important;font-style:italic !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.ink} !important}
+[data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;max-width:86% !important;background:#fff !important;border:none !important;border-left:1.5px solid ${C.ink} !important;border-radius:0 4px 4px 0 !important;padding:8px 14px !important;color:${C.ink} !important;box-shadow:0 0 0 .8px ${C.line} !important}
+[data-wk="noteink"]{color:${C.sub} !important}
+
+/* 线下小结：一张横格信纸，标题是斜体抬头，底下签名 */
+[data-part="offlog"]{position:relative !important;background:repeating-linear-gradient(180deg,transparent 0 27px,#EDEAE4 27px 28px),#fff !important;padding-top:26px !important;padding-bottom:30px !important}
+[data-part="offlog"]::after{content:"— à toi" !important;position:absolute !important;right:16px !important;bottom:10px !important;font:italic 400 12px/1 Georgia,serif !important;color:${C.sub} !important}
+[data-wk="offlogtitle"]{display:inline-block !important;margin:0 0 8px !important;padding:0 !important;background:none !important;color:${C.ink} !important;font-style:italic !important;letter-spacing:.2em !important;border-bottom:.8px solid ${C.ink} !important}
+[data-wk="offlogtitle"] *{color:${C.ink} !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.sub} !important;font-style:italic !important}
+[data-wk="offlogtranscript"]{border-top:.8px solid ${C.line} !important;color:${C.sub} !important}
+
+/* 加号面板：一格格细线圆 */
+[data-wk="chattoolicon"]{background:#fff !important;border:.8px solid ${C.ink} !important;border-radius:50% !important;box-shadow:none !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.ink} !important;color:${C.ink} !important}
+[data-wk="chattoollabel"]{color:${C.sub} !important}
+
+/* 引用 */
+[data-wk="quotedraft"]{background:${C.paper} !important;border:none !important;border-top:.8px solid ${C.line} !important}
+[data-wk="quotedraft"] *{color:${C.sub} !important;border-color:${C.ink} !important}
+[data-wk="quoteicon"]{display:none !important}
+[data-wk="quoteclear"]{color:${C.ink} !important}
+[data-wk="quote"]{background:transparent !important;color:${C.sub} !important;border:none !important;border-left:1px solid ${C.ink} !important;border-radius:0 !important;padding:2px 10px !important;opacity:1 !important;font-style:italic !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:1px solid currentColor !important;padding-left:8px !important;opacity:.7 !important}
+
+/* 打电话那一屏：象牙白的纸，三颗键是细线圆，中间挂断是一颗墨黑圆 */
+[data-wk="call"][data-video="0"]{background:${C.paper} !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:${C.ink} !important;letter-spacing:.25em !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:${C.sub} !important;font-style:italic !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:transparent !important;box-shadow:0 0 0 .8px ${C.ink} !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:${C.ink} !important}
+[data-wk="callbtns"] button > span:first-child{background:transparent !important;border-radius:50% !important;box-shadow:0 0 0 .8px ${C.ink} !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:${C.ink} !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:${C.ink} !important;box-shadow:none !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:${C.paper} !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:${C.sub} !important}
+[data-wk="callbubble"]{background:#fff !important;color:${C.ink} !important;border:none !important;border-radius:6px 6px 6px 1px !important;box-shadow:0 0 0 .8px ${C.line} !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:${C.grey} !important;border-radius:6px 6px 1px 6px !important;box-shadow:none !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.ink} !important}
+[data-wk="callact"]{color:${C.sub} !important;font-style:italic !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 5px ${C.paper},0 0 0 6px ${C.ink},0 0 0 12px ${C.paper},0 0 0 12.8px ${C.line} !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "巴黎留白", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
