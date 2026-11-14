@@ -139,3 +139,5 @@ test("拼卡贴纸能自己打 emoji", () => { const c = fs.readFileSync("js/col
 test("看动态时底下那块叠在图上", () => { const st = fs.readFileSync("js/stories.js", "utf8"); assert.ok(st.includes('zIndex: 5, padding: "40px 12px calc(env(safe-area-inset-bottom')); });
 
 test("按住只看图", () => { const st = fs.readFileSync("js/stories.js", "utf8"); assert.equal((st.match(/opacity: held \? 0 : 1/g) || []).length, 2); });
+
+test("论坛楼中楼回复匿名标签用的是 post", () => { const s = fs.readFileSync("js/screens-ui.js", "utf8"); assert.ok(!s.includes("(p.anon || cm.anon || r.anon)")); });

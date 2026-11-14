@@ -2826,7 +2826,7 @@ function Forum({
               accountBadge(r),
               r.isOp && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: xhs ? "#fff" : t.bg2, background: xhs ? FORUM_SKIN.accent : t.tint, borderRadius: 4, padding: "0 4px", marginLeft: 4 } }, xhs ? "作者" : "楼主"),
               // 匿名帖里不点名（她 2026-11-13「匿名吧结果还是互相点名这对吗」）：回的是谁照样标出来，只是也写成匿名
-              r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, (p.anon || cm.anon || r.anon) ? " 回复 匿名用户" : " 回复 @" + r.toName),
+              r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, ((post && post.anon) || cm.anon || r.anon) ? " 回复 匿名用户" : " 回复 @" + r.toName),
               isFreshReply(r) && newTag(),
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, "："),
               h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, STW(r, STX(atClean(r.content)))),
