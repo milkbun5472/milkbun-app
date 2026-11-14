@@ -15,11 +15,12 @@ const BF = (o = 1) => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 3
 const DUST = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='160'>${Array.from({ length: 70 }, (_, i) => { const x = (i * 53 + (i % 5) * 17) % 200, y = (i * 37 + (i % 7) * 13) % 160, r = [0.6, 0.9, 1.2, 1.6][i % 4]; return `<circle cx='${x}' cy='${y}' r='${r}' fill='#fff' opacity='${(0.35 + (i % 6) * 0.1).toFixed(2)}'/>`; }).join("")}</svg>`;
 const RING = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><circle cx='6' cy='6' r='3.4' fill='none' stroke='${C.fog}' stroke-width='1.2'/></svg>`;
 const CI = inner => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><circle cx='20' cy='20' r='16' fill='rgba(255,255,255,.06)' stroke='#fff' stroke-width='1.5'/>${inner}</svg>`;
-const I_HOUSE = CI(`<path d='M12.5 21 L20 14.5 L27.5 21 V27 H12.5Z' fill='none' stroke='#fff' stroke-width='1.5' stroke-linejoin='round'/>`);
-const I_MORE = CI(`<g fill='#fff'><circle cx='13' cy='20' r='1.8'/><circle cx='20' cy='20' r='1.8'/><circle cx='27' cy='20' r='1.8'/></g>`);
+// 主页＝一朵蝴蝶会停的小花；更多＝三只萤火（带光晕的小点）；发送＝一只往右飞、拖着光尾的小蝴蝶
+const I_HOUSE = CI(`<g fill='#fff'>${[0,72,144,216,288].map(a=>`<ellipse cx='20' cy='13.5' rx='3.4' ry='5.4' transform='rotate(${a} 20 20)' opacity='.95'/>`).join('')}</g><circle cx='20' cy='20' r='2.8' fill='#9FB2FF'/>`);
+const I_MORE = CI(`${[13,20,27].map(x=>`<circle cx='${x}' cy='20' r='4' fill='#fff' opacity='.25'/><circle cx='${x}' cy='20' r='1.8' fill='#fff'/>`).join('')}`);
+const I_SEND = CI(`<path d='M8 24 Q13 22 17 21' stroke='#fff' stroke-width='1.2' stroke-linecap='round' opacity='.45'/><path d='M9 20 Q14 19.5 18 20' stroke='#fff' stroke-width='1.4' stroke-linecap='round' opacity='.7'/><g transform='translate(17 11) scale(.42) rotate(20 22 17)'>${BF().replace(/<svg[^>]*>|<\/svg>/g, "")}</g>`);
 // 加号＝一只小蝴蝶；发送＝一道往右飞的光
 const I_PLUS = CI(`<g transform='translate(9 11) scale(.55)'>${BF().replace(/<svg[^>]*>|<\/svg>/g, "")}</g>`);
-const I_SEND = CI(`<path d='M11 20 H26 M21 15 L27 20 L21 25' fill='none' stroke='#fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/>`);
 // 最右「让他回复」：一团白光，里面一个深蓝对话框
 const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46'><circle cx='23' cy='23' r='20' fill='#fff'/><path d='M14 16 H32 Q34 16 34 18 V26 Q34 28 32 28 H22 L17 32 V28 H14 Q12 28 12 26 V18 Q12 16 14 16Z' fill='none' stroke='${C.ink}' stroke-width='2' stroke-linejoin='round'/></svg>`;
 
@@ -31,6 +32,9 @@ const BOX = st => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><
 const COCOON = done => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 64'><path d='M30 2 V10' stroke='#fff' stroke-width='1.2'/><path d='M30 10 C18 12 16 30 20 44 C24 58 36 58 40 44 C44 30 42 12 30 10Z' fill='${done ? "rgba(255,255,255,.12)" : "#fff"}' stroke='#fff' stroke-width='1.6'/>${done ? `<path d='M22 26 L26 22 L30 27 L34 21 L38 26' fill='none' stroke='#fff' stroke-width='1.4' stroke-linejoin='round'/><g transform='translate(18 -4) scale(.75) rotate(-12)'>${BFIN()}</g>` : `<g fill='none' stroke='#C9D4FF' stroke-width='1'><path d='M22 22 Q30 26 38 22'/><path d='M20 32 Q30 36 40 32'/><path d='M22 42 Q30 46 38 42'/></g>`}</svg>`;
 const CARD = `background:rgba(26,42,158,.55) !important;border:1.6px solid #fff !important;border-radius:14px !important;box-shadow:inset 0 0 12px rgba(200,215,255,.35),0 0 14px 2px rgba(200,215,255,.55) !important;color:#fff !important`;
 
+// 好感：一只大蝴蝶，身子不动，两边翅膀按好感张开（低＝合拢，高＝完全展开）
+const WINGS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 34'><defs><radialGradient id='w' cx='.5' cy='.9' r='1'><stop offset='0' stop-color='#fff'/><stop offset='.55' stop-color='#F2F5FF'/><stop offset='1' stop-color='#C9D4FF'/></radialGradient></defs><path d='M21 15 C17 6 10 1 5 2 C1 3 1 8 3 12 C5 16 12 17 21 16.5Z' fill='url(#w)' stroke='#fff' stroke-width='.8'/><path d='M23 15 C27 6 34 1 39 2 C43 3 43 8 41 12 C39 16 32 17 23 16.5Z' fill='url(#w)' stroke='#fff' stroke-width='.8'/><path d='M21 17.5 C15 18 10 21 10 26 C10 30 14 31 17 28.5 C19.5 26 20.6 21.5 21.3 18.5Z' fill='url(#w)' stroke='#fff' stroke-width='.8' opacity='.92'/><path d='M23 17.5 C29 18 34 21 34 26 C34 30 30 31 27 28.5 C24.5 26 23.4 21.5 22.7 18.5Z' fill='url(#w)' stroke='#fff' stroke-width='.8' opacity='.92'/><g fill='#B9C6FF' opacity='.85'><circle cx='9' cy='8' r='1.6'/><circle cx='35' cy='8' r='1.6'/><circle cx='15' cy='25' r='1.2'/><circle cx='29' cy='25' r='1.2'/></g></svg>`;
+const BODY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 34'><ellipse cx='22' cy='18' rx='1.5' ry='7.5' fill='#fff'/><path d='M21.5 11.5 Q19 6 16 4.5 M22.5 11.5 Q25 6 28 4.5' fill='none' stroke='#fff' stroke-width='.9' stroke-linecap='round'/><circle cx='16' cy='4.5' r='1' fill='#fff'/><circle cx='28' cy='4.5' r='1' fill='#fff'/></svg>`;
 const bubble = { myBg: C.glass, myText: "#fff", myBorder: "none", charBg: "#fff", charText: C.ink, charBorder: "none", radius: 10, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -109,7 +113,8 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="chatplus"],[data-wk="send"],[data-wk="chatreply"]{border:none !important;box-shadow:none !important;border-radius:0 !important;background-color:transparent !important}
 [data-wk="chatplus"]{width:34px !important;min-width:34px !important;height:34px !important;background:${svg(I_PLUS)} center/contain no-repeat !important;filter:drop-shadow(0 0 5px rgba(200,215,255,.7)) !important}
 [data-wk="send"]{width:34px !important;min-width:34px !important;height:34px !important;background:${svg(I_SEND)} center/contain no-repeat !important;opacity:1 !important;filter:drop-shadow(0 0 5px rgba(200,215,255,.7)) !important}
-[data-wk="chatreply"]{width:46px !important;min-width:46px !important;height:46px !important;border-radius:50% !important;background:${svg(I_REPLY)} center/contain no-repeat !important;filter:drop-shadow(0 0 12px rgba(200,215,255,.95)) !important}
+[data-wk="chatreply"]{position:relative !important;overflow:visible !important;width:46px !important;min-width:46px !important;height:46px !important;border-radius:50% !important;background:${svg(I_REPLY)} center/contain no-repeat !important;filter:drop-shadow(0 0 12px rgba(200,215,255,.95)) !important}
+[data-wk="chatreply"]::after{content:"" !important;position:absolute !important;right:-8px !important;top:-8px !important;width:20px !important;height:15px !important;background:${svg(BF())} center/contain no-repeat !important;transform:rotate(14deg) !important}
 [data-wk="chatplus"] *,[data-wk="send"] *,[data-wk="chatreply"] *{opacity:0 !important}
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.9) !important}
 [data-wk="chatpanel"]{background:rgba(11,20,80,.95) !important;border-top:1px solid rgba(255,255,255,.4) !important}
@@ -233,6 +238,63 @@ button[data-wk="avatar"]::after,span[data-wk="avatar"]:not([data-halo])::after{c
 [data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.ink} !important}
 [data-wk="callact"]{color:${C.fog} !important;font-style:italic !important}
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 4px #fff,0 0 40px 12px rgba(200,215,255,.7) !important}
+/* ───── 蓝夜蝴蝶 · 第三批：状态卡＝夜里一扇发光的窗，好感是一只按好感张开翅膀的蝴蝶 ───── */
+[data-wk="statecard"]{position:relative !important;overflow:visible !important;background:${svg(DUST)} left bottom/200px 160px repeat-x,linear-gradient(180deg,${C.n1},${C.n2} 55%,${C.n3}) !important;border:2px solid #fff !important;border-radius:22px !important;box-shadow:0 0 30px 6px rgba(200,215,255,.45) !important}
+[data-wk="statecard"]::before{content:"" !important;position:absolute !important;right:-16px !important;top:-16px !important;width:40px !important;height:31px !important;background:${svg(BF())} center/contain no-repeat !important;transform:rotate(-14deg) !important;filter:drop-shadow(0 0 6px rgba(200,215,255,.95)) !important;z-index:3 !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:1px solid rgba(255,255,255,.35) !important}
+[data-wk="statehead"] *{color:#fff !important}
+[data-wk="statehead"] [data-wk="avatar"]::before,[data-wk="statehead"] [data-wk="avatar"]::after{content:none !important}
+[data-wk="statehead"] button{border:1.5px solid #fff !important;background:transparent !important;border-radius:50% !important}
+[data-wk="statemood"]{display:inline-block !important;background:#fff !important;color:${C.ink} !important;border:none !important;border-radius:999px !important;padding:0 10px !important;margin-right:4px !important;box-shadow:0 0 8px rgba(200,215,255,.7) !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(255,255,255,.08) !important;border:1px solid rgba(255,255,255,.5) !important;border-radius:999px !important;padding:3px !important;margin:10px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:999px !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:#fff !important;color:${C.ink} !important;box-shadow:0 0 10px rgba(200,215,255,.8) !important}
+/* 看得见的＝一团白光；心里想的＝深蓝玻璃、带光的斜体字 */
+[data-wk="stateseen"]{background:#fff !important;border:none !important;border-radius:14px !important;margin:12px 16px !important;color:${C.ink} !important;box-shadow:0 0 18px 4px rgba(200,215,255,.55) !important}
+[data-wk="stateseen"] *{color:${C.ink} !important}
+[data-wk="statevoice"]{background:rgba(26,42,158,.6) !important;border:1.5px solid #fff !important;border-radius:14px !important;margin:14px 16px !important;box-shadow:inset 0 0 12px rgba(200,215,255,.35) !important;font-style:italic !important}
+[data-wk="statevoice"] *{color:#fff !important;text-shadow:0 0 6px rgba(200,215,255,.6) !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:rgba(34,53,168,.08) !important;border:1px solid rgba(34,53,168,.25) !important;border-radius:999px !important}
+[data-wk="statewear"] > span{background:transparent !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.fog} !important}
+[data-wk="statevoice"] + div > button{background:transparent !important;color:#fff !important;border:1px solid #fff !important;border-radius:999px !important}
+/* 好感：一只大蝴蝶，好感越高翅膀张得越开（低分几乎合拢成一条，满分完全展开） */
+[data-wk="stateaff"]{background:transparent !important;border-top:1px solid rgba(255,255,255,.35) !important;display:flex !important;align-items:center !important;gap:16px !important;padding:14px 20px 18px !important}
+[data-wk="stateaff"] *{color:#fff !important}
+[data-wk="stateheart"]{position:relative !important;width:80px !important;height:62px !important;flex:none !important;background:${svg(BODY)} center/contain no-repeat !important;filter:drop-shadow(0 0 8px rgba(200,215,255,.9)) !important}
+[data-wk="stateheart"] > div{display:none !important}
+[data-wk="stateheartknob"]{display:block !important;position:absolute !important;inset:0 !important;left:0 !important;bottom:0 !important;width:auto !important;height:auto !important;margin:0 !important;background:${svg(WINGS)} center/contain no-repeat !important;transform-origin:50% 50% !important;transform:scaleX(calc(.12 + var(--sc-heart-lvl) * .88)) !important;opacity:calc(.55 + var(--sc-heart-lvl) * .45) !important;z-index:-1 !important}
+[data-wk="stateheartnum"]{display:none !important}
+[data-wk="stateaffval"]{display:inline-block !important;margin:0 0 6px !important;padding:1px 12px !important;background:#fff !important;border-radius:999px !important;color:${C.ink} !important;font-weight:700 !important;font-size:14px !important;box-shadow:0 0 10px rgba(200,215,255,.8) !important}
+/* 翻旧的：一张张深蓝玻璃卡，角上停一只小蝴蝶 */
+[data-wk="statehistbtn"]{background:transparent !important;color:#fff !important;border:1px solid #fff !important;border-radius:999px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.fog} !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1px solid #fff !important;border-radius:999px !important;color:#fff !important;background:transparent !important}
+[data-wk="statehistitem"]{position:relative !important;background:rgba(26,42,158,.55) !important;border:1.5px solid rgba(255,255,255,.8) !important;border-radius:14px !important;padding:16px 18px 14px !important;margin:0 0 16px !important;box-shadow:0 0 12px rgba(200,215,255,.4) !important;overflow:visible !important}
+[data-wk="statehistitem"]::before{content:"" !important;position:absolute !important;right:-10px !important;top:-10px !important;width:22px !important;height:17px !important;background:${svg(BF())} center/contain no-repeat !important;transform:rotate(-14deg) !important}
+[data-wk="statehistitem"] *{color:#fff !important}
+[data-wk="statehistmood"]{background:#fff !important;border:none !important;color:${C.ink} !important;border-radius:999px !important}
+[data-wk="statehisttime"]{color:${C.fog} !important}
+[data-wk="statehistmeta"]{background:rgba(255,255,255,.08) !important;border-radius:8px !important}
+[data-wk="statehistend"]{color:${C.fog} !important}
+/* Ta 眼里 */
+[data-wk="gazepage"]{background:${svg(DUST)} left bottom/200px 160px repeat-x,linear-gradient(180deg,${C.n1},${C.n2} 55%,${C.n3}) !important}
+[data-wk="gazetitle"]{color:#fff !important;text-shadow:0 0 10px rgba(200,215,255,.8) !important}
+[data-wk="gazetab"]{background:rgba(255,255,255,.08) !important;color:${C.fog} !important;border:1px solid rgba(255,255,255,.5) !important;border-radius:999px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:#fff !important;color:${C.ink} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{background:#fff !important;border:none !important;border-radius:14px !important;box-shadow:0 0 16px 4px rgba(200,215,255,.5) !important}
+[data-wk="gazetape"]{background:${svg(BF())} center/22px 17px no-repeat !important;box-shadow:none !important;border:none !important;transform:none !important;width:26px !important;height:20px !important}
+[data-wk="gazecardname"]{color:${C.ink} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#5A6BC8 !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{background:#fff !important;border:none !important;border-radius:16px !important;box-shadow:0 0 16px 4px rgba(200,215,255,.5) !important}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:${C.ink} !important}
+[data-wk="gazeempty"]{background:rgba(255,255,255,.06) !important;border:1px dashed rgba(255,255,255,.6) !important;border-radius:16px !important;color:#fff !important}
+[data-wk="gazeempty"] > div:first-child{color:#fff !important}
+[data-wk="gazeempty"] button{background:#fff !important;color:${C.ink} !important;border:none !important;border-radius:999px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "蓝夜蝴蝶", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
