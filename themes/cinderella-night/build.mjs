@@ -369,6 +369,24 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chathead"] button:has(> img[data-wk="avatar"]){position:relative !important;overflow:visible !important}
 [data-wk="chathead"] button:has(> img[data-wk="avatar"])::after{content:"" !important;position:absolute !important;left:-12px !important;top:-12.5px !important;width:60px !important;height:60px !important;margin:0 !important;background:${svg(HEADFRAME)} center/contain no-repeat !important;pointer-events:none !important;z-index:2 !important;filter:drop-shadow(0 0 6px rgba(255,236,190,.6)) !important}
 [data-wk="chathead"] img[data-wk="avatar"]{box-shadow:0 0 0 2px ${C.goldD} !important}
+/* ───── 补齐（照 README 新加的几条）：打电话整屏、电话小结、我的动作、旁白栏、私聊红包头像 ───── */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle at 50% 22%,rgba(255,230,180,.3),transparent 50%),linear-gradient(180deg,#3E3C8E,#5A55B0 55%,#8C7CC8) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:#D8D2F2 !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:radial-gradient(circle at 38% 32%,#fff,#FBF2DC 70%,#EAD9B0) !important;box-shadow:0 0 0 1.4px #D9B46A,0 0 16px rgba(255,236,190,.55) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#3F3A6A !important}
+[data-wk="callbtns"] button > span:first-child{background:radial-gradient(circle at 38% 32%,#fff,#FBF2DC 70%,#EAD9B0) !important;border-radius:50% !important;box-shadow:0 0 0 1.4px #D9B46A,0 0 16px rgba(255,236,190,.55) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#3F3A6A !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:linear-gradient(180deg,#2F2C78,#221F5E) !important;box-shadow:0 0 0 1.4px #F2D9A0,0 0 18px rgba(242,217,160,.4) !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:#D8D2F2 !important}
+[data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;max-width:86% !important;background:linear-gradient(135deg,#FFFFFF 0%,#FCEFF5 40%,#EEF1FF 75%,#FFF7E8 100%) !important;border:none !important;border-left:4px solid #D9B46A !important;border-radius:4px 12px 12px 4px !important;padding:8px 14px !important;color:#3F3A6A !important;box-shadow:0 0 12px rgba(255,220,180,.35) !important}
+[data-wk="noteink"]{color:#3F3A6A !important}
+[data-wk="myactink"]{background:transparent !important;border:none !important;border-right:1px solid rgba(242,217,160,.6) !important;border-radius:0 !important;box-shadow:none !important;color:#FFF0CC !important;font-style:italic !important;padding:2px 14px 2px 0 !important;text-shadow:none !important}
+[data-wk="narrbar"]{background:rgba(70,64,150,.95) !important;border-top:1px solid rgba(242,217,160,.6) !important}
+[data-wk="narrkind"]{border:1px solid rgba(242,217,160,.6) !important;border-radius:999px !important;background:transparent !important;color:#D8D2F2 !important}
+[data-wk="narrkind"][data-on="1"]{background:#FBF2DC !important;border-color:#FBF2DC !important;color:#3F3A6A !important}
+[data-wk="rpsingle"] [data-wk="avatar"]{box-shadow:0 0 0 3px #FBF2DC,0 0 0 4px #D9B46A !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "午夜舞会", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

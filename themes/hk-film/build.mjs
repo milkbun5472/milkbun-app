@@ -346,6 +346,24 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chathead"] + *:not([data-wk="body"]) svg{stroke:${C.cream} !important}
 [data-wk="offline"] [data-wk="offbody"]{color:${C.cream} !important}
 [data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]),[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]) > :not([data-wk]){color:${C.dim} !important}
+/* ───── 补齐（照 README 新加的几条）：打电话整屏、电话小结、我的动作、旁白栏、私聊红包头像 ───── */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle at 20% 25%,rgba(224,138,58,.35),transparent 45%),radial-gradient(circle at 85% 65%,rgba(200,50,58,.35),transparent 50%),#14100D !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#EDE2CF !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:#9C8E78 !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:transparent !important;box-shadow:0 0 0 1.4px #EDE2CF !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#EDE2CF !important}
+[data-wk="callbtns"] button > span:first-child{background:transparent !important;border-radius:0 !important;box-shadow:0 0 0 1.4px #EDE2CF !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#EDE2CF !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#C62A30 !important;box-shadow:0 0 0 1.4px #E0353A,0 0 18px rgba(224,53,58,.5) !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:#9C8E78 !important}
+[data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;max-width:86% !important;background:rgba(20,16,13,.6) !important;border:none !important;border-left:3px solid #E0353A !important;border-radius:0 !important;padding:8px 14px !important;color:#EDE2CF !important;box-shadow:none !important}
+[data-wk="noteink"]{color:#EDE2CF !important}
+[data-wk="myactink"]{background:transparent !important;border:none !important;border-right:3px solid #E0353A !important;border-radius:0 !important;box-shadow:none !important;color:#EDE2CF !important;font-style:italic !important;padding:2px 14px 2px 0 !important;text-shadow:none !important}
+[data-wk="narrbar"]{background:#14100D !important;border-top:1px solid #8C7148 !important}
+[data-wk="narrkind"]{border:1px solid rgba(237,226,207,.4) !important;border-radius:999px !important;background:transparent !important;color:#9C8E78 !important}
+[data-wk="narrkind"][data-on="1"]{background:#EDE2CF !important;border-color:#EDE2CF !important;color:#14100D !important}
+[data-wk="rpsingle"] [data-wk="avatar"]{box-shadow:0 0 0 1.4px #EDE2CF !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "港风旧梦", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

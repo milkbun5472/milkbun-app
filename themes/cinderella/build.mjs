@@ -141,6 +141,24 @@ button[data-wk="avatar"],span[data-wk="avatar"]{box-shadow:0 0 0 3px #fff,0 2px 
 [data-wk="send"]:active{transform:translateY(4px) !important;box-shadow:0 1px 0 ${C.blueD} !important}
 [data-wk="chatreply"]{width:34px !important;min-width:34px !important;height:34px !important;border-radius:0 !important;background:${svg(I_REPLY.replace(/stroke='#fff'/g, `stroke='${C.ink}'`))} center/contain no-repeat !important;box-shadow:none !important;margin-bottom:0 !important}
 [data-wk="chatreply"]:active{transform:scale(.9) !important;box-shadow:none !important}
+/* ───── 补齐（照 README 新加的几条）：打电话整屏、电话小结、我的动作、旁白栏、私聊红包头像 ───── */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle at 50% 22%,rgba(143,164,196,.25),transparent 55%),#F4EFE8 !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#4A4440 !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:#A79E94 !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:#E7DFD4 !important;box-shadow:0 5px 0 #CFC4B5 !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#5C5249 !important}
+[data-wk="callbtns"] button > span:first-child{background:#E7DFD4 !important;border-radius:6px !important;box-shadow:0 5px 0 #CFC4B5 !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#5C5249 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#8FA4C4 !important;box-shadow:0 5px 0 #6E83A3 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:#A79E94 !important}
+[data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;max-width:86% !important;background:#E7DFD4 !important;border:none !important;border-left:3px solid #8FA4C4 !important;border-radius:3px !important;padding:8px 14px !important;color:#5C5249 !important;box-shadow:0 4px 0 #CFC4B5 !important}
+[data-wk="noteink"]{color:#5C5249 !important}
+[data-wk="myactink"]{background:transparent !important;border:none !important;border-right:1px solid #CFC4B5 !important;border-radius:0 !important;box-shadow:none !important;color:#8A7F74 !important;font-style:italic !important;padding:2px 14px 2px 0 !important;text-shadow:none !important}
+[data-wk="narrbar"]{background:#FBF8F3 !important;border-top:1px solid #E6DED3 !important}
+[data-wk="narrkind"]{border:1px solid #CFC4B5 !important;border-radius:999px !important;background:transparent !important;color:#A79E94 !important}
+[data-wk="narrkind"][data-on="1"]{background:#8FA4C4 !important;border-color:#8FA4C4 !important;color:#fff !important}
+[data-wk="rpsingle"] [data-wk="avatar"]{box-shadow:0 0 0 3px #fff !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "灰与舞裙", look: { bubble, layout, customCSS: css.trim() }, assets: {} };

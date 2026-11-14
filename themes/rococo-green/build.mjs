@@ -362,6 +362,24 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chathead"] + *:not([data-wk="body"]) svg{stroke:${C.cream} !important}
 [data-wk="offline"] [data-wk="offbody"]{color:${C.cream} !important}
 [data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]),[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]) > :not([data-wk]){color:${C.dim} !important}
+/* ───── 补齐（照 README 新加的几条）：打电话整屏、电话小结、我的动作、旁白栏、私聊红包头像 ───── */
+[data-wk="call"][data-video="0"]{background:radial-gradient(circle at 50% 20%,rgba(216,178,106,.25),transparent 55%),linear-gradient(180deg,#245447,#183C34) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#F4EAD2 !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:#C9BFA6 !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:#2E6355 !important;box-shadow:0 0 0 2.5px #D8B26A,0 0 0 4px #9C7A3C !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#F4EAD2 !important}
+[data-wk="callbtns"] button > span:first-child{background:#2E6355 !important;border-radius:50% !important;box-shadow:0 0 0 2.5px #D8B26A,0 0 0 4px #9C7A3C !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#F4EAD2 !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:#D5603A !important;box-shadow:0 0 0 2.5px #D8B26A,0 0 0 4px #9C7A3C !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:#fff !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:#C9BFA6 !important}
+[data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;max-width:86% !important;background:#F4EAD2 !important;border:none !important;border-left:4px solid #D5603A !important;border-radius:4px 12px 12px 4px !important;padding:8px 14px !important;color:#3B2E22 !important;box-shadow:0 0 0 1.5px #D8B26A !important}
+[data-wk="noteink"]{color:#3B2E22 !important}
+[data-wk="myactink"]{background:transparent !important;border:none !important;border-right:2px solid #D8B26A !important;border-radius:0 !important;box-shadow:none !important;color:#C9BFA6 !important;font-style:italic !important;padding:2px 14px 2px 0 !important;text-shadow:none !important}
+[data-wk="narrbar"]{background:#F4EAD2 !important;border-top:2px solid #D8B26A !important}
+[data-wk="narrkind"]{border:1px solid #D8B26A !important;border-radius:999px !important;background:transparent !important;color:#8C7F66 !important}
+[data-wk="narrkind"][data-on="1"]{background:#2E6355 !important;border-color:#2E6355 !important;color:#F4EAD2 !important}
+[data-wk="rpsingle"] [data-wk="avatar"]{box-shadow:0 0 0 2.5px #D8B26A,0 0 0 4px #9C7A3C !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "翡翠沙龙", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
