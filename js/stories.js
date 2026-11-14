@@ -5,10 +5,25 @@
 (function () {
   const KEY = "x_stories", DAY = 86400000, CAP = 400;
   const all = () => { const a = typeof loadJSON === "function" ? loadJSON(KEY, []) : []; return Array.isArray(a) ? a.filter(x => x && x.id && x.by) : []; };
-  const save = list => { saveJSON(KEY, list.slice(-CAP)); try { window.dispatchEvent(new Event("lisa-stories")); } catch (e) {} };
+  // 通知各处重画放到下一拍：sweep 可能在别的组件渲染途中被调到，当场派事件会在渲染里 setState
+  const save = list => { saveJSON(KEY, list.slice(-CAP)); setTimeout(() => { try { window.dispatchEvent(new Event("lisa-stories")); } catch (e) {} }, 0); };
   const live = (s, now) => (now || Date.now()) - Number(s.ts || 0) < DAY;
-  const activeOf = by => all().filter(s => String(s.by) === String(by) && live(s)).sort((a, b) => a.ts - b.ts);
-  const pastOf = by => all().filter(s => String(s.by) === String(by) && !live(s)).sort((a, b) => b.ts - a.ts);
+  // 同框（第三版）：她和 TA 一起发的那条（co＝TA），两边的头像框里都有
+  const owns = (s, by) => String(s.by) === String(by) || (s.co && String(s.co) === String(by));
+  // 秒删（第三版）：TA 发的时候定好过几分钟删（deleteAt）。到点前她看过的，留一条灰的「已删除」（ghost），没看过的整条消失
+  function sweep() {
+    const now = Date.now(), list = all(); let changed = false;
+    const next = list.filter(s => {
+      if (!s.deleteAt || s.ghost || now < s.deleteAt) return true;
+      changed = true;
+      if ((s.seen || {}).me && s.seen.me < s.deleteAt) return true;
+      if (s.imgKey && typeof idbImgDel === "function") idbImgDel(s.imgKey).catch(() => {});
+      return false;
+    }).map(s => s.deleteAt && !s.ghost && now >= s.deleteAt ? Object.assign({}, s, { ghost: true }) : s);
+    if (changed) save(next);
+  }
+  const activeOf = by => { sweep(); return all().filter(s => owns(s, by) && live(s)).sort((a, b) => a.ts - b.ts); };
+  const pastOf = by => all().filter(s => owns(s, by) && !live(s) && !s.ghost).sort((a, b) => b.ts - a.ts);
   const unseenBy = (by, viewer) => activeOf(by).some(s => !(s.seen || {})[viewer]);
   const patch = (id, fn) => save(all().map(s => s.id === id ? fn(s) : s));
   const markSeen = (id, viewer) => { const s = all().find(x => x.id === id); if (!s || (s.seen || {})[viewer]) return; patch(id, x => Object.assign({}, x, { seen: Object.assign({}, x.seen || {}, { [viewer]: Date.now() }) })); };
@@ -18,6 +33,9 @@
   const W = 1080, H = 2340;
   const num = (v, lo, hi, d) => { const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; };
   const hex = v => /^#[0-9a-f]{3,8}$/i.test(String(v || "")) ? String(v) : "";
+  // 夜色底上压一个深色字就看不见了：太暗的换成米白
+  const dark = c => { const m = /^#([0-9a-f]{3}|[0-9a-f]{6})/i.exec(c || ""); if (!m) return true; let x = m[1]; if (x.length === 3) x = x.split("").map(ch => ch + ch).join("");
+    const r = parseInt(x.slice(0, 2), 16), g = parseInt(x.slice(2, 4), 16), b = parseInt(x.slice(4, 6), 16); return (r * 299 + g * 587 + b * 114) / 1000 < 110; };
   function layoutFrom(d, hasPhoto) {
     const C = window.Collage || {}, bgs = C.BGS || {}, fonts = ["hand", "brush", "serif", "sans"];
     const bg = bgs[d && d.bg] ? d.bg : "cream", font = fonts.indexOf(d && d.font) >= 0 ? d.font : "brush";
@@ -26,8 +44,12 @@
     ((d && d.texts) || []).slice(0, 6).forEach(tx => {
       const t = String((tx && (tx.t || tx.text)) || "").trim().slice(0, 40); if (!t) return;
       free.push({ type: "text", text: t, x: num(tx.x, 0.08, 0.92, 0.5) * W, y: num(tx.y, 0.05, 0.95, 0.5) * H, size: num(tx.size, 36, 180, 80),
-        color: hex(tx.color) || (bg === "night" ? "#f3eee8" : "#2b2b2b"), font: fonts.indexOf(tx.font) >= 0 ? tx.font : font, r: num(tx.r, -20, 20, 0), s: 1 });
+        color: (bg === "night" && dark(hex(tx.color))) ? "#f3eee8" : (hex(tx.color) || (bg === "night" ? "#f3eee8" : "#2b2b2b")), font: fonts.indexOf(tx.font) >= 0 ? tx.font : font, r: num(tx.r, -20, 20, 0), s: 1 });
     });
+    // 信息小贴纸（位置／天气／心情／正在听）：纸条样式的一小块字，放在 TA 挑的位置
+    const CHIP = { location: "📍", weather: "☁️", mood: "🙂", music: "🎵" };
+    ((d && d.chips) || []).slice(0, 3).forEach(c => { const t = String((c && c.text) || "").trim(); if (!t || !CHIP[c.type]) return;
+      free.push({ type: "text", text: CHIP[c.type] + " " + t.slice(0, 20), x: num(c.x, 0.15, 0.85, 0.3) * W, y: num(c.y, 0.04, 0.96, 0.1) * H, size: 44, color: "#2b2b2b", font: "sans", tstyle: "strip", r: 0, s: 1 }); });
     const deco = ((d && d.stickers) || []).slice(0, 8).map(st => ({ ch: String((st && (st.ch || st.emoji)) || "").slice(0, 4), x: num(st && st.x, 0.05, 0.95, 0.5) * W, y: num(st && st.y, 0.03, 0.97, 0.5) * H,
       size: num(st && st.size, 50, 220, 110), r: num(st && st.r, -30, 30, 0) })).filter(x => x.ch);
     return { tpl: "blank", bg, font, free, deco, words: [], picks: [] };
@@ -40,7 +62,7 @@
     return await new Promise(ok => cv.toBlob(b => ok(b), "image/jpeg", 0.88));
   }
   // 存一条。blob 有了就直接存（她在拼壁纸编辑器里存的），没有就照 layout 画
-  async function add({ by, layout, photoBlob, blob, text, desc, manual, sticker, audience, raw, photoDesc, photoKind }) {
+  async function add({ by, layout, photoBlob, blob, text, desc, manual, sticker, audience, raw, photoDesc, photoKind, deleteAt, co, night, repostOf }) {
     const id = "st_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const img = blob || await renderCard(layout, photoBlob);
     if (!img || !img.size) throw new Error("卡没画出来");
@@ -49,7 +71,7 @@
     const row = { id, by: String(by), ts: Date.now(), imgKey, text: String(text || "").slice(0, 200), desc: String(desc || "").slice(0, 400), seen: {}, replies: [], ...(manual ? { manual: true } : {}),
       ...(normSticker(sticker) ? { sticker: normSticker(sticker) } : {}),
       // 这张卡还能补一张图（她 2026-11-14）：留着排版原稿和「这张图会画什么」，点生图就照它画了重排
-      ...(raw ? { raw } : {}), ...(photoDesc ? { photoDesc: String(photoDesc).slice(0, 200), photoKind: ["self", "view", "thing"].indexOf(photoKind) >= 0 ? photoKind : "self" } : {}), ...(photoBlob ? { photo: true } : {}), ...(Array.isArray(audience) && audience.length ? { audience: audience.map(String) } : {}) };
+      ...(raw ? { raw } : {}), ...(deleteAt ? { deleteAt } : {}), ...(co ? { co: String(co) } : {}), ...(night ? { night: true } : {}), ...(repostOf ? { repostOf } : {}), ...(photoDesc ? { photoDesc: String(photoDesc).slice(0, 200), photoKind: ["self", "view", "thing"].indexOf(photoKind) >= 0 ? photoKind : "self" } : {}), ...(photoBlob ? { photo: true } : {}), ...(Array.isArray(audience) && audience.length ? { audience: audience.map(String) } : {}) };
     save(all().concat([row]));
     return row;
   }
@@ -107,6 +129,9 @@
     return n / Math.max(A.size, B.size) >= 0.7;
   }
   const dupOf = (by, text) => activeOf(by).some(s => similar(s.text, text) || similar(s.desc, text));
+  // 快捷回应、存图（第三版）：都记在这一条上，TA 下次说话看得到
+  const react = (id, who, emo) => patch(id, s => Object.assign({}, s, { reacts: Object.assign({}, s.reacts || {}, { [who]: emo }) }));
+  const markSaved = (id, who) => patch(id, s => Object.assign({}, s, { saved: Object.assign({}, s.saved || {}, { [who]: Date.now() }) }));
   const addReply = (id, who, text) => patch(id, s => Object.assign({}, s, { replies: (s.replies || []).concat([{ who, text: String(text || "").slice(0, 300), ts: Date.now() }]).slice(-30) }));
 
   // ── 全屏看：顶上一排进度条，点左右翻，底下回一句 ──────────────────────
@@ -179,7 +204,9 @@
         // 左边三成点一下回上一条、右边点一下下一条；按住不放＝停在这一条（松手接着走）
         h("button", { "aria-label": "上一条", onClick: () => { if (!holdLong.current) go(-1); }, onPointerDown: () => holdStart(), onPointerUp: holdEnd, onPointerLeave: holdEnd, onPointerCancel: holdEnd, style: { position: "absolute", left: 0, top: 0, bottom: 0, width: "35%" } }),
         h("button", { "aria-label": "下一条", onClick: () => { if (!holdLong.current) go(1); }, onPointerDown: () => holdStart(), onPointerUp: holdEnd, onPointerLeave: holdEnd, onPointerCancel: holdEnd, style: { position: "absolute", right: 0, top: 0, bottom: 0, width: "65%" } }),
-        stickerUI),
+        stickerUI,
+        cur.ghost ? h("div", { "data-wk": "storyghost", style: { position: "absolute", inset: 0, zIndex: 4, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.55)", color: "#eee", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", textAlign: "center", padding: 30, lineHeight: 1.7 } },
+          (mine ? "你" : nameOf(s.by)) + " 把这条删了", h("br"), h("span", { style: { fontSize: "calc(12px * var(--app-fs, 1))", opacity: .8 } }, "删之前你已经看到了")) : null),
       // 这张图会画什么（她 2026-11-14）：TA 排卡时写好的，没配图的卡点「生图」就照这句补一张（自拍、随手拍的风景、手边的东西都行）
       cur.photoDesc && !cur.photo ? h("div", { "data-wk": "storyphotoline", className: "flex items-center", style: { gap: 8, padding: "8px 12px 0", background: "rgba(0,0,0,.6)", color: "#ddd", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5 } },
         h("button", { "data-wk": "storyphototoggle", onClick: () => setPhotoOpen(v => !v), className: "flex-1 min-w-0 text-left", style: { color: "#ddd", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: photoOpen ? "normal" : "nowrap" } },
@@ -199,6 +226,12 @@
             (s.replies || []).map((r, k) => h("div", { key: "r" + k, style: { color: "#fff" } }, nameOf(r.who) + "：" + r.text))) : null)
         : (!archive && onReply ? h("div", null,
           (() => { const others = Object.keys(cur.seen || {}).filter(w => w !== String(viewer)); return others.length ? h("div", { "data-wk": "storyothers", style: { color: "#ccc", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", marginBottom: 6 } }, others.map(nameOf).join("、") + " 也看过") : null; })(),
+          // 快捷回应（第三版）：点一下就像回了一个表情，进你们的聊天
+          h("div", { "data-wk": "storyreacts", className: "flex", style: { gap: 10, marginBottom: 8 } },
+            ["❤️", "😂", "😮", "😢", "🔥", "👏"].map(e => h("button", { key: e, onClick: () => { react(s.id, viewer, e); onReply && onReply(s, e, "react"); onClose(); }, style: { fontSize: 24, opacity: ((cur.reacts || {})[viewer] && cur.reacts[viewer] !== e) ? .45 : 1 } }, e)),
+            h("span", { style: { flex: 1 } }),
+            url ? h("button", { "data-wk": "storysave", onClick: async () => { try { const b = await (await fetch(url)).blob(); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "限时动态.jpg"; a.click(); markSaved(s.id, viewer); window.__toast && window.__toast("存好了"); } catch (e) {} },
+              style: { color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .85 } }, "存图") : null),
           h("div", { className: "flex items-center", style: { gap: 8 } },
             h("input", { "data-wk": "storyreply", value: draft, onChange: e => setDraft(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); }, onFocus: () => setTyping(true), onBlur: () => setTyping(false), placeholder: "回复 " + nameOf(s.by) + "…",
               style: { flex: 1, minWidth: 0, minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid rgba(255,255,255,.5)", background: "transparent", color: "#fff", fontFamily: F_BODY, fontSize: 16, outline: "none" } }),
@@ -228,5 +261,5 @@
       h("span", { className: "truncate", style: { maxWidth: 62, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, name)); };
     return h("div", { "data-wk": "storyhighlights", className: "flex", style: { gap: 10, overflowX: "auto", padding: "8px 0" } }, groups.map(([name, list]) => h(Dot, { key: name, name, list })));
   }
-  window.Stories = { KEY, DAY, all, live, activeOf, activeFor, visibleTo, audLabel, pastOf, unseenBy, markSeen, remove, layoutFrom, renderCard, add, addReply, applyCrowd, addPhoto, dupOf, similar, vote, answer, setHl, hlOf, normSticker, stickerLine, daysLeft, StoryViewer, StoryArchive, StoryHighlights };
+  window.Stories = { KEY, DAY, all, live, activeOf, activeFor, visibleTo, audLabel, pastOf, unseenBy, markSeen, remove, layoutFrom, renderCard, add, addReply, react, markSaved, sweep, applyCrowd, addPhoto, dupOf, similar, vote, answer, setHl, hlOf, normSticker, stickerLine, daysLeft, StoryViewer, StoryArchive, StoryHighlights };
 })();

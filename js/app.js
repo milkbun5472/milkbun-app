@@ -7130,15 +7130,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 限时动态（她 2026-11-14）：她挂着的那几条 TA 看得到（看到就算看过，她那边会显示）；TA 自己挂着的 TA 也记得
     storyLine: (() => {
       const SK = window.Stories; if (!SK || !char || char.npc) return "";
-      const hers = SK.activeFor("me", char.id), his = SK.activeOf(char.id), un = userName(profileFor(char.id));
+      const hers = SK.activeFor("me", char.id), his = SK.activeOf(char.id).filter(s => String(s.by) === String(char.id)), un = userName(profileFor(char.id));
       const ago = ts => { const m = Math.round((Date.now() - ts) / 60000); return m < 60 ? Math.max(1, m) + " 分钟前" : Math.round(m / 60) + " 小时前"; };
       const L = [];
-      if (hers.length) L.push(un + "挂着的限时动态（24 小时后自己收起；你刷到了，她那边看得到你看过）：\n" + hers.map(s => "· " + ago(s.ts) + "：" + (s.desc || s.text || "一张卡") + (s.sticker ? "；" + SK.stickerLine(s.sticker) + (s.sticker.type === "poll" && (s.sticker.votes || {})[char.id] != null ? "（你已经投了「" + s.sticker.opts[s.sticker.votes[char.id]] + "」）" : "") : "")).join("\n")
+      if (hers.length) L.push(un + "挂着的限时动态（24 小时后自己收起；你刷到了，她那边看得到你看过）：\n" + hers.map(s => "· " + ago(s.ts) + "：" + (s.desc || s.text || "一张卡") + (String(s.co) === String(char.id) ? "（这是你俩一起发的同框，挂在你们两个人的头像上）" : "") + (s.sticker ? "；" + SK.stickerLine(s.sticker) + (s.sticker.type === "poll" && (s.sticker.votes || {})[char.id] != null ? "（你已经投了「" + s.sticker.opts[s.sticker.votes[char.id]] + "」）" : "") : "")).join("\n")
         + "\n想提就在这一轮顺嘴提一句，不想提就当看过了。");
       if (his.length) L.push("你自己挂着的限时动态：" + his.map(s => "「" + (s.text || s.desc) + "」（" + ago(s.ts) + (SK.audLabel(s) ? "，" + SK.audLabel(s).replace("你", un) : "") + "）"
         + (s.sticker ? "，" + SK.stickerLine(s.sticker)
           + (s.sticker.type === "poll" && (s.sticker.votes || {}).me != null ? "，" + un + "投了「" + s.sticker.opts[s.sticker.votes.me] + "」" : "")
           + (s.sticker.type === "ask" && (s.sticker.answers || []).some(a => a.who === "me") ? "，" + un + "回答了：" + s.sticker.answers.filter(a => a.who === "me").map(a => a.text).join("／") : "") : "")
+          + (s.night ? "，半夜发的" : "")
+          + ((s.reacts || {}).me ? "，" + un + "回了个 " + s.reacts.me : "")
+          + ((s.saved || {}).me ? "，" + un + "把这张存下来了" : "")
+          + (s.ghost ? "，这条你后来删了，可" + un + "删之前已经看到了" : "")
+          + ((s.seen || {}).me && !(s.reacts || {}).me && !(s.replies || []).some(r => r.who === "me") && !s.ghost ? "，" + un + "看过了，什么也没说" : "")
           + ((s.replies || []).filter(r => r.who !== "me").length ? "，底下别人私下回你：" + s.replies.filter(r => r.who !== "me").slice(-4).map(r => (((characters || []).find(c => c.id === r.who) || {}).name || "某人") + "「" + r.text + "」").join("、") : "")).join("；"));
       return L.length ? "【限时动态】" + L.join("\n") : "";
     })(),
@@ -13340,6 +13345,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (_s.autoMoment) openCaps.push("moment");
       if (!char.npc && storyRoomFor(charId)) openCaps.push("story");
       if (!char.npc && window.Stories && window.Stories.activeFor("me", charId).some(s0 => s0.sticker && s0.sticker.type === "poll" && (s0.sticker.votes || {})[charId] == null)) openCaps.push("storyVote");
+      if (!char.npc && storyOnFor(charId) && window.Stories && window.Stories.activeFor("me", charId).some(s0 => !window.Stories.all().some(x => x.repostOf === s0.id && x.by === charId))) openCaps.push("storyRepost");
       if (isCouple) openCaps.push("whisper");
       // ── 刻一首歌进你俩的唱片（她 2026-09-03 点的，「言秋也给」）────────────
       // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
@@ -13406,6 +13412,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (_s.autoMoment) openCaps.push("moment");
       if (!char.npc && storyRoomFor(charId)) openCaps.push("story");
       if (!char.npc && window.Stories && window.Stories.activeFor("me", charId).some(s0 => s0.sticker && s0.sticker.type === "poll" && (s0.sticker.votes || {})[charId] == null)) openCaps.push("storyVote");
+      if (!char.npc && storyOnFor(charId) && window.Stories && window.Stories.activeFor("me", charId).some(s0 => !window.Stories.all().some(x => x.repostOf === s0.id && x.by === charId))) openCaps.push("storyRepost");
       if (isCouple) openCaps.push("whisper");
       if (ambientHint) capState.push(ambientHint.trim());
       // ⚠️一起听那两句也是从被删的旧基线里救回来的（她 2026-09-09 点名要）：
@@ -13795,7 +13802,7 @@ ${SCHED_LATER_SPEC}
 ${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；redPacket:{"amount":数字,"note":"写在红包上的一句"}=发红包（她拆开前看不到多少）；location:{"name":"地点"}=位置；stick:{"quote":"她某句话里的原话，照抄几个字","emoji":"一个 emoji"}=往她那句话上贴一个表情（像 QQ 的贴表情，贴在她气泡角上，不是一句话）；想贴的是你自己的表情包，就把 emoji 换成 "emote":"表情包关键词"；pat:true=用微信「拍一拍」戳她一下（聊天里只出现一行灰字，不是一句话；想拍就拍，不用再在 word 里写「拍了拍你」）${char.myPatSig ? "，那一行显示「你拍了拍她 " + char.myPatSig + "」" : ""}；patSig:"新后缀"=把你自己的拍一拍后缀换掉（她拍你时显示「她拍了拍你 ＋这半句」${char.patSig ? "，现在是「" + char.patSig + "」" : "，现在没有"}；真想换才换）；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有","at":"想让它几点送到（HH:MM，你那边的钟点），不填就是尽快"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回。text 照原话抄：抄的是你前面几轮已经发出去的某一条（说错了、发错了、漏了不该露的字），就撤那一条；是这一轮新写的，会先正常显示一秒再变成「已撤回」；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；storyVote:string=投她限时动态上那个投票：写你选的那一项原文；story:string=顺手发一条限时动态（挂 24 小时）：写你此刻想发的那一下是什么，一句话，App 另外把它排成一张竖版卡；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；redPacket:{"amount":数字,"note":"写在红包上的一句"}=发红包（她拆开前看不到多少）；location:{"name":"地点"}=位置；stick:{"quote":"她某句话里的原话，照抄几个字","emoji":"一个 emoji"}=往她那句话上贴一个表情（像 QQ 的贴表情，贴在她气泡角上，不是一句话）；想贴的是你自己的表情包，就把 emoji 换成 "emote":"表情包关键词"；pat:true=用微信「拍一拍」戳她一下（聊天里只出现一行灰字，不是一句话；想拍就拍，不用再在 word 里写「拍了拍你」）${char.myPatSig ? "，那一行显示「你拍了拍她 " + char.myPatSig + "」" : ""}；patSig:"新后缀"=把你自己的拍一拍后缀换掉（她拍你时显示「她拍了拍你 ＋这半句」${char.patSig ? "，现在是「" + char.patSig + "」" : "，现在没有"}；真想换才换）；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有","at":"想让它几点送到（HH:MM，你那边的钟点），不填就是尽快"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回。text 照原话抄：抄的是你前面几轮已经发出去的某一条（说错了、发错了、漏了不该露的字），就撤那一条；是这一轮新写的，会先正常显示一秒再变成「已撤回」；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；storyVote:string=投她限时动态上那个投票：写你选的那一项原文；storyRepost:string=把她最新那条限时动态转进你自己的动态，写你配的那句话；story:string=顺手发一条限时动态（挂 24 小时）：写你此刻想发的那一下是什么，一句话，App 另外把它排成一张竖版卡；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账；health:[{\"kind\":\"meal\",\"meal\":\"breakfast|lunch|dinner|snack\",\"name\":\"吃了什么\",\"kcal\":估的整数} 或 {\"kind\":\"water\",\"cups\":杯数} 或 {\"kind\":\"sport\",\"sport\":\"跑步等\",\"min\":分钟} 或 {\"kind\":\"weight\",\"kg\":数字} 或 {\"kind\":\"sleep\",\"bed\":\"HH:MM\",\"wake\":\"HH:MM\"} 或 {\"kind\":\"steps\",\"steps\":数字} 或 {\"kind\":\"mood\",\"v\":0到4}，每条都可带 \"date\":\"YYYY-MM-DD\"]=替她记进健康。这几个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，一句话就够。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不填 minutes）","about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填；**说了「我现在过去，二十分钟到」这种正往她那儿赶的话也算**；**约好了几点（「五点半门口逮你」「七点来接你」）也算，那就填 at，不填 minutes**（about 写「到了跟她说一声」，minutes 就是你说的路上要多久），minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}${_luckyLine}`;
@@ -15273,6 +15280,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 限时动态（她 2026-11-14）：TA 在回复里填了 story＝想顺手发一条，后台再花一次调用把它排成竖版卡，不卡着这一轮
       const _st = !char.npc && storyRoomFor(charId) && parsed.story && String(parsed.story).toLowerCase() !== "null" ? String(parsed.story).trim().slice(0, 120) : "";
       if (_st) storyMake(char, _st);
+      // 转发她的动态（第三版）：不另花调用——她那张卡原样放中间，TA 配的话写在上面
+      if (!char.npc && storyOnFor(charId) && parsed.storyRepost && String(parsed.storyRepost).toLowerCase() !== "null" && window.Stories) storyRepost(char, String(parsed.storyRepost).trim().slice(0, 60));
       // 投她的票（第二版）：选项原文对得上才算，对不上不猜
       if (!char.npc && parsed.storyVote && window.Stories) {
         const _v = String(parsed.storyVote).trim();
@@ -16352,6 +16361,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "。群里谁想把认识的人拉进来，在自己那条发言对象里加 \"invite\":\"那人的名字\"，只能拉自己认识的。" : "")
         + (_gRoles.owner || _gRoles.admins.length ? "群主能把群里任何一个人移出群聊" + (_gImIn ? "（" + userName(profile) + "也算，除非她自己是群主）" : "") + "，管理员只能移普通成员；群主谁也移不了。真要踢，在自己那条发言对象里加 \"kick\":\"成员名\"。" : "")
         + "拉人、踢人都是这个人照自己的性子、跟对方的关系、群里刚发生的事真会做的事，不是动不动就用；一轮里最多拉一个、踢一个。";
+      // 群里的人挂着的限时动态（第三版，她 2026-11-14「群里讨论」）：大家都刷得到，有人聊起来就聊，不聊也行；平行世界房间不带
+      const gStoryHint = (() => { const SK = window.Stories; if (!SK || _gPar) return "";
+        const rows = members.map(c => ({ c, l: SK.activeOf(c.id).filter(s0 => String(s0.by) === String(c.id) && SK.audLabel(s0) === "") })).filter(x => x.l.length)
+          .concat(_gImIn ? [{ c: { name: userName(profile) }, l: SK.activeOf("me").filter(s0 => s0.by === "me" && !(s0.audience || []).length) }] : []).filter(x => x.l.length);
+        return rows.length ? "\n【群里谁挂着限时动态】" + rows.map(x => x.c.name + "：" + x.l.map(s0 => "「" + (s0.text || s0.desc || "一张卡") + "」").join("、")).join("；") + "。大家都刷得到，有人想聊就聊起来，不聊也行。" : ""; })();
       const gRoleHint = (_gRoles.owner || _gRoles.admins.length) ? "\n【群主和管理员】"
         + (_gRoles.owner && (_gImIn || _gRoles.owner !== "me") && _gRoleName(_gRoles.owner) ? "群主是「" + _gRoleName(_gRoles.owner) + "」。" : "")
         + (_gRoles.admins.length ? "管理员：" + _gRoles.admins.filter(id => _gImIn || id !== "me").map(_gRoleName).filter(Boolean).map(n => "「" + n + "」").join("、") + "。" : "")
@@ -16598,7 +16612,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 群里拍一拍（她 2026-10-25）：她在群里时能拍她或别的成员；旁观群里只能拍群里的人
       const gStickField = ",\"stick\":{\"quote\":\"（可选）群里某条消息里的原话，照抄几个字\",\"emoji\":\"一个 emoji\"}（想贴自己的表情包就把 emoji 换成 \"emote\":\"表情包关键词\"；往那条气泡上贴一个表情，像 QQ 的贴表情：群里谁的哪句话让你当下有了反应、这个反应一个表情就说得清的时候，就随手贴一个，贴了照样可以说话，也可以只贴不说；没有反应就整个省掉）";
       const gPatField = ",\"pat\":\"（可选）想用「拍一拍」戳谁一下就填那个人的名字（" + (imInGroup(group) ? gUName + " 或" : "") + "群里某位成员）；是一个动作，不是一句话，不用再在 text 里写「拍了拍」\"";
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + (() => { const _g0 = (groupsRef.current || []).find(x => x.id === groupId); const _n = groupNamedByNote(_g0, ""); return _n ? "\n【群名】" + _n + "（起名的那个人自己知道是自己起的）。" : ""; })() + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；定下的是以后的事，就加 " + SCHED_LATER_SPEC + "同样只填他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gStickField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gStoryHint + (() => { const _g0 = (groupsRef.current || []).find(x => x.id === groupId); const _n = groupNamedByNote(_g0, ""); return _n ? "\n【群名】" + _n + "（起名的那个人自己知道是自己起的）。" : ""; })() + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；定下的是以后的事，就加 " + SCHED_LATER_SPEC + "同样只填他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gStickField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -29216,6 +29230,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!out || !out.blob) throw new Error("没画出来");
     return out.blob;
   };
+  const storyRepost = async (char, comment) => {
+    const SK = window.Stories, src = SK.activeFor("me", char.id).filter(s0 => !SK.all().some(x => x.repostOf === s0.id && x.by === char.id)).pop();
+    if (!src || !comment) return;
+    try {
+      const blob = await idbImgGet(src.imgKey); if (!blob) return;
+      const raw = { bg: "cream", font: "brush", texts: [{ t: comment, x: 0.5, y: 0.1, size: 76, color: "#2b2b2b" }, { t: "转自 " + userName(profileFor(char.id)), x: 0.5, y: 0.93, size: 40, color: "#8a8a8a" }], photoY: 0.5 };
+      await SK.add({ by: char.id, layout: SK.layoutFrom(raw, true), photoBlob: blob, text: comment, desc: comment + "（转发了" + userName(profileFor(char.id)) + "的动态：" + (src.desc || src.text || "") + "）", repostOf: src.id });
+      toast((char.remark || char.name) + " 转发了你的限时动态");
+    } catch (e) {}
+  };
   // 查看页那颗「生图」：照卡上那句补一张，重排这张卡
   useEffect(() => {
     window.__storyGenPhoto = async st => {
@@ -29239,6 +29263,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 跟 TA 连着关系线的人（角色、配角都算）也会刷到（她 2026-11-14「别的角色和 npc 也可以投吧，如果设定和他有关系的话」）：
       //   不另花调用——排卡这一次里顺便写他们谁看了、投了哪个、回答了什么、私下回了一句什么
       const _rl = (a, b) => { const r = (rels || {})[a + "->" + b]; return r && (r.label || r.type) ? (r.label || r.type) : (r ? "认识" : ""); };
+      // 信息小贴纸现成的值：位置照状态卡／日程，心情照心情，正在听照一起听（只认跟她一起听的那首）
+      const _st0 = (statesRef.current || {})[char.id] || {};
+      const _chipVals = {};
+      { const pl = (typeof freshLiveStateValue === "function" && freshLiveStateValue(_st0, "place")) || ""; if (pl) _chipVals.location = String(pl).slice(0, 16); }
+      { const md = (moodsRef.current || {})[char.id]; const lb = md && (md.label || md.mood || (typeof md === "string" ? md : "")); if (lb) _chipVals.mood = String(lb).slice(0, 8); }
+      { const L = listenRef.current || {}; if (L.partnerId === char.id && player.songId && typeof resolveSong === "function") { const sg = resolveSong(player.songId); if (sg) _chipVals.music = String(sg.title || "").slice(0, 20); } }
+      const _hr = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now()).getHours(), _night = _hr < 5 || _hr >= 23;
       const related = (characters || []).filter(c => c && c.id !== char.id && ((rels || {})[char.id + "->" + c.id] || (rels || {})[c.id + "->" + char.id])).slice(0, 8);
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true, logLabel: "限时动态",
@@ -29252,8 +29283,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (related.length ? "跟你有关系的这几个人也会刷到这条：" + related.map(c => c.name + "（" + (_rl(char.id, c.id) || _rl(c.id, char.id)) + "）").join("、")
             + "。crowd 写他们里真会看到、会有反应的那几个（0 到 4 个，不是人人都理你）：name 是谁、answer 是回答你的提问框（你贴了才写）、vote 是投第几个选项（你贴了投票才写，0 或 1）、reply 是私下回你的一句（可空）。照各人跟你的关系和性子来。" : "")
           + "who 是这条给谁看（照你此刻想让谁看见来）：all 所有人可见、me 仅" + userName(profileFor(char.id)) + "可见" + (related.length ? "、close 密友可见（closeNames 列出你圈进密友的那几个名字，只能从上面跟你有关系的人里挑；" + userName(profileFor(char.id)) + "一直看得到）" : "") + "。"
+          // 信息小贴纸（第三版，她 2026-11-14「他可以选带什么放哪儿」）：位置、天气、心情、正在听，带不带、放哪由 TA 定，内容 App 照现成的填
+          + "chips 是可选的信息小贴纸，想带哪几样就写哪几样（0 到 3 个）：type 是 location 位置、weather 天气、mood 心情、music 正在听，x y 是放在卡上哪儿（0 到 1）"
+            + (_chipVals.weather ? "" : "；带 weather 的话 text 写此刻你那边的天气（几个字）") + "。现成能填的：" + (Object.keys(_chipVals).map(k => ({ location: "位置", weather: "天气", mood: "心情", music: "正在听" })[k] + "「" + _chipVals[k] + "」").join("、") || "暂时没有") + "。"
+          + "regret 是你发完会不会后悔删掉：不会就写 0；会的话写过几分钟删（3 到 60）。"
+          + (_night ? "现在是深夜，这条是半夜发的，卡会是夜色的底。" : "")
           + "字是你会发出去的那几句，不是解说。想的话可以加一个互动贴纸 sticker（不加就不写这一格）：提问框 {\"type\":\"ask\",\"q\":\"问她什么\"}、投票 {\"type\":\"poll\",\"q\":\"问题\",\"opts\":[\"选项一\",\"选项二\"]}、倒计时 {\"type\":\"countdown\",\"q\":\"倒数什么\",\"days\":几天后}。",
-        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + ",\"photo\":\"照片拍的是什么\",\"photoKind\":\"self|view|thing\",\"photoY\":0.45" + ",\"who\":\"all|me" + (related.length ? "|close\",\"closeNames\":[\"名字\"]" : "\"") + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
+        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + ",\"photo\":\"照片拍的是什么\",\"photoKind\":\"self|view|thing\",\"photoY\":0.45" + ",\"chips\":[{\"type\":\"location|weather|mood|music\",\"x\":0.2,\"y\":0.1}],\"regret\":0" + ",\"who\":\"all|me" + (related.length ? "|close\",\"closeNames\":[\"名字\"]" : "\"") + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
         maxTokens: 8000
       });
       let photoBlob = null;
@@ -29268,7 +29304,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _close = _who === "close" ? related.filter(c => ((d && d.closeNames) || []).some(n => n === c.name || n === c.remark)).map(c => c.id) : [];
       const _aud = _who === "me" ? ["me"] : _who === "close" && _close.length ? ["me"].concat(_close) : null;
       if (d && Array.isArray(d.crowd) && _aud) d.crowd = d.crowd.filter(x => { const c = related.find(r => x && (r.name === x.name || r.remark === x.name)); return c && _aud.indexOf(c.id) >= 0; });
-      const _row = await window.Stories.add({ by: char.id, manual: !!manual, sticker: d && d.sticker, audience: _aud, raw: d || null, photoDesc: d && d.photo, photoKind: d && d.photoKind, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea || "…" }] }, !!photoBlob), photoBlob,
+      // 深夜换夜色底；信息小贴纸按 TA 挑的位置排进卡里
+      if (d && _night) d.bg = "night";
+      if (d) d.chips = ((d.chips || []).slice(0, 3)).map(c0 => { const tp = ["location", "weather", "mood", "music"].indexOf(c0 && c0.type) >= 0 ? c0.type : ""; const v = tp && (_chipVals[tp] || (tp === "weather" ? String(c0.text || "").slice(0, 12) : "")); return v ? { type: tp, text: v, x: c0.x, y: c0.y } : null; }).filter(Boolean);
+      const _regret = d && Number(d.regret) >= 3 ? Math.min(60, Number(d.regret)) : 0;
+      const _row = await window.Stories.add({ by: char.id, manual: !!manual, sticker: d && d.sticker, audience: _aud, night: _night, deleteAt: _regret ? Date.now() + _regret * 60000 : 0, raw: d || null, photoDesc: d && d.photo, photoKind: d && d.photoKind, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea || "…" }] }, !!photoBlob), photoBlob,
         text: idea || texts.join(" "), desc: texts.join(" / ") + (photoBlob && d.photo ? "（配了一张照片：" + String(d.photo).slice(0, 80) + "）" : "") });
       // 那几个人的反应落到这一条上：名字对得上关系线里的人才算，不认识的名字不收
       if (_row && Array.isArray(d && d.crowd)) window.Stories.applyCrowd(_row.id, d.crowd.map(x => { const c = related.find(r => x && (r.name === x.name || r.remark === x.name)); return c ? Object.assign({}, x, { who: c.id }) : null; }).filter(Boolean));
@@ -35265,7 +35305,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onStoryReply: (st, tx, kind) => {
       const c = (characters || []).find(x => x && String(x.id) === String(st.by));
       if (!c) return;
-      pChat(c.id, p => [...p, { role: "user", content: tx, replyTo: kind === "ask" && st.sticker ? "【限时动态·回答提问】" + st.sticker.q : "【限时动态】" + (st.text || st.desc || "一张卡"), ts: Date.now(), read: true }]);
+      pChat(c.id, p => [...p, { role: "user", content: tx, replyTo: kind === "ask" && st.sticker ? "【限时动态·回答提问】" + st.sticker.q : (kind === "react" ? "【对限时动态的回应】" : "【限时动态】") + (st.text || st.desc || "一张卡"), ts: Date.now(), read: true }]);
       if (window.Stories) window.Stories.addReply(st.id, "me", tx);
       toast("回复发到跟 " + (c.remark || c.name) + " 的聊天里了");
     },

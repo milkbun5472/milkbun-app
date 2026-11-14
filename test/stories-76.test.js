@@ -79,3 +79,14 @@ test("TA 自己挑谁能看：仅她、密友、所有人", () => {
   assert.equal(S.audLabel({ by: "c1", audience: ["me"] }), "仅你可见"); assert.equal(S.audLabel({ by: "c1", audience: ["me", "c2"] }), "密友可见");
   assert.match(A, /const _aud = _who === "me" \? \["me"\] : _who === "close" && _close\.length \? \["me"\]\.concat\(_close\) : null;/);
 });
+test("第三版：表情回应、存图、秒删、深夜、信息贴纸、转发、同框、群里", () => {
+  const J = R("stories.js"), A = R("app.js"), C = R("components.js");
+  assert.match(J, /\["❤️", "😂", "😮", "😢", "🔥", "👏"\]/); assert.match(J, /markSaved\(s\.id, viewer\)/);
+  assert.match(J, /function sweep\(\)/); assert.match(J, /"data-wk": "storyghost"/);
+  const L = window.Stories.layoutFrom({ bg: "night", texts: [{ t: "睡不着", color: "#111111" }], chips: [{ type: "location", text: "江边", x: .3, y: .1 }] }, false);
+  assert.equal(L.free.find(f => f.text === "睡不着").color, "#f3eee8"); assert.ok(L.free.some(f => f.text === "📍 江边" && f.tstyle === "strip"));
+  assert.match(A, /deleteAt: _regret \? Date\.now\(\) \+ _regret \* 60000 : 0/); assert.match(A, /if \(d && _night\) d\.bg = "night";/);
+  assert.match(A, /storyRepost:string=/); assert.match(A, /const storyRepost = async \(char, comment\) =>/);
+  assert.match(A, /看过了，什么也没说/); assert.match(A, /把这张存下来了/);
+  assert.match(C, /"data-wk": "storyco"/); assert.match(A, /const gStoryHint = /);
+});

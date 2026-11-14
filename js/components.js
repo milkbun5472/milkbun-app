@@ -9581,6 +9581,11 @@ function Messages({
       h("div", { "data-wk": "storyaud", className: "flex flex-wrap", style: { gap: 6 } },
         (characters || []).filter(c => c && !c.npc).map(c => { const on = stPend.aud.indexOf(c.id) >= 0;
           return h("button", { key: c.id, onClick: () => setStPend(p => Object.assign({}, p, { aud: on ? p.aud.filter(x => x !== c.id) : p.aud.concat([c.id]) })), style: { padding: "5px 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, c.remark || c.name); })),
+      // 同框（第三版）：挑一个人一起发，这一条同时挂在你和 TA 的头像上
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "14px 0 6px" } }, "和谁一起发（同框，挂在你们两个人的头像上）"),
+      h("div", { "data-wk": "storyco", className: "flex flex-wrap", style: { gap: 6 } },
+        [{ id: "", name: "不用" }].concat((characters || []).filter(c => c && !c.npc)).map(c => { const on = (stPend.co || "") === c.id;
+          return h("button", { key: c.id || "none", onClick: () => setStPend(p => Object.assign({}, p, { co: c.id })), style: { padding: "5px 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, c.remark || c.name); })),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "14px 0 6px" } }, "贴一个互动贴纸（叠在卡上，看的人点得动）"),
       h("div", { "data-wk": "storystk", className: "flex flex-wrap", style: { gap: 6 } },
         [["", "不贴"], ["ask", "提问框"], ["poll", "投票"], ["countdown", "倒计时"]].map(([k, zh]) => h("button", { key: k || "none", onClick: () => setStPend(p => Object.assign({}, p, { stk: k })), style: { padding: "5px 12px", borderRadius: 999, border: "1px solid " + (stPend.stk === k ? t.ink : t.line), background: stPend.stk === k ? t.ink : "transparent", color: stPend.stk === k ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, zh))),
@@ -9594,7 +9599,7 @@ function Messages({
       h("button", { "data-wk": "storypost", onClick: async () => {
         const p0 = stPend, sticker = p0.stk ? { type: p0.stk, q: p0.q, opts: [p0.a, p0.b], days: p0.days } : null;
         if (p0.stk && !SK.normSticker(sticker)) { window.__toast && window.__toast(p0.stk === "poll" ? "投票要写问题和两个选项" : "贴纸上写点字"); return; }
-        try { await SK.add({ by: "me", blob: p0.blob, desc: p0.desc, audience: p0.aud, sticker }); setStPend(null); window.__toast && window.__toast("发出去了，挂 24 小时"); }
+        try { await SK.add({ by: "me", blob: p0.blob, desc: p0.desc, audience: p0.aud.length && p0.co && p0.aud.indexOf(p0.co) < 0 ? p0.aud.concat([p0.co]) : p0.aud, sticker, co: p0.co || "" }); setStPend(null); window.__toast && window.__toast("发出去了，挂 24 小时"); }
         catch (e) { window.__toast && window.__toast("没发出去：" + ((e && e.message) || "")); } }, className: "w-full active:opacity-80",
         style: { marginTop: 16, minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "发出去")) : null,
     characters.length === 0 && groups.length === 0 && h(Empty, { text: "还没有对话", sub: "先去通讯录或人格档案馆录入角色" }),
