@@ -9275,6 +9275,7 @@ function BackupBanner({ onOpenSettings }) {
       style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none" } }, "×"));
 }
 function Messages({
+  momCover, momCoverPos,
   onStoryNow,     // 让某个 TA 现在发一条限时动态（不占名额）
   onStoryReply,   // 回别人的限时动态（她 2026-11-14）：(story, text) → 落进跟 TA 的聊天
   onPinMoment,
@@ -9764,7 +9765,8 @@ function Messages({
     onDelete: onDelMoment,
     onTop: onTopMoment,
     onPin: onPinMoment,
-    onOpenProfile: cid => onOpenMomProfile && onOpenMomProfile(cid, false)
+    onOpenProfile: cid => onOpenMomProfile && onOpenMomProfile(cid, false),
+    cover: momCover, coverPos: momCoverPos, onOpenMine: () => onOpenMomProfile && onOpenMomProfile(null, true)
   }), tab === "me" && h("div", {
     className: "p-5"
   }, h("button", {
@@ -10601,8 +10603,10 @@ function MomentsFeed({
   onTop,
   onPin,
   onOpenProfile,
-  onDelComment
+  onDelComment,
+  cover, coverPos, onOpenMine
 }) {
+  const [camOpen, setCamOpen] = useState(false);   // 封面右上角相机：发朋友圈／让角色发／自动配图
   // 长按一条评论删掉（群友 2026-11-02）：按住 600ms，挪开手指就算了；按出来之后那一下不算点
   const [delCm, setDelCm] = useState(null);
   const cmPress = useRef({ t: null, fired: false });
@@ -10661,44 +10665,27 @@ function MomentsFeed({
       color: t.ink,
       whiteSpace: "pre-wrap"
     }
-  }, imgView), !isImgRef(imgView) && h(MomentGenImageButton, { momentId: imgMid, onDone: () => setImgView(null) }), h(MomentDescEdit, { momentId: imgMid, onDone: nextRef => { if (nextRef && isImgRef(nextRef)) setImgView(nextRef); } })), /*#__PURE__*/React.createElement("div", {
-    // 这一行只剩两个动作键（no-english-titles：原来左边那行英文眉标是装饰，
-    // 这一页叫什么顶栏已经写了）
-    className: "px-5 py-3 flex items-center justify-end",
-    style: {
-      borderBottom: `1px solid ${t.line}`
-    }
-  }, h("div", {
-    className: "flex items-center gap-4"
-  }, h("button", {
-    "data-wk": "mocompose",
-    onClick: onCompose,
-    className: "flex items-center gap-1.5",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: "calc(12px * var(--app-fs, 1))",
-      color: t.ink
-    }
-  }, h(PGlyph, {
-    k: "album",
-    size: 14,
-    color: t.ink
-  }), " 发朋友圈"), h("button", {
-    onClick: () => setPick(true),
-    className: "flex items-center gap-1.5",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: "calc(12px * var(--app-fs, 1))",
-      color: t.fog
-    }
-  }, h(IRefresh, {
-    size: 13,
-    color: t.fog
-  }), " 角色发"), h(MomentAutoImgSwitch, null))), gen && /*#__PURE__*/React.createElement(Spinner, {
+  }, imgView), !isImgRef(imgView) && h(MomentGenImageButton, { momentId: imgMid, onDone: () => setImgView(null) }), h(MomentDescEdit, { momentId: imgMid, onDone: nextRef => { if (nextRef && isImgRef(nextRef)) setImgView(nextRef); } })), // 顶上照微信那样：一张封面、右下角你的名字和头像（点了进你自己的朋友圈），右上角一颗相机，
+    //   点开挑「发朋友圈／让角色发」、自动配图的开关也在这儿（她 2026-11-14「跟微信一样，相机键可以选发朋友圈、让他发或者自动配图」）
+    //   原来那颗「发朋友圈」的挂点 mocompose 照旧挂在菜单里那一颗上
+    h("div", { "data-wk": "mocoverhead", style: { position: "relative", marginBottom: 46 } },
+      h("div", { "data-wk": "mocover", style: { height: 270, background: cover ? "center/cover no-repeat url(" + resolveImg(cover) + ")" : "linear-gradient(160deg," + t.bg + "," + t.line + ")", backgroundPosition: cover ? (coverPos || "center") : undefined } }),
+      h("button", { "data-wk": "mocam", "aria-label": "发朋友圈", onClick: () => setCamOpen(v => !v), className: "active:opacity-70",
+        style: { position: "absolute", top: 12, right: 14, width: 40, height: 40, borderRadius: 999, background: "rgba(0,0,0,.28)", display: "flex", alignItems: "center", justifyContent: "center" } },
+        h(ICamera, { size: 20, color: "#fff" })),
+      camOpen ? h("div", { "data-wk": "mocammenu", style: { position: "absolute", top: 58, right: 14, zIndex: 5, minWidth: 190, padding: "4px 0", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 8px 24px rgba(0,0,0,.18)" } },
+        h("button", { "data-wk": "mocompose", onClick: () => { setCamOpen(false); onCompose(); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
+          h(PGlyph, { k: "album", size: 15, color: t.ink }), "发朋友圈"),
+        h("button", { "data-wk": "mocharpost", onClick: () => { setCamOpen(false); setPick(true); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
+          h(IRefresh, { size: 14, color: t.ink }), "让角色发一条"),
+        h("div", { style: { padding: "6px 14px 8px", borderTop: "1px solid " + t.line } }, h(MomentAutoImgSwitch, null))) : null,
+      h("div", { className: "flex items-end", style: { position: "absolute", right: 16, bottom: -30, gap: 12 } },
+        h("button", { onClick: onOpenMine, "data-wk": "momyname", className: "active:opacity-70", style: { marginBottom: 38, fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,.55)" } }, (profile && profile.name) || "我"),
+        h("button", { onClick: onOpenMine, "data-wk": "momyavatar", className: "active:opacity-70" }, h(Avatar, { character: { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: profile && profile.color }, size: 68, radius: 10 })))), gen && /*#__PURE__*/React.createElement(Spinner, {
     label: "正在发朋友圈…"
   }), !gen && moments.length === 0 && /*#__PURE__*/React.createElement(Empty, {
     text: "朋友圈还没有动态",
-    sub: "点右上「发朋友圈」或「角色发」"
+    sub: "点封面右上角的相机，发一条或者让角色发"
   }), // 首页刷的那一列只按时间（她 2026-11-02：「置顶不应该挂在刷的地方，只在他朋友圈主页看得到」）；置顶只在个人主页排最前
     (moments || []).filter(m => !m || m.mine || !momMutedIds().includes(String(m.characterId))).map(m => {
     const isMine = m.mine;

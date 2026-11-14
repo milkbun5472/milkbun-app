@@ -161,3 +161,8 @@ test("朋友圈分享音乐：她能带歌、TA 能配歌、模型看得到", ()
   assert.ok(c.includes("function MomentMusic(") && c.includes('"momusicpick"') && c.includes("music: withMusic && music ? music : null"));
   assert.ok(a.includes("momentSong:string=") && a.includes("parsed.momentSong") && (a.match(/momMusicLine\(m/g) || []).length >= 3);
 });
+
+test("朋友圈顶上照微信：封面、相机菜单（发朋友圈／让角色发／自动配图），发朋友圈的挂点还在", () => {
+  const c = fs.readFileSync("js/components.js", "utf8");
+  assert.ok(c.includes('"data-wk": "mocoverhead"') && c.includes('"data-wk": "mocammenu"') && c.includes('"data-wk": "mocompose"') && c.includes("h(MomentAutoImgSwitch, null)"));
+});
