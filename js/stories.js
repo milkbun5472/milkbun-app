@@ -259,7 +259,7 @@
           "📷 " + ({ self: "自拍", view: "随手拍的", thing: "手边的东西" }[cur.photoKind] || "照片") + (photoOpen ? "：" + cur.photoDesc + " ︿" : " · 这张图会画什么 ﹀")),
         // 画好了：藏字只看照片、单独存这张
         cur.photoKey ? h("button", { "data-wk": "storybare", onClick: () => setBare(v => !v), style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff" } }, bare ? "显示字" : "隐藏字") : null,
-        cur.photoKey && rawUrl ? h("button", { "data-wk": "storyphotosave", onClick: async () => { try { const b = await (await fetch(rawUrl)).blob(); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "照片.jpg"; a.click(); window.__toast && window.__toast("存好了"); } catch (e) {} },
+        cur.photoKey && rawUrl ? h("button", { "data-wk": "storyphotosave", onClick: async () => { try { const b = await (await fetch(rawUrl)).blob(); if (typeof saveFile === "function") await saveFile(new File([b], "照片.jpg", { type: "image/jpeg" })); window.__toast && window.__toast("存好了"); } catch (e) {} },
           style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff" } }, "存照片") : null,
         !cur.photoKey && !cur.photo && window.__storyGenPhoto ? h("button", { "data-wk": "storyphotogen", disabled: genBusy, onClick: async () => { setGenBusy(true); try { await window.__storyGenPhoto(cur); bump(x => x + 1); } finally { setGenBusy(false); } },
           style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff", opacity: genBusy ? .5 : 1 } }, genBusy ? "画着…" : "生图") : null) : null,
@@ -279,7 +279,7 @@
           h("div", { "data-wk": "storyreacts", className: "flex", style: { gap: 10, marginBottom: 8 } },
             ["❤️", "😂", "😮", "😢", "🔥", "👏"].map(e => h("button", { key: e, onClick: () => { react(s.id, viewer, e); onReply && onReply(s, e, "react"); onClose(); }, style: { fontSize: 24, opacity: ((cur.reacts || {})[viewer] && cur.reacts[viewer] !== e) ? .45 : 1 } }, e)),
             h("span", { style: { flex: 1 } }),
-            url ? h("button", { "data-wk": "storysave", onClick: async () => { try { const b = await (await fetch(url)).blob(); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "限时动态.jpg"; a.click(); markSaved(s.id, viewer); window.__toast && window.__toast("存好了"); } catch (e) {} },
+            url ? h("button", { "data-wk": "storysave", onClick: async () => { try { const b = await (await fetch(url)).blob(); if (typeof saveFile === "function") await saveFile(new File([b], "限时动态.jpg", { type: "image/jpeg" })); markSaved(s.id, viewer); window.__toast && window.__toast("存好了"); } catch (e) {} },
               style: { color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .85 } }, "存图") : null),
           h("div", { className: "flex items-center", style: { gap: 8 } },
             h("input", { "data-wk": "storyreply", value: draft, onChange: e => setDraft(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); }, onFocus: () => setTyping(true), onBlur: () => setTyping(false), placeholder: "回复 " + nameOf(s.by) + "…",
@@ -302,7 +302,7 @@
       const sc = Math.max(cw / im.width, ch / im.height); g.save(); g.beginPath(); g.rect(x, y, cw, ch); g.clip();
       g.drawImage(im, x + (cw - im.width * sc) / 2, y + (ch - im.height * sc) / 2, im.width * sc, im.height * sc); g.restore();
     }
-    cv.toBlob(b => { if (!b) return; const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = (now.getMonth() + 1) + "月限时动态.jpg"; a.click(); window.__toast && window.__toast("拼好了"); }, "image/jpeg", 0.9);
+    cv.toBlob(async b => { if (!b) return; if (typeof saveFile === "function") await saveFile(new File([b], (now.getMonth() + 1) + "月限时动态.jpg", { type: "image/jpeg" })); window.__toast && window.__toast("拼好了"); }, "image/jpeg", 0.9);
   }
   function StoryArchive({ by, title, onOpen }) {
     const h = React.createElement, t = typeof useTheme === "function" ? useTheme() : {};
