@@ -58,3 +58,13 @@ test("跟 TA 有关系的人也会看、会投、会回——排卡那一次顺�
   assert.match(A, /window\.Stories\.applyCrowd\(_row\.id, d\.crowd\.map/);
   assert.match(A, /\\"crowd\\":\[/);
 });
+test("去重、自动翻页、头像、补图", () => {
+  const S = window.Stories, A = R("app.js"), J = R("stories.js");
+  assert.equal(S.similar("更衣室走廊温度正常", "更衣室走廊温度正常！"), true);
+  assert.equal(S.similar("下雨了", "今天吃火锅"), false);
+  assert.match(A, /if \(idea && window\.Stories\.dupOf\(char\.id, idea\)\) return;/);
+  assert.match(J, /const paused = held \|\| typing \|\| !!draft \|\| !!ans/); assert.match(J, /const DUR = 6000/);
+  assert.match(J, /window\.__storyAvatar/); assert.match(A, /window\.__storyGenPhoto = async st =>/);
+  assert.match(A, /raw: d \|\| null, photoDesc: d && d\.photo, photoKind: d && d\.photoKind,/);
+  assert.ok(J.indexOf("const DUR = 6000") < J.indexOf("if (!s) return null;"), "hook 在提前 return 前面");
+});

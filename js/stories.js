@@ -40,14 +40,16 @@
     return await new Promise(ok => cv.toBlob(b => ok(b), "image/jpeg", 0.88));
   }
   // 存一条。blob 有了就直接存（她在拼壁纸编辑器里存的），没有就照 layout 画
-  async function add({ by, layout, photoBlob, blob, text, desc, manual, sticker, audience }) {
+  async function add({ by, layout, photoBlob, blob, text, desc, manual, sticker, audience, raw, photoDesc, photoKind }) {
     const id = "st_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const img = blob || await renderCard(layout, photoBlob);
     if (!img || !img.size) throw new Error("卡没画出来");
     const imgKey = "img_" + id;
     await idbImgPut(imgKey, img);
     const row = { id, by: String(by), ts: Date.now(), imgKey, text: String(text || "").slice(0, 200), desc: String(desc || "").slice(0, 400), seen: {}, replies: [], ...(manual ? { manual: true } : {}),
-      ...(normSticker(sticker) ? { sticker: normSticker(sticker) } : {}), ...(Array.isArray(audience) && audience.length ? { audience: audience.map(String) } : {}) };
+      ...(normSticker(sticker) ? { sticker: normSticker(sticker) } : {}),
+      // 这张卡还能补一张图（她 2026-11-14）：留着排版原稿和「这张图会画什么」，点生图就照它画了重排
+      ...(raw ? { raw } : {}), ...(photoDesc ? { photoDesc: String(photoDesc).slice(0, 200), photoKind: ["self", "view", "thing"].indexOf(photoKind) >= 0 ? photoKind : "self" } : {}), ...(photoBlob ? { photo: true } : {}), ...(Array.isArray(audience) && audience.length ? { audience: audience.map(String) } : {}) };
     save(all().concat([row]));
     return row;
   }
@@ -85,6 +87,24 @@
   // 精选：过期的挑几条收成一组，起个名，挂在朋友圈主页顶上
   const setHl = (id, name) => patch(id, s => Object.assign({}, s, { hl: String(name || "").trim().slice(0, 12) || undefined }));
   const hlOf = by => { const m = new Map(); all().filter(s => String(s.by) === String(by) && s.hl).sort((a, b) => a.ts - b.ts).forEach(s => { if (!m.has(s.hl)) m.set(s.hl, []); m.get(s.hl).push(s); }); return [...m.entries()]; };
+  // 补一张图：照原稿加一格照片重画，换一把新的图库键（查看页认键变了才重读）
+  async function addPhoto(id, photoBlob) {
+    const s0 = all().find(x => x.id === id); if (!s0 || !s0.raw || !photoBlob) throw new Error("这一条补不了图");
+    const img = await renderCard(layoutFrom(s0.raw, true), photoBlob);
+    const key = "img_" + id + "_p" + Date.now().toString(36);
+    await idbImgPut(key, img);
+    patch(id, x => Object.assign({}, x, { imgKey: key, photo: true }));
+    if (s0.imgKey && typeof idbImgDel === "function") idbImgDel(s0.imgKey).catch(() => {});
+  }
+  // 去重：跟挂着的那几条说的是一回事，就不再发（她 2026-11-14「做一下去重」）
+  const norm = t => String(t || "").replace(/[\s，。！？!?,.、~…「」“”"'·\-]/g, "");
+  function similar(a, b) {
+    const x = norm(a), y = norm(b); if (!x || !y) return false;
+    if (x.indexOf(y) >= 0 || y.indexOf(x) >= 0) return true;
+    const A = new Set(x), B = new Set(y); let n = 0; A.forEach(ch => { if (B.has(ch)) n++; });
+    return n / Math.max(A.size, B.size) >= 0.7;
+  }
+  const dupOf = (by, text) => activeOf(by).some(s => similar(s.text, text) || similar(s.desc, text));
   const addReply = (id, who, text) => patch(id, s => Object.assign({}, s, { replies: (s.replies || []).concat([{ who, text: String(text || "").slice(0, 300), ts: Date.now() }]).slice(-30) }));
 
   // ── 全屏看：顶上一排进度条，点左右翻，底下回一句 ──────────────────────
@@ -99,8 +119,19 @@
     const [i, setI] = React.useState(Math.max(0, Math.min((list || []).length - 1, start || 0)));
     const [draft, setDraft] = React.useState(""), [seenOpen, setSeenOpen] = React.useState(false);
     const [ans, setAns] = React.useState(""), [hlName, setHlName] = React.useState(null), [, bump] = React.useState(0);
+    // 自己往下翻（她 2026-11-14）：每条停 6 秒；按着屏幕中间、在打字、点开了看过的人／收精选时停住
+    const DUR = 6000, holdT = React.useRef(0), holdLong = React.useRef(false);   // hook 都放在下面那个提前 return 之前
+    const [held, setHeld] = React.useState(false), [typing, setTyping] = React.useState(false), [el, setEl] = React.useState(0), [genBusy, setGenBusy] = React.useState(false);
+    const paused = held || typing || !!draft || !!ans || seenOpen || hlName != null || genBusy;
+    React.useEffect(() => { setEl(0); }, [i]);
+    React.useEffect(() => {
+      if (paused || !(list || [])[i]) return;
+      let last = Date.now();
+      const iv = setInterval(() => { const now = Date.now(), d = now - last; last = now; setEl(e => { const n = e + d; if (n >= DUR) { clearInterval(iv); setTimeout(() => go(1), 0); return DUR; } return n; }); }, 100);
+      return () => clearInterval(iv);
+    }, [paused, i]);
     const s = (list || [])[i];
-    const url = useBlobUrl(s && s.imgKey);
+    const url = useBlobUrl(s && ((all().find(x => x.id === s.id) || s).imgKey));   // 补了图换了键，现读一次才跟得上
     React.useEffect(() => { if (s && viewer && String(s.by) !== String(viewer)) markSeen(s.id, viewer); }, [s && s.id]);
     if (!s) return null;
     const mine = String(s.by) === String(viewer);
@@ -118,17 +149,20 @@
       st.type === "ask" ? (mine || archive
         ? h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: "#555", textAlign: "left", lineHeight: 1.6 } }, (st.answers || []).length ? st.answers.map((a, k) => h("div", { key: k }, nameOf(a.who) + "：" + a.text)) : "还没人回答")
         : h("div", { className: "flex", style: { gap: 6 } },
-            h("input", { "data-wk": "storyask", value: ans, onChange: e => setAns(e.target.value), placeholder: "回答…", style: { flex: 1, minWidth: 0, minHeight: 36, padding: "0 10px", borderRadius: 9, border: "1px solid #ccc", fontSize: 16 } }),
+            h("input", { "data-wk": "storyask", value: ans, onChange: e => setAns(e.target.value), onFocus: () => setTyping(true), onBlur: () => setTyping(false), placeholder: "回答…", style: { flex: 1, minWidth: 0, minHeight: 36, padding: "0 10px", borderRadius: 9, border: "1px solid #ccc", fontSize: 16 } }),
             h("button", { onClick: () => { const tx = ans.trim(); if (!tx) return; answer(s.id, viewer, tx); onReply && onReply(s, tx, "ask"); setAns(""); onClose(); }, style: { padding: "0 10px", color: "#e85d75" } }, "回答"))) : null);
     const go = d => { const n = i + d; if (n < 0) return; if (n >= list.length) { onClose(); return; } setI(n); setSeenOpen(false); };
     const seen = Object.entries(s.seen || {}).sort((a, b) => b[1] - a[1]);
+    const holdStart = () => { holdLong.current = false; clearTimeout(holdT.current); holdT.current = setTimeout(() => { holdLong.current = true; setHeld(true); }, 220); };
+    const holdEnd = () => { clearTimeout(holdT.current); if (held) setHeld(false); setTimeout(() => { holdLong.current = false; }, 0); };
     const send = () => { const tx = draft.trim(); if (!tx) return; onReply && onReply(s, tx); setDraft(""); onClose(); };
     const bar = { position: "absolute", left: 0, right: 0, zIndex: 2 };
     return h("div", { "data-wk": "storyview", style: { position: "fixed", inset: 0, zIndex: 120, background: "#000", display: "flex", flexDirection: "column" } },
       h("div", { style: Object.assign({}, bar, { top: 0, padding: "calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px", background: "linear-gradient(rgba(0,0,0,.45),transparent)" }) },
-        h("div", { className: "flex", style: { gap: 4 } }, list.map((x, k) => h("div", { key: x.id, style: { flex: 1, height: 2.5, borderRadius: 2, background: k <= i ? "#fff" : "rgba(255,255,255,.35)" } }))),
+        h("div", { className: "flex", style: { gap: 4 } }, list.map((x, k) => h("div", { key: x.id, style: { flex: 1, height: 2.5, borderRadius: 2, overflow: "hidden", background: "rgba(255,255,255,.35)" } },
+          h("div", { style: { height: "100%", background: "#fff", width: k < i ? "100%" : k > i ? "0%" : Math.min(100, el / DUR * 100) + "%" } })))),
         h("div", { className: "flex items-center", style: { gap: 8, marginTop: 8, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
-          avatarOf ? avatarOf(s.by) : null,
+          (avatarOf || window.__storyAvatar) ? (avatarOf || window.__storyAvatar)(s.by) : null,
           h("span", { style: { fontWeight: 600 } }, nameOf(s.by)),
           h("span", { style: { opacity: .7, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, archive ? new Date(s.ts).toLocaleDateString() : ago(s.ts)),
           h("span", { style: { flex: 1 } }),
@@ -136,9 +170,15 @@
           h("button", { "data-wk": "storyclose", "aria-label": "关掉", onClick: onClose, style: { color: "#fff", fontSize: 22, padding: "0 6px" } }, "×"))),
       h("div", { style: { flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" } },
         url ? h("img", { src: url, alt: s.text || "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain" } }) : h("div", { style: { color: "#aaa", fontFamily: F_BODY } }, "载入中…"),
-        h("button", { "aria-label": "上一条", onClick: () => go(-1), style: { position: "absolute", left: 0, top: 0, bottom: 0, width: "35%" } }),
-        h("button", { "aria-label": "下一条", onClick: () => go(1), style: { position: "absolute", right: 0, top: 0, bottom: 0, width: "65%" } }),
+        // 左边三成点一下回上一条、右边点一下下一条；按住不放＝停在这一条（松手接着走）
+        h("button", { "aria-label": "上一条", onClick: () => { if (!holdLong.current) go(-1); }, onPointerDown: () => holdStart(), onPointerUp: holdEnd, onPointerLeave: holdEnd, onPointerCancel: holdEnd, style: { position: "absolute", left: 0, top: 0, bottom: 0, width: "35%" } }),
+        h("button", { "aria-label": "下一条", onClick: () => { if (!holdLong.current) go(1); }, onPointerDown: () => holdStart(), onPointerUp: holdEnd, onPointerLeave: holdEnd, onPointerCancel: holdEnd, style: { position: "absolute", right: 0, top: 0, bottom: 0, width: "65%" } }),
         stickerUI),
+      // 这张图会画什么（她 2026-11-14）：TA 排卡时写好的，没配图的卡点「生图」就照这句补一张（自拍、随手拍的风景、手边的东西都行）
+      cur.photoDesc && !cur.photo ? h("div", { "data-wk": "storyphotoline", className: "flex items-center", style: { gap: 8, padding: "8px 12px 0", background: "rgba(0,0,0,.6)", color: "#ddd", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5 } },
+        h("span", { className: "flex-1 min-w-0" }, "📷 " + ({ self: "自拍", view: "随手拍的", thing: "手边的东西" }[cur.photoKind] || "照片") + "：" + cur.photoDesc),
+        window.__storyGenPhoto ? h("button", { "data-wk": "storyphotogen", disabled: genBusy, onClick: async () => { setGenBusy(true); try { await window.__storyGenPhoto(cur); bump(x => x + 1); } finally { setGenBusy(false); } },
+          style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff", opacity: genBusy ? .5 : 1 } }, genBusy ? "画着…" : "生图") : null) : null,
       h("div", { style: { padding: "10px 12px calc(env(safe-area-inset-bottom, 0px) + 10px)", background: "rgba(0,0,0,.6)" } },
         archive ? h("div", { "data-wk": "storyhl", className: "flex items-center", style: { gap: 8, color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
           hlName == null
@@ -153,7 +193,7 @@
         : (!archive && onReply ? h("div", null,
           (() => { const others = Object.keys(cur.seen || {}).filter(w => w !== String(viewer)); return others.length ? h("div", { "data-wk": "storyothers", style: { color: "#ccc", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", marginBottom: 6 } }, others.map(nameOf).join("、") + " 也看过") : null; })(),
           h("div", { className: "flex items-center", style: { gap: 8 } },
-            h("input", { "data-wk": "storyreply", value: draft, onChange: e => setDraft(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); }, placeholder: "回复 " + nameOf(s.by) + "…",
+            h("input", { "data-wk": "storyreply", value: draft, onChange: e => setDraft(e.target.value), onKeyDown: e => { if (e.key === "Enter") send(); }, onFocus: () => setTyping(true), onBlur: () => setTyping(false), placeholder: "回复 " + nameOf(s.by) + "…",
               style: { flex: 1, minWidth: 0, minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid rgba(255,255,255,.5)", background: "transparent", color: "#fff", fontFamily: F_BODY, fontSize: 16, outline: "none" } }),
             h("button", { onClick: send, style: { color: "#fff", fontFamily: F_BODY, padding: "0 6px" } }, "发送"))) : null)));
   }
@@ -181,5 +221,5 @@
       h("span", { className: "truncate", style: { maxWidth: 62, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, name)); };
     return h("div", { "data-wk": "storyhighlights", className: "flex", style: { gap: 10, overflowX: "auto", padding: "8px 0" } }, groups.map(([name, list]) => h(Dot, { key: name, name, list })));
   }
-  window.Stories = { KEY, DAY, all, live, activeOf, activeFor, visibleTo, pastOf, unseenBy, markSeen, remove, layoutFrom, renderCard, add, addReply, applyCrowd, vote, answer, setHl, hlOf, normSticker, stickerLine, daysLeft, StoryViewer, StoryArchive, StoryHighlights };
+  window.Stories = { KEY, DAY, all, live, activeOf, activeFor, visibleTo, pastOf, unseenBy, markSeen, remove, layoutFrom, renderCard, add, addReply, applyCrowd, addPhoto, dupOf, similar, vote, answer, setHl, hlOf, normSticker, stickerLine, daysLeft, StoryViewer, StoryArchive, StoryHighlights };
 })();

@@ -29205,8 +29205,32 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   TA 只说「想发什么」，排版这一下单独一次调用：背景、字体、几块字放哪、多大、什么颜色、贴纸——跟拼壁纸那一套同一份版面，
   //   画的也是同一支 Collage.draw。聊天设置里开了「限时动态配照片」、又能拍 TA 时，再多一次生图放一张 TA 此刻的照片。
   const storyBusyRef = useRef({});
+  // 拍限时动态那张：self 自拍走人像那条（锁脸），风景、手边的东西走空景那条（不画人，不喂参考照）
+  const storyShoot = async (char, desc, kind) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先在设置里配好生图");
+    const self = kind !== "view" && kind !== "thing" && (char.appearance || char.refPhoto);
+    const st = (statesRef.current || {})[char.id] || {};
+    const prompt = self ? buildPhotoPrompt(char, desc, st, { kind: "self", me: photoMe(userName(profileFor(char.id)), char.id), closet: closetTextFor(char.id) })
+      : buildScenePrompt(char, desc, kind === "thing" ? { body: false } : { forText: false });
+    const out = await generateSelfieImage(prompt, self && char.refPhoto ? [char.refPhoto] : null, {});
+    if (!out || !out.blob) throw new Error("没画出来");
+    return out.blob;
+  };
+  // 查看页那颗「生图」：照卡上那句补一张，重排这张卡
+  useEffect(() => {
+    window.__storyGenPhoto = async st => {
+      const c = (characters || []).find(x => x && String(x.id) === String(st.by));
+      if (!c || !st.photoDesc) return;
+      try { await window.Stories.addPhoto(st.id, await storyShoot(c, st.photoDesc, st.photoKind)); toast("画好了"); }
+      catch (e) { toast("没画出来：" + ((e && e.message) || "")); }
+    };
+    // 查看页左上角的头像（她 2026-11-14「左上角名字换成他的头像加名字」）
+    window.__storyAvatar = by => h(Avatar, { character: by === "me" ? { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage } : ((characters || []).find(x => x && String(x.id) === String(by)) || { name: "TA" }), size: 30, radius: 8 });
+  });
   const storyMake = async (char, idea, manual) => {
     if (!char || !window.Stories || !window.Collage || storyBusyRef.current[char.id]) return;
+    // 去重（她 2026-11-14）：TA 挂着的里已经有说这件事的，就不再发一条一样的
+    if (idea && window.Stories.dupOf(char.id, idea)) return;
     storyBusyRef.current[char.id] = true;
     try {
       const S = settingsFor(char.id) || {};
@@ -29222,24 +29246,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "bg 背景从这几种里挑一个：" + bgs + "；font 字体：hand 花体英文、brush 中文手写、serif 宋体、sans 黑体；"
           + "texts 是卡上的字，1 到 4 块，每块 t 写什么、x 和 y 是在卡上的位置（0 到 1，左上角是 0,0）、size 字号（40 到 160）、color 颜色（#hex）、r 歪多少度（-15 到 15）、font 可以单独换；"
           + "stickers 是贴纸，0 到 5 个 emoji，ch 是哪个、x y 位置、size 大小（60 到 200）。"
-          + (canPhoto ? "这条会配一张你此刻的照片，photo 写这张照片拍的是什么（一句画面描述），photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。" : "这条没有照片，就是一张排好字的卡。")
+          + "photo 写这张卡要配的那张照片拍的是什么（一句画面描述），photoKind 是哪一种：self 你自拍、view 随手拍的风景或场景、thing 手边的东西或吃的；photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。"
+          + (canPhoto ? "这张照片会马上拍出来放上去。" : "这张照片先不拍，卡上先只有字；她想看时会照你这句补拍。")
+          + ((window.Stories.activeOf(char.id) || []).length ? "你已经挂着这几条，别跟它们重样：" + window.Stories.activeOf(char.id).map(s0 => "「" + (s0.text || s0.desc) + "」").join("、") + "。" : "")
           + (related.length ? "跟你有关系的这几个人也会刷到这条：" + related.map(c => c.name + "（" + (_rl(char.id, c.id) || _rl(c.id, char.id)) + "）").join("、")
             + "。crowd 写他们里真会看到、会有反应的那几个（0 到 4 个，不是人人都理你）：name 是谁、answer 是回答你的提问框（你贴了才写）、vote 是投第几个选项（你贴了投票才写，0 或 1）、reply 是私下回你的一句（可空）。照各人跟你的关系和性子来。" : "")
           + "字是你会发出去的那几句，不是解说。想的话可以加一个互动贴纸 sticker（不加就不写这一格）：提问框 {\"type\":\"ask\",\"q\":\"问她什么\"}、投票 {\"type\":\"poll\",\"q\":\"问题\",\"opts\":[\"选项一\",\"选项二\"]}、倒计时 {\"type\":\"countdown\",\"q\":\"倒数什么\",\"days\":几天后}。",
-        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + (canPhoto ? ",\"photo\":\"照片拍的是什么\",\"photoY\":0.45" : "") + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
+        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + ",\"photo\":\"照片拍的是什么\",\"photoKind\":\"self|view|thing\",\"photoY\":0.45" + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
         maxTokens: 8000
       });
       let photoBlob = null;
       if (canPhoto && d && d.photo) {
-        try {
-          const st = (statesRef.current || {})[char.id] || {};
-          const prompt = buildPhotoPrompt(char, String(d.photo).slice(0, 200), st, { kind: "self", me: photoMe(userName(profileFor(char.id)), char.id), closet: closetTextFor(char.id) });
-          const out = await generateSelfieImage(prompt, char.refPhoto ? [char.refPhoto] : null, {});
-          photoBlob = out && out.blob ? out.blob : null;
-        } catch (e) { /* 照片没拍成就发纯字卡，不拦这一条 */ }
+        try { photoBlob = await storyShoot(char, String(d.photo).slice(0, 200), d.photoKind); } catch (e) { /* 照片没拍成就发纯字卡，不拦这一条 */ }
       }
+      // 照片会画成什么那句写过来了，最后排出来的字跟挂着的重样也不发
+      if (!idea && window.Stories.dupOf(char.id, ((d && d.texts) || []).map(x => x && (x.t || x.text)).filter(Boolean).join(" "))) return;
       const texts = ((d && d.texts) || []).map(x => x && (x.t || x.text)).filter(Boolean);
-      const _row = await window.Stories.add({ by: char.id, manual: !!manual, sticker: d && d.sticker, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea || "…" }] }, !!photoBlob), photoBlob,
+      const _row = await window.Stories.add({ by: char.id, manual: !!manual, sticker: d && d.sticker, raw: d || null, photoDesc: d && d.photo, photoKind: d && d.photoKind, layout: window.Stories.layoutFrom(d || { texts: [{ t: idea || "…" }] }, !!photoBlob), photoBlob,
         text: idea || texts.join(" "), desc: texts.join(" / ") + (photoBlob && d.photo ? "（配了一张照片：" + String(d.photo).slice(0, 80) + "）" : "") });
       // 那几个人的反应落到这一条上：名字对得上关系线里的人才算，不认识的名字不收
       if (_row && Array.isArray(d && d.crowd)) window.Stories.applyCrowd(_row.id, d.crowd.map(x => { const c = related.find(r => x && (r.name === x.name || r.remark === x.name)); return c ? Object.assign({}, x, { who: c.id }) : null; }).filter(Boolean));
