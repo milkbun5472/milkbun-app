@@ -25,7 +25,8 @@ test("消息列表：灰地白格，顶栏走公共 Head，24px 自写大标题�
   assert.match(seg, /h\(Head, \{\s*zh: TITLES\[tab\],\s*onBack: onBack,\s*bg: "transparent"/, "顶栏没走公共 Head");
   assert.ok(!/fontSize: "calc\(24px \* var\(--app-fs, 1\)\)"/.test(seg), "24px 的自写大标题还在");
   // 建群的 ＋ 还在（挪进了 Head 右槽），可点区不缩水
-  assert.match(seg, /tab === "chats" \? h\("button", \{\s*onClick: onNewGroup/, "聊天 tab 右上的 ＋ 丢了");
+  // 2026-11-14 加号左边多了一颗限时动态的小头像，＋ 还是那颗
+  assert.match(seg, /tab === "chats" \? h\("div"[\s\S]{0,1200}h\("button", \{\s*onClick: onNewGroup/, "聊天 tab 右上的 ＋ 丢了");
   assert.match(cut(seg, "onClick: onNewGroup", "IPlus"), /height: 34/, "＋ 的可点高度没了");
   // 「我」那页的卡片跟着翻过来：白卡压灰地（原来是 t.bg 卡压 t.bg2 壳，翻壳必须翻卡）
   const me = cut(seg, 'tab === "me"', 'tab === "contacts"');

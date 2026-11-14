@@ -9498,7 +9498,7 @@ function Messages({
   // 聊天格子是白的（t.bg2），地是灰的（外壳 t.bg）——置顶的在白格上再压一层淡灰
   const rowBg = id => pinnedSet.has(id) ? "linear-gradient(rgba(0,0,0,0.035),rgba(0,0,0,0.035)) " + t.bg2 : t.bg2;
   // 限时动态（她 2026-11-14）：头像外一圈框——没看过的是彩色，看过了是灰的；点头像看，点这一行照常进聊天
-  const [stView, setStView] = useState(null), [stMake, setStMake] = useState(false), [stAsk, setStAsk] = useState(false), [stPend, setStPend] = useState(null), [, stTick] = useState(0);
+  const [stView, setStView] = useState(null), [stMake, setStMake] = useState(false), [stAsk, setStAsk] = useState(false), [stPend, setStPend] = useState(null), [stMenu, setStMenu] = useState(false), [, stTick] = useState(0);
   useEffect(() => { const f = () => stTick(x => x + 1); window.addEventListener("lisa-stories", f); return () => window.removeEventListener("lisa-stories", f); }, []);
   const SK = window.Stories;
   const storyRing = (id, kid) => {
@@ -9532,14 +9532,20 @@ function Messages({
     zh: TITLES[tab],
     onBack: onBack,
     bg: "transparent",
-    right: tab === "chats" ? h("button", {
+    // 限时动态的入口收成加号旁边一颗自己的头像（她 2026-11-14「整套太长占位置」）：点开再选看自己的／我发／让 TA 发
+    right: tab === "chats" ? h("div", { className: "flex items-center" },
+      SK ? h("button", { "data-wk": "mystory", "aria-label": "限时动态", onClick: () => setStMenu(true), className: "active:opacity-60 flex items-center justify-center", style: { width: 38, height: 34 } },
+        h("span", { style: { display: "inline-block", padding: SK.activeOf("me").length ? 1.5 : 0, borderRadius: 9, background: SK.activeOf("me").length ? "linear-gradient(45deg,#f2a65a,#e85d75,#b05cd6)" : "transparent" } },
+          h("span", { style: { display: "block", padding: SK.activeOf("me").length ? 1 : 0, borderRadius: 8, background: t.bg2 } },
+            h(Avatar, { character: { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage }, size: 24, radius: 7 })))) : null,
+      h("button", {
       onClick: onNewGroup,
       className: "active:opacity-50 flex items-center justify-center",
       style: { width: 46, height: 34 }
     }, h(IPlus, {
       size: 20,
       color: t.ink
-    })) : null
+    }))) : null
   }),
   // ── 备份坏了要看得见：固定横幅读取 Cloud 的公共状态与标题。
   h(BackupBanner, { onOpenSettings }),
@@ -9553,13 +9559,15 @@ function Messages({
         h("input", { "data-wk": "input", value: q, onChange: e => setQ(e.target.value), placeholder: "搜索",
           className: "flex-1 outline-none", style: { background: "transparent", padding: "8px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }),
         q ? h("button", { onClick: () => setQ(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.fog, padding: "0 2px" } }, "×") : null)),
-    // 我的限时动态：挂着的点头像看（看谁看过），右边「发一条」进拼卡
-    SK && !q ? h("div", { "data-wk": "mystory", className: "flex items-center", style: { gap: 10, padding: "8px 16px", background: t.bg2, borderBottom: "1px solid " + t.line } },
-      storyRing("me", h(Avatar, { character: { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage }, size: 34, radius: 8 })),
-      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } },
-        SK.activeOf("me").length ? "我的限时动态 · 挂着 " + SK.activeOf("me").length + " 条，点头像看谁看过" : "限时动态 · 发一条，挂 24 小时"),
-      onStoryNow ? h("button", { "data-wk": "storynow", onClick: () => setStAsk(true), className: "active:opacity-60", style: { padding: "5px 10px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } }, "让 TA 发") : null,
-      h("button", { "data-wk": "mystorynew", onClick: () => setStMake(true), className: "active:opacity-60", style: { padding: "5px 12px", borderRadius: 999, border: "1px solid " + t.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, "发一条")) : null,
+    // 点头像弹的那一小张：看自己挂着的／我发一条／让 TA 发
+    stMenu && SK ? h(Sheet, { onClose: () => setStMenu(false) },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "限时动态"),
+      [SK.activeOf("me").length ? ["看我挂着的 " + SK.activeOf("me").length + " 条", "谁看过、谁回了什么", () => setStView({ list: SK.activeOf("me") }), "mystoryview"] : null,
+        ["我发一条", "拼一张竖版卡，挂 24 小时", () => setStMake(true), "mystorynew"],
+        onStoryNow ? ["让 TA 发", "挑一个人，TA 马上发一条（不占 TA 的名额，花一次调用）", () => setStAsk(true), "storynow"] : null].filter(Boolean)
+        .map(([zh, note, fn, wk]) => h("button", { key: wk, "data-wk": wk === "mystoryview" ? "mystoryview" : wk === "mystorynew" ? "mystorynew" : "storynow", onClick: () => { setStMenu(false); fn(); }, className: "w-full text-left active:opacity-60", style: { display: "block", padding: "11px 4px", borderTop: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, zh),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, note)))) : null,
     // 「让 TA 发」（她 2026-11-14「放一个更容易找到的入口」）：挑一个人，TA 马上排一张；这一条不占 TA 24 小时的名额，花一次调用
     stAsk ? h(Sheet, { onClose: () => setStAsk(false) },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "让谁现在发一条限时动态"),

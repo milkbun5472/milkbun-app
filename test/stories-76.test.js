@@ -31,7 +31,7 @@ test("她叫出来的那条不占名额", () => {
   const A = R("app.js"), C = R("components.js");
   assert.match(A, /activeOf\(id\)\.filter\(s => !s\.manual\)\.length >= storyMaxFor\(id\)/);
   assert.match(A, /onStoryNow: id => \{[^\n]*storyMake\(c, "", true\)/);
-  assert.match(C, /"data-wk": "storynow", onClick: \(\) => setStAsk\(true\)/); assert.match(C, /onStoryNow\(c\.id\)/);
+  assert.match(C, /\["让 TA 发", "[^"]*", \(\) => setStAsk\(true\), "storynow"\]/); assert.match(C, /onStoryNow\(c\.id\)/);
 });
 test("朋友圈里头像带框、点头像看动态、点名字进主页", () => {
   const C = R("components.js");
