@@ -9540,8 +9540,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 再与线下逐条记录按 ts 合成一条时间线。只进入本轮 prompt，不写回线下档案。
       // engineerEyes/言秋保持原路径，本修复不碰其专线与上下文预算。
       const _onlineCtxN = Math.max(0, Number(osFor(charId).onlineCtxN ?? settingsFor(charId).ctxN ?? 50));
+      const _prevOffEnd = (offlinesRef.current[scopeKey] || []).filter(x => x && x.endTs && x.id !== workSess.id).reduce((mx, x) => Math.max(mx, Number(x.endTs) || 0), 0);
       const _onlineInterlude = (settingsFor(charId).engineerEyes || !_onlineCtxN) ? [] : (chatsRef.current[sideRoom ? scopeKey : charId] || [])
         .filter(m => m && !m.recalled && m.content && !isOocMsg(m) && m.role !== "system" && m.kind !== "offlinelog")
+        // 只带上一场线下结束以后的线上话（群友 2026-11-15：连开几场线下，最早那几句线上每次都被当成新这一场的开头）：
+        //   更早的线上话发生在前几场之前，那几场有自己的归档；混进这一场的时间线，模型只会以为是刚刚的事
+        .filter(m => !_prevOffEnd || (m.ts || 0) > _prevOffEnd)
         .sort((a, b) => (a.ts || 0) - (b.ts || 0))
         .slice(-_onlineCtxN)
         .map(m => ({ id: "online:" + (m.id || m.ts || Math.random()), role: m.role === "user" ? "user" : "char", content: String(m.content), ts: m.ts || 0, _surface: "online" }));

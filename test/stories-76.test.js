@@ -248,3 +248,5 @@ test("论坛小号被她当面点破时有反应", () => { const a = fs.readFile
 test("限时动态可以只是 TA 自己的日子", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("限时动态是你自己日子的一角——照你今天的日程此刻在干嘛")); });
 
 test("她攒着没让 TA 回的几条，说清各是多久以前发的", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("const pendHint = (() =>") && a.includes("+ gapHint + pendHint + crossChannelHint")); });
+
+test("新开一场线下只带上一场结束以后的线上话", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("const _prevOffEnd = (offlinesRef.current[scopeKey] || [])") && a.includes(".filter(m => !_prevOffEnd || (m.ts || 0) > _prevOffEnd)")); });
