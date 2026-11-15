@@ -1,25 +1,25 @@
-import {makeWeatherEffects} from './emotion-weather.mjs?v=fg-cde9b8759c1380df';
-import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-cde9b8759c1380df';
-import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-cde9b8759c1380df';
-import {settleEmotionGround} from './emotion-ground.mjs?v=fg-cde9b8759c1380df';
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-cde9b8759c1380df';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-cde9b8759c1380df';
-import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-cde9b8759c1380df';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-cde9b8759c1380df';
-import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-cde9b8759c1380df';
-import {emotionPose} from './emotion-pose.mjs?v=fg-cde9b8759c1380df';
-import {makeEmotionProps,phoneTapTarget} from './emotion-props.mjs?v=fg-cde9b8759c1380df';
-import {makeDollLife} from './doll-life.mjs?v=fg-cde9b8759c1380df';
-import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-cde9b8759c1380df';
-import {makeUpperBody} from './upper-body.mjs?v=fg-cde9b8759c1380df';
-import {makeBentArms} from './bent-arms.mjs?v=fg-cde9b8759c1380df';
-import {makeHangingHair} from './hanging-hair.mjs?v=fg-cde9b8759c1380df';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE,eyesOf} from './wardrobe.mjs?v=fg-cde9b8759c1380df';
-import {makeSeatContact} from './seat-contact.mjs?v=fg-cde9b8759c1380df';
-import {makeSurfaceAttachment} from './surface-attachment.mjs?v=fg-cde9b8759c1380df';
+import {makeWeatherEffects} from './emotion-weather.mjs?v=fg-1fc5effbf36aaeef';
+import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-1fc5effbf36aaeef';
+import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-1fc5effbf36aaeef';
+import {settleEmotionGround} from './emotion-ground.mjs?v=fg-1fc5effbf36aaeef';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-1fc5effbf36aaeef';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-1fc5effbf36aaeef';
+import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-1fc5effbf36aaeef';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-1fc5effbf36aaeef';
+import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-1fc5effbf36aaeef';
+import {emotionPose} from './emotion-pose.mjs?v=fg-1fc5effbf36aaeef';
+import {makeEmotionProps,phoneTapTarget} from './emotion-props.mjs?v=fg-1fc5effbf36aaeef';
+import {makeDollLife} from './doll-life.mjs?v=fg-1fc5effbf36aaeef';
+import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-1fc5effbf36aaeef';
+import {makeUpperBody} from './upper-body.mjs?v=fg-1fc5effbf36aaeef';
+import {makeBentArms} from './bent-arms.mjs?v=fg-1fc5effbf36aaeef';
+import {makeHangingHair} from './hanging-hair.mjs?v=fg-1fc5effbf36aaeef';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE,eyesOf} from './wardrobe.mjs?v=fg-1fc5effbf36aaeef';
+import {makeSeatContact} from './seat-contact.mjs?v=fg-1fc5effbf36aaeef';
+import {makeSurfaceAttachment} from './surface-attachment.mjs?v=fg-1fc5effbf36aaeef';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-cde9b8759c1380df';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-cde9b8759c1380df';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-1fc5effbf36aaeef';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-1fc5effbf36aaeef';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -52,7 +52,7 @@ export const preloadHair=(ids=HAIR_STYLES)=>Promise.all(ids.map(hairSource));
 // 模型是 doll.glb：一个身体 ＋ 十二款头发（hair_<style> 各自成网格），每个人只显示一款。
 // ⚠️名字里不能带点：GLTFLoader 会把节点名里的点洗掉，hair.korean 到网页里就认不出来了。
 // ⚠️不要改回 traveler.glb——那一份是 art/fairy-garden 那套脚本自己的输入（doll_hair.SRC 读它）。
-export const HAIR_STYLES=['korean','curtains','airbang','bob','pixie','fluffy','longpart'];
+export const HAIR_STYLES=['korean','curtains','airbang','bob','pixie','fluffy','longpart','wolfcut','sweptback'];
 // 体型：六个参数以 1 为中性。形变规则只写在 clay_doll.deform 里，导出成形态键；
 // 这儿只把「值 - 1」送进 morphTargetInfluences，和 Blender 那边同一个算法。
 // ⚠️不要在这儿再实现一遍形变——那就是同一层活在两处。
@@ -426,6 +426,6 @@ export function createTraveler(source,companion=false,look={},appearance={}){
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource;
 export function loadTravelerSource(){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-cde9b8759c1380df'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-1fc5effbf36aaeef'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  return travelerSource;
 }

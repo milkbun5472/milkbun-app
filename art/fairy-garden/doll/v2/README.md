@@ -162,3 +162,42 @@ Checks: `refined-tee-assets.py` (unrelated meshes/morphs, denim preservation,
 64 cotton morph endpoints, idempotence), `outfit-dye-browser.cjs` (all seven
 outfits, independent regions/reset), `hand-coverage-browser.cjs` and the
 shared pose gallery. C07 source and body/hands are preserved.
+
+## 轻狼尾（wolfcut，2026-11-14）
+
+由 Lisa 提供的独立 GLB 发壳适配，不使用此前程序生成的试稿。
+源 SHA-256：`1a62c2baa182908a3fafe79d5946255d6699b1bbf09f28aa065dd631ed6b2710`。新 ID 使用
+`wolfcut`，旧存档 `wolf → korean` 的别名保持原义。保留来源全部 50,054 个
+三角面，基础贴图压至 1K WEBP，沿公共灰度染色及长发垂落机制加载。
+后颈以下渐进后移以避开连帽卫衣。2026-11-14 按 Lisa「太收紧，要蓬松」反馈，
+复用 fit_shell 的 XY_S 与 shape_hair 的仿射整形：横向比初版放宽 24.2%（比上一档再宽约 9.5%），
+前后加厚 8%，锚点 z=.25 以上向上展开 24%。保留发束拓扑、相邻顺序和刘海下缘高度。
+
+从项目根目录重建（源文件不进 main；SOURCE 为提供的 GLB 路径）：
+
+```sh
+INNER=.94 DZ=-.06 XY_S=1.08 TAIL_BACK=.055 Blender -b --python art/fairy-garden/doll/fit_shell.py -- "$SOURCE" art/fairy-garden/doll/v2/head-anchor.json /tmp/wolfcut-fit.glb
+WIDEN=.15 FLAT_K=-.24 FLAT_Z0=.25 Blender -b --python art/fairy-garden/doll/shape_hair.py -- /tmp/wolfcut-fit.glb /tmp/wolfcut-fluffy.glb
+TRIS=50054 TEX=1024 Blender -b --python art/fairy-garden/doll/compress_asset.py -- /tmp/wolfcut-fluffy.glb art/fairy-garden/doll/v2/web/hair_wolfcut.glb
+Blender -b --python art/fairy-garden/doll/add_hair.py -- wolfcut --lazy
+node scripts/build-fairy-garden.mjs
+```
+
+`--lazy` 从现役身体读取 HeadAnchor，只写该款 hair GLB 和发型目录，不重建
+身体、旧发型或衣服。完整母版组装仍从 `add_hair.HAIRS` 读取同一 web 件。
+
+## 后梳短发（sweptback，2026-11-14）
+
+Lisa 提供的独立发壳，源 SHA-256：`7a1239947684782a656f80e4cecb96850f2155745b0eea108244b11998803871`。
+保留全部 49,992 三角面、原有后梳分层与两侧弯曲鬓发。球面初拟合会让两侧发束
+埋进头皮，最终使用 INNER=1.18、DZ=-.10，额头留空、耳旁与后脑覆盖完整。
+只做整体适配，不改源发束拓扑；沿公共灰度染发与头部跟随机制加载；短发保持原形，不启用长发垂落。
+
+```sh
+INNER=1.18 DZ=-.10 Blender -b --python art/fairy-garden/doll/fit_shell.py -- "$SOURCE" art/fairy-garden/doll/v2/head-anchor.json /tmp/sweptback-fit.glb
+TRIS=49992 TEX=1024 Blender -b --python art/fairy-garden/doll/compress_asset.py -- /tmp/sweptback-fit.glb art/fairy-garden/doll/v2/web/hair_sweptback.glb
+Blender -b --python art/fairy-garden/doll/add_hair.py -- sweptback --lazy
+node scripts/build-fairy-garden.mjs
+```
+
+与其他发型是独立 ID，选择前按需下载；原身体、其他发型和衣服不重建。

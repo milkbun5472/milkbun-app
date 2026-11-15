@@ -2,14 +2,14 @@
 full assembly (assemble_v2.py) and this migration, which adds one style to the finished doll:
 Run: python3 -c "import sys,runpy;sys.argv=['x','--','<id>'];runpy.run_path('add_hair.py',run_name='__main__')"
 The label comes from ../hairstyles.json (the one list the runtime and tests pin); the web piece is
-v2/web/<file> (fit_shell.py -> shape_hair.py -> compress_asset.py TRIS=18000). Hair stays in the base
-doll.glb (always downloaded); split_outfits.py refreshes the app files afterwards."""
+v2/web/<file> (fit_shell.py -> shape_hair.py -> compress_asset.py TRIS=18000). Hair is exported separately under apps/fairy-garden/hair/. Use --lazy after the ID
+to add it using the deployed body, leaving every other asset untouched."""
 import bpy,sys,os,json,runpy
 HERE=os.path.dirname(os.path.abspath(__file__))
 WEB=os.path.join(HERE,'v2','web')
 LABELS_FILE=os.path.join(HERE,'..','hairstyles.json')
 HAIRS={'korean':'hair_m03.glb','curtains':'hair_m02.glb','airbang':'hair_f01.glb','bob':'hair_f02.glb','pixie':'hair_m04.glb',
-       'fluffy':'hair_h07.glb','longpart':'hair_h08.glb'}
+       'fluffy':'hair_h07.glb','longpart':'hair_h08.glb','wolfcut':'hair_wolfcut.glb','sweptback':'hair_sweptback.glb'}
 _grey=runpy.run_path(os.path.join(HERE,'outfit_slots.py'))['grey']
 
 def hang(hid,anchor):
@@ -37,15 +37,23 @@ def main():
     labels=json.load(open(LABELS_FILE))
     if hid not in labels:raise SystemExit('add a label for '+hid+' to hairstyles.json first')
     split=runpy.run_path(os.path.join(HERE,'split_outfits.py'))
-    split['load']()
+    lazy='--lazy' in sys.argv
+    if lazy:
+        # Add a supplied style to an already deployed doll without rebuilding other assets.
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        bpy.ops.import_scene.gltf(filepath=os.path.join(HERE,'..','..','..','apps','fairy-garden','doll.glb'))
+    else:split['load']()
     if bpy.data.objects.get('hair_'+hid):raise RuntimeError('hair already present: '+hid)
     strip_maps(hang(hid,bpy.data.objects['HeadAnchor']))
-    bpy.ops.object.select_all(action='SELECT')
-    bpy.ops.export_scene.gltf(filepath=split['MASTER'],**{**split['EXPORT'],'use_selection':False})
+    if lazy:
+        split['export'](lambda o:o.type=='ARMATURE' or o.name=='HeadAnchor' or o.get('hair')==hid,os.path.join(split['APP'],'hair',hid+'.glb'))
+    else:
+        bpy.ops.object.select_all(action='SELECT')
+        bpy.ops.export_scene.gltf(filepath=split['MASTER'],**{**split['EXPORT'],'use_selection':False})
     app=os.path.join(HERE,'..','..','..','apps','fairy-garden','doll.json');d=json.load(open(app));d['hair']=labels
     with open(app,'w') as f:json.dump(d,f,ensure_ascii=False,indent=1);f.write('\n')
     print('hair added',hid,labels[hid])
-    split['split']()
+    if not lazy:split['split']()
 
 if __name__=='__main__':
     main()

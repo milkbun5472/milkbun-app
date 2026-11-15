@@ -42,3 +42,21 @@ test("Stop hook 不再补投 outbox，独立推手负责确认后移票", () => 
   assert.ok(confirmed > 0 && remove > confirmed, "确认收下之后才能移除本地票");
   assert.match(push, /const rest = now\.startsWith\(raw\) \? now\.slice\(raw\.length\) : now;/, "投递期间新增的票必须留下");
 });
+
+// Preserve the already deployed root-discovery fix when a session enters a subfolder.
+test("子目录心跳沿用项目账本，不在子目录新开账本", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ledger-parent-"));
+  const state = path.join(root, ".claude/cc-ledger-state");
+  const child = path.join(root, "cards", "draft");
+  try {
+    fs.mkdirSync(state, { recursive:true });
+    fs.mkdirSync(path.join(root, ".claude/rules"), { recursive:true });
+    fs.writeFileSync(path.join(state, "tool-marks.jsonl"), "");
+    fs.mkdirSync(child, { recursive:true });
+    const result = spawnSync(process.execPath, [hook], { input:JSON.stringify({cwd:child,wake_source:"heartbeat"}), encoding:"utf8", timeout:10000 });
+    assert.equal(result.status, 0, result.stderr);
+    const rows = fs.readFileSync(path.join(state, "diagnostic.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+    assert.equal(rows.at(-1).outcome, "ignored_heartbeat");
+    assert.equal(fs.existsSync(path.join(child, ".claude")), false);
+  } finally { fs.rmSync(root, { recursive:true, force:true }); }
+});

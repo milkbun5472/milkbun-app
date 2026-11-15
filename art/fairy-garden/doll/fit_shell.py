@@ -63,6 +63,16 @@ if os.environ.get('SHORTEN_TO'):
             if back:w=min(1,max(0,(v.co.y+.1)/.4))
             nz=zs-(zs-v.co.z)*k_;v.co.z=v.co.z+(nz-v.co.z)*w
     print('shortened, factor',round(k_,3))
+# A small rearward fit below the nape lets long supplied tips lie outside a hood.
+# The part, fringe, crown and ear-height locks keep their original coordinates.
+TAIL_BACK=float(os.environ.get('TAIL_BACK',0))
+if TAIL_BACK:
+    Cz=AJ['center'][2];Rr=AJ['radius']
+    for v in H.data.vertices:
+        z=Cz+v.co.z*Rr;y=AJ['center'][1]+v.co.y*Rr
+        w=max(0,min(1,(.83-z)/.18));w=w*w*(3-2*w)
+        rear=max(0,min(1,(y+.01)/.08));rear=rear*rear*(3-2*rear)
+        v.co.y+=TAIL_BACK/Rr*w*rear
 H.data.update();H.name='hair'
 bpy.ops.object.select_all(action='DESELECT');H.select_set(True)
 bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',use_selection=True)
