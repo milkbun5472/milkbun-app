@@ -25,7 +25,7 @@ Lisa 2026-11-15 要求：每次做完，记下上一版容易出问题的地方�
 
 ## 当前可对照的版本与证据
 
-- **bamboo「竹纹交领袍」：2026-11-15 试穿稿，未注册正式衣柜、未发布、未获造型验收。** 源 a873ea…GLB 28030872 字节，最新 cuff-v2 袖口染色修正版 2609236 字节，SHA256 `8f0640f70e109cec8f6ad0bd45611de0a0b6860ec7b3fcfa050d4c07f80513f3`。六区（外袍／领袖缘／裤子／腰带／靴子／鞋底）、六体型、衣服自身 seated 形变；身体与公共运行时代码未改。袖缘浮点形变保留精度后，64 体型端点零翻面、6 个极小近零面积面（含切边细面）；全部 SHORT 量化曾导致袖缘 1 个翻面，已撤回。Chrome/WebKit 四档体型走坐抬手与换色检查通过且零页错。**坐姿侧面内层和领口接缝仍需造型复看；未实体 iPhone 或全身碰撞穷举。** 证据根为下述同聊天可视化目录的 `hunyuan-a873ea/cuff-v2/`，入口 README.md、review.html、delivery.json，最终实图与验证在 compressed/。正式接入仍须走公共目录并验证实际衣柜存档。
+- **bamboo「竹纹交领袍」：Lisa 于2026-11-15确认发布 cuff-v2 袖口修正版，已接公共衣柜目录。** 源 a873ea…GLB 28030872 字节，最新 cuff-v2 袖口染色修正版 2609236 字节，SHA256 `8f0640f70e109cec8f6ad0bd45611de0a0b6860ec7b3fcfa050d4c07f80513f3`。六区（外袍／领袖缘／裤子／腰带／靴子／鞋底）、六体型、衣服自身 seated 形变；身体与公共运行时代码未改。袖缘浮点形变保留精度后，64 体型端点零翻面、6 个极小近零面积面（含切边细面）；全部 SHORT 量化曾导致袖缘 1 个翻面，已撤回。Chrome/WebKit 四档体型走坐抬手与换色检查通过且零页错。**坐姿侧面内层和领口接缝仍需造型复看；未实体 iPhone 或全身碰撞穷举。** 证据根为下述同聊天可视化目录的 `hunyuan-a873ea/cuff-v2/`，入口 README.md、review.html、delivery.json，最终实图与验证在 compressed/。制作索引见 [bamboo.md](../art/fairy-garden/doll/bamboo.md)，正式衣柜与发布证据记录在本机 cuff-v2/release/。
 
 - **linen：v89.658 已发布 sleeve-v4。** 领口、肩线与袖口修订都包含在内；2037224 字节，SHA256 `97cb5bc02b43b5697499e27c31eb0f84ea76f130394f179889c742bea3f67dde`。袖口完整环偏角从 16.55°/18.69° 降至 .64°/.10°，偏心从 .01104/.02155 降至 .00177/.00043 模型单位。制作索引：[linen.md](../art/fairy-garden/doll/linen.md)。
 - **heritage：正式版仍是 shoulder-v6。** 抬高低肩并顺接领口袖根，详见 [heritage.md](../art/fairy-garden/doll/heritage.md)。后续 shoulder-v7 压缩试穿稿仍待看，未随 linen 发布；其他窗口不可拿它覆盖正式版。
