@@ -24,12 +24,16 @@
   <p>这台手机最近记下来的出错（最多 30 条）。复制下来发群里，就能看出是卡在哪一步，不用猜。</p>
   <pre id="logtext"></pre>
   <button id="copy">复制全部</button>
+  <h2 style="margin-top:22px">测一下下载</h2>
+  <p>把开机要用的那几个文件挨个下一遍，看每个用了几秒、有没有下完。只下载，不清理、不改任何东西；网慢的话要等一会儿，测完点上面「复制全部」会连结果一起复制。</p>
+  <button id="probe">开始测</button>
+  <pre id="probetext" hidden></pre>
 </section>
 </main>
 <script>
   // 目标版本只写这一处。以前散在六个地方，其中两处还是转义过的正则（53\.26），
   // 逐版 bump 的 sed 匹配不到字面量，于是它们悄悄停在旧版号上，救援页就永远校验失败。
-  const TARGET="89.640";
+  const TARGET="89.646";
 // 出错记录看得见（2026-11-03 立）：x_errlog 一直在记，但只有 console 里敲
 //   __errlog() 才看得到——群友白屏的时候谁也进不了 console，于是每一例都只能靠猜。
 //   救援页是白屏时唯一还能打开的页面，所以记录就摊在这儿，还能一键复制发群里。
@@ -39,12 +43,63 @@ function errReport() {
   let rows = [];
   try { rows = JSON.parse(localStorage.getItem("x_errlog") || "[]"); } catch (e) { rows = ["读不出记录本身：" + (e && e.message)]; }
   const head = ["出错记录 · " + new Date().toLocaleString("zh-CN"), "目标版本 v" + TARGET, navigator.userAgent, "共 " + rows.length + " 条"];
+  const probe = (document.getElementById("probetext") || {}).textContent || "";
+  if (probe) head.push("", probe);
   const body = rows.length
     ? rows.map(r => "[" + (r && r.t ? new Date(r.t).toLocaleString("zh-CN") : "?") + "] " + ((r && r.k) || "?") + " " + ((r && r.m) || "") + (r && r.x ? " @" + r.x : ""))
     : ["（这台手机上没记到任何出错。那白屏多半不是程序报错，而是文件没拉下来、或者卡在读本机存档这一步。）"];
   return head.concat("", body).join("\n");
 }
+// 测一下下载（她 2026-11-15：国内有人救援页打得开、app 进不去，记录里只有字体，看不出卡在哪）。
+//   开机脚本按首页里写的地址挨个拉一遍：每个多大、几秒、多快、断没断。
+//   ⚠️地址后面加一次性的 probe= 绕过离线缓存，量的是真网速；只读不写，不动任何缓存和存档。
+async function probeDownloads() {
+  const out = document.getElementById("probetext"), btn = document.getElementById("probe");
+  const lines = ["下载测速 · " + new Date().toLocaleString("zh-CN")];
+  const show = () => { out.textContent = lines.join("\n"); };
+  out.hidden = false; btn.disabled = true; btn.textContent = "测着呢…";
+  const one = async (url, label) => {
+    const ctl = new AbortController(), t0 = Date.now();
+    const timer = setTimeout(() => ctl.abort(), 120000);
+    let n = 0;
+    lines.push(label + " …"); show();
+    const at = lines.length - 1;
+    try {
+      const r = await fetch(url + (url.indexOf("?") >= 0 ? "&" : "?") + "probe=" + t0, { cache: "no-store", signal: ctl.signal });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const rd = r.body && r.body.getReader ? r.body.getReader() : null;
+      let text = "";
+      if (rd) { for (;;) { const c = await rd.read(); if (c.done) break; n += c.value.length; lines[at] = label + " 下到 " + Math.round(n / 1024) + "KB，" + ((Date.now() - t0) / 1000).toFixed(1) + " 秒"; show(); } }
+      else { text = await r.text(); n = text.length; }
+      const sec = (Date.now() - t0) / 1000;
+      lines[at] = label + "  " + Math.round(n / 1024) + "KB  " + sec.toFixed(1) + " 秒  " + Math.round(n / 1024 / Math.max(sec, 0.01)) + "KB/s";
+      return true;
+    } catch (e) {
+      const sec = ((Date.now() - t0) / 1000).toFixed(1);
+      lines[at] = label + "  ✗ " + (e && e.name === "AbortError" ? "两分钟没下完" : "断了：" + ((e && e.message) || e)) + "（下到 " + Math.round(n / 1024) + "KB，" + sec + " 秒）";
+      return false;
+    } finally { clearTimeout(timer); show(); }
+  };
+  try {
+    const t0 = Date.now();
+    const r = await fetch("./?probe=" + t0, { cache: "no-store" });
+    const html = await r.text();
+    lines.push("首页  " + Math.round(html.length / 1024) + "KB  " + ((Date.now() - t0) / 1000).toFixed(1) + " 秒"); show();
+    const re = /<script\b[^>]*\ssrc="([^"]+)"/g, urls = [];
+    let m; while ((m = re.exec(html))) { if (!/^https?:/.test(m[1]) && urls.indexOf(m[1]) < 0) urls.push(m[1]); }
+    // 公共版开机那几块是排队加载的，地址写在一段脚本的清单里，不是 <script src>
+    const re2 = /["'](js\/bundle[^"']*\.js\?v=[^"']+)["']/g;
+    while ((m = re2.exec(html))) { if (urls.indexOf(m[1]) < 0) urls.push(m[1]); }
+    let ok = 0;
+    for (const u of urls) { if (await one(u, u.split("?")[0])) ok++; }
+    lines.push("", "共 " + urls.length + " 个，下完 " + ok + " 个"); show();
+  } catch (e) {
+    lines.push("首页都没拿到：" + ((e && e.message) || e)); show();
+  }
+  btn.disabled = false; btn.textContent = "再测一次";
+}
 function showErrLog() {
+  document.getElementById("probe").onclick = probeDownloads;
   const box = document.getElementById("logbox");
   document.getElementById("logtext").textContent = errReport();
   box.hidden = false;

@@ -72,3 +72,15 @@ test("核验认得出 app.js 和 bundle.js 两种首页，正文判定容得下�
   assert.ok(body.includes("APP_VERSION\\\\s*=\\\\s*") || body.includes('APP_VERSION\\s*=\\s*'),
     "正文判定还在认死空格，minify 过的 bundle 会判失败");
 });
+
+// 2026-11-15：救援页能打开、app 进不去时，「测一下下载」把开机脚本挨个拉一遍量网速。
+test("救援页出错记录里有「测一下下载」：绕开离线缓存、只读不写、结果跟着复制", () => {
+  const path = require("path");
+  const html = fs.readFileSync(path.join(__dirname, "..", "rescue.html"), "utf8");
+  assert.ok(html.includes('id="probe"'), "缺开始测的按钮");
+  assert.match(html, /probe=" \+ t0, \{ cache: "no-store"/, "要带一次性参数、不走缓存，量的才是真网速");
+  assert.ok(html.includes('[^>]*\\ssrc="'), "只认真 src，别把延后脚本的 data-src 算进开机");
+  assert.ok(html.includes('if (probe) head.push("", probe);'), "测速结果要跟着「复制全部」一起出去");
+  const fn = html.slice(html.indexOf("async function probeDownloads"), html.indexOf("function showErrLog"));
+  assert.ok(!/localStorage\.(setItem|removeItem|clear)|caches\.delete|unregister/.test(fn), "测速不许写存档、不许清缓存");
+});
