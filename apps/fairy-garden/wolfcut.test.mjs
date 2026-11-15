@@ -18,5 +18,5 @@ test('supplied '+id+' keeps its source detail in one lazy, dyeable hair asset',(
 }
 test('new wolfcut has its own id without reinterpreting old wolf saves',()=>{
  assert.equal(hairId('wolfcut'),'wolfcut');assert.equal(hairId('wolf'),'korean');
- const catalog=JSON.parse(readFileSync(new URL('./doll.json',import.meta.url)));assert.equal(catalog.hair.wolfcut,'轻狼尾');assert.equal(catalog.hair.sweptback,'后梳短发');assert.equal(hairId('sweptback'),'sweptback');
+ const catalog=JSON.parse(readFileSync(new URL('./doll.json',import.meta.url)));assert.equal(catalog.hair.wolfcut,'轻狼尾');assert.equal(catalog.hair.sweptback,'蓬松背头');assert.equal(hairId('sweptback'),'sweptback');
 });

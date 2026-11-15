@@ -1,6 +1,6 @@
-import {postureFrame} from './pet-action.mjs?v=fg-1fc5effbf36aaeef';
-import {ROOM_LAYOUTS} from '../../apps/pets/room-layout.mjs?v=fg-1fc5effbf36aaeef';
-import {normalizePetMood,samplePetMood} from './pet-mood.mjs?v=fg-1fc5effbf36aaeef';
+import {postureFrame} from './pet-action.mjs?v=fg-8fdb32857a9abe74';
+import {ROOM_LAYOUTS} from '../../apps/pets/room-layout.mjs?v=fg-8fdb32857a9abe74';
+import {normalizePetMood,samplePetMood} from './pet-mood.mjs?v=fg-8fdb32857a9abe74';
 const TAU=Math.PI*2;
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const add=(a,b)=>a.map((v,i)=>v+b[i]);
