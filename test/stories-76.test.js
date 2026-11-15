@@ -63,10 +63,10 @@ test("去重、自动翻页、头像、补图", () => {
   assert.equal(S.similar("更衣室走廊温度正常", "更衣室走廊温度正常！"), true);
   assert.equal(S.similar("下雨了", "今天吃火锅"), false);
   assert.match(A, /if \(idea && window\.Stories\.dupOf\(char\.id, idea\)\) return;/);
-  assert.match(J, /const paused = held \|\| typing \|\| !!draft \|\| !!ans/); assert.match(J, /const DUR = 6000/);
+  assert.match(J, /const paused = held \|\| typing \|\| !!draft \|\| !!ans/); assert.match(J, /const DUR = 10000/);
   assert.match(J, /window\.__storyAvatar/); assert.match(A, /window\.__storyGenPhoto = async st =>/);
   assert.match(A, /raw: d \|\| null, photoDesc: d && d\.photo, photoKind: d && d\.photoKind,/);
-  assert.ok(J.indexOf("const DUR = 6000") < J.indexOf("if (!s) return null;"), "hook 在提前 return 前面");
+  assert.ok(J.indexOf("const DUR = 10000") < J.indexOf("if (!s) return null;"), "hook 在提前 return 前面");
 });
 test("谁的动态都能删、图会画什么默认收着", () => {
   const J = R("stories.js");
@@ -207,3 +207,13 @@ test("朋友圈评论框 16 号字、不撑宽（首页和主页）", () => { co
 test("周刊：采访没写成的那位留个位子能重刷", () => { const w = fs.readFileSync("js/weekly.js", "utf8"); assert.ok(w.includes("auto: true, failed: true,") && w.includes("Object.assign({}, en, fresh, { failed: false })")); });
 
 test("TA 朋友圈主页铺白、赞和评论一个框", () => { const c = fs.readFileSync("js/components.js", "utf8"); assert.ok(c.includes('overflowX: "hidden", background: momPaper(t) } },') && c.includes('"data-wk": "mocomments", className: "mt-2.5 rounded-lg px-3 py-2"')); });
+
+test("限时动态的字：长了折行、靠边的挪进来，整行都在卡里", () => {
+  global.window = { Collage: { BGS: { cream: {} } } }; global.loadJSON = () => []; global.saveJSON = () => true;
+  delete require.cache[require.resolve("../js/stories.js")]; require("../js/stories.js");
+  const L = window.Stories.layoutFrom({ texts: [{ t: "某人单方面宣布我不够健康还说我应该多运动多喝水早点睡觉", x: 0.92, y: 0.3, size: 120 }, { t: "短句", x: 0.92, y: 0.5, size: 90 }] }, false);
+  assert.ok(L.free.length >= 3);
+  L.free.forEach(f => { const w = Array.from(f.text).length * f.size * 1.02; assert.ok(w >= 1080 - 120 || (f.x - w / 2 >= 59 && f.x + w / 2 <= 1021), f.text); });
+});
+
+test("看动态从第一条没看过的翻起，全看过才从头", () => { const st = fs.readFileSync("js/stories.js", "utf8"); assert.ok(st.includes("if (start || archive) return") && st.includes(".seen || {})[viewer]);\n      return k >= 0 ? k : 0;")); });

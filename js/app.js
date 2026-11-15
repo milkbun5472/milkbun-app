@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.617";
+const APP_VERSION = "v89.622";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7076,6 +7076,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const rows = retrieveMemories(memPool, char.id, recallText, {
         limit: isLeanYanqiuChat ? 3 : (memCfgRef.current.topK || 5),
         source: ctxOpts && ctxOpts.chat === true ? "chat" : "background",
+        // 她最新说的那一句：里面的词召回时加重（她正在说的事优先，不被前面几条冲淡）
+        focusText: (() => { const L = (chatsRef.current[char.id] || []).filter(m => m && m.role === "user" && !m.recalled && !isOocMsg(m)); return L.length ? String(L[L.length - 1].content || "") : ""; })(),
         touch: !(ctxOpts && ctxOpts.debug === true)
       });
       if (!isLeanYanqiuChat) return rows;
