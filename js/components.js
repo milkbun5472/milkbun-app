@@ -19221,6 +19221,7 @@ function OfflineMode({
   const [sOnce, setSOnce] = useState(!!os.writeOnce);
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
   const [sOnlineN, setSOnlineN] = useState(os.onlineCtxN != null ? os.onlineCtxN : 50);
+  const [sRawN, setSRawN] = useState(os.rawBeats != null ? os.rawBeats : 50);   // 这一场原文最多带几拍（她 2026-11-15 转群友：线下聊久了一轮十万字输入）
   const [sSelf, setSSelf] = useState(os.selfP || "first");
   const [sUser, setSUser] = useState(os.userP || "second");
   const [sDesc, setSDesc] = useState(!!os.describeMe);
@@ -19282,7 +19283,7 @@ function OfflineMode({
     h(Head, { zh: offSetTab ? (offSetPages.find(x => x.key === offSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (offSetTab) { setOffSetTab(""); setOffSec(""); } else setSetOpen(false); },
-      right: h("button", { onClick: () => { onSaveSettings({ hideThought: !sShowTh, noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, looseOld: sLoose, writeOnce: sOnce, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss, fontSize: sFont, font: (window.FontChoice ? window.FontChoice.clean(sFace, ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts) : sFace), replyOpts: sOpts }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSaveSettings({ hideThought: !sShowTh, noAutoShot: sNoShot, presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, looseOld: sLoose, writeOnce: sOnce, memN: sMemN, onlineCtxN: sOnlineN, rawBeats: sRawN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss, fontSize: sFont, font: (window.FontChoice ? window.FontChoice.clean(sFace, ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts) : sFace), replyOpts: sOpts }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
       !offSetTab && h(SettingCatalog, { pages: offSetPages, onOpen: k => { setOffSetTab(k); setOffSec(""); } }),
       offShow("scene", "bg", "场景背景图",
@@ -19355,6 +19356,13 @@ function OfflineMode({
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, sOnlineN + " 条")),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "每轮线下按真实时间带入最近多少条线上私聊；开场前和线下进行中后来发的消息都会参与，并与线下记录按时间合流。"),
       h(Slider, { value: sOnlineN, min: 0, max: 100, step: 5, onChange: setSOnlineN }))),
+      offShow("bring", "raw", "这一场原文最多带几拍",
+    h("div", { "data-wk": "offrawbeats", className: "pt-5" },
+      h("div", { className: "flex items-baseline justify-between mb-1" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "这一场原文最多带几拍"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, sRawN + " 拍")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "正在进行的这一场，TA 每轮读的是还没浓缩的那几拍原文（TA 的和你的一起数）。攒到这个数，较早的就浓缩成前情提要（多花一次后台调用），只留最近三分之一原样。调小了每轮输入少、花得少，更早的细节只剩提要；默认 50。"),
+      h(Slider, { value: sRawN, min: 10, max: 50, step: 5, onChange: setSRawN }))),
       offShow("style", "preset", "吃入文风预设",
     h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab })),
       offShow("style", "custom", "自定义文风", styleSection),

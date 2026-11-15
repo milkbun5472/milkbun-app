@@ -9060,11 +9060,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const OFF_SUM_THRESH = 50, OFF_SUM_BUFFER = 15;
   // 这一场该拿哪一段去浓缩（单人线下、群线下共用，2026-10-20 收：原来两边各写一份）：
   //   攒够 OFF_SUM_THRESH 段才动；最后 OFF_SUM_BUFFER 段留着不浓缩（还在演）；出戏的不算；不到 4 段不值得调一次
-  const offlineSumBlock = sess => {
+  //   rawN：她在线下设置里调的「这一场原文最多带几拍」（她 2026-11-15）：攒到 rawN 就浓缩、留最近三分之一原文；没设照旧 50 / 15
+  const offSumPlan = rawN => { const n = Math.round(Number(rawN)); return n >= 10 && n < OFF_SUM_THRESH ? { thresh: n, buffer: Math.max(3, Math.round(n / 3)) } : { thresh: OFF_SUM_THRESH, buffer: OFF_SUM_BUFFER }; };
+  const offlineSumBlock = (sess, plan) => {
+    plan = plan || offSumPlan(0);
     const all = (sess && sess.msgs) || [];
     const lastSum = Math.min(sess.lastSummarizedCount || 0, all.length);
-    if (all.length - lastSum < OFF_SUM_THRESH) return null;
-    const block = all.slice(lastSum, all.length - OFF_SUM_BUFFER).filter(m => m && !isOocMsg(m));
+    if (all.length - lastSum < plan.thresh) return null;
+    const block = all.slice(lastSum, all.length - plan.buffer).filter(m => m && !isOocMsg(m));
     return block.length < 4 ? null : block;
   };
   // 这一场的前情提要（滚动总结攒的那一份）留多长。它进的是【线下进行中】的 prompt，
@@ -9110,7 +9113,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const sess = (offlinesRef.current[scopeKey] || []).find(s => s && !s.endTs);
     if (!sess) return;
     const all = sess.msgs || [];
-    const block = offlineSumBlock(sess);
+    const _plan = offSumPlan((osFor(charId) || {}).rawBeats);
+    const block = offlineSumBlock(sess, _plan);
     if (!block) return;
     offSumBusyRef.current[charId] = true;
     try {
@@ -9123,7 +9127,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const segMem = _roomSum ? [] : [addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })];
         if (!_roomSum) (r.details || []).forEach(dt => segMem.push(addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id })));
         if (!_roomSum) (r.open || []).forEach(op => segMem.push(addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true, ofs: sess.id })));
-        pOffline(scopeKey, list => list.map(s => s.id === sess.id ? offlineSumAppend(s, seg, all.length - OFF_SUM_BUFFER, segMem) : s));
+        pOffline(scopeKey, list => list.map(s => s.id === sess.id ? offlineSumAppend(s, seg, all.length - _plan.buffer, segMem) : s));
       }
     } catch (e) {/* 静默：滚动总结失败下轮再试 */ }
     finally { offSumBusyRef.current[charId] = false; }
