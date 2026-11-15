@@ -244,3 +244,5 @@ test("外卖挪到购物旁边（一次）", () => {
 });
 
 test("论坛小号被她当面点破时有反应", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("她要是在楼里当面点破这个小号就是你，你就不再只是一个陌生网友")); });
+
+test("限时动态可以只是 TA 自己的日子", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("限时动态是你自己日子的一角——照你今天的日程此刻在干嘛")); });
