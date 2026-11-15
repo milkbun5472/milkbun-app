@@ -18,11 +18,11 @@ test("消息列表：灰地白格，顶栏走公共 Head，24px 自写大标题�
   //   起名字还有第二个作用：`style: { background: t.bg }` 那种裸写法跟「忘了装修」
   //   长得一模一样，而 last-flat-shells 那道闸拦的正是后者——有名字，闸才分得清。
   assert.match(seg, /className: "h-full flex flex-col",\s*style: msgAppBg\(t\)/, "外壳不是灰地了");
-  assert.match(comp, /function msgAppBg\(t\) \{ return \{ background: t\.bg \}; \}/, "那块地的定义没了");
-  assert.match(seg, /pinnedSet\.has\(id\) \? "linear-gradient\(rgba\(0,0,0,0\.035\),rgba\(0,0,0,0\.035\)\) " \+ t\.bg2 : t\.bg2/,
+  assert.match(comp, /function msgAppBg\(t\) \{ return \{ background: momPaper\(t\) === "#ffffff" \? "#ededed" : t\.bg \}; \}/, "那块地的定义没了");
+  assert.match(seg, /pinnedSet\.has\(id\) \? "linear-gradient\(rgba\(0,0,0,0\.035\),rgba\(0,0,0,0\.035\)\) " \+ momPaper\(t\) : momPaper\(t\)/,
     "聊天格子不再是白格，或者置顶那层淡灰丢了");
   // 顶栏是公共 Head（透明让地透上来），不再自己写一条
-  assert.match(seg, /h\(Head, \{\s*zh: TITLES\[tab\],\s*onBack: onBack,\s*bg: "transparent"/, "顶栏没走公共 Head");
+  assert.match(seg, /h\(Head, \{\s*zh: TITLES\[tab\],\s*onBack: onBack,\s*bg: wxGrey\(t\)/, "顶栏没走公共 Head");
   assert.ok(!/fontSize: "calc\(24px \* var\(--app-fs, 1\)\)"/.test(seg), "24px 的自写大标题还在");
   // 建群的 ＋ 还在（挪进了 Head 右槽），可点区不缩水
   // 2026-11-14 加号左边多了一颗限时动态的小头像，＋ 还是那颗
@@ -31,12 +31,12 @@ test("消息列表：灰地白格，顶栏走公共 Head，24px 自写大标题�
   // 「我」那页的卡片跟着翻过来：白卡压灰地（原来是 t.bg 卡压 t.bg2 壳，翻壳必须翻卡）
   const me = cut(seg, 'tab === "me"', 'tab === "contacts"');
   assert.ok(!/background: t\.bg,/.test(me), "「我」那页还有随旧壳配色的灰卡");
-  assert.equal((me.match(/background: t\.bg2,?\s/g) || []).length >= 5 ? 5 : 0, 5, "「我」那页的白卡不足五张");
+  assert.equal((me.match(/background: (?:t\.bg2|momPaper\(t\)),?\s/g) || []).length >= 5 ? 5 : 0, 5, "「我」那页的白卡不足五张");
 });
 
 test("朋友圈信息流：自己铺白纸，英文眉标退场", () => {
   const seg = cut(comp, "function MomentsFeed({", "function MomentsProfile({");
-  assert.match(seg, /className: "pb-8 min-h-full",\s*style: \{ background: t\.bg2 \}/, "信息流没有自己的白底");
+  assert.match(seg, /className: "pb-8 min-h-full",\s*style: \{ background: momPaper\(t\) \}/, "信息流没有自己的白底");
   // ⚠️函数自己就叫这个名，只匹配【带引号的字符串】那种出现——那才是渲染出来的字
   assert.ok(!/"Moments/.test(seg) && seg.indexOf("Eyebrow, null") < 0, "「Moments」那行英文眉标还在（no-english-titles）");
   // 两个动作键还在

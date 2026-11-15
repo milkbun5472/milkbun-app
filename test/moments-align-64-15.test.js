@@ -26,7 +26,7 @@ test("朋友圈个人页跟消息同一种底", () => {
   // ⚠️两处共用【同一个函数】，所以改一处另一处自动跟着走——
   //   这正是「一层写在两处，第二处没跟上」的解法：让它只有一处。
   assert.ok((comp.match(/style: msgAppBg\(t\)/g) || []).length >= 2, "用它的地方少于两处");
-  assert.match(comp, /function msgAppBg\(t\) \{ return \{ background: t\.bg \}; \}/);
+  assert.match(comp, /function msgAppBg\(t\) \{ return \{ background: momPaper\(t\) === "#ffffff" \? "#ededed" : t\.bg \}; \}/);
   // ⚠️那个平色是有意的，理由写在代码里——别哪天有人当成漏掉的去铺纸
   assert.match(ms, /地是灰的、格子是白的/, "那句写明理由的注释没了，下一个人会以为这是漏的");
 });

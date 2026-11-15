@@ -3283,7 +3283,9 @@ function CalWidget({ now, calendar, onOpen, period }) {
 //   起这个名字是为了让这份「有意」写在明面上：
 //   `style: { background: t.bg }` 那种裸写法跟「忘了装修」长得一模一样，
 //   而 last-flat-shells 那道闸拦的正是后者。有名字，闸才分得清这两件事。
-function msgAppBg(t) { return { background: t.bg }; }
+// 「聊天」这个 app 统一成微信那套色（她 2026-11-15「都改改统一一下色调」）：地是浅灰 #ededed、格子是白的、顶栏底栏和输入栏是 #f7f7f7；
+//   只在浅色主题这么换，深色主题照旧跟主题走
+function msgAppBg(t) { return { background: momPaper(t) === "#ffffff" ? "#ededed" : t.bg }; }
 // 朋友圈的那张白纸（她 2026-11-15「感觉不够白」）：浅色主题就用纯白，深色主题照旧用卡片色，不把夜间模式刷成一片白
 // 微信那种浅灰（顶栏、底栏、评论框，她 2026-11-15「跟微信一样白一点」）：浅色主题用 #f7f7f7，深色主题照旧卡片色
 function wxGrey(t) { return momPaper(t) === "#ffffff" ? "#f7f7f7" : ((t && t.bg2) || "#f7f7f7"); }
@@ -9506,7 +9508,7 @@ function Messages({
   const longProps = id => ({ onPointerDown: () => startPress(id), onPointerUp: () => endPress(id), onPointerLeave: () => endPress(id), onPointerCancel: () => endPress(id) });
   const unreadBadge = un => un > 0 && h("span", { "data-wk": "mlbadge", style: { position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 999, background: t.accent, color: "#fff", fontSize: "calc(10px * var(--app-fs, 1))", fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px" } }, un > 99 ? "99+" : un);
   // 聊天格子是白的（t.bg2），地是灰的（外壳 t.bg）——置顶的在白格上再压一层淡灰
-  const rowBg = id => pinnedSet.has(id) ? "linear-gradient(rgba(0,0,0,0.035),rgba(0,0,0,0.035)) " + t.bg2 : t.bg2;
+  const rowBg = id => pinnedSet.has(id) ? "linear-gradient(rgba(0,0,0,0.035),rgba(0,0,0,0.035)) " + momPaper(t) : momPaper(t);
   // 限时动态（她 2026-11-14）：头像外一圈框——没看过的是彩色，看过了是灰的；点头像看，点这一行照常进聊天
   const [stView, setStView] = useState(null), [stMake, setStMake] = useState(false), [stAsk, setStAsk] = useState(false), [stPend, setStPend] = useState(null), [stMenu, setStMenu] = useState(false), [stPast, setStPast] = useState(false), [, stTick] = useState(0);
   useEffect(() => { const f = () => stTick(x => x + 1); window.addEventListener("lisa-stories", f); return () => window.removeEventListener("lisa-stories", f); }, []);
@@ -9565,7 +9567,7 @@ function Messages({
     className: "h-full overflow-y-auto"
   }, tab === "chats" && /*#__PURE__*/React.createElement("div", null,
     h("div", { className: "px-4 pt-1 pb-2" },
-      h("div", { "data-wk": "mlsearch", className: "flex items-center gap-2 px-3", style: { background: t.bg2, borderRadius: 10, border: "1px solid " + t.line } },
+      h("div", { "data-wk": "mlsearch", className: "flex items-center gap-2 px-3", style: { background: momPaper(t), borderRadius: 10, border: "1px solid " + t.line } },
         h(Svg, { size: 15, color: t.fog, sw: 1.9 }, h("circle", { cx: 11, cy: 11, r: 7 }), h("path", { d: "M20 20l-3.5-3.5" })),
         h("input", { "data-wk": "input", value: q, onChange: e => setQ(e.target.value), placeholder: "搜索",
           className: "flex-1 outline-none", style: { background: "transparent", padding: "8px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }),
@@ -9816,7 +9818,7 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
   })), h("button", {
     onClick: () => onOpenMomProfile && onOpenMomProfile("me", true),
     className: "w-full flex items-center gap-4 p-4 mt-3 active:opacity-70",
-    style: { background: t.bg2, borderRadius: 16, border: `1px solid ${t.line}` }
+    style: { background: momPaper(t), borderRadius: 16, border: `1px solid ${t.line}` }
   }, h("div", {
     className: "flex items-center justify-center shrink-0",
     style: { width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg,#5a6b8a,#33415c)" }
@@ -9832,7 +9834,7 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
   })), h("button", {
     onClick: onOpenWallet,
     className: "w-full flex items-center gap-4 p-4 mt-3 active:opacity-70",
-    style: { background: t.bg2, borderRadius: 16, border: `1px solid ${t.line}` }
+    style: { background: momPaper(t), borderRadius: 16, border: `1px solid ${t.line}` }
   }, h("div", {
     className: "flex items-center justify-center shrink-0",
     style: { width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg,#2f3a42,#171d21)" }
@@ -9851,7 +9853,7 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
     // 都该在「我」这一屏里，不该是主屏上一个跟角色 app 并排的格子。
     onClick: onOpenMyCloset,
     className: "w-full flex items-center gap-4 p-4 mt-3 active:opacity-70",
-    style: { background: t.bg2, borderRadius: 16, border: `1px solid ${t.line}` }
+    style: { background: momPaper(t), borderRadius: 16, border: `1px solid ${t.line}` }
   }, h("div", {
     className: "flex items-center justify-center shrink-0",
     style: { width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg,#8a7a5c,#5c5040)" }
@@ -9867,7 +9869,7 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
   })), h("button", {
     onClick: onOpenFavorites,
     className: "w-full flex items-center gap-4 p-4 mt-3 active:opacity-70",
-    style: { background: t.bg2, borderRadius: 16, border: `1px solid ${t.line}` }
+    style: { background: momPaper(t), borderRadius: 16, border: `1px solid ${t.line}` }
   }, h("div", {
     className: "flex items-center justify-center shrink-0",
     style: { width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg,#c25a4a,#8a3a30)" }
@@ -12139,7 +12141,7 @@ function ChatThread({
       // 顶栏自成一层压在消息上面（她 2026-09-30：「顶上的蕾丝会被气泡 override 一部分」）——
       //   主题给气泡上了 position:relative，没层级的顶栏画出界的装饰（蕾丝边、::after）就被后画的气泡盖住。
       position: "relative", zIndex: 3,
-      background: dsp.chatBg ? "rgba(255,255,255,0.55)" : t.bg2,
+      background: dsp.chatBg ? "rgba(255,255,255,0.55)" : wxGrey(t),
       backdropFilter: dsp.chatBg ? "blur(8px)" : "none",
       WebkitBackdropFilter: dsp.chatBg ? "blur(8px)" : "none",
       borderBottom: `1px solid ${t.line}`
@@ -12981,7 +12983,7 @@ function ChatThread({
     "data-wk": "composer",
     style: {
       position: "relative", zIndex: 3,
-      background: t.bg2,
+      background: wxGrey(t),
       borderTop: quoted || pendingFic ? "none" : `1px solid ${t.line}`,
       paddingBottom: COMPOSER_PAD_BOTTOM
     }
@@ -21129,7 +21131,7 @@ function GroupThread({
       // 顶栏自成一层压在消息上面（她 2026-09-30：「顶上的蕾丝会被气泡 override 一部分」）——
       //   主题给气泡上了 position:relative，没层级的顶栏画出界的装饰（蕾丝边、::after）就被后画的气泡盖住。
       position: "relative", zIndex: 3,
-      background: gChatBg ? "rgba(255,255,255,0.55)" : t.bg2,
+      background: gChatBg ? "rgba(255,255,255,0.55)" : wxGrey(t),
       backdropFilter: gChatBg ? "blur(8px)" : "none",
       WebkitBackdropFilter: gChatBg ? "blur(8px)" : "none",
       borderBottom: "1px solid " + t.line
@@ -21594,7 +21596,7 @@ function GroupThread({
     className: "flex items-center gap-2 px-3 py-2.5 shrink-0",
     style: {
       position: "relative", zIndex: 3,
-      background: t.bg2,
+      background: wxGrey(t),
       borderTop: (!selMode && quoted) ? "none" : "1px solid " + t.line,
       paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4)"
     }
