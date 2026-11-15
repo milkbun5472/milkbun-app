@@ -133,10 +133,12 @@ test("配角那段关系要在角色的关系页里显示出来", () => {
 // 她 2026-08-25：「简介打不开看全部」。配角没有自己的资料页，
 // 读全文和改都只能落在关系页里。
 test("简介能展开看全文，也能就地改", () => {
-  assert.match(screens, /function NpcBrief\(\{ npc, onSave, compact, defaultOpen \}\)/);
-  assert.match(screens, /open \? "收起" : "展开简介"/);
-  assert.match(screens, /WebkitLineClamp: 2/, "收起时只显示两行");
-  assert.match(screens, /✏️ 改简介/);
+  // 2026-11-15 挪进开机就加载的 components.js：通讯录配角页也用它，放在用到才加载的 screens-ui.js 里会找不到
+  assert.match(fs.readFileSync(path.join(root, "js/components.js"), "utf8"), /function NpcBrief\(\{ npc, onSave, compact, defaultOpen \}\)/);
+  assert.ok(!/function NpcBrief\(/.test(screens), "screens 里不许再留一份");
+  assert.match(fs.readFileSync(path.join(root, "js/components.js"), "utf8"), /open \? "收起" : "展开简介"/);
+  assert.match(fs.readFileSync(path.join(root, "js/components.js"), "utf8"), /WebkitLineClamp: 2/, "收起时只显示两行");
+  assert.match(fs.readFileSync(path.join(root, "js/components.js"), "utf8"), /✏️ 改简介/);
   assert.match(app, /onSaveNpcBrief: \(id, text\) =>/);
   // 关系详情里和生成清单里用的是同一个框
   assert.equal((screens.match(/h\(NpcBrief, \{/g) || []).length, 2);

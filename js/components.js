@@ -7062,6 +7062,29 @@ function placeNewAppOnce(st, key, beside, flag) {
     return n;
   } catch (e) { return st; }
 }
+// 把 key 挪到 beside 身边，只挪一次（她 2026-11-15「外卖默认在新的一页，放到跟购物一页」）：
+//   beside 在文件夹里就进那个文件夹；beside 摆在主屏某页上就插在它后面。原来在哪儿（别的页、别的文件夹）先拿出来。
+//   已经跟 beside 在一起的不动。直接改存档，所以要在主屏读布局之前跑
+function joinAppOnce(key, beside, flag) {
+  try {
+    if (loadJSON(flag, false)) return;
+    saveJSON(flag, true);
+    var F = loadJSON("x_homeFolders", {}) || {}, L = loadJSON("x_homeLayout", {}) || {};
+    var fBeside = Object.keys(F).filter(function (fid) { return (F[fid].keys || []).indexOf(beside) >= 0; })[0];
+    var pBeside = Object.keys(L).filter(function (k) { return Array.isArray(L[k]) && L[k].indexOf(beside) >= 0; })[0];
+    if (!fBeside && pBeside == null) return;
+    if (fBeside && (F[fBeside].keys || []).indexOf(key) >= 0) return;
+    if (!fBeside && L[pBeside].indexOf(key) >= 0) return;
+    var F2 = {}; Object.keys(F).forEach(function (fid) { F2[fid] = Object.assign({}, F[fid], { keys: (F[fid].keys || []).filter(function (k) { return k !== key; }) }); });
+    var L2 = {}; Object.keys(L).forEach(function (k) { L2[k] = Array.isArray(L[k]) ? L[k].filter(function (x) { return x !== key; }) : L[k]; });
+    if (fBeside) F2[fBeside].keys = F2[fBeside].keys.concat([key]);
+    else { var arr = L2[pBeside].slice(); arr.splice(arr.indexOf(beside) + 1, 0, key); L2[pBeside] = arr; }
+    // 挪走以后空出来的整页（只剩它自己那一页）收掉
+    var keys = Object.keys(L2).filter(function (k) { return Array.isArray(L2[k]); }).sort(function (a, b) { return +a - +b; });
+    var L3 = {}, i = 0; keys.forEach(function (k) { if (L2[k].length || k === "0") L3[i++] = L2[k]; });
+    saveJSON("x_homeFolders", F2); saveJSON("x_homeLayout", L3);
+  } catch (e) {}
+}
 // 一个 app 还在当初自动放的那个文件夹里（跟 from 同组）就挪到 to 那一组，只挪一次
 function moveAppOnce(st, key, from, to, flag) {
   try {
@@ -7124,6 +7147,7 @@ function Home({
   // 长按拖拽自定义 app 图标位置（同页内重排，存 x_homeLayout={pageIndex:[key...]}）
   const [editMode, setEditMode] = useState(false);
   const [dragKey, setDragKey] = useState(null);
+  // ⚠️不替老用户挪图标（她 2026-11-15「只给第一次开的人」）：joinAppOnce 留着备用，这里不调；第一次开的人走 DEFAULT_FOLDERS（外卖本来就跟购物在「每日看」）
   const [layout, setLayout] = useState(function () { return loadJSON("x_homeLayout", {}); });
   // 一页能放几行，是【量出来的】不是拍的。行高钉死成 82 之后这个数就算得准了：
   // 原来写死 6 行，在高屏上底下白白空掉一大截、还放不进东西（她 2026-09-03 截图）。
@@ -10105,6 +10129,39 @@ function MomentMusic({ music }) {
       h("span", { className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, music.title),
       music.artist ? h("span", { className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, music.artist) : null),
     h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, flexShrink: 0 } }, "▶ 听"));
+}
+// 配角简介：读和改（通讯录配角页、关系页共用；她 2026-11-15 从 screens-ui.js 挪过来，那份要等用到才加载）
+function NpcBrief({ npc, onSave, compact, defaultOpen }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(!!defaultOpen);   // 通讯录配角详情页一进来就摊开全文
+  const [draft, setDraft] = useState(null);
+  const text = String(npc.persona || "").trim();
+  return h("div", { style: { marginTop: compact ? 2 : 8 } },
+    h("button", {
+      onClick: e => { e.stopPropagation(); setOpen(o => !o); setDraft(null); },
+      className: "w-full text-left active:opacity-60"
+    },
+      h("div", {
+        style: {
+          fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.55, color: t.fog, whiteSpace: "pre-wrap",
+          ...(open ? {} : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" })
+        }
+      }, text || "（还没有简介）"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, display: "inline-block", marginTop: 4 } },
+        open ? "收起" : "展开简介")),
+    open && onSave ? h("div", { style: { marginTop: 8 } },
+      draft == null
+        ? h("button", { onClick: e => { e.stopPropagation(); setDraft(text); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, "✏️ 改简介")
+        : h("div", null,
+            h("textarea", {
+              value: draft, onChange: e => setDraft(e.target.value), rows: 10,
+              onClick: e => e.stopPropagation(),
+              className: "w-full bg-transparent outline-none resize-none",
+              style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px" }
+            }),
+            h("div", { className: "flex gap-2", style: { marginTop: 6 } },
+              h("button", { onClick: e => { e.stopPropagation(); onSave(npc.id, draft); setDraft(null); }, className: "active:opacity-70", style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 9, padding: "7px 16px", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "保存"),
+              h("button", { onClick: e => { e.stopPropagation(); setDraft(null); }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "7px 8px" } }, "取消")))) : null);
 }
 function MomentCompose({
   friendGroups,

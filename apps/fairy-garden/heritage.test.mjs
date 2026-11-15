@@ -5,9 +5,9 @@ import {createHash} from 'node:crypto';
 import {OUTFITS,mergeLook,outfitColors} from './wardrobe.mjs';
 import {freshState,restoreState,moveIn} from './world.mjs';
 const read=p=>readFileSync(new URL(p,import.meta.url));
-test('heritage keeps the approved shoulder-v5 geometry, six textured regions and body morphs',()=>{
+test('heritage keeps the approved shoulder-v6 geometry, six textured regions and body morphs',()=>{
  const b=read('./outfits/heritage.glb');
- assert.equal(createHash('sha256').update(b).digest('hex'),'e6d15ef0386b084b9e702cd9bc2252ebebceaf570b8a10b7a4b44a4cc99c928d');
+ assert.equal(createHash('sha256').update(b).digest('hex'),'69456edb2c35ccb7a6d89baa8050d4349702fa0c60046ca785127f352d0f9ac2');
  const g=JSON.parse(b.subarray(20,20+b.readUInt32LE(12))),nodes=g.nodes.filter(n=>n.mesh!=null);
  const prepared=JSON.parse(read('../../art/fairy-garden/doll/prepared_outfits.json'));
  assert.deepEqual(OUTFITS.heritage,prepared.heritage);
