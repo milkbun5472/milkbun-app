@@ -13079,6 +13079,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const gapHint = roomClockOn && gapMs > 2 * 3600000
         ? "\n\n【时间过去了】距你俩上一条消息已过去约 " + (gapHrs < 24 ? gapHrs + " 小时" : Math.round(gapHrs / 24) + " 天") + "（现在是 " + aiStampFor(charId, Date.now()) + "）。按实际时间理解上下文，接下来聊什么由当前消息和你自己的意愿决定，不必交代这段时间的行程。计划与已发生的事要分清：未确认的共同活动保持未确认，不能补写成已经发生，也不能仅因聊天空白认定对方爽约或推断其动机。你对这段间隔的感受与表达仍由你的人设和关系决定。"
         : "";
+      // 她攒着没让 TA 回的那几条（她 2026-11-15：「几个小时前发的消息，几条以后才点回复，他以为是刚发的」）：
+      //   上面 gapHint 是从 TA 上回开口算的；这儿单说她这几条各是多久以前的——最早那条早过半小时才说
+      const pendHint = (() => {
+        if (!roomClockOn || opts.proactive) return "";
+        const mine = []; for (let i = history.length - 1; i >= 0; i--) { const m0 = history[i]; if (!m0 || m0.role === "assistant") break; if (m0.role === "user" && m0.ts) mine.unshift(m0.ts); }
+        if (!mine.length) return "";
+        const first = mine[0], last = mine[mine.length - 1], now = Date.now();
+        if (now - first < 30 * 60000) return "";
+        return "\n\n【她这几条不是刚发的】" + uName + "攒着的这 " + mine.length + " 条里，最早那条是 " + offAgoWords(now - first) + "前发的"
+          + (now - last > 10 * 60000 ? "，最后一条也是 " + offAgoWords(now - last) + "前" : "，最后一条是刚才") + "；这中间你一直没回。照真实的先后和时间来接（现在是 " + aiStampFor(charId, now) + "）。";
+      })();
       let lastPrivateUserTs = 0;
       for (let i = history.length - 1; i >= 0; i--) { if (history[i] && history[i].role === "user") { lastPrivateUserTs = Number(history[i].ts) || 0; break; } }
       const sharedUserTs = latestUserSharedInteractionTs(charId);
@@ -14011,7 +14022,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "。这一轮 photo 一定要填，kind 填 " + (["self", "other", "duo"].includes(_askPh.kind) ? _askPh.kind : "self")
         + "；画面照你此刻真实在哪、在做什么、穿什么来，她这句里要看什么就拍什么。嘴上怎么接照你这个人，愿不愿意都可以说，但照片要发。" : "";
       const _halfHint = _askPhotoHint + _lockHint + (_halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就不扯。" : "");
-      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _threatTailHint + _bossTailHint + _seeThroughHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
+      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + pendHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _threatTailHint + _bossTailHint + _seeThroughHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
       // 线上导演便签：只给模型看，不算她说的话；放在本轮任务末尾，离生成最近
       const _dirLive = chatDirNotesLive(chatKey);
