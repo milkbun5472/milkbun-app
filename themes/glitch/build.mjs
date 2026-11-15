@@ -279,6 +279,20 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="offcard"][data-me="1"] [data-wk="offthought"]{color:#666 !important}
 [data-wk="offcardacts"] svg{stroke:${C.fog} !important;color:${C.fog} !important}
 [data-wk="offreplyopt"]{background:${BRACKETS(C.red, C.cyan)},${SCAN},rgba(30,30,36,.88) !important;border:none !important;border-radius:0 !important;box-shadow:none !important;color:#fff !important}
+
+/* Ta 眼里那几张白卡：标题去掉重影（白底上太费眼），只在左边留一道红青短线 */
+[data-wk="gazecard"]{background:#FBFBF8 !important;box-shadow:none !important}
+[data-wk="gazecardname"]{color:#111 !important;text-shadow:none !important;font-weight:700 !important;border-left:3px solid ${C.red} !important;box-shadow:-6px 0 0 -3px ${C.cyan} !important;padding-left:8px !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#555 !important}
+
+/* 线下他那张卡：加一层选择器压过线下文风自带的白卡；正文字放清楚，重影只留一点点 */
+[data-wk="offline"] [data-wk="offcard"][data-me="0"],[data-wk="offbody"] [data-wk="offcard"][data-me="0"]{background:${BRACKETS(C.red, C.cyan)},${SCAN},#1E1E24 !important;border:none !important;border-left:none !important;border-radius:0 !important;box-shadow:none !important}
+[data-wk="offline"] [data-wk="offcard"][data-me="0"] [data-wk="offtext"],[data-wk="offline"] [data-wk="offcard"][data-me="0"] [data-wk="offtext"] *{color:#E4E4EA !important}
+[data-wk="offline"] [data-wk="offcard"][data-me="0"] [data-wk="offname"]{color:#fff !important}
+[data-wk="offline"] [data-wk="offsay"]{color:#fff !important;text-shadow:-1px 0 0 rgba(255,42,85,.55),1px 0 0 rgba(25,230,230,.55) !important;font-weight:600 !important}
+[data-wk="offline"] [data-wk="offcard"][data-me="1"] [data-wk="offsay"]{color:#111 !important;text-shadow:none !important;border-bottom:2px solid ${C.red} !important}
+[data-wk="offline"] [data-wk="offcard"][data-me="0"] [data-wk="offthought"]{color:#9A9AA2 !important}
+[data-wk="offline"] [data-wk="offname"]{text-shadow:none !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "信号故障", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "信号故障-美化.json"), JSON.stringify(pack));
