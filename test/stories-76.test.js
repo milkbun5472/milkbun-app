@@ -242,3 +242,5 @@ test("外卖挪到购物旁边（一次）", () => {
   join("takeout", "shop", "f1");
   assert.deepEqual(JSON.parse(S.x_homeLayout), { 0: ["chat", "shop", "takeout", "diary"], 1: ["memlib"] });
 });
+
+test("论坛小号被她当面点破时有反应", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("她要是在楼里当面点破这个小号就是你，你就不再只是一个陌生网友")); });
