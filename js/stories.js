@@ -327,17 +327,21 @@
     }
     cv.toBlob(async b => { if (!b) return; if (typeof saveFile === "function") await saveFile(new File([b], (now.getMonth() + 1) + "月限时动态.jpg", { type: "image/jpeg" })); window.__toast && window.__toast("拼好了"); }, "image/jpeg", 0.9);
   }
+  // 小格、精选圆放在组件外面（她 2026-11-15「限时动态一直在闪」）：写在里面每次重画都是一个新组件，图要重新取一遍，就一闪一闪
+  const ArchCell = ({ s, k, past, onOpen, t }) => { const h = React.createElement, u = useBlobUrl(s.imgKey); return h("button", { onClick: () => onOpen(past, k), className: "active:opacity-70", style: { aspectRatio: "9 / 19.5", borderRadius: 8, overflow: "hidden", background: (t.bg2 || "#eee") + (u ? " center/cover no-repeat url(" + u + ")" : "") } }); };
+  const HlDot = ({ name, list, onOpen, t }) => { const h = React.createElement, u = useBlobUrl(list[0].imgKey); return h("button", { onClick: () => onOpen(list, 0), className: "active:opacity-70", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0, width: 62 } },
+      h("span", { style: { width: 56, height: 56, borderRadius: 999, border: "2px solid " + (t.line || "#ddd"), background: (t.bg2 || "#eee") + (u ? " center/cover no-repeat url(" + u + ")" : "") } }),
+      h("span", { className: "truncate", style: { maxWidth: 62, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, name)); };
   function StoryArchive({ by, title, onOpen }) {
     const h = React.createElement, t = typeof useTheme === "function" ? useTheme() : {};
     const [, tick] = React.useState(0);
     React.useEffect(() => { const f = () => tick(x => x + 1); window.addEventListener("lisa-stories", f); return () => window.removeEventListener("lisa-stories", f); }, []);
     const past = pastOf(by);
     if (!past.length) return null;
-    const Cell = ({ s, k }) => { const u = useBlobUrl(s.imgKey); return h("button", { onClick: () => onOpen(past, k), className: "active:opacity-70", style: { aspectRatio: "9 / 19.5", borderRadius: 8, overflow: "hidden", background: (t.bg2 || "#eee") + (u ? " center/cover no-repeat url(" + u + ")" : "") } }); };
     return h("div", { "data-wk": "storyarchive", style: { margin: "10px 0" } },
       h("div", { className: "flex items-center", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "0 2px 6px" } }, h("span", { className: "flex-1" }, (title || "过往限时动态") + " · " + past.length),
         h("button", { "data-wk": "storyrecap", onClick: () => recap(by, past), style: { color: t.sub } }, "拼这个月")),
-      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 } }, past.slice(0, 60).map((s, k) => h(Cell, { key: s.id, s, k }))));
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 } }, past.slice(0, 60).map((s, k) => h(ArchCell, { key: s.id, s, k, past, onOpen, t }))));
   }
   // 精选那一排：一组一个圆，点开照样全屏翻（朋友圈主页顶上）
   function StoryHighlights({ by, onOpen }) {
@@ -346,10 +350,7 @@
     React.useEffect(() => { const f = () => tick(x => x + 1); window.addEventListener("lisa-stories", f); return () => window.removeEventListener("lisa-stories", f); }, []);
     const groups = hlOf(by);
     if (!groups.length) return null;
-    const Dot = ({ name, list }) => { const u = useBlobUrl(list[0].imgKey); return h("button", { onClick: () => onOpen(list, 0), className: "active:opacity-70", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0, width: 62 } },
-      h("span", { style: { width: 56, height: 56, borderRadius: 999, border: "2px solid " + (t.line || "#ddd"), background: (t.bg2 || "#eee") + (u ? " center/cover no-repeat url(" + u + ")" : "") } }),
-      h("span", { className: "truncate", style: { maxWidth: 62, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, name)); };
-    return h("div", { "data-wk": "storyhighlights", className: "flex", style: { gap: 10, overflowX: "auto", padding: "8px 0" } }, groups.map(([name, list]) => h(Dot, { key: name, name, list })));
+    return h("div", { "data-wk": "storyhighlights", className: "flex", style: { gap: 10, overflowX: "auto", padding: "8px 0" } }, groups.map(([name, list]) => h(HlDot, { key: name, name, list, onOpen, t })));
   }
   window.Stories = { KEY, DAY, all, live, activeOf, activeFor, visibleTo, audLabel, pastOf, unseenBy, markSeen, remove, layoutFrom, renderCard, add, addReply, react, markSaved, sweep, applyCrowd, addPhoto, dupOf, similar, vote, answer, setHl, hlOf, normSticker, stickerLine, daysLeft, StoryViewer, StoryArchive, StoryHighlights };
 })();
