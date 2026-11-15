@@ -38,5 +38,25 @@
       "detail": "纽扣"
     },
     "coveredLegsBelow": 0.115
+  },
+  "bamboo": {
+    "label": "竹纹交领袍",
+    "colors": {
+      "cloth": "#b8b499",
+      "trim": "#d9d0b7",
+      "bottom": "#dfd1b7",
+      "accent": "#7d7f55",
+      "boots": "#5f5642",
+      "detail": "#625a46"
+    },
+    "colorLabels": {
+      "cloth": "外袍",
+      "trim": "领缘与袖缘",
+      "bottom": "裤子",
+      "accent": "腰带",
+      "boots": "靴子",
+      "detail": "鞋底"
+    },
+    "coveredLegsBelow": 0.145
   }
 }

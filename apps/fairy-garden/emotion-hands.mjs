@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {pointToolAt} from './reach-hand.mjs?v=fg-729e02d41aec3df1';
+import {pointToolAt} from './reach-hand.mjs?v=fg-e3acb09d673865d9';
 // Rounded mitten silhouettes share their actual pad with the screen-contact solver.
 export const MITTEN_TAP_POINT=[-.018,.077,0];
 export const handScaleOf=look=>.9+.1*Number(look?.dims?.build||1);
