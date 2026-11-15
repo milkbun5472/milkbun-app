@@ -15,5 +15,6 @@ test("公共那句管到「别人也认不出」；回谁那栏不写真名", ()
 test("角色会回帖的三条路都带上这句：首批楼、后续几波、她那条底下的楼中楼", () => {
   assert.match(app, /FORUM_ID_VOICE \+ "小号\/匿名的文字仍必须贴本人/);
   assert.match(app, /who2 \+ " " \+ FORUM_ID_VOICE \+ FORUM_THREAD_LINE/);
-  assert.match(app, /forumMaskNote\(myMaskTag\(post\), forumActiveChars\(\)\) : ""\) \+ FORUM_ID_VOICE \+ "生成 2-5 条接在后面的楼中楼回复/);
+  assert.match(app, /forumMaskNote\(myMaskTag\(post\), forumActiveChars\(\)\) : ""\) \+ FORUM_ID_VOICE\n/);
+  assert.match(app, /她说起跟某个人一起做过的事时，在场每个角色只认自己真的跟她经历过的/);
 });

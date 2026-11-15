@@ -28199,7 +28199,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + forumPmKnow(post, [resp.name, floor.authorName, post.authorName].concat((floor.replies || []).map(r => r && r.authorName))) + "【这层楼的现场】\n" + priorLines.join("\n") +
           "\n现在〔" + (typeof fmtStampAI === "function" ? fmtStampAI(Date.now()) : "刚刚") + "〕有人（网名「" + meNow + "」" + (usingAlt(post) ? "，一个没什么人见过的号，在场谁都不认识、也没人知道背后是谁" : "") + "）刚"
           + (resp.inFloor ? ("在这层楼里回复了「" + resp.name + "」上面那句：") : "回复了层主这条：")
-          + "「" + myText + "」。" + (!usingAlt(post) && !(post.board === "匿名吧" || post.anon) ? forumMaskNote(myMaskTag(post), forumActiveChars()) : "") + FORUM_ID_VOICE + "生成 2-5 条接在后面的楼中楼回复（items）：\n" +
+          + "「" + myText + "」。" + (!usingAlt(post) && !(post.board === "匿名吧" || post.anon) ? forumMaskNote(myMaskTag(post), forumActiveChars()) : "") + FORUM_ID_VOICE
+          // 她这句说起跟某个人发生过的事（她 2026-11-15：在 A 帖下抖出跟 B 的事，ACDE 冒出来全当成是自己，没一个人在意她跟别人）：
+          //   每个角色只认自己真跟她经历过的；不是跟你的，那就是她跟别人，照你和她的关系听这件事
+          + (usingAlt(post) ? "" : "【她这句里说的事是跟谁】她说起跟某个人一起做过的事时，在场每个角色只认自己真的跟她经历过的那些（看你自己的记忆和你们的关系）；对不上你自己经历的，那就是她跟别人——你听见的是「她跟别人有过这件事」，照你这个人、照你和她的关系有你自己的反应，不顶替那个人、不当成是你。\n")
+          + "生成 2-5 条接在后面的楼中楼回复（items）：\n" +
           (respIsMe
             ? "① 这层楼就是「" + meNow + "」自己开的——**【" + meNow + "】是真人本人，你绝对不许以 Ta 的名义写任何一句**，一条都不要标 is_owner。让别人来接话。\n"
             : "① **必须恰有一条是" + (resp.inFloor ? "被 TA 回的那个人" : "层主") + "「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n") +
