@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.658";
+const APP_VERSION = "v89.666";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -21227,7 +21227,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   写成「原文 | 中文」——画的那一层（PTX → TransText）本来就会把竖线劈开、挂成「随消息提供」的译文，不用另写显示。
   //   同一次生成顺手带，不多花调用；没开就一个字都不加。
   const phoneBiLine = char => { return char && window.__charBiOn(char.id)
-    ? "\n【双语】这部手机里凡是【不是中文】的正文（消息、帖子、标题、便签、评论这些），每一处都写成「原文 | 中文」：竖线左边照常写原文，右边是它的中文意思，整处只用这一根竖线；本来就是中文的照常写，不加。" : ""; };
+    ? "\n【双语】这部手机里凡是【不是中文】的文字，每一个字段都各自写成「原文 | 中文」：竖线左边照常写原文，右边是它的中文意思，一个字段只用一根竖线。标题和正文是两个字段，各带各的中文——标题带了，正文也要带；正文再长（日记、邮件、备忘录、长帖）也是整段原文写完，一根竖线，后面跟整段的中文，一段不落。消息、评论、便签、歌词这些每一条也各带各的。本来就是中文的照常写，不加。" : ""; };
   const phoneBi = (char, spec) => spec && typeof spec.instruction === "string" ? { ...spec, instruction: spec.instruction + phoneBiLine(char) } : spec;
   const phoneCtx = char => Object.assign({}, ctxFor(char), {
     worldbook: loreFor(char, "subjects"),
@@ -35483,6 +35483,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       pC(p => p.map(c => { if (c.id !== id || !c.npc) return c; const n = { ...c, promotedFrom: c.ownerId || "" }; delete n.npc; delete n.ownerId; return n; }));
       toast("「" + (c0.remark || c0.name) + "」转正了：聊天和记忆都还在，去人格档案馆补一补人设和头像");
     },
+    onSetNpcRef: (id, patch) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, ...patch, refExtras: ("refExtras" in patch ? patch.refExtras : c.refExtras || []).slice(0, 2) } : c)),   // 配角锁脸（转正后原样留着）
     onSetNpcMoments: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, npcMoments: !!v } : c)),
     onSetNpcOwner: (id, ownerId) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, ownerId: ownerId || "" } : c)),   // 配角改挂（群友 2026-10-27）
     onSetNpcGender: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, gender: v === "他" || v === "她" ? v : "TA" } : c)),

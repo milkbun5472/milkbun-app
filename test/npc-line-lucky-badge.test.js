@@ -11,7 +11,7 @@ test("配角列表只摆简介第一句；幸运字符能不挂在名字旁边�
 
 test("配角资料页能改性别（她 2026-10-27「性别在哪儿」）", () => {
   assert.match(c, /onSetGender \? h\("div", \{ "data-wk": "npcgender"/);
-  assert.match(c, /onSetGender: onSetNpcGender, onSetOwner: onSetNpcOwner, onClose/);
+  assert.match(c, /onSetGender: onSetNpcGender, onSetOwner: onSetNpcOwner, (onSetRef: onSetNpcRef, )?onClose/);
   assert.match(app, /onSetNpcGender: \(id, v\) => pC\(p => p\.map\(c => c\.id === id && c\.npc \? \{ \.\.\.c, gender:/);
 });
 
