@@ -6,6 +6,6 @@ const path = require("node:path");
 const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
 const ts = fs.readFileSync(path.join(__dirname, "..", "js", "theme-studio.js"), "utf8");
 test("朋友圈信息流那张底有挂点 mofeed，工作台里登记了", () => {
-  assert.match(comp, /"data-wk": "mofeed",\n    className: "pb-8 min-h-full",\n    style: \{ background: t\.bg2 \}/);
+  assert.match(comp, /"data-wk": "mofeed",\n    className: "pb-8 min-h-full",\n    style: \{ background: momPaper\(t\) \}/);
   assert.match(ts, /\["mofeed", "/);
 });

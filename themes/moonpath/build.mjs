@@ -301,10 +301,10 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="chat"] [data-wk="chathead"]{position:relative !important;overflow:visible !important;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.6)) !important;box-shadow:0 1px 0 #fff,0 10px 24px rgba(255,248,226,.9) !important;z-index:5 !important}
 [data-wk="chat"] [data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:100% !important;height:46px !important;background:${svg(GARLAND)} 0 0/150px 46px repeat-x !important;filter:drop-shadow(0 0 3px #fff) !important;pointer-events:none !important;animation:mpSway 6s ease-in-out infinite !important;transform-origin:50% 0 !important}
 @keyframes mpSway{0%,100%{transform:rotate(0)}50%{transform:rotate(.6deg)}}
-[data-wk="chat"] [data-wk="headink"],[data-wk="chat"] [data-wk="headink"] *{letter-spacing:.3em !important;font-weight:400 !important}
+[data-wk="chat"] [data-wk="headink"],[data-wk="chat"] [data-wk="headink"] *{letter-spacing:.12em !important;font-weight:400 !important}
 [data-wk="chat"] [data-wk="headname"] > div:last-child{letter-spacing:.18em !important;font-style:italic !important}
-[data-wk="chat"] [data-wk="chathead"] [data-wk="headme"]{position:relative !important;overflow:visible !important;margin-left:8px !important}
-[data-wk="chat"] [data-wk="chathead"] [data-wk="headme"]::before{content:"" !important;position:absolute !important;left:-13px !important;top:calc(50% - 8px) !important;width:16px !important;height:16px !important;background:${svg(TINYMOON)} center/contain no-repeat !important;filter:drop-shadow(0 0 4px rgba(255,240,200,.9)) !important;z-index:3 !important}
+[data-wk="chat"] [data-wk="chathead"] [data-wk="headme"]{position:relative !important;overflow:visible !important;margin-left:-8px !important}
+[data-wk="chat"] [data-wk="chathead"] [data-wk="headme"]::before{content:"" !important;position:absolute !important;left:-9px !important;top:-6px !important;width:14px !important;height:14px !important;background:${svg(TINYMOON)} center/contain no-repeat !important;filter:drop-shadow(0 0 4px rgba(255,240,200,.9)) !important;z-index:3 !important}
 [data-wk="chat"] [data-wk="time"]{margin-top:30px !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "月下星路", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
