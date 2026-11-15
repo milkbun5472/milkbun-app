@@ -776,7 +776,7 @@
       const serveAll = async () => { if (shBusy) return; setShBusy("all"); try {
         for (const c of sh.customers.filter(x => !x.done && !x.tough && !x.visitor && !x.rareId)) {
           const win = (sh.window || []).map(id => (cards || []).find(k => k.id === id)).filter(Boolean);
-          const pick = c.need && c.need.post ? { staffId: sh.roster[c.need.post] || POSTS.map(p => sh.roster[p]).find(Boolean) } : c.wantChar ? { cardId: (win.find(k => k.charId === c.wantChar) || {}).id } : c.need && c.need.card ? { cardId: (win.find(k => D().shopCardFits(c.need, k)) || {}).id } : {};
+          const pick = c.need && c.need.post ? { staffId: sh.roster[c.need.post] || (() => { const ids = POSTS.map(p => sh.roster[p]).filter(Boolean); return ids.length ? ids[[...String(c.id || c.name || "")].reduce((a2, ch) => (a2 * 31 + ch.charCodeAt(0)) >>> 0, 3) % ids.length] : undefined; })() } : c.wantChar ? { cardId: (win.find(k => k.charId === c.wantChar) || {}).id } : c.need && c.need.card ? { cardId: (win.find(k => D().shopCardFits(c.need, k)) || {}).id } : {};
           await shopAct('serve', Object.assign({ id: c.id, auto: true, price: "mid" }, pick)).catch(() => {});
         } } finally { setShBusy(""); } };
       const servePicker = c => { if (svPick !== c.id || c.done) return null;
