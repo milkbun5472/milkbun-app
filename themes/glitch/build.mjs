@@ -13,6 +13,8 @@ const TEAR = X(`width='390' height='420' viewBox='0 0 390 420'><rect x='0' y='12
 // 头像外圈：红青两层，各断几截
 const RING = X(`viewBox='0 0 60 60'><circle cx='28' cy='30' r='26' fill='none' stroke='${C.red}' stroke-width='3.5' stroke-dasharray='60 8 30 6 50 10'/><circle cx='32' cy='30' r='26' fill='none' stroke='${C.cyan}' stroke-width='3.5' stroke-dasharray='40 10 55 6 35 12' stroke-dashoffset='20'/>`);
 // 气泡四角错位小方块
+// 不画整圈框：只在左上一个红色折角、右下一个青色折角，像取景器
+const BRACKETS = (a, b) => `linear-gradient(${a},${a}) left top/2px 12px no-repeat,linear-gradient(${a},${a}) left top/12px 2px no-repeat,linear-gradient(${b},${b}) right bottom/2px 12px no-repeat,linear-gradient(${b},${b}) right bottom/12px 2px no-repeat`;
 const CORNERS = (a, b) => `linear-gradient(${a},${a}) left -3px top -3px/6px 6px no-repeat,linear-gradient(${b},${b}) right -3px bottom -3px/6px 6px no-repeat,linear-gradient(${a},${a}) left 4px bottom -3px/5px 4px no-repeat`;
 // 按键
 const I_PLUS = X(`viewBox='0 0 30 30'><path d='M13 5 H17 V13 H25 V17 H17 V25 H13 V17 H5 V13 H13Z' fill='${C.red}' transform='translate(-1.5 0)'/><path d='M13 5 H17 V13 H25 V17 H17 V25 H13 V17 H5 V13 H13Z' fill='${C.cyan}' transform='translate(1.5 0)' opacity='.85'/><path d='M13 5 H17 V13 H25 V17 H17 V25 H13 V17 H5 V13 H13Z' fill='#fff'/><rect x='3' y='14' width='24' height='2' fill='${C.bg}'/>`);
@@ -50,8 +52,8 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 
 /* 气泡：信号坏掉的屏幕——左红右青竖条、四角错位小方块、字带红青重影；我的是一块亮白屏 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:0 !important;line-height:1.6 !important;letter-spacing:.06em !important;font-weight:600 !important;padding:10px 18px !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]{background:${CORNERS(C.red, C.cyan)},${SCAN},${C.panel} !important;color:#fff !important;border-left:3px solid ${C.red} !important;border-right:3px solid ${C.cyan} !important;text-shadow:${RGB} !important;box-shadow:0 0 0 1px rgba(255,255,255,.06) !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]{background:${CORNERS(C.red, C.cyan)},repeating-linear-gradient(180deg,rgba(0,0,0,.05) 0 1px,transparent 1px 3px),#F0F0F0 !important;color:#111 !important;border-left:3px solid ${C.red} !important;border-right:3px solid ${C.cyan} !important;text-shadow:-1px 0 0 rgba(255,42,85,.7),1px 0 0 rgba(25,230,230,.7) !important;box-shadow:4px 4px 0 rgba(25,230,230,.25),-4px -2px 0 rgba(255,42,85,.2) !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{background:${BRACKETS(C.red, C.cyan)},${SCAN},rgba(30,30,36,.85) !important;color:#fff !important;border:none !important;text-shadow:${RGB} !important;box-shadow:none !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{background:${BRACKETS(C.red, C.cyan)},repeating-linear-gradient(180deg,rgba(0,0,0,.06) 0 1px,transparent 1px 3px),rgba(226,228,232,.92) !important;color:#111 !important;border:none !important;text-shadow:-1px 0 0 rgba(255,42,85,.6),1px 0 0 rgba(25,230,230,.6) !important;box-shadow:none !important}
 /* 偶尔一抖：整块往旁边错一下 */
 [data-wk="msg"]:nth-child(4n+2) [data-wk="bubble"][data-kind="text"]{animation:glJit 5s steps(1) infinite !important}
 [data-wk="msg"]:nth-child(4n) [data-wk="bubble"][data-kind="text"]{animation:glJit 7s steps(1) infinite -3s !important}
@@ -69,7 +71,7 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="msg"][data-last="0"] [data-wk="meta"]{display:none !important}
 [data-run][data-last="1"] + [data-wk="cardmeta"]{display:block !important;font-size:10.5px !important;color:${C.fog} !important;padding:2px 0 0 62px !important}
 [data-run][data-last="1"] + [data-wk="cardmeta"][data-me="1"]{text-align:right !important;padding:2px 62px 0 0 !important}
-[data-wk="bubble"][data-kind="typing"]{background:${C.panel} !important;border-left:3px solid ${C.red} !important;border-right:3px solid ${C.cyan} !important;border-radius:0 !important}
+[data-wk="bubble"][data-kind="typing"]{background:${BRACKETS(C.red, C.cyan)},rgba(30,30,36,.85) !important;border:none !important;border-radius:0 !important}
 [data-wk="bubble"][data-kind="typing"]::before,[data-wk="bubble"][data-kind="typing"]::after{content:none !important}
 [data-wk="typingdot"]{background:#fff !important;border-radius:0 !important;box-shadow:-1px 0 0 ${C.red},1px 0 0 ${C.cyan} !important}
 
@@ -88,7 +90,7 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 
 /* 底栏：黑色信号条；左红青十字加号、黑框输入框、右红青重影的播放键发送、像素对话框回复 */
 [data-wk="composer"]{background:${SCAN},#000 !important;border-top:none !important;box-shadow:0 -1px 0 ${C.red},0 -3px 0 ${C.cyan} !important;align-items:center !important;gap:8px !important}
-[data-wk="chatinput"]{background:#111 !important;border:1px solid #333 !important;border-left:3px solid ${C.red} !important;border-right:3px solid ${C.cyan} !important;border-radius:0 !important;color:#fff !important}
+[data-wk="chatinput"]{background:${BRACKETS(C.red, C.cyan)},#141418 !important;border:none !important;border-radius:0 !important;color:#fff !important}
 [data-wk="chatinput"]::placeholder{color:#555 !important;font-family:ui-monospace,Menlo,monospace !important}
 [data-wk="chatplus"]{width:28px !important;min-width:28px !important;height:28px !important;${HIDE};background:${svg(I_PLUS)} center/contain no-repeat !important}
 [data-wk="chatplus"] svg{display:none !important}
@@ -104,8 +106,8 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="callbtns"] button > span:first-child svg{stroke:#fff !important}
 [data-wk="callbtns"] button:nth-child(2) > span:first-child{background:${C.red} !important;box-shadow:3px 3px 0 ${C.cyan} !important}
 [data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:${C.fog} !important}
-[data-wk="callbubble"]{background:${C.panel} !important;color:#fff !important;border:none !important;border-left:3px solid ${C.red} !important;border-right:3px solid ${C.cyan} !important;border-radius:0 !important}
-[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:#F0F0F0 !important;color:#111 !important}
+[data-wk="callbubble"]{background:${BRACKETS(C.red, C.cyan)},rgba(30,30,36,.85) !important;color:#fff !important;border:none !important;border-radius:0 !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:${BRACKETS(C.red, C.cyan)},rgba(226,228,232,.92) !important;color:#111 !important}
 [data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
 [data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;background:rgba(0,0,0,.55) !important;border:none !important;border-left:3px solid ${C.cyan} !important;border-radius:0 !important;padding:8px 14px !important;color:#B9B9C0 !important;font-family:ui-monospace,Menlo,monospace !important;font-size:11.5px !important;text-align:left !important}
 [data-wk="noteink"]{color:${C.fog} !important}
