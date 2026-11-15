@@ -1,9 +1,9 @@
-import {workControls} from './work-contacts.mjs?v=fg-6dbc9276739d8ce5';
-import {errandsTaskAt} from './errands-workflow.mjs?v=fg-6dbc9276739d8ce5';
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-6dbc9276739d8ce5';
-import {OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-6dbc9276739d8ce5';
-import {CHORES} from './chores.mjs?v=fg-6dbc9276739d8ce5';
-import {activityGroup,activityConfig,activityBeat} from './activity-groups.mjs?v=fg-6dbc9276739d8ce5';
+import {workControls} from './work-contacts.mjs?v=fg-ffe8ce4a8737baca';
+import {errandsTaskAt} from './errands-workflow.mjs?v=fg-ffe8ce4a8737baca';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-ffe8ce4a8737baca';
+import {OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-ffe8ce4a8737baca';
+import {CHORES} from './chores.mjs?v=fg-ffe8ce4a8737baca';
+import {activityGroup,activityConfig,activityBeat} from './activity-groups.mjs?v=fg-ffe8ce4a8737baca';
 // Visual phases read the original currentSlot; they never create or save schedule events.
 const FARM='dayFarm',FLEA='dayFleaMarket',OFFICE='dayOffice',CAMPUS='dayCampus',LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation',GYM='dayGym',MARKET='dayMarket';
 const MOTIONS={
