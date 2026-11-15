@@ -1,6 +1,6 @@
-import {MITTEN_TAP_POINT} from './emotion-hands.mjs?v=fg-c538baf2bbb01269';
+import {MITTEN_TAP_POINT} from './emotion-hands.mjs?v=fg-6dbc9276739d8ce5';
 import * as T from 'three';
-import {pointToolAt} from './reach-hand.mjs?v=fg-c538baf2bbb01269';
+import {pointToolAt} from './reach-hand.mjs?v=fg-6dbc9276739d8ce5';
 
 const marker=(group,name,x=0)=>{const o=new T.Object3D();o.name=name;o.position.x=x;group.add(o);};
 function makeFlower(){

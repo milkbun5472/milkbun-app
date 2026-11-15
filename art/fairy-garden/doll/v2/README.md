@@ -169,13 +169,16 @@ shared pose gallery. C07 source and body/hands are preserved.
 源 SHA-256：`1a62c2baa182908a3fafe79d5946255d6699b1bbf09f28aa065dd631ed6b2710`。新 ID 使用
 `wolfcut`，旧存档 `wolf → korean` 的别名保持原义。保留来源全部 50,054 个
 三角面，基础贴图压至 1K WEBP，沿公共灰度染色及长发垂落机制加载。
-后颈以下渐进后移以避开连帽卫衣，分缝、刘海和头顶不改形。
+后颈以下渐进后移以避开连帽卫衣。2026-11-14 按 Lisa「太收紧，要蓬松」反馈，
+复用 fit_shell 的 XY_S 与 shape_hair 的仿射整形：横向比初版放宽 13.4%，
+前后加厚 5%，锚点 z=.25 以上向上展开 16%。保留发束拓扑、相邻顺序和刘海下缘高度。
 
 从项目根目录重建（源文件不进 main；SOURCE 为提供的 GLB 路径）：
 
 ```sh
-INNER=.94 DZ=-.06 TAIL_BACK=.055 Blender -b --python art/fairy-garden/doll/fit_shell.py -- "$SOURCE" art/fairy-garden/doll/v2/head-anchor.json /tmp/wolfcut-fit.glb
-TRIS=50054 TEX=1024 Blender -b --python art/fairy-garden/doll/compress_asset.py -- /tmp/wolfcut-fit.glb art/fairy-garden/doll/v2/web/hair_wolfcut.glb
+INNER=.94 DZ=-.06 XY_S=1.05 TAIL_BACK=.055 Blender -b --python art/fairy-garden/doll/fit_shell.py -- "$SOURCE" art/fairy-garden/doll/v2/head-anchor.json /tmp/wolfcut-fit.glb
+WIDEN=.08 FLAT_K=-.16 FLAT_Z0=.25 Blender -b --python art/fairy-garden/doll/shape_hair.py -- /tmp/wolfcut-fit.glb /tmp/wolfcut-fluffy.glb
+TRIS=50054 TEX=1024 Blender -b --python art/fairy-garden/doll/compress_asset.py -- /tmp/wolfcut-fluffy.glb art/fairy-garden/doll/v2/web/hair_wolfcut.glb
 Blender -b --python art/fairy-garden/doll/add_hair.py -- wolfcut --lazy
 node scripts/build-fairy-garden.mjs
 ```

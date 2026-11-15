@@ -1,5 +1,5 @@
-import {TOWN_RESIDENTS} from './town-residents.mjs?v=fg-c538baf2bbb01269';
-import {weightedChoice} from './resident-choice.mjs?v=fg-c538baf2bbb01269';
+import {TOWN_RESIDENTS} from './town-residents.mjs?v=fg-6dbc9276739d8ce5';
+import {weightedChoice} from './resident-choice.mjs?v=fg-6dbc9276739d8ce5';
 
 const copy=v=>structuredClone(v);
 const num=(v,max=1e15)=>Number.isFinite(v)?Math.max(0,Math.min(max,v)):0;
