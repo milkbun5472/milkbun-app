@@ -32,8 +32,8 @@ def forward(points):
   # End the centre-line fit at the last measured section to keep tips stable.
   sample_z=np.clip(z,.47,.71)
   cx,cy=[np.polyval(coef,sample_z) for coef in axes[side]]
-  q[mask,0]-=.32*slim[mask]*(world[mask,0]-cx[mask])
-  q[mask,1]-=.28*slim[mask]*(world[mask,1]-cy[mask])
+  q[mask,0]-=.42*slim[mask]*(world[mask,0]-cx[mask])
+  q[mask,1]-=.36*slim[mask]*(world[mask,1]-cy[mask])
  # Carry the root forward with the braid instead of shearing only its tail.
  # Use a broad depth blend so the cheek wisps move less than the roots.
  # Each braid cross-section moves together, including the band.
@@ -64,6 +64,20 @@ def forward(points):
  # smoothly above the braid roots, keeping room for the doll's real skull.
  fullness=.035*np.exp(-((q[:,2]-.84)/.10)**2)*smooth(posterior/.16)*smooth((q[:,2]-.72)/.08)
  q[:,1]+=fullness
+ # Narrow the cap without shortening or translating the hanging braids.
+ cap_width=smooth((q[:,2]-.72)/.15)
+ q[:,0]*=1-.10*cap_width
+ # Continue the central rear strands down to the nape. The narrower lower
+ # arc follows the neck; lateral braid roots and front cheek wisps stay put.
+ nape=smooth((q[:,1]-.015)/.075)*(1-smooth((q[:,2]-.78)/.18))*np.exp(-(q[:,0]/.18)**4)
+ q[:,2]-=.055*nape
+ q[:,1]-=.045*nape
+ # Bring the side braids toward the neck after shaping the rear cap.
+ # The central nape stays fixed; a broad lateral transition keeps the
+ # continuous ear-root surface smooth. The low braid and tie move together.
+ neck_side=smooth((np.abs(q[:,0])-.06)/.12)
+ neck_drop=smooth((.90-q[:,2])/.18)
+ q[:,0]-=.045*np.sign(q[:,0])*neck_side*neck_drop
  return (q-np.array(aj['center']))/radius
 report=runpy.run_path(str(Path(__file__).with_name('hair_deform.py')))['deform_mesh'](m,forward)
 band=mat.copy();band.name='hair_accessory';band['hairAccessory']=True;m.materials.append(band);chosen=[]

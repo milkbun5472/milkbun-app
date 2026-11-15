@@ -22,6 +22,9 @@ const out=process.env.OUT||'/tmp/lisa-hair-clearance';fs.mkdirSync(out,{recursiv
 
  const settle=(emotion=null,progress=0)=>{for(let i=0;i<45;i++)a.animate(time+=1/60,{emotion,progress});};
  const audit=()=>{if(hairMeshes(a.root).some(m=>!m.visible))throw Error('braids fixture is not active');let finite=true,capDrift=0,normalError=0;for(const m of hairMeshes(a.root)){const p=m.geometry.attributes.position,r=m.geometry.attributes.hairRest,n=m.geometry.attributes.normal;for(let i=0;i<p.count;i++){finite&&=Number.isFinite(p.getX(i)+p.getY(i)+p.getZ(i));normalError=Math.max(normalError,Math.abs(Math.hypot(n.getX(i),n.getY(i),n.getZ(i))-1));if(r.getY(i)>=-.65)capDrift=Math.max(capDrift,Math.abs(p.getX(i)-r.getX(i)),Math.abs(p.getY(i)-r.getY(i)),Math.abs(p.getZ(i)-r.getZ(i)));}}return {finite,capDrift,normalError};};
+ const nape=[];a.setLook({hair:'braids',outfit:'suit'});await a.ready();settle();review.render(Math.PI);
+ const canvas=document.createElement('canvas');canvas.width=800;canvas.height=900;const ctx=canvas.getContext('2d');ctx.drawImage(review.renderer.domElement,0,0);const bg=ctx.getImageData(0,0,1,1).data,anchor=a.root.getObjectByName('HeadAnchor');
+ for(const y of [-1.05,-1])for(const x of [-.45,-.3,-.15,0,.15,.3,.45]){const p=anchor.localToWorld(new T.Vector3(x,y,0)).project(review.camera),d=ctx.getImageData(Math.round((p.x+1)*400),Math.round((1-p.y)*450),1,1).data;nape.push({x,y,covered:Math.max(...[0,1,2].map(i=>Math.abs(d[i]-bg[i])))>=5});}
  const other=hairMeshes(b.root).map(m=>Array.from(m.geometry.attributes.position.array));
  for(const outfit of Object.keys(catalog.outfits)){a.setLook({outfit});await a.ready();for(const side of ['left','right'])for(const action of ['five','clap']){settle();settle(action+'-'+side,action==='five'?.45:.25);rows.push({outfit,side,action,...measure(side),...audit()});}}
  a.setLook({outfit:'ranger'});await a.ready();const sweep=[];settle();
@@ -30,11 +33,12 @@ const out=process.env.OUT||'/tmp/lisa-hair-clearance';fs.mkdirSync(out,{recursiv
  let isolated=true;hairMeshes(b.root).forEach((m,k)=>{isolated&&=m.geometry.attributes.position.array.every((v,i)=>v===other[k][i]);});
  const dimensions=[];for(const shape of ['min','max']){a.setLook({hair:'braids',hairColor:'#272321',outfit:'ranger',dims:Object.fromEntries(catalog.dims.map(d=>[d.key,d[shape]]))},true);for(const side of ['left','right']){settle();settle('five-'+side,.45);dimensions.push({shape,side,...measure(side),...audit()});}}
  a.setLook({hair:'braids',hairColor:'#272321',outfit:'ranger',dims:Object.fromEntries(catalog.dims.map(d=>[d.key,1]))},true);settle();settle('five-right',.45);
- const bands=hairMeshes(a.root).map(m=>m.userData.hairClearance);return {rows,sweep,release,dimensions,reset,isolated,bands};});
+ const bands=hairMeshes(a.root).map(m=>m.userData.hairClearance);return {rows,sweep,release,dimensions,reset,isolated,bands,nape};});
  fs.writeFileSync(path.join(out,'runtime-'+engine+'.json'),JSON.stringify({...result,errors},null,2));
  for(const row of [...result.rows,...result.dimensions,...result.sweep]){assert(row.finite);assert(row.capDrift<1e-6);assert(row.normalError<1e-4);}
  for(const row of [...result.rows,...result.dimensions])assert.equal(row.inside,0,JSON.stringify(row));
  assert(Math.max(...result.sweep.map(r=>r.maxDepth),...result.release.map(r=>r.maxDepth))<=result.sweep[0].maxDepth+.002,'motion must not add deep intersection over the unchanged neutral shoulder contact');
+ assert(result.nape.every(p=>p.covered),'rear nape must connect to the suit collar without a background hole');
  assert.equal(result.reset,0);assert(result.isolated);assert.deepEqual(result.bands[0],result.bands[1]);
  for(const [name,angle]of [['front',0],['side',-Math.PI/2],['three',-Math.PI/4]])await shot(name,angle,true);
  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'runtime-'+engine+'.json'),JSON.stringify({...result,errors},null,2));console.log(JSON.stringify({engine,poses:result.rows.length,dimensions:result.dimensions.length,maxTransitionDepth:Math.max(...result.sweep.map(r=>r.maxDepth)),maxReleaseDepth:Math.max(...result.release.map(r=>r.maxDepth)),reset:result.reset,errors}));
