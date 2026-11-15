@@ -279,6 +279,11 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="offcard"][data-me="1"] [data-wk="offthought"]{color:#666 !important}
 [data-wk="offcardacts"] svg{stroke:${C.fog} !important;color:${C.fog} !important}
 [data-wk="offreplyopt"]{background:${BRACKETS(C.red, C.cyan)},${SCAN},rgba(30,30,36,.88) !important;border:none !important;border-radius:0 !important;box-shadow:none !important;color:#fff !important}
+
+/* Ta 眼里那几张白卡：标题去掉重影（白底上太费眼），只在左边留一道红青短线 */
+[data-wk="gazecard"]{background:#FBFBF8 !important;box-shadow:none !important}
+[data-wk="gazecardname"]{color:#111 !important;text-shadow:none !important;font-weight:700 !important;border-left:3px solid ${C.red} !important;box-shadow:-6px 0 0 -3px ${C.cyan} !important;padding-left:8px !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:#555 !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "信号故障", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "信号故障-美化.json"), JSON.stringify(pack));
