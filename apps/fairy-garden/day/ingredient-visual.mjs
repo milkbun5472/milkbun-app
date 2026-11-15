@@ -1,5 +1,5 @@
 import * as T from 'three';
-import './kitchen.js?v=fg-1fc5effbf36aaeef';
+import './kitchen.js?v=fg-8fdb32857a9abe74';
 // Raw, cut, cooked and plated pieces use one geometry source.
 export function makeIngredient(p,method='stir',{live=false}={}){
  const K=globalThis.CharDayKitchen,g=new T.Group();g.name='Ingredient:'+p.id;g.userData={ingredient:p.ingredient,id:p.id};
