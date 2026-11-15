@@ -4720,12 +4720,13 @@ function memTtlPatch(it, ts) {
 function memExpired(e, now) {
   return !!(e && Number(e.expiresTs) > 0 && (now || Date.now()) > Number(e.expiresTs) && !e.pinned && !e.open);
 }
-function explainMemEntry(entry, qTokens, now, qVec, queryText) {
+function explainMemEntry(entry, qTokens, now, qVec, queryText, qW) {
   // 标签归一：原标签 + 别名族根一起进 token/命中，让「日常」「日常生活」「日常互动」互相认得
   const allTags = canonTags(entry.tags);
   const eTokens = memTokens((entry.text || "") + " " + allTags.join(" "));
-  let overlap = 0, strong = 0;
-  qTokens.forEach(tk => { if (eTokens.has(tk)) { overlap += tk.length >= 2 ? 1.4 : 1; if (tk.length >= 2) strong += 1; } });
+  let overlap = 0, strong = 0, rawOverlap = 0;
+  // qW（可选）：每个词的分量。满库都有的词（「我们」「今天」「什么」）分量低，少见的词（「大房」）高；她刚说的那一句里的词再加重
+  qTokens.forEach(tk => { if (eTokens.has(tk)) { const w = qW && qW.has(tk) ? qW.get(tk) : 1; overlap += (tk.length >= 2 ? 1.4 : 1) * w; rawOverlap += tk.length >= 2 ? 1.4 : 1; if (tk.length >= 2) strong += w; } });
   // 标签直接命中 query 额外加权（族根也算命中）
   let tagHit = 0;
   allTags.forEach(tag => { if (qTokens.has(String(tag).toLowerCase())) tagHit += 2; });
@@ -4762,7 +4763,7 @@ function explainMemEntry(entry, qTokens, now, qVec, queryText) {
   const score = (keyword * (0.45 + 0.55 * retention) + recency * 0.8 + arousalW + openW + strong * 1.2) * (expired ? 0.4 : 1) + (entry.pinned ? 100 : 0);
   const qNorm = memQueryNorm(queryText), eNorm = memQueryNorm(entry.text);
   const directText = qNorm.length >= 2 && eNorm.length >= 2 && (eNorm.includes(qNorm) || (eNorm.length <= 80 && qNorm.includes(eNorm)));
-  const lexicalDirect = directText || tagHit > 0 || overlap >= 1.4;
+  const lexicalDirect = directText || tagHit > 0 || rawOverlap >= 1.4;   // 进不进主路照「对上了几个字」算，分量只管排先后（库小时分量都偏低，不能让它把人挡在门外）
   const semanticDirect = vectorScored && cosine >= MEM_SEMANTIC_DIRECT;
   const semanticAssociation = vectorScored && cosine >= MEM_SEMANTIC_ASSOC;
   const lane = lexicalDirect || semanticDirect ? "main" : (semanticAssociation ? "association" : "none");
@@ -4869,13 +4870,24 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
     return attachMemoryRecallMeta([], emptyMeta);
   }
   const qTokens = memTokens(queryText);
+  // 词的分量（她 2026-11-15「看看召回还有没有别的毛病」）：
+  //   ① 检索拿的是最近 8 条（她的和 TA 的都算），TA 一大段回复里的「我们」「今天」「一起」到处都对得上，
+  //      越长的记忆越占便宜，她刚点名的那个词反而被冲淡——所以按「库里有几条带这个词」给分量，满库都有的轻、少见的重；
+  //   ② 她最新那一句（opts.focusText）里的词再乘 1.6：她正在说的事优先
+  const qW = new Map();
+  try {
+    const N = list.length, df = new Map();
+    list.forEach(e => memTokens((e.text || "") + " " + canonTags(e.tags).join(" ")).forEach(tk => { if (qTokens.has(tk)) df.set(tk, (df.get(tk) || 0) + 1); }));
+    const focus = opts.focusText ? memTokens(opts.focusText) : null;
+    qTokens.forEach(tk => { const d = df.get(tk) || 0; let w = d ? Math.max(0.05, Math.min(1.8, 1.8 * Math.log((N + 1) / (d + 0.5)) / Math.log(N + 1.5))) : 1; if (focus && focus.has(tk)) w *= 1.6; qW.set(tk, w); });
+  } catch (eW) { qW.clear(); }
   // 向量：只有发送前 primeQueryVec 预热过、缓存命中才拿得到；没有就 null=纯关键词，行为同旧版
   const qVec = opts.vec === false ? null : getQueryVec(queryText);
   // ⭐置顶=always-in，【另开一路、不占 topK 相关召回名额】（v48.41 修：原来置顶和普通条挤同一个 topK，
   //   置顶超过 topK 就把相关记忆全饿死了，且不相关的置顶也白占坑）。置顶全进 + 相关的再补 topK 条。
   const pinned = list.filter(e => e.pinned);
   const scored = list.filter(e => !e.pinned).map(e => {
-    const why = explainMemEntry(e, qTokens, Date.now(), qVec, queryText);
+    const why = explainMemEntry(e, qTokens, Date.now(), qVec, queryText, qW);
     return { e, s: why.score, why };
   });
   scored.sort((a, b) => b.s - a.s);

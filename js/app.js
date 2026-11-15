@@ -7076,6 +7076,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const rows = retrieveMemories(memPool, char.id, recallText, {
         limit: isLeanYanqiuChat ? 3 : (memCfgRef.current.topK || 5),
         source: ctxOpts && ctxOpts.chat === true ? "chat" : "background",
+        // 她最新说的那一句：里面的词召回时加重（她正在说的事优先，不被前面几条冲淡）
+        focusText: (() => { const L = (chatsRef.current[char.id] || []).filter(m => m && m.role === "user" && !m.recalled && !isOocMsg(m)); return L.length ? String(L[L.length - 1].content || "") : ""; })(),
         touch: !(ctxOpts && ctxOpts.debug === true)
       });
       if (!isLeanYanqiuChat) return rows;
