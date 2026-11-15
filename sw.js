@@ -40,6 +40,81 @@ function isStaticSameOrigin(url) {
   // 不写进来的话它俩每次都走网络，离线时秋秋就是两个空框。
   return url.origin === self.location.origin && (/\.(js|css|png|webp|json|ico)$/.test(url.pathname) || (/\/(?:apps\/(?:fairy-garden|train|pets)|art\/(?:pet-career|pet-house|train-carriage))\//.test(url.pathname) && /\.(mjs|glb)$/.test(url.pathname)));
 }
+// ===== 主页面先用存着的、新版后台下齐再换（她 2026-11-15）=====
+// 存进去的首页不能是「跳转过来的」响应：Safari 拒绝把带跳转记录的响应交给页面导航。
+async function storableDoc(res) {
+  if (typeof Response === "undefined" || !res || !res.redirected) return res.clone ? res.clone() : res;
+  return new Response(await res.clone().blob(), { status: res.status, headers: res.headers });
+}
+async function navFromNetwork(req, key) {
+  try {
+    const fresh = await fetch(req, { cache: "no-store" });
+    const cache = await caches.open(SHELL_CACHE);
+    if (fresh.ok) await cache.put(key, await storableDoc(fresh));
+    return fresh;
+  } catch (e) {
+    const cached = await caches.match(key);
+    if (cached) return cached;
+    throw e;
+  }
+}
+// 首页开机要用的文件：<script src> / <link href> 带的，加上公共版排队清单里写的那几块。
+//   点进去才加载的（data-src）不在这儿——它们本来就是用到时才下。
+function bootAssets(html, base) {
+  const out = [], seen = {};
+  const add = (u) => {
+    try {
+      const abs = new URL(u, base);
+      if (abs.origin !== self.location.origin || seen[abs.href]) return;
+      if (!/\.(m?js|css)$/i.test(abs.pathname)) return;
+      seen[abs.href] = 1; out.push(abs.href);
+    } catch (e) {}
+  };
+  let m;
+  const tagRe = /<(?:script|link)\b[^>]*\s(?:src|href)="([^"]+)"/gi;
+  while ((m = tagRe.exec(html))) add(m[1]);
+  const seqRe = /["'](js\/bundle[^"']*\.js\?v=[^"']+)["']/g;
+  while ((m = seqRe.exec(html))) add(m[1]);
+  return out;
+}
+let staging = null;
+function stageOnce() {
+  if (!staging) staging = stageUpdate().catch(() => {}).then(() => { staging = null; });
+  return staging;
+}
+async function stageUpdate() {
+  const scope = new URL("./", self.location.href);
+  const key = "__index__";
+  const res = await fetch(scope.href, { cache: "no-store", credentials: "same-origin" });
+  if (!res || !res.ok) return;
+  const html = await res.clone().text();
+  // 进门页（还没输口令）或者拿回来的不像首页：不许当成新版存进去
+  if (!/js\/(?:bundle|app)\.js\?v=/.test(html)) return;
+  const cache = await caches.open(SHELL_CACHE);
+  const old = await cache.match(key);
+  if (old && (await old.clone().text()) === html) return;           // 没有新版
+  const list = bootAssets(html, scope.href);
+  // 一块一块下：下好一块就存一块，被打断了下次接着来；有一块拿不到就先不换
+  for (const href of list) {
+    if (await cache.match(href)) continue;
+    const r = await fetch(href);
+    if (!r || !r.ok || looksLikeFallback(new URL(href), r)) return;
+    await cache.put(href, r.clone());
+  }
+  const doc = typeof Response === "undefined" ? res : new Response(html, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } });
+  await cache.put(key, doc);
+  // 换上之后，同一个文件的旧版本（地址一样、?v= 不一样）才清掉——换之前清会让旧首页找不到自己的文件
+  try {
+    const want = {};
+    list.forEach(h => { const u = new URL(h); if (/[?&]v=/.test(u.search)) want[u.pathname] = u.search; });
+    const keys = await cache.keys();
+    await Promise.all(keys.map(k => {
+      try { const u = new URL(k.url); if (want[u.pathname] && want[u.pathname] !== u.search) return cache.delete(k); } catch (e) {}
+    }));
+  } catch (e) {}
+  const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  clients.forEach(c => { try { c.postMessage({ type: "QQ_UPDATE_READY" }); } catch (e) {} });
+}
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
@@ -49,22 +124,27 @@ self.addEventListener("fetch", (event) => {
   const scope = new URL("./", self.location.href);
   const mainDocument = url.pathname === scope.pathname || url.pathname === new URL("index.html", scope).pathname;
   const navigationKey = mainDocument ? "__index__" : "__page__:" + url.origin + url.pathname;
+  // 主页面：手机里存着一份就先用存着的（秒开），新版在后台一块一块下，下齐了才换上（见 stageUpdate）。
+  //   她 2026-11-15「以后打开就还是之前缓存过的，让他们自己点更新」：国内连这个地址每秒几 KB，
+  //   每发一版就要在白屏前干等十来分钟、一打断就白下。
+  //   ⚠️救援页跳回来带 ?launch=/&fresh=：那是「我要最新的」，照旧网络优先。
+  if (req.mode === "navigate" && mainDocument && !/[?&](?:launch|fresh)=/.test(url.search)) {
+    event.respondWith((async () => {
+      let cached = null;
+      try { cached = await caches.match(navigationKey); } catch (e) {}
+      if (cached) {
+        const bg = stageOnce();
+        if (event.waitUntil) event.waitUntil(bg);
+        return cached;
+      }
+      return navFromNetwork(req, navigationKey);
+    })());
+    return;
+  }
   // 导航：网络优先，断网退缓存
   if (req.mode === "navigate") {
-    event.respondWith((async () => {
-      try {
-        // iOS 主屏幕 Web App 还会在 Cache Storage 外保留 HTTP 磁盘缓存。
-        // 导航显式 no-store，保证在线启动不被旧 index.html 黏住。
-        const fresh = await fetch(req, { cache: "no-store" });
-        const cache = await caches.open(SHELL_CACHE);
-        if (fresh.ok) await cache.put(navigationKey, fresh.clone());
-        return fresh;
-      } catch (e) {
-        const cached = await caches.match(navigationKey);
-        if (cached) return cached;
-        throw e;
-      }
-    })());
+    // iOS 主屏幕 Web App 还会在 Cache Storage 外保留 HTTP 磁盘缓存；导航显式 no-store（在 navFromNetwork 里）。
+    event.respondWith(navFromNetwork(req, navigationKey));
     return;
   }
 
@@ -98,6 +178,8 @@ self.addEventListener("fetch", (event) => {
 // 这是 iOS PWA 也能弹锁屏通知的关键：页面 postMessage → SW showNotification。
 self.addEventListener("message", (event) => {
   const d = event.data || {};
+  // 页面回到前台时问一声有没有新版（App 一直开着不重新打开的人也能等到更新）
+  if (d.type === "QQ_CHECK_UPDATE") { if (event.waitUntil) event.waitUntil(stageOnce()); else stageOnce(); return; }
   if (d.type !== "SHOW_LOCAL_NOTIFICATION") return;
   event.waitUntil(self.registration.showNotification(d.title || "秋秋\u673a", {
     body: d.body || "",
