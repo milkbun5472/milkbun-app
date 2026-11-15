@@ -6,6 +6,8 @@ HERE = Path(__file__).resolve().parent
 APP = HERE.parents[2] / 'apps/fairy-garden'
 
 def apply_regions(outfits):
+    # Finished, independently authored GLBs share the same runtime catalogue.
+    outfits.update(json.loads((HERE / 'prepared_outfits.json').read_text()))
     for key, region in json.loads((HERE / 'dye_regions.json').read_text()).items():
         if key in outfits:
             for slot, value in region['add'].items():

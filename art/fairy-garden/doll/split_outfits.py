@@ -6,7 +6,7 @@ The full doll stays the authoring master (MASTER): every migration (add_outfit.p
 reads and writes that file, then this script refreshes the app files.
 Run: python3 -c "import sys,runpy;sys.argv=['x'];runpy.run_path('split_outfits.py',run_name='__main__')"
 """
-import bpy,os
+import bpy,os,json
 HERE=os.path.dirname(os.path.abspath(__file__))
 MASTER=os.path.join(HERE,'v2','doll-full.glb')
 APP=os.path.join(HERE,'..','..','..','apps','fairy-garden')
@@ -33,12 +33,19 @@ def split():
     每加一款所有人都多下一两百 KB、多占一份显存。头发挂在 HeadAnchor 下（不蒙皮），所以每个文件带上
     DollRig 和 HeadAnchor，运行时按名字接到这个人自己的 HeadAnchor 底下（traveler.mjs hairSource）。"""
     load();ids=outfit_ids();hairs=hair_ids()
+    # Prepared outfits are already skinned and exported; keep their reviewed bytes.
+    prepared=json.load(open(os.path.join(HERE,'prepared_outfits.json')))
+    for oid in prepared:
+        if not os.path.isfile(os.path.join(APP,'outfits',oid+'.glb')):
+            raise FileNotFoundError('Missing prepared outfit: '+oid)
     for d in ('outfits','hair'):os.makedirs(os.path.join(APP,d),exist_ok=True)
     export(lambda o:not o.get('outfit') and not o.get('hair'),os.path.join(APP,'doll.glb'))
     for oid in ids:
+        if oid in prepared:continue
         export(lambda o:o.type=='ARMATURE' or o.get('outfit')==oid,os.path.join(APP,'outfits',oid+'.glb'))
     for hid in hairs:
         export(lambda o:o.type=='ARMATURE' or o.name=='HeadAnchor' or o.get('hair')==hid,os.path.join(APP,'hair',hid+'.glb'))
+    ids=sorted(set(ids)|set(prepared))
     for d,keep in (('outfits',ids),('hair',hairs)):
         for f in os.listdir(os.path.join(APP,d)):
             if f.endswith('.glb') and f[:-4] not in keep:os.remove(os.path.join(APP,d,f))
