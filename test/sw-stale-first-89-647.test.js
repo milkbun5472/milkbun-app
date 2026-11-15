@@ -42,7 +42,11 @@ function makeSW(server) {
     const res = await result; await Promise.all(waits);
     return { text: await res.clone().text(), waits: waits.length };
   };
-  return { navigate, entries, posted, fetched };
+  const asset = async (p) => {
+    let result; listeners.fetch({ request: { url: BASE + p, method: "GET", mode: "cors" }, respondWith: r => { result = r; } });
+    const res = await result; await new Promise(r => setTimeout(r, 20)); return res;
+  };
+  return { navigate, asset, entries, posted, fetched };
 }
 const page = v => '<script src="vendor/react.js"></script><script>var L=["js/bundle.js?v=' + v + '","js/bundle-2.js?v=' + v + '"]</script>'
   + '<script type="text/lazy" data-src="js/lazy.js?v=' + v + '"></script>' + v;
@@ -51,6 +55,7 @@ test("有存着的首页就先用它，新版下齐了才换上，并告诉页�
   const server = { files: { [BASE]: page("A"), [BASE + "js/bundle.js?v=A"]: "a1", [BASE + "js/bundle-2.js?v=A"]: "a2", [BASE + "vendor/react.js"]: "r" } };
   const sw = makeSW(server);
   assert.match((await sw.navigate()).text, /A$/, "头一回没存着，只能走网络");
+  for (const k of [BASE + "js/bundle.js?v=A", BASE + "js/bundle-2.js?v=A"]) sw.entries.set(k, "x");
   // 发新版 B
   Object.assign(server.files, { [BASE]: page("B"), [BASE + "js/bundle.js?v=B"]: "b1", [BASE + "js/bundle-2.js?v=B"]: "b2" });
   const r = await sw.navigate();
@@ -58,9 +63,11 @@ test("有存着的首页就先用它，新版下齐了才换上，并告诉页�
   assert.equal(r.waits, 1, "后台去下新版要挂在 waitUntil 上");
   assert.ok(sw.entries.has(BASE + "js/bundle.js?v=B") && sw.entries.has(BASE + "js/bundle-2.js?v=B"), "排队清单里的块要下进来");
   assert.ok(!sw.entries.has(BASE + "js/lazy.js?v=B"), "点进去才加载的不在开机清单里");
-  assert.ok(!sw.entries.has(BASE + "js/bundle.js?v=A"), "换上之后旧版那块清掉");
+  assert.ok(sw.entries.has(BASE + "js/bundle.js?v=A"), "换上的那一刻不清旧的：旧页面可能还在用");
   assert.deepEqual(sw.posted.map(m => m.type), ["QQ_UPDATE_READY"]);
   assert.match((await sw.navigate()).text, /B$/, "下一次打开就是新版");
+  assert.ok(!sw.entries.has(BASE + "js/bundle.js?v=A"), "用上新版之后的下一轮才清旧的");
+  assert.ok(sw.entries.has(BASE + "js/bundle.js?v=B"));
 });
 
 test("新版有一块没拿到：不换首页，旧版的文件也不许清", async () => {
@@ -103,4 +110,16 @@ test("页面那头：收到下好了就冒提示，回前台问一声", () => {
   assert.ok(html.includes('postMessage({ type: "QQ_CHECK_UPDATE" })'));
   assert.ok(SW.includes('d.type === "QQ_CHECK_UPDATE"'));
   assert.ok(/SW_VERSION = "archive-sw-v8"/.test(SW), "缓存柜名字不许动：一改，所有人存着的全清，要整份重下");
+});
+
+test("旧页面再要一次旧文件，不许把后台刚下好的新文件挤掉", async () => {
+  const server = { files: { [BASE]: page("A"), [BASE + "js/bundle.js?v=A"]: "a1", [BASE + "js/bundle-2.js?v=A"]: "a2", [BASE + "vendor/react.js"]: "r" } };
+  const sw = makeSW(server);
+  await sw.navigate();
+  Object.assign(server.files, { [BASE]: page("B"), [BASE + "js/bundle.js?v=B"]: "b1", [BASE + "js/bundle-2.js?v=B"]: "b2" });
+  await sw.navigate();                                   // 后台下齐了 B
+  assert.ok(sw.entries.has(BASE + "js/bundle.js?v=B"));
+  sw.entries.delete(BASE + "js/bundle.js?v=A");          // 旧页面要的旧文件不在柜子里，得走网络
+  await sw.asset("js/bundle.js?v=A");
+  assert.ok(sw.entries.has(BASE + "js/bundle.js?v=B"), "缓存优先那条路的「删同名旧版」误删了刚下好的新版");
 });

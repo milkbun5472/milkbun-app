@@ -92,7 +92,10 @@ async function stageUpdate() {
   if (!/js\/(?:bundle|app)\.js\?v=/.test(html)) return;
   const cache = await caches.open(SHELL_CACHE);
   const old = await cache.match(key);
-  if (old && (await old.clone().text()) === html) return;           // 没有新版
+  const oldHtml = old ? await old.clone().text() : "";
+  // 先清【上上版】的残留：此刻存着的首页就是正在用的那一版，它用不到的同名旧文件才能删
+  if (oldHtml) await pruneExcept(cache, bootAssets(oldHtml, scope.href));
+  if (oldHtml === html) return;                                     // 没有新版
   const list = bootAssets(html, scope.href);
   // 一块一块下：下好一块就存一块，被打断了下次接着来；有一块拿不到就先不换
   for (const href of list) {
@@ -103,17 +106,37 @@ async function stageUpdate() {
   }
   const doc = typeof Response === "undefined" ? res : new Response(html, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } });
   await cache.put(key, doc);
-  // 换上之后，同一个文件的旧版本（地址一样、?v= 不一样）才清掉——换之前清会让旧首页找不到自己的文件
+  // ⚠️换上的这一刻不清旧文件：旧页面可能还在用（下一次 stageUpdate 开头才清）
+  const now = docSig(html);
+  const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  clients.forEach(c => { try { if (served.get(c.id) !== now) c.postMessage({ type: "QQ_UPDATE_READY" }); } catch (e) {} });
+}
+// 同路径、?v= 不在 keep 里的旧版本删掉（只删开机清单里那几个路径的）
+async function pruneExcept(cache, keepList) {
   try {
-    const want = {};
-    list.forEach(h => { const u = new URL(h); if (/[?&]v=/.test(u.search)) want[u.pathname] = u.search; });
+    const keep = {}, paths = {};
+    keepList.forEach(h => { keep[h] = 1; const u = new URL(h); if (/[?&]v=/.test(u.search)) paths[u.pathname] = 1; });
     const keys = await cache.keys();
     await Promise.all(keys.map(k => {
-      try { const u = new URL(k.url); if (want[u.pathname] && want[u.pathname] !== u.search) return cache.delete(k); } catch (e) {}
+      try { const u = new URL(k.url); if (paths[u.pathname] && !keep[u.href]) return cache.delete(k); } catch (e) {}
     }));
   } catch (e) {}
-  const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-  clients.forEach(c => { try { c.postMessage({ type: "QQ_UPDATE_READY" }); } catch (e) {} });
+}
+// 存着的首页开机要用的那几个文件：缓存优先那条路「新版本进来就删同名旧版」时，这几个不许删
+async function indexKeepSet() {
+  try {
+    const r = await caches.match("__index__");
+    if (!r) return {};
+    const keep = {};
+    bootAssets(await r.clone().text(), new URL("./", self.location.href).href).forEach(h => { keep[h] = 1; });
+    return keep;
+  } catch (e) { return {}; }
+}
+// 每个页面拿到的是哪一版首页（页面回来问「有新版吗」时对一下）
+const served = new Map();
+function docSig(t) { let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return t.length + ":" + h; }
+async function markServed(event, res) {
+  try { const id = event.resultingClientId || event.clientId; if (id && res) served.set(id, docSig(await res.clone().text())); } catch (e) {}
 }
 self.addEventListener("fetch", (event) => {
   const req = event.request;
@@ -133,11 +156,14 @@ self.addEventListener("fetch", (event) => {
       let cached = null;
       try { cached = await caches.match(navigationKey); } catch (e) {}
       if (cached) {
+        await markServed(event, cached);
         const bg = stageOnce();
         if (event.waitUntil) event.waitUntil(bg);
         return cached;
       }
-      return navFromNetwork(req, navigationKey);
+      const res = await navFromNetwork(req, navigationKey);
+      await markServed(event, res);
+      return res;
     })());
     return;
   }
@@ -162,9 +188,13 @@ self.addEventListener("fetch", (event) => {
       // 同路径旧版本就地清理（防 ?v= 逐版累积吃存储）
       if (isVersionedAsset(url)) {
         const keys = await cache.keys();
+        // ⚠️存着的首页（可能是后台刚下齐、还没换上的新版）开机要用的那几块不许删：
+        //   旧页面这时候再要一次旧文件，会把刚下好的新文件挤掉（2026-11-15 实测撞到）
+        const keep = await indexKeepSet();
         keys.forEach(k => {
           try {
             const ku = new URL(k.url);
+            if (keep[ku.href]) return;
             if (ku.origin === url.origin && ku.pathname === url.pathname && ku.search !== url.search) cache.delete(k);
           } catch (e) {}
         });
@@ -179,7 +209,18 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("message", (event) => {
   const d = event.data || {};
   // 页面回到前台时问一声有没有新版（App 一直开着不重新打开的人也能等到更新）
-  if (d.type === "QQ_CHECK_UPDATE") { if (event.waitUntil) event.waitUntil(stageOnce()); else stageOnce(); return; }
+  if (d.type === "QQ_CHECK_UPDATE") {
+    // 先下（有新版的话），再对一下这个页面拿到的那一版跟存着的是不是同一版：不是就告诉它
+    const job = stageOnce().then(async () => {
+      try {
+        const src = event.source, r = await caches.match("__index__");
+        if (!src || !r || !served.has(src.id)) return;
+        if (served.get(src.id) !== docSig(await r.clone().text())) src.postMessage({ type: "QQ_UPDATE_READY" });
+      } catch (e) {}
+    });
+    if (event.waitUntil) event.waitUntil(job);
+    return;
+  }
   if (d.type !== "SHOW_LOCAL_NOTIFICATION") return;
   event.waitUntil(self.registration.showNotification(d.title || "秋秋\u673a", {
     body: d.body || "",

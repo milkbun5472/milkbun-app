@@ -708,6 +708,8 @@
         } catch (x) {}
       };
       document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") askUpdate(); });
+      // 刚打开就问一次：网快时新版可能在这一页挂上监听之前就下齐了，那条通知会错过
+      try { if (navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({ type: "QQ_CHECK_UPDATE" }); } catch (x) {}
       navigator.serviceWorker.addEventListener("message", function (e) {
         if (e.data && e.data.type === "QQ_UPDATE_READY") {
           if (document.getElementById("qq-upd")) return;
