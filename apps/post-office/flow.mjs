@@ -1,9 +1,9 @@
-import {CAT_APPROACH,isPostalCat,stepCatVisit} from './cat-visit.mjs?v=fg-8fdb32857a9abe74';
-import {visitorSeat,windowSeat,SHOP_CHAIR,SHOP_BENCH} from './furniture.mjs?v=fg-8fdb32857a9abe74';
-import {STORY_ACTIONS,normalizeStoryAction} from '../fairy-garden/story-actions.mjs?v=fg-8fdb32857a9abe74';
-import {createStoryPlayback} from './playback.mjs?v=fg-8fdb32857a9abe74';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-8fdb32857a9abe74';
-import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-8fdb32857a9abe74';
+import {CAT_APPROACH,isPostalCat,stepCatVisit} from './cat-visit.mjs?v=fg-fbd57b78695a6f6e';
+import {visitorSeat,windowSeat,SHOP_CHAIR,SHOP_BENCH} from './furniture.mjs?v=fg-fbd57b78695a6f6e';
+import {STORY_ACTIONS,normalizeStoryAction} from '../fairy-garden/story-actions.mjs?v=fg-fbd57b78695a6f6e';
+import {createStoryPlayback} from './playback.mjs?v=fg-fbd57b78695a6f6e';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-fbd57b78695a6f6e';
+import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-fbd57b78695a6f6e';
 export const ENTRY={x:3.32,z:4.7};
 export const SHOP_FURNITURE=[{id:'Counter',x:-1.45,z:1.15,w:3.93,d:1.04},{id:'SortTable',x:-2.25,z:-2.5,w:2.8,d:.85},SHOP_CHAIR,{id:'DisplayShelves',x:-4.2,z:0,w:.45,d:6},{id:'Mailbags',x:4.05,z:2.45,w:.85,d:.55}];
 export const queuePoint=i=>({x:-1.45+(Math.floor(i/3)%6)*.84,z:2.2+(Math.floor(i/18)%2?2-i%3:i%3)*.85});

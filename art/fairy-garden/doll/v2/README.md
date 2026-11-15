@@ -204,3 +204,21 @@ node scripts/build-fairy-garden.mjs
 ```
 
 与其他发型是独立 ID，选择前按需下载；原身体、其他发型和衣服不重建。
+
+## 双麻花辫（braids，2026-11-14）
+
+来源：Lisa 的 `a455dc4dc0af03db59e315c3f262bb38.glb`。保留 50000 三角面。
+`CAVITY_Z=.70` 在发帽中测内腔（默认仍 .45）；`prepare_braids.py` 将下段辫子平滑前移至肩前，
+按各辫身中心线收细宽度 32%、厚度 28%，在高度 .80–.70 平滑过渡；冠顶高度、长度保留，发圈同步贴合。侧面修正版把根部过渡提前到高度 .94–.70，前移由 .24 减到 .18、外移由 .02 调到 .055；前侧碎发用宽深度过渡减小位移，后脑超出 .10 的深度按平滑权重微收20%，减少斜长连接与后悬。 圆润版再以宽高斯权重补顺上后侧（z=1.12、宽.17、后移.035），微抬低转角（z=1.00、宽.18、上移.025）；只作用于后侧发帽，细辫身与发圈不变。
+用原蓝色贴图区分 970 个发圈三角面，不删除面或 UV。发圈材质 extras.hairAccessory 走独立颜色，
+与头发共享一张灰度贴图、公共帽托和垂落机制；头发的四种染色不会影响发圈。
+`hair_deform.py` 共用于背头和麻花辫的形变与逆转置自定义法线更新。
+
+```sh
+SOURCE=/Users/lisa/Downloads/a455dc4dc0af03db59e315c3f262bb38.glb
+CAVITY_Z=.70 INNER=.98 DZ=-.03 Blender -b --python art/fairy-garden/doll/fit_shell.py -- "$SOURCE" art/fairy-garden/doll/v2/head-anchor.json /tmp/braids-fit.glb
+Blender -b --python art/fairy-garden/doll/prepare_braids.py -- /tmp/braids-fit.glb art/fairy-garden/doll/v2/head-anchor.json /tmp/braids-ready.glb
+TRIS=50000 TEX=1024 Blender -b --python art/fairy-garden/doll/compress_asset.py -- /tmp/braids-ready.glb art/fairy-garden/doll/v2/web/hair_braids.glb
+Blender -b --python art/fairy-garden/doll/add_hair.py -- braids --lazy
+node scripts/build-fairy-garden.mjs
+```
