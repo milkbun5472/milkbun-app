@@ -215,3 +215,5 @@ test("限时动态的字：长了折行、靠边的挪进来，整行都在卡�
   assert.ok(L.free.length >= 3);
   L.free.forEach(f => { const w = Array.from(f.text).length * f.size * 1.02; assert.ok(w >= 1080 - 120 || (f.x - w / 2 >= 59 && f.x + w / 2 <= 1021), f.text); });
 });
+
+test("看动态从第一条没看过的翻起，全看过才从头", () => { const st = fs.readFileSync("js/stories.js", "utf8"); assert.ok(st.includes("if (start || archive) return") && st.includes(".seen || {})[viewer]);\n      return k >= 0 ? k : 0;")); });
