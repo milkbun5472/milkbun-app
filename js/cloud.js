@@ -249,6 +249,9 @@
               if (typeof ref !== "string" || ref.indexOf("iv_") !== 0) continue;
               const blob = await idbVaultGet(ref); if (blob) row[field] = await blobToDataUrl(blob);
             }
+            // 锁脸的另外两个角度（refExtras）也一样嵌回去，换设备才带得走
+            if (Array.isArray(row.refExtras)) for (let k = 0; k < row.refExtras.length; k++) { const ref = row.refExtras[k];
+              if (typeof ref === "string" && ref.indexOf("iv_") === 0) { const blob = await idbVaultGet(ref); if (blob) row.refExtras[k] = await blobToDataUrl(blob); } }
           }
           dump[key] = JSON.stringify(value);
         } catch (e) {}
@@ -404,6 +407,7 @@
                   try { row[f] = await imgToVault(row[f]); } catch (e) { row[f] = ""; }
                 }
               }
+              if (Array.isArray(row.refExtras)) for (let k = 0; k < row.refExtras.length; k++) if (typeof row.refExtras[k] === "string" && row.refExtras[k].indexOf("data:") === 0) { try { row.refExtras[k] = await imgToVault(row.refExtras[k]); } catch (e) { row.refExtras[k] = null; } }
             }
             return JSON.stringify(parsed);
           } catch (e) { return v; }

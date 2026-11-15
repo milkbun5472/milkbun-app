@@ -219,3 +219,10 @@ test("限时动态的字：长了折行、靠边的挪进来，整行都在卡�
 test("看动态从第一条没看过的翻起，全看过才从头", () => { const st = fs.readFileSync("js/stories.js", "utf8"); assert.ok(st.includes("if (start || archive) return") && st.includes(".seen || {})[viewer]);\n      return k >= 0 ? k : 0;")); });
 
 test("聊天那个 app 的顶栏底栏、评论框用微信那种浅灰", () => { const c = fs.readFileSync("js/components.js", "utf8"); assert.ok(c.includes("function wxGrey(t)") && c.includes("background: wxGrey(t),") && (c.match(/background: wxGrey\(t\)/g) || []).length >= 3); });
+
+test("锁脸能多放两个角度：出图拼成一张三视图，云备份带得走", () => {
+  const e = fs.readFileSync("js/engine.js", "utf8"), u = fs.readFileSync("js/screens-ui.js", "utf8"), a = fs.readFileSync("js/app.js", "utf8"), cl = fs.readFileSync("js/cloud.js", "utf8");
+  assert.ok(e.includes("async function refWithAngles(r)") && e.includes(".map(refWithAngles));"));
+  assert.ok(u.includes('"data-wk": "refextras"') && u.includes("refExtras: (refExtras || []).filter(Boolean).slice(0, 2),"));
+  assert.ok(a.includes("window.__refExtrasOf = r =>") && (cl.match(/row\.refExtras/g) || []).length >= 4);
+});

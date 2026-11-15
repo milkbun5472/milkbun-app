@@ -280,6 +280,7 @@ function CastForm({
   const [photoOutfit, setPhotoOutfit] = useState(initial && initial.photoOutfit || "");
   const [photoAccessories, setPhotoAccessories] = useState(initial && initial.photoAccessories || "");
   const [refPhoto, setRefPhoto] = useState(initial && initial.refPhoto || null);
+  const [refExtras, setRefExtras] = useState(() => ((initial && initial.refExtras) || []).slice(0, 2));   // 锁脸的别的角度（侧脸、微侧脸）
   const [photoStyle, setPhotoStyle] = useState(initial && initial.photoStyle || "realistic");
   const [birthday, setBirthday] = useState(initial && initial.birthday || "");
   // 年龄和生日分开（v63.65）：留空＝跟着生日走；填了＝钉死，不再自动加一
@@ -312,6 +313,7 @@ function CastForm({
       photoOutfit: photoOutfit.trim(),
       photoAccessories: photoAccessories.trim(),
       refPhoto: refPhoto,
+      refExtras: (refExtras || []).filter(Boolean).slice(0, 2),
       photoStyle: photoStyle,
       birthday: birthday.trim(),
       age: ageInput.trim(),
@@ -404,6 +406,11 @@ function CastForm({
     h("div", { className: "flex items-center gap-3 mb-3" },
       h(AvatarPicker, { character: { name, avatarImage: refPhoto, color }, size: 56, radius: 12, imageMaxDim: 1024, imageQuality: 0.94, onPick: setRefPhoto, onClear: () => setRefPhoto(null) }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55 } }, "参考照用来锁定长相；接好图像 API 后可生成生活照。")),
+    // 再放两张别的角度（她 2026-11-15）：出图时跟上面那张拼成一张三视图一起送，侧着、低头的画面更像
+    refPhoto ? h("div", { "data-wk": "refextras", className: "flex items-center gap-3 mb-3" },
+      [0, 1].map(k => h(AvatarPicker, { key: k, character: { name: k ? "微侧" : "侧脸", avatarImage: (refExtras || [])[k] || null, color }, size: 44, radius: 10, imageMaxDim: 1024, imageQuality: 0.94,
+        onPick: v => setRefExtras(a => { const n = (a || []).slice(0, 2); n[k] = v; return n; }), onClear: () => setRefExtras(a => { const n = (a || []).slice(0, 2); n[k] = null; return n; }) })),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5 } }, "可以再放两张别的角度（侧脸、微侧脸），要是同一个人同一种画风。出图时三张拼成一张一起送，侧着、低头的画面会更像。")) : null,
     h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, [["realistic", "写实照片"], ["reference", "跟随参考图"], ["anime", "二次元插画"]].map(o => h("button", { "data-wk": "block", key: o[0], type: "button", onClick: () => setPhotoStyle(o[0]), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "5px 10px", borderRadius: 999, background: photoStyle === o[0] ? t.ink : t.bg, color: photoStyle === o[0] ? t.bg2 : t.sub, border: "1px solid " + t.line } }, o[1]))),
     h(LineArea, { value: appearance, onChange: e => setAppearance(e.target.value), rows: 5, placeholder: "长相 / 发型 / 身材 / 气质……" }),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 9, marginBottom: 4 } }, "生图身份锁"),

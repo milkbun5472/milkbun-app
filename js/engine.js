@@ -6602,6 +6602,25 @@ async function retimeStoredGifs(ms) {
   return n;
 }
 if (typeof window !== "undefined") { window.retimeStoredGifs = retimeStoredGifs; window.gifMsNow = gifMsNow; window.gifFramesNow = gifFramesNow; }
+const _refSheetCache = new Map();
+async function refWithAngles(r) {
+  try {
+    const extra = typeof window !== "undefined" && window.__refExtrasOf ? (window.__refExtrasOf(r) || []).filter(x => x && typeof x === "string").slice(0, 2) : [];
+    if (!extra.length || typeof document === "undefined") return r;
+    const key = [r, ...extra].map(x => x.length + ":" + x.slice(-24)).join("|");
+    if (_refSheetCache.has(key)) return _refSheetCache.get(key);
+    const blobOf = async x => { if (x.indexOf("iv_") === 0) return await imgVaultFetchBlob(x); if (x.indexOf("img_") === 0) return await idbImgGet(x); return dataUrlToBlob(x) || b64ToBlob(x, "image/png"); };
+    const imgOf = b => new Promise(res => { if (!b) return res(null); const u = URL.createObjectURL(b), im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = u; });
+    const ims = (await Promise.all([r, ...extra].map(async x => imgOf(await blobOf(x))))).filter(Boolean);
+    if (ims.length < 2) return r;
+    const H = 768, ws = ims.map(im => Math.round(im.width * H / im.height)), gap = 12;
+    const cv = document.createElement("canvas"); cv.width = ws.reduce((a, b) => a + b, 0) + gap * (ims.length - 1); cv.height = H;
+    const g = cv.getContext("2d"); g.fillStyle = "#ffffff"; g.fillRect(0, 0, cv.width, cv.height);
+    let x = 0; ims.forEach((im, i) => { g.drawImage(im, x, 0, ws[i], H); x += ws[i] + gap; });
+    const out = cv.toDataURL("image/jpeg", 0.9);
+    _refSheetCache.set(key, out); return out;
+  } catch (e) { return r; }
+}
 async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
   // 「这个站不锁脸」（她 2026-10-05）：有的站不收带图的请求，别的 app 只发文字能出、这里带着参考照就报错。
   //   站上打开了这个开关 → 从第一下就不带参考照，只发文字，一次请求，回什么收什么（标成 site-no-ref，界面上不另外标注）。
@@ -6687,7 +6706,9 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
     if (opts && opts.minimalPrompt) opts = Object.assign({}, opts, { minimalPrompt: nt.prompt });
   }
   // refPhotoDataUrl 可以是单张 base64、也可以是数组（合照时传两张：角色+用户）；归一成数组
-  const refs = (Array.isArray(refPhotoDataUrl) ? refPhotoDataUrl : [refPhotoDataUrl]).filter(x => x && typeof x === "string");
+  // 锁脸那张后面还放了别的角度（侧脸、微侧脸，她 2026-11-15 群友许愿）：跟主图拼成一张三视图再送——
+  //   只认一张参考图的模型也吃得到全部角度，合照也不会翻成六张；所有出图都走这里，一处接上处处生效
+  const refs = await Promise.all((Array.isArray(refPhotoDataUrl) ? refPhotoDataUrl : [refPhotoDataUrl]).filter(x => x && typeof x === "string").map(refWithAngles));
   // 参考照已迁入 x_imgvault 时直接取 Blob；旧 data: 仍兼容。这样 localStorage 不再为每张参考照背几百 KB。
   const refBlobs = (await Promise.all(refs.map(async rp => {
     // 连贯参考图可能是聊天自拍库的 img_ 键（与 iv_ 图库不是同一个仓），两边都要认
