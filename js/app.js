@@ -29389,7 +29389,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const related = (characters || []).filter(c => c && c.id !== char.id && ((rels || {})[char.id + "->" + c.id] || (rels || {})[c.id + "->" + char.id])).slice(0, 8);
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true, logLabel: "限时动态",
-        instruction: relSay(char) + "。你要发一条限时动态（挂 24 小时就收起来），" + (idea ? "此刻想发的是：「" + idea + "」。" : "发什么由你自己定：限时动态是你自己日子的一角——照你今天的日程此刻在干嘛、在哪儿、看见了什么、手边有什么、心里过了什么都行；跟她有关的是其中一种，不是每条都得是。") + "把它排成一张竖版手机卡，照你自己的审美来："
+        instruction: relSay(char) + "。你要发一条限时动态（挂 24 小时就收起来），" + (idea ? "此刻想发的是：「" + idea + "」。" : "发什么由你自己定：限时动态是你自己日子的一角——照你今天的日程此刻在干嘛、在哪儿、看见了什么、手边有什么、心里过了什么都行；跟她有关的、只关你自己的都可以，照你这一下真在想的是哪件。") + "把它排成一张竖版手机卡，照你自己的审美来："
           + "bg 背景从这几种里挑一个：" + bgs + "；font 字体：hand 花体英文、brush 中文手写、serif 宋体、sans 黑体；"
           + "texts 是卡上的字，1 到 4 块，每块 t 写什么、x 和 y 是在卡上的位置（0 到 1，左上角是 0,0；最上面那一截 y 小于 0.2 的地方压着你的头像和名字，最下面 y 大于 0.85 的地方压着回复框）、size 字号（40 到 160）、color 颜色（#hex）、r 歪多少度（-15 到 15）、font 可以单独换；"
           + "stickers 是贴纸，0 到 5 个 emoji，ch 是哪个、x y 位置、size 大小（60 到 200）。"
