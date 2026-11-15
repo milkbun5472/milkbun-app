@@ -181,6 +181,26 @@
     "bottom": "牛仔裤",
     "boots": "球鞋"
    }
+  },
+  "heritage": {
+   "label": "复古三件套",
+   "colors": {
+    "cloth": "#544339",
+    "trim": "#f2e4cf",
+    "bottom": "#4c413a",
+    "accent": "#7b3538",
+    "boots": "#544034",
+    "detail": "#cfaa73"
+   },
+   "colorLabels": {
+    "cloth": "西装与马甲",
+    "trim": "衬衫",
+    "bottom": "西裤",
+    "accent": "领带",
+    "boots": "皮鞋",
+    "detail": "纽扣"
+   },
+   "coveredLegsBelow": 0.13
   }
  },
  "style": "hunyuan-v2-2026-09",

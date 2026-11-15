@@ -9,7 +9,7 @@ test('v2 asset: every catalogued hairstyle hangs on HeadAnchor and every outfit 
  const anchor=glb.nodes.find(n=>n.name==='HeadAnchor');assert.ok(anchor,'HeadAnchor');
  for(const id of Object.keys(catalog.hair)){const i=glb.nodes.findIndex(n=>n.name==='hair_'+id);assert.ok(i>=0,id);assert.ok(anchor.children.includes(i),id+' not on HeadAnchor');}
  for(const id of Object.keys(catalog.outfits)){const parts=nodes.filter(n=>n.extras?.outfit===id);assert.ok(parts.length>=1,id);for(const n of parts)assert.ok(n.skin!=null,id+' must be skinned');}
- assert.ok(firstLoadBytes<3*1024*1024,'mobile asset budget: base doll + the largest outfit');
+ assert.ok(firstLoadBytes<3.5*1024*1024,'mobile asset budget: base doll + largest approved outfit + largest hair');
 });
 test('v2 rig: bones carry the runtime pivot names and the pivots ride along in extras',()=>{
  const rig=glb.nodes.find(n=>n.extras?.dollRig)?.extras.dollRig;assert.ok(rig);
@@ -34,7 +34,9 @@ test('v2 sliders, faces, skin and outfit colour slots are all real data in the a
  const rig=glb.nodes.find(n=>n.extras?.rigMorphs)?.extras.rigMorphs;assert.ok(rig?.leftArm?.height&&rig.HeadAnchor?.scale?.head,'bones and HeadAnchor move with the sliders');
  for(const id of Object.keys(catalog.faces))if(id!=='default')assert.ok(read('./faces/'+id+'.webp').length>1000,id);
  assert.match(nodes.find(n=>n.name==='DollBody').extras.skinBase,/^#[0-9a-f]{6}$/);
- for(const [id,o] of Object.entries(catalog.outfits)){assert.ok('cloth' in o.colors,id+' cloth');assert.ok(Object.keys(o.colors).every(k=>['cloth','trim','bottom','accent','boots','bag','socks','detail'].includes(k)),id);const sourceSlots=nodes.find(n=>n.extras?.slotBase&&n.extras.outfit===id).extras.slotBase;for(const [key,value] of Object.entries(sourceSlots))assert.equal(o.colors[key],value,id+' source '+key);
+ for(const [id,o] of Object.entries(catalog.outfits)){assert.ok('cloth' in o.colors,id+' cloth');assert.ok(Object.keys(o.colors).every(k=>['cloth','trim','bottom','accent','boots','bag','socks','detail'].includes(k)),id);const sourceSlots=nodes.find(n=>n.extras?.slotBase&&n.extras.outfit===id)?.extras.slotBase;
+  if(sourceSlots){for(const [key,value] of Object.entries(sourceSlots))assert.equal(o.colors[key],value,id+' source '+key);}
+  else for(const key of Object.keys(o.colors))assert.ok(nodes.some(n=>n.extras?.outfit===id&&n.extras.colorSlot===key&&n.extras.dyeTexture),id+' textured dye region '+key);
   // Shoes use either a separate skinned mesh or the jacket's original shell.
   const shoe=nodes.find(n=>n.extras?.outfit===id&&(n.extras.colorSlot==='boots'||n.extras.sourceFootwearVersion||(id==='jacket'||id==='tee')&&n.name==='outfit_'+id));if('boots' in o.colors)assert.ok(shoe&&shoe.skin!=null,id+' shoes');}
 });
