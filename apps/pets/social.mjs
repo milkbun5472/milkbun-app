@@ -1,4 +1,4 @@
-import {homePoint} from './initiative.mjs?v=fg-dfe0ccdf76d643c0';
+import {homePoint} from './initiative.mjs?v=fg-729e02d41aec3df1';
 // One household ledger: pairs are identified by saved pet IDs, never names or slots.
 const n=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 const id=v=>typeof v==='string'&&/^[\w-]{1,80}$/.test(v)?v:'';

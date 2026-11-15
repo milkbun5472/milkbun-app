@@ -1,4 +1,4 @@
-import {WORKROOM_LAYOUT,workroomFurniture} from './resident-workroom.mjs?v=fg-dfe0ccdf76d643c0';
+import {WORKROOM_LAYOUT,workroomFurniture} from './resident-workroom.mjs?v=fg-729e02d41aec3df1';
 export {WORKROOM_LAYOUT};
 function maker(T){const mat=color=>new T.MeshStandardMaterial({color,roughness:.85});const box=(root,size,pos,color)=>{const m=new T.Mesh(new T.BoxGeometry(...size),mat(color));m.position.set(...pos);m.castShadow=true;m.receiveShadow=true;root.add(m);return m;};return {mat,box};}
 export function makeWorkroom(T,form='office'){

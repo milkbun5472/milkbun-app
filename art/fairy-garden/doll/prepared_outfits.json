@@ -18,5 +18,25 @@
       "detail": "纽扣"
     },
     "coveredLegsBelow": 0.13
+  },
+  "linen": {
+    "label": "卷袖衬衫",
+    "colors": {
+      "cloth": "#d3c4b0",
+      "trim": "#a28069",
+      "bottom": "#4c4847",
+      "accent": "#bd945e",
+      "boots": "#634d3d",
+      "detail": "#dbcab2"
+    },
+    "colorLabels": {
+      "cloth": "衬衫",
+      "trim": "腰带",
+      "bottom": "长裤",
+      "accent": "皮带扣",
+      "boots": "皮鞋",
+      "detail": "纽扣"
+    },
+    "coveredLegsBelow": 0.115
   }
 }
