@@ -64,15 +64,17 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="msg"][data-me="1"] [data-wk="row"]{padding-right:12px !important}
 
 /* 气泡：一朵云——上下两排圆鼓鼓的边；他的粉白云，我的暗紫雨云。一串第一条里睁着一只彩虹眼 */
-[data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;background:none !important;border-style:solid !important;border-color:transparent !important;border-width:30px 34px 10px 30px !important;border-image-slice:62 30 10 30 fill !important;border-image-width:62px 30px 10px 30px !important;border-image-outset:42px 16px 6px 16px !important;border-image-repeat:stretch !important;border-radius:0 !important;letter-spacing:.1em !important;padding:0 !important;margin:44px 20px 10px !important}
-[data-wk="bubble"][data-kind="text"]::before{content:none !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]{border-image-source:${svg(CLOUD("#FFF6FB",C.cloudD))} !important;color:${C.ink} !important;box-shadow:none !important;filter:drop-shadow(0 0 10px rgba(255,190,225,.55)) !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]{border-image-source:${svg(CLOUD("#665E92",C.stormD))} !important;color:#fff !important;box-shadow:none !important;filter:drop-shadow(0 0 10px rgba(150,130,220,.45)) !important}
+[data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;isolation:isolate !important;border:none !important;border-radius:999px !important;letter-spacing:.1em !important;padding:11px 20px !important;margin:16px 16px 12px !important}
+[data-wk="bubble"][data-kind="text"]::before{content:"" !important;position:absolute !important;left:8px !important;right:8px !important;top:-8px !important;bottom:-8px !important;z-index:-1 !important;border:none !important;transform:none !important;width:auto !important;height:auto !important;pointer-events:none !important;border-radius:0 !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{background:#FDEAF4 !important;color:${C.ink} !important;box-shadow:-9px 0 0 -1px #FDEAF4,9px 0 0 -1px #FDEAF4,0 0 22px 6px rgba(255,190,225,.5) !important;filter:none !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]::before{background:radial-gradient(circle,#FDEAF4 10px,transparent 11px) 0 0/22px 22px round no-repeat,radial-gradient(circle,#FDEAF4 10px,transparent 11px) 0 100%/22px 22px round no-repeat !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{background:#5A5288 !important;color:#fff !important;box-shadow:-9px 0 0 -1px #5A5288,9px 0 0 -1px #5A5288,0 0 20px 5px rgba(150,130,220,.45) !important;filter:none !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::before{background:radial-gradient(circle,#5A5288 10px,transparent 11px) 0 0/22px 22px round no-repeat,radial-gradient(circle,#5A5288 10px,transparent 11px) 0 100%/22px 22px round no-repeat !important}
 [data-wk="bubble"][data-kind="text"]::after{content:none !important}
-[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]{border-right-width:56px !important}
-[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]::after{content:"" !important;position:absolute !important;right:-46px !important;top:50% !important;width:30px !important;height:17px !important;margin-top:-9px !important;background:${svg(EYE())} center/contain no-repeat !important;border:none !important;transform:none !important;left:auto !important;bottom:auto !important;animation:ceBlink 5s ease-in-out infinite !important}
-[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]{border-right-width:34px !important;border-left-width:56px !important}
-[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]::after{right:auto !important;left:-46px !important;background:${svg(EYE(true))} center/contain no-repeat !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]{padding-right:50px !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]::after{content:"" !important;position:absolute !important;right:14px !important;top:50% !important;width:30px !important;height:17px !important;margin-top:-9px !important;background:${svg(EYE())} center/contain no-repeat !important;border:none !important;transform:none !important;left:auto !important;bottom:auto !important;animation:ceBlink 5s ease-in-out infinite !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]{padding-right:20px !important;padding-left:50px !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]::after{right:auto !important;left:14px !important;background:${svg(EYE(true))} center/contain no-repeat !important}
 @keyframes ceBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
 
 /* 时间：一行淡紫小字 */
