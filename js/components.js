@@ -10809,7 +10809,7 @@ function MomentsFeed({
       h("div", { "data-wk": "mocover", style: { height: 270, background: cover ? "center/cover no-repeat url(" + resolveImg(cover) + ")" : "linear-gradient(160deg," + t.bg + "," + t.line + ")", backgroundPosition: cover ? (coverPos || "center") : undefined } }),
       onSetCover ? h(MomentCoverPick, { onPicked: d => onSetCover(d), style: { position: "absolute", top: 12, right: 14 } }) : null,
       camOpen ? h("div", { onClick: () => setCamOpen(false), style: { position: "fixed", inset: 0, zIndex: 59 } }) : null,
-      camOpen ? h("div", { "data-wk": "mocammenu", style: { position: "fixed", top: "calc(env(safe-area-inset-top, 0px) + 58px)", right: 14, zIndex: 60, minWidth: 190, padding: "4px 0", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 8px 24px rgba(0,0,0,.18)" } },
+      camOpen ? h("div", { "data-wk": "mocammenu", style: { position: "fixed", top: "calc(env(safe-area-inset-top, 0px) + 58px)", right: 14, zIndex: 60, minWidth: 190, maxWidth: "calc(100vw - 28px)", maxHeight: "calc(100dvh - env(safe-area-inset-top, 0px) - 140px)", overflowY: "auto", overscrollBehavior: "contain", padding: "4px 0", borderRadius: 12, background: momPaper(t), border: "1px solid " + t.line, boxShadow: "0 8px 24px rgba(0,0,0,.18)" } },
         h("button", { "data-wk": "mocompose", onClick: () => { setCamOpen(false); onCompose(); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
           h(PGlyph, { k: "album", size: 15, color: t.ink }), "发朋友圈"),
         h("button", { "data-wk": "mocharpost", onClick: () => { setCamOpen(false); setPick(true); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
@@ -10817,9 +10817,10 @@ function MomentsFeed({
         (() => { const ms = window.__momentMasks ? window.__momentMasks() : []; if (ms.length < 2) return null;
           return h("div", { "data-wk": "momaskview", style: { padding: "8px 14px", borderTop: "1px solid " + t.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "看谁的朋友圈"),
-            h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+            //   面具多了不撑爆（她 2026-11-15）：这一格最多摊到 150 高，再多就在格里自己滑；名字太长的截断
+            h("div", { className: "flex flex-wrap", style: { gap: 6, maxHeight: 150, overflowY: "auto", overscrollBehavior: "contain" } },
               [{ id: null, name: "全部" }].concat(ms).map(mk => { const on = maskView === mk.id;
-                return h("button", { key: String(mk.id), "data-on": on ? "1" : "0", onClick: () => { setMaskView(mk.id); setCamOpen(false); }, style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, mk.id === null ? "全部" : mk.name); }))); })(),
+                return h("button", { key: String(mk.id), "data-on": on ? "1" : "0", onClick: () => { setMaskView(mk.id); setCamOpen(false); }, style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0 } }, mk.id === null ? "全部" : mk.name); }))); })(),
         h("div", { style: { padding: "6px 14px 8px", borderTop: "1px solid " + t.line } }, h(MomentAutoImgSwitch, null))) : null,
       maskView !== null ? h("button", { "data-wk": "momaskchip", onClick: () => setMaskView(null), style: { position: "absolute", top: 16, left: 14, padding: "5px 11px", borderRadius: 999, background: "rgba(0,0,0,.35)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
         "只看「" + (((window.__momentMasks ? window.__momentMasks() : []).find(x => x.id === maskView) || {}).name || "这张面具") + "」 ×") : null,
