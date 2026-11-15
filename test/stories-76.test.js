@@ -217,3 +217,5 @@ test("限时动态的字：长了折行、靠边的挪进来，整行都在卡�
 });
 
 test("看动态从第一条没看过的翻起，全看过才从头", () => { const st = fs.readFileSync("js/stories.js", "utf8"); assert.ok(st.includes("if (start || archive) return") && st.includes(".seen || {})[viewer]);\n      return k >= 0 ? k : 0;")); });
+
+test("聊天那个 app 的顶栏底栏、评论框用微信那种浅灰", () => { const c = fs.readFileSync("js/components.js", "utf8"); assert.ok(c.includes("function wxGrey(t)") && c.includes("background: wxGrey(t),") && (c.match(/background: wxGrey\(t\)/g) || []).length >= 3); });

@@ -3285,6 +3285,8 @@ function CalWidget({ now, calendar, onOpen, period }) {
 //   而 last-flat-shells 那道闸拦的正是后者。有名字，闸才分得清这两件事。
 function msgAppBg(t) { return { background: t.bg }; }
 // 朋友圈的那张白纸（她 2026-11-15「感觉不够白」）：浅色主题就用纯白，深色主题照旧用卡片色，不把夜间模式刷成一片白
+// 微信那种浅灰（顶栏、底栏、评论框，她 2026-11-15「跟微信一样白一点」）：浅色主题用 #f7f7f7，深色主题照旧卡片色
+function wxGrey(t) { return momPaper(t) === "#ffffff" ? "#f7f7f7" : ((t && t.bg2) || "#f7f7f7"); }
 function momPaper(t) { const m = /^#([0-9a-f]{6})$/i.exec(String((t && t.bg2) || "")); if (!m) return (t && t.bg2) || "#fff"; const v = parseInt(m[1], 16), L = ((v >> 16) & 255) * .299 + ((v >> 8) & 255) * .587 + (v & 255) * .114; return L > 150 ? "#ffffff" : t.bg2; }
 function weatherPlaceList(userGeo, characters, worlds) {
   var out = [{ key: "me", kind: "geo", label: (userGeo && userGeo.label ? String(userGeo.label).slice(0, 6) : "我这儿"), sub: "我这儿", lat: userGeo && userGeo.lat, lng: userGeo && userGeo.lng, real: true }];
@@ -9539,7 +9541,7 @@ function Messages({
   }, h(Head, {
     zh: TITLES[tab],
     onBack: onBack,
-    bg: "transparent",
+    bg: wxGrey(t),
     // 限时动态的入口收成加号旁边一颗自己的头像（她 2026-11-14「整套太长占位置」）：点开再选看自己的／我发／让 TA 发
     right: tab === "chats" ? h("div", { className: "flex items-center" },
       SK ? h("button", { "data-wk": "mystory", "aria-label": "限时动态", onClick: () => setStMenu(true), className: "active:opacity-60 flex items-center justify-center", style: { width: 38, height: 34 } },
@@ -9941,7 +9943,7 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
     "data-wk": "mltabbar",
     className: "shrink-0 flex",
     style: {
-      background: t.bg2,
+      background: wxGrey(t),
       borderTop: `1px solid ${t.line}`
     }
   }, NAV.map(([k, zh, icon]) => h("button", {
@@ -10885,7 +10887,7 @@ function MomentsFeed({
       return h(Fragment, { key: i }, i ? "、" : "", lc && onOpenProfile ? h("button", { "data-wk": "molikername", onClick: () => onOpenProfile(lc.id), style: { color: t.tint } }, momentDisplayName(characters, x)) : momentDisplayName(characters, x)); }))), (m.comments || []).length > 0 && /*#__PURE__*/React.createElement("div", {
       className: "mt-2.5 rounded-xl px-3 py-2",
       style: {
-        background: t.bg
+        background: wxGrey(t)
       }
       , "data-wk": "mocomments"
     }, m.comments.map((cm, i) => /*#__PURE__*/React.createElement("div", {
@@ -11114,7 +11116,7 @@ function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter
     m.music ? h(MomentMusic, { music: m.music }) : null,
     m.poll ? h(MomentPoll, { poll: m.poll, characters }) : null,
     // 赞和评论收进同一个灰底框，跟微信一样：上面一行赞，一道细线，下面是评论（她 2026-11-15「回复做个框」）
-    ((m.likers && m.likers.length) || (m.comments && m.comments.length)) ? h("div", { "data-wk": "mocomments", className: "mt-2.5 rounded-lg px-3 py-2", style: { background: t.bg } },
+    ((m.likers && m.likers.length) || (m.comments && m.comments.length)) ? h("div", { "data-wk": "mocomments", className: "mt-2.5 rounded-lg px-3 py-2", style: { background: wxGrey(t) } },
       (m.likers && m.likers.length) ? h("div", { className: "flex items-center gap-1.5", style: (m.comments && m.comments.length) ? { paddingBottom: 6, marginBottom: 4, borderBottom: "1px solid " + t.line } : undefined }, h(IHeart, { size: 12, color: t.accent, filled: true }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, m.likers.map(x => momentDisplayName(characters, x)).join("、"))) : null,
       (m.comments && m.comments.length) ? m.comments.map((cm, i) => h("div", { key: i, className: "active:opacity-60", onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && !cm.mine && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7 } }, h("span", { style: { color: t.tint, fontWeight: 500 } }, momentDisplayName(characters, cm.author)), h("span", { style: { color: t.ink } }, "：", h(MomentCommentText, { cm: cm })))) : null) : null,
     commenting === m.id ? h("div", { className: "flex gap-2 mt-2" },
