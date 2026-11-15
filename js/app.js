@@ -21227,7 +21227,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   写成「原文 | 中文」——画的那一层（PTX → TransText）本来就会把竖线劈开、挂成「随消息提供」的译文，不用另写显示。
   //   同一次生成顺手带，不多花调用；没开就一个字都不加。
   const phoneBiLine = char => { return char && window.__charBiOn(char.id)
-    ? "\n【双语】这部手机里凡是【不是中文】的正文（消息、帖子、标题、便签、评论这些），每一处都写成「原文 | 中文」：竖线左边照常写原文，右边是它的中文意思，整处只用这一根竖线；本来就是中文的照常写，不加。" : ""; };
+    ? "\n【双语】这部手机里凡是【不是中文】的文字，每一个字段都各自写成「原文 | 中文」：竖线左边照常写原文，右边是它的中文意思，一个字段只用一根竖线。标题和正文是两个字段，各带各的中文——标题带了，正文也要带；正文再长（日记、邮件、备忘录、长帖）也是整段原文写完，一根竖线，后面跟整段的中文，一段不落。消息、评论、便签、歌词这些每一条也各带各的。本来就是中文的照常写，不加。" : ""; };
   const phoneBi = (char, spec) => spec && typeof spec.instruction === "string" ? { ...spec, instruction: spec.instruction + phoneBiLine(char) } : spec;
   const phoneCtx = char => Object.assign({}, ctxFor(char), {
     worldbook: loreFor(char, "subjects"),
