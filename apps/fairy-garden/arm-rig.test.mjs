@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL(p,import.meta.url));
-import {gltf,firstLoadBytes} from './doll-parts.test.mjs';
+import {gltf,firstLoadBytes,firstLoadBudget} from './doll-parts.test.mjs';
 test('exported body and outfits share connected elbows, with neutral rest morphs',()=>{
  const rig=gltf.nodes.find(n=>n.extras?.elbowRig);assert.equal(rig.extras.elbowRig.version,2);
  for(const side of ['left','right']){
@@ -12,7 +12,7 @@ test('exported body and outfits share connected elbows, with neutral rest morphs
   for(const skin of gltf.skins)assert.ok(skin.joints.some(i=>gltf.nodes[i].name===side+'Forearm'),'all garment skins carry the elbow');
  }
  for(const m of gltf.meshes)assert.ok((m.weights||[]).every(w=>w===0),'no baked action');
- assert.ok(firstLoadBytes<3*1024*1024,'retain mobile model budget: base doll + the largest outfit');
+ assert.ok(firstLoadBytes<firstLoadBudget,'mobile asset budget: base doll + largest approved outfit + largest hair');
 });
 test('both entry points use the same versioned rig and model graph',()=>{
  const build=JSON.parse(read('./build.json')).build,pet=read('../companion/pet.mjs').toString(),host=read('../../js/companion.js').toString();

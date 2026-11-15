@@ -32,6 +32,7 @@ export const gltf=merge([base,...Object.values(outfitFiles).map(parse)]);
   for(const [n] of hairNodes){const c={...n};delete c.children;if(c.mesh!=null){gltf.meshes.push({...one.meshes[c.mesh],primitives:one.meshes[c.mesh].primitives.map(p=>({...p,attributes:Object.fromEntries(Object.entries(p.attributes).map(([k,v])=>[k,v+a0])),indices:p.indices==null?undefined:p.indices+a0,material:p.material==null?undefined:p.material+mat0}))});c.mesh=gltf.meshes.length-1;}
    gltf.nodes.push(c);(anchor.children=anchor.children||[]).push(gltf.nodes.length-1);}}}
 // 一个人第一次进场要下的：底模＋最大的那一套衣服＋最大的那一款头发
+export const firstLoadBudget=3.5*1024*1024;
 export const firstLoadBytes=baseBytes.length+Math.max(...Object.values(outfitFiles).map(b=>b.length))+Math.max(...Object.values(hairFiles).map(b=>b.length));
 
 test('doll.glb carries no clothes; every catalogued outfit has its own file and nothing else',()=>{
