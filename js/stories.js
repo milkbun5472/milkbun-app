@@ -36,6 +36,8 @@
   // 夜色底上压一个深色字就看不见了：太暗的换成米白
   const dark = c => { const m = /^#([0-9a-f]{3}|[0-9a-f]{6})/i.exec(c || ""); if (!m) return true; let x = m[1]; if (x.length === 3) x = x.split("").map(ch => ch + ch).join("");
     const r = parseInt(x.slice(0, 2), 16), g = parseInt(x.slice(2, 4), 16), b = parseInt(x.slice(4, 6), 16); return (r * 299 + g * 587 + b * 114) / 1000 < 110; };
+  // 以 x 为中心、宽 w 的一行字，挪到整行都在卡里（左右各留 EDGE）；比卡还宽就放正中，交给 maxW 缩字号
+  const EDGE = 60, fitX = (x, w) => w >= W - EDGE * 2 ? W / 2 : Math.max(EDGE + w / 2, Math.min(W - EDGE - w / 2, x));
   function layoutFrom(d, hasPhoto) {
     const C = window.Collage || {}, bgs = C.BGS || {}, fonts = ["hand", "brush", "serif", "sans"];
     const bg = bgs[d && d.bg] ? d.bg : "cream", font = fonts.indexOf(d && d.font) >= 0 ? d.font : "brush";
@@ -45,15 +47,22 @@
       // 卡上只印原文（「原文 | 中文」的中文放到看的时候底下那条译文里）；字再长也缩到卡里，不出边（她 2026-11-14「太长了截断了，没有翻译」）
       const raw0 = String((tx && (tx.t || tx.text)) || "").trim(), sp = typeof splitBilingual === "function" ? splitBilingual(raw0) : null;
       const t = String(sp && sp.zh ? sp.text : raw0).trim().slice(0, 40); if (!t) return;
-      const fx = num(tx.x, 0.08, 0.92, 0.5) * W;
-      free.push({ type: "text", text: t, maxW: Math.max(240, 2 * Math.min(fx, W - fx) - 60), x: fx, y: num(tx.y, 0.2, 0.93, 0.5) * H, size: num(tx.size, 36, 180, 80),
-        color: (bg === "night" && dark(hex(tx.color))) ? "#f3eee8" : (hex(tx.color) || (bg === "night" ? "#f3eee8" : "#2b2b2b")), font: fonts.indexOf(tx.font) >= 0 ? tx.font : font, r: num(tx.r, -20, 20, 0), s: 1 });
+      // 光给 maxW 不够（她 2026-11-15「为啥没修好」）：字以 x 为中心画，x 靠边时两侧剩的地方很窄，原来又把 maxW 保底成 240，照样冲出卡边；
+      //   而且只靠缩字号，一长句会缩成一排小米粒。现在：一行放不下就按字数折成几行往下排；每一行再把 x 往中间挪到整行放得下为止
+      const size = num(tx.size, 36, 180, 80), y0 = num(tx.y, 0.2, 0.93, 0.5) * H, per = Math.max(4, Math.floor((W - EDGE * 2) / (size * 1.02)));
+      const chars = Array.from(t), lines = [];
+      for (let i = 0; i < chars.length; i += per) lines.push(chars.slice(i, i + per).join(""));
+      lines.forEach((ln, k) => {
+        const fx = fitX(num(tx.x, 0.08, 0.92, 0.5) * W, Array.from(ln).length * size * 1.02);
+        free.push({ type: "text", text: ln, maxW: 2 * Math.min(fx, W - fx) - EDGE, x: fx, y: Math.min(H * 0.95, y0 + (k - (lines.length - 1) / 2) * size * 1.25), size,
+          color: (bg === "night" && dark(hex(tx.color))) ? "#f3eee8" : (hex(tx.color) || (bg === "night" ? "#f3eee8" : "#2b2b2b")), font: fonts.indexOf(tx.font) >= 0 ? tx.font : font, r: num(tx.r, -20, 20, 0), s: 1 });
+      });
     });
     // 信息小贴纸（位置／天气／心情／正在听）：纸条样式的一小块字，放在 TA 挑的位置
     const CHIP = { location: "📍", weather: "☁️", mood: "🙂", music: "🎵", time: "🕐" };
     ((d && d.chips) || []).slice(0, 3).forEach(c => { const t = String((c && c.text) || "").trim(); if (!t || !CHIP[c.type]) return;
-      const cx = num(c.x, 0.15, 0.85, 0.3) * W;
-      free.push({ type: "text", text: CHIP[c.type] + " " + t.slice(0, 20), maxW: Math.max(240, 2 * Math.min(cx, W - cx) - 60), x: cx, y: num(c.y, 0.2, 0.93, 0.22) * H, size: 44, color: "#2b2b2b", font: "sans", tstyle: "strip", r: 0, s: 1 }); });
+      const ct = CHIP[c.type] + " " + t.slice(0, 20), cx = fitX(num(c.x, 0.15, 0.85, 0.3) * W, (Array.from(ct).length * 44 + 40));
+      free.push({ type: "text", text: ct, maxW: 2 * Math.min(cx, W - cx) - EDGE, x: cx, y: num(c.y, 0.2, 0.93, 0.22) * H, size: 44, color: "#2b2b2b", font: "sans", tstyle: "strip", r: 0, s: 1 }); });
     const deco = ((d && d.stickers) || []).slice(0, 8).map(st => ({ ch: String((st && (st.ch || st.emoji)) || "").slice(0, 4), x: num(st && st.x, 0.05, 0.95, 0.5) * W, y: num(st && st.y, 0.2, 0.95, 0.5) * H,
       size: num(st && st.size, 50, 220, 110), r: num(st && st.r, -30, 30, 0) })).filter(x => x.ch);
     return { tpl: "blank", bg, font, free, deco, words: [], picks: [] };
