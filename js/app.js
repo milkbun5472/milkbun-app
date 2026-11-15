@@ -8971,14 +8971,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!n) return "";
       let list = offlinesRef.current[char.id];
       if (!list) list = loadJSON("x_offline:" + char.id, []);
-      const done = (list || []).filter(x => x && x.endTs && (x.msgs || []).length && x.id !== skipId).slice(0, n);
-      return done.map(x => {
+      // 按时间从早到晚排、每场写清几号几点到几点（群友 2026-11-15 带了 5 场：原来最新的排最前、只写日子，
+      //   同一天几场分不出先后，跟后面这一场也接不上顺序）
+      const done = (list || []).filter(x => x && x.endTs && (x.msgs || []).length && x.id !== skipId)
+        .sort((a, b) => (b.endTs || 0) - (a.endTs || 0)).slice(0, n).reverse();
+      return done.map((x, k) => {
         // 群里 2026-11-11「app 还有哪些地方应该接虚拟时间」
-        const when = vDate(x.startTs || x.endTs, char.id).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
+        const when = "第 " + (k + 1) + " 场（" + fmtStampAI(x.startTs || x.endTs) + " 到 " + fmtStampAI(x.endTs) + "，" + (k === done.length - 1 ? "离现在最近的一场" : "比下一场早") + "）";
         let raw = offlineTranscriptForOnline(x.msgs, false, char.name) || "";
         if (raw.length > PAST_OFF_CHARS) raw = "〔这一场太长，下面只是后半截〕\n" + raw.slice(raw.length - PAST_OFF_CHARS);
         const sumOf = ((chatsRef.current[char.id] || []).find(m => m && m.kind === "offlinelog" && m.ofs === x.id) || {}).content || x.summary || "";
-        return "· " + when + "那次" + (sumOf ? "\n  总结：" + String(sumOf).trim() : "") + (raw ? "\n  经过（原文）：\n" + raw : "");
+        return "· " + when + (sumOf ? "\n  总结：" + String(sumOf).trim() : "") + (raw ? "\n  经过（原文）：\n" + raw : "");
       }).join("\n");
     } catch (e) { return ""; }
   };
@@ -10017,8 +10020,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const rawN = osFor("g_" + groupId).onlineCtxN;
     const n = rawN == null ? 10 : Math.max(0, Math.min(30, Number(rawN) || 0));
     if (!n) return [];
+    // 跟单人线下同一个毛病（群友 2026-11-15）：只带上一场群线下结束以后的群聊，更早的那几句在前几场的归档里，混进来会被当成这一场的开头
+    const prevEnd = (groupOfflinesRef.current[groupId] || []).filter(x => x && x.endTs).reduce((mx, x) => Math.max(mx, Number(x.endTs) || 0), 0);
     return (groupChatsRef.current[groupId] || [])
       .filter(m => m && !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.content && contextAllowsMessage(m))
+      .filter(m => !prevEnd || (m.ts || 0) > prevEnd)
       .slice(-n)
       .map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, content: String(m.content), ts: m.ts || 0 }));
   };
