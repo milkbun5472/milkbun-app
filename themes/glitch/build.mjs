@@ -11,7 +11,8 @@ const SCAN = `repeating-linear-gradient(180deg,rgba(255,255,255,.035) 0 1px,tran
 // 屏幕上偶尔一条撕裂的横条
 const TEAR = X(`width='390' height='420' viewBox='0 0 390 420'><rect x='0' y='120' width='390' height='3' fill='${C.cyan}' opacity='.5'/><rect x='60' y='124' width='300' height='1.5' fill='${C.red}' opacity='.6'/><rect x='140' y='310' width='250' height='2' fill='${C.red}' opacity='.4'/><rect x='0' y='313' width='180' height='1' fill='${C.cyan}' opacity='.4'/>`);
 // 头像外圈：红青两层，各断几截
-const RING = X(`viewBox='0 0 60 60'><circle cx='28' cy='30' r='26' fill='none' stroke='${C.red}' stroke-width='3.5' stroke-dasharray='60 8 30 6 50 10'/><circle cx='32' cy='30' r='26' fill='none' stroke='${C.cyan}' stroke-width='3.5' stroke-dasharray='40 10 55 6 35 12' stroke-dashoffset='20'/>`);
+// 照参考：撕开的两条横带——带子里那截圆环被往左扯了一下，带子上下各一道细青线
+const RING = X(`viewBox='0 0 100 100' preserveAspectRatio='none'><g><rect x='0' y='12' width='100' height='9' fill='#1A1A20'/><rect x='4' y='12' width='14' height='9' fill='${C.red}'/><rect x='70' y='12' width='14' height='9' fill='${C.cyan}'/><path d='M0 12 H100 M0 21 H100' stroke='${C.cyan}' stroke-width='.6' opacity='.5'/></g><g><rect x='0' y='80' width='100' height='8' fill='#1A1A20'/><rect x='2' y='80' width='12' height='8' fill='${C.red}'/><rect x='76' y='80' width='14' height='8' fill='${C.cyan}'/><path d='M0 80 H100 M0 88 H100' stroke='${C.cyan}' stroke-width='.6' opacity='.5'/></g>`);
 // 气泡四角错位小方块
 // 不画整圈框：只在左上一个红色折角、右下一个青色折角，像取景器
 const BRACKETS = (a, b) => `linear-gradient(${a},${a}) left top/2px 12px no-repeat,linear-gradient(${a},${a}) left top/12px 2px no-repeat,linear-gradient(${b},${b}) right bottom/2px 12px no-repeat,linear-gradient(${b},${b}) right bottom/12px 2px no-repeat`;
@@ -47,8 +48,8 @@ const css = `
 
 /* 头像：红青两层错开的圆环，各断几截 */
 button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[data-wk="avatar"] *,[data-wk="msg"] [data-wk="avatar"],[data-wk="cardrow"] [data-wk="avatar"],[data-wk="rpsingle"] [data-wk="avatar"]{border-radius:50% !important}
-[data-wk="body"] button[data-wk="avatar"],[data-wk="body"] span[data-wk="avatar"]:not([data-halo]){position:relative !important;overflow:visible !important;box-shadow:0 0 0 3px ${C.bg} !important}
-[data-wk="body"] button[data-wk="avatar"]::after,[data-wk="body"] span[data-wk="avatar"]:not([data-halo])::after{content:"" !important;position:absolute !important;inset:-8px !important;background:${svg(RING)} center/100% 100% no-repeat !important;pointer-events:none !important}
+[data-wk="body"] button[data-wk="avatar"],[data-wk="body"] span[data-wk="avatar"]:not([data-halo]){position:relative !important;overflow:visible !important;box-shadow:0 0 0 5px #1A1A20,-4px 0 0 8px ${C.red},4px 0 0 8px ${C.cyan} !important;margin:8px 8px !important}
+[data-wk="body"] button[data-wk="avatar"]::after,[data-wk="body"] span[data-wk="avatar"]:not([data-halo])::after{content:"" !important;position:absolute !important;inset:-8px -12px !important;background:${svg(RING)} center/100% 100% no-repeat !important;pointer-events:none !important;z-index:2 !important}
 
 /* 气泡：信号坏掉的屏幕——左红右青竖条、四角错位小方块、字带红青重影；我的是一块亮白屏 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:0 !important;line-height:1.6 !important;letter-spacing:.06em !important;font-weight:600 !important;padding:10px 18px !important}
