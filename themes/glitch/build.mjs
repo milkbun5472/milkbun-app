@@ -53,8 +53,8 @@ const css = `
 
 /* 头像：红青两层错开的圆环，各断几截 */
 button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[data-wk="avatar"] *,[data-wk="msg"] [data-wk="avatar"],[data-wk="cardrow"] [data-wk="avatar"],[data-wk="rpsingle"] [data-wk="avatar"]{border-radius:50% !important}
-[data-wk="body"] button[data-wk="avatar"],[data-wk="body"] span[data-wk="avatar"]:not([data-halo]){position:relative !important;overflow:visible !important;box-shadow:0 0 0 5px #1A1A20,-4px 0 0 8px ${C.red},4px 0 0 8px ${C.cyan} !important;margin:8px 8px !important}
-[data-wk="body"] button[data-wk="avatar"]::after,[data-wk="body"] span[data-wk="avatar"]:not([data-halo])::after{content:"" !important;position:absolute !important;inset:-8px -12px !important;background:${svg(RING)} center/100% 100% no-repeat !important;pointer-events:none !important;z-index:2 !important}
+[data-wk="body"] button[data-wk="avatar"],[data-wk="body"] span[data-wk="avatar"]:not([data-halo]){position:relative !important;overflow:visible !important;box-shadow:-4px 0 0 3px ${C.red},4px 0 0 3px ${C.cyan} !important;margin:6px 8px !important}
+[data-wk="body"] button[data-wk="avatar"]::after,[data-wk="body"] span[data-wk="avatar"]:not([data-halo])::after{content:"" !important;position:absolute !important;inset:-4px -9px !important;background:${svg(RING)} center/100% 100% no-repeat !important;pointer-events:none !important;z-index:2 !important}
 
 /* 气泡：信号坏掉的屏幕——左红右青竖条、四角错位小方块、字带红青重影；我的是一块亮白屏 */
 [data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;border-radius:0 !important;line-height:1.6 !important;letter-spacing:.06em !important;font-weight:600 !important;padding:10px 18px !important}

@@ -17,7 +17,7 @@ if RZ:
     H.data.transform(Matrix.Rotation(np.radians(RZ),4,'Z'));H.data.update()
     bm=bmesh.new();bm.from_mesh(H.data);tree=BVHTree.FromBMesh(bm)
 P=np.array([v.co[:] for v in H.data.vertices]);lo,hi=P.min(0),P.max(0)
-c0=Vector(((lo[0]+hi[0])/2,(lo[1]+hi[1])/2,lo[2]+(hi[2]-lo[2])*.45))
+c0=Vector(((lo[0]+hi[0])/2,(lo[1]+hi[1])/2,lo[2]+(hi[2]-lo[2])*float(os.environ.get('CAVITY_Z',.45))))
 hits=[]
 for i in range(600):
     z=1-(i+.5)/600*1.3            # upper directions mostly (cap opens downward/front)

@@ -1,7 +1,7 @@
-import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-8fdb32857a9abe74';
-import {KEYBOARD} from '../work-contacts.mjs?v=fg-8fdb32857a9abe74';
-import {keyboard} from './work-room-kit.mjs?v=fg-8fdb32857a9abe74';
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-8fdb32857a9abe74';
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-fbd57b78695a6f6e';
+import {KEYBOARD} from '../work-contacts.mjs?v=fg-fbd57b78695a6f6e';
+import {keyboard} from './work-room-kit.mjs?v=fg-fbd57b78695a6f6e';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-fbd57b78695a6f6e';
 
 const FLOOR=.08;
 // Footprints below also drive the rendered furniture, including its real chairs.

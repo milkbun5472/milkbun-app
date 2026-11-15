@@ -9,16 +9,21 @@ HERE=os.path.dirname(os.path.abspath(__file__))
 WEB=os.path.join(HERE,'v2','web')
 LABELS_FILE=os.path.join(HERE,'..','hairstyles.json')
 HAIRS={'korean':'hair_m03.glb','curtains':'hair_m02.glb','airbang':'hair_f01.glb','bob':'hair_f02.glb','pixie':'hair_m04.glb',
-       'fluffy':'hair_h07.glb','longpart':'hair_h08.glb','wolfcut':'hair_wolfcut.glb','sweptback':'hair_sweptback.glb'}
-_grey=runpy.run_path(os.path.join(HERE,'outfit_slots.py'))['grey']
+       'fluffy':'hair_h07.glb','longpart':'hair_h08.glb','wolfcut':'hair_wolfcut.glb','sweptback':'hair_sweptback.glb','braids':'hair_braids.glb'}
+_slots=runpy.run_path(os.path.join(HERE,'outfit_slots.py'))
+_grey=_slots['grey'];_base_image=_slots['base_image']
 
 def hang(hid,anchor):
     before=set(bpy.data.objects);bpy.ops.import_scene.gltf(filepath=os.path.join(WEB,HAIRS[hid]))
     objs=[o for o in bpy.data.objects if o not in before]
     m=next(o for o in objs if o.type=='MESH');mw=m.matrix_world.copy()
     m.parent=anchor;m.matrix_parent_inverse.identity();m.matrix_basis=mw;m.name='hair_'+hid;m['hair']=hid
+    grey_images=set()
     for s in m.material_slots:
-        s.material=s.material.copy();s.material.name='hair_'+hid;_grey(s.material)
+        s.material=s.material.copy();s.material.name='hair_'+hid
+        im=_base_image(s.material)
+        if im and im.as_pointer() not in grey_images:
+            grey_images.add(im.as_pointer());_grey(s.material)
     for o in objs:
         if o!=m:bpy.data.objects.remove(o)
     return m

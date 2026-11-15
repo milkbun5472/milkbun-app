@@ -55,3 +55,17 @@ test('公共衣柜用当前草稿显示，iframe仍是上次颜色时开关和�
  assert.equal(render().find(n=>n.type===DyeControl&&n.props.label==='左眼').props.value,'#aa3344');
  assert.equal(api.getDyes('me').eyeMode,'solid');assert.equal(previous.eyeLeft,undefined);
 });
+
+ test('braid bands keep an independent saved color and follow the current hairstyle draft',async()=>{
+ const {createWardrobe,mergeLook,hairAccessoryOf}=await import('../apps/fairy-garden/wardrobe.mjs');
+ const {restoreLook}=await import('../apps/fairy-garden/world.mjs');
+ const saved={me:{hair:'braids',hairColor:'#654321'},other:{hair:'braids'}};let look=structuredClone(saved.me);
+ const api=createWardrobe(()=>saved);
+ const render=()=>flatten(DressControls({who:'me',look:{me:look},styles:{},game:()=>api,pushLook:p=>{look=mergeLook(look,p);}}));
+ const band=()=>render().find(n=>n.type===DyeControl&&n.props.label==='发圈颜色');
+ assert.equal(band().props.value,'#82aabc');band().props.onChange('#e6b5ce');
+ assert.equal(band().props.value,'#e6b5ce');assert.equal(look.hairColor,'#654321');assert.equal(api.getHairAccessory('other').color,'#82aabc');
+ look=restoreLook(JSON.parse(JSON.stringify(look)));assert.equal(look.hairAccessoryColor,'#e6b5ce');assert.equal(look.hair,'braids');
+ look=mergeLook(look,{hair:'bob'});assert.equal(band(),undefined);look=mergeLook(look,{hair:'braids'});assert.equal(band().props.value,'#e6b5ce');
+ assert.equal(restoreLook({hair:'braids',hairAccessoryColor:'invalid'}).hairAccessoryColor,undefined);assert.equal(hairAccessoryOf({hair:'braids',hairAccessoryColor:'invalid'}).color,'#82aabc');
+ });

@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS, SHOP_WORLD } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-8fdb32857a9abe74", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-fbd57b78695a6f6e", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -787,6 +787,11 @@
         })) : null,
       h(DyeControl, { key: who + "hair", label: "发色", value: dyes?.hairColor,
         onChange: hairColor => pushLook({ hairColor }), palette: HAIR_COLORS }),
+      (() => { const accessory=selected?selected.accessory:api?.getHairAccessory?.(who);
+        return accessory ? h("section", { "aria-label": "发饰配色" },
+          h(DyeControl, { key: who+"hairAccessory", label: accessory.label, value: accessory.color,
+            onChange: hairAccessoryColor => pushLook({ hairAccessoryColor }), palette: ["#82aabc","#e6b5ce","#f0e0b8","#afbd9e","#7a628f","#4b3c34"] }),
+          h("p", { style: { fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.7, color: G.soft, margin: "2px 0 10px" } }, "两个发圈一起换色，与发色分别保存。")) : null; })(),
       // 发色花样：单色 / 渐变 / 拼色 / 挑染，后三种多一个副色（名单在 wardrobe.mjs 的 HAIR_MODES）
       (() => { const d = dyes, mode = (d && d.hairMode) || "solid";
         const modes = api?.hairModes || [];

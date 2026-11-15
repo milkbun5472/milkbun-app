@@ -1,10 +1,10 @@
-import {tagFurnitureParts,applyFurniturePartColors} from './home-parts.mjs?v=fg-8fdb32857a9abe74';
-import {HOME_WALLS,HOME_FLOORS,furniturePrimary,furniturePalette} from './home-catalog.mjs?v=fg-8fdb32857a9abe74';
-import {furnitureFinish} from './home-finish.mjs?v=fg-8fdb32857a9abe74';
-import {createHomeShell} from './home-shell.mjs?v=fg-8fdb32857a9abe74';
-import {createHomeFurniture} from './home-furniture.mjs?v=fg-8fdb32857a9abe74';
-import {createRoomKit} from './places/room-kit.mjs?v=fg-8fdb32857a9abe74';
-import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-8fdb32857a9abe74';
+import {tagFurnitureParts,applyFurniturePartColors} from './home-parts.mjs?v=fg-fbd57b78695a6f6e';
+import {HOME_WALLS,HOME_FLOORS,furniturePrimary,furniturePalette} from './home-catalog.mjs?v=fg-fbd57b78695a6f6e';
+import {furnitureFinish} from './home-finish.mjs?v=fg-fbd57b78695a6f6e';
+import {createHomeShell} from './home-shell.mjs?v=fg-fbd57b78695a6f6e';
+import {createHomeFurniture} from './home-furniture.mjs?v=fg-fbd57b78695a6f6e';
+import {createRoomKit} from './places/room-kit.mjs?v=fg-fbd57b78695a6f6e';
+import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-fbd57b78695a6f6e';
 
 // Furniture remains in named, separate groups. Each group owns its material batches.
 // Its layout record also supplies the collision footprint and activity anchors.
