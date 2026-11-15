@@ -199,6 +199,8 @@ test("还有文件在路上就别下判词：先说「还在下载」，等下�
   // 2026-11-15 公共版排队下载：没轮到的块没有标签，得从 __bootSeq 补进「还在路上」，卡上写下好几块
   assert.match(html, /var q = window\.__bootSeq;\s*if \(q && !q\.end && !q\.err\) n \+=/, "排队的块没算进还在下载");
   assert.ok(html.includes('"，已下好 " + bq.done + " / " + bq.total + " 块"'), "卡上要写已下好几块");
+  // 默认同时下，弹过这张卡才记下网慢，下次起排队
+  assert.ok(html.includes('localStorage.setItem("qq_boot_slow", String(Date.now()))'), "弹了还在下载却没记这台网慢");
   const slow = html.slice(html.indexOf('card("还在下载，没卡住（已等 "'));
   assert.ok(slow.slice(0, 500).includes("你的存档一个字都没少"), "这张卡也不能少这句");
 });
