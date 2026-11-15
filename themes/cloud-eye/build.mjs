@@ -28,6 +28,16 @@ const I_PLUS = CI(`<path d='M20 16 V26 M15 21 H25' stroke='#fff' stroke-width='1
 const I_SEND = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><path d='M6 28 L26 16' stroke='#fff' stroke-width='1.2' stroke-linecap='round' opacity='.5'/><path d='M10 30 L28 19' stroke='#FFC8E6' stroke-width='1.6' stroke-linecap='round' opacity='.7'/><path transform='translate(29 15)' d='M0 -6 Q.5 -.5 4.5 0 Q.5 .5 0 6 Q-.5 .5 -4.5 0 Q-.5 -.5 0 -6Z' fill='#fff'/></svg>`;
 const I_REPLY = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 44'>${RAINBOW_IRIS}<path d='M8 36 a8 8 0 0 1 2-15 a12 12 0 0 1 23-5 a10 10 0 0 1 9 20Z' fill='${C.cloud}' stroke='#fff' stroke-width='1.5' stroke-linejoin='round'/><path d='M14 26 Q26 15 38 26 Q26 37 14 26Z' fill='#fff' stroke='${C.ink}' stroke-width='1.3'/><circle cx='26' cy='26' r='5' fill='url(#ir)'/><circle cx='26' cy='26' r='2.3' fill='#1E1430'/><circle cx='24.5' cy='24.5' r='1' fill='#fff'/></svg>`;
 
+
+// ── 第二批用的图 ──
+// 一颗落下来的星（转账）；caught＝被一只眼睛接住；back＝星星熄了
+const STAR = st => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 44'>${RAINBOW_IRIS}${st === "caught" ? `<path d='M6 30 Q30 12 54 30 Q30 46 6 30Z' fill='#fff' stroke='#fff' stroke-width='1'/><circle cx='30' cy='30' r='8' fill='url(#ir)'/><circle cx='30' cy='30' r='3.4' fill='#1A1030'/>` : ``}<path d='M8 4 L22 16' stroke='${st === "back" ? "#8C84B0" : "#FFE6F4"}' stroke-width='1.4' stroke-linecap='round' opacity='.6'/><path transform='translate(30 ${st === "caught" ? 14 : 22})' d='M0 -10 Q1.6 -1.6 10 0 Q1.6 1.6 0 10 Q-1.6 1.6 -10 0 Q-1.6 -1.6 0 -10Z' fill='${st === "back" ? "#8C84B0" : "#FFF3B0"}'/></svg>`;
+// 红包＝一朵粉云里闭着眼；done＝睁开了
+const NAPCLOUD = open => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 46'>${RAINBOW_IRIS}<path d='M12 40 a9 9 0 0 1 1-17 a13 13 0 0 1 24-8 a11 11 0 0 1 17 9 a8 8 0 0 1-2 16Z' fill='${C.cloud}' stroke='#fff' stroke-width='1.2'/>${open ? `<path d='M20 30 Q32 20 44 30 Q32 40 20 30Z' fill='#fff' stroke='${C.ink}' stroke-width='1.2'/><circle cx='32' cy='30' r='5' fill='url(#ir)'/><circle cx='32' cy='30' r='2' fill='#1A1030'/>` : `<path d='M21 28 Q32 36 43 28' fill='none' stroke='${C.ink}' stroke-width='1.6' stroke-linecap='round'/>${[24, 29, 35, 40].map(x => `<path d='M${x} ${x < 32 ? 31 : 31} l${x < 32 ? -1 : 1} 3' stroke='${C.ink}' stroke-width='1.2' stroke-linecap='round'/>`).join("")}<text x='46' y='15' font-size='8' fill='#fff' font-family='serif'>z</text><text x='51' y='9' font-size='6' fill='#fff' font-family='serif'>z</text>`}</svg>`;
+const PIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 32'>${RAINBOW_IRIS}<path d='M12 31 C12 31 2 18 2 11 a10 10 0 0 1 20 0 C22 18 12 31 12 31Z' fill='${C.cloud}' stroke='#fff' stroke-width='1.2'/><path d='M5 11 Q12 4 19 11 Q12 18 5 11Z' fill='#fff' stroke='${C.ink}' stroke-width='1'/><circle cx='12' cy='11' r='3.2' fill='url(#ir)'/><circle cx='12' cy='11' r='1.3' fill='#1A1030'/></svg>`;
+const OPENEYE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'>${RAINBOW_IRIS}<circle cx='40' cy='40' r='38' fill='#FFF6FB' stroke='#fff' stroke-width='2'/><path d='M12 40 Q40 14 68 40 Q40 66 12 40Z' fill='#fff' stroke='${C.ink}' stroke-width='2'/><circle cx='40' cy='40' r='13' fill='url(#ir)'/><circle cx='40' cy='40' r='5.5' fill='#1A1030'/><circle cx='44' cy='35' r='2.4' fill='#fff'/></svg>`;
+const CARD = `background:linear-gradient(180deg,rgba(255,232,244,.16),rgba(120,90,180,.22)) !important;border:none !important;border-radius:16px !important;box-shadow:inset 0 0 0 1px rgba(255,220,240,.55),0 0 18px rgba(255,180,230,.25) !important;color:#fff !important`;
+
 const bubble = { myBg: C.storm, myText: "#fff", myBorder: "none", charBg: C.cloud, charText: C.ink, charBorder: "none", radius: 26, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -117,6 +127,127 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="chatplus"]:active,[data-wk="send"]:active,[data-wk="chatreply"]:active{transform:scale(.9) !important}
 [data-wk="chatpanel"]{background:rgba(43,31,85,.96) !important;border-top:1px solid rgba(255,200,230,.4) !important}
 [data-wk="quotedraft"]{position:relative !important;z-index:3 !important}
+
+/* ───── 云眸入梦 · 第二批：卡片 ───── */
+[data-wk="voice"],[data-wk="wxcard"],[data-wk="geocard"] > [data-wk="card"],[data-wk="namecard"],[data-part="offlog"],[data-wk="callpill"] > [data-wk="block"]{${CARD}}
+[data-wk="namecard"] *,[data-part="offlog"] *,[data-wk="geocard"] *,[data-wk="callpill"] *{color:#fff !important;border-color:rgba(255,220,240,.4) !important}
+
+/* 转账＝一颗落进云里的星：收下了被一只眼睛接住，退回了星星熄灭 */
+[data-wk="transfercard"]{position:relative !important;${CARD};padding-left:78px !important}
+[data-wk="transfercard"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:56px !important;height:42px !important;margin-top:-24px !important;background:${svg(STAR("fall"))} center/contain no-repeat !important;filter:drop-shadow(0 0 6px rgba(255,240,170,.8)) !important}
+[data-wk="transfercard"] *{color:#fff !important;border-color:rgba(255,220,240,.4) !important}
+[data-wk="transferlabel"]{color:${C.pink} !important;letter-spacing:.2em !important}
+[data-wk="transferamount"],[data-wk="transfercur"]{color:#FFF3B0 !important;text-shadow:0 0 8px rgba(255,240,170,.6) !important}
+[data-wk="transferrule"]{border:none !important;height:1px !important;background:linear-gradient(90deg,transparent,rgba(255,220,240,.7),transparent) !important}
+[data-wk="transfernotch"]{display:none !important}
+[data-wk="transferfoot"]{background:rgba(43,31,85,.5) !important}
+[data-wk="transferbtn"]{border-radius:999px !important;letter-spacing:.15em !important}
+[data-wk="transferbtn"][data-part="take"]{background:${C.cloud} !important;color:${C.ink} !important;border:none !important}
+[data-wk="transferbtn"][data-part="back"]{background:transparent !important;color:#fff !important;border:1px solid rgba(255,220,240,.7) !important}
+[data-wk="transferseal"]{background:transparent !important;border:1px solid ${C.pink} !important;color:${C.pink} !important;border-radius:50% !important;box-shadow:none !important}
+[data-wk="transfercard"][data-status="accepted"]::before{background:${svg(STAR("caught"))} center/contain no-repeat !important}
+[data-wk="transfercard"][data-status="returned"]::before{background:${svg(STAR("back"))} center/contain no-repeat !important;filter:none !important}
+[data-wk="transfercard"][data-status="returned"]{opacity:.6 !important}
+
+/* 红包＝一朵睡着的粉云（闭眼打呼）；领完了云睁开眼 */
+[data-wk="rpcard"]{position:relative !important;width:220px !important;min-height:80px !important;padding:16px 16px 16px 84px !important;${CARD}}
+[data-wk="rpcard"]::before{content:"" !important;position:absolute !important;left:10px !important;top:50% !important;width:64px !important;height:46px !important;margin-top:-24px !important;background:${svg(NAPCLOUD(false))} center/contain no-repeat !important;animation:ceFloat 4s ease-in-out infinite !important}
+[data-wk="rpcard"]::after{content:"别吵醒它" !important;position:absolute !important;right:14px !important;bottom:7px !important;font-size:10.5px !important;letter-spacing:.15em !important;color:${C.pink} !important}
+[data-wk="rpcard"] *{color:#fff !important}
+[data-wk="rpflap"],[data-wk="rpseal"],[data-wk="rpcorner"]{display:none !important}
+[data-wk="rpcard"] > div:not([data-wk]){padding:0 !important;background:transparent !important}
+[data-wk="rpmsg"]{-webkit-line-clamp:2 !important}
+[data-wk="rpcard"][data-status="done"]::before{background:${svg(NAPCLOUD(true))} center/contain no-repeat !important;animation:none !important}
+[data-wk="rpcard"][data-status="done"]::after{content:"它醒了" !important}
+@keyframes ceFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+/* 拆红包：关着＝一整朵睡着的大云（四周云团、中间一道闭眼），「开」＝一只彩虹眼；拆开＝云散开，里面一片星空，钱是星光写的 */
+[data-wk="rpenvelope"]{position:relative !important;overflow:visible !important}
+[data-wk="rpenvelope"][data-stage="closed"]{background:radial-gradient(ellipse at 50% 35%,#FFFAFD,${C.cloud} 60%,${C.cloudD}) !important;border:none !important;border-radius:40px !important;isolation:isolate !important;box-shadow:0 0 40px 10px rgba(255,190,230,.45) !important}
+[data-wk="rpenvelope"][data-stage="closed"]::before{content:"" !important;position:absolute !important;left:-10px !important;right:-10px !important;top:-11px !important;bottom:-10px !important;z-index:-1 !important;border-radius:60px !important;background:radial-gradient(circle,${C.cloud} 11.5px,transparent 14px) 4px 0/33px 28px repeat-x,radial-gradient(circle,${C.cloud} 8.5px,transparent 11px) 15px 5px/25px 22px repeat-x,radial-gradient(circle,${C.cloud} 13.5px,transparent 16px) 26px 1px/47px 32px repeat-x,radial-gradient(circle,${C.cloud} 9.5px,transparent 12px) 9px calc(100% - 2px)/29px 24px repeat-x,radial-gradient(circle,${C.cloud} 11.5px,transparent 14px) 0 100%/39px 28px repeat-x,radial-gradient(circle,${C.cloud} 9.5px,transparent 12px) 0 5px/24px 25px repeat-y,radial-gradient(circle,${C.cloud} 7.5px,transparent 10px) 5px 14px/20px 19px repeat-y,radial-gradient(circle,${C.cloud} 9.5px,transparent 12px) 100% 8px/24px 27px repeat-y,radial-gradient(circle,${C.cloud} 7.5px,transparent 10px) calc(100% - 5px) 0/20px 17px repeat-y !important}
+[data-wk="rpenvelope"][data-stage="closed"] [data-wk="rparc"]{display:none !important}
+[data-wk="rpenvelope"][data-stage="closed"] *{color:${C.ink} !important}
+[data-wk="rpopenbtn"]{background:${svg(OPENEYE)} center/contain no-repeat !important;border:none !important;border-radius:50% !important;box-shadow:0 0 20px 6px rgba(255,200,240,.7) !important;animation:ceGlow 2.4s ease-in-out infinite !important}
+[data-wk="rpopenbtn"],[data-wk="rpopenbtn"] *{color:transparent !important;font-size:0 !important}
+@keyframes ceGlow{0%,100%{box-shadow:0 0 14px 4px rgba(255,200,240,.55)}50%{box-shadow:0 0 26px 10px rgba(255,200,240,.9)}}
+[data-wk="rpenvelope"][data-stage="open"]{background:${svg(STARS)} 0 0/220px 260px,radial-gradient(ellipse at 50% 115%,#FFB8DE 0 20%,transparent 60%),linear-gradient(180deg,${C.s1},${C.s2} 60%,${C.s3}) !important;border:none !important;border-radius:28px !important;box-shadow:inset 0 0 0 1px rgba(255,220,240,.5),0 0 40px rgba(255,180,230,.4) !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rparc"]{display:none !important}
+[data-wk="rpenvelope"][data-stage="open"] *{color:#fff !important}
+[data-wk="rpavatar"]{border-radius:50% !important;box-shadow:0 0 0 3px ${C.cloud},0 0 14px 4px rgba(255,200,240,.7) !important}
+[data-wk="rpenvelope"][data-stage="open"] [data-wk="rpamount"] + *::after{content:" · 梦醒了" !important}
+[data-wk="rpamount"]{color:#FFF3B0 !important;background:none !important;text-shadow:0 0 12px rgba(255,240,170,.8) !important}
+[data-wk="rpclose"]{background:rgba(255,255,255,.15) !important;border:1px solid rgba(255,220,240,.7) !important;color:#fff !important}
+
+/* 照片：透过一只巨眼看出去——相片四角圆，外圈一道彩虹光，上下两片眼皮弧 */
+[data-wk="photocard"]{position:relative !important;overflow:visible !important;background:#1A1030 !important;border:none !important;border-radius:50% / 34% !important;padding:16px 12px !important;box-shadow:0 0 0 2px #fff,0 0 0 5px rgba(255,138,216,.6),0 0 0 8px rgba(106,240,192,.35),0 0 24px 8px rgba(255,190,230,.4) !important}
+[data-wk="photoface"]{background:linear-gradient(180deg,${C.s2},${C.s3}) !important;border:none !important;border-radius:40% / 30% !important}
+[data-wk="photoface"] *,[data-wk="phototext"]{color:#fff !important}
+[data-wk="photocap"],[data-wk="photohint"]{color:${C.fog} !important}
+
+/* 语音：小云卡，前面一只眨着的眼当播放，波纹是粉色 */
+[data-wk="voice"] > *{background:transparent !important;box-shadow:none !important;border:none !important;color:#fff !important}
+[data-wk="voice"][data-me]{padding:0 14px 0 44px !important;position:relative !important;border-radius:999px !important}
+[data-wk="voice"]::before{content:"" !important;position:absolute !important;left:12px !important;top:50% !important;width:24px !important;height:14px !important;margin-top:-7px !important;background:${svg(EYE(true))} center/contain no-repeat !important;animation:ceBlink 4s ease-in-out infinite !important}
+[data-wk="voice"][data-me="0"]{background:${C.cloud} !important;box-shadow:0 0 14px rgba(255,190,225,.45) !important}
+[data-wk="voice"][data-me="0"] > *{color:${C.ink} !important}
+[data-wk="voice"][data-me="0"]::before{background:${svg(EYE())} center/contain no-repeat !important}
+[data-wk="voice"][data-me="0"] [data-wk="voicewave"] span{background:${C.ink} !important}
+[data-wk="voice"][data-me="1"]{background:#5A5288 !important}
+[data-wk="voicewave"] span{background:${C.pink} !important}
+
+[data-wk="wxcardsky"]{background:linear-gradient(180deg,${C.s2},${C.s3}) !important}
+[data-wk="wxcardsky"] *{color:#fff !important}
+[data-wk="wxcardsky"] svg{stroke:#fff !important}
+[data-wk="wxcardsay"]{background:rgba(43,31,85,.6) !important;color:${C.pink} !important;border-top:1px solid rgba(255,220,240,.35) !important}
+/* 定位：一颗云做的大头针，针头一只眼 */
+[data-wk="geopin"]{background:${svg(PIN)} center/contain no-repeat !important;box-shadow:none !important;border:none !important;width:22px !important;height:30px !important;border-radius:0 !important;filter:drop-shadow(0 0 6px rgba(255,200,240,.8)) !important}
+[data-wk="geopin"] *{opacity:0 !important}
+[data-wk="geopinstem"]{background:${C.pink} !important}
+[data-wk="namecard"] img{border-radius:50% !important;box-shadow:0 0 0 2px #fff,0 0 10px 3px rgba(255,200,240,.7) !important}
+
+/* 拍一拍、通话结束：一行粉字，前面一只眨眼 */
+[data-wk="note"][data-part="pat"],[data-wk="note"][data-part="call"]{display:inline-block !important;background:${svg(EYE(true))} left center/18px 10px no-repeat !important;border:none !important;border-radius:0 !important;padding:2px 0 2px 24px !important;color:${C.pink} !important;letter-spacing:.12em !important;box-shadow:none !important}
+[data-wk="note"][data-part="call"] svg{stroke:${C.pink} !important}
+[data-wk="note"][data-part="callsum"]{display:block !important;margin:6px auto 0 !important;max-width:86% !important;${CARD};padding:9px 14px !important}
+[data-wk="noteink"]{color:${C.fog} !important}
+
+/* 线下小结：一页「梦的记录」，标题前一只眼，底下一行「醒来后记下的」 */
+[data-part="offlog"]{position:relative !important;padding-top:24px !important;padding-bottom:30px !important}
+[data-part="offlog"]::after{content:"— 醒来后记下的" !important;position:absolute !important;right:16px !important;bottom:10px !important;font-size:11px !important;letter-spacing:.15em !important;color:${C.pink} !important}
+[data-wk="offlogtitle"]{display:inline-block !important;margin:0 0 8px !important;padding:0 0 0 30px !important;background:${svg(EYE(true))} left center/22px 12px no-repeat !important;color:#fff !important;letter-spacing:.2em !important}
+[data-wk="offlogtitle"] *{color:#fff !important}
+[data-wk="offlogopen"],[data-wk="offlogredo"],[data-wk="offlogundo"],[data-wk="offlogrestore"]{color:${C.pink} !important}
+[data-wk="offlogtranscript"]{border-top:1px solid rgba(255,220,240,.35) !important;color:${C.fog} !important}
+
+/* 加号面板：一格格小云 */
+[data-wk="chattoolicon"]{background:radial-gradient(ellipse at 50% 35%,#FFFAFD,${C.cloud} 70%,${C.cloudD}) !important;border:none !important;border-radius:44% 44% 38% 38% !important;box-shadow:0 0 12px rgba(255,190,225,.5) !important}
+[data-wk="chattoolglyph"],[data-wk="chattoolglyph"] svg{stroke:${C.ink} !important;color:${C.ink} !important}
+[data-wk="chattoollabel"]{color:${C.fog} !important}
+
+/* 引用 */
+[data-wk="quotedraft"]{background:rgba(43,31,85,.9) !important;border:none !important;border-top:1px solid rgba(255,220,240,.4) !important}
+[data-wk="quotedraft"] *{color:${C.fog} !important;border-color:${C.pink} !important}
+[data-wk="quoteicon"]{display:none !important}
+[data-wk="quoteclear"]{color:#fff !important}
+[data-wk="quote"]{background:rgba(255,255,255,.08) !important;color:${C.fog} !important;border:none !important;border-left:2px solid ${C.pink} !important;border-radius:0 8px 8px 0 !important;padding:3px 10px !important;opacity:1 !important}
+[data-wk="bubble"] [data-wk="quotetext"]{display:block !important;border-left:2px solid currentColor !important;padding-left:8px !important;opacity:.7 !important}
+
+/* 打电话那一屏：同一片紫夜和粉云海；他的头像是那只巨眼；挂断＝一颗粉云 */
+[data-wk="call"][data-video="0"]{background:${svg(STARS)} 0 0/220px 260px,radial-gradient(ellipse at 50% 108%,#FFB8DE 0 18%,rgba(246,185,220,.55) 30%,transparent 55%),linear-gradient(180deg,${C.s1} 0%,${C.s2} 45%,${C.s3}) !important}
+[data-wk="call"][data-video="0"] [data-wk="calltitle"]{color:#fff !important;letter-spacing:.25em !important}
+[data-wk="call"][data-video="0"] [data-wk="callhead"] > div:not([data-wk]){color:${C.fog} !important}
+[data-wk="call"][data-video="0"] > button:first-child{background:rgba(255,255,255,.12) !important;box-shadow:0 0 0 1px rgba(255,220,240,.6) !important}
+[data-wk="call"][data-video="0"] > button:first-child svg{stroke:#fff !important}
+[data-wk="callbtns"] button > span:first-child{background:rgba(255,255,255,.12) !important;border-radius:50% !important;box-shadow:0 0 0 1px rgba(255,220,240,.6) !important}
+[data-wk="callbtns"] button > span:first-child svg{stroke:#fff !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child{background:radial-gradient(ellipse at 50% 35%,#FFFAFD,${C.cloud} 70%,${C.cloudD}) !important;box-shadow:0 0 18px 4px rgba(255,190,230,.6) !important}
+[data-wk="callbtns"] button:nth-child(2) > span:first-child svg{stroke:${C.ink} !important}
+[data-wk="call"][data-video="0"] [data-wk="callbtns"] button > span:last-child{color:${C.fog} !important}
+[data-wk="callbubble"]{background:${C.cloud} !important;color:${C.ink} !important;border:none !important;border-radius:14px !important;box-shadow:0 0 14px rgba(255,190,225,.45) !important}
+[data-wk="callmsg"][data-me="1"] [data-wk="callbubble"]{background:#5A5288 !important;color:#fff !important}
+[data-wk="callbubble"]::before,[data-wk="callbubble"]::after{content:none !important}
+[data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.ink} !important}
+[data-wk="callact"]{color:${C.pink} !important}
+[data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 4px #fff,0 0 0 9px rgba(255,138,216,.55),0 0 0 14px rgba(106,240,192,.3),0 0 40px 14px rgba(255,190,230,.5) !important;animation:ceGlow 3s ease-in-out infinite !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "云眸入梦", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
