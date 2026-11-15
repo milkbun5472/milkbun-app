@@ -230,3 +230,14 @@ test("锁脸能多放两个角度：出图拼成一张三视图，云备份带�
 test("你自己的资料和面具也能放三个角度", () => { const c = fs.readFileSync("js/components.js", "utf8"), a = fs.readFileSync("js/app.js", "utf8"); assert.ok((c.match(/"data-wk": "refextras"/g) || []).length === 1 && c.includes("refExtras: (refExtras || []).filter(Boolean).slice(0, 2), photoOutfit") && a.includes("(profile && profile.refPhoto === r ? profile : null) || (masks || []).find(x => x && x.refPhoto === r)")); });
 
 test("线下这一场原文最多带几拍能调", () => { const a = fs.readFileSync("js/app.js", "utf8"), c = fs.readFileSync("js/components.js", "utf8"); assert.ok(a.includes("const offSumPlan = rawN =>") && a.includes("offlineSumBlock(sess, _plan)") && c.includes('"data-wk": "offrawbeats"') && c.includes("rawBeats: sRawN,")); });
+
+test("外卖挪到购物旁边（一次）", () => {
+  const c = fs.readFileSync("js/components.js", "utf8");
+  assert.ok(c.includes('joinAppOnce("takeout", "shop", "x_takeoutJoined"); return loadJSON("x_homeLayout", {});'));
+  const S = {}; global.loadJSON = (k, d) => (k in S ? JSON.parse(S[k]) : d); global.saveJSON = (k, v) => { S[k] = JSON.stringify(v); };
+  const src = c.slice(c.indexOf("function joinAppOnce("), c.indexOf("// 一个 app 还在当初自动放的那个文件夹里"));
+  const join = new Function("loadJSON", "saveJSON", src + "; return joinAppOnce;")(global.loadJSON, global.saveJSON);
+  S.x_homeLayout = JSON.stringify({ 0: ["chat", "shop", "diary"], 1: ["memlib"], 2: ["takeout"] }); S.x_homeFolders = "{}";
+  join("takeout", "shop", "f1");
+  assert.deepEqual(JSON.parse(S.x_homeLayout), { 0: ["chat", "shop", "takeout", "diary"], 1: ["memlib"] });
+});
