@@ -54,6 +54,16 @@ def forward(points):
  # wisps, braid roots, lengths and independently dyed bands stay in place.
  crown=np.maximum(0,q[:,2]-.95)
  q[:,2]-=.30*crown*smooth(crown/.10)
+ # Follow Lisa's marked side contour: remove the excess posterior depth,
+ # leaving the forehead and hanging braids fixed. A smooth rear half-space
+ # compression retains continuous rounded strands instead of a cut plane.
+ posterior=np.maximum(0,q[:,1])
+ cap=smooth((q[:,2]-.72)/.14)
+ q[:,1]-=.24*posterior*smooth(posterior/.12)*cap
+ # Lisa also requested a fuller lower edge. Fill the lower occipital arc
+ # smoothly above the braid roots, keeping room for the doll's real skull.
+ fullness=.035*np.exp(-((q[:,2]-.84)/.10)**2)*smooth(posterior/.16)*smooth((q[:,2]-.72)/.08)
+ q[:,1]+=fullness
  return (q-np.array(aj['center']))/radius
 report=runpy.run_path(str(Path(__file__).with_name('hair_deform.py')))['deform_mesh'](m,forward)
 band=mat.copy();band.name='hair_accessory';band['hairAccessory']=True;m.materials.append(band);chosen=[]

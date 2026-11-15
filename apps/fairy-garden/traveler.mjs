@@ -278,7 +278,7 @@ export function createTraveler(source,companion=false,look={},appearance={}){
   const driven=[...rig.flatMap(({p})=>[[p.userData.bone,p.userData.rest],[p.userData.forearm,p.userData.forearmRest]]),...seatedLegs.rests,...upperBody.rests].filter(([b])=>b);
   const saved=driven.map(([b])=>[b,b.quaternion.clone()]);
   for(const [b,rest]of driven)b.quaternion.copy(rest);
-  root.updateMatrixWorld(true);for(const m of skinned){bentArms.attach(m);seatedLegs.attach(m);m.bind(m.skeleton);}seatedLegs.fit();for(const [b,q]of saved)b.quaternion.copy(q);poseObjects.forEach((o,i)=>{o.position.copy(transforms[i][0]);o.rotation.copy(transforms[i][1]);});root.updateWorldMatrix(true,true);upperBody.resume(upperPose);};
+  root.updateMatrixWorld(true);for(const m of skinned){bentArms.attach(m);seatedLegs.attach(m);m.bind(m.skeleton);}hangingHair.fitArms(rig,skinned);seatedLegs.fit();for(const [b,q]of saved)b.quaternion.copy(q);poseObjects.forEach((o,i)=>{o.position.copy(transforms[i][0]);o.rotation.copy(transforms[i][1]);});root.updateWorldMatrix(true,true);upperBody.resume(upperPose);};
  const fitRig=dims=>{const upperPose=upperBody.suspend();rebindBones(dims);if(!rigMorphs)return;for(const {p,label}of rig){const next=new T.Vector3(...authoredRig[label]);for(const key of DIMS){const delta=Number(dims?.[key]??1)-1;if(Number.isFinite(delta)&&rigMorphs[label]?.[key])next.addScaledVector(new T.Vector3(...rigMorphs[label][key]),delta);}const shift=next.clone().sub(p.position);p.position.copy(next);for(const child of p.children)if(!child.userData.follow)child.position.sub(shift);}upperBody.resume(upperPose);};
  fitRig(want.dims);
  // Skate blades are shared by both avatars, attached to the same leg rig as their boots.
@@ -368,10 +368,10 @@ export function createTraveler(source,companion=false,look={},appearance={}){
    for(const mount of attachments)mount.dispose();attachments.clear();for(const x of ownedGeometry)x.dispose();for(const x of ownedMaterials)x.dispose();for(const x of ownedTextures)x.dispose();for(const x of skeletons)x.dispose();root.removeFromParent();root.clear();
   },
   contactPose({left,right,lean,tilt,turn,nod,neckLean,neckTurn,headPivot}={}){
-   upperBody.apply({lean,tilt,turn,nod,neckLean,neckTurn,headPivot});root.updateMatrixWorld(true);if(Number.isFinite(bedSupport)){seatContact.settle(bedSupport);root.userData.bedContact=root.userData.seatContact;root.userData.seatContact=null;}hangingHair.update();
+   upperBody.apply({lean,tilt,turn,nod,neckLean,neckTurn,headPivot});root.updateMatrixWorld(true);if(Number.isFinite(bedSupport)){seatContact.settle(bedSupport);root.userData.bedContact=root.userData.seatContact;root.userData.seatContact=null;}
    for(const [side,target] of [['left',left],['right',right]]){if(!target)continue;const part=rig.find(r=>r.label===side+'Arm')?.p,hand=model.getObjectByName(side==='left'?'Left_hand':'Right_hand');
     if(part?.userData.bone&&hand)reachHand(root,part.userData.bone,part.userData.forearm,hand,target.clone());
-   }root.updateMatrixWorld(true);updateAttachments();root.userData.contacts={left:left?model.getObjectByName('Left_hand').getWorldPosition(new T.Vector3()).distanceTo(left):null,right:right?model.getObjectByName('Right_hand').getWorldPosition(new T.Vector3()).distanceTo(right):null};
+   }root.updateMatrixWorld(true);hangingHair.update();updateAttachments();root.userData.contacts={left:left?model.getObjectByName('Left_hand').getWorldPosition(new T.Vector3()).distanceTo(left):null,right:right?model.getObjectByName('Right_hand').getWorldPosition(new T.Vector3()).distanceTo(right):null};
   },
   // 身上这套衣服到了没有（按需加载）：验图脚本等它再截图
   ready:()=>Promise.all([dressed,combed,...[...FACE_TEX.values()].map(t=>t.userData.ready)]),
@@ -420,7 +420,7 @@ export function createTraveler(source,companion=false,look={},appearance={}){
   if(armPose?.weatherEffect&&!weatherEffects)weatherEffects=makeWeatherEffects(model,life.handPoint);weatherEffects?.update(armPose);
   if(task&&!taskProps)taskProps=makeTaskProps(root,model,life.handPoint);
   taskProps?.update(lying?null:task||taskRiseBlend>.001?{...task,rise:taskRiseBlend,floor:height-(seated?.05:0),seated}:null,moving);
-  life.updateTask(time,!lying&&!moving&&task?.daily?task:null,armPose);updateAttachments();}};
+  life.updateTask(time,!lying&&!moving&&task?.daily?task:null,armPose);hangingHair.update();updateAttachments();}};
 }
 
 // Scene callers share the compressed doll and decoder lifecycle.

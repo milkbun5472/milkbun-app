@@ -236,7 +236,8 @@ export function emotionPose(face,p){
  case 'five-left':case 'five-right':case 'clap-left':case 'clap-right': {
   const side=face.endsWith('left')?'left':'right',sign=side==='left'?-1:1,clap=face.startsWith('clap-');
   const reach=clap?1-ease((p-.55)/.45):beat(p,0,.22,.85,1);
-  q[side]=[(-1.95-(clap?.16*Math.sin(p*Math.PI*2):0))*reach,0,sign*.65*reach];
+  // Raise outside the hanging hair; the shared small hair response handles sleeve thickness.
+  q[side]=[(-.15-(clap?.16*Math.sin(p*Math.PI*2):0))*reach,0,sign*1.6*reach];
   q[side==='left'?'right':'left']=[-.15*reach,0,-sign*.12*reach];q.roll=sign*.035*reach;break;}
  case 'dodge-left':case 'dodge-right': {
   const sign=face.endsWith('left')?-1:1,away=beat(p,0,.16,.35,.66);
