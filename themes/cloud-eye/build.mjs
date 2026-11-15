@@ -1,4 +1,4 @@
-// 云里有眼：黄昏转紫的夜空，底下一片粉色的云海。每条气泡是一朵云：他的是粉白的云，我的是一朵暗紫的雨云；
+// 云眸入梦：黄昏转紫的夜空，底下一片粉色的云海。每条气泡是一朵云：他的是粉白的云，我的是一朵暗紫的雨云；
 // 云里睁着一只发彩虹光的眼睛。头像＝一只石头眼皮的巨眼，照片就是瞳孔。已送达＝闭着的眼，已读＝睁开的眼。
 // 用法：node themes/cloud-eye/build.mjs
 import { writeFileSync } from "node:fs";
@@ -31,7 +31,7 @@ const bubble = { myBg: C.storm, myText: "#fff", myBorder: "none", charBg: C.clou
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
 const css = `
-/* ───── 云里有眼 · 第一批 ───── */
+/* ───── 云眸入梦 · 第一批 ───── */
 [data-wk="chat"]{background:${svg(STARS)} 0 0/220px 260px,radial-gradient(ellipse at 50% 108%,#FFB8DE 0 18%,rgba(246,185,220,.55) 30%,transparent 55%),linear-gradient(180deg,${C.s1} 0%,${C.s2} 45%,${C.s3} 85%,#C46AB0 100%) !important}
 [data-wk="chat"] *{font-family:${SERIF} !important}
 [data-wk="body"]{background:transparent !important}
@@ -63,12 +63,12 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="msg"][data-me="1"] [data-wk="row"]{padding-right:12px !important}
 
 /* 气泡：一朵云——上下两排圆鼓鼓的边；他的粉白云，我的暗紫雨云。一串第一条里睁着一只彩虹眼 */
-[data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;isolation:isolate !important;border:none !important;border-radius:26px !important;letter-spacing:.1em !important;padding:12px 22px !important;margin:12px 4px !important}
-[data-wk="bubble"][data-kind="text"]::before{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:-14px !important;bottom:0 !important;z-index:-1 !important;border:none !important;transform:none !important;width:auto !important;height:auto !important;pointer-events:none !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]{background:radial-gradient(ellipse at 30% 20%,#fff,${C.cloud} 60%,${C.cloudD}) !important;color:${C.ink} !important;box-shadow:0 0 22px 4px rgba(255,190,225,.45) !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]::before{background:radial-gradient(circle at 14% 100%,${C.cloud} 15px,transparent 15.6px) 0 0/100% 22px no-repeat,radial-gradient(circle at 36% 100%,${C.cloud} 20px,transparent 20.6px) 0 0/100% 22px no-repeat,radial-gradient(circle at 62% 100%,${C.cloud} 17px,transparent 17.6px) 0 0/100% 22px no-repeat,radial-gradient(circle at 84% 100%,${C.cloud} 13px,transparent 13.6px) 0 0/100% 22px no-repeat !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]{background:radial-gradient(ellipse at 30% 20%,#6A6294,${C.storm} 60%,${C.stormD}) !important;color:#fff !important;box-shadow:0 0 18px 3px rgba(150,130,220,.35) !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]::before{background:radial-gradient(circle at 14% 100%,#5C5484 15px,transparent 15.6px) 0 0/100% 22px no-repeat,radial-gradient(circle at 36% 100%,#5C5484 20px,transparent 20.6px) 0 0/100% 22px no-repeat,radial-gradient(circle at 62% 100%,#5C5484 17px,transparent 17.6px) 0 0/100% 22px no-repeat,radial-gradient(circle at 84% 100%,#5C5484 13px,transparent 13.6px) 0 0/100% 22px no-repeat !important}
+[data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;isolation:isolate !important;border:none !important;border-radius:30px !important;letter-spacing:.1em !important;padding:14px 24px !important;margin:22px 14px 10px !important}
+[data-wk="bubble"][data-kind="text"]::before{content:"" !important;position:absolute !important;left:-24px !important;right:-24px !important;top:-34px !important;bottom:0 !important;z-index:-1 !important;border:none !important;transform:none !important;width:auto !important;height:auto !important;pointer-events:none !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{background:linear-gradient(180deg,#FFF3F9 0%,${C.cloud} 55%,${C.cloudD}) !important;color:${C.ink} !important;box-shadow:0 0 22px 4px rgba(255,190,225,.45) !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]::before{background:radial-gradient(circle at calc(24px + 16%) 36px,#FFF3F9 24px,transparent 25px),radial-gradient(circle at calc(24px + 42%) 34px,#FFF3F9 30px,transparent 31px),radial-gradient(circle at calc(100% - 24px - 26%) 36px,#FFF3F9 27px,transparent 28px),radial-gradient(circle at calc(100% - 24px - 6%) 42px,#FFF3F9 20px,transparent 21px),radial-gradient(circle at 26px 62%,#FFF3F9 19px,transparent 20px),radial-gradient(circle at calc(100% - 26px) 58%,#FFF3F9 17px,transparent 18px) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{background:linear-gradient(180deg,#5E5688 0%,${C.storm} 55%,${C.stormD}) !important;color:#fff !important;box-shadow:0 0 18px 3px rgba(150,130,220,.35) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]::before{background:radial-gradient(circle at calc(24px + 16%) 36px,#5E5688 24px,transparent 25px),radial-gradient(circle at calc(24px + 42%) 34px,#5E5688 30px,transparent 31px),radial-gradient(circle at calc(100% - 24px - 26%) 36px,#5E5688 27px,transparent 28px),radial-gradient(circle at calc(100% - 24px - 6%) 42px,#5E5688 20px,transparent 21px),radial-gradient(circle at 26px 62%,#5E5688 19px,transparent 20px),radial-gradient(circle at calc(100% - 26px) 58%,#5E5688 17px,transparent 18px) !important}
 [data-wk="bubble"][data-kind="text"]::after{content:none !important}
 [data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]{padding-right:52px !important}
 [data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]::after{content:"" !important;position:absolute !important;right:14px !important;top:50% !important;width:30px !important;height:17px !important;margin-top:-9px !important;background:${svg(EYE())} center/contain no-repeat !important;border:none !important;transform:none !important;left:auto !important;bottom:auto !important;animation:ceBlink 5s ease-in-out infinite !important}
@@ -118,6 +118,6 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="quotedraft"]{position:relative !important;z-index:3 !important}
 `;
 
-const pack = { kind: "chat-look", v: 1, name: "云里有眼", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
-writeFileSync(join(here, "云里有眼-美化.json"), JSON.stringify(pack));
+const pack = { kind: "chat-look", v: 1, name: "云眸入梦", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
+writeFileSync(join(here, "云眸入梦-美化.json"), JSON.stringify(pack));
 console.log("ok", css.length);
