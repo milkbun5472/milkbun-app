@@ -35483,6 +35483,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       pC(p => p.map(c => { if (c.id !== id || !c.npc) return c; const n = { ...c, promotedFrom: c.ownerId || "" }; delete n.npc; delete n.ownerId; return n; }));
       toast("「" + (c0.remark || c0.name) + "」转正了：聊天和记忆都还在，去人格档案馆补一补人设和头像");
     },
+    onSetNpcRef: (id, patch) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, ...patch, refExtras: ("refExtras" in patch ? patch.refExtras : c.refExtras || []).slice(0, 2) } : c)),   // 配角锁脸（转正后原样留着）
     onSetNpcMoments: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, npcMoments: !!v } : c)),
     onSetNpcOwner: (id, ownerId) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, ownerId: ownerId || "" } : c)),   // 配角改挂（群友 2026-10-27）
     onSetNpcGender: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, gender: v === "他" || v === "她" ? v : "TA" } : c)),

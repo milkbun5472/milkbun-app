@@ -9325,6 +9325,7 @@ function Messages({
   onChatNpc,
   onDeleteNpc,
   onPromoteNpc,
+  onSetNpcRef,
   onSetNpcMem,
   onSetNpcMoments,
   onSetNpcGender,
@@ -9951,7 +9952,7 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
   , reqOpen && h(FriendReqPage, { t, reqs: friendReqs || [], onAnswer: onFriendReq, onClose: () => setReqOpen(false) })
-  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onSetMoments: onSetNpcMoments, onSetGender: onSetNpcGender, onSetOwner: onSetNpcOwner, onClose: () => setNpcBook(false) })
+  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onSetMoments: onSetNpcMoments, onSetGender: onSetNpcGender, onSetOwner: onSetNpcOwner, onSetRef: onSetNpcRef, onClose: () => setNpcBook(false) })
   , rowMenu && h(Sheet, { onClose: () => setRowMenu(null) },
     h("div", { "data-wk": "mlrowmenu", className: "px-5 pb-6 pt-1" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 10 } }, rowMenu.name || "配角"),
@@ -10415,7 +10416,7 @@ function MomentCompose({
 // 好友分组管理
 // 通讯录 → 配角：按主人分组的一本册子。整页，不是半窗（施工规则/no-half-sheet.md）。
 //   点头像就换（AvatarPicker 那一个，跟卷宗、群头像同一个）；换好的头像群聊和关系图都跟着用。
-function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onSetMoments, onSetGender, onSetOwner, onClose }) {
+function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onSetMoments, onSetGender, onSetOwner, onSetRef, onClose }) {
   const [promoArm, setPromoArm] = useState(null);   // 转正先问一句
   const t = useTheme();
   // 在这一页直接新建（她 2026-10-10：「不能创建的时候在 npc 页面弄吗」）：一步写好认识谁、各是什么关系，
@@ -10502,6 +10503,16 @@ function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, on
             return h("button", { key: v, "data-on": on ? "1" : "0", onClick: () => onSetGender(cur.id, v), className: "flex-1 active:opacity-70",
               style: { minHeight: 40, borderRadius: 9, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, zh);
           }))) : null,
+      // 锁脸参考照（她 2026-11-15「npc 能不能锁脸合照，转正后保留那张参考照」）：跟角色是同一对字段 refPhoto/refExtras，
+      //   合照、群里拍照本来就按 refPhoto 认人；转正只摘掉 npc 标，这两张原样跟过去
+      onSetRef ? h("div", { "data-wk": "npcref", style: { marginTop: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub } }, "锁脸参考照"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55, marginTop: 3 } }, "放一张，合照、群里拍照时就照这张脸出；转成正式角色以后这张原样留着。旁边可以再放两张别的角度（侧脸、微侧脸），要是同一个人同一种画风。"),
+        h("div", { className: "flex items-center", style: { gap: 12, marginTop: 10 } },
+          h(AvatarPicker, { character: { name: cur.name, avatarImage: cur.refPhoto || null, color: cur.color }, size: 56, radius: 12, imageMaxDim: 1024, imageQuality: 0.94, onPick: v => onSetRef(cur.id, { refPhoto: v }), onClear: cur.refPhoto ? () => onSetRef(cur.id, { refPhoto: null, refExtras: [] }) : undefined }),
+          cur.refPhoto ? [0, 1].map(k => h(AvatarPicker, { key: k, character: { name: k ? "微侧" : "侧脸", avatarImage: (cur.refExtras || [])[k] || null, color: cur.color }, size: 44, radius: 10, imageMaxDim: 1024, imageQuality: 0.94,
+            onPick: v => { const n = (cur.refExtras || []).slice(0, 2); n[k] = v; onSetRef(cur.id, { refExtras: n }); },
+            onClear: (cur.refExtras || [])[k] ? () => { const n = (cur.refExtras || []).slice(0, 2); n[k] = null; onSetRef(cur.id, { refExtras: n }); } : undefined })) : null)) : null,
       // 私聊：配角没有好感、印象卡、日程，也从不主动找她——只在她点进来时说话。
       //   TA记得的是TA自己那份（私聊攒下的＋在场的群里那些），主人看不见你们聊了什么。
       onSetMem ? h("div", { "data-wk": "block", style: { marginTop: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
