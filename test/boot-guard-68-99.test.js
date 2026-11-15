@@ -195,7 +195,10 @@ test("还有文件在路上就别下判词：先说「还在下载」，等下�
   assert.match(html, /waited < 900000/, "没有等待上限：下不动的人会被永远吊着");
   assert.match(html, /setTimeout\(function \(\) \{ verdict\(waited \+ 6000\); \}, 6000\)/,
     "摆完「还在下载」要接着再看，不能摆上就不管了");
-  assert.ok(html.includes("一按就得从头下"), "这张卡的重点就是别按重新加载——一按就从头下");
+  assert.ok(html.includes("别按「重新加载」、别锁屏、别切出去"), "这张卡的重点就是别按重新加载、别打断");
+  // 2026-11-15 公共版排队下载：没轮到的块没有标签，得从 __bootSeq 补进「还在路上」，卡上写下好几块
+  assert.match(html, /var q = window\.__bootSeq;\s*if \(q && !q\.end && !q\.err\) n \+=/, "排队的块没算进还在下载");
+  assert.ok(html.includes('"，已下好 " + bq.done + " / " + bq.total + " 块"'), "卡上要写已下好几块");
   const slow = html.slice(html.indexOf('card("还在下载，没卡住（已等 "'));
   assert.ok(slow.slice(0, 500).includes("你的存档一个字都没少"), "这张卡也不能少这句");
 });

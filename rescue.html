@@ -87,6 +87,9 @@ async function probeDownloads() {
     lines.push("首页  " + Math.round(html.length / 1024) + "KB  " + ((Date.now() - t0) / 1000).toFixed(1) + " 秒"); show();
     const re = /<script\b[^>]*\ssrc="([^"]+)"/g, urls = [];
     let m; while ((m = re.exec(html))) { if (!/^https?:/.test(m[1]) && urls.indexOf(m[1]) < 0) urls.push(m[1]); }
+    // 公共版开机那几块是排队加载的，地址写在一段脚本的清单里，不是 <script src>
+    const re2 = /["'](js\/bundle[^"']*\.js\?v=[^"']+)["']/g;
+    while ((m = re2.exec(html))) { if (urls.indexOf(m[1]) < 0) urls.push(m[1]); }
     let ok = 0;
     for (const u of urls) { if (await one(u, u.split("?")[0])) ok++; }
     lines.push("", "共 " + urls.length + " 个，下完 " + ok + " 个"); show();

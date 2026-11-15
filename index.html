@@ -129,6 +129,10 @@
       for (var i = 0; i < list.length; i++) if (list[i].responseEnd > 0) done[list[i].name] = 1;
       var tags = document.querySelectorAll("script[src]"), n = 0;
       for (var j = 0; j < tags.length; j++) if (tags[j].src && !done[tags[j].src]) n++;
+      // 公共版开机脚本排队一块一块下（window.__bootSeq，发布时装订进去）：还没轮到的那几块
+      //   没有 <script> 标签，上面数不到，得从排队的进度里补上。
+      var q = window.__bootSeq;
+      if (q && !q.end && !q.err) n += Math.max(1, q.total - q.done);
       return n;
     } catch (x) { return 0; }
   }
@@ -144,9 +148,10 @@
     //   一按又从头下。国内连这个地址慢，第一次十来分钟是真的；仍留上限，真断了的不能永远吊着。
     if (stillLoading() && waited < 900000) {
       window.__bootSlowShown = true;
-      card("还在下载，没卡住（已等 " + Math.round(waited / 1000) + " 秒）",
-        "这次更新换了新的一份，要整份重新下一遍（两兆多）。网慢的手机要等上几分钟，在国内第一次可能要十来分钟，"
-        + "<b>这期间别按「重新加载」——一按就得从头下</b>。连 Wi-Fi 会快很多。<b>你的存档一个字都没少</b>。");
+      var bq = window.__bootSeq;
+      card("还在下载，没卡住（已等 " + Math.round(waited / 1000) + " 秒" + (bq && bq.total ? "，已下好 " + bq.done + " / " + bq.total + " 块" : "") + "）",
+        (bq && bq.total ? "一块一块在下，<b>下好的那几块会存在手机里</b>，就算被打断，下次也是接着下。" : "") + "这次更新换了新的一份，要重新下一遍（两兆多）。网慢的手机要等上几分钟，在国内第一次可能要十来分钟，"
+        + "<b>这期间别按「重新加载」、别锁屏、别切出去</b>——正在下的那块会白下。连 Wi-Fi 会快很多。<b>你的存档一个字都没少</b>。");
       setTimeout(function () { verdict(waited + 6000); }, 6000);
       return;
     }
