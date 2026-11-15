@@ -1,8 +1,8 @@
-import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-ffe8ce4a8737baca';
-import {MIXER} from '../work-contacts.mjs?v=fg-ffe8ce4a8737baca';
-import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-ffe8ce4a8737baca';
-import {computer,cabinet} from './work-room-kit.mjs?v=fg-ffe8ce4a8737baca';
-import {cameraRig,microphone} from './media-kit.mjs?v=fg-ffe8ce4a8737baca';
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-1fc5effbf36aaeef';
+import {MIXER} from '../work-contacts.mjs?v=fg-1fc5effbf36aaeef';
+import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-1fc5effbf36aaeef';
+import {computer,cabinet} from './work-room-kit.mjs?v=fg-1fc5effbf36aaeef';
+import {cameraRig,microphone} from './media-kit.mjs?v=fg-1fc5effbf36aaeef';
 const FLOOR=.08,SIZE={w:14,d:12};
 const furniture=[
  {id:'record-mic',kind:'equipment',x:-4.65,z:-4.26,w:.47,d:.47},

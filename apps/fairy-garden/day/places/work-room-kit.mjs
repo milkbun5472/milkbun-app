@@ -1,4 +1,4 @@
-import {KEYBOARD} from '../work-contacts.mjs?v=fg-ffe8ce4a8737baca';
+import {KEYBOARD} from '../work-contacts.mjs?v=fg-1fc5effbf36aaeef';
 // Shared equipment has one geometry and the same contact anchors in every work room.
 export function keyboard(kit,parent,{x=0,y=0,z=0,color='#e1e3d7',keys='#aab9ac'}={}){
  kit.box('keyboard',{x,y:y+.025,z,w:.63,h:.04,d:.23,color,radius:.01},parent);

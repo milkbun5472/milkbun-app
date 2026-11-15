@@ -185,3 +185,19 @@ node scripts/build-fairy-garden.mjs
 
 `--lazy` 从现役身体读取 HeadAnchor，只写该款 hair GLB 和发型目录，不重建
 身体、旧发型或衣服。完整母版组装仍从 `add_hair.HAIRS` 读取同一 web 件。
+
+## 后梳短发（sweptback，2026-11-14）
+
+Lisa 提供的独立发壳，源 SHA-256：`7a1239947684782a656f80e4cecb96850f2155745b0eea108244b11998803871`。
+保留全部 49,992 三角面、原有后梳分层与两侧弯曲鬓发。球面初拟合会让两侧发束
+埋进头皮，最终使用 INNER=1.18、DZ=-.10，额头留空、耳旁与后脑覆盖完整。
+只做整体适配，不改源发束拓扑；沿公共灰度染发与头部跟随机制加载；短发保持原形，不启用长发垂落。
+
+```sh
+INNER=1.18 DZ=-.10 Blender -b --python art/fairy-garden/doll/fit_shell.py -- "$SOURCE" art/fairy-garden/doll/v2/head-anchor.json /tmp/sweptback-fit.glb
+TRIS=49992 TEX=1024 Blender -b --python art/fairy-garden/doll/compress_asset.py -- /tmp/sweptback-fit.glb art/fairy-garden/doll/v2/web/hair_sweptback.glb
+Blender -b --python art/fairy-garden/doll/add_hair.py -- sweptback --lazy
+node scripts/build-fairy-garden.mjs
+```
+
+与其他发型是独立 ID，选择前按需下载；原身体、其他发型和衣服不重建。
