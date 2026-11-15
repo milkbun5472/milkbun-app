@@ -1,4 +1,4 @@
-import {createRoomKit,roomObstacles,roomSeat,ROOM_SCALE} from './room-kit.mjs?v=fg-fbd57b78695a6f6e';
+import {createRoomKit,roomObstacles,roomSeat,ROOM_SCALE} from './room-kit.mjs?v=fg-10594e2142aae17b';
 
 const {floor:FLOOR,seat:SEAT,desk:DESK}=ROOM_SCALE;
 const C={wood:'#bd9b73',darkWood:'#a88864',paper:'#f0e6d2',sage:'#8b9e89',blue:'#8da5ae',clay:'#ba9687',cream:'#ded3bb',ink:'#71837a'};
