@@ -207,7 +207,7 @@ node scripts/build-fairy-garden.mjs
 
 与其他发型是独立 ID，选择前按需下载；原身体、其他发型和衣服不重建。
 
-### 背头降顶第三稿（2026-11-15，Lisa已确认发版）
+### 背头降顶第三稿（2026-11-15，v89.672已上线）
 
 `lift_sweptback.py` 只接收上面内收版的 web 发壳（SHA256
 `ec49139adade38ad7e62c4c303f26c9a0378c0506cda938b9d3db343e61673d9`），
