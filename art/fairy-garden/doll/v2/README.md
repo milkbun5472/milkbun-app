@@ -162,3 +162,23 @@ Checks: `refined-tee-assets.py` (unrelated meshes/morphs, denim preservation,
 64 cotton morph endpoints, idempotence), `outfit-dye-browser.cjs` (all seven
 outfits, independent regions/reset), `hand-coverage-browser.cjs` and the
 shared pose gallery. C07 source and body/hands are preserved.
+
+## 轻狼尾（wolfcut，2026-11-14）
+
+由 Lisa 提供的独立 GLB 发壳适配，不使用此前程序生成的试稿。
+源 SHA-256：`1a62c2baa182908a3fafe79d5946255d6699b1bbf09f28aa065dd631ed6b2710`。新 ID 使用
+`wolfcut`，旧存档 `wolf → korean` 的别名保持原义。保留来源全部 50,054 个
+三角面，基础贴图压至 1K WEBP，沿公共灰度染色及长发垂落机制加载。
+后颈以下渐进后移以避开连帽卫衣，分缝、刘海和头顶不改形。
+
+从项目根目录重建（源文件不进 main；SOURCE 为提供的 GLB 路径）：
+
+```sh
+INNER=.94 DZ=-.06 TAIL_BACK=.055 Blender -b --python art/fairy-garden/doll/fit_shell.py -- "$SOURCE" art/fairy-garden/doll/v2/head-anchor.json /tmp/wolfcut-fit.glb
+TRIS=50054 TEX=1024 Blender -b --python art/fairy-garden/doll/compress_asset.py -- /tmp/wolfcut-fit.glb art/fairy-garden/doll/v2/web/hair_wolfcut.glb
+Blender -b --python art/fairy-garden/doll/add_hair.py -- wolfcut --lazy
+node scripts/build-fairy-garden.mjs
+```
+
+`--lazy` 从现役身体读取 HeadAnchor，只写该款 hair GLB 和发型目录，不重建
+身体、旧发型或衣服。完整母版组装仍从 `add_hair.HAIRS` 读取同一 web 件。
