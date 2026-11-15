@@ -49,7 +49,10 @@ const css = `
 
 /* 顶栏：不做框，往下淡出，底下一道淡粉细线 */
 [data-wk="chathead"]{position:relative !important;overflow:visible !important;background:linear-gradient(180deg,rgba(43,31,85,.9),rgba(43,31,85,0)) !important;border-bottom:none !important;box-shadow:none !important;gap:6px !important;z-index:5 !important}
-[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:10% !important;right:10% !important;bottom:0 !important;height:1px !important;background:linear-gradient(90deg,transparent,rgba(255,200,230,.8),transparent) !important;pointer-events:none !important}
+[data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:100% !important;margin-top:-10px !important;height:22px !important;background:radial-gradient(circle,rgba(255,214,236,.55) 7.5px,transparent 10px) 0 0/37px 20px repeat-x,radial-gradient(circle,rgba(255,214,236,.4) 5.5px,transparent 8px) 11px 4px/23px 16px repeat-x,radial-gradient(circle,rgba(255,214,236,.5) 9.5px,transparent 12px) 20px 0/53px 24px repeat-x !important;-webkit-mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent) !important;mask:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent) !important;animation:ceDrift 40s linear infinite !important;pointer-events:none !important;z-index:-1 !important}
+[data-wk="chathead"]::before{content:"" !important;position:absolute !important;left:50% !important;top:100% !important;width:52px !important;height:36px !important;margin:-6px 0 0 -26px !important;background:${svg(NAPCLOUD(true))} center/contain no-repeat !important;filter:drop-shadow(0 0 8px rgba(255,190,230,.7)) !important;animation:ceFloat 4s ease-in-out infinite !important;pointer-events:none !important;z-index:1 !important}
+@keyframes ceDrift{to{background-position:370px 0,403px 4px,404px 0}}
+[data-wk="headname"] > [data-wk="headink"]{text-shadow:0 0 10px rgba(255,190,230,.8) !important}
 [data-wk="headink"],[data-wk="headink"] *{color:#fff !important}
 [data-wk="headname"] > [data-wk="headink"]{font-weight:700 !important;letter-spacing:.15em !important}
 [data-wk="headdim"]{color:${C.fog} !important;white-space:nowrap !important}
