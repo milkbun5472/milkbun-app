@@ -9784,7 +9784,7 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
     onClick: onEditProfile,
     className: "w-full flex items-center gap-4 p-4 active:opacity-70",
     style: {
-      background: t.bg2,
+      background: momPaper(t),
       borderRadius: 16,
       border: `1px solid ${t.line}`
     }
@@ -10080,7 +10080,7 @@ function MomentActions({ m, open, setOpen, onLike, onComment, onPin, onTop, onDe
       onDelete ? item("删除", onDelete, { "data-wk": "model" }) : null) : null,
     h("button", { "data-wk": "momore", "aria-label": "更多", onClick: () => setOpen(!open), className: "active:opacity-60",
       // 两颗点自己画，不用字：换了字体（尤其手写体）两个「·」会被撑得老远（她 2026-11-14）
-      style: { width: 30, height: 20, borderRadius: 4, background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", gap: 3 } },
+      style: { width: 30, height: 20, borderRadius: 4, background: wxGrey(t), display: "flex", alignItems: "center", justifyContent: "center", gap: 3 } },
       h("span", { style: { width: 4, height: 4, borderRadius: 999, background: t.tint || t.accent } }), h("span", { style: { width: 4, height: 4, borderRadius: 999, background: t.tint || t.accent } })));
 }
 // 朋友圈底下那行小字定位（她 2026-11-14）
@@ -10824,7 +10824,7 @@ function MomentsFeed({
       className: "mt-2.5 flex items-center gap-2 px-3 py-2.5 active:opacity-70",
       "data-wk": "mophoto", "data-kind": "desc",
       style: {
-        background: t.bg,
+        background: wxGrey(t),
         borderRadius: 10,
         border: `1px solid ${t.line}`
       }
@@ -10834,7 +10834,7 @@ function MomentsFeed({
         height: 34,
         borderRadius: 8,
         flexShrink: 0,
-        background: "linear-gradient(135deg,#d8d3c8,#b3ada0)",
+        background: "#e3e3e3",
         display: "flex",
         alignItems: "center",
         justifyContent: "center"
@@ -11107,7 +11107,7 @@ function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, h(TransWho, { id: isMe ? null : m.characterId }, h(TransText, { text: m.content, zhReady: m.zh }))),
     Array.isArray(m.images) && m.images.length > 1 ? h(MomentGrid, { refs: m.images }) : m.image ? (isImgRef(m.image)
       ? h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2.5 block active:opacity-80" }, h("img", { src: resolveImg(m.image), style: { maxWidth: 160, maxHeight: 160, borderRadius: 10, display: "block" } }))
-      : h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2 flex items-center gap-2 px-3 py-2 active:opacity-70", style: { background: t.bg, borderRadius: 10, border: "1px solid " + t.line } }, h(PGlyph, { k: "album", size: 16, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "[图片] 点开看描述"))) : null,
+      : h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2 flex items-center gap-2 px-3 py-2 active:opacity-70", style: { background: wxGrey(t), borderRadius: 10, border: "1px solid " + t.line } }, h(PGlyph, { k: "album", size: 16, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "[图片] 点开看描述"))) : null,
     m.location ? h(MomentLoc, { place: m.location }) : null,
     h("div", { className: "flex items-center gap-4 mt-2" },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, typeof timeAgoOn === "function" ? timeAgoOn(m.ts, m.mine ? null : m.characterId) : timeAgo(m.ts)),
