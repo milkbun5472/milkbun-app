@@ -2820,7 +2820,7 @@ function Forum({
                 isAuthor && h("span", { "data-wk": "foauthor", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#fff", background: FORUM_SKIN.accent, borderRadius: 4, padding: "0 4px" } }, "作者")),
               !cm.anon && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, "@" + (cm.authorHandle || cm.authorName))),
             h("div", { className: "flex items-center gap-1.5", style: { flexShrink: 0, whiteSpace: "nowrap" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, xhs ? timeAgo(cm.ts || cm.visibleAt) + " " + forumIpOf(cm, c) : (cm.floor || i + 2) + " 楼"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, xhs ? timeAgo(cm.ts || cm.visibleAt) + " " + forumIpOf(cm, c) : (cm.floor || i + 2) + " 楼 · IP属地：" + forumIpOf(cm, c)),   // 贴吧每楼也挂（她 2026-11-15「为啥贴吧楼没有」）
               fresh && newTag(),
               post.pinFloor && post.pinFloor === cm.id && h("span", { "data-wk": "fopintag", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: FORUM_SKIN.accent, border: "1px solid " + FORUM_SKIN.accent, borderRadius: 4, padding: "0 4px", lineHeight: 1.5 } }, post.pinBy === "op" ? "楼主置顶" : "置顶"),
               // 置顶这一楼：只在她自己的帖子下面有；再点一下取消
@@ -2999,7 +2999,7 @@ function Forum({
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, STX(p.title)),
           xhs ? xhsBody(p) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
           xhsPhotos(p),   // 好几张就左右滑：贴吧样子也一样（群友 2026-10-27）
-          xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, forumTag(p.board) + "　编辑于 " + timeAgo(p.ts) + " " + forumIpOf(p, c)) : h("div", { className: "mt-3" }, tag(p.board)),
+          xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, forumTag(p.board) + "　编辑于 " + timeAgo(p.ts) + " " + forumIpOf(p, c)) : h("div", { className: "mt-3 flex items-center flex-wrap", style: { gap: 8 } }, tag(p.board), h("span", { "data-wk": "forumip", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "IP属地：" + forumIpOf(p, c))),
           xhs ? xhsBar(p) : actBar(p),
           p.authorType === "me" && onEditPost && h("button", { "data-wk": "foeditpost", onClick: () => setEditPost({ id: p.id, title: p.title || "", body: p.body || "" }), className: "active:opacity-60",
             style: { minHeight: 40, marginTop: 4, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FORUM_SKIN.fog, background: "transparent" } }, "✎ 改一改"),
