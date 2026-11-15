@@ -206,4 +206,4 @@ test("朋友圈评论框 16 号字、不撑宽（首页和主页）", () => { co
 
 test("周刊：采访没写成的那位留个位子能重刷", () => { const w = fs.readFileSync("js/weekly.js", "utf8"); assert.ok(w.includes("auto: true, failed: true,") && w.includes("Object.assign({}, en, fresh, { failed: false })")); });
 
-test("TA 朋友圈主页铺白、赞和评论一个框", () => { const c = fs.readFileSync("js/components.js", "utf8"); assert.ok(c.includes('overflowX: "hidden", background: t.bg2 } },') && c.includes('"data-wk": "mocomments", className: "mt-2.5 rounded-lg px-3 py-2"')); });
+test("TA 朋友圈主页铺白、赞和评论一个框", () => { const c = fs.readFileSync("js/components.js", "utf8"); assert.ok(c.includes('overflowX: "hidden", background: momPaper(t) } },') && c.includes('"data-wk": "mocomments", className: "mt-2.5 rounded-lg px-3 py-2"')); });

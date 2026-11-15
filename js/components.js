@@ -3284,6 +3284,8 @@ function CalWidget({ now, calendar, onOpen, period }) {
 //   `style: { background: t.bg }` 那种裸写法跟「忘了装修」长得一模一样，
 //   而 last-flat-shells 那道闸拦的正是后者。有名字，闸才分得清这两件事。
 function msgAppBg(t) { return { background: t.bg }; }
+// 朋友圈的那张白纸（她 2026-11-15「感觉不够白」）：浅色主题就用纯白，深色主题照旧用卡片色，不把夜间模式刷成一片白
+function momPaper(t) { const m = /^#([0-9a-f]{6})$/i.exec(String((t && t.bg2) || "")); if (!m) return (t && t.bg2) || "#fff"; const v = parseInt(m[1], 16), L = ((v >> 16) & 255) * .299 + ((v >> 8) & 255) * .587 + (v & 255) * .114; return L > 150 ? "#ffffff" : t.bg2; }
 function weatherPlaceList(userGeo, characters, worlds) {
   var out = [{ key: "me", kind: "geo", label: (userGeo && userGeo.label ? String(userGeo.label).slice(0, 6) : "我这儿"), sub: "我这儿", lat: userGeo && userGeo.lat, lng: userGeo && userGeo.lng, real: true }];
   // char.home 的字段名照【写它那段代码】抄：map.js 的 onSetHome(sel,{city,lat,lng})
@@ -10684,7 +10686,7 @@ function MomentsFeed({
     // 挂点 mofeed（群友 2026-10-29：美化写了整页背景，朋友圈还是黄的——这层自己铺了底，原来没名字选不到）
     "data-wk": "mofeed",
     className: "pb-8 min-h-full",
-    style: { background: t.bg2 }
+    style: { background: momPaper(t) }
   }, shareM ? h(Sheet, { onClose: () => setShareM(null) },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, marginBottom: 10 } }, "转给谁"),
       h("div", { "data-wk": "mosharelist", className: "flex flex-wrap", style: { gap: 8 } }, (characters || []).filter(c => c && !c.npc).map(c => h("button", { key: c.id, onClick: () => { onShare(shareM, c.id); setShareM(null); }, className: "active:opacity-70 flex items-center gap-2",
@@ -11146,9 +11148,9 @@ function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter
     // 签名钉在头像底下、跟着封面走，不进滚动区（她 2026-09-03：
     // 「签名固定在头像下面，现在是会跟着朋友圈一起翻上去」——签名是这个人的
     // 名牌，不是动态流里的第一条，翻上去就等于这一页没有主人了）。
-    sign ? h("div", { className: "shrink-0", "data-wk": "mosign", style: { textAlign: "right", padding: "46px 18px 6px", background: t.bg2 } },
+    sign ? h("div", { className: "shrink-0", "data-wk": "mosign", style: { textAlign: "right", padding: "46px 18px 6px", background: momPaper(t) } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: t.sub, lineHeight: 1.5 } }, "“" + sign + "”")) : null,
-    h("div", { "data-wk": "moprofile", "data-me": isMe ? "1" : undefined, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingTop: sign ? 0 : 44, overscrollBehavior: "contain", overflowX: "hidden", background: t.bg2 } },   // 封面以下铺白，跟朋友圈首页那张白纸一样（她 2026-11-15「里面白一点」）；评论那块灰底框就看得出来了   // 只许上下滑（她 2026-11-14「上下滑也会左右滑」）
+    h("div", { "data-wk": "moprofile", "data-me": isMe ? "1" : undefined, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingTop: sign ? 0 : 44, overscrollBehavior: "contain", overflowX: "hidden", background: momPaper(t) } },   // 封面以下铺白，跟朋友圈首页那张白纸一样（她 2026-11-15「里面白一点」）；评论那块灰底框就看得出来了   // 只许上下滑（她 2026-11-14「上下滑也会左右滑」）
       !isMe && h(MomMuteToggle, { id: character.id }),
       // 过往限时动态（她 2026-11-14）：过了 24 小时的收在这儿，三列小格，点开照样全屏翻
       window.Stories ? h("div", { style: { padding: "0 14px" } }, h(window.Stories.StoryHighlights, { by: isMe ? "me" : character.id, onOpen: (list, k) => setStArch({ list, k }) })) : null,
