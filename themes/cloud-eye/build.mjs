@@ -5,6 +5,7 @@ import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
+const CLOUD = (f, g) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 100"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${f}"/><stop offset="1" stop-color="${g}"/></linearGradient></defs><path fill="url(#g)" d="M22 92C9 92 2 84 4 74C6 66 12 62 18 62C10 56 10 42 20 36C27 31 36 33 40 38C40 22 52 12 66 14C76 15 82 21 85 28C90 22 100 20 108 26C116 32 116 42 112 48C122 50 130 58 128 70C126 84 116 92 104 92Z"/></svg>`;
 const svg = s => "url(\"data:image/svg+xml;base64," + Buffer.from(s.replace(/>\s+</g, "><")).toString("base64") + "\")";
 const C = { s1: "#2B1F55", s2: "#4A3285", s3: "#8A4FA8", pink: "#F6B9DC", cloud: "#FFE8F4", cloudD: "#F2C6E0", storm: "#4E4672", stormD: "#36305A", ink: "#5A3A70", fog: "#D8CCEC" };
 const SERIF = `"Songti SC","Noto Serif SC","STSong",serif`;
@@ -63,17 +64,15 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="msg"][data-me="1"] [data-wk="row"]{padding-right:12px !important}
 
 /* 气泡：一朵云——上下两排圆鼓鼓的边；他的粉白云，我的暗紫雨云。一串第一条里睁着一只彩虹眼 */
-[data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;isolation:isolate !important;border:none !important;border-radius:30px !important;letter-spacing:.1em !important;padding:14px 24px !important;margin:22px 14px 10px !important}
-[data-wk="bubble"][data-kind="text"]::before{content:"" !important;position:absolute !important;left:-24px !important;right:-24px !important;top:-34px !important;bottom:0 !important;z-index:-1 !important;border:none !important;transform:none !important;width:auto !important;height:auto !important;pointer-events:none !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]{background:linear-gradient(180deg,#FFF3F9 0%,${C.cloud} 55%,${C.cloudD}) !important;color:${C.ink} !important;box-shadow:0 0 22px 4px rgba(255,190,225,.45) !important}
-[data-wk="bubble"][data-kind="text"][data-me="0"]::before{background:radial-gradient(circle at calc(24px + 16%) 36px,#FFF3F9 24px,transparent 25px),radial-gradient(circle at calc(24px + 42%) 34px,#FFF3F9 30px,transparent 31px),radial-gradient(circle at calc(100% - 24px - 26%) 36px,#FFF3F9 27px,transparent 28px),radial-gradient(circle at calc(100% - 24px - 6%) 42px,#FFF3F9 20px,transparent 21px),radial-gradient(circle at 26px 62%,#FFF3F9 19px,transparent 20px),radial-gradient(circle at calc(100% - 26px) 58%,#FFF3F9 17px,transparent 18px) !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]{background:linear-gradient(180deg,#5E5688 0%,${C.storm} 55%,${C.stormD}) !important;color:#fff !important;box-shadow:0 0 18px 3px rgba(150,130,220,.35) !important}
-[data-wk="bubble"][data-kind="text"][data-me="1"]::before{background:radial-gradient(circle at calc(24px + 16%) 36px,#5E5688 24px,transparent 25px),radial-gradient(circle at calc(24px + 42%) 34px,#5E5688 30px,transparent 31px),radial-gradient(circle at calc(100% - 24px - 26%) 36px,#5E5688 27px,transparent 28px),radial-gradient(circle at calc(100% - 24px - 6%) 42px,#5E5688 20px,transparent 21px),radial-gradient(circle at 26px 62%,#5E5688 19px,transparent 20px),radial-gradient(circle at calc(100% - 26px) 58%,#5E5688 17px,transparent 18px) !important}
+[data-wk="bubble"][data-kind="text"]{position:relative !important;overflow:visible !important;background:none !important;border-style:solid !important;border-color:transparent !important;border-width:30px 34px 10px 30px !important;border-image-slice:62 30 10 30 fill !important;border-image-width:62px 30px 10px 30px !important;border-image-outset:42px 16px 6px 16px !important;border-image-repeat:stretch !important;border-radius:0 !important;letter-spacing:.1em !important;padding:0 !important;margin:44px 20px 10px !important}
+[data-wk="bubble"][data-kind="text"]::before{content:none !important}
+[data-wk="bubble"][data-kind="text"][data-me="0"]{border-image-source:${svg(CLOUD("#FFF6FB",C.cloudD))} !important;color:${C.ink} !important;box-shadow:none !important;filter:drop-shadow(0 0 10px rgba(255,190,225,.55)) !important}
+[data-wk="bubble"][data-kind="text"][data-me="1"]{border-image-source:${svg(CLOUD("#665E92",C.stormD))} !important;color:#fff !important;box-shadow:none !important;filter:drop-shadow(0 0 10px rgba(150,130,220,.45)) !important}
 [data-wk="bubble"][data-kind="text"]::after{content:none !important}
-[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]{padding-right:52px !important}
-[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]::after{content:"" !important;position:absolute !important;right:14px !important;top:50% !important;width:30px !important;height:17px !important;margin-top:-9px !important;background:${svg(EYE())} center/contain no-repeat !important;border:none !important;transform:none !important;left:auto !important;bottom:auto !important;animation:ceBlink 5s ease-in-out infinite !important}
-[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]{padding-right:22px !important;padding-left:52px !important}
-[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]::after{right:auto !important;left:14px !important;background:${svg(EYE(true))} center/contain no-repeat !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]{border-right-width:56px !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"]::after{content:"" !important;position:absolute !important;right:-46px !important;top:50% !important;width:30px !important;height:17px !important;margin-top:-9px !important;background:${svg(EYE())} center/contain no-repeat !important;border:none !important;transform:none !important;left:auto !important;bottom:auto !important;animation:ceBlink 5s ease-in-out infinite !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]{border-right-width:34px !important;border-left-width:56px !important}
+[data-wk="msg"][data-first="1"] [data-wk="bubble"][data-kind="text"][data-me="1"]::after{right:auto !important;left:-46px !important;background:${svg(EYE(true))} center/contain no-repeat !important}
 @keyframes ceBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
 
 /* 时间：一行淡紫小字 */
