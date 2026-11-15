@@ -698,7 +698,7 @@
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
       navigator.serviceWorker.register("./sw.js?v=8", { updateViaCache: "none" }).catch(function (e) { console.warn("SW 注册失败", e); });
-      // 新版在后台下齐了（sw.js 的 stageUpdate）：底下冒一条，点了就换上；不点，下次打开自动是新版
+      // 新版在后台下齐了（sw.js 的 stageUpdate）：顶上冒一条（底下有开机封面的「翻开」），点了就换上；不点，下次打开自动是新版
       var askUpdate = function () {
         try {
           var last = +sessionStorage.getItem("qq_upd_ask") || 0;
@@ -715,7 +715,7 @@
           if (document.getElementById("qq-upd")) return;
           var b = document.createElement("div");
           b.id = "qq-upd"; b.setAttribute("data-wk", "updateready");
-          b.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 84px);z-index:10000;"
+          b.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 12px);z-index:10000;"
             + "max-width:calc(100vw - 32px);box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;border-radius:999px;"
             + "background:rgba(30,36,48,.94);color:#fff;font:14px/1.4 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.18)";
           b.innerHTML = '<span id="qq-upd-go" style="cursor:pointer">新版下好了，点这里换上<span style="opacity:.6;font-size:12px">（不点也行，下次打开自动换）</span></span>'
