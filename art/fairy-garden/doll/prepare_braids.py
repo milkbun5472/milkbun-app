@@ -50,6 +50,10 @@ def forward(points):
  rear_round=smooth((world[:,1]-.035)/.16)*smooth((z-.74)/.10)
  q[:,1]+=.035*np.exp(-((z-1.12)/.17)**2)*rear_round
  q[:,2]+=.025*np.exp(-((z-1.00)/.18)**2)*rear_round
+ # Lower only the tall cap, blending above the forehead. The cheek
+ # wisps, braid roots, lengths and independently dyed bands stay in place.
+ crown=np.maximum(0,q[:,2]-.95)
+ q[:,2]-=.30*crown*smooth(crown/.10)
  return (q-np.array(aj['center']))/radius
 report=runpy.run_path(str(Path(__file__).with_name('hair_deform.py')))['deform_mesh'](m,forward)
 band=mat.copy();band.name='hair_accessory';band['hairAccessory']=True;m.materials.append(band);chosen=[]

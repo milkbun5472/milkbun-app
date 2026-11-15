@@ -1,5 +1,5 @@
-import {DUR,touchForMood} from './motion.mjs?v=fg-fbd57b78695a6f6e';
-import {highFiveHit} from './touch-targets.mjs?v=fg-fbd57b78695a6f6e';
+import {DUR,touchForMood} from './motion.mjs?v=fg-10594e2142aae17b';
+import {highFiveHit} from './touch-targets.mjs?v=fg-10594e2142aae17b';
 // 两种尺寸共用眼前这一小段互动；离开/换人就重置，不写角色的长期状态。
 export function makeInteractions(){
  let headAt=-Infinity,headCount=0,liftAt=-Infinity,liftCount=0;

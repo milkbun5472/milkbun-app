@@ -33,6 +33,12 @@ def comb(points):
     lower_length = .15 * np.logaddexp(0, (.05 - z) / .15)
     result[:, 2] = z + (-.08 + .53 * front) * lower_length
     result[:, 2] += .15 * np.maximum(0, z - .3)
+    # Tuck the lower rear shell towards the skull, with the strongest change
+    # at the nape tips. The front quiff and upper crown keep their volume.
+    tuck = smooth((.45 - result[:, 2]) / 1.50) * smooth((y / radius - .05) / .50)
+    result[:, 0] *= 1 - .10 * tuck
+    result[:, 1] -= .30 * tuck * np.maximum(0, y - .12)
+    result[:, 2] += .10 * tuck * smooth((-result[:, 2] - .10) / .80)
     return result
 
 
