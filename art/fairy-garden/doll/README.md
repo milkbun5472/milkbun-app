@@ -1,5 +1,8 @@
 # 光头玩偶底模
 
+当前模型／衣服施工先读 [公共复盘与检查点](../../../施工规则/model-outfit-review.md)，每轮完成后回写易错部位及验证结果。
+下面母包流程适用于母包内的旧资产；`prepared_outfits.json` 登记的独立服装沿各自制作流程更新，通过 `dye_regions.py` 同步目录，见 [heritage.md](heritage.md) 与 [linen.md](linen.md)。
+
 > ⚠️**2026-09-26 起衣服按需加载：`apps/fairy-garden/doll.glb` 不再是完整娃娃**（只有身体、骨架、头发）。
 > 改衣服、袖口、鞋、包的迁移脚本一律在 **`v2/doll-full.glb`**（母版）上跑，跑完再
 > `python3 -c "import sys,runpy;sys.argv=['x'];runpy.run_path('split_outfits.py',run_name='__main__')"`
