@@ -11111,8 +11111,10 @@ function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter
     h(MomentRemindLine, { m, characters }),
     m.music ? h(MomentMusic, { music: m.music }) : null,
     m.poll ? h(MomentPoll, { poll: m.poll, characters }) : null,
-    (m.likers && m.likers.length) ? h("div", { className: "flex items-center gap-1.5 mt-2" }, h(IHeart, { size: 12, color: t.accent, filled: true }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, m.likers.map(x => momentDisplayName(characters, x)).join("、"))) : null,
-    (m.comments && m.comments.length) ? h("div", { className: "mt-2.5 rounded-xl px-3 py-2", style: { background: t.bg } }, m.comments.map((cm, i) => h("div", { key: i, className: "active:opacity-60", onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && !cm.mine && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7 } }, h("span", { style: { color: t.tint, fontWeight: 500 } }, momentDisplayName(characters, cm.author)), h("span", { style: { color: t.ink } }, "：", h(MomentCommentText, { cm: cm }))))) : null,
+    // 赞和评论收进同一个灰底框，跟微信一样：上面一行赞，一道细线，下面是评论（她 2026-11-15「回复做个框」）
+    ((m.likers && m.likers.length) || (m.comments && m.comments.length)) ? h("div", { "data-wk": "mocomments", className: "mt-2.5 rounded-lg px-3 py-2", style: { background: t.bg } },
+      (m.likers && m.likers.length) ? h("div", { className: "flex items-center gap-1.5", style: (m.comments && m.comments.length) ? { paddingBottom: 6, marginBottom: 4, borderBottom: "1px solid " + t.line } : undefined }, h(IHeart, { size: 12, color: t.accent, filled: true }), h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, m.likers.map(x => momentDisplayName(characters, x)).join("、"))) : null,
+      (m.comments && m.comments.length) ? m.comments.map((cm, i) => h("div", { key: i, className: "active:opacity-60", onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && !cm.mine && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7 } }, h("span", { style: { color: t.tint, fontWeight: 500 } }, momentDisplayName(characters, cm.author)), h("span", { style: { color: t.ink } }, "：", h(MomentCommentText, { cm: cm })))) : null) : null,
     commenting === m.id ? h("div", { className: "flex gap-2 mt-2" },
       h("input", { "data-wk": "input", value: cText, onChange: e => setCText(e.target.value), autoFocus: true, placeholder: cReply ? "回复 " + cReply + "…" : "评论…", onKeyDown: e => { if (e.key === "Enter") sendC(m); }, className: "flex-1 outline-none px-3 py-1.5 rounded-full", style: { minWidth: 0, width: 0, fontFamily: F_BODY, fontSize: 16, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),   // 16 号字：小于 16 苹果一点进去就把整页放大，看着像撑爆（她 2026-11-14）
       h("button", { onClick: () => sendC(m), className: "px-3 rounded-full", style: { flexShrink: 0, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "发")) : null);
@@ -11144,9 +11146,9 @@ function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter
     // 签名钉在头像底下、跟着封面走，不进滚动区（她 2026-09-03：
     // 「签名固定在头像下面，现在是会跟着朋友圈一起翻上去」——签名是这个人的
     // 名牌，不是动态流里的第一条，翻上去就等于这一页没有主人了）。
-    sign ? h("div", { className: "shrink-0", "data-wk": "mosign", style: { textAlign: "right", padding: "46px 18px 6px" } },
+    sign ? h("div", { className: "shrink-0", "data-wk": "mosign", style: { textAlign: "right", padding: "46px 18px 6px", background: t.bg2 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: t.sub, lineHeight: 1.5 } }, "“" + sign + "”")) : null,
-    h("div", { "data-wk": "moprofile", "data-me": isMe ? "1" : undefined, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingTop: sign ? 0 : 44, overscrollBehavior: "contain", overflowX: "hidden" } },   // 只许上下滑（她 2026-11-14「上下滑也会左右滑」）
+    h("div", { "data-wk": "moprofile", "data-me": isMe ? "1" : undefined, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingTop: sign ? 0 : 44, overscrollBehavior: "contain", overflowX: "hidden", background: t.bg2 } },   // 封面以下铺白，跟朋友圈首页那张白纸一样（她 2026-11-15「里面白一点」）；评论那块灰底框就看得出来了   // 只许上下滑（她 2026-11-14「上下滑也会左右滑」）
       !isMe && h(MomMuteToggle, { id: character.id }),
       // 过往限时动态（她 2026-11-14）：过了 24 小时的收在这儿，三列小格，点开照样全屏翻
       window.Stories ? h("div", { style: { padding: "0 14px" } }, h(window.Stories.StoryHighlights, { by: isMe ? "me" : character.id, onOpen: (list, k) => setStArch({ list, k }) })) : null,
