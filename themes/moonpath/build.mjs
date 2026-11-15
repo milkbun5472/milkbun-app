@@ -38,6 +38,9 @@ const ST3 = PH(`<path d='M46 10 A32 32 0 0 1 46 74Z' fill='#FFF6CF'/>`);
 const ST4 = X(`viewBox='0 0 92 84'><circle cx='46' cy='42' r='32' fill='#FFF6CF'/><g fill='none' stroke='#C9BFA0' stroke-width='2.4' stroke-linecap='round'><path d='M32 39 Q37 43 42 39'/><path d='M50 39 Q55 43 60 39'/><path d='M38 53 Q46 60 54 53'/></g>${S(74, 8, C.pink, 10)}${S(10, 60, C.mint, 8)}`);
 const WHITE_CARD = `background:rgba(255,255,255,.82) !important;border:none !important;border-radius:14px !important;box-shadow:inset 0 0 0 1.5px #fff,0 0 18px 4px rgba(255,248,226,.8) !important`;
 const GLASS_CARD = `background:linear-gradient(180deg,rgba(226,234,238,.95),rgba(208,219,225,.95)) !important;border:none !important;border-radius:14px !important;box-shadow:inset 0 0 0 1.5px #fff,0 0 16px 4px rgba(190,214,224,.7) !important`;
+// 顶栏下面垂下一串挂着星星的细线，长短不一，像旧房间天花板上吊着的风铃
+const GARLAND = X(`width='150' height='46' viewBox='0 0 150 46'><g stroke='#C9CFD2' stroke-width='.8'><path d='M12 0 V22'/><path d='M40 0 V34'/><path d='M66 0 V14'/><path d='M94 0 V28'/><path d='M126 0 V18'/></g>${S(7, 21, C.pink, 10)}${S(35, 33, C.yel, 10)}${S(62, 13, C.mint, 9)}${S(89, 27, C.lila, 10)}${S(121, 17, C.sky, 10)}`);
+const TINYMOON = X(`viewBox='0 0 20 20'><circle cx='10' cy='10' r='8' fill='#FFF6CF'/><g fill='none' stroke='#C9BFA0' stroke-width='1.1' stroke-linecap='round'><path d='M6 9 Q7.5 10.5 9 9'/><path d='M11 9 Q12.5 10.5 14 9'/></g>`);
 const bubble = { myBg: C.tv, myText: C.fog, myBorder: "none", charBg: C.moon, charText: C.ink, charBorder: "none", radius: 14, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "all", name: false, gap: "normal", time: "show" };
 const HIDE = `font-size:0 !important;color:transparent !important;padding:0 !important;border:none !important;box-shadow:none !important;border-radius:0 !important`;
@@ -49,7 +52,7 @@ const css = `
 [data-wk="chat"]{position:relative !important;background:${svg(FLOOR)} center bottom/100% 30% no-repeat,radial-gradient(circle at 80% 18%,rgba(255,252,235,.9) 0 70px,rgba(255,252,240,.5) 90px,transparent 220px),${svg(FIELD)} 0 0/240px 300px,linear-gradient(180deg,#F6F5F0 0%,#ECEEEC 55%,#E3E8EA 100%) !important}
 /* 一张太近的月亮脸：闭眼笑着，隔一阵睁一下眼 */
 [data-wk="chat"]::before{content:"" !important;position:absolute !important;right:-40px !important;top:90px !important;width:220px !important;height:220px !important;background:${svg(MOONFACE)} center/contain no-repeat !important;filter:drop-shadow(0 0 40px rgba(255,250,232,.9)) !important;opacity:.85 !important;pointer-events:none !important;z-index:0 !important}
-[data-wk="chat"]::after{content:"" !important;position:absolute !important;right:-40px !important;top:90px !important;width:220px !important;height:220px !important;background:${svg(MOONEYES)} center/contain no-repeat !important;opacity:0 !important;pointer-events:none !important;z-index:0 !important;animation:mpBlink 9s steps(1) infinite !important}
+[data-wk="chat"]::after{content:"" !important;position:absolute !important;right:-40px !important;top:90px !important;width:220px !important;height:220px !important;background:${svg(MOONEYES)} center/contain no-repeat !important;pointer-events:none !important;z-index:0 !important;animation:mpBlink 9s steps(1) infinite !important}
 @keyframes mpBlink{0%,88%{opacity:0}89%,93%{opacity:.85}94%,100%{opacity:0}}
 /* 底下一片透视的粉白格子地板，一直铺到看不见的地方 */
 [data-wk="body"]::after{content:none !important}
@@ -293,6 +296,16 @@ button[data-wk="avatar"],span[data-wk="avatar"],button[data-wk="avatar"] *,span[
 [data-wk="offthought"]{background:transparent !important;border:none !important;color:#A0A7AB !important;font-style:italic !important}
 [data-wk="offcardacts"] svg{stroke:${C.fog} !important;color:${C.fog} !important}
 [data-wk="offreplyopt"]{background:rgba(255,255,255,.75) !important;border:1px solid #fff !important;border-radius:12px !important;color:${C.ink} !important}
+
+/* 顶栏：一层过曝的白雾，底下吊着一串挂星星的细线；名字拉开字距，两颗月亮头像中间一颗闭眼的小月亮 */
+[data-wk="chat"] [data-wk="chathead"]{position:relative !important;overflow:visible !important;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.6)) !important;box-shadow:0 1px 0 #fff,0 10px 24px rgba(255,248,226,.9) !important;z-index:5 !important}
+[data-wk="chat"] [data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:100% !important;height:46px !important;background:${svg(GARLAND)} 0 0/150px 46px repeat-x !important;filter:drop-shadow(0 0 3px #fff) !important;pointer-events:none !important;animation:mpSway 6s ease-in-out infinite !important;transform-origin:50% 0 !important}
+@keyframes mpSway{0%,100%{transform:rotate(0)}50%{transform:rotate(.6deg)}}
+[data-wk="chat"] [data-wk="headink"],[data-wk="chat"] [data-wk="headink"] *{letter-spacing:.3em !important;font-weight:400 !important}
+[data-wk="chat"] [data-wk="headname"] > div:last-child{letter-spacing:.18em !important;font-style:italic !important}
+[data-wk="chat"] [data-wk="chathead"] [data-wk="headme"]{position:relative !important;overflow:visible !important;margin-left:8px !important}
+[data-wk="chat"] [data-wk="chathead"] [data-wk="headme"]::before{content:"" !important;position:absolute !important;left:-13px !important;top:calc(50% - 8px) !important;width:16px !important;height:16px !important;background:${svg(TINYMOON)} center/contain no-repeat !important;filter:drop-shadow(0 0 4px rgba(255,240,200,.9)) !important;z-index:3 !important}
+[data-wk="chat"] [data-wk="time"]{margin-top:30px !important}
 `;
 const pack = { kind: "chat-look", v: 1, name: "月下星路", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
 writeFileSync(join(here, "月下星路-美化.json"), JSON.stringify(pack));
