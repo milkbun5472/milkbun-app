@@ -249,9 +249,9 @@ test("限时动态可以只是 TA 自己的日子", () => { const a = fs.readFil
 
 test("她攒着没让 TA 回的几条，说清各是多久以前发的", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("const pendHint = (() =>") && a.includes("+ gapHint + pendHint + crossChannelHint")); });
 
-test("新开一场线下只带上一场结束以后的线上话", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes("const _prevOffEnd = (offlinesRef.current[scopeKey] || [])") && a.includes(".filter(m => !_prevOffEnd || (m.ts || 0) > _prevOffEnd)")); });
+test("线上话照带，中间隔着的前几场线下插一行", () => { const a = fs.readFileSync("js/app.js", "utf8"); assert.ok(a.includes('_surface: "offmark"') && !a.includes("_prevOffEnd") && fs.readFileSync("js/engine.js", "utf8").includes('m._surface === "offmark"')); });
 
 test("带最近几场线下：从早到晚排、写清几点到几点；群线下也只带上一场之后的群聊", () => {
   const a = fs.readFileSync("js/app.js", "utf8");
-  assert.ok(a.includes(".sort((a, b) => (b.endTs || 0) - (a.endTs || 0)).slice(0, n).reverse();") && a.includes(".filter(m => !prevEnd || (m.ts || 0) > prevEnd)"));
+  assert.ok(a.includes(".sort((a, b) => (b.endTs || 0) - (a.endTs || 0)).slice(0, n).reverse();") && a.includes("这之间大家线下见过一面"));
 });

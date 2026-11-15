@@ -9543,16 +9543,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 再与线下逐条记录按 ts 合成一条时间线。只进入本轮 prompt，不写回线下档案。
       // engineerEyes/言秋保持原路径，本修复不碰其专线与上下文预算。
       const _onlineCtxN = Math.max(0, Number(osFor(charId).onlineCtxN ?? settingsFor(charId).ctxN ?? 50));
-      const _prevOffEnd = (offlinesRef.current[scopeKey] || []).filter(x => x && x.endTs && x.id !== workSess.id).reduce((mx, x) => Math.max(mx, Number(x.endTs) || 0), 0);
+      // 线上话照带，但中间隔着的那几场线下要插进时间线（群友 2026-11-15：「带进去是正常的，但他不知道中间发生了别的线下」）：
+      //   每场在它结束的那个时间点落一行「这之间你们线下见过一面、几点到几点、已经结束了」＋一小段总结
+      const _offMarks = (offlinesRef.current[scopeKey] || []).filter(x => x && x.endTs && x.id !== workSess.id && (x.msgs || []).length && Number(x.endTs) <= (Number(workSess.startTs) || Date.now()))
+        .map(x => { const sum = ((chatsRef.current[sideRoom ? scopeKey : charId] || []).find(m => m && m.kind === "offlinelog" && m.ofs === x.id) || {}).content || x.summary || "";
+          return { id: "offmark:" + x.id, role: "user", _surface: "offmark", ts: Number(x.endTs) || 0, content: "【这之间你们线下见过一面（" + fmtStampAI(x.startTs || x.endTs) + " 到 " + fmtStampAI(x.endTs) + "），已经结束了，不是现在这一场】" + (sum ? "那次的经过：" + String(sum).replace(/\s+/g, " ").slice(0, 300) : "") }; });
       const _onlineInterlude = (settingsFor(charId).engineerEyes || !_onlineCtxN) ? [] : (chatsRef.current[sideRoom ? scopeKey : charId] || [])
         .filter(m => m && !m.recalled && m.content && !isOocMsg(m) && m.role !== "system" && m.kind !== "offlinelog")
-        // 只带上一场线下结束以后的线上话（群友 2026-11-15：连开几场线下，最早那几句线上每次都被当成新这一场的开头）：
-        //   更早的线上话发生在前几场之前，那几场有自己的归档；混进这一场的时间线，模型只会以为是刚刚的事
-        .filter(m => !_prevOffEnd || (m.ts || 0) > _prevOffEnd)
         .sort((a, b) => (a.ts || 0) - (b.ts || 0))
         .slice(-_onlineCtxN)
         .map(m => ({ id: "online:" + (m.id || m.ts || Math.random()), role: m.role === "user" ? "user" : "char", content: String(m.content), ts: m.ts || 0, _surface: "online" }));
-      const _timelineMsgs = _windowMsgs.concat(_onlineInterlude)
+      const _firstOnline = _onlineInterlude.length ? Math.min(..._onlineInterlude.map(m => m.ts || 0)) : 0;
+      const _timelineMsgs = _windowMsgs.concat(_onlineInterlude).concat(_onlineInterlude.length ? _offMarks.filter(m => m.ts > _firstOnline) : [])
         .sort((a, b) => (a.ts || 0) - (b.ts || 0));
       const offImageDataUrls = [];
       const _oPick = freshImageRefs(_windowMsgs, m => (m && m.kind === "photo" && m.imageRef) ? [m.imageRef] : [], m => !!m && m.role === "char");
@@ -10020,13 +10022,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const rawN = osFor("g_" + groupId).onlineCtxN;
     const n = rawN == null ? 10 : Math.max(0, Math.min(30, Number(rawN) || 0));
     if (!n) return [];
-    // 跟单人线下同一个毛病（群友 2026-11-15）：只带上一场群线下结束以后的群聊，更早的那几句在前几场的归档里，混进来会被当成这一场的开头
-    const prevEnd = (groupOfflinesRef.current[groupId] || []).filter(x => x && x.endTs).reduce((mx, x) => Math.max(mx, Number(x.endTs) || 0), 0);
-    return (groupChatsRef.current[groupId] || [])
+    // 跟单人线下同一个毛病（群友 2026-11-15）：群聊里夹着前几场群线下，原来一行都不提，混进来会被当成这一场的开头
+    //   群聊照带，中间隔着的那几场群线下在它结束的时间点插一行旁白
+    const rows = (groupChatsRef.current[groupId] || [])
       .filter(m => m && !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.content && contextAllowsMessage(m))
-      .filter(m => !prevEnd || (m.ts || 0) > prevEnd)
       .slice(-n)
       .map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, content: String(m.content), ts: m.ts || 0 }));
+    if (!rows.length) return rows;
+    const first = rows[0].ts || 0;
+    const marks = (groupOfflinesRef.current[groupId] || []).filter(x => x && x.endTs && Number(x.endTs) > first && (x.msgs || []).length)
+      .map(x => ({ role: "narration", content: "（这之间大家线下见过一面：" + fmtStampAI(x.startTs || x.endTs) + " 到 " + fmtStampAI(x.endTs) + "，已经结束了" + (x.summary ? "；经过：" + String(x.summary).replace(/\s+/g, " ").slice(0, 200) : "") + "）", ts: Number(x.endTs) }));
+    return rows.concat(marks).sort((a, b) => (a.ts || 0) - (b.ts || 0));
   };
   // 统一「跨情境近况流」(v50.66，她要四个情境带时间戳互看、按真实顺序衔接)：某角色最近在【单聊线上 + 单人线下】
   //   发生的原话 beats，合并→每条打 [时间·场景]→按真实 ts 排序→字符预算封顶（从近往回收）。

@@ -9844,6 +9844,8 @@ function offlineHistory(msgs, userName, charName, clock, clockId) {
   const mixed = (msgs || []).some(m => m && m._surface === "online");
   (msgs || []).forEach(m => {
     if (m.kind === "ooc") return; // OOC 不进角色扮演上下文
+    // 中间隔着的前几场线下（app.js 插进时间线的那一行）：不是谁说的话，原样落一行
+    if (m._surface === "offmark") { g.push({ role: "user", content: m.content }); prevTs = Number(m.ts) || prevTs; return; }
     const ts = Number(m.ts) || 0;
     // 时间感知关着的时候，线下连「中间隔了多久」也不说（群友 2026-10-04：「线下昨天聊一半想继续聊，关了时间感知，他还是知道到第二天了」）——
     //   线下是一场戏，她隔天回来接着演，戏里不该凭空过了一夜。开着时照旧标出来。
