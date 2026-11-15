@@ -10711,7 +10711,7 @@ function MomentsFeed({
       width: "100%",
       height: 150,
       borderRadius: 12,
-      background: "linear-gradient(135deg,#d8d3c8,#b3ada0)",
+      background: momPaper(t) === "#ffffff" ? "linear-gradient(135deg,#e6e6e6,#cfcfcf)" : "linear-gradient(135deg,#d8d3c8,#b3ada0)",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
