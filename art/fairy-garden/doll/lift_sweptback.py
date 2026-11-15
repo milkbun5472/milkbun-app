@@ -21,14 +21,14 @@ def smooth(value):
 
 def lift(points):
     x, y, z = points.T  # +Y points toward the back in Blender anchor space.
-    # A narrow lateral mask creates a central bump. Lift the entire upper cap,
-    # including its left/right shoulders, with a long fade to the temples.
+    # Keep the broad upper-side fullness, but avoid a tall cap: most of the
+    # previous .12 vertical lift is removed and the front flows gently back.
     weight = smooth((z - .10) / .70)
     weight *= 1 - smooth((y - .60) / .50)
     result = points.copy()
-    result[:, 2] += .12 * weight
+    result[:, 2] += .035 * weight
     result[:, 0] *= 1 + .035 * weight
-    result[:, 1] += .012 * weight * (1 - smooth((y + .15) / .50))
+    result[:, 1] += .025 * weight * (1 - smooth((y + .15) / .50))
     return result
 
 
