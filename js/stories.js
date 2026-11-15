@@ -196,7 +196,7 @@
     const [draft, setDraft] = React.useState(""), [seenOpen, setSeenOpen] = React.useState(false);
     const [ans, setAns] = React.useState(""), [hlName, setHlName] = React.useState(null), [, bump] = React.useState(0);
     // 自己往下翻（她 2026-11-14）：每条停 6 秒；按着屏幕中间、在打字、点开了看过的人／收精选时停住
-    const DUR = 6000, holdT = React.useRef(0), holdLong = React.useRef(false);   // hook 都放在下面那个提前 return 之前
+    const DUR = 10000, holdT = React.useRef(0), holdLong = React.useRef(false);   // hook 都放在下面那个提前 return 之前
     const [photoOpen, setPhotoOpen] = React.useState(false), [bare, setBare] = React.useState(false);   // bare＝把字藏起来只看照片   // 「这张图会画什么」默认收着（她 2026-11-14「生图描述可以收起」）
     const [held, setHeld] = React.useState(false), [typing, setTyping] = React.useState(false), [el, setEl] = React.useState(0), [genBusy, setGenBusy] = React.useState(false);
     const paused = held || typing || !!draft || !!ans || seenOpen || hlName != null || genBusy;
