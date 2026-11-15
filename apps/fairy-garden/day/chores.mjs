@@ -1,8 +1,8 @@
-import {BASIN_USE} from './bathroom-layout.mjs?v=fg-d762e80b60c3117c';
-import {findPath,walkable} from '../world.mjs?v=fg-d762e80b60c3117c';
-import {furniturePoint} from './home-catalog.mjs?v=fg-d762e80b60c3117c';
+import {BASIN_USE} from './bathroom-layout.mjs?v=fg-9b22617081e93318';
+import {findPath,walkable} from '../world.mjs?v=fg-9b22617081e93318';
+import {furniturePoint} from './home-catalog.mjs?v=fg-9b22617081e93318';
 
-import './social.js?v=fg-d762e80b60c3117c';
+import './social.js?v=fg-9b22617081e93318';
 export const CHORES=globalThis.CharDaySocial.chores;
 export function choreIntent(slot){
  const text=String(slot?.deviation?.actual||slot?.title||'');
