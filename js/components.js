@@ -7147,7 +7147,8 @@ function Home({
   // 长按拖拽自定义 app 图标位置（同页内重排，存 x_homeLayout={pageIndex:[key...]}）
   const [editMode, setEditMode] = useState(false);
   const [dragKey, setDragKey] = useState(null);
-  const [layout, setLayout] = useState(function () { joinAppOnce("takeout", "shop", "x_takeoutJoined"); return loadJSON("x_homeLayout", {}); });
+  // ⚠️不替老用户挪图标（她 2026-11-15「只给第一次开的人」）：joinAppOnce 留着备用，这里不调；第一次开的人走 DEFAULT_FOLDERS（外卖本来就跟购物在「每日看」）
+  const [layout, setLayout] = useState(function () { return loadJSON("x_homeLayout", {}); });
   // 一页能放几行，是【量出来的】不是拍的。行高钉死成 82 之后这个数就算得准了：
   // 原来写死 6 行，在高屏上底下白白空掉一大截、还放不进东西（她 2026-09-03 截图）。
   // 第一页顶上有时钟，所以比别的页少一行。

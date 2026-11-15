@@ -233,7 +233,8 @@ test("线下这一场原文最多带几拍能调", () => { const a = fs.readFile
 
 test("外卖挪到购物旁边（一次）", () => {
   const c = fs.readFileSync("js/components.js", "utf8");
-  assert.ok(c.includes('joinAppOnce("takeout", "shop", "x_takeoutJoined"); return loadJSON("x_homeLayout", {});'));
+  assert.ok(!c.includes('joinAppOnce("takeout", "shop"'), "老用户的主屏不替她挪");
+  assert.ok(/f_def_daily: \{ name: "每日看", keys: \[[^\]]*"shop", "takeout"/.test(c), "第一次开的人外卖跟购物在一个文件夹");
   const S = {}; global.loadJSON = (k, d) => (k in S ? JSON.parse(S[k]) : d); global.saveJSON = (k, v) => { S[k] = JSON.stringify(v); };
   const src = c.slice(c.indexOf("function joinAppOnce("), c.indexOf("// 一个 app 还在当初自动放的那个文件夹里"));
   const join = new Function("loadJSON", "saveJSON", src + "; return joinAppOnce;")(global.loadJSON, global.saveJSON);
