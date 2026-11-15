@@ -13813,38 +13813,7 @@ const cycSkin = t => {
 };
 // 配角的简介：默认收两行，点一下展开【全文】，还能就地改（她 2026-08-25：
 // 「简介打不开看全部」）。配角没有自己的资料页，所以读和改都得落在这儿。
-function NpcBrief({ npc, onSave, compact, defaultOpen }) {
-  const t = useTheme();
-  const [open, setOpen] = useState(!!defaultOpen);   // 通讯录配角详情页一进来就摊开全文
-  const [draft, setDraft] = useState(null);
-  const text = String(npc.persona || "").trim();
-  return h("div", { style: { marginTop: compact ? 2 : 8 } },
-    h("button", {
-      onClick: e => { e.stopPropagation(); setOpen(o => !o); setDraft(null); },
-      className: "w-full text-left active:opacity-60"
-    },
-      h("div", {
-        style: {
-          fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.55, color: t.fog, whiteSpace: "pre-wrap",
-          ...(open ? {} : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" })
-        }
-      }, text || "（还没有简介）"),
-      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.tint, display: "inline-block", marginTop: 4 } },
-        open ? "收起" : "展开简介")),
-    open && onSave ? h("div", { style: { marginTop: 8 } },
-      draft == null
-        ? h("button", { onClick: e => { e.stopPropagation(); setDraft(text); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, "✏️ 改简介")
-        : h("div", null,
-            h("textarea", {
-              value: draft, onChange: e => setDraft(e.target.value), rows: 10,
-              onClick: e => e.stopPropagation(),
-              className: "w-full bg-transparent outline-none resize-none",
-              style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px" }
-            }),
-            h("div", { className: "flex gap-2", style: { marginTop: 6 } },
-              h("button", { onClick: e => { e.stopPropagation(); onSave(npc.id, draft); setDraft(null); }, className: "active:opacity-70", style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 9, padding: "7px 16px", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "保存"),
-              h("button", { onClick: e => { e.stopPropagation(); setDraft(null); }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "7px 8px" } }, "取消")))) : null);
-}
+// NpcBrief 搬去了 components.js（开机就加载的那一半）：通讯录「配角」那页也用它，这份是用到才加载的，没加载时那页就报找不到（她 2026-11-15）
 function forumBoardsShown() { const hid = forumBoardPrefs().hidden; return forumBoardsAll().filter(n => hid.indexOf(n) < 0); }
 // ============================================================
 // US (couple)
