@@ -4724,8 +4724,8 @@ function explainMemEntry(entry, qTokens, now, qVec, queryText) {
   // 标签归一：原标签 + 别名族根一起进 token/命中，让「日常」「日常生活」「日常互动」互相认得
   const allTags = canonTags(entry.tags);
   const eTokens = memTokens((entry.text || "") + " " + allTags.join(" "));
-  let overlap = 0;
-  qTokens.forEach(tk => { if (eTokens.has(tk)) overlap += tk.length >= 2 ? 1.4 : 1; });
+  let overlap = 0, strong = 0;
+  qTokens.forEach(tk => { if (eTokens.has(tk)) { overlap += tk.length >= 2 ? 1.4 : 1; if (tk.length >= 2) strong += 1; } });
   // 标签直接命中 query 额外加权（族根也算命中）
   let tagHit = 0;
   allTags.forEach(tag => { if (qTokens.has(String(tag).toLowerCase())) tagHit += 2; });
@@ -4757,7 +4757,9 @@ function explainMemEntry(entry, qTokens, now, qVec, queryText) {
   const arousalW = (aRaw / 5) * 1.1;
   const openW = entry.open ? (0.7 + arousalW * 0.4) : 0;
   const expired = memExpired(entry, now);
-  const score = (keyword * (0.45 + 0.55 * retention) + recency * 0.8 + arousalW + openW) * (expired ? 0.4 : 1) + (entry.pinned ? 100 : 0);
+  // 原话里的词对上了（两个字以上连着对上，比如「大房」）不跟着时间淡（她 2026-11-15：八月记的「大房」，十一月说到了还召不回）：
+  //   单字对上（大、找、要）满库都是，近几天的随便几条凑两个单字、再加上新近分，就把三个月前那条字字对得上的挤出前几名
+  const score = (keyword * (0.45 + 0.55 * retention) + recency * 0.8 + arousalW + openW + strong * 1.2) * (expired ? 0.4 : 1) + (entry.pinned ? 100 : 0);
   const qNorm = memQueryNorm(queryText), eNorm = memQueryNorm(entry.text);
   const directText = qNorm.length >= 2 && eNorm.length >= 2 && (eNorm.includes(qNorm) || (eNorm.length <= 80 && qNorm.includes(eNorm)));
   const lexicalDirect = directText || tagHit > 0 || overlap >= 1.4;
@@ -4766,7 +4768,7 @@ function explainMemEntry(entry, qTokens, now, qVec, queryText) {
   const lane = lexicalDirect || semanticDirect ? "main" : (semanticAssociation ? "association" : "none");
   return {
     score, lane, vectorScored, cosine, semantic, directText,
-    overlap, tagHit, keyword, retention, recency, arousal: arousalW, open: openW, expired,
+    overlap, strong, tagHit, keyword, retention, recency, arousal: arousalW, open: openW, expired,
     passesScore: score > MEM_SCORE_FLOOR
   };
 }
