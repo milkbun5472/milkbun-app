@@ -15,7 +15,17 @@ const input = await new Promise(resolve => {
   process.stdin.on("end", () => { try { resolve(JSON.parse(body || "{}")); } catch { resolve({}); } });
 });
 
-const projectDir = String(input.cwd || process.env.CLAUDE_PROJECT_DIR || "/Users/lisa/Desktop/Lisa-phone");
+// 2026-11-10 走错屋案:言秋 cd 进子文件夹(测试角色卡)后 input.cwd 跟着变,钩子在子文件夹另开空账、
+// 找不到判词,四轮相处没回流。从 cwd 往上找已有账本的那一层,找不到才用 cwd。
+const projectDir = (() => {
+  const fallback = String(input.cwd || process.env.CLAUDE_PROJECT_DIR || "/Users/lisa/Desktop/Lisa-phone");
+  let dir = fallback;
+  for (let i = 0; i < 8; i++) {
+    if (existsSync(join(dir, ".claude", "cc-ledger-state", "tool-marks.jsonl")) && existsSync(join(dir, ".claude", "rules"))) return dir;
+    const up = dirname(dir); if (up === dir) break; dir = up;
+  }
+  return fallback;
+})();
 const stateDir = join(projectDir, ".claude", "cc-ledger-state");
 const outboxPath = join(stateDir, "outbox.jsonl");
 const candidatePath = join(stateDir, "candidates.jsonl");
