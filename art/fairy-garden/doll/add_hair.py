@@ -18,6 +18,9 @@ def hang(hid,anchor):
     objs=[o for o in bpy.data.objects if o not in before]
     m=next(o for o in objs if o.type=='MESH');mw=m.matrix_world.copy()
     m.parent=anchor;m.matrix_parent_inverse.identity();m.matrix_basis=mw;m.name='hair_'+hid;m['hair']=hid
+    # Authored attachment zone in HeadAnchor space: the low rear cap is
+    # supported by the skull; only the forward braids and lower tails hang.
+    if hid=='braids':m['hairNapeSupport']={'back':.05,'front':.10,'bottom':-1.3,'tip':-1.8,'drapeFront':1.0,'drapeTip':-2.3}
     grey_images=set()
     for s in m.material_slots:
         s.material=s.material.copy();s.material.name='hair_'+hid

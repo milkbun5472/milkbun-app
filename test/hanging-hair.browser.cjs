@@ -16,12 +16,12 @@ const out=process.env.OUT||'/tmp/lisa-hair-clearance';fs.mkdirSync(out,{recursiv
  const measure=side=>{
  const {T,a,hairMeshes}=review,ss=[];a.root.updateMatrixWorld(true);
  a.root.traverse(m=>{if(!m.isSkinnedMesh||!m.visible||m.userData.sleeveSide!==side)return;m.skeleton.update();const g=m.geometry.clone(),v=new T.Vector3();for(let i=0;i<g.attributes.position.count;i++){m.getVertexPosition(i,v).applyMatrix4(m.matrixWorld);g.attributes.position.setXYZ(i,v.x,v.y,v.z);}g.morphAttributes={};g.computeBoundingBox();g.computeBoundingSphere();const mesh=new T.Mesh(g,new T.MeshBasicMaterial({side:T.DoubleSide}));mesh.name=m.name;ss.push(mesh);});
- const ray=new T.Raycaster(),v=new T.Vector3(),dir=new T.Vector3(.137,.213,1).normalize();let inside=0,tested=0;const depths=[],bySleeve={};
- for(const m of hairMeshes(a.root)){const p=m.geometry.attributes.position;for(let i=0;i<p.count;i+=8){v.fromBufferAttribute(p,i).applyMatrix4(m.matrixWorld);for(const sleeve of ss){if(!sleeve.geometry.boundingBox.containsPoint(v))continue;ray.set(v,dir);const hits=ray.intersectObject(sleeve).filter((h,i,a)=>i===0||h.distance-a[i-1].distance>1e-6);tested++;if(hits.length%2){inside++;bySleeve[sleeve.name]=(bySleeve[sleeve.name]||0)+1;depths.push(hits[0].distance);}}}}
- ss.forEach(m=>{m.geometry.dispose();m.material.dispose();});return {inside,tested,bySleeve,maxDepth:Math.max(0,...depths),clearance:hairMeshes(a.root)[0].userData.hairClearance};};
+ const ray=new T.Raycaster(),v=new T.Vector3(),dir=new T.Vector3(.137,.213,1).normalize();let inside=0,tested=0;const depths=[],bySleeve={},penetrations=[];
+ for(const m of hairMeshes(a.root)){const p=m.geometry.attributes.position;for(let i=0;i<p.count;i+=8){v.fromBufferAttribute(p,i).applyMatrix4(m.matrixWorld);for(const sleeve of ss){if(!sleeve.geometry.boundingBox.containsPoint(v))continue;ray.set(v,dir);const hits=ray.intersectObject(sleeve).filter((h,i,a)=>i===0||h.distance-a[i-1].distance>1e-6);tested++;if(hits.length%2){inside++;if(penetrations.length<16){const r=m.geometry.attributes.hairRest;penetrations.push({rest:[r.getX(i),r.getY(i),r.getZ(i)],depth:hits[0].distance});}bySleeve[sleeve.name]=(bySleeve[sleeve.name]||0)+1;depths.push(hits[0].distance);}}}}
+ ss.forEach(m=>{m.geometry.dispose();m.material.dispose();});return {inside,tested,bySleeve,penetrations,maxDepth:Math.max(0,...depths),clearance:hairMeshes(a.root)[0].userData.hairClearance};};
 
  const settle=(emotion=null,progress=0)=>{for(let i=0;i<45;i++)a.animate(time+=1/60,{emotion,progress});};
- const audit=()=>{if(hairMeshes(a.root).some(m=>!m.visible))throw Error('braids fixture is not active');let finite=true,capDrift=0,normalError=0;for(const m of hairMeshes(a.root)){const p=m.geometry.attributes.position,r=m.geometry.attributes.hairRest,n=m.geometry.attributes.normal;for(let i=0;i<p.count;i++){finite&&=Number.isFinite(p.getX(i)+p.getY(i)+p.getZ(i));normalError=Math.max(normalError,Math.abs(Math.hypot(n.getX(i),n.getY(i),n.getZ(i))-1));if(r.getY(i)>=-.65)capDrift=Math.max(capDrift,Math.abs(p.getX(i)-r.getX(i)),Math.abs(p.getY(i)-r.getY(i)),Math.abs(p.getZ(i)-r.getZ(i)));}}return {finite,capDrift,normalError};};
+ const audit=()=>{if(hairMeshes(a.root).some(m=>!m.visible))throw Error('braids fixture is not active');let finite=true,capDrift=0,napeDrift=0,napePoints=0,normalError=0;for(const m of hairMeshes(a.root)){const p=m.geometry.attributes.position,r=m.geometry.attributes.hairRest,n=m.geometry.attributes.normal;for(let i=0;i<p.count;i++){finite&&=Number.isFinite(p.getX(i)+p.getY(i)+p.getZ(i));normalError=Math.max(normalError,Math.abs(Math.hypot(n.getX(i),n.getY(i),n.getZ(i))-1));if(r.getY(i)>-1.3&&r.getY(i)<-.65&&r.getZ(i)<=.05){napePoints++;napeDrift=Math.max(napeDrift,Math.abs(p.getX(i)-r.getX(i)),Math.abs(p.getY(i)-r.getY(i)),Math.abs(p.getZ(i)-r.getZ(i)));}if(r.getY(i)>=-.65)capDrift=Math.max(capDrift,Math.abs(p.getX(i)-r.getX(i)),Math.abs(p.getY(i)-r.getY(i)),Math.abs(p.getZ(i)-r.getZ(i)));}}return {finite,capDrift,napeDrift,napePoints,normalError};};
  const nape=[];a.setLook({hair:'braids',outfit:'suit'});await a.ready();settle();review.render(Math.PI);
  const canvas=document.createElement('canvas');canvas.width=800;canvas.height=900;const ctx=canvas.getContext('2d');ctx.drawImage(review.renderer.domElement,0,0);const bg=ctx.getImageData(0,0,1,1).data,anchor=a.root.getObjectByName('HeadAnchor');
  for(const y of [-1.05,-1])for(const x of [-.45,-.3,-.15,0,.15,.3,.45]){const p=anchor.localToWorld(new T.Vector3(x,y,0)).project(review.camera),d=ctx.getImageData(Math.round((p.x+1)*400),Math.round((1-p.y)*450),1,1).data;nape.push({x,y,covered:Math.max(...[0,1,2].map(i=>Math.abs(d[i]-bg[i])))>=5});}
@@ -35,11 +35,28 @@ const out=process.env.OUT||'/tmp/lisa-hair-clearance';fs.mkdirSync(out,{recursiv
  a.setLook({hair:'braids',hairColor:'#272321',outfit:'ranger',dims:Object.fromEntries(catalog.dims.map(d=>[d.key,1]))},true);settle();settle('five-right',.45);
  const bands=hairMeshes(a.root).map(m=>m.userData.hairClearance);return {rows,sweep,release,dimensions,reset,isolated,bands,nape};});
  fs.writeFileSync(path.join(out,'runtime-'+engine+'.json'),JSON.stringify({...result,errors},null,2));
- for(const row of [...result.rows,...result.dimensions,...result.sweep]){assert(row.finite);assert(row.capDrift<1e-6);assert(row.normalError<1e-4);}
+ for(const row of [...result.rows,...result.dimensions,...result.sweep]){assert(row.finite);assert(row.capDrift<1e-6);assert(row.napePoints>100);assert(row.napeDrift<1e-6,"nape moved with the hanging braid: "+JSON.stringify(row));assert(row.normalError<1e-4);}
  for(const row of [...result.rows,...result.dimensions])assert.equal(row.inside,0,JSON.stringify(row));
  assert(Math.max(...result.sweep.map(r=>r.maxDepth),...result.release.map(r=>r.maxDepth))<=result.sweep[0].maxDepth+.002,'motion must not add deep intersection over the unchanged neutral shoulder contact');
  assert(result.nape.every(p=>p.covered),'rear nape must connect to the suit collar without a background hole');
  assert.equal(result.reset,0);assert(result.isolated);assert.deepEqual(result.bands[0],result.bands[1]);
  for(const [name,angle]of [['front',0],['side',-Math.PI/2],['three',-Math.PI/4]])await shot(name,angle,true);
+ // Hair must adapt to the existing animation, never steer the character bones.
+ const actions=[...new Set([...fs.readFileSync(path.join(__dirname,'../apps/fairy-garden/emotion-pose.mjs'),'utf8').matchAll(/case '([^']+)'/g)].map(m=>m[1]))];
+ result.motionIsolation=await p.evaluate(async actions=>{
+  const {a,b,catalog}=review,dims=Object.fromEntries(catalog.dims.map(d=>[d.key,1]));
+  a.setLook({hair:'braids',outfit:'ranger',dims},true);b.setLook({hair:'bob',outfit:'ranger',dims},true);await Promise.all([a.ready(),b.ready()]);
+  const bones=root=>{const list=[];root.traverse(o=>{if(o.isBone)list.push(o);});return list;},aa=bones(a.root),bb=bones(b.root);
+  if(aa.length!==bb.length||aa.some((o,i)=>o.name!==bb[i].name))throw Error('Different skeleton fixture');
+  let time=200,maxBoneDelta=0,frames=0;
+  for(let i=0;i<75;i++){time+=1/60;a.animate(time);b.animate(time);}
+  for(const emotion of actions)for(const progress of [0,.25,.5,.75,1]){
+   time+=1/60;a.animate(time,{emotion,progress});b.animate(time,{emotion,progress});
+   for(let i=0;i<aa.length;i++)for(const field of ['position','quaternion','scale']){const x=aa[i][field].toArray(),y=bb[i][field].toArray();for(let j=0;j<x.length;j++)maxBoneDelta=Math.max(maxBoneDelta,Math.abs(x[j]-y[j]));}
+   frames++;
+  }
+  return {actions:actions.length,frames,bones:aa.length,maxBoneDelta};
+ },actions);
+ assert(result.motionIsolation.actions>50);assert(result.motionIsolation.maxBoneDelta<1e-6,JSON.stringify(result.motionIsolation));
  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'runtime-'+engine+'.json'),JSON.stringify({...result,errors},null,2));console.log(JSON.stringify({engine,poses:result.rows.length,dimensions:result.dimensions.length,maxTransitionDepth:Math.max(...result.sweep.map(r=>r.maxDepth)),maxReleaseDepth:Math.max(...result.release.map(r=>r.maxDepth)),reset:result.reset,errors}));
  }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1});

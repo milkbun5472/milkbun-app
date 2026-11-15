@@ -83,10 +83,23 @@ export function makeHangingHair(T,model){
  function attach(mesh){
   if(mesh.userData.hairDrape)return;model.updateWorldMatrix(true,true);
   const toHead=anchor.matrixWorld.clone().invert().multiply(mesh.matrixWorld),toMesh=toHead.clone().invert(),normalHead=new T.Matrix3().getNormalMatrix(toHead),normalMesh=new T.Matrix3().setFromMatrix4(toHead).transpose();
+  const support=mesh.userData.hairNapeSupport;
   const source=mesh.geometry,position=source.attributes.position,normal=source.attributes.normal,points=[],cap=new T.Box3(),v=new T.Vector3();
   for(let i=0;i<position.count;i++){
    v.fromBufferAttribute(position,i).applyMatrix4(toHead);
-   if(v.y<ROOT){const depth=ROOT-v.y,t=Math.min(1,depth/BEND),weight=smooth(t),fall=depth>=BEND?depth-BEND/2:BEND*(t*t*t-.5*t*t*t*t),n=new T.Vector3().fromBufferAttribute(normal,i).applyMatrix3(normalHead).normalize();points.push({i,p:v.clone(),n,fall,weight,clearWeight:smooth(depth/CLEAR_BEND),derivative:-slope(depth/CLEAR_BEND)/CLEAR_BEND});}
+   if(v.y<ROOT){const depth=ROOT-v.y,t=Math.min(1,depth/BEND),weight=smooth(t),fall=depth>=BEND?depth-BEND/2:BEND*(t*t*t-.5*t*t*t*t),n=new T.Vector3().fromBufferAttribute(normal,i).applyMatrix3(normalHead).normalize();
+    // The attachment zone comes from the asset, shared by hair and bands.
+    // Blend its boundary in both depth and height, including the normal Jacobian.
+    const freedom=(frontLimit,tip)=>{
+     if(!support)return [1,0,0];
+     const tz=(v.z-support.back)/(frontLimit-support.back),ty=(support.bottom-v.y)/(support.bottom-tip),front=smooth(tz),low=smooth(ty);
+     return [1-(1-front)*(1-low),-(1-front)*slope(ty)/(support.bottom-tip),(1-low)*slope(tz)/(frontLimit-support.back)];
+    };
+    // Gravity uses a longer bend than arm clearance to avoid folding at a nod.
+    const [free,freeY,freeZ]=freedom(support?.drapeFront??support?.front,support?.drapeTip??support?.tip);
+    const [clearFree,clearFreeY,clearFreeZ]=freedom(support?.front,support?.tip);
+    const clear=smooth(depth/CLEAR_BEND);
+    points.push({i,p:v.clone(),n,fall:fall*free,fallY:-weight*free+fall*freeY,fallZ:fall*freeZ,clearWeight:clear*clearFree,clearY:-slope(depth/CLEAR_BEND)/CLEAR_BEND*clearFree+clear*clearFreeY,clearZ:clear*clearFreeZ});}
    else cap.expandByPoint(v.clone().applyMatrix4(toMesh));
   }
   if(!points.some(p=>p.p.y<-1.65))return;
@@ -98,7 +111,7 @@ export function makeHangingHair(T,model){
   style.key=null;
   const geometry=source.clone(),pos=geometry.attributes.position,norm=geometry.attributes.normal;
   geometry.setAttribute('hairRest',position.clone());pos.setUsage(T.DynamicDrawUsage);norm.setUsage(T.DynamicDrawUsage);mesh.geometry=geometry;
-  const restP=position.array.slice(),restN=normal.array.slice(),last=new T.Vector3(Infinity,0,0),gravity=new T.Vector3(),c=new T.Vector3(),n=new T.Vector3(),q=new T.Quaternion();let lastOffsets=[];
+  const restP=position.array.slice(),restN=normal.array.slice(),last=new T.Vector3(Infinity,0,0),gravity=new T.Vector3(),c=new T.Vector3(),n=new T.Vector3(),q=new T.Quaternion();const deformationNormal=new T.Matrix3();let lastOffsets=[];
   function update(){
    anchor.getWorldQuaternion(q);gravity.copy(down).applyQuaternion(q.invert());
    const support=smooth((-gravity.y-.06)/.22);gravity.lerp(down,1-support);c.copy(gravity).sub(down);
@@ -110,9 +123,11 @@ export function makeHangingHair(T,model){
     const p=point.p,u=(p.x+.25)/.5,sx=smooth(u);
     const left=offsets[0],right=offsets[1],amount=left*(1-sx)+right*sx;
     const fx=(right-left)*slope(u)/.5*point.clearWeight;
-    const fy=amount*point.derivative;
+    const fy=amount*point.clearY,fz=amount*point.clearZ;
     v.copy(p).addScaledVector(c,point.fall);v.z+=amount*point.clearWeight;v.applyMatrix4(toMesh);pos.setXYZ(point.i,v.x,v.y,v.z);geometry.boundingBox.expandByPoint(v);
-    const w=point.weight,dy=1-c.y*w;n.copy(point.n);n.x-=fx*n.z;n.y=(n.y+c.x*w*n.x+(c.z*w-fy)*n.z)/dy;n.applyMatrix3(normalMesh).normalize();norm.setXYZ(point.i,n.x,n.y,n.z);
+    const gy=point.fallY,gz=point.fallZ;
+    deformationNormal.set(1,c.x*gy,c.x*gz,0,1+c.y*gy,c.y*gz,fx,c.z*gy+fy,1+c.z*gz+fz).invert().transpose();
+    n.copy(point.n).applyMatrix3(deformationNormal).applyMatrix3(normalMesh).normalize();norm.setXYZ(point.i,n.x,n.y,n.z);
    }
    mesh.userData.hairClearance=offsets.slice();pos.needsUpdate=norm.needsUpdate=true;geometry.computeBoundingSphere();
   }

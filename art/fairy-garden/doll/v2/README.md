@@ -230,4 +230,6 @@ node scripts/build-fairy-garden.mjs
 
 公共 `hanging-hair.mjs` 在绑定体型／衣服时测量真实袖子与皮肤表面，抬手时按当前骨架做小幅前向避让，发圈共用同一解。帽顶固定、下垂与避让统一更新法线，放手精确回到原形；源 GLB 和其他角色的几何体不受影响。`emotion-pose.mjs` 的邀击掌／接掌沿外侧抬臂，避免用大幅拉长辫子来迁就穿过辫身的动作。
 
+麻花辫的 `hairNapeSupport` 由 `add_hair.py:hang()` 写入，头发和发圈共享此挂点参数。HeadAnchor空间中 y≥−1.3、z≤.05 的后颈区域固定；前向避让在z .05–.10过渡，下方在y −1.3至−1.8过渡。低头垂落使用较长的z .05–1.0、y −1.3至−2.3过渡，避免短过渡引起折叠。公共形变同时传输完整Jacobian逆转置法线；没有该元数据的旧发型保留原运动权重。GLB几何/贴图二进制保持不变。真实后颈顶点位移与小曲面法线、防翻折回归在 `test/hanging-hair.*` 中。
+
 这是有限幅度的视觉避让，不是全身软体碰撞。`test/hanging-hair.test.mjs` 验几何与复位；`test/hanging-hair.browser.cjs` 用实际袖子三角面验左右举手／接掌、衣服、体型两端和过程帧，记录原中立姿态肩部浅接触，举稳时要求采样点无交叠。运行需本地静态站及 `BASE`／`OUT`／`PLAYWRIGHT_MODULE`，可设 `ENGINE=webkit`。
