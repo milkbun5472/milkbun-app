@@ -9096,6 +9096,7 @@ function ProfileSheet({
   const [birthday, setBirthday] = useState(profile.birthday || "");
   const [appearance, setAppearance] = useState(profile.appearance || "");
   const [refPhoto, setRefPhoto] = useState(profile.refPhoto || null);
+  const [refExtras, setRefExtras] = useState(() => (profile.refExtras || []).slice(0, 2));   // 锁脸的别的角度（她 2026-11-15「我的也加」）
   const [photoOutfit, setPhotoOutfit] = useState(profile.photoOutfit || "");
   // 这张面具在哪个世界（群友 2026-10-10：「不同的面具在不同的世界」）：
   //   ""＝跟着设置里的位置感知走；"real"＝现实定位；某个架空世界的 id＝认这张面具的角色都当她在那儿
@@ -9105,13 +9106,13 @@ function ProfileSheet({
   const formOf = () => Object.assign({}, cur, {
     name, label: label.trim().slice(0, 20), tagline, persona, avatarImage, color,
     birthday: birthday.trim(), appearance: appearance.trim(),
-    refPhoto: refPhoto, photoOutfit: photoOutfit.trim(), geoRealm: geoRealm || ""
+    refPhoto: refPhoto, refExtras: (refExtras || []).filter(Boolean).slice(0, 2), photoOutfit: photoOutfit.trim(), geoRealm: geoRealm || ""
   });
   const loadInto = m => {
     setName(m.name || ""); setLabel(m.label || ""); setTagline(m.tagline || ""); setPersona(m.persona || "");
     setAvatarImage(m.avatarImage || null); setColor(m.color || AV_COLORS[0]);
     setBirthday(m.birthday || ""); setAppearance(m.appearance || "");
-    setRefPhoto(m.refPhoto || null); setPhotoOutfit(m.photoOutfit || ""); setGeoRealm(m.geoRealm || "");
+    setRefPhoto(m.refPhoto || null); setRefExtras((m.refExtras || []).slice(0, 2)); setPhotoOutfit(m.photoOutfit || ""); setGeoRealm(m.geoRealm || "");
   };
   // 切到另一张之前，先把手上这张存了——不然改了一半切走就白改（她最容易撞上的那一下）
   const commit = () => {
@@ -9250,6 +9251,10 @@ function ProfileSheet({
         // ⚠️说清楚要【什么样的照片】：有人传了全身立绘，脸只剩几十个像素，
         //   压完图模型根本拿不到五官，合照里就成了另一个人（2026-09-16 报的）。
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5 } }, "传张你的参考照(可选)锁住长相——要能看清脸的半身或大头照，别用全身立绘（脸太小，压完就没五官了）")),
+      refPhoto ? h("div", { "data-wk": "refextras", className: "flex items-center gap-3 mb-2" },
+        [0, 1].map(k => h(AvatarPicker, { key: k, character: { name: k ? "微侧" : "侧脸", avatarImage: (refExtras || [])[k] || null, color }, size: 44, radius: 10, imageMaxDim: 1024, imageQuality: 0.94,
+          onPick: v => setRefExtras(a => { const n = (a || []).slice(0, 2); n[k] = v; return n; }), onClear: () => setRefExtras(a => { const n = (a || []).slice(0, 2); n[k] = null; return n; }) })),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5 } }, "可以再放两张别的角度（侧脸、微侧脸），要是同一个人同一种画风。出图时三张拼成一张一起送。")) : null,
       h(LineArea, { value: appearance, onChange: e => setAppearance(e.target.value), rows: 4, placeholder: "你的长相/发型/身材/气质/常穿风格……越具体，合照里的你越像本人。填了才开放『合照』。" }),
       // 出图常服这一栏搬去「我的衣柜」了（她 2026-10-12：「放我的资料里太隐蔽了，在我的衣柜里直接选，把我的那里删掉」）：
       //   在衣柜里点「钉住」写的还是这一格（photoOutfit），所以这儿不再摆输入框；存的时候原样带着，不会被清掉。

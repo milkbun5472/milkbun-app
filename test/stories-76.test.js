@@ -226,3 +226,5 @@ test("锁脸能多放两个角度：出图拼成一张三视图，云备份带�
   assert.ok(u.includes('"data-wk": "refextras"') && u.includes("refExtras: (refExtras || []).filter(Boolean).slice(0, 2),"));
   assert.ok(a.includes("window.__refExtrasOf = r =>") && (cl.match(/row\.refExtras/g) || []).length >= 4);
 });
+
+test("你自己的资料和面具也能放三个角度", () => { const c = fs.readFileSync("js/components.js", "utf8"), a = fs.readFileSync("js/app.js", "utf8"); assert.ok((c.match(/"data-wk": "refextras"/g) || []).length === 1 && c.includes("refExtras: (refExtras || []).filter(Boolean).slice(0, 2), photoOutfit") && a.includes("(profile && profile.refPhoto === r ? profile : null) || (masks || []).find(x => x && x.refPhoto === r)")); });

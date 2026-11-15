@@ -2363,7 +2363,8 @@ function App() {
         if (Object.keys(moved).length) pC(p => p.map(c => c && moved[c.id] ? { ...c, ...moved[c.id] } : c));
         // 我的头像
         const prof = loadJSON("x_profile", {});
-        if (prof) { let profChanged = false; for (const f of ["avatarImage", "refPhoto"]) { if (isB64(prof[f])) { prof[f] = await imgToVault(prof[f]); profChanged = true; } } if (profChanged && !cancelled) { saveJSON("x_profile", prof); setProfile(prof); } }
+        if (prof) { let profChanged = false; for (const f of ["avatarImage", "refPhoto"]) { if (isB64(prof[f])) { prof[f] = await imgToVault(prof[f]); profChanged = true; } }
+          if (Array.isArray(prof.refExtras)) for (let k = 0; k < prof.refExtras.length; k++) if (isB64(prof.refExtras[k])) { prof.refExtras[k] = await imgToVault(prof.refExtras[k]); profChanged = true; } if (profChanged && !cancelled) { saveJSON("x_profile", prof); setProfile(prof); } }
         // 主屏壁纸
         const wp = loadJSON("x_wallpaper", "");
         if (isB64(wp)) { const iv = await imgToVault(wp); if (!cancelled) { saveJSON("x_wallpaper", iv); setWallpaper(iv); } }
@@ -12056,7 +12057,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
   window.__maskKeyOf = id => maskKeyOf(id);
   // 锁脸那张后面放的别的角度（engine.js refWithAngles 拼三视图用）：认得出这张参考照是谁的，就把那人的另外两张给它
-  window.__refExtrasOf = r => { const c = (characters || []).find(x => x && x.refPhoto === r); const ex = c && Array.isArray(c.refExtras) ? c.refExtras.filter(Boolean) : []; return ex.length ? ex : null; };
+  //   角色、你的主资料、每张面具都认（她 2026-11-15「我的也加」）
+  window.__refExtrasOf = r => { const c = (characters || []).find(x => x && x.refPhoto === r) || (profile && profile.refPhoto === r ? profile : null) || (masks || []).find(x => x && x.refPhoto === r); const ex = c && Array.isArray(c.refExtras) ? c.refExtras.filter(Boolean) : []; return ex.length ? ex : null; };
   // 朋友圈按面具看（她 2026-11-14）：这个人（或配角）跟你用的是哪张面具——配角跟着带 TA 的那位走，你自己身边的配角看它自己记的那张
   window.__momMaskOf = c => { if (!c) return ""; if (c.npc) { if (String(c.ownerId) === "me") { const k = String(c.maskId || ""); return !k || k === maskPrimary ? "" : k; } return maskKeyOf(c.ownerId); } return maskKeyOf(c.id); };   // 群设置里挑面具时，看哪些成员认的不是这张
   const forumKnows = (charId, x) => String((x && x.mask) || "") === maskKeyOf(charId);
