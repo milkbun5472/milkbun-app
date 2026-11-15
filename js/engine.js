@@ -8155,8 +8155,12 @@ const VOICE_PAUSE_MARK = "这条语音的内容里可以插停顿：写成 <#0.5
 // · ttsMarkForSynth 送去合成之前用，只剥会被念出来的，停顿留着。
 // · ttsMarkStrip 给人看之前用，两样都剥；剥完收拾空白，别在气泡里留下一串空洞。
 function ttsMarkForSynth(text) {
-  const s = String(text == null ? "" : text);
+  let s = String(text == null ? "" : text);
   if (!s) return "";
+  // 译文不念（她 2026-11-15「查手机语音便签也会把译文读出来，之前聊天也有，做个公共的」）：所有念出声的字都过这一支，
+  //   钥匙也照它算，所以剥在这儿就是全库一起管——「原文 | 中文」「原文（中文）」、下一行是中译的，只念原文。
+  //   只在有外语字母时才动，纯中文的一字不改（缓存钥匙不变）
+  if (/[\u3040-\u30ff\uac00-\ud7af\u0400-\u04ffA-Za-z\u00c0-\u024f]/.test(s) && typeof sayTextOf === "function") { const said = sayTextOf({ content: s }); if (said && said.trim()) s = said; }
   // speech-2.8 认声音标签：名单里的留着送上去出声，其余照旧剥
   const keep = ttsSoundTagsOn(), sing = ttsSingOn();
   return s.replace(/♪\s*([^♪]+?)\s*♪/g, (m, x) => sing ? " [sings] " + x + " " : x).replace(/[♪♫]/g, sing ? "" : " ").replace(TTS_MARK_TAG_RE, m => (keep && MM_SOUND_TAG_RE_ONE.test(m)) || (sing && m[0] === "[") ? m : " ").replace(/[ \t\u3000]+/g, " ")
