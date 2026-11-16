@@ -252,4 +252,4 @@ node scripts/build-fairy-garden.mjs
 
 ## 低双丸子（2026-11-15，待看未发布）
 
-新发型 lowbuns 当前为 tilt-v2：整顶后倾8°，前须收短至耳朵下缘以内，保留 c1a1cf2f… 原 GLB 的中分与低丸子层次，发圈接公共独立改色。沿 v2 头锚拟合，原身体和公共动作不变。制作、复现、实图和限制见 [lowbuns.md](../lowbuns.md)。
+新发型 lowbuns 当前为 round-v3：头顶局部压低圆顺，保留tilt-v2后倾8°及收至耳朵下缘内的前须，保留 c1a1cf2f… 原 GLB 的中分与低丸子层次，发圈接公共独立改色。沿 v2 头锚拟合，原身体和公共动作不变。制作、复现、实图和限制见 [lowbuns.md](../lowbuns.md)。
