@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.685";
+const APP_VERSION = "v89.688";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -558,6 +558,16 @@ function App() {
   const bannerTimers = useRef([]);
   const bootAtRef = useRef(Date.now());   // 开机那几秒别弹：那会儿正在把存档和云端接上
   useEffect(() => () => { bannerTimers.current.forEach(clearTimeout); bannerTimers.current = []; }, []);
+  // 兜底扫一遍（她 2026-11-15「消息提示卡在上面下不来了」）：手机切后台、计时器被系统吞掉时，横幅会停在半透明那一下。
+  //   摞里有横幅就每两秒看一眼，到点没走的直接拿掉；回到前台也立刻扫一次
+  useEffect(() => {
+    if (!banners.length) return;
+    const sweep = () => setBanners(p => { const now = Date.now(), n = p.filter(x => !x.bornAt || now - x.bornAt < BANNER_MS + BANNER_OUT_MS + 1500); return n.length === p.length ? p : n; });
+    const iv = setInterval(sweep, 2000);
+    const vis = () => { if (!document.hidden) sweep(); };
+    document.addEventListener("visibilitychange", vis);
+    return () => { clearInterval(iv); document.removeEventListener("visibilitychange", vis); };
+  }, [banners.length > 0]);
   const groupsRef = useRef([]);
   groupsRef.current = groups; // 动念那条链在 setInterval 里读它，闭包拿不到最新的 groups
   const [chats, setChats] = useState({});
@@ -5332,6 +5342,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 横幅进摞、到点翻走：聊天来的和 App 来的（小窝管理员的新消息）走同一份
   const queueBanner = b => {
+    b = { ...b, bornAt: Date.now() };
     setBanners(p => [b, ...p].slice(0, 4));
     const t1 = setTimeout(() => setBanners(p => p.map(x => x.key === b.key ? { ...x, leaving: true } : x)), BANNER_MS);
     const t2 = setTimeout(() => setBanners(p => p.filter(x => x.key !== b.key)), BANNER_MS + BANNER_OUT_MS);
