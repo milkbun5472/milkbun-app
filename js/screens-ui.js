@@ -2164,7 +2164,7 @@ function forumIpOf(x, ch, post) {
   const city = ch && ch.home && ch.home.city ? String(ch.home.city).trim() : "";
   if (city) return forumIpTrim(city);
   try {
-    const mine = !ch && x && (x.authorType === "me" || x.authorId === "me") && !x.alt;
+    const mine = !ch && x && (x.authorType === "me" || x.authorId === "me") && !x.anon;   // 她的小号也照她的定位（IP 跟人走，不跟号走）
     if (mine && window.MapKit && window.MapKit.userRealm && typeof loadJSON === "function") {
       const rl = window.MapKit.userRealm(loadJSON("x_prefs", {}), loadJSON("x_geo", null), loadJSON("x_worlds", []));
       const v = rl && (rl.kind === "real" ? (rl.geo.city || rl.geo.label) : (rl.node || (rl.world && rl.world.name)));
@@ -2830,6 +2830,8 @@ function Forum({
   }
 
   // ---- 楼层（含楼中楼 + 回复按钮 + 赞）----
+  // IP 跟人走（她 2026-11-16「小号没有跟着他地图的地点」）：小号背后是哪个角色就照他在地图上的地方；匿名的照旧不露
+  const ipCharOf = x => x && !x.anon && (x.authorType === "character" || x.authorType === "character_alt") && x.authorId ? charOf(x.authorId) : null;
   function floorRow(post, cm, i) {
     const c = cm.authorType === "character" ? charOf(cm.authorId) : null;
     const isL = liked.has(cm.id);
@@ -2850,9 +2852,9 @@ function Forum({
                 accountBadge(cm),
                 isAuthor && h("span", { "data-wk": "foauthor", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#fff", background: FORUM_SKIN.accent, borderRadius: 4, padding: "0 4px" } }, "作者")),
               // 贴吧样式的 IP 挂在 @id 这一行（她 2026-11-16「加了 ip 看不见名字和 id 了」：挂在右上角跟楼层挤一行，把名字挤成一个字）
-              (!cm.anon || !xhs) && h("div", { "data-wk": "foidline", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, [!cm.anon ? "@" + (cm.authorHandle || cm.authorName) : "", !xhs ? "IP属地：" + forumIpOf(cm, c, post) : ""].filter(Boolean).join(" · "))),
+              (!cm.anon || !xhs) && h("div", { "data-wk": "foidline", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, [!cm.anon ? "@" + (cm.authorHandle || cm.authorName) : "", !xhs ? "IP属地：" + forumIpOf(cm, ipCharOf(cm), post) : ""].filter(Boolean).join(" · "))),
             h("div", { className: "flex items-center gap-1.5", style: { flexShrink: 0, whiteSpace: "nowrap" } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, xhs ? timeAgo(cm.ts || cm.visibleAt) + " " + forumIpOf(cm, c, post) : (cm.floor || i + 2) + " 楼"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, xhs ? timeAgo(cm.ts || cm.visibleAt) + " " + forumIpOf(cm, ipCharOf(cm), post) : (cm.floor || i + 2) + " 楼"),
               fresh && newTag(),
               post.pinFloor && post.pinFloor === cm.id && h("span", { "data-wk": "fopintag", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: FORUM_SKIN.accent, border: "1px solid " + FORUM_SKIN.accent, borderRadius: 4, padding: "0 4px", lineHeight: 1.5 } }, post.pinBy === "op" ? "楼主置顶" : "置顶"),
               // 置顶这一楼：只在她自己的帖子下面有；再点一下取消
@@ -3031,7 +3033,7 @@ function Forum({
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, STX(p.title)),
           xhs ? xhsBody(p) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
           xhsPhotos(p),   // 好几张就左右滑：贴吧样子也一样（群友 2026-10-27）
-          xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, forumTag(p.board) + "　编辑于 " + timeAgo(p.ts) + " " + forumIpOf(p, c, p)) : h("div", { className: "mt-3 flex items-center flex-wrap", style: { gap: 8 } }, tag(p.board), h("span", { "data-wk": "forumip", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "IP属地：" + forumIpOf(p, c, p))),
+          xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, forumTag(p.board) + "　编辑于 " + timeAgo(p.ts) + " " + forumIpOf(p, ipCharOf(p), p)) : h("div", { className: "mt-3 flex items-center flex-wrap", style: { gap: 8 } }, tag(p.board), h("span", { "data-wk": "forumip", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "IP属地：" + forumIpOf(p, ipCharOf(p), p))),
           xhs ? xhsBar(p) : actBar(p),
           p.authorType === "me" && onEditPost && h("button", { "data-wk": "foeditpost", onClick: () => setEditPost({ id: p.id, title: p.title || "", body: p.body || "" }), className: "active:opacity-60",
             style: { minHeight: 40, marginTop: 4, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FORUM_SKIN.fog, background: "transparent" } }, "✎ 改一改"),
