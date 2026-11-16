@@ -69,6 +69,18 @@ Lisa要求「定位好肩膀再把抬手从那里开始」。仅按整片肩帽�
 
 入口本聊天可视化`body-motion-night/axilla-v1-review.html`、聚合`axilla-v1-review-report.json`，复现见ELASTIC-STATUS.md末节。最终离线组合`native-hybrid-axilla-v1-{fixed,trajectory}.json`；近图`axilla-v1-close-comparison.png`，真实录像`naturalfit-proxy-axilla-pose-curve-v1-video-final/motion.webm`。正式身体/四衣SHA复核不变，无最终GLB、生产接入或发版；衣服暂停，下一步处理残折与可用姿态域。
 
+## 2026-11-16 大幅弯肘残折与双侧审阅：axilla-rest-v2 候选
+
+对promise残折继续提高posed顺面尺度/上限，最大折角仍约112°，未采用。诊断显示强压缩面在当前曲面度量下难以解开；改用原始rest度量的同一双调和约束，统一scale .012/cap .008，原遮罩与姿态激活不变。相对axilla-v1，promise局部最大折角108.76°→79.96°、95分位27.71°→19.43°，hips最大86.85°→67.86°；但five-left最大12.84°→16.31°、cheer22.46°→23.53°，**不是所有指标都改善**。实际双侧对照保留为候选，仍有细折，未获Lisa造型验收。诊断还发现放松侧本来就有尖细折，不能用抬起侧激活区域指标概括整个人体。
+
+9固定＋11真实轨迹采样两类限定相交全0，保源8907点/13562面rest/UV/posed差0；neutral及退出后低角度样本与上一基线整份native完全相同，指定肩顶/臂外缘坐标差0。**左右抬臂都要从关节所在侧检查**：原正面/同一斜侧/侧面组合会遮住另一侧腋下；本轮固定45视图＋轨迹55视图共100张实际图均看过，守卫最大1.268e-6、页错0。新骨角曲线axilla-rest-pose-curve-v1的23实际GPU采样两检查全0，6份严格等同旧稿复用、17份重查，69视图已看；两循环实录末权重0。
+
+**固定姿态通过不等于通用动作驱动通过。** 新覆盖诊断明确：当前单路径曲线只覆盖neutral/promise，其他7个固定样本的特征距离.91–2.46，高于支持阈值.08；不能把这些固定姿态实图当作该GPU曲线已经能播放举手/击掌。未知姿态硬退出、原场内部路径相关、六体型/材质/接触/手机性能仍未解决，中间GPU与离线参考最大差仍.02786。下一阶段优先扩大连续姿态驱动范围，不能长期只打磨同一组终点。
+
+Lisa本轮问每套衣服能否修自然：以逐套自然为验收目标；身体通过只是共同基础，衣服还要分别处理肩腋跟随、宽袖松量及布料褶皱。保留原站姿/UV/领口/腰带/纹理与已允许的配色能力，逐套检查左右举手、击掌、弯肘和放下；没有一套能免验，也不提前承诺一次全部成功。衣服当前仍暂停。
+
+入口本聊天可视化`body-motion-night/axilla-rest-v2-review.html`、聚合`axilla-rest-v2-review-report.json`、覆盖诊断`axilla-rest-v2-pose-coverage.json`；复现见ELASTIC-STATUS.md末节。最终离线`native-hybrid-axilla-rest-v2-{fixed,trajectory}.json`，真实录像`naturalfit-proxy-axilla-rest-pose-curve-v1-video-final/motion.webm`。正式身体/四衣SHA仍原值，无最终GLB/生产接入/发版。
+
 ## 2026-11-15 最新纠正：原版站姿必须保留
 
 Lisa明确指出「它们不抬手都是很好看的」，修后静态变丑、纹理乱。**当前任务是修举手／击掌变形，不是重做静态衣服。** 先锁定各套已发布原版的坐标、UV、法线、材质、领口、肩线与褶皱；每个候选先做同机位站姿对比，再看左右举手、击掌、放下恢复。静态变差即退回，不能拿形变检查通过替代造型验收。
