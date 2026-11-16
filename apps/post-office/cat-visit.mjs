@@ -1,4 +1,4 @@
-import {COUNTER_SURFACE,SHOP_FLOOR} from './furniture.mjs?v=fg-eb6abfb2878f1bb1';
+import {COUNTER_SURFACE,SHOP_FLOOR} from './furniture.mjs?v=fg-23c534a5bf6a08b0';
 export const CAT_APPROACH={x:1.04,z:1.95},CAT_COUNTER={x:.14,z:1.2};
 const RISE=COUNTER_SURFACE-SHOP_FLOOR;
 export const isPostalCat=u=>u?.kind==='guest'&&!u.visitor&&u.npcStyle==='rare_cat'&&u.look?.npcSpecies==='cat';

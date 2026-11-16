@@ -1,14 +1,22 @@
-# 莓粉卫衣裙：圆袖根与细袖口正式版
+# 莓粉卫衣裙：整圈鼓褶、圆袖根与细袖口
 
 Lisa 提供 `993c05918b88e427787836d7439a45aa.glb`，要求套到现有小人，先看适配再发版。源为莓粉小花卫衣、白内搭、奶油短裙、袜子和拼色运动鞋。**初稿被指出领口高、抬手腋下怪；切片修法失败。round-sleeves-v3 又被指出袖根尖、磨平原版褶皱，不能当作认可稿。authored-folds-v5又被指出太累赘；v7又被指出肩部鼓包；Lisa已确认shoulder-slope-v8并授权发版，已发布v89.674并接入正式衣柜。**
 
-- 正式运行文件：`apps/fairy-garden/outfits/berry.glb`，2638244字节／67427三角面，SHA256 `f190667a51f9c6d9c72a5f0fd23a6aea97ce9d0582bae31509c4cc94e7fbcd25`，与已确认round-root-v11/compressed/berry.glb逐字节相同。
-- 正式源与复现：round-root-v11/berry-ready.blend；fit.py读v10源→KEEP_FLOAT='Berry cloth' compressed/pack-morphs.py。模型直接WebP95、形变初值0；不要用只接受旧v8 SHA的package_berry.py。沿现有prepared_outfits/dye_regions目录注册，ID与六区配色存档保持。
-- 实图与验证：round-root-v11/review.html、comparison.png、delivery.json、chrome/webkit；发布证据在round-root-v11/release/。
+- 正式运行文件：`apps/fairy-garden/outfits/berry.glb`，2638352字节／67427三角面，SHA256 `0512136185c5915dd7c6dc3b4616580d0a5c122a933b493c22d4cbcc3c755b0a`，与已确认cuff-fold-v12/compressed/berry.glb逐字节相同。
+- 正式源与复现：cuff-fold-v12/berry-ready.blend；analyze.py读v11源生成截面→fit.py→KEEP_FLOAT='Berry cloth' compressed/pack-morphs.py。模型直接WebP95、形变初值0；不要用只接受旧v8 SHA的package_berry.py。沿现有prepared_outfits/dye_regions目录注册，ID与六区配色存档保持。
+- 实图与验证：cuff-fold-v12/review.html、comparison.png、comparison-side.png、delivery.json、chrome/webkit；发布证据在cuff-fold-v12/release/。
 - 本机证据根：`/Users/lisa/.codex/visualizations/2026/11/14/01a1db4d-1d00-7601-b3b9-bc46958d51bf/hunyuan-993c-berry/`。该目录不会随 Git 同步；其他机器读不到须重新获取，不能当作已查看。
 - 独立树 `/private/tmp/lisa-berry-993c`，分支 `codex/berry-outfit-993c`，基线 `66d6d036a`；未改生产身体、动作或发型；本轮替换本套服装资产并更新攻略与内容缓存指纹。
 
-最新发布回执：**v89.675**，提交`db5a40da22a93cd53f7c0c934200c38025082176`，build `fg-eb6abfb2878f1bb1`，Pages `43784404080` 成功。47项发布检查通过，211个线上发布文件SHA逐字节一致；线上正式衣柜选择、六区染色、换装/刷新保存、恢复默认、角色隔离、320/390宽度均通过。v9/v10未单独发布，v11包含细袖口与内侧清理；原身体及公共动作未改。
+最新发布回执：**v89.682**，提交`bafb3d9319d95968e906cddf8cd9ccd1bf99432e`，build `fg-23c534a5bf6a08b0`，Pages `43789430818` 成功。47项发布检查通过，211个线上文件SHA匹配；线上正式衣柜选择、六区染色、换装/刷新保存、恢复默认、角色隔离、320/390宽度通过。确认稿直接接入，原身体与公共动作保持。
+
+此前圆袖根发布回执：**v89.675**，提交`db5a40da22a93cd53f7c0c934200c38025082176`，build `fg-eb6abfb2878f1bb1`，Pages `43784404080` 成功。47项发布检查通过，211个线上发布文件SHA逐字节一致；线上正式衣柜选择、六区染色、换装/刷新保存、恢复默认、角色隔离、320/390宽度均通过。v9/v10未单独发布，v11包含细袖口与内侧清理；原身体及公共动作未改。
+
+## 整圈鼓褶v12：Lisa已确认并授权发布
+
+Lisa在v89.675实图指出袖口上方凸起只覆盖半圈。沿真实袖口轴测51截面×64向确认外侧显著鼓、内侧平；右侧t=-.070对比袖口t=-.030有17方向无凸起。cuff-fold-v12按实际袖口椭圆轮廓，校正上方低频偏心85%，保小褶皱与贴图；t≤-.130/t≥-.032固定，v11圆袖根与细袖口不动。首试朝圆形均值修仍有局部平，已弃。最小Jacobian左.83190/右.79029，最大位移.01757/.02308；修后64方向最小凸起高差左.007807/右.005917。
+
+最终2638352字节/67427面，SHA `0512136185c5915dd7c6dc3b4616580d0a5c122a933b493c22d4cbcc3c755b0a`。64体型零翻面/零退化、Chrome/WebKit四体型走坐左右抬手/六色通过、32组骨骼差异0。身体/非袖子/袖根和袖口固定区几何形变、所有骨权重/拓扑UV保持；固定区直接保原形变，避免重算head键产生微小浮点偏差。证据cuff-fold-v12/README、review.html/comparison、delivery、sections-before/after（原文件sections.json/sections-after.json）、chrome/webkit与preservation。复现analyze→fit→KEEP_FLOAT='Berry cloth' compressed/pack-morphs。Lisa于2026-11-15确认「发吧」。未实机iPhone/全碰撞穷举。
 
 ## 圆袖根v11：Lisa已确认并授权发布
 
