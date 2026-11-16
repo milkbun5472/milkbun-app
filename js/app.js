@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.677";
+const APP_VERSION = "v89.678";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -29349,9 +29349,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 拍限时动态那张：self 自拍走人像那条（锁脸），风景、手边的东西走空景那条（不画人，不喂参考照）
   const storyShoot = async (char, desc, kind) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先在设置里配好生图");
-    const self = kind !== "view" && kind !== "thing" && (char.appearance || char.refPhoto);
     const st = (statesRef.current || {})[char.id] || {};
-    const prompt = self ? buildPhotoPrompt(char, desc, st, { kind: "self", me: photoMe(userName(profileFor(char.id)), char.id), closet: closetTextFor(char.id) })
+    // 拍的是她、或者合照（她 2026-11-15「说的她是我，能不能带上我的参考图」）：跟线下帮她拍、合照同一套——照她认的那张面具的脸，参考照一起送
+    const meP0 = meOf(char.id), me = photoMe(userName(profileFor(char.id)), char.id);
+    if (kind === "her" && canShootMe(char.id)) {
+      const sub = meSubject(char, "我", char.id);
+      const out0 = await generateSelfieImage(buildPhotoPrompt(sub, desc, st, { pov: povFor(char), kind: "other", me, closet: me.closet || "" }), [sub.refPhoto].filter(Boolean).length ? [sub.refPhoto] : null, { size: "1024x1536" });
+      if (!out0 || !out0.blob) throw new Error("没画出来"); return out0.blob;
+    }
+    if (kind === "duo" && duoFacesOk(char)) {
+      const out0 = await generateSelfieImage(buildPhotoPrompt(char, desc, st, { kind: "duo", me, closet: closetTextFor(char.id) }), [char.refPhoto, meP0 && meP0.refPhoto].filter(Boolean), { size: "1024x1536" });
+      if (!out0 || !out0.blob) throw new Error("没画出来"); return out0.blob;
+    }
+    const self = kind !== "view" && kind !== "thing" && kind !== "her" && (char.appearance || char.refPhoto);
+    const prompt = self ? buildPhotoPrompt(char, desc, st, { kind: "self", me, closet: closetTextFor(char.id) })
       : buildScenePrompt(char, desc, kind === "thing" ? { body: false } : { forText: false });
     const out = await generateSelfieImage(prompt, self && char.refPhoto ? [char.refPhoto] : null, { size: "1024x1536" });
     if (!out || !out.blob) throw new Error("没画出来");
@@ -29426,7 +29437,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "bg 背景从这几种里挑一个：" + bgs + "；font 字体：hand 花体英文、brush 中文手写、serif 宋体、sans 黑体；"
           + "texts 是卡上的字，1 到 4 块，每块 t 写什么、x 和 y 是在卡上的位置（0 到 1，左上角是 0,0；最上面那一截 y 小于 0.2 的地方压着你的头像和名字，最下面 y 大于 0.85 的地方压着回复框）、size 字号（40 到 160）、color 颜色（#hex）、r 歪多少度（-15 到 15）、font 可以单独换；"
           + "stickers 是贴纸，0 到 5 个 emoji，ch 是哪个、x y 位置、size 大小（60 到 200）。"
-          + "photo 写这张卡要配的那张照片拍的是什么（一句画面描述），photoKind 是哪一种：self 你自拍、view 随手拍的风景或场景、thing 手边的东西或吃的；photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。"
+          + "photo 写这张卡要配的那张照片拍的是什么（一句画面描述），photoKind 是哪一种：self 你自拍、view 随手拍的风景或场景、thing 手边的东西或吃的" + (canShootMe(char.id) ? "、her 你拍的她（画面里是她）" : "") + (duoFacesOk(char) ? "、duo 你俩的合照" : "") + "；photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。"
           + (canPhoto ? "这张照片会马上拍出来放上去。" : "这张照片先不拍，卡上先只有字；她想看时会照你这句补拍。")
           + ((window.Stories.activeOf(char.id) || []).length ? "你已经挂着这几条，别跟它们重样：" + window.Stories.activeOf(char.id).map(s0 => "「" + (s0.text || s0.desc) + "」").join("、") + "。" : "")
           + (related.length ? "跟你有关系的这几个人也会刷到这条：" + related.map(c => c.name + "（" + (_rl(char.id, c.id) || _rl(c.id, char.id)) + "）").join("、")
@@ -29441,7 +29452,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (_night ? "现在是深夜，这条是半夜发的，卡会是夜色的底；半夜的话常常白天看了会想删。" : "")
           + "想连着发一组（像小故事：出门→路上→到了）的话，more 写后面的一到两张，每张跟这张一样有 bg、texts、stickers，按顺序挂；一张就说完的就不写。"
           + "字是你会发出去的那几句，不是解说。想的话可以加一个互动贴纸 sticker（不加就不写这一格）：提问框 {\"type\":\"ask\",\"q\":\"问她什么\"}、投票 {\"type\":\"poll\",\"q\":\"问题\",\"opts\":[\"选项一\",\"选项二\"]}、倒计时 {\"type\":\"countdown\",\"q\":\"倒数什么\",\"days\":几天后}。",
-        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + ",\"photo\":\"照片拍的是什么\",\"photoKind\":\"self|view|thing\",\"photoY\":0.45" + (!_song && musicReady ? ",\"song\":\"歌名 歌手\"" : "") + (musicReady ? ",\"songAt\":60" : "") + ",\"chips\":[{\"type\":\"location|weather|mood|music\",\"x\":0.2,\"y\":0.1}],\"regret\":0,\"more\":[]" + ",\"who\":\"all|me" + (related.length ? "|close\",\"closeNames\":[\"名字\"]" : "\"") + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
+        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + ",\"photo\":\"照片拍的是什么\",\"photoKind\":\"self|view|thing|her|duo\",\"photoY\":0.45" + (!_song && musicReady ? ",\"song\":\"歌名 歌手\"" : "") + (musicReady ? ",\"songAt\":60" : "") + ",\"chips\":[{\"type\":\"location|weather|mood|music\",\"x\":0.2,\"y\":0.1}],\"regret\":0,\"more\":[]" + ",\"who\":\"all|me" + (related.length ? "|close\",\"closeNames\":[\"名字\"]" : "\"") + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
         maxTokens: 8000
       });
       let photoBlob = null;
