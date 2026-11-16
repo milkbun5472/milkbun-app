@@ -8,6 +8,14 @@ Lisa 提供 `993c05918b88e427787836d7439a45aa.glb`，要求套到现有小人，
 - 本机证据根：`/Users/lisa/.codex/visualizations/2026/11/14/01a1db4d-1d00-7601-b3b9-bc46958d51bf/hunyuan-993c-berry/`。该目录不会随 Git 同步；其他机器读不到须重新获取，不能当作已查看。
 - 独立树 `/private/tmp/lisa-berry-993c`，分支 `codex/berry-outfit-993c`，基线 `66d6d036a`；未改生产身体、动作或发型；本轮仅新增本套公共衣柜注册。
 
+## 最新反馈：袖口与内侧待看稿（未发布）
+
+正式v89.674上线后，Lisa指出袖口太厚、抬手内侧脏。最新候选cuff-clean-v9，2646980字节/67427面，SHA256 `075b8ac172c4d85f34f67936b8ffd219a173fcaaf1ac8e6cb3dc2ee48e0480cc`；线上仍为上述v8正式包，不能把本稿视为已上线。
+
+纯材质诊断确认内侧马蹄形深印来自旧烘焙把源袖口/夹层阴影投进袖身。v9按实际袖轴选内向表面，UV局部掩码压低旧暗斑对比，外侧和原罗纹图保留，几何褶皱正常光影仍在。依左右实测袖口轴，保内区r≤.063，外层多余半径收38%；罗纹接界缩短最多.006，宽过渡衔接袖身，最小Jacobian.3103。首试45%/.008过急未通过下限，已弃。
+
+refine.py读v8源→WEBP95/初始形变0/无遗留slotBase导出→KEEP_FLOAT='Berry cloth' compressed/pack-morphs.py。不要再用只接受v8 SHA的package_berry.py。最终64端点零翻面/零退化；双内核四体型走坐左右抬手及六色零页错，32组原骨骼零差异。身体、非袖子、上袖固定区几何/形变和全部骨权重/拓扑验证不变。证据根cuff-clean-v9/README、review.html/comparison.png、delivery、preservation与chrome/webkit。未实机iPhone/全动作碰撞穷举；候选未注册或发布。
+
 ## 最新肩部修正
 
 v7被指出肩部仍鼓包。测得x=.13衣身顶.6918，袖顶.7038：衣身/领口降过.022，袖顶恢复后相对偏高。v8顺着衣身肩坡降低袖顶最多.024，前后局部收厚最多.00869；内肩渐入、外肩渐退，保留原袖口和下部鼓褶。法线按Jacobian逆转置，最小Jacobian.4819。
