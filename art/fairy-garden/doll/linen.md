@@ -1,5 +1,7 @@
 # 卷袖衬衫
 
+**最新状态（2026-11-15）：** raised-v5 裁切、补面及重建袖根试验改变了原静态布面，已撤下，不可发布。正式 sleeve-v4 未替换。 Lisa要求保留原版站姿，只修举手／击掌变形；抬手问题目前仍未解决。执行约定与失败证据见 `施工规则/model-outfit-review.md` 最新纠正，下面旧检查仅作历史。
+
 独立整套衣服 `linen`，通过 `prepared_outfits.json` 与 `dye_regions.py` 注册到公共衣柜。
 发布模型 `apps/fairy-garden/outfits/linen.glb` 为袖口校正 sleeve-v4：2037224 字节，50170 三角面，SHA256 `97cb5bc02b43b5697499e27c31eb0f84ea76f130394f179889c742bea3f67dde`。
 

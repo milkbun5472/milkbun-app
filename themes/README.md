@@ -110,3 +110,4 @@
 - **img 要「方框里嵌圆照片」**（外面没有包一层可以套框的元素时，比如顶栏他的头像）：给 img 写 `border-radius:50%` + `border` + `border-image: url(方框.svg) 7 fill / 7px`。border-image（连同 fill 的中间块）不受圆角裁切，照片本身照样被裁成圆；阴影用 `filter: drop-shadow`，box-shadow 会跟着圆角变成圆的。
 - **线上顶栏的改动要限定在 `[data-wk="chat"]` 下**：线下也用同一个 chathead / headname，线上藏名字、改排版不加前缀，线下顶栏就会只剩一排按钮（系统弹窗踩过）。
 - **要做动画的那一项别写 `!important`**：带 !important 的声明压得过 @keyframes，`opacity:0 !important` 写在规则里，动画里的 opacity 就永远不生效（月下星路的月亮眼睛一直睁不开）。静止时的初值写在 keyframes 的 0% 里。
+- **装饰纹（裂纹、划痕）别用 100% 100% 拉伸**：气泡小没事，铺到天气卡、状态卡这种大块上就被拉成又粗又长的几道。卡片上给固定尺寸（比如 120px 50px no-repeat）。
