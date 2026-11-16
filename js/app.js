@@ -25838,7 +25838,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const FORUM_XHS_CMT = " 【这是一篇小红书笔记，底下是它的评论区】说话是小红书评论区的样子，不是贴吧盖楼：一条条短评论、各说各的；提到发笔记的人就叫作者或博主，不说几楼、沙发、楼主这些贴吧的叫法；作者回评论时就是作者本人在回。"
   // 世界观排在最前、离吧的说明最近（群友 2026-10-26「不走剧情，还是想发啥发啥」）：原来只压在「论坛网友」那个人设里，
   //   离输出远，吧的说明一说「游戏、设备」，古代、武侠世界的楼里照样聊手机
-  const forumPostVoice = post => forumLoreLine(forumThreadWorld(post)) + "\n" + forumBoardVoice(post && post.board) + (post && post.fmt === "xhs" ? FORUM_XHS_CMT : "");
+  const forumPostVoice = post => forumLoreLine(forumThreadWorld(post)) + "\n" + forumBoardVoice(post && post.board) + (post && post.fmt === "xhs" ? FORUM_XHS_CMT : "")
+    // 匿名吧屏幕上一律是「匿名用户」（群友 2026-11-16：网友在匿名帖里点名「香菜必须死」、还说只有勾了匿名的才显示匿名，楼主看到的明明全是匿名）：
+    //   名字只是给你分清谁是谁，楼里的人谁也看不见
+    + (post && (post.board === "匿名吧" || post.anon) ? FORUM_ANON_SEEN : "");
+  const FORUM_ANON_SEEN = "\n【这帖是匿名的】楼里每个人在屏幕上显示的都只是「匿名用户」（发帖的她显示「匿名者」），谁也看不见谁的网名、id，也没有谁是例外。上面原文里带的名字只是给你分清谁说了哪句；写出来的话里不提任何人的网名、id，指人就说几楼、楼上、楼主、层主，也不会有人说自己看见了谁的名字。";
   const forumBoardVoice = b => ({
     "吐槽吧": "「吐槽吧」：网友在这儿发牢骚、阴阳怪气、吐槽不爽。语气刻薄、损、带情绪、标题党，别正能量别说教。",
     "日常吧": "「日常吧」：网友分享兴趣、日常、和谁都无关的琐碎生活。语气松弛随意、有生活气，像随手一发。",
