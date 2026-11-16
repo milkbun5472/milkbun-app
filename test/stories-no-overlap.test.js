@@ -10,3 +10,8 @@ test("限时动态卡：小贴纸、表情不压在字上", () => {
   assert.ok(!tb.some(b => hit(b, bx(chip.x, chip.y, Array.from(chip.text).length * 44 + 40, 66))), "贴纸不压字");
   assert.ok(!tb.some(b => hit(b, bx(d.x, d.y, d.size * 1.1, d.size * 1.1))), "表情不压字");
 });
+test("限时动态照片能重画：换钥匙存新照片、旧的删掉", () => {
+  const s = fs.readFileSync("js/stories.js", "utf8");
+  assert.ok(s.includes('"data-wk": "storyphotoredo"') && s.includes('const photoKey = "img_" + id + "_raw" + Date.now().toString(36);'));
+  assert.ok(fs.readFileSync("js/theme-studio.js", "utf8").includes('["storyphotoredo",'));
+});

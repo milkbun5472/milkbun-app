@@ -168,12 +168,14 @@
       const card = s0.imgKey && typeof idbImgGet === "function" ? await idbImgGet(s0.imgKey) : null;
       img = card ? await overlayPhoto(card, photoBlob, s0.raw) : await renderCard(layoutFrom({}, true), photoBlob);
     }
-    const photoKey = "img_" + id + "_raw";
+    // 每画一次换一把钥匙：重画时同一把钥匙，查看页还认着旧图（「存照片」会存成上一张）
+    const photoKey = "img_" + id + "_raw" + Date.now().toString(36);
     await idbImgPut(photoKey, photoBlob);
     const key = "img_" + id + "_p" + Date.now().toString(36);
     await idbImgPut(key, img);
     patch(id, x => Object.assign({}, x, { imgKey: key, photo: true, photoKey }));
     if (s0.imgKey && typeof idbImgDel === "function") idbImgDel(s0.imgKey).catch(() => {});
+    if (s0.photoKey && s0.photoKey !== photoKey && typeof idbImgDel === "function") idbImgDel(s0.photoKey).catch(() => {});
   }
   // 去重：跟挂着的那几条说的是一回事，就不再发（她 2026-11-14「做一下去重」）
   const norm = t => String(t || "").replace(/[\s，。！？!?,.、~…「」“”"'·\-]/g, "");
@@ -289,11 +291,14 @@
           return rows.length && !bare ? h("div", { "data-wk": "storytrans", style: { marginBottom: 8, padding: "6px 10px", borderRadius: 10, background: "rgba(0,0,0,.45)", color: "#eee", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6 } }, rows) : null; })(),
         (cur.photoDesc && !cur.photo) || cur.photoKey ? h("div", { "data-wk": "storyphotoline", className: "flex items-center", style: { gap: 8, padding: "0 0 8px", textShadow: "0 1px 3px rgba(0,0,0,.7)", color: "#ddd", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5 } },
         h("button", { "data-wk": "storyphototoggle", onClick: () => setPhotoOpen(v => !v), className: "flex-1 min-w-0 text-left", style: { color: "#ddd", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: photoOpen ? "normal" : "nowrap" } },
-          "📷 " + ({ self: "自拍", view: "随手拍的", thing: "手边的东西" }[cur.photoKind] || "照片") + (photoOpen ? "：" + cur.photoDesc + " ︿" : " · 这张图会画什么 ﹀")),
+          "📷 " + ({ self: "自拍", view: "随手拍的", thing: "手边的东西", her: "拍的你", duo: "你俩的合照" }[cur.photoKind] || "照片") + (photoOpen ? "：" + cur.photoDesc + " ︿" : " · 这张图会画什么 ﹀")),
         // 画好了：藏字只看照片、单独存这张
         cur.photoKey ? h("button", { "data-wk": "storybare", onClick: () => setBare(v => !v), style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff" } }, bare ? "显示字" : "隐藏字") : null,
         cur.photoKey && rawUrl ? h("button", { "data-wk": "storyphotosave", onClick: async () => { try { const b = await (await fetch(rawUrl)).blob(); if (typeof saveFile === "function") await saveFile(new File([b], "照片.jpg", { type: "image/jpeg" })); window.__toast && window.__toast("存好了"); } catch (e) {} },
           style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff" } }, "存照片") : null,
+        // 重画（她 2026-11-15）：照同一句描述再拍一张，卡照原稿重排；只给 TA 排过原稿的那种（没有原稿的再画会叠在旧图上）
+        cur.photoKey && cur.raw && cur.photoDesc && window.__storyGenPhoto ? h("button", { "data-wk": "storyphotoredo", disabled: genBusy, onClick: async () => { setGenBusy(true); try { await window.__storyGenPhoto(cur); bump(x => x + 1); } finally { setGenBusy(false); } },
+          style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff", opacity: genBusy ? .5 : 1 } }, genBusy ? "画着…" : "重画") : null,
         !cur.photoKey && !cur.photo && window.__storyGenPhoto ? h("button", { "data-wk": "storyphotogen", disabled: genBusy, onClick: async () => { setGenBusy(true); try { await window.__storyGenPhoto(cur); bump(x => x + 1); } finally { setGenBusy(false); } },
           style: { flexShrink: 0, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", color: "#fff", opacity: genBusy ? .5 : 1 } }, genBusy ? "画着…" : "生图") : null) : null,
         archive ? h("div", { "data-wk": "storyhl", className: "flex items-center", style: { gap: 8, color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
