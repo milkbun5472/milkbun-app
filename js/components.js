@@ -19970,7 +19970,9 @@ function DoodleEditor({ src, charId, onClose }) {
     color: on ? "#111" : "#fff", background: on ? "#fff" : "rgba(255,255,255,.14)", border: "1px solid rgba(255,255,255,.35)", whiteSpace: "nowrap" });
   const btn = (label, fn, on) => h("button", { onClick: fn, className: "active:opacity-70", style: btnSt(on) }, label);
   const modeBtn = (label, k) => h("button", { "data-wk": "doodlemode", "data-on": mode === k ? "1" : "0", onClick: () => setMode(k), className: "active:opacity-70", style: btnSt(mode === k) }, label);
-  return h("div", { "data-wk": "doodle", className: "fixed inset-0 z-50 flex flex-col", style: { background: "#000", touchAction: "none" }, onClick: e => e.stopPropagation() },
+  // 挂到 body 上（她 2026-11-16：粉色日记里画图不能全屏）：美化给照片卡写了 transform（歪着贴的相纸），
+  //   fixed 会被那层 transform 困在卡片里，只剩照片那么大一块。走 portal 跟哪套美化都无关。
+  return ReactDOM.createPortal(h("div", { "data-wk": "doodle", className: "fixed inset-0 z-50 flex flex-col", style: { background: "#000", touchAction: "none" }, onClick: e => e.stopPropagation() },
     h("div", { className: "flex items-center justify-between", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 10px", gap: 8 } },
       btn("取消", onClose),
       h("div", { className: "flex", style: { gap: 6 } }, modeBtn("画", "draw"), modeBtn("贴", "stamp"), modeBtn("抠", "cut")),
@@ -20001,7 +20003,7 @@ function DoodleEditor({ src, charId, onClose }) {
         mode === "draw" ? btn(wide ? "粗笔" : "细笔", () => setWide(v => !v)) : null,
         mode === "draw" ? h("button", { "data-wk": "doodleask", onClick: () => send(true), className: "active:opacity-70", style: btnSt(false) }, "圈出来问他") : null,
         btn("撤销", () => { marks.current.pop(); setN(v => v + 1); }),
-        btn("清空", () => { marks.current = []; setN(v => v + 1); }))));
+        btn("清空", () => { marks.current = []; setN(v => v + 1); })))), document.body);
 }
 // 这一趟打开 App 的时刻：拍照中卡着时，比它早开始的才是断了的（页面被杀过、重开过）
 const PHOTO_PAGE_BOOT = Date.now();
