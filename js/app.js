@@ -10276,7 +10276,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     worldbook: (() => {
       const sess = (groupOfflinesRef.current[group.id] || []).find(s => s && !s.endTs);
       const offText = sess && Array.isArray(sess.msgs) ? sess.msgs.slice(-8).map(m => m.content || "").join("\n") : "";
-      return loreText(loreRef.current, { charIds: (group.memberIds || []), scope: "offline", text: offText });
+      return loreText(loreRef.current, { charIds: (group.memberIds || []), groupId: group.id, scope: "offline", text: offText });
     })(),
     timeAware: (group.memberIds || []).some(id => timeAwareFor(id)),
     // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了
@@ -10730,7 +10730,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const histText = (sess.msgs || []).filter(m => !isOocMsg(m) && m.content).slice(-20).map(m => m.role === "narration" ? "【场景】" + m.content : (m.role === "user" ? userName(profile) : m.senderName || "某人") + "：" + m.content).join("\n");
       // 世界书走和正戏同一个筛选引擎（v48.20）：之前塞的是 deriveWorldbook 全量拼接（无视 scope/关键词），
       // 一条正戏根本不会注入的全局词条就能让群 OOC 永远被 Gemini 拦（正戏通/单聊OOC通/群OOC拦 的诡异组合）
-      const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
+      const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), groupId: groupId, scope: "chat", text: histText });
       const res = await oocAskGroup(groupOfflineApiFor(groupId), { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [], oocMsgs: sess.msgs || [] }, text.trim());
       if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(groupId, res.directive, res.replaced);
       pushGOffMsg(groupId, { id: "ooca_" + Date.now(), role: "assistant", kind: "ooc", content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() });
@@ -16629,7 +16629,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 互通群复用单聊更新标准；封闭群不写回。
       const impressionField = window.Gaze && gs.memoryInterop ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"更新后的整块正文\"}（可选；" + window.Gaze.updateRule(userName(profile)) + "）" : "";
       // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
-      const gWorld = loreText(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist });
+      const gWorld = loreText(loreRef.current, { charIds: members.map(m => m.id), groupId: groupId, scope: "chat", text: hist });
       // 群规矩（用户 OOC 立的长期准则，复用 directives[groupId]）→ 注入，让群成员记得并遵守（item 4）
       const gDirs = (directives[groupId] || []).map(d => {
         if (typeof d === "string") return d.trim();
@@ -16859,7 +16859,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         meta: _gReasonMeta
       });
       // 这一轮翻出来的〔照做〕条目，排在这一轮最末尾再说一遍（跟单聊同一支 loreDoNow）
-      const _gDoTail = typeof loreDoNow === "function" ? loreDoNow(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist }) : "";
+      const _gDoTail = typeof loreDoNow === "function" ? loreDoNow(loreRef.current, { charIds: members.map(m => m.id), groupId: groupId, scope: "chat", text: hist }) : "";
       // 群里的导演便签（她 2026-10-26）：跟单聊同一句、同一套扣轮，只给模型看
       const _gDirLive = chatDirNotesLive("g:" + groupId);
       const _gDirHint = _gDirLive.length ? "\n\n〔幕后提醒，绝不出现在任何人说的话里〕想让接下来群里的聊天往这个方向走：" + _gDirLive.map(n => n.text).join("；") + "。由在场的人顺着自己的性子自然地聊过去，不用一下子说到。" : "";
@@ -17441,7 +17441,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
       const histText = (groupChatsRef.current[groupId] || []).filter(m => !isOocMsg(m) && m.content && contextAllowsMessage(m)).slice(-20).map(m => m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? userName(profile) : m.senderName || "某人") + "：" + m.content).join("\n");
       // 世界书走和正戏同一个筛选引擎（v48.20，理由同群线下 OOC 处注释）
-      const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
+      const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), groupId: groupId, scope: "chat", text: histText });
       const res = await oocAskGroup(groupApiFor(groupId), { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [], oocMsgs: groupChatsRef.current[groupId] || [] }, text.trim());
       if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(groupId, res.directive, res.replaced); // 群准则复用 directives[groupId]，注入 replyGroup
       pGChat(groupId, p => [...p, { role: "assistant", kind: "ooc", content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() }]);
@@ -35849,6 +35849,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSwitchRoom: id => { const g = groups.find(x => x && x.id === id); if (g) { setActiveGroup(g); clearUnread(g.id); } },
     unreadMap: unreadMap,
     onNewRoom: (name, kind) => createGroupRoom(activeGroup.roomOf || activeGroup.id, name, kind),
+    loreEntries: loreEntries,
+    onLoreBulk: (ids, patch) => { const set = new Set(ids || []); saveLore(loreRef.current.map(e => set.has(e.id) ? (typeof patch === "function" ? patch(e) : { ...e, ...patch }) : e)); },
     onClearGroupChat: wipeMem => clearGroupChat(activeGroup.id, wipeMem),
     onOffline: () => openGroupOffline(activeGroup),
     emotes: emotesForGroupMine(activeGroup.memberIds),
