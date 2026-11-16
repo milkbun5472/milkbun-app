@@ -2580,6 +2580,17 @@ function MsgBanners({ list, onOpen, onDismiss }) {
   const [drag, setDrag] = React.useState(null);   // { key, dy }
   const startY = React.useRef(0);
   const arr = (Array.isArray(list) ? list : []).slice(0, 3);
+  // 手指没抬起来就被打断（滚动、切走）时 touchend 收不到，drag 会一直挂着：整摞半透明、停在半空、到点也不走。
+  //   松手不管落在哪儿都算松手；最上面那条换了人，旧的那次拖动也作废
+  const topKey = arr[0] && arr[0].key;
+  React.useEffect(() => {
+    if (!drag) return;
+    const end = () => setDrag(null);
+    window.addEventListener("touchend", end); window.addEventListener("touchcancel", end);
+    const tm = setTimeout(end, 4000);
+    return () => { window.removeEventListener("touchend", end); window.removeEventListener("touchcancel", end); clearTimeout(tm); };
+  }, [!!drag]);
+  React.useEffect(() => { if (drag && drag.key !== topKey) setDrag(null); }, [topKey]);
   if (!arr.length) return null;
   const GO = 40;   // 推上去这么多就算她要它走
   return ReactDOM.createPortal(
