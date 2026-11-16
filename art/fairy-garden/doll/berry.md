@@ -8,9 +8,17 @@ Lisa 提供 `993c05918b88e427787836d7439a45aa.glb`，要求套到现有小人，
 - 本机证据根：`/Users/lisa/.codex/visualizations/2026/11/14/01a1db4d-1d00-7601-b3b9-bc46958d51bf/hunyuan-993c-berry/`。该目录不会随 Git 同步；其他机器读不到须重新获取，不能当作已查看。
 - 独立树 `/private/tmp/lisa-berry-993c`，分支 `codex/berry-outfit-993c`，基线 `66d6d036a`；未改生产身体、动作或发型；本轮仅新增本套公共衣柜注册。
 
-## 最新反馈：袖口与内侧待看稿（未发布）
+## 最新反馈：抬手袖根参照旧款重修（v10待看，未发布）
 
-正式v89.674上线后，Lisa指出袖口太厚、抬手内侧脏。最新候选cuff-clean-v9，2646980字节/67427面，SHA256 `075b8ac172c4d85f34f67936b8ffd219a173fcaaf1ac8e6cb3dc2ee48e0480cc`；线上仍为上述v8正式包，不能把本稿视为已上线。
+Lisa再次指出抬手怪，要求参考旧几批衣服。v9只能解决袖口厚和暗斑，不能视为袖根通过。此次将ranger/cardigan/jacket与v9放到同一原版抬手动作、92%肩宽和相机对照。确认v8/v9的body混合绑定把袖根拽成弯钩；本套恢复整袖自身arm绑定，由既有bent-arms分肘，并用旧ranger实际袖根表面渐变拟合上袖，保留v9下袖和原褶皱。
+
+最新sleeve-fit-v10/compressed/berry.glb：2633096字节/67427面，SHA256 `62122e8f79851d946113ade2b7f36997279a771ff4dec4e691e8b189c2cf52ed`。fit.py读取v9源及reference-ranger.blend，轴向t<.100内最近表面拟合85%，最多移动.01863；100%拟合造成两个极小面退化已弃。最终相对源零反向面、64体型零翻面/零退化，Chrome/WebKit四体型走坐左右抬手/六区通过，32组原骨骼零差异。身体/非袖子和下袖固定区几何形变、拓扑UV保持；袖子权重明确有变，原动作未动。
+
+证据根sleeve-fit-v10/README、review.html、delivery.json、preservation-report、references/与chrome/webkit。复现fit→KEEP_FLOAT='Berry cloth' compressed/pack-morphs；v10直接WebP导出，不用只接受v8 SHA的package_berry.py。**造型待Lisa复看，未发布；线上仍v89.674/v8。** 未实体iPhone或全碰撞穷举。
+
+## 此前v9：袖口与内侧修订（袖根被指出仍怪）
+
+正式v89.674上线后，Lisa指出袖口太厚、抬手内侧脏。当时候选cuff-clean-v9，2646980字节/67427面，SHA256 `075b8ac172c4d85f34f67936b8ffd219a173fcaaf1ac8e6cb3dc2ee48e0480cc`；线上仍为上述v8正式包，不能把本稿视为已上线。
 
 纯材质诊断确认内侧马蹄形深印来自旧烘焙把源袖口/夹层阴影投进袖身。v9按实际袖轴选内向表面，UV局部掩码压低旧暗斑对比，外侧和原罗纹图保留，几何褶皱正常光影仍在。依左右实测袖口轴，保内区r≤.063，外层多余半径收38%；罗纹接界缩短最多.006，宽过渡衔接袖身，最小Jacobian.3103。首试45%/.008过急未通过下限，已弃。
 
