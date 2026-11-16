@@ -1,6 +1,6 @@
 # 低双丸子 lowbuns
 
-2026-11-15：Lisa 提供 c1a1cf2f4ec9cd808b1718460f5d42b9.glb，当前为 round-v3 头顶修圆稿，待看未发布。Lisa随后指出头顶偏尖，已在后倾收短稿上局部圆顺头顶。Lisa 指出首稿前发须过长，要求整顶后倾且发须不超过耳朵下缘。
+2026-11-15：Lisa 提供 c1a1cf2f4ec9cd808b1718460f5d42b9.glb，当前为 ears-v4 耳侧包覆稿，待看未发布。Lisa又指出耳朵露得明显；已对照现役bob/braids同机位，调整耳侧发束包覆，身体和耳朵模型不改。Lisa随后指出头顶偏尖，已在后倾收短稿上局部圆顺头顶。Lisa 指出首稿前发须过长，要求整顶后倾且发须不超过耳朵下缘。
 
 源是完整发壳：中分弯曲发束、脸侧碎发、后颈两只低丸子及浅奶油发圈。原件 50,000 面；没有脸、身体或衣服。按 v2/head-anchor.json 拟合内腔，INNER=1.12、DZ=-.06，内腔中心约 [.002,-.014,.460]、半径 .411；等比套合，保留源轮廓和发束层次。运行挂在 HeadAnchor，首稿最低点 -1.314，高于长发垂落阈值 -1.65，不参与肩臂避让。
 
@@ -14,6 +14,10 @@
 
 从 tilt-v2 的 tilted.glb 单次处理，只动头锚z>.35的顶部。高度最多降.12（头锚局部单位），上侧横向最多展开2.5%，宽范围平滑过渡，避免压出平台。最高点从1.058降到.938；z≤.35的25160个顶点零位移，前发须、耳侧、发圈和低丸子固定，后倾角度保留。最小Jacobian .752，法线逆转置传输，UV/材质分界不改。正侧背、低头、原有动作与体型已复看。
 
+## 耳侧包覆 ears-v4
+
+round-v3的短发须使耳侧发束收在耳廓以内，正面整圈耳朵突出。与现役bob和braids同机位对照后，只调整两侧耳周发束：横向最多外包.12、往前.14、向下.06，空间连续渐隐；不拉长至耳朵以下。最初外包.18过宽，收至.12并放缓上下过渡。圆顶最高点、后倾、低丸子和发圈保留；22266个固定区顶点零位移，最小Jacobian .5333。正面少露耳廓，侧面保留部分耳形，背面与动作已复看；不是缩耳朵或藏身体面片。
+
 ## 复现
 
 从仓库根执行，将 Blender 替换为本机可执行文件。SOURCE 是原 GLB；WORK 为本机输出目录。
@@ -23,17 +27,18 @@ INNER=1.12 DZ=-.06 Blender -b --python art/fairy-garden/doll/fit_shell.py -- "$S
 Blender -b --python art/fairy-garden/doll/prepare_lowbuns.py -- "$WORK/fitted.glb" "$WORK/prepared.glb"
 Blender -b --python art/fairy-garden/doll/tilt_lowbuns.py -- "$WORK/prepared.glb" "$WORK/tilted.glb"
 Blender -b --python art/fairy-garden/doll/round_lowbuns.py -- "$WORK/tilted.glb" "$WORK/rounded.glb"
-TRIS=60000 TEX=1024 Blender -b --python art/fairy-garden/doll/compress_asset.py -- "$WORK/rounded.glb" art/fairy-garden/doll/v2/web/hair_lowbuns.glb
+Blender -b --python art/fairy-garden/doll/cover_lowbuns_ears.py -- "$WORK/rounded.glb" "$WORK/covered.glb"
+TRIS=60000 TEX=1024 Blender -b --python art/fairy-garden/doll/compress_asset.py -- "$WORK/covered.glb" art/fairy-garden/doll/v2/web/hair_lowbuns.glb
 Blender -b --python art/fairy-garden/doll/add_hair.py -- lowbuns --lazy
 ```
 
-最终运行文件 329064 字节，SHA256 `a5996fe7c3fe52405c66c13b3cb9fe06a811e8f8b1095f44d5f7cebec53d734b`；本轮12项发型定向测试通过，首轮35项目录/衣柜测试证据保留。
+最终运行文件 330436 字节，SHA256 `faf3307dd4499169b7250aabf611e75ee15757b713b9e3917024e273977cdd14`；本轮12项发型定向测试通过，首轮35项目录/衣柜测试证据保留。
 
 独立注册 hairstyles.json、add_hair.HAIRS、traveler.HAIR_STYLES 和 wardrobe.HAIR_ACCESSORIES；沿既有懒加载、染色、角色存档，身体及公共动作不改。最终运行文件 apps/fairy-garden/hair/lowbuns.glb；可编辑源由 prepare_lowbuns 自动保存 prepared.blend。
 
 ## 复看证据
 
-最新头顶修圆稿在下述目录的 round-v3/，含 rounded.blend、rounded.json、最终运行文件、双内核实图与验证；tilt-v2/与父目录保留旧稿证据。
+最新耳侧包覆稿在下述目录的 ears-v4/，含 covered.blend、covered.json、最终运行文件、双内核实图与验证；round-v3/、tilt-v2/与父目录保留旧稿证据；ears-v4内含bob/braids同机位对照和弃用wide-trial。
 
 本机证据 `/Users/lisa/.codex/visualizations/2026/11/14/01a1db4d-1d00-7601-b3b9-bc46958d51bf/hair-c1a1/`：source 正侧背、prepared.blend、review.html/comparison.png、运行图、runtime-chromium.json/runtime-webkit.json、ui-report.json、delivery.json。跨机器读不到时必须重新验证。
 
