@@ -28,7 +28,7 @@ Lisa 2026-11-15 要求：每次做完，记下上一版容易出问题的地方�
 
 ## 当前可对照的版本与证据
 
-- **argyle「菱格背心套装」aligned-v3：2026-11-15试穿未发布，待Lisa复看。** 首稿弯袖、straight-v2袖手未对齐均被否定；第三稿袖筒与袖口一起校准，背心仍仅躯干权重。2255552字节/49914面，SHA `06d4810006831dc67631cc212de6d3cee3ecd008a3a4067ad4a0b50b622e052e`。六区染色、六体型；最终重载64端点零翻面/零近零面积面，Chrome/WebKit四体型走坐抬手正侧及六区换色检查通过。未正式衣柜接入、实体iPhone或全碰撞验证。制作索引 [argyle.md](../art/fairy-garden/doll/argyle.md)，本聊天可视化 `outfit-85d617/aligned-v3/` 为最新，含真实对比图；旧弯袖稿、straight-v2与误当发型试套不能直接上线。
+- **argyle「菱格背心套装」aligned-v3：Lisa于2026-11-15确认发版，已接正式衣柜。** 首稿弯袖、straight-v2袖手未对齐均被否定；第三稿袖筒与袖口一起校准，背心仍仅躯干权重。2255552字节/49914面，SHA `06d4810006831dc67631cc212de6d3cee3ecd008a3a4067ad4a0b50b622e052e`。六区染色、六体型；最终重载64端点零翻面/零近零面积面，Chrome/WebKit四体型走坐抬手正侧及六区换色检查通过。正式衣柜选择、六区配色、切换/刷新保存、角色隔离、恢复默认与320/390宽度通过；未实体iPhone、举过头动作或全碰撞验证。制作索引 [argyle.md](../art/fairy-garden/doll/argyle.md)，本聊天可视化 `outfit-85d617/aligned-v3/` 为最新，含真实对比图；旧弯袖稿、straight-v2与误当发型试套不能直接上线。
 
 - **sweptback「蓬松背头」降顶 low-v3：Lisa于2026-11-15确认发版，v89.672已部署（提交6454f4e97，Pages 43775772165成功）。** 首稿中央凸包、第二稿整顶偏高均已否定。`lift_sweptback.py` 从 v89.633 原内收发壳重新处理：额外抬高从.12减至.035，保留左右上侧3.5%外撑，微后梳最多.025；15811固定区顶点位移零，Jacobian最小.9574。保留49992面、1K染发图；运行稿290684字节，SHA `bdaf2f87df9f9eaefa6ddd413d92c2bd74426aa7e5c5e2f8337bed4ddcddea28`。Chrome/WebKit各64体型×2头部姿势、4染发、10衣服与坐姿通过，零页错；未实体iPhone/全碰撞验证。证据同聊天可视化 `sweptback-crown/low-v3/`（README、review.html、comparison.png、lifted.json、runtime-*.json、delivery.json）；对比左为偏高第二稿、右为第三稿。正式web/runtime GLB已换为确认的第三稿；40项发布检查、211个线上文件SHA一致，线上正式衣柜选择/换色/切角色/刷新/320与390宽度通过，发布证据在该目录 release/。旧试稿不可上线。
 

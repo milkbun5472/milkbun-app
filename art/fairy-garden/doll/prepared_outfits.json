@@ -58,5 +58,25 @@
       "detail": "鞋底"
     },
     "coveredLegsBelow": 0.145
+  },
+  "argyle": {
+    "label": "菱格背心套装",
+    "colors": {
+      "cloth": "#dac1aa",
+      "trim": "#e8dacb",
+      "bottom": "#9e856e",
+      "socks": "#e1d0bf",
+      "boots": "#bc9e86",
+      "detail": "#776052"
+    },
+    "colorLabels": {
+      "cloth": "背心与菱格",
+      "trim": "衬衫",
+      "bottom": "灯笼裤",
+      "socks": "袜子",
+      "boots": "皮鞋",
+      "detail": "鞋底"
+    },
+    "coveredLegsBelow": 0.18
   }
 }

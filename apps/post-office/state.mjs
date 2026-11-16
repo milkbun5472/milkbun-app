@@ -1,8 +1,8 @@
-import {windowSeat,SHOP_CHAIR,SHOP_FLOOR} from './furniture.mjs?v=fg-974713d139963500';
-import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-974713d139963500';
-import {calendarEnvironment} from '../pets/environment.mjs?v=fg-974713d139963500';
-import {npcLook} from './npc-appearance.mjs?v=fg-974713d139963500';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-974713d139963500';
+import {windowSeat,SHOP_CHAIR,SHOP_FLOOR} from './furniture.mjs?v=fg-78971a9ce342e31d';
+import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-78971a9ce342e31d';
+import {calendarEnvironment} from '../pets/environment.mjs?v=fg-78971a9ce342e31d';
+import {npcLook} from './npc-appearance.mjs?v=fg-78971a9ce342e31d';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-78971a9ce342e31d';
 export {npcLook};
 // Read-only projection. The writer and its clock remain StampDuel's text shop.
 export const POSTS=Object.freeze({
