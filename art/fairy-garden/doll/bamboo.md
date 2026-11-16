@@ -19,3 +19,10 @@ Lisa 指出身侧切片、肩线异常和补面挡腰带，明确以旧款 cardi
 最新试穿件 `legacy-sleeves-v4/compressed/bamboo.glb`：2801560 字节、53273 面，SHA256 `915619d8554d790fb9855cdf386eb702b27120832685ac4e316e5b5ed4e64a46`。正式 cuff-v2 没有替换。复现顺序 `rebuild.py`（每次从 cuff-v2 原源打开）→ `stabilize.py` → `compressed/pack-morphs.py`；当前 stabilizer 不需调整顶点。Draco 坐标精度 20 位，cloth 与原袖缘 FLOAT 形变不可取消，16 位坐标在重导入后曾使一处细面翻转。
 
 最终重导入 64 体型零翻面、3 极小近零面积面；双内核四体型/六区染色/举手击掌与 Chrome 坐姿等回归实图已检查，`highfive.gif` 为实际 112 帧正面与斜侧动作。`preservation-report.json` 验证腰带/裤鞋坐标、UV、morph 不变，原领缘及袖缘坐标不变，裙摆距原表面最大 1.67e-8，骨架矩阵不变；腰带权重调整与布身法线重算单独保留。`compressed/` 才是本次最终验证对象，其余预览目录仅排查过程。未实体 iPhone 或穷举全碰撞；造型仍待 Lisa 确认。
+
+
+## 最新收肩：shoulder-v5，待看未发布
+
+Lisa随后指出legacy-sleeves-v4肩变宽，因此v4不再作为最新造型。shoulder-v5从v4源局部横向内收上肩最多10%，肩高不变，保留接好的身侧、腰带和袖口。narrow.py使用基准顶点选区驱动所有六形变，不能按变高后的坐标重新选区；否则调身高时会误收腰身。雅可比最小.722，所有部件高度零变化，非布身部件及布身z≤.55在全部形变中零差，UV和骨架不变。
+
+最新 `shoulder-v5/compressed/bamboo.glb` 2801616字节/53273面，SHA `2fe013c1f1f6112634e8d93093b5bfe070e329999ef6ae30b869cfee89d7914a`。流程narrow.py（固定读取legacy-sleeves-v4源）→ compressed/pack-morphs.py；继承20位坐标与cloth/cuff FLOAT。64体型零翻面、3极小近零面积面，双内核四体型/六色/举手击掌、112帧连续动作和坐姿等回归已看。证据README、narrow-report、preservation-report、compressed/及highfive.gif；固定区验证脚本在同聊天outfit-85d617/raised-v4/check-preservation.py，包含两套校验。正式仍cuff-v2，未发布。
