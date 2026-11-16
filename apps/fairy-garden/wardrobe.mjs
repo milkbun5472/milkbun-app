@@ -13,7 +13,7 @@ export const HAIR_MODES=[['solid','单色'],['gradient','渐变'],['split','拼�
 const HAIR_MODE_IDS=HAIR_MODES.map(m=>m[0]);
 export const hairModeOf=look=>HAIR_MODE_IDS.includes(look?.hairMode)?look.hairMode:'solid';
 // Shared metadata for independently dyeable parts of a hairstyle.
-export const HAIR_ACCESSORIES={braids:{label:'发圈颜色',color:'#82aabc'}};
+export const HAIR_ACCESSORIES={braids:{label:'发圈颜色',color:'#82aabc'},lowbuns:{label:'发圈颜色',color:'#e5d5b7'}};
 export function hairAccessoryOf(look={}){const id=hairId(look.hair),def=Object.hasOwn(HAIR_ACCESSORIES,id)?HAIR_ACCESSORIES[id]:null;return def?{...def,color:color(look.hairAccessoryColor)?look.hairAccessoryColor:def.color}:null;}
 // 庭院和列车的 getDyes 都问这一处（以前两边各写一份，只有发色一个字段时还看不出来）。
 // 眼睛颜色（她 2026-09-26）：十张脸的眼珠原本都是这一个棕；没选过就是它，画面上一点不变。

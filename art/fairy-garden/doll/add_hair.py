@@ -9,7 +9,7 @@ HERE=os.path.dirname(os.path.abspath(__file__))
 WEB=os.path.join(HERE,'v2','web')
 LABELS_FILE=os.path.join(HERE,'..','hairstyles.json')
 HAIRS={'korean':'hair_m03.glb','curtains':'hair_m02.glb','airbang':'hair_f01.glb','bob':'hair_f02.glb','pixie':'hair_m04.glb',
-       'fluffy':'hair_h07.glb','longpart':'hair_h08.glb','wolfcut':'hair_wolfcut.glb','sweptback':'hair_sweptback.glb','braids':'hair_braids.glb'}
+       'fluffy':'hair_h07.glb','longpart':'hair_h08.glb','wolfcut':'hair_wolfcut.glb','sweptback':'hair_sweptback.glb','braids':'hair_braids.glb','lowbuns':'hair_lowbuns.glb'}
 _slots=runpy.run_path(os.path.join(HERE,'outfit_slots.py'))
 _grey=_slots['grey'];_base_image=_slots['base_image']
 
