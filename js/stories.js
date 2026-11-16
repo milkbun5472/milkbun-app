@@ -65,6 +65,16 @@
       free.push({ type: "text", text: ct, maxW: 2 * Math.min(cx, W - cx) - EDGE, x: cx, y: num(c.y, 0.2, 0.93, 0.22) * H, size: 44, color: "#2b2b2b", font: "sans", tstyle: "strip", r: 0, s: 1 }); });
     const deco = ((d && d.stickers) || []).slice(0, 8).map(st => ({ ch: String((st && (st.ch || st.emoji)) || "").slice(0, 4), x: num(st && st.x, 0.05, 0.95, 0.5) * W, y: num(st && st.y, 0.2, 0.95, 0.5) * H,
       size: num(st && st.size, 50, 220, 110), r: num(st && st.r, -30, 30, 0) })).filter(x => x.ch);
+    // 小贴纸、表情不压字（她 2026-11-15「表情会挡着字」）：字先占位，贴纸和表情各自上下挪到不碰字的地方
+    const box = (x, y, w, hh) => ({ x0: x - w / 2, x1: x + w / 2, y0: y - hh / 2, y1: y + hh / 2 });
+    const hit = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+    const taken = free.filter(f => f.type === "text" && f.tstyle !== "strip").map(f => box(f.x, f.y, Math.min(W, Array.from(f.text).length * f.size * 1.02), f.size * 1.3));
+    if (hasPhoto) free.filter(f => f.type === "photo").forEach(f => taken.push(box(f.x, f.y, f.w * 0.6, f.h * 0.6)));
+    const settle = (x, y, w, hh) => { const lo = H * 0.12, hi = H * 0.95;
+      for (let k = 0; k <= 40; k++) { for (const sg of k ? [1, -1] : [1]) { const yy = y + sg * k * hh * 0.5; if (yy < lo || yy > hi) continue; const b = box(x, yy, w, hh); if (!taken.some(t0 => hit(b, t0))) { taken.push(b); return yy; } } }
+      return y; };
+    free.forEach(f => { if (f.tstyle === "strip") f.y = settle(f.x, f.y, Math.min(W, Array.from(f.text).length * f.size + 40), f.size * 1.5); });
+    deco.forEach(d0 => { d0.y = settle(d0.x, d0.y, d0.size * 1.1, d0.size * 1.1); });
     return { tpl: "blank", bg, font, free, deco, words: [], picks: [] };
   }
   const blobToImg = b => new Promise(res => { const u = URL.createObjectURL(b), im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = u; });
