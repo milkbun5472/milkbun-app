@@ -102,3 +102,8 @@ test("上划一下整摞都走：那一条连同压在它底下的", () => {
   assert.match(ap, /onDismiss: b => setBanners\(p => \{ const i = p\.findIndex\(x => x\.key === b\.key\); return i < 0 \? p : p\.slice\(0, i\); \}\)/,
     "还是一条一条删");
 });
+test("横幅卡住兜底：到点扫掉、拖动没收到松手也会复位", () => {
+  const fs2 = require("fs"), a = fs2.readFileSync("js/app.js", "utf8"), c = fs2.readFileSync("js/components.js", "utf8");
+  assert.ok(a.includes("b = { ...b, bornAt: Date.now() };") && a.includes("now - x.bornAt < BANNER_MS + BANNER_OUT_MS + 1500"));
+  assert.ok(c.includes('window.addEventListener("touchend", end)') && c.includes("if (drag && drag.key !== topKey) setDrag(null);"));
+});

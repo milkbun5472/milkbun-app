@@ -17,7 +17,7 @@ test("按一问一答排成多轮，正戏不带，这一问不重复，助手�
   assert.equal(t[1].content, long);
 });
 test("四处都接上，旧的截 300 字那处不留", () => {
-  assert.equal((eng.match(/\[\.\.\.oocTurns\(ctx\.oocMsgs, question\), \{ role: "user", content: question \}\]/g) || []).length, 2);
+  assert.equal((eng.match(/\[\.\.\.oocTurns\(ctx\.oocMsgs, question\), \{ role: "user", content: oocWrap\(question\) \}\]/g) || []).length, 2);
   assert.match(app, /oocCtx\.oocMsgs = chatsRef\.current\[chatKey\]/);
   assert.match(app, /oocMsgs: sess\.msgs \|\| \[\] \}, q\)/);
   assert.equal((app.match(/directives: directives\[groupId\] \|\| \[\], oocMsgs: /g) || []).length, 2);

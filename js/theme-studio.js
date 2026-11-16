@@ -399,7 +399,7 @@
     ])}),
     // 消息 app 那一页（群友 2026-10-03：「这个界面的这种是没办法美化吗」）——聊天列表、通讯录、底下四个标签
     Object.freeze({zh:"消息列表",pages:Object.freeze(["messages"]),hooks:Object.freeze([
-      ["storyphotoredo", "限时动态照片那一行的「重画」"], ["forumip", "论坛贴吧样式主楼底下那行「IP属地」"], ["npcref", "配角详情页「锁脸参考照」那一块"], ["npcpromotebtn", "配角详情页「转成正式角色」那颗"], ["npcpromote", "点了转正以后问一句的那一块"], ["npcpromotego", "那一块里的「转正」"], ["npcdel", "通讯录 → 配角 → 点开一位 → 删除时弹出的那块确认（连不连聊天一起清）"],
+      ["loregroupbind", "世界书卡片上「只给群：…」那行"], ["storyphotomore", "限时动态照片那一行的「··」整块"], ["storyphotomorebtn", "限时动态照片那一行的「··」那颗"], ["storyphotomenu", "限时动态照片「··」点开的那一小列"], ["storyphotoredo", "限时动态照片那一行的「重画」"], ["forumip", "论坛贴吧样式主楼底下那行「IP属地」"], ["npcref", "配角详情页「锁脸参考照」那一块"], ["npcpromotebtn", "配角详情页「转成正式角色」那颗"], ["npcpromote", "点了转正以后问一句的那一块"], ["npcpromotego", "那一块里的「转正」"], ["npcdel", "通讯录 → 配角 → 点开一位 → 删除时弹出的那块确认（连不连聊天一起清）"],
       ["npcnew", "通讯录 → 配角 → 右上角 + 新建配角那一整页（认识谁、在谁身边）"],
       ["mlpage","消息这一页的底（聊天／通讯录／朋友圈／我 四栏共用）"],
       ["mlsearch","聊天列表顶上的搜索框"],["bkbanner","聊天列表顶上「备份没成功」那条"],["bkbannerx","那条右边收起的 ×"],
@@ -1184,7 +1184,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v89.685",changed: "群聊心声每轮再提醒一次，跟单聊一样想",none: ""};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v89.690",changed: "群和群里的小房间能单独绑世界书",none: ""};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
