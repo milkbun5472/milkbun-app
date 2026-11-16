@@ -106,5 +106,5 @@ test("群房间跟单聊同一个进法：点名字那一排最底下的「小�
   assert.equal((C.match(/h\(ModeRoomsRow, \{/g) || []).length, 2, "单聊、群聊都用这一份");
   assert.ok(!/"room:new"/.test(C), "别再往那一排里塞房间");
   assert.match(C, /roomSheet && h\(Sheet, \{ onClose: \(\) => setRoomSheet\(false\) \}[\s\S]{0,300}roomsBlock\(true\)/);
-  assert.match(C, /roomsBlock\(false\),/);
+  assert.ok(!/roomsBlock\(false\)/.test(C), "顶栏底下不再常挂一排房间（她 2026-11-16）");
 });
