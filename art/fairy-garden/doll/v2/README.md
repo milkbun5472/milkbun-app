@@ -250,6 +250,6 @@ node scripts/build-fairy-garden.mjs
 
 这是有限幅度的视觉避让，不是全身软体碰撞。`test/hanging-hair.test.mjs` 验几何与复位；`test/hanging-hair.browser.cjs` 用实际袖子三角面验左右举手／接掌、衣服、体型两端和过程帧，记录原中立姿态肩部浅接触，举稳时要求采样点无交叠。运行需本地静态站及 `BASE`／`OUT`／`PLAYWRIGHT_MODULE`，可设 `ENGINE=webkit`。
 
-## 低双丸子（2026-11-15，待看未发布）
+## 低双丸子（2026-11-16，v89.695已发布）
 
 新发型 lowbuns 当前为 ears-v4：耳侧发束包覆减少露耳，圆润头顶保留，保留tilt-v2后倾8°及收至耳朵下缘内的前须，保留 c1a1cf2f… 原 GLB 的中分与低丸子层次，发圈接公共独立改色。沿 v2 头锚拟合，原身体和公共动作不变。制作、复现、实图和限制见 [lowbuns.md](../lowbuns.md)。
