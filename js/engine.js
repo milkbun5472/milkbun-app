@@ -4117,7 +4117,10 @@ function selectLore(entries, opts) {
     // 「生图」那一类只进画面要求、不进任何一处文字（她 2026-10-07）；画图那一口（scope "img"）也只认这一类
     if ((e.category === "生图") !== (scope === "img")) return false;
     if (scope !== "img" && !loreScopeOn(e, scope)) return false;
-    const bind = e.charIds || []; // 全局(无绑定)对所有人可见；否则要与在场角色有交集
+    // 绑在群上的（群友 2026-11-16 许愿：群里的小房间单独绑世界书）：只进这几个群（小房间也是一个群），别处一概不进；在场是谁不再另看
+    const gBind = e.groupIds || [];
+    if (gBind.length && (!opts.groupId || gBind.indexOf(opts.groupId) < 0)) return false;
+    const bind = gBind.length ? [] : (e.charIds || []); // 全局(无绑定)对所有人可见；否则要与在场角色有交集
     if (bind.length && !bind.some(id => charIds.indexOf(id) >= 0)) return false;
     // 某个人的聊天设置里把这条关了（offFor，2026-10-26 群友许愿）：在场的人全都关了它才不进；群里还有人开着就照常进
     const offFor = e.offFor || [];
