@@ -1,6 +1,6 @@
-import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-eb6abfb2878f1bb1';
-import {notebook} from './work-room-kit.mjs?v=fg-eb6abfb2878f1bb1';
-import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-eb6abfb2878f1bb1';
+import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-23c534a5bf6a08b0';
+import {notebook} from './work-room-kit.mjs?v=fg-23c534a5bf6a08b0';
+import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-23c534a5bf6a08b0';
 const SIZE={w:16,d:14};
 const furniture=[
  {id:'gear-lockers',kind:'cabinet',x:-6.1,z:-5.2,w:2.7,d:.85,h:1.85,color:'#7f8f74',doors:4},
