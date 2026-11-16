@@ -9325,6 +9325,7 @@ function Messages({
   onChatNpc,
   onDeleteNpc,
   onPromoteNpc,
+  onSetNpcRef,
   onSetNpcMem,
   onSetNpcMoments,
   onSetNpcGender,
@@ -9794,7 +9795,7 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
     onPin: onPinMoment,
     onOpenProfile: cid => onOpenMomProfile && onOpenMomProfile(cid, false),
     onShare: onShareMoment,
-    newsBar: momNews.length ? h("div", { "data-wk": "momnews", style: { margin: "10px 14px 0", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, overflow: "hidden" } },
+    newsBar: momNews.length ? h("div", { "data-wk": "momnews", style: { margin: "10px 14px 0", borderRadius: 12, border: "1px solid " + t.line, background: wxGrey(t), overflow: "hidden" } },
     h("button", { onClick: () => setNewsOpen(v => !v), className: "w-full flex items-center active:opacity-70", style: { gap: 8, padding: "10px 12px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } },
       h(Avatar, { character: (characters || []).find(c => c && (c.name === momNews[0].who || c.remark === momNews[0].who)) || { name: momNews[0].who }, size: 24, radius: 6 }),
       h("span", { className: "flex-1 text-left" }, momNews.length + " 条新消息"), h("span", { style: { color: t.fog, fontSize: "calc(12px * var(--app-fs, 1))" } }, newsOpen ? "收起" : "看看")),
@@ -9951,7 +9952,7 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
   , reqOpen && h(FriendReqPage, { t, reqs: friendReqs || [], onAnswer: onFriendReq, onClose: () => setReqOpen(false) })
-  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onSetMoments: onSetNpcMoments, onSetGender: onSetNpcGender, onSetOwner: onSetNpcOwner, onClose: () => setNpcBook(false) })
+  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onPromote: onPromoteNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onSetMoments: onSetNpcMoments, onSetGender: onSetNpcGender, onSetOwner: onSetNpcOwner, onSetRef: onSetNpcRef, onClose: () => setNpcBook(false) })
   , rowMenu && h(Sheet, { onClose: () => setRowMenu(null) },
     h("div", { "data-wk": "mlrowmenu", className: "px-5 pb-6 pt-1" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 10 } }, rowMenu.name || "配角"),
@@ -10415,7 +10416,7 @@ function MomentCompose({
 // 好友分组管理
 // 通讯录 → 配角：按主人分组的一本册子。整页，不是半窗（施工规则/no-half-sheet.md）。
 //   点头像就换（AvatarPicker 那一个，跟卷宗、群头像同一个）；换好的头像群聊和关系图都跟着用。
-function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onSetMoments, onSetGender, onSetOwner, onClose }) {
+function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onPromote, onDelete, onSetMem, onSetMoments, onSetGender, onSetOwner, onSetRef, onClose }) {
   const [promoArm, setPromoArm] = useState(null);   // 转正先问一句
   const t = useTheme();
   // 在这一页直接新建（她 2026-10-10：「不能创建的时候在 npc 页面弄吗」）：一步写好认识谁、各是什么关系，
@@ -10502,6 +10503,16 @@ function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, on
             return h("button", { key: v, "data-on": on ? "1" : "0", onClick: () => onSetGender(cur.id, v), className: "flex-1 active:opacity-70",
               style: { minHeight: 40, borderRadius: 9, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, zh);
           }))) : null,
+      // 锁脸参考照（她 2026-11-15「npc 能不能锁脸合照，转正后保留那张参考照」）：跟角色是同一对字段 refPhoto/refExtras，
+      //   合照、群里拍照本来就按 refPhoto 认人；转正只摘掉 npc 标，这两张原样跟过去
+      onSetRef ? h("div", { "data-wk": "npcref", style: { marginTop: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub } }, "锁脸参考照"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.55, marginTop: 3 } }, "放一张，合照、群里拍照时就照这张脸出；转成正式角色以后这张原样留着。旁边可以再放两张别的角度（侧脸、微侧脸），要是同一个人同一种画风。"),
+        h("div", { className: "flex items-center", style: { gap: 12, marginTop: 10 } },
+          h(AvatarPicker, { character: { name: cur.name, avatarImage: cur.refPhoto || null, color: cur.color }, size: 56, radius: 12, imageMaxDim: 1024, imageQuality: 0.94, onPick: v => onSetRef(cur.id, { refPhoto: v }), onClear: cur.refPhoto ? () => onSetRef(cur.id, { refPhoto: null, refExtras: [] }) : undefined }),
+          cur.refPhoto ? [0, 1].map(k => h(AvatarPicker, { key: k, character: { name: k ? "微侧" : "侧脸", avatarImage: (cur.refExtras || [])[k] || null, color: cur.color }, size: 44, radius: 10, imageMaxDim: 1024, imageQuality: 0.94,
+            onPick: v => { const n = (cur.refExtras || []).slice(0, 2); n[k] = v; onSetRef(cur.id, { refExtras: n }); },
+            onClear: (cur.refExtras || [])[k] ? () => { const n = (cur.refExtras || []).slice(0, 2); n[k] = null; onSetRef(cur.id, { refExtras: n }); } : undefined })) : null)) : null,
       // 私聊：配角没有好感、印象卡、日程，也从不主动找她——只在她点进来时说话。
       //   TA记得的是TA自己那份（私聊攒下的＋在场的群里那些），主人看不见你们聊了什么。
       onSetMem ? h("div", { "data-wk": "block", style: { marginTop: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
@@ -10798,7 +10809,7 @@ function MomentsFeed({
       h("div", { "data-wk": "mocover", style: { height: 270, background: cover ? "center/cover no-repeat url(" + resolveImg(cover) + ")" : "linear-gradient(160deg," + t.bg + "," + t.line + ")", backgroundPosition: cover ? (coverPos || "center") : undefined } }),
       onSetCover ? h(MomentCoverPick, { onPicked: d => onSetCover(d), style: { position: "absolute", top: 12, right: 14 } }) : null,
       camOpen ? h("div", { onClick: () => setCamOpen(false), style: { position: "fixed", inset: 0, zIndex: 59 } }) : null,
-      camOpen ? h("div", { "data-wk": "mocammenu", style: { position: "fixed", top: "calc(env(safe-area-inset-top, 0px) + 58px)", right: 14, zIndex: 60, minWidth: 190, padding: "4px 0", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 8px 24px rgba(0,0,0,.18)" } },
+      camOpen ? h("div", { "data-wk": "mocammenu", style: { position: "fixed", top: "calc(env(safe-area-inset-top, 0px) + 58px)", right: 14, zIndex: 60, width: 230, maxWidth: "calc(100vw - 28px)", maxHeight: "calc(100dvh - env(safe-area-inset-top, 0px) - 140px)", overflowY: "auto", overscrollBehavior: "contain", padding: "4px 0", borderRadius: 12, background: momPaper(t), border: "1px solid " + t.line, boxShadow: "0 8px 24px rgba(0,0,0,.18)" } },
         h("button", { "data-wk": "mocompose", onClick: () => { setCamOpen(false); onCompose(); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
           h(PGlyph, { k: "album", size: 15, color: t.ink }), "发朋友圈"),
         h("button", { "data-wk": "mocharpost", onClick: () => { setCamOpen(false); setPick(true); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
@@ -10806,9 +10817,10 @@ function MomentsFeed({
         (() => { const ms = window.__momentMasks ? window.__momentMasks() : []; if (ms.length < 2) return null;
           return h("div", { "data-wk": "momaskview", style: { padding: "8px 14px", borderTop: "1px solid " + t.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "看谁的朋友圈"),
-            h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+            //   面具多了不撑爆（她 2026-11-15「宽度正常，面具那一行左右划」）：菜单宽度固定，面具排成一行，多了左右划；名字太长的截断
+            h("div", { className: "flex", style: { gap: 6, overflowX: "auto", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", paddingBottom: 2 } },
               [{ id: null, name: "全部" }].concat(ms).map(mk => { const on = maskView === mk.id;
-                return h("button", { key: String(mk.id), "data-on": on ? "1" : "0", onClick: () => { setMaskView(mk.id); setCamOpen(false); }, style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, mk.id === null ? "全部" : mk.name); }))); })(),
+                return h("button", { key: String(mk.id), "data-on": on ? "1" : "0", onClick: () => { setMaskView(mk.id); setCamOpen(false); }, style: { padding: "4px 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0 } }, mk.id === null ? "全部" : mk.name); }))); })(),
         h("div", { style: { padding: "6px 14px 8px", borderTop: "1px solid " + t.line } }, h(MomentAutoImgSwitch, null))) : null,
       maskView !== null ? h("button", { "data-wk": "momaskchip", onClick: () => setMaskView(null), style: { position: "absolute", top: 16, left: 14, padding: "5px 11px", borderRadius: 999, background: "rgba(0,0,0,.35)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
         "只看「" + (((window.__momentMasks ? window.__momentMasks() : []).find(x => x.id === maskView) || {}).name || "这张面具") + "」 ×") : null,

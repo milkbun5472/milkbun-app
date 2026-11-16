@@ -38,5 +38,45 @@
       "detail": "纽扣"
     },
     "coveredLegsBelow": 0.115
+  },
+  "bamboo": {
+    "label": "竹纹交领袍",
+    "colors": {
+      "cloth": "#b8b499",
+      "trim": "#d9d0b7",
+      "bottom": "#dfd1b7",
+      "accent": "#7d7f55",
+      "boots": "#5f5642",
+      "detail": "#625a46"
+    },
+    "colorLabels": {
+      "cloth": "外袍",
+      "trim": "领缘与袖缘",
+      "bottom": "裤子",
+      "accent": "腰带",
+      "boots": "靴子",
+      "detail": "鞋底"
+    },
+    "coveredLegsBelow": 0.145
+  },
+  "argyle": {
+    "label": "菱格背心套装",
+    "colors": {
+      "cloth": "#dac1aa",
+      "trim": "#e8dacb",
+      "bottom": "#9e856e",
+      "socks": "#e1d0bf",
+      "boots": "#bc9e86",
+      "detail": "#776052"
+    },
+    "colorLabels": {
+      "cloth": "背心与菱格",
+      "trim": "衬衫",
+      "bottom": "灯笼裤",
+      "socks": "袜子",
+      "boots": "皮鞋",
+      "detail": "鞋底"
+    },
+    "coveredLegsBelow": 0.18
   }
 }

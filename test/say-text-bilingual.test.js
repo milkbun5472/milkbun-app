@@ -19,3 +19,9 @@ test("几种带译文的写法都只念原文，纯中文不动", () => {
 test("单聊、群聊点读都走 sayTextOf", () => {
   assert.equal((cmp.match(/tp\.toggle\("say" \+ i, sayTextOf\(m\)/g) || []).length, 3);
 });
+test("念出声的字都过 ttsMarkForSynth：语音便签、通话这些也不念译文，纯中文原样", () => {
+  const syn = vm.runInContext("ttsMarkForSynth", ctx);
+  assert.equal(syn("I'm still awake. | 我还没睡。"), "I'm still awake.");
+  assert.equal(syn("Good night.（晚安。）"), "Good night.");
+  assert.equal(syn("今天好累（叹气）"), "今天好累（叹气）");
+});

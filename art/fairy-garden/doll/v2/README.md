@@ -207,6 +207,22 @@ node scripts/build-fairy-garden.mjs
 
 与其他发型是独立 ID，选择前按需下载；原身体、其他发型和衣服不重建。
 
+### 背头降顶第三稿（2026-11-15，v89.672已上线）
+
+`lift_sweptback.py` 只接收上面内收版的 web 发壳（SHA256
+`ec49139adade38ad7e62c4c303f26c9a0378c0506cda938b9d3db343e61673d9`），
+不能重复叠加。中央凸包首稿与整体偏高第二稿均已被 Lisa 否定。第三稿将
+额外抬高从 .12 减至 .035，保留左右上侧3.5%外撑、微后梳最多 .025 帽托单位；
+高度与后向 smoothstep 渐隐，z≤.10 或 y≥1.10 为固定区。
+保留三角面、UV 和染色，调用 hair_deform 同步法线；再用现有 compress_asset
+及 add_hair.hang/strip_maps、split_outfits.export 导出，不能重做旧身体或其他发型。
+本目录 web 发壳与运行稿现已换为确认的 low-v3：运行稿290684字节，
+SHA256 `bdaf2f87df9f9eaefa6ddd413d92c2bd74426aa7e5c5e2f8337bed4ddcddea28`。
+复现时先用 `git show 488ff453d:art/fairy-garden/doll/v2/web/hair_sweptback.glb`
+取出旧内收壳到临时文件，再运行 lift_sweptback、compress_asset、add_hair；不能将当前
+已抬升的 web 件再输入 lift。上面的旧流程仅复现旧内收版。实图、SHA 与状态见
+[公共复盘](../../../../施工规则/model-outfit-review.md)。
+
 ## 双麻花辫（braids，2026-11-14）
 
 来源：Lisa 的 `a455dc4dc0af03db59e315c3f262bb38.glb`。保留 50000 三角面。

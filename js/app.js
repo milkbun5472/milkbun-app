@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.658";
+const APP_VERSION = "v89.673";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -21227,7 +21227,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   写成「原文 | 中文」——画的那一层（PTX → TransText）本来就会把竖线劈开、挂成「随消息提供」的译文，不用另写显示。
   //   同一次生成顺手带，不多花调用；没开就一个字都不加。
   const phoneBiLine = char => { return char && window.__charBiOn(char.id)
-    ? "\n【双语】这部手机里凡是【不是中文】的正文（消息、帖子、标题、便签、评论这些），每一处都写成「原文 | 中文」：竖线左边照常写原文，右边是它的中文意思，整处只用这一根竖线；本来就是中文的照常写，不加。" : ""; };
+    ? "\n【双语】这部手机里凡是【不是中文】的文字，每一个字段都各自写成「原文 | 中文」：竖线左边照常写原文，右边是它的中文意思，一个字段只用一根竖线。标题和正文是两个字段，各带各的中文——标题带了，正文也要带；正文再长（日记、邮件、备忘录、长帖）也是整段原文写完，一根竖线，后面跟整段的中文，一段不落。消息、评论、便签、歌词这些每一条也各带各的。本来就是中文的照常写，不加。" : ""; };
   const phoneBi = (char, spec) => spec && typeof spec.instruction === "string" ? { ...spec, instruction: spec.instruction + phoneBiLine(char) } : spec;
   const phoneCtx = char => Object.assign({}, ctxFor(char), {
     worldbook: loreFor(char, "subjects"),
@@ -28199,7 +28199,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + forumPmKnow(post, [resp.name, floor.authorName, post.authorName].concat((floor.replies || []).map(r => r && r.authorName))) + "【这层楼的现场】\n" + priorLines.join("\n") +
           "\n现在〔" + (typeof fmtStampAI === "function" ? fmtStampAI(Date.now()) : "刚刚") + "〕有人（网名「" + meNow + "」" + (usingAlt(post) ? "，一个没什么人见过的号，在场谁都不认识、也没人知道背后是谁" : "") + "）刚"
           + (resp.inFloor ? ("在这层楼里回复了「" + resp.name + "」上面那句：") : "回复了层主这条：")
-          + "「" + myText + "」。" + (!usingAlt(post) && !(post.board === "匿名吧" || post.anon) ? forumMaskNote(myMaskTag(post), forumActiveChars()) : "") + FORUM_ID_VOICE + "生成 2-5 条接在后面的楼中楼回复（items）：\n" +
+          + "「" + myText + "」。" + (!usingAlt(post) && !(post.board === "匿名吧" || post.anon) ? forumMaskNote(myMaskTag(post), forumActiveChars()) : "") + FORUM_ID_VOICE
+          // 她这句是【对谁说的】（她 2026-11-15：在 A 帖下回 B、抖出跟 B 的事，ACDE 冒出来全当成是自己）：
+          //   她回的是谁，这句里的「你」、跟她做过那件事的就是谁；别的角色是在旁边看见她对那个人说这句话
+          + (usingAlt(post) || respIsMe ? "" : "【她这句是对「" + ownerName + "」说的】句子里的「你」、跟她一起做过这件事的，就是「" + ownerName + "」" + (ownerChar ? "（角色「" + ownerChar.name + "」）" : "") + "。在场别的角色是在旁边看见她当众对「" + ownerName + "」说这句话——不是对你说的、这件事也不是跟你的；照你这个人、照你和她的关系，对「她跟「" + ownerName + "」有这件事」有你自己的反应。"
+            // 醋意可以漏进楼里（她 2026-11-15 选 2：「不想聊天里面翻车」）：关系照旧不点破、小号照旧不露身份，但跟她是恋人、暧昧的那几个，酸意带在话里
+            + "跟她是恋人、暧昧这层的，看见这句心里是什么滋味就让它渗进你这条话里，冲着「" + ownerName + "」去也行；只是话面上照旧不点破你和她的关系，用小号的也照旧不露自己是谁。\n")
+          + "生成 2-5 条接在后面的楼中楼回复（items）：\n" +
           (respIsMe
             ? "① 这层楼就是「" + meNow + "」自己开的——**【" + meNow + "】是真人本人，你绝对不许以 Ta 的名义写任何一句**，一条都不要标 is_owner。让别人来接话。\n"
             : "① **必须恰有一条是" + (resp.inFloor ? "被 TA 回的那个人" : "层主") + "「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n") +
@@ -35483,6 +35489,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       pC(p => p.map(c => { if (c.id !== id || !c.npc) return c; const n = { ...c, promotedFrom: c.ownerId || "" }; delete n.npc; delete n.ownerId; return n; }));
       toast("「" + (c0.remark || c0.name) + "」转正了：聊天和记忆都还在，去人格档案馆补一补人设和头像");
     },
+    onSetNpcRef: (id, patch) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, ...patch, refExtras: ("refExtras" in patch ? patch.refExtras : c.refExtras || []).slice(0, 2) } : c)),   // 配角锁脸（转正后原样留着）
     onSetNpcMoments: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, npcMoments: !!v } : c)),
     onSetNpcOwner: (id, ownerId) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, ownerId: ownerId || "" } : c)),   // 配角改挂（群友 2026-10-27）
     onSetNpcGender: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, gender: v === "他" || v === "她" ? v : "TA" } : c)),
