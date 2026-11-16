@@ -43,6 +43,9 @@ const AFFBASE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 50'><pa
 const AFFEYE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 50'>${RAINBOW_IRIS}<path d='M6 25 Q40 -4 74 25 Q40 54 6 25Z' fill='#fff' stroke='${C.cloud}' stroke-width='2'/><circle cx='40' cy='25' r='13' fill='url(#ir)'/><circle cx='40' cy='25' r='5.5' fill='#1A1030'/><circle cx='44' cy='20' r='2.4' fill='#fff'/></svg>`;
 const CLOUDTOP = `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='26'><g fill='${C.cloud}'><circle cx='14' cy='22' r='13'/><circle cx='38' cy='18' r='16'/><circle cx='64' cy='22' r='12'/><circle cx='88' cy='17' r='15'/><circle cx='110' cy='22' r='12'/><rect x='0' y='22' width='120' height='4'/></g></svg>`;
 
+// ── 第四批：线下＝云海上空挂着一只巨大的彩虹眼当月亮，几朵云飘过，底下一层层粉云海
+const SKYEYE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 420'>${RAINBOW_IRIS}<defs><radialGradient id='h' cx='.5' cy='.5' r='.5'><stop offset='0' stop-color='#FFD6EE' stop-opacity='.55'/><stop offset='1' stop-color='#FFD6EE' stop-opacity='0'/></radialGradient></defs><circle cx='195' cy='150' r='120' fill='url(#h)'/><path d='M105 150 Q195 70 285 150 Q195 230 105 150Z' fill='#FFF6FB' stroke='#fff' stroke-width='3'/><circle cx='195' cy='150' r='42' fill='url(#ir)'/><circle cx='195' cy='150' r='17' fill='#1A1030'/><circle cx='207' cy='137' r='7' fill='#fff'/><path d='M105 150 Q195 70 285 150' fill='none' stroke='#9C90C8' stroke-width='8' stroke-linecap='round'/>${[120, 145, 170, 195, 220, 245, 270].map((x, i) => `<path d='M${x} ${[136, 118, 106, 102, 106, 118, 136][i]} l${(x - 195) / 9} -12' stroke='#9C90C8' stroke-width='3' stroke-linecap='round'/>`).join("")}<g fill='#FFE8F4' opacity='.9'><path d='M30 250 a14 14 0 0 1 6-26 a20 20 0 0 1 36-8 a16 16 0 0 1 26 12 a12 12 0 0 1-4 22Z'/><path d='M290 232 a12 12 0 0 1 5-22 a17 17 0 0 1 31-7 a13 13 0 0 1 22 10 a10 10 0 0 1-3 19Z'/></g><g fill='#F6C6E2'><path d='M0 340 Q40 300 80 330 Q120 290 170 325 Q215 292 260 328 Q305 296 345 330 Q370 310 390 322 V420 H0Z' opacity='.7'/></g><g fill='#FFE0F0'><path d='M0 372 Q35 345 75 368 Q115 338 160 366 Q205 340 250 368 Q300 340 340 368 Q365 352 390 362 V420 H0Z'/></g></svg>`;
+
 const bubble = { myBg: C.storm, myText: "#fff", myBorder: "none", charBg: C.cloud, charText: C.ink, charBorder: "none", radius: 26, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -318,6 +321,45 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="gazeempty"] *{color:#fff !important}
 [data-wk="gazeempty"] button,[data-wk="gazeempty"] button *{color:${C.ink} !important}
 [data-wk="gazeempty"] button{background:${C.cloud} !important;color:${C.ink} !important;border:none !important;border-radius:999px !important}
+
+/* ───── 云眸入梦 · 第四批：线下＝云海上空一只巨大的彩虹眼当月亮 ───── */
+[data-wk="offline"]:not([style*="url("]){background:${svg(SKYEYE)} center bottom 0/100% auto no-repeat,${svg(STARS)} 0 0/220px 260px,linear-gradient(180deg,${C.s1} 0%,${C.s2} 50%,${C.s3}) !important}
+[data-wk="offline"] *{font-family:${SERIF} !important}
+[data-wk="offline"] [data-wk="offbody"]{background:transparent !important}
+[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]),[data-wk="offline"] [data-wk="offbody"] > div:not([data-wk]) > :not([data-wk]){color:${C.fog} !important}
+[data-wk="offline"] [data-wk="chathead"] + *{margin-top:0 !important;padding-top:10px !important}
+[data-wk="offline"] [data-wk="chathead"]::before{content:none !important}
+[data-wk="offline"] [data-wk="chathead"] *{white-space:nowrap !important}
+[data-wk="offline"] [data-wk="chathead"] [data-wk="headme"]{display:none !important}
+[data-wk="offline"] [data-wk="offtitle"],[data-wk="offline"] [data-wk="offtitle"] *{color:#fff !important;letter-spacing:.2em !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"]{width:30px !important;height:30px !important;background:${svg(I_HOUSE)} center/contain no-repeat !important;border:none !important}
+[data-wk="offline"] [data-wk="chathead"] button[title="给 Ta 一个提示"] *{opacity:0 !important}
+[data-wk="offline"] [data-wk="chathead"] button:last-child:not([data-wk]){background:rgba(255,255,255,.12) !important;color:#fff !important;border:1px solid rgba(255,220,240,.6) !important;border-radius:999px !important;font-size:12px !important;padding:3px 14px !important}
+[data-wk="offcomposer"]{background:rgba(74,50,133,.82) !important;box-shadow:0 -1px 0 rgba(255,220,240,.45) !important;border-top:none !important}
+[data-wk="offcomposer"] textarea{background:rgba(255,255,255,.14) !important;border:1px solid rgba(255,220,240,.6) !important;border-radius:18px !important;color:#fff !important}
+[data-wk="offcomposer"] textarea::placeholder{color:#F4DDF0 !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"]{width:34px !important;height:34px !important;min-width:34px !important;border:none !important;box-shadow:none !important;font-size:0 !important;background:${svg(I_PLUS)} center/contain no-repeat !important}
+[data-wk="offcomposer"] button[title="给 Ta 看真实照片"] *{opacity:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]){background:${svg(I_SEND)} center/34px no-repeat !important;border:none !important;box-shadow:none !important;border-radius:0 !important}
+[data-wk="offcomposer"] button:not([title]):not([data-wk]) svg{opacity:0 !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"]{width:52px !important;min-width:52px !important;height:44px !important;border:none !important;border-radius:0 !important;box-shadow:none !important;background:${svg(I_REPLY)} center/contain no-repeat !important;filter:drop-shadow(0 0 8px rgba(255,200,240,.8)) !important}
+[data-wk="offcomposer"] button[title="让 Ta 演绎"] *{opacity:0 !important}
+/* 卡片：他的是一张粉云卡，我的是灰紫雨云卡；四周一圈小云团 */
+[data-wk="offcard"]{position:relative !important;isolation:isolate !important;background:#FDEAF4 !important;border:none !important;border-radius:16px !important;box-shadow:0 0 22px rgba(255,190,225,.45) !important;margin:22px 10px 8px !important;color:${C.ink} !important}
+[data-wk="offcard"]::before{content:"" !important;position:absolute !important;left:-8px !important;right:-8px !important;top:-9px !important;bottom:-8px !important;z-index:-1 !important;border-radius:26px !important;pointer-events:none !important;background:radial-gradient(circle,#FDEAF4 10.5px,transparent 13px) 4px 0/31px 26px repeat-x,radial-gradient(circle,#FDEAF4 7.5px,transparent 10px) 15px 5px/23px 20px repeat-x,radial-gradient(circle,#FDEAF4 11.5px,transparent 14px) 26px 1px/43px 28px repeat-x,radial-gradient(circle,#FDEAF4 8.5px,transparent 11px) 9px 100%/27px 22px repeat-x,radial-gradient(circle,#FDEAF4 10.5px,transparent 13px) 0 100%/37px 26px repeat-x,radial-gradient(circle,#FDEAF4 8.5px,transparent 11px) 0 5px/22px 21px repeat-y,radial-gradient(circle,#FDEAF4 8.5px,transparent 11px) 100% 8px/22px 23px repeat-y !important}
+[data-wk="offcard"][data-me="1"]{background:#5A5288 !important;color:#fff !important;box-shadow:0 0 20px rgba(150,130,220,.45) !important}
+[data-wk="offcard"][data-me="1"]::before{filter:hue-rotate(0deg) !important;background:radial-gradient(circle,#5A5288 10.5px,transparent 13px) 4px 0/31px 26px repeat-x,radial-gradient(circle,#5A5288 7.5px,transparent 10px) 15px 5px/23px 20px repeat-x,radial-gradient(circle,#5A5288 11.5px,transparent 14px) 26px 1px/43px 28px repeat-x,radial-gradient(circle,#5A5288 8.5px,transparent 11px) 9px 100%/27px 22px repeat-x,radial-gradient(circle,#5A5288 10.5px,transparent 13px) 0 100%/37px 26px repeat-x,radial-gradient(circle,#5A5288 8.5px,transparent 11px) 0 5px/22px 21px repeat-y,radial-gradient(circle,#5A5288 8.5px,transparent 11px) 100% 8px/22px 23px repeat-y !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offname"],[data-wk="offcard"][data-me="1"] [data-wk="offtext"],[data-wk="offcard"][data-me="1"] [data-wk="offsay"]{color:#fff !important;border-color:#fff !important}
+[data-wk="offhead"] img,[data-wk="offhead"] [data-wk="avatar"]{border-radius:50% !important;box-shadow:0 0 0 2px #fff,0 0 8px 3px rgba(255,200,240,.7) !important}
+[data-wk="offname"],[data-wk="offtext"]{color:${C.ink} !important}
+[data-wk="offname"]{font-weight:700 !important;letter-spacing:.2em !important}
+[data-wk="offtext"]{line-height:1.9 !important;letter-spacing:.05em !important}
+[data-wk="offsay"]{color:${C.ink} !important;background:none !important;font-weight:700 !important}
+[data-wk="offthought"]{position:relative !important;background:rgba(255,255,255,.35) !important;border:none !important;border-radius:12px !important;padding-left:40px !important;color:${C.ink} !important;box-shadow:none !important;font-style:italic !important}
+[data-wk="offthought"]::before{content:"" !important;position:absolute !important;left:10px !important;top:10px !important;width:22px !important;height:12px !important;background:${svg(EYE())} center/contain no-repeat !important;animation:ceBlink 5s ease-in-out infinite !important}
+[data-wk="offcard"][data-me="1"] [data-wk="offthought"]{background:rgba(255,255,255,.1) !important;color:#fff !important}
+[data-wk="offcardacts"] svg{stroke:${C.fog} !important;color:${C.fog} !important}
+[data-wk="offreplyopt"]{background:${C.cloud} !important;border:none !important;border-radius:999px !important;color:${C.ink} !important;box-shadow:0 0 10px rgba(255,190,230,.5) !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "云眸入梦", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
