@@ -2580,6 +2580,17 @@ function MsgBanners({ list, onOpen, onDismiss }) {
   const [drag, setDrag] = React.useState(null);   // { key, dy }
   const startY = React.useRef(0);
   const arr = (Array.isArray(list) ? list : []).slice(0, 3);
+  // 手指没抬起来就被打断（滚动、切走）时 touchend 收不到，drag 会一直挂着：整摞半透明、停在半空、到点也不走。
+  //   松手不管落在哪儿都算松手；最上面那条换了人，旧的那次拖动也作废
+  const topKey = arr[0] && arr[0].key;
+  React.useEffect(() => {
+    if (!drag) return;
+    const end = () => setDrag(null);
+    window.addEventListener("touchend", end); window.addEventListener("touchcancel", end);
+    const tm = setTimeout(end, 4000);
+    return () => { window.removeEventListener("touchend", end); window.removeEventListener("touchcancel", end); clearTimeout(tm); };
+  }, [!!drag]);
+  React.useEffect(() => { if (drag && drag.key !== topKey) setDrag(null); }, [topKey]);
   if (!arr.length) return null;
   const GO = 40;   // 推上去这么多就算她要它走
   return ReactDOM.createPortal(
@@ -19970,7 +19981,9 @@ function DoodleEditor({ src, charId, onClose }) {
     color: on ? "#111" : "#fff", background: on ? "#fff" : "rgba(255,255,255,.14)", border: "1px solid rgba(255,255,255,.35)", whiteSpace: "nowrap" });
   const btn = (label, fn, on) => h("button", { onClick: fn, className: "active:opacity-70", style: btnSt(on) }, label);
   const modeBtn = (label, k) => h("button", { "data-wk": "doodlemode", "data-on": mode === k ? "1" : "0", onClick: () => setMode(k), className: "active:opacity-70", style: btnSt(mode === k) }, label);
-  return h("div", { "data-wk": "doodle", className: "fixed inset-0 z-50 flex flex-col", style: { background: "#000", touchAction: "none" }, onClick: e => e.stopPropagation() },
+  // 挂到 body 上（她 2026-11-16：粉色日记里画图不能全屏）：美化给照片卡写了 transform（歪着贴的相纸），
+  //   fixed 会被那层 transform 困在卡片里，只剩照片那么大一块。走 portal 跟哪套美化都无关。
+  return ReactDOM.createPortal(h("div", { "data-wk": "doodle", className: "fixed inset-0 z-50 flex flex-col", style: { background: "#000", touchAction: "none" }, onClick: e => e.stopPropagation() },
     h("div", { className: "flex items-center justify-between", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 10px", gap: 8 } },
       btn("取消", onClose),
       h("div", { className: "flex", style: { gap: 6 } }, modeBtn("画", "draw"), modeBtn("贴", "stamp"), modeBtn("抠", "cut")),
@@ -20001,7 +20014,7 @@ function DoodleEditor({ src, charId, onClose }) {
         mode === "draw" ? btn(wide ? "粗笔" : "细笔", () => setWide(v => !v)) : null,
         mode === "draw" ? h("button", { "data-wk": "doodleask", onClick: () => send(true), className: "active:opacity-70", style: btnSt(false) }, "圈出来问他") : null,
         btn("撤销", () => { marks.current.pop(); setN(v => v + 1); }),
-        btn("清空", () => { marks.current = []; setN(v => v + 1); }))));
+        btn("清空", () => { marks.current = []; setN(v => v + 1); })))), document.body);
 }
 // 这一趟打开 App 的时刻：拍照中卡着时，比它早开始的才是断了的（页面被杀过、重开过）
 const PHOTO_PAGE_BOOT = Date.now();
@@ -20853,6 +20866,7 @@ function GroupThread({
   onSetPresence,
   onDeleteGroup,
   onSwitchRoom,   // 群里的小房间（她 2026-11-13「群聊咋开房间」）：切到主群/某一间
+  loreEntries, onLoreBulk,   // 世界书只给这个群（群设置里那一栏）
   onNewRoom,      // (name, kind) 开一间；kind "main" 接着主线 / "closed" 不带出门
   unreadMap,
   onClearGroupChat,
@@ -21292,9 +21306,8 @@ function GroupThread({
     h("span", { style: { flexShrink: 0, color: t.tint, fontSize: "calc(11.5px * var(--app-fs, 1))", marginTop: 1 } }, "群公告"),
     h("span", { className: "flex-1 min-w-0", style: noticeOpen ? { whiteSpace: "pre-wrap", maxHeight: "40vh", overflowY: "auto" } : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, String(gs.notice.text).trim()),
     h("span", { style: { flexShrink: 0, color: t.fog, transform: noticeOpen ? "rotate(-90deg)" : "rotate(90deg)", display: "inline-block" } }, "›")) : null,
-  // 小房间那一排（她 2026-11-13「群聊咋开房间」「弄一下吧」）：这个群有房间、或者本身就是房间时才出现；
-  //   点群名 →「小房间」打开的房间面板也是这一块（inSheet），不另画一份
-  roomsBlock(false),
+  // 小房间不再在顶栏底下挂一排（她 2026-11-16「群房间挂着好丑，改成跟单聊一样」）：跟单聊一样，点群名 →「小房间」打开房间面板换房、开新的
+
   h("div", {
     ref: ref,
     style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
@@ -21773,7 +21786,8 @@ function GroupThread({
     onSetPresence: onSetPresence,
     onDelete: onDeleteGroup,
     roomCount: (groups || []).filter(g => g && g.roomOf === group.id).length,
-    onNewRoom: onSwitchRoom ? () => { setSheet(null); setRoomForm({ name: "", kind: "main" }); } : null,
+    onNewRoom: onSwitchRoom ? () => { setSheet(null); setRoomForm({ name: "", kind: "main" }); setRoomSheet(true); } : null,
+    loreEntries: loreEntries, onLoreBulk: onLoreBulk,
     onClearChat: onClearGroupChat,
     onClose: () => setSheet(null)
   }), sheet === "luck" && h(GroupLuckDialog, { members, meName: (profile && profile.name) || "我", onCancel: () => setSheet(null), onSend: m => { setSheet(null); sendRich(Object.assign({ role: "user" }, m)); } }), sheet === "ask" && h(AskComposeDialog, { who: "", prev: askPrev, onCancel: () => { setSheet(null); setAskPrev(null); }, onSend: a => { setSheet(null); setAskPrev(null); onStartAsk(a); } }), sheet === "poll" && h(PollComposeSheet, {
@@ -22294,7 +22308,7 @@ function luckyCardMeta(lucky, who) {
   return { state: lk.word ? "「" + lk.word + "」点亮 " + (lk.lit || 0) + "/" + units.length : picking ? "6 张卡等你翻" : "还没抽" + (book.length ? " · 收了 " + book.length + " 个" : ""),
     note: who + "一起养一个词：每聊满 " + per + " 条点亮一个字，文字、语音、表情包、照片都算；一天最多算 " + cap + " 条。一整天没说话，会熄掉一个字。点满收进收藏本，再抽下一张。" };
 }
-function GroupSettingsSheet({ apiProfiles, onSuggestName, onDrawTitles, lucky, onDrawLucky, onPickLucky, gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose, onSetNotice, roomCount, onNewRoom }) {
+function GroupSettingsSheet({ apiProfiles, onSuggestName, onDrawTitles, lucky, onDrawLucky, onPickLucky, gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose, onSetNotice, roomCount, onNewRoom, loreEntries, onLoreBulk }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
   // 这个群单独走哪条线路（她 2026-11-04）：没挑＝跟全局线上／线下
@@ -22651,6 +22665,9 @@ function GroupSettingsSheet({ apiProfiles, onSuggestName, onDrawTitles, lucky, o
       toast: window.__toast,
       onDone: L => { setChatBg(L.chatBg || ""); setGLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout || {})); setGCss(L.customCSS || ""); } }) : null,
     h(OnlineMediaSettings, null)),
+    // 世界书只给这个群（群友 2026-11-16 许愿：群里的小房间单独绑世界书，玩平行世界那间要一整套世界观）
+    loreEntries && onLoreBulk ? gCard({ title: "世界书 · 只给这个群", char: "书", tint: "#8a6f4e", state: (() => { const n = loreEntries.filter(e => e && (e.groupIds || []).includes(group.id)).length; return n ? "绑了 " + n + " 条" : "没单独绑"; })() }, null,
+      h(ChatLorePicker, { groupId: group.id, entries: loreEntries, onBulk: onLoreBulk })) : null,
     gCard({ title: "记忆库 · 群规矩", char: "记", tint: "#6693c7", state: "带 " + ctxN + " 条上下文 · 满 " + sumThresh + " 条总结" + ((directives && directives.length) ? " · 群规矩 " + directives.length + " 条" : "") }, null,
     sliderRow("记忆上下文条数", "每次群成员回复时真正读到的就是这些条——超出的一句都不进上下文。", ctxN, setCtxN, 10, 300, 5, " 条"),
     sliderRow("总结触发阈值", "群聊累积多少条后，自动把较早的对话总结进记忆库。", sumThresh, setSumThresh, 40, 400, 10, " 条"),
@@ -23686,13 +23703,14 @@ function ResetChooser({ character, preset, onClose, onRun }) {
 //   「所有角色」的那几条：取消＝只对 TA 关（记在 offFor）；绑给别人的那几条：勾上＝把 TA 也绑进去。
 //   不改条目本身的开关和去向——那是整本书的事，这里只管 TA 用不用。
 // 顶上「全部 / 只看没勾的」（群友 2026-10-26：一长串里一条条找没勾的太累；原来另起一栏，跟这一栏几乎重复，她 2026-10-26 并回来）
-function ChatLorePicker({ character, entries, onBulk }) {
+function ChatLorePicker({ character, entries, onBulk, groupId }) {
   const t = useTheme();
   const id = character && character.id;
   const [shut, setShut] = useState({});
   const live = (entries || []).filter(e => e && e.enabled !== false && String(e.payload || "").trim() && e.category !== "生图");
-  const uses = e => { const b = e.charIds || []; return (!b.length || b.includes(id)) && !(e.offFor || []).includes(id); };
-  const turn = (list, on) => onBulk(list.map(e => e.id), e => {
+  // 群（含群里的小房间）那一份（群友 2026-11-16）：勾上＝这条绑在这个群，只进这个群；取消＝从这个群解绑，一个群都不绑了就回到原来的去向
+  const uses = groupId ? (e => (e.groupIds || []).includes(groupId)) : (e => { const b = e.charIds || []; return (!b.length || b.includes(id)) && !(e.offFor || []).includes(id); });
+  const turn = groupId ? ((list, on) => onBulk(list.map(e => e.id), e => { const g = (e.groupIds || []).filter(x => x !== groupId); return { ...e, groupIds: on ? g.concat(groupId) : g }; })) : (list, on) => onBulk(list.map(e => e.id), e => {
     const offFor = (e.offFor || []).filter(x => x !== id), b = e.charIds || [];
     if (on) return { ...e, offFor, charIds: b.length && !b.includes(id) ? b.concat(id) : b };
     return { ...e, offFor: offFor.concat(id) };
@@ -23712,7 +23730,7 @@ function ChatLorePicker({ character, entries, onBulk }) {
       [[false, "全部"], [true, "只看没勾的" + (offN ? " · " + offN : "")]].map(([v, zh]) => h("button", { key: zh, "data-part": v ? "off" : "all", "data-on": offOnly === v ? "1" : "0", onClick: () => setOffOnly(v),
         style: { flex: 1, minHeight: 40, border: "none", background: offOnly === v ? t.ink : "transparent", color: offOnly === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, zh))),
     offOnly && !shown.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "6px 0" } }, "在用的词条 TA 全都用着。" + (shutN ? "世界书里还有 " + shutN + " 条是关着的，谁都不用，这里不列；要用先去世界书把那一条或那一夹的开关打开。" : "")) : null,
-    offOnly && !shown.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 6 } }, offOnly ? "这几条 TA 现在没在用。点一条就给 TA 用上，当场生效，不影响别的人。" : "勾着的是 TA 用的。点了当场生效，不影响别的人；关键词、去哪几处照世界书里那条来。"),
+    offOnly && !shown.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 6 } }, groupId ? "勾上的那几条绑在这个群：只进这个群，单聊和别的群都不带；没勾的照原来的去向走（所有人的、绑给在场谁的照样进）。" : offOnly ? "这几条 TA 现在没在用。点一条就给 TA 用上，当场生效，不影响别的人。" : "勾着的是 TA 用的。点了当场生效，不影响别的人；关键词、去哪几处照世界书里那条来。"),
     names.map(fd => {
       const items = shown.filter(e => fOf(e) === fd);
       if (!items.length) return null;
@@ -23727,7 +23745,7 @@ function ChatLorePicker({ character, entries, onBulk }) {
           style: { gap: 10, padding: "7px 0 7px 22px", background: "transparent", border: "none", textAlign: "left" } },
           box(uses(e)),
           h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: uses(e) ? t.ink : t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title || "未命名设定"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, (e.charIds || []).length ? "绑人" : "所有人"))));
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, (e.groupIds || []).length ? ((e.groupIds || []).includes(groupId) ? "只在这里" : "绑在别的群") : (e.charIds || []).length ? "绑人" : "所有人"))));
     }));
 }
 function ChatSettings({

@@ -1831,7 +1831,10 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
           h("div", { "data-wk": "lorebody", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.55, color: t.sub, marginTop: 6, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, String(e.payload || "内容为空")),
           // 给谁看：这个 app 里「谁」是有脸的，别写成一串名字
           h("div", { style: { display: "flex", alignItems: "center", gap: 7, marginTop: 10, flexWrap: "wrap" } },
-            people.length
+            // 绑在群上的（群友 2026-11-16）：只进那几个群，卡上写清楚，别显示成「所有角色」
+            (e.groupIds || []).length
+              ? h("span", { "data-wk": "loregroupbind", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "只给群：" + (e.groupIds || []).map(id => { try { const g = (loadJSON("x_groups", []) || []).find(x => x && x.id === id); return g && g.name; } catch (er) { return ""; } }).filter(Boolean).join("、"))
+            : people.length
               ? h("div", { style: { display: "flex", alignItems: "center" } }, people.slice(0, 4).map((c, ix) => h("div", { key: c.id, style: { marginLeft: ix ? -6 : 0, borderRadius: 999, boxShadow: "0 0 0 1.5px " + t.bg } }, h(Avatar, { character: c, size: 19, radius: 999 }))),
                   people.length > 4 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginLeft: 4 } }, "+" + (people.length - 4)) : null)
               : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "所有角色"),

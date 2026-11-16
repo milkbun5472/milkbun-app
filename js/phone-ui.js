@@ -1654,7 +1654,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
         // 真发在她 App 里的那几条（m._id）能用 TA 的名义评论：落成 TA 本人写的一条评论，TA 下次说话知道自己手机被你拿去回过
         m._id && !drive && window.__peekMomentComment ? (mReply === m._id
           ? h("div", { "data-wk": "pmomreply", className: "flex items-center", style: { gap: 6, marginTop: 8 } },
-              h("input", { value: mText, onChange: e => setMText(e.target.value), autoFocus: true, placeholder: "用 " + ((char && char.name) || "TA") + " 的名义评论…", style: { flex: 1, minWidth: 0, padding: "7px 10px", borderRadius: 6, border: "1px solid #ddd", fontFamily: F_BODY, fontSize: 16, background: "#fff", color: "#222" } }),
+              h("input", { value: mText, onChange: e => setMText(e.target.value), autoFocus: true, placeholder: "用 " + ((char && char.name) || "TA") + " 的名义评论…", style: { flex: 1, minWidth: 0, padding: "7px 10px", borderRadius: 6, border: "1px solid #ddd", fontFamily: F_BODY, fontSize: "max(16px, calc(14px * var(--app-fs, 1)))", background: "#fff", color: "#222" } }),
               h("button", { onClick: () => { const tx = mText.trim(); if (!tx) return; window.__peekMomentComment(char.id, m._id, tx); setMText(""); setMReply(null); }, style: { padding: "7px 12px", borderRadius: 6, background: "#07c160", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "发送"))
           : h("button", { "data-wk": "pmomreplybtn", onClick: () => { setMReply(m._id); setMText(""); }, style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#526786" } }, "评论")) : null));
     body = h("div", { style: { background: "#fff" } },

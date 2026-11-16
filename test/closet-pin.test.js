@@ -15,5 +15,5 @@ test("衣柜里每身都能钉住，写的就是出图常服那一格；再点�
 
 test("「我」的资料里不再摆出图常服那一栏，但存的时候原样带着", () => {
   assert.doesNotMatch(comps, /"出图常服（可选）：填了就每张都穿这一身。/);
-  assert.match(comps, /refPhoto: refPhoto, photoOutfit: photoOutfit\.trim\(\), geoRealm: geoRealm \|\| ""/);
+  assert.match(comps, /refPhoto: refPhoto, refExtras: \(refExtras \|\| \[\]\)\.filter\(Boolean\)\.slice\(0, 2\), photoOutfit: photoOutfit\.trim\(\), geoRealm: geoRealm \|\| ""/);
 });

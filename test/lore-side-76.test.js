@@ -12,6 +12,6 @@ test("聊天与线下可以只挑一半", () => {
 });
 test("单人、群线下都走 offline 去向", () => {
   assert.match(app, /oCtx\.worldbook = loreText\(loreRef\.current, \{ charIds: \[charId\], scope: "offline"/);
-  assert.match(app, /charIds: \(group\.memberIds \|\| \[\]\), scope: "offline", text: offText/);
+  assert.match(app, /charIds: \(group\.memberIds \|\| \[\]\), groupId: group\.id, scope: "offline", text: offText/);
   assert.match(ui, /data-lore-side/);
 });

@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.682";
+const APP_VERSION = "v89.694";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -558,6 +558,16 @@ function App() {
   const bannerTimers = useRef([]);
   const bootAtRef = useRef(Date.now());   // 开机那几秒别弹：那会儿正在把存档和云端接上
   useEffect(() => () => { bannerTimers.current.forEach(clearTimeout); bannerTimers.current = []; }, []);
+  // 兜底扫一遍（她 2026-11-15「消息提示卡在上面下不来了」）：手机切后台、计时器被系统吞掉时，横幅会停在半透明那一下。
+  //   摞里有横幅就每两秒看一眼，到点没走的直接拿掉；回到前台也立刻扫一次
+  useEffect(() => {
+    if (!banners.length) return;
+    const sweep = () => setBanners(p => { const now = Date.now(), n = p.filter(x => !x.bornAt || now - x.bornAt < BANNER_MS + BANNER_OUT_MS + 1500); return n.length === p.length ? p : n; });
+    const iv = setInterval(sweep, 2000);
+    const vis = () => { if (!document.hidden) sweep(); };
+    document.addEventListener("visibilitychange", vis);
+    return () => { clearInterval(iv); document.removeEventListener("visibilitychange", vis); };
+  }, [banners.length > 0]);
   const groupsRef = useRef([]);
   groupsRef.current = groups; // 动念那条链在 setInterval 里读它，闭包拿不到最新的 groups
   const [chats, setChats] = useState({});
@@ -5332,6 +5342,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 横幅进摞、到点翻走：聊天来的和 App 来的（小窝管理员的新消息）走同一份
   const queueBanner = b => {
+    b = { ...b, bornAt: Date.now() };
     setBanners(p => [b, ...p].slice(0, 4));
     const t1 = setTimeout(() => setBanners(p => p.map(x => x.key === b.key ? { ...x, leaving: true } : x)), BANNER_MS);
     const t2 = setTimeout(() => setBanners(p => p.filter(x => x.key !== b.key)), BANNER_MS + BANNER_OUT_MS);
@@ -10265,7 +10276,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     worldbook: (() => {
       const sess = (groupOfflinesRef.current[group.id] || []).find(s => s && !s.endTs);
       const offText = sess && Array.isArray(sess.msgs) ? sess.msgs.slice(-8).map(m => m.content || "").join("\n") : "";
-      return loreText(loreRef.current, { charIds: (group.memberIds || []), scope: "offline", text: offText });
+      return loreText(loreRef.current, { charIds: (group.memberIds || []), groupId: group.id, scope: "offline", text: offText });
     })(),
     timeAware: (group.memberIds || []).some(id => timeAwareFor(id)),
     // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了
@@ -10719,7 +10730,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const histText = (sess.msgs || []).filter(m => !isOocMsg(m) && m.content).slice(-20).map(m => m.role === "narration" ? "【场景】" + m.content : (m.role === "user" ? userName(profile) : m.senderName || "某人") + "：" + m.content).join("\n");
       // 世界书走和正戏同一个筛选引擎（v48.20）：之前塞的是 deriveWorldbook 全量拼接（无视 scope/关键词），
       // 一条正戏根本不会注入的全局词条就能让群 OOC 永远被 Gemini 拦（正戏通/单聊OOC通/群OOC拦 的诡异组合）
-      const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
+      const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), groupId: groupId, scope: "chat", text: histText });
       const res = await oocAskGroup(groupOfflineApiFor(groupId), { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [], oocMsgs: sess.msgs || [] }, text.trim());
       if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(groupId, res.directive, res.replaced);
       pushGOffMsg(groupId, { id: "ooca_" + Date.now(), role: "assistant", kind: "ooc", content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() });
@@ -16618,7 +16629,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 互通群复用单聊更新标准；封闭群不写回。
       const impressionField = window.Gaze && gs.memoryInterop ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"更新后的整块正文\"}（可选；" + window.Gaze.updateRule(userName(profile)) + "）" : "";
       // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
-      const gWorld = loreText(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist });
+      const gWorld = loreText(loreRef.current, { charIds: members.map(m => m.id), groupId: groupId, scope: "chat", text: hist });
       // 群规矩（用户 OOC 立的长期准则，复用 directives[groupId]）→ 注入，让群成员记得并遵守（item 4）
       const gDirs = (directives[groupId] || []).map(d => {
         if (typeof d === "string") return d.trim();
@@ -16848,10 +16859,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         meta: _gReasonMeta
       });
       // 这一轮翻出来的〔照做〕条目，排在这一轮最末尾再说一遍（跟单聊同一支 loreDoNow）
-      const _gDoTail = typeof loreDoNow === "function" ? loreDoNow(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist }) : "";
+      const _gDoTail = typeof loreDoNow === "function" ? loreDoNow(loreRef.current, { charIds: members.map(m => m.id), groupId: groupId, scope: "chat", text: hist }) : "";
       // 群里的导演便签（她 2026-10-26）：跟单聊同一句、同一套扣轮，只给模型看
       const _gDirLive = chatDirNotesLive("g:" + groupId);
       const _gDirHint = _gDirLive.length ? "\n\n〔幕后提醒，绝不出现在任何人说的话里〕想让接下来群里的聊天往这个方向走：" + _gDirLive.map(n => n.text).join("；") + "。由在场的人顺着自己的性子自然地聊过去，不用一下子说到。" : "";
+      // 每轮贴着生成再说一次心声从哪儿来（她 2026-11-15「群聊心声每个人只有一句，同一个模型单聊可以一大段」）：
+      //   单聊每轮末尾都有「先想一下 TA 此刻怎么看她刚说的这句话」，群里心声那段只在系统最上面，离生成太远，模型就照气泡的样子随手挂一句
+      const _gThoughtTurn = "\n\n【本轮心声】开口的每个人，挂心声之前先在他自己脑子里过一遍：刚才这几句里他最在意哪一下、在他看来是什么意思、他这个脾气会怎么想它——thought 就从这儿写出来，跟他单独跟她聊天时心里转的一样多，不用跟着气泡的短。";
+      userContent += _gThoughtTurn;
       let raw = await _gShoot(userContent + _gDirHint + _gDoTail);
       // 邮票册：群里一轮（自己聊、重 roll 不算）
       if (raw && !(rgOpts && (rgOpts.auto || rgOpts.rerollAvoid)) && typeof stampGain === "function") stampGain("round");
@@ -17426,7 +17441,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
       const histText = (groupChatsRef.current[groupId] || []).filter(m => !isOocMsg(m) && m.content && contextAllowsMessage(m)).slice(-20).map(m => m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? userName(profile) : m.senderName || "某人") + "：" + m.content).join("\n");
       // 世界书走和正戏同一个筛选引擎（v48.20，理由同群线下 OOC 处注释）
-      const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
+      const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), groupId: groupId, scope: "chat", text: histText });
       const res = await oocAskGroup(groupApiFor(groupId), { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [], oocMsgs: groupChatsRef.current[groupId] || [] }, text.trim());
       if (!res.refused && (res.directive || (res.replaced || []).length)) addDirective(groupId, res.directive, res.replaced); // 群准则复用 directives[groupId]，注入 replyGroup
       pGChat(groupId, p => [...p, { role: "assistant", kind: "ooc", content: res.reply + oocReplacedNote(res) + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() }]);
@@ -19151,7 +19166,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const BLOCK_STATE_SPEC = "\n另外三栏跟平时聊天一样每轮都填：thought＝" + (typeof THOUGHT_MEANING === "string" ? THOUGHT_MEANING : "")
     + "\nmood＝{\"label\":\"此刻中文心情词\"}；action＝此刻正在做什么，第一人称一句。"
     + "\n" + (typeof SCHED_NOW_SPEC === "string" ? SCHED_NOW_SPEC : "") + "（被拉黑以后，原来跟她在一块儿的那些安排多半已经不成立了）";
-  const BLOCK_STATE_SHAPE = ",\"thought\":\"没说出口的一句心声\",\"mood\":{\"label\":\"心情词\"},\"action\":\"此刻在做什么\",\"schedNow\":null";
+  const BLOCK_STATE_SHAPE = ",\"thought\":\"没说出口的心声，长短随念头\",\"mood\":{\"label\":\"心情词\"},\"action\":\"此刻在做什么\",\"schedNow\":null";
   const applyBlockTurnState = (charId, chatKey, d) => {
     try {
       if (!d) return;
@@ -25823,7 +25838,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const FORUM_XHS_CMT = " 【这是一篇小红书笔记，底下是它的评论区】说话是小红书评论区的样子，不是贴吧盖楼：一条条短评论、各说各的；提到发笔记的人就叫作者或博主，不说几楼、沙发、楼主这些贴吧的叫法；作者回评论时就是作者本人在回。"
   // 世界观排在最前、离吧的说明最近（群友 2026-10-26「不走剧情，还是想发啥发啥」）：原来只压在「论坛网友」那个人设里，
   //   离输出远，吧的说明一说「游戏、设备」，古代、武侠世界的楼里照样聊手机
-  const forumPostVoice = post => forumLoreLine(forumThreadWorld(post)) + "\n" + forumBoardVoice(post && post.board) + (post && post.fmt === "xhs" ? FORUM_XHS_CMT : "");
+  const forumPostVoice = post => forumLoreLine(forumThreadWorld(post)) + "\n" + forumBoardVoice(post && post.board) + (post && post.fmt === "xhs" ? FORUM_XHS_CMT : "")
+    // 匿名吧屏幕上一律是「匿名用户」（群友 2026-11-16：网友在匿名帖里点名「香菜必须死」、还说只有勾了匿名的才显示匿名，楼主看到的明明全是匿名）：
+    //   名字只是给你分清谁是谁，楼里的人谁也看不见
+    + (post && (post.board === "匿名吧" || post.anon) ? FORUM_ANON_SEEN : "");
+  const FORUM_ANON_SEEN = "\n【这帖是匿名的】楼里每个人在屏幕上显示的都只是「匿名用户」（发帖的她显示「匿名者」），谁也看不见谁的网名、id，也没有谁是例外。上面原文里带的名字只是给你分清谁说了哪句；写出来的话里不提任何人的网名、id，指人就说几楼、楼上、楼主、层主，也不会有人说自己看见了谁的名字。";
   const forumBoardVoice = b => ({
     "吐槽吧": "「吐槽吧」：网友在这儿发牢骚、阴阳怪气、吐槽不爽。语气刻薄、损、带情绪、标题党，别正能量别说教。",
     "日常吧": "「日常吧」：网友分享兴趣、日常、和谁都无关的琐碎生活。语气松弛随意、有生活气，像随手一发。",
@@ -35834,6 +35853,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSwitchRoom: id => { const g = groups.find(x => x && x.id === id); if (g) { setActiveGroup(g); clearUnread(g.id); } },
     unreadMap: unreadMap,
     onNewRoom: (name, kind) => createGroupRoom(activeGroup.roomOf || activeGroup.id, name, kind),
+    loreEntries: loreEntries,
+    onLoreBulk: (ids, patch) => { const set = new Set(ids || []); saveLore(loreRef.current.map(e => set.has(e.id) ? (typeof patch === "function" ? patch(e) : { ...e, ...patch }) : e)); },
     onClearGroupChat: wipeMem => clearGroupChat(activeGroup.id, wipeMem),
     onOffline: () => openGroupOffline(activeGroup),
     emotes: emotesForGroupMine(activeGroup.memberIds),

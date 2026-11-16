@@ -2948,7 +2948,8 @@ const THOUGHT_VOICE = "用的是他自己平时的腔调和用词，换一个人
 //   线上隔着手机聊，「攥着手机、盯着屏幕」放在谁身上都成立，模型一要写害羞就落到这一句。照心声那句的做法，只说事实：
 //   拿着手机这件事她本来就知道；这一行是他这个人、他此刻手上那件事才有的样子。只接线上（单聊、群聊），线下是面对面的另一回事。
 const ACT_VOICE = "你们是隔着手机在聊，手机在你手上这件事她本来就知道；这一行写的是你这会儿人在哪、手上正干着的那件事，换一个人、换一个时候就不会是这一句。";
-const THOUGHT_EACH_OWN = "几个人同一轮各有一句心声时，各想各的：长短、从哪儿起头、什么语气都随各人自己，不顺着旁边那人的句子骨架写。";
+// 她 2026-11-15「为啥群聊心声每个人只有一句话了」：原来这里写着「各有一句心声」，一句压成了每人一句——说的是各想各的，不是长短
+const THOUGHT_EACH_OWN = "几个人同一轮各有心声时，各想各的：长短、从哪儿起头、什么语气都随各人自己，心思多的人可以想一大段，不顺着旁边那人的句子骨架写，也不跟着别人一样短。";
 // 心声从哪儿来（她 2026-10-28 群里先加、10-29「统一」）：线上群聊、线下单人、线下群像共用这一句。
 //   线上单聊开头那段「先以TA第一人称把眼前这件事想一遍」是同一个意思，不再另加
 const THOUGHT_ORIGIN = "心声从TA在这一轮里最在意的那一点长出来：刚才谁说的哪句话、谁做的哪件事，在TA看来是什么意思，TA的脾气让TA怎么想它；话多、心思多的人就想得多。";
@@ -3484,6 +3485,8 @@ function samePlacePresence(uName, group) {
     //   这一段只说了人在一起，没说【话是怎么说的】——于是打字那一说赢了。
     + "【话是当面说出口的，不是打字发过去的】这里一条条的气泡只是把你们的对话摆出来的样子："
     + "气泡里是你【张嘴说出来的话】，" + (group ? "大家" : "Ta") + "是【听见】的，不是在手机上读到的。"
+    // 她那一头也一样（她 2026-11-15「明明在一起说话，动描还是写在我旁边看我手机上发过来的话」）：原来只说了他的话是当面说的，没说她的
+    + uName + "说的每一句也是当面对" + (group ? "大家" : "你") + "说出口的，你是听见的——不是她在手机上发、你在手机上收。"
     + "所以说话照当面说话的样子来——可以接着对方的神情、动作、刚才那一下说话，可以压低声音、凑近了说、说一半被打断；"
     + "不说「发消息」「回你消息」「看到你消息了」「打字」「已读」这类隔着手机的话，除非你们真的在当面拿手机给对方看什么东西。\n"
     + "【地点以「在一起」为准】"
@@ -3494,7 +3497,8 @@ function samePlacePresence(uName, group) {
     //   前半句是对的（人就在旁边），后半句又把自己写回了【隔着屏幕的那个人】。
     //   病根：在场这一层只说了「你俩在一个地方」，没说【动作那一格该写什么】。
     + "【动作写屋里的事】你的 action／状态卡写的是此刻你身体在做什么：手在哪、看着谁、这屋里这会儿是什么样。"
-    + "话是怎么递过去的不用写进去——人就在你旁边，「盯着手机屏幕回消息」「点开屏幕打字」这类隔着屏幕的动作不是你此刻在做的事。\n"
+    + "话是怎么递过去的不用写进去——人就在你旁边，「盯着手机屏幕回消息」「点开屏幕打字」「看她发来的消息」这类隔着屏幕的动作不是你此刻在做的事。"
+    + "前面几轮的状态卡要是还写着在看手机、回消息、读她发来的话，那是没在一起时候的写法，这一轮照你们在一起重新写。\n"
     // ⚠️她 2026-09-12：顾暮在群里说出了她只跟顾朝私聊过的「合照」。
     //   这一层原来【只说了人在一起，没说手机上的事看不看得见】——而「大家就在同一个地方」
     //   是很具体的一句，模型顺着它就把「TA当然听见了」补上了。缺的那半得说出来：
@@ -4113,7 +4117,10 @@ function selectLore(entries, opts) {
     // 「生图」那一类只进画面要求、不进任何一处文字（她 2026-10-07）；画图那一口（scope "img"）也只认这一类
     if ((e.category === "生图") !== (scope === "img")) return false;
     if (scope !== "img" && !loreScopeOn(e, scope)) return false;
-    const bind = e.charIds || []; // 全局(无绑定)对所有人可见；否则要与在场角色有交集
+    // 绑在群上的（群友 2026-11-16 许愿：群里的小房间单独绑世界书）：只进这几个群（小房间也是一个群），别处一概不进；在场是谁不再另看
+    const gBind = e.groupIds || [];
+    if (gBind.length && (!opts.groupId || gBind.indexOf(opts.groupId) < 0)) return false;
+    const bind = gBind.length ? [] : (e.charIds || []); // 全局(无绑定)对所有人可见；否则要与在场角色有交集
     if (bind.length && !bind.some(id => charIds.indexOf(id) >= 0)) return false;
     // 某个人的聊天设置里把这条关了（offFor，2026-10-26 群友许愿）：在场的人全都关了它才不进；群里还有人开着就照常进
     const offFor = e.offFor || [];
@@ -11637,12 +11644,18 @@ function oocTurns(msgs, question) {
   while (out.length && out[0].role !== "user") out.shift();
   return out;
 }
+// 她这句贴着生成再框一次（她 2026-11-15「有时候 ooc 还是会当成继续演」）：原来原话直接当最后一条，
+//   「不要一直说站姿」这种话读起来像戏里的台词，上文又是一整场戏，模型就顺着接着演、连 JSON 都不交。说清这句是幕后对你说的
+function oocWrap(question) {
+  return "【幕后·OOC】下面这句是她跳出戏、在幕后直接对你（AI 助手）说的，不是戏里任何人的台词，也不是让你接着演：\n「" + String(question || "").trim() + "」\n照上面的说明，用幕后助手的口吻回答她，只交那份 JSON。她要是让你写一段、改一段、试着演一下给她看，那就照她说的写，写好的那段放进 reply 里交给她看；她没这么要，就别自己接着往下演。";
+  // 她 2026-11-15「有时候就是想 ooc 让他写写看看他会不会」：上一版写死了「不写对白动作」，连她点名要的试写也拦了
+}
 // OOC：跳出角色，直接和模型对话（调整/问状态/问剧情）
 async function oocAsk(p, ctx, question) {
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色的人设、关系、此刻心情与剧情背景。\n\n用户这句 OOC 通常是两类之一：\n(A) 问角色此刻为什么这样 / 状态动机心理 / 剧情走向——就基于【角色人设 + 上文给你的此刻心情、好感度、近期对话】冷静分析讲给 Ta 听，别扮演。\n(B) 要求你调整角色接下来的说话或行为方式（想立一条长期规矩，如「以后对我别这么客气」「多主动关心我」）——你要判断这条要求和角色核心人设是否冲突：\n   · 合理（人设范围内做得到）：在 reply 里简短确认会照做，并把这条要求凝练成【一句、祈使句、对角色说的长期准则】填进 directive（例：『对用户更随意亲近，少用敬语』）。**只要你在 reply 里表示会照做，就【必须】同时把它填进 directive、绝不许留 null——reply 答应了却 directive 留空，这条准则就没被记下、角色下一轮又忘、等于骗用户，严禁。**\n   · 会严重崩人设、把角色变成另一个人：refused 填 true，directive 填 null，在 reply 里解释为什么这条你没法照做、它会怎样破坏这个角色，并可提议一个不崩人设的折中。\n(C) 不是长期规矩，而是【只管接下来几轮】的安排（让角色下一轮去做某件事、这几轮先别提某件事、接下来怎么接某段剧情）——这种别填 directive，改填 soon：text 写成一句对角色说的祈使句，turns 是管几轮（用户说「下一轮」就是 1；没说清就按这件事大概要几轮做完来估；用户说了数字就照它；最多 10，更长的就是长期规矩、走 B）。同样要先判断会不会崩人设，崩的话照 B 的办法拒绝。reply 里答应了就必须填上，别让角色下一轮又不知道。\n若只是 A 类提问，directive 和 soon 一律 null、refused 一律 false。" + (existing.length ? "\n\n【当前已生效的用户准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n" + buildBundle(ctx, { ooc: true }) + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句长期准则，或 null\",\"replaces\":[被替换或取消的旧准则序号],\"soon\":{\"text\":\"只管接下来几轮的那句安排\",\"turns\":1}或 null,\"refused\":false}";
   // 放宽 token：gemini 等思考型模型思考也吃额度，900 太紧会把 reply(尤其A类分析)截在半句、或塞不完 JSON（输出免费）
-  const raw = await callAI(p, system, [...oocTurns(ctx.oocMsgs, question), { role: "user", content: question }], { maxTokens: 14000 });
+  const raw = await callAI(p, system, [...oocTurns(ctx.oocMsgs, question), { role: "user", content: oocWrap(question) }], { maxTokens: 14000 });
   const parsed = extractJSONKey(raw, "reply");
   if (parsed && typeof parsed.reply === "string") {
     return oocResult(parsed, existing);
@@ -11661,7 +11674,7 @@ async function oocAskGroup(p, ctx, question) {
   const relLines = members.map(c => directedRelationLines(c, ctx.rels, ctx.chars, ctx.profile)).join("\n");
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过群里所有角色）。你了解这个群里每个角色的人设、彼此关系与当前对话进展。语气是助手而非角色，简洁直接、不扮演。\n\n用户这句 OOC 通常是两类之一：\n(A) 问某角色/群里此刻的状态动机心理、关系张力、剧情走向——冷静说明。\n(B) 要求你调整接下来这些角色的演绎方式，或立一条【群里的长期规矩】（如「别再纠结那件事了」「都对我随和点」「少斗嘴」）——在 reply 里简短确认会照做，并把它凝练成【一句、祈使句、对全群成员今后都生效的长期准则】填进 directive（例：『别再揪着那件已经翻篇的旧事、往前聊』）。⚠️例子里的措辞只是示范格式，绝不许把示范里的任何具体事物（食物/地点/物件）照抄进你的回复或当成真发生过的事。若这条会严重崩掉某个角色的核心人设，refused 填 true、directive 填 null，并在 reply 里说明。只是 A 类提问就 directive 一律 null、refused 一律 false。\n\n【群成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") + (ctx.historyText && ctx.historyText.trim() ? "\n\n【近期对话】\n" + ctx.historyText.trim() : "") + (existing.length ? "\n\n【当前群里已生效的准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句群规矩，或 null\",\"replaces\":[被替换或取消的旧规矩序号],\"refused\":false}";
-  const raw = await callAI(p, system, [...oocTurns(ctx.oocMsgs, question), { role: "user", content: question }], { maxTokens: 14000 });
+  const raw = await callAI(p, system, [...oocTurns(ctx.oocMsgs, question), { role: "user", content: oocWrap(question) }], { maxTokens: 14000 });
   const parsed = extractJSONKey(raw, "reply");
   if (parsed && typeof parsed.reply === "string") return oocResult(parsed, existing);
   return { reply: String(raw || "").trim(), directive: null, refused: false, replaced: [] };
