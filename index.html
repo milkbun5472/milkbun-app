@@ -151,9 +151,9 @@
       // 这台网慢：下次开机起公共版改成一块一块下（发布时装订的加载器读它，7 天后作废）
       try { localStorage.setItem("qq_boot_slow", String(Date.now())); } catch (x) {}
       var bq = window.__bootSeq;
-      card("还在下载，没卡住（已等 " + Math.round(waited / 1000) + " 秒" + (bq && bq.total ? "，已下好 " + bq.done + " / " + bq.total + " 块" : "") + "）",
+      card("还在下载，没卡住（已等 " + Math.round(waited / 1000) + " 秒" + (bq && bq.total ? "，已下好 " + bq.done + " / " + bq.total + " 块" : "") + (bq && bq.bytes ? "，收到 " + Math.round(bq.bytes / 1024) + " KB" : "") + "）",
         (bq && bq.total ? (bq.seq ? "一块一块在下，<b>下好的那几块会存在手机里</b>，就算被打断，下次也是接着下。" : "这台的网有点慢，<b>下次打开会改成一块一块下</b>，下好的存住、被打断也接着下。") : "") + "这次更新换了新的一份，要重新下一遍（两兆多）。网慢的手机要等上几分钟，在国内第一次可能要十来分钟，"
-        + "<b>这期间别按「重新加载」、别锁屏、别切出去</b>——正在下的那块会白下。连 Wi-Fi 会快很多。<b>你的存档一个字都没少</b>。");
+        + "<b>这期间别按「重新加载」</b>——正在下的那块会白下；哪块二十秒没动静会自动断开重下，不用自己切出去切回来。连 Wi-Fi 会快很多。<b>你的存档一个字都没少</b>。");
       setTimeout(function () { verdict(waited + 6000); }, 6000);
       return;
     }
