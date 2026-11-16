@@ -1,16 +1,18 @@
-# 莓粉卫衣裙：顺肩与鞋袜对齐正式接入
+# 莓粉卫衣裙：圆袖根与细袖口正式版
 
 Lisa 提供 `993c05918b88e427787836d7439a45aa.glb`，要求套到现有小人，先看适配再发版。源为莓粉小花卫衣、白内搭、奶油短裙、袜子和拼色运动鞋。**初稿被指出领口高、抬手腋下怪；切片修法失败。round-sleeves-v3 又被指出袖根尖、磨平原版褶皱，不能当作认可稿。authored-folds-v5又被指出太累赘；v7又被指出肩部鼓包；Lisa已确认shoulder-slope-v8并授权发版，已发布v89.674并接入正式衣柜。**
 
-- 正式运行文件：`apps/fairy-garden/outfits/berry.glb`，2659696字节／67427三角面，SHA256 `2e67639aa228aa602ce71e45b095c6440ccc0118e6e91fa8abc131d1acd49c4c`。原确认预览仍为shoulder-slope-v8/compressed/berry.glb。
-- 正式打包：`package_berry.py`守卫预览SHA；三张PNG按原分辨率转WebP质量95，网格/蒙皮/形变二进制逐字不变。清预览初始形变值，移除遗留slotBase数组（本套使用colorSlot/dyeTexture）；正式首载预算无需放宽。prepared_outfits.json经dye_regions.py生成共用目录。
-- 可编辑源：同目录 `berry-ready.blend`；真实对比 `review.html`／`comparison.png`，最终 Chrome/WebKit 实图与报告在 `chrome/`、`webkit/`；身份见 `delivery.json`。
+- 正式运行文件：`apps/fairy-garden/outfits/berry.glb`，2638244字节／67427三角面，SHA256 `f190667a51f9c6d9c72a5f0fd23a6aea97ce9d0582bae31509c4cc94e7fbcd25`，与已确认round-root-v11/compressed/berry.glb逐字节相同。
+- 正式源与复现：round-root-v11/berry-ready.blend；fit.py读v10源→KEEP_FLOAT='Berry cloth' compressed/pack-morphs.py。模型直接WebP95、形变初值0；不要用只接受旧v8 SHA的package_berry.py。沿现有prepared_outfits/dye_regions目录注册，ID与六区配色存档保持。
+- 实图与验证：round-root-v11/review.html、comparison.png、delivery.json、chrome/webkit；发布证据在round-root-v11/release/。
 - 本机证据根：`/Users/lisa/.codex/visualizations/2026/11/14/01a1db4d-1d00-7601-b3b9-bc46958d51bf/hunyuan-993c-berry/`。该目录不会随 Git 同步；其他机器读不到须重新获取，不能当作已查看。
-- 独立树 `/private/tmp/lisa-berry-993c`，分支 `codex/berry-outfit-993c`，基线 `66d6d036a`；未改生产身体、动作或发型；本轮仅新增本套公共衣柜注册。
+- 独立树 `/private/tmp/lisa-berry-993c`，分支 `codex/berry-outfit-993c`，基线 `66d6d036a`；未改生产身体、动作或发型；本轮替换本套服装资产并更新攻略与内容缓存指纹。
 
-## 最新反馈：袖根连接太尖，v11待看未发布
+最新发布回执：**v89.675**，提交`db5a40da22a93cd53f7c0c934200c38025082176`，build `fg-eb6abfb2878f1bb1`，Pages `43784404080` 成功。47项发布检查通过，211个线上发布文件SHA逐字节一致；线上正式衣柜选择、六区染色、换装/刷新保存、恢复默认、角色隔离、320/390宽度均通过。v9/v10未单独发布，v11包含细袖口与内侧清理；原身体及公共动作未改。
 
-Lisa指出v10抬手连接处仍太尖。round-root-v11以v10为源，上袖径向渐扩最多24%、封口沿轴向内延长最多.035，t≥.100固定；顶高增量渐减55%，避免鼓肩。首试32%扩径鼓肩、完全锁顶又导致上沿急折，已弃。最终2638244字节/67427面，SHA `f190667a51f9c6d9c72a5f0fd23a6aea97ce9d0582bae31509c4cc94e7fbcd25`。压缩重载64体型零翻面/零退化；Chrome/WebKit四体型走坐左右抬手/六色通过，32组原骨骼差异0。身体/非袖子/下袖固定区几何形变、所有骨权重/拓扑UV保持，原褶皱/细袖口与鞋袜保留。证据round-root-v11/README、review.html/comparison.png、delivery、compressed和chrome/webkit；fit.py读v10→KEEP_FLOAT='Berry cloth' compressed/pack-morphs复现。造型待Lisa看，未实体iPhone或全碰撞穷举，正式仍v89.674。
+## 圆袖根v11：Lisa已确认并授权发布
+
+Lisa指出v10抬手连接处仍太尖。round-root-v11以v10为源，上袖径向渐扩最多24%、封口沿轴向内延长最多.035，t≥.100固定；顶高增量渐减55%，避免鼓肩。首试32%扩径鼓肩、完全锁顶又导致上沿急折，已弃。最终2638244字节/67427面，SHA `f190667a51f9c6d9c72a5f0fd23a6aea97ce9d0582bae31509c4cc94e7fbcd25`。压缩重载64体型零翻面/零退化；Chrome/WebKit四体型走坐左右抬手/六色通过，32组原骨骼差异0。身体/非袖子/下袖固定区几何形变、所有骨权重/拓扑UV保持，原褶皱/细袖口与鞋袜保留。证据round-root-v11/README、review.html/comparison.png、delivery、compressed和chrome/webkit；fit.py读v10→KEEP_FLOAT='Berry cloth' compressed/pack-morphs复现。Lisa于2026-11-15确认本稿「发吧」。未实体iPhone或全碰撞穷举。
 
 ## 此前v10：抬手袖根仍被指出太尖（未发布）
 
@@ -18,11 +20,11 @@ Lisa再次指出抬手怪，要求参考旧几批衣服。v9只能解决袖口�
 
 最新sleeve-fit-v10/compressed/berry.glb：2633096字节/67427面，SHA256 `62122e8f79851d946113ade2b7f36997279a771ff4dec4e691e8b189c2cf52ed`。fit.py读取v9源及reference-ranger.blend，轴向t<.100内最近表面拟合85%，最多移动.01863；100%拟合造成两个极小面退化已弃。最终相对源零反向面、64体型零翻面/零退化，Chrome/WebKit四体型走坐左右抬手/六区通过，32组原骨骼零差异。身体/非袖子和下袖固定区几何形变、拓扑UV保持；袖子权重明确有变，原动作未动。
 
-证据根sleeve-fit-v10/README、review.html、delivery.json、preservation-report、references/与chrome/webkit。复现fit→KEEP_FLOAT='Berry cloth' compressed/pack-morphs；v10直接WebP导出，不用只接受v8 SHA的package_berry.py。**造型待Lisa复看，未发布；线上仍v89.674/v8。** 未实体iPhone或全碰撞穷举。
+证据根sleeve-fit-v10/README、review.html、delivery.json、preservation-report、references/与chrome/webkit。复现fit→KEEP_FLOAT='Berry cloth' compressed/pack-morphs；v10直接WebP导出，不用只接受v8 SHA的package_berry.py。**本稿被指出连接仍尖，保留作过程对照；当前正式使用上文v11。** 未实体iPhone或全碰撞穷举。
 
 ## 此前v9：袖口与内侧修订（袖根被指出仍怪）
 
-正式v89.674上线后，Lisa指出袖口太厚、抬手内侧脏。当时候选cuff-clean-v9，2646980字节/67427面，SHA256 `075b8ac172c4d85f34f67936b8ffd219a173fcaaf1ac8e6cb3dc2ee48e0480cc`；线上仍为上述v8正式包，不能把本稿视为已上线。
+正式v89.674上线后，Lisa指出袖口太厚、抬手内侧脏。当时候选cuff-clean-v9，2646980字节/67427面，SHA256 `075b8ac172c4d85f34f67936b8ffd219a173fcaaf1ac8e6cb3dc2ee48e0480cc`；本稿未单独发布，其细袖口与内侧清理已包含在v11中。
 
 纯材质诊断确认内侧马蹄形深印来自旧烘焙把源袖口/夹层阴影投进袖身。v9按实际袖轴选内向表面，UV局部掩码压低旧暗斑对比，外侧和原罗纹图保留，几何褶皱正常光影仍在。依左右实测袖口轴，保内区r≤.063，外层多余半径收38%；罗纹接界缩短最多.006，宽过渡衔接袖身，最小Jacobian.3103。首试45%/.008过急未通过下限，已弃。
 
