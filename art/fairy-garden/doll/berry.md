@@ -8,7 +8,11 @@ Lisa 提供 `993c05918b88e427787836d7439a45aa.glb`，要求套到现有小人，
 - 本机证据根：`/Users/lisa/.codex/visualizations/2026/11/14/01a1db4d-1d00-7601-b3b9-bc46958d51bf/hunyuan-993c-berry/`。该目录不会随 Git 同步；其他机器读不到须重新获取，不能当作已查看。
 - 独立树 `/private/tmp/lisa-berry-993c`，分支 `codex/berry-outfit-993c`，基线 `66d6d036a`；未改生产身体、动作或发型；本轮仅新增本套公共衣柜注册。
 
-## 最新反馈：抬手袖根参照旧款重修（v10待看，未发布）
+## 最新反馈：袖根连接太尖，v11待看未发布
+
+Lisa指出v10抬手连接处仍太尖。round-root-v11以v10为源，上袖径向渐扩最多24%、封口沿轴向内延长最多.035，t≥.100固定；顶高增量渐减55%，避免鼓肩。首试32%扩径鼓肩、完全锁顶又导致上沿急折，已弃。最终2638244字节/67427面，SHA `f190667a51f9c6d9c72a5f0fd23a6aea97ce9d0582bae31509c4cc94e7fbcd25`。压缩重载64体型零翻面/零退化；Chrome/WebKit四体型走坐左右抬手/六色通过，32组原骨骼差异0。身体/非袖子/下袖固定区几何形变、所有骨权重/拓扑UV保持，原褶皱/细袖口与鞋袜保留。证据round-root-v11/README、review.html/comparison.png、delivery、compressed和chrome/webkit；fit.py读v10→KEEP_FLOAT='Berry cloth' compressed/pack-morphs复现。造型待Lisa看，未实体iPhone或全碰撞穷举，正式仍v89.674。
+
+## 此前v10：抬手袖根仍被指出太尖（未发布）
 
 Lisa再次指出抬手怪，要求参考旧几批衣服。v9只能解决袖口厚和暗斑，不能视为袖根通过。此次将ranger/cardigan/jacket与v9放到同一原版抬手动作、92%肩宽和相机对照。确认v8/v9的body混合绑定把袖根拽成弯钩；本套恢复整袖自身arm绑定，由既有bent-arms分肘，并用旧ranger实际袖根表面渐变拟合上袖，保留v9下袖和原褶皱。
 
