@@ -10,6 +10,12 @@ Lisa 提供 `993c05918b88e427787836d7439a45aa.glb`，要求套到现有小人，
 
 最新发布回执：**v89.675**，提交`db5a40da22a93cd53f7c0c934200c38025082176`，build `fg-eb6abfb2878f1bb1`，Pages `43784404080` 成功。47项发布检查通过，211个线上发布文件SHA逐字节一致；线上正式衣柜选择、六区染色、换装/刷新保存、恢复默认、角色隔离、320/390宽度均通过。v9/v10未单独发布，v11包含细袖口与内侧清理；原身体及公共动作未改。
 
+## 新反馈：袖口鼓褶只有半圈，v12待看未发布
+
+Lisa在v89.675实图指出袖口上方凸起只覆盖半圈。沿真实袖口轴测51截面×64向确认外侧显著鼓、内侧平；右侧t=-.070对比袖口t=-.030有17方向无凸起。cuff-fold-v12按实际袖口椭圆轮廓，校正上方低频偏心85%，保小褶皱与贴图；t≤-.130/t≥-.032固定，v11圆袖根与细袖口不动。首试朝圆形均值修仍有局部平，已弃。最小Jacobian左.83190/右.79029，最大位移.01757/.02308；修后64方向最小凸起高差左.007807/右.005917。
+
+最终2638352字节/67427面，SHA `0512136185c5915dd7c6dc3b4616580d0a5c122a933b493c22d4cbcc3c755b0a`。64体型零翻面/零退化、Chrome/WebKit四体型走坐左右抬手/六色通过、32组骨骼差异0。身体/非袖子/袖根和袖口固定区几何形变、所有骨权重/拓扑UV保持；固定区直接保原形变，避免重算head键产生微小浮点偏差。证据cuff-fold-v12/README、review.html/comparison、delivery、sections-before/after（原文件sections.json/sections-after.json）、chrome/webkit与preservation。复现analyze→fit→KEEP_FLOAT='Berry cloth' compressed/pack-morphs。未实机iPhone/全碰撞穷举；造型待Lisa看，正式仍v89.675。
+
 ## 圆袖根v11：Lisa已确认并授权发布
 
 Lisa指出v10抬手连接处仍太尖。round-root-v11以v10为源，上袖径向渐扩最多24%、封口沿轴向内延长最多.035，t≥.100固定；顶高增量渐减55%，避免鼓肩。首试32%扩径鼓肩、完全锁顶又导致上沿急折，已弃。最终2638244字节/67427面，SHA `f190667a51f9c6d9c72a5f0fd23a6aea97ce9d0582bae31509c4cc94e7fbcd25`。压缩重载64体型零翻面/零退化；Chrome/WebKit四体型走坐左右抬手/六色通过，32组原骨骼差异0。身体/非袖子/下袖固定区几何形变、所有骨权重/拓扑UV保持，原褶皱/细袖口与鞋袜保留。证据round-root-v11/README、review.html/comparison.png、delivery、compressed和chrome/webkit；fit.py读v10→KEEP_FLOAT='Berry cloth' compressed/pack-morphs复现。Lisa于2026-11-15确认本稿「发吧」。未实体iPhone或全碰撞穷举。
