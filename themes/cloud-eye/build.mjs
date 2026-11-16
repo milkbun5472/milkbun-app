@@ -38,6 +38,11 @@ const PIN = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 32'>${RAINB
 const OPENEYE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'>${RAINBOW_IRIS}<circle cx='40' cy='40' r='38' fill='#FFF6FB' stroke='#fff' stroke-width='2'/><path d='M12 40 Q40 14 68 40 Q40 66 12 40Z' fill='#fff' stroke='${C.ink}' stroke-width='2'/><circle cx='40' cy='40' r='13' fill='url(#ir)'/><circle cx='40' cy='40' r='5.5' fill='#1A1030'/><circle cx='44' cy='35' r='2.4' fill='#fff'/></svg>`;
 const CARD = `background:linear-gradient(180deg,rgba(255,232,244,.16),rgba(120,90,180,.22)) !important;border:none !important;border-radius:16px !important;box-shadow:inset 0 0 0 1px rgba(255,220,240,.55),0 0 18px rgba(255,180,230,.25) !important;color:#fff !important`;
 
+// ── 第三批：好感＝一只眼睛，好感越高睁得越大（底图是闭着的睫毛线，上面那只彩虹眼按好感纵向张开）
+const AFFBASE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 50'><path d='M6 25 Q40 46 74 25' fill='none' stroke='${C.fog}' stroke-width='1.6' stroke-linecap='round'/>${[14, 24, 34, 46, 56, 66].map((x, i) => `<path d='M${x} ${[30, 34, 36, 36, 34, 30][i]} l${x < 40 ? -2 : 2} 5' stroke='${C.fog}' stroke-width='1.4' stroke-linecap='round'/>`).join("")}</svg>`;
+const AFFEYE = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 50'>${RAINBOW_IRIS}<path d='M6 25 Q40 -4 74 25 Q40 54 6 25Z' fill='#fff' stroke='${C.cloud}' stroke-width='2'/><circle cx='40' cy='25' r='13' fill='url(#ir)'/><circle cx='40' cy='25' r='5.5' fill='#1A1030'/><circle cx='44' cy='20' r='2.4' fill='#fff'/></svg>`;
+const CLOUDTOP = `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='26'><g fill='${C.cloud}'><circle cx='14' cy='22' r='13'/><circle cx='38' cy='18' r='16'/><circle cx='64' cy='22' r='12'/><circle cx='88' cy='17' r='15'/><circle cx='110' cy='22' r='12'/><rect x='0' y='22' width='120' height='4'/></g></svg>`;
+
 const bubble = { myBg: C.storm, myText: "#fff", myBorder: "none", charBg: C.cloud, charText: C.ink, charBorder: "none", radius: 26, shadow: "none", myAlpha: 100, charAlpha: 100 };
 const layout = { bubble: "bubble", avatar: "first", name: false, gap: "normal", time: "show" };
 
@@ -252,6 +257,67 @@ button[data-wk="avatar"]::before,span[data-wk="avatar"]:not([data-halo])::before
 [data-wk="callbubble"][data-kind="typing"] [data-wk="typingdot"]{background:${C.ink} !important}
 [data-wk="callact"]{color:${C.pink} !important}
 [data-wk="callavatar"]{border-radius:50% !important;box-shadow:0 0 0 4px #fff,0 0 0 9px rgba(255,138,216,.55),0 0 0 14px rgba(106,240,192,.3),0 0 40px 14px rgba(255,190,230,.5) !important;animation:ceGlow 3s ease-in-out infinite !important}
+
+/* ───── 云眸入梦 · 第三批：状态卡＝一片紫夜，顶上压着一排粉云；好感是一只眼，越喜欢睁得越大 ───── */
+[data-wk="statecard"]{position:relative !important;overflow:visible !important;background:${svg(STARS)} 0 0/220px 260px,radial-gradient(ellipse at 50% 112%,rgba(255,184,222,.55) 0 18%,transparent 55%),linear-gradient(180deg,${C.s1},${C.s2} 60%,${C.s3}) !important;border:none !important;border-radius:22px !important;box-shadow:inset 0 0 0 1px rgba(255,220,240,.45),0 20px 50px rgba(20,10,50,.5),0 0 40px rgba(255,180,230,.25) !important;margin-top:18px !important}
+[data-wk="statecard"]::before{content:"" !important;position:absolute !important;left:14px !important;right:14px !important;top:-16px !important;height:26px !important;background:${svg(CLOUDTOP)} 0 0/120px 26px repeat-x !important;pointer-events:none !important;-webkit-mask:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent) !important;mask:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent) !important}
+[data-wk="statecard"] *{font-family:${SERIF} !important}
+[data-wk="statehead"]{background:transparent !important;border-bottom:none !important;box-shadow:0 1px 0 rgba(255,220,240,.3) !important}
+[data-wk="statehead"] *{color:#fff !important}
+[data-wk="statehead"] button{border:1px solid rgba(255,220,240,.6) !important;background:rgba(255,255,255,.1) !important;border-radius:50% !important}
+[data-wk="statemood"]{display:inline-block !important;background:${C.cloud} !important;color:${C.ink} !important;border:none !important;border-radius:999px !important;padding:1px 10px !important;margin-right:6px !important;box-shadow:0 0 10px rgba(255,190,230,.6) !important}
+[data-wk="statecard"] div:has(> button[aria-pressed]){background:rgba(255,255,255,.08) !important;border:none !important;border-radius:999px !important;padding:3px !important;margin:10px 16px !important}
+[data-wk="statecard"] button[aria-pressed]{color:${C.fog} !important;border:none !important;border-radius:999px !important;letter-spacing:.15em !important;background:transparent !important}
+[data-wk="statecard"] button[aria-pressed="true"]{background:${C.cloud} !important;color:${C.ink} !important}
+/* 看得见的＝一朵小粉云；心里想的＝一缕云雾里的字，左边一只半睁的眼 */
+[data-wk="stateseen"]{background:radial-gradient(ellipse at 50% 30%,#FFFAFD,${C.cloud} 70%,${C.cloudD}) !important;border:none !important;border-radius:18px !important;margin:12px 16px !important;color:${C.ink} !important;box-shadow:0 0 16px rgba(255,190,225,.4) !important}
+[data-wk="stateseen"] *{color:${C.ink} !important}
+[data-wk="statevoice"]{position:relative !important;background:radial-gradient(ellipse at 50% 50%,rgba(255,220,240,.18),transparent 75%) !important;border:none !important;border-radius:0 !important;margin:14px 16px !important;padding-left:44px !important;color:#fff !important;box-shadow:none !important;font-style:italic !important}
+[data-wk="statevoice"]::before{content:"" !important;position:absolute !important;left:10px !important;top:12px !important;width:26px !important;height:15px !important;background:${svg(EYE(true))} center/contain no-repeat !important;animation:ceBlink 5s ease-in-out infinite !important}
+[data-wk="statevoice"] *{color:#fff !important}
+[data-wk="stateseen"] > span[aria-hidden],[data-wk="statevoice"] > span[aria-hidden]{display:none !important}
+[data-wk="statewear"]{background:rgba(255,255,255,.08) !important;border:1px solid rgba(255,220,240,.35) !important;border-radius:14px !important}
+[data-wk="statewear"] *{color:#fff !important}
+[data-wk="statewear"] > span{background:transparent !important}
+[data-wk="statevoicedel"],[data-wk="statevoiceclear"]{color:${C.pink} !important}
+[data-wk="statevoice"] + div > button{background:rgba(255,255,255,.1) !important;color:#fff !important;border:1px solid rgba(255,220,240,.6) !important;border-radius:999px !important}
+/* 好感：左边一只眼——低分只是一道闭着的睫毛，越喜欢那只彩虹眼睁得越大；右边是数字 */
+[data-wk="stateaff"]{background:transparent !important;border-top:none !important;box-shadow:0 -1px 0 rgba(255,220,240,.3) !important;display:flex !important;align-items:center !important;gap:16px !important;padding:14px 20px 18px !important}
+[data-wk="stateaff"] *{color:#fff !important}
+[data-wk="stateheart"]{position:relative !important;width:80px !important;height:50px !important;flex:none !important;background:${svg(AFFBASE)} center/contain no-repeat !important;order:-1 !important}
+[data-wk="stateheart"] > div{display:none !important}
+[data-wk="stateheartknob"]{display:block !important;position:absolute !important;inset:0 !important;left:0 !important;bottom:0 !important;width:auto !important;height:auto !important;margin:0 !important;border:none !important;border-radius:0 !important;box-shadow:none !important;background:${svg(AFFEYE)} center/contain no-repeat !important;transform-origin:50% 50% !important;transform:scaleY(calc(.06 + var(--sc-heart-lvl) * .94)) !important;opacity:calc(.3 + var(--sc-heart-lvl) * .7) !important;filter:drop-shadow(0 0 calc(var(--sc-heart-lvl) * 10px) rgba(255,200,240,.9)) !important}
+[data-wk="stateheartnum"]{display:none !important}
+[data-wk="stateaffval"]{display:inline-block !important;margin:0 !important;padding:0 !important;background:transparent !important;border:none !important;color:#FFF3B0 !important;font-size:22px !important;text-shadow:0 0 10px rgba(255,240,170,.6) !important}
+/* 翻旧的：一页页小夜空，右下角一只闭着的眼（睡着了的那一天） */
+[data-wk="statehistbtn"]{background:rgba(255,255,255,.1) !important;color:#fff !important;border:1px solid rgba(255,220,240,.6) !important;border-radius:999px !important}
+[data-wk="statehistbtn"][data-part="back"]{display:inline-block !important;width:auto !important;padding:4px 16px !important}
+[data-wk="statehisthead"] > :first-child{color:${C.fog} !important}
+[data-wk="statehisthead"] [data-wk="statevoiceclear"]{border:1px solid rgba(255,220,240,.6) !important;border-radius:999px !important;color:#fff !important;background:transparent !important}
+[data-wk="statehistitem"]{position:relative !important;background:linear-gradient(180deg,rgba(255,232,244,.12),rgba(120,90,180,.2)) !important;border:none !important;border-radius:16px !important;padding:16px 18px 28px !important;margin:0 0 14px !important;box-shadow:inset 0 0 0 1px rgba(255,220,240,.4) !important}
+[data-wk="statehistitem"]::after{content:"" !important;position:absolute !important;right:14px !important;bottom:8px !important;width:26px !important;height:14px !important;background:${svg(SHUT)} center/contain no-repeat !important}
+[data-wk="statehistitem"] *{color:#fff !important}
+[data-wk="statehistmood"]{background:${C.cloud} !important;border:none !important;color:${C.ink} !important;border-radius:999px !important}
+[data-wk="statehisttime"]{color:${C.fog} !important}
+[data-wk="statehistmeta"]{background:rgba(255,255,255,.08) !important;border-radius:10px !important}
+[data-wk="statehistend"]{color:${C.fog} !important}
+/* Ta 眼里：同一片紫夜，每张卡是一朵飘着的云 */
+[data-wk="gazepage"]{background:${svg(STARS)} 0 0/220px 260px,linear-gradient(180deg,${C.s1},${C.s2} 60%,${C.s3}) !important}
+[data-wk="gazetitle"]{color:#fff !important;letter-spacing:.2em !important}
+[data-wk="gazetab"]{background:transparent !important;color:${C.fog} !important;border:none !important;border-radius:999px !important;clip-path:none !important}
+[data-wk="gazetab"][data-on="1"]{background:${C.cloud} !important;color:${C.ink} !important}
+[data-wk="gazetab"] *{clip-path:none !important}
+[data-wk="gazestatus"]{color:${C.fog} !important}
+[data-wk="gazecard"]{background:radial-gradient(ellipse at 50% 30%,#FFFAFD,${C.cloud} 70%,${C.cloudD}) !important;border:none !important;border-radius:20px !important;box-shadow:0 0 18px rgba(255,190,225,.45) !important}
+[data-wk="gazetape"]{background:${svg(EYE())} center/contain no-repeat !important;box-shadow:none !important;border:none !important;transform:none !important;width:26px !important;height:15px !important;animation:ceBlink 5s ease-in-out infinite !important}
+[data-wk="gazecardname"]{color:${C.ink} !important}
+[data-wk="gazecardtext"],[data-wk="gazecardtime"]{color:${C.ink} !important;opacity:.75 !important}
+[data-wk="gazeletter"],[data-wk="gazehistory"]{${CARD}}
+[data-wk="gazeletter"] *,[data-wk="gazehistory"] *{color:#fff !important}
+[data-wk="gazeempty"]{background:transparent !important;border:1px dashed rgba(255,220,240,.5) !important;border-radius:18px !important;color:#fff !important}
+[data-wk="gazeempty"] *{color:#fff !important}
+[data-wk="gazeempty"] button,[data-wk="gazeempty"] button *{color:${C.ink} !important}
+[data-wk="gazeempty"] button{background:${C.cloud} !important;color:${C.ink} !important;border:none !important;border-radius:999px !important}
 `;
 
 const pack = { kind: "chat-look", v: 1, name: "云眸入梦", look: { bubble, layout, customCSS: css.trim() }, assets: {} };
