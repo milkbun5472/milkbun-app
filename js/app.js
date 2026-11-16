@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.675";
+const APP_VERSION = "v89.681";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25244,10 +25244,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _momBiSpec = _momBi ? ProbeZh.spec("这条朋友圈正文", "下面那些评论里，不是中文的那几条也各自给一份中译，填在那条评论自己的 zh 里。") : "";
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
         voice: true,
-        instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + _momAxes + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。那些相处每句都带着时间：这条是现在发的，隔了一夜、半天的事是那时候的事，回头提一句可以，今天别的事也一样能发。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat + _momBiSpec,
+        instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + _momAxes + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。那些相处每句都带着时间：这条是现在发的，隔了一夜、半天的事是那时候的事，回头提一句可以，今天别的事也一样能发。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的评论（0-6 条，多少看这一条本身招不招人说话、你这个人人缘怎么样，每条都不一样，冷清的一条没有、热闹的能有五六条），和点了赞的人（likers，0-8 个名字：刷到了、顺手点个赞的人；评论的人也可以点赞，只点赞不说话的也算）。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat + _momBiSpec,
         schemaHint: _momImgOpen
-          ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ProbeZh.field("zh", "这条评论") : "") + "}]" + (_momBi ? ProbeZh.field("zh", "正文") : "") + _momPinSpec + "}"
-          : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ProbeZh.field("zh", "这条评论") : "") + "}]" + (_momBi ? ProbeZh.field("zh", "正文") : "") + _momPinSpec + "}"
+          ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ProbeZh.field("zh", "这条评论") : "") + "}],\"likers\":[\"点赞的人名\"]" + (_momBi ? ProbeZh.field("zh", "正文") : "") + _momPinSpec + "}"
+          : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ProbeZh.field("zh", "这条评论") : "") + "}],\"likers\":[\"点赞的人名\"]" + (_momBi ? ProbeZh.field("zh", "正文") : "") + _momPinSpec + "}"
       });
       const content = String(d && d.content || "").trim();
       if (!content) throw new Error("模型没有返回朋友圈正文");
@@ -25269,7 +25269,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         liked: false,
         likeCount: 0,
         // 跟发帖人不认识的角色不来评论（群友 2026-10-22：三个角色互不相干，评论区里却称兄道弟）
-        comments: (d.comments || []).filter(c => c && c.author && c.author !== meName && c.author !== "我" && c.author !== "用户" && !momStrangerTo(char, c.author)).map(c => ({ ...c, author: momentWho(c.author) }))
+        comments: (d.comments || []).filter(c => c && c.author && c.author !== meName && c.author !== "我" && c.author !== "用户" && !momStrangerTo(char, c.author)).map(c => ({ ...c, author: momentWho(c.author) })),
+        // 别人点的赞（她 2026-11-15「好像都没见过其他人的朋友圈有点赞」）：原来只要评论，赞那一行永远空着。同一道闸：不认识发帖人的不算、她自己不算
+        likers: [...new Set((Array.isArray(d.likers) ? d.likers : []).map(x => String(x || "").trim()).filter(x => x && x !== meName && x !== "我" && x !== "用户" && x !== char.name && !momStrangerTo(char, x)).map(momentWho))].slice(0, 8)
       }, ...(_pinNew ? (() => { const mineTop = p.filter(m => m && m.characterId === char.id && !m.mine && m.top).sort((x, y) => (y.topTs || y.ts || 0) - (x.topTs || x.ts || 0)); const drop = new Set(mineTop.slice(2).map(m => m.id)); return p.map(m => drop.has(m.id) ? { ...m, top: false } : m); })() : p)]);
       // 开关在朋友圈页顶上（x_momentAutoImg，默认关）：开着就顺手把这张配图画出来
       if (newMomImage && loadJSON("x_momentAutoImg", false) && imgApiReady()) setTimeout(() => momentGenImage(newMomId), 60);
@@ -29349,9 +29351,20 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 拍限时动态那张：self 自拍走人像那条（锁脸），风景、手边的东西走空景那条（不画人，不喂参考照）
   const storyShoot = async (char, desc, kind) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先在设置里配好生图");
-    const self = kind !== "view" && kind !== "thing" && (char.appearance || char.refPhoto);
     const st = (statesRef.current || {})[char.id] || {};
-    const prompt = self ? buildPhotoPrompt(char, desc, st, { kind: "self", me: photoMe(userName(profileFor(char.id)), char.id), closet: closetTextFor(char.id) })
+    // 拍的是她、或者合照（她 2026-11-15「说的她是我，能不能带上我的参考图」）：跟线下帮她拍、合照同一套——照她认的那张面具的脸，参考照一起送
+    const meP0 = meOf(char.id), me = photoMe(userName(profileFor(char.id)), char.id);
+    if (kind === "her" && canShootMe(char.id)) {
+      const sub = meSubject(char, "我", char.id);
+      const out0 = await generateSelfieImage(buildPhotoPrompt(sub, desc, st, { pov: povFor(char), kind: "other", me, closet: me.closet || "" }), [sub.refPhoto].filter(Boolean).length ? [sub.refPhoto] : null, { size: "1024x1536" });
+      if (!out0 || !out0.blob) throw new Error("没画出来"); return out0.blob;
+    }
+    if (kind === "duo" && duoFacesOk(char)) {
+      const out0 = await generateSelfieImage(buildPhotoPrompt(char, desc, st, { kind: "duo", me, closet: closetTextFor(char.id) }), [char.refPhoto, meP0 && meP0.refPhoto].filter(Boolean), { size: "1024x1536" });
+      if (!out0 || !out0.blob) throw new Error("没画出来"); return out0.blob;
+    }
+    const self = kind !== "view" && kind !== "thing" && kind !== "her" && (char.appearance || char.refPhoto);
+    const prompt = self ? buildPhotoPrompt(char, desc, st, { kind: "self", me, closet: closetTextFor(char.id) })
       : buildScenePrompt(char, desc, kind === "thing" ? { body: false } : { forText: false });
     const out = await generateSelfieImage(prompt, self && char.refPhoto ? [char.refPhoto] : null, { size: "1024x1536" });
     if (!out || !out.blob) throw new Error("没画出来");
@@ -29426,7 +29439,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "bg 背景从这几种里挑一个：" + bgs + "；font 字体：hand 花体英文、brush 中文手写、serif 宋体、sans 黑体；"
           + "texts 是卡上的字，1 到 4 块，每块 t 写什么、x 和 y 是在卡上的位置（0 到 1，左上角是 0,0；最上面那一截 y 小于 0.2 的地方压着你的头像和名字，最下面 y 大于 0.85 的地方压着回复框）、size 字号（40 到 160）、color 颜色（#hex）、r 歪多少度（-15 到 15）、font 可以单独换；"
           + "stickers 是贴纸，0 到 5 个 emoji，ch 是哪个、x y 位置、size 大小（60 到 200）。"
-          + "photo 写这张卡要配的那张照片拍的是什么（一句画面描述），photoKind 是哪一种：self 你自拍、view 随手拍的风景或场景、thing 手边的东西或吃的；photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。"
+          + "photo 写这张卡要配的那张照片拍的是什么（一句画面描述），photoKind 是哪一种：self 你自拍、view 随手拍的风景或场景、thing 手边的东西或吃的" + (canShootMe(char.id) ? "、her 你拍的她（画面里是她）" : "") + (duoFacesOk(char) ? "、duo 你俩的合照" : "") + "；photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。"
           + (canPhoto ? "这张照片会马上拍出来放上去。" : "这张照片先不拍，卡上先只有字；她想看时会照你这句补拍。")
           + ((window.Stories.activeOf(char.id) || []).length ? "你已经挂着这几条，别跟它们重样：" + window.Stories.activeOf(char.id).map(s0 => "「" + (s0.text || s0.desc) + "」").join("、") + "。" : "")
           + (related.length ? "跟你有关系的这几个人也会刷到这条：" + related.map(c => c.name + "（" + (_rl(char.id, c.id) || _rl(c.id, char.id)) + "）").join("、")
@@ -29441,7 +29454,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (_night ? "现在是深夜，这条是半夜发的，卡会是夜色的底；半夜的话常常白天看了会想删。" : "")
           + "想连着发一组（像小故事：出门→路上→到了）的话，more 写后面的一到两张，每张跟这张一样有 bg、texts、stickers，按顺序挂；一张就说完的就不写。"
           + "字是你会发出去的那几句，不是解说。想的话可以加一个互动贴纸 sticker（不加就不写这一格）：提问框 {\"type\":\"ask\",\"q\":\"问她什么\"}、投票 {\"type\":\"poll\",\"q\":\"问题\",\"opts\":[\"选项一\",\"选项二\"]}、倒计时 {\"type\":\"countdown\",\"q\":\"倒数什么\",\"days\":几天后}。",
-        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + ",\"photo\":\"照片拍的是什么\",\"photoKind\":\"self|view|thing\",\"photoY\":0.45" + (!_song && musicReady ? ",\"song\":\"歌名 歌手\"" : "") + (musicReady ? ",\"songAt\":60" : "") + ",\"chips\":[{\"type\":\"location|weather|mood|music\",\"x\":0.2,\"y\":0.1}],\"regret\":0,\"more\":[]" + ",\"who\":\"all|me" + (related.length ? "|close\",\"closeNames\":[\"名字\"]" : "\"") + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
+        schemaHint: "{\"bg\":\"背景\",\"font\":\"字体\",\"texts\":[{\"t\":\"字\",\"x\":0.5,\"y\":0.3,\"size\":90,\"color\":\"#hex\",\"r\":0}],\"stickers\":[{\"ch\":\"emoji\",\"x\":0.8,\"y\":0.2,\"size\":120}]" + ",\"photo\":\"照片拍的是什么\",\"photoKind\":\"self|view|thing|her|duo\",\"photoY\":0.45" + (!_song && musicReady ? ",\"song\":\"歌名 歌手\"" : "") + (musicReady ? ",\"songAt\":60" : "") + ",\"chips\":[{\"type\":\"location|weather|mood|music\",\"x\":0.2,\"y\":0.1}],\"regret\":0,\"more\":[]" + ",\"who\":\"all|me" + (related.length ? "|close\",\"closeNames\":[\"名字\"]" : "\"") + (related.length ? ",\"crowd\":[{\"name\":\"谁\",\"vote\":0,\"answer\":\"\",\"reply\":\"\"}]" : "") + "}",
         maxTokens: 8000
       });
       let photoBlob = null;

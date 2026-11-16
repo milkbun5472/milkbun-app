@@ -53,7 +53,7 @@ test("写入那一头也收成一处：三条来路都过同一个函数", () =>
 });
 
 test("显示那一头也要认一次，不然老卡永远停在原名上", () => {
-  assert.match(comp, /m\.likers\.map\(x => momentDisplayName\(characters, x\)\)\.join\("、"\)/);
+  assert.match(comp, /momLikers\(m, profile\)\.map\(x => momentDisplayName\(characters, x\)\)\.join\("、"\)/);
   assert.equal((comp.match(/momentDisplayName\(characters, cm\.author\)/g) || []).length, 2, "信息流和个人页两处");
   assert.ok(!/\} \}, cm\.author\)/.test(comp), "还有一处在直接画存下来的那个字符串");
 });
