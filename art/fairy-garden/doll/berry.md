@@ -1,8 +1,9 @@
-# 莓粉卫衣裙：连续顺肩试修稿
+# 莓粉卫衣裙：顺肩与鞋袜对齐正式接入
 
-Lisa 提供 `993c05918b88e427787836d7439a45aa.glb`，要求套到现有小人，先看适配再发版。源为莓粉小花卫衣、白内搭、奶油短裙、袜子和拼色运动鞋。**初稿被指出领口高、抬手腋下怪；切片修法失败。round-sleeves-v3 又被指出袖根尖、磨平原版褶皱，不能当作认可稿。authored-folds-v5又被指出太累赘；v7又被指出肩部鼓包；当前shoulder-slope-v8整体仍待Lisa看，未注册衣柜、未发布。**
+Lisa 提供 `993c05918b88e427787836d7439a45aa.glb`，要求套到现有小人，先看适配再发版。源为莓粉小花卫衣、白内搭、奶油短裙、袜子和拼色运动鞋。**初稿被指出领口高、抬手腋下怪；切片修法失败。round-sleeves-v3 又被指出袖根尖、磨平原版褶皱，不能当作认可稿。authored-folds-v5又被指出太累赘；v7又被指出肩部鼓包；Lisa已确认shoulder-slope-v8并授权发版，现接入正式衣柜。**
 
-- 最新文件：`shoulder-slope-v8/compressed/berry.glb`，3856808 字节／67427 三角面，SHA256 `a49b4486ea08cfa7246a02060cf77cf39564c299efcbe66121da972210622bb9`。
+- 正式运行文件：`apps/fairy-garden/outfits/berry.glb`，2659696字节／67427三角面，SHA256 `2e67639aa228aa602ce71e45b095c6440ccc0118e6e91fa8abc131d1acd49c4c`。原确认预览仍为shoulder-slope-v8/compressed/berry.glb。
+- 正式打包：`package_berry.py`守卫预览SHA；三张PNG按原分辨率转WebP质量95，网格/蒙皮/形变二进制逐字不变。清预览初始形变值，移除遗留slotBase数组（本套使用colorSlot/dyeTexture）；正式首载预算无需放宽。prepared_outfits.json经dye_regions.py生成共用目录。
 - 可编辑源：同目录 `berry-ready.blend`；真实对比 `review.html`／`comparison.png`，最终 Chrome/WebKit 实图与报告在 `chrome/`、`webkit/`；身份见 `delivery.json`。
 - 本机证据根：`/Users/lisa/.codex/visualizations/2026/11/14/01a1db4d-1d00-7601-b3b9-bc46958d51bf/hunyuan-993c-berry/`。该目录不会随 Git 同步；其他机器读不到须重新获取，不能当作已查看。
 - 独立树 `/private/tmp/lisa-berry-993c`，分支 `codex/berry-outfit-993c`，基线 `66d6d036a`；未改生产身体、动作、发型或衣柜。
@@ -35,4 +36,4 @@ Blender clean-silhouette-v6/refine.py（调用restore-shoulder.py，读v5与最�
 
 前述切片、v3平滑袖、v4混合根权重、v5直接切接、v5首交点重投影均为失败尝试，不能复用交付。原版比例是基准；v5虽技术通过仍被否定。
 
-未实机iPhone／全动作碰撞穷举；本轮未注册衣柜、未发布。获Lisa认可后再接prepared_outfits.json／dye_regions.py，验证衣柜存档并发版。
+未实机iPhone／全动作碰撞穷举。Lisa已授权发布；线上回执待部署核验后补在本文。

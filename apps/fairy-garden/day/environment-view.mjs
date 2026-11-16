@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {environmentAt,precipitationRoofed} from './environment.mjs?v=fg-78971a9ce342e31d';
+import {environmentAt,precipitationRoofed} from './environment.mjs?v=fg-e63a34eaa480d1de';
 
 const vertexShader=`varying vec2 surface;void main(){surface=position.xy;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`;
 const fragmentShader=`varying vec2 surface;uniform float time;uniform float rain;uniform float night;

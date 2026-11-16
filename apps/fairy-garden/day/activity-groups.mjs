@@ -1,5 +1,5 @@
-import {CHORES} from './chores.mjs?v=fg-78971a9ce342e31d';
-import {OCCUPATION_RECIPES,OCCUPATION_CONFIG} from './occupation-workflow.mjs?v=fg-78971a9ce342e31d';
+import {CHORES} from './chores.mjs?v=fg-e63a34eaa480d1de';
+import {OCCUPATION_RECIPES,OCCUPATION_CONFIG} from './occupation-workflow.mjs?v=fg-e63a34eaa480d1de';
 // One set of activity groups for all scenes. Beats project the original slot;
 // anchors come from the live map, so stored or moved furniture is respected.
 const FARM='dayFarm',FLEA='dayFleaMarket';

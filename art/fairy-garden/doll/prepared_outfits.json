@@ -78,5 +78,25 @@
       "detail": "鞋底"
     },
     "coveredLegsBelow": 0.18
+  },
+  "berry": {
+    "label": "莓粉卫衣裙",
+    "colors": {
+      "cloth": "#c2837e",
+      "trim": "#e4d2c4",
+      "bottom": "#bca592",
+      "accent": "#f4daca",
+      "boots": "#e9dbcc",
+      "detail": "#ffc4bb"
+    },
+    "colorLabels": {
+      "cloth": "卫衣",
+      "trim": "内搭与袜子",
+      "bottom": "短裙",
+      "accent": "小花",
+      "boots": "鞋子",
+      "detail": "鞋子拼色"
+    },
+    "coveredLegsBelow": 0.148
   }
 }
