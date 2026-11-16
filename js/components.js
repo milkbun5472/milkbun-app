@@ -21306,9 +21306,8 @@ function GroupThread({
     h("span", { style: { flexShrink: 0, color: t.tint, fontSize: "calc(11.5px * var(--app-fs, 1))", marginTop: 1 } }, "群公告"),
     h("span", { className: "flex-1 min-w-0", style: noticeOpen ? { whiteSpace: "pre-wrap", maxHeight: "40vh", overflowY: "auto" } : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, String(gs.notice.text).trim()),
     h("span", { style: { flexShrink: 0, color: t.fog, transform: noticeOpen ? "rotate(-90deg)" : "rotate(90deg)", display: "inline-block" } }, "›")) : null,
-  // 小房间那一排（她 2026-11-13「群聊咋开房间」「弄一下吧」）：这个群有房间、或者本身就是房间时才出现；
-  //   点群名 →「小房间」打开的房间面板也是这一块（inSheet），不另画一份
-  roomsBlock(false),
+  // 小房间不再在顶栏底下挂一排（她 2026-11-16「群房间挂着好丑，改成跟单聊一样」）：跟单聊一样，点群名 →「小房间」打开房间面板换房、开新的
+
   h("div", {
     ref: ref,
     style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
@@ -21787,7 +21786,7 @@ function GroupThread({
     onSetPresence: onSetPresence,
     onDelete: onDeleteGroup,
     roomCount: (groups || []).filter(g => g && g.roomOf === group.id).length,
-    onNewRoom: onSwitchRoom ? () => { setSheet(null); setRoomForm({ name: "", kind: "main" }); } : null,
+    onNewRoom: onSwitchRoom ? () => { setSheet(null); setRoomForm({ name: "", kind: "main" }); setRoomSheet(true); } : null,
     loreEntries: loreEntries, onLoreBulk: onLoreBulk,
     onClearChat: onClearGroupChat,
     onClose: () => setSheet(null)
