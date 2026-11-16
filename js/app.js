@@ -19151,7 +19151,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const BLOCK_STATE_SPEC = "\n另外三栏跟平时聊天一样每轮都填：thought＝" + (typeof THOUGHT_MEANING === "string" ? THOUGHT_MEANING : "")
     + "\nmood＝{\"label\":\"此刻中文心情词\"}；action＝此刻正在做什么，第一人称一句。"
     + "\n" + (typeof SCHED_NOW_SPEC === "string" ? SCHED_NOW_SPEC : "") + "（被拉黑以后，原来跟她在一块儿的那些安排多半已经不成立了）";
-  const BLOCK_STATE_SHAPE = ",\"thought\":\"没说出口的一句心声\",\"mood\":{\"label\":\"心情词\"},\"action\":\"此刻在做什么\",\"schedNow\":null";
+  const BLOCK_STATE_SHAPE = ",\"thought\":\"没说出口的心声，长短随念头\",\"mood\":{\"label\":\"心情词\"},\"action\":\"此刻在做什么\",\"schedNow\":null";
   const applyBlockTurnState = (charId, chatKey, d) => {
     try {
       if (!d) return;
