@@ -16852,6 +16852,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 群里的导演便签（她 2026-10-26）：跟单聊同一句、同一套扣轮，只给模型看
       const _gDirLive = chatDirNotesLive("g:" + groupId);
       const _gDirHint = _gDirLive.length ? "\n\n〔幕后提醒，绝不出现在任何人说的话里〕想让接下来群里的聊天往这个方向走：" + _gDirLive.map(n => n.text).join("；") + "。由在场的人顺着自己的性子自然地聊过去，不用一下子说到。" : "";
+      // 每轮贴着生成再说一次心声从哪儿来（她 2026-11-15「群聊心声每个人只有一句，同一个模型单聊可以一大段」）：
+      //   单聊每轮末尾都有「先想一下 TA 此刻怎么看她刚说的这句话」，群里心声那段只在系统最上面，离生成太远，模型就照气泡的样子随手挂一句
+      const _gThoughtTurn = "\n\n【本轮心声】开口的每个人，挂心声之前先在他自己脑子里过一遍：刚才这几句里他最在意哪一下、在他看来是什么意思、他这个脾气会怎么想它——thought 就从这儿写出来，跟他单独跟她聊天时心里转的一样多，不用跟着气泡的短。";
+      userContent += _gThoughtTurn;
       let raw = await _gShoot(userContent + _gDirHint + _gDoTail);
       // 邮票册：群里一轮（自己聊、重 roll 不算）
       if (raw && !(rgOpts && (rgOpts.auto || rgOpts.rerollAvoid)) && typeof stampGain === "function") stampGain("round");
