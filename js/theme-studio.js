@@ -399,7 +399,7 @@
     ])}),
     // 消息 app 那一页（群友 2026-10-03：「这个界面的这种是没办法美化吗」）——聊天列表、通讯录、底下四个标签
     Object.freeze({zh:"消息列表",pages:Object.freeze(["messages"]),hooks:Object.freeze([
-      ["loregroupbind", "世界书卡片上「只给群：…」那行"], ["storyphotomore", "限时动态照片那一行的「··」整块"], ["storyphotomorebtn", "限时动态照片那一行的「··」那颗"], ["storyphotomenu", "限时动态照片「··」点开的那一小列"], ["storyphotoredo", "限时动态照片那一行的「重画」"], ["forumip", "论坛贴吧样式主楼底下那行「IP属地」"], ["npcref", "配角详情页「锁脸参考照」那一块"], ["npcpromotebtn", "配角详情页「转成正式角色」那颗"], ["npcpromote", "点了转正以后问一句的那一块"], ["npcpromotego", "那一块里的「转正」"], ["npcdel", "通讯录 → 配角 → 点开一位 → 删除时弹出的那块确认（连不连聊天一起清）"],
+      ["themefactory", "主题工作台里「恢复初始装扮」那颗"], ["loregroupbind", "世界书卡片上「只给群：…」那行"], ["storyphotomore", "限时动态照片那一行的「··」整块"], ["storyphotomorebtn", "限时动态照片那一行的「··」那颗"], ["storyphotomenu", "限时动态照片「··」点开的那一小列"], ["storyphotoredo", "限时动态照片那一行的「重画」"], ["forumip", "论坛贴吧样式主楼底下那行「IP属地」"], ["npcref", "配角详情页「锁脸参考照」那一块"], ["npcpromotebtn", "配角详情页「转成正式角色」那颗"], ["npcpromote", "点了转正以后问一句的那一块"], ["npcpromotego", "那一块里的「转正」"], ["npcdel", "通讯录 → 配角 → 点开一位 → 删除时弹出的那块确认（连不连聊天一起清）"],
       ["npcnew", "通讯录 → 配角 → 右上角 + 新建配角那一整页（认识谁、在谁身边）"],
       ["mlpage","消息这一页的底（聊天／通讯录／朋友圈／我 四栏共用）"],
       ["mlsearch","聊天列表顶上的搜索框"],["bkbanner","聊天列表顶上「备份没成功」那条"],["bkbannerx","那条右边收起的 ×"],
@@ -1051,7 +1051,15 @@
     if (key === "home") return !!(pack && pack.home && Object.keys(pack.home).length);
     return false;
   };
-  const packParts = pack => PACK_PARTS.map(x => ({ key: x.key, zh: x.zh, has: packHas(pack, x.key) }));
+  // 出厂那份（群友 2026-11-16 许愿：一键把所有装扮恢复初始，主屏也回到最初的布局）：形状跟导进来的包一样，
+  //   走同一条「预览 → 挑几样 → 确认才落盘」的路；每一样都算「有」，空的 CSS、空的壁纸正是要还原成的样子
+  const factoryPack = () => {
+    const home = {};
+    HOME_KEYS.forEach(k => { home[k] = (k === "x_homeDecorations" || k === "x_homeHiddenWidgets") ? [] : {}; });
+    return { factory: true, profile: normalize({}), baseTheme: typeof DEFAULT_THEME !== "undefined" ? Object.assign({}, DEFAULT_THEME) : null, wallpaper: "",
+      bubbleSkin: typeof BUBBLE_SKIN_DEFAULTS !== "undefined" ? Object.assign({}, BUBBLE_SKIN_DEFAULTS) : null, home };
+  };
+  const packParts = pack => PACK_PARTS.map(x => ({ key: x.key, zh: x.zh, has: !!(pack && pack.factory) || packHas(pack, x.key) }));
   // 没传 pick 就是整套都要（存量那条路一个字都不用改）
   const cleanPick = pick => {
     const out = {};
@@ -1228,7 +1236,7 @@
   }
   // 单聊/群聊「自己写 CSS」能存多长：存的时候按这个截，编辑框按这个提醒（只这一处写数）
   const CHAT_CSS_MAX = 200000;
-  g.ThemeStudio = { CHAT_CSS_MAX, histCount, undoStep, aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, missingCSSImages, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor, fitPlan, screenWidth, HOME_KEYS, homeSnapshot, homeApply };
+  g.ThemeStudio = { factoryPack, CHAT_CSS_MAX, histCount, undoStep, aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, missingCSSImages, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor, fitPlan, screenWidth, HOME_KEYS, homeSnapshot, homeApply };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);
