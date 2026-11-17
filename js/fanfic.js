@@ -444,6 +444,15 @@
     // 这一篇「我」用哪张面具（她 2026-10-17）：空＝跟着那位角色认的那张
     const [meMask, setMeMask] = useState("");
     const [noCP, setNoCP] = useState(false);
+    // 随机写谁（群友 2026-11-17 许愿：「user 和角色里随机一个，让作者来指定她写谁」）：开着时不看下面挑的人，
+    //   每点一次生成就从你和所有角色里重新抽——多半是两个人一对，偶尔三个人的群像；作者照抽到的写
+    const [rndCP, setRndCP] = useState(false);
+    function rollCP() {
+      const pool = (characters || []).filter(function (c) { return c && c.id && !c.npc && !c.isGroup; }).map(function (c) { return c.id; }).concat(["me"]);
+      for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); const x = pool[k]; pool[k] = pool[j]; pool[j] = x; }
+      const want = pool.length >= 3 && Math.random() < 0.2 ? 3 : 2;
+      return pool.slice(0, Math.min(want, pool.length));
+    }
     const [oneShot, setOneShot] = useState(false);   // 写成完结短篇：一篇写完，不当连载开头   // 无 CP：挑的人都在，默认不写感情线
     const allMasks = (function () { try { return (loadJSON("x_masks", []) || []).filter(function (m) { return m && m.id; }); } catch (e) { return []; } })();
     // 群像：点进去的那几个人（点的先后＝顺序），和这几个人之间是什么关系
@@ -467,6 +476,7 @@
     const [secOpen, setSecOpen] = useState("n");   // 一次只开一格，默认开第一格
     const briefN = briefs.slice(0, n).filter(function (x) { return String(x || "").trim(); }).length;
     function cpSummary() {
+      if (rndCP) return "随机 · 让作者挑";
       const cc = chosenCP();
       if (!cc.length) return "还没挑";
       return cpLabel(cc, characters, props.userName)
@@ -540,7 +550,11 @@
             })),
         ),
         sec("cp", "谁和谁", cpSummary(),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, marginBottom: 8 } }, "选择预设好的 CP，或本次手动设置一对"),
+          h("button", { "data-wk": "ficrndcp", "data-on": rndCP ? "1" : "0", onClick: function () { setRndCP(function (v) { return !v; }); }, className: "w-full active:opacity-70",
+            style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, padding: "9px 12px", borderRadius: 12, border: "1px solid " + (rndCP ? t.accent : t.line), background: rndCP ? t.accent : "transparent", color: rndCP ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", textAlign: "left" } },
+            h("span", null, "🎲"), h("span", { style: { flex: 1 } }, "随机：让作者挑写谁"), h("span", { style: { fontSize: "calc(11px * var(--app-fs, 1))", opacity: .8 } }, rndCP ? "开着" : "关")),
+          rndCP ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, lineHeight: 1.6 } }, "每次生成都从你和所有角色里重新抽：多半是两个人一对，偶尔三个人；抽到你就照你的面具人设写。写出来的文上照常标着是谁和谁。") : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, marginBottom: 8, opacity: rndCP ? .45 : 1 } }, "选择预设好的 CP，或本次手动设置一对"),
           // 从 CP 预设名单里选
           cps.length ? h("div", { className: "flex flex-wrap gap-2 mb-3" },
             cps.map(function (cp) {
@@ -631,7 +645,7 @@
       // 安全区，跟主聊天输入栏同一把尺子——mobile-ui-layout.md §2）
       h("div", { className: "shrink-0 flex items-center gap-3 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
         h("button", { onClick: function () { setN(3); setSel([]); setPickA(""); setPickB(""); setIncludeMe(false); setBriefs([]); setById(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub, padding: "10px 18px", borderRadius: 12, border: "1px solid " + t.line }, "data-wk": "ficgensheetbtn", "data-part": "3" }, "重置"),
-        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : "", meMask, noCP && !isGroup && chosenCP().length > 0, oneShot); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "ficgensheetbtn", "data-part": "4" }, "确定生成")));
+        h("button", { onClick: function () { if (rndCP) { const rc = rollCP(); if (rc.length < 2) { (props.toast || window.__toast || function () {})("至少要有一个角色才能随机"); return; } props.onConfirm(n, rc, styleIds, false, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, "", meMask, false, oneShot); return; } props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : "", meMask, noCP && !isGroup && chosenCP().length > 0, oneShot); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "ficgensheetbtn", "data-part": "4" }, "确定生成")));
   }
 
   // ---------- 新建/编辑自定义世界观 tab ----------

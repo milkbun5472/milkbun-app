@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.721";
+const APP_VERSION = "v89.724";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1820,6 +1820,7 @@ function App() {
   const [shikeFocus, setShikeFocus] = useState(null);
   // 离开时刻就忘掉这一次要翻到哪张——下次从主屏进来照常停在最新那张
   useEffect(() => { if (screen !== "shike" && shikeFocus) setShikeFocus(null); }, [screen]);
+  window.__openZhaoying = () => setScreen("zhaoying");   // 朋友圈里那张照影结果卡点了去照影
   window.__openShike = (charId, f) => { setShikeFocus(Object.assign({ charId: charId, at: Date.now() }, f || {})); setScreen("shike"); };
   // 预览台（v65.00）：她在主题工作台点「去这一页看看」→ 跳到【真页面】，屏幕上浮一条回程条。
   // ⚠️v62.02 删掉过一版 iframe 假预览，理由写在 theme-studio-ui.js 里：那一版跟真页面
@@ -4305,6 +4306,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     });
   };
   const currentlyTogetherWithChar = charId => {
+    // 单聊这一头也算（她 2026-11-17「躺一张床上他还觉得要发微信给我」）：原来只看群里的线下／正看着的群，
+    //   单聊开着「同处一室」、或者单人线下这会儿正演着，都没算进来，半夜「想你」照样隔着手机发一条
+    if (sameRoomFor(charId) || offlineTogetherNow(charId)) return true;
     if (!window.InteractionClock) return false;
     const go = {};
     (groups || []).filter(g => (g.memberIds || []).includes(charId)).forEach(g => {
@@ -25648,7 +25652,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     poll,
     mask,
     music,
-    location
+    location,
+    zy
   }) => {
     const id = "m_" + Date.now();
     // 多图（群里 2026-10-22）：每张先进图片保险箱，存档里只留 iv_ 小引用——九张 base64 塞进朋友圈存档会把它撑爆
@@ -25668,6 +25673,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       mask: mask && mask !== maskPrimary && (masks || []).some(m => m && m.id === mask) ? mask : undefined,
       poll: poll && Array.isArray(poll.options) && poll.options.length >= 2 ? { options: poll.options.slice(0, 4), votes: {} } : null,
       ...(location ? { location: String(location).slice(0, 40) } : {}),
+      // 照影结果卡（群友 2026-11-17「照影的测试结果好想分享到朋友圈，就像网易云那样」）
+      ...(zy && zy.title ? { zy: { testName: String(zy.testName || "").slice(0, 40), title: String(zy.title).slice(0, 40), line: String(zy.line || "").slice(0, 120), who: String(zy.who || "").slice(0, 20) } } : {}),
       ...(music && music.id ? { music: { id: music.id, title: String(music.title || "").slice(0, 60), artist: String(music.artist || "").slice(0, 60), song: music.song || null } } : {}),
       ts: Date.now(),
       liked: false,
@@ -37256,6 +37263,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onShareToGroup: (gid, text) => { pGChat(gid, p => [...p, { role: "user", content: text, ts: Date.now() }]); toast("发到群里了"); try { replyGroup(gid, {}); } catch (e) {} },
     onBack: goHome,
     // 转发结果：她转过去的，算她发的；他从聊天记录里看得到
+    // 结果发朋友圈：带一张结果卡，正文里也写清测的是什么，角色刷到时看得懂
+    onToMoments: z => { if (!z || !z.title) return; postUserMoment({ content: (z.who && z.who !== "我" ? "给" + z.who + "测了" : "测了") + "「" + z.testName + "」，" + (z.who && z.who !== "我" ? "测出来是" : "我是") + "「" + z.title + "」" + (z.line && z.line !== z.title ? "：" + z.line : ""), zy: z }); setMsgTab("moments"); setScreen("messages"); toast("发到朋友圈了"); },
     onShare: (c, z) => { if (!c) return; pChat(c.id, p => [...p, { role: "user", kind: "zyshare", content: "〔转来一张照影结果〕" + z.who + " 做「" + z.testName + "」测出「" + z.title + "」" + (z.line && z.line !== z.title ? "：" + z.line : ""), ts: Date.now(), zy: z }]); openChatById(c.id); }
   });else if (screen === "astro") body = h(window.AstroApp, {
     characters: liveChars,
