@@ -19939,8 +19939,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 名额只有几个：先给日程里点到TA的那几位，剩下的再按顺序
     const days0 = (Array.isArray(dayKeys) ? dayKeys : [dayKeys]).filter(Boolean).slice(0, SCHED_PEER_DAYS);
     const namesMe = c => days0.some(k => (((plans[c.id] || {})[k] || {}).seqs || []).some(q => schedMentions(q, char)));
-    const peers = schedPeersOf(char).filter(c => Object.keys(plans[c.id] || {}).length)
-      .sort((a, b) => (namesMe(b) ? 1 : 0) - (namesMe(a) ? 1 : 0)).slice(0, SCHED_PEER_MAX);
+    // 关系线上开了「日常在一块儿」的（群友 2026-11-17）：一定在名单里、排最前，不占那几个名额
+    const daily = c => typeof relDailyOn === "function" && relDailyOn(char.id, c.id);
+    const has = schedPeersOf(char).filter(c => Object.keys(plans[c.id] || {}).length);
+    const peers = has.filter(daily).concat(has.filter(c => !daily(c)).sort((a, b) => (namesMe(b) ? 1 : 0) - (namesMe(a) ? 1 : 0)).slice(0, SCHED_PEER_MAX));
     if (!peers.length) return "";
     const days = (Array.isArray(dayKeys) ? dayKeys : [dayKeys]).filter(Boolean).slice(0, SCHED_PEER_DAYS);
     const rows = [];
@@ -19955,7 +19957,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (!title) return;
           // 点到TA名字的那几段是【必须对上】的；其余只是让TA看看那天对方大概怎么过
           const mine = !!schedMentions(q, char);
-          rows.push((mine ? "⭐" : "· ") + k + " " + String((q && q.time) || "") + " "
+          rows.push((mine ? "⭐" : daily(c) ? "◆" : "· ") + k + " " + String((q && q.time) || "") + " "
             + c.name + (label ? "（" + label + "）" : "") + "：" + title
             + (q && q.location ? "（" + q.location + "）" : ""));
         });
@@ -19965,7 +19967,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return characterText(char, "\n【跟他有关系的人，这几天已经排好的安排】\n") + rows.join("\n")
       + characterText(char, "\n⭐那几段是【点到他名字的】——同一件事两边说的必须是同一件：时间、地点、这件事本身都要对上，")
       + "绝不许一边写十点见面、另一边写下午见面，也不许一边有这件事另一边当没发生。\n"
-      + characterText(char, "没带⭐的只是让你知道那几位那天大概怎么过。可以据此给他排一段真的和某位碰上的事")
+      + (peers.some(daily) ? characterText(char, "带◆的是跟他日常就在一块儿的人：今天照着对方那天的安排，给他排几段真在一起的事（一起出门、一起吃饭、同一段在同一个地方），写清跟谁、几点、在哪，时间地点跟对方那段对上；各忙各的那几段照常各写各的。\n") : "")
+      + characterText(char, "带「·」的只是让你知道那几位那天大概怎么过。可以据此给他排一段真的和某位碰上的事")
       + characterText(char, "（那就写清跟谁、几点、在哪）；但**他今天是他自己的一天**，别为了呼应硬把他塞进别人的日程里——")
       + "多数日子两个人本来就各过各的。";
   };
