@@ -17431,7 +17431,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 朋友圈/论坛/悄悄话这些【对外】的东西——动态素材本来就把群聊混在一起取，
         // 攒够 30 轮强制发一条，等于把闭群里的事发到朋友圈上（她 2026-08-24 抓到）。
         // 一条都没落进来、又确实是丢掉的：说一声为什么，别让她以为没回
-        if (!_gspoke.size && _gDrop.length) toast("这一轮回了，但没能放进群里：" + [...new Set(_gDrop)].slice(0, 3).join("；") + "。名字对不上就重 roll 一次", 7000);
+        //   ⚠️不管有没有记下原因都要说（她 2026-11-17「为啥不直接不出字就报错」）：原来只在 _gDrop 有东西时才吭声，
+        //   解析成功却一条都没落进来、又没记下原因的那一轮是静悄悄的——钱花了，群里什么都没有。现在跟生成失败同一种灰字提示，留在群里
+        if (!_gspoke.size && (_gDrop.length || !rgOpts.auto)) {   // 后台自己聊那一轮额度用完被截掉是正常的，不报
+          const _why = _gDrop.length ? [...new Set(_gDrop)].slice(0, 3).join("；") : ("模型回了 " + arr.length + " 条，但没有一条是能放进群里的话");
+          const _peek = String(raw || "").replace(/\s+/g, " ").trim().slice(0, 160);
+          pGChat(groupId, p => [...p, window.ChatContextFilter.failureNotice("（这一轮回了，但没能放进群里：" + _why + (_peek ? "。它回的开头是：" + _peek + (String(raw || "").length > 160 ? "…" : "") : "") + "。重 roll 一次试试）", { senderName: "系统" })]);
+        }
         if (!groupClosed(groupId)) _gspoke.forEach(id => tickAmbient(id, {}));
       }
     } catch (e) {
