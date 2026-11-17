@@ -190,53 +190,8 @@ const GConfig = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React
 }), /*#__PURE__*/React.createElement("path", {
   d: "M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"
 }));
-const GForum = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
-  d: "M4 5h16v10H9l-4 4V5z"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M8 9h8M8 12h5"
-}));
 const GUs = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
   d: "M12 21C6 16.5 3 13 3 9.2 3 6.5 5 4.5 7.5 4.5c1.7 0 3.3 1 4.5 2.6C13.2 5.5 14.8 4.5 16.5 4.5 19 4.5 21 6.5 21 9.2 21 13 18 16.5 12 21z"
-}));
-const GCast = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("circle", {
-  cx: "9",
-  cy: "8",
-  r: "3.2"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M3.5 20a5.5 5.5 0 0111 0"
-}), /*#__PURE__*/React.createElement("circle", {
-  cx: "17",
-  cy: "9",
-  r: "2.6"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M15 20a4.5 4.5 0 016.5-4"
-}));
-const GTies = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("circle", {
-  cx: "6",
-  cy: "6",
-  r: "2.3"
-}), /*#__PURE__*/React.createElement("circle", {
-  cx: "18",
-  cy: "7",
-  r: "2.3"
-}), /*#__PURE__*/React.createElement("circle", {
-  cx: "12",
-  cy: "18",
-  r: "2.3"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M7.6 7.5L11 16M16.2 9L13 16M8 6.2h7.7"
-}));
-const GPhone = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("rect", {
-  x: "6",
-  y: "2.5",
-  width: "12",
-  height: "19",
-  rx: "2.4"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M10 5.5h4"
-}));
-const GLore = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
-  d: "M4 4.5A1.5 1.5 0 015.5 3H12v16H5.5A1.5 1.5 0 004 20.5zM20 4.5A1.5 1.5 0 0018.5 3H12v16h6.5a1.5 1.5 0 011.5 1.5z"
 }));
 const GShop = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
   d: "M4 7h16l-1.2 11.2a2 2 0 01-2 1.8H7.2a2 2 0 01-2-1.8L4 7zM8.5 7l3.5-4 3.5 4"
@@ -282,9 +237,6 @@ const GWalk = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.c
 const GChat = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
   d: "M4 6.5A1.5 1.5 0 015.5 5h13A1.5 1.5 0 0120 6.5v8a1.5 1.5 0 01-1.5 1.5H9l-4 3v-3H5.5A1.5 1.5 0 014 14.5z"
 }));
-const GMem = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
-  d: "M12 3a5 5 0 00-5 5c0 1 .3 1.7.8 2.5M12 3a5 5 0 015 5c0 1-.3 1.7-.8 2.5M12 3v18M7.8 10.5A4 4 0 006 14a4 4 0 004 4h0M16.2 10.5A4 4 0 0118 14a4 4 0 01-4 4h0M8 8H5.5M16 8H18.5M8.5 13.5H6M15.5 13.5H18"
-}));
 // 日记：合起来的手账本，书脊 + 书签
 const GDiary = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
   d: "M6.5 3.5h11a1.5 1.5 0 011.5 1.5v14a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 015 18.5V5a1.5 1.5 0 011.5-1.5z"
@@ -301,21 +253,7 @@ const GStudy = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.
   d: "M20.5 6.5v4.5"
 }));
 // 周刊：对折的报纸（外壳 + 卷起的右页 + 栏目线）
-const GWeekly = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
-  d: "M4 6h12a1 1 0 011 1v11a1.5 1.5 0 01-1.5 1.5h-9A2.5 2.5 0 014 18V6z"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M17 9h2a1 1 0 011 1v7.5a2 2 0 01-4 0V7"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M7 9.5h6M7 12.5h6M7 15.5h4"
-}));
 // 同人文：翻开的书 + 一支笔尖，寓意「续写」
-const GFanfic = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
-  d: "M4 5.5c2.5-1 4.5-1 7 0v12c-2.5-1-4.5-1-7 0v-12z"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M11 5.5c2.5-1 4.5-1 7 0v8"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M15.5 21l4-4 1.5 1.5-4 4-2 .5.5-2z"
-}));
 // 同人文底 nav 用：书架（三本书）
 // 一起看：一格胶片，中间一个放映的三角
 const IFilm = p => h(Svg, p, h("rect", { x: 3, y: 5, width: 18, height: 14, rx: 2 }), h("path", { d: "M7 5v14M17 5v14M3 9h4M3 15h4M17 9h4M17 15h4" }), h("path", { d: "M10.5 10l3 2-3 2z" }));
@@ -336,17 +274,11 @@ const IAuthors = p => h(Svg, p,
 // （原来是天平，那是「辩论」的图；改名之后天平只说得了「判胜负」这一半，说不了「上台吵」那一半。）
 const GDebate = p => h(Svg, p, h("path", { d: "M9.5 2.6v1.8M14.5 2.6v1.8" }), h("rect", { x: 8, y: 4.4, width: 8, height: 4.6, rx: 1 }), h("circle", { cx: 9, cy: 13.4, r: 1.7 }), h("circle", { cx: 15, cy: 13.4, r: 1.7 }), h("path", { d: "M3 16.4h18" }), h("path", { d: "M5.5 16.4V21M18.5 16.4V21" }));
 // 梦境：弯月 + 星
-const GDream = p => h(Svg, p, h("path", { d: "M20 14.5A8 8 0 019.5 4 7 7 0 1020 14.5z" }), h("path", { d: "M16.5 3.6l.5 1.6 1.6.5-1.6.5-.5 1.6-.5-1.6-1.6-.5 1.6-.5z" }));
 // 塔罗：两张摊开的牌 + 星
-const GTarot = p => h(Svg, p, h("rect", { x: 4, y: 6, width: 9, height: 13, rx: 1.4, transform: "rotate(-11 8.5 12.5)" }), h("rect", { x: 11, y: 5, width: 9, height: 13, rx: 1.4, transform: "rotate(9 15.5 11.5)" }), h("path", { d: "M15.3 8.4l.45 1.35 1.35.45-1.35.45-.45 1.35-.45-1.35-1.35-.45 1.35-.45z" }));
 // 番茄钟：计时器（表身 + 顶钮 + 指针）
-const GFocus = p => h(Svg, p, h("circle", { cx: 12, cy: 14, r: 7.5 }), h("path", { d: "M12 14V9.5" }), h("path", { d: "M12 3.5v2.4M9.6 4.2h4.8" }), h("path", { d: "M17.8 7.6l1.3-1.3" }));
 // 小游戏：游戏手柄（机身 + 十字键 + 两个圆钮）
-const GGame = p => h(Svg, p, h("rect", { x: 3, y: 8, width: 18, height: 9, rx: 4.5 }), h("path", { d: "M7.5 10.8v3.4M5.8 12.5h3.4" }), h("circle", { cx: 16, cy: 11.8, r: 1 }), h("circle", { cx: 18, cy: 14, r: 1 }));
 // 互救台：带十字的救生圈；值班室：常亮的服务器；会客室：三把座椅围桌。
-const GRescue = p => h(Svg, p, h("circle", { cx: 12, cy: 12, r: 8.5 }), h("circle", { cx: 12, cy: 12, r: 3.2 }), h("path", { d: "M12 3.5v5.3M12 15.2v5.3M3.5 12h5.3M15.2 12h5.3" }));
 const GDuty = p => h(Svg, p, h("rect", { x: 4, y: 4.5, width: 16, height: 6, rx: 1.6 }), h("rect", { x: 4, y: 13.5, width: 16, height: 6, rx: 1.6 }), h("circle", { cx: 7.2, cy: 7.5, r: .8 }), h("circle", { cx: 7.2, cy: 16.5, r: .8 }), h("path", { d: "M10 7.5h6.5M10 16.5h6.5" }));
-const GLounge = p => h(Svg, p, h("circle", { cx: 12, cy: 12, r: 3.2 }), h("circle", { cx: 12, cy: 4.8, r: 2.1 }), h("circle", { cx: 5.7, cy: 15.8, r: 2.1 }), h("circle", { cx: 18.3, cy: 15.8, r: 2.1 }), h("path", { d: "M10.2 7.1l.8 1.9M7.8 14.3l1.9-1M16.2 14.3l-1.9-1" }));
 
 // 天气：一套线条画的天象（她 2026-09-04：「一起换了吧」——主屏上最后几个 emoji）。
 // kind 由 wmoKind(code) 给：sun / partly / cloud / fog / storm / snow / rain。
@@ -542,6 +474,16 @@ function filledIconSvg(key, hue) {
   return s.replace(/\{m\}/g, "hsl(" + hue + ",52%,64%)").replace(/\{d\}/g, "hsl(" + hue + ",40%,44%)").replace(/\{l\}/g, "hsl(" + hue + ",70%,86%)");
 }
 if (typeof window !== "undefined") { window.FILLED_ICONS = FILLED_ICONS; window.filledIconSvg = filledIconSvg; }
+
+// 实心图当组件用：主屏名单里线稿已经删掉的那些 app，G 就是它（她 2026-11-17：「把原先的线稿删了吧」）。
+//   文件夹小格、主题工作台换图标那一列、切换器——凡是要 a.G 的地方都拿到实心版。
+function FG(key) {
+  return function FilledGlyph(p) {
+    const hue = (typeof appTone === "function" ? appTone(key) : { hue: 200 }).hue, n = (p && p.size) || 18;
+    return React.createElement("svg", { "data-wk": "iconfill", viewBox: "0 0 24 24", width: n, height: n, style: Object.assign({ display: "block" }, p && p.style), dangerouslySetInnerHTML: { __html: filledIconSvg(key, hue) } });
+  };
+}
+if (typeof window !== "undefined") window.FG = FG;
 if (typeof window !== "undefined") { window.appTone = appTone; window.HOME_PAPER_BG = HOME_PAPER_BG; }
 const SKIN_PATS = {
   // 纸：两道极细的斜纹交叉，看不出线，只觉得这页不是塑料

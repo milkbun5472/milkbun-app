@@ -27,3 +27,11 @@ test("秋秋那只画好的鸟不被实心图顶掉", () => {
   assert.ok(!map.assistant);
   assert.match(comp, /const APP_BUILTIN_ICON = \{ assistant: "img\/qiu-icon\.png" \}/);
 });
+test("只在主屏用的那批线稿已删，名单里换成 FG(key)", () => {
+  for (const g of ["GForum", "GCast", "GTies", "GPhone", "GLore", "GMem", "GWeekly", "GFanfic", "GDream", "GTarot", "GFocus", "GGame", "GRescue", "GLounge"]) {
+    assert.ok(!new RegExp("\\b" + g + "\\b").test(core), g + " 还在 core.js");
+    assert.ok(!new RegExp("\\b" + g + "\\b").test(comp), g + " 还在 components.js");
+  }
+  assert.match(core, /function FG\(key\)/);
+  assert.match(comp, /cast: \{ kind: "app", zh: "人格档案馆", G: FG\("cast"\)/);
+});
