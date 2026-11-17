@@ -195,9 +195,9 @@ test("还有文件在路上就别下判词：先说「还在下载」，等下�
   assert.match(html, /waited < 900000/, "没有等待上限：下不动的人会被永远吊着");
   assert.match(html, /setTimeout\(function \(\) \{ verdict\(waited \+ 6000\); \}, 6000\)/,
     "摆完「还在下载」要接着再看，不能摆上就不管了");
-  assert.ok(html.includes("<b>这期间别按「重新加载」、别锁屏、别切出去</b>"), "这张卡的重点就是别按重新加载、别打断");
-  // 2026-11-17 退回普通 <script src>：排队、读流重下、对字节数全撤了，这些痕迹不许留
-  assert.ok(!html.includes("qq_boot_slow") && !html.includes("bq.bytes") && !html.includes("三十秒没动静"), "退回去的东西又回来了");
+  assert.ok(html.includes("<b>这期间别按「重新加载」</b>") && html.includes("三十秒没动静会自动断开重下") && html.includes("bq.bytes") && html.includes('indexOf("blob:") !== 0'), "这张卡的重点就是别按重新加载、别打断");
+  // 2026-11-17 排队和「先用存好的」撤了，卡住重下＋对大小留着（她「留着吧」）
+  assert.ok(!html.includes("qq_boot_slow") && !html.includes("QQ_UPDATE_READY"), "撤掉的排队、先用存档版又回来了");
   // 公共版每块挂 onload 计数（__bootSeq），卡上写下好几块
   assert.match(html, /var q = window\.__bootSeq;\s*if \(q && !q\.end && !q\.err\) n \+=/, "排队的块没算进还在下载");
   assert.ok(html.includes('"，已下好 " + bq.done + " / " + bq.total + " 块"'), "卡上要写已下好几块");
