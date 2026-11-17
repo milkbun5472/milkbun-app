@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="ARCHIVE" />
-<meta name="theme-color" content="#ece8e1" />
+<meta name="theme-color" content="#eceff3" />
 <script>document.documentElement.classList.add("fonts-pending");</script>
 <link rel="apple-touch-icon" href="icon-192.png?v=61.52" />
 <link rel="manifest" href="manifest.json?v=89.707" />
@@ -195,7 +195,7 @@
 <script src="vendor/tailwind.js?v=89.707"></script>
 <link rel="stylesheet" href="vendor/leaflet.css" />
 <style>
-  html, body, #root { height: 100vh; margin: 0; padding: 0; overscroll-behavior: none; background: #ece8e1; }
+  html, body, #root { height: 100vh; margin: 0; padding: 0; overscroll-behavior: none; background: #eceff3; }
   /* Google 字体冷启动时先用系统字体顶上会整页跳字。等三套关键字体就绪再淡入；断网最多等 2.4 秒。 */
   html.fonts-pending #root { opacity: 0; }
   #root { opacity: 1; transition: opacity .12s ease-out; }
@@ -217,9 +217,9 @@
   input[type="color"] { -webkit-appearance: none; appearance: none; padding: 0; border: none; background: none; }
   input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
   input[type="color"]::-webkit-color-swatch { border: 1px solid #ddd; border-radius: 999px; }
-  input[type="range"] { -webkit-appearance: none; appearance: none; height: 3px; background: #ddd8cd; border-radius: 3px; }
-  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 999px; background: #fff; border: 1px solid #ddd8cd; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
-  input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 999px; background: #fff; border: 1px solid #ddd8cd; }
+  input[type="range"] { -webkit-appearance: none; appearance: none; height: 3px; background: #d9dfe6; border-radius: 3px; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 999px; background: #fff; border: 1px solid #d9dfe6; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+  input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 999px; background: #fff; border: 1px solid #d9dfe6; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
   /* app 自己的进场动画用专用名 qqIn（2026-10-22）：fadeUp 太常见，美化 CSS 里自己定义一个同名的，
      app 里所有弹窗、整页就跟着变成看不见（群里「查手机和查找记录点不动」）。fadeUp 留着给已有的美化引用 */
@@ -269,7 +269,7 @@
     var dark = false;
     try {
       var th = JSON.parse(localStorage.getItem("x_theme") || "{}");
-      var bgc = String(th.bg || "#ece8e1").trim(), m, r, g2, b2;
+      var bgc = String(th.bg || "#eceff3").trim(), m, r, g2, b2;
       if (m = /^#([0-9a-f]{6})$/i.exec(bgc)) { var n = parseInt(m[1], 16); r = n >> 16 & 255; g2 = n >> 8 & 255; b2 = n & 255; }
       else if (m = /^#([0-9a-f]{3})$/i.exec(bgc)) { r = parseInt(m[1][0] + m[1][0], 16); g2 = parseInt(m[1][1] + m[1][1], 16); b2 = parseInt(m[1][2] + m[1][2], 16); }
       else if (m = /^rgba?\(([^)]+)\)/i.exec(bgc)) { var q = m[1].split(","); r = +q[0]; g2 = +q[1]; b2 = +q[2]; }

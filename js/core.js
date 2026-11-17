@@ -17,12 +17,13 @@ function fsz(px) { return "calc(" + px + "px * var(--app-fs, 1))"; }
 // TOKENS — iOS glass home + calm interior. warm neutral base.
 // ============================================================
 const DEFAULT_THEME = {
-  bg: "#ece8e1",
-  bg2: "#f6f4ef",
+  // 冷白（她 2026-11-17：「主题色是不是也得从米白换成冰白了，就是每个默认界面的背景底色」）
+  bg: "#eceff3",
+  bg2: "#f7f9fb",
   ink: "#1b1a17",
-  sub: "#4b493f",
-  fog: "#96938a",
-  line: "#ddd8cd",
+  sub: "#474c54",
+  fog: "#9097a0",
+  line: "#d9dfe6",
   accent: "#c25a4a",
   tint: "#3f6d8c",
   // 名片那层斜铺的淡色（她 2026-11-17：主屏换成冰白以后「秋秋那张名片背景要不要弄一下颜色」）。

@@ -4144,7 +4144,7 @@ function VinylDisc({ size, cover, playing, frac }) {
       animation: playing ? "wk-spin 9s linear infinite" : "none",
       display: "flex", alignItems: "center", justifyContent: "center" } },
       h("div", { style: { width: label, height: label, borderRadius: 999, overflow: "hidden",
-        background: cover ? "center/cover no-repeat url(" + cover + ")" : "linear-gradient(140deg,#c9a06a,#8a6a45)",
+        background: cover ? "center/cover no-repeat url(" + cover + ")" : "linear-gradient(140deg,#c4d3e6,#8ea6c6)",
         boxShadow: "0 0 0 1px rgba(255,255,255,.22)", display: "flex", alignItems: "center", justifyContent: "center" } },
         h("div", { "data-wk": "block", style: { width: Math.max(3, size * 0.045), height: Math.max(3, size * 0.045), borderRadius: 999, background: "#f7f1e5", boxShadow: "0 0 0 1px rgba(0,0,0,.35)" } }))),
     // 唱臂：一根细杆 + 尾端配重 + 针头，支点画在右上角
@@ -4548,14 +4548,16 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onPrev, 
   // 折叠只收控件，不操作音频；展开及窗口变窄时把已有点位约束回可见区域。
   const ink = t.ink || "#3a3430";
   const disc = 38, lab = Math.round(disc * 0.44);
+  const lightMini = !(typeof skinIsDark === "function" && skinIsDark(t.bg2));
   return h("div", { ref: elRef, onClick: onClick, role: folded ? "button" : undefined, tabIndex: folded ? 0 : undefined,
     "aria-label": folded ? "展开一起听播放器" : "一起听悬浮播放器",
     onKeyDown: e => { if (folded && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); fold(false); } },
     onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp,
     style: Object.assign({ position: "fixed", zIndex: MINI_PLAYER_Z, display: "flex", alignItems: "center", gap: 5, maxWidth: "88vw", touchAction: "none", cursor: "grab",
-      background: skinAlpha(t.bg2, "F2"), backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
-      border: "1px solid " + skinAlpha(ink, "1e"), borderRadius: 999, padding: folded ? "6px" : "6px 8px 6px 6px",
-      boxShadow: "0 10px 26px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35)", transition: "transform .3s ease, opacity .3s ease" }, place, tuckMove) },
+      // 浅色主题是一块白磨砂（她 2026-11-17：「一起听那个悬浮要不要改成白色的」，跟冰白主屏、底栏同一种白）；深色主题照旧跟 bg2 走
+      background: lightMini ? "rgba(255,255,255,0.80)" : skinAlpha(t.bg2, "F2"), backdropFilter: "blur(16px) saturate(1.4)", WebkitBackdropFilter: "blur(16px) saturate(1.4)",
+      border: lightMini ? "1px solid rgba(255,255,255,0.9)" : "1px solid " + skinAlpha(ink, "1e"), borderRadius: 999, padding: folded ? "6px" : "6px 8px 6px 6px",
+      boxShadow: lightMini ? "0 10px 26px rgba(70,95,130,.16), 0 1px 3px rgba(70,95,130,.10), inset 0 1px 0 rgba(255,255,255,.9)" : "0 10px 26px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.35)", transition: "transform .3s ease, opacity .3s ease" }, place, tuckMove) },
     // 那张碟：黑胶纹 + 封面当标 + 中间那个轴孔（跟一起听那张大碟同一种材质，没有唱臂——
     // 38px 上再画一根臂只会糊成一团）
     h("div", { style: { position: "relative", flexShrink: 0, width: disc, height: disc, borderRadius: 999,
