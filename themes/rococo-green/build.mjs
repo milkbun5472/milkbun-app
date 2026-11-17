@@ -66,7 +66,7 @@ const css = `
 /* 顶栏：奶油底，下沿一道橘红边，再垂一条金涡卷花边带、正中一枚洛可可饰 */
 [data-wk="chathead"]{background:${C.cream} !important;border-bottom:none !important;box-shadow:0 5px 0 ${C.orange},0 7px 0 ${C.orangeD} !important;position:relative !important;overflow:visible !important;gap:6px !important;z-index:5 !important}
 [data-wk="chathead"]::after{content:"" !important;position:absolute !important;left:0 !important;right:0 !important;top:calc(100% + 8px) !important;height:20px !important;background:${svg(SHELL)} center top/56px 28px no-repeat,${svg(SCROLLBAND)} 0 0/40px 20px repeat-x !important;pointer-events:none !important}
-[data-wk="chathead"] + *:not([data-wk="body"]){margin-top:28px !important}
+[data-wk="chathead"] + *:not([data-wk="body"]){position:relative !important;z-index:6 !important;margin-top:7px !important;background:${C.green2} !important;box-shadow:0 1px 0 ${C.gold} !important}
 [data-wk="body"]{padding-top:14px !important}
 [data-wk="headink"],[data-wk="headink"] *{color:${C.ink} !important}
 [data-wk="headname"] > [data-wk="headink"]{font-weight:700 !important;letter-spacing:.12em !important;white-space:nowrap !important}
