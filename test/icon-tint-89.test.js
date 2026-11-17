@@ -24,7 +24,7 @@ test("格子的淡彩底也认那两个变量", () => {
 // 出厂冰白（她 2026-11-17）：默认值挂在零权重的 :root 上，「原色」是 { raw: true }
 test("出厂冰白、原色可退回", () => {
   const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");
-  assert.match(core, /const ICONFILL_DEFAULT_CSS = ":where\(:root\)\{--iconfill-hue:214;/);
+  assert.match(core, /const ICONFILL_DEFAULT_CSS = ":where\(:root:not\(\[data-look=classic\]\)\)\{--iconfill-hue:214;/);
   assert.match(st, /const ICON_TINTS = \[\["冰白", null\], \["原色", \{ raw: true \}\]/);
   assert.match(st, /if \(t\.raw\) return \{ raw: true \};/);
   global.window = undefined;

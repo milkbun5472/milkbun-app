@@ -30,6 +30,9 @@ const DEFAULT_THEME = {
   //   只管名片；日历今天那颗红圈照旧用 accent（她：「红圈不改吧」）。名片里挑过颜色（profile.color）还是听那个。
   cardTint: "#7f9cc2"
 };
+// 「米白」旧版那套配色（配色页一键换回）。look:"classic" 让主屏底、图标、档案桌面一起回到旧版
+const THEME_CLASSIC = { bg: "#ece8e1", bg2: "#f6f4ef", sub: "#4b493f", fog: "#96938a", line: "#ddd8cd", cardTint: "#c25a4a", look: "classic" };
+const THEME_ICE = { bg: DEFAULT_THEME.bg, bg2: DEFAULT_THEME.bg2, sub: DEFAULT_THEME.sub, fog: DEFAULT_THEME.fog, line: DEFAULT_THEME.line, cardTint: DEFAULT_THEME.cardTint, look: "" };
 const ThemeContext = createContext(DEFAULT_THEME);
 const useTheme = () => useContext(ThemeContext);
 // 自带材质的页面也在渲染时取当前 pagecolor；别在模块加载时冻结预览颜色。
@@ -492,16 +495,108 @@ function filledIconSvg(key, hue) {
   });
 }
 // 出厂冰白那几个值。:where(:root) 是零权重，任何美化写的 :root 都压得住它。
-const ICONFILL_DEFAULT_CSS = ":where(:root){--iconfill-hue:214;--iconfill-sat:30%;--iconfill-lm:96%;--iconfill-ld:84%;--iconfill-ll:100%;--iconfill-dot:#9fb6d3}";
+const ICONFILL_DEFAULT_CSS = ":where(:root:not([data-look=classic])){--iconfill-hue:214;--iconfill-sat:30%;--iconfill-lm:96%;--iconfill-ld:84%;--iconfill-ll:100%;--iconfill-dot:#9fb6d3}";
 if (typeof document !== "undefined" && document.head && !document.getElementById("iconfill-default")) {
   const st = document.createElement("style"); st.id = "iconfill-default"; st.textContent = ICONFILL_DEFAULT_CSS; document.head.appendChild(st);
 }
 if (typeof window !== "undefined") { window.FILLED_ICONS = FILLED_ICONS; window.filledIconSvg = filledIconSvg; }
 
+// 「米白」旧版那套线稿（她 2026-11-17：「你把以前那个界面恢复一下放预设里，就是那个线稿」）。
+//   冰白（出厂）画实心图；配色里选了「米白」，FG 就改画这一套。别再删。
+const GForum = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
+  d: "M4 5h16v10H9l-4 4V5z"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M8 9h8M8 12h5"
+}));
+const GCast = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("circle", {
+  cx: "9",
+  cy: "8",
+  r: "3.2"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M3.5 20a5.5 5.5 0 0111 0"
+}), /*#__PURE__*/React.createElement("circle", {
+  cx: "17",
+  cy: "9",
+  r: "2.6"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M15 20a4.5 4.5 0 016.5-4"
+}));
+const GTies = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("circle", {
+  cx: "6",
+  cy: "6",
+  r: "2.3"
+}), /*#__PURE__*/React.createElement("circle", {
+  cx: "18",
+  cy: "7",
+  r: "2.3"
+}), /*#__PURE__*/React.createElement("circle", {
+  cx: "12",
+  cy: "18",
+  r: "2.3"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M7.6 7.5L11 16M16.2 9L13 16M8 6.2h7.7"
+}));
+const GPhone = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("rect", {
+  x: "6",
+  y: "2.5",
+  width: "12",
+  height: "19",
+  rx: "2.4"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M10 5.5h4"
+}));
+const GLore = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
+  d: "M4 4.5A1.5 1.5 0 015.5 3H12v16H5.5A1.5 1.5 0 004 20.5zM20 4.5A1.5 1.5 0 0018.5 3H12v16h6.5a1.5 1.5 0 011.5 1.5z"
+}));
+const GMem = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
+  d: "M12 3a5 5 0 00-5 5c0 1 .3 1.7.8 2.5M12 3a5 5 0 015 5c0 1-.3 1.7-.8 2.5M12 3v18M7.8 10.5A4 4 0 006 14a4 4 0 004 4h0M16.2 10.5A4 4 0 0118 14a4 4 0 01-4 4h0M8 8H5.5M16 8H18.5M8.5 13.5H6M15.5 13.5H18"
+}));
+const GWeekly = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
+  d: "M4 6h12a1 1 0 011 1v11a1.5 1.5 0 01-1.5 1.5h-9A2.5 2.5 0 014 18V6z"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M17 9h2a1 1 0 011 1v7.5a2 2 0 01-4 0V7"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M7 9.5h6M7 12.5h6M7 15.5h4"
+}));
+const GFanfic = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
+  d: "M4 5.5c2.5-1 4.5-1 7 0v12c-2.5-1-4.5-1-7 0v-12z"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M11 5.5c2.5-1 4.5-1 7 0v8"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M15.5 21l4-4 1.5 1.5-4 4-2 .5.5-2z"
+}));
+const GDream = p => h(Svg, p, h("path", { d: "M20 14.5A8 8 0 019.5 4 7 7 0 1020 14.5z" }), h("path", { d: "M16.5 3.6l.5 1.6 1.6.5-1.6.5-.5 1.6-.5-1.6-1.6-.5 1.6-.5z" }));
+const GTarot = p => h(Svg, p, h("rect", { x: 4, y: 6, width: 9, height: 13, rx: 1.4, transform: "rotate(-11 8.5 12.5)" }), h("rect", { x: 11, y: 5, width: 9, height: 13, rx: 1.4, transform: "rotate(9 15.5 11.5)" }), h("path", { d: "M15.3 8.4l.45 1.35 1.35.45-1.35.45-.45 1.35-.45-1.35-1.35-.45 1.35-.45z" }));
+const GFocus = p => h(Svg, p, h("circle", { cx: 12, cy: 14, r: 7.5 }), h("path", { d: "M12 14V9.5" }), h("path", { d: "M12 3.5v2.4M9.6 4.2h4.8" }), h("path", { d: "M17.8 7.6l1.3-1.3" }));
+const GGame = p => h(Svg, p, h("rect", { x: 3, y: 8, width: 18, height: 9, rx: 4.5 }), h("path", { d: "M7.5 10.8v3.4M5.8 12.5h3.4" }), h("circle", { cx: 16, cy: 11.8, r: 1 }), h("circle", { cx: 18, cy: 14, r: 1 }));
+const GRescue = p => h(Svg, p, h("circle", { cx: 12, cy: 12, r: 8.5 }), h("circle", { cx: 12, cy: 12, r: 3.2 }), h("path", { d: "M12 3.5v5.3M12 15.2v5.3M3.5 12h5.3M15.2 12h5.3" }));
+const GLounge = p => h(Svg, p, h("circle", { cx: 12, cy: 12, r: 3.2 }), h("circle", { cx: 12, cy: 4.8, r: 2.1 }), h("circle", { cx: 5.7, cy: 15.8, r: 2.1 }), h("circle", { cx: 18.3, cy: 15.8, r: 2.1 }), h("path", { d: "M10.2 7.1l.8 1.9M7.8 14.3l1.9-1M16.2 14.3l-1.9-1" }));
+// 「米白」那套界面（旧版）的主屏底，原样留着（她 2026-11-17：「把以前那个界面恢复一下放预设里」）
+const HOME_PAPER_CLASSIC = [
+  // 两道细纸纹，给玻璃一点可折的东西
+  "repeating-linear-gradient(58deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 7px)",
+  "repeating-linear-gradient(-32deg, rgba(27,26,23,0.022) 0px, rgba(27,26,23,0.022) 1px, transparent 1px, transparent 10px)",
+  // 四团光：暖的在上、冷的在右和下
+  "radial-gradient(74% 48% at 0% -2%, rgba(200,94,78,0.30), transparent 68%)",
+  "radial-gradient(70% 46% at 104% 16%, rgba(52,108,150,0.30), transparent 70%)",
+  "radial-gradient(80% 52% at 80% 104%, rgba(88,122,100,0.26), transparent 72%)",
+  "radial-gradient(56% 38% at 28% 58%, rgba(148,114,176,0.18), transparent 74%)",
+  // ⚠️打底这一层必须【接近中性】。玻璃的 saturate(1.9) 会把它背后的颜色乘上去：
+  //   底色本身偏黄（色度 12）时，压在上面的组件就会被放大成色度 22 的米黄一片
+  //   （她 2026-08-30：「app文件夹和组件背景都还是太米黄了，我想要透一点的高级感」）。
+  //   所以颜色全交给上面那四团光——玻璃放大的是那几团光，平的地方保持干净。
+  "linear-gradient(163deg, #f1efec 0%, #e8e5e1 46%, #dbd8d4 100%)"
+].join(", ");
+if (typeof window !== "undefined") window.HOME_PAPER_CLASSIC = HOME_PAPER_CLASSIC;
+// 现在是不是「米白」旧版界面：App 渲染时把 theme.look 写到 <html data-look>，拿不到 theme 的地方也能问
+function isClassicLook() { try { return document.documentElement.getAttribute("data-look") === "classic"; } catch (e) { return false; } }
+if (typeof window !== "undefined") window.isClassicLook = isClassicLook;
 // 实心图当组件用：主屏名单里线稿已经删掉的那些 app，G 就是它（她 2026-11-17：「把原先的线稿删了吧」）。
 //   文件夹小格、主题工作台换图标那一列、切换器——凡是要 a.G 的地方都拿到实心版。
-function FG(key) {
+function FG(key, line) {
   return function FilledGlyph(p) {
+    // 米白旧版：画线稿（line 可以是组件，也可以是返回组件的函数——别的文件晚加载的 window.GAstro 那种要到画的时候才拿）
+    if (line && isClassicLook()) { const L = line.length === 0 ? line() : line; if (L) return React.createElement(L, p); }
     const hue = (typeof appTone === "function" ? appTone(key) : { hue: 200 }).hue, n = (p && p.size) || 18;
     return React.createElement("svg", { "data-wk": "iconfill", viewBox: "0 0 24 24", width: n, height: n, style: Object.assign({ display: "block" }, p && p.style), dangerouslySetInnerHTML: { __html: filledIconSvg(key, hue) } });
   };

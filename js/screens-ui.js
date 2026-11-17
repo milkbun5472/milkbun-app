@@ -8390,6 +8390,19 @@ function ThemeConfig({
     className: "pt-4"
   },
   h(ThemeNightRow, { theme: th, onSave: n => { setTh(n); onSave(n); } }),
+  // 界面底色：冰白（出厂）／米白（旧版：暖底、线稿图标）（她 2026-11-17：「你把以前那个界面恢复一下放预设里……界面也可以选米色的」）
+  h("div", { "data-wk": "themelook", className: "py-3.5", style: { borderBottom: "1px solid " + t.line, marginBottom: 10 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "界面底色"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2, marginBottom: 10 } }, "冰白是现在这套：冷白底、实心图标。米白是以前那套：暖白底、线条图标。点一下就换，底色、主屏、图标一起变；你自己换过图的图标不受影响。"),
+    h("div", { className: "flex", style: { gap: 10 } },
+      [["", "冰白", "linear-gradient(145deg,#f7f9fb,#dfe6ee)"], ["classic", "米白", "linear-gradient(145deg,#f6f4ef,#e3ddd2)"]].map(([k, name, sw]) => {
+        const on = (th.look || "") === k;
+        return h("button", { key: name, "data-on": on ? "1" : "0", className: "active:opacity-80 flex items-center",
+          onClick: () => { const n = { ...th, ...(k ? THEME_CLASSIC : THEME_ICE) }; setTh(n); onSave(n); },
+          style: { gap: 8, minHeight: 44, padding: "6px 14px 6px 6px", borderRadius: 999, background: on ? t.bg2 : "transparent", border: "1px solid " + (on ? t.ink : t.line) } },
+          h("span", { style: { width: 30, height: 30, borderRadius: 999, background: sw, boxShadow: "inset 0 0 0 1px rgba(0,0,0,.08)" } }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? t.ink : t.sub } }, name));
+      }))),
   // 主屏壁纸：从相册自定义
   /*#__PURE__*/React.createElement("div", {
     className: "pb-5 mb-2",
