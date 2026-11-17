@@ -318,13 +318,15 @@ function CardImportSheet({ onImport, onClose, userName }) {
 // 这一页的桌面：中性纸底 + 两团带着TA自己颜色的光 + 两道细纸纹。
 // 打底那层必须接近中性（跟主屏同一条道理），颜色只从那两团光里来。
 function dossierDeskBg(accent) {
-  const a = accent || "#8a8577";
+  // 出厂主题的赤陶 accent 铺在冰白桌面上会泛一片粉（她 2026-11-17 截图），那就换成名片同一支雾蓝；别的主题的 accent 照旧
+  const D = typeof DEFAULT_THEME !== "undefined" ? DEFAULT_THEME : null;
+  const a = D && D.cardTint && String(accent || "").toLowerCase() === D.accent ? D.cardTint : (accent || "#8a8577");
   return [
     "repeating-linear-gradient(58deg, rgba(255,255,255,.16) 0px, rgba(255,255,255,.16) 1px, transparent 1px, transparent 14px)",
     "repeating-linear-gradient(-34deg, rgba(46,38,29,.012) 0px, rgba(46,38,29,.012) 1px, transparent 1px, transparent 18px)",
     "radial-gradient(84% 44% at 2% -4%, " + hexA(a, .30) + ", transparent 64%)",
     "radial-gradient(76% 42% at 102% 84%, " + hexA(a, .24) + ", transparent 68%)",
-    "linear-gradient(168deg, #f2efeb 0%, #e9e6e2 52%, #dedbd6 100%)"
+    "linear-gradient(168deg, #f4f6f9 0%, #ebeef2 52%, #e3e6eb 100%)"
   ].join(", ");
 }
 // #rrggbb → rgba(...)，给上面那两团光调透明度用

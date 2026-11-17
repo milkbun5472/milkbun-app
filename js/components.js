@@ -4195,7 +4195,7 @@ function PolaroidStack({ w, photo, note, onTap, lean }) {
   const tilt = typeof lean === "number" ? lean : 0;
   const sheet = (deg, dx, dy, z, dim) => ({
     position: "absolute", left: dx, top: dy, width: w, height: hh, zIndex: z,
-    transform: "rotate(" + (deg + tilt) + "deg)", background: dim ? "#efe7d8" : "#fffdf7",
+    transform: "rotate(" + (deg + tilt) + "deg)", background: dim ? "#e6ebf1" : "#ffffff",
     borderRadius: 2, boxShadow: "0 3px 9px rgba(40,30,20,.26)"
   });
   return h("div", { onClick: onTap ? function (e) { e.stopPropagation(); e.preventDefault(); onTap(); } : undefined,
@@ -4203,11 +4203,11 @@ function PolaroidStack({ w, photo, note, onTap, lean }) {
     h("div", { "aria-hidden": true, style: sheet(-7, 0, 5, 1, true) }),
     h("div", { "aria-hidden": true, style: sheet(4, 8, 2, 2, true) }),
     h("div", { style: Object.assign(sheet(-1.5, 4, 0, 3, false), { padding: 4, paddingBottom: 0, display: "flex", flexDirection: "column" }) },
-      h("div", { style: { flex: 1, minHeight: 0, background: photo ? "center/cover no-repeat url(" + photo + ")" : "linear-gradient(150deg,#e3dccd,#cfc5b2)",
+      h("div", { style: { flex: 1, minHeight: 0, background: photo ? "center/cover no-repeat url(" + photo + ")" : "linear-gradient(150deg,#e6ebf1,#ccd5e0)",
         display: "flex", alignItems: "center", justifyContent: "center" } },
-        photo ? null : h("span", { style: { fontFamily: F_BODY, fontSize: 8, color: "rgba(70,58,42,.5)" } }, "放张照片")),
+        photo ? null : h("span", { style: { fontFamily: F_BODY, fontSize: 8, color: "rgba(60,74,94,.5)" } }, "放张照片")),
       h("div", { style: { height: Math.max(24, Math.round(hh * 0.24)), display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", overflow: "hidden" } },
-        h("span", { style: { fontFamily: F_SCRIPT, fontSize: Math.max(9, Math.round(w * 0.13)), lineHeight: 1.06, color: note ? "#4a3d2c" : "rgba(74,61,44,.4)",
+        h("span", { style: { fontFamily: F_SCRIPT, fontSize: Math.max(9, Math.round(w * 0.13)), lineHeight: 1.06, color: note ? "#3a4556" : "rgba(58,72,92,.4)",
           textAlign: "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", wordBreak: "break-word" } }, note || "写一句"))));
 }
 function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, onToggle, onNext, onPrev, onEditCard, cellH, cellCols }) {
