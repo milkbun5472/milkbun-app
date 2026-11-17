@@ -35,3 +35,7 @@ test("只在主屏用的那批线稿已删，名单里换成 FG(key)", () => {
   assert.match(core, /function FG\(key\)/);
   assert.match(comp, /cast: \{ kind: "app", zh: "人格档案馆", G: FG\("cast"\)/);
 });
+test("实心图颜色走 style 里的 CSS 变量，美化能统一色系", () => {
+  assert.match(core, /var\(--iconfill-hue,/);
+  assert.match(core, /var\(--iconfill-sat,52%\)/);
+});
