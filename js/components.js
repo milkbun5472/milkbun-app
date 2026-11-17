@@ -3195,9 +3195,13 @@ function FolderIcon({ apps, label, onOpen, onWallpaper, badge }) {
       //   盖上盖子就变回线稿——比整个都不对更像坏了。
       preview.map((a, i) => {
         const src = appIconSrc(a.key);
+        // 盖着盖子的小格也要认实心图（跟 GlassIcon 同一个优先级：她的图 → 实心图 → 线条）
+        const ft = !src && typeof appTone === "function" ? appTone(a.key) : null;
+        const fill = ft && typeof filledIconSvg === "function" ? filledIconSvg(a.key, ft.hue) : "";
         return h("div", { "data-wk": "block", key: i, className: "flex items-center justify-center", style: { overflow: "hidden", background: src ? "transparent" : "rgba(255,255,255,0.52)", borderRadius: 7, boxShadow: src ? "none" : "inset 0 0.8px 0.6px rgba(255,255,255,0.9)" } },
           // 她那张图自己就是一整块画面，别再垫一层白底把它框小
           src ? h("img", { src: src, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 7 } })
+              : fill ? h("svg", { "data-wk": "iconfill", viewBox: "0 0 24 24", width: 22, height: 22, style: { display: "block" }, dangerouslySetInnerHTML: { __html: fill } })
               : h(a.G, { size: 15, color: t.ink, sw: 1.7 }));
       }),
       Array.from({ length: Math.max(0, 4 - preview.length) }).map((_, i) => h("div", { key: "e" + i })),

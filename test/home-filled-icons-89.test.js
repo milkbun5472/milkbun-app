@@ -15,3 +15,10 @@ test("GlassIcon 先看自定义图，再看实心图，最后才是线条", () =
   assert.match(body, /const filled = !customSrc && tone && typeof filledIconSvg === "function"/);
   assert.match(body, /"data-wk": "iconfill"/);
 });
+test("文件夹盖着时的小格也认实心图", () => {
+  assert.match(comp, /const fill = ft && typeof filledIconSvg === "function" \? filledIconSvg\(a\.key, ft\.hue\) : "";/);
+});
+test("桌面上摆的 app 都有实心图", () => {
+  const map = JSON.parse(core.match(/const FILLED_ICONS = (\{[\s\S]*?\});\n/)[1]);
+  for (const k of ["cast", "phone", "memlib", "anon", "yanqiu", "assistant", "nest", "stylelab", "dreamjournal", "fairyGarden", "companion"]) assert.ok(map[k], k);
+});
