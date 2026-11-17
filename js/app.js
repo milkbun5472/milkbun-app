@@ -1077,6 +1077,9 @@ function App() {
     loreVecTimer.current = setTimeout(() => { if (typeof ensureLoreVecs === "function") ensureLoreVecs(loreRef.current).catch(() => {}); }, 4000);
   };
   const [theme, setTheme] = useState(DEFAULT_THEME);
+  // 「米白」旧版界面（配色页选的）：写到 <html data-look>，图标、档案桌面这些拿不到 theme 的地方问 isClassicLook()。
+  //   在渲染里同步写、不放 effect：effect 晚一拍，换完那一帧子组件读到的还是旧的
+  try { document.documentElement.setAttribute("data-look", theme && theme.look === "classic" ? "classic" : ""); } catch (e) {}
   // 主题工作台改完要当场看见（v65.06）：它改的那份【这一页单独换的几支色】
   // 是在渲染时问 ThemeStudio 要的，所以这儿得跟着它的广播重画一次。
   // ⚠️只加了一个计数器，没动主题本身，也没动任何布局（home-screen-layout.md）。
@@ -38263,7 +38266,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       background: screen === "home"
         ? (wallpaper
             ? "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(wallpaper) : wallpaper) + ")"
-            : (typeof HOME_PAPER_BG !== "undefined" ? HOME_PAPER_BG : theme.bg))
+            : (theme.look === "classic" && typeof HOME_PAPER_CLASSIC !== "undefined" ? HOME_PAPER_CLASSIC : typeof HOME_PAPER_BG !== "undefined" ? HOME_PAPER_BG : theme.bg))
         : theme.bg,
       height: "100vh", // 100vh=large viewport，撑到物理屏底（不用 100dvh/fixed，dvh 只到 WebKit 可视区会露白）
       // ⚠️只有在【真要画那层面纱】时才加 isolation（v61.38）。

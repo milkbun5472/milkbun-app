@@ -3164,7 +3164,7 @@ function GlassIcon({
   // 图自带底（v62.42 那个开关）：不套玻璃，那张图本身就是整块图标——
   // 只留一圈跟玻璃同款的投影，好让它坐在壁纸上而不是贴在壁纸上。
   const bare = !!customSrc && appIconBare();
-  const filled = !customSrc && tone && typeof filledIconSvg === "function" ? filledIconSvg(appKey, tone.hue) : "";
+  const filled = !customSrc && tone && !isClassicLook() && typeof filledIconSvg === "function" ? filledIconSvg(appKey, tone.hue) : "";
   const body = customSrc
     ? h("img", { src: customSrc, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: bare ? "contain" : "cover", borderRadius: 16, display: "block" } })
     : filled
@@ -3197,7 +3197,7 @@ function FolderIcon({ apps, label, onOpen, onWallpaper, badge }) {
         const src = appIconSrc(a.key);
         // 盖着盖子的小格也要认实心图（跟 GlassIcon 同一个优先级：她的图 → 实心图 → 线条）
         const ft = !src && typeof appTone === "function" ? appTone(a.key) : null;
-        const fill = ft && typeof filledIconSvg === "function" ? filledIconSvg(a.key, ft.hue) : "";
+        const fill = ft && !isClassicLook() && typeof filledIconSvg === "function" ? filledIconSvg(a.key, ft.hue) : "";
         return h("div", { "data-wk": "block", key: i, className: "flex items-center justify-center", style: { overflow: "hidden", background: src ? "transparent" : "rgba(255,255,255,0.52)", borderRadius: 7, boxShadow: src ? "none" : "inset 0 0.8px 0.6px rgba(255,255,255,0.9)" } },
           // 她那张图自己就是一整块画面，别再垫一层白底把它框小
           src ? h("img", { src: src, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 7 } })
@@ -4191,11 +4191,12 @@ function musicPhotoGround(card) {
 // 参考图里就是这个形状——不是一张方图，是【叠起来的几张】。
 function PolaroidStack({ w, photo, note, onTap, lean }) {
   const hh = Math.round(w * 1.22);
+  const classic = isClassicLook();
   // lean＝整摞往右倒多少度（她 2026-09-05：「角度再往右侧一点」）。0 就是原来那个几乎正的样子。
   const tilt = typeof lean === "number" ? lean : 0;
   const sheet = (deg, dx, dy, z, dim) => ({
     position: "absolute", left: dx, top: dy, width: w, height: hh, zIndex: z,
-    transform: "rotate(" + (deg + tilt) + "deg)", background: dim ? "#e6ebf1" : "#ffffff",
+    transform: "rotate(" + (deg + tilt) + "deg)", background: dim ? (classic ? "#efe7d8" : "#e6ebf1") : (classic ? "#fffdf7" : "#ffffff"),
     borderRadius: 2, boxShadow: "0 3px 9px rgba(40,30,20,.26)"
   });
   return h("div", { onClick: onTap ? function (e) { e.stopPropagation(); e.preventDefault(); onTap(); } : undefined,
@@ -4203,11 +4204,11 @@ function PolaroidStack({ w, photo, note, onTap, lean }) {
     h("div", { "aria-hidden": true, style: sheet(-7, 0, 5, 1, true) }),
     h("div", { "aria-hidden": true, style: sheet(4, 8, 2, 2, true) }),
     h("div", { style: Object.assign(sheet(-1.5, 4, 0, 3, false), { padding: 4, paddingBottom: 0, display: "flex", flexDirection: "column" }) },
-      h("div", { style: { flex: 1, minHeight: 0, background: photo ? "center/cover no-repeat url(" + photo + ")" : "linear-gradient(150deg,#e6ebf1,#ccd5e0)",
+      h("div", { style: { flex: 1, minHeight: 0, background: photo ? "center/cover no-repeat url(" + photo + ")" : (classic ? "linear-gradient(150deg,#e3dccd,#cfc5b2)" : "linear-gradient(150deg,#e6ebf1,#ccd5e0)"),
         display: "flex", alignItems: "center", justifyContent: "center" } },
-        photo ? null : h("span", { style: { fontFamily: F_BODY, fontSize: 8, color: "rgba(60,74,94,.5)" } }, "放张照片")),
+        photo ? null : h("span", { style: { fontFamily: F_BODY, fontSize: 8, color: classic ? "rgba(70,58,42,.5)" : "rgba(60,74,94,.5)" } }, "放张照片")),
       h("div", { style: { height: Math.max(24, Math.round(hh * 0.24)), display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", overflow: "hidden" } },
-        h("span", { style: { fontFamily: F_SCRIPT, fontSize: Math.max(9, Math.round(w * 0.13)), lineHeight: 1.06, color: note ? "#3a4556" : "rgba(58,72,92,.4)",
+        h("span", { style: { fontFamily: F_SCRIPT, fontSize: Math.max(9, Math.round(w * 0.13)), lineHeight: 1.06, color: note ? (classic ? "#4a3d2c" : "#3a4556") : (classic ? "rgba(74,61,44,.4)" : "rgba(58,72,92,.4)"),
           textAlign: "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", wordBreak: "break-word" } }, note || "写一句"))));
 }
 function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, onToggle, onNext, onPrev, onEditCard, cellH, cellCols }) {
@@ -4548,7 +4549,7 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onPrev, 
   // 折叠只收控件，不操作音频；展开及窗口变窄时把已有点位约束回可见区域。
   const ink = t.ink || "#3a3430";
   const disc = 38, lab = Math.round(disc * 0.44);
-  const lightMini = !(typeof skinIsDark === "function" && skinIsDark(t.bg2));
+  const lightMini = !isClassicLook() && !(typeof skinIsDark === "function" && skinIsDark(t.bg2));
   return h("div", { ref: elRef, onClick: onClick, role: folded ? "button" : undefined, tabIndex: folded ? 0 : undefined,
     "aria-label": folded ? "展开一起听播放器" : "一起听悬浮播放器",
     onKeyDown: e => { if (folded && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); fold(false); } },
@@ -7327,47 +7328,47 @@ function Home({
     w_taday: { kind: "widget", which: "taday", tail: true },
     // 宠物（她 2026-11-02）：同 taday，补到最后那张空白页
     w_pets: { kind: "widget", which: "pets", tail: true },
-    cast: { kind: "app", zh: "人格档案馆", G: FG("cast") },
-    ties: { kind: "app", zh: "关系", G: FG("ties") },
-    phone: { kind: "app", zh: "查手机", G: FG("phone") },
+    cast: { kind: "app", zh: "人格档案馆", G: FG("cast", GCast) },
+    ties: { kind: "app", zh: "关系", G: FG("ties", GTies) },
+    phone: { kind: "app", zh: "查手机", G: FG("phone", GPhone) },
     shop: { kind: "app", zh: "购物", G: GShop },
     takeout: { kind: "app", zh: "外卖", G: GTakeout },
     carry: { kind: "app", zh: "随身物", G: GCarry },
     dwell: { kind: "app", zh: "去处", G: GDwell },
     cwallet: { kind: "app", zh: "钱包", G: GWallet },
-    lore: { kind: "app", zh: "世界书", G: FG("lore") },
-    memlib: { kind: "app", zh: "记忆库", G: FG("memlib") },
-    anon: { kind: "app", zh: "匿名问答", G: FG("anon") },
+    lore: { kind: "app", zh: "世界书", G: FG("lore", GLore) },
+    memlib: { kind: "app", zh: "记忆库", G: FG("memlib", GMem) },
+    anon: { kind: "app", zh: "匿名问答", G: FG("anon", GForum) },
 
     // 记账 app 图标退场：已有 w_ledger 记账组件，点组件即可进记账（onOpenApp("ledger")）。从 REG 删掉后，
     // 存档里残留的 "ledger" key 会被 valid() 判无效丢弃、安全网也不会回填。ledger 路由本身还在，不影响功能。
 
     study: { kind: "app", zh: "一起学", G: GStudy },
-    fanfic: { kind: "app", zh: "同人文", G: FG("fanfic") },
-    weekly: { kind: "app", zh: "周刊", G: FG("weekly") },
+    fanfic: { kind: "app", zh: "同人文", G: FG("fanfic", GFanfic) },
+    weekly: { kind: "app", zh: "周刊", G: FG("weekly", GWeekly) },
     read: { kind: "app", zh: "一起读", G: IShelf },
     watch: { kind: "app", zh: "一起看", G: IFilm },
     debate: { kind: "app", zh: "擂台", G: GDebate },
     shua: { kind: "app", zh: "片刻", G: window.GShua || GDebate },
-    dream: { kind: "app", zh: "梦境", G: FG("dream") },
-    tarot: { kind: "app", zh: "塔罗", G: FG("tarot") },
-    astro: { kind: "app", zh: "星测", G: FG("astro") },
-    zhaoying: { kind: "app", zh: "照影", G: FG("zhaoying") },
-    stamps: { kind: "app", zh: "邮票册", G: FG("stamps") },
-    health: { kind: "app", zh: "健康", G: FG("health") },
-    pomodoro: { kind: "app", zh: "番茄钟", G: FG("pomodoro") },
-    companion: { kind: "app", zh: "陪伴", G: FG("companion") },
-    games: { kind: "app", zh: "小游戏", G: FG("games") },
-    fairyGarden: { kind: "app", zh: "小世界", G: FG("fairyGarden") },
-    dreamjournal: { kind: "app", zh: "解梦馆", G: FG("dreamjournal") },
+    dream: { kind: "app", zh: "梦境", G: FG("dream", GDream) },
+    tarot: { kind: "app", zh: "塔罗", G: FG("tarot", GTarot) },
+    astro: { kind: "app", zh: "星测", G: FG("astro", () => window.GAstro || GTarot) },
+    zhaoying: { kind: "app", zh: "照影", G: FG("zhaoying", () => window.GZhaoying || GTarot) },
+    stamps: { kind: "app", zh: "邮票册", G: FG("stamps", () => window.GStamps || GGame) },
+    health: { kind: "app", zh: "健康", G: FG("health", () => window.GHealth || GTarot) },
+    pomodoro: { kind: "app", zh: "番茄钟", G: FG("pomodoro", GFocus) },
+    companion: { kind: "app", zh: "陪伴", G: FG("companion", () => window.GCompanion || GFocus) },
+    games: { kind: "app", zh: "小游戏", G: FG("games", GGame) },
+    fairyGarden: { kind: "app", zh: "小世界", G: FG("fairyGarden", () => window.GFairyGarden || GGame) },
+    dreamjournal: { kind: "app", zh: "解梦馆", G: FG("dreamjournal", () => window.GDreamBook || GDream) },
     yanqiu: { kind: "app", zh: "秋声", G: window.GYanqiuLeaf || GDiary },
-    rescue: { kind: "app", zh: "互救台", G: FG("rescue") },
+    rescue: { kind: "app", zh: "互救台", G: FG("rescue", GRescue) },
     vpscodex: { kind: "app", zh: "值班室", G: GDuty },
-    loungeapp: { kind: "app", zh: "三席会客", G: FG("loungeapp") },
-    theater: { kind: "app", zh: "小剧场", G: FG("theater") },
-    trpg: { kind: "app", zh: "跑团", G: FG("trpg") },
-    impression: { kind: "app", zh: "月度印象", G: FG("impression") },
-    shike: { kind: "app", zh: "时刻", G: FG("shike") },
+    loungeapp: { kind: "app", zh: "三席会客", G: FG("loungeapp", GLounge) },
+    theater: { kind: "app", zh: "小剧场", G: FG("theater", () => window.GTheater || GDream) },
+    trpg: { kind: "app", zh: "跑团", G: FG("trpg", () => window.GTrpg || GGame) },
+    impression: { kind: "app", zh: "月度印象", G: FG("impression", () => window.GImpression || GDream) },
+    shike: { kind: "app", zh: "时刻", G: FG("shike", () => window.GShike || GDream) },
     assistant: { kind: "app", zh: "秋秋", G: window.GAssist || GDuty },
     stylelab: { kind: "app", zh: "文风台", G: window.GStyleLab || GDuty },
     nest: { kind: "app", zh: "秋秋小窝", G: window.GNest || GDuty }
@@ -8251,7 +8252,7 @@ function Home({
   }, {
     key: "forum",
     zh: "论坛",
-    G: FG("forum"),
+    G: FG("forum", GForum),
     badge: nf.forum || 0
   }, {
     // v47.73 dock 的情侣换成日记（情侣空间入口由 w_us 组件顶上，悄悄话红点也挪去组件）
