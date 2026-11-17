@@ -533,6 +533,15 @@ const HOME_PAPER_BG = [
   //   所以颜色全交给上面那四团光——玻璃放大的是那几团光，平的地方保持干净。
   "linear-gradient(163deg, #f1efec 0%, #e8e5e1 46%, #dbd8d4 100%)"
 ].join(", ");
+// 实心圆润的图标（她 2026-11-17：「先放进底栏，整体大一点铺满格子」）：
+//   一个 app 在这张表里就画实心版、不画线条版；没在表里的照旧线条。{m} 主色、{d} 深一档、{l} 浅一档，都按 appTone 的色相算。
+//   她换过图标（appIconSrc）的不走这里。以后一页页往里加，别另开第二张表。
+const FILLED_ICONS = {"messages": "<path fill='{m}' d='M12 2.6c5.3 0 9.4 3.6 9.4 8.2s-4.1 8.2-9.4 8.2c-1.2 0-2.3-.17-3.4-.5L3.6 21l1.4-4.2C3.5 15.3 2.6 13.2 2.6 10.8c0-4.6 4.1-8.2 9.4-8.2z'/><path fill='#fff' d='M12 15c-2.1-1.4-3.2-2.4-3.2-3.6 0-1 .8-1.7 1.7-1.7.7 0 1.2.3 1.5.9.3-.6.8-.9 1.5-.9.9 0 1.7.7 1.7 1.7 0 1.2-1.1 2.2-3.2 3.6z'/><ellipse fill='#fff' opacity='.55' cx='7.8' cy='6.7' rx='2.6' ry='1.3' transform='rotate(-25 7.8 6.7)'/>", "forum": "<path fill='{l}' d='M9 2.6h10.6a2.3 2.3 0 012.3 2.3v6.4a2.3 2.3 0 01-2.3 2.3H19v3l-3.3-3H9a2.3 2.3 0 01-2.3-2.3V4.9A2.3 2.3 0 019 2.6z'/><path fill='{m}' d='M4.6 8h10a2.3 2.3 0 012.3 2.3v5.8a2.3 2.3 0 01-2.3 2.3H9.4L5 21.6v-3.2h-.4a2.3 2.3 0 01-2.3-2.3v-5.8A2.3 2.3 0 014.6 8z'/><g fill='#fff'><circle cx='6.6' cy='13.2' r='1.2'/><circle cx='9.6' cy='13.2' r='1.2'/><circle cx='12.6' cy='13.2' r='1.2'/></g><ellipse fill='#fff' opacity='.55' cx='6.4' cy='9.9' rx='2' ry='.9'/>", "diary": "<rect fill='{d}' x='3.8' y='2.2' width='16.4' height='19.4' rx='2.6'/><rect fill='{m}' x='5.6' y='2.2' width='14.6' height='19.4' rx='2.4'/><path fill='#F5B1C2' d='M14.6 19.6v4.2l1.5-1.2 1.5 1.2v-4.2z'/><path fill='#fff' d='M12.9 13.8c-2.1-1.4-3.2-2.4-3.2-3.6 0-1 .8-1.7 1.7-1.7.7 0 1.2.3 1.5.9.3-.6.8-.9 1.5-.9.9 0 1.7.7 1.7 1.7 0 1.2-1.1 2.2-3.2 3.6z'/><rect fill='#fff' opacity='.55' x='8.4' y='3.9' width='9' height='1.7' rx='.85'/>", "config": "<path fill='{m}' stroke='{m}' stroke-width='1.5' stroke-linejoin='round' d='M12.8 4.1L15.0 2.2L16.8 3.0L17.0 5.9L18.1 7.0L21.0 7.2L21.8 9.0L19.9 11.2L19.9 12.8L21.8 15.0L21.0 16.8L18.1 17.0L17.0 18.1L16.8 21.0L15.0 21.8L12.8 19.9L11.2 19.9L9.0 21.8L7.2 21.0L7.0 18.1L5.9 17.0L3.0 16.8L2.2 15.0L4.1 12.8L4.1 11.2L2.2 9.0L3.0 7.2L5.9 7.0L7.0 5.9L7.2 3.0L9.0 2.2L11.2 4.1Z'/><circle fill='#fff' cx='12' cy='12' r='3.3'/><circle fill='{d}' cx='12' cy='12' r='1.4'/><ellipse fill='#fff' opacity='.55' cx='8.2' cy='7' rx='2' ry='1' transform='rotate(-35 8.2 7)'/>"};
+function filledIconSvg(key, hue) {
+  const s = FILLED_ICONS[key]; if (!s) return "";
+  return s.replace(/\{m\}/g, "hsl(" + hue + ",52%,64%)").replace(/\{d\}/g, "hsl(" + hue + ",40%,44%)").replace(/\{l\}/g, "hsl(" + hue + ",70%,86%)");
+}
+if (typeof window !== "undefined") { window.FILLED_ICONS = FILLED_ICONS; window.filledIconSvg = filledIconSvg; }
 if (typeof window !== "undefined") { window.appTone = appTone; window.HOME_PAPER_BG = HOME_PAPER_BG; }
 const SKIN_PATS = {
   // 纸：两道极细的斜纹交叉，看不出线，只觉得这页不是塑料
