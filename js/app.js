@@ -18394,7 +18394,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const char = characters.find(x => x.id === cid);
       if (!char) return;
       const small = byChar[cid].filter(c => c.rarity !== "SSR"), big = byChar[cid].filter(c => c.rarity === "SSR"), q = [];
-      for (let i = 0; i < small.length; i += 10) { const part = small.slice(i, i + 10); q.push(() => stampWriteSmall(char, part)); }
+      // 同一个人不同主题的卡分开写（她 2026-11-17）：一起重写时深秋、万圣夜、日常混在一次调用里，主题会互相串；同一个卡池抽出来的照旧并成一次
+      const themeKey = c => c.limited ? "lim:" + (c.limited.id || c.limited || c.theme || "") : c.kind === "if" ? "if:" + (c.theme || "") : (c.kind || "daily");
+      const groups = {}; small.forEach(c => { (groups[themeKey(c)] = groups[themeKey(c)] || []).push(c); });
+      Object.values(groups).forEach(g => { for (let i = 0; i < g.length; i += 10) { const part = g.slice(i, i + 10); q.push(() => stampWriteSmall(char, part)); } });
       big.forEach(c => q.push(() => stampWriteSSR(char, c)));
       queues.push(q);
     });
