@@ -9567,7 +9567,7 @@ function Messages({
     const unseen = id !== "me" && act.some(s => !(s.seen || {}).me);
     return h("span", { "data-wk": "storyring", "data-on": unseen ? "1" : "0", role: "button", onClick: e => { e.stopPropagation(); setStView({ list: act }); },
       style: { display: "inline-block", padding: 2, borderRadius: 13, background: unseen || id === "me" ? "linear-gradient(45deg,#f2a65a,#e85d75,#b05cd6)" : t.line } },
-      h("span", { style: { display: "block", padding: 1.5, borderRadius: 11, background: t.bg2 } }, kid));
+      h("span", { "data-wk": "storyringgap", style: { display: "block", padding: 1.5, borderRadius: 11, background: t.bg2 } }, kid));
   };
   const stName = by => by === "me" ? "我" : (((allChars || characters || []).find(c => c && String(c.id) === String(by)) || {}).remark || ((allChars || characters || []).find(c => c && String(c.id) === String(by)) || {}).name || "TA");
   const renderCharRow = it => { const c = it.c, last = it.last, un = unreadMap[c.id] || 0; return h("button", Object.assign({ key: it.key, "data-chatid": c.id, "data-wk": "mlrow", "data-kind": "char", "data-pinned": pinnedSet.has(c.id) ? "1" : "0", "data-unread": un > 0 ? "1" : "0", onClick: () => guardClick(() => onOpenThread(c)), className: "w-full flex items-center gap-3 px-5 py-3.5 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, background: rowBg(c.id) } }, longProps(c.id)),
@@ -10879,7 +10879,7 @@ function MomentsFeed({
     }, (!isMine && c && onOpenProfile) ? h("button", { onClick: () => { const act = mfAct(c.id); if (act.length) setMfStory(act); else onOpenProfile(c.id); }, className: "shrink-0 self-start active:opacity-70" /* 按钮会被撑满整条动态的高、把头像挤到中间；贴顶，跟名字齐平（她 2026-09-26） */ }, (() => { const act = mfAct(c.id), av = h(Avatar, { character: author, size: 40, radius: 9 }); if (!act.length) return av;
       const unseen = act.some(x => !(x.seen || {}).me);
       return h("span", { "data-wk": "storyring", "data-on": unseen ? "1" : "0", style: { display: "inline-block", padding: 2, borderRadius: 12, background: unseen ? "linear-gradient(45deg,#f2a65a,#e85d75,#b05cd6)" : t.line } },
-        h("span", { style: { display: "block", padding: 1.5, borderRadius: 10, background: t.bg2 } }, av)); })()) : /*#__PURE__*/React.createElement(Avatar, {
+        h("span", { "data-wk": "storyringgap", style: { display: "block", padding: 1.5, borderRadius: 10, background: t.bg2 } }, av)); })()) : /*#__PURE__*/React.createElement(Avatar, {
       character: author,
       size: 40,
       radius: 9
