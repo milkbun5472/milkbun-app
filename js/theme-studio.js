@@ -638,7 +638,7 @@
     Object.freeze({
       zh: "主屏", pages: Object.freeze(["home"]),
       hooks: Object.freeze([
-        ["icon", "app 图标那一格（文件夹也是）"], ["iconlabel", "图标底下那行字"], ["folderbadge", "文件夹盖子右上角的数字（里面哪个 app 有新的，加起来）"],
+        ["icon", "app 图标那一格（文件夹也是）"], ["iconfill", "图标里那张实心圆润的画（底栏四个已换；没换的还是线条）"], ["iconlabel", "图标底下那行字"], ["folderbadge", "文件夹盖子右上角的数字（里面哪个 app 有新的，加起来）"],
         ["dock", "底部 dock 那一条"],
         ["shikeotd", "主屏上那张「去年今天」小卡（时刻）"],
         ["bdaycard", "主屏顶上那张生日提醒卡（角色生日前一天和当天）"],

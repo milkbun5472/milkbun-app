@@ -3164,9 +3164,12 @@ function GlassIcon({
   // 图自带底（v62.42 那个开关）：不套玻璃，那张图本身就是整块图标——
   // 只留一圈跟玻璃同款的投影，好让它坐在壁纸上而不是贴在壁纸上。
   const bare = !!customSrc && appIconBare();
+  const filled = !customSrc && tone && typeof filledIconSvg === "function" ? filledIconSvg(appKey, tone.hue) : "";
   const body = customSrc
     ? h("img", { src: customSrc, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: bare ? "contain" : "cover", borderRadius: 16, display: "block" } })
-    : h(G, { size: 27, color: tone ? tone.glyph : t.ink, sw: 1.7 });
+    : filled
+      ? h("svg", { "data-wk": "iconfill", viewBox: "0 0 24 24", width: 50, height: 50, style: { display: "block", filter: "drop-shadow(0 2px 2px hsla(" + tone.hue + ",40%,35%,.25))" }, dangerouslySetInnerHTML: { __html: filled } })
+      : h(G, { size: 27, color: tone ? tone.glyph : t.ink, sw: 1.7 });
   // 角标和 SOON 两支共用：玻璃版和自带底版都要挂
   const marks = [
     soon ? h("span", { key: "soon", style: { position: "absolute", bottom: -4, right: -4, fontSize: 8, fontFamily: "'Archivo',sans-serif", letterSpacing: "0.08em", color: "#fff", background: t.ink, borderRadius: 999, padding: "1px 5px" } }, "快了") : null,
