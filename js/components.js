@@ -8935,7 +8935,10 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
   const name = c.name || profile.name || "点此设置昵称";
   const sign = c.sign || "";
   const tags = (c.tags || []).filter(Boolean);
-  const accent = profile.color || t.cardTint || t.accent;
+  // ⚠️她 2026-11-17「公共版的名片还是橘色，家里是冰白」：资料页头像颜色默认就是旧赤陶色（AV_COLORS[0]），
+  //   点过一次保存就存进 profile.color，于是几乎人人名片都被它盖住、雾蓝出不来。等于出厂那一色的当没挑过。
+  const pickedColor = profile.color && String(profile.color).toLowerCase() !== String(AV_COLORS[0]).toLowerCase() ? profile.color : "";
+  const accent = pickedColor || t.cardTint || t.accent;
   const cover = c.cover ? (typeof resolveImg === "function" ? resolveImg(c.cover) : c.cover) : "";
   // ⚠️底图和暗角必须画在【卡本身】上（多层 background 叠着）：卡是网格里的一格，
   //   行比它高时会被拉满，画在里面那个 padding 盒子上就会空出没盖到的一块。
