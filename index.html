@@ -138,7 +138,12 @@
   }
   function verdict(waited) {
     var root = document.getElementById("root");
-    if (root && root.childElementCount > 0) return;            // 装上了，收工
+    // ⚠️她 2026-11-16 转来「都进来了，这个板块不消失」：最后一块还在下，前面几块已经把界面挂上了，
+    //   这里原来只是不再说话，已经摆着的「还在下载」卡却一直盖在上面。装上了就把这张卡收掉。
+    if (root && root.childElementCount > 0) {
+      if (window.__bootSlowShown) { try { var c = document.querySelector('[data-boot-guard="1"]'); if (c) c.remove(); } catch (x) {} window.__bootSlowShown = false; }
+      return;
+    }
     // ⚠️她 2026-11-13 转来两个人「一个小时都进不去」：那天一小时内连发了三版，
     //   每发一版这一整份（压缩后两兆多）就得从头下一遍，而这里原本只等到 60 秒
     //   就改口说「秋秋没装进来」劝人重新加载——一按又从头下，于是循环。
