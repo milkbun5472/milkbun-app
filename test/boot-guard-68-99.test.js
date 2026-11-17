@@ -209,3 +209,11 @@ test("还有文件在路上就别下判词：先说「还在下载」，等下�
 test("卡片能换一张，不会叠成两张", () => {
   assert.match(html, /querySelector\('\[data-boot-guard="1"\]'\)/, "新卡上来没把旧卡撤掉");
 });
+
+test("界面挂上以后「还在下载」卡自己收掉（2026-11-16 都进来了这个板块不消失）", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  const i = html.indexOf("function verdict(waited)");
+  const body = html.slice(i, i + 1200);
+  assert.ok(body.includes("window.__bootSlowShown") && body.includes('querySelector(\'[data-boot-guard="1"]\')') && body.includes("c.remove()"));
+});
