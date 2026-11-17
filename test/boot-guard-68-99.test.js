@@ -217,3 +217,9 @@ test("界面挂上以后「还在下载」卡自己收掉（2026-11-16 都进来
   const body = html.slice(i, i + 1200);
   assert.ok(body.includes("window.__bootSlowShown") && body.includes('querySelector(\'[data-boot-guard="1"]\')') && body.includes("c.remove()"));
 });
+
+test("blob: 脚本不算还在路上（2026-11-17 下好 7/7 卡还说还在下载）", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  assert.ok(html.includes('tags[j].src.indexOf("blob:") !== 0'));
+});

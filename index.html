@@ -128,7 +128,8 @@
       var done = {}, list = performance.getEntriesByType("resource") || [];
       for (var i = 0; i < list.length; i++) if (list[i].responseEnd > 0) done[list[i].name] = 1;
       var tags = document.querySelectorAll("script[src]"), n = 0;
-      for (var j = 0; j < tags.length; j++) if (tags[j].src && !done[tags[j].src]) n++;
+      for (var j = 0; j < tags.length; j++) if (tags[j].src && tags[j].src.indexOf("blob:") !== 0 && !done[tags[j].src]) n++;
+      // ⚠️blob: 是排队加载器拿齐以后执行用的，资源记录里永远没有它——不跳过的话 7/7 下完了卡还说「还在下载」（2026-11-17）
       // 公共版开机脚本排队一块一块下（window.__bootSeq，发布时装订进去）：还没轮到的那几块
       //   没有 <script> 标签，上面数不到，得从排队的进度里补上。
       var q = window.__bootSeq;
