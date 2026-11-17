@@ -62,6 +62,7 @@
    }else if(action==='badge'){
     if(!D.SHOP.POSTS.includes(o.post)||!s.roster[o.post])throw Error('先给这个岗位排人。');const c=cOf(o.cardId);if(o.cardId&&(!c||c.charId!==s.roster[o.post]||!c.text))throw Error('工牌要用这位店员自己的卡。');s.badge[o.post]=o.cardId||'';
    }else if(action==='window'){
+    s.window=s.window.filter(id=>cOf(id)?.text);   // 融掉、删掉的卡还占着橱窗的格子（她 2026-11-17「为啥只能放两张」）：看不见的先清走
     if(s.window.includes(o.cardId))s.window=s.window.filter(id=>id!==o.cardId);else {if(!cOf(o.cardId)?.text)throw Error('这张卡已不可用。');if(s.window.length>=D.shopWinSlots(s))throw Error('橱窗满了，先撤下一张。');s.window.push(o.cardId);}
    }else if(action==='decor'){
     const d=D.shopDecorOf(o.name);if(!d)throw Error('这件装修暂时没有出售。');const has=s.decor.includes(o.name),price=has?D.shopUpPrice(s,o.name):d.price;
