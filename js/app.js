@@ -15925,6 +15925,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (act === "reshoot") { reshootChatSelfie(threadKey, idx, activeChar.id); return; }
     if (act === "copy") {
       copyText(gameChatText(m)).then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));
+    } else if (act === "unrecall") {
+      // 撤回手滑了放回去（她 2026-11-17）：原话一直留着，只是摘掉撤回的记号；TA 还没回过这一轮就当没撤过
+      if (!m || m.role !== "user" || !m.recalled) return;
+      pChat(threadKey, p => p.map((x, i) => { if (i !== idx) return x; const n = { ...x, recalled: false }; delete n.recalledTs; return n; }));
     } else if (act === "recall") {
       const orig = m;
       pChat(threadKey, p => {
@@ -17506,6 +17510,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (act === "reshoot") { reshootGroupSelfie(groupId, idx); return; }
     if (act === "copy") {
       copyText(m.content || "").then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));
+    } else if (act === "unrecall") {
+      if (m.role !== "user" || !m.recalled) return;
+      pGChat(groupId, p => p.map((x, i) => { if (i !== idx) return x; const n = { ...x, recalled: false }; delete n.recalledTs; delete n.origText; return n; }));
     } else if (act === "recall") {
       pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, recalled: true, recalledTs: Date.now(), origText: x.content, reason: x.reason || "" } : x));
     } else if (act === "edit" && m.kind === "selfie" && m.sid) {
