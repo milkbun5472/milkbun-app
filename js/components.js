@@ -10144,6 +10144,17 @@ function MomentLoc({ place }) {
   const t = useTheme();
   return place ? h("div", { "data-wk": "moloc", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint || t.accent } }, "📍 " + place) : null;
 }
+// 朋友圈里的照影结果卡（群友 2026-11-17「像网易云那样」）：测的哪套、测出什么、一句话；点了去照影
+function MomentZy({ zy }) {
+  const t = useTheme();
+  if (!zy || !zy.title) return null;
+  return h("button", { "data-wk": "momzy", onClick: () => { try { window.__openZhaoying && window.__openZhaoying(); } catch (e) {} }, className: "w-full active:opacity-70 mt-2",
+    style: { display: "block", textAlign: "left", padding: "12px 14px", borderRadius: 12, background: "linear-gradient(135deg, " + (t.bg || "#f6f4ef") + ", " + (t.bg2 || "#fff") + ")", border: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".15em" } }, "照影 · " + (zy.who && zy.who !== "我" ? zy.who + " 做的" : "我做的")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 4 } }, "「" + zy.testName + "」"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, marginTop: 4, lineHeight: 1.3 } }, zy.title),
+    zy.line && zy.line !== zy.title ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.55 } }, zy.line) : null);
+}
 // 朋友圈里分享的那首歌：一张小卡，点「听」用 App 的播放器真的放（她 2026-11-14）
 function MomentMusic({ music }) {
   const t = useTheme();
@@ -10972,7 +10983,7 @@ function MomentsFeed({
     isMine && (m.seenBy || []).length ? (() => { const done = new Set([...(m.likers || []), ...(m.comments || []).map(cm => cm.author)]);
       const ns = m.seenBy.map(id => (characters || []).find(c => c.id === id)).filter(c => c && !done.has(c.name) && !done.has(c.remark));
       return ns.length ? h("div", { "data-wk": "moseen", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "👀 " + ns.map(c => c.remark || c.name).join("、") + " 看过，没吭声") : null; })() : null,
-    h(MomentRemindLine, { m, characters }), m.music && h(MomentMusic, { music: m.music }), m.poll && h(MomentPoll, { poll: m.poll, characters }), momLikers(m, profile).length > 0 && h("div", {
+    h(MomentRemindLine, { m, characters }), m.music && h(MomentMusic, { music: m.music }), m.zy && h(MomentZy, { zy: m.zy }), m.poll && h(MomentPoll, { poll: m.poll, characters }), momLikers(m, profile).length > 0 && h("div", {
       className: "flex items-center gap-1.5 mt-2",
       "data-wk": "molikers"
     }, h(IHeart, {
@@ -11218,6 +11229,7 @@ function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter
         onTop: onTopMoment && m.mine ? () => onTopMoment(m.id) : null, onDelete: onDelMoment ? () => setDelId(m.id) : null })),
     h(MomentRemindLine, { m, characters }),
     m.music ? h(MomentMusic, { music: m.music }) : null,
+    m.zy ? h(MomentZy, { zy: m.zy }) : null,
     m.poll ? h(MomentPoll, { poll: m.poll, characters }) : null,
     // 赞和评论收进同一个灰底框，跟微信一样：上面一行赞，一道细线，下面是评论（她 2026-11-15「回复做个框」）
     (momLikers(m, profile).length || (m.comments && m.comments.length)) ? h("div", { "data-wk": "mocomments", className: "mt-2.5 rounded-lg px-3 py-2", style: { background: wxGrey(t) } },
