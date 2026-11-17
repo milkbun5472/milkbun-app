@@ -1322,7 +1322,6 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const selfFace = typeof chatFace === "function" ? chatFace(char) : char;
   const herAv = (char && char.myChatAvatar) || (profile && profile.avatarImage);
   const [tab, setTab] = useState("chats");
-  const [mReply, setMReply] = useState(null), [mText, setMText] = useState("");   // 用 TA 的名义回一条朋友圈：点开的是哪一条（她 2026-11-14）
   const [thread, setThread] = useState(null);
   // 她改TA通讯录里的备注（她 2026-10-07）：null＝没在改，字符串＝正在改的草稿
   const [remarkDraft, setRemarkDraft] = useState(null);
@@ -1372,6 +1371,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   useEffect(() => { setAsDraft(""); }, [thread && thread.id]);
   const [publicPage, setPublicPage] = useState(false);
   const [article, setArticle] = useState(null);
+  const [mReply, setMReply] = useState(null), [mText, setMText] = useState("");   // 用 TA 的名义回一条朋友圈：点开的是哪一条（她 2026-11-14；排在后面：phone-render 测试按 useState 先后顺序喂状态）
   const arr = a => Array.isArray(a) ? a : [];
   // ⚠️她和这个角色一条消息都没聊过时，TA手机里【压根没有跟她的那条对话】：
   //   真聊天是从消息里长出来的（app.js phoneWechatActual：direct.length 才 push），

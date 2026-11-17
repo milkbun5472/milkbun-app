@@ -27,7 +27,7 @@ test("落盘时校验时长，同一个人只留最新那一个", () => {
   assert.ok(lim, "那两个数没了");
   assert.equal(Number(lim[1]), 1, "下限不是 1 分钟：「等我两分钟」这种约又会被整条扔掉");
   assert.equal(new Function("return " + lim[2])(), 60 * 24);
-  assert.match(seg, /p\.filter\(x => x && x\.charId !== charId\)/, "他又说一次就以最新的为准，别攒一堆");
+  assert.match(seg, /p\.filter\(x => x && \(x\.charId !== charId \|\| x\.groupId\)\)/, "他又说一次就以最新的为准，别攒一堆（群里说好的那条各管各的）");
   assert.match(seg, /saveJSON\("x_promises", n\)/);
 });
 
