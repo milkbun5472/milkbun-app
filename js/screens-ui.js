@@ -13490,7 +13490,7 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
   const doorFace = {
     background: t.bg2,
     backgroundImage: "repeating-linear-gradient(90deg,rgba(0,0,0,.055) 0px,rgba(0,0,0,.055) 1px,rgba(255,255,255,.05) 1px,rgba(255,255,255,.05) 4px),"
-      + "linear-gradient(152deg,rgba(74,58,40,.32) 0%,rgba(74,58,40,.54) 46%,rgba(74,58,40,.38) 100%)"
+      + "linear-gradient(152deg,rgba(58,66,80,.32) 0%,rgba(58,66,80,.54) 46%,rgba(58,66,80,.38) 100%)"
   };
   if (inBox) return h("div", { "data-wk": "carrypage", "data-part": "box", className: "h-full flex flex-col", style: pageSkin("cloth", t, { tint: CARRY_TINT.bag, corner: false }) },
     h(Head, { zh: "随身物", bg: "transparent", noLine: true, onBack,
@@ -13506,7 +13506,7 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
           borderRadius: 18, padding: 9, overflow: "hidden",
           background: t.bg2,
           backgroundImage: doorFace.backgroundImage,
-          boxShadow: "0 12px 30px rgba(74,58,40,.20), inset 0 1.5px 0 rgba(255,255,255,.4), inset 0 -1.5px 0 rgba(0,0,0,.18)",
+          boxShadow: "0 12px 30px rgba(58,66,80,.20), inset 0 1.5px 0 rgba(255,255,255,.4), inset 0 -1.5px 0 rgba(0,0,0,.18)",
           perspective: "900px"
         }
       },
@@ -13518,9 +13518,9 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
             // ⚠️内壁必须不透光：只叠半透明的话，外框那层竖木纹会从柜子里透上来，
             // 门一开看到的还是门（v57.95 实测）。所以底色用不透明的 t.bg2 打底。
             background: t.bg2,
-            backgroundImage: "linear-gradient(180deg,rgba(74,58,40,.22) 0%,rgba(74,58,40,.07) 24%,rgba(74,58,40,.14) 100%)",
+            backgroundImage: "linear-gradient(180deg,rgba(58,66,80,.22) 0%,rgba(58,66,80,.07) 24%,rgba(58,66,80,.14) 100%)",
             // 两侧的内壁侧影：柜子是有深度的，不是一块贴着的板
-            boxShadow: "inset 0 4px 14px rgba(74,58,40,.26), inset 13px 0 18px -14px rgba(74,58,40,.5), inset -13px 0 18px -14px rgba(74,58,40,.5)"
+            boxShadow: "inset 0 4px 14px rgba(58,66,80,.26), inset 13px 0 18px -14px rgba(58,66,80,.5), inset -13px 0 18px -14px rgba(58,66,80,.5)"
           }
         },
           characters.length === 0
@@ -13550,9 +13550,9 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
           }, doorFace)
         },
           // 把手：贴着门缝那一侧
-          h("span", { style: { position: "absolute", [side === "left" ? "right" : "left"]: 9, top: "50%", marginTop: -18, width: 8, height: 36, borderRadius: 4, background: "linear-gradient(90deg,rgba(56,42,28,.9),rgba(56,42,28,.5))", boxShadow: "0 2px 5px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.28)" } }),
+          h("span", { style: { position: "absolute", [side === "left" ? "right" : "left"]: 9, top: "50%", marginTop: -18, width: 8, height: 36, borderRadius: 4, background: "linear-gradient(90deg,rgba(40,46,58,.9),rgba(40,46,58,.5))", boxShadow: "0 2px 5px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.28)" } }),
           // 门上的镶板线
-          h("span", { style: { position: "absolute", inset: 16, borderRadius: 8, boxShadow: "inset 0 0 0 1px rgba(255,255,255,.16), 0 0 0 1px rgba(56,42,28,.20)" } })))),
+          h("span", { style: { position: "absolute", inset: 16, borderRadius: 8, boxShadow: "inset 0 0 0 1px rgba(255,255,255,.16), 0 0 0 1px rgba(40,46,58,.20)" } })))),
       h("div", { "data-wk": "carryboxhint", className: "shrink-0 text-center", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, paddingTop: 12 } },
         boxOpen ? "点头像，翻翻 Ta 的随身物" : "点一下拉开柜门")));
   const data = carry[char.id] || {};

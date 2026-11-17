@@ -11,7 +11,7 @@
   function ZhaoyingApp(props) {
     const t = useTheme();
     // 这一页的几支底色接主题工作台的「这一页的颜色」（她 2026-10-22「这页的美化顺便做了」）：没改过就是原来的纸色
-    const { PAPER, INK, FOG, LINE, ACC } = Z.colors();
+    const { PAPER, INK, FOG, LINE, ACC } = Z.colors(t.bg);
     const chars = (props.characters || []).filter(c => c && !c.npc);
     const [who, setWho] = useState(chars[0] ? chars[0].id : "me");      // 在看谁的
     const [testId, setTestId] = useState(null);                         // 点开的那一套
@@ -542,7 +542,7 @@
             return h("button", { key: k, role: "tab", "aria-selected": on, "data-wk": "zycat", "data-on": on ? "1" : "0", onClick: () => setCat(k), className: "shrink-0 flex flex-col items-center active:opacity-70",
               style: { width: 62, minHeight: 72, gap: 5, transition: "all .2s" } },
               h("span", { style: { position: "relative", width: d, height: d, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", transition: "all .2s",
-                background: on ? "radial-gradient(circle at 32% 28%, #fffdf8 0%, #f4ece0 38%, #d9c8b2 100%)" : "radial-gradient(circle at 35% 30%, #f3ece2 0%, #e2d6c6 100%)",
+                background: on ? "radial-gradient(circle at 32% 28%, #ffffff 0%, #eef2f6 38%, #c9d3df 100%)" : "radial-gradient(circle at 35% 30%, #f6f8fa 0%, #dde3ea 100%)",
                 border: (on ? 2 : 1) + "px solid " + (on ? ACC : LINE), boxShadow: on ? "0 4px 12px -5px " + ACC + ", inset 0 -3px 6px rgba(120,90,60,.18)" : "inset 0 -2px 4px rgba(120,90,60,.12)", opacity: on ? 1 : .72 } },
                 on ? h("span", { "aria-hidden": true, style: { position: "absolute", left: "18%", top: "12%", width: "34%", height: "18%", borderRadius: 999, background: "rgba(255,255,255,.85)", transform: "rotate(-28deg)" } }) : null,
                 h("span", { style: { position: "relative", fontFamily: F_DISPLAY, fontSize: on ? 19 : 15, color: on ? ACC : FOG } }, gl)),
