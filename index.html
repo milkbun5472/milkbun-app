@@ -128,8 +128,7 @@
       var done = {}, list = performance.getEntriesByType("resource") || [];
       for (var i = 0; i < list.length; i++) if (list[i].responseEnd > 0) done[list[i].name] = 1;
       var tags = document.querySelectorAll("script[src]"), n = 0;
-      for (var j = 0; j < tags.length; j++) if (tags[j].src && tags[j].src.indexOf("blob:") !== 0 && !done[tags[j].src]) n++;
-      // ⚠️blob: 是排队加载器拿齐以后执行用的，资源记录里永远没有它——不跳过的话 7/7 下完了卡还说「还在下载」（2026-11-17）
+      for (var j = 0; j < tags.length; j++) if (tags[j].src && !done[tags[j].src]) n++;
       // 公共版开机脚本排队一块一块下（window.__bootSeq，发布时装订进去）：还没轮到的那几块
       //   没有 <script> 标签，上面数不到，得从排队的进度里补上。
       var q = window.__bootSeq;
@@ -154,12 +153,10 @@
     //   一按又从头下。国内连这个地址慢，第一次十来分钟是真的；仍留上限，真断了的不能永远吊着。
     if (stillLoading() && waited < 900000) {
       window.__bootSlowShown = true;
-      // 这台网慢：下次开机起公共版改成一块一块下（发布时装订的加载器读它，7 天后作废）
-      try { localStorage.setItem("qq_boot_slow", String(Date.now())); } catch (x) {}
       var bq = window.__bootSeq;
-      card("还在下载，没卡住（已等 " + Math.round(waited / 1000) + " 秒" + (bq && bq.total ? "，已下好 " + bq.done + " / " + bq.total + " 块" : "") + (bq && bq.bytes ? "，收到 " + Math.round(bq.bytes / 1024) + " KB" : "") + "）",
-        (bq && bq.total ? (bq.seq ? "一块一块在下，<b>下好的那几块会存在手机里</b>，就算被打断，下次也是接着下。" : "这台的网有点慢，<b>下次打开会改成一块一块下</b>，下好的存住、被打断也接着下。") : "") + "这次更新换了新的一份，要重新下一遍（两兆多）。网慢的手机要等上几分钟，在国内第一次可能要十来分钟，"
-        + "<b>这期间别按「重新加载」</b>——正在下的那块会白下；哪块三十秒没动静会自动断开重下，不用自己切出去切回来。连 Wi-Fi 会快很多。<b>你的存档一个字都没少</b>。");
+      card("还在下载，没卡住（已等 " + Math.round(waited / 1000) + " 秒" + (bq && bq.total ? "，已下好 " + bq.done + " / " + bq.total + " 块" : "") + "）",
+        "这次更新换了新的一份，要重新下一遍（两兆多）。网慢的手机要等上几分钟，在国内第一次可能要十来分钟，"
+        + "<b>这期间别按「重新加载」、别锁屏、别切出去</b>——一按就得从头下。连 Wi-Fi 会快很多。<b>你的存档一个字都没少</b>。");
       setTimeout(function () { verdict(waited + 6000); }, 6000);
       return;
     }
@@ -704,33 +701,7 @@
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
       navigator.serviceWorker.register("./sw.js?v=8", { updateViaCache: "none" }).catch(function (e) { console.warn("SW 注册失败", e); });
-      // 新版在后台下齐了（sw.js 的 stageUpdate）：顶上冒一条（底下有开机封面的「翻开」），点了就换上；不点，下次打开自动是新版
-      var askUpdate = function () {
-        try {
-          var last = +sessionStorage.getItem("qq_upd_ask") || 0;
-          if (Date.now() - last < 30 * 60 * 1000) return;
-          sessionStorage.setItem("qq_upd_ask", String(Date.now()));
-          if (navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({ type: "QQ_CHECK_UPDATE" });
-        } catch (x) {}
-      };
-      document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") askUpdate(); });
-      // 刚打开就问一次：网快时新版可能在这一页挂上监听之前就下齐了，那条通知会错过
-      try { if (navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage({ type: "QQ_CHECK_UPDATE" }); } catch (x) {}
       navigator.serviceWorker.addEventListener("message", function (e) {
-        if (e.data && e.data.type === "QQ_UPDATE_READY") {
-          if (document.getElementById("qq-upd")) return;
-          var b = document.createElement("div");
-          b.id = "qq-upd"; b.setAttribute("data-wk", "updateready");
-          b.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 12px);z-index:10000;"
-            + "max-width:calc(100vw - 32px);box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;border-radius:999px;"
-            + "background:rgba(30,36,48,.94);color:#fff;font:14px/1.4 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.18)";
-          b.innerHTML = '<span id="qq-upd-go" style="cursor:pointer">新版下好了，点这里换上<span style="opacity:.6;font-size:12px">（不点也行，下次打开自动换）</span></span>'
-            + '<span id="qq-upd-x" style="cursor:pointer;opacity:.7;padding:0 4px;font-size:16px">×</span>';
-          document.body.appendChild(b);
-          document.getElementById("qq-upd-go").addEventListener("click", function () { this.textContent = "正在换上…"; location.reload(); });
-          document.getElementById("qq-upd-x").addEventListener("click", function () { b.remove(); });
-          return;
-        }
         if (e.data && e.data.type === "OPEN_FROM_NOTIF") {
           window.__pendingNotif = e.data;
           if (window.__openFromNotif) window.__openFromNotif(e.data.charId, e.data.screen, e.data.roomId);
