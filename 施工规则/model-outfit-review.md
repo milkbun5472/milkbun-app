@@ -193,6 +193,22 @@ Lisa睡前授权自主继续。把问题按真实相交面分开后，small右�
 - 旧v3及v16分别跑过两条动作722骨帧/22几何抽样和三动作历史差0，这些不能移用到DQ。DQ已单独跑完cheer373＋five-right349共722骨帧，逐骨帧与旧稿矩阵完全一致；22个几何抽样身体P/N/骨矩阵/UV差0，页面错误0，双侧斜面44个抽样视图已看。三动作历史恢复身体+六衣节点P/N/权重/UV差0；这不是722帧逐帧布面碰撞通过。新入口`sleeve-dq-review.html`提供同一帧左右对照，110组图片加载与390宽布局检查通过；其他12套已有rest导出，bamboo/argyle/heritage只完成raw wrap四姿态，未完成正式适配。身体joint-fit-v7未改，正式资产和运行时均未换，无最终GLB或发版。
 - 长证据根：本聊天`body-motion-night/`。本轮脚本`probe-linen-cloth-dq.py`、`cloth-dq-runtime-preview.js`、`cloth-posed-normal-rebuild-v2.js`、`capture-linen-cloth-dq-runtime.py`及`*-continuous.py`；检查`linen-cloth-dq-runtime-verification.json`、`linen-cloth-dq-continuous-verification.json`、`linen-cloth-dq-intersection-audit.json`；页面检查`sleeve-dq-review-check.json`。旧`sleeve-motion-review.html`已标记用户否定，不作为最新交付入口。
 
+### 继续核查：衣服必须共享身体的形变依据
+
+Lisa追问「为啥衣服不是铺在手臂模型上，而且单独拧成一坨」，仍未认可上轮DQ。已核实四姿态身体/衣服前七骨矩阵差0、两者局部坐标变换为单位矩阵，**不是两套骨架或坐标系错位**。差别在原衣服权重与身体权重、以及身体骨骼变形之后的表面修正；body的真实posed对同权重DQ基线在cheer最大差.06436模型单位。共享骨骼不等于共享最终皮肤形状。
+
+本轮失败证据在同目录：`linen-body-shell-v1`用实际身体平滑法线保原间距，仍压薄袖根；`linen-body-neighborhood-v1/v2`整片邻域局部拟合拉坏厚卷边；`linen-body-residual-v1/v2`只传身体后续修正仍把卷边逐点扯散。`body-residual-v3`按整圈中心/轴向带袖口却因仅凭轴距划区误动腰部，**轴距不能代替衣袖分区**；后续用原armOwn归属保护衣身，明确断言非臂点改变量0。身体权重转移的`linen-body-weight-transfer-v2`和`linen-body-transfer-residual-v2`仍未通过，不能将“已共享权重”写成自然。
+
+另做Blender独立对照：表面绑定target焊接后26493点/52447面、>2邻面边0，绑定成功；原绑定静态重建最大误差4.36e-6，明确记录并扣除静态偏差后再比较。`linen-blender-surface-v1`仍压袖，不采用；v2加Corrective Smooth的原静态改变量已达.00484，不能当浮点误差，未经验收，不得发布。源衣服还含深入身体的填充面，source本就有1605个所测点signed distance<- .001；不能把整份负距离数当作新增穿模。后续接触拟合区分源外表面和原内填面，不能直接把所有负距离点往外推。上述试稿均非新交付稿。继续读回原sleeve-v4/align-sleeves.py和align-report.json：原袖口对齐的是实际身体截面，并非后来内移肩点到手腕的一条直线。新肩点±.11/.65/-.011与原表面采样参考±.15924/.655/0不同，不能直接把新骨轴当袖子原截面的中心线。当前改以原参考轴分组，直接从身体rest/posed对应截面的面积加权中心和方向构造袖身跟随，厚卷边用整圈变换；linen-body-centerline-v1/v2实图仍压袖，未通过。间距拟合contact-fit-v1/v2虽保住非臂点，仍有接触残留；arm-axis-dq和dq-bulge试验没有解决袖口整体，均不能交付。
+
+继续实图对照：centerline-v3用整圈Kabsch、v5按实际卷边法向扩大整圈范围、v7用沿曲线连续运输方向，均未解决卷边/腋下。v5局部完整卷边相对原形的刚性拟合误差约1.9e-9，隐藏身体后仍见异常边；这只排除了该圈被逐点拉坏，**不能因此断言源模型缺陷是主因**，邻近袖身穿入仍未排除。诊断暂排894个深内侧面后cheer斜视仅32像素变化，删面不采用；不要把源内填面当本次扭结已查明的原因。
+
+另查到私有身体修正会改geometry.position，而覆盖shader仍以position作rest坐标；研究辅助层改用不可变skinCoverageRest并覆盖颜色/深度/距离材质。颜色对照只变5像素，**不是此次扭结主因**，阴影通道尚未实际启用验收，未改生产shader。原生产身体没有这套私有逐帧改点流程，不能据此称线上已有同一缺陷。
+
+最新linen-body-membrane-v3保原DQ卷边朝向，对连接袖身求原布面长度与真实身体接触约束，并将完整卷边作为整体移动；袖身有所收顺，袖口/腋下仍不自然，**未通过、未接运行时**。四姿态离线试算中源外表面选择区仍有cheer132、promise142点距离<- .001；这不是全布面自碰撞计数。实际只捕获cheer一个姿态三个机位，对离线参考最大4.01e-8；与同配置centerline-v3身体P/N/骨/拓扑/UV差0。旧DQ录制启用了不同数值内核且骨数组多6个辅助项，不能直接写全数组差0；本次相同配置对照已另验。新试算没有连续动作、多体型或手机性能通过结论，不能挪用旧DQ的722骨帧报告。
+
+证据仍在body-motion-night：sleeve-body-follow-research.html明确标未完成；linen-body-follow-research-verification.json、linen-body-membrane-v3-report.json、linen-hidden-cap-image-diagnostic.json及各probe/capture脚本。五份正式GLB SHA复核未变，正式运行时未动；本轮只同步公共诊断记录。
+
 ## 2026-11-15 最新纠正：原版站姿必须保留
 
 Lisa明确指出「它们不抬手都是很好看的」，修后静态变丑、纹理乱。**当前任务是修举手／击掌变形，不是重做静态衣服。** 先锁定各套已发布原版的坐标、UV、法线、材质、领口、肩线与褶皱；每个候选先做同机位站姿对比，再看左右举手、击掌、放下恢复。静态变差即退回，不能拿形变检查通过替代造型验收。
