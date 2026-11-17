@@ -29527,7 +29527,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "bg 背景从这几种里挑一个：" + bgs + "；font 字体：hand 花体英文、brush 中文手写、serif 宋体、sans 黑体；"
           + "texts 是卡上的字，1 到 4 块，每块 t 写什么、x 和 y 是在卡上的位置（0 到 1，左上角是 0,0；最上面那一截 y 小于 0.2 的地方压着你的头像和名字，最下面 y 大于 0.85 的地方压着回复框）、size 字号（40 到 160）、color 颜色（#hex）、r 歪多少度（-15 到 15）、font 可以单独换；"
           + "stickers 是贴纸，0 到 5 个 emoji，ch 是哪个、x y 位置、size 大小（60 到 200）。"
-          + "photo 写这张卡要配的那张照片拍的是什么（一句画面描述），photoKind 是哪一种：self 你自拍、view 随手拍的风景或场景、thing 手边的东西或吃的" + (canShootMe(char.id) ? "、her 你拍的她（画面里是她）" : "") + (duoFacesOk(char) ? "、duo 你俩的合照" : "") + "；photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。"
+          + "photo 写这张卡要配的那张照片拍的是什么（一句画面描述），photoKind 是哪一种：self 你自拍、view 随手拍的风景或场景、thing 手边的东西或吃的" + (canShootMe(char.id) ? "、her 你拍的她（画面里是她）" : "") + (duoFacesOk(char) ? "、duo 你俩的合照" : "") + "。挑哪一种看这一条想让人看见什么：想让人看见你自己此刻的样子就是 self；想让人看见你眼前的地方、手边的东西就是 view、thing" + (canShootMe(char.id) ? "；想让人看见她就是 her" : "") + (duoFacesOk(char) ? "；想让你俩一起出现在画面里就是 duo" : "") + "——这几种在限时动态里都常见，照你这个人平时爱不爱露脸来"
+          // 她 2026-11-17「限时动态为啥不会发自拍类或者合照」：上面那句「日子的一角」列的全是往外拍的东西，模型就几乎只挑风景和东西
+          + "；photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。"
           + (canPhoto ? "这张照片会马上拍出来放上去。" : "这张照片先不拍，卡上先只有字；她想看时会照你这句补拍。")
           + ((window.Stories.activeOf(char.id) || []).length ? "你已经挂着这几条，别跟它们重样：" + window.Stories.activeOf(char.id).map(s0 => "「" + (s0.text || s0.desc) + "」").join("、") + "。" : "")
           + (related.length ? "跟你有关系的这几个人也会刷到这条：" + related.map(c => c.name + "（" + (_rl(char.id, c.id) || _rl(c.id, char.id)) + "）").join("、")
