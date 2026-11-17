@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.726";
+const APP_VERSION = "v89.729";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18329,7 +18329,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   （她 2026-11-04：沈屿白万圣夜卡还是那件黑羽绒服，头上多了只蜘蛛）——写明是整套换、小配件不算数
   const stampLimFit = card => "这一张不穿平时的衣服：穿合「" + (card.theme || "") + "」这一期的那一身，一眼看得出是这一期。"
     + "是从外套、上衣到下装整套换成这一身，不是平时那身衣服上加一个头饰、一件小配件；参考照里他穿的那件外套和上衣这张都不出现。"
-    + (stampLim(card).themeLook ? stampLim(card).themeLook : "");
+    + (stampLim(card).themeLook ? stampLim(card).themeLook : "")
+    // 分镜里写了这张穿什么，就锁那一身（她 2026-11-17：深秋几张都画成同一身白T毛线帽——锁里只说「照这一期穿」，分镜那身又被删掉，图像端只能自己猜）
+    + (() => { const m = /(?:outfit|穿着|衣着|服装)\s*[＝=：:]\s*([^；;。\n]+)/i.exec(String((card.text || {}).shot || "")); return m && m[1].trim() ? "这一张穿的就是：" + m[1].trim().slice(0, 160) + "。" : ""; })();
   // 生日、她的生日、纪念日卡（她 2026-11-04「要为这一天准备的特别版」）：跟限时池同一格服装锁，图像端最认这一格；
   //   不锁的话画图那头会把人设里的常穿衣服当设定、照抄参考照那身。who＝锁的是谁（他／她：两个人那几张她也特意打扮）
   const STAMP_DAY_KINDS = { bday: "他的生日", mybday: "她的生日", anniv: "你们的纪念日" };
@@ -18392,7 +18394,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const char = characters.find(x => x.id === cid);
       if (!char) return;
       const small = byChar[cid].filter(c => c.rarity !== "SSR"), big = byChar[cid].filter(c => c.rarity === "SSR"), q = [];
-      for (let i = 0; i < small.length; i += 10) { const part = small.slice(i, i + 10); q.push(() => stampWriteSmall(char, part)); }
+      // 同一个人不同主题的卡分开写（她 2026-11-17）：一起重写时深秋、万圣夜、日常混在一次调用里，主题会互相串；同一个卡池抽出来的照旧并成一次
+      const themeKey = c => c.limited ? "lim:" + (c.limited.id || c.limited || c.theme || "") : c.kind === "if" ? "if:" + (c.theme || "") : (c.kind || "daily");
+      const groups = {}; small.forEach(c => { (groups[themeKey(c)] = groups[themeKey(c)] || []).push(c); });
+      Object.values(groups).forEach(g => { for (let i = 0; i < g.length; i += 10) { const part = g.slice(i, i + 10); q.push(() => stampWriteSmall(char, part)); } });
       big.forEach(c => q.push(() => stampWriteSSR(char, c)));
       queues.push(q);
     });
@@ -18678,7 +18683,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const limFit = stampDayFit(card, "他");
       const base = freeFit ? Object.assign({}, char, { photoOutfit: limFit }) : char;
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene,
-        freeFit ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,
+        Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }),   // 卡面是另一个时刻：不套状态卡上「此刻穿着」那身（她 2026-11-17「全部生的衣服都一样」），照分镜、衣柜来
         Object.assign({ hairFree: card.kind === "if" }, duo ? { kind: "duo", me: meP, notLover: !lover, poseLine: "【两个人的姿势】两个人在一起做着这一刻的事，有互动、有动势，身体之间的距离照你们的关系，不是并排对着镜头站好。" } : { kind: "other" }, { shotLine: stampCam(!alt && /camera\s*[:：]|机位|镜头|景别/i.test(String(tx.shot || ""))) }, { closet: freeFit ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
       const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1024x1536" });
