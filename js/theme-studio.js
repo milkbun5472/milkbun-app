@@ -789,15 +789,16 @@
     const pk = ICON_PACKS[packKey]; if (!pk || !appKey) return "";
     return pk.keys.indexOf(appKey) > -1 ? pk.dir + appKey + ".webp" : "";
   };
-  // 主屏实心图标统一一个色系（她 2026-11-17）：{ h: 色相 0–360, s: 饱和度 0–100 }，null＝各用各的颜色。
+  // 主屏实心图标统一一个色系（她 2026-11-17）：{ h: 色相 0–360, s: 饱和度 0–100 }，null＝出厂冰白，{ raw: true }＝各用各的原色。
   //   编进 :root 的 --iconfill-hue / --iconfill-sat，实心图标的颜色就认这两个（core.js filledIconSvg）。
   const cleanTint = t => {
     if (!t || typeof t !== "object") return null;
+    if (t.raw) return { raw: true };
     const h = Math.round(Number(t.h)), sat = Math.round(Number(t.s));
     if (!isFinite(h) || !isFinite(sat)) return null;
     return { h: ((h % 360) + 360) % 360, s: Math.max(0, Math.min(100, sat)) };
   };
-  const ICON_TINTS = [["原色", null], ["雾灰", { h: 210, s: 0 }], ["奶茶", { h: 28, s: 32 }], ["樱粉", { h: 342, s: 55 }], ["天蓝", { h: 205, s: 52 }], ["薄荷", { h: 152, s: 42 }], ["薰衣草", { h: 266, s: 42 }], ["墨绿", { h: 140, s: 24 }]];
+  const ICON_TINTS = [["冰白", null], ["原色", { raw: true }], ["雾灰", { h: 210, s: 0 }], ["奶茶", { h: 28, s: 32 }], ["樱粉", { h: 342, s: 55 }], ["天蓝", { h: 205, s: 52 }], ["薄荷", { h: 152, s: 42 }], ["薰衣草", { h: 266, s: 42 }], ["墨绿", { h: 140, s: 24 }]];
   // 自己挑的颜色（#rrggbb）换成色相和饱和度；亮度不用，图标自己有深浅三档
   const tintFromHex = hex => {
     const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "")); if (!m) return null;
@@ -976,7 +977,8 @@
     const fontCSS = g.FontChoice ? g.FontChoice.cssVars(p.fonts, p.customFonts, g.resolveImg) : "";
     if (fontCSS) blocks.push("/* fonts */\n" + fontCSS);
     if (p.fontScale && p.fontScale !== 1) blocks.push("/* font scale */\n:root{--app-fs:" + p.fontScale + ";}");
-    if (p.iconTint) blocks.push("/* icon tint */\n:root{--iconfill-hue:" + p.iconTint.h + ";--iconfill-sat:" + p.iconTint.s + "%;}");
+    // 出厂冰白（null）什么都不写；别的颜色把冰白那几档亮度、细节色退回 initial＝图标自己的深浅三档
+    if (p.iconTint) blocks.push("/* icon tint */\n:root{" + (p.iconTint.raw ? "--iconfill-hue:initial;--iconfill-sat:initial;" : "--iconfill-hue:" + p.iconTint.h + ";--iconfill-sat:" + p.iconTint.s + "%;") + "--iconfill-lm:initial;--iconfill-ld:initial;--iconfill-ll:initial;--iconfill-dot:initial;}");
     if (p.globalCSS) blocks.push("/* global */\n" + fitTop(p.globalCSS));
     // zoom 连 body 自己的宽高一起缩（群友 2026-10-11：调小以后右边、底下露出一圈灰底），
     //   所以宽高先除回去：缩完正好还是一整屏，调大也不会撑出屏外。

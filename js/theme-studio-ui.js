@@ -462,18 +462,18 @@
           })),
         // ── 图标颜色统一（她 2026-11-17）：出厂那套实心图标一键换成一个色系，图不换；自己换过图的不受影响 ──
         h("div", { "data-wk": "icontint", style: { marginBottom: 14 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, marginBottom: 8 } }, "图标颜色：出厂那套图标统一成一个色系，图不换。你自己换过图的不受影响。"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, marginBottom: 8 } }, "图标颜色：出厂是冰白；点「原色」各用各的颜色，点别的就统一成一个色系，图不换。你自己换过图的不受影响。"),
           h("div", { className: "flex flex-wrap", style: { gap: 8 } },
             studio.ICON_TINTS.map(([name, tt]) => {
-              const cur = draft.iconTint || null, on = tt ? !!cur && cur.h === tt.h && cur.s === tt.s : !cur;
-              const sw = tt ? "hsl(" + tt.h + "," + tt.s + "%,64%)" : "conic-gradient(hsl(196,52%,64%),hsl(112,52%,64%),hsl(226,52%,64%),hsl(352,52%,64%),hsl(196,52%,64%))";
+              const cur = draft.iconTint || null, on = !tt ? !cur : tt.raw ? !!cur && !!cur.raw : !!cur && !cur.raw && cur.h === tt.h && cur.s === tt.s;
+              const sw = !tt ? "linear-gradient(145deg,#ffffff,#dfe7f1 60%,#9fb6d3)" : !tt.raw ? "hsl(" + tt.h + "," + tt.s + "%,64%)" : "conic-gradient(hsl(196,52%,64%),hsl(112,52%,64%),hsl(226,52%,64%),hsl(352,52%,64%),hsl(196,52%,64%))";
               return h("button", { key: name, "data-wk": "icontintpick", "data-on": on ? "1" : "0", onClick: () => patchDraft({ iconTint: tt }), className: "active:opacity-80 flex flex-col items-center",
                 style: { gap: 4, minWidth: 44, minHeight: 44, background: "transparent", border: "none", padding: 0 } },
                 h("span", { style: { width: 28, height: 28, borderRadius: 999, background: sw, boxShadow: on ? "0 0 0 2px " + t.bg2 + ",0 0 0 3.5px " + t.ink : "inset 0 0 0 1px rgba(0,0,0,.08)" } }),
                 h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: on ? t.ink : t.fog } }, name));
             }),
             // 别的颜色：自己挑一个，只取它的色相和浓淡
-            h("label", { "data-wk": "icontintpick", "data-on": draft.iconTint && !studio.ICON_TINTS.some(([, tt]) => tt && tt.h === draft.iconTint.h && tt.s === draft.iconTint.s) ? "1" : "0", className: "active:opacity-80 flex flex-col items-center", style: { gap: 4, minWidth: 44, minHeight: 44, cursor: "pointer", position: "relative" } },
+            h("label", { "data-wk": "icontintpick", "data-on": draft.iconTint && !draft.iconTint.raw && !studio.ICON_TINTS.some(([, tt]) => tt && tt.h === draft.iconTint.h && tt.s === draft.iconTint.s) ? "1" : "0", className: "active:opacity-80 flex flex-col items-center", style: { gap: 4, minWidth: 44, minHeight: 44, cursor: "pointer", position: "relative" } },
               h("span", { style: { width: 28, height: 28, borderRadius: 999, border: "1.5px dashed " + t.fog, display: "grid", placeItems: "center", color: t.fog, fontSize: "calc(15px * var(--app-fs, 1))" } }, "+"),
               h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "自己挑"),
               h("input", { type: "color", onChange: e => { const tt = studio.tintFromHex(e.target.value); if (tt) patchDraft({ iconTint: tt }); }, style: { position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" } })))),

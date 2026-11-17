@@ -42,7 +42,7 @@ test("同一个 key 每次都是同一个色相", () => {
   ["cast", "phone", "trpg", "folder_9527"].forEach(k => {
     assert.equal(appTone(k).hue, appTone(k).hue);
     assert.equal(typeof appTone(k).wash, "string");
-    assert.ok(/^hsl\(\d+,/.test(appTone(k).glyph), k + " 的线条色不是 hsl");
+    assert.ok(/^hsl\(var\(--iconfill-hue,\d+\),/.test(appTone(k).glyph), k + " 的线条色不是 hsl");
   });
 });
 
@@ -119,8 +119,8 @@ test("没壁纸时的底不是一层纯色", () => {
   assert.ok(i > 0 && j > i && j - i < 2400, "抠不出 HOME_PAPER_BG");
   const seg = core.slice(i, j);
   assert.ok((seg.match(/radial-gradient/g) || []).length >= 3, "至少要有三团光");
-  assert.ok((seg.match(/repeating-linear-gradient/g) || []).length >= 2, "纸纹那两道没了");
-  assert.match(seg, /linear-gradient\(163deg/, "底色那层渐变没了");
+  // 斜纸纹 2026-11-17 她选背景方案「1」时拿掉了，不再要求
+  assert.match(seg, /linear-gradient\(170deg/, "底色那层渐变没了");
 });
 
 // 她 2026-08-30：「主界面的顶部又是坏的」——根节点上面垫着一条 safe-area 空带，
@@ -143,7 +143,7 @@ test("底由根节点画，Home 自己透明——两支走同一条路", () => 
 //（她 2026-08-30：「app文件夹和组件背景都还是太米黄了，我想要透一点的高级感」）
 test("打底那层接近中性，颜色交给上面那几团光", () => {
   const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");
-  const m = core.match(/linear-gradient\(163deg, (#[0-9a-f]{6})[^,]*, (#[0-9a-f]{6})[^,]*, (#[0-9a-f]{6})/i);
+  const m = core.match(/linear-gradient\(170deg, (#[0-9a-f]{6})[^,]*, (#[0-9a-f]{6})[^,]*, (#[0-9a-f]{6})/i);
   assert.ok(m, "抠不出打底那层渐变");
   const chroma = hex => {
     const v = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));

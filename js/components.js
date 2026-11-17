@@ -3168,7 +3168,7 @@ function GlassIcon({
   const body = customSrc
     ? h("img", { src: customSrc, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: bare ? "contain" : "cover", borderRadius: 16, display: "block" } })
     : filled
-      ? h("svg", { "data-wk": "iconfill", viewBox: "0 0 24 24", width: 50, height: 50, style: { display: "block", filter: "drop-shadow(0 2px 2px hsla(" + tone.hue + ",40%,35%,.25))" }, dangerouslySetInnerHTML: { __html: filled } })
+      ? h("svg", { "data-wk": "iconfill", viewBox: "0 0 24 24", width: 50, height: 50, style: { display: "block", filter: "drop-shadow(0 2px 2px hsla(var(--iconfill-hue," + tone.hue + "),40%,35%,.25))" }, dangerouslySetInnerHTML: { __html: filled } })
       : h(G, { size: 27, color: tone ? tone.glyph : t.ink, sw: 1.7 });
   // 角标和 SOON 两支共用：玻璃版和自带底版都要挂
   const marks = [
@@ -3201,7 +3201,7 @@ function FolderIcon({ apps, label, onOpen, onWallpaper, badge }) {
         return h("div", { "data-wk": "block", key: i, className: "flex items-center justify-center", style: { overflow: "hidden", background: src ? "transparent" : "rgba(255,255,255,0.52)", borderRadius: 7, boxShadow: src ? "none" : "inset 0 0.8px 0.6px rgba(255,255,255,0.9)" } },
           // 她那张图自己就是一整块画面，别再垫一层白底把它框小
           src ? h("img", { src: src, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: 7 } })
-              : fill ? h("svg", { "data-wk": "iconfill", viewBox: "0 0 24 24", width: 22, height: 22, style: { display: "block" }, dangerouslySetInnerHTML: { __html: fill } })
+              : fill ? h("svg", { "data-wk": "iconfill", viewBox: "0 0 24 24", width: 22, height: 22, style: { display: "block", filter: "drop-shadow(0 .8px 1px hsla(var(--iconfill-hue," + ft.hue + "),40%,35%,.38))" }, dangerouslySetInnerHTML: { __html: fill } })
               : h(a.G, { size: 15, color: t.ink, sw: 1.7 }));
       }),
       Array.from({ length: Math.max(0, 4 - preview.length) }).map((_, i) => h("div", { key: "e" + i })),
@@ -8932,7 +8932,7 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
   const name = c.name || profile.name || "点此设置昵称";
   const sign = c.sign || "";
   const tags = (c.tags || []).filter(Boolean);
-  const accent = profile.color || t.accent;
+  const accent = profile.color || t.cardTint || t.accent;
   const cover = c.cover ? (typeof resolveImg === "function" ? resolveImg(c.cover) : c.cover) : "";
   // ⚠️底图和暗角必须画在【卡本身】上（多层 background 叠着）：卡是网格里的一格，
   //   行比它高时会被拉满，画在里面那个 padding 盒子上就会空出没盖到的一块。

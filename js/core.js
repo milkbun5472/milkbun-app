@@ -24,7 +24,10 @@ const DEFAULT_THEME = {
   fog: "#96938a",
   line: "#ddd8cd",
   accent: "#c25a4a",
-  tint: "#3f6d8c"
+  tint: "#3f6d8c",
+  // 名片那层斜铺的淡色（她 2026-11-17：主屏换成冰白以后「秋秋那张名片背景要不要弄一下颜色」）。
+  //   只管名片；日历今天那颗红圈照旧用 accent（她：「红圈不改吧」）。名片里挑过颜色（profile.color）还是听那个。
+  cardTint: "#7f9cc2"
 };
 const ThemeContext = createContext(DEFAULT_THEME);
 const useTheme = () => useContext(ThemeContext);
@@ -452,19 +455,15 @@ function appTone(key) {
 // 顶上就多一条颜色接不上的横杠（她 2026-08-30：「主界面的顶部又是坏的」）。
 // 壁纸那一支早就是这么走的（根节点铺满、Home 透明），这一支现在跟它一模一样。
 const HOME_PAPER_BG = [
-  // 两道细纸纹，给玻璃一点可折的东西
-  "repeating-linear-gradient(58deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 7px)",
-  "repeating-linear-gradient(-32deg, rgba(27,26,23,0.022) 0px, rgba(27,26,23,0.022) 1px, transparent 1px, transparent 10px)",
-  // 四团光：暖的在上、冷的在右和下
-  "radial-gradient(74% 48% at 0% -2%, rgba(200,94,78,0.30), transparent 68%)",
-  "radial-gradient(70% 46% at 104% 16%, rgba(52,108,150,0.30), transparent 70%)",
-  "radial-gradient(80% 52% at 80% 104%, rgba(88,122,100,0.26), transparent 72%)",
-  "radial-gradient(56% 38% at 28% 58%, rgba(148,114,176,0.18), transparent 74%)",
+  // 冷白底＋四团雾蓝雾紫的光（她 2026-11-17 定的，跟冰白图标同一个温度）。原来那两道斜纸纹拿掉了（她选的「1」）。
+  "radial-gradient(75% 46% at 0% 0%, rgba(170,195,230,0.32), transparent 70%)",
+  "radial-gradient(70% 48% at 100% 100%, rgba(150,180,220,0.30), transparent 72%)",
+  "radial-gradient(60% 40% at 95% 25%, rgba(200,195,235,0.22), transparent 72%)",
+  "radial-gradient(64% 40% at 15% 72%, rgba(215,230,245,0.40), transparent 72%)",
   // ⚠️打底这一层必须【接近中性】。玻璃的 saturate(1.9) 会把它背后的颜色乘上去：
-  //   底色本身偏黄（色度 12）时，压在上面的组件就会被放大成色度 22 的米黄一片
-  //   （她 2026-08-30：「app文件夹和组件背景都还是太米黄了，我想要透一点的高级感」）。
+  //   底色本身偏色时，压在上面的组件就会被放大成一片（她 2026-08-30：「组件背景都还是太米黄了」）。
   //   所以颜色全交给上面那四团光——玻璃放大的是那几团光，平的地方保持干净。
-  "linear-gradient(163deg, #f1efec 0%, #e8e5e1 46%, #dbd8d4 100%)"
+  "linear-gradient(170deg, #f6f8fa 0%, #eff2f5 55%, #e7ebef 100%)"
 ].join(", ");
 // 实心圆润的图标（她 2026-11-17：「先放进底栏，整体大一点铺满格子」）：
 //   一个 app 在这张表里就画实心版、不画线条版；没在表里的照旧线条。{m} 主色、{d} 深一档、{l} 浅一档，都按 appTone 的色相算。
@@ -474,13 +473,27 @@ function filledIconSvg(key, hue) {
   const s = FILLED_ICONS[key]; if (!s) return "";
   // 颜色写进 style 而不是 fill="" 属性：属性里认不了 CSS 变量，style 里认。
   //   美化写 --iconfill-hue（统一成一个色相）、--iconfill-sat（0% 就是灰）就能把整套换成一个色系，图不用换（她 2026-11-17：有人想统一色系但不想换图标）。
+  //   出厂是冰白（她 2026-11-17：「有颜色太花了，灰度又不够高级感」，照她给的那张冰白磨砂图定的）：
+  //   默认值不写在这里，写在下面 ICONFILL_DEFAULT_CSS 的 :root 上；这里的兜底是各 app 自己的原色，
+  //   所以美化把这几个变量设成 initial，就回到原色（主题工作台「图标颜色 → 原色」就是这么做的）。
+  //   --iconfill-lm / -ld / -ll 是三档的亮度，--iconfill-dot 是图上那些白色小细节（爱心、点点）。
   const H = "var(--iconfill-hue," + hue + ")", S = "var(--iconfill-sat,52%)";
-  const col = { m: "hsl(" + H + "," + S + ",64%)", d: "hsl(" + H + ",calc(" + S + " * .77),44%)", l: "hsl(" + H + ",calc(" + S + " * 1.35),86%)" };
+  const col = { m: "hsl(" + H + "," + S + ",var(--iconfill-lm,64%))", d: "hsl(" + H + ",calc(" + S + " * .77),var(--iconfill-ld,44%))", l: "hsl(" + H + ",calc(" + S + " * 1.35),var(--iconfill-ll,86%))" };
   return s.replace(/<(\w+)([^>]*?)(\/?)>/g, function (all, tag, attrs, close) {
     const st = [];
-    const rest = attrs.replace(/\s(fill|stroke)='\{([mdl])\}'/g, function (_, a, c) { st.push(a + ":" + col[c]); return ""; });
+    let rest = attrs.replace(/\s(fill|stroke)='\{([mdl])\}'/g, function (_, a, c) { st.push(a + ":" + col[c]); return ""; });
+    // 白色细节跟着 --iconfill-dot 走；带 opacity 的白色实心块是高光，永远白，不染
+    rest = rest.replace(/\s(fill|stroke)='#fff'/g, function (m0, a) {
+      if (a === "fill" && /\sopacity=/.test(attrs)) return m0;
+      st.push(a + ":var(--iconfill-dot,#fff)"); return "";
+    });
     return st.length ? "<" + tag + rest + " style='" + st.join(";") + "'" + close + ">" : all;
   });
+}
+// 出厂冰白那几个值。:where(:root) 是零权重，任何美化写的 :root 都压得住它。
+const ICONFILL_DEFAULT_CSS = ":where(:root){--iconfill-hue:214;--iconfill-sat:30%;--iconfill-lm:96%;--iconfill-ld:84%;--iconfill-ll:100%;--iconfill-dot:#9fb6d3}";
+if (typeof document !== "undefined" && document.head && !document.getElementById("iconfill-default")) {
+  const st = document.createElement("style"); st.id = "iconfill-default"; st.textContent = ICONFILL_DEFAULT_CSS; document.head.appendChild(st);
 }
 if (typeof window !== "undefined") { window.FILLED_ICONS = FILLED_ICONS; window.filledIconSvg = filledIconSvg; }
 
