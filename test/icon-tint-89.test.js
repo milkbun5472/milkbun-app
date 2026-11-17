@@ -13,3 +13,9 @@ test("换图标那页有一排预设和一颗自己挑", () => {
   assert.match(ui, /studio\.ICON_TINTS\.map/);
   assert.match(ui, /type: "color", onChange: e => \{ const tt = studio\.tintFromHex/);
 });
+test("格子的淡彩底也认那两个变量", () => {
+  const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");
+  const i = core.indexOf("function appTone");
+  const body = core.slice(i, core.indexOf("\n}\n", i));
+  assert.match(body, /wash: "radial-gradient\(125% 118% at 18% 104%, hsla\(var\(--iconfill-hue,/);
+});

@@ -440,9 +440,10 @@ function appTone(key) {
   return {
     hue: hue,
     // 图标底下那层光：从左下角透上来，不铺满，免得变成一块色卡
-    wash: "radial-gradient(125% 118% at 18% 104%, hsla(" + hue + ",56%,58%,.30), hsla(" + hue + ",50%,62%,.10) 52%, transparent 74%)",
+    // 色相、浓淡认 --iconfill-hue / --iconfill-sat（主题工作台「图标颜色」），图标和格子一起换（她 2026-11-17：「格子也弄吧」）
+    wash: "radial-gradient(125% 118% at 18% 104%, hsla(var(--iconfill-hue," + hue + "),calc(var(--iconfill-sat,52%) * 1.08),58%,.30), hsla(var(--iconfill-hue," + hue + "),calc(var(--iconfill-sat,52%) * .96),62%,.10) 52%, transparent 74%)",
     // 线条只往那个色偏一点点，仍然要压得住、看得清
-    glyph: "hsl(" + hue + ",26%,32%)"
+    glyph: "hsl(var(--iconfill-hue," + hue + "),calc(var(--iconfill-sat,52%) * .5),32%)"
   };
 }
 // 没铺壁纸时主屏那块底。**必须由 App 根节点来画**，不是 Home 自己画——
