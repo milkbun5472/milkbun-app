@@ -5709,6 +5709,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       };
     } catch (e) { return null; }
   };
+  // 关系那条线开着「互相知道对方此刻在干嘛」的那几个人（群友 2026-11-17）：只带日程上此刻那一段，不带他们跟她聊了什么
+  const peersNowLine = char => {
+    try {
+      if (!char || typeof relSeeNowOn !== "function") return "";
+      const lines = (characters || []).filter(o => o && o.id !== char.id && !o.isGroup && relSeeNowOn(char.id, o.id)).map(o => {
+        const b = schedNowBriefFor(o);
+        const rel = (rels[char.id + "->" + o.id] || rels[o.id + "->" + char.id] || {}).label || "";
+        const nm = o.remark || o.name;
+        return "· " + nm + (rel ? "（" + String(rel).slice(0, 12) + "）" : "") + "：" + (b ? [b.time, b.title, b.location ? "在" + b.location : ""].filter(Boolean).join(" ") : "日程上这会儿没写着在干嘛");
+      });
+      return lines.length ? "\n【身边的人此刻在干嘛·日程上写着的】你知道的就这么多，具体在想什么、跟谁说了什么不知道：\n" + lines.join("\n") : "";
+    } catch (e) { return ""; }
+  };
   const schedNowBriefFor = char => {
     if (!char) return null;
     const plans = schedulesRef.current[char.id] || {};
@@ -6951,7 +6964,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 拉黑／刚解除（句子只写在 blockLineFor 一处）。走 buildBundle 就等于
     // 单聊线上、单人线下、通话、日记、查手机、穿书、匿名箱、解梦馆一起有了。
     blockLine: blockLineFor(char.id),
-    schedNow: timeAwareFor(char.id) ? schedNowFor(char) : "",
+    schedNow: timeAwareFor(char.id) ? schedNowFor(char) + peersNowLine(char) : "",
     // 「你俩此刻在一起」两个来源走同一个口子：线下场次正开着（旧）、同处一室开着（新）。
     // 真开着线下的时候不重复说一遍——那段自己已经把面对面讲清楚了。
     offlineNow: (sameRoomFor(char.id) && !offlineTogetherNow(char.id)
