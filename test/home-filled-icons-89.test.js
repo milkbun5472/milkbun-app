@@ -20,5 +20,10 @@ test("文件夹盖着时的小格也认实心图", () => {
 });
 test("桌面上摆的 app 都有实心图", () => {
   const map = JSON.parse(core.match(/const FILLED_ICONS = (\{[\s\S]*?\});\n/)[1]);
-  for (const k of ["cast", "phone", "memlib", "anon", "yanqiu", "assistant", "nest", "stylelab", "dreamjournal", "fairyGarden", "companion"]) assert.ok(map[k], k);
+  for (const k of ["cast", "phone", "memlib", "anon", "yanqiu", "nest", "stylelab", "dreamjournal", "fairyGarden", "companion"]) assert.ok(map[k], k);
+});
+test("秋秋那只画好的鸟不被实心图顶掉", () => {
+  const map = JSON.parse(core.match(/const FILLED_ICONS = (\{[\s\S]*?\});\n/)[1]);
+  assert.ok(!map.assistant);
+  assert.match(comp, /const APP_BUILTIN_ICON = \{ assistant: "img\/qiu-icon\.png" \}/);
 });
