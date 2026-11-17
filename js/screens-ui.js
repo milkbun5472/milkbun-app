@@ -2852,7 +2852,7 @@ function Forum({
                 accountBadge(cm),
                 isAuthor && h("span", { "data-wk": "foauthor", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "#fff", background: FORUM_SKIN.accent, borderRadius: 4, padding: "0 4px" } }, "作者")),
               // 贴吧样式的 IP 挂在 @id 这一行（她 2026-11-16「加了 ip 看不见名字和 id 了」：挂在右上角跟楼层挤一行，把名字挤成一个字）
-              (!cm.anon || !xhs) && h("div", { "data-wk": "foidline", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, [!cm.anon ? "@" + (cm.authorHandle || cm.authorName) : "", !xhs ? "IP属地：" + forumIpOf(cm, ipCharOf(cm), post) : ""].filter(Boolean).join(" · "))),
+              !cm.anon && h("div", { "data-wk": "foidline", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, "@" + (cm.authorHandle || cm.authorName))),
             h("div", { className: "flex items-center gap-1.5", style: { flexShrink: 0, whiteSpace: "nowrap" } },
               h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, xhs ? timeAgo(cm.ts || cm.visibleAt) + " " + forumIpOf(cm, ipCharOf(cm), post) : (cm.floor || i + 2) + " 楼"),
               fresh && newTag(),
@@ -2897,7 +2897,9 @@ function Forum({
           h("div", { className: "flex items-center gap-4 mt-1.5" },
             h("button", { onClick: () => setReplyTo({ floorId: cm.id, name: nm }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "回复"),
             h("button", { onClick: () => toggleLike(cm.id), className: "flex items-center gap-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: isL ? "#e0245e" : t.fog } }, h(IHeart, { size: 13, color: isL ? "#e0245e" : t.fog, filled: isL }), h("span", null, fmtNum((xhs ? xhsLikes(post, cm) : (cm.likeCount || 0)) + (isL ? 1 : 0)))),
-            xhs && xhsAuthorReplied(post, cm) && h("span", { "data-wk": "foauthorliked", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "作者赞过")))));
+            xhs && xhsAuthorReplied(post, cm) && h("span", { "data-wk": "foauthorliked", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "作者赞过"),
+            // 贴吧样式的 IP 挂在这一行右边（她 2026-11-17「ip 看不见，移到右下角」：挂在 @id 后面会被长 id 的省略号吃掉）
+            !xhs && h("span", { "data-wk": "foip", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, whiteSpace: "nowrap" } }, "IP属地：" + forumIpOf(cm, ipCharOf(cm), post))))));
   }
 
   const sendReply = () => {

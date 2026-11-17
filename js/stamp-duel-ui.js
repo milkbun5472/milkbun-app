@@ -863,7 +863,7 @@
               h("div", { style: { height: 5, borderRadius: 3, marginTop: 5, background: "rgba(47,42,34,.1)", overflow: "hidden" } }, h("div", { style: { width: Math.round(100 * Math.min(1, (o.prog || 0) / o.n)) + "%", height: "100%", background: o.done ? GREEN : "#6a4a8a" } })),
               h("div", { style: { fontSize: fz(10.5), color: SUB, marginTop: 2 } }, (o.prog || 0) + " / " + o.n))),
             h("div", { key: "n", style: { fontSize: fz(10.5), color: SUB } }, "每周一换三张，口碑越高单子越大、给得越多；没做完也不罚。")], "#6a4a8a") : null,
-          card("window", [h("div", { key: "t" }, secTitle("#3f6fb0", "窗", "橱窗", sh.window.length + " / " + D().shopWinSlots(sh))),
+          card("window", [h("div", { key: "t" }, secTitle("#3f6fb0", "窗", "橱窗", (sh.window || []).filter(id => (cards || []).some(k => k && k.id === id)).length + " / " + D().shopWinSlots(sh))),
             h("div", { key: "s", style: { fontSize: fz(11), color: SUB, marginBottom: 8 } }, "摆你抽到的卡。R +3%、SR +6%、SSR +10% 收入，等级高再多一点；点名要某人明信片的客人，橱窗里有那个人的卡才卖得出。买「整面墙的信格」多 2 格。点一张摆上／撤下。"),
             // 卡多了找不到（她 2026-11-08）：按人、稀有度筛，搜卡名；已经摆上的永远在最前
             cardFilterBar(winF, setWinF, "duelshopwinfilter"),

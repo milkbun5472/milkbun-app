@@ -12496,7 +12496,8 @@ function ChatThread({
         fontSize: "calc(11px * var(--app-fs, 1))",
         color: t.fog
       }
-    }, m.role === "user" ? "你" : character.name, "撤回了一条消息"));
+    }, m.role === "user" ? "你" : character.name, "撤回了一条消息"),
+      (m.role === "user" || m.recalledTs) && onLongPress ? h("button", { "data-wk": "recallundo", onClick: () => onLongPress("unrecall", i), className: "active:opacity-60", style: { marginLeft: 8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.accent } }, "恢复") : null);
     // 聊天里一张卡的【位置和头像】：谁发的就在谁那边，对方的卡左边挂TA的头像、自己的卡右边挂我的头像（开着显示我的头像时）。
     //   长按／多选不在这儿——那是 cardPressRow 一处管（卡片名单 CARD_PRESS_KINDS），这儿再挂一次多选会点一下选两次。
     //   新卡片要进聊天：在这儿套上头像，再把 kind 写进 CARD_PRESS_KINDS。
@@ -21624,7 +21625,9 @@ function GroupThread({
       }
       // 只显示被引用的原话，不写「引用 XXX：」——是谁说的代码里有 replyToSenderName，
       // 界面上照旧只摆一句原文就够了（她 2026-08-24）
-    }, h("span", { "data-wk": "quoteicon" }, "❝ "), h("span", { "data-wk": "quotetext" }, m.replyTo)), m.recalled ? h(m.origText ? "button" : "div", { "data-wk": "note", "data-part": "recalled", onClick: m.origText ? () => setGRecallView(m) : undefined, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: t.fog, padding: "4px 2px" } }, (isU ? "你" : m.senderName || "对方") + " 撤回了一条消息" + (m.origText ? " · 点看" : "")) : h("div", {
+    }, h("span", { "data-wk": "quoteicon" }, "❝ "), h("span", { "data-wk": "quotetext" }, m.replyTo)), m.recalled ? h("div", { className: "flex items-center", style: { gap: 10 } }, h(m.origText ? "button" : "div", { "data-wk": "note", "data-part": "recalled", onClick: m.origText ? () => setGRecallView(m) : undefined, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: t.fog, padding: "4px 2px" } }, (isU ? "你" : m.senderName || "对方") + " 撤回了一条消息" + (m.origText ? " · 点看" : "")),
+      // 撤回手滑了能放回去（她 2026-11-17「搞个可以取消撤回」）：只给她自己撤的那条
+      (isU || m.recalledTs) && onMsgAction ? h("button", { "data-wk": "recallundo", onClick: () => onMsgAction("unrecall", i), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, padding: "4px 2px" } }, "恢复") : null) : h("div", {
       onTouchStart: selMode ? undefined : () => startPress(i),
       onTouchEnd: endPress,
       onMouseDown: selMode ? undefined : () => startPress(i),
