@@ -638,7 +638,7 @@
     Object.freeze({
       zh: "主屏", pages: Object.freeze(["home"]),
       hooks: Object.freeze([
-        ["icon", "app 图标那一格（文件夹也是）"], ["iconfill", "图标里那张实心圆润的画（底栏四个已换；没换的还是线条）"], ["iconlabel", "图标底下那行字"], ["folderbadge", "文件夹盖子右上角的数字（里面哪个 app 有新的，加起来）"],
+        ["icon", "app 图标那一格（文件夹也是）"], ["iconfill", "主屏图标里那张实心圆润的画；颜色认 --iconfill-hue / --iconfill-sat"], ["icontint", "换图标那页「图标颜色」那一排"], ["icontintpick", "那排里的每一颗（data-on=\"1\" 是选中的）"], ["iconlabel", "图标底下那行字"], ["folderbadge", "文件夹盖子右上角的数字（里面哪个 app 有新的，加起来）"],
         ["dock", "底部 dock 那一条"],
         ["shikeotd", "主屏上那张「去年今天」小卡（时刻）"],
         ["bdaycard", "主屏顶上那张生日提醒卡（角色生日前一天和当天）"],
@@ -789,7 +789,26 @@
     const pk = ICON_PACKS[packKey]; if (!pk || !appKey) return "";
     return pk.keys.indexOf(appKey) > -1 ? pk.dir + appKey + ".webp" : "";
   };
-  const fresh = () => ({ version: 1, name: "我的主题", icons: {}, iconPack: "", iconBare: false, fonts: { body: "", display: "" }, customFonts: [], globalCSS: "", pageCSS: {}, pageTokens: {}, pageZoom: {}, fontScale: 1, updatedAt: 0 });
+  // 主屏实心图标统一一个色系（她 2026-11-17）：{ h: 色相 0–360, s: 饱和度 0–100 }，null＝各用各的颜色。
+  //   编进 :root 的 --iconfill-hue / --iconfill-sat，实心图标的颜色就认这两个（core.js filledIconSvg）。
+  const cleanTint = t => {
+    if (!t || typeof t !== "object") return null;
+    const h = Math.round(Number(t.h)), sat = Math.round(Number(t.s));
+    if (!isFinite(h) || !isFinite(sat)) return null;
+    return { h: ((h % 360) + 360) % 360, s: Math.max(0, Math.min(100, sat)) };
+  };
+  const ICON_TINTS = [["原色", null], ["雾灰", { h: 210, s: 0 }], ["奶茶", { h: 28, s: 32 }], ["樱粉", { h: 342, s: 55 }], ["天蓝", { h: 205, s: 52 }], ["薄荷", { h: 152, s: 42 }], ["薰衣草", { h: 266, s: 42 }], ["墨绿", { h: 140, s: 24 }]];
+  // 自己挑的颜色（#rrggbb）换成色相和饱和度；亮度不用，图标自己有深浅三档
+  const tintFromHex = hex => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "")); if (!m) return null;
+    const n = parseInt(m[1], 16), r = (n >> 16) / 255, g2 = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    const mx = Math.max(r, g2, b), mn = Math.min(r, g2, b), d = mx - mn, l = (mx + mn) / 2;
+    let h = 0; if (d) h = mx === r ? ((g2 - b) / d) % 6 : mx === g2 ? (b - r) / d + 2 : (r - g2) / d + 4;
+    const sat = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+    // 挑得再艳也压到 70：图标是一整块实心色，满饱和会刺眼
+    return cleanTint({ h: h * 60, s: Math.min(70, sat * 100) });
+  };
+  const fresh = () => ({ version: 1, name: "我的主题", icons: {}, iconPack: "", iconBare: false, iconTint: null, fonts: { body: "", display: "" }, customFonts: [], globalCSS: "", pageCSS: {}, pageTokens: {}, pageZoom: {}, fontScale: 1, updatedAt: 0 });
   const normalize = raw => {
     const x = raw && typeof raw === "object" ? raw : {};
     const iconPack = ICON_PACKS[x.iconPack] ? String(x.iconPack) : "";
@@ -802,7 +821,7 @@
     //   反过来的话，删掉一支自定义字体之后，变量还指着一个不存在的字族。
     const customFonts = g.FontChoice ? g.FontChoice.customList(x.customFonts).map(f => f.custom) : [];
     const fonts = g.FontChoice ? g.FontChoice.clean(x.fonts, customFonts) : { body: "", display: "" };
-    return { ...fresh(), ...x, icons: { ...(x.icons || {}) }, iconPack, iconBare: !!x.iconBare, fonts, customFonts, pageCSS: { ...(x.pageCSS || {}) }, pageTokens, pageZoom, fontScale };
+    return { ...fresh(), ...x, icons: { ...(x.icons || {}) }, iconPack, iconBare: !!x.iconBare, iconTint: cleanTint(x.iconTint), fonts, customFonts, pageCSS: { ...(x.pageCSS || {}) }, pageTokens, pageZoom, fontScale };
   };
   const load = () => { try { return normalize(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (_) { return fresh(); } };
   // 每次正式存之前，把【被盖掉的那一版】留一份（她 2026-10-05：「美化改错了想恢复前一步，现在没办法」）。
@@ -957,6 +976,7 @@
     const fontCSS = g.FontChoice ? g.FontChoice.cssVars(p.fonts, p.customFonts, g.resolveImg) : "";
     if (fontCSS) blocks.push("/* fonts */\n" + fontCSS);
     if (p.fontScale && p.fontScale !== 1) blocks.push("/* font scale */\n:root{--app-fs:" + p.fontScale + ";}");
+    if (p.iconTint) blocks.push("/* icon tint */\n:root{--iconfill-hue:" + p.iconTint.h + ";--iconfill-sat:" + p.iconTint.s + "%;}");
     if (p.globalCSS) blocks.push("/* global */\n" + fitTop(p.globalCSS));
     // zoom 连 body 自己的宽高一起缩（群友 2026-10-11：调小以后右边、底下露出一圈灰底），
     //   所以宽高先除回去：缩完正好还是一整屏，调大也不会撑出屏外。
@@ -1043,7 +1063,7 @@
   const packHas = (pack, key) => {
     const p = (pack && pack.profile) || {};
     if (key === "css") return !!(p.globalCSS || Object.keys(p.pageCSS || {}).length || Object.keys(p.pageTokens || {}).length || Object.keys(p.pageZoom || {}).length);
-    if (key === "icons") return !!(p.iconPack || Object.keys(p.icons || {}).length);
+    if (key === "icons") return !!(p.iconPack || p.iconTint || Object.keys(p.icons || {}).length);
     if (key === "fonts") return !!((p.fonts && (p.fonts.body || p.fonts.display)) || (p.customFonts || []).length || (p.fontScale && p.fontScale !== 1));
     if (key === "base") return !!(pack && pack.baseTheme);
     if (key === "wall") return typeof (pack && pack.wallpaper) === "string" && !!pack.wallpaper;
@@ -1078,6 +1098,7 @@
       icons: sel.icons ? p.icons : blank.icons,
       iconPack: sel.icons ? p.iconPack : blank.iconPack,
       iconBare: sel.icons ? p.iconBare : blank.iconBare,
+      iconTint: sel.icons ? p.iconTint : blank.iconTint,
       fonts: sel.fonts ? p.fonts : blank.fonts,
       customFonts: sel.fonts ? p.customFonts : blank.customFonts,
       fontScale: sel.fonts ? p.fontScale : blank.fontScale
@@ -1236,7 +1257,7 @@
   }
   // 单聊/群聊「自己写 CSS」能存多长：存的时候按这个截，编辑框按这个提醒（只这一处写数）
   const CHAT_CSS_MAX = 200000;
-  g.ThemeStudio = { factoryPack, CHAT_CSS_MAX, histCount, undoStep, aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, missingCSSImages, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor, fitPlan, screenWidth, HOME_KEYS, homeSnapshot, homeApply };
+  g.ThemeStudio = { ICON_TINTS, cleanTint, tintFromHex, factoryPack, CHAT_CSS_MAX, histCount, undoStep, aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, missingCSSImages, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor, fitPlan, screenWidth, HOME_KEYS, homeSnapshot, homeApply };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

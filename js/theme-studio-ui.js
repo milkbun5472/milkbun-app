@@ -446,7 +446,7 @@
         // 不是一排药丸——药丸搬到哪个 app 都成立，一张贴纸纸只有换图标这一处成立。
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, marginBottom: 8 } }, "整套换：点一张贴纸纸整套换掉。你自己单独换过的 App 不受影响。"),
         h("div", { className: "flex flex-wrap", style: { gap: 10, marginBottom: 14 } },
-          [["", "出厂线稿", 0]].concat(studio.packList()).map(([pk, name, n]) => {
+          [["", "出厂图标", 0]].concat(studio.packList()).map(([pk, name, n]) => {
             const on = (draft.iconPack || "") === pk;
             const peek = pk ? (studio.ICON_PACKS[pk].keys || []).slice(0, 3).map(k => studio.packIconSrc(pk, k)) : [];
             return h("button", { key: pk || "__none", onClick: () => patchDraft({ iconPack: pk, iconBare: pk ? !!studio.ICON_PACKS[pk].bare : false }), className: "active:opacity-80",
@@ -460,6 +460,23 @@
               pk ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, n + " / " + studio.appIconList().length + " 张") : null,
               on ? h("span", { style: { position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: 999, background: t.ink, color: t.bg2, fontSize: "calc(10px * var(--app-fs, 1))", display: "grid", placeItems: "center" } }, "✓") : null);
           })),
+        // ── 图标颜色统一（她 2026-11-17）：出厂那套实心图标一键换成一个色系，图不换；自己换过图的不受影响 ──
+        h("div", { "data-wk": "icontint", style: { marginBottom: 14 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.65, marginBottom: 8 } }, "图标颜色：出厂那套图标统一成一个色系，图不换。你自己换过图的不受影响。"),
+          h("div", { className: "flex flex-wrap", style: { gap: 8 } },
+            studio.ICON_TINTS.map(([name, tt]) => {
+              const cur = draft.iconTint || null, on = tt ? !!cur && cur.h === tt.h && cur.s === tt.s : !cur;
+              const sw = tt ? "hsl(" + tt.h + "," + tt.s + "%,64%)" : "conic-gradient(hsl(196,52%,64%),hsl(112,52%,64%),hsl(226,52%,64%),hsl(352,52%,64%),hsl(196,52%,64%))";
+              return h("button", { key: name, "data-wk": "icontintpick", "data-on": on ? "1" : "0", onClick: () => patchDraft({ iconTint: tt }), className: "active:opacity-80 flex flex-col items-center",
+                style: { gap: 4, minWidth: 44, minHeight: 44, background: "transparent", border: "none", padding: 0 } },
+                h("span", { style: { width: 28, height: 28, borderRadius: 999, background: sw, boxShadow: on ? "0 0 0 2px " + t.bg2 + ",0 0 0 3.5px " + t.ink : "inset 0 0 0 1px rgba(0,0,0,.08)" } }),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: on ? t.ink : t.fog } }, name));
+            }),
+            // 别的颜色：自己挑一个，只取它的色相和浓淡
+            h("label", { "data-wk": "icontintpick", "data-on": draft.iconTint && !studio.ICON_TINTS.some(([, tt]) => tt && tt.h === draft.iconTint.h && tt.s === draft.iconTint.s) ? "1" : "0", className: "active:opacity-80 flex flex-col items-center", style: { gap: 4, minWidth: 44, minHeight: 44, cursor: "pointer", position: "relative" } },
+              h("span", { style: { width: 28, height: 28, borderRadius: 999, border: "1.5px dashed " + t.fog, display: "grid", placeItems: "center", color: t.fog, fontSize: "calc(15px * var(--app-fs, 1))" } }, "+"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "自己挑"),
+              h("input", { type: "color", onChange: e => { const tt = studio.tintFromHex(e.target.value); if (tt) patchDraft({ iconTint: tt }); }, style: { position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" } })))),
         // ── 图标自带底（她 2026-09-04 要的那个开关）：图里已经画了玻璃方块的，别再套一层 ──
         h("div", { "data-wk": "block", className: "flex items-center justify-between", style: { marginBottom: 14, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px" } },
           h("div", { style: { flex: 1, minWidth: 0 } },
