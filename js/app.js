@@ -4305,6 +4305,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     });
   };
   const currentlyTogetherWithChar = charId => {
+    // 单聊这一头也算（她 2026-11-17「躺一张床上他还觉得要发微信给我」）：原来只看群里的线下／正看着的群，
+    //   单聊开着「同处一室」、或者单人线下这会儿正演着，都没算进来，半夜「想你」照样隔着手机发一条
+    if (sameRoomFor(charId) || offlineTogetherNow(charId)) return true;
     if (!window.InteractionClock) return false;
     const go = {};
     (groups || []).filter(g => (g.memberIds || []).includes(charId)).forEach(g => {
