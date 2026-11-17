@@ -11547,7 +11547,8 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
       if (dx < 0) goTo(newerE, "fwd"); else goTo(olderE, "back");
     };
     const under = flip ? all.find(x => x.id === flip.to) : null;
-    const page = (entry, style) => h("div", { "data-wk": "dipage", style: Object.assign({ position: "absolute", inset: 0 }, style || {}) },
+    // 每一页按日记认（她 2026-11-17「看完一页翻页不会回到最上面」）：原来同一个组件换内容，里面滚到哪儿就停在哪儿；换成新的一页就从顶上读起
+    const page = (entry, style) => h("div", { key: "dp_" + entry.id, "data-wk": "dipage", style: Object.assign({ position: "absolute", inset: 0 }, style || {}) },
       h(DiaryEntryView, {
         entry: entry, char: curAuthor, isMe, chars: characters,
         commenting: commentingId === entry.id,
