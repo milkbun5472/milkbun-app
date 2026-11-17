@@ -1396,6 +1396,11 @@ function Ties({
     }));
 }
 
+// 互相知道对方此刻在干嘛（群友 2026-11-17 许愿：同事、室友问起来答不上「B 和 C 在做什么」）：
+//   关系那条线上一颗开关，按「这两个人」记一张小表，两头聊天时都带上对方日程上此刻那一段（app.js peersNowLine 读它）
+function relSeeKey(a, b) { return [String(a), String(b)].sort().join("|"); }
+function relSeeNowOn(a, b) { try { return !!((loadJSON("x_relSeeNow", {}) || {})[relSeeKey(a, b)]); } catch (e) { return false; } }
+function relSeeNowSet(a, b, v) { const m = Object.assign({}, loadJSON("x_relSeeNow", {}) || {}); const k = relSeeKey(a, b); if (v) m[k] = true; else delete m[k]; saveJSON("x_relSeeNow", m); }
 function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPick, masks, maskPrimary, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onAddMyNpc, onDraftMyNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy, npcList, onSaveNpcKnows, onDraftRel, relBusy }) {
   const t = useTheme();
   const c = comp;
@@ -1403,6 +1408,8 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPic
   const A = c.tab === "me" ? "me" : c.pair[0];
   const B = c.tab === "me" ? c.meChar : c.pair[1];
   const nA = A ? nameOf(A) : "…", nB = B ? nameOf(B) : "…";
+  const [, seeTick] = useState(0);
+  const seeOk = c.tab !== "me" && A && B && A !== B && A !== "me" && B !== "me", seeOn = seeOk && relSeeNowOn(A, B);
 
   const seg = (val, cur, onClick, txt) => h("button", { "data-wk": "tiesseg", "data-part": val, "data-on": val === cur ? "1" : "0",
     onClick, style: {
@@ -1644,6 +1651,14 @@ function RelComposer({ comp, setComp, characters, profile, draftProfile, maskPic
       c._why ? h("div", { "data-wk": "tiesdraftwhy", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.fog, marginTop: 5 } },
         (c._known === false ? "它判断这俩其实不该认识：" : "它的依据：") + c._why + "（写好的两句在下面，随便改）") : null) : null,
 
+    // 知道对方此刻在干嘛（只有角色和角色之间）：点了当场存
+    seeOk ? h("button", { "data-wk": "relseenow", "data-on": seeOn ? "1" : "0", onClick: () => { relSeeNowSet(A, B, !seeOn); seeTick(x => x + 1); },
+      className: "flex items-center justify-between w-full mb-4 active:opacity-70", style: { gap: 10, textAlign: "left" } },
+      h("span", { style: { flex: 1, minWidth: 0 } },
+        h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "互相知道对方此刻在干嘛"),
+        h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2 } }, "开着的话，" + nA + "、" + nB + " 跟你聊天时都带着对方日程上这会儿在做什么（只有日程上那一行，不带对方跟你聊了什么）。适合室友、同事、家人。")),
+      h("div", { style: { flexShrink: 0, width: 40, height: 23, borderRadius: 999, padding: 2, background: seeOn ? t.ink : t.line, transition: "background .2s" } },
+        h("div", { style: { width: 19, height: 19, borderRadius: 999, background: "#fff", transform: seeOn ? "translateX(17px)" : "translateX(0)", transition: "transform .2s" } }))) : null,
     // 关系方向
     h(Eyebrow, { style: { marginBottom: 8 } }, "关系方向"),
     h("div", { className: "flex gap-2 mb-4" },
