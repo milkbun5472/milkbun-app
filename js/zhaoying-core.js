@@ -1191,8 +1191,9 @@
   //   kind:"zyshare"＝早先转发过去的结果卡，照旧能显示。
   const PAPER = "#f6f1ea", INK = "#3b332a", FOG = "#9a8a76", LINE = "#e2d8ca", ACC = "#b0764a";
   // 照影这一页的几支底色：走公共的 pagePalette（主题工作台「这一页的颜色」），照影页和看他做的回放共用
-  function colors() {
-    const base = { bg: PAPER, ink: INK, fog: FOG, line: LINE, accent: ACC };
+  // tbg：这一页外面那层底跟主题走（她 2026-11-17 选的「B」：底换冰白，卡片自己的纸色留着）
+  function colors(tbg) {
+    const base = { bg: tbg || PAPER, ink: INK, fog: FOG, line: LINE, accent: ACC };
     const p = typeof g.pagePalette === "function" ? g.pagePalette("zhaoying", base) : (typeof pagePalette === "function" ? pagePalette("zhaoying", base) : base);
     return { PAPER: p.bg, INK: p.ink, FOG: p.fog, LINE: p.line, ACC: p.accent };
   }

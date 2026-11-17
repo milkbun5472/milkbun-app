@@ -457,7 +457,7 @@ test("进随身物是一扇对开的柜门，不是盒子", () => {
   assert.match(seg, /pointerEvents: boxOpen \? "none" : "auto"/, "门开了就不该再挡住里面的头像");
   assert.match(seg, /tabIndex: boxOpen \? -1 : 0/, "开了的门也不该再被键盘选中");
   // ⚠️内壁必须不透光，否则外框那层竖木纹会从柜子里透上来，门一开看到的还是门
-  assert.match(seg, /background: t\.bg2,\s*\n\s*backgroundImage: "linear-gradient\(180deg,rgba\(74,58,40/, "柜内壁透光了");
+  assert.match(seg, /background: t\.bg2,\s*\n\s*backgroundImage: "linear-gradient\(180deg,rgba\(58,66,80/, "柜内壁透光了");
   assert.match(seg, /inset 13px 0 18px -14px/, "内壁的侧影——柜子是有深度的");
 });
 

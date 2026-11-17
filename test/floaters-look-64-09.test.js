@@ -19,7 +19,9 @@ test("播放条：底板是这个 app 的纸，不再是一块近黑的板子", 
   // ⚠️只看真代码：注释里为了说清病因写着那个旧色号，别把注释也判成没改
   const code = mini.split("\n").filter(l => l.trim().indexOf("//") !== 0).join("\n");
   assert.doesNotMatch(code, /background: "rgba\(28,26,24/, "还是那块黑板");
-  assert.match(mini, /background: skinAlpha\(t\.bg2, "F2"\)/, "底没跟着主题走");
+  // 浅色主题是白磨砂（她 2026-11-17），深色主题照旧跟 bg2
+  assert.match(mini, /background: lightMini \? "rgba\(255,255,255,0\.80\)" : skinAlpha\(t\.bg2, "F2"\)/, "底没跟着主题走");
+  assert.match(mini, /const lightMini = !\(typeof skinIsDark === "function" && skinIsDark\(t\.bg2\)\)/);
   // ⚠️深色主题里 t.bg2 是深的，所以字【绝不许写死 #fff】——浅色主题上就是白底白字
   //   （mobile-ui-layout.md 那条，v59.62 抓到过一次）
   assert.doesNotMatch(mini, /fill: "#fff"|color: "#fff"|rgba\(255,255,255,0?\.6\)/, "还有写死的白");

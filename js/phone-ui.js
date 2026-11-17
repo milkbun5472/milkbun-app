@@ -5646,7 +5646,7 @@ function PhoneCarry({
         noLine: true,
         onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 px-4 pb-6" },
-        h("div", { "data-wk": "block", className: "h-full flex flex-col rounded-[30px] overflow-hidden", style: { background: "linear-gradient(180deg,#fbfaf7,#f1eee7)", border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,0.10)" } },
+        h("div", { "data-wk": "block", className: "h-full flex flex-col rounded-[30px] overflow-hidden", style: { background: "linear-gradient(180deg," + t.bg2 + "," + t.bg + ")", border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,0.10)" } },
           // 手机顶栏：我的头像 + 通讯录
           h("div", { className: "shrink-0 flex items-center gap-3 px-5 pt-6 pb-4", style: { borderBottom: "1px solid " + t.line } },
             h(Avatar, { character: meAv, size: 50, radius: 999 }),

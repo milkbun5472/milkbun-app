@@ -172,7 +172,7 @@ console.log("ok");
   const grp = ts.slice(gi, ts.indexOf("})", gi));
   for (const k of ["zypage", "zycats", "zycover", "zyq", "zyopt", "zyresult", "zyreview", "zybyhint"]) assert.match(grp, new RegExp('\\["' + k + '", '), k);
   assert.match(rd("zhaoying-core.js"), /pagePalette\("zhaoying", base\)/);
-  assert.match(rd("zhaoying.js"), /const \{ PAPER, INK, FOG, LINE, ACC \} = Z\.colors\(\);/);
+  assert.match(rd("zhaoying.js"), /const \{ PAPER, INK, FOG, LINE, ACC \} = Z\.colors\(t\.bg\);/);
 }
 
 // 第三批（GPT 单子里好玩的 8 套）：都在「好玩」，每种结果都由同样多的选项指着
