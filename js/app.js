@@ -4902,6 +4902,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     });
     toast(v === "chat" ? characterText(characters.find(c => c.id === charId), "到那天他会自己提起") : characterText(characters.find(c => c.id === charId), "到那天他会给你打") + PACT_VIA[v]);
   };
+  // 行首带日子的记忆（她 2026-11-18「从别的小手机搬记忆，记忆日期怎么办」）：「2025-03-14｜……」「2025年3月14日 ……」
+  //   拆出来当这条记忆发生的时候；没写、写不对、写成将来的，照旧按今天记
+  const memDateLead = txt => {
+    const s = String(txt || "").trim();
+    const m = /^(\d{4})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})\s*日?(?:\s+(\d{1,2})[:：](\d{2}))?\s*[｜|:：，,、\-—\s]\s*/.exec(s);
+    if (!m) return { text: s, ts: 0 };
+    const ts = new Date(+m[1], +m[2] - 1, +m[3], m[4] ? +m[4] : 12, m[5] ? +m[5] : 0).getTime();
+    const rest = s.slice(m[0].length).trim();
+    if (!rest || !Number.isFinite(ts) || ts > Date.now() || +m[2] > 12 || +m[3] > 31) return { text: s, ts: 0 };
+    return { text: rest, ts };
+  };
   const addMemEntry = e => {
     let entry = {
       id: "m_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
@@ -37780,8 +37791,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
     loreList: () => loreRef.current || [],
     onSaveLore: list => saveLore(list),
-    onAddMemories: (charId, items) => (items || []).forEach(txt =>
-      addMemEntry({ text: txt, charIds: charId ? [charId] : [], source: "assistant" })),
+    onAddMemories: (charId, items) => (items || []).forEach(txt => { const d = memDateLead(txt);
+      addMemEntry({ text: d.text, charIds: charId ? [charId] : [], source: "assistant", ...(d.ts ? { ts: d.ts } : {}) }); }),
     // 秋秋看最近聊天（她 2026-10-07）：主聊天那一份，带时间、谁说的；系统条不算，出戏的标出来
     recentChatFor: (charId, n) => {
       const c = characters.find(x => x.id === charId); const uN = userName(profile);
@@ -38556,8 +38567,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
       loreList: () => loreRef.current || [],
     onSaveLore: list => saveLore(list),
-    onAddMemories: (charId, items) => (items || []).forEach(txt =>
-        addMemEntry({ text: txt, charIds: charId ? [charId] : [], source: "assistant" })),
+    onAddMemories: (charId, items) => (items || []).forEach(txt => { const d = memDateLead(txt);
+      addMemEntry({ text: d.text, charIds: charId ? [charId] : [], source: "assistant", ...(d.ts ? { ts: d.ts } : {}) }); }),
       // 秋秋看最近聊天（她 2026-10-07）：主聊天那一份，带时间、谁说的；系统条不算，出戏的标出来
       //   TA 开了别的房间（js/chat-rooms.js）的，房间里的也一起给，按时间排，标上是哪个房间（她 2026-10-18：「秋秋看不到房间的聊天记录」）
       recentChatFor: (charId, n) => {
