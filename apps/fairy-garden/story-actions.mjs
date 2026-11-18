@@ -1,2 +1,2 @@
-import './story-actions.js?v=fg-cc8079f79f553b35';
+import './story-actions.js?v=fg-ce4340e0175acd2e';
 export const {catalog:STORY_ACTIONS,ids:STORY_ACTION_IDS,normalize:normalizeStoryAction}=globalThis.CharacterStoryActions;

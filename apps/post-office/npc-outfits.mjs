@@ -1,8 +1,8 @@
 import * as T from 'three';
-import {NPC_COSTUMES} from './npc-appearance.mjs?v=fg-cc8079f79f553b35';
-import {createNpcTailoring} from './npc-tailoring.mjs?v=fg-cc8079f79f553b35';
-import {addNpcFeatures} from './npc-features.mjs?v=fg-cc8079f79f553b35';
-import {CLOTH_WAIST,CLOTH_HEM} from './npc-fit.mjs?v=fg-cc8079f79f553b35';
+import {NPC_COSTUMES} from './npc-appearance.mjs?v=fg-ce4340e0175acd2e';
+import {createNpcTailoring} from './npc-tailoring.mjs?v=fg-ce4340e0175acd2e';
+import {addNpcFeatures} from './npc-features.mjs?v=fg-ce4340e0175acd2e';
+import {CLOTH_WAIST,CLOTH_HEM} from './npc-fit.mjs?v=fg-ce4340e0175acd2e';
 // Each identity is assembled from sewn, shaped pattern pieces. The front and
 // back are real cloth surfaces; only their weave and small prints are painted.
 export function makeNpcCostume(model,style='postcard',look={}){
