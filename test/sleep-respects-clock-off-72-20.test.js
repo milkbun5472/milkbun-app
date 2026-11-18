@@ -47,6 +47,6 @@ test("睡意那一段确实会进 system（不然这条测试什么都没守住�
 
 test("时间感知关掉时，时间那三处本来就不发——别在修这条的时候碰坏它们", () => {
   assert.match(eng, /if \(timeAware !== false\) \{/, "时间块那道闸没了");
-  assert.match(app, /schedNow: timeAwareFor\(char\.id\) \? schedNowFor\(char\) : ""/, "行程那道闸没了");
+  assert.match(app, /schedNow: timeAwareFor\(char\.id\) \? schedNowFor\(char\)(?: \+ peersNowLine\(char\))? : ""/, "行程那道闸没了");
   assert.match(app, /〔时间感知关闭〕/, "朋友圈那一路的说明没了");
 });

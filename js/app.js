@@ -9076,7 +9076,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         .sort((a, b) => (b.endTs || 0) - (a.endTs || 0)).slice(0, n).reverse();
       return done.map((x, k) => {
         // 群里 2026-11-11「app 还有哪些地方应该接虚拟时间」
-        const when = "第 " + (k + 1) + " 场（" + fmtStampAI(x.startTs || x.endTs) + " 到 " + fmtStampAI(x.endTs) + "，" + (k === done.length - 1 ? "离现在最近的一场" : "比下一场早") + "）";
+        const when = "第 " + (k + 1) + " 场（" + fmtStampAI(x.startTs || x.endTs, char.id) + " 到 " + fmtStampAI(x.endTs, char.id) + "，" + (k === done.length - 1 ? "离现在最近的一场" : "比下一场早") + "）";
         let raw = offlineTranscriptForOnline(x.msgs, false, char.name) || "";
         if (raw.length > PAST_OFF_CHARS) raw = "〔这一场太长，下面只是后半截〕\n" + raw.slice(raw.length - PAST_OFF_CHARS);
         const sumOf = ((chatsRef.current[char.id] || []).find(m => m && m.kind === "offlinelog" && m.ofs === x.id) || {}).content || x.summary || "";
@@ -9646,7 +9646,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   每场在它结束的那个时间点落一行「这之间你们线下见过一面、几点到几点、已经结束了」＋一小段总结
       const _offMarks = (offlinesRef.current[scopeKey] || []).filter(x => x && x.endTs && x.id !== workSess.id && (x.msgs || []).length && Number(x.endTs) <= (Number(workSess.startTs) || Date.now()))
         .map(x => { const sum = ((chatsRef.current[sideRoom ? scopeKey : charId] || []).find(m => m && m.kind === "offlinelog" && m.ofs === x.id) || {}).content || x.summary || "";
-          return { id: "offmark:" + x.id, role: "user", _surface: "offmark", ts: Number(x.endTs) || 0, content: "【这之间你们线下见过一面（" + fmtStampAI(x.startTs || x.endTs) + " 到 " + fmtStampAI(x.endTs) + "），已经结束了，不是现在这一场】" + (sum ? "那次的经过：" + String(sum).replace(/\s+/g, " ").slice(0, 300) : "") }; });
+          return { id: "offmark:" + x.id, role: "user", _surface: "offmark", ts: Number(x.endTs) || 0, content: "【这之间你们线下见过一面（" + fmtStampAI(x.startTs || x.endTs, char.id) + " 到 " + fmtStampAI(x.endTs, char.id) + "），已经结束了，不是现在这一场】" + (sum ? "那次的经过：" + String(sum).replace(/\s+/g, " ").slice(0, 300) : "") }; });
       const _onlineInterlude = (settingsFor(charId).engineerEyes || !_onlineCtxN) ? [] : (chatsRef.current[sideRoom ? scopeKey : charId] || [])
         .filter(m => m && !m.recalled && m.content && !isOocMsg(m) && m.role !== "system" && m.kind !== "offlinelog")
         .sort((a, b) => (a.ts || 0) - (b.ts || 0))
@@ -10130,7 +10130,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!rows.length) return rows;
     const first = rows[0].ts || 0;
     const marks = (groupOfflinesRef.current[groupId] || []).filter(x => x && x.endTs && Number(x.endTs) > first && (x.msgs || []).length)
-      .map(x => ({ role: "narration", content: "（这之间大家线下见过一面：" + fmtStampAI(x.startTs || x.endTs) + " 到 " + fmtStampAI(x.endTs) + "，已经结束了" + (x.summary ? "；经过：" + String(x.summary).replace(/\s+/g, " ").slice(0, 200) : "") + "）", ts: Number(x.endTs) }));
+      .map(x => ({ role: "narration", content: "（这之间大家线下见过一面：" + fmtStampAI(x.startTs || x.endTs, char.id) + " 到 " + fmtStampAI(x.endTs, char.id) + "，已经结束了" + (x.summary ? "；经过：" + String(x.summary).replace(/\s+/g, " ").slice(0, 200) : "") + "）", ts: Number(x.endTs) }));
     return rows.concat(marks).sort((a, b) => (a.ts || 0) - (b.ts || 0));
   };
   // 统一「跨情境近况流」(v50.66，她要四个情境带时间戳互看、按真实顺序衔接)：某角色最近在【单聊线上 + 单人线下】
