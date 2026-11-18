@@ -111,9 +111,9 @@ export function bodyPose(n:i32,src:usize,mp:usize,mw:usize,morphCount:i32,si:usi
 @inline function rotate(out:usize,k:i32,x:f64,y:f64,z:f64,qx:f64,qy:f64,qz:f64,qw:f64):void{
  const tx=2*(qy*z-qz*y),ty=2*(qz*x-qx*z),tz=2*(qx*y-qy*x);put(out,k,x+qw*tx+qy*tz-qz*ty);put(out,k+1,y+qw*ty+qz*tx-qx*tz);put(out,k+2,z+qw*tz+qx*ty-qy*tx);
 }
-export function clothDeform(count:i32,ids:usize,rest:usize,normal:usize,si:usize,sw:usize,qr:usize,qd:usize,virtual:usize,left:f64,right:f64,out:usize,outN:usize):void{
+export function clothDeform(count:i32,ids:usize,rest:usize,normal:usize,si:usize,sw:usize,references:usize,qr:usize,qd:usize,virtual:usize,left:f64,right:f64,out:usize,outN:usize):void{
  for(let h=0;h<count;h++){
-  const i=ix(ids,h),k=i*3,t=i*4;let best=0;for(let j=1;j<4;j++)if(num(sw,t+j)>num(sw,t+best))best=j;const ref=ix(si,t+best)*4;
+  const i=ix(ids,h),k=i*3,t=i*4,ref=ix(references,i)*4;
   let rx:f64=0,ry:f64=0,rz:f64=0,rw:f64=0,dx:f64=0,dy:f64=0,dz:f64=0,dw:f64=0;
   for(let j=0;j<4;j++){const b=ix(si,t+j)*4,w=num(sw,t+j),dot=num(qr,b)*num(qr,ref)+num(qr,b+1)*num(qr,ref+1)+num(qr,b+2)*num(qr,ref+2)+num(qr,b+3)*num(qr,ref+3),z=w*(dot<0?-1:1);rx+=z*num(qr,b);ry+=z*num(qr,b+1);rz+=z*num(qr,b+2);rw+=z*num(qr,b+3);dx+=z*num(qd,b);dy+=z*num(qd,b+1);dz+=z*num(qd,b+2);dw+=z*num(qd,b+3);}
   const len=Math.sqrt(rx*rx+ry*ry+rz*rz+rw*rw);rx/=len;ry/=len;rz/=len;rw/=len;dx/=len;dy/=len;dz/=len;dw/=len;const dot=rx*dx+ry*dy+rz*dz+rw*dw;dx-=rx*dot;dy-=ry*dot;dz-=rz*dot;dw-=rw*dot;

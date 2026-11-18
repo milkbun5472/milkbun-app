@@ -1,8 +1,8 @@
 {
   "compiler": "assemblyscript",
   "version": "0.28.20",
-  "sourceSha256": "ef5e11a1c776ad8fd0bdeeb23eeb6ce8bfa40580fd0db883eb1a19273ca74093",
-  "wasmSha256": "76986968fd15eb5a1ee7675ffc0235f4888cd33e80e890be53ec4fb990cd2e9c",
+  "sourceSha256": "eeffd0a94454de0ebcacb0db09c411d56b4e6a77e3dbd71d2f14a8661bb5b1c0",
+  "wasmSha256": "fd5209d8d359fc31c123a73c982ac37e56419a868457981dbb3177bf4ba4df04",
   "options": [
     "--optimize",
     "--runtime",

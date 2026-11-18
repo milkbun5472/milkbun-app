@@ -1,5 +1,5 @@
 const cache=new Map();
-const types={B:[Uint8Array,1],H:[Uint16Array,2],I:[Uint32Array,4],i:[Int32Array,4],d:[Float64Array,8],f:[Float32Array,4]};
+const types={B:[Uint8Array,1],H:[Uint16Array,2],h:[Int16Array,2],I:[Uint32Array,4],i:[Int32Array,4],d:[Float64Array,8],f:[Float32Array,4]};
 export function decodeMotion(bytes){
  const data=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes);
  if(data.length<8||String.fromCharCode(...data.subarray(0,4))!=='LMOT')throw Error('Invalid motion data');
@@ -16,7 +16,13 @@ export function decodeMotion(bytes){
     const [Type,width]=type,raw=new Uint8Array(count*width);
     for(let j=0;j<width;j++)for(let i=0;i<count;i++)raw[i*width+j]=data[start+offset+j*count+i];
     // Keep ordinary array semantics for nested maps/flatMaps in geometry setup.
-    const values=new Type(raw.buffer);return typedKeys.has(key)?values:Array.from(values);
+    let values=new Type(raw.buffer);
+    if(Object.hasOwn(x,'$scale')){
+     if(code!=='h'||!['positionDelta','normalDelta'].includes(key)||!Number.isFinite(x.$scale)||x.$scale<=0)throw Error('Invalid motion quantization');
+     values=Float32Array.from(values,v=>v*x.$scale);
+     if(values.some(v=>!Number.isFinite(v)))throw Error('Invalid quantized motion value');
+    }
+    return typedKeys.has(key)?values:Array.from(values);
    }
    return Object.fromEntries(Object.entries(x).map(([k,v])=>[k,decode(v,k)]));
   }
