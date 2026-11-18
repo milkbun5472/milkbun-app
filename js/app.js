@@ -22964,10 +22964,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     : "");
   // 群文字与多人通话共用私有背景；实时窗口的开关同时约束线上与线下近况。
   const memberPrivateContextFor = (c, split, opts) => {
-    if (!c || c.npc) return "";
+    if (!c) return "";
     if (opts && opts.parallel) return "";   // 平行房间（调用方按 groupParallel 递）：长期记忆、印象卡、私聊近况一样都不带
-    const mem = memories[c.id];
-    const gz = gazeFor(c.id);
+    // 配角也带「只有 TA 知道的」那份（她 2026-11-18「我买了几百万的军火给 npc，在群里他忘记了」）：原来这里一见配角就返回空，
+    //   记忆拆出来了、私聊也在，到群里一个字都没进。配角没有长期记忆、印象卡、前几次线下这几样，只带记忆库里他自己的和他跟她的近况
+    const npc = !!c.npc;
+    const mem = npc ? "" : memories[c.id];
+    const gz = npc ? "" : gazeFor(c.id);
     const onlyMine = formatMemLib((split.perChar || {})[String(c.id)] || []);
     // 私聊、单人线下、他在别的互通群里聊的，合成一条按真实先后排的时间线（她 2026-11-05「别的记忆互通的群聊也要按顺序喂进来」）：
     //   原来是三块各自成段，模型得自己对着时间戳拼先后。私聊照拉条取最近几条；线下和别的群照召回设置那根时间窗。
@@ -22977,7 +22980,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       budget: (memCfgRef.current.crossBudget || 800) * 2 + _pn * 220 }) : "";
     const offBeats = "";
     // 前几次线下跟实时私聊同一道闸：封闭群、私聊窗口关成 0 的不带
-    const pastOff = opts.interop && Number(opts.privateCtxN) > 0 ? (() => { try {
+    const pastOff = !npc && opts.interop && Number(opts.privateCtxN) > 0 ? (() => { try {
       // 最新那场还在「跨情境回看时间窗」里的，上面 offBeats 已经带着它，这里从再往前那场数起（跟单聊同一个算法）
       const list = offlinesRef.current[c.id] || loadJSON("x_offline:" + c.id, []);
       const newest = (list || []).find(x => x && (x.msgs || []).length > 0);

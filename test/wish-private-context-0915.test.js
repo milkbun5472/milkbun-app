@@ -31,5 +31,7 @@ test('共用私有背景保持记忆三层；封闭群/零窗口无实时近况�
  }
  const text=env.memberPrivateContextFor(env.members[0],split,{interop:true,privateCtxN:2});
  assert.match(text,/甲的私聊/);assert.match(text,/甲的线下/);
- assert.equal(env.memberPrivateContextFor(env.members[2],split,{interop:true,privateCtxN:2}),'');
+ // 配角（她 2026-11-18）：带他自己那份，主角色的长期记忆、印象卡一样都没有
+ const n2=env.members[2], t2=env.memberPrivateContextFor(n2,{perChar:{[n2.id]:[{id:'m2',text:'只有配角知道的事',knownBy:[n2.id],charIds:[n2.id]}]}},{interop:true,privateCtxN:2});
+ assert.match(t2,/只有配角知道的事/);assert.doesNotMatch(t2,/甲的长期记忆|甲的印象卡|仅甲知道的事件/);
 });
