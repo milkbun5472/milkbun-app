@@ -1024,6 +1024,15 @@ function pickTextFile(onMsg, opts) {
   inp.click();
 }
 // actions：卡片底下几颗按钮（秋秋写给她的文件用：复制、存成文件）——同一张卡，不另起一份
+// TA 发来的文件底下那两颗：复制全部、存成文件（跟秋秋发文件那张卡同一套）
+function fileCardActions(m) {
+  const text = String((m && m.text) || ""), name = (m && m.name) || "文件.txt";
+  const toast = window.__toast || (() => {});
+  return [
+    ["复制全部", async () => { const ok = typeof copyText === "function" && await copyText(text); toast(ok ? "整份复制好了" : "没复制上"); }],
+    ["存成文件", async () => { try { await saveTextFile(name, text, /\.css$/i.test(name) ? "text/css" : /\.json$/i.test(name) ? "application/json" : /\.md$/i.test(name) ? "text/markdown" : "text/plain"); } catch (e) { toast("没存成：" + ((e && e.message) || e)); } }]
+  ];
+}
 function FileCard({ m, actions }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
@@ -12814,7 +12823,7 @@ function ChatThread({
         !fMine && charAvEl(),
         h("div", { onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
           onClick: selMode ? () => toggleSel(i) : undefined,
-          style: { maxWidth: "78%", borderRadius: 12, outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 } }, h(FileCard, { m: m })),
+          style: { maxWidth: "78%", borderRadius: 12, outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 } }, h(FileCard, { m: m, actions: fMine ? null : fileCardActions(m) })),
         fMine && meAvEl());
     }
     if (m.kind === "photo") {
