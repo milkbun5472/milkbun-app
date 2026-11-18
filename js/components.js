@@ -21107,11 +21107,12 @@ function GroupThread({
   // 头像角上也挂一枚（她 2026-10-25：「我这边名字不显示所以也看不到头衔」）——名字被排版或美化藏起来时，身份还看得见
   // ⚠️这枚小角标长在头像框里，美化给头像框里的 span 写「铺满、圆形」（inset:0 / width:100% / border-radius:50%）时
   //   会顺带把它撑成一整块盖住头像（她 2026-11-18 截图：群主、管理员的头像都被一块橙圆挡住）。
-  //   所以位置和大小用 !important 钉死在角上——内联 style 写不了 !important，只能 setProperty。颜色、字还让美化改。
+  //   所以位置和大小用 !important 钉死在角上；而且收进圆里一点（4%）——美化把头像框裁成圆（overflow:hidden）时，
+  //   原来那个探出框外的位置会被裁得只剩一条边（她 2026-11-18 第二张截图：「标被压进去了」）——内联 style 写不了 !important，只能 setProperty。颜色、字还让美化改。
   const gAvBadgePin = el => {
     if (!el) return;
-    [["position", "absolute"], ["top", "auto"], ["left", "auto"], ["right", "-4px"], ["bottom", "-3px"], ["width", "auto"], ["height", "auto"],
-     ["min-width", "0"], ["min-height", "0"], ["max-width", "none"], ["inset", "auto -4px -3px auto"], ["transform", "none"], ["margin", "0"], ["border-radius", "4px"]]
+    [["position", "absolute"], ["z-index", "3"], ["width", "auto"], ["height", "auto"],
+     ["min-width", "0"], ["min-height", "0"], ["max-width", "none"], ["inset", "auto 4% 4% auto"], ["transform", "none"], ["margin", "0"], ["border-radius", "4px"]]
       .forEach(([k, v]) => el.style.setProperty(k, v, "important"));
   };
   const gAvBadge = character => {
