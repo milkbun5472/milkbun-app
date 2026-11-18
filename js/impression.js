@@ -338,19 +338,12 @@
                 : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: pageColor("impression", "fog", "rgba(243,236,224,.6)"), textAlign: "center", padding: 20 } }, "还没有剪影"),
               // 这张也压四个相角，和珍藏册那一页是同一本册子里的东西（v61.22）
               corners(22),
-              // 三个关键词照「初形象生成」那套挂：白点＋细线＋金边小签，点朝画面里侧
-              h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none" } },
-                (e.tags || []).slice(0, 3).map((tag, i) => {
-                  const onLeft = i === 1;
-                  const dot = h("div", { "data-wk": "block", key: "d", style: { width: 9, height: 9, borderRadius: 999, background: "#fff", boxShadow: "0 0 0 7px rgba(255,255,255,.26)", flexShrink: 0 } });
-                  const line = h("div", { key: "l", style: { width: 20, height: 1, background: pageColor("impression", "bg2", "rgba(255,255,255,.85)"), flexShrink: 0 } });
-                  const chip = h("div", { "data-wk": "imptag", key: "c", style: { background: pageColor("impression", "bg2", "rgba(97,84,56,.86)"), border: "1px solid rgba(246,239,226,.55)",
-                    color: pageColor("impression", "ink", "#f6efe2"), padding: "5px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))",
-                    letterSpacing: ".06em", whiteSpace: "nowrap", backdropFilter: "blur(2px)" } }, tag);
-                  return h("div", { key: i, style: { position: "absolute", top: [24, 49, 74][i] + "%", [onLeft ? "left" : "right"]: "5%",
-                    display: "flex", alignItems: "center", gap: 7 } },
-                    onLeft ? [chip, line, dot] : [dot, line, chip]);
-                }))),
+              // 三个关键词像印章一样盖在相片下沿（她 2026-11-18：原来照别家「初形象生成」那套白点＋细线＋金边小签挂在剪影身上，太像了，换成我们自己的）
+              (e.tags || []).length ? h("div", { "data-wk": "impstamps", style: { position: "absolute", left: 0, right: 0, bottom: "7%", display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 8, padding: "0 10px", pointerEvents: "none" } },
+                (e.tags || []).slice(0, 3).map((tag, i) => h("div", { "data-wk": "imptag", key: i, style: {
+                  border: "2px solid " + pageColor("impression", "accent", "rgba(150,40,30,.85)"), color: pageColor("impression", "accent", "rgba(150,40,30,.92)"),
+                  background: "rgba(255,245,230,.58)", padding: "3px 9px", borderRadius: 3, fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))",
+                  letterSpacing: ".1em", whiteSpace: "nowrap", transform: "rotate(" + [-4, 3, -1][i] + "deg)" } }, tag))) : null),
             h("div", { "data-wk": "impcaption", style: { padding: "16px 12px 14px", position: "relative" } },
               // 相纸下半张那道白边：左边铅笔写的编号和月份，右边这一册的名字
               // ⚠️两边都得 nowrap：这一行是相纸下沿【铅笔写的一行小字】，
@@ -361,11 +354,10 @@
                 h("div", { "data-wk": "impcardname", style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(13px * var(--app-fs, 1))", color: pageColor("impression", "ink", "rgba(64,54,42,.86)"), letterSpacing: ".04em", whiteSpace: "nowrap", flexShrink: 0 } },
                   "No. " + String(idxOf + 1).padStart(2, "0") + "　" + M.monthLabel(e.monthKey)),
                 h("div", { style: { fontFamily: F_BODY, fontSize: "calc(8.5px * var(--app-fs, 1))", letterSpacing: ".22em", color: pageColor("impression", "fog", "rgba(120,100,72,.55)"), textIndent: ".22em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "clip" } }, hasBack ? (e.firstShift ? "在这之前 →" : "印象变了哪儿 →") : "背面还空着 →")),
-              e.title ? h("div", { "data-wk": "impcardtitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", marginBottom: 14, letterSpacing: ".06em" } }, "{ " + e.title + " }") : null,
+              e.title ? h("div", { "data-wk": "impcardtitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", marginBottom: 14, letterSpacing: ".06em" } }, e.title) : null,
               h("div", { style: { position: "relative", padding: "2px 14px" } },
-                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: "calc(36px * var(--app-fs, 1))", lineHeight: 1, color: pageColor("impression", "fog", "rgba(120,100,72,.5)") } }, "“"),
                 h("div", { "data-wk": "impquote", style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 2.1, color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", padding: "0 6px" } }, transShow(e.quote)),
-                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: "calc(36px * var(--app-fs, 1))", lineHeight: 1, color: pageColor("impression", "fog", "rgba(120,100,72,.5)"), textAlign: "right" } }, "”")),
+                null),
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: pageColor("impression", "ink", "rgba(94,79,58,.8)"), textAlign: "right", marginTop: 10 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))))),
           h("div", { "data-wk": "impactions", style: { display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap", justifyContent: "center" } },
             e.img ? h("button", { "data-wk": "impbtn", "data-part": "save", onClick: () => saveToAlbum(e.img), style: S.btn(false) }, "保存到相册") : null,
