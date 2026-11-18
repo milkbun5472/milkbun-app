@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.774";
+const APP_VERSION = "v89.775";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -30815,7 +30815,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       plan = window.PosterLayout.plan("magazine", cp);
     }
     const scene = kind === "cover"
-      ? "这一期周刊的封面人物大片：" + names.join("、") + (cast ? "一起" : "") + "上封面。" + (cast ? "每个人照自己所在的世界和年代穿（古代的人穿古装、现代的人穿现代装、奇幻世界的人穿那个世界的衣服），不要为了杂志感统一换成同一种现代时装。" : "") + "本期头条是「" + (p.headline || "") + "」，照这件事的气质来拍。"
+      ? "这一期周刊的封面人物大片：" + names.join("、") + (cast ? "一起" : "") + "上封面。" + (cast ? "每个人照自己所在的世界和年代穿（古代的人穿古装、现代的人穿现代装、奇幻世界的人穿那个世界的衣服），不要为了杂志感统一换成同一种现代时装。" : "") + "每个人身上的颜色照自己衣柜和平时的样子来，各是各的颜色；整张图的色调可以跟这一期的气质走，衣服本身的颜色照他们自己的。" + "本期头条是「" + (p.headline || "") + "」，照这件事的气质来拍。"
       : "人物专访的配图：" + names[0] + "一个人的专访大片" + (p.about ? "，照这篇专访的气质来拍：" + String(p.about).slice(0, 80) : "") + "。";
     const space = plan ? window.PosterLayout.spaceLine(plan) : "人物是画面主体，背景干净、有质感，像杂志内页的人物专访照。";
     try {
