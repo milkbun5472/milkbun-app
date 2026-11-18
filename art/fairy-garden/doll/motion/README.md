@@ -99,6 +99,8 @@ PLAYWRIGHT_MODULE=/absolute/path/to/playwright COMPANION_TEST_URL=http://127.0.0
 加 `MOTION_THINKING_TIMELINE=1 MOTION_OUTFITS=tee` 按注册时长逐帧检查三体型起势与收回。
 T恤新连续曲面的重建与原生坐姿下摆约束见 `../TEE-SHOULDERS.md`。
 
-拿手机时的袖管截面到袖口过渡使用 `blendSleeveCuffFrame`，由 `phoneCuffBlend` 随骨架时间混合启停，其他动作保留原过渡：插值刚体旋转与中心，再变换原径向向量。不能混合两套已旋转的顶点，否则弯肘会压扁手臂外面的衣料。原袖口终点必须精确一致，站姿与直举手逐点保留；`test/sleeve-roll.test.mjs` 验证半径/端点，真实四套三体型证据见公共复盘 phone-hands/arm-*。身体补厚试稿未采用。
+拿手机时的袖管截面到袖口过渡使用 `blendSleeveCuffFrame`，由 `phoneCuffBlend` 随骨架时间混合启停，手机姿势插值刚体旋转与中心，再变换原径向向量。不能混合两套已旋转的顶点，否则弯肘会压扁手臂外面的衣料。手机原袖口终点必须精确一致，站姿与直举手逐点保留；`test/sleeve-roll.test.mjs` 验证半径/端点，真实四套三体型证据见公共复盘 phone-hands/arm-*。身体补厚试稿未采用。
 
 半举回归：`scripts/checks/avatar-half-raise-browser.cjs` 使用 `HALF_BEFORE` 指向保留的前版 traveler/emotion-pose/emotion-props/cloth-transport 四模块目录，`MOTION_EVIDENCE` 存图与逐帧比较。前版cloth模块为加载兼容需附加advancePhoneCuffBlend导出，旧变形函数保持原字节。对照要包括起手、半途弯肘、放下及手机后切换，不能用静态直举通过代替。
+
+卷袖弯肘使用 `rolled-sleeve.mjs`：整圈原前臂满权重卷边保形，按袖口所在的身体材料区域拟合，主袖继续 DQ 衔接；只收回离身体过远的袖腹，保原径向余量。手机动作随既有状态渐退本修正，保持手机原几何。站姿、直举和其他衣服不变。`avatar-rolled-sleeve-browser.cjs` 以 `HALF_BEFORE` 的 v89.782 四模块为基准，检查身体/保护姿势逐点不变及双弯肘/思考整圈卷边距离不变；站姿含呼吸，不能套弯肘刚性阈值。半举检查现在明确允许卷袖弯肘改变，不再把“与旧版相同”作为它的外观验收。

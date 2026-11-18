@@ -1,4 +1,5 @@
 // Compare a preserved release against the working tree, including partial raises.
+// Linen bent cuffs intentionally differ; keep body/straight raises and transition speed protected.
 // HALF_BEFORE contains its traveler/emotion-pose/emotion-props/cloth-transport modules.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),pw=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const OUT=process.env.MOTION_EVIDENCE;fs.mkdirSync(OUT,{recursive:true});
@@ -14,7 +15,7 @@ async function capture(page,pose,frame,time){return page.evaluate(({pose,frame,t
 for(const history of ['rest','phone'])for(const pose of ['five-right','default','happy','cheer','chin']){
  for(const page of pages)await page.evaluate(async history=>{const q=QA;q.doll.dispose();q.doll=q.mod.createTraveler(q.source,true,{outfit:'linen',hair:'korean',skin:'#f2cbb4',hairColor:'#292323',dims:q.dims});q.scene.add(q.doll.root);await q.doll.ready();q.time=0;for(let i=0;i<20;i++)q.doll.animate(q.time+=.1,history==='rest'?{}:{emotion:history,progress:.5});},history);
  let previous=null;for(let frame=0;frame<=24;frame++){
-  const progress=frame/24*.25;const [a,b]=await Promise.all(pages.map(page=>capture(page,pose,progress,2+(frame+1)/30)));const row={history,pose,frame,progress,...compare(a,b)};if(previous){row.oldStep=compare(previous[0],a).max;row.newStep=compare(previous[1],b).max;assert.ok(row.newStep<=row.oldStep*1.5+.01,'New transition jump: '+JSON.stringify(row));}previous=[a,b];reports.push(row);if(history==='rest')assert.ok(row.max<1e-7,'Non-phone half raise changed: '+JSON.stringify(row));
+  const progress=frame/24*.25;const [a,b]=await Promise.all(pages.map(page=>capture(page,pose,progress,2+(frame+1)/30)));const row={history,pose,frame,progress,...compare(a,b)};if(previous){row.oldStep=compare(previous[0],a).max;row.newStep=compare(previous[1],b).max;assert.ok(row.newStep<=row.oldStep*1.5+.01,'New transition jump: '+JSON.stringify(row));}previous=[a,b];reports.push(row);if(history==='rest'){assert.ok(compare(a.slice(0,1),b.slice(0,1)).max<1e-7,'Body motion changed');if(!['cheer','chin'].includes(pose))assert.ok(row.max<1e-7,'Straight half raise changed: '+JSON.stringify(row));}
   if([8,12,24].includes(frame))for(let i=0;i<pages.length;i++){await pages[i].evaluate(()=>{QA.doll.root.rotation.y=.45;QA.renderer.render(QA.scene,QA.cam)});await pages[i].screenshot({path:path.join(OUT,history+'-'+pose+'-'+frame+'-'+i+'.png')});}
  }
  fs.writeFileSync(path.join(OUT,'comparison.json'),JSON.stringify(reports));console.log(history,pose,'max',Math.max(...reports.filter(r=>r.history===history&&r.pose===pose).map(r=>r.max)));
