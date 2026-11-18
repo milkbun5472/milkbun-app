@@ -18,7 +18,7 @@ test("diary extracts only the character's own recent lines as voice samples", ()
 test("diary prompt treats JSON fields as a container rather than a prose template", () => {
   assert.match(engine, /输出容器·字段不是文章模板/);
   assert.match(engine, /titleEn\/titleZh\/signature 不适合本人时允许为空/);
-  assert.match(engine, /不要默认使用『文艺日记腔』/);
+  assert.match(engine, /本人爱写散文才写得像散文/);
 });
 
 test("optional titles and signatures remain optional in storage and rendering", () => {
@@ -33,8 +33,8 @@ test("optional titles and signatures remain optional in storage and rendering", 
 
 test("diary remains the character's own life and may omit the user entirely", () => {
   assert.match(app, /scheduleText: scheduleTextFor\(char, targetKey\)/);
-  assert.match(engine, /日记的中心是你自己，不是用户/);
-  assert.match(engine, /今天完全不提用户也正常且正确/);
+  assert.match(engine, /【日记的中心是你自己】/);
+  assert.match(engine, /整篇不提 Ta 也是这一天本来的样子/);
   assert.match(engine, /整篇一个字都不提 Ta 才是真实/);
   assert.doesNotMatch(engine, /有没有惦记她\/等她消息/);
 });
