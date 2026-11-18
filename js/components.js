@@ -7405,7 +7405,9 @@ function Home({
       "f_def_check", "w_cal", "f_def_daily", "f_def_ties"],
     ["w_us", "w_weather", "memlib", "f_def_play", "f_def_ops", "yanqiu",
       "f_def_do", "anon", "f_def_naodong", "f_def_back", "w_ledger", "w_music"],
-    ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "sp_radio", "w_recent", "w_muyu", "w_wheel", "fairyGarden", "companion", "nest", "w_taday", "w_pets"]
+    // 小世界、陪伴、秋秋小窝挪到字条上面（她 2026-11-18「下面这三个移到字条上面，这样大家看得见」）：原来压在字条和两个大组件底下，新人翻到这页看不见。
+    //   只管第一次打开、还没存过桌面的人；存过的照旧是她们自己那一份
+    ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "sp_radio", "fairyGarden", "companion", "nest", "sp_apps3", "w_recent", "w_muyu", "w_wheel", "w_taday", "w_pets"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
   const SP_RE = /^sp_/;

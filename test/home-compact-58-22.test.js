@@ -15,7 +15,7 @@ function makeHome(layout, folders) {
     grab("  function buildLayout(saved) {", "  function persistFolders(nf)")
   ].join("\n");
   const regSrc = grab("  const REG = {", "\n  };") + "\n  };";
-  const REG = new Function(regSrc.replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
+  const REG = new Function(regSrc.replace(/G: FG\("[^"]*", (?:\(\) => [^)]*|[^)]*)\)/g, "G: null").replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
   const foldersRef = { current: JSON.parse(JSON.stringify(folders || {})) };
   const api = new Function("REG", "foldersRef",
     src + "\nreturn { buildLayout, trimTailRows, placeDense, REG };")(REG, foldersRef);
