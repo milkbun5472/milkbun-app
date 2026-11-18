@@ -21187,19 +21187,13 @@ function GroupThread({
     [["position", "absolute"], ["z-index", "3"], ["width", "auto"], ["height", "auto"],
      ["min-width", "0"], ["min-height", "0"], ["max-width", "none"], ["inset", "auto -4px -3px auto"], ["transform", "none"], ["margin", "0"], ["border-radius", "4px"]]
       .forEach(([k, v]) => el.style.setProperty(k, v, "important"));
-    // 头像框被裁（圆框 overflow:hidden／clip-path）才收进去；不裁的照旧探在框外角上，不挡脸（她 2026-11-18：方框美化里收进去反而压着图）
-    // 名字旁边那枚「群主／管理」看得见时，头像上这枚就多余了，不挂（她 2026-11-18 第三张截图：「这个主还是没修好」——
-    //   框把头像裁成方块，角标只能收进去压在图上，可名字后面明明已经写着「群主」）。头像角标本来就是给名字被藏起来时用的（10-25）
-    requestAnimationFrame(() => {
-      if (!el.isConnected) return;
-      // 看这个群的消息列表里，名字旁的身份标显不显示：显示（没被排版或美化藏起来）就说明名字那条路通着，头像上都不挂。
-      //   不只看这一行——连着说的第二、三条前面本来就不写名字
-      const msg = el.closest('[data-wk="msg"]'), box = msg && msg.parentElement;
-      const named = box && Array.from(box.querySelectorAll('[data-wk="grole"]')).find(x => x !== el && x.getAttribute("data-part") !== "avatar"
-        && x.getClientRects().length && getComputedStyle(x).visibility !== "hidden" && getComputedStyle(x).opacity !== "0");
-      if (named) { el.style.setProperty("display", "none", "important"); return; }
-      if (typeof msgStickClipped === "function" && msgStickClipped(el.parentElement)) el.style.setProperty("inset", "auto 4% 4% auto", "important");
-    });
+    // 现在挂在头像框外面那层（gAvWrap），框裁不到它，一直探在框外角上，不用再判断裁没裁
+  };
+  // 角标挂在头像框【外面】那一层（她 2026-11-18「可是我喜欢两边都显示」）：美化把头像框裁成圆或方块时，
+  //   挂在框里面的角标要么被裁掉、要么只能收进去压着图；挂在外面那层，框怎么裁都碰不到它，名字旁边那枚照旧也在
+  const gAvWrap = (av, character) => {
+    const b = gAvBadge(character);
+    return b ? h("span", { "data-wk": "avatarwrap", style: { position: "relative", display: "inline-flex", flexShrink: 0, alignSelf: "flex-start" } }, av, b) : av;
   };
   const gAvBadge = character => {
     const id = character && character.id;
@@ -21215,9 +21209,9 @@ function GroupThread({
   const gMeTap = e => { if (e && e.stopPropagation) e.stopPropagation(); const now = Date.now(); if (now - gMeTapRef.current < 260) { gMeTapRef.current = 0; if (onPatSelf) onPatSelf(); return; } gMeTapRef.current = now; };
   const gMeAvEl = (size, radius) => gsp.showMyAvatar ? h("span", { onClick: gMeTap, "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: meAv, size: size, radius: radius })) : null;
   const mAvatar = (character, size) => (canPeek && canPeek(character) && character && character.id)
-    ? h("button", { "data-wk": "avatar", onClick: gAvTap(character.id, () => onOpenMemberState(character.id)), className: "active:opacity-60", style: { position: "relative", flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }), gAvBadge(character))
+    ? gAvWrap(h("button", { "data-wk": "avatar", onClick: gAvTap(character.id, () => onOpenMemberState(character.id)), className: "active:opacity-60", style: { position: "relative", flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 })), character)
     // 包一层挂点壳：头像框/挂件叠在壳上（头像自己裁圆角，叠在里面会被裁掉）——跟单聊那颗同一个做法
-    : h("span", { "data-wk": "avatar", onClick: gAvTap(character && character.id, null), className: "shrink-0", style: { position: "relative", display: "inline-flex" } }, h(Avatar, { character: character, size: size || 34, radius: 8 }), gAvBadge(character));
+    : gAvWrap(h("span", { "data-wk": "avatar", onClick: gAvTap(character && character.id, null), className: "shrink-0", style: { position: "relative", display: "inline-flex" } }, h(Avatar, { character: character, size: size || 34, radius: 8 })), character);
   const openRp = i => {
     const rp = messages[i];
     if (rp.claims.some(c => c.me) || rp.claims.length >= rp.count) {
