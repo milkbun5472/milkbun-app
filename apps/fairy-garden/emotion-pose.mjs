@@ -213,6 +213,7 @@ export function emotionPose(face,p){
  case 'chin': { // 收手托住下巴，歪头听一会儿，再轻轻点头收势
   const hold=beat(p,0,.24,.72,1),nod=beat(p,.58,.64,.68,.76);
   q.right=[-.32*hold,0,.35*hold];q.left=[-.12*hold,0,-.08*hold];q.rightElbow=-1.65*hold;q.chinHold=hold;
+  if(hold){q.headPoint=[.35,-.95,.72];q.elbowPole=[1,-.65,-.12];}
   q.roll=-.055*hold;q.tilt=.025*hold+.025*nod;q.yaw=-.045*hold;break;}
  case 'headlook': { // 被摸到时先抬眼，身体只轻轻转向你的手
   q.headNod=-.10*e;q.headRoll=-.025*e;q.yaw=.045*e;
