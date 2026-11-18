@@ -15,3 +15,6 @@ test("日子也认星期几和生日", () => {
   assert.ok(seg.includes("(?:周|礼拜|星期)([一二三四五六日天])"));
   assert.ok(seg.includes("daysUntilBirthday(b, d0) === 0"));
 });
+test("日记也带「语气与年龄感」那条", () => {
+  assert.ok(eng.includes('const parts = [DIARY_SKELETON, "", buildBundle(ctx)].concat(ctx.notRoleplay ? [] : ["", PERSONA_REGISTER_ANCHOR]);'));
+});
