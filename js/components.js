@@ -21188,7 +21188,18 @@ function GroupThread({
      ["min-width", "0"], ["min-height", "0"], ["max-width", "none"], ["inset", "auto -4px -3px auto"], ["transform", "none"], ["margin", "0"], ["border-radius", "4px"]]
       .forEach(([k, v]) => el.style.setProperty(k, v, "important"));
     // 头像框被裁（圆框 overflow:hidden／clip-path）才收进去；不裁的照旧探在框外角上，不挡脸（她 2026-11-18：方框美化里收进去反而压着图）
-    requestAnimationFrame(() => { if (el.isConnected && typeof msgStickClipped === "function" && msgStickClipped(el.parentElement)) el.style.setProperty("inset", "auto 4% 4% auto", "important"); });
+    // 名字旁边那枚「群主／管理」看得见时，头像上这枚就多余了，不挂（她 2026-11-18 第三张截图：「这个主还是没修好」——
+    //   框把头像裁成方块，角标只能收进去压在图上，可名字后面明明已经写着「群主」）。头像角标本来就是给名字被藏起来时用的（10-25）
+    requestAnimationFrame(() => {
+      if (!el.isConnected) return;
+      // 看这个群的消息列表里，名字旁的身份标显不显示：显示（没被排版或美化藏起来）就说明名字那条路通着，头像上都不挂。
+      //   不只看这一行——连着说的第二、三条前面本来就不写名字
+      const msg = el.closest('[data-wk="msg"]'), box = msg && msg.parentElement;
+      const named = box && Array.from(box.querySelectorAll('[data-wk="grole"]')).find(x => x !== el && x.getAttribute("data-part") !== "avatar"
+        && x.getClientRects().length && getComputedStyle(x).visibility !== "hidden" && getComputedStyle(x).opacity !== "0");
+      if (named) { el.style.setProperty("display", "none", "important"); return; }
+      if (typeof msgStickClipped === "function" && msgStickClipped(el.parentElement)) el.style.setProperty("inset", "auto 4% 4% auto", "important");
+    });
   };
   const gAvBadge = character => {
     const id = character && character.id;
