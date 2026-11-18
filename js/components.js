@@ -12219,6 +12219,9 @@ function ChatThread({
         read: true
       });
       onReply("");
+    } else if (pending && quoted && chatMode === "chat") {
+      // 引用着直接按回复键（她 2026-11-18「只会把我的字发出去不会带上引用条」）：跟按发送那条同一个样子先发出去，再让 TA 回
+      sendRich({ role: "user", content: pending, replyTo: quoted, read: true, ...(actOf(pending) ? { parenAct: true } : {}) }); setQuoted(null); onReply("");
     } else if (pending && actOf(pending) && chatMode === "chat") { sendRich({ role: "user", content: pending, parenAct: true, read: true }); onReply(""); }
     else onReply(pending);
   };
