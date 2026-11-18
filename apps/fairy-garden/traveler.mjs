@@ -9,7 +9,7 @@ import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from '.
 import {dailyHandTargets} from './daily-motion.mjs?v=fg-0df7f556a307b66b';
 import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-0df7f556a307b66b';
 import {emotionPose} from './emotion-pose.mjs?v=fg-0df7f556a307b66b';
-import {makeEmotionProps,phoneTapTarget,phoneSurfaceTarget} from './emotion-props.mjs?v=fg-0df7f556a307b66b';
+import {makeEmotionProps,phoneTapTarget,phoneSurfaceTarget,phoneHoldTarget} from './emotion-props.mjs?v=fg-0df7f556a307b66b';
 import {makeDollLife} from './doll-life.mjs?v=fg-0df7f556a307b66b';
 import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-0df7f556a307b66b';
 import {makeUpperBody} from './upper-body.mjs?v=fg-0df7f556a307b66b';
@@ -327,7 +327,8 @@ export function createTraveler(source,companion=false,look={},appearance={}){
    root.updateWorldMatrix(true,true);
    const point=side==='right'?(armPose.headPoint||[.55,-1.05,.90]):armPose.leftHeadPoint;
    let target;
-   if(side==='right'&&armPose.phone){target=phoneTapTarget(model,contactArms.left.hand.getWorldPosition(new T.Vector3()),armPose.phoneTap,armPose.phone,handScaleOf(want));target=model.localToWorld(model.worldToLocal(target).add(phoneContactCorrection));}
+   if(side==='left'&&armPose.phone){target=phoneHoldTarget(model,upper.getWorldPosition(new T.Vector3()),contactArms.right.upper.getWorldPosition(new T.Vector3()),lower.getWorldPosition(new T.Vector3()),hand.getWorldPosition(new T.Vector3()));}
+   else if(side==='right'&&armPose.phone){target=phoneTapTarget(model,contactArms.left.hand.getWorldPosition(new T.Vector3()),armPose.phoneTap,armPose.phone,handScaleOf(want));target=model.localToWorld(model.worldToLocal(target).add(phoneContactCorrection));}
    // A resting doll lifts its head independently; its supporting arms follow the torso.
    else if(armPose.ground)target=new T.Vector3(...point).multiply(head.getWorldScale(new T.Vector3())).applyQuaternion(model.getWorldQuaternion(new T.Quaternion())).add(head.getWorldPosition(new T.Vector3()));
    else target=head.localToWorld(new T.Vector3(...point));
