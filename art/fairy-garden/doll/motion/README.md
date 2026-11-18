@@ -60,6 +60,10 @@ PLAYWRIGHT_MODULE=/absolute/path/to/playwright COMPANION_TEST_URL=http://127.0.0
 
 浏览器检查默认覆盖全部衣服、默认/滑杆全最小/全最大体型与七种状态；
 `MOTION_OUTFITS=linen,argyle` 可限定衣服，`MOTION_BROWSER=webkit` 切换 WebKit。
+`MOTION_TRANSITIONS=1` 运行连续左右单举/双手弯肘的双角色对照：每段61帧，
+第18帧把体型调至全最大再恢复，第30帧换到另一套再换回；
+核对与同历史未换装角色的几何一致性，关键帧逐点比较，其余每13点采样。
+这项检查只验证操作没有留下变形，不证明所有动作都无碰撞。
 另外跑实际页面的 `companion-all-actions-browser.cjs` 和 `town-appearance-browser.cjs`，
 确认产品入口、衣柜保存与角色隔离，不能只验证测试场景。
 

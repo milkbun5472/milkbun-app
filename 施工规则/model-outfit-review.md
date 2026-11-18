@@ -2,6 +2,12 @@
 
 Lisa 2026-11-15 要求：每次做完，记下上一版容易出问题的地方，让下个窗口接着注意。这里是唯一公共经验记录，随仓库同步；本机交接只链接这里。它记录已发生的问题，不把试穿稿当成已验收或已发布。
 
+## 发布后补查：动作途中换装／改体型（2026-11-18）
+
+Lisa继续要求推进。本轮在v89.757正式模块上增加双角色同历史对照：全部12套，各跑左右单举和双弯肘61帧，共2196采样帧；一侧第18帧把体型调至全最大再恢复，第30帧换另一套再换回，对照侧不改外貌。每段0/18/19/30/31/60逐顶点比较，其余步长13采样；全部已检查位置差0，无控制台错误。此为恢复操作后的几何一致性，不是全逐帧碰撞或手机性能证明。
+
+易漏点：固定姿势绿灯不能替代动作中rebind回归；比较必须让两人有相同时间/动作历史，并确认实际衣服身份、网格数。可复用入口`MOTION_TRANSITIONS=1 node scripts/checks/avatar-motion-browser.cjs`，运行环境见motion/README。实图复看起抬、左右抬起与弯肘中途，未发现本轮操作引入的新偏移；本次只补检查与记录，未改模型/动作或再bump。证据仍body-motion-night/production-transition-summary.json、production-transition-{checked,remaining}/；最初三套探索数据另在roundtrip/。
+
 ## 全12套与弯肘长度修正已上线 v89.757（2026-11-18）
 
 Lisa明确「没干完也不准停」。本窗完成全12套＋弯肘长度的正式接入。发布提交`dbdefa5a28f454ff6efe73df700f3eacea6ef9c6`，build `fg-97a1b6eac0497582`，Pages任务44253470540成功；257个线上变动资产SHA256全部一致，84项发布定向测试通过。线上整页/悬浮各69动作入口、17664文本变体及152通道也通过（release/online-actions/）；实体iPhone尚未测。发布检查发现既有msgstickout漏登记，已补挂点表说明；未改聊天布局。实现位于 `apps/fairy-garden/avatar-motion/`；`traveler.mjs` 接源加载、rest重绑、换装、动画与手持挂点，`doll-life.mjs` 使用修正后的材料挂点。**陪伴 pet.mjs、庭院 game.mjs 原来直接 GLTFLoader 绕开公共加载；本轮已统一 loadTravelerSource，真实衣柜与陪伴整页/悬浮入口已回归。** 直接调用 createTraveler 的试穿通过不等于各产品入口已接好。
