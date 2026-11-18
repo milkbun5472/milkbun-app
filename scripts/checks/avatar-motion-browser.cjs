@@ -136,7 +136,7 @@ async function checkThinking(page){
    reports.push({id,dimName,pose,progress,...row});
    for(const [view,angle]of [['front',0],['oblique',.65],['side',Math.PI/2]]){await page.evaluate(angle=>{QA.doll.root.rotation.y=angle;QA.renderer.render(QA.scene,QA.cam)},angle);await page.screenshot({path:path.join(OUT,[id,dimName,pose,progress,view].join('-')+'.png')});}
   }
-  if(process.env.MOTION_THINKING_TIMELINE==='1'&&id==='tee'){
+  if(process.env.MOTION_THINKING_TIMELINE==='1'&&(process.env.MOTION_THINKING_TIMELINE_OUTFITS||'tee').split(',').includes(id)){
    const duration=await page.evaluate(async()=>{QA.doll.root.rotation.y=0;for(let i=0;i<24;i++)QA.doll.animate(QA.time+=.1,{});return (await import('../companion/motion.mjs')).DUR['emotion-chin'];});
    if(!(duration>0))throw Error('Missing real thinking duration');const frames=Math.ceil(duration*30),timeline=[];
    for(let frame=0;frame<=frames;frame++){
