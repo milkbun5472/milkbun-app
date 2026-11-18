@@ -2,9 +2,9 @@
 
 Lisa 2026-11-15 要求：每次做完，记下上一版容易出问题的地方，让下个窗口接着注意。这里是唯一公共经验记录，随仓库同步；本机交接只链接这里。它记录已发生的问题，不把试穿稿当成已验收或已发布。
 
-## 正式入口接入完成，发布检查通过（2026-11-18，待上线回执）
+## 全12套与弯肘长度修正已上线 v89.757（2026-11-18）
 
-Lisa明确「没干完也不准停」。本窗完成全12套＋弯肘长度的正式接入，正在发布；未取得线上回执前不称已上线。实现位于 `apps/fairy-garden/avatar-motion/`；`traveler.mjs` 接源加载、rest重绑、换装、动画与手持挂点，`doll-life.mjs` 使用修正后的材料挂点。**陪伴 pet.mjs、庭院 game.mjs 原来直接 GLTFLoader 绕开公共加载；本轮已统一 loadTravelerSource，真实衣柜与陪伴整页/悬浮入口已回归。** 直接调用 createTraveler 的试穿通过不等于各产品入口已接好。
+Lisa明确「没干完也不准停」。本窗完成全12套＋弯肘长度的正式接入。发布提交`dbdefa5a28f454ff6efe73df700f3eacea6ef9c6`，build `fg-97a1b6eac0497582`，Pages任务44253470540成功；257个线上变动资产SHA256全部一致，84项发布定向测试通过。线上整页/悬浮各69动作入口、17664文本变体及152通道也通过（release/online-actions/）；实体iPhone尚未测。发布检查发现既有msgstickout漏登记，已补挂点表说明；未改聊天布局。实现位于 `apps/fairy-garden/avatar-motion/`；`traveler.mjs` 接源加载、rest重绑、换装、动画与手持挂点，`doll-life.mjs` 使用修正后的材料挂点。**陪伴 pet.mjs、庭院 game.mjs 原来直接 GLTFLoader 绕开公共加载；本轮已统一 loadTravelerSource，真实衣柜与陪伴整页/悬浮入口已回归。** 直接调用 createTraveler 的试穿通过不等于各产品入口已接好。
 
 当前证据：
 - `production-current-fixed-parity.json`：linen八姿态与选定v6试穿逐点对照，身体位置最大2.68e-9、法线5.96e-8、全部六衣网格位置3.73e-9；原形/UV/骨矩阵差0。该证据在本轮恢复腰围修正后捕获，不拿早先精简稿冒充。
