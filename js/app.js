@@ -18439,19 +18439,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const stampLim = card => { const L = card && card.limited && window.StampsCore && window.StampsCore.LIMITED; const x = L && L.find(e => e.id === card.limited); return x ? Object.assign({}, card, { themeLine: x.line || card.themeLine, themeLook: x.look || "" }) : card; };
   // 限时池画卡面那一格「锁死的那身」（两处画图共用）。光说「过节那一身」图像端会照参考照穿常服、再加一件小头饰交差
   //   （她 2026-11-04：沈屿白万圣夜卡还是那件黑羽绒服，头上多了只蜘蛛）——写明是整套换、小配件不算数
+  // 分镜里写了这张穿什么，就锁那一身（她 2026-11-17：深秋几张都画成同一身）；没写的，扮装期照 gist 里扮的那个（2026-11-18：一排吸血鬼斗篷）
+  //   限时池、IF、生日、纪念日这几种都走这一处（她 2026-11-18「别的种类 SSR 有没有同样的问题」）
+  const stampShotFit = card => (() => { const m = /(?:outfit|穿着|衣着|服装)\s*[＝=：:]\s*([^；;。\n]+)/i.exec(String((card.text || {}).shot || "")); if (m && m[1].trim()) return "这一张穿的就是：" + m[1].trim().slice(0, 160) + "。";
+      // 分镜没写衣服（SSR 满级那一面、老卡）：万圣夜这种扮装期，gist 里记着这张扮的是什么，照它扮，不落回最常见的那一身（她 2026-11-18：一排吸血鬼斗篷）
+      const g = String((card.text || {}).gist || "").trim(); return g && /扮|变装|cos/i.test(g) ? "这一张扮的是 gist 里写的那个：「" + g.slice(0, 120) + "」，照这个扮，不换成别的怪物。" : ""; })();
   const stampLimFit = card => "这一张不穿平时的衣服：穿合「" + (card.theme || "") + "」这一期的那一身，一眼看得出是这一期。"
     + "是从外套、上衣到下装整套换成这一身，不是平时那身衣服上加一个头饰、一件小配件；参考照里他穿的那件外套和上衣这张都不出现。"
     + (stampLim(card).themeLook ? stampLim(card).themeLook : "")
-    // 分镜里写了这张穿什么，就锁那一身（她 2026-11-17：深秋几张都画成同一身白T毛线帽——锁里只说「照这一期穿」，分镜那身又被删掉，图像端只能自己猜）
-    + (() => { const m = /(?:outfit|穿着|衣着|服装)\s*[＝=：:]\s*([^；;。\n]+)/i.exec(String((card.text || {}).shot || "")); if (m && m[1].trim()) return "这一张穿的就是：" + m[1].trim().slice(0, 160) + "。";
-      // 分镜没写衣服（SSR 满级那一面、老卡）：万圣夜这种扮装期，gist 里记着这张扮的是什么，照它扮，不落回最常见的那一身（她 2026-11-18：一排吸血鬼斗篷）
-      const g = String((card.text || {}).gist || "").trim(); return g && /扮|变装|cos/i.test(g) ? "这一张扮的是 gist 里写的那个：「" + g.slice(0, 120) + "」，照这个扮，不换成别的怪物。" : ""; })();
+    + stampShotFit(card);
   // 生日、她的生日、纪念日卡（她 2026-11-04「要为这一天准备的特别版」）：跟限时池同一格服装锁，图像端最认这一格；
   //   不锁的话画图那头会把人设里的常穿衣服当设定、照抄参考照那身。who＝锁的是谁（他／她：两个人那几张她也特意打扮）
   const STAMP_DAY_KINDS = { bday: "他的生日", mybday: "她的生日", anniv: "你们的纪念日" };
   const stampDayFit = (card, who) => card.limited ? stampLimFit(card) : STAMP_DAY_KINDS[card.kind]
     ? "这一张不穿平时的衣服：是为「" + (card.kind === "anniv" && card.annivName ? card.annivName : STAMP_DAY_KINDS[card.kind]) + "」这一天特意准备的那一身，一眼看得出是特意的，细节、面料、配饰都有讲究，又是" + (who || "他") + "自己会穿的样子。"
-      + "是从外套、上衣到下装整套换成这一身，不是平时那身衣服上加一个配饰；参考照里" + (who || "他") + "穿的那件外套和上衣这张都不出现。" : "";
+      + "是从外套、上衣到下装整套换成这一身，不是平时那身衣服上加一个配饰；参考照里" + (who || "他") + "穿的那件外套和上衣这张都不出现。" + (who === "她" ? "" : stampShotFit(card)) : card.kind === "if" ? stampShotFit(card) : "";
   const StampsCoreSafe = () => (window.StampsCore ? window.StampsCore.load() : { cards: [] });
   // 聊天里那张小卡要的东西（不带整段正文，正文在 content 里给他读）
   const stampShareOf = card => { const tx = card.text || {}; return { id: card.id, name: tx.name || "", rarity: card.rarity, kind: card.kind, theme: card.theme || "", line: tx.line || tx.thought || "", face: card.sendFace || card.face || card.faceAlt || "" }; };
