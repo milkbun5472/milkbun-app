@@ -1694,7 +1694,7 @@ function parseKeyLines(raw, keys, listKeys) {
         let arr = null;
         try { arr = JSON.parse(v.replace(/,\s*\]$/, "]")); } catch (e) {}
         if (Array.isArray(arr)) {
-          const items = arr.filter(x => !takeObj(x)).map(x => String(x == null ? "" : x).trim()).filter(Boolean);
+          const items = arr.filter(x => (x && typeof x === "object" && typeof x.act === "string") || !takeObj(x)).map(x => x && typeof x === "object" && typeof x.act === "string" ? x : String(x == null ? "" : x).trim()).filter(Boolean);
           if (items.length) out[mk.key] = items;
           return;
         }
@@ -8410,6 +8410,15 @@ function emoteSlotWords(words, emotes, emoteNorm) {
 //   （她 2026-09-30 截图），语音照旧掉到最后。改成纯字母的 voiceslot0，认的时候前后多了标点空白也认。
 const VOICE_SLOT_TOKEN = n => "voiceslot" + n;
 const VOICE_SLOT_RE = /^[\s\p{P}\p{S}\uE000-\uF8FF]*voiceslot(\d+)[\s\p{P}\p{S}\uE000-\uF8FF]*$/u;
+// 话中间那一行动描（她 2026-11-18「群聊一轮好几个动描，这套能不能搬到单聊」）：word 里那一项 {"act":…} 换成纯字母占位，
+//   跟 voiceslot 同一个道理——后面那几道都按字符串处理，发气泡那一圈走到它就地摆一行
+const ACT_SLOT_TOKEN = n => "actslot" + n;
+const ACT_SLOT_RE = /^[\s\p{P}\p{S}\uE000-\uF8FF]*actslot(\d+)[\s\p{P}\p{S}\uE000-\uF8FF]*$/u;
+function actSlotOf(w) { const m = ACT_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
+// 单聊一轮最多几行动描（开头那一行算一行）
+const ACT_LINES_PER_TURN = 3;
+// 单聊那句话：action 是开头那一刻，word 里那一项是说着说着换成的
+const ACT_MID_RULE = "【说着说着换了动作】action 那一格是你这一轮开口时在做的事。这一轮里你手上真换成了另一件事，就在 word 数组里换的那个位置写一项 {\"act\":\"换成在做的事\"}，写法跟 action 那一格一样；没换就不写。一轮至多两项。";
 function voiceSlotOf(w) { const m = VOICE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
 // 把「这条要用语音说」写成一段描述挂在句子前面（她 2026-10-06 截图，Gemini：
 //   「【这条语音里的声音带着刚睡醒的沙哑和浓浓的委屈】我刚才都睡着了又被你气醒了」）。

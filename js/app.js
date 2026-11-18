@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.755";
+const APP_VERSION = "v89.756";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14145,7 +14145,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 动描开着才解禁括号那一行；关着的时候这一段一个字都不发，线上还是纯打字。
       // ⚠️它不看同处一室：分开的时候写「TA那边在干嘛」同样成立。
       const _actDesc = !_body && actDescFor(charId);
-      const _onlineRuntime = _body ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_actDesc && _s.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
+      const _onlineRuntime = _body ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_actDesc && _s.actLong ? "\n\n" + ACTLINE_LONG_RULE : "") + (_actDesc && _s.actMid !== false ? "\n\n" + ACT_MID_RULE : "");
       const system0 = (_singleHistoryLayout ? (bundleStable + _onlineRuntime + (_body ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_body ? "" : _normalProtocolStable) + _taskFull));
       // 「长消息自动拆成短句」关掉的角色：把「一条＝一句」那一行换成「一口气」的判据（engine.js 的 freeLengthSystem 一处写）
       const system = _s.splitBubbles === false && !_body ? freeLengthSystem(system0) : system0;
@@ -14613,6 +14613,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 夹在 word 里的 {"emote":"关键词"}（她 2026-10-16「为啥群聊表情包可以插在话中间但是单聊一定在最下面」）：
       //   先写成「[表情] 关键词」，底下那道认表情的会在原位置留一个 emoteslot，发气泡那一圈走到就地发
       words = (Array.isArray(words) ? words : []).map(w => w && typeof w === "object" && !w.voice && typeof w.emote === "string" && w.emote.trim() ? "[表情] " + w.emote.trim() : w);
+      // 夹在 word 里的 {"act":…}：动描开着、「说着说着换了动作」没关时留占位，发气泡那一圈就地摆；否则这一项不要
+      const _midActs = [];
+      words = words.map(w => {
+        if (!(w && typeof w === "object" && !w.voice && typeof w.act === "string")) return w;
+        const _t = TVG.normalizeAction(w.act, char && char.name);
+        if (!_t || !actDescFor(charId) || (settingsFor(charId) || {}).actMid === false) return null;
+        _midActs.push(_t); return ACT_SLOT_TOKEN(_midActs.length - 1);
+      }).filter(w => w != null);
       // 语音那句里夹着「[表情] xx」：表情拆出来接在后面，语音只念剩下的字（splitVoiceEmote）
       if (typeof splitVoiceEmote === "function") words = words.reduce((a, w) => {
         if (w && typeof w === "object" && typeof w.voice === "string") { const sp = splitVoiceEmote(w.voice); if (sp.emote) return a.concat(sp.voice ? [{ ...w, voice: sp.voice }] : [], ["[表情] " + sp.emote]); }
@@ -14659,7 +14667,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 主动开口的头一句记下来，下次发回去避重（她 2026-09-01：四个角色的主动
       // 消息全是同一个模板）。只记【主动】那一路——被动回复本来就该顺着她的话走。
       if (opts.proactive && words.length) {
-        const first = words.filter(w => voiceSlotOf(w) == null).map(w => String(w || "").replace(/\s+/g, " ").trim()).filter(Boolean).join(" / ").slice(0, 90);   // 整轮都记（群友 2026-10-31：头一句换了、第二句原样又来一遍）
+        const first = words.filter(w => voiceSlotOf(w) == null && actSlotOf(w) == null).map(w => String(w || "").replace(/\s+/g, " ").trim()).filter(Boolean).join(" / ").slice(0, 90);   // 整轮都记（群友 2026-10-31：头一句换了、第二句原样又来一遍）
         if (first) {
           const cur = (openersRef.current || {})[charId] || [];
           const n = { ...(openersRef.current || {}), [charId]: [first, ...cur.filter(x => x !== first)].slice(0, 6) };
@@ -14758,7 +14766,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (_splitOn && typeof splitLongBubble === "function") words = words.reduce((acc, w) => {
         const t = typeof w === "string" ? w : "";
         if (!t || t.length <= 40 || !/[\u4e00-\u9fff…~～]\s+[\u4e00-\u9fff]/.test(t) || _biZh.has(bilingualKey(t)) || _biCovered.has(bilingualKey(t))
-          || (typeof htmlCardOf === "function" && htmlCardOf(t)) || /^emoteslot/i.test(t) || (typeof voiceSlotOf === "function" && voiceSlotOf(t) != null)) return acc.concat([w]);
+          || (typeof htmlCardOf === "function" && htmlCardOf(t)) || /^emoteslot/i.test(t) || (typeof voiceSlotOf === "function" && voiceSlotOf(t) != null) || actSlotOf(t) != null) return acc.concat([w]);
         return acc.concat(splitLongBubble(t, true));
       }, []);
       // 带声音标签的那一泡【拆完泡以后】再认一遍语音（她 2026-10-19：普通回复里 (snorts)(clear-throat) 掉成了文字泡）：
@@ -15048,13 +15056,25 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   ⚠️只认双语开关（她 2026-10-12：「不开翻译就是不想要这个功能」）——没开就一泡都不补、不合。
       //   粤语这类认字靠 hanLineLang，别的语言照「译」那颗按钮同一个判据（translatableLang）。
       const _yueFill = _bilingualOn && typeof translateToZh === "function"
-        ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && !_biCovered.has(bilingualKey(w)) && typeof w === "string" && emoteSlotOf(w) == null && voiceSlotOf(w) == null ? (hanLangOf(char) ? hanLineLang(w) : translatableLang(w)) : "";
+        ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && !_biCovered.has(bilingualKey(w)) && typeof w === "string" && emoteSlotOf(w) == null && voiceSlotOf(w) == null && actSlotOf(w) == null ? (hanLangOf(char) ? hanLineLang(w) : translatableLang(w)) : "";
             return lg ? translateToZh(w, lg, { noModel: true }).then(r => (r && r.zh) || "").catch(() => "") : null; })
         : [];
       for (let i = 0; i < words.length; i++) {
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
         // 收下那一轮，第 1→2 条之间停久一点，像真的把卡点开了再说话
         if (i > 0) await new Promise(r => setTimeout(r, i === 1 && _tfTook ? 1600 : 420));
+        const _aSlot = actSlotOf(words[i]);
+        if (_aSlot != null) {
+          // 话中间换了动作：跟开头那一行同一道「没变就别刷屏」，一轮连开头一共至多 ACT_LINES_PER_TURN 行
+          const _line = String(_midActs[_aSlot] || "").trim();
+          const _rows = chatsRef.current[chatKey] || [];
+          const _isAct = m => m && m.who === "char" && (m.role === "narration" || m.kind === "narration");
+          const _n = _rows.filter(m => _isAct(m) && m.turnId === turnId).length;
+          let _prev = "";
+          for (let j = _rows.length - 1; j >= 0; j--) if (_isAct(_rows[j])) { _prev = String(_rows[j].content || "").trim(); break; }
+          if (_line && _n < ACT_LINES_PER_TURN && !sameActLine(_line, _prev)) pChat(chatKey, p => [...p, { role: "narration", kind: "narration", who: "char", content: _line, ts: Date.now(), turnId }]);
+          continue;
+        }
         const _eSlot = emoteSlotOf(words[i]);
         if (_eSlot != null) { const _e = emoteWordKws[_eSlot]; if (_e && !_e.sent) { _e.sent = true; await sendEmoteKw(_e.kw); } continue; }
         const _slot = typeof voiceSlotOf === "function" ? voiceSlotOf(words[i]) : null;
@@ -15576,7 +15596,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // A 情绪立体化 shadow：只算十维与 display 候选，写独立 IDB 诊断；绝不注入本轮/下轮 prompt。
       if (!sideRoom) observeEmotionAShadow(charId, _affD, parsed.mood && parsed.mood.label);
       // B 关系轴 shadow：仅阿屿/顾暮、仅正常用户回合；回复落地后才走 bg，不污染角色生成 prompt。
-      if (!sideRoom && !opts.proactive && !contMode) observeRelationshipBShadow(char, history.concat(words.filter(w => voiceSlotOf(w) == null && !/^\W*emoteslot\d+\W*$/.test(String(w))).map((content, i) => ({ role: "assistant", content, mid: turnId + "_" + i, ts: Date.now(), turnId }))));
+      if (!sideRoom && !opts.proactive && !contMode) observeRelationshipBShadow(char, history.concat(words.filter(w => voiceSlotOf(w) == null && actSlotOf(w) == null && !/^\W*emoteslot\d+\W*$/.test(String(w))).map((content, i) => ({ role: "assistant", content, mid: turnId + "_" + i, ts: Date.now(), turnId }))));
       const st = {};
       const stateNow = Date.now();
       const _live0 = statesRef.current[charId] || {};
@@ -38849,6 +38869,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             actDesc: !!s.actDesc,
             keepRerolls: s.keepRerolls === true,
             actLong: !!s.actLong,
+            actMid: s.actMid !== false,
             enterRoom: typeof s.enterRoom === "string" && s.enterRoom ? s.enterRoom.slice(0, 80) : "main",
             // 通话连续播报 / 流式字幕：分角色（她 2026-09-12）。
             // callAuto 是【三态】：null=还没单独设过，走设置里那个全局默认；true/false=设过了。

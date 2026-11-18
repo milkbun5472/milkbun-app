@@ -23919,6 +23919,8 @@ function ChatSettings({
   const [actPerson, setActPerson] = useState(settings.actPerson === "ta" ? "ta" : "me");
   // 动描写多长（群友 2026-10-07：「有时候想长一点叙述」）：一句＝原来那样；一小段＝两三句，神态和身边也写进去
   const [actLong, setActLong] = useState(!!settings.actLong);
+  // 话中间动作变了也摆一行（她 2026-11-18「群聊一轮好几个动描，搬到单聊」「开关默认开」）
+  const [actMid, setActMid] = useState(settings.actMid !== false);
   // TA那一行里【你】叫什么（她 2026-09-12：「哦是因为TA卡里写的她，给她也做个开关吧」）
   const [userPerson, setUserPerson] = useState(settings.userPerson === "ta" ? "ta" : "you");
   const [timeAwareMode, setTimeAwareMode] = useState(["on", "off"].includes(settings.timeAwareMode) ? settings.timeAwareMode : "inherit");
@@ -24343,6 +24345,7 @@ function ChatSettings({
       actDesc,
       keepRerolls,
       actLong,
+      actMid,
       enterRoom,
       callAuto,
       callStream,
@@ -24880,6 +24883,12 @@ function ChatSettings({
           style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", padding: "6px 16px", minHeight: 32, border: "none",
             background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, o[1]);
       }))) : null,
+  actDesc ? h("div", { "data-wk": "actmid", className: "flex items-center justify-between pt-3" },
+    h("div", { style: { paddingRight: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "说着说着换了动作"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 2 } },
+        "一轮里 TA 手上真换了一件事，就在那几句话中间再摆一行，一轮最多三行；没换就不摆。")),
+    h(Toggle, { on: actMid, onChange: v => setActMid(v), color: t.tint })) : null,
   // ⚠️只在动描开着时才摆：关着的时候这一格没有意义，摆出来是噪音。
   //   而且这一条改的【只是显示】——状态卡里存的照旧是第一人称「我在厨房」，
   //   那儿本来就是角色自己的卡（她 2026-09-12 选的就是这条路）。
