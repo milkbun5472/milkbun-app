@@ -28,3 +28,5 @@ python art/fairy-garden/doll/repair_tee_armholes.py SOURCE OUTPUT
 `MOTION_THINKING=1` 启用实际模型思考近图：全部12套、三档体型、抬起/保持/收回，并测骨段长度、材料手面直径与抬肘高度；T恤额外检查左右抬手和双弯肘。`MOTION_TRANSITIONS=1 MOTION_INCLUDE_CHIN=1` 增加动作中换衣/改体型的同历史对照。真实衣柜和坐姿仍须分别验证。
 
 思考的接触方向由公共 emotion-pose 的 elbowPole 传给原 IK；骨长、身体资产和其他动作的默认肘方向保持。审美验收以实际图和用户反馈为准，数值通过不表示全动作碰撞穷举。
+
+发布 v89.769：400449932b9b69a9cad4cc357b1857f88407928a，fg-2ec4c4335c3d7852。Pages44315791051成功，228线上文件SHA一致，正式站WebKit45例通过；详细限制和未解决项留在唯一公共复盘。
