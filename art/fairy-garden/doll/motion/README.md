@@ -69,6 +69,8 @@ PLAYWRIGHT_MODULE=/absolute/path/to/playwright COMPANION_TEST_URL=http://127.0.0
 固定姿势距离上限.003，连续点屏峰值上限.006（模型单位）；不是整手机碰撞审计。
 `MOTION_COLLAR_STRAP=1` 检查背带裙领口和卫衣肩带：两套三体型、四姿态、四方向，
 含原问题位置像素断言和两套独立改色；肩带资产与绑定同步另见RANGER-BAG.md。
+`MOTION_CARDIGAN_SEAM=1` 检查小兔毛衣三体型、站姿及左右举手/双弯肘四个中途帧，
+共117近距离视图，并断言修复区没有压塌三角面；源资产/绑定迁移见CARDIGAN-SHOULDERS.md。
 另外跑实际页面的 `companion-all-actions-browser.cjs` 和 `town-appearance-browser.cjs`，
 确认产品入口、衣柜保存与角色隔离，不能只验证测试场景。
 
