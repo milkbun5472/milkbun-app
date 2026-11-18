@@ -490,10 +490,11 @@ test("文案的靶子是温润鉴定词，不是求怪", () => {
   assert.match(imp, /40~80 字的【鉴定词】，二到三个短句/, "quote 从一句话扩成一小段鉴定词");
 });
 
-test("卡片版式照「初形象生成」那套：白点连线标签＋英文水印＋大引号", () => {
-  assert.match(imp, /白点＋细线＋金边小签/);
-  assert.match(imp, /boxShadow: "0 0 0 7px rgba\(255,255,255,\.26\)"/, "白点带光晕");
-  assert.match(imp, /onLeft \? \[chip, line, dot\] : \[dot, line, chip\]/, "点永远朝画面里侧");
+test("卡片版式是我们自己的：关键词盖成印章、称号不加花括号、那句话不加大引号（她 2026-11-18：原来太像别家「初形象生成」）", () => {
+  assert.ok(!/onLeft \? \[chip, line, dot\]/.test(imp), "白点连线标签又回来了");
+  assert.match(imp, /"data-wk": "impstamps"/);
+  assert.match(imp, /transform: "rotate\(" \+ \[-4, 3, -1\]\[i\] \+ "deg\)"/, "三个章各歪一点");
+  assert.ok(!/"\{ " \+ e\.title \+ " \}"/.test(imp), "称号的花括号又回来了");
   // v63.01 no-english-titles：这一行换成中文（相纸白边上那行小字）
   // v67.89：这行小字从纯装饰变成翻面的入口，字随背面有没有东西而变
   assert.match(imp, /hasBack \? \(e\.firstShift \? "在这之前 →" : "印象变了哪儿 →"\) : "背面还空着 →"/, "白边上那行小字");
