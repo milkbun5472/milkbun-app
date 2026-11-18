@@ -6971,6 +6971,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const rel = { "大前天": 3, "前天": 2, "昨天": 1, "昨晚": 1 };
       Object.keys(rel).forEach(k => { if (f.indexOf(k) >= 0) add(now - rel[k] * DAY, "她说的「" + k + "」"); });
       { const m = /(\d{1,2})\s*天前/.exec(f); if (m) add(now - Number(m[1]) * DAY, "她说的「" + m[0] + "」"); }
+      // 星期几（她 2026-11-18「上周五、生日这种为啥认不出来」）：「上周五／上礼拜五」＝上一周那天；「这周三／周三」＝最近已经过去的那个
+      { const WD = { "一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "日": 0, "天": 0 }; const re = /(上上|上|这|本)?\s*个?\s*(?:周|礼拜|星期)([一二三四五六日天])/g; let m;
+        while ((m = re.exec(f))) { const t0 = new Date(now); t0.setHours(12, 0, 0, 0); const wd = t0.getDay(), mon = t0.getTime() - ((wd + 6) % 7) * DAY;
+          let ts = mon + ((WD[m[2]] + 6) % 7) * DAY; if (m[1] === "上") ts -= 7 * DAY; else if (m[1] === "上上") ts -= 14 * DAY; else if (ts > now) ts -= 7 * DAY; add(ts, "她说的「" + m[0] + "」"); } }
+      // 生日：「我生日」照她这张面具填的生日，「你生日」照他档案里的；取最近已经过去的那一次（公历、农历都认，跟生日提醒同一个 daysUntilBirthday）
+      if (typeof daysUntilBirthday === "function") [[/我(?:的)?生日/, ((profileFor(char.id) || {}).birthday)], [/你(?:的)?生日/, char.birthday]].forEach(([re, b]) => {
+        if (!b || !re.test(f)) return;
+        for (let k = 0; k <= 370; k++) { const d0 = new Date(now - k * DAY); try { if (daysUntilBirthday(b, d0) === 0) { add(d0.getTime(), "她说的「" + (f.match(re) || [""])[0] + "」"); break; } } catch (e) { break; } } });
       { const re = /(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]/g; let m; while ((m = re.exec(f))) { const d = new Date(now); d.setMonth(Number(m[1]) - 1, Number(m[2])); if (d.getTime() > now) d.setFullYear(d.getFullYear() - 1); add(d.getTime(), "她说的「" + m[0] + "」"); } }
       // ② 这一轮召回的记忆是哪天记下的
       (Array.isArray(memRows) ? memRows : []).forEach(e => { if (e && e.ts && now - e.ts > DAY / 2) add(e.ts, "召回的记忆那天"); });

@@ -9,3 +9,9 @@ test("日记当补充记忆：日子只从她点名的和召回记忆的日期�
   assert.ok(app.includes("c.diaryRecall = diaryRecallFor(char, c.memLib,"));
   assert.ok(eng.includes("if (ctx.diaryRecall && String(ctx.diaryRecall).trim()) parts.push("));
 });
+test("日子也认星期几和生日", () => {
+  const i = app.indexOf("const diaryRecallFor = ");
+  const seg = app.slice(i, app.indexOf("const ctxFor = ", i));
+  assert.ok(seg.includes("(?:周|礼拜|星期)([一二三四五六日天])"));
+  assert.ok(seg.includes("daysUntilBirthday(b, d0) === 0"));
+});
