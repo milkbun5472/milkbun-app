@@ -1620,17 +1620,24 @@
       ? h("div", { "data-wk": "wklycoverhero", style: { position: "relative", margin: "0 -22px 22px" } },
           // 封面照上已经排好了刊名、头条和看点（PosterLayout），这里不再叠一层网页字——叠了就是两份头条重影（她 2026-10-14）
           h(WeeklyPhoto, { imgKey: props.photo, alt: "本期封面" }),
-          // 保存、重画（她 2026-11-18「搞个保存和重画」）：挨着图放，原来「重拍封面」在图底下一大段字后面，看不见
-          h("div", { "data-wk": "wklycoveracts", className: "flex", style: { gap: 10, padding: "10px 22px 0" } },
-            h("button", { "data-wk": "wklycoversave", className: "active:opacity-60", onClick: function () {
-                if (!window.saveImgOriginal) { if (window.__toast) window.__toast("这台设备存不了图"); return; }
-                window.saveImgOriginal(props.photo, "周刊封面").then(function (ok) { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); });
-              }, style: { flex: 1, padding: "9px 0", border: "1px solid currentColor", background: "transparent", color: L.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "保存到手机"),
-            props.onShoot ? h("button", { "data-wk": "wklycoverredraw", className: "active:opacity-60", disabled: !!props.shooting, onClick: props.shooting ? null : props.onShoot,
-              style: { flex: 1, padding: "9px 0", border: "1px solid currentColor", background: "transparent", color: L.tint, opacity: props.shooting ? .55 : 1, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, props.shooting ? "重画中…" : "重画") : null),
+
           // 封面上的头条按标点截过，完整那句排在照片底下
           h("div", { style: { padding: "16px 22px 0" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".08em", color: L.tint, marginBottom: 8 } }, "头条 · 01"),
+            // 保存、重画（她 2026-11-18「搞个保存和重画」「放个好看点的地方，不然弄得我的杂志好丑」）：
+            //   不压在照片上（会盖住排好的刊名、条码），收成「头条 · 01」同一行右边两颗小字图标
+            h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".08em", color: L.tint } }, "头条 · 01"),
+              h("div", { "data-wk": "wklycoveracts", style: { display: "flex", gap: 14, alignItems: "center" } },
+              [["wklycoversave", "保存到手机", "M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14", function () {
+                  if (!window.saveImgOriginal) { if (window.__toast) window.__toast("这台设备存不了图"); return; }
+                  window.saveImgOriginal(props.photo, "周刊封面").then(function (ok) { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); });
+                }],
+               props.onShoot ? ["wklycoverredraw", props.shooting ? "重画中" : "重画", "M19 12a7 7 0 1 1-2.05-4.95M19 4v4h-4", props.shooting ? null : props.onShoot] : null].filter(Boolean).map(function (b) {
+                return h("button", { key: b[0], "data-wk": b[0], "aria-label": b[1], title: b[1], onClick: b[3], disabled: !b[3], className: "active:opacity-60",
+                  style: { display: "flex", alignItems: "center", gap: 4, padding: "4px 0", border: "none", background: "transparent", color: L.tint, opacity: b[3] ? .8 : .4,
+                    fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".06em" } },
+                  h("svg", { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" }, h("path", { d: b[2] })), b[1]);
+              }))),
             h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: "calc(25px * var(--app-fs, 1))", fontWeight: 600, lineHeight: 1.18, letterSpacing: "-.02em" } }, c.headline)))
       : h("div", { style: { margin: "0 -10px 22px", padding: "24px 18px 22px", background: L.tint, color: "#fffaf3" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".08em", opacity: .72, marginBottom: 15 } }, "头条 · 01"),
