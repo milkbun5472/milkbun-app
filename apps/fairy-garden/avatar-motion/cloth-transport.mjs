@@ -1,6 +1,6 @@
-import {createSleeveEnvelope} from './sleeve-envelope.mjs?v=fg-a18a22cf5c6cefbf';
-import {createClothTransportKernel,clothRotationReferences} from './cloth-transport-kernel.mjs?v=fg-a18a22cf5c6cefbf';
-import {fitRigid} from './rigid-fit.mjs?v=fg-a18a22cf5c6cefbf';
+import {createSleeveEnvelope} from './sleeve-envelope.mjs?v=fg-a3dcf9df351bbef8';
+import {createClothTransportKernel,clothRotationReferences} from './cloth-transport-kernel.mjs?v=fg-a3dcf9df351bbef8';
+import {fitRigid} from './rigid-fit.mjs?v=fg-a3dcf9df351bbef8';
 // Transport a material direction with the arm, then align it to the body surface.
 // The reference contains axial roll that a direction-only reconstruction cannot recover.
 export function sleeveRotation(T,restAxis,posedAxis,reference){
@@ -30,7 +30,12 @@ if(!mesh||mesh.geometry.attributes.position.count*3!==row.rest.length)throw Erro
 const sourceIds=row.ids||Array.from({length:mesh.geometry.attributes.position.count},(_,i)=>i),skin=mesh.geometry.attributes;
 // Transport arm-influenced cloth and retain the authored waist corrections.
 // Linear waist rows remove stray arm influences; skipping them moves belts.
-const ids=row.linear?sourceIds:sourceIds.filter(i=>{for(let k=0;k<4;k++){const j=i*4+k;if([1,2,4,5].includes(row.skinIndex[j])&&Math.max(row.skinWeight[j],row.bentSkinWeight?.[j]||0)>0)return true;const bone=mesh.skeleton.bones[skin.skinIndex.getComponent(i,k)];if(/Arm$|Forearm$/.test(bone?.name||'')&&skin.skinWeight.getComponent(i,k)>0)return true;}return false;});
+const ids=row.linear?sourceIds:sourceIds.filter(i=>{// Include torso-weighted outer shoulder cloth in the pose correction.
+if(envelope && row===d){
+ const side=row.rest[i*3]<0?0:1, shoulder=q.rigFit[side].shoulder;
+ if(Math.abs(row.rest[i*3])-Math.abs(shoulder[0])>-.018 && row.rest[i*3+1]>shoulder[1]-.002)return true;
+}
+for(let k=0;k<4;k++){const j=i*4+k;if([1,2,4,5].includes(row.skinIndex[j])&&Math.max(row.skinWeight[j],row.bentSkinWeight?.[j]||0)>0)return true;const bone=mesh.skeleton.bones[skin.skinIndex.getComponent(i,k)];if(/Arm$|Forearm$/.test(bone?.name||'')&&skin.skinWeight.getComponent(i,k)>0)return true;}return false;});
 q.transportKernels??=new Map();let kernel=null;if(q.numericCore&&!row.linear&&ids.length){kernel=q.transportKernels.get(mesh.geometry);if(!kernel){kernel=createClothTransportKernel(q.numericCore,mesh);q.transportKernels.set(mesh.geometry,kernel)}kernel.configure(row,ids);}
 return {row,o:mesh,g:mesh.geometry,weights:Float64Array.from(row.skinWeight),references:clothRotationReferences(row,mesh.skeleton.bones),ids,kernel};
 });
@@ -65,7 +70,7 @@ side<2;
 side++){const fit=q.rigFit[side];
 for(const [bone,anchor,axis]of [[side?4:1,new T.Vector3(...fit.shoulder),new T.Vector3(...fit.wrist).sub(new T.Vector3(...fit.shoulder)).normalize()],[side?5:2,new T.Vector3(...d.cuffPlanes[side].center),(materialCuff&&d.name!=='outfit_linen_cloth'?new T.Vector3(...fit.wrist).sub(new T.Vector3(...fit.shoulder)).normalize():new T.Vector3(...d.cuffPlanes[side].normal))]]){const old=virtual[bone],point=anchor.clone().applyMatrix4(old),targetAxis=axis.clone().transformDirection(old),frame=bone===(side?5:2)?new T.Quaternion().setFromRotationMatrix(virtual[side?4:1]).normalize():bodyRotation,armFrame=frame.clone().slerp(armFrames[side][bone===(side?5:2)?1:0],bentRoll[side]),referenceAxis=axis.clone().applyQuaternion(armFrame),swing=new T.Quaternion().setFromUnitVectors(referenceAxis,targetAxis).multiply(armFrame).normalize(),translation=point.sub(anchor.clone().applyQuaternion(swing));
 virtual[bone].compose(translation,swing,new T.Vector3(1,1,1));
-}}for(const guide of d.cuffSurfaceGuides||[]){const side=guide.side,upper=side?4:1,fore=upper+1,centers=guide.groups.map(ids=>{const c=new T.Vector3();for(const i of ids)c.addScaledVector(V.fromArray(bodyPosed,i*3),1/ids.length);return c}),rest=guide.groups.map(ids=>{const c=new T.Vector3();for(const i of ids)c.addScaledVector(V.fromArray(q.dimensionRest,i*3),1/ids.length);return c}),targetAxis=centers[2].clone().sub(centers[0]).normalize(),restAxis=rest[2].clone().sub(rest[0]).normalize(),frame=bodyRotation.clone().slerp(armFrames[side][1],bentRoll[side]),swing=sleeveRotation(T,restAxis,targetAxis,frame),translation=centers[1].clone().sub(rest[1].clone().applyQuaternion(swing));virtual[fore].compose(translation,swing,new T.Vector3(1,1,1));}sleeveEnvelope?.update(bodyPosed,bentRoll);
+}}for(const guide of d.cuffSurfaceGuides||[]){const side=guide.side,upper=side?4:1,fore=upper+1,centers=guide.groups.map(ids=>{const c=new T.Vector3();for(const i of ids)c.addScaledVector(V.fromArray(bodyPosed,i*3),1/ids.length);return c}),rest=guide.groups.map(ids=>{const c=new T.Vector3();for(const i of ids)c.addScaledVector(V.fromArray(q.dimensionRest,i*3),1/ids.length);return c}),targetAxis=centers[2].clone().sub(centers[0]).normalize(),restAxis=rest[2].clone().sub(rest[0]).normalize(),frame=bodyRotation.clone().slerp(armFrames[side][1],bentRoll[side]),swing=sleeveRotation(T,restAxis,targetAxis,frame),translation=centers[1].clone().sub(rest[1].clone().applyQuaternion(swing));virtual[fore].compose(translation,swing,new T.Vector3(1,1,1));}sleeveEnvelope?.update(bodyPosed,bentRoll,q.rigFit,mats[0],mats);
 if(q.bodyBackedCuffUniforms){for(let side=0;
 side<2;
 side++){const row=d.cuffPlanes[side],m=virtual[row.bone],center=new T.Vector3(...row.center).applyMatrix4(m),normal=new T.Vector3(...row.normal).transformDirection(m);

@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {pointToolAt} from './reach-hand.mjs?v=fg-a18a22cf5c6cefbf';
+import {pointToolAt} from './reach-hand.mjs?v=fg-a3dcf9df351bbef8';
 
 const marker=(group,name,x=0)=>{const o=new T.Object3D();o.name=name;o.position.x=x;group.add(o);};
 function makeFlower(){

@@ -1,4 +1,4 @@
-import {createRoomKit,roomSeat} from './room-kit.mjs?v=fg-a18a22cf5c6cefbf';
+import {createRoomKit,roomSeat} from './room-kit.mjs?v=fg-a3dcf9df351bbef8';
 const floor=.08;
 const furniture=[
  {id:'crop-bed',kind:'plot',x:-3,z:-2.3,w:3.4,d:2.5},
