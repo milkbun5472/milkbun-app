@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.731";
+const APP_VERSION = "v89.735";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18237,7 +18237,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   ⚠️写失败不丢卡：卡已经落进 x_stamps，只是没写完（text:null），界面上点一下重写。
   const STAMP_SHOT_SPEC = "shot 是给画卡面的人看的分镜（中文，几句话）：pose＝这一刻身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪，要有动势，不是对着镜头站着坐着摆好；camera＝景别、机位高低、镜头远近，像乙游卡面那样人和场景一起讲这一刻，有前景、有纵深，景别别总是半身近照；"
     + "light＝主光从哪边来、是什么光、冷暖、有没有轮廓光、阴影落在哪；place＝在哪、身边两三样带着这一刻的东西；outfit＝穿什么；mood＝一两个词。"
+    // 镜头能组合的种类（她 2026-11-18「多一点种类可以组合」，不要程序分配）：每一栏挑一样、自己配，几栏搭起来就很少撞
+    + "镜头可以这样搭（每一栏挑一个，跟这一刻配，几栏组合起来，别总落在同一种）："
+    + "景别——远景（人和场景一起讲，人至少占画面三分之一）、全身、七分身、半身、近景；"
+    + "机位——平视、微微俯视、低机位微微仰拍（显身形）、四分之三侧脸、正侧面、侧后方他正回头、镜头微微倾斜、越过别人或东西的肩、隔着前景（门框、玻璃、枝叶、人群）看过去、拍镜子或玻璃里的他、从她的视线看他（他低头看过来、俯身凑近、把手伸向镜头）；"
+    + "人在画面哪儿——居中、偏左或偏右三分之一、斜对角、被门窗框起来、人在下半上面留一片天或景、前景虚着一层光斑或东西、背景虚化只有他清楚；"
+    + "身体——站着、走着、正停下、坐着、侧坐在窗台或台阶上、靠着、斜倚门框或墙、单手撑在桌沿或墙上、手插兜、托着腮、抬手理领口袖口或拨头发、低着头眼睛往上看、转身回头、伸手去够、弯腰俯身、整个人在动作中途；"
+    + "光——逆光带一圈轮廓光、傍晚斜进来的金色阳光、穿过窗或树的一道道光束、侧光、窗光、夜里一盏暖灯、手机或屏幕的冷光照在脸上、身后一串灯虚成光斑、阴天的软光、霓虹或彩色的光、火光、雪地或水面反上来的光。"
+    // 她 2026-11-18「也要考虑好不好看」：怎么搭都先要他好看
+    + "怎么搭都以好看为先：这是乙游卡面不是纪实照，他的脸要看得清、光要落在脸上，身形舒展、比例好看，衣服和头发有质感；会让脸看不清、人显矮显胖、表情难看的组合就别选。"
     + "画的是这张卡里真的发生的那一刻，不另编动作：你那时在干什么就画什么，构图跟着这个动作来，全身、半身、背影、俯拍仰拍都行；你那时没在看谁，就不看镜头。卡面是竖版的，上面只画你一个人。";
+  // 卡多了姿势会撞（她 2026-11-18）：把这个人最近几张的姿势、机位各摘一句给他看，这张换一个；不列该摆什么姿势
+  const stampRecentPoses = (charId, skip) => {
+    const ids = new Set([].concat(skip || [])), pick = (sh, k) => { const m = new RegExp(k + "\\s*[＝=：:]\\s*([^；;。\\n]+)", "i").exec(sh); return m ? m[1].trim().slice(0, 40) : ""; };
+    const rows = (StampsCoreSafe().cards || []).filter(x => x && x.charId === charId && !ids.has(x.id) && x.text && x.text.shot).slice(-10)
+      .map(x => { const sh = String(x.text.shot), a = [pick(sh, "pose"), pick(sh, "camera")].filter(Boolean).join("｜"); return a ? "- " + a : ""; }).filter(Boolean);
+    return rows.length ? "\n你最近几张卡面已经是这样的姿势和机位（每张一句）：\n" + rows.join("\n") + "\n这次的姿势、景别、机位都换一个，别跟上面撞。" : "";
+  };
   // 纪念日卡：判据不是清单——这一天对你们俩意味着什么，照这一年真实的关系写；往年同一个纪念日的卡带上，今年不重样
   const stampAnnivLine = (card, char) => {
     const past = (StampsCoreSafe().cards || []).filter(x => x.charId === char.id && x.kind === "anniv" && x.annivId === card.annivId && x.bdDay !== card.bdDay && x.text && !x.dupe)
@@ -18449,7 +18465,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               return (kinds.length === 1 ? kinds[0] + "\n" + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity).join("；") + "。"
                 : kinds.map((t, k) => "【写法" + (k + 1) + "】" + t).join("\n") + "\n" + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "，照【写法" + (idx[i] + 1) + "】").join("；") + "。"); })()
           + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
-          + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
+          + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC + "这一次写的几张之间，pose 和 camera 也互相错开。" + stampRecentPoses(char.id, list.map(x => x.id))
           + stampPrevLine(prev, ser && ser.theme) + "\n这几张之间也是不同的事" + (ser ? "，但张张都在过「" + ser.theme + "」" : "") + "。"
           // 人称跟 SSR 剧情一样（她 2026-10-28：R 卡里写成了「你调完色，碰了碰她的下颌」）：卡是写给她读的
           + stampPov(char, "\n人称：卡上叙述的那几栏是写给她读的（每一栏还是照格式写成一段字），叙述里你是「他」、她是「你」，比如「他调完色，碰了碰你的下颌」；thought、real、hidden、line、back、his 是你自己心里或嘴上的话，用「我」。"),
@@ -18484,7 +18500,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "一节中间也可以停下来让她选一两次（beats 里放一个 who:\"pick\"，options 两三个：text 是她说的话或做的事，beats 是你接着的那几句）——选的不同你的反应就不同，几句之后回到这一节的主线；节尾的 choices 两三个。"
           + "往前走靠的是发生的事、你的做法和你们之间自然的对话；你说多少话照你平时的样子，心里的东西让她从你做的事里看出来。每节都有点什么变了，不必每节都有大事。"
           + "两条岔路走下去，后面发生的事、你的处理、她知道的东西、你们之间的样子，至少有一样真的不一样。" + ((StampsCoreSafe().opt || {}).meQuiet ? "正文里她基本不开口：me 一节最多一句，能不写就不写；她的说话和决定都放进选项（pick 和节尾 choices）里。往前推的是你的话、你的动作和旁白。" : "她那句（me）照她平时的样子写，少一点。")
-          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
+          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC + stampRecentPoses(char.id, [c.id])
           + stampPrevLine(prev, ser && ser.theme),
         schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"allEndsLine\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"},{\"who\":\"pick\",\"options\":[{\"text\":\"\",\"beats\":[{\"who\":\"he\",\"text\":\"\"}]}]}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
         maxTokens: 65000
@@ -18601,7 +18617,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       instruction: "邮票册里你这张" + card.rarity + "「" + (tx.name || "") + "」的卡面要重画，只重写画卡面用的那段分镜，卡上的字不动。这张卡写的那一刻：\n" + String(what).slice(0, 600)
         + (tx.shot ? "\n原来的分镜：" + String(tx.shot).slice(0, 400) + "\n换一种写法，别照抄。" : "")
         + (card.drawErr && /safety|policy|审核|违规|内容|sensitive|reject/i.test(card.drawErr) ? "\n上次画的时候被图像站的审核拒了：画面写得含蓄一点，不写血、伤口、武器、裸露、过于亲密的身体接触这类容易被拦的东西，换成别的方式表达同一个意思。" : "")
-        + "\n" + STAMP_SHOT_SPEC,
+        + "\n" + STAMP_SHOT_SPEC + stampRecentPoses(char.id, [card.id]),
       schemaHint: "{\"shot\":\"\"}", maxTokens: 8000 });
     const shot = String((d && d.shot) || "").trim(); if (!shot) return false;
     stampSaveCard(card.id, c0 => ({ ...c0, text: { ...c0.text, shot: shot.slice(0, 800) } }));
