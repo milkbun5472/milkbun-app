@@ -14024,7 +14024,12 @@ function qaPoolOf(bookKey, bank, books, answered) {
 }
 function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, books, onSaveBook, onSaveCustom, onSaveCustomBooks, onAnswer, onSeal, onReveal, onEdit, onRemove, onReroll, onReply, onEditReply, onSaveTitle, gen, onBack }) {
   const t = useTheme();
-  const all = (entries || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => a.answeredAt - b.answeredAt);
+  // 排法（群友 2026-11-18「最新出的题在最前面，方便答题」「回答完再按顺序排」）：
+  //   TA 出的、还等你写的那几道排最前，最新的在第一页；答完的按答完那一刻（揭开的按揭开那一刻）从早到晚往后排
+  const qaWaiting = e => !!(e && e.sealed && e.byCharacter && !e.myAnswer);
+  const qaDoneAt = e => (e && (e.openedAt || e.answeredAt)) || 0;
+  const all = (entries || []).filter(e => e.characterId === partner.id).slice().sort((a, b) =>
+    qaWaiting(a) !== qaWaiting(b) ? (qaWaiting(a) ? -1 : 1) : qaWaiting(a) ? (b.answeredAt || 0) - (a.answeredAt || 0) : qaDoneAt(a) - qaDoneAt(b));
   const answered = new Set(all.map(e => e.qid));
   // 自己加的题现在是【几本】（她 2026-09-18：「我想要能多开几本自己按类型分」）
   const cbs = qaCustomBooks(customQ, customBooks);
@@ -14115,7 +14120,7 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
             // TA出的题（sealed 且她还没写）：她的那半直接在这儿写，写完两份一起打开——零调用
             (e.sealed && e.byCharacter && !e.myAnswer) ? h("div", null,
               h("textarea", { "data-wk": "textarea", value: revealDraft.id === e.id ? revealDraft.text : "", onChange: ev => setRevealDraft({ id: e.id, text: ev.target.value }), placeholder: "写下你的答案…", rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 6, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, background: "#fffdf6", color: "#3a3226", border: "1px solid #e6dcc4" } }),
-              h("button", { onClick: () => { if (revealDraft.id === e.id && onReveal && onReveal(e.id, revealDraft.text)) setRevealDraft({ id: "", text: "" }); }, disabled: !(revealDraft.id === e.id && revealDraft.text.trim()), className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 8, background: "#3a3226", color: "#fdfaf1", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "7px 16px", borderRadius: 8 } }, "写好了 · 一起打开")) :
+              h("button", { onClick: () => { if (revealDraft.id === e.id && onReveal && onReveal(e.id, revealDraft.text)) { setRevealDraft({ id: "", text: "" }); setPageIdx(9999); } }, disabled: !(revealDraft.id === e.id && revealDraft.text.trim()), className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 8, background: "#3a3226", color: "#fdfaf1", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "7px 16px", borderRadius: 8 } }, "写好了 · 一起打开")) :
             editId === e.id ? h("div", null,
               h("textarea", { "data-wk": "textarea", value: editText, onChange: ev => setEditText(ev.target.value), rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 6, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, background: "#fffdf6", color: "#3a3226", border: "1px solid #e6dcc4" } }),
               h("div", { className: "flex gap-2 mt-2" },
