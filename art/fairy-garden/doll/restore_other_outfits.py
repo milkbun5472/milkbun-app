@@ -202,7 +202,7 @@ def restore_other_outfits():
   o['roundSleeveVersion']=1;o['continuousSurfaceVersion']=1
   o['repairAtlas']=[torso_uv[0]-.015,torso_uv[1]-.015,.03,.03]
   # Torso coverage has a lower boundary so shorts/skirt leave bare legs visible.
-  o['skinCoverage']={'torsoAbove':(.30 if outfit=='ranger' else .40),'torsoBelow':.705,'sleeve':[.15 if outfit=='garden' else .205,.46,.705,.10],'armAxis':[.165,.655,.11,-.255]}
+  o['skinCoverage']={'torsoAbove':(.30 if outfit=='ranger' else .40),'torsoBelow':(.715 if outfit=='garden' else .705),'sleeve':[.15 if outfit=='garden' else .205,.46,.705,.10],'armAxis':[.165,.655,.11,-.255]}
   if outfit=='garden':o['cleanDressVersion']=1;o['textureSlots']='garden'
   if outfit=='garden':runpy.run_path(str(HERE/'repair_garden_shoes.py'))['repair_garden_shoes']()
   print('RESTORED',outfit,len(o.data.polygons))
