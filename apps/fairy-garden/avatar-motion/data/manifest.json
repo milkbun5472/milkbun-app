@@ -43,10 +43,10 @@
     }
   },
   "cardigan": {
-    "bytes": 627548,
-    "sha256": "86e6132c21703256636a54fd3f41fa60b1d3c6221911a69a0f1c9212b9e1bf81",
+    "bytes": 632290,
+    "sha256": "c92d020f47ffe13c6f2ce1b51f1902cb5125beb50bbdb9bd468238c626e0f803",
     "sources": {
-      "wardrobe-fair-bind-cardigan.json.gz": "5460f0747e0d95353a42b88f81a9aff34e2cffe5906d8dffd3dc063ac3de7754"
+      "cardigan-armhole-motion.json": "e85cf299eb8b800db945e847e4f2a02270b6f991abf78ffc6eec1919de9743b3"
     }
   },
   "ranger": {
