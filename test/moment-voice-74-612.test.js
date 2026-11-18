@@ -14,7 +14,7 @@ const fs = require("node:fs");
 const app = fs.readFileSync("js/app.js", "utf8");
 
 const seg = (() => {
-  const i = app.indexOf("  const genMoment = async char =>");
+  const i = app.indexOf("  const genMoment = async (char, momOpts) =>");
   const j = app.indexOf("const content = String(d && d.content", i);
   assert.ok(i > 0 && j > i, "抠不出 genMoment");
   return app.slice(i, j);

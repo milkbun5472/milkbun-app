@@ -4,7 +4,7 @@ const assert = require("node:assert");
 const fs = require("fs");
 const path = require("path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js/app.js"), "utf8");
-const i = app.indexOf("  const genMoment = async char => {"), j = app.indexOf("  const momentGenImage = async (", i);
+const i = app.indexOf("  const genMoment = async (char, momOpts) => {"), j = app.indexOf("  const momentGenImage = async (", i);
 assert.ok(i > 0 && j > i, "抠不出 genMoment");
 const seg = app.slice(i, j);
 

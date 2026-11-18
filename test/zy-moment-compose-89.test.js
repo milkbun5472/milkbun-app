@@ -19,3 +19,11 @@ test("发朋友圈页挂着卡、没写字也能发，卡跟着发出去", () =>
 test("看朋友圈的人知道卡上写了什么", () => {
   assert.match(app, /挂了一张照影小测的结果卡/);
 });
+test("他做的那套能让他自己发：他的口吻、他的朋友圈、挂同一张卡", () => {
+  const zy = R("js/zhaoying.js");
+  assert.match(zy, /"data-wk": "zycharmoments"/);
+  assert.match(app, /onCharToMoments: \(charId, z\) => \{[^\n]*genMoment\(c, \{ zy: z \}\)/);
+  assert.match(app, /const genMoment = async \(char, momOpts\) =>/);
+  assert.match(app, /\.\.\.\(_zyPost \? \{ zy: \{/);
+  assert.match(ts, /\["zycharmoments", /);
+});

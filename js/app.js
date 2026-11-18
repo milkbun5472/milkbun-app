@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.762";
+const APP_VERSION = "v89.763";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25334,7 +25334,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
   };
 
-  const genMoment = async char => {
+  const genMoment = async (char, momOpts) => {
+    // momOpts.zy：照影里他刚做完的那套（她 2026-11-18「角色的能不能也发朋友圈，或者选择让他自己发」）——这一条就发它，挂结果卡
+    const _zyPost = momOpts && momOpts.zy && momOpts.zy.title ? momOpts.zy : null;
     setGen(g => ({
       ...g,
       moment: true
@@ -25421,7 +25423,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _momBiSpec = _momBi ? ProbeZh.spec("这条朋友圈正文", "下面那些评论里，不是中文的那几条也各自给一份中译，填在那条评论自己的 zh 里。") : "";
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
         voice: true,
-        instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + _momAxes + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。那些相处每句都带着时间：这条是现在发的，隔了一夜、半天的事是那时候的事，回头提一句可以，今天别的事也一样能发。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的评论（0-6 条，多少看这一条本身招不招人说话、你这个人人缘怎么样，每条都不一样，冷清的一条没有、热闹的能有五六条），和点了赞的人（likers，0-8 个名字：刷到了、顺手点个赞的人；评论的人也可以点赞，只点赞不说话的也算）。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat + _momBiSpec,
+        instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + (_zyPost ? "\n\n【这一条发的是什么】你刚做完一套照影小测「" + _zyPost.testName + "」，测出来是「" + _zyPost.title + "」" + (_zyPost.line && _zyPost.line !== _zyPost.title ? "（" + _zyPost.line + "）" : "") + "。这条朋友圈会挂着这张结果卡，你写的是配在卡上面的那几句——你自己对这个结果怎么看，照你平时发朋友圈的样子。\n" : _momAxes) + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。那些相处每句都带着时间：这条是现在发的，隔了一夜、半天的事是那时候的事，回头提一句可以，今天别的事也一样能发。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的评论（0-6 条，多少看这一条本身招不招人说话、你这个人人缘怎么样，每条都不一样，冷清的一条没有、热闹的能有五六条），和点了赞的人（likers，0-8 个名字：刷到了、顺手点个赞的人；评论的人也可以点赞，只点赞不说话的也算）。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat + _momBiSpec,
         schemaHint: _momImgOpen
           ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ProbeZh.field("zh", "这条评论") : "") + "}],\"likers\":[\"点赞的人名\"]" + (_momBi ? ProbeZh.field("zh", "正文") : "") + _momPinSpec + "}"
           : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ProbeZh.field("zh", "这条评论") : "") + "}],\"likers\":[\"点赞的人名\"]" + (_momBi ? ProbeZh.field("zh", "正文") : "") + _momPinSpec + "}"
@@ -25439,6 +25441,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         characterId: char.id,
         content,
         image: newMomImage,
+        ...(_zyPost ? { zy: { testName: String(_zyPost.testName || "").slice(0, 40), title: String(_zyPost.title).slice(0, 40), line: String(_zyPost.line || "").slice(0, 120), who: "我" } } : {}),
         ...(newMomImage && newMomWho ? { imageWho: newMomWho } : {}),
         // 模型随这一轮给回来的中译（没开/没给就不存这一格，气泡那颗「译」照旧能现翻）
         ...(_momBi && ProbeZh.take(d.zh) ? { zh: ProbeZh.take(d.zh) } : {}),
@@ -37389,6 +37392,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 转发结果：她转过去的，算她发的；他从聊天记录里看得到
     // 结果发朋友圈：带一张结果卡，正文里也写清测的是什么，角色刷到时看得懂
     // 发朋友圈（她 2026-11-18「照影发朋友圈能不能做成卡片」）：不直接发，像分享歌那样先打开「发朋友圈」，卡挂在底下，话她自己写
+    // 让他自己发（她 2026-11-18）：他做的那套，以他的口吻发进他自己的朋友圈，挂同一张结果卡
+    onCharToMoments: (charId, z) => { const c = characters.find(x => x.id === charId); if (!c || !z || !z.title) return; toast(c.name + " 在写朋友圈…"); genMoment(c, { zy: z }); },
     onToMoments: z => { if (!z || !z.title) return; setMomZyDraft(z); setMsgTab("moments"); setScreen("messages"); },
     onShare: (c, z) => { if (!c) return; pChat(c.id, p => [...p, { role: "user", kind: "zyshare", content: "〔转来一张照影结果〕" + z.who + " 做「" + z.testName + "」测出「" + z.title + "」" + (z.line && z.line !== z.title ? "：" + z.line : ""), ts: Date.now(), zy: z }]); openChatById(c.id); }
   });else if (screen === "astro") body = h(window.AstroApp, {
