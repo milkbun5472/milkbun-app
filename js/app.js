@@ -6958,7 +6958,45 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) { toast("没拆开：" + (e.message || "重试")); }
     finally { setGen(g => ({ ...g, bdayPlan: null })); }
   };
-  const ctxFor = (char, ctxOpts) => ({
+  // 日记当补充记忆（她 2026-11-18 选 A）：聊天那一轮，照「她点名的日子」和「召回那几条记忆的日期」带上他那天日记里的一段。
+  //   日子从这两处来、不靠关键词去撞，两天都说到同一样东西时也不会认错；最多两天，每段标清是几号写的
+  const diaryRecallFor = (char, memRows, focus) => {
+    try {
+      const list = ((diariesRef.current || {})[char.id] || []).filter(e => e && e.ts && Array.isArray(e.paras) && e.paras.length);
+      if (!list.length || typeof diarySameDay !== "function") return "";
+      const now = Date.now(), DAY = 86400000, days = [];
+      const add = (ts, why) => { if (!ts || days.some(d => diarySameDay(d.ts, ts))) return; days.push({ ts, why }); };
+      const f = String(focus || "");
+      // ① 她点名的日子
+      const rel = { "大前天": 3, "前天": 2, "昨天": 1, "昨晚": 1 };
+      Object.keys(rel).forEach(k => { if (f.indexOf(k) >= 0) add(now - rel[k] * DAY, "她说的「" + k + "」"); });
+      { const m = /(\d{1,2})\s*天前/.exec(f); if (m) add(now - Number(m[1]) * DAY, "她说的「" + m[0] + "」"); }
+      { const re = /(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]/g; let m; while ((m = re.exec(f))) { const d = new Date(now); d.setMonth(Number(m[1]) - 1, Number(m[2])); if (d.getTime() > now) d.setFullYear(d.getFullYear() - 1); add(d.getTime(), "她说的「" + m[0] + "」"); } }
+      // ② 这一轮召回的记忆是哪天记下的
+      (Array.isArray(memRows) ? memRows : []).forEach(e => { if (e && e.ts && now - e.ts > DAY / 2) add(e.ts, "召回的记忆那天"); });
+      const out = [];
+      days.forEach(d => {
+        if (out.length >= 2) return;
+        const en = list.find(e => diarySameDay(e.ts, d.ts));
+        if (!en) return;
+        const txt = en.paras.filter(p => p && !p.secret).map(p => String(p.text || "").trim()).filter(Boolean).join(" ").replace(/\s+/g, " ").slice(0, 320);
+        if (!txt) return;
+        const dt = new Date(en.ts);
+        out.push("· " + (dt.getMonth() + 1) + "月" + dt.getDate() + "日的日记" + (en.mood ? "（那天心情：" + en.mood + "）" : "") + "：" + txt);
+      });
+      return out.length ? "\n【你自己日记里写过的·那几天】这是你当时在自己日记里对那天的看法，你记得自己写过。事实以记忆库和聊天记录为准，日记里写的跟它们对不上时以它们为准；"
+        + (out.length > 1 ? "这几天分开看，别揉成一天，对不上是哪一天就照你记得的说或者问她；" : "") + "想提就提，不想提就当心里有数：\n" + out.join("\n") : "";
+    } catch (e) { return ""; }
+  };
+  const ctxFor = (char, ctxOpts) => {
+    const c = ctxFor0(char, ctxOpts);
+    if (ctxOpts && ctxOpts.chat === true && !ctxOpts.noMemory) {
+      const L = (chatsRef.current[char.id] || []).filter(m => m && m.role === "user" && !m.recalled && !isOocMsg(m));
+      c.diaryRecall = diaryRecallFor(char, c.memLib, L.length ? String(L[L.length - 1].content || "") : "");
+    }
+    return c;
+  };
+  const ctxFor0 = (char, ctxOpts) => ({
     char,
     chars: characters,
     // 拉黑／刚解除（句子只写在 blockLineFor 一处）。走 buildBundle 就等于
