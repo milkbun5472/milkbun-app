@@ -1620,6 +1620,14 @@
       ? h("div", { "data-wk": "wklycoverhero", style: { position: "relative", margin: "0 -22px 22px" } },
           // 封面照上已经排好了刊名、头条和看点（PosterLayout），这里不再叠一层网页字——叠了就是两份头条重影（她 2026-10-14）
           h(WeeklyPhoto, { imgKey: props.photo, alt: "本期封面" }),
+          // 保存、重画（她 2026-11-18「搞个保存和重画」）：挨着图放，原来「重拍封面」在图底下一大段字后面，看不见
+          h("div", { "data-wk": "wklycoveracts", className: "flex", style: { gap: 10, padding: "10px 22px 0" } },
+            h("button", { "data-wk": "wklycoversave", className: "active:opacity-60", onClick: function () {
+                if (!window.saveImgOriginal) { if (window.__toast) window.__toast("这台设备存不了图"); return; }
+                window.saveImgOriginal(props.photo, "周刊封面").then(function (ok) { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); });
+              }, style: { flex: 1, padding: "9px 0", border: "1px solid currentColor", background: "transparent", color: L.tint, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "保存到手机"),
+            props.onShoot ? h("button", { "data-wk": "wklycoverredraw", className: "active:opacity-60", disabled: !!props.shooting, onClick: props.shooting ? null : props.onShoot,
+              style: { flex: 1, padding: "9px 0", border: "1px solid currentColor", background: "transparent", color: L.tint, opacity: props.shooting ? .55 : 1, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, props.shooting ? "重画中…" : "重画") : null),
           // 封面上的头条按标点截过，完整那句排在照片底下
           h("div", { style: { padding: "16px 22px 0" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".08em", color: L.tint, marginBottom: 8 } }, "头条 · 01"),
@@ -1630,7 +1638,7 @@
     return h("div", { "data-wk": "wklycoversection" },
       props.photo ? headBlock : null,
       h("div", { className: "flex items-center justify-between", style: { gap: 10, marginBottom: 14, color: L.tint } },
-        props.onShoot ? h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: props.photo ? "重拍封面" : "拍这期封面（本期受访的人上封面）" }) : h("span"),
+        props.onShoot && !props.photo ? h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: "拍这期封面（本期受访的人上封面）" }) : h("span"),
         h(RegenBtn, { busy: props.busy, onClick: props.onRegen })),
       props.photo ? null : headBlock,
       c.lead ? h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.95, color: L.ink, marginBottom: 20, whiteSpace: "pre-wrap", columnCount: c.lead.length > 230 || (props.photo && c.lead.length > 120) ? 2 : 1, columnGap: 22 } }, c.lead) : null,
