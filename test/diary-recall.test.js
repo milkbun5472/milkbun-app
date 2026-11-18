@@ -22,3 +22,7 @@ test("日记不再被推成从早写到晚：没有「从早到晚回顾」，�
   assert.ok(!eng.includes("从早到晚回顾今天发生的事"));
   assert.ok(eng.includes("【从哪儿写起】") && eng.includes("长在那件事旁边"));
 });
+test("日记先交「最先想起的那件事」再写正文", () => {
+  assert.ok(eng.includes('\\"first\\":\\"你坐下来翻开本子时最先想起的那件事'));
+  assert.ok(eng.indexOf('\\"first\\":') < eng.indexOf('\\"paras\\":[{\\"text\\":\\"这个角色实际会写下的正文'));
+});
