@@ -50,10 +50,10 @@
     }
   },
   "ranger": {
-    "bytes": 825177,
-    "sha256": "578fc7df9060b35cee8c62a03b2afdd83283b545b7dc885ab4f206c40d5436be",
+    "bytes": 825271,
+    "sha256": "e4a65c3cecee1912ce2c7a3ca852cd6995cb46515364077ce1895bd3dec25021",
     "sources": {
-      "wardrobe-fair-bind-ranger.json.gz": "15d10a2eb78c35582f41763c0708745e707b592887082658451b8f4b5f09b608"
+      "ranger-motion.json": "2db0d1b9d51150df86ab561151c966c590915723f770c7dc110c1e2e1fae811f"
     }
   },
   "garden": {

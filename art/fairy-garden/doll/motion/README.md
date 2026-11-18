@@ -67,6 +67,8 @@ PLAYWRIGHT_MODULE=/absolute/path/to/playwright COMPANION_TEST_URL=http://127.0.0
 `MOTION_PHONE_CONTACT=1` 核对全部12套三档体型的原生手面与真实屏幕触点，
 并以陪伴动作原时长、30fps验证三体型点屏轨迹和手势/道具收回。
 固定姿势距离上限.003，连续点屏峰值上限.006（模型单位）；不是整手机碰撞审计。
+`MOTION_COLLAR_STRAP=1` 检查背带裙领口和卫衣肩带：两套三体型、四姿态、四方向，
+含原问题位置像素断言和两套独立改色；肩带资产与绑定同步另见RANGER-BAG.md。
 另外跑实际页面的 `companion-all-actions-browser.cjs` 和 `town-appearance-browser.cjs`，
 确认产品入口、衣柜保存与角色隔离，不能只验证测试场景。
 
