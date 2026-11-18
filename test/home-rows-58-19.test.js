@@ -17,7 +17,7 @@ function makeHome(layout, folders) {
     grab("  function removeFromFolder(fid, key) {", "  function renameFolder(fid, name)")
   ].join("\n");
   const regSrc = grab("  const REG = {", "\n  };") + "\n  };";
-  const REG = new Function(regSrc.replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
+  const REG = new Function(regSrc.replace(/G: FG\("[^"]*", (?:\(\) => [^)]*|[^)]*)\)/g, "G: null").replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
   const st = { layout: JSON.parse(JSON.stringify(layout)), folders: JSON.parse(JSON.stringify(folders)), jumpedTo: undefined };
   const foldersRef = { current: st.folders };
   const api = new Function("REG", "loadJSON", "saveJSON", "foldersRef", "page", "setLayout", "persistFolders", "goPage",

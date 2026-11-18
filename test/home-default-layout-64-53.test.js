@@ -16,7 +16,7 @@ const FOLDERS = new Function(foldersSrc + "\nreturn DEFAULT_FOLDERS;")();
 const LAYOUT = new Function(layoutSrc + "\nreturn DEFAULT_LAYOUT;")();
 const REG = (() => {
   const i = comp.indexOf("  const REG = {"), j = comp.indexOf("\n  };", i);
-  return new Function(comp.slice(i, j).replace(/G:[^,}]+/g, "G: null") + "\n  };\nreturn REG;")();
+  return new Function(comp.slice(i, j).replace(/G: FG\("[^"]*", (?:\(\) => [^)]*|[^)]*)\)/g, "G: null").replace(/G:[^,}]+/g, "G: null") + "\n  };\nreturn REG;")();
 })();
 const flat = [].concat.apply([], LAYOUT);
 const placedFolders = flat.filter(k => String(k).slice(0, 2) === "f_");

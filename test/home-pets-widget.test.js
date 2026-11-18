@@ -2,7 +2,7 @@
 const assert = require("node:assert/strict");
 const comp = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
 assert.match(comp, /w_pets: \{ kind: "widget", which: "pets", tail: true \},/, "tail：安全网补到最后一页（空白页）");
-assert.match(comp, /"companion", "nest", "w_taday", "w_pets"\]\n  \];/, "新档默认排在最后一页最后面");
+assert.match(comp, /"w_taday", "w_pets"\]\n  \];/, "新档默认排在最后一页最后面");
 assert.match(comp, /else if \(it\.which === "pets"\) inner = h\(PetsWidget,/);
 assert.match(comp, /taday: "TA在干嘛", pets: "宠物" \};/);
 assert.match(comp, /w_wheel: "转盘", w_pets: "宠物" \};/, "移走了能从「＋ 装饰」放回来");

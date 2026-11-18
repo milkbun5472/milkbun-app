@@ -33,7 +33,7 @@ function regAppKeys() {
   const j = comp.indexOf("\n  };", i);
   assert.ok(i > 0 && j > i, "抠不出 REG");
   const src = comp.slice(i, j) + "\n  };";
-  const REG = new Function(src.replace(/G: FG\("\w+"[^}]*/g, "G: null ").replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
+  const REG = new Function(src.replace(/G: FG\("\w+"[^}]*/g, "G: null ").replace(/G: FG\("[^"]*", (?:\(\) => [^)]*|[^)]*)\)/g, "G: null").replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
   return Object.keys(REG).filter(k => REG[k].kind === "app");
 }
 

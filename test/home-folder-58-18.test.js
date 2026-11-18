@@ -22,7 +22,7 @@ function makeHome(layout, folders) {
   ].join("\n");
   // REG 每项都挂着图标组件，跑逻辑用不着
   const regSrc = grab("  const REG = {", "\n  };") + "\n  };";
-  const REG = new Function(regSrc.replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
+  const REG = new Function(regSrc.replace(/G: FG\("[^"]*", (?:\(\) => [^)]*|[^)]*)\)/g, "G: null").replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
   const st = { layout: JSON.parse(JSON.stringify(layout)), folders: JSON.parse(JSON.stringify(folders)), jumpedTo: undefined };
   const foldersRef = { current: st.folders };
   const api = new Function("REG", "loadJSON", "saveJSON", "foldersRef", "page", "setLayout", "persistFolders", "goPage", "widgetSizes",
@@ -122,7 +122,7 @@ test("REG 里每个 app 在整理之后都还找得到（安全网还在）", ()
   const L = api.buildLayout(st.layout);
   const R = reach(L, foldersRef);
   const regSrc = comp.slice(comp.indexOf("  const REG = {"), comp.indexOf("\n  };", comp.indexOf("  const REG = {")) + 4);
-  const REG = new Function(regSrc.replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
+  const REG = new Function(regSrc.replace(/G: FG\("[^"]*", (?:\(\) => [^)]*|[^)]*)\)/g, "G: null").replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
   const missing = Object.keys(REG).filter(k => REG[k].kind === "app" && !R.has(k));
   assert.deepEqual(missing, [], "这些 app 从主屏上消失了：" + missing.join("、"));
 });
