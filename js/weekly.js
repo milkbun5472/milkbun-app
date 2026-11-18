@@ -1462,6 +1462,21 @@
     if (!src) return h("div", { style: Object.assign({ background: "rgba(35,32,25,.08)", aspectRatio: "2 / 3" }, props.style || {}) });
     return h("img", { src: src, alt: props.alt || "", "data-wk": "wklyphoto", style: Object.assign({ display: "block", width: "100%", height: "auto" }, props.style || {}) });
   }
+  // 照片底下那两颗小图标：保存到手机、重画（她 2026-11-18：封面先有，「专访照也加上」）。封面、专访照共用这一份
+  function PhotoActs(props) {
+    const wk = props.wk;
+    return h("div", { "data-wk": wk + "acts", style: { display: "flex", gap: 14, alignItems: "center" } },
+      [[wk + "save", "保存到手机", "M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14", function () {
+          if (!window.saveImgOriginal) { if (window.__toast) window.__toast("这台设备存不了图"); return; }
+          window.saveImgOriginal(props.photo, props.saveName || "周刊").then(function (ok) { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); });
+        }],
+       props.onShoot ? [wk + "redraw", props.shooting ? "重画中" : "重画", "M19 12a7 7 0 1 1-2.05-4.95M19 4v4h-4", props.shooting ? null : props.onShoot] : null].filter(Boolean).map(function (b) {
+        return h("button", { key: b[0], "data-wk": b[0], "aria-label": b[1], title: b[1], onClick: b[3], disabled: !b[3], className: "active:opacity-60",
+          style: { display: "flex", alignItems: "center", gap: 4, padding: "4px 0", border: "none", background: "transparent", color: props.color, opacity: b[3] ? .8 : .4,
+            fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".06em" } },
+          h("svg", { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" }, h("path", { d: b[2] })), b[1]);
+      }));
+  }
   // 拍照那颗按钮：点了才拍、拍的时候转着
   function ShootBtn(props) {
     return h("button", { onClick: props.busy ? null : props.onClick, disabled: !!props.busy, className: "active:opacity-60", "data-wk": "wklyshoot",
@@ -1627,17 +1642,7 @@
             //   不压在照片上（会盖住排好的刊名、条码），收成「头条 · 01」同一行右边两颗小字图标
             h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".08em", color: L.tint } }, "头条 · 01"),
-              h("div", { "data-wk": "wklycoveracts", style: { display: "flex", gap: 14, alignItems: "center" } },
-              [["wklycoversave", "保存到手机", "M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14", function () {
-                  if (!window.saveImgOriginal) { if (window.__toast) window.__toast("这台设备存不了图"); return; }
-                  window.saveImgOriginal(props.photo, "周刊封面").then(function (ok) { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); });
-                }],
-               props.onShoot ? ["wklycoverredraw", props.shooting ? "重画中" : "重画", "M19 12a7 7 0 1 1-2.05-4.95M19 4v4h-4", props.shooting ? null : props.onShoot] : null].filter(Boolean).map(function (b) {
-                return h("button", { key: b[0], "data-wk": b[0], "aria-label": b[1], title: b[1], onClick: b[3], disabled: !b[3], className: "active:opacity-60",
-                  style: { display: "flex", alignItems: "center", gap: 4, padding: "4px 0", border: "none", background: "transparent", color: L.tint, opacity: b[3] ? .8 : .4,
-                    fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".06em" } },
-                  h("svg", { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" }, h("path", { d: b[2] })), b[1]);
-              }))),
+              h(PhotoActs, { photo: props.photo, saveName: "周刊封面", onShoot: props.onShoot, shooting: props.shooting, color: L.tint, wk: "wklycover" })),
             h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: "calc(25px * var(--app-fs, 1))", fontWeight: 600, lineHeight: 1.18, letterSpacing: "-.02em" } }, c.headline)))
       : h("div", { style: { margin: "0 -10px 22px", padding: "24px 18px 22px", background: L.tint, color: "#fffaf3" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".08em", opacity: .72, marginBottom: 15 } }, "头条 · 01"),
@@ -1690,7 +1695,8 @@
     return h("div", { style: { position: "relative" }, "data-wk": "wklyinterviewentry" },
       opener,
       h("div", { className: "flex items-center justify-between", style: { gap: 10, margin: "12px 0 0", color: L.tint } },
-        props.onShoot ? h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: e.photo ? "重拍专访照" : "拍一张专访照" }) : h("span"),
+        e.photo ? h(PhotoActs, { photo: e.photo, saveName: "专访 " + (e.charName || ""), onShoot: props.onShoot, shooting: props.shooting, color: L.tint, wk: "wklyiv" })
+          : props.onShoot ? h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: "拍一张专访照" }) : h("span"),
         h(RegenBtn, { busy: props.busy, onClick: props.onRegen })),
       bigQuote(pullTop, false),
       ivx.lead ? h("div", { "data-wk": "wklyivlead", style: { fontFamily: "'STKaiti','KaiTi',serif", fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.85, color: L.muted, margin: "0 0 24px", paddingBottom: 18, borderBottom: "7px solid " + L.tint } }, ivx.lead)
