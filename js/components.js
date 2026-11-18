@@ -9430,6 +9430,7 @@ function Messages({
   friendGroups,
   onSaveGroups,
   onPostMoment,
+  zyDraft, onZyDraftDone,
   tab: tabProp,
   onTab,
   onMomentsSeen,
@@ -9443,6 +9444,8 @@ function Messages({
   const tab = tabProp != null ? tabProp : tabInner;
   const setTab = onTab || setTabInner;
   const [composeOpen, setComposeOpen] = useState(false);
+  // 照影带过来的结果卡：一到就打开「发朋友圈」
+  useEffect(() => { if (zyDraft) setComposeOpen(true); }, [zyDraft]);
   const [momCam, setMomCam] = useState(false);   // 朋友圈顶栏那颗相机点开的菜单（她 2026-11-14「相机放顶栏，不会被滑走」）
   const [groupMgr, setGroupMgr] = useState(false);
   const [groupList, setGroupList] = useState(false);   // 通讯录里的「群聊」入口
@@ -9996,8 +9999,9 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
       : null), composeOpen && h(MomentCompose, {
     friendGroups,
     characters,
+    zy: zyDraft || null,
     onPost: onPostMoment,
-    onClose: () => setComposeOpen(false)
+    onClose: () => { setComposeOpen(false); if (zyDraft && onZyDraftDone) onZyDraftDone(); }
   }), groupList && h(PageSheet, { onClose: () => setGroupList(false), tall: true },
     h("div", { className: "px-1 pb-2" },
       h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
@@ -10241,6 +10245,7 @@ function NpcBrief({ npc, onSave, compact, defaultOpen }) {
               h("button", { onClick: e => { e.stopPropagation(); setDraft(null); }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "7px 8px" } }, "取消")))) : null);
 }
 function MomentCompose({
+  zy,
   friendGroups,
   characters,
   onPost,
@@ -10285,7 +10290,7 @@ function MomentCompose({
     const realPics = withImg ? pics.slice(0, 9) : [];
     const image = realPics[0] || (withImg && img.trim() && !String(img).startsWith("data:") ? img.trim() : null);
     const opts = withPoll ? pollOpts.map(x => x.trim()).filter(Boolean).slice(0, 4) : [];
-    if (!body && !image && !music) {
+    if (!body && !image && !music && !(zy && zy.title)) {
       onClose();
       return;
     }
@@ -10299,7 +10304,8 @@ function MomentCompose({
       poll: opts.length >= 2 ? { options: opts, votes: {} } : null,
       mask: mask || undefined,
       music: withMusic && music ? music : null,
-      location: withLoc && loc.trim() ? loc.trim().slice(0, 40) : null
+      location: withLoc && loc.trim() ? loc.trim().slice(0, 40) : null,
+      zy: zy && zy.title ? zy : null
     });
     onClose();
   };
@@ -10333,7 +10339,7 @@ function MomentCompose({
       background: "transparent",
       resize: "none"
     }
-  }), h("div", {
+  }), zy && zy.title ? h("div", { "data-wk": "momzydraft", style: { marginBottom: 10 } }, h(MomentZy, { zy })) : null, h("div", {
     className: "flex items-center gap-2 py-3",
     style: {
       borderTop: `1px solid ${t.line}`

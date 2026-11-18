@@ -750,7 +750,9 @@ function App() {
   const musicProvider = listen.musicProvider === "netease" || (!listen.musicProvider && neteaseApi) ? "netease" : "gd";
   const musicReady = musicProvider === "gd" || !!neteaseApi;
   // 朋友圈分享的那首歌（她 2026-11-14「朋友圈分享音乐」）：写给模型看的那半句，几处读朋友圈的都用这一份
-  const momMusicLine = m => (m && m.location ? "（定位：" + m.location + "）" : "") + (m && m.music && m.music.title ? "（分享了一首歌：《" + m.music.title + "》" + (m.music.artist ? " " + m.music.artist : "") + "）" : "");
+  const momMusicLine = m => (m && m.location ? "（定位：" + m.location + "）" : "") + (m && m.music && m.music.title ? "（分享了一首歌：《" + m.music.title + "》" + (m.music.artist ? " " + m.music.artist : "") + "）" : "")
+    // 挂着的照影结果卡（她 2026-11-18 改成先挂卡、话自己写，正文可能是空的）：卡上写的是什么也得让看的人知道
+    + (m && m.zy && m.zy.title ? "（挂了一张照影小测的结果卡：「" + m.zy.testName + "」" + (m.zy.who && m.zy.who !== "我" ? "，是给" + m.zy.who + "测的" : "") + "，结果「" + m.zy.title + "」" + (m.zy.line && m.zy.line !== m.zy.title ? "——" + m.zy.line : "") + "）" : "");
   const [neteaseCookie, setNeteaseCookie] = useState(""); // 可选：网易云账号 Cookie（MUSIC_U=…），填了能放 VIP
   // 跟「验证登录」用同一份补好前缀的 Cookie（群友 2026-11-07：验证显示已登录，「我的」里歌单却是空的——只粘了值，拉歌单时没补 MUSIC_U=）
   const musicRequest = (path, options) => MusicSource.request({ provider: musicProvider, base: neteaseApi, cookie: normCookie() || neteaseCookie }, path, options);
@@ -25760,6 +25762,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
   };
   // 我发一条朋友圈（可带图描述、可选可见范围）
+  const [momZyDraft, setMomZyDraft] = useState(null);   // 照影那边点了「发朋友圈」、还没发出去的那张结果卡
   const postUserMoment = async ({
     content,
     image,
@@ -35755,7 +35758,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     walletBalance: wallet,
     friendGroups: friendGroups,
     onSaveGroups: saveFriendGroups,
-    onPostMoment: postUserMoment
+    onPostMoment: postUserMoment,
+    zyDraft: momZyDraft, onZyDraftDone: () => setMomZyDraft(null)
   });else if (screen === "momprofile") body = h(MomentsProfile, {
     isMe: !!(momTarget && momTarget.isMe),
     character: momTarget && !momTarget.isMe ? characters.find(c => c.id === momTarget.id) : null,
@@ -37384,7 +37388,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBack: goHome,
     // 转发结果：她转过去的，算她发的；他从聊天记录里看得到
     // 结果发朋友圈：带一张结果卡，正文里也写清测的是什么，角色刷到时看得懂
-    onToMoments: z => { if (!z || !z.title) return; postUserMoment({ content: (z.who && z.who !== "我" ? "给" + z.who + "测了" : "测了") + "「" + z.testName + "」，" + (z.who && z.who !== "我" ? "测出来是" : "我是") + "「" + z.title + "」" + (z.line && z.line !== z.title ? "：" + z.line : ""), zy: z }); setMsgTab("moments"); setScreen("messages"); toast("发到朋友圈了"); },
+    // 发朋友圈（她 2026-11-18「照影发朋友圈能不能做成卡片」）：不直接发，像分享歌那样先打开「发朋友圈」，卡挂在底下，话她自己写
+    onToMoments: z => { if (!z || !z.title) return; setMomZyDraft(z); setMsgTab("moments"); setScreen("messages"); },
     onShare: (c, z) => { if (!c) return; pChat(c.id, p => [...p, { role: "user", kind: "zyshare", content: "〔转来一张照影结果〕" + z.who + " 做「" + z.testName + "」测出「" + z.title + "」" + (z.line && z.line !== z.title ? "：" + z.line : ""), ts: Date.now(), zy: z }]); openChatById(c.id); }
   });else if (screen === "astro") body = h(window.AstroApp, {
     characters: liveChars,
