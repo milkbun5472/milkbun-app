@@ -112,7 +112,7 @@ export function emotionPose(face,p){
   q.headNod=prone?-1.55*down:.5*down;break;}
  case 'phone':
   q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;q.leftHeadHold=q.headHold=e;
-  if(e){q.leftHeadPoint=[-.25,-1.85,1.1];q.headPoint=[.35,-1.4,1.7];}
+  if(e)q.elbowPole=[.4,-1,-.3];
   q.phone=e;q.phoneTap=(.5-.5*Math.cos(p*Math.PI*18))*beat(p,.2,.32,.66,.82);q.headNod=.12*e;break;
  case 'eat': {
   const bite=beat(p,.18,.38,.53,.73),chew=Math.sin(p*Math.PI*14)*beat(p,.43,.52,.72,.86);

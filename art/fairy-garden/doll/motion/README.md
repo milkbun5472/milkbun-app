@@ -81,6 +81,9 @@ PLAYWRIGHT_MODULE=/absolute/path/to/playwright COMPANION_TEST_URL=http://127.0.0
 `MOTION_PHONE_CONTACT=1` 核对全部12套三档体型的原生手面与真实屏幕触点，
 并以陪伴动作原时长、30fps验证三体型点屏轨迹和手势/道具收回。
 固定姿势距离上限.003，连续点屏峰值上限.006（模型单位）；不是整手机碰撞审计。
+手机握持目标由 `phoneHoldTarget` 根据两肩和真实臂长定位，不随头部比例变化；
+屏幕朝向小人，持握和点屏共用手机局部变换，退指沿屏幕法线。自拍保留原握点。
+检查同时验证屏幕朝向、原生手掌尺寸与骨长，并保存正斜侧实图；距离通过不等于手形自然。
 `MOTION_COLLAR_STRAP=1` 检查背带裙领口和卫衣肩带：两套三体型、四姿态、四方向，
 含原问题位置像素断言和两套独立改色；肩带资产与绑定同步另见RANGER-BAG.md。
 `MOTION_CARDIGAN_SEAM=1` 检查小兔毛衣三体型、站姿及左右举手/双弯肘四个中途帧，
@@ -95,3 +98,9 @@ PLAYWRIGHT_MODULE=/absolute/path/to/playwright COMPANION_TEST_URL=http://127.0.0
 `MOTION_THINKING=1` 检查全部服装的思考近图及真实骨段/手面长度；
 加 `MOTION_THINKING_TIMELINE=1 MOTION_OUTFITS=tee` 按注册时长逐帧检查三体型起势与收回。
 T恤新连续曲面的重建与原生坐姿下摆约束见 `../TEE-SHOULDERS.md`。
+
+拿手机时的袖管截面到袖口过渡使用 `blendSleeveCuffFrame`，由 `phoneCuffBlend` 随骨架时间混合启停，手机姿势插值刚体旋转与中心，再变换原径向向量。不能混合两套已旋转的顶点，否则弯肘会压扁手臂外面的衣料。手机原袖口终点必须精确一致，站姿与直举手逐点保留；`test/sleeve-roll.test.mjs` 验证半径/端点，真实四套三体型证据见公共复盘 phone-hands/arm-*。身体补厚试稿未采用。
+
+半举回归：`scripts/checks/avatar-half-raise-browser.cjs` 使用 `HALF_BEFORE` 指向保留的前版 traveler/emotion-pose/emotion-props/cloth-transport 四模块目录，`MOTION_EVIDENCE` 存图与逐帧比较。前版cloth模块为加载兼容需附加advancePhoneCuffBlend导出，旧变形函数保持原字节。对照要包括起手、半途弯肘、放下及手机后切换，不能用静态直举通过代替。
+
+卷袖弯肘使用 `rolled-sleeve.mjs`：整圈原前臂满权重卷边保形，按袖口所在的身体材料区域拟合，主袖继续 DQ 衔接；只收回离身体过远的袖腹，保原径向余量。手机动作随既有状态渐退本修正，保持手机原几何。站姿、直举和其他衣服不变。`avatar-rolled-sleeve-browser.cjs` 以 `HALF_BEFORE` 的 v89.782 四模块为基准，检查身体/保护姿势逐点不变及双弯肘/思考整圈卷边距离不变；站姿含呼吸，不能套弯肘刚性阈值。半举检查现在明确允许卷袖弯肘改变，不再把“与旧版相同”作为它的外观验收。

@@ -56,20 +56,37 @@ async function checkPhoneContact(page){
  const dimensions=[['base',{height:1,shoulder:.92,waist:1,flare:1,build:1,head:1}],['minimum',Object.fromEntries(catalog.dims.map(d=>[d.key,d.min]))],['maximum',Object.fromEntries(catalog.dims.map(d=>[d.key,d.max]))]];
  await page.evaluate(async()=>{
   QA.phoneDuration=(await import('../companion/motion.mjs')).DUR['emotion-phone'];
+  QA.phoneScreenTap=(await import('../fairy-garden/emotion-props.mjs')).PHONE_SCREEN_TAP;
   if(!Number.isFinite(QA.phoneDuration)||QA.phoneDuration<=0)throw Error('Missing registered phone duration');
   QA.measurePhoneContact=()=>{
-   const q=QA,c=q.doll.inspectMotion(),m=c.body,g=m.geometry,ids=g.index.array,R=c.dimensionCanonicalRest,screen=q.doll.root.getObjectByName('PhoneScreen'),target=screen.localToWorld(new q.T.Vector3(0,.02,0)),normal=new q.T.Vector3(0,0,1).transformDirection(screen.matrixWorld),v=new q.T.Vector3(),tri=new q.T.Triangle(),cache=new Map();
+   const q=QA,c=q.doll.inspectMotion(),m=c.body,g=m.geometry,ids=g.index.array,R=c.dimensionCanonicalRest,screen=q.doll.root.getObjectByName('PhoneScreen'),target=screen.localToWorld(new q.T.Vector3(...q.phoneScreenTap)),normal=new q.T.Vector3(0,0,1).transformDirection(screen.matrixWorld),v=new q.T.Vector3(),tri=new q.T.Triangle(),cache=new Map();
    if(q.doll.root.getObjectByName('CompanionHand-right-point')?.visible)throw Error('Phone replaced native hand');
    const u=m.userData.skinCoverageUniforms;if(!u||u.rightHand.value!==0||u.leftHand.value!==0)throw Error('Phone clipped native palm');
    function point(i){if(!cache.has(i))cache.set(i,m.localToWorld(m.getVertexPosition(i,new q.T.Vector3())));return cache.get(i)}
    let distance=Infinity,closest;
    for(let j=0;j<ids.length;j+=3){const is=[ids[j],ids[j+1],ids[j+2]];if(!is.every(i=>g.attributes.skinRightForearmInfluence.getX(i)>.9&&R[i*3+1]<.46))continue;tri.set(...is.map(point));tri.closestPointToPoint(target,v);const d=v.distanceTo(target);if(d<distance){distance=d;closest=v.clone();}}
-   return {distance,signedDepth:closest.clone().sub(target).dot(normal),target:target.toArray(),closest:closest.toArray(),nativeHands:true};
+   const towardHead=new q.T.Vector3(0,.85,0);c.body.localToWorld(towardHead);towardHead.sub(target).normalize();
+   const screenFacing=normal.dot(towardHead);if(screenFacing<.3)throw Error('Phone screen faces away from doll: '+screenFacing);
+   let handDiameterRatio=0,boneLengthError=0;
+   for(const side of ['left','right']){
+    const probes=[];for(let i=0;i<g.attributes.position.count;i++)if(g.attributes[side==='left'?'skinLeftForearmInfluence':'skinRightForearmInfluence'].getX(i)>.999&&R[i*3+1]<.435)probes.push(i);
+    const selected=probes.filter((_,i)=>i%20===0);if(selected.length<10)throw Error('Missing native hand probes');let restDiameter=0,posedDiameter=0;
+    for(let i=0;i<selected.length;i++)for(let j=0;j<i;j++){
+     const a=selected[i],b=selected[j];restDiameter=Math.max(restDiameter,new q.T.Vector3().fromArray(c.dimensionRest,a*3).distanceTo(new q.T.Vector3().fromArray(c.dimensionRest,b*3)));
+     posedDiameter=Math.max(posedDiameter,m.getVertexPosition(a,new q.T.Vector3()).distanceTo(m.getVertexPosition(b,new q.T.Vector3())));
+    }
+    const ratio=posedDiameter/restDiameter;handDiameterRatio=Math.max(handDiameterRatio,ratio);if(ratio>1.025||ratio<.975)throw Error('Phone changes native hand size: '+ratio);
+    const local=name=>m.worldToLocal(q.doll.root.getObjectByName(name).getWorldPosition(new q.T.Vector3())),S=local(side+'Arm'),E=local(side+'Forearm'),H=local(side==='left'?'Left_hand':'Right_hand'),fit=c.rigFit.find(f=>f.side===side);
+    const upper=new q.T.Vector3(...fit.shoulder).distanceTo(new q.T.Vector3(...fit.elbow)),lower=new q.T.Vector3(...fit.elbow).distanceTo(new q.T.Vector3(...fit.wrist));
+    boneLengthError=Math.max(boneLengthError,Math.abs(S.distanceTo(E)-upper),Math.abs(E.distanceTo(H)-lower));
+   }
+   if(boneLengthError>1e-6)throw Error('Phone changes arm length: '+boneLengthError);
+   return {distance,signedDepth:closest.clone().sub(target).dot(normal),target:target.toArray(),closest:closest.toArray(),nativeHands:true,screenFacing,handDiameterRatio,boneLengthError};
   };
  });
- for(const id of Object.keys(catalog.outfits))for(const [dimension,dims]of dimensions){
+ for(const id of Object.keys(catalog.outfits).filter(id=>!process.env.MOTION_OUTFITS||process.env.MOTION_OUTFITS.split(',').includes(id)))for(const [dimension,dims]of dimensions){
   const row=await page.evaluate(async({id,dims})=>{const q=QA;q.doll.setLook({outfit:id,dims});await q.doll.ready();for(let j=0;j<30;j++)q.doll.animate(q.time+=.1,{emotion:'phone',progress:.5});const c=q.doll.inspectMotion();if(!c.outfits.length||c.outfits.some(o=>o.userData.outfit!==id))throw Error('Wrong outfit '+id);q.renderer.render(q.scene,q.cam);return q.measurePhoneContact();},{id,dims});reports.push({id,dimension,...row});
-  if(dimension==='base'||id==='linen')await page.screenshot({path:path.join(OUT,id+'-'+dimension+'-phone.png')});console.log(id,dimension,row.distance);fs.writeFileSync(path.join(OUT,'contacts.json'),JSON.stringify(reports));
+  if(dimension==='base'||id==='linen')for(const [view,angle]of [['front',0],['oblique',.65],['side',Math.PI/2]]){await page.evaluate(angle=>{QA.doll.root.rotation.y=angle;QA.renderer.render(QA.scene,QA.cam)},angle);await page.screenshot({path:path.join(OUT,id+'-'+dimension+'-phone-'+view+'.png')});}await page.evaluate(()=>{QA.doll.root.rotation.y=0});console.log(id,dimension,row.distance);fs.writeFileSync(path.join(OUT,'contacts.json'),JSON.stringify(reports));
  }
  if(reports.some(r=>!Number.isFinite(r.distance)||r.distance>.003))throw Error('Native hand misses the phone surface');
  const frames=await page.evaluate(()=>Math.ceil(QA.phoneDuration*30));

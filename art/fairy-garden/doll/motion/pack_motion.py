@@ -62,6 +62,8 @@ def main():
     linen=args.output/'linen.bin.gz'
     if 'sleeveSectionGuides' not in unpack(linen.read_bytes())[0]['binding']:
         linen.write_bytes(attach(linen.read_bytes(),(args.output/'bamboo.bin.gz').read_bytes()))
+    from attach_linen_envelope import attach as attach_envelope
+    linen.write_bytes(attach_envelope(linen.read_bytes()))
     report['linen'].update(bytes=linen.stat().st_size,sha256=hashlib.sha256(linen.read_bytes()).hexdigest(),sectionGuides=True)
     (args.output/'manifest.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps({k:v['bytes'] for k,v in report.items()}))
 if __name__=='__main__':main()

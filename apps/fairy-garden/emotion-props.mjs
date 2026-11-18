@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {pointToolAt} from './reach-hand.mjs?v=fg-0df7f556a307b66b';
+import {pointToolAt} from './reach-hand.mjs?v=fg-a18a22cf5c6cefbf';
 
 const marker=(group,name,x=0)=>{const o=new T.Object3D();o.name=name;o.position.x=x;group.add(o);};
 function makeFlower(){
@@ -38,16 +38,30 @@ function makeSign(makeCanvas){
  const board=new T.Mesh(new T.PlaneGeometry(.26,.141),new T.MeshBasicMaterial({map,color:map?'#ffffff':'#fff8e8',side:T.DoubleSide}));
  board.position.set(0,.183,.011);board.name='SignPaper';board.userData.text='想你';sign.add(board);marker(sign,'SignGrip');return sign;
 }
-const PHONE_TILT=-Math.PI/3;
+const PHONE_HOLD_ROTATION=Object.freeze([.35,Math.PI,0]);
+const PHONE_GRIP_POINT=Object.freeze([.07,0,0]);
+export const PHONE_SCREEN_TAP=Object.freeze([-.035,0,0]);
 // Initial native-palm estimate; the rendered hand surface refines this target.
-export const PHONE_PALM_PAD=Object.freeze([.01,-.045,-.005]);
-export function phoneSurfaceTarget(model,leftWorld,tap=0,amount=1){
- const point=new T.Vector3(.035,.055,.009).multiplyScalar(amount).applyAxisAngle(new T.Vector3(1,0,0),PHONE_TILT).add(model.worldToLocal(leftWorld.clone()));point.y+=.018*(1-tap);return model.localToWorld(point);
+export const PHONE_PALM_PAD=Object.freeze([.005,-.025,-.025]);
+function phoneLocalPoint(point,tap,amount){
+ const turn=new T.Euler(...PHONE_HOLD_ROTATION);
+ return new T.Vector3(...point).sub(new T.Vector3(...PHONE_GRIP_POINT)).multiplyScalar(amount).applyEuler(turn)
+  .add(new T.Vector3(0,0,.018*(1-tap)*amount).applyEuler(turn));
 }
-// 手机摆放与右手按屏幕共用同一个局部变换。
+// Hold a phone in front of the chest using the actual arm span. Head size does
+// not move this contact target beyond the opposite arm's reach.
+export function phoneHoldTarget(model,leftShoulder,rightShoulder,elbow,hand){
+ const left=model.worldToLocal(leftShoulder.clone()),right=model.worldToLocal(rightShoulder.clone()),E=model.worldToLocal(elbow.clone()),H=model.worldToLocal(hand.clone());
+ const span=left.distanceTo(E)+E.distanceTo(H),center=left.clone().lerp(right,.5);
+ return model.localToWorld(center.add(new T.Vector3(-.22*span,-.36*span,.62*span)));
+}
+export function phoneSurfaceTarget(model,leftWorld,tap=0,amount=1){
+ return model.localToWorld(phoneLocalPoint([0,.035,.009],tap,amount).add(model.worldToLocal(leftWorld.clone())));
+}
+// Holding and tapping use the same grip, screen orientation and retreat normal.
 export function phoneTapTarget(model,leftWorld,tap=0,amount=1,handScale=1){
- const point=new T.Vector3(.035,.055,.019).multiplyScalar(amount).applyAxisAngle(new T.Vector3(1,0,0),PHONE_TILT).add(model.worldToLocal(leftWorld.clone()));
- point.sub(new T.Vector3(...PHONE_PALM_PAD).multiplyScalar(handScale));point.y+=.018*(1-tap);return model.localToWorld(point);
+ const point=phoneLocalPoint([0,.035,.019],tap,amount).add(model.worldToLocal(leftWorld.clone()));
+ point.sub(new T.Vector3(...PHONE_PALM_PAD).multiplyScalar(handScale));return model.localToWorld(point);
 }
 function makePhone(makeCanvas){
  const g=new T.Group();g.name='CompanionPhone';
@@ -94,7 +108,12 @@ export function makeEmotionProps(model,handPoint,{makeCanvas=()=>globalThis.docu
    }else{
     pointToolAt(prop,model,handPoint(kind==='phone'&&!pose?.selfie?'left':'right'),null,.2);prop.scale.setScalar(amount);
     prop.rotation.z=kind==='flower'?-.12:(pose.signSway||0);
-    if(kind==='phone'){prop.rotation.x=pose.selfie?-.2:PHONE_TILT;prop.rotation.y=pose.selfie?Math.PI:0;prop.getObjectByName('SelfieFlash').visible=(pose.selfieFlash||0)>.1;}
+    if(kind==='phone'){
+     const grip=prop.getObjectByName('PhoneGrip');
+     if(pose.selfie){prop.rotation.set(-.2,Math.PI,0);grip.position.set(0,0,0);}
+     else{prop.rotation.set(...PHONE_HOLD_ROTATION);grip.position.set(...PHONE_GRIP_POINT);prop.position.sub(grip.position.clone().multiplyScalar(amount).applyQuaternion(prop.quaternion));}
+     prop.getObjectByName('SelfieFlash').visible=(pose.selfieFlash||0)>.1;
+    }
     if(kind==='umbrella'){prop.rotation.z=.15;const open=Number.isFinite(pose.umbrellaOpen)?pose.umbrellaOpen:1;for(const part of prop.children)if(['UmbrellaCanopy','UmbrellaRib'].includes(part.name)){const stretch=1+2.2*(1-open);part.scale.set(.09+.91*open,stretch,.09+.91*open);part.position.y=.67*(1-stretch);}}
     if(kind==='cookie'){prop.getObjectByName('WholeCookie').visible=(pose.bite||0)<.5;prop.getObjectByName('BittenCookie').visible=(pose.bite||0)>=.5;}
    }

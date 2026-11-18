@@ -8,13 +8,14 @@ test('手势使用连续圆手套，随握点和肤色变化，比心保留原�
   const root=new T.Group(),model=new T.Group();root.add(model);root.rotation.y=yaw;root.scale.setScalar(scale);
   const hands={left:new T.Object3D(),right:new T.Object3D()};for(const [side,hand]of Object.entries(hands)){model.add(hand);hand.position.set(side==='left'?-.08:.08,.65,.2);}
   const props=makeEmotionHands(model,side=>hands[side].getWorldPosition(new T.Vector3()));
-  for(const kind of ['thumb','poke','pinch','phone','peace']){
+  for(const kind of ['thumb','poke','pinch','peace']){
    props.update({[kind]:1,pinchTap:.5},{skin:'#c09a7d'});const groups=[];model.traverseVisible(o=>{if(o.name.startsWith('CompanionHand-'))groups.push(o);});assert.equal(groups.length,1);
    const group=groups[0],palm=group.getObjectByName('GesturePalm');assert.ok(group.getWorldPosition(new T.Vector3()).distanceTo(hands.right.getWorldPosition(new T.Vector3()))<1e-8);
    assert.equal(palm.material.color.getHexString(),'c09a7d');palm.geometry.computeBoundingBox();const size=palm.geometry.boundingBox.getSize(new T.Vector3());assert.ok(size.z>.06,'rounded depth');assert.ok(size.x>.075,'mitten palm');assert.ok(size.y<.15,'short silhouette');
    group.traverse(o=>assert.notEqual(o.geometry?.type,'TubeGeometry'));
    if(kind==='pinch'){assert.equal(palm.morphTargetInfluences[0],.75);assert.ok(palm.geometry.morphAttributes.position[0].array.some(v=>v<-.01));}
   }
+  props.update({phone:1});model.traverse(o=>{if(o.name.startsWith('CompanionHand-'))assert.equal(o.visible,false);});
   props.update({heart:1});assert.ok(model.getObjectByName('CompanionHeart').visible);model.traverse(o=>{if(o.name.startsWith('CompanionHand-'))assert.equal(o.visible,false);});
   props.update(null);assert.equal(model.getObjectByName('CompanionHeart').visible,false);model.traverse(o=>{if(o.name.startsWith('CompanionHand-'))assert.equal(o.visible,false);});
  }

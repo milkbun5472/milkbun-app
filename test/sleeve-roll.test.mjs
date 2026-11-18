@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {registerHooks} from 'node:module';
 registerHooks({resolve(s,c,next){return s==='three'?{url:new URL('../apps/fairy-garden/vendor/three.module.js',import.meta.url).href,shortCircuit:true}:next(s,c);}});
 const T=await import('three');
-const {sleeveRotation}=await import('../apps/fairy-garden/avatar-motion/cloth-transport.mjs');
+const {sleeveRotation,blendSleeveCuffFrame,advancePhoneCuffBlend}=await import('../apps/fairy-garden/avatar-motion/cloth-transport.mjs');
 const {clothRotationReferences,createClothTransportKernel}=await import('../apps/fairy-garden/avatar-motion/cloth-transport-kernel.mjs');
 
 test('sleeve stripes keep arm roll even when the sleeve axis does not change',()=>{
@@ -48,4 +48,28 @@ test('bent sleeve follows the sampled arm axis continuously through raised and i
   if(previous)assert.ok(point.distanceTo(previous)<.03,'circumferential seam must not flip');
   previous=point;
  }
+});
+
+
+test('cuff transition keeps an arm-sized section round through large bends',()=>{
+ const restCenter=new T.Vector3(.1,.2,-.03),startCenter=new T.Vector3(.2,.4,.1),start=new T.Quaternion();
+ for(const angle of [.5,Math.PI/2,2.2])for(const amount of [0,.25,.5,.75,1]){
+  const end=new T.Quaternion().setFromAxisAngle(new T.Vector3(0,1,0),angle),matrix=new T.Matrix4().compose(new T.Vector3(.08,-.02,.1),end,new T.Vector3(1,1,1));
+  const center=startCenter.clone(),rotation=start.clone();
+  blendSleeveCuffFrame(restCenter,center,rotation,matrix,end,amount,new T.Vector3());
+  for(let j=0;j<32;j++){
+   const radius=new T.Vector3(Math.cos(j*Math.PI/16)*.04,0,Math.sin(j*Math.PI/16)*.04),point=radius.clone().applyQuaternion(rotation).add(center);
+   assert.ok(Math.abs(point.distanceTo(center)-.04)<1e-12,'rotation blending must preserve sleeve radius');
+   if(amount===0)assert.ok(point.distanceTo(radius.clone().add(startCenter))<1e-12);
+   if(amount===1)assert.ok(point.distanceTo(radius.clone().add(restCenter).applyMatrix4(matrix))<1e-12,'cuff endpoint must stay on its authored forearm transform');
+  }
+ }
+});
+
+
+test('phone cuff correction stays off for half raises and fades out with the bones',()=>{
+ for(const phone of [undefined,0])assert.equal(advancePhoneCuffBlend(0,phone,.4),0);
+ let amount=0;for(let i=0;i<40;i++)amount=advancePhoneCuffBlend(amount,1,.4);assert.equal(amount,1);
+ const first=advancePhoneCuffBlend(amount,0,.4);assert.equal(first,.6);
+ amount=first;for(let i=0;i<40;i++){const next=advancePhoneCuffBlend(amount,undefined,.4);assert.ok(next<=amount);assert.ok(next>=0);amount=next;}assert.equal(amount,0);
 });
