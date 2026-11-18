@@ -16444,10 +16444,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 只有【实时私聊窗口】仍归互通群：封闭群那边有自己的 preJoin（入群前私聊）当这一档，
       // 两者不叠加，否则同一段私聊会进两遍。
       {
-        if (typeof primeQueryVec === "function") await primeQueryVec(hist); // 向量记忆预热（失败自动纯关键词）
         // 记忆按在场成员的可见交集分流（v53.61）：全员都知道的进公共段，
         // 只有部分成员知道的（比如 A 私下说了自己受伤、没告诉别人）只落进那几个人各自的私密段。
-        const gSplit = groupMemSplit(groupId, members.map(c => c.id), hist, { limit: memCfgRef.current.topK || 5 });
+        // 召回拿什么去翻（她 2026-11-18「群聊 npc 还是找不回记忆，记忆库里面有写这个的」）：
+        //   原来拿的是【整段群聊历史】，几十条消息里的词全算数，她刚问的那件事被冲得没影；名额又是全群合用一份 topK，人一多每人分一两条。
+        //   改成跟单聊同一把尺子：最近 8 条＋她最新那一句加重；名额每多一个人加 2 条，最多翻倍。
+        const _gTopK = memCfgRef.current.topK || 5;
+        const _gRecall = _graw.filter(m => m && m.content && !m.recalled).slice(-8).map(m => String(m.content)).join("\n");
+        const _gFocus = (() => { const L = _graw.filter(m => m && m.role === "user" && !m.recalled && m.content); return L.length ? String(L[L.length - 1].content) : ""; })();
+        if (typeof primeQueryVec === "function") await primeQueryVec(_gRecall || hist); // 向量记忆预热（失败自动纯关键词），跟下面检索用同一段字
+        const gSplit = groupMemSplit(groupId, members.map(c => c.id), _gRecall || hist, { limit: Math.min(_gTopK * 2, _gTopK + 2 * Math.max(0, members.length - 1)), focusText: _gFocus });
         const memLines = members.map(c => {
           const seg = memberPrivateContextFor(c, gSplit, { interop: gs.memoryInterop, privateCtxN: gs.privateCtxN, spectate: !imInGroup(group) || !!gs.spectate, groupId: group.id, parallel: _gPar });
           return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
