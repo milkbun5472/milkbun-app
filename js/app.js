@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.747";
+const APP_VERSION = "v89.751";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -22964,10 +22964,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     : "");
   // 群文字与多人通话共用私有背景；实时窗口的开关同时约束线上与线下近况。
   const memberPrivateContextFor = (c, split, opts) => {
-    if (!c || c.npc) return "";
+    if (!c) return "";
     if (opts && opts.parallel) return "";   // 平行房间（调用方按 groupParallel 递）：长期记忆、印象卡、私聊近况一样都不带
-    const mem = memories[c.id];
-    const gz = gazeFor(c.id);
+    // 配角也带「只有 TA 知道的」那份（她 2026-11-18「我买了几百万的军火给 npc，在群里他忘记了」）：原来这里一见配角就返回空，
+    //   记忆拆出来了、私聊也在，到群里一个字都没进。配角没有长期记忆、印象卡、前几次线下这几样，只带记忆库里他自己的和他跟她的近况
+    const npc = !!c.npc;
+    const mem = npc ? "" : memories[c.id];
+    const gz = npc ? "" : gazeFor(c.id);
     const onlyMine = formatMemLib((split.perChar || {})[String(c.id)] || []);
     // 私聊、单人线下、他在别的互通群里聊的，合成一条按真实先后排的时间线（她 2026-11-05「别的记忆互通的群聊也要按顺序喂进来」）：
     //   原来是三块各自成段，模型得自己对着时间戳拼先后。私聊照拉条取最近几条；线下和别的群照召回设置那根时间窗。
@@ -22977,7 +22980,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       budget: (memCfgRef.current.crossBudget || 800) * 2 + _pn * 220 }) : "";
     const offBeats = "";
     // 前几次线下跟实时私聊同一道闸：封闭群、私聊窗口关成 0 的不带
-    const pastOff = opts.interop && Number(opts.privateCtxN) > 0 ? (() => { try {
+    const pastOff = !npc && opts.interop && Number(opts.privateCtxN) > 0 ? (() => { try {
       // 最新那场还在「跨情境回看时间窗」里的，上面 offBeats 已经带着它，这里从再往前那场数起（跟单聊同一个算法）
       const list = offlinesRef.current[c.id] || loadJSON("x_offline:" + c.id, []);
       const newest = (list || []).find(x => x && (x.msgs || []).length > 0);
@@ -25629,7 +25632,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _moreCount = "这一轮写 " + Math.max(3, Math.min(8, _momPool + 1)) + " 条上下（名单上的人可以说不止一句，一来一回地接）";
       const moreAsk = "这条朋友圈下面又有人来说话了。可能开口的人：" + roster.concat(_threadPeople).join("、")
         + (author
-          ? "；也可以是「" + author.name + "」人设里写到过的人（同学、闺蜜、同事、家里人这类：人设里有名字就用那个名字，只写了「有个闺蜜」就给她起个像样的名字，跟上面出现过的同一个人前后一致；这种人在 JSON 里多填一格 \"who\"，写人设里提到他的那个身份词，比如「闺蜜」）。**人设里没提过的人一个都不许冒出来，没有路人、没有陌生网友。**"
+          ? "；也可以是「" + author.name + "」人设里写到过的人（同学、闺蜜、同事、家里人这类：人设里有名字就用那个名字，只写了「有个闺蜜」就给她起个像样的名字，跟上面出现过的同一个人前后一致；这种人在 JSON 里多填一格 \"who\"，写人设里提到他的那个身份词，比如「闺蜜」）。"
+          // 她 2026-11-18：人设里编出来的那些人回她的评论时，说得跟认识她一样。原来只说了他们是谁，没说认不认识她
+          + "人设里写到的这些人跟「" + momentMeName(mom) + "」不认识，除非人设里写了他们认识她：在他们眼里她就是来「" + author.name + "」朋友圈底下说话的一个人，他们知道的只有这条评论区里她说过的话，照这个跟她说话。"
+          + "**人设里没提过的人一个都不许冒出来，没有路人、没有陌生网友。**"
           : "。**只许是这几个人，不许出现名单外的任何人（没有路人、没有陌生网友）。**")
         + "每个人要么是对【这条朋友圈本身】说一句，要么是【回复上面某一条评论】（回复谁就把那人的名字填进 replyTo，必须是上面评论区里真出现过的名字）。"
         + _moreCount + "，各自符合人设与彼此的关系，短句、有具体内容，别重复上面已经说过的意思；既要有对这条朋友圈的新评论，也要有接着上面某条往下聊的。" + REAL_DISAGREE;
