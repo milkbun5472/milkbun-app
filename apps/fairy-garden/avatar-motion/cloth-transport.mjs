@@ -1,5 +1,5 @@
-import {createClothTransportKernel,clothRotationReferences} from './cloth-transport-kernel.mjs?v=fg-cb06542ccebc5e4d';
-import {fitRigid} from './rigid-fit.mjs?v=fg-cb06542ccebc5e4d';
+import {createClothTransportKernel,clothRotationReferences} from './cloth-transport-kernel.mjs?v=fg-0df7f556a307b66b';
+import {fitRigid} from './rigid-fit.mjs?v=fg-0df7f556a307b66b';
 // Transport a material direction with the arm, then align it to the body surface.
 // The reference contains axial roll that a direction-only reconstruction cannot recover.
 export function sleeveRotation(T,restAxis,posedAxis,reference){

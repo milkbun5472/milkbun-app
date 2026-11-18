@@ -1,9 +1,9 @@
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-cb06542ccebc5e4d';
-import {floorHeight} from '../../art/pet-house/cat-motion.mjs?v=fg-cb06542ccebc5e4d';
-import {clearActorSegment} from './actor-spacing.mjs?v=fg-cb06542ccebc5e4d';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-0df7f556a307b66b';
+import {floorHeight} from '../../art/pet-house/cat-motion.mjs?v=fg-0df7f556a307b66b';
+import {clearActorSegment} from './actor-spacing.mjs?v=fg-0df7f556a307b66b';
 // Authored furniture footprints in the existing room (Y-up world coordinates).
-import {roomBounds,roomPoint} from './room-layout.mjs?v=fg-cb06542ccebc5e4d';
-export {HOME_PLACES,PET_STATIONS,petHomePlaces} from './room-layout.mjs?v=fg-cb06542ccebc5e4d';
+import {roomBounds,roomPoint} from './room-layout.mjs?v=fg-0df7f556a307b66b';
+export {HOME_PLACES,PET_STATIONS,petHomePlaces} from './room-layout.mjs?v=fg-0df7f556a307b66b';
 
 const oldObstacles=[{x:1.52,z:-1.76,w:2.56,d:1.27},{x:-1.89,z:-1.64,w:1.28,d:.98},{x:-2.51,z:-.25,w:.88,d:.82},{x:2.36,z:1.12,w:.87,d:1.08},{x:-2.45,z:1.75,w:.9,d:.65}];
 const zones=['sofa','bed','tree','feeding','toys'];
