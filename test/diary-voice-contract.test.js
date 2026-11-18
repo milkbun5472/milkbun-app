@@ -6,15 +6,15 @@ const path = require("node:path");
 const engine = fs.readFileSync(path.join(__dirname, "../js/engine.js"), "utf8");
 
 test("日记以角色选择性记忆写作，不再逐条拼聊天摘要", () => {
-  assert.match(engine, /只挑【这个角色本人到睡前还会惦记的 1~3 个瞬间】写/);
-  assert.match(engine, /不要逐条复述，不追求覆盖完整/);
-  assert.match(engine, /不要站到自己外面解释/);
-  assert.match(engine, /严格保持这个角色自己的声纹/);
+  assert.match(engine, /这一天留在你心里的有几件就写几件/);
+  assert.match(engine, /其余的略过就是了/);
+  assert.match(engine, /不是站到外面解说自己/);
+  assert.match(engine, /声纹是这个角色自己的/);
   // v53.50:秘密不再是「0~2 个」的配额感表述，改为「0 个才是常态、至多 2 个」，
   // 并明令它不是文末升华句——Lisa 反馈每篇都在最后拿它拔高立意。
-  assert.match(engine, /全篇 0 个才是常态/);
+  assert.match(engine, /大多数日子全篇一个都没有/);
   assert.match(engine, /全篇至多 2 个/);
-  assert.match(engine, /它不是文末的升华句/);
+  assert.match(engine, /它是当天某件具体的事直接带出来的一句私话/);
   assert.doesNotMatch(engine, /全篇有 1~3 个这样的一句话 secret 段就够/);
 });
 
@@ -29,10 +29,10 @@ test("日记的标题、秘密、长短都不许塌缩成同一个模子", () =>
   assert.match(screens, /const dateStr = [^\n]*\(d\.getMonth\(\) \+ 1\) \+ "月" \+ d\.getDate\(\) \+ "日"/, "全文页不再自己写日期了？");
   assert.match(screens, /fontSize: "calc\(27px \* var\(--app-fs, 1\)\)", color: t\.ink[^}]*\}\s*\}, dateStr\)/, "日期没写在页首那一行");
   assert.match(screens, /title \? h\("div"/, "标题变成必填了？没标题的人该什么都不显示");
-  assert.match(engine, /两个字段都留空/, "不取标题的人应留空，由界面显示日期");
+  assert.match(engine, /不给日记取标题的人两个都留空/, "不取标题的人应留空，由界面显示日期");
   assert.doesNotMatch(engine, /可以只填日期\/编号/, "旧的日期当标题的省力路径必须已移除");
-  assert.match(engine, /禁止把它固定放在最后一段当收尾/);
-  assert.match(engine, /篇篇一样长本身就是假的/, "长短要由这一天决定");
+  assert.match(engine, /就放在那件事旁边/);
+  assert.match(engine, /所以篇篇不一样/, "长短要由这一天决定");
 });
 
 // 声纹仍被模板化(2026-08-18 Lisa):声纹块夹在 system 中段，压轴的却是真实性铁律
@@ -64,7 +64,7 @@ test("涂改段、贴纸段、真实位置与逐天补齐", () => {
   const screens = (fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8") + "\n" + fs.readFileSync(path.join(__dirname, "..", "js", "screens-ui.js"), "utf8"));
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   assert.match(engine, /【涂掉的那一句 \/ struck】/);
-  assert.match(engine, /它出现在事情中间，不是结尾/, "涂改句不能变成新的收尾套路");
+  assert.match(engine, /出现在事情中间/, "涂改句不能变成新的收尾套路");
   assert.match(engine, /【贴进来的东西 \/ pasted】/);
   assert.match(engine, /【此刻所在】/, "位置要跟随实时状态");
   // v58.41 起划掉不再是 CSS 下划线，是一道手画的墨杠（她要的笔触感）

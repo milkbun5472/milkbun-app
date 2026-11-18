@@ -37,7 +37,7 @@ test("角色认哪一张，就喂哪一张", () => {
 
 // ⚠️只在一处合成：ctxFor 是单聊线上/线下、通话、日记、查手机、穿书、匿名箱、解梦馆共用的口子
 test("接在 ctxFor 那一口上，八处一起有了", () => {
-  const i = app.indexOf("  const ctxFor = (char, ctxOpts) => ({");
+  const i = app.indexOf("  const ctxFor0 = (char, ctxOpts) => ({");
   const seg = app.slice(i, app.indexOf("\n  });", i));
   assert.match(seg, /profile: profileFor\(char\.id\),/, "ctxFor 还在喂主面具");
   assert.ok(!/\n    profile,\n/.test(seg), "旧的那一行还留着");

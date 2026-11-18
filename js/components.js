@@ -7405,7 +7405,9 @@ function Home({
       "f_def_check", "w_cal", "f_def_daily", "f_def_ties"],
     ["w_us", "w_weather", "memlib", "f_def_play", "f_def_ops", "yanqiu",
       "f_def_do", "anon", "f_def_naodong", "f_def_back", "w_ledger", "w_music"],
-    ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "sp_radio", "w_recent", "w_muyu", "w_wheel", "fairyGarden", "companion", "nest", "w_taday", "w_pets"]
+    // 小世界、陪伴、秋秋小窝挪到字条上面（她 2026-11-18「下面这三个移到字条上面，这样大家看得见」）：原来压在字条和两个大组件底下，新人翻到这页看不见。
+    //   只管第一次打开、还没存过桌面的人；存过的照旧是她们自己那一份
+    ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "sp_radio", "fairyGarden", "companion", "nest", "sp_apps3", "w_recent", "w_muyu", "w_wheel", "w_taday", "w_pets"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
   const SP_RE = /^sp_/;
@@ -8935,7 +8937,10 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
   const name = c.name || profile.name || "点此设置昵称";
   const sign = c.sign || "";
   const tags = (c.tags || []).filter(Boolean);
-  const accent = profile.color || t.cardTint || t.accent;
+  // ⚠️她 2026-11-17「公共版的名片还是橘色，家里是冰白」：资料页头像颜色默认就是旧赤陶色（AV_COLORS[0]），
+  //   点过一次保存就存进 profile.color，于是几乎人人名片都被它盖住、雾蓝出不来。等于出厂那一色的当没挑过。
+  const pickedColor = profile.color && String(profile.color).toLowerCase() !== String(AV_COLORS[0]).toLowerCase() ? profile.color : "";
+  const accent = pickedColor || t.cardTint || t.accent;
   const cover = c.cover ? (typeof resolveImg === "function" ? resolveImg(c.cover) : c.cover) : "";
   // ⚠️底图和暗角必须画在【卡本身】上（多层 background 叠着）：卡是网格里的一格，
   //   行比它高时会被拉满，画在里面那个 padding 盒子上就会空出没盖到的一块。
@@ -10141,6 +10146,17 @@ function MomentLoc({ place }) {
   const t = useTheme();
   return place ? h("div", { "data-wk": "moloc", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint || t.accent } }, "📍 " + place) : null;
 }
+// 朋友圈里的照影结果卡（群友 2026-11-17「像网易云那样」）：测的哪套、测出什么、一句话；点了去照影
+function MomentZy({ zy }) {
+  const t = useTheme();
+  if (!zy || !zy.title) return null;
+  return h("button", { "data-wk": "momzy", onClick: () => { try { window.__openZhaoying && window.__openZhaoying(); } catch (e) {} }, className: "w-full active:opacity-70 mt-2",
+    style: { display: "block", textAlign: "left", padding: "12px 14px", borderRadius: 12, background: "linear-gradient(135deg, " + (t.bg || "#f6f4ef") + ", " + (t.bg2 || "#fff") + ")", border: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".15em" } }, "照影 · " + (zy.who && zy.who !== "我" ? zy.who + " 做的" : "我做的")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 4 } }, "「" + zy.testName + "」"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, marginTop: 4, lineHeight: 1.3 } }, zy.title),
+    zy.line && zy.line !== zy.title ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.55 } }, zy.line) : null);
+}
 // 朋友圈里分享的那首歌：一张小卡，点「听」用 App 的播放器真的放（她 2026-11-14）
 function MomentMusic({ music }) {
   const t = useTheme();
@@ -10969,7 +10985,7 @@ function MomentsFeed({
     isMine && (m.seenBy || []).length ? (() => { const done = new Set([...(m.likers || []), ...(m.comments || []).map(cm => cm.author)]);
       const ns = m.seenBy.map(id => (characters || []).find(c => c.id === id)).filter(c => c && !done.has(c.name) && !done.has(c.remark));
       return ns.length ? h("div", { "data-wk": "moseen", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "👀 " + ns.map(c => c.remark || c.name).join("、") + " 看过，没吭声") : null; })() : null,
-    h(MomentRemindLine, { m, characters }), m.music && h(MomentMusic, { music: m.music }), m.poll && h(MomentPoll, { poll: m.poll, characters }), momLikers(m, profile).length > 0 && h("div", {
+    h(MomentRemindLine, { m, characters }), m.music && h(MomentMusic, { music: m.music }), m.zy && h(MomentZy, { zy: m.zy }), m.poll && h(MomentPoll, { poll: m.poll, characters }), momLikers(m, profile).length > 0 && h("div", {
       className: "flex items-center gap-1.5 mt-2",
       "data-wk": "molikers"
     }, h(IHeart, {
@@ -11215,6 +11231,7 @@ function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter
         onTop: onTopMoment && m.mine ? () => onTopMoment(m.id) : null, onDelete: onDelMoment ? () => setDelId(m.id) : null })),
     h(MomentRemindLine, { m, characters }),
     m.music ? h(MomentMusic, { music: m.music }) : null,
+    m.zy ? h(MomentZy, { zy: m.zy }) : null,
     m.poll ? h(MomentPoll, { poll: m.poll, characters }) : null,
     // 赞和评论收进同一个灰底框，跟微信一样：上面一行赞，一道细线，下面是评论（她 2026-11-15「回复做个框」）
     (momLikers(m, profile).length || (m.comments && m.comments.length)) ? h("div", { "data-wk": "mocomments", className: "mt-2.5 rounded-lg px-3 py-2", style: { background: wxGrey(t) } },

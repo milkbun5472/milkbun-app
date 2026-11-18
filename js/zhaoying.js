@@ -298,6 +298,9 @@
           run.done && run.mode === "me" && tt.bait ? h("div", { "data-wk": "zybait", style: { margin: "4px 0 12px", padding: "12px 14px", borderRadius: 12, border: "1.5px dashed " + ACC, background: "rgba(176,118,74,.06)", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: INK, lineHeight: 1.7, animation: "wkpop .35s ease-out both" } },
             h("div", { style: { fontSize: 11, letterSpacing: ".2em", color: ACC, marginBottom: 4 } }, "其实"), nameOf(tt.by) + " 出这套题，是想知道：" + tt.bait) : null,
           share,
+          // 发朋友圈（群友 2026-11-17「像网易云那样」）：自己做的、他做的都能发，朋友圈里是一张结果卡
+          run.done && props.onToMoments ? h("button", { "data-wk": "zytomoments", onClick: () => props.onToMoments({ testName: tt.name, title: run.res.title, line: run.res.line, who: run.mode === "me" ? "我" : nameOf(run.who) }), className: "w-full active:opacity-70",
+            style: { marginTop: 8, padding: "12px 0", borderRadius: 10, border: "1px solid " + INK, color: INK, fontFamily: F_DISPLAY } }, "发朋友圈") : null,
           // 做完发给谁看（她 2026-10-23「两个人互相发结果」）：任何一套都能发，附一句话；他也做过的话发过去就是你俩并排的对照
           run.done && run.mode === "me" && props.onSendMine && chars.length ? (function () {
             const to = sendTo && chars.some(c => c.id === sendTo) ? sendTo : (tt.by && chars.some(c => c.id === tt.by) ? tt.by : chars[0].id);

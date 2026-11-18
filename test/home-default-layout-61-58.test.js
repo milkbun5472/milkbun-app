@@ -17,7 +17,7 @@ const FOLDERS = grab("const DEFAULT_FOLDERS = {", "function Home({", "DEFAULT_FO
 const LAYOUT = grab("  const DEFAULT_LAYOUT = [", "  const SP_RE = /^sp_/;", "DEFAULT_LAYOUT");
 const REG = (() => {
   const i = comp.indexOf("  const REG = {"), j = comp.indexOf("\n  };", i);
-  return new Function(comp.slice(i, j).replace(/G:[^,}]+/g, "G: null") + "\n  };\nreturn REG;")();
+  return new Function(comp.slice(i, j).replace(/G: FG\("[^"]*", (?:\(\) => [^)]*|[^)]*)\)/g, "G: null").replace(/G:[^,}]+/g, "G: null") + "\n  };\nreturn REG;")();
 })();
 
 test("每一页都由组件领头，不是一面图标墙", () => {

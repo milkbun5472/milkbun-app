@@ -189,7 +189,7 @@ test("三格的摘要都跟着填进去的东西变，不是一句死话", () =>
     return ctx.f;
   };
   // 谁和谁
-  const cpCtx = { characters: [], props: { userName: "我" }, includeMe: false, isGroup: false, way: "",
+  const cpCtx = { rndCP: false, characters: [], props: { userName: "我" }, includeMe: false, isGroup: false, way: "",
     cpLabel: cc => cc.join(" × "), chosenCP: () => cpCtx.picked, twoRealChars: () => cpCtx.picked.length === 2, picked: [] };
   const cpSummary = run("cpSummary", "styleSummary", cpCtx);
   assert.equal(cpSummary(), "还没挑");

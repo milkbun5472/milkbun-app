@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.720";
+const APP_VERSION = "v89.743";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1820,6 +1820,7 @@ function App() {
   const [shikeFocus, setShikeFocus] = useState(null);
   // 离开时刻就忘掉这一次要翻到哪张——下次从主屏进来照常停在最新那张
   useEffect(() => { if (screen !== "shike" && shikeFocus) setShikeFocus(null); }, [screen]);
+  window.__openZhaoying = () => setScreen("zhaoying");   // 朋友圈里那张照影结果卡点了去照影
   window.__openShike = (charId, f) => { setShikeFocus(Object.assign({ charId: charId, at: Date.now() }, f || {})); setScreen("shike"); };
   // 预览台（v65.00）：她在主题工作台点「去这一页看看」→ 跳到【真页面】，屏幕上浮一条回程条。
   // ⚠️v62.02 删掉过一版 iframe 假预览，理由写在 theme-studio-ui.js 里：那一版跟真页面
@@ -4305,6 +4306,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     });
   };
   const currentlyTogetherWithChar = charId => {
+    // 单聊这一头也算（她 2026-11-17「躺一张床上他还觉得要发微信给我」）：原来只看群里的线下／正看着的群，
+    //   单聊开着「同处一室」、或者单人线下这会儿正演着，都没算进来，半夜「想你」照样隔着手机发一条
+    if (sameRoomFor(charId) || offlineTogetherNow(charId)) return true;
     if (!window.InteractionClock) return false;
     const go = {};
     (groups || []).filter(g => (g.memberIds || []).includes(charId)).forEach(g => {
@@ -5705,6 +5709,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       };
     } catch (e) { return null; }
   };
+  // 关系那条线开着「互相知道对方此刻在干嘛」的那几个人（群友 2026-11-17）：只带日程上此刻那一段，不带他们跟她聊了什么
+  const peersNowLine = char => {
+    try {
+      if (!char || typeof relSeeNowOn !== "function") return "";
+      const lines = (characters || []).filter(o => o && o.id !== char.id && !o.isGroup && relSeeNowOn(char.id, o.id)).map(o => {
+        const b = schedNowBriefFor(o);
+        const rel = (rels[char.id + "->" + o.id] || rels[o.id + "->" + char.id] || {}).label || "";
+        const nm = o.remark || o.name;
+        return "· " + nm + (rel ? "（" + String(rel).slice(0, 12) + "）" : "") + "：" + (b ? [b.time, b.title, b.location ? "在" + b.location : ""].filter(Boolean).join(" ") : "日程上这会儿没写着在干嘛");
+      });
+      return lines.length ? "\n【身边的人此刻在干嘛·日程上写着的】你知道的就这么多，具体在想什么、跟谁说了什么不知道：\n" + lines.join("\n") : "";
+    } catch (e) { return ""; }
+  };
   const schedNowBriefFor = char => {
     if (!char) return null;
     const plans = schedulesRef.current[char.id] || {};
@@ -6941,13 +6958,59 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) { toast("没拆开：" + (e.message || "重试")); }
     finally { setGen(g => ({ ...g, bdayPlan: null })); }
   };
-  const ctxFor = (char, ctxOpts) => ({
+  // 日记当补充记忆（她 2026-11-18 选 A）：聊天那一轮，照「她点名的日子」和「召回那几条记忆的日期」带上他那天日记里的一段。
+  //   日子从这两处来、不靠关键词去撞，两天都说到同一样东西时也不会认错；最多两天，每段标清是几号写的
+  const diaryRecallFor = (char, memRows, focus) => {
+    try {
+      const list = ((diariesRef.current || {})[char.id] || []).filter(e => e && e.ts && Array.isArray(e.paras) && e.paras.length);
+      if (!list.length || typeof diarySameDay !== "function") return "";
+      const now = Date.now(), DAY = 86400000, days = [];
+      const add = (ts, why) => { if (!ts || days.some(d => diarySameDay(d.ts, ts))) return; days.push({ ts, why }); };
+      const f = String(focus || "");
+      // ① 她点名的日子
+      const rel = { "大前天": 3, "前天": 2, "昨天": 1, "昨晚": 1 };
+      Object.keys(rel).forEach(k => { if (f.indexOf(k) >= 0) add(now - rel[k] * DAY, "她说的「" + k + "」"); });
+      { const m = /(\d{1,2})\s*天前/.exec(f); if (m) add(now - Number(m[1]) * DAY, "她说的「" + m[0] + "」"); }
+      // 星期几（她 2026-11-18「上周五、生日这种为啥认不出来」）：「上周五／上礼拜五」＝上一周那天；「这周三／周三」＝最近已经过去的那个
+      { const WD = { "一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "日": 0, "天": 0 }; const re = /(上上|上|这|本)?\s*个?\s*(?:周|礼拜|星期)([一二三四五六日天])/g; let m;
+        while ((m = re.exec(f))) { const t0 = new Date(now); t0.setHours(12, 0, 0, 0); const wd = t0.getDay(), mon = t0.getTime() - ((wd + 6) % 7) * DAY;
+          let ts = mon + ((WD[m[2]] + 6) % 7) * DAY; if (m[1] === "上") ts -= 7 * DAY; else if (m[1] === "上上") ts -= 14 * DAY; else if (ts > now) ts -= 7 * DAY; add(ts, "她说的「" + m[0] + "」"); } }
+      // 生日：「我生日」照她这张面具填的生日，「你生日」照他档案里的；取最近已经过去的那一次（公历、农历都认，跟生日提醒同一个 daysUntilBirthday）
+      if (typeof daysUntilBirthday === "function") [[/我(?:的)?生日/, ((profileFor(char.id) || {}).birthday)], [/你(?:的)?生日/, char.birthday]].forEach(([re, b]) => {
+        if (!b || !re.test(f)) return;
+        for (let k = 0; k <= 370; k++) { const d0 = new Date(now - k * DAY); try { if (daysUntilBirthday(b, d0) === 0) { add(d0.getTime(), "她说的「" + (f.match(re) || [""])[0] + "」"); break; } } catch (e) { break; } } });
+      { const re = /(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]/g; let m; while ((m = re.exec(f))) { const d = new Date(now); d.setMonth(Number(m[1]) - 1, Number(m[2])); if (d.getTime() > now) d.setFullYear(d.getFullYear() - 1); add(d.getTime(), "她说的「" + m[0] + "」"); } }
+      // ② 这一轮召回的记忆是哪天记下的
+      (Array.isArray(memRows) ? memRows : []).forEach(e => { if (e && e.ts && now - e.ts > DAY / 2) add(e.ts, "召回的记忆那天"); });
+      const out = [];
+      days.forEach(d => {
+        if (out.length >= 2) return;
+        const en = list.find(e => diarySameDay(e.ts, d.ts));
+        if (!en) return;
+        const txt = en.paras.filter(p => p && !p.secret).map(p => String(p.text || "").trim()).filter(Boolean).join(" ").replace(/\s+/g, " ").slice(0, 320);
+        if (!txt) return;
+        const dt = new Date(en.ts);
+        out.push("· " + (dt.getMonth() + 1) + "月" + dt.getDate() + "日的日记" + (en.mood ? "（那天心情：" + en.mood + "）" : "") + "：" + txt);
+      });
+      return out.length ? "\n【你自己日记里写过的·那几天】这是你当时在自己日记里对那天的看法，你记得自己写过。事实以记忆库和聊天记录为准，日记里写的跟它们对不上时以它们为准；"
+        + (out.length > 1 ? "这几天分开看，别揉成一天，对不上是哪一天就照你记得的说或者问她；" : "") + "想提就提，不想提就当心里有数：\n" + out.join("\n") : "";
+    } catch (e) { return ""; }
+  };
+  const ctxFor = (char, ctxOpts) => {
+    const c = ctxFor0(char, ctxOpts);
+    if (ctxOpts && ctxOpts.chat === true && !ctxOpts.noMemory) {
+      const L = (chatsRef.current[char.id] || []).filter(m => m && m.role === "user" && !m.recalled && !isOocMsg(m));
+      c.diaryRecall = diaryRecallFor(char, c.memLib, L.length ? String(L[L.length - 1].content || "") : "");
+    }
+    return c;
+  };
+  const ctxFor0 = (char, ctxOpts) => ({
     char,
     chars: characters,
     // 拉黑／刚解除（句子只写在 blockLineFor 一处）。走 buildBundle 就等于
     // 单聊线上、单人线下、通话、日记、查手机、穿书、匿名箱、解梦馆一起有了。
     blockLine: blockLineFor(char.id),
-    schedNow: timeAwareFor(char.id) ? schedNowFor(char) : "",
+    schedNow: timeAwareFor(char.id) ? schedNowFor(char) + peersNowLine(char) : "",
     // 「你俩此刻在一起」两个来源走同一个口子：线下场次正开着（旧）、同处一室开着（新）。
     // 真开着线下的时候不重复说一遍——那段自己已经把面对面讲清楚了。
     offlineNow: (sameRoomFor(char.id) && !offlineTogetherNow(char.id)
@@ -18220,7 +18283,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   ⚠️写失败不丢卡：卡已经落进 x_stamps，只是没写完（text:null），界面上点一下重写。
   const STAMP_SHOT_SPEC = "shot 是给画卡面的人看的分镜（中文，几句话）：pose＝这一刻身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪，要有动势，不是对着镜头站着坐着摆好；camera＝景别、机位高低、镜头远近，像乙游卡面那样人和场景一起讲这一刻，有前景、有纵深，景别别总是半身近照；"
     + "light＝主光从哪边来、是什么光、冷暖、有没有轮廓光、阴影落在哪；place＝在哪、身边两三样带着这一刻的东西；outfit＝穿什么；mood＝一两个词。"
+    // 镜头能组合的种类（她 2026-11-18「多一点种类可以组合」，不要程序分配）：每一栏挑一样、自己配，几栏搭起来就很少撞
+    + "镜头可以这样搭（每一栏挑一个，跟这一刻配，几栏组合起来，别总落在同一种）："
+    + "景别——远景（人和场景一起讲，人至少占画面三分之一）、全身、七分身、半身、近景；"
+    + "机位——平视、微微俯视、低机位微微仰拍（显身形）、四分之三侧脸、正侧面、侧后方他正回头、镜头微微倾斜、越过别人或东西的肩、隔着前景（门框、玻璃、枝叶、人群）看过去、拍镜子或玻璃里的他、从她的视线看他（他低头看过来、俯身凑近、把手伸向镜头）；"
+    + "人在画面哪儿——居中、偏左或偏右三分之一、斜对角、被门窗框起来、人在下半上面留一片天或景、前景虚着一层光斑或东西、背景虚化只有他清楚；"
+    + "身体——站着、走着、正停下、坐着、侧坐在窗台或台阶上、靠着、斜倚门框或墙、单手撑在桌沿或墙上、手插兜、托着腮、抬手理领口袖口或拨头发、低着头眼睛往上看、转身回头、伸手去够、弯腰俯身、整个人在动作中途；"
+    + "光——逆光带一圈轮廓光、傍晚斜进来的金色阳光、穿过窗或树的一道道光束、侧光、窗光、夜里一盏暖灯、手机或屏幕的冷光照在脸上、身后一串灯虚成光斑、阴天的软光、霓虹或彩色的光、火光、雪地或水面反上来的光。"
+    // 她 2026-11-18「也要考虑好不好看」：怎么搭都先要他好看
+    + "怎么搭都以好看为先：这是乙游卡面不是纪实照，他的脸要看得清、光要落在脸上，身形舒展、比例好看，衣服和头发有质感；会让脸看不清、人显矮显胖、表情难看的组合就别选。"
     + "画的是这张卡里真的发生的那一刻，不另编动作：你那时在干什么就画什么，构图跟着这个动作来，全身、半身、背影、俯拍仰拍都行；你那时没在看谁，就不看镜头。卡面是竖版的，上面只画你一个人。";
+  // 卡多了姿势会撞（她 2026-11-18）：把这个人最近几张的姿势、机位各摘一句给他看，这张换一个；不列该摆什么姿势
+  const stampRecentPoses = (charId, skip) => {
+    const ids = new Set([].concat(skip || [])), pick = (sh, k) => { const m = new RegExp(k + "\\s*[＝=：:]\\s*([^；;。\\n]+)", "i").exec(sh); return m ? m[1].trim().slice(0, 40) : ""; };
+    const rows = (StampsCoreSafe().cards || []).filter(x => x && x.charId === charId && !ids.has(x.id) && x.text && x.text.shot).slice(-10)
+      .map(x => { const sh = String(x.text.shot), a = [pick(sh, "pose"), pick(sh, "camera")].filter(Boolean).join("｜"); return a ? "- " + a : ""; }).filter(Boolean);
+    return rows.length ? "\n你最近几张卡面已经是这样的姿势和机位（每张一句）：\n" + rows.join("\n") + "\n这次的姿势、景别、机位都换一个，别跟上面撞。" : "";
+  };
   // 纪念日卡：判据不是清单——这一天对你们俩意味着什么，照这一年真实的关系写；往年同一个纪念日的卡带上，今年不重样
   const stampAnnivLine = (card, char) => {
     const past = (StampsCoreSafe().cards || []).filter(x => x.charId === char.id && x.kind === "anniv" && x.annivId === card.annivId && x.bdDay !== card.bdDay && x.text && !x.dupe)
@@ -18312,7 +18391,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   （她 2026-11-04：沈屿白万圣夜卡还是那件黑羽绒服，头上多了只蜘蛛）——写明是整套换、小配件不算数
   const stampLimFit = card => "这一张不穿平时的衣服：穿合「" + (card.theme || "") + "」这一期的那一身，一眼看得出是这一期。"
     + "是从外套、上衣到下装整套换成这一身，不是平时那身衣服上加一个头饰、一件小配件；参考照里他穿的那件外套和上衣这张都不出现。"
-    + (stampLim(card).themeLook ? stampLim(card).themeLook : "");
+    + (stampLim(card).themeLook ? stampLim(card).themeLook : "")
+    // 分镜里写了这张穿什么，就锁那一身（她 2026-11-17：深秋几张都画成同一身白T毛线帽——锁里只说「照这一期穿」，分镜那身又被删掉，图像端只能自己猜）
+    + (() => { const m = /(?:outfit|穿着|衣着|服装)\s*[＝=：:]\s*([^；;。\n]+)/i.exec(String((card.text || {}).shot || "")); return m && m[1].trim() ? "这一张穿的就是：" + m[1].trim().slice(0, 160) + "。" : ""; })();
   // 生日、她的生日、纪念日卡（她 2026-11-04「要为这一天准备的特别版」）：跟限时池同一格服装锁，图像端最认这一格；
   //   不锁的话画图那头会把人设里的常穿衣服当设定、照抄参考照那身。who＝锁的是谁（他／她：两个人那几张她也特意打扮）
   const STAMP_DAY_KINDS = { bday: "他的生日", mybday: "她的生日", anniv: "你们的纪念日" };
@@ -18375,7 +18456,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const char = characters.find(x => x.id === cid);
       if (!char) return;
       const small = byChar[cid].filter(c => c.rarity !== "SSR"), big = byChar[cid].filter(c => c.rarity === "SSR"), q = [];
-      for (let i = 0; i < small.length; i += 10) { const part = small.slice(i, i + 10); q.push(() => stampWriteSmall(char, part)); }
+      // 同一个人不同主题的卡分开写（她 2026-11-17）：一起重写时深秋、万圣夜、日常混在一次调用里，主题会互相串；同一个卡池抽出来的照旧并成一次
+      const themeKey = c => c.limited ? "lim:" + (c.limited.id || c.limited || c.theme || "") : c.kind === "if" ? "if:" + (c.theme || "") : (c.kind || "daily");
+      const groups = {}; small.forEach(c => { (groups[themeKey(c)] = groups[themeKey(c)] || []).push(c); });
+      Object.values(groups).forEach(g => { for (let i = 0; i < g.length; i += 10) { const part = g.slice(i, i + 10); q.push(() => stampWriteSmall(char, part)); } });
       big.forEach(c => q.push(() => stampWriteSSR(char, c)));
       queues.push(q);
     });
@@ -18427,7 +18511,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               return (kinds.length === 1 ? kinds[0] + "\n" + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity).join("；") + "。"
                 : kinds.map((t, k) => "【写法" + (k + 1) + "】" + t).join("\n") + "\n" + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity + "，照【写法" + (idx[i] + 1) + "】").join("；") + "。"); })()
           + "\n" + (list.some(c => c.rarity === "R") ? STAMP_RARITY_SPEC.R + "\n" : "") + (list.some(c => c.rarity === "SR") ? STAMP_RARITY_SPEC.SR + "\n" : "")
-          + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC
+          + "每张都有 name（卡名，八个字以内）、gist（一句话记下这张写的是什么事、怎么收的尾，给以后去重用）和 shot。" + STAMP_SHOT_SPEC + "这一次写的几张之间，pose 和 camera 也互相错开。" + stampRecentPoses(char.id, list.map(x => x.id))
           + stampPrevLine(prev, ser && ser.theme) + "\n这几张之间也是不同的事" + (ser ? "，但张张都在过「" + ser.theme + "」" : "") + "。"
           // 人称跟 SSR 剧情一样（她 2026-10-28：R 卡里写成了「你调完色，碰了碰她的下颌」）：卡是写给她读的
           + stampPov(char, "\n人称：卡上叙述的那几栏是写给她读的（每一栏还是照格式写成一段字），叙述里你是「他」、她是「你」，比如「他调完色，碰了碰你的下颌」；thought、real、hidden、line、back、his 是你自己心里或嘴上的话，用「我」。"),
@@ -18462,7 +18546,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "一节中间也可以停下来让她选一两次（beats 里放一个 who:\"pick\"，options 两三个：text 是她说的话或做的事，beats 是你接着的那几句）——选的不同你的反应就不同，几句之后回到这一节的主线；节尾的 choices 两三个。"
           + "往前走靠的是发生的事、你的做法和你们之间自然的对话；你说多少话照你平时的样子，心里的东西让她从你做的事里看出来。每节都有点什么变了，不必每节都有大事。"
           + "两条岔路走下去，后面发生的事、你的处理、她知道的东西、你们之间的样子，至少有一样真的不一样。" + ((StampsCoreSafe().opt || {}).meQuiet ? "正文里她基本不开口：me 一节最多一句，能不写就不写；她的说话和决定都放进选项（pick 和节尾 choices）里。往前推的是你的话、你的动作和旁白。" : "她那句（me）照她平时的样子写，少一点。")
-          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC
+          + "\nname 是卡名（八个字以内），line 是印在卡面上的一句你的台词。highlight 是剧情里你最想留住的那一刻，一两句画面。gist 一句话记下这张写的是什么事、怎么收的尾。name 从这段剧情里的事本身来起，不拿日子、节气、天气这些背景起名。allEndsLine 是她把每个结局都走过一遍以后，你想对她说的一句。" + STAMP_SHOT_SPEC + stampRecentPoses(char.id, [c.id])
           + stampPrevLine(prev, ser && ser.theme),
         schemaHint: "{\"name\":\"\",\"line\":\"\",\"highlight\":\"\",\"gist\":\"\",\"allEndsLine\":\"\",\"shot\":\"\",\"sections\":[{\"id\":\"s1\",\"lv\":1,\"title\":\"\",\"beats\":[{\"who\":\"narr|he|me\",\"text\":\"\"},{\"who\":\"pick\",\"options\":[{\"text\":\"\",\"beats\":[{\"who\":\"he\",\"text\":\"\"}]}]}],\"choices\":[{\"text\":\"\",\"go\":\"s2a\"}],\"end\":false,\"hidden\":false}]}",
         maxTokens: 65000
@@ -18579,7 +18663,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       instruction: "邮票册里你这张" + card.rarity + "「" + (tx.name || "") + "」的卡面要重画，只重写画卡面用的那段分镜，卡上的字不动。这张卡写的那一刻：\n" + String(what).slice(0, 600)
         + (tx.shot ? "\n原来的分镜：" + String(tx.shot).slice(0, 400) + "\n换一种写法，别照抄。" : "")
         + (card.drawErr && /safety|policy|审核|违规|内容|sensitive|reject/i.test(card.drawErr) ? "\n上次画的时候被图像站的审核拒了：画面写得含蓄一点，不写血、伤口、武器、裸露、过于亲密的身体接触这类容易被拦的东西，换成别的方式表达同一个意思。" : "")
-        + "\n" + STAMP_SHOT_SPEC,
+        + "\n" + STAMP_SHOT_SPEC + stampRecentPoses(char.id, [card.id]),
       schemaHint: "{\"shot\":\"\"}", maxTokens: 8000 });
     const shot = String((d && d.shot) || "").trim(); if (!shot) return false;
     stampSaveCard(card.id, c0 => ({ ...c0, text: { ...c0.text, shot: shot.slice(0, 800) } }));
@@ -18661,7 +18745,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const limFit = stampDayFit(card, "他");
       const base = freeFit ? Object.assign({}, char, { photoOutfit: limFit }) : char;
       const prompt = buildPhotoPrompt(paint === "real" ? Object.assign({}, base, { photoStyle: "realistic" }) : base, scene,
-        freeFit ? Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }) : st,
+        Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }),   // 卡面是另一个时刻：不套状态卡上「此刻穿着」那身（她 2026-11-17「全部生的衣服都一样」），照分镜、衣柜来
         Object.assign({ hairFree: card.kind === "if" }, duo ? { kind: "duo", me: meP, notLover: !lover, poseLine: "【两个人的姿势】两个人在一起做着这一刻的事，有互动、有动势，身体之间的距离照你们的关系，不是并排对着镜头站好。" } : { kind: "other" }, { shotLine: stampCam(!alt && /camera\s*[:：]|机位|镜头|景别/i.test(String(tx.shot || ""))) }, { closet: freeFit ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
       const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1024x1536" });
@@ -19917,8 +20001,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 名额只有几个：先给日程里点到TA的那几位，剩下的再按顺序
     const days0 = (Array.isArray(dayKeys) ? dayKeys : [dayKeys]).filter(Boolean).slice(0, SCHED_PEER_DAYS);
     const namesMe = c => days0.some(k => (((plans[c.id] || {})[k] || {}).seqs || []).some(q => schedMentions(q, char)));
-    const peers = schedPeersOf(char).filter(c => Object.keys(plans[c.id] || {}).length)
-      .sort((a, b) => (namesMe(b) ? 1 : 0) - (namesMe(a) ? 1 : 0)).slice(0, SCHED_PEER_MAX);
+    // 关系线上开了「日常在一块儿」的（群友 2026-11-17）：一定在名单里、排最前，不占那几个名额
+    const daily = c => typeof relDailyOn === "function" && relDailyOn(char.id, c.id);
+    const has = schedPeersOf(char).filter(c => Object.keys(plans[c.id] || {}).length);
+    const peers = has.filter(daily).concat(has.filter(c => !daily(c)).sort((a, b) => (namesMe(b) ? 1 : 0) - (namesMe(a) ? 1 : 0)).slice(0, SCHED_PEER_MAX));
     if (!peers.length) return "";
     const days = (Array.isArray(dayKeys) ? dayKeys : [dayKeys]).filter(Boolean).slice(0, SCHED_PEER_DAYS);
     const rows = [];
@@ -19933,7 +20019,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (!title) return;
           // 点到TA名字的那几段是【必须对上】的；其余只是让TA看看那天对方大概怎么过
           const mine = !!schedMentions(q, char);
-          rows.push((mine ? "⭐" : "· ") + k + " " + String((q && q.time) || "") + " "
+          rows.push((mine ? "⭐" : daily(c) ? "◆" : "· ") + k + " " + String((q && q.time) || "") + " "
             + c.name + (label ? "（" + label + "）" : "") + "：" + title
             + (q && q.location ? "（" + q.location + "）" : ""));
         });
@@ -19943,7 +20029,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return characterText(char, "\n【跟他有关系的人，这几天已经排好的安排】\n") + rows.join("\n")
       + characterText(char, "\n⭐那几段是【点到他名字的】——同一件事两边说的必须是同一件：时间、地点、这件事本身都要对上，")
       + "绝不许一边写十点见面、另一边写下午见面，也不许一边有这件事另一边当没发生。\n"
-      + characterText(char, "没带⭐的只是让你知道那几位那天大概怎么过。可以据此给他排一段真的和某位碰上的事")
+      + (peers.some(daily) ? characterText(char, "带◆的是跟他日常就在一块儿的人：今天照着对方那天的安排，给他排几段真在一起的事（一起出门、一起吃饭、同一段在同一个地方），写清跟谁、几点、在哪，时间地点跟对方那段对上；各忙各的那几段照常各写各的。\n") : "")
+      + characterText(char, "带「·」的只是让你知道那几位那天大概怎么过。可以据此给他排一段真的和某位碰上的事")
       + characterText(char, "（那就写清跟谁、几点、在哪）；但**他今天是他自己的一天**，别为了呼应硬把他塞进别人的日程里——")
       + "多数日子两个人本来就各过各的。";
   };
@@ -25648,7 +25735,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     poll,
     mask,
     music,
-    location
+    location,
+    zy
   }) => {
     const id = "m_" + Date.now();
     // 多图（群里 2026-10-22）：每张先进图片保险箱，存档里只留 iv_ 小引用——九张 base64 塞进朋友圈存档会把它撑爆
@@ -25668,6 +25756,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       mask: mask && mask !== maskPrimary && (masks || []).some(m => m && m.id === mask) ? mask : undefined,
       poll: poll && Array.isArray(poll.options) && poll.options.length >= 2 ? { options: poll.options.slice(0, 4), votes: {} } : null,
       ...(location ? { location: String(location).slice(0, 40) } : {}),
+      // 照影结果卡（群友 2026-11-17「照影的测试结果好想分享到朋友圈，就像网易云那样」）
+      ...(zy && zy.title ? { zy: { testName: String(zy.testName || "").slice(0, 40), title: String(zy.title).slice(0, 40), line: String(zy.line || "").slice(0, 120), who: String(zy.who || "").slice(0, 20) } } : {}),
       ...(music && music.id ? { music: { id: music.id, title: String(music.title || "").slice(0, 60), artist: String(music.artist || "").slice(0, 60), song: music.song || null } } : {}),
       ts: Date.now(),
       liked: false,
@@ -29499,7 +29589,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "bg 背景从这几种里挑一个：" + bgs + "；font 字体：hand 花体英文、brush 中文手写、serif 宋体、sans 黑体；"
           + "texts 是卡上的字，1 到 4 块，每块 t 写什么、x 和 y 是在卡上的位置（0 到 1，左上角是 0,0；最上面那一截 y 小于 0.2 的地方压着你的头像和名字，最下面 y 大于 0.85 的地方压着回复框）、size 字号（40 到 160）、color 颜色（#hex）、r 歪多少度（-15 到 15）、font 可以单独换；"
           + "stickers 是贴纸，0 到 5 个 emoji，ch 是哪个、x y 位置、size 大小（60 到 200）。"
-          + "photo 写这张卡要配的那张照片拍的是什么（一句画面描述），photoKind 是哪一种：self 你自拍、view 随手拍的风景或场景、thing 手边的东西或吃的" + (canShootMe(char.id) ? "、her 你拍的她（画面里是她）" : "") + (duoFacesOk(char) ? "、duo 你俩的合照" : "") + "；photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。"
+          + "photo 写这张卡要配的那张照片拍的是什么（一句画面描述），photoKind 是哪一种：self 你自拍、view 随手拍的风景或场景、thing 手边的东西或吃的" + (canShootMe(char.id) ? "、her 你拍的她（画面里是她）" : "") + (duoFacesOk(char) ? "、duo 你俩的合照" : "") + "。挑哪一种看这一条想让人看见什么：想让人看见你自己此刻的样子就是 self；想让人看见你眼前的地方、手边的东西就是 view、thing" + (canShootMe(char.id) ? "；想让人看见她就是 her" : "") + (duoFacesOk(char) ? "；想让你俩一起出现在画面里就是 duo" : "") + "——这几种在限时动态里都常见，照你这个人平时爱不爱露脸来"
+          // 她 2026-11-17「限时动态为啥不会发自拍类或者合照」：上面那句「日子的一角」列的全是往外拍的东西，模型就几乎只挑风景和东西
+          + "；photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。"
           + (canPhoto ? "这张照片会马上拍出来放上去。" : "这张照片先不拍，卡上先只有字；她想看时会照你这句补拍。")
           + ((window.Stories.activeOf(char.id) || []).length ? "你已经挂着这几条，别跟它们重样：" + window.Stories.activeOf(char.id).map(s0 => "「" + (s0.text || s0.desc) + "」").join("、") + "。" : "")
           + (related.length ? "跟你有关系的这几个人也会刷到这条：" + related.map(c => c.name + "（" + (_rl(char.id, c.id) || _rl(c.id, char.id)) + "）").join("、")
@@ -37256,6 +37348,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onShareToGroup: (gid, text) => { pGChat(gid, p => [...p, { role: "user", content: text, ts: Date.now() }]); toast("发到群里了"); try { replyGroup(gid, {}); } catch (e) {} },
     onBack: goHome,
     // 转发结果：她转过去的，算她发的；他从聊天记录里看得到
+    // 结果发朋友圈：带一张结果卡，正文里也写清测的是什么，角色刷到时看得懂
+    onToMoments: z => { if (!z || !z.title) return; postUserMoment({ content: (z.who && z.who !== "我" ? "给" + z.who + "测了" : "测了") + "「" + z.testName + "」，" + (z.who && z.who !== "我" ? "测出来是" : "我是") + "「" + z.title + "」" + (z.line && z.line !== z.title ? "：" + z.line : ""), zy: z }); setMsgTab("moments"); setScreen("messages"); toast("发到朋友圈了"); },
     onShare: (c, z) => { if (!c) return; pChat(c.id, p => [...p, { role: "user", kind: "zyshare", content: "〔转来一张照影结果〕" + z.who + " 做「" + z.testName + "」测出「" + z.title + "」" + (z.line && z.line !== z.title ? "：" + z.line : ""), ts: Date.now(), zy: z }]); openChatById(c.id); }
   });else if (screen === "astro") body = h(window.AstroApp, {
     characters: liveChars,
