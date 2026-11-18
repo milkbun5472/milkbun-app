@@ -6,7 +6,7 @@ const path = require("node:path");
 const engine = fs.readFileSync(path.join(__dirname, "../js/engine.js"), "utf8");
 
 test("日记以角色选择性记忆写作，不再逐条拼聊天摘要", () => {
-  assert.match(engine, /挑本人到睡前还会惦记的一到三个瞬间来写/);
+  assert.match(engine, /这一天留在你心里的有几件就写几件/);
   assert.match(engine, /其余的略过就是了/);
   assert.match(engine, /不是站到外面解说自己/);
   assert.match(engine, /声纹是这个角色自己的/);

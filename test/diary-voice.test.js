@@ -32,7 +32,7 @@ test("optional titles and signatures remain optional in storage and rendering", 
 });
 
 test("diary remains the character's own life and may omit the user entirely", () => {
-  assert.match(app, /scheduleText: scheduleTextFor\(char, targetKey\)/);
+  assert.match(app, /scheduleText: scheduleTextFor\(char, targetKey, \{ noTime: true \}\)/);
   assert.match(engine, /【日记的中心是你自己】/);
   assert.match(engine, /整篇不提 Ta 也是这一天本来的样子/);
   assert.match(engine, /整篇一个字都不提 Ta 才是真实/);
