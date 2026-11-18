@@ -1,8 +1,8 @@
-import {createPetToy} from './toy-prop.mjs?v=fg-fc0d2b577ad40ca6';
-import {idlePose} from './autonomy.mjs?v=fg-fc0d2b577ad40ca6';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-fc0d2b577ad40ca6';
-import {NEIGHBORS} from './neighborhood.mjs?v=fg-fc0d2b577ad40ca6';
-import {createParcelProp,disposeParcelProp} from './parcel-prop.mjs?v=fg-fc0d2b577ad40ca6';
+import {createPetToy} from './toy-prop.mjs?v=fg-5cdc192ffeb5c1cc';
+import {idlePose} from './autonomy.mjs?v=fg-5cdc192ffeb5c1cc';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-5cdc192ffeb5c1cc';
+import {NEIGHBORS} from './neighborhood.mjs?v=fg-5cdc192ffeb5c1cc';
+import {createParcelProp,disposeParcelProp} from './parcel-prop.mjs?v=fg-5cdc192ffeb5c1cc';
 
 export async function createNeighborhoodView(T,{scene,engine,getRows,getPlace,loadPet}){
  const source=await loadTravelerSource(),dolls=new Map(),pets=new Map(),balls=new Map();let ball=null;
