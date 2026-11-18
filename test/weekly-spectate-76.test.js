@@ -2,7 +2,7 @@
 const assert = require("node:assert/strict"), fs = require("fs");
 const wk = fs.readFileSync("js/weekly.js", "utf8"), imp = fs.readFileSync("js/impression-core.js", "utf8");
 assert.match(wk, /const groupTag = function \(g\) \{ const st = gset\[g\.id\] \|\| \{\}; return \(g\.roomKind === "spectate" \|\| st\.spectate\) \? "·" \+ uName \+ "不在场" : ""; \};/);
-assert.match(wk, /const line = "【" \+ g\.name \+ groupTag\(g\) \+ "】" \+ who/);
+assert.match(wk, /const line = "【" \+ g\.name \+ groupTag\(g\) \+ "】" \+ actTag\(m\) \+ who/);
 assert.match(wk, /"【" \+ g\.name \+ "·线下" \+ groupTag\(g\) \+ "】"/);
 assert.match(imp, /if \(g\.roomKind === "spectate" \|\| \(gset\[g\.id\] \|\| \{\}\)\.spectate\) return;/);
 // 真跑一遍 weekMaterial：旁观群里那两句都标着她不在场

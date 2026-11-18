@@ -488,13 +488,15 @@
     const perChar = {}, global = [];
     const gset = loadJSON("x_groupSettings", {}); // 群设置：判断哪些群是封闭空间（未开记忆互通）
     const pushPC = function (id, ts, line) { (perChar[id] = perChar[id] || []).push({ ts: ts, line: line }); };
+    // 动描那一行（role narration／act／parenAct）在素材里标成【动作】，数字版见 weeklyStats
+    const actTag = function (m) { return m && (m.role === "narration" || m.kind === "narration" || m.act || m.parenAct) ? "【动作】" : ""; };
     (characters || []).forEach(function (c) {
       loadJSON("x_chat:" + c.id, []).forEach(function (m) {
         if (!inWin(m, win)) return;
         const txt = cleanMsg(m); if (!txt) return;
         const ts = messageTime(m);
         const who = m.role === "user" ? uName : c.name;
-        const line = who + "：" + txt;
+        const line = actTag(m) + who + "：" + txt;
         pushPC(c.id, ts, line);       // 单聊两边都算这个角色的素材（含上下文）
         global.push({ ts: ts, line: line });
       });
@@ -510,7 +512,7 @@
             const txt = cleanMsg(m); if (!txt) return;
             const ts = messageTime(m);
             const who = m.role === "user" ? uName : c.name;
-            const line = "【侧房·" + (room.name || "未命名") + "】" + who + "：" + txt;
+            const line = "【侧房·" + (room.name || "未命名") + "】" + actTag(m) + who + "：" + txt;
             pushPC(c.id, ts, line);
             global.push({ ts: ts, line: line });
           });
@@ -565,7 +567,7 @@
         if (m.role === "user") who = uName;
         else if (m.role === "narration") who = "旁白";
         else who = m.senderName || "某人";
-        const line = "【" + g.name + groupTag(g) + "】" + who + "：" + txt;
+        const line = "【" + g.name + groupTag(g) + "】" + actTag(m) + who + "：" + txt;
         global.push({ ts: ts, line: line });
         // 专访需要的是「这个人在场的完整一段对话」，不是只摘 TA 自己的台词。
         // 否则 Lisa 在群里明明和 TA 说过话，perChar 仍只剩零碎回答，模型就会误判没聊。
@@ -594,6 +596,9 @@
   function saidOnly(t) {
     return String(t || "").replace(/（[^（）]*）|\([^()]*\)|【[^【】]*】|\*[^*\n]+\*|〔[^〔〕]*〕/g, " ").replace(/\s+/g, " ").trim();
   }
+  // 动描那一行（她 2026-11-18「修了八百遍为啥状态卡的动描还是被算进去了」）：
+  //   单聊里它是一条单独的消息（role narration，没有括号），素材里原来挂成「TA：我坐在…」，
+  //   saidOnly 只认括号、线下只认【线下】，这一种两道都漏。素材里标成【动作】，数字版整条不算（不是谁说的话）
   function weeklyStats(mat, characters, uName) {
     const rows = (mat && mat.global) || [];
     const byWho = {}, hours = new Array(24).fill(0);
@@ -603,7 +608,8 @@
       const line = String(r.line || "");
       const i = line.indexOf("：");
       if (i < 1) return;
-      const who = line.slice(0, i).replace(/^【[^】]*】/, "").trim();
+      if (/^(?:【[^】]*】)*【动作】/.test(line)) return;
+      const who = line.slice(0, i).replace(/^(?:【[^】]*】)+/, "").trim();
       const txt = line.slice(i + 1).trim();
       if (!who || !txt) return;
       total++;
