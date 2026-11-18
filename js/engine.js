@@ -5544,7 +5544,9 @@ function pullPhotoEcho(list) {
   return { words: list.slice(0, i).concat(list.slice(i + 1)), photo: { kind: "none", scene } };
 }
 function pullPhotoMarker(words) {
-  const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
+  // 一整泡只剩个占位「[photo]」「[图片]」（她 2026-11-18 截图）：照片走 photo 那一格另发，这一泡是模型把位置也写成了字，丢掉
+  const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w))
+    .filter(w => !/^\s*[\[【(（]\s*(?:photo|image|img|picture|pic|selfie|图片|照片|自拍|相片)\s*[\]】)）]\s*$/i.test(w));
   const start = list.findIndex(w => /\[\s*photo\s*[:：]/i.test(w));
   if (start < 0) return typeof pullPhotoEcho === "function" ? pullPhotoEcho(list) : { words: list, photo: null };
   let end = start, text = list[start];
