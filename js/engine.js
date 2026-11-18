@@ -11856,7 +11856,8 @@ const DIARY_SKELETON = [
 async function generateDiary(p, ctx, opts = {}) {
   const char = ctx.char;
   const uName = (ctx.profile && ctx.profile.name) || "她";
-  const parts = [DIARY_SKELETON, "", buildBundle(ctx)];
+  // 「语气与年龄感」那条单聊、群聊、线下都单独加了，buildBundle 里没有，日记原来就漏了（她 2026-11-18 问「反八股保持人设都有的对吧」时查到）
+  const parts = [DIARY_SKELETON, "", buildBundle(ctx)].concat(ctx.notRoleplay ? [] : ["", PERSONA_REGISTER_ANCHOR]);
   if (char.diaryStyle && char.diaryStyle.trim()) {
     parts.push("【这个角色专属的日记文风偏好（最高优先，凌驾于上面的通用调性之上）】\n" + char.diaryStyle.trim());
   }
