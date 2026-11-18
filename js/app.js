@@ -752,7 +752,8 @@ function App() {
   // 朋友圈分享的那首歌（她 2026-11-14「朋友圈分享音乐」）：写给模型看的那半句，几处读朋友圈的都用这一份
   const momMusicLine = m => (m && m.location ? "（定位：" + m.location + "）" : "") + (m && m.music && m.music.title ? "（分享了一首歌：《" + m.music.title + "》" + (m.music.artist ? " " + m.music.artist : "") + "）" : "")
     // 挂着的照影结果卡（她 2026-11-18 改成先挂卡、话自己写，正文可能是空的）：卡上写的是什么也得让看的人知道
-    + (m && m.zy && m.zy.title ? "（挂了一张照影小测的结果卡：「" + m.zy.testName + "」" + (m.zy.who && m.zy.who !== "我" ? "，是给" + m.zy.who + "测的" : "") + "，结果「" + m.zy.title + "」" + (m.zy.line && m.zy.line !== m.zy.title ? "——" + m.zy.line : "") + "）" : "");
+    + (m && m.zy && m.zy.title ? "（挂了一张照影小测的结果卡：「" + m.zy.testName + "」" + (m.zy.who && m.zy.who !== "我" ? "，是给" + m.zy.who + "测的" : "") + "，结果「" + m.zy.title + "」" + (m.zy.line && m.zy.line !== m.zy.title ? "——" + m.zy.line : "") + "）" : "")
+    + (m && m.tarot && (m.tarot.cards || []).length ? "（挂了一张塔罗卡：" + (m.tarot.who ? "给" + m.tarot.who + "算的，" : "") + (m.tarot.q ? "问「" + m.tarot.q + "」，" : "") + "抽到" + m.tarot.cards.map(c => (c.pos ? c.pos + "：" : "") + c.name + (c.rev ? "逆位" : "")).join("、") + (m.tarot.summary ? "；收束：" + m.tarot.summary : "") + "）" : "");
   const [neteaseCookie, setNeteaseCookie] = useState(""); // 可选：网易云账号 Cookie（MUSIC_U=…），填了能放 VIP
   // 跟「验证登录」用同一份补好前缀的 Cookie（群友 2026-11-07：验证显示已登录，「我的」里歌单却是空的——只粘了值，拉歌单时没补 MUSIC_U=）
   const musicRequest = (path, options) => MusicSource.request({ provider: musicProvider, base: neteaseApi, cookie: normCookie() || neteaseCookie }, path, options);
@@ -25786,7 +25787,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
   };
   // 我发一条朋友圈（可带图描述、可选可见范围）
-  const [momZyDraft, setMomZyDraft] = useState(null);   // 照影那边点了「发朋友圈」、还没发出去的那张结果卡
+  // 别处点了「发朋友圈」、还没发出去的那张卡：{ zy }＝照影结果、{ tarot }＝塔罗这一卦（她 2026-11-18）
+  const [momCardDraft, setMomCardDraft] = useState(null);
   const postUserMoment = async ({
     content,
     image,
@@ -25798,7 +25800,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     mask,
     music,
     location,
-    zy
+    zy,
+    tarot
   }) => {
     const id = "m_" + Date.now();
     // 多图（群里 2026-10-22）：每张先进图片保险箱，存档里只留 iv_ 小引用——九张 base64 塞进朋友圈存档会把它撑爆
@@ -25820,6 +25823,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       ...(location ? { location: String(location).slice(0, 40) } : {}),
       // 照影结果卡（群友 2026-11-17「照影的测试结果好想分享到朋友圈，就像网易云那样」）
       ...(zy && zy.title ? { zy: { testName: String(zy.testName || "").slice(0, 40), title: String(zy.title).slice(0, 40), line: String(zy.line || "").slice(0, 120), who: String(zy.who || "").slice(0, 20) } } : {}),
+      ...(tarot && (tarot.cards || []).length ? { tarot: { q: String(tarot.q || "").slice(0, 80), spreadName: String(tarot.spreadName || "").slice(0, 20), who: String(tarot.who || "").slice(0, 20),
+        cards: tarot.cards.slice(0, 10).map(c => ({ pos: String(c.pos || "").slice(0, 12), name: String(c.name || "").slice(0, 20), rev: !!c.rev })), summary: String(tarot.summary || "").slice(0, 160) } } : {}),
       ...(music && music.id ? { music: { id: music.id, title: String(music.title || "").slice(0, 60), artist: String(music.artist || "").slice(0, 60), song: music.song || null } } : {}),
       ts: Date.now(),
       liked: false,
@@ -35783,7 +35788,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     friendGroups: friendGroups,
     onSaveGroups: saveFriendGroups,
     onPostMoment: postUserMoment,
-    zyDraft: momZyDraft, onZyDraftDone: () => setMomZyDraft(null)
+    cardDraft: momCardDraft, onCardDraftDone: () => setMomCardDraft(null)
   });else if (screen === "momprofile") body = h(MomentsProfile, {
     isMe: !!(momTarget && momTarget.isMe),
     character: momTarget && !momTarget.isMe ? characters.find(c => c.id === momTarget.id) : null,
@@ -37201,6 +37206,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     affinities: affinities,
     moods: moods,
     toast: toast,
+    // 塔罗发朋友圈（她 2026-11-18「把塔罗也可以分享朋友圈吧也做卡片」）：跟照影同一条路，先打开发朋友圈、卡挂在底下
+    onToMoments: s => { const t = tarotShareMsg({ ...s, summary: s.readerSummary || s.summary }).tarot; if (!t.cards.length) return; setMomCardDraft({ tarot: { ...t, who: s.mode === "forchar" ? (s.charName || "") : "" } }); setMsgTab("moments"); setScreen("messages"); },
     onForwardToChat: forwardTarotToChat,
     // 解牌走 runProbe（v74.732）：人设全文/心情/好感/反八股整份白得，线路跟着角色自己那条
     ctxFor: ctxFor,
@@ -37415,7 +37422,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 发朋友圈（她 2026-11-18「照影发朋友圈能不能做成卡片」）：不直接发，像分享歌那样先打开「发朋友圈」，卡挂在底下，话她自己写
     // 让他自己发（她 2026-11-18）：他做的那套，以他的口吻发进他自己的朋友圈，挂同一张结果卡
     onCharToMoments: (charId, z) => { const c = characters.find(x => x.id === charId); if (!c || !z || !z.title) return; toast(c.name + " 在写朋友圈…"); genMoment(c, { zy: z }); },
-    onToMoments: z => { if (!z || !z.title) return; setMomZyDraft(z); setMsgTab("moments"); setScreen("messages"); },
+    onToMoments: z => { if (!z || !z.title) return; setMomCardDraft({ zy: z }); setMsgTab("moments"); setScreen("messages"); },
     onShare: (c, z) => { if (!c) return; pChat(c.id, p => [...p, { role: "user", kind: "zyshare", content: "〔转来一张照影结果〕" + z.who + " 做「" + z.testName + "」测出「" + z.title + "」" + (z.line && z.line !== z.title ? "：" + z.line : ""), ts: Date.now(), zy: z }]); openChatById(c.id); }
   });else if (screen === "astro") body = h(window.AstroApp, {
     characters: liveChars,

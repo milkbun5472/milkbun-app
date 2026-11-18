@@ -9439,7 +9439,7 @@ function Messages({
   friendGroups,
   onSaveGroups,
   onPostMoment,
-  zyDraft, onZyDraftDone,
+  cardDraft, onCardDraftDone,
   tab: tabProp,
   onTab,
   onMomentsSeen,
@@ -9454,7 +9454,7 @@ function Messages({
   const setTab = onTab || setTabInner;
   const [composeOpen, setComposeOpen] = useState(false);
   // 照影带过来的结果卡：一到就打开「发朋友圈」
-  useEffect(() => { if (zyDraft) setComposeOpen(true); }, [zyDraft]);
+  useEffect(() => { if (cardDraft) setComposeOpen(true); }, [cardDraft]);
   const [momCam, setMomCam] = useState(false);   // 朋友圈顶栏那颗相机点开的菜单（她 2026-11-14「相机放顶栏，不会被滑走」）
   const [groupMgr, setGroupMgr] = useState(false);
   const [groupList, setGroupList] = useState(false);   // 通讯录里的「群聊」入口
@@ -10008,9 +10008,10 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
       : null), composeOpen && h(MomentCompose, {
     friendGroups,
     characters,
-    zy: zyDraft || null,
+    zy: (cardDraft && cardDraft.zy) || null,
+    tarot: (cardDraft && cardDraft.tarot) || null,
     onPost: onPostMoment,
-    onClose: () => { setComposeOpen(false); if (zyDraft && onZyDraftDone) onZyDraftDone(); }
+    onClose: () => { setComposeOpen(false); if (cardDraft && onCardDraftDone) onCardDraftDone(); }
   }), groupList && h(PageSheet, { onClose: () => setGroupList(false), tall: true },
     h("div", { className: "px-1 pb-2" },
       h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
@@ -10207,6 +10208,19 @@ function MomentZy({ zy }) {
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, marginTop: 4, lineHeight: 1.3 } }, zy.title),
     zy.line && zy.line !== zy.title ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.55 } }, zy.line) : null);
 }
+// 朋友圈里的塔罗卡（她 2026-11-18「把塔罗也可以分享朋友圈吧也做卡片」）：问的什么、几张牌（逆位倒着写）、收束一句；深色夜空底跟塔罗店一个调子
+function MomentTarot({ tarot }) {
+  if (!tarot || !(tarot.cards || []).length) return null;
+  return h("div", { "data-wk": "momtarot", className: "w-full mt-2", style: { padding: "12px 14px 13px", borderRadius: 12, background: "linear-gradient(150deg,#1d1a2e,#2b2440)", color: "#efe6d2", border: "1px solid rgba(184,145,80,.35)" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#c9a96a", letterSpacing: ".15em" } }, "塔罗" + (tarot.spreadName ? " · " + tarot.spreadName : "") + (tarot.who ? " · 给 " + tarot.who : "")),
+    tarot.q ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(239,230,210,.75)", marginTop: 5, fontStyle: "italic" } }, "「" + tarot.q + "」") : null,
+    h("div", { "data-wk": "momtarotcards", style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 9 } },
+      tarot.cards.map((c, i) => h("div", { key: i, style: { padding: "5px 8px", borderRadius: 6, border: "1px solid rgba(201,169,106,.45)", background: "rgba(255,255,255,.04)", textAlign: "center", minWidth: 54 } },
+        c.pos ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: "rgba(239,230,210,.55)" } }, c.pos) : null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#efe6d2", transform: c.rev ? "rotate(180deg)" : "none" } }, c.name),
+        c.rev ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: "#c9a96a" } }, "逆位") : null))),
+    tarot.summary ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(239,230,210,.88)", marginTop: 9, lineHeight: 1.6 } }, tarot.summary) : null);
+}
 // 朋友圈里分享的那首歌：一张小卡，点「听」用 App 的播放器真的放（她 2026-11-14）
 function MomentMusic({ music }) {
   const t = useTheme();
@@ -10255,6 +10269,7 @@ function NpcBrief({ npc, onSave, compact, defaultOpen }) {
 }
 function MomentCompose({
   zy,
+  tarot,
   friendGroups,
   characters,
   onPost,
@@ -10299,7 +10314,7 @@ function MomentCompose({
     const realPics = withImg ? pics.slice(0, 9) : [];
     const image = realPics[0] || (withImg && img.trim() && !String(img).startsWith("data:") ? img.trim() : null);
     const opts = withPoll ? pollOpts.map(x => x.trim()).filter(Boolean).slice(0, 4) : [];
-    if (!body && !image && !music && !(zy && zy.title)) {
+    if (!body && !image && !music && !(zy && zy.title) && !(tarot && (tarot.cards || []).length)) {
       onClose();
       return;
     }
@@ -10314,7 +10329,8 @@ function MomentCompose({
       mask: mask || undefined,
       music: withMusic && music ? music : null,
       location: withLoc && loc.trim() ? loc.trim().slice(0, 40) : null,
-      zy: zy && zy.title ? zy : null
+      zy: zy && zy.title ? zy : null,
+      tarot: tarot && (tarot.cards || []).length ? tarot : null
     });
     onClose();
   };
@@ -10348,7 +10364,8 @@ function MomentCompose({
       background: "transparent",
       resize: "none"
     }
-  }), zy && zy.title ? h("div", { "data-wk": "momzydraft", style: { marginBottom: 10 } }, h(MomentZy, { zy })) : null, h("div", {
+  }), zy && zy.title ? h("div", { "data-wk": "momzydraft", style: { marginBottom: 10 } }, h(MomentZy, { zy })) : null,
+    tarot && (tarot.cards || []).length ? h("div", { "data-wk": "momtarotdraft", style: { marginBottom: 10 } }, h(MomentTarot, { tarot })) : null, h("div", {
     className: "flex items-center gap-2 py-3",
     style: {
       borderTop: `1px solid ${t.line}`
@@ -11037,7 +11054,7 @@ function MomentsFeed({
     isMine && (m.seenBy || []).length ? (() => { const done = new Set([...(m.likers || []), ...(m.comments || []).map(cm => cm.author)]);
       const ns = m.seenBy.map(id => (characters || []).find(c => c.id === id)).filter(c => c && !done.has(c.name) && !done.has(c.remark));
       return ns.length ? h("div", { "data-wk": "moseen", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "👀 " + ns.map(c => c.remark || c.name).join("、") + " 看过，没吭声") : null; })() : null,
-    h(MomentRemindLine, { m, characters }), m.music && h(MomentMusic, { music: m.music }), m.zy && h(MomentZy, { zy: m.zy }), m.poll && h(MomentPoll, { poll: m.poll, characters }), momLikers(m, profile).length > 0 && h("div", {
+    h(MomentRemindLine, { m, characters }), m.music && h(MomentMusic, { music: m.music }), m.zy && h(MomentZy, { zy: m.zy }), m.tarot && h(MomentTarot, { tarot: m.tarot }), m.poll && h(MomentPoll, { poll: m.poll, characters }), momLikers(m, profile).length > 0 && h("div", {
       className: "flex items-center gap-1.5 mt-2",
       "data-wk": "molikers"
     }, h(IHeart, {
@@ -11284,6 +11301,7 @@ function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter
     h(MomentRemindLine, { m, characters }),
     m.music ? h(MomentMusic, { music: m.music }) : null,
     m.zy ? h(MomentZy, { zy: m.zy }) : null,
+    m.tarot ? h(MomentTarot, { tarot: m.tarot }) : null,
     m.poll ? h(MomentPoll, { poll: m.poll, characters }) : null,
     // 赞和评论收进同一个灰底框，跟微信一样：上面一行赞，一道细线，下面是评论（她 2026-11-15「回复做个框」）
     (momLikers(m, profile).length || (m.comments && m.comments.length)) ? h("div", { "data-wk": "mocomments", className: "mt-2.5 rounded-lg px-3 py-2", style: { background: wxGrey(t) } },

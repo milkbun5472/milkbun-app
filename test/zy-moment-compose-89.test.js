@@ -6,13 +6,13 @@ const path = require("node:path");
 const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
 const app = R("js/app.js"), comp = R("js/components.js"), ts = R("js/theme-studio.js");
 test("照影「发朋友圈」打开发朋友圈页、不直接发", () => {
-  assert.match(app, /onToMoments: z => \{ if \(!z \|\| !z\.title\) return; setMomZyDraft\(z\);/);
-  assert.match(app, /zyDraft: momZyDraft, onZyDraftDone/);
-  assert.match(comp, /useEffect\(\(\) => \{ if \(zyDraft\) setComposeOpen\(true\); \}, \[zyDraft\]\);/);
+  assert.match(app, /onToMoments: z => \{ if \(!z \|\| !z\.title\) return; setMomCardDraft\(\{ zy: z \}\);/);
+  assert.match(app, /cardDraft: momCardDraft, onCardDraftDone/);
+  assert.match(comp, /useEffect\(\(\) => \{ if \(cardDraft\) setComposeOpen\(true\); \}, \[cardDraft\]\);/);
 });
 test("发朋友圈页挂着卡、没写字也能发，卡跟着发出去", () => {
   assert.match(comp, /"data-wk": "momzydraft"/);
-  assert.match(comp, /if \(!body && !image && !music && !\(zy && zy\.title\)\)/);
+  assert.match(comp, /if \(!body && !image && !music && !\(zy && zy\.title\) && !\(tarot && \(tarot\.cards \|\| \[\]\)\.length\)\)/);
   assert.match(comp, /zy: zy && zy\.title \? zy : null/);
   assert.match(ts, /\["momzydraft", /);
 });
@@ -26,4 +26,15 @@ test("他做的那套能让他自己发：他的口吻、他的朋友圈、挂�
   assert.match(app, /const genMoment = async \(char, momOpts\) =>/);
   assert.match(app, /\.\.\.\(_zyPost \? \{ zy: \{/);
   assert.match(ts, /\["zycharmoments", /);
+});
+
+test("塔罗也能发朋友圈：同一条路、卡挂在底下、看的人知道抽了什么", () => {
+  const tarot = R("js/tarot.js");
+  assert.match(tarot, /"data-wk": "tarottomoments", onClick: \(\) => props\.onToMoments\(s\)/);
+  assert.match(tarot, /onToMoments: props\.onToMoments/);
+  assert.match(app, /setMomCardDraft\(\{ tarot: \{ \.\.\.t, who:/);
+  assert.match(comp, /function MomentTarot\(\{ tarot \}\)/);
+  assert.match(comp, /tarot: tarot && \(tarot\.cards \|\| \[\]\)\.length \? tarot : null/);
+  assert.match(app, /挂了一张塔罗卡：/);
+  ["tarottomoments", "momtarot", "momtarotdraft"].forEach(k => assert.match(ts, new RegExp('\\["' + k + '", ')));
 });
