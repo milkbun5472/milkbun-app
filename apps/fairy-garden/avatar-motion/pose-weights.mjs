@@ -21,5 +21,5 @@
   }
   return {feature:f,weights,distance,activation,support,inside:distance<=outer,fullySupported:distance<=inner};
  }
- 
+
 export {evaluate as evaluatePose};

@@ -25,4 +25,3 @@ function makeJointFlow(count){
 }
 
 return {onMemoryGrow(fn){memoryListeners.add(fn);return ()=>memoryListeners.delete(fn)},make,makeJointFlow,reserve,release,store,memory,exports:instance.exports,allocatedBytes:()=>end};}
-

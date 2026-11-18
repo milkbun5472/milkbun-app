@@ -1,5 +1,5 @@
-import {homePoint} from './room-layout.mjs?v=fg-ce4340e0175acd2e';
-import {petHomePlaces,PET_STATIONS} from './room-layout.mjs?v=fg-ce4340e0175acd2e';
+import {homePoint} from './room-layout.mjs?v=fg-97a1b6eac0497582';
+import {petHomePlaces,PET_STATIONS} from './room-layout.mjs?v=fg-97a1b6eac0497582';
 
 // Inventory owns purchases; this records only how the same objects are used.
 export const PET_HOME_GOODS=[

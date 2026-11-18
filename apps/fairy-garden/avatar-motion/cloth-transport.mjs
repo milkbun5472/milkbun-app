@@ -1,5 +1,5 @@
-import {createClothTransportKernel} from './cloth-transport-kernel.mjs?v=fg-ce4340e0175acd2e';
-import {fitRigid} from './rigid-fit.mjs?v=fg-ce4340e0175acd2e';
+import {createClothTransportKernel} from './cloth-transport-kernel.mjs?v=fg-97a1b6eac0497582';
+import {fitRigid} from './rigid-fit.mjs?v=fg-97a1b6eac0497582';
 export function install(q,{materialCuff=false}={}){const T=q.T,d=q.bodyBackedClothData;
 const outfits=q.outfits;
 let o=outfits[d.meshId];
