@@ -75,3 +75,7 @@ PLAYWRIGHT_MODULE=/absolute/path/to/playwright COMPANION_TEST_URL=http://127.0.0
 确认产品入口、衣柜保存与角色隔离，不能只验证测试场景。
 
 唯一公共经验记录：`施工规则/model-outfit-review.md`。当前部署状态与未解决项以其顶部为准。
+
+`MOTION_THINKING=1` 检查全部服装的思考近图及真实骨段/手面长度；
+加 `MOTION_THINKING_TIMELINE=1 MOTION_OUTFITS=tee` 按注册时长逐帧检查三体型起势与收回。
+T恤新连续曲面的重建与原生坐姿下摆约束见 `../TEE-SHOULDERS.md`。

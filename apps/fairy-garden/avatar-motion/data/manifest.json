@@ -78,10 +78,10 @@
     }
   },
   "tee": {
-    "bytes": 775016,
-    "sha256": "6215cd5ef4287d53a6642d71b362e47df6f734fb7d482fb07e9e41309af8be69",
+    "bytes": 506497,
+    "sha256": "3e5215056e9d079c971b413bec246df9903b8a64a7288b4b7ae92ce06d7c169f",
     "sources": {
-      "wardrobe-fair-bind-tee.json.gz": "02c18903da3b3a7ea659ea4e78488892116f6276370ed80fa60147f83ad828f2"
+      "tee-sewn-motion.json": "9be352164535798a19b599cc65bd9b670fac36ed423cf7714065380cb4dfb015"
     }
   },
   "academy": {
