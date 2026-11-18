@@ -18,7 +18,7 @@ const app = fs.readFileSync("js/app.js", "utf8");
 const comp = fs.readFileSync("js/components.js", "utf8");
 const live = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 const GEN = (() => {
-  const i = live(app).indexOf("const genMoment = async char =>");
+  const i = live(app).indexOf("const genMoment = async (char, momOpts) =>");
   const j = live(app).indexOf("const momentGenImage", i);
   assert.ok(i > 0 && j > i, "抠不出 genMoment");
   return live(app).slice(i, j);

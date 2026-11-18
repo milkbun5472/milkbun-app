@@ -300,7 +300,10 @@
           share,
           // 发朋友圈（群友 2026-11-17「像网易云那样」）：自己做的、他做的都能发，朋友圈里是一张结果卡
           run.done && props.onToMoments ? h("button", { "data-wk": "zytomoments", onClick: () => props.onToMoments({ testName: tt.name, title: run.res.title, line: run.res.line, who: run.mode === "me" ? "我" : nameOf(run.who) }), className: "w-full active:opacity-70",
-            style: { marginTop: 8, padding: "12px 0", borderRadius: 10, border: "1px solid " + INK, color: INK, fontFamily: F_DISPLAY } }, "发朋友圈") : null,
+            style: { marginTop: 8, padding: "12px 0", borderRadius: 10, border: "1px solid " + INK, color: INK, fontFamily: F_DISPLAY } }, run.mode === "char" ? "我来发朋友圈" : "发朋友圈") : null,
+          // 他做的那套，也能让他自己发（她 2026-11-18）：他的口吻、他的朋友圈，挂同一张卡
+          run.done && run.mode === "char" && props.onCharToMoments ? h("button", { "data-wk": "zycharmoments", onClick: () => props.onCharToMoments(run.who, { testName: tt.name, title: run.res.title, line: run.res.line }), className: "w-full active:opacity-70",
+            style: { marginTop: 8, padding: "12px 0", borderRadius: 10, border: "1px solid " + INK, color: INK, fontFamily: F_DISPLAY } }, "让" + nameOf(run.who) + "自己发朋友圈") : null,
           // 做完发给谁看（她 2026-10-23「两个人互相发结果」）：任何一套都能发，附一句话；他也做过的话发过去就是你俩并排的对照
           run.done && run.mode === "me" && props.onSendMine && chars.length ? (function () {
             const to = sendTo && chars.some(c => c.id === sendTo) ? sendTo : (tt.by && chars.some(c => c.id === tt.by) ? tt.by : chars[0].id);
