@@ -2,7 +2,7 @@ const fs=require('node:fs'),path=require('node:path'),pw=require(process.env.PLA
 const OUT=process.env.MOTION_EVIDENCE||'/tmp/avatar-motion-review';fs.mkdirSync(OUT,{recursive:true});
 (async()=>{const engine=process.env.MOTION_BROWSER||'chromium',browser=await pw[engine].launch(engine==='webkit'?{headless:true,...(process.env.WEBKIT_EXECUTABLE?{executablePath:process.env.WEBKIT_EXECUTABLE}:{})}:{channel:'chrome',headless:true});try{const page=await browser.newPage({viewport:{width:640,height:800}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(['error','warning'].includes(m.type())&&!m.text().includes('GPU stall'))errors.push(m.text())});await page.route('**/*',r=>{const u=new URL(r.request().url());if(u.pathname.endsWith('/pet.mjs'))return r.fulfill({body:'',contentType:'text/javascript'});if(u.hostname!=='127.0.0.1'&&!['blob:','data:'].includes(u.protocol))return r.abort();return r.continue()});await page.goto((process.env.COMPANION_TEST_URL||'http://127.0.0.1:18979')+'/apps/companion/');
 console.log('Loading');await page.evaluate(async()=>{const T=await import('three'),mod=await import('../fairy-garden/traveler.mjs');const source=await mod.loadTravelerSource(),scene=new T.Scene();scene.background=new T.Color('#f4f1eb');scene.add(new T.HemisphereLight('#ffffff','#aaa29a',2.3));const light=new T.DirectionalLight('#ffffff',1.5);light.position.set(-2,3,4);scene.add(light);const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(640,800);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;document.body.replaceChildren(renderer.domElement);document.body.style.margin=0;const cam=new T.OrthographicCamera(-.64,.64,.8,-.8,.01,20);cam.position.set(0,.73,5);cam.lookAt(0,.7,0);const dims={height:1,shoulder:.92,waist:1,flare:1,build:1,head:1};const doll=mod.createTraveler(source,true,{outfit:'linen',hair:'korean',skin:'#f2cbb4',hairColor:'#292323',dims});scene.add(doll.root);await doll.ready();const catalog=await(await fetch('../fairy-garden/doll.json')).json();window.QA={T,mod,source,scene,renderer,cam,doll,dims,catalog,time:0};});console.log('Loaded');
-if(process.env.MOTION_TRANSITIONS==='1')await checkTransitions(page);else{
+if(process.env.MOTION_PHONE_CONTACT==='1')await checkPhoneContact(page);else if(process.env.MOTION_TRANSITIONS==='1')await checkTransitions(page);else{
 const reports=[];
 const catalog=await page.evaluate(()=>QA.catalog);
 for(const id of Object.keys(catalog.outfits).filter(id=>!process.env.MOTION_OUTFITS||process.env.MOTION_OUTFITS.split(',').includes(id))){
@@ -49,4 +49,39 @@ for(const id of ids.filter(id=>!process.env.MOTION_OUTFITS||process.env.MOTION_O
  fs.writeFileSync(path.join(OUT,'transitions.json'),JSON.stringify(reports));
 }
 const failed=reports.filter(r=>r.maxDelta>2e-6);if(failed.length)throw Error('Transition changed geometry compared with unchanged actor: '+JSON.stringify(failed.slice(0,3)));
+}
+
+async function checkPhoneContact(page){
+ const catalog=await page.evaluate(()=>QA.catalog),reports=[],timeline=[];
+ const dimensions=[['base',{height:1,shoulder:.92,waist:1,flare:1,build:1,head:1}],['minimum',Object.fromEntries(catalog.dims.map(d=>[d.key,d.min]))],['maximum',Object.fromEntries(catalog.dims.map(d=>[d.key,d.max]))]];
+ await page.evaluate(async()=>{
+  QA.phoneDuration=(await import('../companion/motion.mjs')).DUR['emotion-phone'];
+  if(!Number.isFinite(QA.phoneDuration)||QA.phoneDuration<=0)throw Error('Missing registered phone duration');
+  QA.measurePhoneContact=()=>{
+   const q=QA,c=q.doll.inspectMotion(),m=c.body,g=m.geometry,ids=g.index.array,R=c.dimensionCanonicalRest,screen=q.doll.root.getObjectByName('PhoneScreen'),target=screen.localToWorld(new q.T.Vector3(0,.02,0)),normal=new q.T.Vector3(0,0,1).transformDirection(screen.matrixWorld),v=new q.T.Vector3(),tri=new q.T.Triangle(),cache=new Map();
+   if(q.doll.root.getObjectByName('CompanionHand-right-point')?.visible)throw Error('Phone replaced native hand');
+   const u=m.userData.skinCoverageUniforms;if(!u||u.rightHand.value!==0||u.leftHand.value!==0)throw Error('Phone clipped native palm');
+   function point(i){if(!cache.has(i))cache.set(i,m.localToWorld(m.getVertexPosition(i,new q.T.Vector3())));return cache.get(i)}
+   let distance=Infinity,closest;
+   for(let j=0;j<ids.length;j+=3){const is=[ids[j],ids[j+1],ids[j+2]];if(!is.every(i=>g.attributes.skinRightForearmInfluence.getX(i)>.9&&R[i*3+1]<.46))continue;tri.set(...is.map(point));tri.closestPointToPoint(target,v);const d=v.distanceTo(target);if(d<distance){distance=d;closest=v.clone();}}
+   return {distance,signedDepth:closest.clone().sub(target).dot(normal),target:target.toArray(),closest:closest.toArray(),nativeHands:true};
+  };
+ });
+ for(const id of Object.keys(catalog.outfits))for(const [dimension,dims]of dimensions){
+  const row=await page.evaluate(async({id,dims})=>{const q=QA;q.doll.setLook({outfit:id,dims});await q.doll.ready();for(let j=0;j<30;j++)q.doll.animate(q.time+=.1,{emotion:'phone',progress:.5});const c=q.doll.inspectMotion();if(!c.outfits.length||c.outfits.some(o=>o.userData.outfit!==id))throw Error('Wrong outfit '+id);q.renderer.render(q.scene,q.cam);return q.measurePhoneContact();},{id,dims});reports.push({id,dimension,...row});
+  if(dimension==='base'||id==='linen')await page.screenshot({path:path.join(OUT,id+'-'+dimension+'-phone.png')});console.log(id,dimension,row.distance);fs.writeFileSync(path.join(OUT,'contacts.json'),JSON.stringify(reports));
+ }
+ if(reports.some(r=>!Number.isFinite(r.distance)||r.distance>.003))throw Error('Native hand misses the phone surface');
+ const frames=await page.evaluate(()=>Math.ceil(QA.phoneDuration*30));
+ for(const [dimension,dims]of dimensions){
+  await page.evaluate(async dims=>{const q=QA;q.doll.setLook({outfit:'linen',dims});await q.doll.ready();for(let j=0;j<20;j++)q.doll.animate(q.time+=.1,{emotion:'poke',progress:.5});},dims);
+  for(let frame=0;frame<=frames;frame++){
+   const progress=frame/frames,row=await page.evaluate(async progress=>{const q=QA;const {emotionPose}=await import('../fairy-garden/emotion-pose.mjs');q.doll.animate(q.time+=1/30,{emotion:'phone',progress});const pose=emotionPose('phone',progress);q.renderer.render(q.scene,q.cam);return pose.phone>.95?{...q.measurePhoneContact(),tap:pose.phoneTap,progress}:null;},progress);
+   if(row)timeline.push({dimension,frame,...row});if([Math.round(frames*.3889),Math.round(frames*.5),Math.round(frames*.6111)].includes(frame))await page.screenshot({path:path.join(OUT,'timeline-'+dimension+'-'+frame+'.png')});
+  }
+  await page.evaluate(()=>{const q=QA;for(let j=0;j<30;j++)q.doll.animate(q.time+=.1,{});if(q.doll.root.userData.phoneContactError!==null)throw Error('Phone contact state survived release');if(q.doll.root.getObjectByName('CompanionPhone').visible)throw Error('Phone prop survived release');});
+ }
+ fs.writeFileSync(path.join(OUT,'timeline.json'),JSON.stringify(timeline));
+ const taps=timeline.filter(r=>r.tap>.95&&r.progress>.3&&r.progress<.7);if(!taps.length||taps.some(r=>r.distance>.006))throw Error('Moving native palm misses screen at tap');
+ console.log('Native phone contacts passed',reports.length,'settled poses;',timeline.length,'trajectory samples; peak tap distance',Math.max(...taps.map(r=>r.distance)));
 }

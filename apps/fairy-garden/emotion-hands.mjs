@@ -1,12 +1,12 @@
 import * as T from 'three';
-import {pointToolAt} from './reach-hand.mjs?v=fg-97a1b6eac0497582';
+import {pointToolAt} from './reach-hand.mjs?v=fg-cffe157f9b9727a4';
 // Rounded mitten silhouettes share their actual pad with the screen-contact solver.
 export const MITTEN_TAP_POINT=[-.018,.077,0];
 export const handScaleOf=look=>.9+.1*Number(look?.dims?.build||1);
 export function handStyle(pose,side){
  if(side==='left')return pose?.selfie?'peace':null;
  if(pose?.peace)return 'peace';
- if(pose?.thumb)return 'thumb';if(pose?.pinch)return 'pinch';if(pose?.poke||pose?.phone)return 'point';return null;
+ if(pose?.thumb)return 'thumb';if(pose?.pinch)return 'pinch';if(pose?.poke)return 'point';return null;
 }
 // A single smooth clay surface, rather than separate knuckles and finger tubes.
 // Blend rounded volumes, then contour them once when this gesture is first used.
@@ -57,7 +57,7 @@ export function makeEmotionHands(model,handPoint){
   for(const side of ['left','right']){
    const style=handStyle(pose,side);if(!style)continue;const key=side+'-'+style;let g=groups.get(key);if(!g){g=make(style,side);groups.set(key,g);}
    g.visible=true;pointToolAt(g,model,handPoint(side),null,.1);g.scale.setScalar(handScaleOf(look));
-   if(style==='point'){g.rotation.x=pose.phone?Math.PI:Math.PI/3;g.rotation.z=pose.phone?0:-.45;}
+   if(style==='point'){g.rotation.x=Math.PI/3;g.rotation.z=-.45;}
    if(style==='pinch'){g.rotation.x=.2;g.rotation.y=-.25;g.getObjectByName('GesturePalm').morphTargetInfluences[0]=.5+.5*(pose.pinchTap||0);}
   }
   if(pose?.heart){

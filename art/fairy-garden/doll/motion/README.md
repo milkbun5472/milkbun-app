@@ -64,6 +64,9 @@ PLAYWRIGHT_MODULE=/absolute/path/to/playwright COMPANION_TEST_URL=http://127.0.0
 第18帧把体型调至全最大再恢复，第30帧换到另一套再换回；
 核对与同历史未换装角色的几何一致性，关键帧逐点比较，其余每13点采样。
 这项检查只验证操作没有留下变形，不证明所有动作都无碰撞。
+`MOTION_PHONE_CONTACT=1` 核对全部12套三档体型的原生手面与真实屏幕触点，
+并以陪伴动作原时长、30fps验证三体型点屏轨迹和手势/道具收回。
+固定姿势距离上限.003，连续点屏峰值上限.006（模型单位）；不是整手机碰撞审计。
 另外跑实际页面的 `companion-all-actions-browser.cjs` 和 `town-appearance-browser.cjs`，
 确认产品入口、衣柜保存与角色隔离，不能只验证测试场景。
 
