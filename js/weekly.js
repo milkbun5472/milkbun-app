@@ -488,6 +488,8 @@
     const perChar = {}, global = [];
     const gset = loadJSON("x_groupSettings", {}); // 群设置：判断哪些群是封闭空间（未开记忆互通）
     const pushPC = function (id, ts, line) { (perChar[id] = perChar[id] || []).push({ ts: ts, line: line }); };
+    // 动描那一行（role narration／act／parenAct）在素材里标成【动作】，数字版见 weeklyStats
+    const actTag = function (m) { return m && (m.role === "narration" || m.kind === "narration" || m.act || m.parenAct) ? "【动作】" : ""; };
     (characters || []).forEach(function (c) {
       loadJSON("x_chat:" + c.id, []).forEach(function (m) {
         if (!inWin(m, win)) return;
@@ -597,7 +599,6 @@
   // 动描那一行（她 2026-11-18「修了八百遍为啥状态卡的动描还是被算进去了」）：
   //   单聊里它是一条单独的消息（role narration，没有括号），素材里原来挂成「TA：我坐在…」，
   //   saidOnly 只认括号、线下只认【线下】，这一种两道都漏。素材里标成【动作】，数字版整条不算（不是谁说的话）
-  function actTag(m) { return m && (m.role === "narration" || m.kind === "narration" || m.act || m.parenAct) ? "【动作】" : ""; }
   function weeklyStats(mat, characters, uName) {
     const rows = (mat && mat.global) || [];
     const byWho = {}, hours = new Array(24).fill(0);

@@ -9,7 +9,7 @@ test("动描那一行标成【动作】，数字版整条不算", () => {
   assert.match(src, /"】" \+ actTag\(m\) \+ who \+ "：" \+ txt;/);
   const grab = name => { const i = src.indexOf("  function " + name + "("); let d = 0, j = src.indexOf("{", i); for (; j < src.length; j++) { if (src[j] === "{") d++; else if (src[j] === "}" && --d === 0) break; } return src.slice(i, j + 1); };
   const stop = src.match(/const STOP2 = [^\n]+\n/)[0];
-  const stats = new Function(stop + grab("saidOnly") + grab("actTag") + grab("weeklyStats") + "\nreturn { weeklyStats, actTag };")();
+  const stats = new Function(stop + grab("saidOnly") + grab("weeklyStats") + "\nreturn { weeklyStats, actTag: m => m && m.role === \"narration\" ? \"【动作】\" : \"\" };")();
   const rows = [];
   for (let k = 0; k < 6; k++) rows.push({ ts: 1, line: stats.actTag({ role: "narration" }) + "沈屿白：我坐在沙发上单手拿着手机" });
   rows.push({ ts: 2, line: "沈屿白：早点睡" });
