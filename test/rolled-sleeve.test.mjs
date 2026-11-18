@@ -73,6 +73,25 @@ test('packed linen envelope retains valid bindings, barycentric anchors and the 
  assert.ok(data.binding.parts.some(r=>r.name==='outfit_linen_trim'&&r.linear),'belt corrections remain present');
 });
 
+test('shared UV seams and reconstructed material weights exactly match the authored shirt',()=>{
+ const envelope=load('linen').sleeveEnvelope, a=envelope.anchors;
+ const authored=JSON.parse(gunzipSync(file('art/fairy-garden/doll/motion/linen-envelope.json.gz')));
+ assert.deepEqual(envelope.rootAnchors,authored.rootAnchors);
+ const triples=(array,j)=>array.slice(3*j,3*j+3);
+ for(const [j,row] of authored.anchors.entries()){
+  assert.deepEqual([a.ids[j],a.side[j],a.weight[j],triples(a.body,j),triples(a.bary,j),a.offset[j],
+   triples(a.baseBody,j),triples(a.baseBary,j),a.baseOffset[j]],row);
+ }
+ const chart=envelope.outwardSleeve;
+ assert.ok(chart.samples.length>=3);
+ assert.ok(chart.samples[0].pitch<1 && chart.samples.at(-1).pitch>2.4);
+ for(const [j,sample] of chart.samples.entries()){
+  if(j)assert.ok(sample.pitch>chart.samples[j-1].pitch);
+  assert.equal(sample.offset.length,3*chart.groups.length);
+  assert.ok(sample.offset.every(Number.isFinite));
+ }
+});
+
 test('authored face edits preserve skin, morph and UV channels while separating cuff color from belt',()=>{
  const scene=new T.Group(),g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute([0,0,0,1,0,0,0,1,0,1,1,0],3));g.setAttribute('skinIndex',new T.Uint16BufferAttribute(new Array(16).fill(0),4));g.setAttribute('skinWeight',new T.Float32BufferAttribute(new Array(16).fill(.25),4));g.setAttribute('uv',new T.Float32BufferAttribute([0,0,1,0,0,1,1,1],2));g.morphAttributes.position=[new T.Float32BufferAttribute(new Array(12).fill(.01),3)];g.setIndex([0,1,2,1,3,2]);
  const original=new T.SkinnedMesh(g,new T.MeshStandardMaterial());original.name='belt';original.userData={outfit:'linen',colorSlot:'trim'};scene.add(original);

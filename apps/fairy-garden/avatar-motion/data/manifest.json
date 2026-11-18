@@ -20,8 +20,8 @@
     }
   },
   "linen": {
-    "bytes": 1655526,
-    "sha256": "346c944169c015f10deb8e57b186dc98498213b3cc705021604e379b2f37be40",
+    "bytes": 1729533,
+    "sha256": "d561f58a199db30ca3401fc44e3f7fd3484c83895435f6f66bad6fe2432ebba1",
     "sources": {
       "wardrobe-fair-bind-linen.json.gz": "ff1e41ddb7de3dd9ce2ba833f02aca6e30b79a4011687449638943d3181c7c7e"
     },

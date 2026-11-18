@@ -23,10 +23,37 @@ def attach(blob, authored=HERE/'linen-envelope.json.gz'):
     elif not any(r['name'] == 'outfit_linen_cuff_patch' and r['meshId'] == 6 for r in binding['parts']):
         raise ValueError('Missing linen cuff patch binding')
     envelope = {k: source[k] for k in ['shoulder', 'trimPatches', 'rootAnchors']}
+    outward = json.loads(gzip.decompress((HERE/'linen-outward.json.gz').read_bytes()))
+    if outward.pop('referenceSha256') != source['sourceSha256']:
+        raise ValueError('Outward lift was fitted on a different body or shirt binding')
+    envelope['outwardSleeve'] = outward
     rows = source['anchors']
-    columns = [('ids', 0), ('side', 1), ('weight', 2), ('body', 3), ('bary', 4),
-               ('offset', 5), ('baseBody', 6), ('baseBary', 7), ('baseOffset', 8)]
-    envelope['anchors'] = {name: ([v for r in rows for v in r[k]] if k in (3,4,6,7) else [r[k] for r in rows]) for name, k in columns}
+    # UV splits duplicate the same material point. Preserve every source double
+    # once and store the original cloth-vertex to material-row mapping.
+    unique, indices, lookup = [], [], {}
+    for row in rows:
+        key = tuple(tuple(v) if isinstance(v, list) else v for v in row[1:])
+        if key not in lookup:
+            lookup[key] = len(unique)
+            unique.append(row)
+        indices.append(lookup[key])
+    anchors = {'ids': [r[0] for r in rows], 'materialRow': indices}
+    for name, k in [('side', 1), ('weight', 2), ('body', 3), ('bary', 4),
+                    ('offset', 5), ('baseBody', 6), ('baseBary', 7), ('baseOffset', 8)]:
+        if k in (4, 7):
+            if any(r[k][2] != 1 - (r[k][0] + r[k][1]) for r in unique):
+                raise ValueError('Cannot losslessly reconstruct linen barycentric weights')
+            anchors[name] = [v for r in unique for v in r[k][:2]]
+        elif k in (3, 6):
+            anchors[name] = [v for r in unique for v in r[k]]
+        else:
+            anchors[name] = [r[k] for r in unique]
+    envelope['anchors'] = anchors
+    roots = envelope.pop('rootAnchors')
+    envelope['rootColumns'] = {
+        'ids': [r[0] for r in roots], 'weight': [r[1] for r in roots],
+        'body': [v for r in roots for v in r[2]], 'bary': [v for r in roots for v in r[3]],
+        'offset': [r[4] for r in roots]}
     addition, extra = unpack(pack({'meshEdits': source['meshEdits'], 'sleeveEnvelope': envelope}))
     # Preserve existing packed arrays byte-for-byte. Their descriptors refer to
     # the original payload, not to decoded ordinary Python lists.

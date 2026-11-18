@@ -265,7 +265,7 @@ export function emotionPose(face,p){
  case 'happy': // 朝你招手，另一手自然张开，身体跟着招呼轻晃
   q.right=[-2.15*e,0,(.35+Math.sin(p*Math.PI*8)*.27)*e];q.left=[-.25*e,0,-.2*e];q.roll=.055*Math.sin(p*Math.PI*4)*e;break;
  case 'amazed':{ // 双手欢呼，起势后蹦一次，再停住看你
-  q.left=[-2.55*e,0,-.5*e];q.right=[-2.55*e,0,.5*e];const j=(p-.24)/.3;q.lift=j>0&&j<1?.075*Math.sin(j*Math.PI)**2:0;q.tilt=-.025*e;break;}
+  q.outwardLift=1;q.left=[-2.55*e,0,-.5*e];q.right=[-2.55*e,0,.5*e];const j=(p-.24)/.3;q.lift=j>0&&j<1?.075*Math.sin(j*Math.PI)**2:0;q.tilt=-.025*e;break;}
  case 'cozy': // 两手向你打开，靠近一点，像邀你抱抱
   q.left=[-1.05*e,0,-.42*e];q.right=[-1.05*e,0,.42*e];q.tilt=.055*e;q.roll=.045*e;break;
  case 'relax': // 两臂舒展开，向一边伸再慢慢回来

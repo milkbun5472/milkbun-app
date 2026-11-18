@@ -1,11 +1,11 @@
-import {createHomeDecor} from './home-decor.mjs?v=fg-a3dcf9df351bbef8';
-import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-a3dcf9df351bbef8';
-import {HOME_BED_SURFACE,HOME_COOK,HOME_PREP,furnitureSeatSurface} from './home-catalog.mjs?v=fg-a3dcf9df351bbef8';
-import {createCollectionFurniture} from './home-collections.mjs?v=fg-a3dcf9df351bbef8';
-import {soupPot,preparationSurface} from './places/kitchen-kit.mjs?v=fg-a3dcf9df351bbef8';
+import {createHomeDecor} from './home-decor.mjs?v=fg-97697f6a4a4c70df';
+import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-97697f6a4a4c70df';
+import {HOME_BED_SURFACE,HOME_COOK,HOME_PREP,furnitureSeatSurface} from './home-catalog.mjs?v=fg-97697f6a4a4c70df';
+import {createCollectionFurniture} from './home-collections.mjs?v=fg-97697f6a4a4c70df';
+import {soupPot,preparationSurface} from './places/kitchen-kit.mjs?v=fg-97697f6a4a4c70df';
 
-import {createBathroomFurniture} from './bathroom-kit.mjs?v=fg-a3dcf9df351bbef8';
-import {createHomeHobbyFurniture} from './home-hobby-furniture.mjs?v=fg-a3dcf9df351bbef8';
+import {createBathroomFurniture} from './bathroom-kit.mjs?v=fg-97697f6a4a4c70df';
+import {createHomeHobbyFurniture} from './home-hobby-furniture.mjs?v=fg-97697f6a4a4c70df';
 // Movable meshes use the catalogue footprint and the traveler's original bed /
 // chair surfaces. Details belong to their instance, including the thumbnail.
 export function createHomeFurniture(k,a,p){
