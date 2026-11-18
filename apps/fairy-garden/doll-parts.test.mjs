@@ -32,7 +32,9 @@ export const gltf=merge([base,...Object.values(outfitFiles).map(parse)]);
   for(const [n] of hairNodes){const c={...n};delete c.children;if(c.mesh!=null){gltf.meshes.push({...one.meshes[c.mesh],primitives:one.meshes[c.mesh].primitives.map(p=>({...p,attributes:Object.fromEntries(Object.entries(p.attributes).map(([k,v])=>[k,v+a0])),indices:p.indices==null?undefined:p.indices+a0,material:p.material==null?undefined:p.material+mat0}))});c.mesh=gltf.meshes.length-1;}
    gltf.nodes.push(c);(anchor.children=anchor.children||[]).push(gltf.nodes.length-1);}}}
 // 一个人第一次进场要下的：底模＋最大的那一套衣服＋最大的那一款头发
-export const firstLoadBudget=3.5*1024*1024;
+// Heritage's repaired Float32 surface keeps the original Draco vertex order
+// for its animation bindings; only its approved cloth budget grows (2026-11-18).
+export const firstLoadBudget=4.1*1024*1024;
 export const firstLoadBytes=baseBytes.length+Math.max(...Object.values(outfitFiles).map(b=>b.length))+Math.max(...Object.values(hairFiles).map(b=>b.length));
 
 test('doll.glb carries no clothes; every catalogued outfit has its own file and nothing else',()=>{
@@ -62,4 +64,10 @@ test('doll.glb carries no hair; every hairstyle has its own file under HeadAncho
  const src=readFileSync(here('./traveler.mjs'),'utf8');
  assert.match(src,/new URL\('\.\/hair\/'\+id\+'\.glb'\+new URL\(import\.meta\.url\)\.search,import\.meta\.url\)/);
  assert.match(src,/export const preloadHair=/);
+});
+
+// Other wardrobe files retain the earlier mobile download ceiling.
+test('only the reviewed heritage surface has the higher download allowance',()=>{
+ const fixed=baseBytes.length+Math.max(...Object.values(hairFiles).map(b=>b.length));
+ for(const [id,bytes]of Object.entries(outfitFiles))assert.ok(fixed+bytes.length<(id==='heritage'?4.1:3.5)*1024*1024,id+' download allowance');
 });

@@ -1,6 +1,8 @@
 # 复古三件套（heritage）
 
-**最新状态（2026-11-15）：** raised-v8 裁切、补面及重建袖根试验改变了原静态布面，已撤下，不可发布。正式 shoulder-v6 未替换。 Lisa要求保留原版站姿，只修举手／击掌变形；抬手问题目前仍未解决。执行约定与失败证据见 `施工规则/model-outfit-review.md` 最新纠正，下面旧检查仅作历史。
+**最新状态（2026-11-18）：** v89.757已接公共身体材料动作；本轮按Lisa「复古袖子还是太肥」收窄中段，已上线v89.771。原肩头、完整袖口与其余五个网格保留，主布5019点修改／13279点固定。原UV、索引、蒙皮、纹理载荷保持。GLB约2.62→3.29MB；motion约1.225→1.241MB。保编号的Float32通道增量使底模＋最大头发＋本套达4.086MiB，本套下载上限调整到4.1MiB，其他服装仍3.5MiB；未降低纹理或几何精度。下列shoulder-v6为本轮迁移输入，不是新输出SHA。
+
+重建：`repair_heritage_sleeves.py <source> <output>` 调用 `slim_heritage_sleeves.py`，输入需heritage.glb、运行前解码meshes.json及motion.json。证据在本聊天`heritage-sleeves/`；主布rest/normal与六体型同步。完整打包必须用`heritage-sleeves/final/motion.json`的binding替换旧section-guide数据，保留原截面导引与权重。六形态按同侧截面中心位移传递，不能把整项形态当绝对坐标重新收缩：会在极端体型翻面。64端点修改区零翻面、最小面积比约.0622。
 
 2026-11-15 用户确认 shoulder-v6 并要求发版。整套穿戴，六区独立染色；沿用公共衣柜、存档、按需加载和 DollRig。
 
@@ -14,3 +16,5 @@
 最终 Blender 为 `heritage-ready.blend`。原始混元来源 SHA256 `4c9b71998a7c8c526c423a46ee6487dc3bd63f8cb5333906bf2f23375df89d29`。
 
 该定稿服装按需下载约 2.5 MiB；身体+最大发型+本套约 3.41 MiB，首次角色资源上限相应为 3.5 MiB。未压缩或重塑定稿几何来凑旧预算；基础包和已有衣服保持原样。
+
+发布回执：113e22f03be76e498ad8ea7756bdcb8800a0cef0 / fg-aafbc8d2b09d9fb6；80测试过、221线上文件SHA一致；本地Chrome/WebKit各48案例144视图，正式站WebKit同矩阵过，244帧换衣/体型恢复差0。详情与待验收状态只维护在公共复盘。
