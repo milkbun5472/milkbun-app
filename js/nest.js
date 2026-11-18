@@ -819,7 +819,7 @@
       .catch(e => setErr(e.message));
     useEffect(() => { const tm = setTimeout(() => load(q), q ? 350 : 0); return () => clearTimeout(tm); }, [q, fst, sort]);
     const kindOf = ua => /iPhone|iPad/.test(ua) ? "苹果" : /Android/.test(ua) ? "安卓" : /Mac|Windows|Linux/.test(ua) ? "电脑" : "设备";
-    const day = ms => { const x = new Date(ms); return (x.getMonth() + 1) + "·" + x.getDate(); };
+    const day = ms => { const x = new Date(ms); return (x.getMonth() + 1) + "·" + x.getDate() + " " + x.getHours() + ":" + String(x.getMinutes()).padStart(2, "0"); };
     const ST = { ok: "能进", pending: "等通过", off: "已停用" };
     const setPass = () => requestAppPrompt("群口令", "新设备进门要输这一句（4 到 40 个字）。换了以后，已经进来的设备照常能用，只有新设备要用新口令。", "", async v => {
       v = String(v || "").trim(); if (!v) return;

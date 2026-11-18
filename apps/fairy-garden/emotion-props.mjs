@@ -1,6 +1,5 @@
-import {MITTEN_TAP_POINT} from './emotion-hands.mjs?v=fg-cc8079f79f553b35';
 import * as T from 'three';
-import {pointToolAt} from './reach-hand.mjs?v=fg-cc8079f79f553b35';
+import {pointToolAt} from './reach-hand.mjs?v=fg-cffe157f9b9727a4';
 
 const marker=(group,name,x=0)=>{const o=new T.Object3D();o.name=name;o.position.x=x;group.add(o);};
 function makeFlower(){
@@ -40,10 +39,15 @@ function makeSign(makeCanvas){
  board.position.set(0,.183,.011);board.name='SignPaper';board.userData.text='想你';sign.add(board);marker(sign,'SignGrip');return sign;
 }
 const PHONE_TILT=-Math.PI/3;
+// Initial native-palm estimate; the rendered hand surface refines this target.
+export const PHONE_PALM_PAD=Object.freeze([.01,-.045,-.005]);
+export function phoneSurfaceTarget(model,leftWorld,tap=0,amount=1){
+ const point=new T.Vector3(.035,.055,.009).multiplyScalar(amount).applyAxisAngle(new T.Vector3(1,0,0),PHONE_TILT).add(model.worldToLocal(leftWorld.clone()));point.y+=.018*(1-tap);return model.localToWorld(point);
+}
 // 手机摆放与右手按屏幕共用同一个局部变换。
 export function phoneTapTarget(model,leftWorld,tap=0,amount=1,handScale=1){
  const point=new T.Vector3(.035,.055,.019).multiplyScalar(amount).applyAxisAngle(new T.Vector3(1,0,0),PHONE_TILT).add(model.worldToLocal(leftWorld.clone()));
- point.sub(new T.Vector3(...MITTEN_TAP_POINT).applyAxisAngle(new T.Vector3(1,0,0),Math.PI).multiplyScalar(handScale));point.y+=.018*(1-tap);return model.localToWorld(point);
+ point.sub(new T.Vector3(...PHONE_PALM_PAD).multiplyScalar(handScale));point.y+=.018*(1-tap);return model.localToWorld(point);
 }
 function makePhone(makeCanvas){
  const g=new T.Group();g.name='CompanionPhone';

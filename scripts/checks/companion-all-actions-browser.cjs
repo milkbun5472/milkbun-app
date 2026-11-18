@@ -8,7 +8,7 @@ const out=process.env.COMPANION_EVIDENCE||'/tmp/companion-all-actions';fs.mkdirS
  const source=fs.readFileSync('js/companion.js','utf8'),rows=variants(),report={modes:[],actions:Object.keys(cases).length,variantsPerAction:256,variantsPerMode:rows.length},errors=[];
  for(const mode of ['full','float']){
   const page=await browser.newPage({viewport:{width:390,height:700}});page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(base+'/apps/companion/?mode='+mode);await page.waitForFunction(()=>window.petDebug);await page.evaluate(()=>petDebug.ready());
+  await page.goto(base+'/apps/companion/?mode='+mode);await page.waitForFunction(()=>window.petDebug);await page.evaluate(()=>petDebug.ready());assert.equal(await page.evaluate(()=>petDebug.snapshot().motionReady),true,mode+' loads the shared motion source');
   await page.addScriptTag({content:'window.useEffect=fn=>fn();window.testStore={};window.loadJSON=(k,d)=>testStore[k]??d;window.saveJSON=(k,v)=>{testStore[k]=v;};'+source.replace('window.CompanionFace =','window.bindCompanionChat = useChatAct; window.CompanionFace =')});
   await page.evaluate(()=>{window.chatMessages=[];window.bindCompanionChat('check-c1',{current:{contentWindow:{postMessage(message){chatMessages.push(message);window.postMessage(message,'*');}}}});});
   const coverage=await page.evaluate(rows=>{

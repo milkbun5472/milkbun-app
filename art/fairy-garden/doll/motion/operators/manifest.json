@@ -1,0 +1,22 @@
+{
+  "body-live-fair-v4-data.json": {
+    "operator": "body-live-fair-v4-data.npz",
+    "sourceSha256": "f17d66d4594afda9d983129c2d302cf53a664a60df5662a168c7e9895d7e1bad",
+    "operatorSha256": "01fca1e9f9986f927e348058ac8e2b61933348b55cd6e0369792b7e76db5ddb2"
+  },
+  "shoulder-root-fair-v1-data.json": {
+    "operator": "shoulder-root-fair-v1-data.npz",
+    "sourceSha256": "fce21f905663d8ba609d8336b17c75ec5dc3b4a623a4b4009877428080057c7d",
+    "operatorSha256": "fed1ab068303dc8e3e0df70976dd7eb6ec013b9eb274a63a7cdb7c1bd58b37a8"
+  },
+  "elbow-metric-v1-data.json.gz": {
+    "operator": "elbow-metric-v1-data.npz",
+    "sourceSha256": "f063550b05d2e3d3c2d9c630d61ca74815680e3c3a933a3ea21789fde5bd123e",
+    "operatorSha256": "30b368e1cbfc3a5a92cd5957263a104847f7517bfb69f584f4674fae11f40f19"
+  },
+  "contact-metric-v1-data.json.gz": {
+    "operator": "contact-metric-v1-data.npz",
+    "sourceSha256": "b0c76a4f5eac615e15a4a6333034ae40a86106e59758081c9667a0a6a418846f",
+    "operatorSha256": "01e64e113c56116063ad3a3b2bc8aff753ec3e98d07ed715d8492a4caa830e98"
+  }
+}

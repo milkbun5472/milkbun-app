@@ -1,0 +1,101 @@
+{
+  "body": {
+    "bytes": 24589128,
+    "sha256": "f359f0078e4b4977e58bd697fb458b93c62f6742531bd580f64287ac76ca6493",
+    "sources": {
+      "hybrid-body-wrist-proxy.json": "27c4e1c7d2313699c6765db2385c967a97004bf948ba11fe18e406753a8946e0",
+      "body-pose-field-v3.json": "47ac8d77c400250845219ff40126bdd67e2d5fcba7fec8adc75f08a8ed738186",
+      "body-dim-transfer-v3.json.gz": "67a01b3b6a79d92d8c30cccabef3655477195e67fe728e7b6d0d267eebfaec0d",
+      "body-live-fair-v4-data-symmetric.json": "ea981fbaf24147bfe2c1bf317baa5956a48656f2d44feba95dc5622b3ff01985",
+      "shoulder-root-fair-v1-data-symmetric.json": "d01d9395015c080e54e91fbea27eee4fbf6a10198bc3cfeaf79d51bd90db0f40",
+      "neck-area-v1-data.json": "9203285824815778e52b1a9d82098763f42b8fb0cee11898d5b7ce72bc215ef1",
+      "joint-flow-v1-data.json.gz": "a7e5f0d221fef9557f37cf568873e4bddc2e401357b911b77d5008c030ad146d",
+      "elbow-metric-v1-data-symmetric.json.gz": "a200c155b99d0f347f00d536565fd4c6dba898751a928783ea08cc4279d0ef84",
+      "contact-metric-v1-data-symmetric.json.gz": "483f13868abdd515bff4e2b3a795fafdb1dfab38dc6a0c7f9e14b2b7cff44c66"
+    }
+  },
+  "linen": {
+    "bytes": 947625,
+    "sha256": "ab474b20ed24f8ecffafea0dc53dbf2a251814af80f6a61774718bffa76573ff",
+    "sources": {
+      "wardrobe-fair-bind-linen.json.gz": "ff1e41ddb7de3dd9ce2ba833f02aca6e30b79a4011687449638943d3181c7c7e"
+    }
+  },
+  "heritage": {
+    "bytes": 1225029,
+    "sha256": "5011ea9903080969ade04c62b0c2abcf435e273d86fd07f9c66219f0c7fd730f",
+    "sources": {
+      "wardrobe-section-guide-bind-heritage.json.gz": "14368fdb91a76e6a19a36a7f873775c3d5a52eb9ca6a537f5bea871d5240e2cb"
+    }
+  },
+  "bamboo": {
+    "bytes": 1029390,
+    "sha256": "b69ba66d1cef0e42dfd1b7c380aa847142d7db9a7ec1540b0781d02830eaa1db",
+    "sources": {
+      "wardrobe-section-guide-bind-bamboo.json.gz": "746edbddc62aac29ba6f7d082004b24d115eb64fa33194294a06169d4360a29f"
+    }
+  },
+  "argyle": {
+    "bytes": 907557,
+    "sha256": "21ffdc61620209c7746b350eb340ff215a0378ec9a1f872b89f9a0ce0712f959",
+    "sources": {
+      "wardrobe-section-guide-bind-argyle.json.gz": "a196926ebe38b14addd5b08355bbe418539a07cf0d2c3806c509ba9ac755c603"
+    }
+  },
+  "cardigan": {
+    "bytes": 627548,
+    "sha256": "86e6132c21703256636a54fd3f41fa60b1d3c6221911a69a0f1c9212b9e1bf81",
+    "sources": {
+      "wardrobe-fair-bind-cardigan.json.gz": "5460f0747e0d95353a42b88f81a9aff34e2cffe5906d8dffd3dc063ac3de7754"
+    }
+  },
+  "ranger": {
+    "bytes": 825177,
+    "sha256": "578fc7df9060b35cee8c62a03b2afdd83283b545b7dc885ab4f206c40d5436be",
+    "sources": {
+      "wardrobe-fair-bind-ranger.json.gz": "15d10a2eb78c35582f41763c0708745e707b592887082658451b8f4b5f09b608"
+    }
+  },
+  "garden": {
+    "bytes": 734420,
+    "sha256": "5a116208bae5c59e600d5e05ae341688c61ee1ef0981abd8192cac2f4d3a8e49",
+    "sources": {
+      "wardrobe-fair-bind-garden.json.gz": "52971ebd3d2d5f6751b80d423f0e33ae835ee1446e45ef4f333b98822c5c7308"
+    }
+  },
+  "jacket": {
+    "bytes": 1056247,
+    "sha256": "d09da72711874e65e0bb1e68427707db4f132a9677721836d82bc2a80ecec301",
+    "sources": {
+      "wardrobe-fair-bind-jacket.json.gz": "253f01d0f2ba19ad1f1853c2f478bf5d64dd587e8a3610119bb4aa97ce8fc316"
+    }
+  },
+  "suit": {
+    "bytes": 681138,
+    "sha256": "9186650b4e1c178e5b5b97778bc4e62ed25d5b9cad0ace7275df5e7b8c42f8c4",
+    "sources": {
+      "wardrobe-fair-bind-suit.json.gz": "0d0f7bd6def9c8852b331cee6f72e74955449a9cb11731c6510b74067e3fda73"
+    }
+  },
+  "tee": {
+    "bytes": 775016,
+    "sha256": "6215cd5ef4287d53a6642d71b362e47df6f734fb7d482fb07e9e41309af8be69",
+    "sources": {
+      "wardrobe-fair-bind-tee.json.gz": "02c18903da3b3a7ea659ea4e78488892116f6276370ed80fa60147f83ad828f2"
+    }
+  },
+  "academy": {
+    "bytes": 591488,
+    "sha256": "868bbdf2b139056048803e570d9d8f24ea4f1f097778003d7153b53c262a777d",
+    "sources": {
+      "wardrobe-fair-bind-academy.json.gz": "12a430b5529c80822905bae0a80329b3b99eb9140bec0703f750f8a69b635dba"
+    }
+  },
+  "berry": {
+    "bytes": 1900173,
+    "sha256": "092e443c6c3a69af16ffaee1929e3b4d9c970d1c670416e9cfe77d9ebf8e46e6",
+    "sources": {
+      "wardrobe-fair-bind-berry.json.gz": "fbec523af6c10f7ad031fbfef6b09cc69a0732e27ed13f46059258008075b834"
+    }
+  }
+}
