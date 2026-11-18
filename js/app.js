@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.744";
+const APP_VERSION = "v89.747";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -20376,10 +20376,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
   };
   // ---- 日记（Diary）----
-  const scheduleTextFor = (char, dayKey) => {
+  const scheduleTextFor = (char, dayKey, o) => {
     const key = dayKey || schedLocalDayKey(char);
     const s = (schedules[char.id] || {})[key];
     if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return "";
+    // 写日记用的那份不带钟点、排成一行（她 2026-11-18：日记老把日程一格格照钟点抄一遍）：没有一排「08:30…09:30…」可照着排，
+    //   它就只是这一天的底子；真要时间的那件事，聊天记录里本来带着
+    if (o && o.noTime) return s.seqs.map(it => String(it.title || "").trim() + (it.location ? "（" + it.location + "）" : "") + (it.deviation ? "［偏差：" + (it.deviation.reason || "") + "］" : "")).filter(Boolean).join("；");
     return s.seqs.map(it => (it.time || "") + " " + (it.title || "") + (it.location ? "（" + it.location + "）" : "") + (it.deviation ? "［偏差：" + (it.deviation.reason || "") + "］" : "")).join("\n");
   };
   // 日记写的是【昨天】——那天已经过完，角色在【那天晚上睡前】写下当天的日记（对写的人来说那天就是"今天"）。
@@ -20473,7 +20476,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const bodyText = vRow ? ("综合 " + (vRow.score != null ? vRow.score : "—") +
         (vRow.marks && Object.keys(vRow.marks).length ? "｜" + Object.keys(vRow.marks).slice(0, 4).map(k => k + " " + vRow.marks[k]).join("、") : "")) : "";
       if (typeof vclockUse === "function") vclockUse(charId);
-      const d = handwritten || await generateDiary(offlineApiFor(charId), leanCtx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, bodyText: bodyText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: isBody(charId), digitalCc: !!settingsFor(charId).engineerEyes, sayZh: !!settingsFor(charId).bilingual && !settingsFor(charId).engineerEyes });
+      const d = handwritten || await generateDiary(offlineApiFor(charId), leanCtx, { scheduleText: scheduleTextFor(char, targetKey, { noTime: true }), walletText: walletText, bodyText: bodyText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: isBody(charId), digitalCc: !!settingsFor(charId).engineerEyes, sayZh: !!settingsFor(charId).bilingual && !settingsFor(charId).engineerEyes });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         unread: true,   // TA 新写的，她还没翻到（翻到那一篇就去掉；以前的旧日记没有这一格＝看过）
