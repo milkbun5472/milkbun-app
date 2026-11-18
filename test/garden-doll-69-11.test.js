@@ -20,7 +20,10 @@ test('美术源和运行时模型是两个文件，导出不许烧掉自己的�
   assert.match(doll, /SRC = os\.path\.join\(os\.path\.dirname\(os\.path\.abspath\(__file__\)\), 'base_traveler\.glb'\)/);
   assert.match(exp, /'apps',\s*'fairy-garden',\s*'doll\.glb'/);
   assert.ok(fs.existsSync(path.join(__dirname, '../art/fairy-garden/clay-reference.glb')));
-  assert.match(game, /loadAsync\('\.\/doll\.glb/);
+  assert.match(game, /loadTravelerSource\(/, '庭院应通过公共身体与动作加载入口取模型');
+  const sourceLoader=trav.slice(trav.indexOf('export function loadTravelerSource'));
+  assert.match(sourceLoader, /new URL\('\.\/doll\.glb\?/);
+  assert.match(sourceLoader, /prepareMotionSource\(source\)/);
 });
 
 test('头发名字里不许带点——GLTFLoader 会把点洗掉', () => {

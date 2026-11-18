@@ -37,7 +37,8 @@ node art/fairy-garden/doll/motion/build-numeric-core.mjs /absolute/path/to/assem
 
 `pack_motion.py` 接收完整的标定数据目录，以无损字节重排和 gzip 打包为 LMOT。
 源文件 SHA256 记录在运行时 `data/manifest.json`。只提前转为 Float32 的通道，
-是原运行时必然转成 Float32BufferAttribute 的通道；没有额外量化因子或纹理。
+是原运行时必然转成 Float32BufferAttribute 的通道。动作位置／法线增量可再按每个
+动作、每个通道独立缩放到 Int16，加载时还原 Float32；求解因子与其他通道保持原字节。
 标定原件保存在本任务的 `body-motion-night/` 工作目录，具体路径见公共复盘的证据链接。
 运行时已经打包的数据和固定稀疏算子随仓库保存；重新标定需要原件，不能凭本说明重造。
 
@@ -46,10 +47,15 @@ node art/fairy-garden/doll/motion/build-numeric-core.mjs /absolute/path/to/assem
 
 ```sh
 python art/fairy-garden/doll/motion/refactor_factors.py "$MOTION_SOURCE_DIR" --output "$MOTION_SOURCE_DIR"
-python art/fairy-garden/doll/motion/pack_motion.py "$MOTION_SOURCE_DIR" --symmetric
+python art/fairy-garden/doll/motion/pack_motion.py "$MOTION_SOURCE_DIR" --symmetric --quantize-pose-deltas --output /tmp/rebuilt-motion
 ```
 
 不要在浏览器回归进行中替换运行时数据格式。先生成到单独目录、核对，再统一切换代码和资产。
+
+已有 LMOT 原件也可通过 `quantize_pose_deltas.py 原件.bin.gz 候选.bin.gz --report 报告.json`
+单独生成身体候选，不重打包任何衣服。必须保留未量化原件；脚本拒绝重复量化。
+`test/fixtures/motion-compression.json` 锁定原件 SHA、所有非目标数据的保护摘要和通道误差。
+本轮身体包24,589,128→17,762,655字节；这只改变下载编码，不修复动作或服装造型。
 
 ## 验证
 

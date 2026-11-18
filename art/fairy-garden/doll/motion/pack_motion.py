@@ -31,13 +31,18 @@ def pack(document):
 
 def load(p):return json.loads(gzip.decompress(p.read_bytes()) if p.suffix=='.gz' else p.read_bytes())
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument('source',type=Path);ap.add_argument('--symmetric',action='store_true');ap.add_argument('--output',type=Path,default=Path('apps/fairy-garden/avatar-motion/data'));args=ap.parse_args();args.output.mkdir(parents=True,exist_ok=True)
+    ap=argparse.ArgumentParser();ap.add_argument('source',type=Path);ap.add_argument('--symmetric',action='store_true');ap.add_argument('--quantize-pose-deltas',action='store_true');ap.add_argument('--output',type=Path,default=Path('apps/fairy-garden/avatar-motion/data'));args=ap.parse_args();args.output.mkdir(parents=True,exist_ok=True)
     files={'mesh':'hybrid-body-wrist-proxy.json','poseCurveData':'body-pose-field-v3.json','dimensionData':'body-dim-transfer-v3.json.gz','liveFairData':'body-live-fair-v4-data.json','shoulderRootData':'shoulder-root-fair-v1-data.json','neckAreaData':'neck-area-v1-data.json','jointFlowData':'joint-flow-v1-data.json.gz','elbowMetricData':'elbow-metric-v1-data.json.gz','contactMetricData':'contact-metric-v1-data.json.gz'}
     if args.symmetric:
         for key in ['liveFairData','shoulderRootData','elbowMetricData','contactMetricData']:files[key]=files[key].replace('.json','-symmetric.json')
     report={}
     def save(name,data,inputs):
-        blob=pack(data);(args.output/(name+'.bin.gz')).write_bytes(blob);report[name]={'bytes':len(blob),'sha256':hashlib.sha256(blob).hexdigest(),'sources':{f:hashlib.sha256((args.source/f).read_bytes()).hexdigest() for f in inputs}}
+        blob=pack(data)
+        if name=='body' and args.quantize_pose_deltas:
+            from quantize_pose_deltas import quantize
+            blob,quality=quantize(blob)
+            (args.output/'pose-quantization.json').write_text(json.dumps(quality,indent=2)+'\n')
+        (args.output/(name+'.bin.gz')).write_bytes(blob);report[name]={'bytes':len(blob),'sha256':hashlib.sha256(blob).hexdigest(),'sources':{f:hashlib.sha256((args.source/f).read_bytes()).hexdigest() for f in inputs}}
     body={k:load(args.source/f) for k,f in files.items()}
     # These channels are converted to Float32BufferAttribute before any runtime
     # computation. Store that exact representation, preserving rendered values.

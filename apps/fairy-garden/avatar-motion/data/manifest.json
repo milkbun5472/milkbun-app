@@ -1,7 +1,7 @@
 {
   "body": {
-    "bytes": 24589128,
-    "sha256": "f359f0078e4b4977e58bd697fb458b93c62f6742531bd580f64287ac76ca6493",
+    "bytes": 17762655,
+    "sha256": "2cda396324476a9b8e6b1055f3570b7053fee416e911a91507e5051904c34a54",
     "sources": {
       "hybrid-body-wrist-proxy.json": "27c4e1c7d2313699c6765db2385c967a97004bf948ba11fe18e406753a8946e0",
       "body-pose-field-v3.json": "47ac8d77c400250845219ff40126bdd67e2d5fcba7fec8adc75f08a8ed738186",
@@ -12,6 +12,11 @@
       "joint-flow-v1-data.json.gz": "a7e5f0d221fef9557f37cf568873e4bddc2e401357b911b77d5008c030ad146d",
       "elbow-metric-v1-data-symmetric.json.gz": "a200c155b99d0f347f00d536565fd4c6dba898751a928783ea08cc4279d0ef84",
       "contact-metric-v1-data-symmetric.json.gz": "483f13868abdd515bff4e2b3a795fafdb1dfab38dc6a0c7f9e14b2b7cff44c66"
+    },
+    "poseQuantization": {
+      "format": "signed-int16-per-pose-channel",
+      "referenceSHA256": "f359f0078e4b4977e58bd697fb458b93c62f6742531bd580f64287ac76ca6493",
+      "report": "test/fixtures/motion-compression.json"
     }
   },
   "linen": {
