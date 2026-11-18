@@ -21149,8 +21149,10 @@ function GroupThread({
   const gAvBadgePin = el => {
     if (!el) return;
     [["position", "absolute"], ["z-index", "3"], ["width", "auto"], ["height", "auto"],
-     ["min-width", "0"], ["min-height", "0"], ["max-width", "none"], ["inset", "auto 4% 4% auto"], ["transform", "none"], ["margin", "0"], ["border-radius", "4px"]]
+     ["min-width", "0"], ["min-height", "0"], ["max-width", "none"], ["inset", "auto -4px -3px auto"], ["transform", "none"], ["margin", "0"], ["border-radius", "4px"]]
       .forEach(([k, v]) => el.style.setProperty(k, v, "important"));
+    // 头像框被裁（圆框 overflow:hidden／clip-path）才收进去；不裁的照旧探在框外角上，不挡脸（她 2026-11-18：方框美化里收进去反而压着图）
+    requestAnimationFrame(() => { if (el.isConnected && typeof msgStickClipped === "function" && msgStickClipped(el.parentElement)) el.style.setProperty("inset", "auto 4% 4% auto", "important"); });
   };
   const gAvBadge = character => {
     const id = character && character.id;
