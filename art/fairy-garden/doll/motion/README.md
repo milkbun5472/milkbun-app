@@ -7,7 +7,7 @@
 身体仍使用原 GLB 的材质、骨骼和贴图。动作模块安装经过验证的身体几何、
 姿态形态键和六项体型形态键，再计算肩部、弯肘和材料长度修正。
 衣服从当前身体的材料表面建立变形框架，保留衣柜材质分区、配色、配件与原网格。
-全部 12 套共用 `cloth-transport.mjs`；复古三件套、古风与菱格额外使用材料截面导引。
+全部 12 套共用 `cloth-transport.mjs`；卷袖衬衫、复古三件套、古风与菱格额外使用材料截面导引。
 
 ## 必须保留的约定
 
@@ -53,6 +53,11 @@ python art/fairy-garden/doll/motion/refactor_factors.py "$MOTION_SOURCE_DIR" --o
 python art/fairy-garden/doll/motion/pack_motion.py "$MOTION_SOURCE_DIR" --symmetric --quantize-pose-deltas --output /tmp/rebuilt-motion
 ```
 
+卷袖衬衫重建后由 `guide_linen_sleeves.py` 补齐同一身体的材料截面导引。
+`pack_motion.py` 自动执行；独立升级可用 `guide_linen_sleeves.py 原卷袖.bin.gz bamboo.bin.gz 新卷袖.bin.gz`。
+这里的导引 ID 指向共用身体，并非交领衣服顶点。旧绑定元数据和完整载荷逐字节保留，只追加导引数组；
+禁止通过 JSON 直接序列化 TypedArray 重打包，否则法线会变成数字键对象。保护回归见 `test/linen-sections.test.mjs`。
+
 不要在浏览器回归进行中替换运行时数据格式。先生成到单独目录、核对，再统一切换代码和资产。
 
 已有 LMOT 原件也可通过 `quantize_pose_deltas.py 原件.bin.gz 候选.bin.gz --report 报告.json`
@@ -80,6 +85,8 @@ PLAYWRIGHT_MODULE=/absolute/path/to/playwright COMPANION_TEST_URL=http://127.0.0
 含原问题位置像素断言和两套独立改色；肩带资产与绑定同步另见RANGER-BAG.md。
 `MOTION_CARDIGAN_SEAM=1` 检查小兔毛衣三体型、站姿及左右举手/双弯肘四个中途帧，
 共117近距离视图，并断言修复区没有压塌三角面；源资产/绑定迁移见CARDIGAN-SHOULDERS.md。
+`MOTION_THINKING=1 MOTION_THINKING_TIMELINE=1 MOTION_THINKING_TIMELINE_OUTFITS=linen`
+检查卷袖衬衫三体型的思考定姿与连续651帧起落；默认轨迹检查仍是T恤。
 另外跑实际页面的 `companion-all-actions-browser.cjs` 和 `town-appearance-browser.cjs`，
 确认产品入口、衣柜保存与角色隔离，不能只验证测试场景。
 

@@ -56,5 +56,12 @@ def main():
         f=('wardrobe-section-guide-bind-'if outfit in ('heritage','bamboo','argyle')else'wardrobe-fair-bind-')+outfit+'.json.gz';binding=load(args.source/f)
         # Capture geometry is not needed: runtime clones each actual garment.
         save(outfit,{'binding':binding,'materialCuff':outfit in ('heritage','bamboo','argyle')},[f])
+    # Linen uses the same body sections as the existing guided garments.
+    # Preserve all original binding arrays when upgrading an older source pack.
+    from guide_linen_sleeves import attach,unpack
+    linen=args.output/'linen.bin.gz'
+    if 'sleeveSectionGuides' not in unpack(linen.read_bytes())[0]['binding']:
+        linen.write_bytes(attach(linen.read_bytes(),(args.output/'bamboo.bin.gz').read_bytes()))
+    report['linen'].update(bytes=linen.stat().st_size,sha256=hashlib.sha256(linen.read_bytes()).hexdigest(),sectionGuides=True)
     (args.output/'manifest.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps({k:v['bytes'] for k,v in report.items()}))
 if __name__=='__main__':main()
