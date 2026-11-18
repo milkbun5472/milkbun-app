@@ -1,4 +1,4 @@
-import {BASIN_USE} from './bathroom-layout.mjs?v=fg-0df7f556a307b66b';
+import {BASIN_USE} from './bathroom-layout.mjs?v=fg-fc0d2b577ad40ca6';
 import * as T from 'three';
 // Shared by both people. Effects live only while their real fixture is in use.
 export function createBathroomVisual(avatar){
