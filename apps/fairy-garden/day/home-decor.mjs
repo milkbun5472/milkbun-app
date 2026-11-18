@@ -1,4 +1,4 @@
-import {rounded,arch,pebble,rimShape} from './home-shapes.mjs?v=fg-2ec4c4335c3d7852';
+import {rounded,arch,pebble,rimShape} from './home-shapes.mjs?v=fg-aafbc8d2b09d9fb6';
 
 // These ornaments share their catalogue footprint with picking and validation.
 export function createHomeDecor(k,a,p,g){

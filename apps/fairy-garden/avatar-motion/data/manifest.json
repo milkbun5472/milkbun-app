@@ -22,10 +22,10 @@
     }
   },
   "heritage": {
-    "bytes": 1225029,
-    "sha256": "5011ea9903080969ade04c62b0c2abcf435e273d86fd07f9c66219f0c7fd730f",
+    "bytes": 1240711,
+    "sha256": "e4b9ba8a9642efcb281f0bab7c07931c167eb2f4565d0e25af164c0dd45ab059",
     "sources": {
-      "wardrobe-section-guide-bind-heritage.json.gz": "14368fdb91a76e6a19a36a7f873775c3d5a52eb9ca6a537f5bea871d5240e2cb"
+      "heritage-slim-motion.json": "e920bbc6806b02d6e40a3c777edb7d5dcedc746442076dd4525f91c70ecf655b"
     }
   },
   "bamboo": {
