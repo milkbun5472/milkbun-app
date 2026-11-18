@@ -26,3 +26,7 @@ test("日记先交「最先想起的那件事」再写正文", () => {
   assert.ok(eng.includes('\\"first\\":\\"这篇从哪件事写起'));
   assert.ok(eng.indexOf('\\"first\\":') < eng.indexOf('\\"paras\\":[{\\"text\\":\\"这个角色实际会写下的正文'));
 });
+test("写日记那份日程不带钟点、排成一行", () => {
+  assert.ok(app.includes("scheduleText: scheduleTextFor(char, targetKey, { noTime: true })"));
+  assert.ok(app.includes('if (o && o.noTime) return s.seqs.map('));
+});
