@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {gunzipSync} from 'node:zlib';
+import {gunzipSync,gzipSync} from 'node:zlib';
 import {createHash} from 'node:crypto';
 import {decodeMotion} from '../apps/fairy-garden/avatar-motion/assets.mjs';
 const hash=x=>createHash('sha256').update(x).digest('hex');
@@ -10,10 +10,20 @@ const path=id=>new URL('../apps/fairy-garden/avatar-motion/data/'+id+'.bin.gz',i
 const asset=readFileSync(path('linen')),raw=gunzipSync(asset),start=8+raw.readUInt32LE(4),meta=JSON.parse(raw.subarray(8,start));
 
 test('linen guide upgrade preserves every existing binding field and payload byte',()=>{
- const original=structuredClone(meta);delete original.binding.sleeveSectionGuides;
+ const beforeEnvelope=structuredClone(meta);
+ // Face ownership moves cuff inserts from the belt to cloth. Numeric bindings
+ // and their existing packed payload must still match the preserved release.
+ for(const key of ['meshEdits','sleeveEnvelope','envelopePayloadOffset'])delete beforeEnvelope[key];
+ const cuff=beforeEnvelope.binding.parts.find(r=>r.name==='outfit_linen_cuff_patch');
+ assert.equal(cuff.meshId,6);assert.equal(cuff.followArms,true);
+ Object.assign(cuff,{name:'outfit_linen_trim',meshId:5,followArms:false});
+ const original=structuredClone(beforeEnvelope);delete original.binding.sleeveSectionGuides;
  assert.equal(hash(JSON.stringify(original)),fixture.metadataSHA);
  assert.equal(hash(raw.subarray(start,start+fixture.payloadBytes)),fixture.payloadSHA);
- assert.ok(asset.length-fixture.sourceBytes<10000,'guide metadata must not bloat the compressed asset');
+ const header=Buffer.from(JSON.stringify(beforeEnvelope)),prefix=Buffer.alloc(8);prefix.write('LMOT');prefix.writeUInt32LE(header.length,4);
+ const guideOnly=gzipSync(Buffer.concat([prefix,header,raw.subarray(start,start+meta.envelopePayloadOffset)]),{level:9});
+ assert.ok(guideOnly.length-fixture.sourceBytes<10000,'preserved guide metadata stays within its budget');
+ assert.ok(asset.length-guideOnly.length<768*1024,'envelope metadata stays below its reviewed size budget');
  const manifest=JSON.parse(readFileSync(new URL('../apps/fairy-garden/avatar-motion/data/manifest.json',import.meta.url)));
  assert.equal(manifest.linen.sha256,hash(asset));assert.equal(manifest.linen.bytes,asset.length);
 });

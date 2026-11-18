@@ -1,35 +1,35 @@
-import {createHandSurfaceQuery} from './hand-surface-query.mjs?v=fg-3bfd551167cb8a02';
+import {createHandSurfaceQuery} from './hand-surface-query.mjs?v=fg-a18a22cf5c6cefbf';
 import * as T from 'three';
-import {loadMotionAsset} from './assets.mjs?v=fg-3bfd551167cb8a02';
-import {createNumericCore} from './numeric-core.mjs?v=fg-3bfd551167cb8a02';
-import {createCachedMotionUpdate} from './pose-cache.mjs?v=fg-3bfd551167cb8a02';
-import {fitRigid} from './rigid-fit.mjs?v=fg-3bfd551167cb8a02';
-import {createClothNormalUpdater,disposeClothNormalGeometry} from './cloth-normals.mjs?v=fg-3bfd551167cb8a02';
-import {install as poseField} from './pose-field.mjs?v=fg-3bfd551167cb8a02';
-import {install as dimensions} from './dimensions.mjs?v=fg-3bfd551167cb8a02';
-import {install as surfaceFairing} from './surface-fairing.mjs?v=fg-3bfd551167cb8a02';
-import {install as armShaft} from './arm-shaft.mjs?v=fg-3bfd551167cb8a02';
-import {install as headClearance} from './head-clearance.mjs?v=fg-3bfd551167cb8a02';
-import {install as shoulderRoot} from './shoulder-root.mjs?v=fg-3bfd551167cb8a02';
-import {install as shoulderNormal} from './shoulder-normal.mjs?v=fg-3bfd551167cb8a02';
-import {install as neckArea} from './neck-area.mjs?v=fg-3bfd551167cb8a02';
-import {install as posedBuffer} from './posed-buffer.mjs?v=fg-3bfd551167cb8a02';
-import {install as elbowFlow} from './elbow-flow.mjs?v=fg-3bfd551167cb8a02';
-import {install as materialLength} from './material-length.mjs?v=fg-3bfd551167cb8a02';
-import {install as elbowMetric} from './elbow-metric.mjs?v=fg-3bfd551167cb8a02';
-import {install as torsoClearance} from './torso-clearance.mjs?v=fg-3bfd551167cb8a02';
-import {install as contactMetric} from './contact-metric.mjs?v=fg-3bfd551167cb8a02';
-import {install as skinSurface} from './skin-surface.mjs?v=fg-3bfd551167cb8a02';
-import {install as coverage} from './coverage.mjs?v=fg-3bfd551167cb8a02';
-import {install as clothDimensions} from './cloth-dimensions.mjs?v=fg-3bfd551167cb8a02';
-import {install as clothTransport,advancePhoneCuffBlend} from './cloth-transport.mjs?v=fg-3bfd551167cb8a02';
-import {install as clothSurface} from './cloth-surface.mjs?v=fg-3bfd551167cb8a02';
+import {loadMotionAsset} from './assets.mjs?v=fg-a18a22cf5c6cefbf';
+import {createNumericCore} from './numeric-core.mjs?v=fg-a18a22cf5c6cefbf';
+import {createCachedMotionUpdate} from './pose-cache.mjs?v=fg-a18a22cf5c6cefbf';
+import {fitRigid} from './rigid-fit.mjs?v=fg-a18a22cf5c6cefbf';
+import {createClothNormalUpdater,disposeClothNormalGeometry} from './cloth-normals.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as poseField} from './pose-field.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as dimensions} from './dimensions.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as surfaceFairing} from './surface-fairing.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as armShaft} from './arm-shaft.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as headClearance} from './head-clearance.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as shoulderRoot} from './shoulder-root.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as shoulderNormal} from './shoulder-normal.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as neckArea} from './neck-area.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as posedBuffer} from './posed-buffer.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as elbowFlow} from './elbow-flow.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as materialLength} from './material-length.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as elbowMetric} from './elbow-metric.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as torsoClearance} from './torso-clearance.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as contactMetric} from './contact-metric.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as skinSurface} from './skin-surface.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as coverage} from './coverage.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as clothDimensions} from './cloth-dimensions.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as clothTransport,advancePhoneCuffBlend} from './cloth-transport.mjs?v=fg-a18a22cf5c6cefbf';
+import {install as clothSurface} from './cloth-surface.mjs?v=fg-a18a22cf5c6cefbf';
 const sources=new WeakMap(),outfits=new Map();let numeric;
 export async function prepareMotionSource(source){
  if(!numeric)numeric=fetch(new URL('./numeric-core.wasm'+new URL(import.meta.url).search,import.meta.url)).then(async r=>{if(!r.ok)throw Error('Motion kernel request failed');return createNumericCore(await r.arrayBuffer())}).catch(e=>{numeric=null;throw e});
  const [data,core]=await Promise.all([loadMotionAsset('body'),numeric]);sources.set(source,{data,core});return source;
 }
-export async function prepareOutfitMotion(id){const data=await loadMotionAsset(id);outfits.set(id,data);}
+export async function prepareOutfitMotion(id){const data=await loadMotionAsset(id);outfits.set(id,data);return data;}
 export function createAvatarMotion(source,root,model,rig,body,initialDims){
  const resources=sources.get(source);if(!resources||!body)return null;
  const {data,core}=resources,mesh=data.mesh,g=new T.BufferGeometry(),indices=[],weights=[];
@@ -67,7 +67,7 @@ export function createAvatarMotion(source,root,model,rig,body,initialDims){
    }
    clothDimensions(q);
    const previous=q.applyLiveFair;q.applyLiveFair=()=>{previous();for(const o of q.outfits){const saved=garments.get(o);if(!saved)continue;o.geometry.attributes.position.array.set(saved.position);o.geometry.attributes.normal.array.set(saved.normal);o.geometry.attributes.position.needsUpdate=true;o.geometry.attributes.normal.needsUpdate=true}};
-   clothTransport(q,{materialCuff:asset.materialCuff});clothSurface(q);
+   clothTransport(q,{materialCuff:asset.materialCuff,envelope:asset.sleeveEnvelope});clothSurface(q);
   }
   handFrames=arms.map(({hand},side)=>{const fore=body.skeleton.bones.findIndex(b=>b.name===(side?'rightForearm':'leftForearm')),ids=[],seen=new Set(),grip=body.worldToLocal(hand.getWorldPosition(new T.Vector3()));
    // Keep the authored IK marker. Transport it with the corrected material palm;
@@ -82,5 +82,5 @@ export function createAvatarMotion(source,root,model,rig,body,initialDims){
  function update(){if(!dead&&apply)apply();}
  function handPoint(side,fallback){if(!apply)return fallback;update();const row=handFrames[side==='left'?0:1];if(row.generation!==q.motionGeneration){const point=new T.Vector3();for(let k=0;k<row.ids.length;k++){const i=row.ids[k];if(q.posedBuffer)point.fromArray(q.posedBuffer,i*3);else body.getVertexPosition(i,point);point.toArray(row.posed,k*3)}const fit=fitRigid(row.rest,row.posed,row.localIds);row.point.copy(row.grip).sub(new T.Vector3(...fit.restCenter)).applyQuaternion(new T.Quaternion(...fit.quaternion)).add(new T.Vector3(...fit.posedCenter));row.generation=q.motionGeneration;}return body.localToWorld(row.point.clone());}
 
- return {beforeBind,fitRest,afterBind,setClothPose(pose,blend){q.phoneCuffBlend=advancePhoneCuffBlend(q.phoneCuffBlend||0,pose?.phone,blend);},alignGroups(){arms.forEach(({p},i)=>p.position.copy(q.rigFit[i].group));},beforePose(){for(let i=q.beforePose.length-1;i>=0;i--)q.beforePose[i]();},update,handPoint,nearestHandPoint(side,target){update();return nearestHandSurface(side,target);},inspect:()=>q,dispose(){dead=true;apply=null;q.bodyPoseKernel?.dispose();q.torsoSurface?.dispose();for(const kernel of q.transportKernels?.values()||[])kernel.dispose();q.transportKernels?.clear();for(const o of garments.keys())disposeClothNormalGeometry(core,o.geometry);garments.clear();q.beforePose=[];handFrames=[];}};
+ return {beforeBind,fitRest,afterBind,setClothPose(pose,blend){q.phoneCuffBlend=advancePhoneCuffBlend(q.phoneCuffBlend||0,pose?.phone,blend);},alignGroups(){arms.forEach(({p},i)=>p.position.copy(q.rigFit[i].group));},beforePose(){for(let i=q.beforePose.length-1;i>=0;i--)q.beforePose[i]();},update,handPoint,nearestHandPoint(side,target){update();return nearestHandSurface(side,target);},inspect:()=>q,dispose(){dead=true;apply=null;q.sleeveEnvelope?.dispose();q.bodyPoseKernel?.dispose();q.torsoSurface?.dispose();for(const kernel of q.transportKernels?.values()||[])kernel.dispose();q.transportKernels?.clear();for(const o of garments.keys())disposeClothNormalGeometry(core,o.geometry);garments.clear();q.beforePose=[];handFrames=[];}};
 }
