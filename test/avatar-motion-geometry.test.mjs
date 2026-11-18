@@ -26,6 +26,7 @@ test('pose cache follows geometry, morphs and binding, while reusing world place
  f.root.position.y=3;f.root.updateMatrixWorld(true);apply();assert.equal(calls,1);
  f.b.rotation.x=.3;apply();assert.equal(calls,2);f.mesh.morphTargetInfluences[0]=.2;apply();assert.equal(calls,3);
  f.mesh.geometry.attributes.position.needsUpdate=true;apply();assert.equal(calls,4);q.bindingGeneration++;apply();assert.equal(calls,5);apply.invalidate();apply();assert.equal(calls,6);
+ q.phoneCuffBlend=.5;apply();assert.equal(calls,7);apply();assert.equal(calls,7);q.phoneCuffBlend=0;apply();assert.equal(calls,8);
 });
 
 test('WASM normals match the independent posed-surface reference and JS path',async()=>{

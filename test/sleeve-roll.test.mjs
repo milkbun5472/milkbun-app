@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {registerHooks} from 'node:module';
 registerHooks({resolve(s,c,next){return s==='three'?{url:new URL('../apps/fairy-garden/vendor/three.module.js',import.meta.url).href,shortCircuit:true}:next(s,c);}});
 const T=await import('three');
-const {sleeveRotation,blendSleeveCuffFrame}=await import('../apps/fairy-garden/avatar-motion/cloth-transport.mjs');
+const {sleeveRotation,blendSleeveCuffFrame,advancePhoneCuffBlend}=await import('../apps/fairy-garden/avatar-motion/cloth-transport.mjs');
 const {clothRotationReferences,createClothTransportKernel}=await import('../apps/fairy-garden/avatar-motion/cloth-transport-kernel.mjs');
 
 test('sleeve stripes keep arm roll even when the sleeve axis does not change',()=>{
@@ -64,4 +64,12 @@ test('cuff transition keeps an arm-sized section round through large bends',()=>
    if(amount===1)assert.ok(point.distanceTo(radius.clone().add(restCenter).applyMatrix4(matrix))<1e-12,'cuff endpoint must stay on its authored forearm transform');
   }
  }
+});
+
+
+test('phone cuff correction stays off for half raises and fades out with the bones',()=>{
+ for(const phone of [undefined,0])assert.equal(advancePhoneCuffBlend(0,phone,.4),0);
+ let amount=0;for(let i=0;i<40;i++)amount=advancePhoneCuffBlend(amount,1,.4);assert.equal(amount,1);
+ const first=advancePhoneCuffBlend(amount,0,.4);assert.equal(first,.6);
+ amount=first;for(let i=0;i<40;i++){const next=advancePhoneCuffBlend(amount,undefined,.4);assert.ok(next<=amount);assert.ok(next>=0);amount=next;}assert.equal(amount,0);
 });

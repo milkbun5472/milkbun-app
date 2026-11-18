@@ -414,6 +414,7 @@ export function createTraveler(source,companion=false,look={},appearance={}){
   // Sleeve coverage follows the garment’s authored rest coordinates through every pose.
   // Only replacement gesture hands change the skin mask; bending an elbow never exposes covered skin.
   for(const u of coveredBodies){u.rightHand.value=handStyle(armPose,'right')?1:0;u.leftHand.value=handStyle(armPose,'left')?1:0;}
+  avatarMotion?.setClothPose(armPose,poseBlend);
   syncBones();avatarMotion?.update();poseReady=true;
   settleEmotionGround(root,model,armPose?.ground||0);root.userData.emotionCanopy=armPose?.umbrella||0;
   const wantedFace=transientEmotionFace(armPose),nextFace=wantedFace&&faceTexture(wantedFace).image?wantedFace:null;if(actionFace!==nextFace){actionFace=nextFace;dress(want);}root.userData.actionFace=actionFace;

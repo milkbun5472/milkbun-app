@@ -22,7 +22,7 @@ import {install as contactMetric} from './contact-metric.mjs?v=fg-fc0d2b577ad40c
 import {install as skinSurface} from './skin-surface.mjs?v=fg-fc0d2b577ad40ca6';
 import {install as coverage} from './coverage.mjs?v=fg-fc0d2b577ad40ca6';
 import {install as clothDimensions} from './cloth-dimensions.mjs?v=fg-fc0d2b577ad40ca6';
-import {install as clothTransport} from './cloth-transport.mjs?v=fg-fc0d2b577ad40ca6';
+import {install as clothTransport,advancePhoneCuffBlend} from './cloth-transport.mjs?v=fg-fc0d2b577ad40ca6';
 import {install as clothSurface} from './cloth-surface.mjs?v=fg-fc0d2b577ad40ca6';
 const sources=new WeakMap(),outfits=new Map();let numeric;
 export async function prepareMotionSource(source){
@@ -82,5 +82,5 @@ export function createAvatarMotion(source,root,model,rig,body,initialDims){
  function update(){if(!dead&&apply)apply();}
  function handPoint(side,fallback){if(!apply)return fallback;update();const row=handFrames[side==='left'?0:1];if(row.generation!==q.motionGeneration){const point=new T.Vector3();for(let k=0;k<row.ids.length;k++){const i=row.ids[k];if(q.posedBuffer)point.fromArray(q.posedBuffer,i*3);else body.getVertexPosition(i,point);point.toArray(row.posed,k*3)}const fit=fitRigid(row.rest,row.posed,row.localIds);row.point.copy(row.grip).sub(new T.Vector3(...fit.restCenter)).applyQuaternion(new T.Quaternion(...fit.quaternion)).add(new T.Vector3(...fit.posedCenter));row.generation=q.motionGeneration;}return body.localToWorld(row.point.clone());}
 
- return {beforeBind,fitRest,afterBind,alignGroups(){arms.forEach(({p},i)=>p.position.copy(q.rigFit[i].group));},beforePose(){for(let i=q.beforePose.length-1;i>=0;i--)q.beforePose[i]();},update,handPoint,nearestHandPoint(side,target){update();return nearestHandSurface(side,target);},inspect:()=>q,dispose(){dead=true;apply=null;q.bodyPoseKernel?.dispose();q.torsoSurface?.dispose();for(const kernel of q.transportKernels?.values()||[])kernel.dispose();q.transportKernels?.clear();for(const o of garments.keys())disposeClothNormalGeometry(core,o.geometry);garments.clear();q.beforePose=[];handFrames=[];}};
+ return {beforeBind,fitRest,afterBind,setClothPose(pose,blend){q.phoneCuffBlend=advancePhoneCuffBlend(q.phoneCuffBlend||0,pose?.phone,blend);},alignGroups(){arms.forEach(({p},i)=>p.position.copy(q.rigFit[i].group));},beforePose(){for(let i=q.beforePose.length-1;i>=0;i--)q.beforePose[i]();},update,handPoint,nearestHandPoint(side,target){update();return nearestHandSurface(side,target);},inspect:()=>q,dispose(){dead=true;apply=null;q.bodyPoseKernel?.dispose();q.torsoSurface?.dispose();for(const kernel of q.transportKernels?.values()||[])kernel.dispose();q.transportKernels?.clear();for(const o of garments.keys())disposeClothNormalGeometry(core,o.geometry);garments.clear();q.beforePose=[];handFrames=[];}};
 }
