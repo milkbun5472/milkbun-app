@@ -18,3 +18,11 @@ test("日子也认星期几和生日", () => {
 test("日记也带「语气与年龄感」那条", () => {
   assert.ok(eng.includes('const parts = [DIARY_SKELETON, "", buildBundle(ctx)].concat(ctx.notRoleplay ? [] : ["", PERSONA_REGISTER_ANCHOR]);'));
 });
+test("日记不再被推成从早写到晚：没有「从早到晚回顾」，有「从哪儿写起」", () => {
+  assert.ok(!eng.includes("从早到晚回顾今天发生的事"));
+  assert.ok(eng.includes("【从哪儿写起】") && eng.includes("长在那件事旁边"));
+});
+test("日记先交「最先想起的那件事」再写正文", () => {
+  assert.ok(eng.includes('\\"first\\":\\"你坐下来翻开本子时最先想起的那件事'));
+  assert.ok(eng.indexOf('\\"first\\":') < eng.indexOf('\\"paras\\":[{\\"text\\":\\"这个角色实际会写下的正文'));
+});
