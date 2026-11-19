@@ -16,3 +16,7 @@ test("骰子卡摆在这个人这一条的话后面", () => {
   assert.ok(app.indexOf("// 他们自己掷骰子／抽签") > app.indexOf("bubbleId: \"word-\" + i + \"-\" + j"), "得在这一条的气泡发完之后");
   assert.ok(app.indexOf("// 他们自己掷骰子／抽签") < app.indexOf("// 群照片：该成员这条发言带了 photo 对象"));
 });
+test("照着卡上的字自己写骰子结果的，换成真掷", () => {
+  assert.match(app, /const _fk = \/\^\\s\*\\\[\(掷骰子\|抽签\)\\\]\/\.exec\(item\.text\);/);
+  assert.match(app, /item\.luck = _fk\[1\] === "掷骰子" \? \{ type: "dice"/);
+});

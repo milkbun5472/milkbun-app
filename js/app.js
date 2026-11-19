@@ -17106,6 +17106,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         };
         for (let i = 0; i < safeArr.length; i++) {
           const item = safeArr[i];
+          // 照着历史里那张卡的字自己写了一条「[掷骰子] 某某 掷了 2 颗骰子：6、5」（她 2026-11-19：「为什么我们仨都扔了 6 5」）：
+          //   那是抄来的数，不是掷的。这一行不当话发，换成真的去掷一次／抽一次
+          if (item && typeof item.text === "string" && !item.luck) {
+            const _fk = /^\s*\[(掷骰子|抽签)\]/.exec(item.text);
+            if (_fk) {
+              const _fn = /掷了\s*(\d)\s*颗/.exec(item.text), _fw = /抽签「([^」]{1,40})」/.exec(item.text), _fc = /抽中了：([^（(]+)/.exec(item.text);
+              item.luck = _fk[1] === "掷骰子" ? { type: "dice", n: _fn ? +_fn[1] : 1 } : { type: "draw", what: _fw ? _fw[1] : "", n: _fc ? _fc[1].split(/[、,，]/).filter(Boolean).length : 1 };
+              item.text = "";
+            }
+          }
           // 整条语音就是「[表情] xx」：不念，当表情走文字那一路（那边认表情）；夹在句尾的，念的时候拿掉（splitVoiceEmote）
           if (item && item.voice === true && typeof item.text === "string" && typeof splitVoiceEmote === "function") {
             const _sv = splitVoiceEmote(item.text);
