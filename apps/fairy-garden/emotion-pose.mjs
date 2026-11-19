@@ -203,6 +203,7 @@ export function emotionPose(face,p){
   if(e)q.headPoint=[.38,-1.27,1.04-.12*tap];
   q.left=[-.1*e,0,-.22*e];q.tilt=-.045*e;q.yaw=-.08*e;break;}
  case 'cheer': { // 两只手屈肘举起来，交替向上打气
+  q.cheerSleeve=e;
   const pump=Math.sin(p*Math.PI*6)*beat(p,.16,.28,.64,.8);
   q.left=[(-1.8-.25*pump)*e,0,-.5*e];q.right=[(-1.8+.25*pump)*e,0,.5*e];
   q.leftElbow=-1.15*e;q.rightElbow=-1.15*e;q.roll=.04*pump;q.tilt=-.025*e;break;}
