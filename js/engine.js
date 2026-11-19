@@ -12222,12 +12222,13 @@ function loadJSON(k, fb) {
     txtEarlyTouch(k);
     if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
       const mv = _txtMirror().get(k);
-      if (mv != null) return JSON.parse(mv);
+      if (mv != null) { const pv = JSON.parse(mv); vtsTouch(k, pv, false); return pv; }
       const ls = lsRaw.get(k); // 镜像还没灌好/迁移失败：回落 localStorage，绝不让数据凭空消失
-      return ls ? JSON.parse(ls) : fb;
+      if (!ls) return fb; const pl = JSON.parse(ls); vtsTouch(k, pl, false); return pl;
     }
     const v = lsRaw.get(k);
-    return v ? JSON.parse(v) : fb;
+    if (!v) return fb;
+    const pv = JSON.parse(v); vtsTouch(k, pv, false); return pv;
   } catch {
     return fb;
   }
@@ -12400,6 +12401,7 @@ function txtWrite(k, s) {
 }
 function saveJSON(k, v) {
   if (typeof qqFrozen === "function" && qqFrozen()) return true;   // 别的窗口在写（见 singleWriter）
+  vtsTouch(k, v, true);   // 刚写下的那几条记上虚拟时间（见 VTS_INDEX）
   let encoded = null, previous = null;
   try {
     txtEarlyTouch(k);
@@ -12841,7 +12843,44 @@ function vclockKeepHist(oldClocks, newClocks, now) {
   });
   return out;
 }
+// ── 每条东西写下那一刻就记住自己的虚拟时间（vts）（她 2026-11-19「做根本修法吧」）──────────────
+//   原来旧消息的日子全靠「钟的历史段」倒推：段一丢（攒满被删、拨钟、换设备），旧消息就整片挪走。
+//   现在聊天、群聊、线下、记忆库落盘时（saveJSON 那一处），刚写下的那几条顺手记上 vts＝那一刻的虚拟时间；
+//   读的时候 vclockMap 先查这一条有没有自带的，有就用它——全 app 一百来处读日子的地方一处都不用改。
+//   没带 vts 的老东西照旧走历史段推算。钟关着的时候不记（那一刻就是现实，不用记）。
+const VTS_INDEX = new Map();
+function vtsClockOf(k, item) {
+  const s = String(k || "");
+  if (s.indexOf("x_chat:") === 0) return s.slice(7).split("::")[0];
+  if (s.indexOf("x_offline:") === 0) return s.slice(10).split("::")[0];
+  if (s.indexOf("x_gchat:") === 0) return "g:" + s.slice(8).split("::")[0];
+  if (s.indexOf("x_goffline:") === 0) return "g:" + s.slice(11).split("::")[0];
+  if (s === "x_memLib") return item && Array.isArray(item.charIds) && item.charIds.length ? String(item.charIds[0]) : null;
+  return undefined;
+}
+function vtsTouch(k, v, stamp) {
+  try {
+    if (vtsClockOf(k) === undefined || !Array.isArray(v)) return;
+    const off = /^x_g?offline:/.test(String(k));
+    const now = Date.now();
+    const one = it => {
+      if (!it || typeof it !== "object") return;
+      const ts = Number(it.ts);
+      if (!isFinite(ts) || ts <= 0) return;
+      if (it.vts == null && stamp && now - ts < 600000 && ts <= now + 60000) {
+        const cid = vtsClockOf(k, it);
+        if (typeof vclockCfg === "function" && vclockCfg(cid, ts)) { const vv = vclockMap(ts, cid); if (isFinite(vv) && vv !== ts) it.vts = vv; }
+      }
+      if (isFinite(Number(it.vts))) VTS_INDEX.set(ts, Number(it.vts));
+    };
+    const list = off ? v.reduce((a, sess) => a.concat(Array.isArray(sess && sess.msgs) ? sess.msgs : []), []) : v;
+    // 落盘时只看最新那一截（记忆库新的在前、聊天新的在后）；开机读进来时整份登记
+    const part = !stamp ? list : String(k) === "x_memLib" ? list.slice(0, 30) : list.slice(-30);
+    part.forEach(one);
+  } catch (e) {}
+}
 function vclockMap(ts, id) {
+  if (typeof VTS_INDEX !== "undefined" && VTS_INDEX.size) { const hit = VTS_INDEX.get(Number(ts)); if (hit != null) return hit; }
   const c = vclockCfg(id, ts);
   if (c) return vclockMapBy(c, ts);
   // 钟现在关着，可以前开过：那几段照当时的钟算，之后的照现实
