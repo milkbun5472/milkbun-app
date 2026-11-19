@@ -552,17 +552,33 @@
       return fics.some(function (f) { return f && f.tabId === tb.id; });
     });
   }
+  // 预设那几本也能改名、改说明、拿掉（群里 2026-11-19 许愿「同人文的主题可以编辑和删除」）：
+  //   预设本身仍旧只住在代码里，她改过的那几处另存一份 x_fanfic_seedEdits { 版id: {name,desc} | {gone:true} }，读的时候盖上去
+  const K_SEED_EDITS = "x_fanfic_seedEdits";
+  function seedTabs() {
+    const ed = loadJSON(K_SEED_EDITS, {}) || {};
+    return SEED_TABS.filter(function (s) { return !(ed[s.id] && ed[s.id].gone); })
+      .map(function (s) { const e = ed[s.id]; return e ? Object.assign({}, s, e.name ? { name: e.name } : {}, typeof e.desc === "string" ? { desc: e.desc } : {}) : s; });
+  }
   function loadTabs() {
     const stored = loadJSON(K_TABS, null);
-    if (!stored || !Array.isArray(stored) || !stored.length) return SEED_TABS.concat(livingRetired());
+    if (!stored || !Array.isArray(stored) || !stored.length) return seedTabs().concat(livingRetired());
     // 预设永远来自代码，只把用户自定义项留在存储；旧档里的整套种子读到后会就地瘦身。
     const seedIds = SEED_TABS.map(function (s) { return s.id; });
     const custom = stored.filter(function (t) { return seedIds.indexOf(t.id) < 0 && !retiredId(t.id); });
     if (custom.length !== stored.length) saveJSON(K_TABS, custom);
-    return SEED_TABS.concat(custom).concat(livingRetired());
+    return seedTabs().concat(custom).concat(livingRetired());
   }
   function saveTabs(list) {
     const seedIds = new Set(SEED_TABS.map(function (s) { return s.id; }));
+    // 预设那几本：跟代码里原样比，改过的记下名字说明，不在单子里的记成拿掉
+    const arr = Array.isArray(list) ? list : [], ed = {};
+    SEED_TABS.forEach(function (s) {
+      const now = arr.find(function (t) { return t && t.id === s.id; });
+      if (!now) ed[s.id] = { gone: true };
+      else if (now.name !== s.name || now.desc !== s.desc) ed[s.id] = { name: now.name, desc: now.desc };
+    });
+    saveJSON(K_SEED_EDITS, ed);
     // 退役版块同样不许写回存储：它露不露面只由「底下还有没有文章」决定
     saveJSON(K_TABS, (Array.isArray(list) ? list : []).filter(function (t) { return t && !seedIds.has(t.id) && !retiredId(t.id); }));
   }

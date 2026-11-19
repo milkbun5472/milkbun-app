@@ -28,7 +28,7 @@ test("撤版块不等于删她的文：底下还有文章的那一版照旧露�
   assert.deepEqual(names(retiredBlock), ["都市", "无限流"]);
   assert.match(src, /function livingRetired\(\) \{/);
   assert.match(src, /fics\.some\(function \(f\) \{ return f && f\.tabId === tb\.id; \}\)/, "露不露面不是看它底下还有没有文章");
-  assert.match(src, /return SEED_TABS\.concat\(livingRetired\(\)\);/, "空档那一路没接上");
+  assert.match(src, /return (?:SEED_TABS|seedTabs\(\))\.concat\(livingRetired\(\)\);/, "空档那一路没接上");
   assert.match(src, /\.concat\(custom\)\.concat\(livingRetired\(\)\)/, "老档那一路没接上");
 });
 

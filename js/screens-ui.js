@@ -12998,7 +12998,7 @@ function clothFigure(o) {
 // 标题栏、分节标题和跳转——两份渲染各画一遍的话，改一处就必然忘掉另一处。
 function CarryAll(props) {
   const t = useTheme();
-  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, scrollTo } = props;
+  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onEditItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, scrollTo } = props;
   const scRef = useRef(null);
   const secRefs = useRef({});
   const busyAll = busyKey === "__all__";
@@ -13081,17 +13081,19 @@ function CarryAll(props) {
           closetData: data.outfit,
           busyKey: busyAll ? x.key : busyKey, giftBusy,
           pinned: ((carryPins || {})[char.id] || {})[x.key] || [],
-          onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack
+          onTogglePin, onDeleteItem, onEditItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack
         })))));
 }
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
-function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, embedded }) {
+function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onEditItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, embedded }) {
   const [closetKw, setClosetKw] = useState(""), [hangOpen, setHangOpen] = useState(false), [hang, setHang] = useState({ occ: "", name: "", note: "" });
   const t = useTheme();
   const sec = CARRY_SECTIONS.find(s => s.key === sectionKey) || {};
   const isGifts = !!sec.gifts;
   const loading = busyKey === sectionKey;
   const [sheet, setSheet] = useState(null); // {name,note,thought} AI 物品
+  const [sheetEdit, setSheetEdit] = useState(null);   // 正在改这一件：{ name, note }（群里 2026-11-19「衣柜里的衣服也可以编辑」）
+  useEffect(() => { setSheetEdit(null); }, [sheet]);
   const [openGiftId, setOpenGiftId] = useState(null);
   const [giftOccOpen, setGiftOccOpen] = useState(false);   // 「不是衣服？也挂进去」展开了没
   // 打开非礼物版块：没内容就直接生成，失败退回上一级。
@@ -13366,6 +13368,20 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
           }, characterText(char, "摆到他面前")) : null),
         // 删掉这一件（她 2026-09-18：「角色随身物这些能不能也都可以单个删除」）。
         // ⚠️单独一行、不跟上面那两颗挤在一排：那两颗是【留下它】的动作，这颗是反的。
+        // 改这一件（群里 2026-11-19）：名字和那句说明，就地改、存了就换
+        onEditItem ? (sheetEdit
+          ? h("div", { "data-wk": "carrysheetedit", style: { marginTop: 10 } },
+              h("input", { "data-wk": "input", value: sheetEdit.name, maxLength: 40, onChange: e => setSheetEdit({ ...sheetEdit, name: e.target.value }), placeholder: "叫什么",
+                style: { width: "100%", minHeight: 40, padding: "0 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none", boxSizing: "border-box" } }),
+              h("textarea", { "data-wk": "textarea", value: sheetEdit.note, rows: 3, maxLength: 300, onChange: e => setSheetEdit({ ...sheetEdit, note: e.target.value }), placeholder: "说明（可以空着）",
+                style: { width: "100%", marginTop: 8, padding: "8px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", outline: "none", boxSizing: "border-box", resize: "vertical", lineHeight: 1.6 } }),
+              h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+                h("button", { "data-wk": "carrysheetbtn", "data-part": "editcancel", onClick: () => setSheetEdit(null), className: "flex-1 py-2.5 active:opacity-70",
+                  style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 999, border: "1px solid " + t.line, color: t.sub } }, "算了"),
+                h("button", { "data-wk": "carrysheetbtn", "data-part": "editsave", disabled: !sheetEdit.name.trim(), onClick: () => { if (onEditItem(char.id, sectionKey, sheet.name, sheetEdit)) { setSheet(null); setSheetEdit(null); } }, className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40",
+                  style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 999, background: t.ink, color: t.bg2 } }, "存好")))
+          : h("button", { "data-wk": "carrysheetbtn", "data-part": "edit", onClick: () => setSheetEdit({ name: String(sheet.name || ""), note: String(sheet.note || "") }), className: "w-full py-2.5 active:opacity-70",
+              style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 999, border: "1px solid " + t.line, color: t.sub } }, "改这一件")) : null,
         onDeleteItem ? h("button", { "data-wk": "carrysheetbtn", "data-part": "delete",
           onClick: () => requestAppConfirm("删掉「" + sheet.name + "」？",
             (isPinned(sheet) ? "这一件是留着的，删掉时一起取消——不然下次刷新它会被补回来。\n" : "")
@@ -13507,7 +13523,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     sheetNode,
     giftNode);
 }
-function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear, onTogglePin, onDeleteItem, onPeek }) {
+function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear, onTogglePin, onDeleteItem, onEditItem, onPeek }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -13597,7 +13613,7 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
   // 以前是一格一页、各自一次生成；现在整页共用一次调用。
   if (open) return h(CarryAll, {
     char, data, gifts, busyKey, giftBusy, closetBusy, carryPins,
-    onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear,
+    onTogglePin, onDeleteItem, onEditItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear,
     scrollTo: open, onBack: () => setOpen(null)
   });
   // 一格一格的抽屉，摞成一个立着的柜子——她 2026-08-29 之前那版是五个白方块

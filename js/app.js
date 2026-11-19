@@ -33721,6 +33721,30 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // ⚠️衣柜是分组的（closet:[{occasion,sets}]），别的栏是平的（items:[]）——
   //   一个出口吃两种形状，别在界面那头分两条路走（one-public-mechanism.md）。
   const carryItemName = it => String((it && it.name) || it || "").replace(/\s+/g, "").trim();
+  // 改一件（群里 2026-11-19 许愿「衣柜里的衣服也可以编辑」）：名字、那句说明。衣柜按套找、别的栏按件找，钉着的跟着改名
+  const carryEditItem = (charId, key, item, patch) => {
+    const nm = carryItemName(item), nn = String((patch && patch.name) || "").trim();
+    if (!charId || !key || !nm || !nn) return false;
+    const fix = x => carryItemName(x) === nm ? (typeof x === "string" ? nn : { ...x, name: nn, ...(patch && typeof patch.note === "string" ? { note: patch.note.trim() } : {}) }) : x;
+    setCarry(p => {
+      const cur = p[charId] || {}, data = cur[key];
+      if (!data) return p;
+      const next = key === "outfit"
+        ? { ...data, closet: (Array.isArray(data.closet) ? data.closet : []).map(g => ({ ...g, sets: (Array.isArray(g && g.sets) ? g.sets : []).map(fix) })) }
+        : { ...data, items: (Array.isArray(data.items) ? data.items : []).map(fix) };
+      const n = { ...p, [charId]: { ...cur, [key]: next } };
+      carryRef.current = n; saveJSON("x_carry", n);
+      return n;
+    });
+    setCarryPins(p => {
+      const box = p[charId] || {};
+      if (!(box[key] || []).some(x => carryItemName(x) === nm)) return p;
+      const n = { ...p, [charId]: { ...box, [key]: (box[key] || []).map(fix) } };
+      carryPinsRef.current = n; saveJSON("x_carryPins", n);
+      return n;
+    });
+    return true;
+  };
   const carryDeleteItem = (charId, key, item) => {
     const nm = carryItemName(item);
     if (!charId || !key || !nm) return false;
@@ -36349,6 +36373,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     carryPins: carryPins,
     onTogglePin: toggleCarryPin,
     onDeleteItem: carryDeleteItem,
+    onEditItem: carryEditItem,
     onPeek: forwardCarryToChat,
     selId: selCarry,
     busyKey: gen.carrySec,
