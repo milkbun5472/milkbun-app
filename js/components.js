@@ -14233,8 +14233,11 @@ function CallScreen({
           h("button", { onClick: () => onRespondTransfer(m.tid, false), className: "active:opacity-60", style: pill }, "退回"),
           h("button", { onClick: () => onRespondTransfer(m.tid, true), className: "active:opacity-60", style: Object.assign({}, pill, { background: "rgba(255,255,255,0.32)" }) }, "收下")) : null);
     }
+    // 动作那一行也长按出同一个菜单（群里 2026-11-19「视频通话的动描是不能编辑嘛」）：编辑、删、复制跟台词一样
     if (m.act) return h("div", { key: messageKey, "data-wk": "callact", className: "flex justify-center py-0.5" }, h("div", {
-      style: Object.assign({ fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.4, color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)", textAlign: "center", maxWidth: "80%" }, litText)
+      onTouchStart: () => callPress(messageKey), onTouchEnd: callPressEnd, onMouseDown: () => callPress(messageKey), onMouseUp: callPressEnd, onMouseLeave: callPressEnd,
+      onContextMenu: e => e.preventDefault(),
+      style: Object.assign({ WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.4, color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)", textAlign: "center", maxWidth: "80%" }, litText)
     }, (isU ? "你 " : (isGroup && m.senderName ? m.senderName + " " : "")) + "（" + m.content + "）"));
     // 只剩声音标记/停顿的那句（如「(sighs)」「<#0.5#>」）剥完是空的：不画空白气泡，
     // 它仍留在 msgs 里给 TTS 念（她 2026-10-06：「最后一个好像是空白气泡」）。
