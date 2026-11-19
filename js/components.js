@@ -22574,6 +22574,21 @@ function GroupSettingsSheet({ onOpenStyleLab, apiProfiles, onSuggestName, onDraw
   const gOnOff = v => v ? "开" : "关";
   // 群公告：写好点「发布」当场生效（不等底下的保存），群里落一行灰字、顶上钉一条
   const [noticeDraft, setNoticeDraft] = useState(String((gs && gs.notice && gs.notice.text) || ""));
+  // 好几张差不多的卡收成一组（她 2026-11-19「这堆群聊设置都是一个东西一张卡，就不能收起来好几个差不多的放一起吗」）：
+  //   组名一行，底下一行小字写着里面有哪几样；点开才露出那几张卡，再点收起。哪一组开着记在本机，下回打开还是那样
+  const [gSecOpen, setGSecOpenS] = useState(() => { try { return localStorage.getItem("x_gsetSec") || ""; } catch (e) { return ""; } });
+  const setGSecOpen = v => { setGSecOpenS(v); try { localStorage.setItem("x_gsetSec", v); } catch (e) {} };
+  const gSection = (title, sub, ...kids) => {
+    const on = gSecOpen === title;
+    return h("div", { "data-wk": "gsetsection", "data-on": on ? "1" : "0", style: { marginTop: 12 } },
+      h("button", { "data-wk": "gsetsectionhead", onClick: () => setGSecOpen(on ? "" : title), className: "w-full flex items-center active:opacity-70",
+        style: { gap: 10, padding: "6px 2px", textAlign: "left", background: "transparent", border: "none" } },
+        h("span", { className: "flex-1 min-w-0" },
+          h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", letterSpacing: ".08em", color: on ? t.ink : t.sub } }, title),
+          on ? null : h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub)),
+        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, display: "inline-block", transition: "transform .2s", transform: on ? "rotate(90deg)" : "none" } }, "›")),
+      on ? h("div", null, ...kids) : null);
+  };
   const gCard = (meta, note, ...kids) => {
     const on = gOpen === meta.title;
     return h("div", { "data-wk": "block", style: { marginTop: 8, borderRadius: 14, background: t.bg2, border: "1px solid " + (on ? meta.tint + "88" : t.line), overflow: "hidden", transition: "border-color .2s" } },
@@ -22598,6 +22613,7 @@ function GroupSettingsSheet({ onOpenStyleLab, apiProfiles, onSuggestName, onDraw
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
     //   按「管的是什么」装进六个框：谁在群里 / 他们自己聊不聊 / 怎么相处 / 长什么样 / 记得多少 / 清掉。
+    gSection("群和成员", "群名 · 成员 · 公告 · 群主 · 幸运字符 · 面具",
     gCard({ title: "群名 · 成员", char: "群", tint: "#c0904f", state: (gName || "未命名") + " · " + members.length + " 人" + (spec ? " · 你在旁观" : "") }, null,
     // 群名（改完点右上角的勾才生效，和别的设置一样）
     // 群头像（她 2026-10-02）：没设就是成员四宫格
@@ -22722,6 +22738,8 @@ function GroupSettingsSheet({ onOpenStyleLab, apiProfiles, onSuggestName, onDraw
           return strangers.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#9b5f6d", lineHeight: 1.6, marginTop: 10 } },
             strangers.join("、") + " 认识的不是这张：在这个群里，他们会把你当成一个换了身份、不认识的人。") : null;
         })())) : null,
+    ),
+    gSection("他们怎么聊", "记忆互通 · 自己聊 · 怎么相处 · 文风预设 · 线路",
     gCard({ title: "记忆互通 · 他们自己聊", char: "通", tint: "#687f73", state: "记忆互通 " + gOnOff(interop) + (interop ? " · 自己聊 " + gOnOff(autoChat) : "") }, "这个群跟单聊通不通气，以及你不在的时候他们要不要自己往下聊。",
     // 平行世界的房间不给开互通（她 2026-11-13「加吧」）：开了就成了一半带主线、一半不带，换种玩法另开一间
     group && group.parallel ? h("div", { className: "pt-5", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, "这是一间平行世界：人设、世界书和你的面具照旧，主线上发生过的谁都不知道，这里聊的也不往外带。所以没有「记忆互通」这一项。") :
@@ -22777,6 +22795,7 @@ function GroupSettingsSheet({ onOpenStyleLab, apiProfiles, onSuggestName, onDraw
         [{ v: null, t: "跟上面一样" }].concat(apiProfiles.map(p => ({ v: p.id, t: p.name || p.model || "未命名" }))).map(o =>
           h("button", { key: "go" + String(o.v), "data-wk": "gsrouteoff", "data-on": gOffApiId === o.v ? "1" : "0", onClick: () => setGOffApiId(o.v), className: "active:opacity-70",
             style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", padding: "6px 12px", borderRadius: 999, background: gOffApiId === o.v ? t.ink : "transparent", color: gOffApiId === o.v ? t.bg2 : t.fog, border: "1px solid " + (gOffApiId === o.v ? t.ink : t.line) } }, o.t)))) : null,
+    ),
     gCard({ title: "这个群长什么样", char: "衣", tint: "#9b7bc4", state: (chatBg ? "有背景图 · " : "") + "已读 " + gOnOff(showRead) + " · 时间戳 " + gOnOff(showTime) }, null,
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", { className: "pr-3" },
@@ -22808,6 +22827,7 @@ function GroupSettingsSheet({ onOpenStyleLab, apiProfiles, onSuggestName, onDraw
       toast: window.__toast,
       onDone: L => { setChatBg(L.chatBg || ""); setGLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout || {})); setGCss(L.customCSS || ""); } }) : null,
     h(OnlineMediaSettings, null)),
+    gSection("记得什么", "世界书 · 记忆库 · 群规矩",
     // 世界书只给这个群（群友 2026-11-16 许愿：群里的小房间单独绑世界书，玩平行世界那间要一整套世界观）
     loreEntries && onLoreBulk ? gCard({ title: "世界书 · 只给这个群", char: "书", tint: "#8a6f4e", state: (() => { const n = loreEntries.filter(e => e && (e.groupIds || []).includes(group.id)).length; return n ? "绑了 " + n + " 条" : "没单独绑"; })() }, null,
       h(ChatLorePicker, { groupId: group.id, entries: loreEntries, onBulk: onLoreBulk })) : null,
@@ -22845,6 +22865,7 @@ function GroupSettingsSheet({ onOpenStyleLab, apiProfiles, onSuggestName, onDraw
           }, temp ? "临时 · 还剩 " + Number(d.turns) + " 轮（点回长期）" : "长期 · 点这里改成临时 10 轮")),
           onRemoveDirective && h("button", { onClick: () => onRemoveDirective(d.id), className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, padding: "0 2px" } }, "删除"));
       }))) : null),
+    ),
     gCard({ title: "清掉", char: "清", tint: "#a8564a", state: "清空聊天记录 · 删除这个群" }, null,
     // 清除聊天记录（她 2026-08-24 要的）：照单聊那份的形状来。
     // 只删【本群的线上 + 群线下】；成员各自的单聊/单人线下是他们自己的记录，不从这里连带删。
