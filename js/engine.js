@@ -909,6 +909,12 @@ async function gifFirstFramePng(dataUrl) {
     return cv.toDataURL("image/png");
   } catch (e) { return dataUrl; }
 }
+// 写长文那几枪的收法：只此一份（她 2026-11-19「其他写长一点的地方也做一个公共处理放长一点」）。
+//   一场线下、一篇同人文、一章小剧场、跑团一幕、日记、周刊、线下总结、月度印象——模型写一万字要好几分钟，
+//   原来各处写死 2～5 分钟，写到一半被判超时，写好的整篇丢掉（群里 2026-11-19 截图：300 秒、300 秒、300 秒）。
+//   stream：边写边收，一直有字进来就不掐（连着 90 秒没字才算断，总时限 10 分钟，见 pumpSSE）；
+//   timeout：线路关了流式时只能干等整篇，等足 10 分钟。线下那两路自己管要不要流式，只借这个等待时间
+const LONG_WRITE = Object.freeze({ timeout: 600000, stream: true });
 async function callAI(p, system, messages, opts) {
   // opts.biFor：这一次写字的是谁（一个角色或几个）——开着双语的，system 末尾加上「原文 | 中文」那条（probeBiLine 那一份）
   if (opts && opts.biFor && typeof system === "string" && typeof probeBiLine === "function" && !/【双语】/.test(system)) {
@@ -10361,7 +10367,7 @@ async function generateOffline(p, ctx, session) {
       use: "offline", logWho: (ctx.char && ctx.char.name) || "",
       maxTokens: generationBudget,
       stream: wantStreamOffline,
-      timeout: 180000,
+      timeout: LONG_WRITE.timeout,
       wantReasoning: _wantReason,
       meta: _reasonMeta,
       wireScope: "offline",
@@ -10398,7 +10404,7 @@ async function generateOffline(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace("先完成正文 JSON，再写既定的创作旁注标记块。", "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { use: "offline", logRetry: true, logWho: (ctx.char && ctx.char.name) || "", maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true }, signal: session.signal });
+    raw = await callAI(p, plainSystem, plainHist, { use: "offline", logRetry: true, logWho: (ctx.char && ctx.char.name) || "", maxTokens: generationBudget, stream: wantStreamOffline, timeout: LONG_WRITE.timeout, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true }, signal: session.signal });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
@@ -10597,7 +10603,7 @@ function offlineSummaryQuota(len) {
 }
 async function offlineSummaryCall(p, system, body, quota) {
   const q = quota || {};
-  const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + body }], { maxTokens: 12000 });
+  const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + body }], { maxTokens: 12000, ...LONG_WRITE });
   const d = extractJSON(raw);
   const take = (v, n) => (Array.isArray(v) ? v : []).map(x => String(x).trim()).filter(Boolean).slice(0, n || 6);
   if (d && d.summary) return { summary: String(d.summary).trim(), details: take(d.details, q.details), open: take(d.open, q.open) };
@@ -11103,7 +11109,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const _reasonMeta = {};
   const _wantReason = !!ctx.wantReasoning;
   try {
-    raw = await callAI(p, system, hist, { use: "offline", logLabel: "群线下", logWho: castNames.replace(/[『』]/g, ""), maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
+    raw = await callAI(p, system, hist, { use: "offline", logLabel: "群线下", logWho: castNames.replace(/[『』]/g, ""), maxTokens: gBudget, timeout: LONG_WRITE.timeout, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
   } catch (e) {
     // 部分原生推理模型会把整次输出留在隐藏/显式思考区，随后 stop 却不给正文。
     // 仅在「启用了显式 cot + 正常 stop 空正文」这个窄条件下，无 cot 重试一次并按模型记忆；以后不再白付第一次。
@@ -11114,7 +11120,7 @@ async function generateOfflineGroup(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { use: "offline", logRetry: true, logLabel: "群线下", logWho: castNames.replace(/[『』]/g, ""), maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
+    raw = await callAI(p, plainSystem, plainHist, { use: "offline", logRetry: true, logLabel: "群线下", logWho: castNames.replace(/[『』]/g, ""), maxTokens: gBudget, timeout: LONG_WRITE.timeout, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
@@ -11977,7 +11983,7 @@ async function generateDiary(p, ctx, opts = {}) {
     + "\n——但这不是要你原地不动：你和她相处的方式、黏不黏、敢不敢说，"
     + "只要已经沉淀进上文那段『你长出来的自我』，就照现在的你写，别退回原卡的旧样子。"
     + "分辨很简单：记进长出来的自我的是成长，只是最近几篇听起来那样的是惯性。";
-  const raw = await callAI(p, system, [{ role: "user", content: (retro ? "现在是今晚睡前，把今天这一整天写成一篇日记。" : "开始写今天的日记。") + voiceTail }], { maxTokens: opts.maxTokens || 14000 });
+  const raw = await callAI(p, system, [{ role: "user", content: (retro ? "现在是今晚睡前，把今天这一整天写成一篇日记。" : "开始写今天的日记。") + voiceTail }], { maxTokens: opts.maxTokens || 14000, ...LONG_WRITE });
   const parsed = extractJSON(raw);
   if (!parsed || !Array.isArray(parsed.paras)) throw new Error("解析失败，可重试或换模型");
   return parsed;

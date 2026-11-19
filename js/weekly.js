@@ -717,7 +717,7 @@
   //   见 施工规则/max-tokens-floor.md。
   async function genJSON(active, sys, userContent, maxTokens) {
     const tok = Math.max(8000, Number(maxTokens) || 0);
-    const raw = await callAI(active, sys, [{ role: "user", content: userContent }], { maxTokens: tok });
+    const raw = await callAI(active, sys, [{ role: "user", content: userContent }], { maxTokens: tok, ...(typeof LONG_WRITE === "object" ? LONG_WRITE : {}) });
     return extractJSON(raw);
   }
 

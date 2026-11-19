@@ -40,13 +40,13 @@ test("四处都要真的把 wantReasoning 送出去", () => {
   assert.ok(soloCall.includes("wantReasoning: _wantReason"), "单聊线上没送 wantReasoning");
   assert.ok(soloCall.includes("meta: _callMeta"), "单聊线上没送盛思考链的盒子");
   assert.match(eng, /wantReasoning: _wantReason,\n      meta: _reasonMeta,/, "单人线下·主调用");
-  assert.match(eng, /maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta/, "群聊线下");
+  assert.match(eng, /maxTokens: gBudget, timeout: (?:180000|LONG_WRITE\.timeout), wantReasoning: _wantReason, meta: _reasonMeta/, "群聊线下");
   assert.match(app, /wantReasoning: _gWantReason,\n        meta: _gReasonMeta/, "群聊线上");
 });
 
 test("线下兜底那一路也要带上——不然重试一次思考链就没了", () => {
-  assert.match(eng, /plainSystem, plainHist, \{[^}]*maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta/, "单人线下·无 cot 兜底");
-  assert.match(eng, /plainSystem, plainHist, \{[^}]*maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta[, ]/, "群线下·无 cot 兜底");
+  assert.match(eng, /plainSystem, plainHist, \{[^}]*maxTokens: generationBudget, stream: wantStreamOffline, timeout: (?:180000|LONG_WRITE\.timeout), wantReasoning: _wantReason, meta: _reasonMeta/, "单人线下·无 cot 兜底");
+  assert.match(eng, /plainSystem, plainHist, \{[^}]*maxTokens: gBudget, timeout: (?:180000|LONG_WRITE\.timeout), wantReasoning: _wantReason, meta: _reasonMeta[, ]/, "群线下·无 cot 兜底");
 });
 
 test("言秋那条线一个字都不碰", () => {

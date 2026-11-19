@@ -158,7 +158,7 @@
   // 写正文那几枪的收法：流式（群里 2026-11-19 截图：一万多字写到第 300 秒被判超时，写出来的全丢）。
   //   边写边收，只要一直有字进来就不掐；连着 90 秒一个字都没有才算断，总时限 10 分钟（engine.js 的 pumpSSE 那一份）
   //   线路关了流式（或者那家不支持）就只能干等它整篇写完：等待也放到 10 分钟，跟流式的总时限一样长（她 2026-11-19「非流的话没办法吧」）
-  const FIC_WRITE_OPTS = { timeout: 600000, stream: true };
+  const FIC_WRITE_OPTS = typeof LONG_WRITE === "object" ? LONG_WRITE : { timeout: 600000, stream: true };   // 全 app 写长文同一份（engine.js）
   function ficOutCap(n, perFic, minWords) {
     const each = Math.max(Number(perFic) || 0, Math.ceil((Number(minWords) || 0) * 2));
     return Math.min(FIC_TOKEN_MAX * 4, Math.max(65000, 6000 + Math.max(1, Number(n) || 1) * each));

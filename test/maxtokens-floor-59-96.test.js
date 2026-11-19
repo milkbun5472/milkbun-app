@@ -129,7 +129,7 @@ test("位置传参那一类也算数：weekly 的 genJSON 六处都过线，而�
   const wk = fs.readFileSync(path.join(root, "js", "weekly.js"), "utf8");
   assert.match(wk, /const tok = Math\.max\(8000, Number\(maxTokens\) \|\| 0\);/,
     "genJSON 里没有兜底——以后有人再传个 2000 进来，谁也拦不住");
-  assert.match(wk, /\{ maxTokens: tok \}/);
+  assert.match(wk, /\{ maxTokens: tok(?:, \.\.\.\(typeof LONG_WRITE === "object" \? LONG_WRITE : \{\}\))? \}/);
   const calls = (wk.match(/genJSON\([^;]*?, (\d+)\)/g) || []).map(x => Number(x.match(/(\d+)\)$/)[1]));
   assert.equal(calls.length, 6, "genJSON 的调用处不是六处了，核对一下");
   calls.forEach(function (n) { assert.ok(n >= 8000, "还有一处位置传参低于 8000：" + n); });

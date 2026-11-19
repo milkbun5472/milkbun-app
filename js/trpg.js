@@ -1895,7 +1895,7 @@
         const hist = foldHist(camp.msgs.slice(camp.sumCount || 0)).slice(-24);
         if (text) hist.push({ role: "user", content: text });
         else if (!hist.length || hist[hist.length - 1].role !== "user") hist.push({ role: "user", content: "(就此刻补一笔)" });
-        const raw = await callAI(props.active, sys, hist, { maxTokens: TOK_MAX, timeout: 180000 });
+        const raw = await callAI(props.active, sys, hist, { maxTokens: TOK_MAX, ...LONG_WRITE });
         if (text) {
           // 闲聊簇:她那句 + 队友接话,合成一条可折叠的气泡消息;失败就把话还给输入框,史里不留残尾
           const p = parseObj(raw);

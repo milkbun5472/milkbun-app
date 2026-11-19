@@ -7,7 +7,7 @@ const single = engine.match(/async function generateOffline\([\s\S]*?async funct
 const group = engine.match(/async function generateOfflineGroup\([\s\S]*?async function summarizeOfflineGroup/)?.[0] || "";
 
 // 主调用与 no-cot 兜底重试都必须给满三分钟；wire capture 改了调用排版，所以按片段计数、不再钉整行格式。
-assert((single.match(/timeout: 180000/g) || []).length >= 2,
+assert((single.match(/timeout: (?:180000|LONG_WRITE\.timeout)/g) || []).length >= 2,
   "single offline and its no-cot fallback must both allow three minutes");
 assert.strictEqual((single.match(/maxTokens: generationBudget\b/g) || []).length, 2,
   "single offline and fallback must share the computed budget");
@@ -20,7 +20,7 @@ const budgetWindow = { StylePresets: { OUT_CEILING: ceiling } };
 assert.strictEqual(budget(budgetWindow, { maxTokens: 4000 }, 0), 8000);
 assert.strictEqual(budget(budgetWindow, { maxTokens: 24000 }, 0), 24000);
 assert.strictEqual(budget(budgetWindow, { maxTokens: 24000 }, ceiling * 2), ceiling);
-assert((group.match(/timeout: 180000/g) || []).length >= 2,
+assert((group.match(/timeout: (?:180000|LONG_WRITE\.timeout)/g) || []).length >= 2,
   "group offline and its no-cot fallback must both allow three minutes");
 assert.strictEqual((group.match(/maxTokens: gBudget\b/g) || []).length, 2,
   "group offline and fallback must share the computed budget");
