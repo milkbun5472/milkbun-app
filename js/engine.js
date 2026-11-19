@@ -10674,6 +10674,12 @@ function offlineSummaryGenderLine(people, profile) {
   if (me) lines.push(me + "的性别照这段资料来：『" + String(profile.persona || "").replace(/\s+/g, " ").slice(0, 120) + "』，判断不出就直接写名字");
   return lines.length ? "【人称】" + lines.join("；") + "。\n" : "";
 }
+// 收尾再说一遍（她 2026-11-19：选了性别，五万字那场重新总结还是「他」）——开头那句被后面一大段原文淹掉了，
+//   贴着要它动笔的地方再提一次；原文里旁白写错的人称也照这里改
+function offlineSummaryGenderTail(people, profile) {
+  const l = offlineSummaryGenderLine(people, profile);
+  return l ? "\n\n" + l.replace(/^【人称】/, "【动笔前再看一眼人称】summary、details、open 里每一处「他／她」都照这里写，原文里写岔了的也照这里改：") : "";
+}
 async function summarizeOffline(p, ctx, session, already) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const text = offlineSummarySource(session, m => {
@@ -10685,7 +10691,7 @@ async function summarizeOffline(p, ctx, session, already) {
     + "把下面这段『" + userName + "』与『" + ctx.char.name + "』的线下相处做记忆归档。只输出 JSON：\n" + offlineSummaryGenderLine([ctx.char], ctx.profile) +
     "{\"summary\":\"" + q.sents + "第三人称总结：在哪、做了什么、关键互动或情绪转折\"," +
     "\"details\":[\"谈话中值得长期记住的【具体细节】：彼此透露的事/新知道的信息/说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + ctx.char.name + "），最多 " + q.details + " 条，宁具体勿空泛；真没有就 []\"]," +
-    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already);
+    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already) + offlineSummaryGenderTail([ctx.char], ctx.profile);
   return await offlineSummaryRun(p, systemFor, text);
 }
 // ------- 群聊线下模式（多角色同处一地的面对面叙事）-------
@@ -11204,7 +11210,7 @@ async function summarizeOfflineGroup(p, ctx, session, already) {
     + "把下面『" + userName + "』与" + names + "的这段线下相处做记忆归档。只输出 JSON：\n" + offlineSummaryGenderLine(ctx.members, ctx.profile) +
     "{\"summary\":\"" + q.sents + "第三人称总结：他们在哪、一起做了什么、谁和谁有关键互动或情绪转折、达成的约定。具体、可复用\"," +
     "\"details\":[\"值得长期记住的【具体细节】：谁透露的事/新知道的信息/谁说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + names + "），最多 " + q.details + " 条，宁具体勿空泛；真没有就 []\"]," +
-    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already);
+    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already) + offlineSummaryGenderTail(ctx.members, ctx.profile);
   return await offlineSummaryRun(p, systemFor, text);
 }
 // 生成一段静音 WAV 的 data URI（用于后台保活：循环播放占住 iOS 音频会话）

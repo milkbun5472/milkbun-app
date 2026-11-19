@@ -13,3 +13,7 @@ test("线下总结单人、群都带上存了的性别", () => {
   assert.match(s, /做记忆归档。只输出 JSON：\\n" \+ offlineSummaryGenderLine\(\[ctx\.char\], ctx\.profile\) \+/);
   assert.match(s, /做记忆归档。只输出 JSON：\\n" \+ offlineSummaryGenderLine\(ctx\.members, ctx\.profile\) \+/);
 });
+test("收尾再提一次人称（长场次开头那句会被淹掉）", () => {
+  assert.match(s, /offlineSummaryAvoidBlock\(already\) \+ offlineSummaryGenderTail\(\[ctx\.char\], ctx\.profile\);/);
+  assert.match(s, /offlineSummaryAvoidBlock\(already\) \+ offlineSummaryGenderTail\(ctx\.members, ctx\.profile\);/);
+});
