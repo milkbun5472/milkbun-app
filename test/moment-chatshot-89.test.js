@@ -14,3 +14,6 @@ test("聊天里顺手发的朋友圈能配一张聊天记录截图：只认主�
   assert.equal((c.match(/h\(MomentChatShot, \{ shot: m\.chatShot \}\)/g) || []).length, 2);
   assert.match(R("js/theme-studio.js"), /\["momchatshot", /);
 });
+test("一张最多十二句（她 2026-11-19「才 2-6 句吗」）", () => {
+  assert.match(R("js/app.js"), /parsed\.momentChat\.slice\(0, 12\)\.forEach\(/);
+});
