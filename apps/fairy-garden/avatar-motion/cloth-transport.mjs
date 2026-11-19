@@ -1,6 +1,6 @@
-import {createSleeveEnvelope} from './sleeve-envelope.mjs?v=fg-8d0a662f3518bb2e';
-import {createClothTransportKernel,clothRotationReferences} from './cloth-transport-kernel.mjs?v=fg-8d0a662f3518bb2e';
-import {fitRigid} from './rigid-fit.mjs?v=fg-8d0a662f3518bb2e';
+import {createSleeveEnvelope} from './sleeve-envelope.mjs?v=fg-ced14560de3d1ae5';
+import {createClothTransportKernel,clothRotationReferences} from './cloth-transport-kernel.mjs?v=fg-ced14560de3d1ae5';
+import {fitRigid} from './rigid-fit.mjs?v=fg-ced14560de3d1ae5';
 // Transport a material direction with the arm, then align it to the body surface.
 // The reference contains axial roll that a direction-only reconstruction cannot recover.
 export function sleeveRotation(T,restAxis,posedAxis,reference){
