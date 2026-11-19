@@ -10660,11 +10660,19 @@ async function offlineSummaryRun(p, systemFor, text) {
 }
 // 线下总结里这几个人是男是女（群友 2026-11-19：百合设定，人设卡写着女，重 roll 两次总结还是用「他」）：
 //   归档提示词里只有名字，模型默认写成「他」。照 CharacterPronoun 那一份，明确存了性别的才写
-function offlineSummaryGenderLine(people) {
+function offlineSummaryGenderLine(people, profile) {
   const P = typeof CharacterPronoun !== "undefined" ? CharacterPronoun : null;
-  if (!P || !P.ta) return "";
-  const xs = (people || []).filter(Boolean).map(c => ({ n: c.name, g: P.genderNote ? P.genderNote(c) : "" })).filter(x => x.n && x.g);
-  return xs.length ? "【人称】" + xs.map(x => x.n + (x.g === "（女）" ? "是女性，写她用「她」" : "是男性，写他用「他」")).join("；") + "。\n" : "";
+  const lines = [];
+  // 档案里存了性别的照存的写；没存的（她 2026-11-19「性别还是没好」——老角色没选过性别，人设正文里写着女）
+  //   把人设开头那一段给它照着判断，判断不出就直接写名字，不默认成「他」
+  (people || []).filter(c => c && c.name).forEach(c => {
+    const g = P && P.genderNote ? P.genderNote(c) : "";
+    if (g) lines.push(c.name + (g === "（女）" ? "是女性，写她用「她」" : "是男性，写他用「他」"));
+    else lines.push(c.name + "的性别照这段人设来：『" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 160) + "』，判断不出就直接写名字");
+  });
+  const me = profile && profile.name;
+  if (me) lines.push(me + "的性别照这段资料来：『" + String(profile.persona || "").replace(/\s+/g, " ").slice(0, 120) + "』，判断不出就直接写名字");
+  return lines.length ? "【人称】" + lines.join("；") + "。\n" : "";
 }
 async function summarizeOffline(p, ctx, session, already) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";
@@ -10674,7 +10682,7 @@ async function summarizeOffline(p, ctx, session, already) {
     return userName + "：" + (m.content || "");
   });
   const systemFor = (q, part) => offlineSummaryPartLine(part, userName)
-    + "把下面这段『" + userName + "』与『" + ctx.char.name + "』的线下相处做记忆归档。只输出 JSON：\n" + offlineSummaryGenderLine([ctx.char]) +
+    + "把下面这段『" + userName + "』与『" + ctx.char.name + "』的线下相处做记忆归档。只输出 JSON：\n" + offlineSummaryGenderLine([ctx.char], ctx.profile) +
     "{\"summary\":\"" + q.sents + "第三人称总结：在哪、做了什么、关键互动或情绪转折\"," +
     "\"details\":[\"谈话中值得长期记住的【具体细节】：彼此透露的事/新知道的信息/说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + ctx.char.name + "），最多 " + q.details + " 条，宁具体勿空泛；真没有就 []\"]," +
     "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already);
@@ -11193,7 +11201,7 @@ async function summarizeOfflineGroup(p, ctx, session, already) {
   });
   // 和单人 summarizeOffline 同构：总结之外，具体细节/未兑现的约定也逐条出（v47.55 平权）
   const systemFor = (q, part) => offlineSummaryPartLine(part, userName)
-    + "把下面『" + userName + "』与" + names + "的这段线下相处做记忆归档。只输出 JSON：\n" + offlineSummaryGenderLine(ctx.members) +
+    + "把下面『" + userName + "』与" + names + "的这段线下相处做记忆归档。只输出 JSON：\n" + offlineSummaryGenderLine(ctx.members, ctx.profile) +
     "{\"summary\":\"" + q.sents + "第三人称总结：他们在哪、一起做了什么、谁和谁有关键互动或情绪转折、达成的约定。具体、可复用\"," +
     "\"details\":[\"值得长期记住的【具体细节】：谁透露的事/新知道的信息/谁说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + names + "），最多 " + q.details + " 条，宁具体勿空泛；真没有就 []\"]," +
     "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already);
