@@ -3,13 +3,13 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {makeReactions} from './reactions.mjs?v=fg-a3dcf9df351bbef8';
-import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-a3dcf9df351bbef8';
-import {makeInteractions,afterInteraction} from './interactions.mjs?v=fg-a3dcf9df351bbef8';
-import {targetAt} from './touch-targets.mjs?v=fg-a3dcf9df351bbef8';
-import {MOODS,DUR,WEATHER_ACTIONS,moodBase,pulse,accent,chooseAction,touchForMood} from './motion.mjs?v=fg-a3dcf9df351bbef8';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-a3dcf9df351bbef8';
-import {createWardrobe,lookForTa,mergeLook,outfitId,outfitColors} from '../fairy-garden/wardrobe.mjs?v=fg-a3dcf9df351bbef8';
+import {makeReactions} from './reactions.mjs?v=fg-e609ee3ee20a3828';
+import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-e609ee3ee20a3828';
+import {makeInteractions,afterInteraction} from './interactions.mjs?v=fg-e609ee3ee20a3828';
+import {targetAt} from './touch-targets.mjs?v=fg-e609ee3ee20a3828';
+import {MOODS,DUR,WEATHER_ACTIONS,moodBase,pulse,accent,chooseAction,touchForMood} from './motion.mjs?v=fg-e609ee3ee20a3828';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-e609ee3ee20a3828';
+import {createWardrobe,lookForTa,mergeLook,outfitId,outfitColors} from '../fairy-garden/wardrobe.mjs?v=fg-e609ee3ee20a3828';
 const mode=new URLSearchParams(location.search).get('mode')||'full',reactions=makeReactions(),interactions=makeInteractions();
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -56,7 +56,7 @@ addEventListener('message',e=>{if(e.data&&e.data.type==='pet-look')apply(e.data)
 function playAct(k){if(!k||!Number.isFinite(DUR[k])||held)return;if(k==='sleep'){sleeping=true;act=null;return;}if(sleeping){sleeping=false;reportWake();}act={kind:k,start:clock.getElapsedTime(),source:'chat'};}
 // 外壳告诉他你在哪一页、有没有在放歌、多久没碰手机（她 2026-09-26：点他有反应／跟着时间／看你在干嘛）。
 let ctx={screen:'',music:false,idle:false,typing:false,weather:null,returnSeq:0},sleeping=false;
-function setCtx(m){ctx={life:m.life||null,screen:String(m.screen||''),music:!!m.music,idle:!!m.idle,typing:!!m.typing,weather:m.weather||null,returnSeq:Number(m.returnSeq)||0};reactions.observe(ctx,pet?clock.getElapsedTime():0);applyLife();}
+function setCtx(m){ctx={life:m.life||null,screen:String(m.screen||''),music:!!m.music,idle:!!m.idle,typing:!!m.typing,scrolling:!!m.scrolling,weather:m.weather||null,returnSeq:Number(m.returnSeq)||0};reactions.observe(ctx,pet?clock.getElapsedTime():0);applyLife();}
 function applyLife(){
  const life=ctx.life;if(!pet||!life||life.characterId!==cur.characterId)return;
  const key=life.characterId+':'+life.rev;if(key===lifeKey)return;lifeKey=key;
@@ -124,8 +124,11 @@ function poke(){const t=clock.getElapsedTime();if(sleeping){wake();return;}inter
 // 悬浮小人在每一页都活着，切后台也照跑——装饰品的唯一失败方式就是「开着很烦」
 // （发烫、掉电）。所以：页面看不见就真的停，悬浮那只按 24 帧画（指甲盖大小，
 // 60 帧一分钱好看都换不到）。整页那只给 40 帧，拖着转圈仍然跟手。
-const FRAME=mode==='float'?1/24:1/40;let lastDraw=-1,lastTold=null;
+// 悬浮那只一秒 12 帧（她 2026-11-18 嫌发热；原来 24）：指甲盖大小看不出差别，手机上每帧的身体和衣服计算本来就算不满 24 帧。
+//   打字、滑动的时候悬浮那只先定住不画，手停了接着动——跟聊天界面是同一条线程，它算的时候打字和滑动会跟着卡
+const FRAME=mode==='float'?1/12:1/40;let lastDraw=-1,lastTold=null;
 function frame(){const t=clock.getElapsedTime();
+ if(mode==='float'&&(ctx.typing||ctx.scrolling)&&!held)return;
  if(t-lastDraw<FRAME)return;lastDraw=t;
  draw(t);}
 function draw(t){

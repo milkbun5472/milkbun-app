@@ -1,12 +1,12 @@
-import {turnPet} from './movement.mjs?v=fg-a3dcf9df351bbef8';
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-a3dcf9df351bbef8';
-import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-a3dcf9df351bbef8';
-import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-a3dcf9df351bbef8';
-import {careSummary} from './care.mjs?v=fg-a3dcf9df351bbef8';
+import {turnPet} from './movement.mjs?v=fg-e609ee3ee20a3828';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-e609ee3ee20a3828';
+import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-e609ee3ee20a3828';
+import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-e609ee3ee20a3828';
+import {careSummary} from './care.mjs?v=fg-e609ee3ee20a3828';
 
-import {createPetVisits,restorePetVisit} from './pet-visits.mjs?v=fg-a3dcf9df351bbef8';
+import {createPetVisits,restorePetVisit} from './pet-visits.mjs?v=fg-e609ee3ee20a3828';
 
-import {TOWN_RESIDENTS} from './town-residents.mjs?v=fg-a3dcf9df351bbef8';
+import {TOWN_RESIDENTS} from './town-residents.mjs?v=fg-e609ee3ee20a3828';
 export const NEIGHBORS=TOWN_RESIDENTS.concat(PET_NEIGHBORS);
 const rainPoint=()=>{const d=roomDoor('cafe');return {x:d.x+1.2,z:d.z};};
 const profile=id=>NEIGHBORS.find(n=>n.id===id),num=(v,max=1e15)=>Number.isFinite(v)?Math.max(0,Math.min(max,v)):0;
