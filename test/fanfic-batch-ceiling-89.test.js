@@ -15,6 +15,6 @@ test("新写一批的输出上限跟着每章最少字数走", () => {
 });
 test("写正文三枪都走流式，不被 300 秒掐断", () => {
   const s = fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic-core.js"), "utf8");
-  assert.match(s, /const FIC_WRITE_OPTS = \{ timeout: 300000, stream: true \};/);
+  assert.match(s, /const FIC_WRITE_OPTS = \{ timeout: 600000, stream: true \};/);
   assert.equal((s.match(/\.\.\.FIC_WRITE_OPTS \}/g) || []).length, 3);
 });
