@@ -12856,26 +12856,39 @@ function vtsClockOf(k, item) {
   if (s.indexOf("x_gchat:") === 0) return "g:" + s.slice(8).split("::")[0];
   if (s.indexOf("x_goffline:") === 0) return "g:" + s.slice(11).split("::")[0];
   if (s === "x_memLib") return item && Array.isArray(item.charIds) && item.charIds.length ? String(item.charIds[0]) : null;
+  // 单独存的那几样（她 2026-11-19「单独的也一起接了吧」）：日记、朋友圈、限时动态、情侣空间、时光胶囊——
+  //   这一条是谁的，照它身上记着的人认那只钟；认不出就照主面具那只
+  if (VTS_EXTRA[s]) { const w = item && (item.characterId || item.charId || item.ownerId || (item.by && item.by !== "me" ? item.by : "")); return w ? String(w) : null; }
   return undefined;
 }
+const VTS_EXTRA = { x_diaries: 1, x_moments: 1, x_stories: 1, x_coupleQA: 1, x_coupleDrawer: 1, x_coupleLetters: 1, x_coupleTimeline: 1, x_coupleRecall: 1, x_coupleExDiary: 1, x_capsules: 1, x_coupleAnniv: 1, x_coupleTrips: 1 };
 function vtsTouch(k, v, stamp) {
   try {
-    if (vtsClockOf(k) === undefined || !Array.isArray(v)) return;
+    if (vtsClockOf(k) === undefined || !v || typeof v !== "object") return;
+    // 按人分开存的（日记：{ 角色id: [篇…] }）：每个人那一串当一条清单，钟照那个人
+    if (!Array.isArray(v)) { Object.keys(v).forEach(who => { const arr = v[who]; if (Array.isArray(arr)) vtsTouchList(k, arr, stamp, who); }); return; }
+    vtsTouchList(k, v, stamp, null);
+  } catch (e) {}
+}
+function vtsTouchList(k, v, stamp, who) {
+  try {
     const off = /^x_g?offline:/.test(String(k));
     const now = Date.now();
     const one = it => {
       if (!it || typeof it !== "object") return;
       const ts = Number(it.ts);
       if (!isFinite(ts) || ts <= 0) return;
-      if (it.vts == null && stamp && now - ts < 600000 && ts <= now + 60000) {
-        const cid = vtsClockOf(k, it);
+      // 「刚写下的」：聊天这些十分钟以内；单独存的那几样（日记写的是昨天、补写前几天）放到四天
+      if (it.vts == null && stamp && now - ts < (VTS_EXTRA[String(k)] ? 4 * 864e5 : 600000) && ts <= now + 60000) {
+        const cid = who != null ? String(who) : vtsClockOf(k, it);
         if (typeof vclockCfg === "function" && vclockCfg(cid, ts)) { const vv = vclockMap(ts, cid); if (isFinite(vv) && vv !== ts) it.vts = vv; }
       }
       if (isFinite(Number(it.vts))) VTS_INDEX.set(ts, Number(it.vts));
     };
     const list = off ? v.reduce((a, sess) => a.concat(Array.isArray(sess && sess.msgs) ? sess.msgs : []), []) : v;
     // 落盘时只看最新那一截（记忆库新的在前、聊天新的在后）；开机读进来时整份登记
-    const part = !stamp ? list : String(k) === "x_memLib" ? list.slice(0, 30) : list.slice(-30);
+    //   单独存的那几样新的在前在后不一定，两头各看一截
+    const part = !stamp ? list : String(k) === "x_memLib" ? list.slice(0, 30) : VTS_EXTRA[String(k)] ? list.slice(0, 30).concat(list.slice(-30)) : list.slice(-30);
     part.forEach(one);
   } catch (e) {}
 }
