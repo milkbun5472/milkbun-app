@@ -140,10 +140,10 @@ test("token 直接填，且内部那两道天花板跟着抬起来", () => {
   // 不抬天花板的话她填多少都被静默吞掉
   assert.doesNotMatch(fic, /Math\.min\(30000, 6000 \+ n \* perFic\)/);
   assert.doesNotMatch(fic, /Math\.min\(24000, perFic \+ 10000\)/);
-  assert.match(fic, /Math\.min\(FIC_TOKEN_MAX \* 4, 6000 \+ n \* (?:perFic|Math\.max\(perFic, Math\.ceil\(minWords \* 2\)\))\)/);
+  assert.match(fic, /Math\.min\(FIC_TOKEN_MAX \* 4, Math\.max\(65000, 6000 \+ Math\.max\(1, Number\(n\) \|\| 1\) \* each\)\)/);
   // v66.76 起续写那道天花板跟着【字数地板】走：她 2026-09-11 加了「每章最少写多少字」，
   // 地板调到 5000 字而天花板还按 perFic 算的话，会写到一半被截断——那才是真多花一次调用。
-  assert.match(fic.slice(fic.indexOf("async function genNextChapter")), /maxTokens: 65000/);
+  assert.match(fic.slice(fic.indexOf("async function genNextChapter")), /maxTokens: (?:65000|ficOutCap\(1, clampPerFic\(opts\.perFic\), minWords\))/);
   // 存里可能是空串或旧值，读的时候也夹一次
   assert.equal((fic.match(/const perFic = clampPerFic\(opts\.perFic\)/g) || []).length, 2);
 });
