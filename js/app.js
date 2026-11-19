@@ -17066,6 +17066,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         //   ⚠️别再加回来：想知道拦了什么就写进诊断，不要弹到她眼前。
         phase = "落地发言";
         tickDirectives(groupId); // 临时规矩每回一轮少一轮，到 0 自动消失
+        const _gLuck = [];   // 这一轮有人掷的骰子／抽的签：整轮的话都发完再摆（她 2026-11-19「还是不是最下面」——同一轮后面的人写话时还不知道结果）
         const _gDrop = [];   // 这一轮模型写了、却没落进群里的那几条，为什么（群里 2026-11-08：「后台显示回复了但窗口看不到」——原来一声不吭全丢）
         const _gspoke = new Set(); // 群聊(含旁观模式，同一路径)也给开口成员计动态保底（她 2026-07-13 点名）
         // ⚠️**一个人一轮只摆一行动描**（她 2026-09-12：「不行啊宝宝还是一句一个动作」）。
@@ -17393,17 +17394,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             }
           }
           // 他们自己掷骰子／抽签（她 2026-11-19「群里他们不能发起骰子和抽签吗」）：跟她「+」里那颗同一张卡，结果手机现掷。
-          //   摆在这个人这一条的话【后面】（她 2026-11-19 截图：骰子卡跑到「那我真扔了啊」前面去了）
+          //   先收着，整轮发完再摆在最底下（她 2026-11-19 两张截图：先是跑到「那我真扔了啊」前面，后来夹在别人的话中间）
           if (item.luck && typeof item.luck === "object" && spk) {
             const L0 = item.luck, me0 = userName(profile);
             if (L0.type === "dice") {
               const n0 = Math.max(1, Math.min(3, Number(L0.n) || 1)), vals = Array.from({ length: n0 }, () => 1 + Math.floor(Math.random() * 6));
-              pushGroupRich(groupId, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "luck", luck: { type: "dice", vals, by: spk.name },
+              _gLuck.push({ role: "assistant", senderId: spk.id, senderName: spk.name, kind: "luck", luck: { type: "dice", vals, by: spk.name },
                 content: "[掷骰子] " + spk.name + " 掷了 " + n0 + " 颗骰子：" + vals.join("、") + (n0 > 1 ? "（共 " + vals.reduce((a, b) => a + b, 0) + " 点）" : " 点") });
             } else if (L0.type === "draw") {
               const pool0 = members.map(c => c.remark || c.name).concat(imInGroup(group) ? [me0] : []);
               const k0 = Math.max(1, Math.min(Number(L0.n) || 1, pool0.length)), names0 = pool0.slice().sort(() => Math.random() - 0.5).slice(0, k0), q0 = String(L0.what || "").trim().slice(0, 40);
-              pushGroupRich(groupId, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "luck", luck: { type: "draw", what: q0, names: names0, by: spk.name },
+              _gLuck.push({ role: "assistant", senderId: spk.id, senderName: spk.name, kind: "luck", luck: { type: "draw", what: q0, names: names0, by: spk.name },
                 content: "[抽签] " + spk.name + " 在群里抽签" + (q0 ? "「" + q0 + "」" : "") + "，抽中了：" + names0.join("、") + "（随机抽的，不是谁选的）" });
             }
           }
@@ -17573,6 +17574,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             }
           }
         }
+        if (_gLuck.length) { await new Promise(r => setTimeout(r, 500)); _gLuck.forEach(x => pushGroupRich(groupId, x)); }
         // 封闭群（没开记忆互通）是密封空间：记忆不进也不出，那就更不该驱动
         // 朋友圈/论坛/悄悄话这些【对外】的东西——动态素材本来就把群聊混在一起取，
         // 攒够 30 轮强制发一条，等于把闭群里的事发到朋友圈上（她 2026-08-24 抓到）。
