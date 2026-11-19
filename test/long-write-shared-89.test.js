@@ -16,3 +16,9 @@ test("写长文的那几枪都用 engine 里那一份 LONG_WRITE", () => {
   assert.match(R("js/impression-core.js"), /\.\.\.\(typeof LONG_WRITE === "object" \? LONG_WRITE/);
   assert.match(R("js/fanfic-core.js"), /const FIC_WRITE_OPTS = typeof LONG_WRITE === "object" \? LONG_WRITE/);
 });
+test("邮票册写长的那几枪也走 LONG_WRITE；runProbe 认 stream", () => {
+  const a = R("js/app.js"), e = R("js/engine.js");
+  assert.match(e, /\.\.\.\(probe && probe\.stream \? \{ stream: true \} : \{\}\)/);
+  ["stampshop", "stampstory", "stampdispatch", "stampduel"].forEach(t => assert.match(a, new RegExp('\\{ \\.\\.\\.LONG_WRITE, voice: true, tag: "' + t + '"'), t));
+  assert.equal((a.match(/stampCtx\(char, [^)]*\), \{ \.\.\.LONG_WRITE,/g) || []).length, 4, "写卡那四枪");
+});

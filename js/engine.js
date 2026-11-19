@@ -11780,7 +11780,7 @@ if (typeof window !== "undefined") window.probeBiLine = probeBiLine;
 async function runProbeInner(p, ctx, probe) {
   // 等多久、能不能中途掐断：调用方传 probe.timeout / probe.signal，原样交给 callAI——
   //   别在外面拿 Promise.race 自己赛跑（赛输了请求还在后台跑、照样计费）。2026-10-20 收
-  const _probeWait = { ...(probe && probe.timeout ? { timeout: probe.timeout } : {}), ...(probe && probe.signal ? { signal: probe.signal } : {}) };
+  const _probeWait = { ...(probe && probe.timeout ? { timeout: probe.timeout } : {}), ...(probe && probe.signal ? { signal: probe.signal } : {}), ...(probe && probe.stream ? { stream: true } : {}) };   // stream：写长文那几枪（LONG_WRITE）边写边收
   // ⚠️站的位置（four-surfaces-same-context 里 v55.91 那一条）：
   // 这个开场白把模型放在【分析师的椅子】上——「不要扮演角色对话，冷静推演」。
   // 绝大多数推演（行程/钱包/相册/书架）本来就该这么站。

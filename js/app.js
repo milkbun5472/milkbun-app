@@ -12438,7 +12438,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return c.id+" · "+(c.remark||c.name)+"\n"+[c.persona,c.description,c.desc,c.personality].filter(Boolean).join("\n")+(said.length?"\n下面是"+(c.remark||c.name)+"最近跟"+userName(meOf(c.id))+"聊天时说话的样子，只照着学口气，聊天里的事别搬进店里：\n"+said.join("\n"):"");
     }).join("\n\n");
         const close = d.mode === "shopclose";
-        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampshop", maxTokens: 65000,
+        const r = await runProbe(apiFor(char.id), ctxFor(char), { ...LONG_WRITE, voice: true, tag: "stampshop", maxTokens: 65000,
           instruction: "这是" + uN + "在邮票册里开的一家小邮局（游戏里的店，第 " + (d.day || 1) + " 天）。" + (d.clock ? "现在是" + (d.missed ? "那天晚上" : (d.period ? d.period + " " : "") + d.clock) + "，店是照现实的钟点开的，写到时间要对得上，别写已经过去的钟点。" : "") + "店里现在的样子：" + (d.decor || "刚开张，还空着") + "。\n"
             + (close
               ? "今天上班的：" + (d.staff || "") + "。今天来过的客人：" + (d.customers || "没什么人") + "。今天收了 " + (d.coins || 0) + " 枚邮花。\n"
@@ -18590,7 +18590,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     list.forEach(c => stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" }));
     try {
       const ser = stampSeriesOf(list), prev = stampPrev(char.id, list.map(c => c.id), ser && ser.series);
-      const d = await runProbe(offlineApiFor(char.id), stampCtx(char, list), { salvage: stampLooseJSON,
+      const d = await runProbe(offlineApiFor(char.id), stampCtx(char, list), { ...LONG_WRITE, salvage: stampLooseJSON,
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
           // 一批十张常常是同一种卡：同样的要求只说一遍，每张标它照哪一种（以前同一大段重复十遍）
@@ -18621,7 +18621,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     stampSaveCard(c.id, { writing: true, writingTs: Date.now(), queued: false, err: "" });
     try {
       const ser = stampSeriesOf([c]), prev = stampPrev(char.id, [c.id], ser && ser.series), me = userName(meOf(char.id));
-      const d = await runProbe(offlineApiFor(char.id), stampCtx(char, [c]), { salvage: stampLooseJSON,
+      const d = await runProbe(offlineApiFor(char.id), stampCtx(char, [c]), { ...LONG_WRITE, salvage: stampLooseJSON,
         voice: true,
         instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
           + "\nSSR 是一段完整的剧情，像乙游的卡面剧情：分几节，她在中间做选择，选的不同走的路不同。是什么样的故事，跟着你这个人、你的世界和你们现在的关系来，不一定是恋爱的事。"
@@ -18651,7 +18651,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + ((x.choices || []).length ? "\n  选项：" + x.choices.map(o => (o.text || "") + " → " + (o.go || "")).join("；") : "")).join("\n");
         let more = null;
         try {
-          more = await runProbe(offlineApiFor(char.id), stampCtx(char, [c]), { salvage: stampLooseJSON, voice: true,
+          more = await runProbe(offlineApiFor(char.id), stampCtx(char, [c]), { ...LONG_WRITE, salvage: stampLooseJSON, voice: true,
             instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "你在写邮票册里那张 SSR「" + d.name + "」的剧情。" + stampKindLine(c, char)
               + "\n前面已经写好了这几节（每节只摘了结尾几句）：\n" + sofar
               + "\n\n接着把还缺的写完：" + miss.map(l => l === 10 || l === 30 ? "lv" + l + " 的两条岔路" : l === 40 ? "lv40 的两三个结局（end:true）" : l === 50 ? "lv50 的隐藏的路（hidden:true，也是一个结局）" : "lv" + l + " 那一节").join("、")
@@ -18673,7 +18673,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const char = characters.find(x => x.id === card.charId); const tx = card.text; if (!char || !tx) return null;
     const me = userName(meOf(char.id));
     const dump = (tx.sections || []).map(sc => "【" + sc.id + "】" + (sc.title || "") + "\n" + (sc.beats || []).map((b, k) => k + ". " + (b.who === "pick" ? "（她在这儿做了个小选择）" : (b.who === "he" ? "你：" : b.who === "me" ? me + "：" : "") + String(b.text || "").slice(0, 160))).join("\n")).join("\n\n");
-    const d = await runProbe(offlineApiFor(char.id), stampCtx(char, [card]), { voice: true,
+    const d = await runProbe(offlineApiFor(char.id), stampCtx(char, [card]), { ...LONG_WRITE, voice: true,
       instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里把你这张 SSR「" + (tx.name || "") + "」升满了，想换你的视角重读一遍。下面是这段剧情，每节每句前面有编号。"
         + "在你想说的地方插进你那时心里的话：那会儿你在想什么、注意到了什么、没说出口的是什么。照你这个人，有的地方多想、有的地方根本没想，不必每句都插；每节几处。at 是插在哪一句后面的编号。\n\n" + dump.slice(0, 24000),
       schemaHint: "{\"inner\":{\"节的id\":[{\"at\":0,\"text\":\"\"}]}}", maxTokens: 30000 });
@@ -37318,7 +37318,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 剧情闯关（她 2026-11-08「1 和 3 都可以」）：TA 一章一章写一段故事，每章引出一场仗，章末给她两三个选项；第五章打完写结局
       if (d.mode === "storych" || d.mode === "storyend") {
         const end = d.mode === "storyend";
-        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampstory", maxTokens: 8000,
+        const r = await runProbe(apiFor(char.id), ctxFor(char), { ...LONG_WRITE, voice: true, tag: "stampstory", maxTokens: 8000,
           instruction: "你和" + uN + "在邮票册里玩「剧情闯关」：你们俩一起走一段故事，故事的引子是「" + (d.hook || "") + "」，一共五章；每章里会遇上一个拦路的对手，她用邮票册的卡跟它打一场（打仗是游戏，故事里写成你们怎么闯过去或没闯过去）。\n"
             + (d.past ? "前面已经发生的：\n" + d.past + "\n" : "")
             + (typeof stampVoice === "function" ? stampVoice(char) + "\n" : "")
@@ -37338,7 +37338,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (d.mode === "dispatch") {
         const prevAll = [].concat(loadJSON("x_stampKeeps", []) || [], loadJSON("x_stampTrinkets", []) || []).filter(k => k && k.charId === char.id).sort((a, b) => (a.ts || 0) - (b.ts || 0)).slice(-40);
         const prevLine = prevAll.length ? "你以前给她带回来、做过的东西（名字、写的是什么）：\n" + prevAll.map(k => "- 「" + k.name + "」" + (k.gist || k.story || "")).join("\n") + "\n这次带回来的别再是同一样东西、同一件事。\n" : "";
-        const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampdispatch", maxTokens: 8000,
+        const r = await runProbe(apiFor(char.id), ctxFor(char), { ...LONG_WRITE, voice: true, tag: "stampdispatch", maxTokens: 8000,
           instruction: "这是" + uN + "邮票册里的小游戏「派遣」：她把几张邮票派去「" + (d.place || "远方") + "」送信，在那儿待了 " + (d.hours || 1) + " 个小时，现在回来了。这几张票和票上那一刻：\n" + (d.cards || "") + "\n"
             + (d.with ? "一起去的人：" + d.with + "。\n" : "")
             + "这几张票里同一个人的，是这个人那几个时候的样子，不是几个不同的人：都是你的票，就写你自己这一趟；里面有别人的票，才写成你们几个一起去（你的那几张还是你一个人）。\n"
@@ -37409,7 +37409,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (!d.pact && window.StampChatLink && window.StampChatLink.of(char.id).know) try { addMemEntry({ text: keep ? char.name + "用" + uN + "攒的材料（" + (d.mats || []).join("、") + "）给她做了一件信物「" + name + "」：" + out.story : char.name + "留给" + uN + "一样小东西「" + name + "」，她在邮票对战里拆开了：" + out.story, tags: ["邮票对局", keep ? "信物" : "小物"], charIds: [char.id], knownBy: [char.id], source: "stamps" }); } catch (e) {}
         return out;
       }
-      const r = await runProbe(apiFor(char.id), ctxFor(char), { voice: true, tag: "stampduel", maxTokens: 8000,
+      const r = await runProbe(apiFor(char.id), ctxFor(char), { ...LONG_WRITE, voice: true, tag: "stampduel", maxTokens: 8000,
         instruction: (["road", "letter", "postcard", "note", "memory", "oneline", "ask", "answer", "future", "swap"].includes(d.mode)
             // 远信（她 2026-11-08「路途也可以聊天」「终点要回信」）：她在邮票册里玩一趟送信的游戏，信是寄给你的，你一路陪着
             ? (d.toId && d.toId !== char.id
