@@ -10208,6 +10208,16 @@ function MomentZy({ zy }) {
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: t.ink, marginTop: 4, lineHeight: 1.3 } }, zy.title),
     zy.line && zy.line !== zy.title ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.55 } }, zy.line) : null);
 }
+// 朋友圈里那张聊天记录截图（群里 2026-11-19 许愿）：像手机截的一小段——顶上对方名字，左右两边的气泡，不用真截图
+function MomentChatShot({ shot }) {
+  const t = useTheme();
+  if (!shot || !(shot.lines || []).length) return null;
+  return h("div", { "data-wk": "momchatshot", className: "w-full mt-2", style: { maxWidth: 260, borderRadius: 10, overflow: "hidden", border: "1px solid " + t.line, background: t.bg } },
+    h("div", { style: { padding: "6px 10px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.sub, textAlign: "center", borderBottom: "1px solid " + t.line, background: t.bg2 } }, shot.with || "聊天"),
+    h("div", { style: { padding: "8px 8px 4px" } }, shot.lines.map((x, i) => h("div", { key: i, "data-wk": "momchatshotline", "data-me": x.me ? "0" : "1", className: "flex", style: { justifyContent: x.me ? "flex-start" : "flex-end", marginBottom: 5 } },
+      h("div", { style: { maxWidth: "82%", padding: "5px 9px", borderRadius: 8, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, wordBreak: "break-word",
+        background: x.me ? t.bg2 : (t.tint || t.accent), color: x.me ? t.ink : "#fff", border: x.me ? "1px solid " + t.line : "none" } }, x.text)))));
+}
 // 朋友圈里的塔罗卡（她 2026-11-18「把塔罗也可以分享朋友圈吧也做卡片」）：问的什么、几张牌（逆位倒着写）、收束一句；深色夜空底跟塔罗店一个调子
 function MomentTarot({ tarot }) {
   if (!tarot || !(tarot.cards || []).length) return null;
@@ -11054,7 +11064,7 @@ function MomentsFeed({
     isMine && (m.seenBy || []).length ? (() => { const done = new Set([...(m.likers || []), ...(m.comments || []).map(cm => cm.author)]);
       const ns = m.seenBy.map(id => (characters || []).find(c => c.id === id)).filter(c => c && !done.has(c.name) && !done.has(c.remark));
       return ns.length ? h("div", { "data-wk": "moseen", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "👀 " + ns.map(c => c.remark || c.name).join("、") + " 看过，没吭声") : null; })() : null,
-    h(MomentRemindLine, { m, characters }), m.music && h(MomentMusic, { music: m.music }), m.zy && h(MomentZy, { zy: m.zy }), m.tarot && h(MomentTarot, { tarot: m.tarot }), m.poll && h(MomentPoll, { poll: m.poll, characters }), momLikers(m, profile).length > 0 && h("div", {
+    h(MomentRemindLine, { m, characters }), m.music && h(MomentMusic, { music: m.music }), m.zy && h(MomentZy, { zy: m.zy }), m.tarot && h(MomentTarot, { tarot: m.tarot }), m.chatShot && h(MomentChatShot, { shot: m.chatShot }), m.poll && h(MomentPoll, { poll: m.poll, characters }), momLikers(m, profile).length > 0 && h("div", {
       className: "flex items-center gap-1.5 mt-2",
       "data-wk": "molikers"
     }, h(IHeart, {
@@ -11302,6 +11312,7 @@ function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter
     m.music ? h(MomentMusic, { music: m.music }) : null,
     m.zy ? h(MomentZy, { zy: m.zy }) : null,
     m.tarot ? h(MomentTarot, { tarot: m.tarot }) : null,
+    m.chatShot ? h(MomentChatShot, { shot: m.chatShot }) : null,
     m.poll ? h(MomentPoll, { poll: m.poll, characters }) : null,
     // 赞和评论收进同一个灰底框，跟微信一样：上面一行赞，一道细线，下面是评论（她 2026-11-15「回复做个框」）
     (momLikers(m, profile).length || (m.comments && m.comments.length)) ? h("div", { "data-wk": "mocomments", className: "mt-2.5 rounded-lg px-3 py-2", style: { background: wxGrey(t) } },
