@@ -1,4 +1,4 @@
-import {roomPoint} from './room-layout.mjs?v=fg-3fcf8e2dc9520f24';
+import {roomPoint} from './room-layout.mjs?v=fg-8d0a662f3518bb2e';
 // Floor positions beside the authored furniture, transformed with that room.
 // The same target gates live work and offline recovery; no work is credited at
 // the entry door. People retain their space through the shared navigation.
