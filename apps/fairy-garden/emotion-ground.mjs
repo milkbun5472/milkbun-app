@@ -1,11 +1,17 @@
 import * as T from 'three';
 // 躺下／趴下以真正的可见衣装、头发和蒙皮外轮廓落地；不用站姿脚底常数。
-export function settleEmotionGround(root,model,amount){
+export function settleEmotionGround(root,model,amount,skeletonOnly=false){
  root.userData.emotionGround=null;if(!amount)return;
  root.updateMatrixWorld(true);const bounds=new T.Box3();
+ const meshBounds=skeletonOnly?new T.Box3():null;
  model.traverseVisible(o=>{if(!o.isMesh||o.userData.followBone)return;
   for(let p=o;p&&p!==model;p=p.parent)if(p.name.startsWith('Companion'))return;
-  bounds.expandByObject(o,true);
+  if(meshBounds){
+   // GLB mesh bounds are cached. Only transform their eight corners for
+   // the thumbnail; the full view measures the posed surface precisely.
+   if(!o.geometry.boundingBox)o.geometry.computeBoundingBox();
+   bounds.union(meshBounds.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld));
+  }else bounds.expandByObject(o,true);
  });
  if(bounds.isEmpty())return;
  const shift=bounds.min.y<0?-bounds.min.y:-bounds.min.y*amount,center=bounds.getCenter(new T.Vector3());root.position.y+=shift;const local=root.worldToLocal(center);model.position.x-=local.x*amount;model.position.z-=local.z*amount;

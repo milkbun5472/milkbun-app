@@ -15,7 +15,7 @@ function lapExtent(points){
 }
 // Extend the existing hip rig at runtime. The original model, textures and
 // standing shape stay intact; every outfit uses the same knee joints.
-export function makeSeatedLegs(model,rig,meshes,morphs){
+export function makeSeatedLegs(model,rig,meshes,morphs,skeletonOnly=false){
  const body=meshes.find(m=>m.userData.skinBase),joints=[],fabric=[];let fittedAngle=null,work=false,fittedWork=null,straight=false,fittedStraight=null;
  if(!body||!morphs)return {attach(){},fit(){},setWork(){},setStraight(){},needsFit(){return false;},update(){},rests:[]};
  model.updateMatrixWorld(true);
@@ -83,7 +83,7 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
    if(influences.length>4)throw Error('Knee binding exceeds four skin influences '+JSON.stringify({mesh:mesh.name,point:point.toArray(),influences:influences.map(([index,weight])=>[bones[index].name,weight])}));
    for(let k=0;k<4;k++){indices.setComponent(i,k,influences[k]?.[0]||0);weights.setComponent(i,k,influences[k]?.[1]||0);}
    const bodyWeight=influences.filter(([index])=>bones[index].name==='body').reduce((sum,[,weight])=>sum+weight,0);
-   if(mesh.userData.outfit&&!footwear&&(cotton||(point.y>joints[0].at.y-.01||bodyWeight>.4)&&point.y<joints[0].hipPoint.y+.04))candidates.push(i);
+   if(!skeletonOnly&&mesh.userData.outfit&&!footwear&&(cotton||(point.y>joints[0].at.y-.01||bodyWeight>.4)&&point.y<joints[0].hipPoint.y+.04))candidates.push(i);
   }
   mesh.geometry=geometry;mesh.bind(new T.Skeleton(bones,inverses),mesh.bindMatrix);
   if(candidates.length){
@@ -102,6 +102,7 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
  // Chunky rear cuffs need a more open knee to clear the seat underside.
  function angle(){let a=work?WORK_SEATED_KNEE:SEATED_KNEE;for(const mesh of meshes){if(!mesh.userData.seatKneeAngle)continue;let visible=true;for(let o=mesh;o;o=o.parent)visible&&=o.visible;if(visible)a=Math.min(a,work&&mesh.userData.seatKneeAngle<SEATED_KNEE?Math.PI/18:mesh.userData.seatKneeAngle);}return a;}
  function fit(){
+  if(skeletonOnly)return;
   const bend=straight?0:angle();fittedAngle=bend;fittedWork=work;fittedStraight=straight;
   const saved=joints.map(j=>[j.hip.quaternion.clone(),j.knee.quaternion.clone()]);
   for(const j of joints){j.hip.quaternion.setFromAxisAngle(new T.Vector3(1,0,0),-Math.PI/2+(work?WORK_SEATED_HIP:0)).multiply(j.hipRest);j.knee.quaternion.copy(j.rest).multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),bend));}
@@ -147,5 +148,5 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
   joints.forEach((j,i)=>{j.hip.quaternion.copy(saved[i][0]);j.knee.quaternion.copy(saved[i][1]);});model.updateMatrixWorld(true);
  }
  for(const mesh of meshes)attach(mesh);
- return {attach,fit,setWork:value=>{work=!!value;},setStraight:value=>{straight=!!value;},needsFit:()=>fittedAngle!==(straight?0:angle())||fittedWork!==work||fittedStraight!==straight,rests:joints.map(j=>[j.knee,j.rest]),update(blend){const bend=angle();for(const joint of joints)joint.knee.quaternion.copy(joint.rest).multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),bend*blend));}};
+ return {attach,fit,setWork:value=>{work=!!value;},setStraight:value=>{straight=!!value;},needsFit:()=>!skeletonOnly&&(fittedAngle!==(straight?0:angle())||fittedWork!==work||fittedStraight!==straight),rests:joints.map(j=>[j.knee,j.rest]),update(blend){const bend=angle();for(const joint of joints)joint.knee.quaternion.copy(joint.rest).multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),bend*blend));}};
 }
