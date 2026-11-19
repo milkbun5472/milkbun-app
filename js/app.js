@@ -30625,6 +30625,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast("挂上了");
     return true;
   };
+  // 改一身（她 2026-11-19「我的衣柜吗」——TA的衣柜能改了，她自己那一柜也要）：名字、说明，按场合＋名字找到那一身就地换
+  const myClosetEdit = (occ, oldName, patch) => {
+    const nn = String((patch && patch.name) || "").trim().slice(0, 24);
+    if (!nn) { toast("先写这身叫什么"); return false; }
+    const cur = ((myBoxOf(closetWho()) || {}).closet || []).map(g => String(g.occasion || "") !== String(occ || "") ? g
+      : { ...g, sets: (g.sets || []).map(x => String(x.name || "") === String(oldName || "") ? { ...x, name: nn, note: String((patch && patch.note) || "").trim().slice(0, 140) } : x) });
+    saveMyBox(closetWho(), { ...(myBoxOf(closetWho()) || {}), closet: cur });
+    toast("改好了");
+    return true;
+  };
   const myClosetDrop = (occ, name) => {
     const cur = ((myBoxOf(closetWho()) || {}).closet || []).map(g => {
       if (String(g.occasion || "") !== String(occ || "")) return g;
@@ -36357,6 +36367,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onGen: myClosetGen,
     onAdd: myClosetAdd,
     onDrop: myClosetDrop,
+    onEdit: myClosetEdit,
     // 在衣柜里直接钉住一身（她 2026-10-12：「放我的资料里太隐蔽了，不能在我的衣柜里直接选吗，然后把我的那里删掉」）：
     //   钉住＝写进出图常服那把锁（跟线下「以后都这样」同一格），出图每张都穿它；再点一次就取消，回到从衣柜里挑
     onPin: text => { const v = String(text || "").trim().slice(0, 200);

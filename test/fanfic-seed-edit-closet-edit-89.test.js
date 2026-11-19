@@ -18,3 +18,10 @@ test("衣柜／随身物能改名字和说明，钉着的跟着改", () => {
   assert.match(s, /"data-part": "edit", onClick: \(\) => setSheetEdit/);
   assert.match(R("js/theme-studio.js"), /\["carrysheetedit", /);
 });
+test("我的衣柜每一身也能改，固定穿着的跟着换", () => {
+  const app = R("js/app.js"), s = R("js/screens-ui.js");
+  assert.match(app, /const myClosetEdit = \(occ, oldName, patch\) =>/);
+  assert.match(app, /onEdit: myClosetEdit,/);
+  assert.match(s, /"data-wk": "closetsetedit"/);
+  assert.match(s, /if \(editing\.pin && onPin\) onPin\(pinText/);
+});

@@ -13732,13 +13732,14 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
 // 在这之前压根没有正门——只能在情侣空间→照相馆里点「配一身约会装」，一次一身、
 // 还绑着某个角色。这一页是它的正门：关键词生成一次四身，也能自己挂。
 // 整页，不用半窗（施工规则/no-half-sheet.md）。
-function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, masks, maskKey, onMask, hasIn, onToggleMask }) {
+function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onEdit, onPin, onBack, masks, maskKey, onMask, hasIn, onToggleMask }) {
   // 钉住的那一身：写的是「名字：说明」这一句，跟出图常服那把锁同一格
   const pinText = x => String(x.name || "").trim() + (x.note ? "：" + String(x.note).trim() : "");
   const pinned = String((profile && profile.photoOutfit) || "").trim();
   const t = useTheme();
   const groups = closetGroups(data);
   const [kw, setKw] = useState("");
+  const [editing, setEditing] = useState(null);   // 正在改的那一身：{ occ, old, name, note }
   const [openAdd, setOpenAdd] = useState(false);
   const [occ, setOcc] = useState("");
   const [name, setName] = useState("");
@@ -13804,8 +13805,23 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, ma
                     "aria-label": pinned === pinText(x) ? "不再固定穿这身" : "以后出图固定穿这身",
                     style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: pinned === pinText(x) ? t.bg : t.ink, background: pinned === pinText(x) ? t.ink : "transparent",
                       border: "1px solid " + t.ink, borderRadius: 999, padding: "2px 9px" } }, pinned === pinText(x) ? "固定穿着" : "固定穿") : null,
+                  onEdit ? h("button", { "data-wk": "closetsetedit", onClick: () => setEditing({ occ: g.occasion, old: x.name, name: x.name || "", note: x.note || "", pin: pinned === pinText(x) }), className: "active:opacity-60 shrink-0", "aria-label": "改这身",
+                    style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "改") : null,
                   h("button", { "data-wk": "closetsetdrop", onClick: () => onDrop(g.occasion, x.name), className: "active:opacity-60 shrink-0", "aria-label": "拿掉这身",
                     style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "拿掉")),
+                editing && editing.occ === g.occasion && editing.old === x.name ? h("div", { "data-wk": "closetsetediting", style: { marginTop: 8 } },
+                  h("input", { "data-wk": "input", value: editing.name, maxLength: 24, onChange: e => setEditing({ ...editing, name: e.target.value }), placeholder: "这身叫什么",
+                    style: { width: "100%", minHeight: 38, padding: "0 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", outline: "none", boxSizing: "border-box" } }),
+                  h("textarea", { "data-wk": "textarea", value: editing.note, rows: 3, maxLength: 140, onChange: e => setEditing({ ...editing, note: e.target.value }), placeholder: "怎么穿、什么颜色料子（可以空着）",
+                    style: { width: "100%", marginTop: 6, padding: "7px 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", outline: "none", boxSizing: "border-box", resize: "vertical", lineHeight: 1.6 } }),
+                  h("div", { className: "flex justify-end", style: { gap: 14, marginTop: 6 } },
+                    h("button", { onClick: () => setEditing(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "算了"),
+                    h("button", { "data-wk": "closetseteditsave", disabled: !editing.name.trim(), onClick: () => {
+                        if (!onEdit(editing.occ, editing.old, { name: editing.name, note: editing.note })) return;
+                        // 固定穿着的就是这一身：钉着的那句跟着换，不然改完就对不上了
+                        if (editing.pin && onPin) onPin(pinText({ name: editing.name.trim(), note: editing.note.trim() }));
+                        setEditing(null);
+                      }, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, fontWeight: 600 } }, "存好"))) : null,
                 x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, transShow(x.note)) : null,
                 // 这身也挂到别的面具（她 2026-10-19「衣柜选择衣服放哪个面具方便来回换」）：点一下挂上、再点拿走，原柜不动
                 (masks && masks.length > 1 && hasIn && onToggleMask) ? h("div", { "data-wk": "closetsetmasks", className: "flex flex-wrap items-center", style: { gap: 5, marginTop: 8 } },
