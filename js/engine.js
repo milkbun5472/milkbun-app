@@ -12805,6 +12805,15 @@ function vclockSeg(c, ts) {
   if (h) for (let i = 0; i < h.length; i++) if (h[i] && Number(ts) < Number(h[i].until)) return h[i];
   return c;
 }
+// 历史段攒多了怎么收（群里 2026-11-19：「虚拟时间聊天记录又全都变成现实时间了」「记忆库里的事被说成 11 月」）：
+//   开着「离开小手机时停住」，每走开、回来一次就多记一段；原来只留最后 300 段、把最早的直接丢掉——
+//   最早那一段一丢，vclockMapBy 就以为这只钟是「最近才拨的」，比它早的每条消息、每条记忆全按现实日子算。
+//   现在：最早那一段永远留着（它说明钟是哪一刻开的），超了只从第二段起往后丢；上限放到 2000 段
+const VCLOCK_HIST_CAP = 2000;
+function vclockTrimHist(h) {
+  const a = Array.isArray(h) ? h : [];
+  return a.length <= VCLOCK_HIST_CAP ? a : [a[0]].concat(a.slice(a.length - (VCLOCK_HIST_CAP - 1)));
+}
 function vclockKeepHist(oldClocks, newClocks, now) {
   const out = { ...(newClocks || {}) }; now = now || Date.now();
   Object.keys(out).forEach(k => {
@@ -12816,11 +12825,11 @@ function vclockKeepHist(oldClocks, newClocks, now) {
     //   关钟：把那一版虚拟钟记下来（之前的消息照旧是虚拟的日子）；开钟：把关着那段记成「现实」（real:true，原样）。
     const hist0 = Array.isArray(o.hist) ? o.hist : (Array.isArray(n.hist) ? n.hist : []);
     if (o.on && !n.on && isFinite(Number(o.base))) {
-      out[k] = { ...n, hist: [...hist0, { until: now, base: Number(o.base), at: Number(o.at || 0), speed: o.speed, ...(o.awayAt ? { awayAt: o.awayAt } : {}) }].slice(-300) };
+      out[k] = { ...n, hist: vclockTrimHist([...hist0, { until: now, base: Number(o.base), at: Number(o.at || 0), speed: o.speed, ...(o.awayAt ? { awayAt: o.awayAt } : {}) }]) };
       return;
     }
     if (!o.on && n.on) {
-      out[k] = { ...n, hist: [...hist0, { until: now, real: true }].slice(-300) };
+      out[k] = { ...n, hist: vclockTrimHist([...hist0, { until: now, real: true }]) };
       return;
     }
     if (!o.on || !n.on) { if (hist0.length && !n.hist) out[k] = { ...n, hist: hist0 }; return; }
@@ -12828,7 +12837,7 @@ function vclockKeepHist(oldClocks, newClocks, now) {
     const jump = Number(o.base) !== Number(n.base) || Number(o.at || 0) !== Number(n.at || 0) || Number(o.speed) !== Number(n.speed) || (o.awayAt || 0) !== (n.awayAt || 0);
     if (!jump) { if (o.hist && !n.hist) out[k] = { ...n, hist: o.hist }; return; }
     const seg = { until: now, base: Number(o.base), at: Number(o.at || 0), speed: o.speed, ...(o.awayAt ? { awayAt: o.awayAt } : {}) };
-    out[k] = { ...n, hist: [...(Array.isArray(o.hist) ? o.hist : []), seg].slice(-300) };
+    out[k] = { ...n, hist: vclockTrimHist([...(Array.isArray(o.hist) ? o.hist : []), seg]) };
   });
   return out;
 }
@@ -12864,7 +12873,11 @@ function vclockMapBy(c0, ts) {
   //   11 月 1 号起开钟会记一段「之前是现实」；在那之前就开着的钟没有这一段，于是开钟以前的每条都拿这只钟去算——
   //   钟停着（speed 0）或者拨在 24 号，以前的全挤到同一天。最早那一版钟是哪一刻拨的（at），早于它的就是现实
   const h0 = Array.isArray(c0.hist) && c0.hist.length ? c0.hist[0] : c0;
-  if (h0 && !h0.real && Number(h0.at) > 0 && Number(ts) < Number(h0.at)) return Number(ts);
+  // ⚠️攒满过 300 段的旧存档（2026-11-19 前的版本会把最早几段丢掉）：h0 已经不是开钟那一刻，比它早的不能当现实，
+  //   照 h0 那一版往前推（日子可能差几天，但留在她拨的那个年月里，不会整片跳回现实）
+  const _trimmedOld = Array.isArray(c0.hist) && c0.hist.length >= 300;
+  if (h0 && !h0.real && !_trimmedOld && Number(h0.at) > 0 && Number(ts) < Number(h0.at)) return Number(ts);
+  if (h0 && !h0.real && _trimmedOld && Number(ts) < Number(h0.at)) { const sp0 = Number(h0.speed); return Number(h0.base) + (Number(ts) - Number(h0.at || 0)) * (isFinite(sp0) && sp0 >= 0 ? sp0 : 1); }
   const c = vclockSeg(c0, ts);
   if (c && c.real) return Number(ts);   // 那一段钟是关着的：照现实
   const sp = Number(c.speed);
