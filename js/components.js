@@ -13421,7 +13421,7 @@ function ChatThread({
       } else onLongPress(act, menu);
       setMenu(null);
     }
-  }), fwdPick && h(ForwardPickSheet, { chars: (characters || []).filter(c => c.id !== character.id), groups: groups || [], mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: doForwardMany }));
+  }), /* 本人也在名单最前（她 2026-11-19「转发的时候也能转进本人的聊天」）：在小房间里转给 TA＝转进你俩的主聊天 */ fwdPick && h(ForwardPickSheet, { chars: [character].concat((characters || []).filter(c => c.id !== character.id)).filter(Boolean), groups: groups || [], mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: doForwardMany }));
 }
 // 仿微信语音/视频通话：发一句自动回一句
 // 流式字幕（她 2026-09-12：「TA说的话一字一句显示出来在屏幕中间，换句就清掉上一句的显示，
