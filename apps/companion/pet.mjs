@@ -73,8 +73,9 @@ function applyLife(){
 // ⚠️这行原来是模块顶层的裸 await：网抖一下就整个 iframe 卡住、pet-ready 永不发，
 //   外壳那句「小人还在来的路上…」会永远挂着（2026-09-26 发公共版前查出来的）。
 try{
- const source=await loadTravelerSource(progress=>parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(progress*100))},'*'));
- pet=createTraveler(source,true,pending?full():{});sc.add(pet.root);if(pending)apply(pending);   // 样貌先到了就直接照它建：头发按需下载，别先白下一款默认的
+ const rendering={skeletonOnly:mode==='float'};
+ const source=await loadTravelerSource(progress=>parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(progress*100))},'*'),rendering);
+ pet=createTraveler(source,true,pending?full():{},rendering);sc.add(pet.root);if(pending)apply(pending);   // 样貌先到了就直接照它建：头发按需下载，别先白下一款默认的
  parent.postMessage({type:'pet-ready'},'*');
 }catch(err){
  parent.postMessage({type:'pet-failed',why:String((err&&err.message)||err).slice(0,200)},'*');
