@@ -22224,7 +22224,7 @@ function GroupLuckCard({ m }) {
   const dice = L.type === "dice";
   return h("div", { className: "py-1 flex justify-center" },
     h("div", { "data-wk": "card", "data-kind": "luck", style: { minWidth: 200, maxWidth: "80%", padding: "12px 16px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, textAlign: "center" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog } }, dice ? "掷骰子" : "抽签" + (L.what ? " · " + L.what : "")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 2, color: t.fog } }, (L.by ? L.by + " " : "") + (dice ? "掷骰子" : "抽签" + (L.what ? " · " + L.what : ""))),
       dice
         ? h("div", { style: { display: "flex", justifyContent: "center", gap: 10, marginTop: 8 } }, (L.vals || []).map((v, k) => h("span", { key: k, style: { width: 38, height: 38, borderRadius: 9, border: "1.5px solid " + t.ink, display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink } }, v)))
         : h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink, marginTop: 6 } }, (L.names || []).join(" × ")),
