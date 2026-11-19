@@ -12,3 +12,7 @@ test("群成员能自己掷骰子／抽签：协议里有这一格，结果手�
   assert.match(app, /kind: "luck", luck: \{ type: "draw", what: q0, names: names0, by: spk\.name \}/);
   assert.match(comp, /\(L\.by \? L\.by \+ " " : ""\)/);
 });
+test("骰子卡摆在这个人这一条的话后面", () => {
+  assert.ok(app.indexOf("// 他们自己掷骰子／抽签") > app.indexOf("bubbleId: \"word-\" + i + \"-\" + j"), "得在这一条的气泡发完之后");
+  assert.ok(app.indexOf("// 他们自己掷骰子／抽签") < app.indexOf("// 群照片：该成员这条发言带了 photo 对象"));
+});

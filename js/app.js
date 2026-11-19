@@ -17211,20 +17211,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             postAsk(groupId, spk, item.askNew);
             autoTook();
           }
-          // 他们自己掷骰子／抽签（她 2026-11-19「群里他们不能发起骰子和抽签吗」）：跟她「+」里那颗同一张卡，结果手机现掷
-          if (item.luck && typeof item.luck === "object" && spk) {
-            const L0 = item.luck, me0 = userName(profile);
-            if (L0.type === "dice") {
-              const n0 = Math.max(1, Math.min(3, Number(L0.n) || 1)), vals = Array.from({ length: n0 }, () => 1 + Math.floor(Math.random() * 6));
-              pushGroupRich(groupId, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "luck", luck: { type: "dice", vals, by: spk.name },
-                content: "[掷骰子] " + spk.name + " 掷了 " + n0 + " 颗骰子：" + vals.join("、") + (n0 > 1 ? "（共 " + vals.reduce((a, b) => a + b, 0) + " 点）" : " 点") });
-            } else if (L0.type === "draw") {
-              const pool0 = members.map(c => c.remark || c.name).concat(imInGroup(group) ? [me0] : []);
-              const k0 = Math.max(1, Math.min(Number(L0.n) || 1, pool0.length)), names0 = pool0.slice().sort(() => Math.random() - 0.5).slice(0, k0), q0 = String(L0.what || "").trim().slice(0, 40);
-              pushGroupRich(groupId, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "luck", luck: { type: "draw", what: q0, names: names0, by: spk.name },
-                content: "[抽签] " + spk.name + " 在群里抽签" + (q0 ? "「" + q0 + "」" : "") + "，抽中了：" + names0.join("、") + "（随机抽的，不是谁选的）" });
-            }
-          }
           if (item.pollNew && spk) {
             postPoll(groupId, spk, item.pollNew.title, item.pollNew.options, item.pollNew.anon === true);
             autoTook();
@@ -17394,6 +17380,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
                 chatKey: "g:" + groupId, turnId: gTurnId, bubbleId: "word-" + i + "-" + j,
                 groupId: groupId
               });
+            }
+          }
+          // 他们自己掷骰子／抽签（她 2026-11-19「群里他们不能发起骰子和抽签吗」）：跟她「+」里那颗同一张卡，结果手机现掷。
+          //   摆在这个人这一条的话【后面】（她 2026-11-19 截图：骰子卡跑到「那我真扔了啊」前面去了）
+          if (item.luck && typeof item.luck === "object" && spk) {
+            const L0 = item.luck, me0 = userName(profile);
+            if (L0.type === "dice") {
+              const n0 = Math.max(1, Math.min(3, Number(L0.n) || 1)), vals = Array.from({ length: n0 }, () => 1 + Math.floor(Math.random() * 6));
+              pushGroupRich(groupId, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "luck", luck: { type: "dice", vals, by: spk.name },
+                content: "[掷骰子] " + spk.name + " 掷了 " + n0 + " 颗骰子：" + vals.join("、") + (n0 > 1 ? "（共 " + vals.reduce((a, b) => a + b, 0) + " 点）" : " 点") });
+            } else if (L0.type === "draw") {
+              const pool0 = members.map(c => c.remark || c.name).concat(imInGroup(group) ? [me0] : []);
+              const k0 = Math.max(1, Math.min(Number(L0.n) || 1, pool0.length)), names0 = pool0.slice().sort(() => Math.random() - 0.5).slice(0, k0), q0 = String(L0.what || "").trim().slice(0, 40);
+              pushGroupRich(groupId, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "luck", luck: { type: "draw", what: q0, names: names0, by: spk.name },
+                content: "[抽签] " + spk.name + " 在群里抽签" + (q0 ? "「" + q0 + "」" : "") + "，抽中了：" + names0.join("、") + "（随机抽的，不是谁选的）" });
             }
           }
           // 群照片：该成员这条发言带了 photo 对象（或旧版 selfie 字符串）→ 挂占位气泡 + 异步生成（复用私聊那套）
