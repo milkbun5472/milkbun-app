@@ -16800,6 +16800,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "\n\n" + GROUP_MULTI_BUBBLE
         // ⚠️跟单聊那一处同一条：开了动描，那一行就是【描写】，管描写的那几族才轮得上。
         //   没开动描时一个字都不发——线上就只有台词，那一份在这儿是白发（她立的：一堆禁令会变笨）。
+        // 群里也吃文风预设（她 2026-11-19）：跟单聊同一颗开关、同一段话，开关和挑哪份记在群设置里
+        + (() => { try { return gs.onlinePresetOn && gs.onlinePresetId && window.StylePresets ? "\n\n" + onlinePresetBlock(window.StylePresets.textFor(gs.onlinePresetId, "online", {})) : ""; } catch (e) { return ""; } })()
         + (_gActDesc ? "\n\n" + ownActNoBracketRule(userName(profile)) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_gActDesc && gs.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
       // 她想要什么（四处一样喂）：这是用户的信息，群里共享一份，不像随身物是每人私有
       // 她今天身上带着什么（四处一样喂）：这一条原来只在单聊那几处有——
@@ -35980,6 +35982,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onBack: () => setGardenOpen("")
     };
   })());else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+    onOpenStyleLab: goStyleLab,
     apiProfiles: apiProfiles,
     // 换一个群就是一块新的聊天屏（跟单聊 key 一样）：不然从 A 群点弹窗进 B 群，还停在 A 群翻到的那个高度、也不重新钉底
     key: "g::" + activeGroup.id,
