@@ -1,4 +1,4 @@
-import {segmentIntersectsRect} from '../navigation.mjs?v=fg-e609ee3ee20a3828';
+import {segmentIntersectsRect} from '../navigation.mjs?v=fg-3fcf8e2dc9520f24';
 // Lighting follows the character's local clock. Weather must have an explicit source.
 export function precipitationRoofed(roofs,a,b=a){
  return roofs.some(r=>segmentIntersectsRect(a,b,{x:(r.min[0]+r.max[0])/2,z:(r.min[2]+r.max[2])/2,w:r.max[0]-r.min[0],d:r.max[2]-r.min[2]},.001));

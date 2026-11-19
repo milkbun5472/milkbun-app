@@ -1,4 +1,4 @@
-import {furnitureSeat} from '../fairy-garden/day/home-catalog.mjs?v=fg-e609ee3ee20a3828';
+import {furnitureSeat} from '../fairy-garden/day/home-catalog.mjs?v=fg-3fcf8e2dc9520f24';
 
 // Scene facts only: the same chair/bench definitions feed geometry and TA's
 // shared furnitureSeat. The shop only adds an unobstructed walking approach.

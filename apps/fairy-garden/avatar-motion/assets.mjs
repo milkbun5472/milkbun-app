@@ -28,7 +28,33 @@ export function decodeMotion(bytes){
   }
   return x;
  }
- return decode(meta);
+ const asset=decode(meta);
+ const envelope=asset.sleeveEnvelope;
+ if(envelope?.anchors.materialRow){
+  const packed=envelope.anchors,rows=packed.materialRow;
+  const anchors={ids:packed.ids};
+  for(const name of ['side','weight','offset','baseOffset'])anchors[name]=rows.map(i=>packed[name][i]);
+  for(const name of ['body','baseBody'])anchors[name]=rows.flatMap(i=>packed[name].slice(3*i,3*i+3));
+  for(const name of ['bary','baseBary'])anchors[name]=rows.flatMap(i=>{
+   const a=packed[name][2*i],b=packed[name][2*i+1];return [a,b,1-(a+b)];
+  });
+  envelope.anchors=anchors;
+  const r=envelope.rootColumns;
+  envelope.rootAnchors=r.ids.map((id,i)=>[id,r.weight[i],r.body.slice(3*i,3*i+3),r.bary.slice(3*i,3*i+3),r.offset[i]]);
+  delete envelope.rootColumns;
+ }
+ if(envelope?.outwardSleeve){
+  const chart=envelope.outwardSleeve;
+  const current=new Int32Array(chart.groups.length*3);
+  for(const sample of chart.samples){
+   sample.offset=Float32Array.from(sample.delta,(code,i)=>{
+    current[i]+=code%2?-(code+1)/2:code/2;
+    return current[i]*chart.unit;
+   });
+   delete sample.delta;
+  }
+ }
+ return asset;
 }
 export async function loadMotionAsset(id){
  if(!/^(body|linen|heritage|bamboo|argyle|cardigan|ranger|garden|jacket|suit|tee|academy|berry)$/.test(id))throw Error('Unknown motion asset');

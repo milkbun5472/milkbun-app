@@ -1,6 +1,8 @@
 # 卷袖衬衫
 
-**最新施工状态（2026-11-18，v89.784已上线，待Lisa确认外观）：** v89.783 的扁袖被 Lisa 否定。本轮保留完整裸体动作，把卷袖绑定到最终裸臂表面；肩头另绑定实际身体三角面，顺接袖根。旧 raised-v5 裁切补面和整圈刚性方案仍弃用。正式 GLB sleeve-v4 不换，本轮修改 linen 动作元数据及公共接入。发布提交2c56b26039ed39b92eaa370e3438f067f2c2bbeb，build fg-a18a22cf5c6cefbf；52定向测试、222线上SHA、正式站WebKit关键动作通过。下述早期验收不能替代当前实图复看。
+双臂外举的肩布和卷边按原肩缝另做九个角度的试穿。源体型为肩宽 92%、其余 100%。同聊天可视化 `outward-cuffs/authoring/*.npz` 保留每帧身体、原衣、定稿衣面、关节与躯干矩阵；参考输入为 `sleeve-volume/source/report.json`。用 `motion/prepare_linen_outward.py <参考文件> <帧目录>` 生成修订数据，再运行 `motion/attach_linen_envelope.py` 重建卷袖包。模型与绑定哈希不匹配会中止。当前状态和外观验收见公共复盘。
+
+**上版施工状态（2026-11-18，v89.784已上线，待Lisa确认外观）：** v89.783 的扁袖被 Lisa 否定。本轮保留完整裸体动作，把卷袖绑定到最终裸臂表面；肩头另绑定实际身体三角面，顺接袖根。旧 raised-v5 裁切补面和整圈刚性方案仍弃用。正式 GLB sleeve-v4 不换，本轮修改 linen 动作元数据及公共接入。发布提交2c56b26039ed39b92eaa370e3438f067f2c2bbeb，build fg-a18a22cf5c6cefbf；52定向测试、222线上SHA、正式站WebKit关键动作通过。下述早期验收不能替代当前实图复看。
 
 当前制作：`motion/prepare_linen_envelope.py`（NumPy/SciPy/libigl）读取本聊天 `sleeve-volume/source/report.json` 与 `cap-clean-mask.json`，生成 `motion/linen-envelope.json.gz`。输入身体/模型 SHA 锁定；`attach_linen_envelope.py` 仅追加元数据并保留原绑定载荷，重复运行字节一致；`pack_motion.py` 自动接入。原模型或身体更新必须重新制作、验证，不能忽略 SHA 锁。
 

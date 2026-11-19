@@ -3,7 +3,7 @@
 export function createCachedMotionUpdate(context,update){
  const body=context.body;let last=null,lastCurve=null;
  function key(){
-  const values=[body.geometry.id,body.geometry.attributes.position.version,body.geometry.attributes.normal.version,body.skeleton.id||0,context.bindingGeneration||0,context.phoneCuffBlend||0];
+  const values=[body.geometry.id,body.geometry.attributes.position.version,body.geometry.attributes.normal.version,body.skeleton.id||0,context.bindingGeneration||0,context.phoneCuffBlend||0,context.outwardSleeveBlend||0];
   for(const bone of body.skeleton.bones)values.push(...bone.position.toArray(),...bone.quaternion.toArray(),...bone.scale.toArray());
   for(const inverse of body.skeleton.boneInverses)values.push(...inverse.elements);
   values.push(...body.bindMatrix.elements,...(body.morphTargetInfluences||[]));if(body.bindMode!=='attached')values.push(...body.bindMatrixInverse.elements);return values;
