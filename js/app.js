@@ -12237,6 +12237,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!sneak) setPeekPlay({ charId, allow, seen: "", hidden: [], script: null });
     if (!sneak && (allow || []).includes("daily")) { const c0 = (characters || []).find(x => x.id === charId); if (c0) await peekDailyEnsure(charId, c0); }
     if (!sneak) { try { const _h = loadJSON("x_peekHide", {}) || {}; saveJSON("x_peekHide", Object.assign({}, _h, { [charId]: (hideIds || []).map(String) })); } catch (e) {} }
+    // 「能翻的几样」也按人记住（群里 2026-11-19 留言板：「藏起来的选项可以一直保存，现在每次退出去就又变成全给看了」）——跟上面单独藏人那一栏同一个记法
+    if (!sneak) { try { const _a = loadJSON("x_peekAllow", {}) || {}; saveJSON("x_peekAllow", Object.assign({}, _a, { [charId]: (allow || []).map(String) })); } catch (e) {} }
     const maskIds = allMasks ? [] : peekMaskOthers(charId);
     const hideSet = new Set((hideIds || []).map(String).concat(maskIds.map(String)));
     const seen = peekPhoneMaterial(charId, allow, hideIds, maskIds);

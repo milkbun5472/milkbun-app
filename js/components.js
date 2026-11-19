@@ -11945,7 +11945,11 @@ function ChatThread({
   const [peekOpen, setPeekOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
-  const [peekAllow, setPeekAllow] = useState(() => (window.PEEK_PHONE_SECTIONS || []).map(s => s[0]).filter(k => k !== "daily"));   // 日常联系人默认不编，要了才勾
+  const [peekAllow, setPeekAllow] = useState(() => {   // 日常联系人默认不编，要了才勾；上回递手机时勾成什么样，这回照旧（x_peekAllow，按人记）
+    const all = (window.PEEK_PHONE_SECTIONS || []).map(s => s[0]);
+    try { const was = (loadJSON("x_peekAllow", {}) || {})[character && character.id]; if (Array.isArray(was)) return was.filter(k => all.includes(k)); } catch (e) {}
+    return all.filter(k => k !== "daily");
+  });
   // 上回递手机时藏了谁，这回照样勾着（群友 2026-10-31）；偷偷翻那一路也认这份
   const [peekHide, setPeekHide] = useState(() => { try { return ((loadJSON("x_peekHide", {}) || {})[character && character.id] || []).slice(); } catch (e) { return []; } });
   const [peekAllMasks, setPeekAllMasks] = useState(false);
