@@ -155,6 +155,9 @@
   // 写正文那几枪给多少输出额度：只此一份（她 2026-11-19「同人文那个不能抽成公共的吗」）。
   //   新写一批、续写下一章、把短章接着写完三处原来各算各的，新写那处只按篇幅算、没跟每章最少字数走，
   //   设了最少 7000 字还是写到一千多就截了。n＝这一枪要写几篇；地板 65000（思考型模型的思考也从这里扣，见 max-tokens-floor）
+  // 写正文那几枪的收法：流式（群里 2026-11-19 截图：一万多字写到第 300 秒被判超时，写出来的全丢）。
+  //   边写边收，只要一直有字进来就不掐；连着 90 秒一个字都没有才算断，总时限 10 分钟（engine.js 的 pumpSSE 那一份）
+  const FIC_WRITE_OPTS = { timeout: 300000, stream: true };
   function ficOutCap(n, perFic, minWords) {
     const each = Math.max(Number(perFic) || 0, Math.ceil((Number(minWords) || 0) * 2));
     return Math.min(FIC_TOKEN_MAX * 4, Math.max(65000, 6000 + Math.max(1, Number(n) || 1) * each));
@@ -1194,7 +1197,7 @@
     const user = (one ? "写 " + n + " 篇完结短篇，每篇都一次写完、" : "写 " + n + " 篇") + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
     let batchCot = null;
     async function once(extra) {
-      const raw = await callAI(active, sys + posTail(cpChars, opts) + (extra || ""), [{ role: "user", content: user }], { maxTokens: ficOutCap(n, perFic, minWords), timeout: 300000 });
+      const raw = await callAI(active, sys + posTail(cpChars, opts) + (extra || ""), [{ role: "user", content: user }], { maxTokens: ficOutCap(n, perFic, minWords), ...FIC_WRITE_OPTS });
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       if (sp.cot) batchCot = sp.cot; // 整批一次思考，挂到第一篇
       const d = parseJSONLoose(sp.clean);
@@ -1916,7 +1919,7 @@
       // ⚠️天花板要跟着地板走：她把最少字数调到 5000 字，而天花板还按 perFic 算，
       //   就会写到一半被截断——那才是真多花一次调用（施工规则/max-tokens-floor.md）。
       const raw = await callAI(active, sys + posTail(cpChars, ficOpts(fic, opts)) + (extra || ""), [{ role: "user", content: userMsg }],
-        { maxTokens: ficOutCap(1, clampPerFic(opts.perFic), minWords), timeout: 300000 });
+        { maxTokens: ficOutCap(1, clampPerFic(opts.perFic), minWords), ...FIC_WRITE_OPTS });
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       const d = parseJSONLoose(sp.clean);
       if (d && d.content) return { content: String(d.content).trim(), endHook: String(d.endHook || "").trim(),
@@ -1972,7 +1975,7 @@
       (!byChar && opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL)
       + (byChar ? charVoiceTail(byChar, opts.style) : "");
     const raw = await callAI(active, sys + posTail(cpChars, ficOpts(fic, opts)), [{ role: "user", content: "接着把这一章写完，至少再写 " + Math.max(200, missing) + " 字。" }],
-      { maxTokens: ficOutCap(1, clampPerFic(opts.perFic), minWords), timeout: 300000 });
+      { maxTokens: ficOutCap(1, clampPerFic(opts.perFic), minWords), ...FIC_WRITE_OPTS });
     const d = parseJSONLoose(raw);
     let add = d && d.add ? String(d.add).trim() : "";
     if (!add) {

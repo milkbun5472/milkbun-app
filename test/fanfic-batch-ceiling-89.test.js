@@ -13,3 +13,8 @@ test("新写一批的输出上限跟着每章最少字数走", () => {
   assert.ok(f(3, 3000, 7000) >= 6000 + 3 * 14000);
   assert.equal(f(1, 2000, 0), 65000);
 });
+test("写正文三枪都走流式，不被 300 秒掐断", () => {
+  const s = fs.readFileSync(path.resolve(__dirname, "..", "js/fanfic-core.js"), "utf8");
+  assert.match(s, /const FIC_WRITE_OPTS = \{ timeout: 300000, stream: true \};/);
+  assert.equal((s.match(/\.\.\.FIC_WRITE_OPTS \}/g) || []).length, 3);
+});
