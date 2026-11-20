@@ -2478,15 +2478,57 @@ function chfApplyDoc(files, name, text, by, now) {
 // 给模型看的这一块：频道里有哪些文件、谁最近动过；正文只在聊天里提到它、或上一轮刚改过时才带，截一截
 // 换个频道接着说（她 2026-11-20「聊着聊着可以自己到别的频道说话」）：这个人能去哪几个频道。
 //   同一个空间、他本人在那个频道里；不影响记忆、不互通的频道既去不了，也不能从那儿出去。noMemOf(gid) 判「不影响记忆」
+// 他们自己开频道（她 2026-11-20）：能不能开、开在哪一类。
+//   上限：没归档的频道满 12 个就不开；一个空间一天最多开 2 个（计数记在空间上 newChDay:{d,n}）；名字跟已有的（归档的也算）一样或几乎一样就不开
+const CH_ACTIVE_MAX = 12, CH_NEW_PER_DAY = 2;
+function chNorm(n) { return String(n || "").replace(/^#+/, "").replace(/[\s·._\-—–()（）「」【】#]/g, "").toLowerCase(); }
+function chNewRoom(space, allGroups, dayKey) {
+  if (!space) return false;
+  const chs = (allGroups || []).filter(x => x && x.spaceId === space.id);
+  if (chs.filter(x => !x.chArchived).length >= CH_ACTIVE_MAX) return false;
+  const c = space.newChDay || {};
+  return !(c.d === dayKey && (c.n || 0) >= CH_NEW_PER_DAY);
+}
+function chNewCheck(space, allGroups, name, dayKey) {
+  const k = chNorm(name);
+  if (!k || !chNewRoom(space, allGroups, dayKey)) return false;
+  return !(allGroups || []).some(x => x && x.spaceId === space.id && (() => { const o = chNorm(x.chName || x.name); return o === k || (o.length >= 2 && k.length >= 2 && (o.indexOf(k) >= 0 || k.indexOf(o) >= 0)); })());
+}
+function chCatOf(cats, want) {
+  const k = chNorm(want);
+  if (!k) return "";
+  const c = (cats || []).find(x => x && chNorm(x.name) === k) || (cats || []).find(x => x && chNorm(x.name).indexOf(k) >= 0);
+  return c ? c.id : "";
+}
+// 频道首页那一摞：按分类分段（分类的先后照 space.cats；没分类的在「未分类」），段里照 chOrder 再照建的先后；归档的单独一摞
+function spaceCatGroups(channels, cats) {
+  const live = (channels || []).filter(g => g && !g.chArchived), arch = (channels || []).filter(g => g && g.chArchived);
+  const ord = (a, b) => ((a.chOrder != null ? a.chOrder : 1e15 + (a.createdTs || 0)) - (b.chOrder != null ? b.chOrder : 1e15 + (b.createdTs || 0))) || ((a.createdTs || 0) - (b.createdTs || 0));
+  const ids = new Set((cats || []).map(c => c && c.id));
+  const out = (cats || []).filter(Boolean).map(c => ({ cat: c, rows: live.filter(g => g.chCat === c.id).sort(ord) }));
+  const loose = live.filter(g => !g.chCat || !ids.has(g.chCat)).sort(ord);
+  if (loose.length || !out.length) out.push({ cat: null, rows: loose });
+  return { groups: out, archived: arch.sort(ord) };
+}
 function chHopTargets(origin, allGroups, speakerId, noMemOf) {
   if (!origin || !origin.spaceId || origin.chSolo || (noMemOf && noMemOf(origin.id))) return [];
-  return (allGroups || []).filter(x => x && x.spaceId === origin.spaceId && x.id !== origin.id && !x.chSolo
+  return (allGroups || []).filter(x => x && x.spaceId === origin.spaceId && x.id !== origin.id && !x.chSolo && !x.chArchived
     && (x.memberIds || []).map(String).includes(String(speakerId)) && !(noMemOf && noMemOf(x.id)));
 }
 function chHopPick(targets, to) {
   const k = String(to || "").trim().replace(/^#+/, "");
   if (!k) return null;
   return (targets || []).find(x => x.chName === k) || (targets || []).find(x => String(x.chName || "").indexOf(k) >= 0 || k.indexOf(String(x.chName || "")) >= 0 && x.chName) || null;
+}
+// 他翻她手机时看到的频道（她 2026-11-20）：rows = [{ g, ms, last }]，同一个空间的并成一段，最近的两个空间、每个空间最近三个频道、每个频道最后四句。
+//   who 写频道那个群的名字（「空间 · #频道」），跟回放里认群名是同一份
+function peekSpaceBlock(rows, spaceName, line) {
+  const by = new Map();
+  (rows || []).filter(x => x && x.g && x.g.spaceId && !x.g.chArchived).forEach(x => { const k = x.g.spaceId; if (!by.has(k)) by.set(k, []); by.get(k).push(x); });
+  const sps = [...by.entries()].map(([id, list]) => ({ id, list: list.sort((a, b) => b.last - a.last), last: Math.max(...list.map(x => x.last || 0)) })).sort((a, b) => b.last - a.last).slice(0, 2);
+  if (!sps.length) return "";
+  return "【她在的频道空间（一个空间里分好几个频道；打开时 who 写「空间 · #频道」那个名字）】\n" + sps.map(sp => "频道空间「" + (spaceName(sp.id) || "频道") + "」：\n" + sp.list.slice(0, 3).map(x =>
+    "  #" + (x.g.chName || x.g.name) + "（who：" + x.g.name + "）最近：\n" + x.ms.slice(-4).map(m => "    " + line(m)).join("\n")).join("\n")).join("\n");
 }
 function chfContextBlock(files, recentText, nameOf) {
   const list = (Array.isArray(files) ? files : []).filter(f => f && f.name);
@@ -2510,7 +2552,7 @@ function spaceChannelBlock(g, allGroups, chatsOf, uName) {
   const out = ["【这个频道】你们现在在「#" + (g.chName || g.name || "") + "」" + (g.chAbout ? "：" + String(g.chAbout).slice(0, 120) : "") + "。这是同一群人待的一个地方里的一个频道，同一个地方还有别的频道。"];
   // 不互通的频道（她 2026-11-20「能搞不互通记忆吗」）：chSolo 的那个频道看不到别处，别处也看不到它
   if (g.chSolo) return "\n\n" + out[0].replace(/。这是同一群人待的一个地方里的一个频道.*$/, "。");
-  const sibs = (allGroups || []).filter(x => x && x.spaceId === g.spaceId && x.id !== g.id && !x.chSolo).slice(0, 6);
+  const sibs = (allGroups || []).filter(x => x && x.spaceId === g.spaceId && x.id !== g.id && !x.chSolo && !x.chArchived).slice(0, 6);
   const rows = sibs.map(x => {
     const ms = (chatsOf(x.id) || []).filter(m => m && m.content && !m.recalled && m.role !== "system").slice(-2);
     const said = ms.map(m => (m.role === "user" ? (uName || "她") : (m.senderName || "有人")) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 50)).join("／");

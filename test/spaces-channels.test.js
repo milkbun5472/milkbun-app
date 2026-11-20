@@ -39,7 +39,9 @@ test("SpaceView 渲染：一行一个频道，带说明、最后一句、未读�
   const src = ["spaceTone", "SpaceTile", "channelLast", "SpaceView"].map(n => slice(comp, n === "spaceTone" ? "const SPACE_TONES" : "function " + n + "(", n === "SpaceView" ? "function NewGroupSheet(" : (n === "spaceTone" ? "function SpaceTile(" : n === "SpaceTile" ? "function channelLast(" : "function NewSpacePage("))).join("\n");
   const h = (type, props, ...kids) => ({ type, props: props || {}, kids: kids.flat(Infinity).filter(x => x != null && x !== false) });
   const ctx = { h, useState: v => [v, () => {}], useTheme: () => ({ ink: "#111", sub: "#555", fog: "#999", line: "#ddd", bg: "#fff", bg2: "#fff", accent: "#46c" }), msgAppBg: () => ({}), wxGrey: () => "#f7f7f7", momPaper: () => "#fff", Head: "Head", Avatar: "Avatar", IPlus: "IPlus", ChannelEditPage: "ChannelEditPage", F_BODY: "s", F_DISPLAY: "s", fmtStamp: () => "1分钟前", window: {} };
-  vm.createContext(ctx); vm.runInContext(src + ";this.SpaceView=SpaceView;", ctx);
+  vm.createContext(ctx);
+  { const en = require("fs").readFileSync(__dirname + "/../js/engine.js", "utf8"); vm.runInContext(en.slice(en.indexOf("const CH_ACTIVE_MAX"), en.indexOf("function chHopTargets(")), ctx); }   // 真的那份分段（engine.js）
+  vm.runInContext(src + ";this.SpaceView=SpaceView;", ctx);
   const tree = ctx.SpaceView({ space: { id: "sp_1", name: "夜猫子", memberIds: ["c1"] }, channels: [{ id: "a", chName: "综合", chAbout: "什么都聊", createdTs: 1 }, { id: "b", chName: "深夜", createdTs: 2 }],
     groupChats: { a: [{ role: "assistant", senderName: "阿屿", content: "在吗", ts: 5 }] }, unreadMap: { a: 2 }, allChars: [{ id: "c1", name: "阿屿" }], userLabel: "我", onBack() {}, onOpenChannel() {}, onSaveChannel() {}, onDeleteChannel() {}, onDeleteSpace() {} });
   const all = []; (function walk(n) { if (!n || typeof n !== "object") return; all.push(n); (n.kids || []).forEach(walk); })(tree);

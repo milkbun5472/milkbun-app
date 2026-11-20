@@ -1323,6 +1323,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const herAv = (char && char.myChatAvatar) || (profile && profile.avatarImage);
   const [tab, setTab] = useState("chats");
   const [thread, setThread] = useState(null);
+  const [spaceOpen, setSpaceOpen] = useState(null);   // 他微信里点开的那个频道空间（只看，真聊天）
   // 她改TA通讯录里的备注（她 2026-10-07）：null＝没在改，字符串＝正在改的草稿
   const [remarkDraft, setRemarkDraft] = useState(null);
   // ── 她自己在TA手机上打的那一句（她 2026-09-14）──────────────────────────
@@ -1635,7 +1636,37 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const topBar = tab === "chats" ? searchHead : tab === "contacts" ? contactsHead : plainHead;
   let body;
   if (thread && thread.type === "contact") body = null;
-  if (tab === "chats") body = h("div", null, chats.map(chatRow));
+  // 频道空间收成一行（她 2026-11-20）：真聊天里挂着 spaceId 的那几条按空间并起来，点进去是这个空间的频道列表
+  const spaceChats = chats.filter(c => c && c.spaceId);
+  const spaceRow = (sp, i) => h("button", { key: "sp:" + sp.id, "data-wk": "pitem", "data-kind": "space", onClick: () => setSpaceOpen(sp.id), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } },
+    h("span", { style: { width: 47, height: 47, borderRadius: 10, background: strColor(sp.name), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 20, flexShrink: 0 } }, String(sp.name || "频").slice(0, 1)),
+    h("div", { className: "flex-1 min-w-0" },
+      h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#191919" } }, PTX(sp.name) + "（频道 · " + sp.rows.length + "）"),
+        h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, sp.rows[0] ? phoneChatWhen(sp.rows[0], phoneNow(char && char.id)) : "")),
+      h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sp.rows[0] ? "#" + sp.rows[0].chName + " · " + (sp.rows[0].last || "") : "")));
+  const spaceList = (() => { const m = new Map(); spaceChats.forEach(c => { const k = c.spaceId; if (!m.has(k)) m.set(k, { id: k, name: c.spaceName, rows: [] }); m.get(k).rows.push(c); }); m.forEach(v => v.rows.sort((a, b) => (b.ts || 0) - (a.ts || 0))); return [...m.values()]; })();
+  if (spaceOpen && !thread && tab === "chats") {
+    const sp = spaceList.find(x => x.id === spaceOpen);
+    if (sp) {
+      const files = []; sp.rows.forEach(c => (c.chFiles || []).forEach(f => files.push({ ...f, ch: c.chName })));
+      return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "wechat", style: { background: "#ededed" } }, innerHead(sp.name, "频道", () => setSpaceOpen(null)),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
+          sp.rows.filter(c => !c.chArchived).map((c, i) => h("button", { key: c.id || i, "data-wk": "pitem", "data-kind": "channel", onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 60, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } },
+            h("span", { style: { width: 36, height: 36, borderRadius: 8, background: "#e8e8e8", color: "#666", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 18, flexShrink: 0 } }, "#"),
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#191919" } }, "#" + PTX(c.chName)), h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c, phoneNow(char && char.id)))),
+              h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#999", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || "")))),
+          files.length ? h("div", { style: { padding: "12px 14px 6px", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#888" } }, "频道文件 · " + files.length) : null,
+          files.map((f, i) => h("div", { key: "f" + i, "data-wk": "pitem", "data-kind": "file", className: "flex items-center gap-3", style: { background: "#fff", padding: "10px 14px", borderBottom: "1px solid #eee" } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#191919", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (f.kind === "image" ? "🖼 " : "📄 ") + f.name),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, "#" + f.ch)))));
+    }
+  }
+  if (tab === "chats") body = h("div", null, (() => {
+    const seen = new Set(); const out = [];
+    chats.forEach((c, i) => { if (c && c.spaceId) { if (seen.has(c.spaceId)) return; seen.add(c.spaceId); const sp = spaceList.find(x => x.id === c.spaceId); if (sp) out.push(spaceRow(sp, i)); return; } out.push(chatRow(c, i)); });
+    return out;
+  })());
   else if (tab === "contacts") body = h("div", null, h("div", { style: { padding: "7px 14px", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#888", background: "#f4f4f4" } }, "联系人 · " + contacts.length), contacts.map(contactRow));
   else if (tab === "moments") {
     // 挂点挂在【谁发的】上：TA半夜翻谁的朋友圈，圆点要落在那一条上（原来朋友圈那一栏
