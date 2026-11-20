@@ -22235,6 +22235,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try { stampBdLetterSweep(); } catch (e) {}
     try { stampAnnivLetterSweep(); } catch (e) {}
     try { stampMileSweep(); } catch (e) {}
+    // 已经寄到聊天里的纪念日信、十连券信：收信人照他现在认的那张面具改过来（她 2026-11-21「想留着这个聊的话咋办」）。只改名字，领没领、几张都不动
+    try { liveChars.forEach(c => { const want = userName(profileFor(c.id)); if (!want) return;
+      const bad = (chatsRef.current[c.id] || []).some(m => m && m.kind === "stampbdletter" && m.stampBdLetter && (m.stampBdLetter.anniv || m.stampBdLetter.mile) && m.stampBdLetter.to !== want);
+      if (bad) pChat(c.id, p => p.map(m => m && m.kind === "stampbdletter" && m.stampBdLetter && (m.stampBdLetter.anniv || m.stampBdLetter.mile) && m.stampBdLetter.to !== want ? { ...m, stampBdLetter: { ...m.stampBdLetter, to: want } } : m)); }); } catch (e) {}
     const steps = [schedGenAllToday, schedMaybeSelfRevise, walletCatchAllToday,
       desireMuseAllToday, desireTendAllToday, phoneWeeklySweep, autoImpressionSweep, astroSignSweep];
     for (const step of steps) { try { await step(); } catch (e) {/* 一步失手不拖累后面几步 */ } }
