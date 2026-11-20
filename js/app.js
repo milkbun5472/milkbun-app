@@ -10474,7 +10474,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了
     directives: directives[group.id] || [],
     groupNotice: gsFor(group.id).notice || null,
-    spaceBlock: spaceChannelBlock(group && spaceSibs().find(x => x && x.id === group.id) || group, spaceSibs(), id => groupChatsRef.current[id] || [], userName(profile)),
+    spaceBlock: spaceChannelBlock(group && spaceSibs().find(x => x && x.id === group.id) || group, spaceSibs(), id => groupChatsRef.current[id] || [], userName(profile)) + (group && group.spaceId && group.chKind !== "meet" && !channelNoMem(group.id) ? spaceMeetLine(group.spaceId) : ""),
     // 跨情境近况（v50.66）：每个成员各自最近在【单聊线上 + 单人线下】和用户之间发生的事，带时间戳，
     //   让群线下接得上刚在别处聊过的细节。own-chat-only：只带该成员自己那份，engine 侧再加隐私铁律(别的成员不知情)。
     memberRecent: _par ? [] : (group.memberIds || []).map(id => {
@@ -10788,7 +10788,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const startGroupOffline = async (groupId, opts) => {
     const profile = groupProfileFor(groupId);
-    const group = groups.find(g => g.id === groupId);
+    // 刚建好的东道群还没进 groups 这一拍的闭包（空间见面），从 ref 或者调用方递来的那份里认
+    const group = groups.find(g => g.id === groupId) || (groupsRef.current || []).find(g => g && g.id === groupId) || (opts && opts._host);
     if (!group) return;
     const opening = (opts.opening || "").trim();
     // 群线下同一个规矩：上一场选过的文风／预设台，下一场先用它（自动开的那一场也是）
@@ -17046,6 +17047,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       })() : "";
       const gNoticeHint = groupNoticeBlock(gsFor(groupId).notice)
         + spaceChannelBlock(spaceSibs().find(x => x && x.id === groupId), spaceSibs(), id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), userName(profile))
+        + (group && group.spaceId && group.chKind !== "meet" && !channelNoMem(groupId) && !groupSpectating(group) ? spaceMeetLine(group.spaceId) : "")
         + gSubHint + gLeaveHint + gLoungeHint;
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
       // ONLINE_CHAT_RULE_V2 开头那句「完全代入当前角色」是给单聊写的：群里有好几个人，
@@ -19346,6 +19348,45 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 频道是同一群人的分支：默认互通记忆；勾了「不影响记忆」的才关着
     saveGroupSettingsRaw(g.id, { memoryInterop: !noMem });
     return g;
+  };
+  // 空间里直接见一面（她 2026-11-20「我是说这里可以直接线下」）：每个空间一个藏起来的东道群（chKind:"meet"），
+  //   挂 chArchived 让换频道、开频道、让他们聊、挑群转发、别的频道的动态都绕开它，chHidden 让频道列表和消息列表都不列它；
+  //   这一场只有她勾的人在场——走群线下原有的 present（邀约那一场就是这么只放答应了的人进来）
+  const spaceMeetHost = (sp, make) => {
+    const g0 = (groupsRef.current || []).find(g => g && g.spaceId === sp.id && g.chKind === "meet");
+    if (g0 || !make) return g0 || null;
+    const g = createChannel(sp, "见面", "空间里的人出去见面的地方", sp.memberIds || []);
+    const g2 = { ...g, chKind: "meet", chHidden: true, chArchived: true };
+    groupsRef.current = (groupsRef.current || []).map(x => x && x.id === g.id ? g2 : x);
+    setGroups(p => { const n = p.map(x => x && x.id === g.id ? g2 : x); saveJSON("x_groups", n); return n; });
+    return g2;
+  };
+  const startSpaceMeet = async (sp, ids, note) => {
+    const host = spaceMeetHost(sp, true);
+    const want = (ids || []).filter(Boolean);
+    const all = [...new Set([...(host.memberIds || []), ...(sp.memberIds || [])])];
+    if (all.length !== (host.memberIds || []).length) { updateGroup(host.id, { memberIds: all }); host.memberIds = all; groupsRef.current = (groupsRef.current || []).map(x => x && x.id === host.id ? { ...x, memberIds: all } : x); }
+    openGroupOffline(host);
+    await startGroupOffline(host.id, { opening: note || "", present: want, _host: host });
+  };
+  // 空间里最近一次见面（两天内）：各频道的人知道谁和她出去见过
+  const spaceMeetLine = spaceId => {
+    const host = (groupsRef.current || []).find(g => g && g.spaceId === spaceId && g.chKind === "meet");
+    if (!host) return "";
+    const s0 = (loadJSON("x_goffline:" + host.id, []) || []).filter(x => x && x.startTs && Date.now() - (x.endTs || x.startTs) < 2 * 86400000).sort((a, b) => (b.startTs || 0) - (a.startTs || 0))[0];
+    if (!s0) return "";
+    const nm = id => { const c = (characters || []).find(x => x && x.id === id); return c ? (c.remark || c.name) : ""; };
+    const who = (s0.present || host.memberIds || []).map(nm).filter(Boolean);
+    return who.length ? "\n【最近见过面】" + who.join("、") + " 和 " + userName(profile) + (s0.endTs ? " 前不久" : " 这会儿正") + "出去见了一面" + (s0.datePlace ? "（" + s0.datePlace + "）" : "") + "。" : "";
+  };
+  const spaceMeetLog = sp => {
+    const host = (groupsRef.current || []).find(g => g && g.spaceId === sp.id && g.chKind === "meet");
+    if (!host) return [];
+    const nm = id => { const c = (characters || []).find(x => x && x.id === id); return c ? (c.remark || c.name) : ""; };
+    return (loadJSON("x_goffline:" + host.id, []) || []).filter(x => x && x.startTs).sort((a, b) => (b.startTs || 0) - (a.startTs || 0)).map(x => {
+      const d = new Date(x.startTs), first = ((x.msgs || []).find(m => m && m.content && m.role !== "user") || (x.msgs || [])[0] || {}).content || "";
+      return { id: x.id, date: (d.getMonth() + 1) + "月" + d.getDate() + "日", who: (x.present || host.memberIds || []).map(nm).filter(Boolean).join("、"), line: String(x.summary || first).replace(/\s+/g, " ").slice(0, 60), open: !x.endTs };
+    });
   };
   const createSpace = (name, memberIds) => {
     const sp = { id: "sp_" + Date.now(), name: String(name || "").slice(0, 24), memberIds: (memberIds || []).slice(), ts: Date.now() };
@@ -36688,7 +36729,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onBack: () => setGardenOpen("")
     };
   })());else if (screen === "space" && (spaces || []).some(x => x.id === activeSpaceId)) body = (() => { const sp = spaces.find(x => x.id === activeSpaceId);
-    return h(SpaceView, { key: "sp::" + sp.id, space: sp, channels: (groups || []).filter(g => g && g.spaceId === sp.id), groupChats, unreadMap, allChars: characters, userLabel: "我",
+    return h(SpaceView, { key: "sp::" + sp.id, space: sp, channels: (groups || []).filter(g => g && g.spaceId === sp.id && !g.chHidden),
+      onMeet: (ids, note) => startSpaceMeet(sp, ids, note), meetLog: spaceMeetLog(sp), onOpenMeet: () => { const host = spaceMeetHost(sp); if (host) openGroupOffline(host); }, groupChats, unreadMap, allChars: characters, userLabel: "我",
       onBack: () => setScreen("messages"),
       onOpenChannel: g => { if (chClosedNow(g.id)) { chLockedToast(g); return; } setActiveGroup(g); clearUnread(g.id); setChannelTab("chat"); setScreen("gthread"); },
       hoursOf: g => g.chHours ? (chClosedNow(g.id) ? g.chHours.from + ":00 开" : "开到 " + g.chHours.to + ":00") : "",

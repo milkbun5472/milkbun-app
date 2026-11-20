@@ -9519,7 +9519,7 @@ function Messages({
   const chatItems = [
     // 群里的小房间（她 2026-11-13「群聊咋开房间」）不单独占一行：最后一条和时间算进主群那行，入口在主群顶上那排
     // 频道里的那几个群不单独占行：整个频道空间占一行（SpaceRow），最后一句和未读加在一起
-    ...(spaces || []).map(sp => { const chs = groups.filter(g => g && g.spaceId === sp.id); let last = null, lastG = null;
+    ...(spaces || []).map(sp => { const chs = groups.filter(g => g && g.spaceId === sp.id && !g.chHidden); let last = null, lastG = null;
       chs.forEach(g => { const l = channelLast(groupChats[g.id], "我"); if (l && (!last || l.ts > last.ts)) { last = l; lastG = g; } });
       return { key: "sp_" + sp.id, id: sp.id, type: "space", sp, chs, last, lastG, ts: Math.max(last ? last.ts : 0, sp.ts || 0) }; }),
     ...groups.filter(g => !g.roomOf && !g.spaceId).map(g => { const rooms = groups.filter(r => r.roomOf === g.id); let last; [g].concat(rooms).forEach(x => { const ms = groupChats[x.id] || [], m = ms[ms.length - 1]; if (m && (!last || (m.ts || 0) > (last.ts || 0))) last = m; }); const off = Math.max(0, ...[g].concat(rooms).map(x => offLast[x.id] || 0)); return { key: "g_" + g.id, id: g.id, type: "group", g: g, last: last, ts: Math.max(last ? (last.ts || 0) : 0, off) }; }),
@@ -23580,8 +23580,26 @@ function SpaceMembersPage({ space, people, presence, statuses, herName, onMyStat
             h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: p ? PRESENCE_COLOR[p.k] : t.fog, flexShrink: 0 } }, where(p))),
           st ? h("div", { "data-wk": "memberstatus", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 2 } }, st) : null)); }));
 }
+// 空间里直接出去见一面（她 2026-11-20「我是说这里可以直接线下」）：挑这回谁来，写一句在哪儿见，开始就进群线下
+function SpaceMeetPage({ space, pool, onStart, onClose }) {
+  const t = useTheme();
+  const [sel, setSel] = useState((pool || []).map(c => c.id));
+  const [note, setNote] = useState("");
+  const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+  const ok = sel.length >= 1;
+  return h(PageSheet, { onClose, zh: "见面", sub: space.name,
+    right: h("button", { "data-wk": "spacemeetgo", disabled: !ok, onClick: () => ok && onStart(sel, note.trim()), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.ink : t.line } }, "开始") },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 6 } }, "在哪儿见（可不填）"),
+    h("input", { "data-wk": "input", value: note, onChange: e => setNote(e.target.value), placeholder: "一句话就行，会当作这一场的开头", className: "w-full outline-none mb-1", style: { background: t.bg2, borderRadius: 10, padding: "9px 11px", fontFamily: F_BODY, fontSize: 16, color: t.ink } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "4px 0 16px", lineHeight: 1.6 } }, "只有勾上的人出场，没勾的人这一场不会冒出来。见完以后，空间里各频道的人都知道你们出去见过一面。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 8 } }, "这回谁来（" + sel.length + "）"),
+    (pool || []).map(c => { const on = sel.includes(c.id); return h("button", { key: c.id, "data-wk": "spacepick", "data-on": on ? "1" : "0", onClick: () => toggle(c.id), className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "9px 0", borderBottom: "1px solid " + t.line } },
+      h(Avatar, { character: c, size: 34, radius: 8 }),
+      h("span", { className: "flex-1 text-left truncate", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name),
+      h("span", { style: { width: 21, height: 21, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null)); }));
+}
 // 空间首页：Teams 那一屏——顶上一块空间名片（方头像、名字、几个人），底下一行一个频道
-function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf, onSuggestTitles , presence, statuses, herName, onMyStatus}) {
+function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf, onSuggestTitles , presence, statuses, herName, onMyStatus, onMeet, meetLog, onOpenMeet}) {
   const t = useTheme();
   const [edit, setEdit] = useState(null);   // null | "new" | 频道那个群
   const [spEdit, setSpEdit] = useState(false);
@@ -23595,6 +23613,8 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
   // 分类 + 归档（她 2026-11-20「后面如果多起来了怎么收纳归类」）：spaceCatGroups 在 engine.js
   const segs = spaceCatGroups(rows, space.cats || []), live = rows.filter(g => !g.chArchived);
   const [talking, setTalking] = useState(false);
+  const [meetOpen, setMeetOpen] = useState(false);   // 见面（她 2026-11-20「这里可以直接线下」）
+  const [meetLogOpen, setMeetLogOpen] = useState(false);
   const chRow = (g, i) => { const last = channelLast(groupChats[g.id], userLabel), un = (unreadMap || {})[g.id] || 0;
           return h("div", { key: g.id, "data-wk": "mlrow", "data-part": "channel", "data-unread": un > 0 ? "1" : "0", className: "flex items-stretch", style: { borderTop: i ? "1px solid " + t.line : "none" } },
             h("button", { onClick: () => onOpenChannel(g), className: "flex-1 min-w-0 flex items-start gap-3 text-left active:bg-black/5", style: { padding: "12px 4px 12px 14px" } },
@@ -23638,9 +23658,14 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
       h("div", { className: "flex items-center justify-between", style: { padding: "10px 14px 4px 20px" } },
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".08em" } }, "频道 · " + live.length),
         // 不想自己找话题的时候，让他们自己在几个频道里聊一轮（她 2026-11-20）：一按一次，按的时候才花调用
+        h("span", { className: "flex items-center", style: { gap: 8 } },
+        onMeet ? h("button", { "data-wk": "spacemeet", "aria-label": "挑几个人出去见一面", onClick: () => setMeetOpen(true),
+          className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + tone, color: tone, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "见面") : null,
         onTalk ? h("button", { "data-wk": "spacetalk", disabled: talking, "aria-label": "让他们在几个频道里自己聊一轮",
           onClick: async () => { if (talking) return; setTalking(true); try { await onTalk(); } finally { setTalking(false); } },
-          className: "active:opacity-60 disabled:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + tone, color: tone, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, talking ? "他们在聊…" : "让他们聊一会儿") : null),
+          className: "active:opacity-60 disabled:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + tone, color: tone, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, talking ? "他们在聊…" : "让他们聊一会儿") : null)),
+      (meetLog || []).length ? h("button", { "data-wk": "spacemeetlog", onClick: () => setMeetLogOpen(true), className: "flex items-center justify-between active:opacity-70", style: { width: "calc(100% - 28px)", margin: "4px 14px 6px", padding: "11px 14px", background: momPaper(t), borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } },
+        h("span", null, "见面记录 · " + meetLog.length), h("span", { style: { color: t.fog } }, "›")) : null,
       segs.groups.map(seg => { const cid = seg.cat ? seg.cat.id : "", folded = !!(seg.cat && seg.cat.collapsed), unSum = seg.rows.reduce((a, g) => a + ((unreadMap || {})[g.id] || 0), 0);
         if (!seg.cat && !seg.rows.length) return null;
         return h("div", { key: "seg:" + cid, "data-wk": "chcat", "data-on": folded ? "0" : "1", style: { marginBottom: 10 } },
@@ -23668,6 +23693,11 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
       onOpen: gm => { setGemOpen(false); onOpenGem && onOpenGem(gm); }, onDelete: onDeleteGem, onClose: () => setGemOpen(false) }) : null,
     adopt ? h(GroupAdoptPage, { space, groups: looseGroups || [], onPick: ids => { onAdopt(ids); setAdopt(false); }, onClose: () => setAdopt(false) }) : null,
     memOpen ? h(SpaceMembersPage, { space, people, presence: presence || {}, statuses: statuses || {}, herName, onMyStatus, onClose: () => setMemOpen(false) }) : null,
+    meetOpen ? h(SpaceMeetPage, { space, pool: (space.memberIds || []).map(id => (allChars || []).concat(pickPool || []).find(c => c && c.id === id)).filter(Boolean), onClose: () => setMeetOpen(false), onStart: (ids, note) => { setMeetOpen(false); onMeet(ids, note); } }) : null,
+    meetLogOpen ? h(PageSheet, { onClose: () => setMeetLogOpen(false), zh: "见面记录", sub: space.name },
+      (meetLog || []).map(m => h("button", { key: m.id, "data-wk": "spacemeetrow", onClick: () => { setMeetLogOpen(false); onOpenMeet && onOpenMeet(m.id); }, className: "w-full text-left active:opacity-60", style: { display: "block", padding: "11px 0", borderBottom: "1px solid " + t.line } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, m.date + " · " + (m.who || "大家") + (m.open ? " · 还在见" : "")),
+        m.line ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, m.line) : null))) : null,
     spEdit ? h(SpaceEditPage, { space, pool: pickPool || allChars || [], onSuggestTitles, onSave: patch => { onSaveSpace(patch); setSpEdit(false); }, onDelete: onDeleteSpace, nChannels: rows.length, onClose: () => setSpEdit(false) }) : null,
     edit ? h(ChannelEditPage, { space, channel: edit === "new" ? null : edit, allChars, noMem: edit !== "new" && !!(noMemOf && noMemOf(edit.id)),
       onSave: patch => { onSaveChannel(edit === "new" ? null : edit, patch); setEdit(null); },
