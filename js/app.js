@@ -10449,7 +10449,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了
     directives: directives[group.id] || [],
     groupNotice: gsFor(group.id).notice || null,
-    spaceBlock: spaceChannelBlock(group, groupsRef.current, id => groupChatsRef.current[id] || [], userName(profile)),
+    spaceBlock: spaceChannelBlock(group && spaceSibs().find(x => x && x.id === group.id) || group, spaceSibs(), id => groupChatsRef.current[id] || [], userName(profile)),
     // 跨情境近况（v50.66）：每个成员各自最近在【单聊线上 + 单人线下】和用户之间发生的事，带时间戳，
     //   让群线下接得上刚在别处聊过的细节。own-chat-only：只带该成员自己那份，engine 侧再加隐私铁律(别的成员不知情)。
     memberRecent: _par ? [] : (group.memberIds || []).map(id => {
@@ -11960,7 +11960,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       };
       if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(arc).join("\n"));
       // 她在里面的群也照群看（她 2026-10-02：「看群也正常看，不要变成单聊」）；旁观群不是她的聊天，不给看
-      const gRows = (groupsRef.current || []).filter(g => g && shownId(g.id) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => {
+      // 「不影响记忆」的频道不往外露（她 2026-11-20）：翻手机也翻不到
+      const gRows = (groupsRef.current || []).filter(g => g && shownId(g.id) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate) && !(g.spaceId && channelNoMem(g.id))).map(g => {
         const ms = (groupChatsRef.current[g.id] || []).filter(m => m && m.content && !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration");
         return { g, ms, last: ms.length ? (ms[ms.length - 1].ts || 0) : 0 };
       }).filter(x => x.ms.length).sort((a, b) => b.last - a.last).slice(0, 2);
@@ -12359,7 +12360,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const gate = Object.keys(clues);
     try {
       const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))).map(x => x.remark || x.name).slice(0, 12)
-        .concat((groupsRef.current || []).filter(g => g && g.name && !hideSet.has(String(g.id)) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => g.name).slice(0, 4));
+        .concat((groupsRef.current || []).filter(g => g && g.name && !hideSet.has(String(g.id)) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate) && !(g.spaceId && channelNoMem(g.id))).map(g => g.name).slice(0, 4));
       const ask = () => runProbe(apiFor(charId), ctxFor(c), {
         // 调用记录里叫得出名字（她 2026-10-22 截图：原来只显示「其他·你就是某某…」，认不出是哪一样）
         logFrom: sneak ? "查手机·他偷偷翻你手机" : "查手机·他翻你手机",
@@ -16881,7 +16882,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }).filter(s => s);
       const gDirHint = gDirs.length ? "\n\n【⚠️群规矩·最高优先级，压过下面的对话惯性】这些是用户之前（场外）跟你们立好、你们已经答应了的约定，每一条【现在就生效】（没标临时的即长期有效）：\n" + gDirs.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n——就算上面的聊天记录里大家还在聊相关话题，也从这一轮起严格照约定来（惯性不是理由）；用户若问「是不是说好了」，大方承认记得并已经在做，绝不许一脸茫然装不知道。" : "";
       const gNoticeHint = groupNoticeBlock(gsFor(groupId).notice)
-        + spaceChannelBlock((groupsRef.current || []).find(x => x && x.id === groupId), groupsRef.current, id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), userName(profile));
+        + spaceChannelBlock(spaceSibs().find(x => x && x.id === groupId), spaceSibs(), id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), userName(profile));
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
       // ONLINE_CHAT_RULE_V2 开头那句「完全代入当前角色」是给单聊写的：群里有好几个人，
       // 「当前角色」没有指代对象，这句话就空转了，真正决定站位的反倒是下面的任务描述。
@@ -19041,11 +19042,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   这样群记忆的 tag、调用记录、提醒里认得出是哪个频道。建、改、删都走群原来那几条路。
   const saveSpaces = fn => setSpaces(p => { const n = fn(p); saveJSON("x_spaces", n); return n; });
   const channelGroupName = (sp, ch) => String((sp && sp.name) || "频道").slice(0, 12) + " · #" + String(ch || "").slice(0, 10);
-  const createChannel = (sp, chName, chAbout, memberIds) => {
+  // 频道「不影响记忆」（她 2026-11-20「我要是想开一个完全不影响记忆的频道」）＝这个群的「记忆互通」关着。
+  //   不另造一套：闭群那一路早就管着不进记忆库、不动好感、不写印象卡、不往别处喂（groupClosed / memoryInterop），
+  //   这里只是把那个开关摆到频道上；关着的频道在 spaceChannelBlock 里也当不互通（看不到别处，别处也看不到它）。
+  const channelNoMem = gid => !gsFor(gid).memoryInterop;
+  const spaceSibs = () => (groupsRef.current || []).map(x => x && x.spaceId && channelNoMem(x.id) && !x.chSolo ? { ...x, chSolo: true } : x);
+  const createChannel = (sp, chName, chAbout, memberIds, noMem) => {
     const g = { id: "g_" + Date.now() + "_" + Math.floor(Math.random() * 1000), name: channelGroupName(sp, chName), memberIds: (memberIds || []).slice(), roomKind: "group", namedBy: "me",
       createdTs: Date.now(), spaceId: sp.id, chName: String(chName || "").slice(0, 16), chAbout: String(chAbout || "").slice(0, 120) };
     groupsRef.current = [...(groupsRef.current || []), g];
     setGroups(p => { const n = [...p, g]; saveJSON("x_groups", n); return n; });
+    // 频道是同一群人的分支：默认互通记忆；勾了「不影响记忆」的才关着
+    saveGroupSettingsRaw(g.id, { memoryInterop: !noMem });
     return g;
   };
   const createSpace = (name, memberIds) => {
@@ -19058,10 +19066,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast("「" + sp.name + "」建好了，先有一个 #综合");
   };
   const saveChannel = (sp, g, patch) => {
-    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds); if (patch.chSolo) updateGroup(ng.id, { chSolo: true }); toast("开了 #" + patch.chName); return; }
+    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); if (patch.chSolo || patch.chNoMem) updateGroup(ng.id, { chSolo: true }); toast("开了 #" + patch.chName); return; }
     const nm = channelGroupName(sp, patch.chName);
     if (nm !== g.name) renameGroup(g.id, nm);
-    updateGroup(g.id, { chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds, chSolo: !!patch.chSolo });
+    updateGroup(g.id, { chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds, chSolo: !!(patch.chSolo || patch.chNoMem) });
+    if (patch.chNoMem != null && !!patch.chNoMem !== channelNoMem(g.id)) saveGroupSettingsRaw(g.id, { memoryInterop: !patch.chNoMem });
   };
   // 空间本身：改名、加人、踢人（她 2026-11-20「加不了人踢不了人改不了名字」）。
   //   改名＝每个频道的群名一起改（renameGroup 会把旧记忆的 tag 一起迁）；新人进每个频道，踢掉的从每个频道拿掉
@@ -36167,7 +36176,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onOpenChannel: g => { setActiveGroup(g); clearUnread(g.id); setScreen("gthread"); },
       onSaveChannel: (g, patch) => saveChannel(sp, g, patch),
       onDeleteChannel: g => deleteGroup(g.id),
-      onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), pickPool: liveChars.concat((characters || []).filter(c => c && c.npc && !liveChars.some(x => x.id === c.id))) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+      onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), noMemOf: channelNoMem, pickPool: liveChars.concat((characters || []).filter(c => c && c.npc && !liveChars.some(x => x.id === c.id))) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     onOpenStyleLab: goStyleLab,
     apiProfiles: apiProfiles,
     // 换一个群就是一块新的聊天屏（跟单聊 key 一样）：不然从 A 群点弹窗进 B 群，还停在 A 群翻到的那个高度、也不重新钉底

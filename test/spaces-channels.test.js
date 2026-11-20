@@ -32,7 +32,7 @@ test("spaceChannelBlock：说这个频道聊什么，再摆别的频道最近两
   assert.doesNotMatch(out, /别处/);
   // 群线上、群线下都接上
   assert.match(app, /groupNoticeBlock\(gsFor\(groupId\)\.notice\)\s*\+ spaceChannelBlock\(/);
-  assert.match(app, /spaceBlock: spaceChannelBlock\(group,/);
+  assert.match(app, /spaceBlock: spaceChannelBlock\(group && spaceSibs\(\)/);
   assert.match(engine, /\(ctx\.spaceBlock \|\| ""\) \+/);
 });
 test("SpaceView 渲染：一行一个频道，带说明、最后一句、未读点和新频道那一行", () => {
@@ -75,4 +75,14 @@ test("频道可以不互通：chSolo 的频道看不到别处，别处也看不�
   assert.match(ctx.f(gs[0], gs, of, "她"), /深夜/);
   const solo = ctx.f(gs[1], gs, of, "她");
   assert.doesNotMatch(solo, /综合|深夜|别的频道/);
+});
+test("不影响记忆的频道：就是群的「记忆互通」关着，新频道默认互通；关着的当不互通、翻手机也看不到", () => {
+  const fs = require("fs"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.match(ap, /const channelNoMem = gid => !gsFor\(gid\)\.memoryInterop;/);
+  assert.match(ap, /saveGroupSettingsRaw\(g\.id, \{ memoryInterop: !noMem \}\);/);
+  assert.match(ap, /saveGroupSettingsRaw\(g\.id, \{ memoryInterop: !patch\.chNoMem \}\)/);
+  assert.match(ap, /spaceBlock: spaceChannelBlock\(group && spaceSibs\(\)/);
+  assert.match(ap, /!\(g\.spaceId && channelNoMem\(g\.id\)\)\)\.map\(g => \{/);
+  assert.match(cs, /"data-wk": "chnomem"/);
+  assert.match(cs, /chSolo: solo \|\| noMem, chNoMem: noMem/);
 });
