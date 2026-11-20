@@ -30297,6 +30297,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "bg 背景从这几种里挑一个：" + bgs + "；font 字体：hand 花体英文、brush 中文手写、serif 宋体、sans 黑体；"
           + "texts 是卡上的字，1 到 4 块，每块 t 写什么、x 和 y 是在卡上的位置（0 到 1，左上角是 0,0；最上面那一截 y 小于 0.2 的地方压着你的头像和名字，最下面 y 大于 0.85 的地方压着回复框）、size 字号（40 到 160）、color 颜色（#hex）、r 歪多少度（-15 到 15）、font 可以单独换；"
           + "stickers 是贴纸，0 到 5 个 emoji，ch 是哪个、x y 位置、size 大小（60 到 200）。"
+          // 别总是一上一下（她 2026-11-21）：不给例子，只说要换、再带上他最近几条是怎么摆的
+          + "版面每条换一种排法，别总是上面一句、下面一句；字的块数、大小、位置、方向都可以变，照这一条想让人先看到什么来排。"
+          + (() => { try { const rec = window.Stories.all().filter(s0 => s0 && String(s0.by) === String(char.id) && s0.raw && Array.isArray(s0.raw.texts)).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 3);
+              const desc = s0 => { const tx = s0.raw.texts.filter(x => x && (x.t || x.text)); return tx.length + " 块字：" + tx.map(x => { const y = Number(x.y), xx = Number(x.x); return (y < 0.38 ? "上" : y > 0.62 ? "下" : "中") + (xx < 0.35 ? "偏左" : xx > 0.65 ? "偏右" : "") + (Number(x.size) >= 120 ? "大字" : Number(x.size) <= 60 ? "小字" : ""); }).join("、"); };
+              return rec.length ? "你最近几条是这么摆的：" + rec.map(desc).join("；") + "。这条换一种。" : ""; } catch (e) { return ""; } })()
           + "photo 写这张卡要配的那张照片拍的是什么（一句画面描述），photoKind 是哪一种：self 你自拍、view 随手拍的风景或场景、thing 手边的东西或吃的" + (canShootMe(char.id) ? "、her 你拍的她（画面里是她）" : "") + (duoFacesOk(char) ? "、duo 你俩的合照" : "") + "。挑哪一种看这一条想让人看见什么：想让人看见你自己此刻的样子就是 self；想让人看见你眼前的地方、手边的东西就是 view、thing" + (canShootMe(char.id) ? "；想让人看见她就是 her" : "") + (duoFacesOk(char) ? "；想让你俩一起出现在画面里就是 duo" : "") + "——这几种在限时动态里都常见，照你这个人平时爱不爱露脸来"
           // 她 2026-11-17「限时动态为啥不会发自拍类或者合照」：上面那句「日子的一角」列的全是往外拍的东西，模型就几乎只挑风景和东西
           + "；photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。"
