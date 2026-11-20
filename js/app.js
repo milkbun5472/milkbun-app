@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.834";
+const APP_VERSION = "v89.848";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -214,7 +214,8 @@ function ScreenBoundaryClass() {
 //   论坛、一起听、备忘录、手记都拿掉了：主屏一路找过去最容易点错，也没翻出过一句戳人的心声。
 const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"], ["moments", "我的朋友圈"], ["daily", "日常联系人（照我的人设自动编几个：同事、家人、群）"]];
 if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
-function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock, vclock, onVClock, onOpenApi }) {
+function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock, vclock, onVClock, onOpenApi, onGo }) {
+  const [scs, setScs] = useState(() => { const v = loadJSON("x_floatShortcuts", []); return Array.isArray(v) ? v.slice(0, 6) : []; }), [scEdit, setScEdit] = useState(false);
   const t = useTheme();
   const [open, setOpen] = useState(false);
   // 三档收着，点哪一档才摊开哪一档（她 2026-09-22：「点开悬浮球是三项收着的
@@ -337,12 +338,14 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   //      跟旋钮拖到哪儿无关，多少条线路都在屏幕里，装不下就自己滚。
   //   另外补一层保险：面板后面垫一张【点哪儿都关】的透明背板。
   //   哪天布局又出岔子，至少还有一条出路——「关不掉」这种事不该只有一个开关。
-  const panelSide = side === "left" ? { left: 66 } : { right: 66 };
+  const PANEL_W = 196;   // 面板窄一点（她 2026-11-20「不用那么宽」），旁边留给轨道
+  const panelGap = onGo ? Math.max(66, Math.min(140, (window.innerWidth || 390) - PANEL_W - 8)) : 66;   // 外圈轨道占着里侧那一截，面板挪到轨道外面
+  const panelSide = side === "left" ? { left: panelGap } : { right: panelGap };
   return h(React.Fragment, null,
     open ? h("div", { onClick: () => setOpen(false), "aria-hidden": "true",
       style: { position: "fixed", inset: 0, zIndex: 89, background: "transparent" } }) : null,
     open ? h("div", { style: Object.assign({ position: "fixed", zIndex: 91, top: "50%", transform: "translateY(-50%)",
-      width: 226, maxHeight: "76vh", overflowY: "auto", WebkitOverflowScrolling: "touch",
+      width: PANEL_W, maxHeight: "76vh", overflowY: "auto", WebkitOverflowScrolling: "touch",
       padding: 12, borderRadius: 18, background: t.bg2,
       border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,.22)" }, panelSide) },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "快速切换模型"),
@@ -364,6 +367,62 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
       onOpenApi ? h("button", { "data-wk": "modelfloatapi", onClick: () => { setOpen(false); onOpenApi(); }, className: "w-full active:opacity-60",
         style: { marginTop: 8, minHeight: 38, padding: "7px 8px", borderRadius: 10, border: "1px dashed " + t.line, background: "transparent",
           fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, textAlign: "center" } }, "去模型设置改线路 ›") : null) : null,
+    // ── 外圈快捷入口（她 2026-11-20「悬浮球点开外圈弹出几个自定义快捷入口，随时能改」）──
+    //   点开旋钮时绕着它一圈轨道，你挑的最多 6 个落在轨道上，最后一颗「✎」改；面板挪到轨道外面
+    (() => {
+      if (!open || !onGo) return null;
+      const reg = (typeof window !== "undefined" && window.__homeReg) || {};
+      const appsAll = [["messages", "信息"], ["forum", "论坛"], ["diary", "日记"], ["config", "设置"]].concat(Object.keys(reg).filter(k => reg[k] && reg[k].kind === "app" && reg[k].zh).map(k => [k, reg[k].zh]));
+      const zhOf = k => (appsAll.find(x => x[0] === k) || [k, k])[1];
+      const items = scs.filter(k => appsAll.some(x => x[0] === k)).map(k => ({ k, zh: zhOf(k) })).concat([{ k: "__edit", zh: "✎ 改" }]);
+      // 环绕旋钮的一圈轨道（她 2026-11-20「外圈的 orbit，按键小一点在轨道上」）：只画朝屏幕里的那半圈，按键均匀落在轨道上
+      const ww = window.innerWidth || 390, hh = window.innerHeight || 800, R = 74, B = 34;
+      const cy = (drag ? drag.y : (pos ? Math.min(Math.max(pos.top, 70), Math.max(70, hh - 130)) : hh * 0.42) + 23), cx = side === "left" ? 12 + 23 : ww - 12 - 23;
+      const n = items.length, a0 = side === "left" ? -80 : 100, a1 = side === "left" ? 80 : 260;
+      const pts = items.map((_, i) => { const deg = n === 1 ? (a0 + a1) / 2 : a0 + (a1 - a0) * i / (n - 1), rad = deg * Math.PI / 180; return { x: cx + R * Math.cos(rad), y: Math.min(Math.max(cy + R * Math.sin(rad), 40), hh - 40) }; });
+      // 好看一点（她 2026-11-20）：轨道是一道细的渐隐弧线，按键是跟主屏同一枚图标的小玻璃珠，一颗颗沿轨道弹出来
+      const iconOf = k => { const r = reg[k]; return r && r.G ? r.G : ({ messages: typeof GMsg !== "undefined" ? GMsg : null, forum: typeof GForum !== "undefined" ? GForum : null, diary: typeof GDiary !== "undefined" ? GDiary : null, config: typeof GConfig !== "undefined" ? GConfig : null })[k] || null; };
+      const arcD = (() => { const p0 = { x: cx + R * Math.cos(a0 * Math.PI / 180), y: cy + R * Math.sin(a0 * Math.PI / 180) }, p1 = { x: cx + R * Math.cos(a1 * Math.PI / 180), y: cy + R * Math.sin(a1 * Math.PI / 180) };
+        return "M " + p0.x + " " + p0.y + " A " + R + " " + R + " 0 0 1 " + p1.x + " " + p1.y; })();
+      return [h("style", { key: "orbcss" }, "@keyframes orbIn{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}@keyframes orbArc{from{stroke-dashoffset:260}to{stroke-dashoffset:0}}"),
+        h("svg", { key: "orbit", "aria-hidden": "true", width: ww, height: hh, style: { position: "fixed", left: 0, top: 0, zIndex: 91, pointerEvents: "none", overflow: "visible" } },
+          h("defs", null, h("linearGradient", { id: "orbGrad", x1: "0", y1: "0", x2: "0", y2: "1" },
+            h("stop", { offset: "0", stopColor: t.ink, stopOpacity: 0 }), h("stop", { offset: ".5", stopColor: t.ink, stopOpacity: .32 }), h("stop", { offset: "1", stopColor: t.ink, stopOpacity: 0 }))),
+          h("circle", { cx, cy, r: R + 10, fill: "none", stroke: t.ink, strokeOpacity: .05, strokeWidth: 18 }),
+          h("path", { d: arcD, fill: "none", stroke: "url(#orbGrad)", strokeWidth: 1.2, strokeLinecap: "round", strokeDasharray: 260, style: { animation: "orbArc .45s ease-out both" } }))]
+        .concat(items.map((it, i) => { const G = it.k === "__edit" ? null : iconOf(it.k);
+          return h("button", { key: it.k, "data-wk": it.k === "__edit" ? "modelfloatscedit" : "modelfloatsc", "aria-label": it.zh, title: it.zh,
+            onClick: () => { if (it.k === "__edit") { setScEdit(true); return; } setOpen(false); onGo(it.k); },
+            style: { position: "fixed", zIndex: 92, left: pts[i].x - B / 2, top: pts[i].y - B / 2, width: B, height: B, padding: 0, borderRadius: "50%",
+              background: it.k === "__edit" ? "transparent" : "radial-gradient(circle at 35% 30%, " + t.bg2 + ", " + t.bg + ")", color: it.k === "__edit" ? t.fog : t.ink,
+              border: it.k === "__edit" ? "1px dashed " + t.line : "1px solid " + t.line, boxShadow: it.k === "__edit" ? "none" : "0 4px 12px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.6)",
+              display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1,
+              animation: "orbIn .32s cubic-bezier(.2,1.4,.4,1) both", animationDelay: (60 + i * 45) + "ms" } },
+            it.k === "__edit" ? "✎" : (() => {
+              // 跟主屏那枚图标同一套取法（她 2026-11-20「为啥有些还是线稿」）：主题里有图就用图，没有就用彩色填充版，最后才是线稿
+              const src = typeof appIconSrc === "function" ? appIconSrc(it.k) : "";
+              if (src) return h("img", { src, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%", display: "block" } });
+              const tone = typeof appTone === "function" ? appTone(it.k) : null;
+              const filled = tone && !(typeof isClassicLook === "function" && isClassicLook()) && typeof filledIconSvg === "function" ? filledIconSvg(it.k, tone.hue) : "";
+              if (filled) return h("svg", { viewBox: "0 0 24 24", width: 22, height: 22, style: { display: "block" }, dangerouslySetInnerHTML: { __html: filled } });
+              return G ? h(G, { size: 17, color: tone ? tone.glyph : t.ink, sw: 1.6 }) : it.zh.slice(0, 2); })()); }));
+    })(),
+    // 改快捷：勾哪些、按点的先后排，最多 6 个；改完立刻生效
+    scEdit ? (() => {
+      const reg = (typeof window !== "undefined" && window.__homeReg) || {};
+      const appsAll = [["messages", "信息"], ["forum", "论坛"], ["diary", "日记"], ["config", "设置"]].concat(Object.keys(reg).filter(k => reg[k] && reg[k].kind === "app" && reg[k].zh).map(k => [k, reg[k].zh]));
+      const save = v => { setScs(v); saveJSON("x_floatShortcuts", v); };
+      return h("div", { "data-wk": "modelfloatscsheet", onClick: () => setScEdit(false), style: { position: "fixed", inset: 0, zIndex: 95, background: "rgba(0,0,0,.35)", display: "flex", alignItems: "flex-end", justifyContent: "center" } },
+        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 480, maxHeight: "72vh", overflowY: "auto", padding: "16px 16px calc(16px + env(safe-area-inset-bottom, 0px))", borderRadius: "18px 18px 0 0", background: t.bg2 } },
+          h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "旋钮外圈的快捷入口"),
+            h("button", { onClick: () => setScEdit(false), style: { minHeight: 36, padding: "0 10px", color: t.ink, fontFamily: F_BODY } }, "好了")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 10 } }, "点一下加上、再点一下去掉，最多 6 个，按点的先后排（" + scs.length + " / 6）。"),
+          h("div", { className: "flex flex-wrap", style: { gap: 8 } }, appsAll.map(([k, zh]) => { const at = scs.indexOf(k);
+            return h("button", { key: k, "data-wk": "modelfloatscpick", "data-on": at >= 0 ? "1" : "0", onClick: () => at >= 0 ? save(scs.filter(x => x !== k)) : scs.length < 6 ? save(scs.concat([k])) : (window.__toast && window.__toast("最多 6 个，先去掉一个")),
+              style: { minHeight: 36, padding: "0 12px", borderRadius: 18, border: "1px solid " + (at >= 0 ? t.ink : t.line), background: at >= 0 ? t.ink : "transparent", color: at >= 0 ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
+              (at >= 0 ? (at + 1) + " · " : "") + zh); }))));
+    })() : null,
     h("div", { style: Object.assign({ position: "fixed", zIndex: 90, display: "flex", alignItems: "center", gap: 8 }, anchor) },
     // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）──────────────────
     // 原来是一颗近黑的圆 + 一圈白边 + 一个等宽字体的 ⇄：那是随便哪个 app 都有的
@@ -7249,9 +7308,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const hers = SK.activeFor("me", char.id), his = SK.activeOf(char.id).filter(s => String(s.by) === String(char.id)), un = userName(profileFor(char.id));
       const ago = ts => { const m = Math.round((Date.now() - ts) / 60000); return m < 60 ? Math.max(1, m) + " 分钟前" : Math.round(m / 60) + " 小时前"; };
       const L = [];
-      if (hers.length) L.push(un + "挂着的限时动态（24 小时后自己收起；你刷到了，她那边看得到你看过）：\n" + hers.map(s => "· " + ago(s.ts) + "：" + (s.desc || s.text || "一张卡") + (String(s.co) === String(char.id) ? "（这是你俩一起发的同框，挂在你们两个人的头像上）" : "") + (s.sticker ? "；" + SK.stickerLine(s.sticker) + (s.sticker.type === "poll" && (s.sticker.votes || {})[char.id] != null ? "（你已经投了「" + s.sticker.opts[s.sticker.votes[char.id]] + "」）" : "") : "")).join("\n")
+      // 配的歌也看得到（她 2026-11-20「他看得到自己发的歌吗，还有我发的」）
+      const songOf = s => s && s.music && s.music.title ? "，配着歌《" + s.music.title + "》" + (s.music.artist ? "（" + s.music.artist + "）" : "") : "";
+      if (hers.length) L.push(un + "挂着的限时动态（24 小时后自己收起；你刷到了，她那边看得到你看过）：\n" + hers.map(s => "· " + ago(s.ts) + "：" + (s.desc || s.text || "一张卡") + songOf(s) + (String(s.co) === String(char.id) ? "（这是你俩一起发的同框，挂在你们两个人的头像上）" : "") + (s.sticker ? "；" + SK.stickerLine(s.sticker) + (s.sticker.type === "poll" && (s.sticker.votes || {})[char.id] != null ? "（你已经投了「" + s.sticker.opts[s.sticker.votes[char.id]] + "」）" : "") : "")).join("\n")
         + "\n想提就在这一轮顺嘴提一句，不想提就当看过了。");
-      if (his.length) L.push("你自己挂着的限时动态：" + his.map(s => "「" + (s.text || s.desc) + "」（" + ago(s.ts) + (SK.audLabel(s) ? "，" + SK.audLabel(s).replace("你", un) : "") + "）"
+      if (his.length) L.push("你自己挂着的限时动态：" + his.map(s => "「" + (s.text || s.desc) + "」（" + ago(s.ts) + songOf(s) + (SK.audLabel(s) ? "，" + SK.audLabel(s).replace("你", un) : "") + "）"
         + (s.sticker ? "，" + SK.stickerLine(s.sticker)
           + (s.sticker.type === "poll" && (s.sticker.votes || {}).me != null ? "，" + un + "投了「" + s.sticker.opts[s.sticker.votes.me] + "」" : "")
           + (s.sticker.type === "ask" && (s.sticker.answers || []).some(a => a.who === "me") ? "，" + un + "回答了：" + s.sticker.answers.filter(a => a.who === "me").map(a => a.text).join("／") : "") : "")
@@ -8133,6 +8194,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         let segDirty = false;
         (characters || []).forEach(c => {
           if (!c || c.npc || !storyOnFor(c.id)) return;
+          // 跟朋友圈同一道闸（她 2026-11-20「是不是漏了时间段不刷新的闸」）：免打扰里勾了后台不跑／不发主动消息、面具在休息、收起来的人，都不自己发
+          if (!autoRefreshOn("moments", c.id) || quietNow("pro")) return;
           const sg = typeof schedNowSegFor === "function" ? schedNowSegFor(c) : null;
           if (!sg || !sg.cur || sg.cur.type === "sleep") return;
           const k = schedLocalDayKey(c) + "#" + (sg.cur.time || sg.idx), was = segSeen[c.id];
@@ -12364,7 +12427,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (Date.now() - last < PEEK_SNEAK_GAP || Math.random() > 0.25) return;
     saveJSON("x_peekSneakLast", Date.now());
     // 偷偷翻也认她上回递手机时藏起来的那几个（群友 2026-10-31）：藏是她的意思，不该只管递过去那一回
-    handPhoneTo(charId, PEEK_PHONE_SECTIONS.map(s => s[0]), ((loadJSON("x_peekHide", {}) || {})[charId] || []), true);
+    // 偷偷翻也守你上锁的那几样（群友 2026-11-20「没给他递手机就锁不上，他自己偷偷翻都能看到」）：按这个人记住的「能翻的几样」来，没设过才是全部
+    { const _al = (loadJSON("x_peekAllow", {}) || {})[charId];
+      handPhoneTo(charId, Array.isArray(_al) && _al.length ? _al : PEEK_PHONE_SECTIONS.map(s => s[0]), ((loadJSON("x_peekHide", {}) || {})[charId] || []), true); }
   };
   // 她看到那张卡：回放（只看）／当面问（TA接）／装没看见
   // 她点开一个允许偷偷翻的人的聊天时，偶尔会发现TA刚翻过（冷却够了才有几率）
@@ -39098,6 +39163,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     idOf: who => { const x = (characters || []).find(c => c.remark === who || c.name === who); if (x) return x.id; const g = (groupsRef.current || []).find(g => g && g.name === who); return g ? g.id : null; },
     selfName: (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || (((characters || []).find(x => x.id === peekPlay.charId) || {}).name) || ""
   }), modelFloatOn && h(ModelQuickSwitch, {
+    // 外圈的快捷入口（她 2026-11-20）：跟主屏点图标去的是同一处
+    onGo: k => { if (k === "listen") goListen(null); else setScreen(k); },
     // 面板里「去模型设置」：直接落到 设置 → 模，返回回到现在这一页
     onOpenApi: () => { setConfigBack({ screen }); setConfigPage("api"); setScreen("config"); },
     profiles: apiProfiles,

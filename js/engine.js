@@ -11771,7 +11771,9 @@ async function runProbe(p, ctx, probe) {
   let _from = ""; try { _from = callerLabelOf(new Error().stack); } catch (e) {}
   // 两张表都认不出、又没起 tag 的：拿它要干的那件事开头几个字当名字（她 2026-10-18 群里截图：一排「其他」看不出是什么）
   if (!_from && probe && typeof probe === "object" && !probe.logFrom && !(typeof callTagLabel === "function" && callTagLabel(probe.tag))) {
-    const _ins = String(probe.instruction || "").replace(/【[^】]{0,30}】/g, "").replace(/[\s「」"“”]+/g, "").slice(0, 14);
+    // 开头是日期、钟点的（她 2026-11-20 截图「其他·2026年11月20日周五2…」）：跳过去，拿后面真正要干的事起名
+    const _ins = String(probe.instruction || "").replace(/【[^】]{0,30}】/g, "").replace(/[\s「」"“”]+/g, "")
+      .replace(/^(?:(?:现在是|今天是|此刻是|现在|今天)?(?:\d{4}年)?(?:\d{1,2}月\d{1,2}日)?(?:周[一二三四五六日天]|星期[一二三四五六日天])?(?:[上下]午|凌晨|早上|晚上|中午|傍晚)?(?:\d{1,2}[:：点]\d{0,2}分?)?[，,。；;：:、]?)+/, "").slice(0, 14);
     if (_ins) probe = Object.assign({}, probe, { logFrom: "其他·" + _ins + "…" });
   }
   if (_from && probe && typeof probe === "object" && !probe.logFrom) probe = Object.assign({}, probe, { logFrom: _from });

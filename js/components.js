@@ -5109,7 +5109,9 @@ function Calendar({ schedKeepOf, onSchedKeep, characters, calendar, calEvents, s
       out.push({ text: "⏰ " + (r.title || r), kind: "memo", id: r && r.id });
     });
     if (view === "mine") (worldStore[legacyKeyOf(dk)] || []).forEach(e => out.push({ text: "🌐 " + e.title, note: e.note, id: e.id, kind: "world" }));
-    (store[legacyKeyOf(dk)] || []).forEach(e => out.push({ text: e.title, note: e.note, id: e.id, kind: "cal" }));
+    // 在一起那天落的「♥ 和 X 在一起」：在这个人的那页上，X 是你跟他用的那张面具（群友 2026-11-20「显示的是主面具」），按现在这一页取，不信存进去那一刻的名字
+    const meHere = view !== "mine" ? ((maskList.find(m => m.key === (typeof maskKeyOf === "function" ? (maskKeyOf(view) || "") : "")) || maskList[0] || {}).name || "") : "";
+    (store[legacyKeyOf(dk)] || []).forEach(e => out.push({ text: meHere && e.note === "情侣纪念日" && /^♥ 和 .+ 在一起$/.test(String(e.title || "")) ? "♥ 和 " + meHere + " 在一起" : e.title, note: e.note, id: e.id, kind: "cal" }));
     calEventsOnDay(calEvents, evOwner, dk).filter(e => e._allDay).forEach(e => out.push({ text: (e.icon ? e.icon + " " : "") + e.title, id: e.id, kind: "timed", ev: e }));
     return out;
   };
@@ -13400,7 +13402,10 @@ function ChatThread({
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } }, "允许" + (character.remark || character.name) + "偷偷翻",
         h("span", { style: { display: "block", fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "所有角色共用一个冷却，一天最多一回")),
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: peekSneakOn ? t.accent : t.fog } }, peekSneakOn ? "允许" : "不允许")) : null),
-    h("button", { onClick: () => { setPeekOpen(false); onHandPhone(peekAllow, peekHide, peekAllMasks); }, disabled: !peekAllow.length, className: "w-full active:opacity-80", style: { marginTop: 16, minHeight: 48, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", opacity: peekAllow.length ? 1 : .4 } }, "递过去")
+    h("button", { onClick: () => { setPeekOpen(false); onHandPhone(peekAllow, peekHide, peekAllMasks); }, disabled: !peekAllow.length, className: "w-full active:opacity-80", style: { marginTop: 16, minHeight: 48, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", opacity: peekAllow.length ? 1 : .4 } }, "递过去"),
+    // 先锁好、不递（群友 2026-11-20）：他自己偷偷翻也照这一份来
+    h("button", { "data-wk": "peeklockonly", onClick: () => { try { const _a = loadJSON("x_peekAllow", {}) || {}, _h = loadJSON("x_peekHide", {}) || {}; saveJSON("x_peekAllow", Object.assign({}, _a, { [character.id]: peekAllow.map(String) })); saveJSON("x_peekHide", Object.assign({}, _h, { [character.id]: (peekHide || []).map(String) })); } catch (e) {} setPeekOpen(false); toast && toast("锁好了：他自己偷偷翻也只看得到勾着的"); },
+      className: "w-full active:opacity-70", style: { marginTop: 8, minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, "只锁好，先不递")
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current, single: true }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), ownerKey: profile && (profile.id || profile.name), toast })
   ), modeOpen && h(Sheet, {
@@ -22578,16 +22583,21 @@ function GroupSettingsSheet({ onOpenStyleLab, apiProfiles, onSuggestName, onDraw
   //   组名一行，底下一行小字写着里面有哪几样；点开才露出那几张卡，再点收起。哪一组开着记在本机，下回打开还是那样
   const [gSecOpen, setGSecOpenS] = useState(() => { try { return localStorage.getItem("x_gsetSec") || ""; } catch (e) { return ""; } });
   const setGSecOpen = v => { setGSecOpenS(v); try { localStorage.setItem("x_gsetSec", v); } catch (e) {} };
+  // 分组跟下面那几张单独的卡长一个样（她 2026-11-20「你这弄的好看吗」：一半是光秃秃的一行字、一半是带色块的卡）：同一张卡、同一枚色块字
+  const G_SEC = { "群和成员": ["群", "#c0904f"], "他们怎么聊": ["聊", "#687f73"], "记得什么": ["记", "#6693c7"] };
   const gSection = (title, sub, ...kids) => {
-    const on = gSecOpen === title;
-    return h("div", { "data-wk": "gsetsection", "data-on": on ? "1" : "0", style: { marginTop: 12 } },
-      h("button", { "data-wk": "gsetsectionhead", onClick: () => setGSecOpen(on ? "" : title), className: "w-full flex items-center active:opacity-70",
-        style: { gap: 10, padding: "6px 2px", textAlign: "left", background: "transparent", border: "none" } },
-        h("span", { className: "flex-1 min-w-0" },
-          h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", letterSpacing: ".08em", color: on ? t.ink : t.sub } }, title),
-          on ? null : h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub)),
-        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, display: "inline-block", transition: "transform .2s", transform: on ? "rotate(90deg)" : "none" } }, "›")),
-      on ? h("div", null, ...kids) : null);
+    const on = gSecOpen === title, mk = G_SEC[title] || [title.slice(0, 1), "#8a8f99"], tint = mk[1];
+    return h("div", { "data-wk": "gsetsection", "data-on": on ? "1" : "0", style: { marginTop: 8 } },
+      h("div", { style: { borderRadius: 14, background: t.bg2, border: "1px solid " + (on ? tint + "88" : t.line), overflow: "hidden", transition: "border-color .2s" } },
+        h("button", { "data-wk": "gsetsectionhead", onClick: () => setGSecOpen(on ? "" : title), className: "w-full flex items-center active:opacity-70",
+          style: { gap: 12, padding: "11px 13px 11px 11px", textAlign: "left", background: on ? tint + "12" : "transparent", border: "none" } },
+          h("span", { style: { flexShrink: 0, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: tint + "1f", color: tint, fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))" } }, mk[0]),
+          h("span", { className: "flex-1 min-w-0" },
+            h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, title),
+            h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub)),
+          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: on ? tint : t.line, display: "inline-block", transition: "transform .2s", transform: on ? "rotate(90deg)" : "none" } }, "›"))),
+      // 展开的那几张卡往里缩一点、挂一条同色的线，看得出是这一组底下的
+      on ? h("div", { style: { marginLeft: 10, paddingLeft: 10, borderLeft: "2px solid " + tint + "33" } }, ...kids) : null);
   };
   const gCard = (meta, note, ...kids) => {
     const on = gOpen === meta.title;

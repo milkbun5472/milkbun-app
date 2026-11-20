@@ -10,6 +10,6 @@ test("出口按藏起来的名字整行拦，钱包购物外卖不擦", () => {
 });
 test("藏了谁记进 x_peekHide；偷偷翻和下次递手机都照它", () => {
   assert.match(app, /saveJSON\("x_peekHide", Object\.assign\(\{\}, _h, \{ \[charId\]: \(hideIds \|\| \[\]\)\.map\(String\) \}\)\)/);
-  assert.match(app, /handPhoneTo\(charId, PEEK_PHONE_SECTIONS\.map\(s => s\[0\]\), \(\(loadJSON\("x_peekHide", \{\}\) \|\| \{\}\)\[charId\] \|\| \[\]\), true\)/);
+  assert.match(app, /handPhoneTo\(charId, Array\.isArray\(_al\) && _al\.length \? _al : PEEK_PHONE_SECTIONS\.map\(s => s\[0\]\), \(\(loadJSON\("x_peekHide", \{\}\) \|\| \{\}\)\[charId\] \|\| \[\]\), true\)/);
   assert.match(cmp, /useState\(\(\) => \{ try \{ return \(\(loadJSON\("x_peekHide", \{\}\) \|\| \{\}\)\[character && character\.id\]/);
 });
