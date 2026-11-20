@@ -1867,6 +1867,10 @@ function App() {
   const couplesRef = useRef(couples); couplesRef.current = couples;
   const coupleAnnivRef = useRef(coupleAnniv); coupleAnnivRef.current = coupleAnniv;
   const [newGroupOpen, setNewGroupOpen] = useState(false);
+  // 频道（她 2026-11-20）：x_spaces 一块一个地方，频道是 groups 里挂着 spaceId 的那几个群
+  const [spaces, setSpaces] = useState([]);
+  const [newSpaceOpen, setNewSpaceOpen] = useState(false);
+  const [activeSpaceId, setActiveSpaceId] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   // 主页名片：与聊天「我」的人设解耦，单独一份 { name, sign, tags:[] }
   const [homeCard, setHomeCard] = useState({ name: "", sign: "", tags: [] });
@@ -2071,6 +2075,7 @@ function App() {
     })();
     setCharacters(c);
     setGroups(loadJSON("x_groups", []));
+    setSpaces(loadJSON("x_spaces", []));
     setGroupSettings(loadJSON("x_groupSettings", {}));
     setMoments(loadJSON("x_moments", []));
     setMomentsCover(loadJSON("x_momentsCover", {}));
@@ -10444,6 +10449,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了
     directives: directives[group.id] || [],
     groupNotice: gsFor(group.id).notice || null,
+    spaceBlock: spaceChannelBlock(group, groupsRef.current, id => groupChatsRef.current[id] || [], userName(profile)),
     // 跨情境近况（v50.66）：每个成员各自最近在【单聊线上 + 单人线下】和用户之间发生的事，带时间戳，
     //   让群线下接得上刚在别处聊过的细节。own-chat-only：只带该成员自己那份，engine 侧再加隐私铁律(别的成员不知情)。
     memberRecent: _par ? [] : (group.memberIds || []).map(id => {
@@ -16873,7 +16879,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return Number(d && d.turns) > 0 ? txt + "（临时约定，还剩 " + Number(d.turns) + " 轮，到期后自动作废、不再遵守）" : txt;
       }).filter(s => s);
       const gDirHint = gDirs.length ? "\n\n【⚠️群规矩·最高优先级，压过下面的对话惯性】这些是用户之前（场外）跟你们立好、你们已经答应了的约定，每一条【现在就生效】（没标临时的即长期有效）：\n" + gDirs.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n——就算上面的聊天记录里大家还在聊相关话题，也从这一轮起严格照约定来（惯性不是理由）；用户若问「是不是说好了」，大方承认记得并已经在做，绝不许一脸茫然装不知道。" : "";
-      const gNoticeHint = groupNoticeBlock(gsFor(groupId).notice);
+      const gNoticeHint = groupNoticeBlock(gsFor(groupId).notice)
+        + spaceChannelBlock((groupsRef.current || []).find(x => x && x.id === groupId), groupsRef.current, id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), userName(profile));
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
       // ONLINE_CHAT_RULE_V2 开头那句「完全代入当前角色」是给单聊写的：群里有好几个人，
       // 「当前角色」没有指代对象，这句话就空转了，真正决定站位的反倒是下面的任务描述。
@@ -19028,6 +19035,42 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast("开了一间「" + nm + "」");
     return g;
   };
+  // ── 频道 ──────────────────────────────────────────────────────────
+  //   频道就是一个普通的群，多挂 spaceId / chName / chAbout 三格；群的名字写成「空间名 · #频道名」，
+  //   这样群记忆的 tag、调用记录、提醒里认得出是哪个频道。建、改、删都走群原来那几条路。
+  const saveSpaces = fn => setSpaces(p => { const n = fn(p); saveJSON("x_spaces", n); return n; });
+  const channelGroupName = (sp, ch) => String((sp && sp.name) || "频道").slice(0, 12) + " · #" + String(ch || "").slice(0, 10);
+  const createChannel = (sp, chName, chAbout, memberIds) => {
+    const g = { id: "g_" + Date.now() + "_" + Math.floor(Math.random() * 1000), name: channelGroupName(sp, chName), memberIds: (memberIds || []).slice(), roomKind: "group", namedBy: "me",
+      createdTs: Date.now(), spaceId: sp.id, chName: String(chName || "").slice(0, 16), chAbout: String(chAbout || "").slice(0, 120) };
+    groupsRef.current = [...(groupsRef.current || []), g];
+    setGroups(p => { const n = [...p, g]; saveJSON("x_groups", n); return n; });
+    return g;
+  };
+  const createSpace = (name, memberIds) => {
+    const sp = { id: "sp_" + Date.now(), name: String(name || "").slice(0, 24), memberIds: (memberIds || []).slice(), ts: Date.now() };
+    saveSpaces(p => [...p, sp]);
+    createChannel(sp, "综合", "什么都可以聊", sp.memberIds);
+    setNewSpaceOpen(false);
+    setActiveSpaceId(sp.id);
+    setScreen("space");
+    toast("「" + sp.name + "」建好了，先有一个 #综合");
+  };
+  const saveChannel = (sp, g, patch) => {
+    if (!g) { createChannel(sp, patch.chName, patch.chAbout, patch.memberIds); toast("开了 #" + patch.chName); return; }
+    const nm = channelGroupName(sp, patch.chName);
+    if (nm !== g.name) renameGroup(g.id, nm);
+    updateGroup(g.id, { chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds });
+  };
+  const deleteSpace = spId => {
+    const ids = (groups || []).filter(g => g && g.spaceId === spId).map(g => g.id);
+    setGroups(p => { const n = p.filter(g => !ids.includes(g.id)); saveJSON("x_groups", n); return n; });
+    setGroupChats(p => { const n = { ...p }; ids.forEach(id => delete n[id]); return n; });
+    ids.forEach(id => localStorage.removeItem("x_gchat:" + id));
+    setGroupSettings(p => { const n = { ...p }; ids.forEach(id => delete n[id]); saveJSON("x_groupSettings", n); return n; });
+    saveSpaces(p => p.filter(x => x.id !== spId));
+    setActiveSpaceId(null); setScreen("messages"); toast("频道空间删掉了");
+  };
   const updateGroup = (groupId, patch) => setGroups(p => {
     const n = p.map(g => g.id === groupId ? { ...g, ...patch } : g);
     saveJSON("x_groups", n);
@@ -19068,6 +19111,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setGroupSettings(p => { const n = { ...p }; ids.forEach(id => delete n[id]); saveJSON("x_groupSettings", n); return n; });
     const parent = self && self.roomOf ? groups.find(g => g && g.id === self.roomOf) : null;
     if (parent) { setActiveGroup(parent); setScreen("gthread"); toast("这间小房间删掉了"); return; }
+    if (self && self.spaceId) { setActiveGroup(null); setActiveSpaceId(self.spaceId); setScreen("space"); toast("这个频道删掉了"); return; }
     setActiveGroup(null);
     setScreen("messages");
     toast(ids.length > 1 ? "群聊和它的 " + (ids.length - 1) + " 间小房间都删掉了" : "群聊已删除");
@@ -35963,6 +36007,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     hiddenChats: hiddenChats,
     onHideChat: id => { hideChat(id); setPinnedChats(p => { if (!p.includes(id)) return p; const n = p.filter(x => x !== id); saveJSON("x_pinnedChats", n); return n; }); toast("从列表里删掉了，聊天记录和配角都还在；再聊就会回来"); },
     onNewGroup: () => setNewGroupOpen(true),
+    spaces: spaces,
+    onOpenSpace: sp => { setActiveSpaceId(sp.id); setScreen("space"); },
+    onNewSpace: () => setNewSpaceOpen(true),
     onOpenContact: c => {
       setContactBack(null);
       setActiveChar(c);
@@ -36097,7 +36144,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️从庭院退出来是【回这间房的聊天】，不是回消息列表：她本来就在这间房里
       onBack: () => setGardenOpen("")
     };
-  })());else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+  })());else if (screen === "space" && (spaces || []).some(x => x.id === activeSpaceId)) body = (() => { const sp = spaces.find(x => x.id === activeSpaceId);
+    return h(SpaceView, { key: "sp::" + sp.id, space: sp, channels: (groups || []).filter(g => g && g.spaceId === sp.id), groupChats, unreadMap, allChars: characters, userLabel: "我",
+      onBack: () => setScreen("messages"),
+      onOpenChannel: g => { setActiveGroup(g); clearUnread(g.id); setScreen("gthread"); },
+      onSaveChannel: (g, patch) => saveChannel(sp, g, patch),
+      onDeleteChannel: g => deleteGroup(g.id),
+      onDeleteSpace: () => deleteSpace(sp.id) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     onOpenStyleLab: goStyleLab,
     apiProfiles: apiProfiles,
     // 换一个群就是一块新的聊天屏（跟单聊 key 一样）：不然从 A 群点弹窗进 B 群，还停在 A 群翻到的那个高度、也不重新钉底
@@ -36139,7 +36192,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     directives: directives[activeGroup.id] || [],
     onRemoveDirective: dirId => removeDirective(activeGroup.id, dirId),
     onSetDirectiveTurns: (dirId, turns) => setDirectiveTurns(activeGroup.id, dirId, turns),
-    onBack: () => setScreen("messages"),
+    // 频道里的群退回它那块空间首页，不是消息列表
+    onBack: () => { if (activeGroup.spaceId && (spaces || []).some(x => x.id === activeGroup.spaceId)) { setActiveSpaceId(activeGroup.spaceId); setScreen("space"); } else setScreen("messages"); },
     onSend: txt => pushGroupUser(activeGroup.id, txt),
     dirNotes: chatDirNotes["g:" + activeGroup.id] || [],
     // 群公告：存群设置，群里落一行灰字（谁发的：你在群里就是你；旁观时算群主的，没群主就写「群主」）
@@ -39229,7 +39283,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const all = typeof vclockKeepHist === "function" ? vclockKeepHist(old, { ...old, [k]: v }) : { ...old, [k]: v };
       const p = { ...cur, vclocks: all }; delete p.vclock; setPrefs(p); saveJSON("x_prefs", p); },
     onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast(id === "__off__" ? "后台线路关了：记忆、日程、钱包这些后台活不跑了；主动私聊、日记、朋友圈走TA自己的线路，照常" : "后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
-  }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
+  }), newSpaceOpen && h(NewSpacePage, { characters: liveChars, allChars: characters, onCreate: createSpace, onClose: () => setNewSpaceOpen(false) }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
     characters: liveChars,
     allChars: characters,   // 建群时配角也能直接选（她 2026-10-03：要简单点）
     onCreate: createGroup,

@@ -2437,6 +2437,21 @@ const OVERREACH_BAN = STOCK_REPLY_BAN;
 // 她立下的长期准则那一块：单聊和一起学共用这一份说法（施工规则/one-public-mechanism）
 // 群公告（群友 2026-10-27 许愿）：存在群设置 gs.notice = { text, ts, by }。群线上、群线下、群通话都读这一支。
 //   它是群里人人看得到的一段置顶文字，不是规矩：照着聊、提它、吐槽它都行，用不上就不提。
+// 频道（她 2026-11-20）：群挂着 spaceId 时，它是一个频道空间里的一个频道。给两样事实：
+//   这个频道是聊什么的（她写的那句），和同一个空间里别的频道最近在说什么（各一两句），大家知道别处在发生什么。
+//   chatsOf(id) 拿那个群的消息；uName 是她的名字。线上群、群线下都走这一份。
+function spaceChannelBlock(g, allGroups, chatsOf, uName) {
+  if (!g || !g.spaceId) return "";
+  const out = ["【这个频道】你们现在在「#" + (g.chName || g.name || "") + "」" + (g.chAbout ? "：" + String(g.chAbout).slice(0, 120) : "") + "。这是同一群人待的一个地方里的一个频道，同一个地方还有别的频道。"];
+  const sibs = (allGroups || []).filter(x => x && x.spaceId === g.spaceId && x.id !== g.id).slice(0, 6);
+  const rows = sibs.map(x => {
+    const ms = (chatsOf(x.id) || []).filter(m => m && m.content && !m.recalled && m.role !== "system").slice(-2);
+    const said = ms.map(m => (m.role === "user" ? (uName || "她") : (m.senderName || "有人")) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 50)).join("／");
+    return "· #" + (x.chName || x.name || "") + (x.chAbout ? "（" + String(x.chAbout).slice(0, 30) + "）" : "") + (said ? "　最近：" + said : "　还没人说话");
+  });
+  if (rows.length) out.push("【同一个地方的别的频道】\n" + rows.join("\n"));
+  return "\n\n" + out.join("\n");
+}
 function groupNoticeBlock(notice) {
   const t = String((notice && notice.text) || "").trim();
   if (!t) return "";
@@ -11050,6 +11065,7 @@ async function generateOfflineGroup(p, ctx, session) {
     wishLine(ctx.wishLog, userName, { group: true, gift: false }) +
     "\n\n【在场角色间的关系（有方向）】\n" + relLines + (ctx.dramaRule || "") +
     groupNoticeBlock(ctx.groupNotice) +
+    (ctx.spaceBlock || "") +
     (gDirs.length ? "\n\n【用户立下的长期规矩（高优先·在场所有角色务必遵守）】\n这些是用户明确要求的准则，优先级高于一般演绎习惯；在不违背各自核心人设的前提下务必遵守：\n" + gDirs.map((s, i) => (i + 1) + ". " + s.trim()).join("\n") : "") +
     (loreSplit(ctx.worldbook).topic ? "\n\n【世界书 · 这一轮聊到的】\n" + loreSplit(ctx.worldbook).topic : "") +
     (ctx.extMem && String(ctx.extMem).trim() ? "\n\n【外置记忆库·这一轮搜到的（同一段人生，对不上时以发生过的为准）】\n" + String(ctx.extMem).trim() : "") +
