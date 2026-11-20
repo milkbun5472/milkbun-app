@@ -3817,6 +3817,7 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
   const [sel, setSel] = useState([]); // 选中的购物车 uid
   // 用哪张面具付（她 2026-10-29「来我们慢慢开始分吧」）：""＝主面具。这一单就记在这张面具名下，查手机按它挡
   const [payMask, setPayMask] = useState("");
+  const [custom, setCustom] = useState(null); // 「自己写一件」那张表：{ name, desc, price }，null＝没开
   const [sheet, setSheet] = useState(null); // "actions" | "gift" | "paylater" | "kinship" | {kind:"regift",orderId}
   const [now, setNow] = useState(Date.now());
   const [detail, setDetail] = useState(null);   // 点开的那件商品（以前商品根本点不进去）
@@ -3907,16 +3908,19 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
   const shopHead = (zh, right) => h(Head, { zh, onBack, bg: MSHOP.card, ink: MSHOP.ink, subInk: MSHOP.dim, lineInk: MSHOP.line, right: right || null });
   const cartView = h("div", { "data-wk": "shopcart", className: "flex-1 flex flex-col min-h-0" },
     // 自己写一件（群友 2026-11-20：想送一件自己挑的衣服，挂进衣柜就没有收到的那一下）：写好进购物车，结算照常送礼／自己买
-    shopHead("购物车", h("button", { "data-wk": "shopcustom", onClick: () => requestAppPrompt("自己写一件", "这件东西叫什么", "", nm => {
-      const name = String(nm || "").trim().slice(0, 30); if (!name) return;
-      requestAppPrompt(name, "写几句它的样子：款式、颜色、材质、为什么挑它。送出去时 TA 会看到这段。", "", ds => {
-        const desc = String(ds || "").trim().slice(0, 200);
-        requestAppPrompt("多少钱", "填个价钱，结算时从钱包扣；不想花钱就填 0。", "0", pr => {
-          const price = Math.max(0, Math.round((Number(pr) || 0) * 100) / 100);
-          onAddCart({ name, desc, price, cat: "其他", custom: true }); toast("已加入购物车");
-        }, "放进购物车");
-      }, "下一步");
-    }, "下一步"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.orange } }, "自己写一件")),
+    shopHead("购物车", h("button", { "data-wk": "shopcustom", onClick: () => setCustom({ name: "", desc: "", price: "0" }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.orange } }, "自己写一件")),
+    // 一张表三格一起填（她 2026-11-20：「能不能一次性三个框都出现」）
+    custom ? h("div", { "data-wk": "shopcustommask", className: "absolute inset-0 flex items-end z-50", style: { background: "rgba(20,19,25,0.42)" }, onClick: () => setCustom(null) },
+      h("div", { "data-wk": "shopcustomsheet", onClick: e => e.stopPropagation(), className: "w-full", style: { background: MSHOP.card, borderRadius: "18px 18px 0 0", padding: "18px 16px", paddingBottom: COMPOSER_PAD_BOTTOM, fontFamily: F_BODY } },
+        h("div", { style: { fontSize: "calc(15px * var(--app-fs, 1))", color: MSHOP.ink, marginBottom: 14 } }, "自己写一件"),
+        h("label", { style: { display: "block", marginBottom: 12 } }, h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: MSHOP.dim, marginBottom: 5 } }, "叫什么"), h("input", { "data-wk": "shopcustomfield", "data-part": "name", value: custom.name, onChange: e => setCustom(c => ({ ...c, name: e.target.value })), style: { width: "100%", boxSizing: "border-box", border: "1px solid #e4e4ea", borderRadius: 10, padding: "10px 12px", fontFamily: F_BODY, fontSize: 16, color: MSHOP.ink, background: "#fafafc" }, maxLength: 30, placeholder: "这件东西的名字" })),
+        h("label", { style: { display: "block", marginBottom: 12 } }, h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: MSHOP.dim, marginBottom: 5 } }, "它的样子（送出去时 TA 会看到）"), h("textarea", { "data-wk": "shopcustomfield", "data-part": "desc", value: custom.desc, onChange: e => setCustom(c => ({ ...c, desc: e.target.value })), style: { width: "100%", boxSizing: "border-box", border: "1px solid #e4e4ea", borderRadius: 10, padding: "10px 12px", fontFamily: F_BODY, fontSize: 16, color: MSHOP.ink, background: "#fafafc" }, rows: 3, maxLength: 200, placeholder: "款式、颜色、材质、为什么挑它" })),
+        h("label", { style: { display: "block", marginBottom: 12 } }, h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: MSHOP.dim, marginBottom: 5 } }, "多少钱（不想花钱就填 0）"), h("input", { "data-wk": "shopcustomfield", "data-part": "price", value: custom.price, onChange: e => setCustom(c => ({ ...c, price: e.target.value })), style: { width: "100%", boxSizing: "border-box", border: "1px solid #e4e4ea", borderRadius: 10, padding: "10px 12px", fontFamily: F_BODY, fontSize: 16, color: MSHOP.ink, background: "#fafafc" }, inputMode: "decimal" })),
+        h("button", { "data-wk": "shopcustomok", disabled: !String(custom.name).trim(), onClick: () => {
+            const name = String(custom.name).trim().slice(0, 30); if (!name) return;
+            onAddCart({ name, desc: String(custom.desc || "").trim().slice(0, 200), price: Math.max(0, Math.round((Number(custom.price) || 0) * 100) / 100), cat: "其他", custom: true });
+            setCustom(null); toast("已加入购物车");
+          }, className: "w-full active:opacity-80", style: { marginTop: 4, minHeight: 46, borderRadius: 12, background: MSHOP.orange, color: "#fff", fontSize: "calc(14px * var(--app-fs, 1))", opacity: String(custom.name).trim() ? 1 : .5 } }, "放进购物车"))) : null,
     h("div", { "data-wk": "shopcartlist", className: "flex-1 overflow-y-auto px-3 py-3", style: { background: MSHOP.bg } },
       cartItems.length === 0
         ? h("div", { "data-wk": "shopempty", "data-part": "cart", className: "text-center", style: { paddingTop: 80, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.dim } }, "购物车是空的")
