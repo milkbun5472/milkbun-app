@@ -12066,6 +12066,8 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
+  // 旁观（她隐身在旁边看）：悄悄话、接龙这种会露出她在的，都不给
+  const _gSpect = !!((settings && settings.spectate) || (group && group.roomKind === "spectate"));
   const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["packet", "红包", "packet"], ["ask", "请示", "checklist"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"], ["topics", "话题卡", "quote"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => key !== "topics" || !!character).filter(([key]) => room && !room.main ? !["moments", "transfer", "packet", "ask", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "ask" || !!onSendAsk).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
   // 我发一张表情包：表情包面板和打字联想都走这一处
   const sendMyEmote = em => {
@@ -21287,7 +21289,7 @@ function GroupThread({
     else if (r === "notyours") toast && toast("这是专属红包，只有 " + (rp.toName || "被点名的那位") + " 能领");
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["luck", "骰子 · 抽签", "dice"], ...(onStartAsk ? [["ask", "请示", "checklist"]] : []), ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"]];
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ...(channelTabs && !_gSpect ? [["chain", "接龙", "checklist"]] : []), ...(members.length && !_gSpect ? [["whisper", "悄悄话", "wave"]] : []), ["luck", "骰子 · 抽签", "dice"], ...(onStartAsk ? [["ask", "请示", "checklist"]] : []), ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"]];
   // 我发一张表情包：表情包面板和打字联想都走这一处
   const sendMyEmote = em => sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") });
   const sendRich = msg => {
@@ -21305,6 +21307,8 @@ function GroupThread({
     else if (k === "calllog") setCallLogOpen(true);
     else if (k === "chatsearch") setSearchOpen(true);
     else if (k === "poll") setSheet("poll");
+    else if (k === "chain") setSheet("chain");
+    else if (k === "whisper") setSheet("whisper");
     else if (k === "luck") setSheet("luck");
     else if (k === "ask") setSheet("ask");
     else if (k === "transfer") setXferPick(true);
@@ -21357,7 +21361,7 @@ function GroupThread({
   //   「我」：照原样，前面挂名字——「沈清和 我把伞递给你」；「名字」：把「我」换成名字、前面不再挂——「沈清和把伞递给你」。
   const groupActText = m => {
     const gsx = settings || {}, nm = m.senderName || "TA";
-    if (m.whisper) return nm + " 悄悄对" + (m.toId === "me" ? "你" : (m.toName || "TA")) + "说：" + m.content;
+    if (m.whisper) return (m.senderId === "me" ? "你" : nm) + " 悄悄对" + (m.toId === "me" ? "你" : (m.toName || "TA")) + "说：" + m.content;
     const asName = gsx.actPerson === "name";
     const toYou = gsx.userPerson === "ta" ? [] : ["她", (profile && profile.name) || ""];
     const body = window.ActLine ? window.ActLine.as(m.content, asName ? nm : "", toYou, gsx.userPerson === "ta" ? "她" : "") : m.content;
@@ -21549,7 +21553,7 @@ function GroupThread({
     if (m.role === "narration" || m.kind === "narration") return h(NarrLine, { key: i, i, m, selMode, selected: selIds.includes(i),
       onBg: !!(gChatBg || _gWkBg), startPress, endPress, toggleSel,
       onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null,
-      text: m.who === "char" ? groupActText(m) : m.content });
+      text: m.who === "char" || m.whisper ? groupActText(m) : m.content });
     if (m.kind === "callend") return h(CallEndPill, { key: i, i, m, chars: characters, onBg: !!gChatBg, selMode, selected: selIds.includes(i), startPress, endPress, toggleSel });
     // ⚠️判据跟单聊那一处同一条（kind 或 role）：失败提示是 UI 诊断，不是谁说的话，
     //   所以它该是一条能叉掉的系统提示，不是一个气泡（她 2026-09-14）。
@@ -21568,6 +21572,13 @@ function GroupThread({
       h("span", { "data-wk": "note", "data-part": "pat", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, m.content));
     if (m.askReceipt) return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": "askreceipt", className: "py-1 flex justify-center" },
       h(AskReceipt, { r: m.askReceipt, charName: m.askReceipt.payerName, money: n => mTight(n), onJump: () => askJump(m.askReceipt.aid) }));
+    // 频道小活动机器人的卡（每日一问、接龙、称号）——不是谁说的，居中一张小卡
+    if (m.kind === "spacebot") return h("div", { key: i, className: "py-1.5 flex justify-center",
+      onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress },
+      h("div", { "data-wk": "spacebot", "data-part": m.bot || "", style: { maxWidth: "86%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 12px", fontFamily: F_BODY } },
+        h("div", { style: { fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".06em", marginBottom: 4 } }, (typeof SPACE_BOT_NAME === "string" ? SPACE_BOT_NAME : "小频") + " · " + (m.bot === "ask" ? "每日一问" : m.bot === "chain" ? "接龙" : m.bot === "titles" ? "本周称号" : "")),
+        h("div", { style: { fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } }, m.bot === "ask" ? m.q : m.bot === "chain" ? m.topic : m.content),
+        m.bot === "chain" ? h("div", { "data-wk": "spacebotchain", style: { marginTop: 6 } }, (m.items || []).map((x, k) => h("div", { key: k, style: { fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6 } }, (k + 1) + ". " + (x.who === "me" ? "你" : x.name || "某人") + "：" + x.text))) : null));
     // 频道文件动过的那一行：点了打开那份（她 2026-11-20）
     // 「某某 去了／从 #频道 过来」那一行同一个样子，点了去那个频道（她 2026-11-20）
     if (m.kind === "chfile" || m.kind === "chlink") return h("div", { key: i, className: "text-center py-1.5" },
@@ -21978,7 +21989,9 @@ function GroupThread({
     loreEntries: loreEntries, onLoreBulk: onLoreBulk,
     onClearChat: onClearGroupChat,
     onClose: () => setSheet(null)
-  }), sheet === "luck" && h(GroupLuckDialog, { members, meName: (profile && profile.name) || "我", onCancel: () => setSheet(null), onSend: m => { setSheet(null); sendRich(Object.assign({ role: "user" }, m)); } }), sheet === "ask" && h(AskComposeDialog, { who: "", prev: askPrev, onCancel: () => { setSheet(null); setAskPrev(null); }, onSend: a => { setSheet(null); setAskPrev(null); onStartAsk(a); } }), sheet === "poll" && h(PollComposeSheet, {
+  }), sheet === "chain" && h(ChainComposeSheet, { onClose: () => setSheet(null), onSubmit: (topic, first) => { setSheet(null); sendRich({ role: "user", kind: "spacebot", bot: "chain", topic, items: [{ who: "me", name: (profile && profile.name) || "我", text: first, ts: Date.now() }], content: "[接龙] " + topic }); } }),
+  sheet === "whisper" && h(WhisperComposeSheet, { members, onClose: () => setSheet(null), onSubmit: (c, text) => { setSheet(null); sendRich({ role: "narration", kind: "narration", who: "me", whisper: true, senderId: "me", senderName: (profile && profile.name) || "我", toId: c.id, toName: c.name, content: text }); } }),
+  sheet === "luck" && h(GroupLuckDialog, { members, meName: (profile && profile.name) || "我", onCancel: () => setSheet(null), onSend: m => { setSheet(null); sendRich(Object.assign({ role: "user" }, m)); } }), sheet === "ask" && h(AskComposeDialog, { who: "", prev: askPrev, onCancel: () => { setSheet(null); setAskPrev(null); }, onSend: a => { setSheet(null); setAskPrev(null); onStartAsk(a); } }), sheet === "poll" && h(PollComposeSheet, {
     onSubmit: (title, opts, anon) => {
       onStartPoll(title, opts, anon);
       setSheet(null);
@@ -22300,6 +22313,32 @@ function GroupLuckCard({ m }) {
       dice && (L.vals || []).length > 1 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, "共 " + L.vals.reduce((a, b) => a + b, 0) + " 点") : null));
 }
 // 发起投票（群聊 +面板 → 投票）——原来被引用却从没实现，导致点投票直接崩
+// 发起接龙（频道 ＋ 面板）：写个题目，自己先接第一棒
+function ChainComposeSheet({ onSubmit, onClose }) {
+  const t = useTheme();
+  const [topic, setTopic] = useState(""), [first, setFirst] = useState("");
+  const field = { fontFamily: F_BODY, fontSize: 16, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 11px", width: "100%", outline: "none" };
+  const ok = topic.trim() && first.trim();
+  return h(Sheet, { onClose, tall: true },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 1.2, color: t.fog, marginBottom: 12 } }, "发起接龙"),
+    h("input", { "data-wk": "input", value: topic, onChange: e => setTopic(e.target.value), maxLength: 30, placeholder: "接什么（一个题目）", style: field }),
+    h("input", { "data-wk": "input", value: first, onChange: e => setFirst(e.target.value), maxLength: 80, placeholder: "你先接第一棒", style: { ...field, marginTop: 10 } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "发出去是一张卡，频道里的人想接就往下接，同一个人不连着接两棒。"),
+    h("button", { "data-wk": "chainsend", onClick: () => ok && onSubmit(topic.trim(), first.trim()), disabled: !ok, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", background: t.ink, color: t.bg2, borderRadius: 10, padding: "11px 0", marginTop: 16, opacity: ok ? 1 : .5 } }, "发出去"));
+}
+// 悄悄话（群 ＋ 面板）：挑一个人，只有他听得见；别人只知道你跟他说了句悄悄话
+function WhisperComposeSheet({ members, onSubmit, onClose }) {
+  const t = useTheme();
+  const [to, setTo] = useState(null), [text, setText] = useState("");
+  const ok = to && text.trim();
+  return h(Sheet, { onClose, tall: true },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 1.2, color: t.fog, marginBottom: 12 } }, "悄悄说给…"),
+    h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 12 } }, (members || []).map(c => h("button", { key: c.id, "data-wk": "whisperto", "data-on": to && to.id === c.id ? "1" : "0", onClick: () => setTo(c), className: "active:opacity-70",
+      style: { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + (to && to.id === c.id ? t.accent : t.line), color: to && to.id === c.id ? t.accent : t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: "transparent" } }, c.remark || c.name))),
+    h("textarea", { "data-wk": "input", value: text, onChange: e => setText(e.target.value), rows: 3, maxLength: 300, placeholder: "只有他听得见的那句", style: { fontFamily: F_BODY, fontSize: 16, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 11px", width: "100%", outline: "none", resize: "none" } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "群里显示成一行灰字。别的人知道你跟他说了句悄悄话，接不上那句话本身；他可以回你一句悄悄话。"),
+    h("button", { "data-wk": "whispersend", onClick: () => ok && onSubmit(to, text.trim()), disabled: !ok, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", background: t.ink, color: t.bg2, borderRadius: 10, padding: "11px 0", marginTop: 16, opacity: ok ? 1 : .5 } }, "悄悄发"));
+}
 function PollComposeSheet({ onSubmit, onClose }) {
   const t = useTheme();
   const [title, setTitle] = useState("");

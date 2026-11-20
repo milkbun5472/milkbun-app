@@ -27,5 +27,5 @@ test("选名字：我换成名字，前面不再挂一次", () => {
 
 test("群设置里有两颗旋钮并存下来", () => {
   assert.match(comp, /actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson,/);
-  assert.match(comp, /m\.who === "char" \? groupActText\(m\)/);
+  assert.match(comp, /m\.who === "char"(?: \|\| m\.whisper)? \? groupActText\(m\)/);
 });

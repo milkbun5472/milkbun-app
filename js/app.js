@@ -1869,10 +1869,14 @@ function App() {
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   // 频道（她 2026-11-20）：x_spaces 一块一个地方，频道是 groups 里挂着 spaceId 的那几个群
   const [spaces, setSpaces] = useState([]);
+  const spacesRef = useRef([]); spacesRef.current = spaces;
   const [spaceGemRev, setSpaceGemRev] = useState(0);   // 精华墙改了就重读（x_spaceGems:<空间id>）
   const [spaceDigestRev, setSpaceDigestRev] = useState(0);   // 「刚才他们聊了」那张卡改了就重读
   const [newSpaceOpen, setNewSpaceOpen] = useState(false);
   const [activeSpaceId, setActiveSpaceId] = useState(null);
+  // 进空间首页、或者进它的某个频道时，小活动机器人看一眼今天贴过没有（spaceBotTick 在下面定义，跑的时候早就有了）
+  const _botSpId = screen === "space" ? activeSpaceId : (screen === "gthread" && activeGroup && activeGroup.spaceId) || null;
+  useEffect(() => { if (_botSpId && typeof spaceBotTick === "function") spaceBotTick(_botSpId).catch(() => {}); }, [_botSpId]);
   // 频道的「聊天｜文件」（她 2026-11-20）：在看哪一页、要直接打开哪一份；文件存 x_chfiles:<群id>，改一次 rev 加一让页面重读
   const [channelTab, setChannelTab] = useState("chat");
   const [chFileOpen, setChFileOpen] = useState(null);
@@ -16446,7 +16450,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     const group = groups.find(g => g.id === groupId);
     const members = group.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
-    const gs = gsFor(groupId);
+    const gs = chGsMerge(groupId, gsFor(groupId));
     // 有成员此刻正和用户在别处【线下面对面】进行中：别让 TA 在群里分身、别出现在和那场线下矛盾的场景（她报：顾朝线下购物、群里却煮汤给两人）
     // ⚠️旁观的群是他们自己的一场戏，她不在里头：她在别处和谁线下相处，不该让那个人在这场戏里「腾不出手、整轮不出现」
     //   （她 2026-09-26「为啥群里只有一个人说话」「还是不行啊」——两个人的旁观群里只剩一个人开口）。
@@ -16936,11 +16940,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return "\n\n【这个频道是树洞】屏幕上每个人都只显示一个代号，谁也看不见谁的名字和头像，" + userName(profile) + " 也一样，没有谁是例外。各人的代号：" + members.map(c => c.name + "＝树洞 #" + mp[String(c.id)]).join("、") + "、" + userName(profile) + "＝树洞 #" + mp.me
           + "。每个人只知道自己是哪一号；上面原文里带的名字只是给你分清谁说了哪句。写出来的话里不提任何人的名字，指人就说几号，也不会有人说自己看见了谁的名字——别人是谁，只能从说话的样子去猜。";
       })() : "";
-      const gListenHint = group && group.spaceId && group.chListen ? (() => { const L0 = chListenOf(groupId); return L0 ? "\n\n【一起听】这个频道里大家现在一起在听《" + L0.song.title + "》" + (L0.song.artist ? " - " + L0.song.artist : "") + "（" + userName(profile) + " 放的" + (player.playing ? "，正放着" : "，这会儿暂停了") + "），在这个频道的人都听得到。" : ""; })() : "";
+      const gListenHint = group && group.spaceId && group.chListen && !groupSpectating(group) ? (() => { const L0 = chListenOf(groupId); return L0 ? "\n\n【一起听】这个频道里大家现在一起在听《" + L0.song.title + "》" + (L0.song.artist ? " - " + L0.song.artist : "") + "（" + userName(profile) + " 放的" + (player.playing ? "，正放着" : "，这会儿暂停了") + "），在这个频道的人都听得到。" : ""; })() : "";
       const gWelcomeHint = rgOpts && Array.isArray(rgOpts.welcome) && rgOpts.welcome.length ? "\n\n【刚进来的人】" + rgOpts.welcome.join("、") + " 刚刚加入了这个地方，现在也在这个频道里。" : "";
       // 精华墙：最近几句名场面摆给他们；今天这个频道还没人提名过才提那一格
       const gGemHint = group && group.spaceId ? (() => {
-        const gl = loadJSON(gemKey(group.spaceId), []) || [];
+        const gl = (loadJSON(gemKey(group.spaceId), []) || []).filter(x => !(x && x.by === "me" && chSpectId(x.gid)));
         const nm = gid => { const x = (groupsRef.current || []).find(y => y && y.id === gid); return x ? (x.chName || x.name) : ""; };
         return gemLine(gl, nm) + (gemDayOk(gl, groupId, dayKeyNow()) ? "\n【收进精华】这个地方有一面精华墙，放的是大家觉得值得留下的那几句。谁觉得刚才频道里哪句话好笑、好哭、该留着，就在他自己那条发言里加 \"gem\":{\"quote\":\"那句话里的原文\",\"why\":\"为什么收，一句\"}——quote 照原话抄一段，会真的收上墙。" : "");
       })() : "";
@@ -17367,6 +17371,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           }
           if (item.text) _gSaidRun += " " + item.text;   // 后面的人要能看见TA刚说的
           const gTurnId = "gt_" + gRoundTs + "_" + i;
+          // 接龙接一棒（频道小活动机器人那张卡）
+          if (spk && item.chain && typeof item.chain === "object" && String(item.chain.text || "").trim()) {
+            const _ch = chainAppend(groupChatsRef.current[groupId] || [], spk.id, spk.name, item.chain.text);
+            if (_ch) pGChat(groupId, p => p.map((m, k) => k === _ch.idx ? _ch.msg : m));
+          }
           if (spk && item.whisper && typeof item.whisper === "object" && String(item.whisper.text || "").trim()) {
             const _wTo = String(item.whisper.to || "").trim(), _un = userName(profile);
             const _wc = members.find(c => c && c.id !== spk.id && (c.name === _wTo || c.remark === _wTo));
@@ -19215,8 +19224,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     (groups || []).filter(g => g && g.spaceId === sp.id).forEach(g => {
       if (name !== sp.name) renameGroup(g.id, channelGroupName({ name }, g.chName));
       if (added.length || gone.length) {
-        let m = (g.memberIds || []).filter(id => !gone.includes(id)).concat(added.filter(id => !(g.memberIds || []).includes(id)));
-        if (!m.length) m = now.slice();
+        // 旁观频道是他们几个背着人的私聊：新人不往里塞，踢掉的照样拿出去
+        let m = (g.memberIds || []).filter(id => !gone.includes(id)).concat(groupSpectating(g) ? [] : added.filter(id => !(g.memberIds || []).includes(id)));
+        if (!m.length) m = groupSpectating(g) ? (g.memberIds || []) : now.slice();
         updateGroup(g.id, { memberIds: m });
       }
     });
@@ -19263,12 +19273,54 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const names = (ids || []).map(id => ((characters || []).find(c => c.id === id) || {}).name).filter(Boolean);
     if (!names.length) return;
     setTimeout(() => {
-      const chs = (groupsRef.current || []).filter(g => g && g.spaceId === spId && !g.chArchived && !chClosedNow(g.id));
-      const g = chs.find(x => x.chName === "综合") || chs.slice().sort((a, b) => (a.createdTs || 0) - (b.createdTs || 0))[0];
+      const g = spaceHomeChannel(spId);
       if (!g) return;
       pGChat(g.id, p => [...p, { role: "system", kind: "system", content: names.join("、") + " 加入了", ts: Date.now() }]);
       if (active) replyGroup(g.id, { welcome: names }).catch(() => {});
     }, 300);
+  };
+  // 空间的「#综合」：机器人贴卡、欢迎新人都往这儿（没有 #综合 就头一个开着的频道）
+  // 收进频道的旁观群（她隐身在旁边看）：她在那儿的事一件都不许露——机器人卡、欢迎、悄悄话、一起听、她收的精华都绕开它
+  const chSpectId = gid => groupSpectating((groupsRef.current || []).find(x => x && x.id === gid));
+  const spaceHomeChannel = spId => {
+    const chs = (groupsRef.current || []).filter(g => g && g.spaceId === spId && !g.chArchived && !chClosedNow(g.id) && !groupSpectating(g));
+    return chs.find(x => x.chName === "综合") || chs.slice().sort((a, b) => (a.createdTs || 0) - (b.createdTs || 0))[0] || null;
+  };
+  // 小活动机器人（她 2026-11-20 第二批）：每天第一次进这个空间时贴一张「每日一问」；满一周发一回称号。
+  //   称号只照这一周真聊天的条数算，不调模型；每日一问有线路就现编一句，没有就从一小摞里抽
+  const spaceBotTick = async spId => {
+    const sp = (spacesRef.current || []).find(x => x && x.id === spId); if (!sp) return;
+    const home = spaceHomeChannel(spId); if (!home) return;
+    const now = vclockNow(), dk = now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate();
+    if (sp.askDay !== dk) {
+      saveSpaces(p => p.map(x => x.id === spId ? { ...x, askDay: dk } : x));
+      let q = spaceAskPick(dk, spId);
+      try {
+        const api = bgActiveRef.current || active;
+        if (api && typeof runProbe === "function") {
+          const nm = (sp.memberIds || []).map(id => ((characters || []).find(c => c.id === id) || {}).name).filter(Boolean).join("、");
+          const d = await runProbe(api, { char: { id: "__spacebot", name: SPACE_BOT_NAME, persona: "" }, chars: characters, rels, profile, timeAware: false }, { tag: "频道每日一问", logFrom: "频道·每日一问", maxTokens: 8000, once: true,
+            instruction: "你是「" + sp.name + "」这个地方贴每日一问的小机器人，不是里面的哪个人。这里的人有：" + nm + "。出一个今天的问题，大家都能随口答上一句，跟这些人平时会聊的东西沾边。只出问题本身，一句。",
+            schemaHint: "{\"q\":\"今天的问题\"}" });
+          if (d && d.q && String(d.q).trim()) q = String(d.q).trim().slice(0, 60);
+        }
+      } catch (e) {}
+      pGChat(home.id, p => [...p, { role: "system", kind: "spacebot", bot: "ask", q, content: SPACE_BOT_NAME + "·每日一问：" + q, ts: Date.now() }]);
+    }
+    if (!sp.titlesTs || Date.now() - sp.titlesTs > 7 * 86400000) {
+      const chs = (groupsRef.current || []).filter(g => g && g.spaceId === spId);
+      const tt = spaceWeekTitles(chs, id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), sp.memberIds || [], Date.now(), 7);
+      saveSpaces(p => p.map(x => x.id === spId ? { ...x, titles: tt, titlesTs: Date.now() } : x));
+      const line = Object.keys(tt).map(id => (((characters || []).find(c => c.id === id) || {}).name || "某人") + "：" + tt[id]).join("　");
+      if (line) pGChat(home.id, p => [...p, { role: "system", kind: "spacebot", bot: "titles", content: line, ts: Date.now() }]);
+    }
+  };
+  // 频道里挂的每周称号并进群头衔那一格显示：群主封的头衔优先，没封的才挂称号
+  const chGsMerge = (gid, gs0) => {
+    const g = (groupsRef.current || []).find(x => x && x.id === gid);
+    const sp = g && g.spaceId ? (spacesRef.current || []).find(x => x && x.id === g.spaceId) : null;
+    if (!sp || !sp.titles || !Object.keys(sp.titles).length) return gs0;
+    return { ...gs0, titles: { ...sp.titles, ...((gs0 && gs0.titles) || {}) } };
   };
   // 频道里一起听（她 2026-11-20）：开着的时候，你播放器里正放的那首就是这个频道里大家一起在听的；歌是你这边放的那一首，
   //   不另起一个播放器。chListen 只记「这个频道开着一起听」，歌本身每次照播放器现读
@@ -23383,6 +23435,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // ⚠️没有 content 的是【v71.67 之前转的老卡】：那会儿只存了 post 的几个字段、
     //   没存帖子 id，楼里那几层现在也查不回来，所以这条兜底只报楼主那一段，
     //   不去拼第二份 forumShareText（施工规则/one-public-mechanism.md）。
+    : m.kind === "spacebot" ? spaceBotLine(m)
     : m.whisper ? "【悄悄话·只有 " + (m.toName || "某人") + " 听见，别的成员不知道】" + (m.senderName || "某人") + " 小声对 " + (m.toName || "某人") + "：" + m.content
     : m.role === "narration" ? narrTag(m) + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) + (m.parenAct ? "（这条里（）括起来的是她真在做的动作，括号外才是她说的话）" : "") : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : (m.kind === "photo" && m.descOnly) ? "[已经实际发出一张照片，本人必须记得，不能马上重复发] 内容：" + (m.desc || "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : m.photoKind === "me" ? "帮她拍的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "transfer" ? transferLineForModel(m, m.role === "user" ? userName(profile) : (m.senderName || "TA"), m.toName || "群里某位", m.toId) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[" + (m.toId ? "发了个专属红包，点名只给 " + (m.toName || "某位") + "：¥" : "发红包 ¥") + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
@@ -36406,8 +36459,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       looseGroups: (groups || []).filter(g => g && !g.spaceId), onAdopt: ids => adoptGroups(sp, ids), onRelease: releaseChannel, spectateOf: groupSpectating, onTalk: () => talkSpace(sp), gems: (spaceGemRev, loadJSON(gemKey(sp.id), [])), onDeleteGem: id => { saveJSON(gemKey(sp.id), (loadJSON(gemKey(sp.id), []) || []).filter(x => x && x.id !== id)); setSpaceGemRev(v => v + 1); },
       onOpenGem: gm => { window.__openChannel && window.__openChannel(gm.gid); if (gm.mts) setWalletTrace({ type: "group", id: gm.gid, ts: gm.mts, key: Date.now() }); }, digest: (spaceDigestRev, loadJSON("x_spaceDigest:" + sp.id, [])), onDismissDigest: () => { saveJSON("x_spaceDigest:" + sp.id, []); setSpaceDigestRev(x => x + 1); },
       onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), onMoveChannel: (g, d) => moveChannel(sp, g, d), onToggleCat: id => toggleSpaceCat(sp, id), noMemOf: channelNoMem, pickPool: liveChars.concat((characters || []).filter(c => c && c.npc && !liveChars.some(x => x.id === c.id))) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
-    channelTabs: activeGroup.spaceId ? h(ChannelTabs, { tab: "chat", onTab: setChannelTab, right: h(ChannelListenBtn, { on: !!chListenOf(activeGroup.id), onToggle: () => toggleChListen(activeGroup.id) }) }) : null,
-    channelBar: activeGroup.spaceId && chListenOf(activeGroup.id) ? (() => { const L0 = chListenOf(activeGroup.id); return h(ChannelListenBar, { song: L0.song, by: L0.by, playing: !!player.playing, onStop: () => toggleChListen(activeGroup.id) }); })() : null,
+    channelTabs: activeGroup.spaceId ? h(ChannelTabs, { tab: "chat", onTab: setChannelTab, right: groupSpectating(activeGroup) ? null : h(ChannelListenBtn, { on: !!chListenOf(activeGroup.id), onToggle: () => toggleChListen(activeGroup.id) }) }) : null,
+    channelBar: activeGroup.spaceId && !groupSpectating(activeGroup) && chListenOf(activeGroup.id) ? (() => { const L0 = chListenOf(activeGroup.id); return h(ChannelListenBar, { song: L0.song, by: L0.by, playing: !!player.playing, onStop: () => toggleChListen(activeGroup.id) }); })() : null,
     onGem: activeGroup.spaceId ? idx => { const m = (groupChats[activeGroup.id] || [])[idx]; if (addGem(activeGroup.spaceId, activeGroup.id, m, "me")) toast("收进精华了"); } : null,
     onOpenStyleLab: goStyleLab,
     apiProfiles: apiProfiles,
@@ -36447,7 +36500,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     profile: groupProfileFor(activeGroup.id),
     meName: groupProfileFor(activeGroup.id).name || profile.name || "我",
     myBalance: balanceOf(maskKeyOf("g:" + activeGroup.id)),   // 群里花的是这个群用的那张面具的钱
-    settings: { ...gsFor(activeGroup.id), autoChat: gsFor(activeGroup.id).autoChat !== false && autoRefreshOn("groupChat") },
+    settings: { ...chGsMerge(activeGroup.id, gsFor(activeGroup.id)), autoChat: gsFor(activeGroup.id).autoChat !== false && autoRefreshOn("groupChat") },
     directives: directives[activeGroup.id] || [],
     onRemoveDirective: dirId => removeDirective(activeGroup.id, dirId),
     onSetDirectiveTurns: (dirId, turns) => setDirectiveTurns(activeGroup.id, dirId, turns),

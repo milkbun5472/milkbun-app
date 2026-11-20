@@ -214,7 +214,7 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   // 群渲染：跟单聊同一个待遇，且写出是谁做的
   // v75.075：群里也走 NarrLine，✕ 的判据（他那一行不挂）在 NarrLine 里只有一份
   const g = comp.slice(comp.indexOf("const gChatBg = settings && settings.chatBg"));
-  assert.match(g, /return h\(NarrLine, [\s\S]{0,300}?text: m\.who === "char" \? groupActText\(m\)/);
+  assert.match(g, /return h\(NarrLine, [\s\S]{0,300}?text: m\.who === "char"(?: \|\| m\.whisper)? \? groupActText\(m\)/);
   // 群设置里那个开关（群设置是整份 patch 存的，不像单聊那头逐项手抄）
   assert.match(comp, /const \[gActDesc, setGActDesc\] = useState\(!!gs\.actDesc\);/);
   // ⚠️这儿原来钉的是整串参数表，群设置每加一项（v75.612 的「我在这个群里的头像」就是）

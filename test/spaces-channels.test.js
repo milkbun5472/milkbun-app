@@ -64,7 +64,7 @@ test("频道空间能改名、加人、踢人：名片点进设置页，改名�
   const i = ap.indexOf("const saveSpace = ");
   const body = ap.slice(i, ap.indexOf("const deleteSpace = ", i));
   assert.match(body, /renameGroup\(g\.id, channelGroupName\(\{ name \}, g\.chName\)\)/);
-  assert.match(body, /filter\(id => !gone\.includes\(id\)\)\.concat\(added/);
+  assert.match(body, /filter\(id => !gone\.includes\(id\)\)\.concat\(groupSpectating\(g\) \? \[\] : added/);
   assert.match(ap, /onSaveSpace: patch => saveSpace\(sp, patch\)/);
 });
 test("频道可以不互通：chSolo 的频道看不到别处，别处也看不到它", () => {

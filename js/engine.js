@@ -2496,6 +2496,57 @@ function chNewCheck(space, allGroups, name, dayKey) {
 }
 // ── 频道的日子（她 2026-11-20「做吧宝宝」：精华墙、树洞、深夜频道、一起听）──────────────
 // 精华：她长按收、或者他们自己提名。提名那句必须真是这个频道最近说过的话（逐字是里面的一段），不然不收
+// ── 频道的小活动机器人（她 2026-11-20 第二批）──────────────────────────────
+// 不是角色：没有人设、不接话，只往频道里贴卡片——每日一问、接龙、每周称号。卡片 kind:"spacebot"，bot 写是哪一种。
+const SPACE_BOT_NAME = "小频";
+// 每日一问没线路时从这一小摞里抽；有线路时现编一句（spaceAskInstruction）
+const SPACE_ASK_POOL = ["最近一次笑出声是因为什么", "今天最想吃的一样东西", "如果明天放假一天，打算怎么过", "最近循环最多的一首歌", "有没有一件一直想做还没做的小事", "今天的天气配什么心情", "最近一次被谁暖到了", "手机里最近一张照片拍的是什么", "小时候最怕的东西", "现在最想去的一个地方"];
+function spaceAskPick(dayKey, spId) {
+  let h = 0; const k = String(dayKey) + "|" + String(spId || "");
+  for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0;
+  return SPACE_ASK_POOL[h % SPACE_ASK_POOL.length];
+}
+// 一条机器人卡给模型看的那一行（聊天上下文里）
+function spaceBotLine(m) {
+  if (!m || m.kind !== "spacebot") return "";
+  if (m.bot === "ask") return "【" + SPACE_BOT_NAME + "·每日一问（机器人贴的，不是谁说的）】" + (m.q || "") + "——想答就在自己那句里接，不想答也行";
+  if (m.bot === "chain") return "【接龙「" + (m.topic || "") + "」】已经接了：" + (m.items || []).map(x => (x.name || "某人") + "「" + x.text + "」").join(" → ") + "。想接下一棒，就在自己那条发言里加 \"chain\":{\"text\":\"你接的这一句\"}";
+  if (m.bot === "titles") return "【" + SPACE_BOT_NAME + "·本周称号（照这一周真聊天的条数算的）】" + (m.content || "");
+  return "（" + (m.content || "") + "）";
+}
+// 接龙接一棒：只接最新那张没收的接龙卡；同一个人不连着接两棒
+function chainAppend(msgs, who, name, text) {
+  const t = String(text || "").trim().slice(0, 80);
+  if (!t) return null;
+  for (let i = (msgs || []).length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (m && m.kind === "spacebot" && m.bot === "chain" && !m.closed) {
+      const items = m.items || [];
+      if (items.length && String(items[items.length - 1].who) === String(who)) return null;
+      return { idx: i, msg: { ...m, items: items.concat([{ who, name, text: t, ts: Date.now() }]).slice(-40) } };
+    }
+  }
+  return null;
+}
+// 每周称号：只照这一周真聊天算，不调模型。chatsOf(gid) 拿那个频道的消息；members 是空间里的角色 id
+//   话最多＝条数最多；潜水冠军＝条数最少（可以是 0）；最爱歪楼＝去过的频道最多（至少两个）
+function spaceWeekTitles(channels, chatsOf, members, now, days) {
+  const since = (now || Date.now()) - (days || 7) * 86400000, cnt = {}, where = {};
+  (members || []).forEach(id => { cnt[id] = 0; where[id] = new Set(); });
+  (channels || []).forEach(g => (chatsOf(g.id) || []).forEach(m => {
+    if (!m || m.role !== "assistant" || !m.senderId || (m.ts || 0) < since || !(m.senderId in cnt)) return;
+    cnt[m.senderId]++; where[m.senderId].add(g.id);
+  }));
+  const ids = Object.keys(cnt), out = {};
+  if (ids.length < 2) return out;
+  const most = ids.slice().sort((a, b) => cnt[b] - cnt[a])[0];
+  if (cnt[most] > 0) out[most] = "本周话最多";
+  const quiet = ids.filter(id => id !== most).sort((a, b) => cnt[a] - cnt[b])[0];
+  if (quiet) out[quiet] = "潜水冠军";
+  const roam = ids.filter(id => !out[id] && where[id].size >= 2).sort((a, b) => where[b].size - where[a].size)[0];
+  if (roam) out[roam] = "最爱歪楼";
+  return out;
+}
 function gemQuoteHit(quote, msgs) {
   const q = String(quote || "").replace(/^[「『"“]+|[」』"”]+$/g, "").trim();
   if (q.length < 2) return null;
@@ -2622,7 +2673,7 @@ function spaceChannelBlock(g, allGroups, chatsOf, uName) {
     .map(x => ({ x, t: lastTs(x), share: (x.memberIds || []).some(id => mine.has(String(id))) ? 1 : 0 }))
     .sort((a, b) => (b.share - a.share) || (b.t - a.t)).slice(0, 6).map(o => o.x);
   const rows = sibs.map(x => {
-    const ms = (chatsOf(x.id) || []).filter(m => m && m.content && !m.recalled && m.role !== "system").slice(-2);
+    const ms = (chatsOf(x.id) || []).filter(m => m && m.content && !m.recalled && m.role !== "system" && !m.whisper && m.kind !== "spacebot").slice(-2);
     const said = ms.map(m => (x.chKind === "treehole" ? "有人" : (m.role === "user" ? (uName || "她") : (m.senderName || "有人"))) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 50)).join("／");
     return "· #" + (x.chName || x.name || "") + (x.chAbout ? "（" + String(x.chAbout).slice(0, 30) + "）" : "") + (said ? "　最近：" + said : "　还没人说话");
   });

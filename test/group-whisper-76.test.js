@@ -16,5 +16,5 @@ test("群历史标明只有谁听见；跨场景只给说的和被说的人", ()
   assert.match(app, /if \(m\.whisper && m\.senderId !== charId && m\.toId !== charId\) return;/);
 });
 test("显示成「某某 悄悄对某某说：」", () => {
-  assert.match(comp, /if \(m\.whisper\) return nm \+ " 悄悄对"/);
+  assert.match(comp, /if \(m\.whisper\) return \(m\.senderId === "me" \? "你" : nm\) \+ " 悄悄对"/);
 });
