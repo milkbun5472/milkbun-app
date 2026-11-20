@@ -1,7 +1,7 @@
-import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-0dbfe7b80431ca19';
-import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-0dbfe7b80431ca19';
-import {computer,notebook} from './work-room-kit.mjs?v=fg-0dbfe7b80431ca19';
-import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-0dbfe7b80431ca19';
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-810d3c084a6e8474';
+import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-810d3c084a6e8474';
+import {computer,notebook} from './work-room-kit.mjs?v=fg-810d3c084a6e8474';
+import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-810d3c084a6e8474';
 const SIZE={w:14,d:12};
 const furniture=[
  {id:'law-desk',kind:'table',x:-4.6,z:-3.8,w:2.8,d:1.15,top:.85,color:'#a89980',work:{research:{x:0,y:.91,z:.40},draft:{x:-.20,y:.905,z:.40}}},
