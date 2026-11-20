@@ -25776,7 +25776,7 @@ function ChatSettings({
       h(Toggle, { on, onChange: v => set(v), color: t.tint }))),
   autoStory ? h("div", { "data-wk": "storymax", className: "flex items-center justify-between pt-5" },
     h("div", { style: { paddingRight: 12 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "24 小时里最多挂几条"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "限时动态 24 小时里最多挂几条"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "Ta 挂着的到了这个数，就先不发新的，等最早那条过了 24 小时再说")),
     h("div", { className: "flex items-center", style: { gap: 10, flexShrink: 0 } },
       h("button", { onClick: () => setStoryMax(n => Math.max(1, n - 1)), className: "active:opacity-60", style: { width: 30, height: 30, borderRadius: 999, border: "1px solid " + t.line, color: t.ink } }, "−"),
