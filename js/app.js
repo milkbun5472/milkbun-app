@@ -7264,8 +7264,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes) return "";
       const out = [];
       (moments || []).filter(m => momSeen(m, char.id)).slice(0, 3).forEach(m => {
-        const liked = (m.likers || []).includes(char.name);
-        const myC = (m.comments || []).filter(cm => cm.author === char.name).map(cm => cm.text);
+        // 朋友圈里点赞和评论记的是她给他起的备注（momentWho），只认本名就会把点过赞的说成「没点赞也没评论」（她 2026-11-20 截图）
+        const isMe = w => w === char.name || (!!char.remark && w === char.remark);
+        const liked = (m.likers || []).some(isMe);
+        const myC = (m.comments || []).filter(cm => isMe(cm.author)).map(cm => cm.text);
         const acts = [];
         if (liked) acts.push("你点了赞");
         if (myC.length) acts.push("你评论了「" + myC.join("；") + "」");
