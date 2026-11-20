@@ -101,13 +101,18 @@ def fit(source, output, outfit):
                (.54,.116,.077),(.57,.117,.076),(.60,.119,.072),
                (.625,.117,.066),(.644,.112,.060),(.66,.102,.05),
                (.674,.084,.036)]
-    uv = [.17153,.82489]
     if outfit == 'bamboo':
         profile = [(.465,.085,.051),(.48,.096,.059),(.50,.101,.062),
                    (.53,.106,.068),(.56,.109,.069),(.59,.108,.064),
                    (.615,.103,.058),(.636,.094,.052),(.65,.083,.042)]
-        uv = [.08458,.31761]
-    angles = np.linspace(-1.42,1.42,73 if outfit == 'argyle' else 15)
+        # Carry the underarm cloth under the sash, then gather it into
+        # a shallow diagonal fold where the raised sleeve reveals it.
+        profile.insert(0,(.451,.090,.056))
+        table = np.asarray(profile)
+        heights = np.linspace(table[0,0], table[-1,0], 67)
+        profile = np.c_[heights, np.interp(heights,table[:,0],table[:,1]),
+                        np.interp(heights,table[:,0],table[:,2])]
+    angles = np.linspace(-1.42,1.42,73 if outfit == 'argyle' else 49)
     cols = len(angles)
     for side, sign in [('left',-1),('right',1)]:
         p = np.array([[sign*rx*np.cos(a)**.65,y,-.005+rz*np.sin(a)]
@@ -140,6 +145,25 @@ def fit(source, output, outfit):
                                   y, -.005+(rz+relief)*lateral])
                 texcoords.extend(np.c_[.1715+.018*lateral, .812+.13*(y-.60)])
             p = np.concatenate(rows)
+        else:
+            a = np.tile(angles,len(profile))
+            y = p[:,1]
+            t = (y-.451)/(.65-.451)
+            # Two overlapping, oblique folds fan out from the sash. Return
+            # the crest over its recess so it casts a narrow cloth shadow.
+            across = np.sin(a)
+            height = y-.488-.033*across
+            side_fade = np.cos(a)**2 * np.clip((y-.451)/.018,0,1)
+            rolled = np.exp(-(height/.009)**2)
+            second = np.exp(-((height-.030)/.012)**2)
+            recess = np.exp(-((height+.009)/.010)**2)
+            relief = side_fade*(.006*rolled+.004*second-.012*recess-.003)
+            p[:,1] -= side_fade*(.009*rolled+.004*second)
+            p[:,0] += sign*relief*np.cos(a)
+            p[:,2] += relief*np.sin(a)
+            # Map a continuous swatch of the robe's plain fabric atlas
+            # lengthwise, retaining its baked cloth and normal detail.
+            texcoords = np.c_[.278+.058*a/1.42,.158-.124*t]
         faces = []
         for i in range(len(p)//cols-1):
             for j in range(cols-1):
@@ -152,7 +176,7 @@ def fit(source, output, outfit):
             np.add.at(normal,col,cross)
         normal /= np.linalg.norm(normal,axis=1)[:,None]
         attrs = dict(POSITION=store(p), NORMAL=store(normal),
-                     TEXCOORD_0=store(texcoords if outfit == 'argyle' else np.tile(uv,(len(p),1)), 'VEC2'),
+                     TEXCOORD_0=store(texcoords, 'VEC2'),
                      JOINTS_0=store(np.tile([joint,0,0,0],(len(p),1)), 'VEC4','<u2',5123),
                      WEIGHTS_0=store(np.tile([1,0,0,0],(len(p),1)), 'VEC4'))
         xyz = np.c_[p[:,0],-p[:,2],p[:,1]]

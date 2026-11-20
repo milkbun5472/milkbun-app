@@ -1,11 +1,11 @@
-import {bindRobeArmhole} from './robe-armhole.mjs?v=fg-1b0954061affd165';
-import {bindCoatSleeves} from './coat-sleeves.mjs?v=fg-1b0954061affd165';
-import {academyForearmCores} from './academy-sleeve-samples.mjs?v=fg-1b0954061affd165';
-import {bindAcademySleeve} from './academy-sleeve-weights.mjs?v=fg-1b0954061affd165';
-import {createSleeveEase} from './sleeve-ease.mjs?v=fg-1b0954061affd165';
-import {createSleeveEnvelope} from './sleeve-envelope.mjs?v=fg-1b0954061affd165';
-import {createClothTransportKernel,clothRotationReferences} from './cloth-transport-kernel.mjs?v=fg-1b0954061affd165';
-import {fitRigid} from './rigid-fit.mjs?v=fg-1b0954061affd165';
+import {bindRobeArmhole} from './robe-armhole.mjs?v=fg-2ebeb032f9e25b38';
+import {bindCoatSleeves} from './coat-sleeves.mjs?v=fg-2ebeb032f9e25b38';
+import {academyForearmCores} from './academy-sleeve-samples.mjs?v=fg-2ebeb032f9e25b38';
+import {bindAcademySleeve} from './academy-sleeve-weights.mjs?v=fg-2ebeb032f9e25b38';
+import {createSleeveEase} from './sleeve-ease.mjs?v=fg-2ebeb032f9e25b38';
+import {createSleeveEnvelope} from './sleeve-envelope.mjs?v=fg-2ebeb032f9e25b38';
+import {createClothTransportKernel,clothRotationReferences} from './cloth-transport-kernel.mjs?v=fg-2ebeb032f9e25b38';
+import {fitRigid} from './rigid-fit.mjs?v=fg-2ebeb032f9e25b38';
 // Transport a material direction with the arm, then align it to the body surface.
 // The reference contains axial roll that a direction-only reconstruction cannot recover.
 export function sleeveRotation(T,restAxis,posedAxis,reference){
@@ -132,6 +132,13 @@ if(g.attributes.position.count*3!==d.rest.length)throw Error('DQ topology mismat
 for(const k of Object.keys(d.dims))if(Math.abs(q.dimensionValues[k]-d.dims[k])>1e-8)throw Error('Cloth binding dimension mismatch');
 const entries=[d,...(d.parts||[])].map(row=>{let mesh=outfits[row.meshId];
 if(!mesh||mesh.geometry.attributes.position.count*3!==row.rest.length)throw Error('Garment part mismatch');
+// The cross-collar sash and ties occupy a separate waist-only mesh.
+if(row.name==='outfit_bamboo_accent'){
+ const weights=new Float64Array(row.skinWeight.length);
+ for(let i=0;i<weights.length;i+=4)weights[i]=1;
+ row={...row,linear:true,followArms:false,bentSkinWeight:null,
+  skinIndex:new Uint16Array(weights.length),skinWeight:weights};
+}
 const sourceIds=garmentVertexIds(row,mesh.geometry.attributes.position.count),skin=mesh.geometry.attributes;
 // Transport arm-influenced cloth and retain the authored waist corrections.
 // Linear waist rows remove stray arm influences; skipping them moves belts.

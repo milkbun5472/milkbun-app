@@ -71,13 +71,25 @@ export function bindRobeArmhole(q, {o,row,ids}, cuffs) {
     // Pull the lower side panel toward the rib cage. Farther out,
     // the sleeve underside rises, leaving a hollow between the two.
     const lower=smooth((low+.025)/.135)*(1-smooth((low-.19)/.07));
-    const sleeve=smooth((outside+.008)/.077)*(1-smooth((outside-.072)/.13));
     const sidePanel=smooth((outside+.025)/.065)*(1-smooth((outside-.035)/.10));
     // Fade into the front and rear faces so the lifted underside
     // does not stamp a horizontal edge across the visible sleeve.
     const inner=1-.55*smooth((Math.abs(target.z-shoulder[2])-.024)/.060);
-    target.y+=.068*sleeve*lower*inner;
-    target.x-=Math.sign(target.x)*.029*sidePanel*lower*inner;
+    // Ease the change in sleeve height over a wider strip. Keep the
+    // body's side seam anchored while the cloth turns under the upper arm.
+    const sleeveLift=smooth((outside+.026)/.114)*(1-smooth((outside-.080)/.16));
+    target.y+=.058*sleeveLift*lower*inner;
+    target.x-=Math.sign(target.x)*.022*sidePanel*lower*inner;
+    // Fold surplus side cloth against the ribs above the belt. Limit the
+    // pull by the distance to the torso so the front overlap stays full.
+    const rib=Math.abs(shoulder[0])*.92;
+    const surplus=Math.max(0,Math.abs(target.x)-rib);
+    const waistFold=smooth((low-.100)/.072)*(1-smooth((low-.165)/.070));
+    const underSleeve=1-smooth((outside-.048)/.090);
+    const sideCloth=1-smooth((Math.abs(p.rest.x)-Math.abs(shoulder[0])-.012)/.058);
+    // Let the tucked side cloth open back out as it enters the sash.
+    const aboveSash=smooth((target.y-.461)/.038);
+    target.x-=sideCloth*Math.sign(target.x)*.055*Math.tanh(surplus/.065)*waistFold*underSleeve*aboveSash;
     delta.addScaledVector(target.applyMatrix4(toCloth).sub(p.posed),pit);
    }
    skin.elements.fill(0);
