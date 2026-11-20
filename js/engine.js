@@ -2501,6 +2501,24 @@ function chCatOf(cats, want) {
   return c ? c.id : "";
 }
 // 频道首页那一摞：按分类分段（分类的先后照 space.cats；没分类的在「未分类」），段里照 chOrder 再照建的先后；归档的单独一摞
+// 「让他们聊一会儿」挑哪几个频道（她 2026-11-20「搞一个常驻可以补的按钮相当于让他们自己聊」）：
+//   归档的、一个角色都没有的不挑；刚聊过的（最近一条离现在近）机会小一点，冷着的大一点；随机挑，最多 n 个
+function spaceTalkPick(channels, chatsOf, memberCount, n, rnd, now) {
+  const R = rnd || Math.random, T = now || Date.now();
+  let pool = (channels || []).filter(g => g && !g.chArchived && memberCount(g) > 0).map(g => {
+    const ms = chatsOf(g.id) || []; let last = 0;
+    for (let i = ms.length - 1; i >= 0; i--) { const m = ms[i]; if (m && m.role !== "system") { last = m.ts || 0; break; } }
+    const idleH = last ? (T - last) / 3600000 : 48;
+    return { g, w: 1 + Math.min(4, idleH / 6) };
+  });
+  const out = [];
+  while (pool.length && out.length < (n || 3)) {
+    const sum = pool.reduce((a, o) => a + o.w, 0); let x = R() * sum, k = pool.length - 1;
+    for (let i = 0; i < pool.length; i++) { x -= pool[i].w; if (x <= 0) { k = i; break; } }
+    out.push(pool[k].g); pool.splice(k, 1);
+  }
+  return out;
+}
 function spaceCatGroups(channels, cats) {
   const live = (channels || []).filter(g => g && !g.chArchived), arch = (channels || []).filter(g => g && g.chArchived);
   const ord = (a, b) => ((a.chOrder != null ? a.chOrder : 1e15 + (a.createdTs || 0)) - (b.chOrder != null ? b.chOrder : 1e15 + (b.createdTs || 0))) || ((a.createdTs || 0) - (b.createdTs || 0));

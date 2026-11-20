@@ -43,3 +43,25 @@ test("接线：开频道字段、分类和归档界面、他手机里的空间�
   assert.match(pu, /"data-kind": "space", onClick: \(\) => setSpaceOpen\(sp\.id\)/);
   assert.match(en, /!x\.chSolo && !x\.chArchived\s*\n?\s*&& \(x\.memberIds/);
 });
+test("让他们聊一会儿：挑频道不挑归档和没角色的，最多 3 个，冷着的机会大", () => {
+  const fs = require("fs"), vm = require("vm"), en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const i = en.indexOf("function spaceTalkPick("), j = en.indexOf("\n}\n", i) + 3;
+  const ctx = {}; vm.createContext(ctx); vm.runInContext(en.slice(i, j) + ";this.f=spaceTalkPick;", ctx);
+  const now = 100 * 3600000;
+  const chs = [{ id: "a" }, { id: "b", chArchived: true }, { id: "c" }, { id: "d" }, { id: "e" }, { id: "empty" }];
+  const chats = { a: [{ role: "user", ts: now - 60000 }], c: [{ role: "user", ts: now - 48 * 3600000 }] };
+  const cnt = g => g.id === "empty" ? 0 : 1;
+  const got = ctx.f(chs, id => chats[id] || [], cnt, 3, () => 0.5, now).map(g => g.id);
+  assert.equal(got.length, 3);
+  assert.ok(!got.includes("b") && !got.includes("empty"));
+  // 刚聊过的 a 权重 1，冷着的 c 权重 5：随机取第一个时偏向 c
+  assert.equal(ctx.f([{ id: "a" }, { id: "c" }], id => chats[id] || [], cnt, 1, () => 0.5, now)[0].id, "c");
+});
+test("让他们聊一会儿接线：走 replyGroup，跑完记一张 x_spaceDigest", () => {
+  const ap = require("fs").readFileSync(__dirname + "/../js/app.js", "utf8");
+  const i = ap.indexOf("const talkSpace = async sp =>"), body = ap.slice(i, ap.indexOf("const deleteSpace = ", i));
+  assert.match(body, /spaceTalkPick\(/);
+  assert.match(body, /await replyGroup\(g\.id\)/);
+  assert.match(body, /saveJSON\("x_spaceDigest:" \+ sp\.id, out\)/);
+  assert.match(ap, /onTalk: \(\) => talkSpace\(sp\)/);
+});
