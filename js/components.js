@@ -23217,7 +23217,7 @@ function ChannelListenBar({ song, by, playing, onStop }) {
 }
 // 墙、歌单、账本、养的（她 2026-11-20「1-7都可以做」）：文件页里跟文档图片并排的四样；数据是这个频道那一份 x_chplay，
 //   onPlay(fn) 交回改好的那份。旁观的频道只能看，不能动（她不在场）
-function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, onPlaySong, onAskSongs }) {
+function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, onPlaySong, onAskSongs, nowSong }) {
   const [libOpen, setLibOpen] = useState(false);   // 从我的歌里挑（她 2026-11-20「歌单怎么没有选播放器里面的」）
   const t = useTheme();
   const [form, setForm] = useState({});
@@ -23241,6 +23241,9 @@ function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, o
     return wrap(
       spectate ? null : h("button", { "data-wk": "chsongadd", onClick: () => requestAppPrompt("往歌单里加一首", "写歌名，后面可以空一格写歌手。", "", v => { const x = String(v || "").trim(); if (!x) return; const [ti, ...ar] = x.split(/\s+/); onPlay(s0 => chpSongAdd(s0, ti, ar.join(" "), "me")); }, "加进去"), className: "active:opacity-60", style: { ...btn, marginBottom: 10 } }, "加一首"),
       !spectate ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 10 } },
+        // 正在听的那首直接放进来（她 2026-11-20）
+        nowSong ? h("button", { "data-wk": "chsongnow", disabled: (st.playlist || []).some(y => y.title === nowSong.title), onClick: () => onPlay(s0 => chpSongAdd(s0, nowSong.title, nowSong.artist || "", "me")), className: "active:opacity-60 disabled:opacity-40", style: btn },
+          (st.playlist || []).some(y => y.title === nowSong.title) ? "正在听的已在歌单" : "♪ 把正在听的《" + String(nowSong.title).slice(0, 12) + "》加进来") : null,
         (myLib || []).length ? h("button", { "data-wk": "chsonglib", onClick: () => setLibOpen(v => !v), className: "active:opacity-60", style: btn }, libOpen ? "收起我的歌" : "从我的歌里挑") : null,
         onAskSongs ? h("button", { "data-wk": "chsongask", onClick: onAskSongs, className: "active:opacity-60", style: btn }, "让他们各挑一首") : null) : null,
       libOpen ? h("div", { "data-wk": "chsonglist", style: { ...card, maxHeight: 260, overflowY: "auto", marginBottom: 10 } }, (myLib || []).slice(0, 200).map(x => {
@@ -23396,7 +23399,7 @@ function ChfImagePage({ file, nameOf, onRename, onDesc, onDelete, onClose, onRec
       h("button", { "data-wk": "chfdelete", onClick: () => requestAppConfirm("删掉「" + file.name + "」？", "这张图从频道文件里删掉，删了找不回来。", onDelete, "删掉"), className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#c0453a" } }, "删掉")));
 }
 // 文件那一页：顶栏同聊天那页（频道名），底下索引签，再下面一列文件
-function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, openId, onOpened, msgs, spectate, whoOf, onJump, onRecall, play, onPlay, people, playTab, myLib, onPlaySong, onAskSongs }) {
+function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, openId, onOpened, msgs, spectate, whoOf, onJump, onRecall, play, onPlay, people, playTab, myLib, onPlaySong, onAskSongs, nowSong }) {
   const t = useTheme();
   const [open, setOpen] = useState(null);
   const [sub, setSub] = useState("doc");   // 文档｜图片
@@ -23429,7 +23432,7 @@ function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, op
         style: { minHeight: 36, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sub === k ? t.ink : t.fog, borderBottom: "2px solid " + (sub === k ? t.ink : "transparent"), background: "transparent" } }, zh)))];
   if (play && playTab) return h("div", { "data-wk": "chfpage", "data-part": playTab, className: "h-full flex flex-col", style: { background: t.bg2 || t.bg } },
     h(Head, { zh: group.chName ? "#" + group.chName : group.name, sub: ({ wall: "墙", songs: "歌单", ledger: "账本", pet: "养的" })[playTab], onBack }), h(ChannelTabs, { tab: playTab, onTab }),
-    h(ChannelPlayView, { sub: playTab, play, onPlay, nameOf, spectate, people, myLib, onPlaySong, onAskSongs }));
+    h(ChannelPlayView, { sub: playTab, play, onPlay, nameOf, spectate, people, myLib, onPlaySong, onAskSongs, nowSong }));
   return h("div", { "data-wk": "chfpage", className: "h-full flex flex-col", style: { background: t.bg2 || t.bg } }, ...pageTop,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { background: t.bg, paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" } },
       h("div", { className: "flex flex-wrap gap-2", style: { padding: "14px 14px 6px" } },
