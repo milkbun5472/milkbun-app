@@ -500,7 +500,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
     h("div", { className: "shrink-0" },
       h(Head, { zh: "邮件" + (unreadN ? " · " + unreadN + " 封未读" : ""), sub: S(me.addr),
         bg: "transparent", noLine: true, ink: MAIL_INK, subInk: MAIL_DIM, onBack,
-        right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 38, height: 38 } }, h(IRefresh, { size: 17, color: MAIL_INK })) }),
+        right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: MAIL_INK, name: ((char && (char.remark || char.name)) || "TA") + "的邮件" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 38, height: 38 } }, h(IRefresh, { size: 17, color: MAIL_INK }))) }),
       // ── 三页＝吊挂文件夹的标签舌（tabs-not-plain-pills）─────────────
       //   原来是三颗白药丸分段：那是 iOS 的通用控件，搬到任何 app 里都成立。
       //   信箱现实里是几个夹子，夹子的舌是【梯形】——两侧斜切、宽度按名字走、
@@ -805,7 +805,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
     // ⚠️封皮这一块【不许再自己垫 safeTop】：刘海归 Head 让，两层都让就顶出去一截
     h("div", { className: "shrink-0", style: { background: TALLY_INK } },
       h(Head, { zh: "账簿", bg: "transparent", noLine: true, ink: TALLY_BG, onBack,
-        right: onRefresh ? h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_BG })) : null }),
+        right: onRefresh ? h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: TALLY_BG, name: ((char && (char.remark || char.name)) || "TA") + "的账本" }), h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_BG }))) : null }),
       // ── 五栏＝账簿边上伸出来的索引标签（v59.65）─────────────────
       // 她 2026-09-01：「这几个tab药丸形状还是有点普通」。
       // 药丸是哪儿都能用的那一种，换个 app 照样成立——按她那条老判据就是写坏了。
@@ -2154,7 +2154,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
   const palOf = i => READ_PALETTES[i % READ_PALETTES.length];
   const chrome = h(Head, { zh: tab === "shelf" ? "书架" : "阅读档案", bg: READ_BG, noLine: true, ink: READ_INK, onBack,
     right:
-    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演书架", className: "active:opacity-50 disabled:opacity-35 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: READ_INK })) });
+    h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: READ_INK, name: ((char && (char.remark || char.name)) || "TA") + "的书架" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演书架", className: "active:opacity-50 disabled:opacity-35 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: READ_INK }))) });
   // 书脊：深底上一律浅色书脊配深字——保证每一架都看得清，也不会有哪一架糊进背景
   const spineStyle = (pal, w, ht) => ({
     width: w, height: ht, borderRadius: "3px 8px 8px 3px", position: "relative", overflow: "hidden",
@@ -2637,7 +2637,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     noLine: true,
     ink: SHOP_INK,
     onBack: onBack,
-    right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: SHOP_INK })) });
+    right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: SHOP_INK, name: ((char && (char.remark || char.name)) || "TA") + "的购物" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: SHOP_INK }))) });
   // ── 详情：整页，不是半窗（no-half-sheet）───────────────────────────
   // 原来是从底下掀起来的半窗。这一层的正文是TA为什么想买这样东西——
   // 那是这一格的命，从来不是三行能说完的，也不需要同时看见底下那一列。
@@ -3072,7 +3072,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     noLine: true,
     ink: TAKE_INK,
     onBack: onBack,
-    right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: TAKE_INK })) });
+    right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: TAKE_INK, name: ((char && (char.remark || char.name)) || "TA") + "的外卖" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: TAKE_INK }))) });
   const nav = h("div", {
     className: "shrink-0 grid",
     style: { gridTemplateColumns: "repeat(" + PAGES.length + ",minmax(0,1fr))", padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.97)", borderTop: "1px solid #eae6df" }
@@ -3163,6 +3163,41 @@ const healthGroupOf = c => {
   const hit = Object.keys(HEALTH_GROUP_ALIAS).find(w => raw.indexOf(w) >= 0);
   return hit ? HEALTH_GROUP_ALIAS[hit] : "body";
 };
+// ── 整页存图（她 2026-11-20：「一个个弄了，合适的话；相册论坛这种不用」）─────────────
+//   查手机里那些页（邮件、账本、购物、外卖、日历、便签……）顶栏刷新键左边一颗「存图」：把这一页能往下翻的整段内容
+//   一次画成一张长图，进相册。只此一份：每个 app 只是摆这颗按钮，怎么截、怎么存都在这儿。
+//   截图库 vendor/modern-screenshot.js（MIT）点了才去载，平时不占开机。健康那一档档化验单另有自己的单张存法。
+let _shotLib = null;
+function loadShotLib() {
+  if (window.modernScreenshot) return Promise.resolve(window.modernScreenshot);
+  if (_shotLib) return _shotLib;
+  _shotLib = new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "vendor/modern-screenshot.js"; sc.onload = () => window.modernScreenshot ? ok(window.modernScreenshot) : no(new Error("截图组件没载上")); sc.onerror = () => { _shotLib = null; no(new Error("截图组件没载上，网不好再点一次")); }; document.head.appendChild(sc); });
+  return _shotLib;
+}
+// 从按钮往上找这一页，再在页里挑能滚的那一块里最长的那个——那就是这一页的正文
+function phoneShotTarget(btn) {
+  let page = btn; for (let i = 0; i < 8 && page && page.parentElement; i++) page = page.parentElement;
+  const all = page ? Array.from(page.querySelectorAll("*")) : [];
+  let best = null;
+  all.forEach(el => { const st = getComputedStyle(el); if (/(auto|scroll)/.test(st.overflowY) && el.scrollHeight > 40 && (!best || el.scrollHeight > best.scrollHeight)) best = el; });
+  return best;
+}
+async function savePhoneScreen(btn, name) {
+  const el = phoneShotTarget(btn);
+  if (!el) throw new Error("这一页没找到能存的内容");
+  const lib = await loadShotLib();
+  let bg = "#ffffff"; for (let n = el; n; n = n.parentElement) { const c = getComputedStyle(n).backgroundColor; if (c && !/rgba\(0, 0, 0, 0\)|transparent/.test(c)) { bg = c; break; } }
+  const url = await lib.domToPng(el, { width: el.clientWidth, height: el.scrollHeight, scale: 2, backgroundColor: bg,
+    style: { height: el.scrollHeight + "px", maxHeight: "none", overflow: "visible" } });
+  const ok = window.saveImgOriginal && await window.saveImgOriginal(url, name);
+  if (!ok) throw new Error("没存下来，再点一次");
+}
+function PhoneShotBtn({ color, name }) {
+  const [busy, setBusy] = useState(false);
+  return h("button", { "data-wk": "phoneshot", "aria-label": "这一页存成图", disabled: busy, className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center",
+    onClick: async e => { const b = e.currentTarget; setBusy(true); try { await savePhoneScreen(b, name); } catch (er) { if (typeof window.__toast === "function") window.__toast("存图失败：" + ((er && er.message) || er)); } finally { setBusy(false); } },
+    style: { minWidth: 36, height: 36, padding: "0 4px", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: color } }, busy ? "…" : "存图");
+}
 // 健康那一张化验单存成图（群友 2026-11-20 许愿「健康可以保存或者存图，查手机的时候一直在疯狂截图」）：
 //   照屏幕上那张单子的样子在画布上重画一遍——一档一张，抬头、项目、结果、注、小字分解都在
 function healthSheetImage(name, title, list) {
@@ -3530,7 +3565,7 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
             skin: { ink: BILI_INK, dim: BILI_DIM, soft: "#f1f2f3", accent: BILI_PINK } })
         : h("div", { className: "flex-1 min-w-0 flex items-center", style: { height: 32, borderRadius: 99, background: "#f1f2f3", padding: "0 13px" } },
             h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: BILI_DIM } }, "搜索")),
-      h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 34, height: 34 } }, h(IRefresh, { size: 17, color: BILI_INK }))),
+      h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: BILI_INK, name: ((char && (char.remark || char.name)) || "TA") + "的视频" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 34, height: 34 } }, h(IRefresh, { size: 17, color: BILI_INK })))),
     // TA自己的账号条：昵称 + 等级 + UID（她 2026-08-29 说找不到，原来只藏在搜索框占位里）
     (me.name || me.uid) ? h("div", { className: "flex items-center px-3 pb-2.5", style: { gap: 10 } },
       h("div", { style: { width: 34, height: 34, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + BILI_PINK + "," + BILI_BLUE + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, String(me.name || char.name || "?").trim().slice(0, 1)),
@@ -3609,7 +3644,7 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, driv
       noLine: true,
       ink: INK,
       onBack: onBack,
-      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: INK })) }),
+      right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: INK, name: ((char && (char.remark || char.name)) || "TA") + "的深夜" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: INK }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 24px" } },
       (me.lastAt || me.note) ? h("div", { style: { padding: "10px 0 16px", borderBottom: "1px solid rgba(232,227,230,.08)", marginBottom: 4 } },
         (me.uid || me.lastAt) ? h("div", { className: "flex items-center justify-between" },
@@ -3805,7 +3840,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
           style: { fontFamily: F_DISPLAY, fontSize: i === chan ? 16 : 14, color: i === chan ? PLAZA_INK : "#b0b0b8", padding: "3px 2px", borderBottom: i === chan ? "2px solid " + PLAZA_RED : "2px solid transparent" }
         }, c)))
       : searchPill ? null : h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: PLAZA_INK } }, page.zh),
-    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: PLAZA_INK })));
+    h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: PLAZA_INK, name: ((char && (char.remark || char.name)) || "TA") + "的广场" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: PLAZA_INK }))));
   // ⚠️整页要【顶掉】列表，不是浮在它上面——所以在这儿 return，
   // 而且必须排在所有 hook 后面（提前 return 的组件里 hook 一律排最前，见 #310 那次教训）。
   if (detailPage) return detailPage;
@@ -3911,7 +3946,7 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
       noLine: true,
       ink: CAL_INK,
       onBack: onBack,
-      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CAL_INK })) }),
+      right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: CAL_INK, name: ((char && (char.remark || char.name)) || "TA") + "的日历" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CAL_INK }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 14px 22px" } },
       h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: 18, padding: "14px 12px 10px", marginBottom: 16 } },
         // 翻月那一行（她 2026-09-06 要的「能不能换月份显示之前的和之后的」）
@@ -4033,7 +4068,7 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
       noLine: true,
       ink: "#4a4438",
       onBack: onBack,
-      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: "#4a4438" })) }),
+      right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: "#4a4438", name: ((char && (char.remark || char.name)) || "TA") + "的便签" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: "#4a4438" }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 14px 26px" } },
       items.length
         ? h("div", { className: "grid grid-cols-2", style: { gap: 13, alignItems: "start" } },
@@ -4182,7 +4217,7 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
       noLine: true,
       ink: CLIP_DESKINK,
       onBack: onBack,
-      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CLIP_DESKINK })) }),
+      right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: CLIP_DESKINK, name: ((char && (char.remark || char.name)) || "TA") + "的剪贴板" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CLIP_DESKINK }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 18px 28px" } },
       items.length ? [sec("差一点就发出去", held, true), sec("复制过的", sent, false)]
         : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(240,238,232,.35)" } }, "剪贴板是空的")),
@@ -4391,7 +4426,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
                 h("span", { "aria-hidden": "true", style: { display: "inline-block", width: 1.5, height: 13, marginLeft: 1, verticalAlign: "-2px", background: BR_BLUE, animation: "wkcaret 1s steps(2) infinite" } }))
             : h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#55555c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                 me.name ? me.name + (me.uid ? " · " + me.uid : "") : (char.remark || char.name) + " 的浏览器")),
-        h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: BR_INK }))),
+        h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: BR_INK, name: ((char && (char.remark || char.name)) || "TA") + "的浏览器" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: BR_INK })))),
       // ── 四页＝浏览器的标签条（tabs-not-plain-pills）──────────────────
       //   原来是四颗白药丸分段：那是 iOS 的通用控件，搬到任何 app 里都成立。
       //   标签条不一样：上圆下方、贴着页边，选中那张【跟底下的页面连成一片】
@@ -4616,7 +4651,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   return h("div", { className: "h-full min-h-0 flex flex-col relative", "data-wk": "papp", "data-app": "calls", style: { background: CALL_BG } },
     h(Head, { zh: page.zh, bg: "transparent", noLine: true, ink: CALL_INK, onBack,
-      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: CALL_INK })) }),
+      right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: CALL_INK, name: ((char && (char.remark || char.name)) || "TA") + "的通话" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: CALL_INK }))) }),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 14px 22px" } }, PTX(page.body)),
     // ── 四页＝电话 app 底下那条图标栏（tabs-not-plain-pills）──────────
     //   原来是顶上四颗白药丸：那是 iOS 的通用分段控件，搬到任何 app 里都成立。
