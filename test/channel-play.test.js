@@ -100,3 +100,8 @@ test("小家伙：拍照只她能按、存进图片栏；送走收进养过的�
   assert.match(cs, /pet\.photo \? h\(ChfImg, \{ k: pet\.photo/);
   assert.match(cs, /function ChfImg\(\{ k, style \}\) \{[\s\S]{0,200}useIdbImgUrl\(isIdb \? k : null\)/);
 });
+test("小家伙页她能喂它、陪它玩，各一天一次", () => {
+  const cs = require("fs").readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.match(cs, /\[\["feed", "喂它", "喂食"\], \["play", "陪它玩", "陪它玩"\]\]/);
+  assert.match(cs, /chpBump\(s0, "care_" \+ k, "me"\)/);
+});

@@ -23308,6 +23308,9 @@ function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, o
         h("div", { style: { ...small, marginTop: 8 } }, (pet.fondest ? "最近最黏 " + nm(pet.fondest) : "还没跟谁特别亲") + (pet.last ? " · 上次 " + nm(pet.last.by) + " 来" + pet.last.action : " · 还没人照顾过")),
         pet.neglectDays >= 3 ? h("div", { "data-wk": "chpetneglect", style: { ...small, color: t.tint, marginTop: 6 } }, "已经 " + pet.neglectDays + " 天没人管它了，蔫蔫的，去照顾一下吧。它不会死，只是一直这样。") : null,
         h("div", { className: "flex flex-wrap gap-4", style: { marginTop: 10 } },
+          // 她自己喂、陪它玩（她 2026-11-20「加吧」）：各一天一次，跟顶上「照顾一下」分开算
+          ...(!spectate ? [["feed", "喂它", "喂食"], ["play", "陪它玩", "陪它玩"]].map(([k, zh, act]) => chpCount(st, "care_" + k, "me") >= 1 ? h("span", { key: k, "data-wk": "chpetact", "data-part": k, style: { color: t.fog } }, zh + "过了") :
+            h("span", { key: k, "data-wk": "chpetact", "data-part": k }, tap(zh, () => onPlay(s0 => { if (!s0.pet) return s0; s0.pet = chpCare(s0.pet, act, "me", Date.now()); chpBump(s0, "care_" + k, "me"); return s0; })))) : []),
           !spectate && onPetPhoto ? tap(busy ? "在拍…" : "给它拍一张", () => { if (!busy) onPetPhoto(); }) : null,
           !spectate && onAskPetName ? tap("让大家给它起个名", () => { onPlay(s0 => { if (s0.pet) s0.pet = { ...s0.pet, naming: true }; return s0; }); onAskPetName(); }) : null,
           tap("改名字", () => requestAppPrompt("改个名字", "", pet.name, v => { const x = String(v || "").trim(); if (x) onPlay(s0 => { s0.pet = { ...s0.pet, name: x.slice(0, 12), naming: false }; return s0; }); }, "改")),
