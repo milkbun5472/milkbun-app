@@ -55,3 +55,9 @@ test("歌单能从她的歌库挑、点「放这首」走播放器、「让他�
   assert.match(ap, /onAskSongs: groupSpectating\(_g\) \? null : \(\) => \{ window\.__chAskSongs = _g\.id; setChannelTab\("chat"\); replyGroup\(_g\.id\); \}/);
   assert.match(ap, /if \(window\.__chAskSongs === groupId\) \{ window\.__chAskSongs = null;/);
 });
+test("歌单一天十首；小家伙能先不起名，让大家定一个", () => {
+  const fs = require("fs"), en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+  assert.match(en, /const CHP_CAP = \{ rename: 1, note: 4, song: 10, pins: 3 \};/);
+  assert.match(ap, /if \(item\.petName && _st\.pet && _st\.pet\.naming\)/);
+  assert.match(ap, /onAskPetName: groupSpectating\(_g\) \? null :/);
+});

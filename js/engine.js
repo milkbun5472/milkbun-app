@@ -2464,7 +2464,7 @@ function chfDiffSummary(before, after) {
 // 表情回应、改频道名、置顶、便利贴墙、共享歌单、小账本、养个东西：只此一份纯函数，界面和回复落地都问这里。
 //   一个频道一份 x_chplay:<群id>（表情回应挂在消息自己身上，改名走频道本来那条路）。
 const CHP_EMOJI = ["😂", "👍", "❤️", "🙄", "😭", "😳", "🤔", "👀"];
-const CHP_CAP = { rename: 1, note: 4, song: 3, pins: 3 };
+const CHP_CAP = { rename: 1, note: 4, song: 10, pins: 3 };
 function chpEmpty() { return { pins: [], notes: [], playlist: [], ledger: [], pet: null, day: "", cnt: {} }; }
 function chpNorm(st, day) {
   const s = Object.assign(chpEmpty(), st && typeof st === "object" ? st : {});

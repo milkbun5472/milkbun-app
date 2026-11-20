@@ -17004,6 +17004,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (window.__chAskSongs === groupId) { window.__chAskSongs = null; can.push("她刚才想让大家各往歌单里放一首自己想听的：这一轮谁想放，就用上面的 song 写进去，可以顺嘴说一句为什么挑这首"); }
         if (st.playlist.length) can.push("\"skip\":{\"title\":\"歌单里那首的歌名\"}——投票想切掉它");
         can.push("\"ledger\":{\"payer\":\"谁付的钱\",\"amount\":数字,\"for\":\"买了什么\",\"among\":[\"这笔钱算在谁头上（名字）\"]}、\"settle\":{\"from\":\"欠钱的人\",\"to\":\"收钱的人\"}——频道里的小账本，不碰谁的钱包");
+        if (st.pet && st.pet.naming) can.push("\"petName\":{\"name\":\"名字\"}——频道里养的" + (st.pet.kind || "那个小家伙") + "还没名字，她想让大家给它起一个：各自提、互相挑，觉得定下来了就由一个人用 petName 写进去");
         if (st.pet) can.push("\"care\":{\"action\":\"浇水/喂食/陪它玩\"}——照顾频道里养着的「" + st.pet.name + "」，每人一天一次");
         return have + "\n【频道里还能这样动】谁想动，就在他自己那条发言里加上对应的字段，一轮里几个人可以各动各的：\n· " + can.join("\n· ") + (tree ? "\n（树洞里大家都是代号，动了什么也只显示代号。）" : "");
       })() : "";
@@ -17722,7 +17723,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             } catch (e) {}
           }
           // 频道里一起摆弄的小东西（她 2026-11-20「1-7都可以做」）：表情回应、改名、置顶、便利贴、歌单、小账本、养的东西
-          if (group && group.spaceId && spk && (item.react || item.rename || item.pin || item.unpin || item.note || item.scribble || item.tear || item.song || item.skip || item.ledger || item.settle || item.care)) {
+          if (group && group.spaceId && spk && (item.react || item.rename || item.pin || item.unpin || item.note || item.scribble || item.tear || item.song || item.skip || item.ledger || item.settle || item.care || item.petName)) {
             try {
               const _st = chpOf(groupId), _ms = groupChatsRef.current[groupId] || [], _sp = (spaces || []).find(x => x && x.id === group.spaceId), _spect = groupSpectating(group);
               const _idOf = n => { const t = String(n || "").trim(); if (!t) return ""; if (t === userName(profile) || t === "她" || t === "我们的她") return "me"; const c = members.find(x => x.name === t || x.remark === t); return c ? c.id : t; };
@@ -17743,6 +17744,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               if (item.ledger && typeof item.ledger === "object") { const n0 = _st.ledger.length; chpLedgerAdd(_st, { payer: _idOf(item.ledger.payer) || spk.id, amount: item.ledger.amount, for: item.ledger.for, among: (Array.isArray(item.ledger.among) ? item.ledger.among : []).map(_idOf).filter(Boolean), by: spk.id }); if (_st.ledger.length > n0) _say(spk.name + " 记了一笔账"); }
               if (item.settle && typeof item.settle === "object") { const f = _idOf(item.settle.from), t2 = _idOf(item.settle.to); if (f && t2) { chpSettle(_st, f, t2); _say(spk.name + " 记下：两个人这笔结清了"); } }
               if (item.care && _st.pet && chpCount(_st, "care", spk.id) < 1) { _st.pet = chpCare(_st.pet, typeof item.care === "object" ? item.care.action : item.care, spk.id, Date.now()); chpBump(_st, "care", spk.id); _say(spk.name + " 去照顾了「" + _st.pet.name + "」"); }
+              // 给养的起名（她 2026-11-20「花调用让大家选一个」）：还没定名的时候，谁先把大家挑好的那个写进来就定下
+              if (item.petName && _st.pet && _st.pet.naming) { const _pn = String(typeof item.petName === "object" ? item.petName.name : item.petName || "").trim().slice(0, 12);
+                if (_pn) { _st.pet = { ..._st.pet, name: _pn, naming: false }; _say(spk.name + " 说大家定了，它就叫「" + _pn + "」"); } }
               chpPut(groupId, _st);
             } catch (e) {}
           }
@@ -39315,6 +39319,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       myLib: ((listenRef.current || {}).songs || []).filter(x => x && x.title).map(x => ({ id: x.id, title: x.title, artist: x.artist || "" })),
       onPlaySong: x => { const L = listenRef.current || {}; const song = (L.songs || []).find(y => y && y.title === x.title); if (song) playSong(song); },
       onAskSongs: groupSpectating(_g) ? null : () => { window.__chAskSongs = _g.id; setChannelTab("chat"); replyGroup(_g.id); },
+      onAskPetName: groupSpectating(_g) ? null : () => { setChannelTab("chat"); replyGroup(_g.id); },
       // 墙、歌单、账本、养的（她 2026-11-20）：这个频道那一份 x_chplay
       play: (chPlayRev, chpOf(_g.id)), onPlay: fn => { const s2 = fn(chpOf(_g.id)) || chpOf(_g.id); chpPut(_g.id, s2); },
       people: (_g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => ({ id: c.id, name: c.remark || c.name })),
