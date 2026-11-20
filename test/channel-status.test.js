@@ -37,3 +37,10 @@ test("成员页「我的状态」那一排在窄屏上不撑破：输入框 minW
   assert.match(body, /placeholder: "挂一句", className: "flex-1 outline-none", style: \{ minWidth: 0, width: 0/);
   assert.match(body, /flexShrink: 0, whiteSpace: "nowrap" \} \}, "挂上"/);
 });
+test("成员页一行不撑宽：名字一行，在哪／在干嘛另起一行截断", () => {
+  const cs = require("fs").readFileSync(__dirname + "/../js/components.js", "utf8");
+  const i = cs.indexOf("function SpaceMembersPage("), j = cs.indexOf("function SpaceMeetPage(", i);
+  const body = cs.slice(i, j);
+  assert.match(body, /"data-wk": "memberwhere", className: "truncate"/);
+  assert.doesNotMatch(body, /where\(p\)\)\),/);
+});

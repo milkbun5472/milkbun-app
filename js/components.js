@@ -23685,9 +23685,9 @@ function SpaceMembersPage({ space, people, presence, statuses, herName, onMyStat
       return h("div", { key: c.id, "data-wk": "memberrow", "data-part": p ? p.k : "", className: "flex items-center gap-3", style: { padding: "10px 0", borderBottom: "1px solid " + t.line } },
         h("span", { style: { position: "relative", display: "inline-flex", flexShrink: 0 } }, h(Avatar, { character: c, size: 38, radius: 999 }), h(PresenceDot, { p, size: 11, ring: t.bg2 })),
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { className: "flex items-baseline gap-2" },
-            h("span", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name),
-            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: p ? PRESENCE_COLOR[p.k] : t.fog, flexShrink: 0 } }, where(p))),
+          // 名字一行、在哪／在干嘛另起一行截断（她 2026-11-20「这个又撑爆了」：日程那句很长，原来跟名字挤一行还不许缩，把名字挤没了、整页撑宽）
+          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name),
+          where(p) ? h("div", { "data-wk": "memberwhere", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: p ? PRESENCE_COLOR[p.k] : t.fog, marginTop: 1 } }, where(p)) : null,
           st ? h("div", { "data-wk": "memberstatus", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 2 } }, st) : null)); }));
 }
 // 空间里直接出去见一面（她 2026-11-20「我是说这里可以直接线下」）：挑这回谁来，写一句在哪儿见，开始就进群线下
