@@ -214,7 +214,8 @@ function ScreenBoundaryClass() {
 //   论坛、一起听、备忘录、手记都拿掉了：主屏一路找过去最容易点错，也没翻出过一句戳人的心声。
 const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"], ["moments", "我的朋友圈"], ["daily", "日常联系人（照我的人设自动编几个：同事、家人、群）"]];
 if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
-function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock, vclock, onVClock, onOpenApi }) {
+function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock, vclock, onVClock, onOpenApi, onGo }) {
+  const [scs, setScs] = useState(() => { const v = loadJSON("x_floatShortcuts", []); return Array.isArray(v) ? v.slice(0, 6) : []; }), [scEdit, setScEdit] = useState(false);
   const t = useTheme();
   const [open, setOpen] = useState(false);
   // 三档收着，点哪一档才摊开哪一档（她 2026-09-22：「点开悬浮球是三项收着的
@@ -364,6 +365,38 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
       onOpenApi ? h("button", { "data-wk": "modelfloatapi", onClick: () => { setOpen(false); onOpenApi(); }, className: "w-full active:opacity-60",
         style: { marginTop: 8, minHeight: 38, padding: "7px 8px", borderRadius: 10, border: "1px dashed " + t.line, background: "transparent",
           fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, textAlign: "center" } }, "去模型设置改线路 ›") : null) : null,
+    // ── 外圈快捷入口（她 2026-11-20「悬浮球点开外圈弹出几个自定义快捷入口，随时能改」）──
+    //   点开旋钮时，沿着屏幕边在它上下排开：你挑的最多 6 个，最后一颗「✎」改；面板在里侧，不挡
+    (() => {
+      if (!open || !onGo) return null;
+      const reg = (typeof window !== "undefined" && window.__homeReg) || {};
+      const appsAll = [["messages", "信息"], ["forum", "论坛"], ["diary", "日记"], ["config", "设置"]].concat(Object.keys(reg).filter(k => reg[k] && reg[k].kind === "app" && reg[k].zh).map(k => [k, reg[k].zh]));
+      const zhOf = k => (appsAll.find(x => x[0] === k) || [k, k])[1];
+      const items = scs.filter(k => appsAll.some(x => x[0] === k)).map(k => ({ k, zh: zhOf(k) })).concat([{ k: "__edit", zh: "✎ 改" }]);
+      const hh = window.innerHeight || 800, cy = (drag ? drag.y : (pos ? Math.min(Math.max(pos.top, 70), Math.max(70, hh - 130)) : hh * 0.42) + 23), slots = [];
+      for (let d = 1; slots.length < items.length && d < 12; d++) [cy - d * 50, cy + d * 50].forEach(y => { if (slots.length < items.length && y > 50 && y < hh - 70) slots.push(y); });
+      return items.map((it, i) => h("button", { key: it.k, "data-wk": it.k === "__edit" ? "modelfloatscedit" : "modelfloatsc",
+        onClick: () => { if (it.k === "__edit") { setScEdit(true); return; } setOpen(false); onGo(it.k); }, className: "active:opacity-70",
+        style: Object.assign({ position: "fixed", zIndex: 92, top: (slots[i] || cy) - 23, width: 50, height: 46, padding: "0 3px", borderRadius: 23, lineHeight: 1.15, background: t.bg2, color: it.k === "__edit" ? t.fog : t.ink,
+          border: "1px solid " + t.line, boxShadow: "0 4px 12px rgba(0,0,0,.16)", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", overflow: "hidden", wordBreak: "break-all" },
+          side === "left" ? { left: 10 } : { right: 10 }) }, it.k === "__edit" ? "✎" : it.zh.slice(0, 4)));   // 一列跟旋钮同宽，不压到里侧的面板
+    })(),
+    // 改快捷：勾哪些、按点的先后排，最多 6 个；改完立刻生效
+    scEdit ? (() => {
+      const reg = (typeof window !== "undefined" && window.__homeReg) || {};
+      const appsAll = [["messages", "信息"], ["forum", "论坛"], ["diary", "日记"], ["config", "设置"]].concat(Object.keys(reg).filter(k => reg[k] && reg[k].kind === "app" && reg[k].zh).map(k => [k, reg[k].zh]));
+      const save = v => { setScs(v); saveJSON("x_floatShortcuts", v); };
+      return h("div", { "data-wk": "modelfloatscsheet", onClick: () => setScEdit(false), style: { position: "fixed", inset: 0, zIndex: 95, background: "rgba(0,0,0,.35)", display: "flex", alignItems: "flex-end", justifyContent: "center" } },
+        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 480, maxHeight: "72vh", overflowY: "auto", padding: "16px 16px calc(16px + env(safe-area-inset-bottom, 0px))", borderRadius: "18px 18px 0 0", background: t.bg2 } },
+          h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "旋钮外圈的快捷入口"),
+            h("button", { onClick: () => setScEdit(false), style: { minHeight: 36, padding: "0 10px", color: t.ink, fontFamily: F_BODY } }, "好了")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 10 } }, "点一下加上、再点一下去掉，最多 6 个，按点的先后排（" + scs.length + " / 6）。"),
+          h("div", { className: "flex flex-wrap", style: { gap: 8 } }, appsAll.map(([k, zh]) => { const at = scs.indexOf(k);
+            return h("button", { key: k, "data-wk": "modelfloatscpick", "data-on": at >= 0 ? "1" : "0", onClick: () => at >= 0 ? save(scs.filter(x => x !== k)) : scs.length < 6 ? save(scs.concat([k])) : (window.__toast && window.__toast("最多 6 个，先去掉一个")),
+              style: { minHeight: 36, padding: "0 12px", borderRadius: 18, border: "1px solid " + (at >= 0 ? t.ink : t.line), background: at >= 0 ? t.ink : "transparent", color: at >= 0 ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
+              (at >= 0 ? (at + 1) + " · " : "") + zh); }))));
+    })() : null,
     h("div", { style: Object.assign({ position: "fixed", zIndex: 90, display: "flex", alignItems: "center", gap: 8 }, anchor) },
     // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）──────────────────
     // 原来是一颗近黑的圆 + 一圈白边 + 一个等宽字体的 ⇄：那是随便哪个 app 都有的
@@ -39098,6 +39131,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     idOf: who => { const x = (characters || []).find(c => c.remark === who || c.name === who); if (x) return x.id; const g = (groupsRef.current || []).find(g => g && g.name === who); return g ? g.id : null; },
     selfName: (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || (((characters || []).find(x => x.id === peekPlay.charId) || {}).name) || ""
   }), modelFloatOn && h(ModelQuickSwitch, {
+    // 外圈的快捷入口（她 2026-11-20）：跟主屏点图标去的是同一处
+    onGo: k => { if (k === "listen") goListen(null); else setScreen(k); },
     // 面板里「去模型设置」：直接落到 设置 → 模，返回回到现在这一页
     onOpenApi: () => { setConfigBack({ screen }); setConfigPage("api"); setScreen("config"); },
     profiles: apiProfiles,
