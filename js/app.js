@@ -2590,6 +2590,9 @@ function App() {
     state.revision = Number(state.revision || 0) + 1; state.updatedTs = Date.now();
     const saved = await window.InnerLifeAShadow.put(ownerId, activeChar.id, state);
     if (!saved) { toast("性情锚点保存失败"); return false; }
+    // 存完当场换掉聊天里喂的那份和想念速率读的那份（群友 2026-11-20：词删光了存下，他下一句还带着旧底色）
+    try { aMoodRef.current[activeChar.id] = window.DongnianEmotionA.displayProjection(saved).text; } catch (e) {}
+    try { dongnianTemperRef.current[activeChar.id] = saved.emotion.temperament; } catch (e) {}
     setTemperamentDraft(saved.emotion.temperament); setAShadowPanel(p => ({ ...(p || {}), state: saved, projection: window.DongnianEmotionA.displayProjection(saved) })); toast("性情锚点已由你确认 · 只存 A 影子库"); return true;
   };
   // A 的情绪底色镜像（v62.39）：ctxFor 是同步的，而 A 的状态在 IndexedDB（异步）。
