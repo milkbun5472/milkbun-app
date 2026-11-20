@@ -2688,6 +2688,29 @@ function peekSpaceBlock(rows, spaceName, line) {
 // herLast：她最近那一句（她 2026-11-20：「搞了个今晚吃啥的文件，说看看今晚吃啥，没人去改文件，都是在聊今晚吃啥」）——
 //   她嘴里提到的那份就是这个文件；说清这一层，他们才知道她要的是在文件里动笔，不是在聊天里聊这件事
 // 认名字放宽一点：名字里去掉标点空格以后整段出现，或者名字有四个字以上、其中连着的三个字出现，都算提到了
+// 频道「文件 · 图片」那一栏（她 2026-11-20「发出去和生成的图片可以放那里，也可以被重新聊天召回」）：
+//   不另存一份图，只把聊天里出现过的图的引用（imageRef / 问卷图 / 通话画面）和上传进来的图收成一列；同一张只算一次
+//   msgs：这个频道的聊天；files：x_chfiles 那一份。回 [{ ref, from:"chat"|"file", who:{role,senderId,senderName}, ts, desc, fileId?, gen? }]，新的在前
+function chfGallery(msgs, files) {
+  const out = [], seen = new Set();
+  const add = (ref, row) => { const r = String(ref || ""); if (!r || seen.has(r) || !/^(iv_|img_|data:image\/|https?:)/.test(r)) return; seen.add(r); out.push(Object.assign({ ref: r }, row)); };
+  (Array.isArray(msgs) ? msgs : []).forEach(m => {
+    if (!m || m.recalled) return;
+    const who = { role: m.role, senderId: m.senderId || null, senderName: m.senderName || null };
+    const base = { from: "chat", who, ts: m.ts || 0, gen: m.role !== "user" && m.photoMode !== "real" };
+    if (m.imageRef) add(m.imageRef, Object.assign({ desc: String(m.desc || "").trim() }, base));
+    if (m.ask && m.ask.imageRef) add(m.ask.imageRef, Object.assign({ desc: String(m.ask.q || m.ask.title || "").trim() }, base));
+    (Array.isArray(m.shots) ? m.shots : []).forEach(k => add(k, Object.assign({ desc: "通话里拍的画面" }, base)));
+  });
+  (Array.isArray(files) ? files : []).forEach(f => { if (f && f.kind === "image" && f.imgKey) add(f.imgKey, { from: "file", fileId: f.id, who: { role: f.createdBy === "me" ? "user" : "assistant", senderId: f.createdBy === "me" ? null : f.createdBy, senderName: null }, ts: f.createdTs || 0, desc: String(f.desc || f.name || "").trim() }); });
+  return out.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+}
+// 她那句说到了哪张图（按图的说明认，跟文件认名字同一个认法）：只给说明那一行，不给像素，省得每轮都背着图
+function chfGalleryMentioned(gallery, herLast) {
+  const t = String(herLast || "");
+  if (!t) return [];
+  return (gallery || []).filter(g => g.desc && g.desc.length >= 2 && chfMentioned(g.desc.slice(0, 24), t)).slice(0, 2);
+}
 function chfMentioned(name, text) {
   const norm = x => String(x || "").replace(/[\s《》〈〉「」『』“”"'.,，。!！?？:：·\-—_]/g, "").toLowerCase();
   const n = norm(name), t = norm(text);

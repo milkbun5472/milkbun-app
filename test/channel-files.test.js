@@ -50,12 +50,15 @@ test("文件页渲染：索引签、三个按钮、一行一个文件", () => {
   const h = (type, props, ...kids) => ({ type, props: props || {}, kids: kids.flat(Infinity).filter(x => x != null && x !== false) });
   const ctx = { h, useState: v => [v, () => {}], useRef: () => ({ current: null }), useEffect: () => {}, useTheme: () => ({ ink: "#111", sub: "#555", fog: "#999", line: "#ddd", bg: "#fff", bg2: "#f5f5f5", accent: "#46c" }),
     useIdbImgUrl: () => null, Head: "Head", PageSheet: "PageSheet", F_BODY: "s", F_DISPLAY: "s", requestAppPrompt() {}, requestAppConfirm() {}, window: {}, chfApplyDoc() {}, chfDiffSummary: () => "", chfLineDiff: () => [] };
-  vm.createContext(ctx); vm.runInContext(cs.slice(i, j) + ";this.P=ChannelFilesPage;", ctx);
+  { const en = require("fs").readFileSync(require("path").join(__dirname, "../js/engine.js"), "utf8"); const gi = en.indexOf("function chfGallery("), gj = en.indexOf("function chfGalleryMentioned(", gi); ctx.__g = en.slice(gi, gj); }
+  vm.createContext(ctx); vm.runInContext(ctx.__g + cs.slice(i, j) + ";this.P=ChannelFilesPage;", ctx);
   const tree = ctx.P({ group: { id: "g", chName: "综合" }, files: [{ id: "a", kind: "doc", name: "行程", text: "x", createdBy: "me", createdTs: 1, updatedTs: 1, history: [] }, { id: "b", kind: "image", name: "合照", imgKey: "img_chf_1", createdBy: "c1", createdTs: 2, updatedTs: 2 }],
     nameOf: id => id === "me" ? "我" : "阿屿", onSaveFiles() {}, onBack() {}, onTab() {} });
   const all = []; (function walk(n) { if (!n || typeof n !== "object") return; all.push(n); (n.kids || []).forEach(walk); if (n.type && typeof n.type === "function") walk(n.type(n.props)); })(tree);
   const wk = k => all.filter(n => n.props && n.props["data-wk"] === k);
-  assert.equal(wk("chfrow").length, 2);
+  // 文档｜图片分两栏（她 2026-11-20）：文档那栏只列文档，图片去图片栏
+  assert.equal(wk("chfrow").length, 1);
+  assert.equal(wk("chfsubtab").length, 2);
   assert.equal(wk("chtab").length, 2);
   assert.equal(wk("chtab").find(n => n.props["data-part"] === "files").props["data-on"], "1");
   assert.equal(wk("chfnew").length + wk("chfupimg").length + wk("chfuptxt").length, 3);
@@ -91,4 +94,30 @@ test("文件名认法放宽：去标点空格整段出现，或长名字里连�
   assert.equal(ctx.m("周末行程", "周末去哪"), false);
   const out = ctx.b([{ name: "今晚吃啥", kind: "doc", text: "火锅" }], "看看今晚吃啥", null, "看看今晚吃啥");
   assert.match(out, /她刚才那句说到的《今晚吃啥》，就是上面这份文件/);
+});
+test("图片栏：聊天里的图只收引用、同一张只算一次、新的在前；上传的图也在；她那句说到哪张能认出来", () => {
+  const fs = require("fs"), vm = require("vm"), en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const i = en.indexOf("function chfGallery("), j = en.indexOf("\n}\n", en.indexOf("function chfMentioned(")) + 3;
+  const ctx = {}; vm.createContext(ctx); vm.runInContext(en.slice(i, j) + ";this.g=chfGallery;this.m=chfGalleryMentioned;", ctx);
+  const msgs = [
+    { role: "user", kind: "photo", imageRef: "iv_a", desc: "海边的落日", ts: 1, photoMode: "real" },
+    { role: "assistant", kind: "photo", imageRef: "iv_b", desc: "他在厨房煮面", senderName: "顾朝", senderId: "c1", ts: 3 },
+    { role: "user", kind: "photo", imageRef: "iv_a", ts: 5 },
+    { role: "assistant", content: "没图", ts: 6 },
+    { role: "assistant", kind: "photo", imageRef: "iv_x", ts: 7, recalled: true }
+  ];
+  const files = [{ id: "f1", kind: "image", imgKey: "img_chf_1", name: "菜单", createdBy: "me", createdTs: 4 }, { id: "f2", kind: "doc", name: "行程" }];
+  const out = ctx.g(msgs, files);
+  assert.deepEqual(Array.from(out.map(x => x.ref)), ["img_chf_1", "iv_b", "iv_a"]);
+  assert.equal(out.find(x => x.ref === "iv_b").gen, true);
+  assert.equal(out.find(x => x.ref === "img_chf_1").fileId, "f1");
+  assert.deepEqual(Array.from(ctx.m(out, "上次那张海边的落日好看").map(x => x.ref)), ["iv_a"]);
+});
+test("图片拿回聊天里：照她发照片那样落一条同一个引用；本机图库的 img_ 图也真送去给大家看；旁观频道没有这颗", () => {
+  const fs = require("fs"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.match(ap, /pushGroupRich\(_g\.id, \{ role: "user", kind: "photo", imageRef: g\.ref, photoMode: "real"/);
+  assert.match(ap, /String\(ref\)\.indexOf\("img_"\) === 0 && typeof idbImgGet === "function"/);
+  assert.match(ap, /spectate: groupSpectating\(_g\)/);
+  assert.match(cs, /!spectate \? h\("button", \{ "data-wk": "chfgalrecall"/);
+  assert.match(cs, /function ChfGalleryPage\(/);
 });

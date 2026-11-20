@@ -23162,7 +23162,28 @@ function ChannelTabs({ tab, onTab, bg, right }) {
     one("chat", "聊天"), one("files", "文件"), right ? h("div", { style: { marginLeft: "auto", alignSelf: "center", paddingBottom: 4 } }, right) : null);
 }
 const chfWhen = ts => { if (!ts) return ""; const d = new Date(ts), now = new Date(); return d.toDateString() === now.toDateString() ? String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") : (d.getMonth() + 1) + "/" + d.getDate(); };
-function ChfImg({ k, style }) { const u = useIdbImgUrl(k); return u ? h("img", { src: u, alt: "", style }) : h("div", { style: Object.assign({}, style, { background: "rgba(0,0,0,.05)" }) }); }
+function ChfImg({ k, style }) {
+  // img_ 走本机图库，iv_／data:／网址走 resolveImg（generated-images-show.md：存在哪儿就从哪儿读）；iv_ 头一回可能还没拉到，等一下再取
+  const isIdb = String(k || "").indexOf("img_") === 0;
+  const u0 = useIdbImgUrl(isIdb ? k : null);
+  const [tick, setTick] = useState(0);
+  const u = isIdb ? u0 : (typeof resolveImg === "function" ? resolveImg(k) : k);
+  useEffect(() => { if (isIdb || u || tick > 6) return; const tm = setTimeout(() => setTick(x => x + 1), 600); return () => clearTimeout(tm); }, [k, u, tick]);
+  return u ? h("img", { src: u, alt: "", style }) : h("div", { style: Object.assign({}, style, { background: "rgba(0,0,0,.05)" }) });
+}
+// 图片栏里聊天中出现过的那张：大图、谁发的、说明（生成的图有它画的是什么）、存相册、跳回聊天、拿到聊天里
+function ChfGalleryPage({ item, whoName, spectate, onJump, onRecall, onClose }) {
+  const t = useTheme();
+  const btn = { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, background: t.bg };
+  return h(PageSheet, { onClose, zh: whoName + (item.from === "file" ? " 传的" : " 发的"), sub: chfWhen(item.ts),
+    right: h("button", { "data-wk": "chfsaveimg", onClick: async () => { const ok = window.saveImgOriginal && await window.saveImgOriginal(item.ref, whoName + "的图"); if (!ok && window.__toast) window.__toast("没存下来，再点一次"); }, className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "存到相册") },
+    h(ChfImg, { k: item.ref, style: { width: "100%", borderRadius: 12, display: "block", minHeight: 120, objectFit: "contain" } }),
+    item.desc ? h("div", { "data-wk": "chfgaldesc", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.7, marginTop: 12, whiteSpace: "pre-wrap" } }, (item.gen ? "画的是：" : "") + item.desc) : null,
+    h("div", { className: "flex gap-2", style: { marginTop: 18 } },
+      item.from === "chat" ? h("button", { "data-wk": "chfgaljump", onClick: onJump, className: "flex-1 active:opacity-60", style: btn }, "跳回聊天") : null,
+      !spectate ? h("button", { "data-wk": "chfgalrecall", onClick: onRecall, className: "flex-1 active:opacity-60", style: Object.assign({}, btn, { color: t.ink }) }, "拿到聊天里") : null),
+    !spectate ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 10 } }, "「拿到聊天里」：这张图作为你发的一张照片出现在聊天最下面，下一轮大家真的看得到这张图，会接着它聊。") : null);
+}
 // 一份文档：看、改、历史；改完存下记一笔「我」
 function ChfDocPage({ file, nameOf, onSave, onDelete, onRename, onClose }) {
   const t = useTheme();
@@ -23194,7 +23215,7 @@ function ChfDocPage({ file, nameOf, onSave, onDelete, onRename, onClose }) {
       h("button", { "data-wk": "chfrename", onClick: () => requestAppPrompt("改名字", "", file.name, v => { const n = String(v || "").trim(); if (n) onRename(n); }, "好"), className: "active:opacity-60", style: { minHeight: 42, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "改名"),
       h("button", { "data-wk": "chfdelete", onClick: () => requestAppConfirm("删掉《" + file.name + "》？", "这份文档和它的改动历史一起删，删了找不回来。", onDelete, "删掉"), className: "active:opacity-60", style: { minHeight: 42, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#c0453a" } }, "删掉")) : null);
 }
-function ChfImagePage({ file, nameOf, onRename, onDesc, onDelete, onClose }) {
+function ChfImagePage({ file, nameOf, onRename, onDesc, onDelete, onClose, onRecall }) {
   const t = useTheme();
   return h(PageSheet, { onClose, zh: file.name, sub: nameOf(file.createdBy) + " · " + chfWhen(file.createdTs),
     right: h("button", { "data-wk": "chfsaveimg", onClick: async () => { const ok = window.saveImgOriginal && await window.saveImgOriginal(file.imgKey, file.name); if (!ok && window.__toast) window.__toast("没存下来，再点一次"); }, className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "存到相册") },
@@ -23202,15 +23223,19 @@ function ChfImagePage({ file, nameOf, onRename, onDesc, onDelete, onClose }) {
     h("button", { "data-wk": "chfdesc", onClick: () => requestAppPrompt("这张图是什么", "写一句，频道里的人看得懂图里是什么就靠这句。", file.desc || "", v => onDesc(String(v || "").trim().slice(0, 200)), "好", { multiline: true }), className: "w-full text-left active:opacity-60", style: { marginTop: 12, padding: "10px 12px", borderRadius: 10, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: file.desc ? t.ink : t.fog } }, file.desc || "写一句图里是什么（大家靠这句知道）"),
     h("div", { className: "flex gap-2", style: { marginTop: 18 } },
       h("button", { "data-wk": "chfrename", onClick: () => requestAppPrompt("改名字", "", file.name, v => { const n = String(v || "").trim(); if (n) onRename(n); }, "好"), className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "改名"),
+      onRecall ? h("button", { "data-wk": "chfgalrecall", onClick: onRecall, className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, background: t.bg } }, "拿到聊天里") : null,
       h("button", { "data-wk": "chfdelete", onClick: () => requestAppConfirm("删掉「" + file.name + "」？", "这张图从频道文件里删掉，删了找不回来。", onDelete, "删掉"), className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#c0453a" } }, "删掉")));
 }
 // 文件那一页：顶栏同聊天那页（频道名），底下索引签，再下面一列文件
-function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, openId, onOpened }) {
+function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, openId, onOpened, msgs, spectate, whoOf, onJump, onRecall }) {
   const t = useTheme();
   const [open, setOpen] = useState(null);
+  const [sub, setSub] = useState("doc");   // 文档｜图片
+  const [gal, setGal] = useState(null);    // 图片栏里点开的那张（聊天里来的）
+  const gallery = chfGallery(msgs || [], files || []);
   useEffect(() => { if (openId) { setOpen(openId); onOpened && onOpened(); } }, [openId]);
   const imgRef = useRef(null), txtRef = useRef(null);
-  const list = (files || []).slice().sort((a, b) => (b.updatedTs || b.createdTs || 0) - (a.updatedTs || a.createdTs || 0));
+  const list = (files || []).filter(f => f && f.kind !== "image").slice().sort((a, b) => (b.updatedTs || b.createdTs || 0) - (a.updatedTs || a.createdTs || 0));
   const cur = open ? (files || []).find(f => f.id === open) : null;
   const put = fn => onSaveFiles(fn(files || []));
   const newDoc = () => requestAppPrompt("新建文档", "起个名字，建好就能写；频道里的人也看得到、改得了。", "", v => { const n = String(v || "").trim(); if (!n) return;
@@ -23219,15 +23244,19 @@ function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, op
     const key = "img_chf_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
     try { await idbImgPut(key, f); } catch (er) { window.__toast && window.__toast("图没存进去：" + (er.message || er)); return; }
     const now = Date.now(), file = { id: "chf_" + now + "_" + Math.floor(Math.random() * 1000), kind: "image", name: String(f.name || "图片").replace(/\.[a-z0-9]+$/i, "").slice(0, 40) || "图片", imgKey: key, desc: "", createdBy: "me", createdTs: now, updatedTs: now, history: [] };
-    put(l => l.concat([file])); setOpen(file.id); };
+    put(l => l.concat([file])); setSub("img"); setOpen(file.id); };
   const upTxt = async e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
     const txt = String(await f.text() || ""); const r = chfApplyDoc(files || [], String(f.name || "文档").replace(/\.(txt|md)$/i, ""), txt, "me");
     if (r.file) { onSaveFiles(r.files); setOpen(r.file.id); } };
   const patchCur = patch => put(l => l.map(f => f.id === cur.id ? { ...f, ...patch } : f));
   const btn = { minHeight: 38, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, background: t.bg };
   return h("div", { "data-wk": "chfpage", className: "h-full flex flex-col", style: { background: t.bg2 || t.bg } },
-    h(Head, { zh: group.chName ? "#" + group.chName : group.name, sub: "频道文件 · " + list.length, onBack }),
+    h(Head, { zh: group.chName ? "#" + group.chName : group.name, sub: "频道文件 · " + (list.length + gallery.length), onBack }),
     h(ChannelTabs, { tab: "files", onTab }),
+    // 文档｜图片：一条细横线上两个字，选中那个下面压一笔，跟上面那排索引签分得开
+    h("div", { "data-wk": "chfsub", className: "flex", style: { gap: 22, padding: "10px 18px 0", background: t.bg, borderBottom: "1px solid " + t.line } },
+      [["doc", "文档 · " + list.length], ["img", "图片 · " + gallery.length]].map(([k, zh]) => h("button", { key: k, "data-wk": "chfsubtab", "data-part": k, "data-on": sub === k ? "1" : "0", onClick: () => setSub(k), className: "active:opacity-60",
+        style: { minHeight: 36, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sub === k ? t.ink : t.fog, borderBottom: "2px solid " + (sub === k ? t.ink : "transparent"), background: "transparent" } }, zh))),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { background: t.bg, paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" } },
       h("div", { className: "flex flex-wrap gap-2", style: { padding: "14px 14px 6px" } },
         h("button", { "data-wk": "chfnew", onClick: newDoc, className: "active:opacity-60", style: btn }, "新建文档"),
@@ -23236,6 +23265,11 @@ function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, op
         h("input", { ref: imgRef, type: "file", accept: "image/*", onChange: upImg, style: { display: "none" } }),
         h("input", { ref: txtRef, type: "file", accept: ".txt,.md,text/plain,text/markdown", onChange: upTxt, style: { display: "none" } })),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, padding: "0 16px 10px", lineHeight: 1.6 } }, "这个频道大家共用的文件。频道里的人聊到哪份就看得到哪份，也会自己新建、改；谁改了什么，点开文档看「改动历史」。"),
+      sub === "img" ? (gallery.length ? h("div", { "data-wk": "chfgallery", style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, padding: "4px 14px 14px" } },
+        gallery.map(g => h("button", { key: g.ref, "data-wk": "chfgaltile", "data-part": g.from, onClick: () => g.from === "file" ? setOpen(g.fileId) : setGal(g), className: "active:opacity-70", style: { position: "relative", aspectRatio: "1 / 1", borderRadius: 8, overflow: "hidden", background: t.bg2 } },
+          h(ChfImg, { k: g.ref, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
+          h("span", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 6px 4px", background: "linear-gradient(transparent, rgba(0,0,0,.45))", color: "#fff", fontFamily: F_BODY, fontSize: 10, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, (whoOf ? whoOf(g.who) : "") + " · " + chfWhen(g.ts)))))
+        : h("div", { style: { textAlign: "center", padding: "40px 20px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "频道里还没发过图")) :
       list.length ? list.map((f, i) => h("button", { key: f.id, "data-wk": "chfrow", "data-part": f.kind, onClick: () => setOpen(f.id), className: "w-full flex items-center gap-3 text-left active:bg-black/5", style: { padding: "11px 16px", borderTop: "1px solid " + t.line } },
         f.kind === "image" ? h(ChfImg, { k: f.imgKey, style: { width: 40, height: 40, borderRadius: 8, objectFit: "cover", flexShrink: 0 } })
           : h("span", { style: { width: 40, height: 40, borderRadius: 8, background: t.bg2, color: t.sub, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 15, flexShrink: 0, position: "relative" } }, "文"),
@@ -23247,7 +23281,9 @@ function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, op
     cur && cur.kind === "doc" ? h(ChfDocPage, { key: cur.id, file: cur, nameOf, onClose: () => setOpen(null),
       onSave: txt => { const r = chfApplyDoc(files || [], cur.name, txt, "me"); onSaveFiles(r.files); },
       onRename: n => patchCur({ name: n.slice(0, 40) }), onDelete: () => { put(l => l.filter(f => f.id !== cur.id)); setOpen(null); } }) : null,
-    cur && cur.kind === "image" ? h(ChfImagePage, { key: cur.id, file: cur, nameOf, onClose: () => setOpen(null),
+    gal ? h(ChfGalleryPage, { key: gal.ref, item: gal, whoName: whoOf ? whoOf(gal.who) : "有人", spectate, onClose: () => setGal(null),
+      onJump: () => { setGal(null); onJump && onJump(gal); }, onRecall: () => { setGal(null); onRecall && onRecall(gal); } }) : null,
+    cur && cur.kind === "image" ? h(ChfImagePage, { onRecall: spectate || !onRecall ? null : () => { const it = gallery.find(x => x.fileId === cur.id); if (it) { setOpen(null); onRecall(it); } }, key: cur.id, file: cur, nameOf, onClose: () => setOpen(null),
       onRename: n => patchCur({ name: n.slice(0, 40) }), onDesc: d => patchCur({ desc: d, updatedTs: Date.now(), updatedBy: "me" }), onDelete: () => { put(l => l.filter(f => f.id !== cur.id)); setOpen(null); } }) : null);
 }
 // 把已有的群放进这个频道空间：一个群就是一个频道，名字、聊天、记忆、群设置原样带进来

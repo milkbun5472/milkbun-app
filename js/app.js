@@ -16950,6 +16950,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           (groupChatsRef.current[groupId] || []).slice(-12).map(m => m && m.content || "").join("\n"),
           id => id === "me" ? userName(profile) : (((characters || []).find(c => c.id === id) || {}).name || ""),
           (((groupChatsRef.current[groupId] || []).filter(m => m && m.role === "user" && m.content).slice(-1)[0]) || {}).content || "")
+        + (() => { // 她那句说到了频道里哪张图：只给说明那一行，不给像素
+            const _her = (((groupChatsRef.current[groupId] || []).filter(m => m && m.role === "user" && m.content && m.kind !== "photo").slice(-1)[0]) || {}).content || "";
+            const _hit = typeof chfGalleryMentioned === "function" ? chfGalleryMentioned(chfGallery(groupChatsRef.current[groupId] || [], loadJSON("x_chfiles:" + groupId, [])), _her) : [];
+            return _hit.length ? "\n她刚才那句说到的图：" + _hit.map(g => "「" + g.desc.slice(0, 80) + "」（" + (g.who && g.who.role === "user" ? "她" : (g.who && g.who.senderName) || "有人") + "发的）").join("；") + "。" : ""; })()
         + "\n【频道文件怎么动】谁想新建一份文档、或者改一份已有的，就在他自己那条发言里加 \"file\":{\"name\":\"文档名\",\"text\":\"改完之后的全文\"}——名字跟已有的一样就是改那一份，没有就是新建；text 写整份改完的样子。动不动、动哪份，照他自己此刻想不想。" : "";
       // 换个频道接着说：每人能去哪几个频道，有地方可去才提这一格
       // 他们自己开频道（她 2026-11-20「想要他们也可以创建频道」）：空间还有地方、今天还没开满时才提；只说这个字段是什么
@@ -17172,6 +17176,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       for (const ref of groupImageRefs) {
         try {
           if (String(ref).indexOf("data:") === 0) groupImageDataUrls.push(ref);
+          // 本机图库的图（频道里上传的 img_chf_、通话画面 img_call_）拿回聊天里时也要真给大家看（她 2026-11-20 图片栏召回）
+          else if (String(ref).indexOf("img_") === 0 && typeof idbImgGet === "function" && typeof blobToDataUrl === "function") { const blob = await idbImgGet(ref); if (blob) groupImageDataUrls.push(await blobToDataUrl(blob)); }
           else if (String(ref).indexOf("iv_") === 0 && typeof imgVaultFetchBlob === "function" && typeof blobToDataUrl === "function") {
             // 群聊同装吞图案兜底(单11):双路取图+一拍重试,和私聊一致
             let blob = await imgVaultFetchBlob(ref);
@@ -39130,6 +39136,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       nameOf: id => id === "me" ? "我" : (((characters || []).find(c => c.id === id) || {}).name || "有人"),
       onSaveFiles: n => { saveJSON(_fk, n); setChFilesRev(v => v + 1); },
       onTab: setChannelTab, openId: chFileOpen, onOpened: () => setChFileOpen(null),
+      // 图片栏（她 2026-11-20）：聊天里出现过的图只收引用；「拿到聊天里」照她发照片那样落一条，下一轮走同一条看图的路
+      msgs: groupChatsRef.current[_g.id] || [], spectate: groupSpectating(_g),
+      whoOf: w => !w ? "有人" : w.role === "user" ? "我" : (w.senderName || (((characters || []).find(c => c.id === w.senderId) || {}).name) || "有人"),
+      onJump: g => { setChannelTab("chat"); if (g.ts) setWalletTrace({ type: "group", id: _g.id, ts: g.ts, key: Date.now() }); },
+      onRecall: g => { if (groupSpectating(_g)) return; const d = String(g.desc || "").trim();
+        pushGroupRich(_g.id, { role: "user", kind: "photo", imageRef: g.ref, photoMode: "real", desc: d, recallOf: g.ts || null, content: d ? "[照片] " + d : "[照片]", read: true });
+        setChannelTab("chat"); toast("拿到聊天里了——按回复，大家就接着这张聊"); },
       onBack: () => { setChannelTab("chat"); if ((spaces || []).some(x => x.id === _g.spaceId)) { setActiveSpaceId(_g.spaceId); setScreen("space"); } else setScreen("messages"); } });
   }
   // 「某某 去了 #频道」那一行点了过去（她 2026-11-20）：跟频道首页点进频道同一条路
