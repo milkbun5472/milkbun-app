@@ -5109,7 +5109,9 @@ function Calendar({ schedKeepOf, onSchedKeep, characters, calendar, calEvents, s
       out.push({ text: "⏰ " + (r.title || r), kind: "memo", id: r && r.id });
     });
     if (view === "mine") (worldStore[legacyKeyOf(dk)] || []).forEach(e => out.push({ text: "🌐 " + e.title, note: e.note, id: e.id, kind: "world" }));
-    (store[legacyKeyOf(dk)] || []).forEach(e => out.push({ text: e.title, note: e.note, id: e.id, kind: "cal" }));
+    // 在一起那天落的「♥ 和 X 在一起」：在这个人的那页上，X 是你跟他用的那张面具（群友 2026-11-20「显示的是主面具」），按现在这一页取，不信存进去那一刻的名字
+    const meHere = view !== "mine" ? ((maskList.find(m => m.key === (typeof maskKeyOf === "function" ? (maskKeyOf(view) || "") : "")) || maskList[0] || {}).name || "") : "";
+    (store[legacyKeyOf(dk)] || []).forEach(e => out.push({ text: meHere && e.note === "情侣纪念日" && /^♥ 和 .+ 在一起$/.test(String(e.title || "")) ? "♥ 和 " + meHere + " 在一起" : e.title, note: e.note, id: e.id, kind: "cal" }));
     calEventsOnDay(calEvents, evOwner, dk).filter(e => e._allDay).forEach(e => out.push({ text: (e.icon ? e.icon + " " : "") + e.title, id: e.id, kind: "timed", ev: e }));
     return out;
   };
