@@ -2941,11 +2941,13 @@ function subRootHit(quote, msgs) {
 // 频道（她 2026-11-20）：群挂着 spaceId 时，它是一个频道空间里的一个频道。给两样事实：
 //   这个频道是聊什么的（她写的那句），和同一个空间里别的频道最近在说什么（各一两句），大家知道别处在发生什么。
 //   chatsOf(id) 拿那个群的消息；uName 是她的名字。线上群、群线下都走这一份。
-function spaceChannelBlock(g, allGroups, chatsOf, uName) {
+function spaceChannelBlock(g, allGroups, chatsOf, uName, nameOf) {
   if (!g || !g.spaceId) return "";
   const out = ["【这个频道】你们现在在「#" + (g.chName || g.name || "") + "」" + (g.chAbout ? "：" + String(g.chAbout).slice(0, 120) : "") + "。这是同一群人待的一个地方里的一个频道，同一个地方还有别的频道。"];
   // 不互通的频道（她 2026-11-20「能搞不互通记忆吗」）：chSolo 的那个频道看不到别处，别处也看不到它
-  if (g.chSolo) return "\n\n" + out[0].replace(/。这是同一群人待的一个地方里的一个频道.*$/, "。");
+  // 「只给这里的人」（她 2026-11-20「双胞胎两边都知道另一边，但不想让频道里其他人知道」）：chShareMembers 的频道别人看不到，
+  //   但它自己照常看得见别处；它里面的人去了别的频道，那边会带上这里最近几句，标明只有这几个人知道
+  if (g.chSolo && !g.chShareMembers) return "\n\n" + out[0].replace(/。这是同一群人待的一个地方里的一个频道.*$/, "。");
   // 挑哪几个频道带进来（她 2026-11-20「按成员在的群聊时间线排序互通就行了」）：跟一堆群聊时一样按最近有人说话排，
   //   有这里的人也在的频道先带——那是他们自己刚待过的地方；归档、不互通的不带
   const lastTs = x => { const ms = chatsOf(x.id) || []; for (let i = ms.length - 1; i >= 0; i--) { const m = ms[i]; if (m && m.content && m.role !== "system") return m.ts || 0; } return 0; };
@@ -2959,6 +2961,15 @@ function spaceChannelBlock(g, allGroups, chatsOf, uName) {
     return "· #" + (x.chName || x.name || "") + (x.chAbout ? "（" + String(x.chAbout).slice(0, 30) + "）" : "") + (said ? "　最近：" + said : "　还没人说话");
   });
   if (rows.length) out.push("【同一个地方的别的频道】\n" + rows.join("\n"));
+  const mineIds = new Set((g.memberIds || []).map(String));
+  const priv = (allGroups || []).filter(x => x && x.spaceId === g.spaceId && x.id !== g.id && x.chShareMembers && !x.chArchived && (x.memberIds || []).some(id => mineIds.has(String(id)))).slice(0, 2);
+  priv.forEach(x => {
+    const who = (x.memberIds || []).filter(id => mineIds.has(String(id))).map(id => (nameOf && nameOf(id)) || "").filter(Boolean);
+    if (!who.length) return;
+    const ms = (chatsOf(x.id) || []).filter(m => m && m.content && !m.recalled && m.role !== "system" && !m.whisper && m.kind !== "spacebot").slice(-3);
+    const said = ms.map(m => (m.role === "user" ? (uName || "她") : (m.senderName || "有人")) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 60)).join("／");
+    out.push("【只有" + who.join("、") + "知道的】" + who.join("、") + "跟" + (uName || "她") + "还有一个只有这几个人在的地方 #" + (x.chName || x.name || "") + (said ? "，那边最近：" + said : "") + "。这里别的人不知道那个地方、也不知道那边说过什么；" + who.join("、") + "心里有数，当着别人的面不提。");
+  });
   return "\n\n" + out.join("\n");
 }
 function groupNoticeBlock(notice) {

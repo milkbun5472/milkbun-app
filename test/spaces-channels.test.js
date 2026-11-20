@@ -87,7 +87,7 @@ test("不影响记忆的频道：就是群的「记忆互通」关着，新频�
   assert.match(ap, /spaceBlock: spaceChannelBlock\(group && spaceSibs\(\)/);
   assert.match(ap, /!\(g\.spaceId && channelNoMem\(g\.id\)\)\)\.map\(g => \{/);
   assert.match(cs, /"data-wk": "chnomem"/);
-  assert.match(cs, /chSolo: solo \|\| noMem, chNoMem: noMem/);
+  assert.match(cs, /chSolo: solo \|\| noMem, chShareMembers: !!\(shareM && solo && !noMem\), chNoMem: noMem/);
 });
 test("已有的群能收进频道空间、也能移出去：只挂上/摘下 spaceId，群原样不动", () => {
   const fs = require("fs"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
@@ -129,4 +129,19 @@ test("往空间加人不往私下的频道里塞：旁观、不互通、不影�
   const body = ap.slice(i, ap.indexOf("toast(added.length", i));
   assert.match(body, /const _priv = groupSpectating\(g\) \|\| !!g\.chSolo \|\| channelNoMem\(g\.id\);/);
   assert.match(body, /concat\(_priv \? \[\] : added\.filter/);
+});
+test("只给这里的人知道：别处只在有这几个人的频道里带上，标明只有他们知道；没交集的频道不带", () => {
+  const fs = require("fs"), vm = require("vm"), en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const i = en.indexOf("function spaceChannelBlock("), j = en.indexOf("\n}\n", i) + 3;
+  const ctx = {}; vm.createContext(ctx); vm.runInContext(en.slice(i, j) + ";this.f=spaceChannelBlock;", ctx);
+  const gs = [{ id: "big", spaceId: "s", chName: "综合", memberIds: ["a", "b", "x"] }, { id: "love", spaceId: "s", chName: "我们", memberIds: ["a", "b"], chSolo: true, chShareMembers: true }, { id: "other", spaceId: "s", chName: "闲", memberIds: ["x"] }];
+  const chats = { love: [{ role: "user", content: "想你们", ts: 2 }] };
+  const nm = id => ({ a: "顾朝", b: "顾暮", x: "路人" })[id];
+  const big = ctx.f(gs[0], gs, id => chats[id] || [], "她", nm);
+  assert.match(big, /【只有顾朝、顾暮知道的】/);
+  assert.match(big, /想你们/);
+  const other = ctx.f(gs[2], gs, id => chats[id] || [], "她", nm);
+  assert.doesNotMatch(other, /我们|想你们/);
+  const self = ctx.f(gs[1], gs, id => chats[id] || [], "她", nm);
+  assert.match(self, /综合/);
 });

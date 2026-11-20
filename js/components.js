@@ -23100,6 +23100,7 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDe
   const [name, setName] = useState(channel ? channel.chName || "" : "");
   const [about, setAbout] = useState(channel ? channel.chAbout || "" : "");
   const [solo, setSolo] = useState(!!(channel && channel.chSolo));
+  const [shareM, setShareM] = useState(!!(channel && channel.chShareMembers));
   const [hole, setHole] = useState(!!(channel && channel.chKind === "treehole"));   // 树洞：大家匿名
   const [lounge, setLounge] = useState(!!(channel && channel.chKind === "lounge"));   // 挂机房：进去不用说话，看大家在干嘛（她 2026-11-20）
   const [night, setNight] = useState(channel && channel.chHours ? { ...channel.chHours } : null);   // 只在几点到几点开
@@ -23112,7 +23113,7 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDe
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const ok = name.trim().replace(/^#/, "") && sel.length >= 1;
   return h(PageSheet, { onClose, zh: channel ? "改频道" : "新频道", sub: space.name,
-    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, chSolo: solo || noMem, chNoMem: noMem, chCat: cat, chArchived: arch, chKind: hole ? "treehole" : lounge ? "lounge" : "", chHours: night, avatarImage: chAv || null }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
+    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, chSolo: solo || noMem, chShareMembers: !!(shareM && solo && !noMem), chNoMem: noMem, chCat: cat, chArchived: arch, chKind: hole ? "treehole" : lounge ? "lounge" : "", chHours: night, avatarImage: chAv || null }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
     h("div", { "data-wk": "chav", className: "flex items-center gap-3", style: { marginBottom: 14 } },
       h(AvatarPicker, { character: { name: name || "#", color: t.tint, avatarImage: chAv }, size: 44, radius: 10, onPick: setChAv, onClear: chAv ? () => setChAv(null) : null }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, chAv ? "频道列表这一行和进去的群头像都是这张。点「移除照片」换回「#」。" : "没设头像就是一个「#」。点左边设一张，跟群头像是同一格。")),
@@ -23149,6 +23150,14 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDe
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "跟别的频道互通"),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, noMem ? "「不影响记忆」开着，这一格跟着关。" : solo ? "关着：这个频道里的人不知道别的频道在聊什么，别的频道也看不到这里。" : "开着：大家知道同一个地方别的频道最近在聊什么。")),
       h(Toggle, { on: !solo && !noMem, onChange: v => { if (!noMem) setSolo(!v); }, color: t.accent })),
+    // 关着互通时的第三档：只给这里的人（她 2026-11-20）
+    solo && !noMem ? h("div", { "data-wk": "chsharem", "data-on": shareM ? "1" : "0", className: "flex items-center justify-between gap-3", style: { padding: "10px 12px", background: t.bg2, borderRadius: 10, marginBottom: 10, marginTop: -4 } },
+      h("div", { className: "min-w-0" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "只给这里的人知道"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, shareM
+          ? "开着：这里的人去了别的频道，心里还记着这边最近聊了什么，当着别人不提；别的人看不到这里。几个人的话是一起写的，偶尔有人会表现得像是知道。"
+          : "关着：别的频道谁都不带这里的事。")),
+      h(Toggle, { on: shareM, onChange: v => setShareM(v), color: t.accent })) : null,
     // 不影响记忆（她 2026-11-20）：就是这个群的「记忆互通」关着——不进记忆库、不改好感和状态、别处也看不到
     h("div", { "data-wk": "chnomem", "data-on": noMem ? "1" : "0", className: "flex items-center justify-between gap-3", style: { padding: "10px 12px", background: t.bg2, borderRadius: 10, marginBottom: 18 } },
       h("div", { className: "min-w-0" },

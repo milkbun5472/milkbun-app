@@ -10474,7 +10474,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了
     directives: directives[group.id] || [],
     groupNotice: gsFor(group.id).notice || null,
-    spaceBlock: spaceChannelBlock(group && spaceSibs().find(x => x && x.id === group.id) || group, spaceSibs(), id => groupChatsRef.current[id] || [], userName(profile)) + (group && group.spaceId && group.chKind !== "meet" && !channelNoMem(group.id) ? spaceMeetLine(group.spaceId) : ""),
+    spaceBlock: spaceChannelBlock(group && spaceSibs().find(x => x && x.id === group.id) || group, spaceSibs(), id => groupChatsRef.current[id] || [], userName(profile), id => (((characters || []).find(c => c && String(c.id) === String(id)) || {}).name || "")) + (group && group.spaceId && group.chKind !== "meet" && !channelNoMem(group.id) ? spaceMeetLine(group.spaceId) : ""),
     // 跨情境近况（v50.66）：每个成员各自最近在【单聊线上 + 单人线下】和用户之间发生的事，带时间戳，
     //   让群线下接得上刚在别处聊过的细节。own-chat-only：只带该成员自己那份，engine 侧再加隐私铁律(别的成员不知情)。
     memberRecent: _par ? [] : (group.memberIds || []).map(id => {
@@ -17046,7 +17046,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return rows.length ? "\n\n【换个频道接着说】同一个地方还有别的频道。谁觉得接下来这段更该到另一个频道去说，就在他自己那条发言里加 \"hop\":{\"to\":\"频道名\",\"lines\":[\"他到那边说的话\"]}（一到四句）——他真的会去那个频道把这几句说出来，这边留一行他去了哪儿；不想去就不加。各人能去的：\n" + rows.join("\n") : "";
       })() : "";
       const gNoticeHint = groupNoticeBlock(gsFor(groupId).notice)
-        + spaceChannelBlock(spaceSibs().find(x => x && x.id === groupId), spaceSibs(), id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), userName(profile))
+        + spaceChannelBlock(spaceSibs().find(x => x && x.id === groupId), spaceSibs(), id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), userName(profile), id => (((characters || []).find(c => c && String(c.id) === String(id)) || {}).name || ""))
         + (group && group.spaceId && group.chKind !== "meet" && !channelNoMem(groupId) && !groupSpectating(group) ? spaceMeetLine(group.spaceId) : "")
         + gSubHint + gLeaveHint + gLoungeHint;
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
@@ -19398,11 +19398,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast("「" + sp.name + "」建好了，先有一个 #综合");
   };
   const saveChannel = (sp, g, patch) => {
-    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); updateGroup(ng.id, { chSolo: !!(patch.chSolo || patch.chNoMem), chCat: patch.chCat || "", chKind: patch.chKind || "", chHours: patch.chHours || null, avatarImage: patch.avatarImage || null }); toast("开了 #" + patch.chName); return; }
+    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); updateGroup(ng.id, { chShareMembers: !!(patch.chShareMembers && patch.chSolo && !patch.chNoMem), chSolo: !!(patch.chSolo || patch.chNoMem), chCat: patch.chCat || "", chKind: patch.chKind || "", chHours: patch.chHours || null, avatarImage: patch.avatarImage || null }); toast("开了 #" + patch.chName); return; }
     const nm = channelGroupName(sp, patch.chName);
     if (nm !== g.name) renameGroup(g.id, nm);
     updateGroup(g.id, { ...(g.chLeft ? { chLeft: Object.fromEntries(Object.entries(g.chLeft).filter(([id]) => !(patch.memberIds || []).includes(id))) } : {}), chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds, chSolo: !!(patch.chSolo || patch.chNoMem),
-      ...(patch.chCat != null ? { chCat: patch.chCat || "" } : {}), ...(patch.chKind != null ? { chKind: patch.chKind || "" } : {}), ...(patch.chHours !== undefined ? { chHours: patch.chHours || null } : {}), ...(patch.avatarImage !== undefined ? { avatarImage: patch.avatarImage || null } : {}), ...(patch.chArchived != null ? { chArchived: !!patch.chArchived } : {}) });
+      chShareMembers: !!(patch.chShareMembers && patch.chSolo && !patch.chNoMem), ...(patch.chCat != null ? { chCat: patch.chCat || "" } : {}), ...(patch.chKind != null ? { chKind: patch.chKind || "" } : {}), ...(patch.chHours !== undefined ? { chHours: patch.chHours || null } : {}), ...(patch.avatarImage !== undefined ? { avatarImage: patch.avatarImage || null } : {}), ...(patch.chArchived != null ? { chArchived: !!patch.chArchived } : {}) });
     if (patch.chNoMem != null && !!patch.chNoMem !== channelNoMem(g.id)) saveGroupSettingsRaw(g.id, { memoryInterop: !patch.chNoMem });
   };
   // 频道在分类里上下挪（她 2026-11-20「多起来了怎么收纳归类」）：照现在看到的那一段的先后重新编 chOrder
