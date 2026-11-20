@@ -44,10 +44,12 @@ test("SpaceView 渲染：一行一个频道，带说明、最后一句、未读�
     groupChats: { a: [{ role: "assistant", senderName: "阿屿", content: "在吗", ts: 5 }] }, unreadMap: { a: 2 }, allChars: [{ id: "c1", name: "阿屿" }], userLabel: "我", onBack() {}, onOpenChannel() {}, onSaveChannel() {}, onDeleteChannel() {}, onDeleteSpace() {} });
   const all = []; (function walk(n) { if (!n || typeof n !== "object") return; all.push(n); (n.kids || []).forEach(walk); })(tree);
   const wk = k => all.filter(n => n.props["data-wk"] === k);
-  assert.equal(wk("chrow").length, 2);
-  assert.equal(wk("chrow")[0].props["data-unread"], "1");
-  assert.equal(wk("chdot").length, 1);
+  // 跟消息列表同一套挂点（她 2026-11-20「美化挂点尽量互通普通聊天的」），data-part 分出频道那一份
+  const wp = (k, p) => all.filter(n => n.props["data-wk"] === k && n.props["data-part"] === p);
+  assert.equal(wp("mlrow", "channel").length, 2);
+  assert.equal(wp("mlrow", "channel")[0].props["data-unread"], "1");
+  assert.equal(wp("mlbadge", "dot").length, 1);
   assert.deepEqual(wk("chabout").map(n => n.kids[0]), ["什么都聊"]);
-  assert.deepEqual(wk("chlast").map(n => n.kids[0]), ["阿屿：在吗", "还没人说话"]);
+  assert.deepEqual(wp("mllast", "channel").map(n => n.kids[0]), ["阿屿：在吗", "还没人说话"]);
   assert.equal(wk("chnew").length, 1);   // 列表最后一行；顶栏那颗挂在 Head 的 right 上
 });

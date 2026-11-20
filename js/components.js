@@ -23012,7 +23012,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, userLabel
   const tone = spaceTone(space);
   const people = (space.memberIds || []).map(id => (allChars || []).find(c => c && c.id === id)).filter(Boolean);
   const rows = (channels || []).slice().sort((a, b) => (a.createdTs || 0) - (b.createdTs || 0));
-  return h("div", { "data-wk": "spacepage", className: "h-full flex flex-col", style: msgAppBg(t) },
+  return h("div", { "data-wk": "mlpage", "data-part": "space", className: "h-full flex flex-col", style: msgAppBg(t) },
     h(Head, { zh: space.name, sub: "频道 · " + people.length + " 人", onBack, bg: wxGrey(t),
       right: h("button", { "data-wk": "chnew", "aria-label": "新频道", onClick: () => setEdit("new"), className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 34 } }, h(IPlus, { size: 20, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" } },
@@ -23024,16 +23024,16 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, userLabel
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".08em", padding: "14px 20px 6px" } }, "频道 · " + rows.length),
       h("div", { style: { margin: "0 14px", background: momPaper(t), borderRadius: 14, overflow: "hidden" } },
         rows.map((g, i) => { const last = channelLast(groupChats[g.id], userLabel), un = (unreadMap || {})[g.id] || 0;
-          return h("div", { key: g.id, "data-wk": "chrow", "data-unread": un > 0 ? "1" : "0", className: "flex items-stretch", style: { borderTop: i ? "1px solid " + t.line : "none" } },
+          return h("div", { key: g.id, "data-wk": "mlrow", "data-part": "channel", "data-unread": un > 0 ? "1" : "0", className: "flex items-stretch", style: { borderTop: i ? "1px solid " + t.line : "none" } },
             h("button", { onClick: () => onOpenChannel(g), className: "flex-1 min-w-0 flex items-start gap-3 text-left active:bg-black/5", style: { padding: "12px 4px 12px 14px" } },
-              h("span", { "data-wk": "chhash", style: { width: 30, height: 30, borderRadius: 8, background: tone + "1f", color: tone, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, flexShrink: 0 } }, "#"),
+              h("span", { "data-wk": "mlavatar", "data-part": "channel", style: { width: 30, height: 30, borderRadius: 8, background: tone + "1f", color: tone, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, flexShrink: 0 } }, "#"),
               h("span", { className: "flex-1 min-w-0" },
                 h("span", { className: "flex items-center gap-2" },
-                  h("span", { "data-wk": "chname", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, fontWeight: un > 0 ? 600 : 400 } }, g.chName || g.name),
-                  un > 0 ? h("span", { "data-wk": "chdot", style: { width: 7, height: 7, borderRadius: 999, background: tone, flexShrink: 0 } }) : null,
+                  h("span", { "data-wk": "mlname", "data-part": "channel", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, fontWeight: un > 0 ? 600 : 400 } }, g.chName || g.name),
+                  un > 0 ? h("span", { "data-wk": "mlbadge", "data-part": "dot", style: { width: 7, height: 7, borderRadius: 999, background: tone, flexShrink: 0 } }) : null,
                   last ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, typeof fmtStamp === "function" ? fmtStamp(last.ts, "g:" + g.id) : "") : null),
                 g.chAbout ? h("span", { "data-wk": "chabout", className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 2 } }, g.chAbout) : null,
-                h("span", { "data-wk": "chlast", className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, last ? (last.who ? last.who + "：" : "") + last.text : "还没人说话"))),
+                h("span", { "data-wk": "mllast", "data-part": "channel", className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, last ? (last.who ? last.who + "：" : "") + last.text : "还没人说话"))),
             h("button", { "data-wk": "chmore", "aria-label": "改这个频道", onClick: () => setEdit(g), className: "active:opacity-50 flex items-center justify-center", style: { width: 40, color: t.fog, fontSize: 18 } }, "⋯")); }),
         h("button", { "data-wk": "chnew", onClick: () => setEdit("new"), className: "w-full flex items-center gap-3 active:bg-black/5", style: { padding: "12px 14px", borderTop: rows.length ? "1px solid " + t.line : "none" } },
           h("span", { style: { width: 30, height: 30, borderRadius: 8, border: "1.5px dashed " + t.line, color: t.fog, display: "flex", alignItems: "center", justifyContent: "center" } }, h(IPlus, { size: 15, color: t.fog })),
