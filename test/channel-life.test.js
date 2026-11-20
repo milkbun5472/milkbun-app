@@ -44,3 +44,10 @@ test("深夜频道：几点到几点开，跨午夜也认", () => {
   assert.equal(open({ from: 9, to: 18 }, at(12)), true);
   assert.equal(open({ from: 9, to: 18 }, at(20)), false);
 });
+test("欢迎新人：加人、收群带进新人都走 welcomeNew，老成员接一轮", () => {
+  assert.match(ap, /const welcomeNew = \(spId, ids\) =>/);
+  assert.match(ap, /if \(added\.length\) welcomeNew\(sp\.id, added\);/);
+  assert.match(ap, /welcomeNew\(sp\.id, add\); \}/);
+  assert.match(ap, /replyGroup\(g\.id, \{ welcome: names \}\)/);
+  assert.match(ap, /gTreeHint \+ gWelcomeHint \+/);
+});
