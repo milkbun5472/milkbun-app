@@ -23,3 +23,24 @@ test("精华接线：长按菜单、提名字段、墙页、提示词", () => {
   assert.match(ap, /gemQuoteHit\(item\.gem\.quote/);
   assert.match(ap, /gNewChHint \+ gGemHint \+/);
 });
+test("树洞：按先后发号，同一份聊天每次一样；屏幕上只剩代号", () => {
+  const ctx = {}; vm.createContext(ctx);
+  const grab = n => { const i = en.indexOf("function " + n + "("), j = en.indexOf("\n}\n", i) + 3; return en.slice(i, j); };
+  vm.runInContext(grab("thAlias") + grab("thAliasMapOf") + grab("thView") + ";this.m=thAliasMapOf;this.v=thView;", ctx);
+  const ms = [{ role: "assistant", senderId: "b", senderName: "顾暮", content: "1" }, { role: "user", content: "2" }, { role: "assistant", senderId: "a", senderName: "顾朝", content: "3" }, { role: "assistant", senderId: "b", senderName: "顾暮", content: "4" }];
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.m(ms))), { b: 1, me: 2, a: 3 });
+  const v = ctx.v(ms);
+  assert.equal(v[0].senderName, "树洞 #1"); assert.equal(v[2].senderName, "树洞 #3"); assert.equal(v[3].senderId, "th:1");
+  assert.equal(v[1].content, "2"); assert.equal(ms[0].senderName, "顾暮");
+  assert.match(ap, /gGemHint \+ gTreeHint \+/);
+});
+test("深夜频道：几点到几点开，跨午夜也认", () => {
+  const open = fn("chHoursOpen"), at = h => new Date(2026, 0, 1, h, 30);
+  assert.equal(open(null, at(3)), true);
+  assert.equal(open({ from: 22, to: 5 }, at(23)), true);
+  assert.equal(open({ from: 22, to: 5 }, at(3)), true);
+  assert.equal(open({ from: 22, to: 5 }, at(5)), false);
+  assert.equal(open({ from: 22, to: 5 }, at(12)), false);
+  assert.equal(open({ from: 9, to: 18 }, at(12)), true);
+  assert.equal(open({ from: 9, to: 18 }, at(20)), false);
+});

@@ -16426,6 +16426,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const replyGroup = async (groupId, rgOpts = {}) => {
     if (typeof vclockUse === "function") vclockUse("g:" + groupId);   // 群里报时、时间戳走群挑的那张面具的钟（没挑＝主面具）
     const profile = groupProfileFor(groupId);   // 群里的「你」＝群挑的那张面具
+    if (rgOpts && rgOpts.auto && chClosedNow(groupId)) return;   // 深夜频道没到点：后台不在这儿自己聊
     // 群里自己聊（rgOpts.auto）是后台自己跑的：挂上群名
     if (rgOpts && rgOpts.auto && !rgOpts._bg && typeof bgJob === "function") return bgJob("groupChat", (groups || []).find(g => g.id === groupId), () => replyGroup(groupId, { ...rgOpts, _bg: true }));
     if (rgOpts.auto && groupCallActive(groupId)) return;
@@ -16927,6 +16928,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (cats.length ? ",\"cat\":\"放进哪一类（" + cats.join("／") + "）\"" : "") + ",\"lines\":[\"他在新频道里说的第一两句\"]}——频道会真的开出来，这边留一行他开了什么。已经有差不多的频道就用那个。现在有的频道："
           + spaceSibs().filter(x => x && x.spaceId === sp.id).map(x => "#" + (x.chName || x.name)).join("、");
       })() : "";
+      // 树洞（她 2026-11-20）：照论坛匿名帖那一段的说法——屏幕上只有代号，原文里的名字只是让你分清谁说的
+      const gTreeHint = group && group.spaceId && group.chKind === "treehole" ? (() => {
+        const mp = thAliasMapOf(groupChatsRef.current[groupId] || []);
+        members.forEach(c => { mp[String(c.id)] = mp[String(c.id)] || thAlias(mp, c.id).map[String(c.id)]; });
+        if (!mp.me) mp.me = thAlias(mp, "me").map.me;
+        return "\n\n【这个频道是树洞】屏幕上每个人都只显示一个代号，谁也看不见谁的名字和头像，" + userName(profile) + " 也一样，没有谁是例外。各人的代号：" + members.map(c => c.name + "＝树洞 #" + mp[String(c.id)]).join("、") + "、" + userName(profile) + "＝树洞 #" + mp.me
+          + "。每个人只知道自己是哪一号；上面原文里带的名字只是给你分清谁说了哪句。写出来的话里不提任何人的名字，指人就说几号，也不会有人说自己看见了谁的名字——别人是谁，只能从说话的样子去猜。";
+      })() : "";
       // 精华墙：最近几句名场面摆给他们；今天这个频道还没人提名过才提那一格
       const gGemHint = group && group.spaceId ? (() => {
         const gl = loadJSON(gemKey(group.spaceId), []) || [];
@@ -16935,7 +16944,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       })() : "";
       const gHopHint = group && group.spaceId ? (() => {
         const sibs = spaceSibs(), og = sibs.find(x => x && x.id === groupId);
-        const rows = members.map(c => { const ts = chHopTargets(og, sibs, c.id, channelNoMem); return ts.length ? c.name + "：" + ts.map(x => "#" + x.chName).join("、") : ""; }).filter(Boolean);
+        const rows = members.map(c => { const ts = chHopTargets(og, sibs, c.id, id => channelNoMem(id) || (id !== groupId && chClosedNow(id))); return ts.length ? c.name + "：" + ts.map(x => "#" + x.chName).join("、") : ""; }).filter(Boolean);
         return rows.length ? "\n\n【换个频道接着说】同一个地方还有别的频道。谁觉得接下来这段更该到另一个频道去说，就在他自己那条发言里加 \"hop\":{\"to\":\"频道名\",\"lines\":[\"他到那边说的话\"]}（一到四句）——他真的会去那个频道把这几句说出来，这边留一行他去了哪儿；不想去就不加。各人能去的：\n" + rows.join("\n") : "";
       })() : "";
       const gNoticeHint = groupNoticeBlock(gsFor(groupId).notice)
@@ -17023,7 +17032,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 群里拍一拍（她 2026-10-25）：她在群里时能拍她或别的成员；旁观群里只能拍群里的人
       const gStickField = ",\"stick\":{\"quote\":\"（可选）群里某条消息里的原话，照抄几个字\",\"emoji\":\"一个 emoji\"}（想贴自己的表情包就把 emoji 换成 \"emote\":\"表情包关键词\"；往那条气泡上贴一个表情，像 QQ 的贴表情：群里谁的哪句话让你当下有了反应、这个反应一个表情就说得清的时候，就随手贴一个，贴了照样可以说话，也可以只贴不说；没有反应就整个省掉）";
       const gPatField = ",\"pat\":\"（可选）想用「拍一拍」戳谁一下就填那个人的名字（" + (imInGroup(group) ? gUName + " 或" : "") + "群里某位成员）；是一个动作，不是一句话，不用再在 text 里写「拍了拍」\"";
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gFileHint + gHopHint + gNewChHint + gGemHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gStoryHint + (() => { const _g0 = (groupsRef.current || []).find(x => x.id === groupId); const _n = groupNamedByNote(_g0, ""); return _n ? "\n【群名】" + _n + "（起名的那个人自己知道是自己起的）。" : ""; })() + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；定下的是以后的事，就加 " + SCHED_LATER_SPEC + "同样只填他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gStickField + "" + gDmField + thoughtField + impressionField + "}；某成员这一轮在群里亲口说了过一会儿／几点再回来（到了、忙完了、拿到了就来群里说），就在 Ta 那条加 \"laterPromise\":{\"minutes\":几分钟后,\"about\":\"回来要说/要做的事\"}（说的是几点就把 minutes 换成 \"at\":\"HH:MM\"），到点 Ta 会自己回群里开话头；没说就不加；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。要靠运气定的事，谁都可以自己掷骰子或抽签：那条加 \"luck\":{\"type\":\"dice\",\"n\":骰子颗数1到3} 或 {\"type\":\"draw\",\"what\":\"抽什么\",\"n\":抽几个人}，结果由手机现掷现抽、发成一张卡，这一条里别替它报结果，结果出来以后大家照着接。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gFileHint + gHopHint + gNewChHint + gGemHint + gTreeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gStoryHint + (() => { const _g0 = (groupsRef.current || []).find(x => x.id === groupId); const _n = groupNamedByNote(_g0, ""); return _n ? "\n【群名】" + _n + "（起名的那个人自己知道是自己起的）。" : ""; })() + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；定下的是以后的事，就加 " + SCHED_LATER_SPEC + "同样只填他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gStickField + "" + gDmField + thoughtField + impressionField + "}；某成员这一轮在群里亲口说了过一会儿／几点再回来（到了、忙完了、拿到了就来群里说），就在 Ta 那条加 \"laterPromise\":{\"minutes\":几分钟后,\"about\":\"回来要说/要做的事\"}（说的是几点就把 minutes 换成 \"at\":\"HH:MM\"），到点 Ta 会自己回群里开话头；没说就不加；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。要靠运气定的事，谁都可以自己掷骰子或抽签：那条加 \"luck\":{\"type\":\"dice\",\"n\":骰子颗数1到3} 或 {\"type\":\"draw\",\"what\":\"抽什么\",\"n\":抽几个人}，结果由手机现掷现抽、发成一张卡，这一条里别替它报结果，结果出来以后大家照着接。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -17578,7 +17587,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 他换到别的频道接着说（她 2026-11-20）：那几句真落进那个频道（那边记未读），这边留一行「某某 去了 #频道」，点了过去
           if (group && group.spaceId && item.hop && typeof item.hop === "object" && spk) {
             try {
-              const sibs0 = spaceSibs(), tg = chHopPick(chHopTargets(sibs0.find(x => x && x.id === groupId), sibs0, spk.id, channelNoMem), item.hop.to);
+              const sibs0 = spaceSibs(), tg = chHopPick(chHopTargets(sibs0.find(x => x && x.id === groupId), sibs0, spk.id, id => channelNoMem(id) || (id !== groupId && chClosedNow(id))), item.hop.to);
               const ls0 = (Array.isArray(item.hop.lines) ? item.hop.lines : [item.hop.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, 4);
               if (tg && ls0.length) {
                 const t0 = Date.now(), from0 = (group.chName || group.name || "");
@@ -19175,11 +19184,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast("「" + sp.name + "」建好了，先有一个 #综合");
   };
   const saveChannel = (sp, g, patch) => {
-    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); updateGroup(ng.id, { chSolo: !!(patch.chSolo || patch.chNoMem), chCat: patch.chCat || "" }); toast("开了 #" + patch.chName); return; }
+    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); updateGroup(ng.id, { chSolo: !!(patch.chSolo || patch.chNoMem), chCat: patch.chCat || "", chKind: patch.chKind || "", chHours: patch.chHours || null }); toast("开了 #" + patch.chName); return; }
     const nm = channelGroupName(sp, patch.chName);
     if (nm !== g.name) renameGroup(g.id, nm);
     updateGroup(g.id, { chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds, chSolo: !!(patch.chSolo || patch.chNoMem),
-      ...(patch.chCat != null ? { chCat: patch.chCat || "" } : {}), ...(patch.chArchived != null ? { chArchived: !!patch.chArchived } : {}) });
+      ...(patch.chCat != null ? { chCat: patch.chCat || "" } : {}), ...(patch.chKind != null ? { chKind: patch.chKind || "" } : {}), ...(patch.chHours !== undefined ? { chHours: patch.chHours || null } : {}), ...(patch.chArchived != null ? { chArchived: !!patch.chArchived } : {}) });
     if (patch.chNoMem != null && !!patch.chNoMem !== channelNoMem(g.id)) saveGroupSettingsRaw(g.id, { memoryInterop: !patch.chNoMem });
   };
   // 频道在分类里上下挪（她 2026-11-20「多起来了怎么收纳归类」）：照现在看到的那一段的先后重新编 chOrder
@@ -19242,9 +19251,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setSpaceGemRev(v => v + 1);
     return true;
   };
+  // 深夜频道（她 2026-11-20）：chHours 那几个钟头以外锁着——进不去，他们也不往这儿跑、不在这儿自己聊
+  const chClosedNow = gid => { const g = (groupsRef.current || []).find(x => x && x.id === gid); return !!(g && g.chHours && !chHoursOpen(g.chHours, vclockNow())); };
+  const chLockedToast = g => { toast("#" + (g.chName || g.name) + " 要 " + g.chHours.from + ":00 才开"); };
   const talkSpace = async sp => {
     if (!active) { toast("先去 设置 → 模型 配一条线路"); return; }
-    const chs = (groups || []).filter(g => g && g.spaceId === sp.id);
+    const chs = (groups || []).filter(g => g && g.spaceId === sp.id && !chClosedNow(g.id));
     const pick = spaceTalkPick(chs, id => groupChatsRef.current[id] || [], g => (g.memberIds || []).filter(id => characters.some(c => c.id === id)).length, 3);
     if (!pick.length) { toast("没有能聊的频道"); return; }
     const out = [];
@@ -36350,7 +36362,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   })());else if (screen === "space" && (spaces || []).some(x => x.id === activeSpaceId)) body = (() => { const sp = spaces.find(x => x.id === activeSpaceId);
     return h(SpaceView, { key: "sp::" + sp.id, space: sp, channels: (groups || []).filter(g => g && g.spaceId === sp.id), groupChats, unreadMap, allChars: characters, userLabel: "我",
       onBack: () => setScreen("messages"),
-      onOpenChannel: g => { setActiveGroup(g); clearUnread(g.id); setChannelTab("chat"); setScreen("gthread"); },
+      onOpenChannel: g => { if (chClosedNow(g.id)) { chLockedToast(g); return; } setActiveGroup(g); clearUnread(g.id); setChannelTab("chat"); setScreen("gthread"); },
+      hoursOf: g => g.chHours ? (chClosedNow(g.id) ? g.chHours.from + ":00 开" : "开到 " + g.chHours.to + ":00") : "",
       onSaveChannel: (g, patch) => saveChannel(sp, g, patch),
       onDeleteChannel: g => { chfPurge(g.id); deleteGroup(g.id); },
       looseGroups: (groups || []).filter(g => g && !g.spaceId), onAdopt: ids => adoptGroups(sp, ids), onRelease: releaseChannel, spectateOf: groupSpectating, onTalk: () => talkSpace(sp), gems: (spaceGemRev, loadJSON(gemKey(sp.id), [])), onDeleteGem: id => { saveJSON(gemKey(sp.id), (loadJSON(gemKey(sp.id), []) || []).filter(x => x && x.id !== id)); setSpaceGemRev(v => v + 1); },
@@ -36389,7 +36402,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSetMyPlace: p => setMyPlaceFrom(p, null),
     allChars: characters,   // 群成员/群设置要按 id 找人；加人选单另有规矩（NPC 只能进主人的群）
     rels: rels,             // 加人选单要按「已有关系」分组（她 2026-08-25）
-    messages: groupChats[activeGroup.id] || [],
+    // 树洞频道：屏幕上他们只剩代号（她 2026-11-20）。只换显示，存档里还是真名，按条号改、删照旧对得上
+    messages: (activeGroup.chKind === "treehole" || ((groups || []).find(g => g.id === activeGroup.id) || {}).chKind === "treehole") ? thView(groupChats[activeGroup.id] || []) : (groupChats[activeGroup.id] || []),
     onStopGen: stopBtnFor("g:" + activeGroup.id),
     sending: sending,
     profile: groupProfileFor(activeGroup.id),
@@ -38890,7 +38904,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onBack: () => { setChannelTab("chat"); if ((spaces || []).some(x => x.id === _g.spaceId)) { setActiveSpaceId(_g.spaceId); setScreen("space"); } else setScreen("messages"); } });
   }
   // 「某某 去了 #频道」那一行点了过去（她 2026-11-20）：跟频道首页点进频道同一条路
-  window.__openChannel = gid => { const g = (groupsRef.current || []).find(x => x && x.id === gid); if (!g) return; setActiveGroup(g); clearUnread(g.id); setChannelTab("chat"); setScreen("gthread"); };
+  window.__openChannel = gid => { const g = (groupsRef.current || []).find(x => x && x.id === gid); if (!g) return; if (chClosedNow(g.id)) { chLockedToast(g); return; } setActiveGroup(g); clearUnread(g.id); setChannelTab("chat"); setScreen("gthread"); };
   window.__openSpaceGems = spId => { if (!(spaces || []).some(x => x.id === spId)) return; window.__gemOpenFor = spId; setActiveSpaceId(spId); setScreen("space"); };
   window.__openChFile = (gid, fid) => { if (!gid || !fid) return; setChFileOpen(fid); setChannelTab("files"); };
   // 刘海那一条归各个界面的顶栏自己吃（v56.63，见 engine.js 的 safeTop）：

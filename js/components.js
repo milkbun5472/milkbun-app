@@ -23003,6 +23003,8 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDe
   const [name, setName] = useState(channel ? channel.chName || "" : "");
   const [about, setAbout] = useState(channel ? channel.chAbout || "" : "");
   const [solo, setSolo] = useState(!!(channel && channel.chSolo));
+  const [hole, setHole] = useState(!!(channel && channel.chKind === "treehole"));   // 树洞：大家匿名
+  const [night, setNight] = useState(channel && channel.chHours ? { ...channel.chHours } : null);   // 只在几点到几点开
   const [noMem, setNoMem] = useState(!!noMem0);
   const [cat, setCat] = useState(channel ? channel.chCat || "" : "");
   const [arch, setArch] = useState(!!(channel && channel.chArchived));
@@ -23011,7 +23013,7 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDe
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const ok = name.trim().replace(/^#/, "") && sel.length >= 1;
   return h(PageSheet, { onClose, zh: channel ? "改频道" : "新频道", sub: space.name,
-    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, chSolo: solo || noMem, chNoMem: noMem, chCat: cat, chArchived: arch }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
+    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, chSolo: solo || noMem, chNoMem: noMem, chCat: cat, chArchived: arch, chKind: hole ? "treehole" : "", chHours: night }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
     h("div", { className: "flex items-baseline gap-1 pb-2 mb-4", style: { borderBottom: "1px solid " + t.line } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.fog } }, "#"),
       h("input", { "data-wk": "input", value: name, onChange: e => setName(e.target.value), placeholder: "频道名", className: "flex-1 outline-none", style: { background: "transparent", fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink } })),
@@ -23019,6 +23021,22 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDe
     h("textarea", { "data-wk": "input", value: about, onChange: e => setAbout(e.target.value), rows: 2, placeholder: "一句话就行，大家进了这个频道就照这个来聊",
       className: "w-full outline-none mb-1", style: { background: t.bg2, borderRadius: 10, padding: "9px 11px", fontFamily: F_BODY, fontSize: 16, color: t.ink, resize: "none" } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 16 } }, "会跟着这个频道一起给到大家，改了下一轮就照新的。"),
+    h("div", { "data-wk": "chkind", "data-on": hole ? "1" : "0", className: "flex items-center justify-between gap-3", style: { padding: "10px 12px", background: t.bg2, borderRadius: 10, marginBottom: 10 } },
+      h("div", { className: "min-w-0" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "树洞（大家匿名）"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "开着：这个频道里每个人（也包括你）只显示一个代号，看不见名字和头像；谁是谁只能从说话的样子猜。")),
+      h(Toggle, { on: hole, onChange: v => setHole(v), color: t.accent })),
+    h("div", { "data-wk": "chhours", "data-on": night ? "1" : "0", style: { padding: "10px 12px", background: t.bg2, borderRadius: 10, marginBottom: 10 } },
+      h("div", { className: "flex items-center justify-between gap-3" },
+        h("div", { className: "min-w-0" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "只在夜里开"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, night ? "到点才开门，别的时候锁着进不去，他们也不会往这儿跑。" : "关着：什么时候都开着。")),
+        h(Toggle, { on: !!night, onChange: v => setNight(v ? { from: 22, to: 5 } : null), color: t.accent })),
+      night ? h("div", { className: "flex items-center gap-2", style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } },
+        h("span", null, "从"),
+        h("select", { "data-wk": "input", value: night.from, onChange: e => setNight(n => ({ ...n, from: Number(e.target.value) })), style: { background: "transparent", color: t.ink, fontSize: 16 } }, Array.from({ length: 24 }, (_, i) => h("option", { key: i, value: i }, i + ":00"))),
+        h("span", null, "到"),
+        h("select", { "data-wk": "input", value: night.to, onChange: e => setNight(n => ({ ...n, to: Number(e.target.value) })), style: { background: "transparent", color: t.ink, fontSize: 16 } }, Array.from({ length: 24 }, (_, i) => h("option", { key: i, value: i }, i + ":00")))) : null),
     h("div", { "data-wk": "chsolo", "data-on": noMem ? "0" : (solo ? "0" : "1"), className: "flex items-center justify-between gap-3", style: { padding: "10px 12px", background: t.bg2, borderRadius: 10, marginBottom: 10, opacity: noMem ? .5 : 1 } },
       h("div", { className: "min-w-0" },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "跟别的频道互通"),
@@ -23234,6 +23252,8 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
               h("span", { className: "flex-1 min-w-0" },
                 h("span", { className: "flex items-center gap-2" },
                   h("span", { "data-wk": "mlname", "data-part": "channel", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, fontWeight: un > 0 ? 600 : 400 } }, g.chName || g.name),
+                  hoursOf && hoursOf(g) ? h("span", { "data-wk": "chnomemtag", "data-part": "hours", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 4, padding: "0 4px", flexShrink: 0 } }, hoursOf(g)) : null,
+                  g.chKind === "treehole" ? h("span", { "data-wk": "chnomemtag", "data-part": "treehole", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 4, padding: "0 4px", flexShrink: 0 } }, "树洞") : null,
                   spectateOf && spectateOf(g) ? h("span", { "data-wk": "chnomemtag", "data-part": "spectate", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 4, padding: "0 4px", flexShrink: 0 } }, "旁观") : null,
                   noMemOf && noMemOf(g.id) ? h("span", { "data-wk": "chnomemtag", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 5, padding: "0 4px", flexShrink: 0 } }, "不记") : null,
                   // 跟消息列表一样写几条（她 2026-11-20「不能在频道旁边显示红点多少条」）

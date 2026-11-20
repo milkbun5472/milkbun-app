@@ -2520,6 +2520,17 @@ function thAlias(map, id) {
   if (!m[k]) m[k] = Object.keys(m).length ? Math.max(...Object.values(m).map(Number).filter(n => n > 0)) + 1 : 1;
   return { map: m, alias: "树洞 #" + m[k] };
 }
+// 按先后给这个树洞频道里说过话的每个人发号（她是 "me"），同一份聊天每次算出来都一样
+function thAliasMapOf(msgs) {
+  let map = {};
+  (msgs || []).forEach(m => { if (!m || m.role === "system") return; const k = m.role === "user" ? "me" : (m.role === "assistant" && m.senderId ? String(m.senderId) : ""); if (k) map = thAlias(map, k).map; });
+  return map;
+}
+// 屏幕上那一份：他们的名字和头像换成代号（她自己那边本来就是右边的「我」）
+function thView(msgs) {
+  const map = thAliasMapOf(msgs);
+  return (msgs || []).map(m => m && m.role === "assistant" && m.senderId && map[String(m.senderId)] ? { ...m, senderName: "树洞 #" + map[String(m.senderId)], senderId: "th:" + map[String(m.senderId)], thAnon: true } : m);
+}
 // 深夜频道：hours = { from: 22, to: 5 }（整点），跨午夜也认；没设就是一直开着
 function chHoursOpen(hours, date) {
   if (!hours || hours.from == null || hours.to == null) return true;
@@ -2612,7 +2623,7 @@ function spaceChannelBlock(g, allGroups, chatsOf, uName) {
     .sort((a, b) => (b.share - a.share) || (b.t - a.t)).slice(0, 6).map(o => o.x);
   const rows = sibs.map(x => {
     const ms = (chatsOf(x.id) || []).filter(m => m && m.content && !m.recalled && m.role !== "system").slice(-2);
-    const said = ms.map(m => (m.role === "user" ? (uName || "她") : (m.senderName || "有人")) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 50)).join("／");
+    const said = ms.map(m => (x.chKind === "treehole" ? "有人" : (m.role === "user" ? (uName || "她") : (m.senderName || "有人"))) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 50)).join("／");
     return "· #" + (x.chName || x.name || "") + (x.chAbout ? "（" + String(x.chAbout).slice(0, 30) + "）" : "") + (said ? "　最近：" + said : "　还没人说话");
   });
   if (rows.length) out.push("【同一个地方的别的频道】\n" + rows.join("\n"));
