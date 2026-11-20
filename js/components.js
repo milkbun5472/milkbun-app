@@ -23073,7 +23073,20 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDe
 // ── 频道：聊天｜文件（她 2026-11-20「简约版的可以聊天的，可以放点文件进去」）──────────────
 // tab 长成档案柜抽屉上伸出来的两张索引签：「聊天」一张、「文件」一张；选中的那张满高、跟底下那一页同色，
 //   像抽屉拉开的那一层；没选的那张矮半截、颜色退后。文件那张右上折一个角（档案夹的那个折角）。
-function ChannelTabs({ tab, onTab, bg }) {
+// 频道里一起听（她 2026-11-20「频道里面也可以搞一起听大家都能听到」）：聊天页签那一排右边一颗，底下一条正在放什么
+function ChannelListenBtn({ on, onToggle }) {
+  const t = useTheme();
+  return h("button", { "data-wk": "chlisten", "data-on": on ? "1" : "0", onClick: onToggle, className: "active:opacity-60",
+    style: { minHeight: 30, padding: "0 10px", borderRadius: 999, border: "1px solid " + (on ? t.accent : t.line), color: on ? t.accent : t.sub, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, on ? "♪ 在一起听" : "♪ 一起听");
+}
+function ChannelListenBar({ song, by, playing, onStop }) {
+  const t = useTheme();
+  return h("div", { "data-wk": "chlistenbar", className: "shrink-0 flex items-center gap-2", style: { padding: "7px 16px", background: t.bg2, borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub } },
+    h("span", { style: { color: t.accent } }, playing ? "♪" : "‖"),
+    h("span", { className: "flex-1 min-w-0 truncate" }, "大家一起在听《" + (song.title || "") + "》" + (song.artist ? " - " + song.artist : "") + (by ? " · " + by + "放的" : "")),
+    h("button", { "data-wk": "chlistenstop", onClick: onStop, className: "active:opacity-60", style: { flexShrink: 0, color: t.fog, fontSize: "calc(12px * var(--app-fs, 1))" } }, "不听了"));
+}
+function ChannelTabs({ tab, onTab, bg, right }) {
   const t = useTheme(), paper = bg || t.bg;
   const one = (k, zh) => { const on = tab === k;
     return h("button", { key: k, "data-wk": "chtab", "data-part": k, "data-on": on ? "1" : "0", onClick: () => !on && onTab(k), className: "active:opacity-70",
@@ -23083,7 +23096,7 @@ function ChannelTabs({ tab, onTab, bg }) {
       zh,
       k === "files" ? h("span", { "aria-hidden": "true", style: { position: "absolute", top: -1, right: -1, width: 10, height: 10, background: "linear-gradient(225deg, " + (t.bg2 || t.bg) + " 50%, " + t.line + " 50%)", borderTopRightRadius: 10 } }) : null); };
   return h("div", { "data-wk": "chtabs", className: "shrink-0 flex items-end", style: { gap: 4, padding: "6px 14px 0", borderBottom: "1px solid " + t.line, position: "relative", zIndex: 2 } },
-    one("chat", "聊天"), one("files", "文件"));
+    one("chat", "聊天"), one("files", "文件"), right ? h("div", { style: { marginLeft: "auto", alignSelf: "center", paddingBottom: 4 } }, right) : null);
 }
 const chfWhen = ts => { if (!ts) return ""; const d = new Date(ts), now = new Date(); return d.toDateString() === now.toDateString() ? String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") : (d.getMonth() + 1) + "/" + d.getDate(); };
 function ChfImg({ k, style }) { const u = useIdbImgUrl(k); return u ? h("img", { src: u, alt: "", style }) : h("div", { style: Object.assign({}, style, { background: "rgba(0,0,0,.05)" }) }); }
