@@ -124,3 +124,9 @@ test("和它合照：接线、旁观不给、钩子登记", () => {
   assert.match(rd("components.js"), /"data-wk": "chpetcast"/);
   assert.match(rd("theme-studio.js"), /\["chpetcast",/);
 });
+
+test("频道长按菜单不放点个表情、收藏、收进时刻", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/components.js"), "utf8");
+  assert.match(src, /const plus = \[onGem \? "gem"/);
+  assert.match(src, /k !== "fav" && k !== "shike"/);
+});

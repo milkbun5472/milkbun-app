@@ -22171,7 +22171,7 @@ function GroupThread({
     message: messages[menu],
     idx: menu,
     isMine: messages[menu] && messages[menu].role === "user",
-    items: (() => { const it = menuItemsForKind(messages[menu], canSpeakMsg(messages[menu])); const mm = messages[menu]; const plus = [onReact ? "react" : null, onGem ? "gem" : null, onPin ? "pin" : null, onSub && !mm.replyRoot ? "sub" : null].filter(Boolean); return plus.length && mm && mm.content && it[0] && it[0].indexOf("copy") >= 0 ? [it[0].concat(plus)].concat(it.slice(1)) : it; })(),
+    items: (() => { const it = menuItemsForKind(messages[menu], canSpeakMsg(messages[menu])); const mm = messages[menu]; const plus = [onGem ? "gem" : null, onPin ? "pin" : null, onSub && !mm.replyRoot ? "sub" : null].filter(Boolean); /* 频道里（她 2026-11-20）：表情靠双击、收藏跟精华重了、时刻走多选，长按里这三样不放 */ const first = onGem && it[0] ? it[0].filter((k) => k !== "fav" && k !== "shike") : it[0]; const it2 = [first].concat(it.slice(1)).filter((r) => r && r.length); return plus.length && mm && mm.content && first && first.indexOf("copy") >= 0 ? [first.concat(plus)].concat(it.slice(1)) : it2; })(),
     onClose: () => setMenu(null),
     onAction: act => {
       if (act === "gem") { onGem && onGem(menu); }
