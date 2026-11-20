@@ -21564,8 +21564,9 @@ function GroupThread({
     if (m.askReceipt) return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": "askreceipt", className: "py-1 flex justify-center" },
       h(AskReceipt, { r: m.askReceipt, charName: m.askReceipt.payerName, money: n => mTight(n), onJump: () => askJump(m.askReceipt.aid) }));
     // 频道文件动过的那一行：点了打开那份（她 2026-11-20）
-    if (m.kind === "chfile") return h("div", { key: i, className: "text-center py-1.5" },
-      h("button", { "data-wk": "note", "data-part": "chfile", onClick: () => window.__openChFile && window.__openChFile(group && group.id, m.fileId), className: "active:opacity-60",
+    // 「某某 去了／从 #频道 过来」那一行同一个样子，点了去那个频道（她 2026-11-20）
+    if (m.kind === "chfile" || m.kind === "chlink") return h("div", { key: i, className: "text-center py-1.5" },
+      h("button", { "data-wk": "note", "data-part": m.kind, onClick: () => m.kind === "chlink" ? (window.__openChannel && window.__openChannel(m.toGid)) : (window.__openChFile && window.__openChFile(group && group.id, m.fileId)), className: "active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, textDecoration: "underline", textUnderlineOffset: 3 } }, m.content));
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });

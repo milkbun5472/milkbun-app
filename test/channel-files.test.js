@@ -43,7 +43,7 @@ test("接线：频道群的提示词带文件块，发言里的 file 写进频�
   assert.match(ap, /kind: "chfile", fileId: r0\.file\.id/);
   assert.match(ap, /channelTabs: activeGroup\.spaceId \? h\(ChannelTabs/);
   assert.match(ap, /body = h\(ChannelFilesPage, \{/);
-  assert.match(cs, /if \(m\.kind === "chfile"\) return h\("div"/);
+  assert.match(cs, /if \(m\.kind === "chfile" \|\| m\.kind === "chlink"\) return h\("div"/);
 });
 test("文件页渲染：索引签、三个按钮、一行一个文件", () => {
   const i = cs.indexOf("function ChannelTabs("), j = cs.indexOf("// 把已有的群放进这个频道空间", i);
@@ -59,4 +59,26 @@ test("文件页渲染：索引签、三个按钮、一行一个文件", () => {
   assert.equal(wk("chtab").length, 2);
   assert.equal(wk("chtab").find(n => n.props["data-part"] === "files").props["data-on"], "1");
   assert.equal(wk("chfnew").length + wk("chfupimg").length + wk("chfuptxt").length, 3);
+});
+test("换个频道接着说：只去同空间、他在的、能互通的频道；不记的频道进不去也出不来", () => {
+  const fs = require("fs"), vm = require("vm"), en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const i = en.indexOf("function chHopTargets("), j = en.indexOf("function chfContextBlock(", i);
+  const ctx = {}; vm.createContext(ctx); vm.runInContext(en.slice(i, j) + ";this.T=chHopTargets;this.P=chHopPick;", ctx);
+  const gs = [{ id: "a", spaceId: "s", chName: "综合", memberIds: ["x", "y"] }, { id: "b", spaceId: "s", chName: "深夜", memberIds: ["x"] },
+    { id: "c", spaceId: "s", chName: "秘密", memberIds: ["x"] }, { id: "d", spaceId: "s", chName: "游戏", memberIds: ["x"], chSolo: true }, { id: "e", spaceId: "t", chName: "别处", memberIds: ["x"] }];
+  const noMem = id => id === "c";
+  assert.equal(JSON.stringify(ctx.T(gs[0], gs, "x", noMem).map(g => g.id)), '["b"]');
+  assert.equal(ctx.T(gs[0], gs, "y", noMem).length, 0);
+  assert.equal(ctx.T(gs[2], gs, "x", noMem).length, 0);
+  assert.equal(ctx.P(ctx.T(gs[0], gs, "x", noMem), "#深夜").id, "b");
+  assert.equal(ctx.P(ctx.T(gs[0], gs, "x", noMem), "秘密"), null);
+});
+test("hop 落地：那边写进几句、记未读，这边留一行 chlink，点了去那个频道", () => {
+  const fs = require("fs"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.match(ap, /chHopPick\(chHopTargets\(sibs0\.find/);
+  assert.match(ap, /kind: "chlink", toGid: tg\.id/);
+  assert.match(ap, /window\.__openChannel = gid =>/);
+  assert.match(ap, /const chfPurge = gid =>/);
+  assert.match(ap, /onDeleteChannel: g => \{ chfPurge\(g\.id\); deleteGroup\(g\.id\); \}/);
+  assert.match(cs, /m\.kind === "chfile" \|\| m\.kind === "chlink"/);
 });

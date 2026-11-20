@@ -2476,6 +2476,18 @@ function chfApplyDoc(files, name, text, by, now) {
   return { files: list, file, op: "edit" };
 }
 // 给模型看的这一块：频道里有哪些文件、谁最近动过；正文只在聊天里提到它、或上一轮刚改过时才带，截一截
+// 换个频道接着说（她 2026-11-20「聊着聊着可以自己到别的频道说话」）：这个人能去哪几个频道。
+//   同一个空间、他本人在那个频道里；不影响记忆、不互通的频道既去不了，也不能从那儿出去。noMemOf(gid) 判「不影响记忆」
+function chHopTargets(origin, allGroups, speakerId, noMemOf) {
+  if (!origin || !origin.spaceId || origin.chSolo || (noMemOf && noMemOf(origin.id))) return [];
+  return (allGroups || []).filter(x => x && x.spaceId === origin.spaceId && x.id !== origin.id && !x.chSolo
+    && (x.memberIds || []).map(String).includes(String(speakerId)) && !(noMemOf && noMemOf(x.id)));
+}
+function chHopPick(targets, to) {
+  const k = String(to || "").trim().replace(/^#+/, "");
+  if (!k) return null;
+  return (targets || []).find(x => x.chName === k) || (targets || []).find(x => String(x.chName || "").indexOf(k) >= 0 || k.indexOf(String(x.chName || "")) >= 0 && x.chName) || null;
+}
 function chfContextBlock(files, recentText, nameOf) {
   const list = (Array.isArray(files) ? files : []).filter(f => f && f.name);
   if (!list.length) return "";
