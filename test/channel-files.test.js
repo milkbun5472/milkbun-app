@@ -121,14 +121,15 @@ test("图片拿回聊天里：照她发照片那样落一条同一个引用；�
   assert.match(cs, /!spectate \? h\("button", \{ "data-wk": "chfgalrecall"/);
   assert.match(cs, /function ChfGalleryPage\(/);
 });
-test("他们一天在一个频道最多自己新开两份文件，她开的不算", () => {
+test("他们一天在一个频道最多自己新开三份文件，她开的不算", () => {
   const fs = require("fs"), vm = require("vm"), en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
   const i = en.indexOf("const CHF_CHAR_NEW_PER_DAY"), j = en.indexOf("// herLast：她最近那一句");
   const ctx = {}; vm.createContext(ctx); vm.runInContext(en.slice(i, j) + ";this.can=chfCanCharCreate;this.n=chfCharNewToday;", ctx);
   const day = ts => Math.floor(ts / 86400000), now = 10 * 86400000 + 5000;
   const f = (by, ts) => ({ kind: "doc", createdBy: by, createdTs: ts });
   assert.equal(ctx.can([f("me", now), f("a", now)], day, now), true);
-  assert.equal(ctx.can([f("a", now), f("b", now - 1000)], day, now), false);
+  assert.equal(ctx.can([f("a", now), f("b", now - 1000)], day, now), true);
+  assert.equal(ctx.can([f("a", now), f("b", now - 1000), f("c", now)], day, now), false);
   assert.equal(ctx.can([f("a", now - 86400000), f("b", now - 86400000)], day, now), true);
   const ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
   assert.match(ap, /if \(_isNew && !chfCanCharCreate\(_fs0,/);

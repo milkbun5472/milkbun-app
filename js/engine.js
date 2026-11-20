@@ -2740,7 +2740,7 @@ function peekSpaceBlock(rows, spaceName, line) {
     "  #" + (x.g.chName || x.g.name) + "（who：" + x.g.name + "）最近：\n" + x.ms.slice(-4).map(m => "    " + line(m)).join("\n")).join("\n")).join("\n");
 }
 // 他们今天自己新建了几份（她 2026-11-20「往更主动调吧」）：主动往文件里写，但新建一天一个频道最多两份，满了只改不新建
-const CHF_CHAR_NEW_PER_DAY = 2;
+const CHF_CHAR_NEW_PER_DAY = 3;
 function chfCharNewToday(files, dayOf, now) {
   const today = dayOf(now);
   return (Array.isArray(files) ? files : []).filter(f => f && f.kind === "doc" && f.createdBy && f.createdBy !== "me" && f.createdTs && dayOf(f.createdTs) === today).length;
