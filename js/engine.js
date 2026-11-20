@@ -2437,6 +2437,59 @@ const OVERREACH_BAN = STOCK_REPLY_BAN;
 // 她立下的长期准则那一块：单聊和一起学共用这一份说法（施工规则/one-public-mechanism）
 // 群公告（群友 2026-10-27 许愿）：存在群设置 gs.notice = { text, ts, by }。群线上、群线下、群通话都读这一支。
 //   它是群里人人看得到的一段置顶文字，不是规矩：照着聊、提它、吐槽它都行，用不上就不提。
+// ── 频道文件（她 2026-11-20「做一个简约版的可以聊天的，可以放点文件进去，角色大家可以改或者创建新文件，可以看到谁改了啥，或者可以上传图片」）──
+// 一个频道一份：x_chfiles:<群id> = [{ id, kind:"doc"|"image", name, text?, imgKey?, desc?, createdBy, createdTs, updatedTs, history:[{by,ts,before,after}] }]
+//   by 是 "me" 或角色 id。历史每份最多留 CHF_HIST_CAP 条，再早的丢掉（文件本身不受影响）。
+const CHF_HIST_CAP = 30;
+const chfNameKey = n => String(n || "").replace(/[《》「」"'\s]/g, "").replace(/\.(txt|md)$/i, "").toLowerCase();
+// 按行对比：LCS，行太多时只比前后各一截，中间整段当改了。回 [{t:"same"|"add"|"del", s}]
+function chfLineDiff(before, after) {
+  const A = String(before || "").split("\n"), B = String(after || "").split("\n");
+  if (A.length * B.length > 250000) return A.map(s => ({ t: "del", s })).concat(B.map(s => ({ t: "add", s })));
+  const n = A.length, m = B.length, L = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = []; let i = 0, j = 0;
+  while (i < n && j < m) { if (A[i] === B[j]) { out.push({ t: "same", s: A[i] }); i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) out.push({ t: "del", s: A[i++] }); else out.push({ t: "add", s: B[j++] }); }
+  while (i < n) out.push({ t: "del", s: A[i++] });
+  while (j < m) out.push({ t: "add", s: B[j++] });
+  return out;
+}
+function chfDiffSummary(before, after) {
+  if (before == null || before === "") return "新建";
+  const d = chfLineDiff(before, after), a = d.filter(x => x.t === "add" && x.s.trim()).length, r = d.filter(x => x.t === "del" && x.s.trim()).length;
+  return !a && !r ? "没改字" : [a ? "加了 " + a + " 行" : "", r ? "删了 " + r + " 行" : ""].filter(Boolean).join("、");
+}
+// 写一份文档（新建或改）：同名（不计书名号、扩展名、大小写）就是改，没有就新建。回 { files, file, op }
+function chfApplyDoc(files, name, text, by, now) {
+  const list = Array.isArray(files) ? files.slice() : [], t = now || Date.now();
+  const nm = String(name || "").replace(/^[《「]|[》」]$/g, "").trim().slice(0, 40), body = String(text == null ? "" : text).slice(0, 20000);
+  if (!nm) return { files: list, file: null, op: "" };
+  const k = chfNameKey(nm), i = list.findIndex(f => f && f.kind === "doc" && chfNameKey(f.name) === k);
+  if (i < 0) {
+    const file = { id: "chf_" + t + "_" + Math.floor(Math.random() * 10000), kind: "doc", name: nm, text: body, createdBy: by, createdTs: t, updatedTs: t, history: [{ by, ts: t, before: "", after: body }] };
+    return { files: list.concat([file]), file, op: "create" };
+  }
+  const old = list[i];
+  if (String(old.text || "") === body) return { files: list, file: old, op: "" };
+  const file = { ...old, text: body, updatedTs: t, updatedBy: by, history: (old.history || []).concat([{ by, ts: t, before: String(old.text || ""), after: body }]).slice(-CHF_HIST_CAP) };
+  list[i] = file;
+  return { files: list, file, op: "edit" };
+}
+// 给模型看的这一块：频道里有哪些文件、谁最近动过；正文只在聊天里提到它、或上一轮刚改过时才带，截一截
+function chfContextBlock(files, recentText, nameOf) {
+  const list = (Array.isArray(files) ? files : []).filter(f => f && f.name);
+  if (!list.length) return "";
+  const who = id => id === "me" ? (nameOf ? nameOf("me") : "她") : (nameOf ? nameOf(id) : "") || "有人";
+  const md = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日" + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  const rt = String(recentText || "");
+  const rows = list.slice().sort((a, b) => (b.updatedTs || 0) - (a.updatedTs || 0)).slice(0, 20).map(f =>
+    "· 《" + f.name + "》" + (f.kind === "image" ? "（图片" + (f.desc ? "：" + String(f.desc).slice(0, 60) : "") + "）" : "（文档，" + String(f.text || "").length + " 字）")
+      + "　" + who(f.updatedBy || f.createdBy) + " " + md(f.updatedTs || f.createdTs));
+  const fresh = Date.now() - 30 * 60000;
+  const open = list.filter(f => f.kind === "doc" && (rt.indexOf(f.name) >= 0 || (f.updatedTs || 0) > fresh)).slice(0, 2);
+  const bodies = open.map(f => { const tx = String(f.text || ""); return "《" + f.name + "》全文" + (tx.length > 3000 ? "（太长，只给开头和最后一截）" : "") + "：\n" + (tx.length > 3000 ? tx.slice(0, 1800) + "\n……\n" + tx.slice(-1100) : tx); });
+  return "\n\n【这个频道的文件】频道里大家共用的文件，谁都能打开看、改，也能新建：\n" + rows.join("\n") + (bodies.length ? "\n" + bodies.join("\n\n") : "");
+}
 // 频道（她 2026-11-20）：群挂着 spaceId 时，它是一个频道空间里的一个频道。给两样事实：
 //   这个频道是聊什么的（她写的那句），和同一个空间里别的频道最近在说什么（各一两句），大家知道别处在发生什么。
 //   chatsOf(id) 拿那个群的消息；uName 是她的名字。线上群、群线下都走这一份。
