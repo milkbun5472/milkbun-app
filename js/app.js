@@ -1869,6 +1869,10 @@ function App() {
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   // 频道（她 2026-11-20）：x_spaces 一块一个地方，频道是 groups 里挂着 spaceId 的那几个群
   const [spaces, setSpaces] = useState([]);
+  const [subOpen, setSubOpen] = useState(null);   // 楼中楼那一串：{ gid, root }（她 2026-11-20）
+  const [subBusy, setSubBusy] = useState(false);
+  const [loungeSitting, setLoungeSitting] = useState(false);
+  const loungeSitRef = useRef({});   // 每个挂机房上次「进去坐坐」的时间：半小时里只招呼一回
   const spacesRef = useRef([]); spacesRef.current = spaces;
   const [spaceGemRev, setSpaceGemRev] = useState(0);   // 精华墙改了就重读（x_spaceGems:<空间id>）
   const [spaceDigestRev, setSpaceDigestRev] = useState(0);   // 「刚才他们聊了」那张卡改了就重读
@@ -3933,6 +3937,8 @@ function App() {
     if (r.ev.length) setTimeout(() => luckyLines(gid, r.ev), 0);
   };
   const pGChat = (id, u) => { const run = () => setGroupChats(p => pGChatNext(p, id, u)); if (hiddenFlush(run)) return; run(); };
+  // 楼中楼那一轮（replyGroup 的 sub）在函数里遮住 pGChat，新落的几条挂上 replyRoot；外头那份从这里拿
+  const pGChatOuter = (id, u) => pGChat(id, u);
   const pGChatNext = (p, id, u) => {
     const pl = p[id] || [];
     const n = typeof u === "function" ? u(pl) : u;
@@ -14064,6 +14070,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       for (let i = openCaps.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, openCaps[i])) openCaps.splice(i, 1);
       for (let i = capState.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, capState[i].split(/[：:]/)[0])) capState.splice(i, 1);
+      // 他之前在某个频道赌气退出了（她 2026-11-20）：私聊里知道这件事；被劝好了就自己回去
+      if (!room) { const _left = (groups || []).filter(g => g && g.spaceId && g.chLeft && g.chLeft[char.id]);
+        if (_left.length) capState.push("rejoin：你之前赌气退出了 " + _left.map(g => "#" + (g.chName || g.name) + (g.chLeft[char.id].why ? "（因为" + g.chLeft[char.id].why + "）" : "")).join("、") + "。要是这一轮被劝好了、愿意回去，填 \"rejoin\":{\"channel\":\"频道名\"}，你就真的回到那个频道；还没消气就不填。"); }
       const capabilityHint = "\n【本轮开放能力】" + openCaps.join(", ") + (capState.length ? "\n【本轮能力状态】\n" + capState.join("\n") : "");
       // 言秋在手机这间房走的是本人专线，不吃普通角色的完整能力协议；但 Lisa 点名让TA
       // 记日期/记账时，必须把同一张真写入凭证递给TA。只补传输字段，不给TA说法、态度或
@@ -15596,6 +15605,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         pChat(chatKey, p => [...p, { role: "assistant", kind: "pat", content: _pn + " 拍了拍我" + (_ps ? " " + _ps : ""), ts: Date.now(), turnId: "pat_" + Date.now(), read: false }]);
         delivered = true;
       }
+      // 被劝好了，回到之前赌气退出的那个频道（她 2026-11-20）
+      if (parsed.rejoin && typeof parsed.rejoin === "object") {
+        try {
+          const _rn = String(parsed.rejoin.channel || "").trim().replace(/^#+/, "");
+          const _rg = (groupsRef.current || []).find(g => g && g.spaceId && g.chLeft && g.chLeft[char.id] && (!_rn || g.chName === _rn || g.name === _rn));
+          if (_rg) {
+            const _cl = { ...(_rg.chLeft || {}) }; delete _cl[char.id];
+            updateGroup(_rg.id, { memberIds: [...new Set([...(_rg.memberIds || []), char.id])], chLeft: _cl });
+            pGChatOuter(_rg.id, p => [...p, { role: "system", kind: "chlink", toGid: _rg.id, senderId: char.id, content: char.name + " 回到了 #" + (_rg.chName || _rg.name), ts: Date.now() }]);
+          }
+        } catch (e) {}
+      }
       // TA 发回来的文件（她 2026-11-18「角色给他发文档他能改了发回来吗」「都做吧」）：跟她发的同一种消息，挂在TA那侧，点开能看、能存
       if (parsed.file && typeof parsed.file === "object" && String(parsed.file.text || "").trim()) {
         const _ft = String(parsed.file.text), _fn = String(parsed.file.name || "").trim().replace(/[\\/:*?"<>|]/g, "").slice(0, 60) || "文件.txt";
@@ -16429,6 +16450,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 让群成员基于当前全部记录回应一次（不新增我的输入）
   const replyGroup = async (groupId, rgOpts = {}) => {
     if (typeof vclockUse === "function") vclockUse("g:" + groupId);   // 群里报时、时间戳走群挑的那张面具的钟（没挑＝主面具）
+    // 楼中楼（她 2026-11-20）：在某一串里说话时，这一轮大家落下的话都回在那一串里（挂 replyRoot），主线不刷
+    const _subRoot = rgOpts && rgOpts.sub ? String(rgOpts.sub) : "";
+    const pGChat = _subRoot ? (gid, u) => pGChatOuter(gid, gid !== groupId ? u : p => { const n = u(p); return Array.isArray(n) ? n.map((m, k) => k >= p.length && m && !m.replyRoot && m.role !== "system" ? { ...m, replyRoot: _subRoot } : m) : n; }) : pGChatOuter;
     const profile = groupProfileFor(groupId);   // 群里的「你」＝群挑的那张面具
     if (rgOpts && rgOpts.auto && chClosedNow(groupId)) return;   // 深夜频道没到点：后台不在这儿自己聊
     // 群里自己聊（rgOpts.auto）是后台自己跑的：挂上群名
@@ -16505,7 +16529,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const gQuoteCatalog = window.GroupQuote ? window.GroupQuote.buildCatalog(gchat, userName(profile), 50) : [];
       const gQuoteByMessage = new Map(gQuoteCatalog.map(x => [x.message, x]));
       const gQuoteCatalogText = gQuoteCatalog.length ? "\n\n【可正式引用的旧消息 · 跨轮有效】\n" + gQuoteCatalog.map(x => x.alias + "｜" + x.senderName + "｜" + x.preview).join("\n") + "\n需要显示引用气泡时，用 quoteId 填对应 Q 编号。即使相隔数轮也可以回引；相同文字必须依作者和编号区分，绝不能猜是谁说的。只口头提『你刚刚说过』而不需要引用气泡时，可以不填。" : "";
-      const _graw = groupContextRows(groupId);
+      const _graw0 = groupContextRows(groupId);
+      // 主线上下文不带串里的话（串在下面另给一行摘要）；在串里说话时，给主线最近几句垫底，再给根那条和整串
+      const _graw = _subRoot ? (() => { const main = _graw0.filter(m => !m.replyRoot), root = main.find(m => subRootKey(m) === _subRoot);
+        return main.slice(-6).filter(m => m !== root).concat(root ? [root] : []).concat(_graw0.filter(m => String(m.replyRoot || "") === _subRoot)); })()
+        : _graw0.filter(m => !m.replyRoot);
       const fmtGLine = groupHistLine;
       // 插时间断点：相邻消息间隔 >1.5h 就标一行「隔了约X、到了几点」——让模型知道时间过去了、别把旧事当正在发生（item 3/5）
       const _gparts = []; let _gprev = 0;
@@ -16948,13 +16976,28 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const nm = gid => { const x = (groupsRef.current || []).find(y => y && y.id === gid); return x ? (x.chName || x.name) : ""; };
         return gemLine(gl, nm) + (gemDayOk(gl, groupId, dayKeyNow()) ? "\n【收进精华】这个地方有一面精华墙，放的是大家觉得值得留下的那几句。谁觉得刚才频道里哪句话好笑、好哭、该留着，就在他自己那条发言里加 \"gem\":{\"quote\":\"那句话里的原文\",\"why\":\"为什么收，一句\"}——quote 照原话抄一段，会真的收上墙。" : "");
       })() : "";
+      // 楼中楼（她 2026-11-20）：在串里——说清楚这一轮在哪一串里；在主线——列出正热的几串，谁想回进某一串就带上 sub
+      const gSubHint = group && group.spaceId ? (() => {
+        const ms0 = groupChatsRef.current[groupId] || [], nm0 = m => m.role === "user" ? userName(profile) : (m.senderName || "有人");
+        if (_subRoot) { const root = ms0.find(m => subRootKey(m) === _subRoot);
+          return root ? "\n\n【这一串】现在是在「" + nm0(root) + "：" + String(root.content || "").replace(/\s+/g, " ").slice(0, 60) + "」底下回的一串里，大家这一轮说的话都回在这一串里，围着这一句接着歪、接着聊；主线上的事上面也垫了几句。" : ""; }
+        const th = subThreadsOf(ms0), keys = Object.keys(th).slice(-4);
+        const rows = keys.map(k => { const root = ms0.find(m => subRootKey(m) === k), L = th[k].last; return root ? "· 「" + nm0(root) + "：" + String(root.content || "").replace(/\s+/g, " ").slice(0, 30) + "」底下 " + th[k].n + " 条，最后 " + nm0(L) + "：" + String(L.content || "").replace(/\s+/g, " ").slice(0, 30) : ""; }).filter(Boolean);
+        return "\n\n【楼中楼】频道里一条消息底下可以单独回一串，歪楼、接梗就回在那一串里，不刷主线。" + (rows.length ? "现在有这几串：\n" + rows.join("\n") + "\n" : "")
+          + "谁想回进某一串，就在他那条发言里加 \"sub\":{\"root\":\"那条消息里逐字的一小段\",\"text\":\"他回在串里的话\"}。";
+      })() : "";
+      // 赌气退频道（她 2026-11-20）：真被惹急了、待不下去的人可以自己退出这个频道；别的频道照旧在，要等有人把他劝回来
+      const gLoungeHint = rgOpts && rgOpts.loungeSit ? "\n\n【挂机房】这里是大家挂着的地方，各忙各的，不一定在聊天。" + userName(profile) + " 刚进来坐下了，什么都还没说。谁注意到了、腾得出手，就抬头招呼一句或者照样忙自己的，各按各的样子。" : "";
+      const gLeaveHint = group && group.spaceId && !groupSpectating(group) && members.length > 1 && !_subRoot
+        ? "\n\n【退出这个频道】谁在这儿真被惹急了、待不下去，可以在他那条发言里加 \"leave\":{\"why\":\"他为什么走（一句）\"}——他就真的退出了 #" + (group.chName || group.name || "") + "，别的频道照旧在。退了以后要等有人去私下把他劝回来。" : "";
       const gHopHint = group && group.spaceId ? (() => {
         const sibs = spaceSibs(), og = sibs.find(x => x && x.id === groupId);
         const rows = members.map(c => { const ts = chHopTargets(og, sibs, c.id, id => channelNoMem(id) || (id !== groupId && chClosedNow(id))); return ts.length ? c.name + "：" + ts.map(x => "#" + x.chName).join("、") : ""; }).filter(Boolean);
         return rows.length ? "\n\n【换个频道接着说】同一个地方还有别的频道。谁觉得接下来这段更该到另一个频道去说，就在他自己那条发言里加 \"hop\":{\"to\":\"频道名\",\"lines\":[\"他到那边说的话\"]}（一到四句）——他真的会去那个频道把这几句说出来，这边留一行他去了哪儿；不想去就不加。各人能去的：\n" + rows.join("\n") : "";
       })() : "";
       const gNoticeHint = groupNoticeBlock(gsFor(groupId).notice)
-        + spaceChannelBlock(spaceSibs().find(x => x && x.id === groupId), spaceSibs(), id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), userName(profile));
+        + spaceChannelBlock(spaceSibs().find(x => x && x.id === groupId), spaceSibs(), id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), userName(profile))
+        + gSubHint + gLeaveHint + gLoungeHint;
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
       // ONLINE_CHAT_RULE_V2 开头那句「完全代入当前角色」是给单聊写的：群里有好几个人，
       // 「当前角色」没有指代对象，这句话就空转了，真正决定站位的反倒是下面的任务描述。
@@ -17606,6 +17649,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
                   ...ls0.map((x, k) => ({ role: "assistant", senderId: spk.id, senderName: spk.name, content: x, ts: t0 + 1 + k }))]);
                 setUnreadMap(p => { const n = { ...p, [tg.id]: (p[tg.id] || 0) + ls0.length }; saveJSON("x_unread", n); return n; });
                 _gLuck.push({ role: "system", kind: "chlink", toGid: tg.id, senderId: spk.id, content: spk.name + " 去了 #" + tg.chName });
+              }
+            } catch (e) {}
+          }
+          // 他回进某一串（楼中楼）：根得是主线最近真说过的那条
+          if (group && group.spaceId && !_subRoot && item.sub && typeof item.sub === "object" && spk) {
+            try {
+              const hitS = subRootHit(item.sub.root, groupChatsRef.current[groupId] || []), txS = String(item.sub.text || "").trim();
+              if (hitS && txS) pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, content: txS.slice(0, 500), replyRoot: subRootKey(hitS), ts: Date.now(), turnId: gTurnId }]);
+            } catch (e) {}
+          }
+          // 他赌气退出这个频道：真从名单里拿掉，记下为什么；三天里只退一回
+          if (group && group.spaceId && !_subRoot && !groupSpectating(group) && item.leave && typeof item.leave === "object" && spk) {
+            try {
+              const g0 = (groupsRef.current || []).find(x => x && x.id === groupId) || group, nowL = Date.now();
+              if (chLeaveOk(g0, spk.id, nowL)) {
+                const why0 = String(item.leave.why || "").trim().slice(0, 60);
+                updateGroup(groupId, { memberIds: (g0.memberIds || []).filter(id => id !== spk.id), chLeft: { ...(g0.chLeft || {}), [spk.id]: { ts: nowL, why: why0 } }, chLeftLog: { ...(g0.chLeftLog || {}), [spk.id]: nowL } });
+                _gLuck.push({ role: "system", kind: "chlink", toGid: groupId, senderId: spk.id, content: spk.name + " 退出了 #" + (group.chName || group.name || "") });
               }
             } catch (e) {}
           }
@@ -19198,7 +19259,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); updateGroup(ng.id, { chSolo: !!(patch.chSolo || patch.chNoMem), chCat: patch.chCat || "", chKind: patch.chKind || "", chHours: patch.chHours || null }); toast("开了 #" + patch.chName); return; }
     const nm = channelGroupName(sp, patch.chName);
     if (nm !== g.name) renameGroup(g.id, nm);
-    updateGroup(g.id, { chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds, chSolo: !!(patch.chSolo || patch.chNoMem),
+    updateGroup(g.id, { ...(g.chLeft ? { chLeft: Object.fromEntries(Object.entries(g.chLeft).filter(([id]) => !(patch.memberIds || []).includes(id))) } : {}), chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds, chSolo: !!(patch.chSolo || patch.chNoMem),
       ...(patch.chCat != null ? { chCat: patch.chCat || "" } : {}), ...(patch.chKind != null ? { chKind: patch.chKind || "" } : {}), ...(patch.chHours !== undefined ? { chHours: patch.chHours || null } : {}), ...(patch.chArchived != null ? { chArchived: !!patch.chArchived } : {}) });
     if (patch.chNoMem != null && !!patch.chNoMem !== channelNoMem(g.id)) saveGroupSettingsRaw(g.id, { memoryInterop: !patch.chNoMem });
   };
@@ -19235,6 +19296,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 已有的群收进频道空间、或者拿出来（她 2026-11-20「把现在的群聊收纳进去成为一个大服务器」）：
   //   群原样不动——名字、聊天、记忆 tag、群设置（含记忆互通）都不碰，只挂上/摘下 spaceId；群里的人并进空间名单
+  // 进去坐坐（挂机房，她 2026-11-20）：她按了才跑一轮，半小时里一个挂机房只跑一回；旁观的挂机房她是隐身的，不跑
+  const loungeSit = async gid => {
+    const g = (groups || []).find(x => x && x.id === gid);
+    if (!g || groupSpectating(g) || loungeSitting) return;
+    const last = loungeSitRef.current[gid] || 0;
+    if (Date.now() - last < 30 * 60000) { toast("刚坐下没多久，大家都看到你了"); return; }
+    loungeSitRef.current[gid] = Date.now();
+    setLoungeSitting(true);
+    try { await replyGroup(gid, { loungeSit: true }); } finally { setLoungeSitting(false); }
+  };
   const adoptGroups = (sp, ids) => {
     const gs = (groups || []).filter(g => g && ids.includes(g.id) && !g.spaceId);
     // 旁观群也能收（她 2026-11-20「旁观群他俩私聊我也想收进频道」）：那是他们背着人的私聊，收进来自动不互通——
@@ -36460,7 +36531,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onOpenGem: gm => { window.__openChannel && window.__openChannel(gm.gid); if (gm.mts) setWalletTrace({ type: "group", id: gm.gid, ts: gm.mts, key: Date.now() }); }, digest: (spaceDigestRev, loadJSON("x_spaceDigest:" + sp.id, [])), onDismissDigest: () => { saveJSON("x_spaceDigest:" + sp.id, []); setSpaceDigestRev(x => x + 1); },
       onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), onMoveChannel: (g, d) => moveChannel(sp, g, d), onToggleCat: id => toggleSpaceCat(sp, id), noMemOf: channelNoMem, pickPool: liveChars.concat((characters || []).filter(c => c && c.npc && !liveChars.some(x => x.id === c.id))) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     channelTabs: activeGroup.spaceId ? h(ChannelTabs, { tab: "chat", onTab: setChannelTab, right: groupSpectating(activeGroup) ? null : h(ChannelListenBtn, { on: !!chListenOf(activeGroup.id), onToggle: () => toggleChListen(activeGroup.id) }) }) : null,
-    channelBar: activeGroup.spaceId && !groupSpectating(activeGroup) && chListenOf(activeGroup.id) ? (() => { const L0 = chListenOf(activeGroup.id); return h(ChannelListenBar, { song: L0.song, by: L0.by, playing: !!player.playing, onStop: () => toggleChListen(activeGroup.id) }); })() : null,
+    channelBar: activeGroup.spaceId ? h(React.Fragment, null,
+      !groupSpectating(activeGroup) && chListenOf(activeGroup.id) ? (() => { const L0 = chListenOf(activeGroup.id); return h(ChannelListenBar, { song: L0.song, by: L0.by, playing: !!player.playing, onStop: () => toggleChListen(activeGroup.id) }); })() : null,
+      // 挂机房（她 2026-11-20）：顶上一排人各自在干嘛，照日程现算，不调模型
+      ((groups || []).find(g => g.id === activeGroup.id) || activeGroup).chKind === "lounge" ? h(LoungePanel, { spectate: groupSpectating(activeGroup), sitting: loungeSitting,
+        people: (activeGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => { const b = typeof schedNowBriefFor === "function" ? schedNowBriefFor(c) : null; return { id: c.id, c, doing: b ? [b.title, b.location].filter(Boolean).join(" · ") : "" }; }),
+        onSit: () => loungeSit(activeGroup.id) }) : null) : null,
+    onSub: activeGroup.spaceId && !groupSpectating(activeGroup) ? key => setSubOpen({ gid: activeGroup.id, root: key }) : null,
     onGem: activeGroup.spaceId ? idx => { const m = (groupChats[activeGroup.id] || [])[idx]; if (addGem(activeGroup.spaceId, activeGroup.id, m, "me")) toast("收进精华了"); } : null,
     onOpenStyleLab: goStyleLab,
     apiProfiles: apiProfiles,
@@ -39608,7 +39685,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const all = typeof vclockKeepHist === "function" ? vclockKeepHist(old, { ...old, [k]: v }) : { ...old, [k]: v };
       const p = { ...cur, vclocks: all }; delete p.vclock; setPrefs(p); saveJSON("x_prefs", p); },
     onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast(id === "__off__" ? "后台线路关了：记忆、日程、钱包这些后台活不跑了；主动私聊、日记、朋友圈走TA自己的线路，照常" : "后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
-  }), newSpaceOpen && h(NewSpacePage, { characters: liveChars, allChars: characters, onCreate: createSpace, onClose: () => setNewSpaceOpen(false) }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
+  }), subOpen && screen === "gthread" && activeGroup && activeGroup.id === subOpen.gid && h(SubThreadPage, { group: activeGroup, messages: groupChats[subOpen.gid] || [], rootKey: subOpen.root, userLabel: "我", sending: subBusy, onClose: () => setSubOpen(null),
+    onSend: async v => { const gid = subOpen.gid, root = subOpen.root; pGChatOuter(gid, p => [...p, { role: "user", content: v, ts: Date.now(), replyRoot: root }]); setSubBusy(true); try { await new Promise(r => setTimeout(r, 60)); await replyGroup(gid, { sub: root }); } finally { setSubBusy(false); } } }), newSpaceOpen && h(NewSpacePage, { characters: liveChars, allChars: characters, onCreate: createSpace, onClose: () => setNewSpaceOpen(false) }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
     characters: liveChars,
     allChars: characters,   // 建群时配角也能直接选（她 2026-10-03：要简单点）
     onCreate: createGroup,

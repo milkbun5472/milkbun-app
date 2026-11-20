@@ -2604,7 +2604,8 @@ function spaceTalkPick(channels, chatsOf, memberCount, n, rnd, now) {
     const ms = chatsOf(g.id) || []; let last = 0;
     for (let i = ms.length - 1; i >= 0; i--) { const m = ms[i]; if (m && m.role !== "system") { last = m.ts || 0; break; } }
     const idleH = last ? (T - last) / 3600000 : 48;
-    return { g, w: 1 + Math.min(4, idleH / 6) };
+    // 挂机房是大家各忙各的地方，「让他们聊一会儿」少挑它（她 2026-11-20）
+    return { g, w: (1 + Math.min(4, idleH / 6)) * (g.chKind === "lounge" ? 0.3 : 1) };
   });
   const out = [];
   while (pool.length && out.length < (n || 3)) {
@@ -2656,6 +2657,31 @@ function chfContextBlock(files, recentText, nameOf) {
   const open = list.filter(f => f.kind === "doc" && (rt.indexOf(f.name) >= 0 || (f.updatedTs || 0) > fresh)).slice(0, 2);
   const bodies = open.map(f => { const tx = String(f.text || ""); return "《" + f.name + "》全文" + (tx.length > 3000 ? "（太长，只给开头和最后一截）" : "") + "：\n" + (tx.length > 3000 ? tx.slice(0, 1800) + "\n……\n" + tx.slice(-1100) : tx); });
   return "\n\n【这个频道的文件】频道里大家共用的文件，谁都能打开看、改，也能新建：\n" + rows.join("\n") + (bodies.length ? "\n" + bodies.join("\n\n") : "");
+}
+// ── 频道第三批（她 2026-11-20 「都做吧宝宝」）────────────────────────────
+// 赌气退频道：一个人对一个频道三天里只退一回；频道里只剩他一个人时不退（退了频道就空了）
+const CH_LEAVE_GAP = 3 * 86400000;
+function chLeaveOk(g, charId, now) {
+  if (!g || !charId) return false;
+  const ids = (g.memberIds || []).map(String);
+  if (ids.indexOf(String(charId)) < 0 || ids.length < 2) return false;
+  const last = ((g.chLeftLog || {})[charId]) || 0;
+  return !last || (now || Date.now()) - last >= CH_LEAVE_GAP;
+}
+// 楼中楼：一条消息底下回的一串。串里的消息挂着 replyRoot（根那条的 ts），主线上不画、只在根底下留一行
+function subRootKey(m) { return m && m.ts ? String(m.ts) : ""; }
+function subThreadsOf(msgs) {
+  const out = {};
+  (msgs || []).forEach(m => { if (!m || !m.replyRoot || m.recalled) return; const k = String(m.replyRoot), o = out[k] || (out[k] = { n: 0, last: null }); o.n++; o.last = m; });
+  return out;
+}
+// 他们往一串里回：root 是根那条里逐字出现过的一小段，在最近 40 条主线消息里找
+function subRootHit(quote, msgs) {
+  const q = String(quote || "").trim();
+  if (q.length < 2) return null;
+  const ms = (msgs || []).filter(m => m && !m.replyRoot && !m.recalled && m.content && m.ts).slice(-40);
+  for (let i = ms.length - 1; i >= 0; i--) if (String(ms[i].content).indexOf(q) >= 0) return ms[i];
+  return null;
 }
 // 频道（她 2026-11-20）：群挂着 spaceId 时，它是一个频道空间里的一个频道。给两样事实：
 //   这个频道是聊什么的（她写的那句），和同一个空间里别的频道最近在说什么（各一两句），大家知道别处在发生什么。

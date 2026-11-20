@@ -54,14 +54,14 @@ test('匿名历史只有票数；正常群聊和群通话使用相同窗口，�
   const text=b.ops.groupHistLine(b.ops.groupPoll('g',poll.pollId));
   assert.match(text,/选项一｜1票/); assert.doesNotMatch(text,/甲/);
   // endCall 的真实存档字段：kind=callend, log[].role/senderName/act/content/ts。
-  assert.match(app,/const bubble = \{ role: "system", kind: "callend".*id: callId, log \}/);
+  assert.match(app,/const bubble = \{ role: "system", kind: "callend".*id: callId, (?:sessionId: [^,]+, )?log \}/);
   const receipt={role:'system',kind:'callend',dur:'00:30',log:[{role:'user',content:'电话里约定',ts:1},{role:'char',senderName:'甲',act:false,content:'记住具体地址',ts:2}]};
   assert.match(b.ops.groupHistLine(receipt),/用户：电话里约定/);
   assert.match(b.ops.groupHistLine({...receipt,sum:'简略摘要'}),/甲：记住具体地址/);
   b.groupChatsRef.current.g=Array.from({length:50},(_,i)=>({role:'user',content:'第'+i+'条',ts:i}));
   b.groupChatsRef.current.g.push({kind:'ooc',content:'排除'},{recalled:true,content:'撤回'},{failed:true,content:'失败'});
   const rows=b.ops.groupContextRows('g'); assert.equal(rows.length,40); assert.equal(rows[0].content,'第10条');
-  assert.match(app,/const _graw = groupContextRows\(groupId\)/);
+  assert.match(app,/const _graw0? = groupContextRows\(groupId\)/);
   assert.match(app,/const gcChat = cur.groupId \? groupContextRows\(cur.groupId\)/);
 });
 test('无效票不落评论、不串卡；有效改票唯一；删除卡后迟到回应丢弃',async()=>{
