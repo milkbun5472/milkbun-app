@@ -50,7 +50,8 @@ test("SpaceView 渲染：一行一个频道，带说明、最后一句、未读�
   const wp = (k, p) => all.filter(n => n.props["data-wk"] === k && n.props["data-part"] === p);
   assert.equal(wp("mlrow", "channel").length, 2);
   assert.equal(wp("mlrow", "channel")[0].props["data-unread"], "1");
-  assert.equal(wp("mlbadge", "dot").length, 1);
+  assert.equal(wp("mlbadge", "channel").length, 1);
+  assert.equal(wp("mlbadge", "channel")[0].kids[0], 2);
   assert.deepEqual(wk("chabout").map(n => n.kids[0]), ["什么都聊"]);
   assert.deepEqual(wp("mllast", "channel").map(n => n.kids[0]), ["阿屿：在吗", "还没人说话"]);
   assert.equal(wk("chnew").length, 1);   // 列表最后一行；顶栏那颗挂在 Head 的 right 上

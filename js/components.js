@@ -23193,7 +23193,7 @@ function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose }) {
     onDelete ? h("button", { "data-wk": "spacedelete", onClick: () => requestAppConfirm("删掉「" + space.name + "」？", "里面 " + nChannels + " 个频道的聊天记录一起删掉。想留着的话先去 设置 → 数据 → 导入与导出 → 导出全部数据。", onDelete, "删掉"), className: "w-full active:opacity-60", style: { marginTop: 26, minHeight: 44, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#c0453a" } }, "删掉这个频道空间") : null);
 }
 // 空间首页：Teams 那一屏——顶上一块空间名片（方头像、名字、几个人），底下一行一个频道
-function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf }) {
+function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest }) {
   const t = useTheme();
   const [edit, setEdit] = useState(null);   // null | "new" | 频道那个群
   const [spEdit, setSpEdit] = useState(false);
@@ -23204,6 +23204,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
   const rows = (channels || []).slice().sort((a, b) => (a.createdTs || 0) - (b.createdTs || 0));
   // 分类 + 归档（她 2026-11-20「后面如果多起来了怎么收纳归类」）：spaceCatGroups 在 engine.js
   const segs = spaceCatGroups(rows, space.cats || []), live = rows.filter(g => !g.chArchived);
+  const [talking, setTalking] = useState(false);
   const chRow = (g, i) => { const last = channelLast(groupChats[g.id], userLabel), un = (unreadMap || {})[g.id] || 0;
           return h("div", { key: g.id, "data-wk": "mlrow", "data-part": "channel", "data-unread": un > 0 ? "1" : "0", className: "flex items-stretch", style: { borderTop: i ? "1px solid " + t.line : "none" } },
             h("button", { onClick: () => onOpenChannel(g), className: "flex-1 min-w-0 flex items-start gap-3 text-left active:bg-black/5", style: { padding: "12px 4px 12px 14px" } },
@@ -23213,7 +23214,8 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
                   h("span", { "data-wk": "mlname", "data-part": "channel", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, fontWeight: un > 0 ? 600 : 400 } }, g.chName || g.name),
                   spectateOf && spectateOf(g) ? h("span", { "data-wk": "chnomemtag", "data-part": "spectate", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 4, padding: "0 4px", flexShrink: 0 } }, "旁观") : null,
                   noMemOf && noMemOf(g.id) ? h("span", { "data-wk": "chnomemtag", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 5, padding: "0 4px", flexShrink: 0 } }, "不记") : null,
-                  un > 0 ? h("span", { "data-wk": "mlbadge", "data-part": "dot", style: { width: 7, height: 7, borderRadius: 999, background: tone, flexShrink: 0 } }) : null,
+                  // 跟消息列表一样写几条（她 2026-11-20「不能在频道旁边显示红点多少条」）
+                  un > 0 ? h("span", { "data-wk": "mlbadge", "data-part": "channel", style: { minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, un > 99 ? "99+" : un) : null,
                   last ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, typeof fmtStamp === "function" ? fmtStamp(last.ts, "g:" + g.id) : "") : null),
                 g.chAbout ? h("span", { "data-wk": "chabout", className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 2 } }, g.chAbout) : null,
                 h("span", { "data-wk": "mllast", "data-part": "channel", className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, last ? (last.who ? last.who + "：" : "") + last.text : "还没人说话"))),
@@ -23227,7 +23229,18 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
         h("div", { className: "flex-1 min-w-0" },
           h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, space.name),
           h("div", { className: "flex items-center", style: { marginTop: 6 } }, people.slice(0, 8).map((c, i) => h("span", { key: c.id, style: { marginLeft: i ? -6 : 0, borderRadius: 999, boxShadow: "0 0 0 2px " + momPaper(t), display: "inline-flex" } }, h(Avatar, { character: c, size: 22, radius: 999 })))))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".08em", padding: "14px 20px 6px" } }, "频道 · " + live.length),
+      // 刚才他们自己聊了哪几处：点哪条进哪个频道，「知道了」收掉
+      digest && digest.length ? h("div", { "data-wk": "spacedigest", style: { margin: "8px 14px 0", padding: "10px 12px", background: momPaper(t), borderRadius: 12, borderLeft: "3px solid " + tone } },
+        h("div", { className: "flex items-center justify-between", style: { marginBottom: 4 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "刚才他们聊了"),
+          h("button", { "data-wk": "spacedigestclose", onClick: onDismissDigest, className: "active:opacity-60", style: { minHeight: 28, padding: "0 4px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } }, "知道了")),
+        digest.map(d => { const g = rows.find(x => x.id === d.id); return g ? h("button", { key: d.id, "data-wk": "spacedigestrow", onClick: () => onOpenChannel(g), className: "w-full text-left active:opacity-60 truncate", style: { display: "block", padding: "4px 0", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "#" + (g.chName || g.name) + " · " + d.n + " 条" + (d.last ? "　" + d.last : "")) : null; })) : null,
+      h("div", { className: "flex items-center justify-between", style: { padding: "10px 14px 4px 20px" } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".08em" } }, "频道 · " + live.length),
+        // 不想自己找话题的时候，让他们自己在几个频道里聊一轮（她 2026-11-20）：一按一次，按的时候才花调用
+        onTalk ? h("button", { "data-wk": "spacetalk", disabled: talking, "aria-label": "让他们在几个频道里自己聊一轮",
+          onClick: async () => { if (talking) return; setTalking(true); try { await onTalk(); } finally { setTalking(false); } },
+          className: "active:opacity-60 disabled:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + tone, color: tone, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, talking ? "他们在聊…" : "让他们聊一会儿") : null),
       segs.groups.map(seg => { const cid = seg.cat ? seg.cat.id : "", folded = !!(seg.cat && seg.cat.collapsed), unSum = seg.rows.reduce((a, g) => a + ((unreadMap || {})[g.id] || 0), 0);
         if (!seg.cat && !seg.rows.length) return null;
         return h("div", { key: "seg:" + cid, "data-wk": "chcat", "data-on": folded ? "0" : "1", style: { marginBottom: 10 } },

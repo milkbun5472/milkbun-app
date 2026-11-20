@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.873";
+const APP_VERSION = "v89.875";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1869,6 +1869,7 @@ function App() {
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   // 频道（她 2026-11-20）：x_spaces 一块一个地方，频道是 groups 里挂着 spaceId 的那几个群
   const [spaces, setSpaces] = useState([]);
+  const [spaceDigestRev, setSpaceDigestRev] = useState(0);   // 「刚才他们聊了」那张卡改了就重读
   const [newSpaceOpen, setNewSpaceOpen] = useState(false);
   const [activeSpaceId, setActiveSpaceId] = useState(null);
   // 频道的「聊天｜文件」（她 2026-11-20）：在看哪一页、要直接打开哪一份；文件存 x_chfiles:<群id>，改一次 rev 加一让页面重读
@@ -19212,6 +19213,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try { const fs = loadJSON("x_chfiles:" + gid, []) || [], ks = fs.map(f => f && f.imgKey).filter(Boolean);
       localStorage.removeItem("x_chfiles:" + gid); if (ks.length) dropImgFiles(ks, null, true); } catch (e) {}
   };
+  // 「让他们聊一会儿」（她 2026-11-20）：挑最多 3 个频道，各走一轮跟按黑色回复键同一条 replyGroup，
+  //   一个接一个跑；跑完记一张「刚才他们聊了」的小卡（x_spaceDigest:<空间id>），她点「知道了」才收
+  const talkSpace = async sp => {
+    if (!active) { toast("先去 设置 → 模型 配一条线路"); return; }
+    const chs = (groups || []).filter(g => g && g.spaceId === sp.id);
+    const pick = spaceTalkPick(chs, id => groupChatsRef.current[id] || [], g => (g.memberIds || []).filter(id => characters.some(c => c.id === id)).length, 3);
+    if (!pick.length) { toast("没有能聊的频道"); return; }
+    const out = [];
+    for (const g of pick) {
+      const before = (groupChatsRef.current[g.id] || []).length;
+      try { await replyGroup(g.id); } catch (e) {}
+      const added = (groupChatsRef.current[g.id] || []).slice(before).filter(m => m && m.role === "assistant" && m.content);
+      if (added.length) { const lm = added[added.length - 1]; out.push({ id: g.id, n: added.length, last: ((lm.senderName ? lm.senderName + "：" : "") + String(lm.content)).replace(/\s+/g, " ").slice(0, 30) }); }
+    }
+    saveJSON("x_spaceDigest:" + sp.id, out);
+    setSpaceDigestRev(x => x + 1);
+    if (!out.length) toast("这次没人开口");
+  };
   const deleteSpace = spId => {
     const ids = (groups || []).filter(g => g && g.spaceId === spId).map(g => g.id);
     ids.forEach(chfPurge);
@@ -36307,7 +36326,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onOpenChannel: g => { setActiveGroup(g); clearUnread(g.id); setChannelTab("chat"); setScreen("gthread"); },
       onSaveChannel: (g, patch) => saveChannel(sp, g, patch),
       onDeleteChannel: g => { chfPurge(g.id); deleteGroup(g.id); },
-      looseGroups: (groups || []).filter(g => g && !g.spaceId), onAdopt: ids => adoptGroups(sp, ids), onRelease: releaseChannel, spectateOf: groupSpectating,
+      looseGroups: (groups || []).filter(g => g && !g.spaceId), onAdopt: ids => adoptGroups(sp, ids), onRelease: releaseChannel, spectateOf: groupSpectating, onTalk: () => talkSpace(sp), digest: (spaceDigestRev, loadJSON("x_spaceDigest:" + sp.id, [])), onDismissDigest: () => { saveJSON("x_spaceDigest:" + sp.id, []); setSpaceDigestRev(x => x + 1); },
       onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), onMoveChannel: (g, d) => moveChannel(sp, g, d), onToggleCat: id => toggleSpaceCat(sp, id), noMemOf: channelNoMem, pickPool: liveChars.concat((characters || []).filter(c => c && c.npc && !liveChars.some(x => x.id === c.id))) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     channelTabs: activeGroup.spaceId ? h(ChannelTabs, { tab: "chat", onTab: setChannelTab }) : null,
     onOpenStyleLab: goStyleLab,
