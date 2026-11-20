@@ -22150,7 +22150,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (st.seenLimited[k]) return; st.seenLimited[k] = 1; changed = true;
       const c = liveChars.find(x => x.id === a.charId); if (!c) return;
       stampMail(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封纪念日的信：「" + a.name + "」。里面是 5 张纪念日券，点一下就能领〕", ts: Date.now(),
-        stampBdLetter: { id: "al_" + Date.now().toString(36) + a.id, bdKey, n: 5, by: c.remark || c.name, to: profile.name || "你", day: w.day, anniv: a.name }, read: false }]);
+        stampBdLetter: { id: "al_" + Date.now().toString(36) + a.id, bdKey, n: 5, by: c.remark || c.name, to: userName(profileFor(c.id)) || "你", day: w.day, anniv: a.name }, read: false }]);
     });
     if (changed) C2.save(st);
   };
@@ -22170,7 +22170,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         fresh.forEach(m => { st.seenLimited[key(m)] = 1; }); changed = true;
         const m = fresh[fresh.length - 1];
         stampMail(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封信：「" + m[1] + "」。里面是 " + m[2] + " 张十连券，点一下就能领〕", ts: Date.now(),
-          stampBdLetter: { id: "ml_" + Date.now().toString(36) + k + m[0] + c.id, bdKey: null, n: m[2], by: c.remark || c.name, to: profile.name || "你", day: Date.now(), mile: m[1] }, read: false }]);
+          stampBdLetter: { id: "ml_" + Date.now().toString(36) + k + m[0] + c.id, bdKey: null, n: m[2], by: c.remark || c.name, to: userName(profileFor(c.id)) || "你", day: Date.now(), mile: m[1] }, read: false }]);
       });
     });
     if (changed) C2.save(st);
