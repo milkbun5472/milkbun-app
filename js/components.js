@@ -23018,6 +23018,8 @@ function spaceTone(sp) { const s = String((sp && sp.id) || ""); let n = 0; for (
 // 空间那块方头像：Teams 那种圆角方块，底色按空间定、上面一个字
 function SpaceTile({ sp, size }) {
   const z = size || 50;
+  // 设了头像就用那张（她 2026-11-20「怎么设置频道头像」）；没设是名字第一个字
+  if (sp && sp.avatarImage) return h("span", { "data-wk": "spacetile", "data-part": "img", style: { display: "inline-flex", flexShrink: 0 } }, h(Avatar, { character: { name: sp.name || "频", avatarImage: sp.avatarImage }, size: z, radius: Math.round(z * 0.22) }));
   return h("div", { "data-wk": "spacetile", style: { width: z, height: z, borderRadius: Math.round(z * 0.22), background: spaceTone(sp), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: Math.round(z * 0.42), flexShrink: 0 } },
     String((sp && sp.name) || "频").trim().slice(0, 1));
 }
@@ -23058,12 +23060,16 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDe
   const [noMem, setNoMem] = useState(!!noMem0);
   const [cat, setCat] = useState(channel ? channel.chCat || "" : "");
   const [arch, setArch] = useState(!!(channel && channel.chArchived));
+  const [chAv, setChAv] = useState((channel && channel.avatarImage) || null);   // 这个频道的头像＝它那个群的群头像，同一格
   const pool = (space.memberIds || []).map(id => (allChars || []).find(c => c && c.id === id)).filter(Boolean);
   const [sel, setSel] = useState(channel ? (channel.memberIds || []) : pool.map(c => c.id));
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const ok = name.trim().replace(/^#/, "") && sel.length >= 1;
   return h(PageSheet, { onClose, zh: channel ? "改频道" : "新频道", sub: space.name,
-    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, chSolo: solo || noMem, chNoMem: noMem, chCat: cat, chArchived: arch, chKind: hole ? "treehole" : lounge ? "lounge" : "", chHours: night }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
+    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, chSolo: solo || noMem, chNoMem: noMem, chCat: cat, chArchived: arch, chKind: hole ? "treehole" : lounge ? "lounge" : "", chHours: night, avatarImage: chAv || null }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
+    h("div", { "data-wk": "chav", className: "flex items-center gap-3", style: { marginBottom: 14 } },
+      h(AvatarPicker, { character: { name: name || "#", color: t.tint, avatarImage: chAv }, size: 44, radius: 10, onPick: setChAv, onClear: chAv ? () => setChAv(null) : null }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, chAv ? "频道列表这一行和进去的群头像都是这张。点「移除照片」换回「#」。" : "没设头像就是一个「#」。点左边设一张，跟群头像是同一格。")),
     h("div", { className: "flex items-baseline gap-1 pb-2 mb-4", style: { borderBottom: "1px solid " + t.line } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.fog } }, "#"),
       h("input", { "data-wk": "input", value: name, onChange: e => setName(e.target.value), placeholder: "频道名", className: "flex-1 outline-none", style: { background: "transparent", fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink } })),
@@ -23279,11 +23285,15 @@ function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose, onSu
   const [sugg, setSugg] = useState(null), [suggBusy, setSuggBusy] = useState(false);
   const t = useTheme();
   const [name, setName] = useState(space.name || "");
+  const [av, setAv] = useState(space.avatarImage || null);   // 空间头像：跟群头像同一个选图、框一块（AvatarPicker）
   const [sel, setSel] = useState((space.memberIds || []).slice());
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const ok = name.trim() && sel.length >= 1;
   return h(PageSheet, { onClose, zh: "频道设置", sub: space.name,
-    right: h("button", { "data-wk": "spacesave", disabled: !ok, onClick: () => ok && onSave({ name: name.trim().slice(0, 24), memberIds: sel, customTitles: ctitles.map(x => ({ name: String(x.name || "").trim().slice(0, 12), how: String(x.how || "").trim().slice(0, 60) })).filter(x => x.name), aiTitles, cats: cats.map(c => ({ ...c, name: String(c.name || "").trim().slice(0, 12) || "分类" })) }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.ink : t.line } }, "保存") },
+    right: h("button", { "data-wk": "spacesave", disabled: !ok, onClick: () => ok && onSave({ name: name.trim().slice(0, 24), avatarImage: av || null, memberIds: sel, customTitles: ctitles.map(x => ({ name: String(x.name || "").trim().slice(0, 12), how: String(x.how || "").trim().slice(0, 60) })).filter(x => x.name), aiTitles, cats: cats.map(c => ({ ...c, name: String(c.name || "").trim().slice(0, 12) || "分类" })) }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.ink : t.line } }, "保存") },
+    h("div", { "data-wk": "spaceav", className: "flex items-center gap-3", style: { marginBottom: 14 } },
+      h(AvatarPicker, { character: { name: name || "频", color: spaceTone(space), avatarImage: av }, size: 52, radius: 12, onPick: setAv, onClear: av ? () => setAv(null) : null }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, av ? "消息列表里那一行、频道首页名片都用这张。点「移除照片」换回名字第一个字。" : "没设头像就用名字第一个字。点左边设一张，能框一块。")),
     h("input", { "data-wk": "input", value: name, onChange: e => setName(e.target.value), placeholder: "名字", className: "w-full outline-none pb-2 mb-1", style: { background: "transparent", borderBottom: "1px solid " + t.line, fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "4px 0 18px" } }, "改了名字，每个频道的群名跟着改，以前的记忆也跟着认。"),
     // 分类（她 2026-11-20「多起来了怎么收纳归类」）：频道列表按这几类分段，可以折起来
@@ -23373,7 +23383,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
   const chRow = (g, i) => { const last = channelLast(groupChats[g.id], userLabel), un = (unreadMap || {})[g.id] || 0;
           return h("div", { key: g.id, "data-wk": "mlrow", "data-part": "channel", "data-unread": un > 0 ? "1" : "0", className: "flex items-stretch", style: { borderTop: i ? "1px solid " + t.line : "none" } },
             h("button", { onClick: () => onOpenChannel(g), className: "flex-1 min-w-0 flex items-start gap-3 text-left active:bg-black/5", style: { padding: "12px 4px 12px 14px" } },
-              h("span", { "data-wk": "mlavatar", "data-part": "channel", style: { width: 30, height: 30, borderRadius: 8, background: tone + "1f", color: tone, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, flexShrink: 0 } }, "#"),
+              g.avatarImage ? h("span", { "data-wk": "mlavatar", "data-part": "channel", style: { display: "inline-flex", flexShrink: 0 } }, h(Avatar, { character: { name: g.chName || g.name || "#", avatarImage: g.avatarImage }, size: 30, radius: 8 })) : h("span", { "data-wk": "mlavatar", "data-part": "channel", style: { width: 30, height: 30, borderRadius: 8, background: tone + "1f", color: tone, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, flexShrink: 0 } }, "#"),
               h("span", { className: "flex-1 min-w-0" },
                 h("span", { className: "flex items-center gap-2" },
                   h("span", { "data-wk": "mlname", "data-part": "channel", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, fontWeight: un > 0 ? 600 : 400 } }, g.chName || g.name),

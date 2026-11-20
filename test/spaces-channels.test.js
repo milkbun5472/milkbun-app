@@ -114,3 +114,12 @@ test("别的频道带哪几个：有这里的人在的先带，同类里按最�
   const out = ctx.f(gs[0], gs, id => chats[id] || [], "她");
   assert.ok(out.indexOf("#熟") < out.indexOf("#热") && out.indexOf("#热") < out.indexOf("#老"));
 });
+test("头像：空间头像存在空间上、频道头像就是群头像那一格，没设回默认", () => {
+  const fs = require("fs"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  const tile = cs.slice(cs.indexOf("function SpaceTile("), cs.indexOf("function channelLast("));
+  assert.match(tile, /if \(sp && sp\.avatarImage\) return/);
+  assert.match(cs, /onSave\(\{ name: name\.trim\(\)\.slice\(0, 24\), avatarImage: av \|\| null/);
+  assert.match(cs, /chHours: night, avatarImage: chAv \|\| null \}/);
+  assert.match(cs, /g\.avatarImage \? h\("span", \{ "data-wk": "mlavatar", "data-part": "channel"/);
+  assert.match(ap, /patch\.avatarImage !== undefined \? \{ avatarImage: patch\.avatarImage \|\| null \}/);
+});

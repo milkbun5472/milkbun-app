@@ -19271,11 +19271,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast("「" + sp.name + "」建好了，先有一个 #综合");
   };
   const saveChannel = (sp, g, patch) => {
-    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); updateGroup(ng.id, { chSolo: !!(patch.chSolo || patch.chNoMem), chCat: patch.chCat || "", chKind: patch.chKind || "", chHours: patch.chHours || null }); toast("开了 #" + patch.chName); return; }
+    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); updateGroup(ng.id, { chSolo: !!(patch.chSolo || patch.chNoMem), chCat: patch.chCat || "", chKind: patch.chKind || "", chHours: patch.chHours || null, avatarImage: patch.avatarImage || null }); toast("开了 #" + patch.chName); return; }
     const nm = channelGroupName(sp, patch.chName);
     if (nm !== g.name) renameGroup(g.id, nm);
     updateGroup(g.id, { ...(g.chLeft ? { chLeft: Object.fromEntries(Object.entries(g.chLeft).filter(([id]) => !(patch.memberIds || []).includes(id))) } : {}), chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds, chSolo: !!(patch.chSolo || patch.chNoMem),
-      ...(patch.chCat != null ? { chCat: patch.chCat || "" } : {}), ...(patch.chKind != null ? { chKind: patch.chKind || "" } : {}), ...(patch.chHours !== undefined ? { chHours: patch.chHours || null } : {}), ...(patch.chArchived != null ? { chArchived: !!patch.chArchived } : {}) });
+      ...(patch.chCat != null ? { chCat: patch.chCat || "" } : {}), ...(patch.chKind != null ? { chKind: patch.chKind || "" } : {}), ...(patch.chHours !== undefined ? { chHours: patch.chHours || null } : {}), ...(patch.avatarImage !== undefined ? { avatarImage: patch.avatarImage || null } : {}), ...(patch.chArchived != null ? { chArchived: !!patch.chArchived } : {}) });
     if (patch.chNoMem != null && !!patch.chNoMem !== channelNoMem(g.id)) saveGroupSettingsRaw(g.id, { memoryInterop: !patch.chNoMem });
   };
   // 频道在分类里上下挪（她 2026-11-20「多起来了怎么收纳归类」）：照现在看到的那一段的先后重新编 chOrder
@@ -19307,7 +19307,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const saveSpace = (sp, patch) => {
     const name = String(patch.name || sp.name).slice(0, 24), now = (patch.memberIds || sp.memberIds || []).slice();
     const added = now.filter(id => !(sp.memberIds || []).includes(id)), gone = (sp.memberIds || []).filter(id => !now.includes(id));
-    saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, name, memberIds: now, ...(Array.isArray(patch.cats) ? { cats: patch.cats } : {}), ...(Array.isArray(patch.customTitles) ? { customTitles: patch.customTitles } : {}), ...(typeof patch.aiTitles === "boolean" ? { aiTitles: patch.aiTitles } : {}) } : x));
+    saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, name, memberIds: now, ...(patch.avatarImage !== undefined ? { avatarImage: patch.avatarImage || null } : {}), ...(Array.isArray(patch.cats) ? { cats: patch.cats } : {}), ...(Array.isArray(patch.customTitles) ? { customTitles: patch.customTitles } : {}), ...(typeof patch.aiTitles === "boolean" ? { aiTitles: patch.aiTitles } : {}) } : x));
     // 删掉的分类：里面的频道回到「未分类」
     if (Array.isArray(patch.cats)) { const keep = new Set(patch.cats.map(c => c.id)); (groups || []).filter(g => g && g.spaceId === sp.id && g.chCat && !keep.has(g.chCat)).forEach(g => updateGroup(g.id, { chCat: "" })); }
     (groups || []).filter(g => g && g.spaceId === sp.id).forEach(g => {
