@@ -30,3 +30,10 @@ test("接线：回复里的 status 落盘并冒一行；提示带状态；旁观
   assert.match(cs, /function SpaceMembersPage\(/);
   assert.match(ap, /const spacePresence = spId =>/);
 });
+test("成员页「我的状态」那一排在窄屏上不撑破：输入框 minWidth 0，按钮不换行", () => {
+  const cs = require("fs").readFileSync(__dirname + "/../js/components.js", "utf8");
+  const i = cs.indexOf("function SpaceMembersPage("), j = cs.indexOf("function SpaceMeetPage(", i);
+  const body = cs.slice(i, j);
+  assert.match(body, /placeholder: "挂一句", className: "flex-1 outline-none", style: \{ minWidth: 0, width: 0/);
+  assert.match(body, /flexShrink: 0, whiteSpace: "nowrap" \} \}, "挂上"/);
+});
