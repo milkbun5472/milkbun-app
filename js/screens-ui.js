@@ -3906,7 +3906,17 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
   // ---------- 购物车 ----------
   const shopHead = (zh, right) => h(Head, { zh, onBack, bg: MSHOP.card, ink: MSHOP.ink, subInk: MSHOP.dim, lineInk: MSHOP.line, right: right || null });
   const cartView = h("div", { "data-wk": "shopcart", className: "flex-1 flex flex-col min-h-0" },
-    shopHead("购物车"),
+    // 自己写一件（群友 2026-11-20：想送一件自己挑的衣服，挂进衣柜就没有收到的那一下）：写好进购物车，结算照常送礼／自己买
+    shopHead("购物车", h("button", { "data-wk": "shopcustom", onClick: () => requestAppPrompt("自己写一件", "这件东西叫什么", "", nm => {
+      const name = String(nm || "").trim().slice(0, 30); if (!name) return;
+      requestAppPrompt(name, "写几句它的样子：款式、颜色、材质、为什么挑它。送出去时 TA 会看到这段。", "", ds => {
+        const desc = String(ds || "").trim().slice(0, 200);
+        requestAppPrompt("多少钱", "填个价钱，结算时从钱包扣；不想花钱就填 0。", "0", pr => {
+          const price = Math.max(0, Math.round((Number(pr) || 0) * 100) / 100);
+          onAddCart({ name, desc, price, cat: "其他", custom: true }); toast("已加入购物车");
+        }, "放进购物车");
+      }, "下一步");
+    }, "下一步"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.orange } }, "自己写一件")),
     h("div", { "data-wk": "shopcartlist", className: "flex-1 overflow-y-auto px-3 py-3", style: { background: MSHOP.bg } },
       cartItems.length === 0
         ? h("div", { "data-wk": "shopempty", "data-part": "cart", className: "text-center", style: { paddingTop: 80, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.dim } }, "购物车是空的")

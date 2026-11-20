@@ -33033,7 +33033,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return out;
   };
   const addToCart = product => setCart(p => {
-    const n = mergeCart([...p, { uid: "c_" + Date.now() + "_" + Math.floor(Math.random() * 10000), name: product.name, price: product.price, cat: product.cat, desc: product.desc, qty: 1 }]);
+    const n = mergeCart([...p, { uid: "c_" + Date.now() + "_" + Math.floor(Math.random() * 10000), name: product.name, price: product.price, cat: product.cat, desc: product.desc, qty: 1, ...(product.custom ? { custom: true } : {}) }]);
     saveJSON("x_shopCart", n);
     return n;
   });
@@ -33555,7 +33555,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!toId) { toast(inGroup ? "请选择送给群里的谁" : "请选择送礼对象"); return; }
       if (balanceOf(walletMaskFor(inGroup ? { groupId: target.id } : { charId: toId })) < total) { toast("余额不足"); return; }
       changeWallet(-total, "送礼 " + items.map(x => x.name).join("、").slice(0, 18), "shop", inGroup ? { where: "群聊", groupId: target.id } : toId ? { where: "单聊", charId: toId } : { where: "购物" });
-      items.forEach(it => sendGiftToChar(toId, it.name, it.cat, false, inGroup ? target.id : null));
+      // 她自己写的那件（购物车「自己写一件」）：描述跟着礼物一起去，TA 收到时才知道她挑的是什么样的
+      items.forEach(it => sendGiftToChar(toId, it.custom && it.desc ? it.name + "（" + String(it.desc).slice(0, 120) + "）" : it.name, it.cat, false, inGroup ? target.id : null));
       // ⚠️【送完不自动回复】（她 2026-09-10：「送完等我说完话再点回复，不要送了就回复」）。
       //   跟买东西那条是同一条（v60.45）、跟 promoteGifts 那条也是同一条：她送完还要
       //   接着说自己的话，这时候替她开一次群聊，就是把她的下半句堵在门外、还多花一次钱。
