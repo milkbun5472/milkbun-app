@@ -1,6 +1,6 @@
 // Shared offscreen readback for portraits, keepsakes and catalogue previews. The live
 // framebuffer, viewport and scissor are restored even when capture fails.
-import {updateHangingHair} from './hanging-hair.mjs?v=fg-5b5e7a80466cc3fc';
+import {updateHangingHair} from './hanging-hair.mjs?v=fg-00aa3cc25a2329ce';
 export function renderPhoto(T,renderer,scene,camera,{width=640,height=480,quality=.78,format='image/jpeg'}={}){
  scene.updateMatrixWorld?.(true);scene.traverse?.(updateHangingHair);
  const target=renderer.getRenderTarget(),viewport=renderer.getViewport(new T.Vector4()),scissor=renderer.getScissor(new T.Vector4()),scissorTest=renderer.getScissorTest(),buffer=new T.WebGLRenderTarget(width,height),pixels=new Uint8Array(width*height*4);

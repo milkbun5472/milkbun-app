@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS, SHOP_WORLD } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-5b5e7a80466cc3fc", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-00aa3cc25a2329ce", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -737,6 +737,13 @@
           ...(split ? [["eyeLeft", "左眼"], ["eyeRight", "右眼"]] : [["eye", "眼睛"]]).map(([key, label]) =>
             h(DyeControl, { key: who + key, label, value: d?.[key] || d?.eye || "#5d4435", onChange: value => pushLook({ [key]: value }), palette })));
       })()),
+      api?.piercings && fold("piercings","耳饰与唇饰",...Object.entries(api?.piercings || {}).map(([slot, {label, styles: choices}]) => {
+        const current = look[who] || {}, style = current[slot] || "";
+        return h("section", {key: slot, "aria-label": label, style: {marginBottom: 14}},
+          h("label", null, label, " ", h("select", {value: style, style: {minHeight:44}, onChange: e => pushLook({[slot]: e.target.value})},
+            h("option", {value:""}, "不戴"), ...Object.entries(choices).map(([value,text]) => h("option",{key:value,value},text)))),
+          style && h(DyeControl,{key:who+slot,label:label+"颜色",value:api.piercingColor(current,slot),onChange:hex=>pushLook({[slot+"Color"]:hex})}));
+      })),
       fold("outfit", "衣服", h("section", { "aria-label": "衣柜", style: { marginBottom: 10 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } },

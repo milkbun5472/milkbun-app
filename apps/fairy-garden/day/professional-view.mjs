@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {createRoomKit} from './places/room-kit.mjs?v=fg-5b5e7a80466cc3fc';
-import {DAY_PLACES} from './places/maps.mjs?v=fg-5b5e7a80466cc3fc';
-import {PROFESSIONAL_OPTIONS} from './professional.mjs?v=fg-5b5e7a80466cc3fc';
+import {createRoomKit} from './places/room-kit.mjs?v=fg-00aa3cc25a2329ce';
+import {DAY_PLACES} from './places/maps.mjs?v=fg-00aa3cc25a2329ce';
+import {PROFESSIONAL_OPTIONS} from './professional.mjs?v=fg-00aa3cc25a2329ce';
 
 const palettes={
  warm:{floor:'#c6aa86',paper:'#efe4cf',wood:'#b79168',accent:'#8eaa86',dark:'#5c5343'},

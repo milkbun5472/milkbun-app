@@ -1,6 +1,6 @@
-import {HOME_DETAILS} from './room-layout.mjs?v=fg-5b5e7a80466cc3fc';
-import {petWorkplace} from './workplaces.mjs?v=fg-5b5e7a80466cc3fc';
-import {furnishingFacts} from './furnishings.mjs?v=fg-5b5e7a80466cc3fc';
+import {HOME_DETAILS} from './room-layout.mjs?v=fg-00aa3cc25a2329ce';
+import {petWorkplace} from './workplaces.mjs?v=fg-00aa3cc25a2329ce';
+import {furnishingFacts} from './furnishings.mjs?v=fg-00aa3cc25a2329ce';
 // One inventory projection for the room and the conversation. No second furniture save.
 export function homeSouvenirs(career,care){
  const inventory=career?.inventory||{},task=care?.task;

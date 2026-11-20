@@ -1,4 +1,4 @@
-import {OUTFITS} from './outfits.mjs?v=fg-5b5e7a80466cc3fc';
+import {OUTFITS} from './outfits.mjs?v=fg-00aa3cc25a2329ce';
 export {OUTFITS};
 export const DEFAULT_SKIN='#f2cbb4';
 export const DEFAULT_LOOK={skin:DEFAULT_SKIN,hair:'korean',hairColor:'#6b4a33',cloth:'#d97a60'};
@@ -17,6 +17,12 @@ export const HAIR_ACCESSORIES={braids:{label:'发圈颜色',color:'#82aabc'},low
 export function hairAccessoryOf(look={}){const id=hairId(look.hair),def=Object.hasOwn(HAIR_ACCESSORIES,id)?HAIR_ACCESSORIES[id]:null;return def?{...def,color:color(look.hairAccessoryColor)?look.hairAccessoryColor:def.color}:null;}
 // 庭院和列车的 getDyes 都问这一处（以前两边各写一份，只有发色一个字段时还看不出来）。
 // 眼睛颜色（她 2026-09-26）：十张脸的眼珠原本都是这一个棕；没选过就是它，画面上一点不变。
+const earStyles={stud:'圆钉',double:'双钉',pearl:'珍珠',hoop:'小圈'};
+export const PIERCINGS={leftEar:{label:'左耳',styles:earStyles},rightEar:{label:'右耳',styles:earStyles},lipStud:{label:'唇饰',styles:{stud:'唇珠'}}};
+export function piercingColor(look,slot){
+ const hex=look[slot+'Color'];
+ return color(hex)?hex:look[slot]==='pearl'?'#f6e6ca':'#a9aeb3';
+}
 export const DEFAULT_EYE='#5d4435';
 // 同色和异瞳共用旧 eye 作为底色；关闭异瞳时保留两眼选色，旧存档不变样。
 export function eyesOf(look={}){
@@ -33,7 +39,7 @@ export function createWardrobe(readLooks,defaultsFor=()=>({}),defaultWho='me'){
   const accessory=hairAccessoryOf({...defaults,...look});
   return {look,...(accessory?{accessory}:{}),dyes:dyesOf(look,defaults),hair:hairId(look.hair||defaults.hair),outfit:{id:outfitId(look),colors:outfitColors({...defaults,...look})}};
  };
- return {wardrobeFor,getLook:()=>structuredClone(readLooks()||{}),hairModes:HAIR_MODES,
+ return {piercings:PIERCINGS,piercingColor,wardrobeFor,getLook:()=>structuredClone(readLooks()||{}),hairModes:HAIR_MODES,
   getHairAccessory:who=>wardrobeFor(who)?.accessory,getDyes:who=>wardrobeFor(who)?.dyes,getHair:who=>wardrobeFor(who)?.hair,getOutfit:who=>wardrobeFor(who)?.outfit};
 }
 // 旧衣柜的六套 ID 和四个色槽：模型里暂时没有它们，但存档里的选择和配色【照留】，
