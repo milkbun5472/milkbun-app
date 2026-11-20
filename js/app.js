@@ -16963,7 +16963,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + (() => { const _fs = loadJSON("x_chfiles:" + groupId, []), _canNew = chfCanCharCreate(_fs, ts => { const _d = new Date(typeof vclockMap === "function" ? vclockMap(ts) : ts); return _d.getFullYear() + "-" + _d.getMonth() + "-" + _d.getDate(); }, Date.now());
             return "\n【频道文件怎么动】文件是这里大家一起记东西的地方：聊着聊着定下了什么（一个计划、一张清单、一个结论、谁负责什么），总有人顺手把它写进文件，免得过两天又忘了。"
               + (_canNew ? "写进一份已有的就是改那份，没有合适的就新开一份。" : "今天大家已经新开过好几份了，这会儿往已有的文件里写。")
-              + "写法是在他自己那条发言里加 \"file\":{\"name\":\"文档名\",\"text\":\"写完之后的整份全文\"}——名字跟已有的一样就是改那一份" + (_canNew ? "，没有就是新开" : "") + "。"; })() : "";
+              + "写法是在他自己那条发言里加 \"file\":{\"name\":\"文档名\",\"add\":[\"往末尾添的一行\"],\"remove\":[\"要删掉的那一行原文\"]}——add 是添、remove 是把逐字对上的那几行删掉，两样可以只写一样；想整份重写就写 {\"name\",\"text\":\"整份全文\"}。名字跟已有的一样就是改那一份" + (_canNew ? "，没有就是新开" : "") + "。同一轮好几个人都可以各在自己那条里动同一份，按先后一个接一个写进去，谁也不会盖掉谁。"; })() : "";
       // 换个频道接着说：每人能去哪几个频道，有地方可去才提这一格
       // 他们自己开频道（她 2026-11-20「想要他们也可以创建频道」）：空间还有地方、今天还没开满时才提；只说这个字段是什么
       const gNewChHint = group && group.spaceId && !channelNoMem(groupId) && !group.chSolo ? (() => {
@@ -17672,7 +17672,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               const _fs0 = loadJSON("x_chfiles:" + groupId, []);
               const _isNew = !_fs0.some(f => f && f.kind === "doc" && String(f.name).trim() === String(item.file.name).trim());
               if (_isNew && !chfCanCharCreate(_fs0, ts => { const _d = new Date(typeof vclockMap === "function" ? vclockMap(ts) : ts); return _d.getFullYear() + "-" + _d.getMonth() + "-" + _d.getDate(); }, Date.now())) throw new Error("今天新建满了");
-              const r0 = chfApplyDoc(_fs0, item.file.name, item.file.text, spk.id);
+              const _cur0 = (_fs0.find(f => f && f.kind === "doc" && String(f.name).trim() === String(item.file.name).trim()) || {}).text || "";
+              const r0 = chfApplyDoc(_fs0, item.file.name, chfPatchText(_cur0, item.file), spk.id);
               if (r0.op) { saveJSON("x_chfiles:" + groupId, r0.files); setChFilesRev(v => v + 1);
                 _gLuck.push({ role: "system", kind: "chfile", fileId: r0.file.id, senderId: spk.id, content: spk.name + (r0.op === "create" ? " 新建了" : " 编辑了") + "《" + r0.file.name + "》" }); }
             } catch (e) {}

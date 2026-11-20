@@ -2460,6 +2460,19 @@ function chfDiffSummary(before, after) {
   return !a && !r ? "没改字" : [a ? "加了 " + a + " 行" : "", r ? "删了 " + r + " 行" : ""].filter(Boolean).join("、");
 }
 // 写一份文档（新建或改）：同名（不计书名号、扩展名、大小写）就是改，没有就新建。回 { files, file, op }
+// 一轮里好几个人改同一份（她 2026-11-20「一轮调用能不能多几个人可以改」）：整份重写的话后一个人照着旧稿写，会把前一个人刚改的盖掉。
+//   所以也认按行改：add 往末尾添几行，remove 删掉逐字对上的几行；同一轮按顺序一个接一个落在最新那份上，谁改的都留着。
+//   text（整份重写）照旧认，有 text 就以 text 为准。
+function chfPatchText(cur, op) {
+  const o = op || {};
+  if (typeof o.text === "string" && o.text.trim()) return o.text;
+  let lines = String(cur || "").split("\n");
+  const rm = (Array.isArray(o.remove) ? o.remove : o.remove ? [o.remove] : []).map(x => String(x || "").trim()).filter(Boolean);
+  if (rm.length) lines = lines.filter(l => !rm.includes(String(l).trim()));
+  const add = (Array.isArray(o.add) ? o.add : o.add ? [o.add] : []).map(x => String(x || "")).filter(x => x.trim());
+  if (add.length) { while (lines.length && !String(lines[lines.length - 1]).trim()) lines.pop(); lines = lines.concat(add); }
+  return lines.join("\n");
+}
 function chfApplyDoc(files, name, text, by, now) {
   const list = Array.isArray(files) ? files.slice() : [], t = now || Date.now();
   const nm = String(name || "").replace(/^[《「]|[》」]$/g, "").trim().slice(0, 40), body = String(text == null ? "" : text).slice(0, 20000);

@@ -39,7 +39,7 @@ test("给模型看的：列出文件和最近谁动的；正文只在聊天提�
 test("接线：频道群的提示词带文件块，发言里的 file 写进频道文件并冒一行可点的提示", () => {
   assert.match(ap, /const gFileHint = group && group\.spaceId \? chfContextBlock\(/);
   assert.match(ap, /\+ gNoticeHint \+ gFileHint \+/);
-  assert.match(ap, /chfApplyDoc\(_fs0, item\.file\.name, item\.file\.text, spk\.id\)/);
+  assert.match(ap, /chfApplyDoc\(_fs0, item\.file\.name, chfPatchText\(_cur0, item\.file\), spk\.id\)/);
   assert.match(ap, /kind: "chfile", fileId: r0\.file\.id/);
   assert.match(ap, /channelTabs: activeGroup\.spaceId \? h\(ChannelTabs/);
   assert.match(ap, /body = h\(ChannelFilesPage, \{/);
@@ -132,4 +132,16 @@ test("他们一天在一个频道最多自己新开两份文件，她开的不�
   assert.equal(ctx.can([f("a", now - 86400000), f("b", now - 86400000)], day, now), true);
   const ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
   assert.match(ap, /if \(_isNew && !chfCanCharCreate\(_fs0,/);
+});
+test("一轮几个人改同一份：按行添删，一个接一个落在最新那份上；text 仍是整份重写", () => {
+  const fs = require("fs"), vm = require("vm"), en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const i = en.indexOf("function chfPatchText("), j = en.indexOf("function chfApplyDoc(");
+  const ctx = {}; vm.createContext(ctx); vm.runInContext(en.slice(i, j) + ";this.p=chfPatchText;", ctx);
+  let t = "火锅\n烧烤";
+  t = ctx.p(t, { add: ["寿司"] });
+  t = ctx.p(t, { remove: ["烧烤"], add: ["麻辣烫"] });
+  assert.equal(t, "火锅\n寿司\n麻辣烫");
+  assert.equal(ctx.p(t, { text: "只剩饺子" }), "只剩饺子");
+  const ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+  assert.match(ap, /chfApplyDoc\(_fs0, item\.file\.name, chfPatchText\(_cur0, item\.file\), spk\.id\)/);
 });
