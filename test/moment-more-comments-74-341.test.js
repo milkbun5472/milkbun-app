@@ -24,7 +24,7 @@ const src = app.slice(i, j);
 
 test('① 回复逻辑只有一份：commentMoment 和刷更多都走 momentReplies', () => {
   assert.match(src, /const commentMoment = async \(id, text, replyTo\) => \{/);
-  assert.match(src, /await momentReplies\(moments\.find\(m => m\.id === id\), \{ text, replyTo \}\)/,
+  assert.match(src, /const _mom = moments\.find\(m => m\.id === id\);\s*await momentReplies\(_mom, \{ text, replyTo \}\)/,
     'commentMoment 必须转交给 momentReplies，不许自己再写一遍');
   assert.match(src, /await momentReplies\(mom, \{ more: true \}\)/,
     '刷更多也必须走同一条');
