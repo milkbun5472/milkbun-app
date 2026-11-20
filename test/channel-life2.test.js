@@ -22,7 +22,7 @@ test("旁观频道不露她：机器人和欢迎只往非旁观频道贴，一�
   assert.match(ap, /const spaceHomeChannel = spId => \{\n\s+const chs = [^\n]*!groupSpectating\(g\)\);/);
   assert.match(ap, /const welcomeNew = [\s\S]{0,400}const g = spaceHomeChannel\(spId\);/);
   assert.match(ap, /gListenHint = group && group\.spaceId && group\.chListen && !groupSpectating\(group\)/);
-  assert.match(ap, /right: groupSpectating\(activeGroup\) \? null : h\(ChannelListenBtn/);
+  assert.match(ap, /L0 = spect \? null : chListenOf\(activeGroup\.id\)/);
   assert.match(ap, /filter\(x => !\(x && x\.by === "me" && chSpectId\(x\.gid\)\)\)/);
   assert.match(ap, /groupSpectating\(g\) \? \[\] : added\.filter/);
   assert.match(cs, /!_gSpect \? \[\["chain"/);

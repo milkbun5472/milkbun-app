@@ -41,7 +41,7 @@ test("接线：频道群的提示词带文件块，发言里的 file 写进频�
   assert.match(ap, /\+ gNoticeHint \+ gFileHint \+/);
   assert.match(ap, /chfApplyDoc\(_fs0, item\.file\.name, chfPatchText\(_cur0, item\.file\), spk\.id\)/);
   assert.match(ap, /kind: "chfile", fileId: r0\.file\.id/);
-  assert.match(ap, /channelTabs: activeGroup\.spaceId \? h\(ChannelTabs/);
+  assert.match(ap, /channelTabs: activeGroup\.spaceId \? \(chPlayRev, \(\(\) => \{[\s\S]{0,600}h\(ChannelTopRow, \{ onTab: setChannelTab/);
   assert.match(ap, /body = h\(ChannelFilesPage, \{/);
   assert.match(cs, /if \(m\.kind === "chfile" \|\| m\.kind === "chlink"\) return h\("div"/);
 });

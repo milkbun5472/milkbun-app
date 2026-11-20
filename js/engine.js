@@ -2460,6 +2460,87 @@ function chfDiffSummary(before, after) {
   return !a && !r ? "没改字" : [a ? "加了 " + a + " 行" : "", r ? "删了 " + r + " 行" : ""].filter(Boolean).join("、");
 }
 // 写一份文档（新建或改）：同名（不计书名号、扩展名、大小写）就是改，没有就新建。回 { files, file, op }
+// ── 频道里一起摆弄的小东西（她 2026-11-20「1-7都可以做」）──────────────────────────
+// 表情回应、改频道名、置顶、便利贴墙、共享歌单、小账本、养个东西：只此一份纯函数，界面和回复落地都问这里。
+//   一个频道一份 x_chplay:<群id>（表情回应挂在消息自己身上，改名走频道本来那条路）。
+const CHP_EMOJI = ["😂", "👍", "❤️", "🙄", "😭", "😳", "🤔", "👀"];
+const CHP_CAP = { rename: 1, note: 4, song: 3, pins: 3 };
+function chpEmpty() { return { pins: [], notes: [], playlist: [], ledger: [], pet: null, day: "", cnt: {} }; }
+function chpNorm(st, day) {
+  const s = Object.assign(chpEmpty(), st && typeof st === "object" ? st : {});
+  ["pins", "notes", "playlist", "ledger"].forEach(k => { if (!Array.isArray(s[k])) s[k] = []; });
+  if (day && s.day !== day) { s.day = day; s.cnt = {}; }
+  if (!s.cnt || typeof s.cnt !== "object") s.cnt = {};
+  return s;
+}
+// 计数：kind 每天一份；per 给了就是按人计
+function chpCount(s, kind, per) { const k = kind + (per ? ":" + per : ""); return (s.cnt && s.cnt[k]) || 0; }
+function chpBump(s, kind, per) { const k = kind + (per ? ":" + per : ""); s.cnt = Object.assign({}, s.cnt, { [k]: chpCount(s, kind, per) + 1 }); return s; }
+// 在最近 n 条里找逐字含 quote 的那一条，返回下标（从后往前，最新的先）
+function chpFindMsg(msgs, quote, n) {
+  const q = String(quote || "").trim(); if (q.length < 2) return -1;
+  const arr = Array.isArray(msgs) ? msgs : [], from = Math.max(0, arr.length - (n || 20));
+  for (let i = arr.length - 1; i >= from; i--) { const m = arr[i]; if (m && !m.recalled && m.content && String(m.content).indexOf(q) >= 0) return i; }
+  return -1;
+}
+function chpReactMsg(m, who, emoji) {
+  if (!m || !who) return m;
+  const r = Object.assign({}, m.reacts || {});
+  if (!emoji || r[who] === emoji) delete r[who]; else r[who] = String(emoji).slice(0, 4);
+  return Object.assign({}, m, { reacts: r });
+}
+function chpPin(s, m, by) {
+  if (!m || !m.content) return s;
+  const key = String(m.ts || ""), pins = s.pins.filter(p => p.key !== key);
+  pins.push({ key, text: String(m.content).slice(0, 200), who: m.role === "user" ? "me" : (m.senderName || ""), by, ts: Date.now() });
+  s.pins = pins.slice(-CHP_CAP.pins); return s;
+}
+function chpUnpin(s, key) { s.pins = s.pins.filter(p => p.key !== String(key)); return s; }
+function chpNoteAdd(s, text, by) { const t = String(text || "").trim().slice(0, 140); if (!t) return s; s.notes = s.notes.concat([{ id: "n" + Date.now() + Math.floor(Math.random() * 1000), text: t, by, ts: Date.now(), color: s.notes.length % 5, doodles: [] }]).slice(-40); return s; }
+function chpNoteFind(s, quote) { const q = String(quote || "").trim(); return q ? s.notes.find(n => n.text.indexOf(q) >= 0 || q.indexOf(n.text) >= 0) || null : null; }
+function chpScribble(s, quote, text, by) { const n = chpNoteFind(s, quote), t = String(text || "").trim().slice(0, 80); if (!n || !t) return s; s.notes = s.notes.map(x => x.id === n.id ? Object.assign({}, x, { doodles: (x.doodles || []).concat([{ by, text: t, ts: Date.now() }]).slice(-8) }) : x); return s; }
+// 撕掉：自己贴的随时能撕；别人贴的放够一天才撕得动
+function chpTearOk(n, by, now) { return !!n && (n.by === by || (now || Date.now()) - (n.ts || 0) > 86400000); }
+function chpTear(s, quote, by, now) { const n = chpNoteFind(s, quote); if (!chpTearOk(n, by, now)) return s; s.notes = s.notes.filter(x => x.id !== n.id); return s; }
+function chpSongAdd(s, title, artist, by) { const t = String(title || "").trim().slice(0, 40); if (!t) return s; if (s.playlist.some(x => x.title === t)) return s; s.playlist = s.playlist.concat([{ title: t, artist: String(artist || "").trim().slice(0, 30), by, ts: Date.now(), skip: [] }]).slice(-30); return s; }
+function chpSkipVote(s, title, by) { const i = title ? s.playlist.findIndex(x => x.title === title) : -1; if (i < 0) return s; s.playlist = s.playlist.map((x, k) => k === i && !(x.skip || []).includes(by) ? Object.assign({}, x, { skip: (x.skip || []).concat([by]) }) : x); return s; }
+function chpSkipDue(song, present) { const n = (song && song.skip || []).length; return n > 0 && n * 2 >= Math.max(1, present || 1); }
+function chpLedgerAdd(s, e) { const amt = Math.round((Number(e && e.amount) || 0) * 100) / 100; if (!(amt > 0) || !e.payer) return s; s.ledger = s.ledger.concat([{ id: "l" + Date.now() + Math.floor(Math.random() * 1000), payer: String(e.payer), amount: amt, for: String(e.for || "").slice(0, 30), among: (Array.isArray(e.among) && e.among.length ? e.among : [e.payer]).map(String), by: e.by || "", ts: Date.now(), settled: false }]).slice(-80); return s; }
+// 谁欠谁：每笔均摊给 among，没结的才算；返回 [{from,to,amount}]，两两相抵
+function chpBalances(ledger) {
+  const net = {};
+  (ledger || []).filter(x => x && !x.settled).forEach(x => { const share = x.amount / x.among.length; x.among.forEach(p => { if (p === x.payer) return; const k = p + "→" + x.payer, r = x.payer + "→" + p; net[k] = (net[k] || 0) + share; if (net[r]) { const m = Math.min(net[k], net[r]); net[k] -= m; net[r] -= m; } }); });
+  return Object.keys(net).filter(k => net[k] > 0.004).map(k => { const [from, to] = k.split("→"); return { from, to, amount: Math.round(net[k] * 100) / 100 }; });
+}
+function chpSettle(s, from, to) { s.ledger = s.ledger.map(x => x.settled ? x : (x.payer === to && x.among.includes(from)) || (x.payer === from && x.among.includes(to)) ? Object.assign({}, x, { settled: true }) : x); return s; }
+// 养的东西：每过一小时饱和度掉 4，浇水/喂食 +40，陪它玩心情回来
+function chpPetNow(pet, now) {
+  if (!pet) return null;
+  const t0 = now || Date.now(), hrs = Math.max(0, (t0 - (pet.ts != null ? pet.ts : t0)) / 3600000);
+  const full = Math.max(0, Math.min(100, Math.round((pet.full == null ? 70 : pet.full) - hrs * 4)));
+  const mood = full >= 60 ? "精神" : full >= 30 ? "有点蔫" : "快不行了";
+  return Object.assign({}, pet, { full, mood });
+}
+function chpCare(pet, action, by, now) {
+  const p = chpPetNow(pet, now); if (!p) return pet;
+  const add = /玩/.test(String(action || "")) ? 15 : 40;
+  return Object.assign({}, p, { full: Math.min(100, p.full + add), ts: now || Date.now(), last: { by, action: String(action || "照顾").slice(0, 8), ts: now || Date.now() } });
+}
+// 给模型看的那几行：只说现在是什么样，谁动过
+function chpHint(s, msgs, nameOf, opts) {
+  const o = opts || {}, nm = id => id === "me" ? (o.her || "她") : ((nameOf && nameOf(id)) || id || "有人"), out = [];
+  const rx = (msgs || []).slice(-20).filter(m => m && m.reacts && Object.keys(m.reacts).length).slice(-5)
+    .map(m => "「" + String(m.content || "").replace(/\s+/g, " ").slice(0, 20) + "」← " + Object.keys(m.reacts).map(w => nm(w) + m.reacts[w]).join(" "));
+  if (rx.length) out.push("表情回应：" + rx.join("；"));
+  if (s.pins.length) out.push("置顶：" + s.pins.map(p => "「" + p.text.slice(0, 40) + "」").join("、"));
+  if (s.notes.length) out.push("墙上的便利贴：" + s.notes.slice(-8).map(n => "「" + n.text.slice(0, 40) + "」(" + nm(n.by) + (n.doodles && n.doodles.length ? "，上面被写了" + n.doodles.map(d => nm(d.by) + "：" + d.text.slice(0, 20)).join("／") : "") + ")").join(" "));
+  if (s.playlist.length) out.push("频道歌单：" + s.playlist.slice(-6).map(x => "《" + x.title + "》" + nm(x.by) + "加的" + (x.skip && x.skip.length ? "，" + x.skip.map(nm).join("、") + "想切" : "")).join("；"));
+  const bal = chpBalances(s.ledger);
+  if (s.ledger.length) out.push("小账本：" + (bal.length ? bal.map(b => nm(b.from) + "欠" + nm(b.to) + b.amount).join("，") : "都结清了"));
+  const pet = chpPetNow(s.pet, o.now);
+  if (pet) out.push("频道里养着「" + pet.name + "」（" + (pet.kind || "") + "）：现在" + pet.mood + "，饱足 " + pet.full + (pet.last ? "，上次是" + nm(pet.last.by) + "来" + pet.last.action : "，还没人照顾过"));
+  return out.length ? "\n\n【这个频道里摆着的东西】\n" + out.join("\n") : "";
+}
 // 一轮里好几个人改同一份（她 2026-11-20「一轮调用能不能多几个人可以改」）：整份重写的话后一个人照着旧稿写，会把前一个人刚改的盖掉。
 //   所以也认按行改：add 往末尾添几行，remove 删掉逐字对上的几行；同一轮按顺序一个接一个落在最新那份上，谁改的都留着。
 //   text（整份重写）照旧认，有 text 就以 text 为准。

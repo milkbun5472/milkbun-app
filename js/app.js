@@ -1888,6 +1888,10 @@ function App() {
   const [channelTab, setChannelTab] = useState("chat");
   const [chFileOpen, setChFileOpen] = useState(null);
   const [chFilesRev, setChFilesRev] = useState(0);
+  // 频道里一起摆弄的小东西（置顶、便利贴墙、歌单、小账本、养的东西）：一个频道一份 x_chplay:<群id>，纯函数都在 engine.js 的 chp*
+  const [chPlayRev, setChPlayRev] = useState(0);
+  const chpOf = gid => chpNorm(loadJSON("x_chplay:" + gid, null), dayKeyNow());
+  const chpPut = (gid, st) => { saveJSON("x_chplay:" + gid, st); setChPlayRev(v => v + 1); };
   const [profileOpen, setProfileOpen] = useState(false);
   // 主页名片：与聊天「我」的人设解耦，单独一份 { name, sign, tags:[] }
   const [homeCard, setHomeCard] = useState({ name: "", sign: "", tags: [] });
@@ -16982,6 +16986,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return "\n\n【这个频道是树洞】屏幕上每个人都只显示一个代号，谁也看不见谁的名字和头像，" + userName(profile) + " 也一样，没有谁是例外。各人的代号：" + members.map(c => c.name + "＝树洞 #" + mp[String(c.id)]).join("、") + "、" + userName(profile) + "＝树洞 #" + mp.me
           + "。每个人只知道自己是哪一号；上面原文里带的名字只是给你分清谁说了哪句。写出来的话里不提任何人的名字，指人就说几号，也不会有人说自己看见了谁的名字——别人是谁，只能从说话的样子去猜。";
       })() : "";
+      // 频道里摆着的东西＋他们能怎么动（她 2026-11-20「1-7都可以做」）：只说是什么、怎么写；到了当天上限的那一样就不提
+      const gPlayHint = group && group.spaceId ? (() => {
+        const st = chpOf(groupId), spect = groupSpectating(group), tree = group.chKind === "treehole";
+        const have = chpHint(st, groupChatsRef.current[groupId] || [], id => (((characters || []).find(c => c.id === id) || {}).name || id), { her: userName(profile) });
+        const can = [];
+        can.push("\"react\":{\"quote\":\"最近一句话里逐字的一小段\",\"emoji\":\"" + CHP_EMOJI.join("") + " 里挑一个\"}——在那句底下点个表情，不用开口也算表了态");
+        if (!spect && chpCount(st, "rename") < CHP_CAP.rename) can.push("\"rename\":{\"name\":\"新频道名\",\"about\":\"新的一句这里聊什么\"}——两样可以只写一样，频道里大家都看得到是谁改的，别人也能改回去");
+        can.push("\"pin\":{\"quote\":\"要钉到顶上那句里逐字的一小段\"} 或 \"unpin\":{\"quote\":\"…\"}——置顶最多三条");
+        if (chpCount(st, "note") < CHP_CAP.note) can.push("\"note\":{\"text\":\"往墙上贴一张便利贴\"}");
+        can.push("\"scribble\":{\"on\":\"墙上那张便利贴里的一小段\",\"text\":\"在上面写一句\"}、\"tear\":{\"quote\":\"…\"}——撕的是自己的，或者贴了一天以上的");
+        if (chpCount(st, "song") < CHP_CAP.song) can.push("\"song\":{\"title\":\"歌名\",\"artist\":\"歌手\"}——往频道歌单里加一首");
+        if (st.playlist.length) can.push("\"skip\":{\"title\":\"歌单里那首的歌名\"}——投票想切掉它");
+        can.push("\"ledger\":{\"payer\":\"谁付的钱\",\"amount\":数字,\"for\":\"买了什么\",\"among\":[\"这笔钱算在谁头上（名字）\"]}、\"settle\":{\"from\":\"欠钱的人\",\"to\":\"收钱的人\"}——频道里的小账本，不碰谁的钱包");
+        if (st.pet) can.push("\"care\":{\"action\":\"浇水/喂食/陪它玩\"}——照顾频道里养着的「" + st.pet.name + "」，每人一天一次");
+        return have + "\n【频道里还能这样动】谁想动，就在他自己那条发言里加上对应的字段，一轮里几个人可以各动各的：\n· " + can.join("\n· ") + (tree ? "\n（树洞里大家都是代号，动了什么也只显示代号。）" : "");
+      })() : "";
       const gListenHint = group && group.spaceId && group.chListen && !groupSpectating(group) ? (() => { const L0 = chListenOf(groupId); return L0 ? "\n\n【一起听】这个频道里大家现在一起在听《" + L0.song.title + "》" + (L0.song.artist ? " - " + L0.song.artist : "") + "（" + userName(profile) + " 放的" + (player.playing ? "，正放着" : "，这会儿暂停了") + "），在这个频道的人都听得到。" : ""; })() : "";
       // 起一条接龙：群里眼下没有在接的、今天也还没人起过头才摆这一格；她在旁观就不摆
       const _chDay = new Date(typeof vclockNow === "function" ? vclockNow() : Date.now()).toDateString();
@@ -17104,7 +17124,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 群里拍一拍（她 2026-10-25）：她在群里时能拍她或别的成员；旁观群里只能拍群里的人
       const gStickField = ",\"stick\":{\"quote\":\"（可选）群里某条消息里的原话，照抄几个字\",\"emoji\":\"一个 emoji\"}（想贴自己的表情包就把 emoji 换成 \"emote\":\"表情包关键词\"；往那条气泡上贴一个表情，像 QQ 的贴表情：群里谁的哪句话让你当下有了反应、这个反应一个表情就说得清的时候，就随手贴一个，贴了照样可以说话，也可以只贴不说；没有反应就整个省掉）";
       const gPatField = ",\"pat\":\"（可选）想用「拍一拍」戳谁一下就填那个人的名字（" + (imInGroup(group) ? gUName + " 或" : "") + "群里某位成员）；是一个动作，不是一句话，不用再在 text 里写「拍了拍」\"";
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gFileHint + gHopHint + gNewChHint + gGemHint + gTreeHint + gChainStartHint + gWelcomeHint + gAtHint + gListenHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gStoryHint + (() => { const _g0 = (groupsRef.current || []).find(x => x.id === groupId); const _n = groupNamedByNote(_g0, ""); return _n ? "\n【群名】" + _n + "（起名的那个人自己知道是自己起的）。" : ""; })() + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；定下的是以后的事，就加 " + SCHED_LATER_SPEC + "同样只填他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gStickField + "" + gDmField + thoughtField + impressionField + "}；某成员这一轮在群里亲口说了过一会儿／几点再回来（到了、忙完了、拿到了就来群里说），就在 Ta 那条加 \"laterPromise\":{\"minutes\":几分钟后,\"about\":\"回来要说/要做的事\"}（说的是几点就把 minutes 换成 \"at\":\"HH:MM\"），到点 Ta 会自己回群里开话头；没说就不加；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。要靠运气定的事，谁都可以自己掷骰子或抽签：那条加 \"luck\":{\"type\":\"dice\",\"n\":骰子颗数1到3} 或 {\"type\":\"draw\",\"what\":\"抽什么\",\"n\":抽几个人}，结果由手机现掷现抽、发成一张卡，这一条里别替它报结果，结果出来以后大家照着接。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gFileHint + gHopHint + gNewChHint + gGemHint + gTreeHint + gChainStartHint + gWelcomeHint + gAtHint + gListenHint + gPlayHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gStoryHint + (() => { const _g0 = (groupsRef.current || []).find(x => x.id === groupId); const _n = groupNamedByNote(_g0, ""); return _n ? "\n【群名】" + _n + "（起名的那个人自己知道是自己起的）。" : ""; })() + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；定下的是以后的事，就加 " + SCHED_LATER_SPEC + "同样只填他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gStickField + "" + gDmField + thoughtField + impressionField + "}；某成员这一轮在群里亲口说了过一会儿／几点再回来（到了、忙完了、拿到了就来群里说），就在 Ta 那条加 \"laterPromise\":{\"minutes\":几分钟后,\"about\":\"回来要说/要做的事\"}（说的是几点就把 minutes 换成 \"at\":\"HH:MM\"），到点 Ta 会自己回群里开话头；没说就不加；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。要靠运气定的事，谁都可以自己掷骰子或抽签：那条加 \"luck\":{\"type\":\"dice\",\"n\":骰子颗数1到3} 或 {\"type\":\"draw\",\"what\":\"抽什么\",\"n\":抽几个人}，结果由手机现掷现抽、发成一张卡，这一条里别替它报结果，结果出来以后大家照着接。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -17676,6 +17696,31 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               const r0 = chfApplyDoc(_fs0, item.file.name, chfPatchText(_cur0, item.file), spk.id);
               if (r0.op) { saveJSON("x_chfiles:" + groupId, r0.files); setChFilesRev(v => v + 1);
                 _gLuck.push({ role: "system", kind: "chfile", fileId: r0.file.id, senderId: spk.id, content: spk.name + (r0.op === "create" ? " 新建了" : " 编辑了") + "《" + r0.file.name + "》" }); }
+            } catch (e) {}
+          }
+          // 频道里一起摆弄的小东西（她 2026-11-20「1-7都可以做」）：表情回应、改名、置顶、便利贴、歌单、小账本、养的东西
+          if (group && group.spaceId && spk && (item.react || item.rename || item.pin || item.unpin || item.note || item.scribble || item.tear || item.song || item.skip || item.ledger || item.settle || item.care)) {
+            try {
+              const _st = chpOf(groupId), _ms = groupChatsRef.current[groupId] || [], _sp = (spaces || []).find(x => x && x.id === group.spaceId), _spect = groupSpectating(group);
+              const _idOf = n => { const t = String(n || "").trim(); if (!t) return ""; if (t === userName(profile) || t === "她" || t === "我们的她") return "me"; const c = members.find(x => x.name === t || x.remark === t); return c ? c.id : t; };
+              const _say = txt => _gLuck.push({ role: "system", kind: "chlink", toGid: groupId, senderId: spk.id, content: txt });
+              if (item.react && typeof item.react === "object") { const k = chpFindMsg(_ms, item.react.quote, 20), em = String(item.react.emoji || "").trim(); if (k >= 0 && em) pGChat(groupId, p => p.map((m, j) => j === k ? chpReactMsg(m, spk.id, em) : m)); }
+              if (item.rename && typeof item.rename === "object" && !_spect && chpCount(_st, "rename") < CHP_CAP.rename && _sp) {
+                const nn = String(item.rename.name || "").replace(/^#+/, "").trim().slice(0, 16), ab = String(item.rename.about || "").trim().slice(0, 120), g0 = (groupsRef.current || []).find(x => x.id === groupId) || group;
+                if (nn && nn !== g0.chName) { renameGroup(groupId, channelGroupName(_sp, nn), spk.id); updateGroup(groupId, { chName: nn }); _say(spk.name + " 把频道名改成了 #" + nn); chpBump(_st, "rename"); }
+                if (ab && ab !== g0.chAbout) { updateGroup(groupId, { chAbout: ab }); _say(spk.name + " 把这里聊什么改成了「" + ab + "」"); if (!nn) chpBump(_st, "rename"); }
+              }
+              if (item.pin && typeof item.pin === "object") { const k = chpFindMsg(_ms, item.pin.quote, 40); if (k >= 0) { chpPin(_st, _ms[k], spk.id); _say(spk.name + " 置顶了一句"); } }
+              if (item.unpin && typeof item.unpin === "object") { const q = String(item.unpin.quote || "").trim(), pp = q && _st.pins.find(x => x.text.indexOf(q) >= 0); if (pp) { chpUnpin(_st, pp.key); _say(spk.name + " 取消了一条置顶"); } }
+              if (item.note && typeof item.note === "object" && chpCount(_st, "note") < CHP_CAP.note && String(item.note.text || "").trim()) { chpNoteAdd(_st, item.note.text, spk.id); chpBump(_st, "note"); _say(spk.name + " 往墙上贴了张便利贴"); }
+              if (item.scribble && typeof item.scribble === "object") chpScribble(_st, item.scribble.on, item.scribble.text, spk.id);
+              if (item.tear && typeof item.tear === "object") { const n0 = _st.notes.length; chpTear(_st, item.tear.quote, spk.id, Date.now()); if (_st.notes.length < n0) _say(spk.name + " 撕掉了一张便利贴"); }
+              if (item.song && typeof item.song === "object" && chpCount(_st, "song") < CHP_CAP.song) { const n0 = _st.playlist.length; chpSongAdd(_st, item.song.title, item.song.artist, spk.id); if (_st.playlist.length > n0) { chpBump(_st, "song"); _say(spk.name + " 往歌单里加了《" + String(item.song.title).slice(0, 30) + "》"); } }
+              if (item.skip) { const tt = typeof item.skip === "object" ? item.skip.title : ""; chpSkipVote(_st, tt || (((chListenOf(groupId) || {}).song) || {}).title, spk.id); }
+              if (item.ledger && typeof item.ledger === "object") { const n0 = _st.ledger.length; chpLedgerAdd(_st, { payer: _idOf(item.ledger.payer) || spk.id, amount: item.ledger.amount, for: item.ledger.for, among: (Array.isArray(item.ledger.among) ? item.ledger.among : []).map(_idOf).filter(Boolean), by: spk.id }); if (_st.ledger.length > n0) _say(spk.name + " 记了一笔账"); }
+              if (item.settle && typeof item.settle === "object") { const f = _idOf(item.settle.from), t2 = _idOf(item.settle.to); if (f && t2) { chpSettle(_st, f, t2); _say(spk.name + " 记下：两个人这笔结清了"); } }
+              if (item.care && _st.pet && chpCount(_st, "care", spk.id) < 1) { _st.pet = chpCare(_st.pet, typeof item.care === "object" ? item.care.action : item.care, spk.id, Date.now()); chpBump(_st, "care", spk.id); _say(spk.name + " 去照顾了「" + _st.pet.name + "」"); }
+              chpPut(groupId, _st);
             } catch (e) {}
           }
           // 他换到别的频道接着说（她 2026-11-20）：那几句真落进那个频道（那边记未读），这边留一行「某某 去了 #频道」，点了过去
@@ -36620,14 +36665,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       looseGroups: (groups || []).filter(g => g && !g.spaceId), onAdopt: ids => adoptGroups(sp, ids), onRelease: releaseChannel, spectateOf: groupSpectating, onTalk: () => talkSpace(sp), gems: (spaceGemRev, loadJSON(gemKey(sp.id), [])), onDeleteGem: id => { saveJSON(gemKey(sp.id), (loadJSON(gemKey(sp.id), []) || []).filter(x => x && x.id !== id)); setSpaceGemRev(v => v + 1); },
       onOpenGem: gm => { window.__openChannel && window.__openChannel(gm.gid); if (gm.mts) setWalletTrace({ type: "group", id: gm.gid, ts: gm.mts, key: Date.now() }); }, digest: (spaceDigestRev, loadJSON("x_spaceDigest:" + sp.id, [])), onDismissDigest: () => { saveJSON("x_spaceDigest:" + sp.id, []); setSpaceDigestRev(x => x + 1); },
       onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), onSuggestTitles: () => suggestSpaceTitles(sp), onMoveChannel: (g, d) => moveChannel(sp, g, d), onToggleCat: id => toggleSpaceCat(sp, id), noMemOf: channelNoMem, pickPool: liveChars.concat((characters || []).filter(c => c && c.npc && !liveChars.some(x => x.id === c.id))) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
-    channelTabs: activeGroup.spaceId ? h(ChannelTabs, { tab: "chat", onTab: setChannelTab, right: groupSpectating(activeGroup) ? null : h(ChannelListenBtn, { on: !!chListenOf(activeGroup.id), onToggle: () => toggleChListen(activeGroup.id) }) }) : null,
+    // 顶上一行（她 2026-11-20 截图「顶上太高把聊天挤没了」）：矮索引签＋右边小签（♪/在听的歌、置顶、公告、养的），点开才摊开
+    channelTabs: activeGroup.spaceId ? (chPlayRev, (() => { const st = chpOf(activeGroup.id), spect = groupSpectating(activeGroup), pet0 = chpPetNow(st.pet, Date.now());
+      const pet = pet0 && pet0.last ? { ...pet0, lastName: (characters.find(c => c.id === pet0.last.by) || {}).name || "" } : pet0, L0 = spect ? null : chListenOf(activeGroup.id);
+      const cur = L0 && L0.song ? st.playlist.find(x => x.title === L0.song.title) : null, notice = String(((gsFor(activeGroup.id) || {}).notice || {}).text || "").trim();
+      return h(ChannelTopRow, { onTab: setChannelTab, spectate: spect, notice: notice || null, pins: st.pins, pet,
+        listen: { on: !!L0, song: L0 && L0.song, by: L0 && L0.by, playing: !!player.playing, playlist: st.playlist, skipDue: cur ? chpSkipDue(cur, (activeGroup.memberIds || []).length) : false, onToggle: () => toggleChListen(activeGroup.id), onStop: () => toggleChListen(activeGroup.id) },
+        onJumpPin: p0 => setWalletTrace({ type: "group", id: activeGroup.id, ts: Number(p0.key), key: Date.now() }),
+        onUnpin: spect ? null : p0 => { const s2 = chpOf(activeGroup.id); chpUnpin(s2, p0.key); chpPut(activeGroup.id, s2); },
+        onCare: spect || chpCount(st, "care", "me") >= 1 ? null : () => { const s2 = chpOf(activeGroup.id); s2.pet = chpCare(s2.pet, "照顾", "me", Date.now()); chpBump(s2, "care", "me"); chpPut(activeGroup.id, s2); toast("照顾过「" + s2.pet.name + "」了"); } }); })()) : null,
     channelBar: activeGroup.spaceId ? h(React.Fragment, null,
-      !groupSpectating(activeGroup) && chListenOf(activeGroup.id) ? (() => { const L0 = chListenOf(activeGroup.id); return h(ChannelListenBar, { song: L0.song, by: L0.by, playing: !!player.playing, onStop: () => toggleChListen(activeGroup.id) }); })() : null,
       // 挂机房（她 2026-11-20）：顶上一排人各自在干嘛，照日程现算，不调模型
       ((groups || []).find(g => g.id === activeGroup.id) || activeGroup).chKind === "lounge" ? h(LoungePanel, { spectate: groupSpectating(activeGroup), sitting: loungeSitting,
         people: (activeGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => { const b = typeof schedNowBriefFor === "function" ? schedNowBriefFor(c) : null; return { id: c.id, c, doing: b ? [b.title, b.location].filter(Boolean).join(" · ") : "" }; }),
         onSit: () => loungeSit(activeGroup.id) }) : null) : null,
     onSub: activeGroup.spaceId && !groupSpectating(activeGroup) ? key => setSubOpen({ gid: activeGroup.id, root: key }) : null,
+    // 表情回应、置顶（她 2026-11-20）：旁观的频道里她不在场，这两样都不给
+    onReact: activeGroup.spaceId && !groupSpectating(activeGroup) ? (idx, em) => pGChat(activeGroup.id, p => p.map((m, j) => j === idx ? chpReactMsg(m, "me", em) : m)) : null,
+    onPin: activeGroup.spaceId && !groupSpectating(activeGroup) ? idx => { const m = (groupChats[activeGroup.id] || [])[idx]; if (!m || !m.content) return; const st = chpOf(activeGroup.id); chpPin(st, m, "me"); chpPut(activeGroup.id, st); toast("置顶了"); } : null,
     onGem: activeGroup.spaceId ? idx => { const m = (groupChats[activeGroup.id] || [])[idx]; if (addGem(activeGroup.spaceId, activeGroup.id, m, "me")) toast("收进精华了"); } : null,
     onOpenStyleLab: goStyleLab,
     apiProfiles: apiProfiles,
@@ -39156,6 +39211,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   if (screen === "gthread" && activeGroup && activeGroup.spaceId && channelTab === "files") {
     const _g = activeGroup, _fk = "x_chfiles:" + _g.id;
     body = h(ChannelFilesPage, { key: "chf:" + _g.id, rev: chFilesRev, group: _g, files: loadJSON(_fk, []),
+      // 墙、歌单、账本、养的（她 2026-11-20）：这个频道那一份 x_chplay
+      play: (chPlayRev, chpOf(_g.id)), onPlay: fn => { const s2 = fn(chpOf(_g.id)) || chpOf(_g.id); chpPut(_g.id, s2); },
+      people: (_g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => ({ id: c.id, name: c.remark || c.name })),
       nameOf: id => id === "me" ? "我" : (((characters || []).find(c => c.id === id) || {}).name || "有人"),
       onSaveFiles: n => { saveJSON(_fk, n); setChFilesRev(v => v + 1); },
       onTab: setChannelTab, openId: chFileOpen, onOpened: () => setChFileOpen(null),
