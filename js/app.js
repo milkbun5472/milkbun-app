@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.866";
+const APP_VERSION = "v89.867";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12253,6 +12253,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const momInRange = m => { const d = momRange === "3d" ? 3 : momRange === "1m" ? 30 : momRange === "6m" ? 182 : 0; return !d || Date.now() - (m.ts || 0) <= d * 86400000; };
   const momSeen = (m, charId) => !!m && !!m.mine && momInRange(m) && !friendCut(charId) && !(m.hiddenFrom || []).includes(String(charId)) && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
   // 发朋友圈那页挑面具用：主面具一张 + 其余几张（跟论坛挑面具同一份名单）；发出来的那条显示用哪张的名字和头像
+  // 朋友圈「随机挑一个」不是纯随机（她 2026-11-21「1234 都混起来算」）：久没发的、今天有事的、这两天聊得多的、心情起伏大的更容易轮到；
+  //   刚发过的、上次刚抽到的很难再中。只按本机已有的东西算，不花调用
+  window.__momentPick = list => {
+    const now = Date.now(), H = 3600000, cands = (list || []).filter(Boolean); if (!cands.length) return null;
+    const last = (() => { try { return loadJSON("x_momentLastPick", "") || ""; } catch (e) { return ""; } })();
+    const td = new Date(), md = (td.getMonth() + 1) + "-" + td.getDate();
+    const w = cands.map(c => {
+      const mine = (momentsRef.current || []).filter(m => m && String(m.characterId) === String(c.id)).map(m => m.ts || 0), lt = mine.length ? Math.max(...mine) : 0;
+      let x = lt ? Math.min(3, 0.3 + (now - lt) / (24 * H)) : 3;                      // ① 越久没发越容易
+      if (lt && now - lt < 3 * H) x *= 0.15;
+      try { const b = String(c.birthday || "").match(/(\d{1,2})\D+(\d{1,2})\D*$/); if (b && (+b[1]) + "-" + (+b[2]) === md) x += 1.5; } catch (e) {}   // ② 今天有事：生日
+      try { const sg = typeof schedNowSegFor === "function" ? schedNowSegFor(c) : null; if (sg && sg.cur && !/sleep|work|study|routine/.test(String(sg.cur.type || ""))) x += 0.5; } catch (e) {}   //    日程上正在做点别的
+      try { const n = (chatsRef.current[c.id] || []).filter(m => m && (m.ts || 0) > now - 48 * H).length; x += Math.min(1.5, n / 40); } catch (e) {}   // ③ 这两天聊得多
+      try { const mo = String(((statesRef.current || {})[c.id] || {}).mood || ""); if (/开心|兴奋|激动|雀跃|难过|失落|委屈|生气|烦|焦虑|低落|想你|想她|心动/.test(mo)) x += 0.8; } catch (e) {}   // ④ 心情起伏大
+      if (String(c.id) === String(last) && cands.length > 1) x *= 0.1;
+      return Math.max(0.01, x);
+    });
+    let r = Math.random() * w.reduce((a, b) => a + b, 0), k = 0; for (; k < w.length - 1; k++) { r -= w[k]; if (r <= 0) break; }
+    try { saveJSON("x_momentLastPick", String(cands[k].id)); } catch (e) {}
+    return cands[k];
+  };
   window.__momentMasks = () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage, color: profile.color }]
     .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
   window.__maskKeyOf = id => maskKeyOf(id);

@@ -11198,7 +11198,7 @@ function MomentsFeed({
     }
   }, "让谁发一条"), /*#__PURE__*/React.createElement("div", {
     className: "space-y-1 max-h-72 overflow-y-auto"
-  }, (characters || []).length > 1 ? h("button", { key: "__rand", "data-wk": "mocharrand", onClick: () => { const c = characters[Math.floor(Math.random() * characters.length)]; setPick(false); if (c) onGen(c); },   // 随机挑一个（她 2026-11-21）
+  }, (characters || []).length > 1 ? h("button", { key: "__rand", "data-wk": "mocharrand", onClick: () => { const c = window.__momentPick ? window.__momentPick(characters) : characters[Math.floor(Math.random() * characters.length)]; setPick(false); if (c) onGen(c); },   // 随机挑一个（她 2026-11-21）
       className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
       h("span", { style: { width: 34, height: 34, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", background: t.bg2, border: "1px dashed " + t.line, fontSize: 17 } }, "🎲"),
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "随机挑一个")) : null,
