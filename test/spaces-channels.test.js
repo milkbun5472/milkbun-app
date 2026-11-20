@@ -151,3 +151,9 @@ test("已有的频道能切旁观、切回来：群上的 roomKind 和群设置�
   assert.match(cs, /"data-wk": "chspect"/);
   assert.match(cs, /spectate: spect, chSolo: solo \|\| noMem \|\| spect/);
 });
+test("频道里开小房间：房间不抄频道那几格，不以同名频道出现；带小房间的群能收进来，房间本身不在可收名单里", () => {
+  const ap = require("fs").readFileSync(__dirname + "/../js/app.js", "utf8");
+  assert.match(ap, /\["spaceId", "chName", "chAbout", "chKind"[^\]]*\]\.forEach\(k => \{ delete g\[k\]; \}\);/);
+  assert.match(ap, /looseGroups: \(groups \|\| \[\]\)\.filter\(g => g && !g\.spaceId && !g\.roomOf\),/);
+  assert.match(ap, /channels: \(groups \|\| \[\]\)\.filter\(g => g && g\.spaceId === sp\.id && !g\.chHidden && !g\.roomOf\),/);
+});

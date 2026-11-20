@@ -73,3 +73,30 @@ test("账本连着钱包：只有动过钱的几笔算欠款；记账从付钱�
   assert.match(ap, /chLedgerMove\(gid, owe\.to, amt,/);
   assert.match(ap, /moneyMoved: true/);
 });
+test("小家伙三条状态：饱腹按小时掉、心情陪玩才涨得多、精神照钟点；最黏的是七天里照顾最多的；见底三天只提醒", () => {
+  const fs = require("fs"), vm = require("vm"), en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const i = en.indexOf("const PET_DOING = {"), j = en.indexOf("// 给模型看的那几行：只说现在是什么样，谁动过");
+  const ctx = {}; vm.createContext(ctx); vm.runInContext(en.slice(i, j) + ";this.now=chpPetNow;this.care=chpCare;this.plant=chpPetIsPlant;", ctx);
+  const H = 3600000, t0 = 1000 * H;
+  let p = { name: "团子", kind: "仓鼠", full: 80, joy: 70, ts: t0, joyTs: t0, born: t0, log: [] };
+  const a = ctx.now(p, t0 + 5 * H, 14);
+  assert.equal(a.full, 60); assert.equal(a.joy, 55); assert.equal(a.energy, 90);
+  assert.ok(ctx.now(p, t0, 3).energy < 35);
+  const fed = ctx.care(p, "喂食", "a", t0), played = ctx.care(p, "陪它玩", "b", t0);
+  assert.ok(fed.full > played.full && played.joy > fed.joy);
+  p = ctx.care(ctx.care(ctx.care(p, "喂食", "a", t0), "陪它玩", "b", t0 + H), "喂食", "a", t0 + 2 * H);
+  assert.equal(ctx.now(p, t0 + 3 * H, 12).fondest, "a");
+  const starved = ctx.now({ name: "x", kind: "绿萝", full: 0, joy: 0, ts: t0, joyTs: t0, born: t0, last: { by: "a", ts: t0 } }, t0 + 80 * H, 12);
+  assert.equal(starved.neglectDays, 3); assert.equal(ctx.plant("绿萝"), true);
+  assert.ok(typeof starved.doing === "string" && starved.doing.length > 0);
+});
+test("小家伙：拍照只她能按、存进图片栏；送走收进养过的并让大家告别一轮；养什么也能让大家定", () => {
+  const fs = require("fs"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.match(ap, /const key = "img_chf_pet_" \+ Date\.now\(\)\.toString\(36\);\s*await idbImgPut\(key, blob\);/);
+  assert.match(ap, /lookRef: s2\.pet\.lookRef \|\| key/);
+  assert.match(ap, /s2\.petsPast = \(s2\.petsPast \|\| \[\]\)\.concat/);
+  assert.match(ap, /window\.__chPetBye = \{ gid: g\.id/);
+  assert.match(ap, /if \(item\.petKind && _st\.pet && _st\.pet\.kindPending\)/);
+  assert.match(cs, /pet\.photo \? h\(ChfImg, \{ k: pet\.photo/);
+  assert.match(cs, /function ChfImg\(\{ k, style \}\) \{[\s\S]{0,200}useIdbImgUrl\(isIdb \? k : null\)/);
+});

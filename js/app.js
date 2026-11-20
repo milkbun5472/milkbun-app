@@ -17004,6 +17004,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (window.__chAskSongs === groupId) { window.__chAskSongs = null; can.push("她刚才想让大家各往歌单里放一首自己想听的：这一轮谁想放，就用上面的 song 写进去，可以顺嘴说一句为什么挑这首"); }
         if (st.playlist.length) can.push("\"skip\":{\"title\":\"歌单里那首的歌名\"}——投票想切掉它");
         can.push("\"ledger\":{\"payer\":\"谁付的钱\",\"amount\":数字,\"for\":\"买了什么\",\"among\":[\"这笔钱算在谁头上（名字）\"]}、\"settle\":{\"from\":\"欠钱的人\",\"to\":\"收钱的人\"}——这本账连着各人真的钱包：记一笔，付钱那个人钱包里就真少了这笔；settle 是欠钱的人把钱真挪给对方，钱包里不够就只挪得动剩下的那么多");
+        if (st.pet && st.pet.kindPending) can.push("\"petKind\":{\"kind\":\"养什么（一种植物或一种小动物）\"}——她想让大家决定频道里养什么：各自提、互相挑，觉得定下来了就由一个人用 petKind 写进去");
+        if (window.__chPetBye && window.__chPetBye.gid === groupId) { const _b = window.__chPetBye; window.__chPetBye = null; can.push("（这一轮的事）频道里养的「" + _b.name + "」" + (_b.kind ? "（" + _b.kind + "）" : "") + "刚刚" + _b.how + "，它不在这儿了"); }
         if (st.pet && st.pet.naming) can.push("\"petName\":{\"name\":\"名字\"}——频道里养的" + (st.pet.kind || "那个小家伙") + "还没名字，她想让大家给它起一个：各自提、互相挑，觉得定下来了就由一个人用 petName 写进去");
         if (st.pet) can.push("\"care\":{\"action\":\"浇水/喂食/陪它玩\"}——照顾频道里养着的「" + st.pet.name + "」，每人一天一次");
         return have + "\n【频道里还能这样动】谁想动，就在他自己那条发言里加上对应的字段，一轮里几个人可以各动各的：\n· " + can.join("\n· ") + (tree ? "\n（树洞里大家都是代号，动了什么也只显示代号。）" : "");
@@ -17723,7 +17725,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             } catch (e) {}
           }
           // 频道里一起摆弄的小东西（她 2026-11-20「1-7都可以做」）：表情回应、改名、置顶、便利贴、歌单、小账本、养的东西
-          if (group && group.spaceId && spk && (item.react || item.rename || item.pin || item.unpin || item.note || item.scribble || item.tear || item.song || item.skip || item.ledger || item.settle || item.care || item.petName)) {
+          if (group && group.spaceId && spk && (item.react || item.rename || item.pin || item.unpin || item.note || item.scribble || item.tear || item.song || item.skip || item.ledger || item.settle || item.care || item.petName || item.petKind)) {
             try {
               const _st = chpOf(groupId), _ms = groupChatsRef.current[groupId] || [], _sp = (spaces || []).find(x => x && x.id === group.spaceId), _spect = groupSpectating(group);
               const _idOf = n => { const t = String(n || "").trim(); if (!t) return ""; if (t === userName(profile) || t === "她" || t === "我们的她") return "me"; const c = members.find(x => x.name === t || x.remark === t); return c ? c.id : t; };
@@ -17749,6 +17751,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
                   Object.assign(_st, chpOf(groupId)); if (_r && _r.amount > 0) _say(spk.name + " 记下：" + _nm(_r.from) + " 还了 " + _nm(_r.to) + " ¥" + _r.amount + (_r.short ? "，钱不够，还差一点没还完" : "，结清了")); else if (_r) _say(spk.name + " 记下：两个人这笔结清了"); } }
               if (item.care && _st.pet && chpCount(_st, "care", spk.id) < 1) { _st.pet = chpCare(_st.pet, typeof item.care === "object" ? item.care.action : item.care, spk.id, Date.now()); chpBump(_st, "care", spk.id); _say(spk.name + " 去照顾了「" + _st.pet.name + "」"); }
               // 给养的起名（她 2026-11-20「花调用让大家选一个」）：还没定名的时候，谁先把大家挑好的那个写进来就定下
+              if (item.petKind && _st.pet && _st.pet.kindPending) { const _pk = String(typeof item.petKind === "object" ? item.petKind.kind : item.petKind || "").trim().slice(0, 16);
+                if (_pk) { _st.pet = { ..._st.pet, kind: _pk, kindPending: false }; _say(spk.name + " 说大家决定养" + _pk); } }
               if (item.petName && _st.pet && _st.pet.naming) { const _pn = String(typeof item.petName === "object" ? item.petName.name : item.petName || "").trim().slice(0, 12);
                 if (_pn) { _st.pet = { ..._st.pet, name: _pn, naming: false }; _say(spk.name + " 说大家定了，它就叫「" + _pn + "」"); } }
               chpPut(groupId, _st);
@@ -19331,6 +19335,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const nm = String(name || "").trim().slice(0, 30) || "小房间";
     const par = kind === "parallel";
     const g = { ...parent, id: "g_" + Date.now(), name: nm, roomOf: parent.id, createdTs: Date.now(), ...(par ? { parallel: true } : {}) };
+    // 频道开的小房间不是新频道（她 2026-11-20「空间单独还是可以继续开小房间对吧」）：频道那几格不跟着抄，不然它会以同名频道出现在频道列表里
+    ["spaceId", "chName", "chAbout", "chKind", "chCat", "chOrder", "chSolo", "chShareMembers", "chArchived", "chHours", "chHidden", "chLeft", "chLeftLog", "thAlias"].forEach(k => { delete g[k]; });
     groupsRef.current = [...(groupsRef.current || []), g];   // 建完马上就会生成，别等下一次渲染才认得它是平行房间
     setGroups(p => { const n = [...p, g]; saveJSON("x_groups", n); return n; });
     // 主群自己这条聊天的进度（总结到哪、公告、禁言）不抄，房间从头开始
@@ -19353,7 +19359,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const channelNoMem = gid => !gsFor(gid).memoryInterop;
   // originId：站在哪个频道看——面具不同的频道当成不互通（她 2026-11-20：换了面具就是另一个「她」，两边不串）
   const spaceSibs = originId => { const om = originId ? groupMaskKey(originId) : null;
-    return (groupsRef.current || []).map(x => { if (!x || !x.spaceId) return x;
+    // 以前从频道开出来的小房间身上还抄着 spaceId：它不是频道，摘掉
+    return (groupsRef.current || []).map(x => x && x.roomOf && x.spaceId ? { ...x, spaceId: null } : x).map(x => { if (!x || !x.spaceId) return x;
       const off = (channelNoMem(x.id) && !x.chSolo) || (om != null && x.id !== originId && groupMaskKey(x.id) !== om);
       return off ? { ...x, chSolo: true, chShareMembers: false } : x; }); };
   const chMaskSame = (a, b) => groupMaskKey(a) === groupMaskKey(b);
@@ -19415,6 +19422,46 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setActiveSpaceId(sp.id);
     setScreen("space");
     toast("「" + sp.name + "」建好了，先有一个 #综合");
+  };
+  // 给频道里养的拍一张（她 2026-11-20）：跟购物「画一张」同一条生图路；第一张定成它的样子，以后拿它当参照，免得每次长得不一样。
+  //   存 img_chf_pet_…，同时放进频道文件的图片（图片栏里看得到、能拿到聊天里），卡片上摆最新那张
+  const [petShootingId, setPetShootingId] = useState("");
+  const shootChannelPet = async g => {
+    if (petShootingId) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    const st0 = chpOf(g.id), hr = (() => { try { return vclockNow().getHours(); } catch (e) { return new Date().getHours(); } })(), pet = chpPetNow(st0.pet, Date.now(), hr);
+    if (!pet) return;
+    setPetShootingId(g.id);
+    try {
+      const kind = pet.kind || "一只小动物";
+      const prompt = "一张手机随手拍的照片：大家一起养的「" + pet.name + "」，是" + kind + "。它此刻" + pet.doing + "。"
+        + (pet.band === "hungry" || pet.band === "sad" ? "看着有点蔫。" : pet.band === "sleepy" ? "光线偏暗，安安静静的。" : "看着精神。")
+        + "画面主体就是它和它待的地方，生活里真实的样子，没有人脸，画面里不要任何文字。";
+      let ref = null;
+      if (pet.lookRef) { try { const b0 = await idbImgGet(pet.lookRef); if (b0) ref = await blobToDataUrl(b0); } catch (e) {} }
+      const out = await generateSelfieImage(prompt + (ref ? "\n参考图是它之前的样子：同一个它，长相、颜色、花纹照参考图，只换此刻的状态和角度。" : ""), ref, { size: "1024x1024", still: true });
+      const blob = await imgOutBlob(out); if (!blob) throw new Error((out && out.err) || "没出图");
+      const key = "img_chf_pet_" + Date.now().toString(36);
+      await idbImgPut(key, blob);
+      const fk = "x_chfiles:" + g.id, now = Date.now();
+      saveJSON(fk, (loadJSON(fk, []) || []).concat([{ id: "chf_" + now + "_pet", kind: "image", name: pet.name + "的照片", imgKey: key, desc: "「" + pet.name + "」（" + kind + "）" + pet.doing, createdBy: "me", createdTs: now, updatedTs: now }]));
+      setChFilesRev(v => v + 1);
+      const s2 = chpOf(g.id);
+      if (s2.pet) { s2.pet = { ...s2.pet, lookRef: s2.pet.lookRef || key, photo: key, photos: (s2.pet.photos || []).concat([key]).slice(-12) }; chpPut(g.id, s2); }
+      toast("拍好了，图片栏里也有一张");
+    } catch (e) { toast("没拍成：" + String(e && e.message || e).slice(0, 60)); }
+    finally { setPetShootingId(""); }
+  };
+  // 送走它（她 2026-11-20「什么时候养完或者换一种」）：收进「养过的」，频道里冒一行告别，再让大家接一轮
+  const sendOffChannelPet = (g, how) => {
+    const s2 = chpOf(g.id), p = chpPetNow(s2.pet, Date.now());
+    if (!p) return;
+    const fond = p.fondest ? (p.fondest === "me" ? "我" : (((characters || []).find(c => c.id === p.fondest) || {}).name || "")) : "";
+    s2.petsPast = (s2.petsPast || []).concat([{ name: p.name, kind: p.kind || "", from: p.born || p.ts || Date.now(), to: Date.now(), how: String(how || "送走了"), fondest: fond, photos: p.photos || [] }]).slice(-20);
+    s2.pet = null; chpPut(g.id, s2);
+    pGChat(g.id, q => [...q, { role: "system", kind: "chlink", toGid: g.id, content: "「" + p.name + "」" + String(how || "送走了") + "，它收进了「养过的」", ts: Date.now() }]);
+    window.__chPetBye = { gid: g.id, name: p.name, kind: p.kind || "", how: String(how || "送走了") };
+    setChannelTab("chat"); replyGroup(g.id);
   };
   const saveChannel = (sp, g, patch) => {
     if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); if (patch.maskOwn != null) saveGroupSettingsRaw(ng.id, { maskId: String(patch.maskOwn || "") }); if (patch.spectate) { updateGroup(ng.id, { roomKind: "spectate" }); saveGroupSettingsRaw(ng.id, { spectate: true }); } updateGroup(ng.id, { chShareMembers: !!(patch.chShareMembers && patch.chSolo && !patch.chNoMem), chSolo: !!(patch.chSolo || patch.chNoMem), chCat: patch.chCat || "", chKind: patch.chKind || "", chHours: patch.chHours || null, avatarImage: patch.avatarImage || null }); toast("开了 #" + patch.chName); return; }
@@ -36792,14 +36839,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onBack: () => setGardenOpen("")
     };
   })());else if (screen === "space" && (spaces || []).some(x => x.id === activeSpaceId)) body = (() => { const sp = spaces.find(x => x.id === activeSpaceId);
-    return h(SpaceView, { key: "sp::" + sp.id, space: sp, channels: (groups || []).filter(g => g && g.spaceId === sp.id && !g.chHidden),
+    return h(SpaceView, { key: "sp::" + sp.id, space: sp, channels: (groups || []).filter(g => g && g.spaceId === sp.id && !g.chHidden && !g.roomOf),
       onMeet: (ids, note) => startSpaceMeet(sp, ids, note), meetLog: spaceMeetLog(sp), onOpenMeet: () => { const host = spaceMeetHost(sp); if (host) openGroupOffline(host); }, groupChats, unreadMap, allChars: characters, userLabel: "我",
       onBack: () => setScreen("messages"),
       onOpenChannel: g => { if (chClosedNow(g.id)) { chLockedToast(g); return; } setActiveGroup(g); clearUnread(g.id); setChannelTab("chat"); setScreen("gthread"); },
       hoursOf: g => g.chHours ? (chClosedNow(g.id) ? g.chHours.from + ":00 开" : "开到 " + g.chHours.to + ":00") : "",
       onSaveChannel: (g, patch) => saveChannel(sp, g, patch),
       onDeleteChannel: g => { chfPurge(g.id); deleteGroup(g.id); },
-      looseGroups: (groups || []).filter(g => g && !g.spaceId), onAdopt: ids => adoptGroups(sp, ids), onRelease: releaseChannel, spectateOf: groupSpectating, maskOwnOf: g => { const r = (gsFor(g.id) || {}).maskId; return r == null ? null : String(r || ""); }, onTalk: () => talkSpace(sp), gems: (spaceGemRev, loadJSON(gemKey(sp.id), [])), onDeleteGem: id => { saveJSON(gemKey(sp.id), (loadJSON(gemKey(sp.id), []) || []).filter(x => x && x.id !== id)); setSpaceGemRev(v => v + 1); },
+      looseGroups: (groups || []).filter(g => g && !g.spaceId && !g.roomOf), onAdopt: ids => adoptGroups(sp, ids), onRelease: releaseChannel, spectateOf: groupSpectating, maskOwnOf: g => { const r = (gsFor(g.id) || {}).maskId; return r == null ? null : String(r || ""); }, onTalk: () => talkSpace(sp), gems: (spaceGemRev, loadJSON(gemKey(sp.id), [])), onDeleteGem: id => { saveJSON(gemKey(sp.id), (loadJSON(gemKey(sp.id), []) || []).filter(x => x && x.id !== id)); setSpaceGemRev(v => v + 1); },
       onOpenGem: gm => { window.__openChannel && window.__openChannel(gm.gid); if (gm.mts) setWalletTrace({ type: "group", id: gm.gid, ts: gm.mts, key: Date.now() }); }, digest: (spaceDigestRev, loadJSON("x_spaceDigest:" + sp.id, [])), onDismissDigest: () => { saveJSON("x_spaceDigest:" + sp.id, []); setSpaceDigestRev(x => x + 1); },
       onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), presence: spacePresence(sp.id), statuses: loadJSON(CHAR_STATUS_KEY, {}) || {}, herName: userName(profile),
       onMyStatus: st => { const _a = loadJSON(CHAR_STATUS_KEY, {}) || {}; if (!st || (!st.text && !st.emoji)) { const n = { ..._a }; delete n.me; saveJSON(CHAR_STATUS_KEY, n); } else { const r = charStatusSet(_a, "me", st, dayKeyNow() + "_me" + Date.now(), Date.now()); if (r.changed) saveJSON(CHAR_STATUS_KEY, r.all); } setChFilesRev(v => v + 1); }, onSuggestTitles: () => suggestSpaceTitles(sp), onMoveChannel: (g, d) => moveChannel(sp, g, d), onToggleCat: id => toggleSpaceCat(sp, id), noMemOf: channelNoMem, pickPool: liveChars.concat((characters || []).filter(c => c && c.npc && !liveChars.some(x => x.id === c.id))) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
@@ -39355,6 +39402,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onPlaySong: x => { const L = listenRef.current || {}; const song = (L.songs || []).find(y => y && y.title === x.title); if (song) playSong(song); },
       onAskSongs: groupSpectating(_g) ? null : () => { window.__chAskSongs = _g.id; setChannelTab("chat"); replyGroup(_g.id); },
       onAskPetName: groupSpectating(_g) ? null : () => { setChannelTab("chat"); replyGroup(_g.id); },
+      // 小家伙（她 2026-11-20「状态栏、生图、送走、大家决定养啥」）：精神照虚拟钟点；拍照只有她按，角色不会自己拍
+      petHour: (() => { try { return vclockNow().getHours(); } catch (e) { return new Date().getHours(); } })(),
+      petShooting: petShootingId === _g.id,
+      onPetPhoto: groupSpectating(_g) ? null : () => shootChannelPet(_g),
+      onSendOff: groupSpectating(_g) ? null : how => sendOffChannelPet(_g, how),
       // 账本连着钱包（她 2026-11-20）：她记的一笔也真从付钱那人的钱包扣；结清真把钱挪过去
       onLedgerAdd: e0 => { const r = chLedgerPay(_g.id, e0.payer, e0.amount, e0.for); if (r.skip || !(r.amount > 0)) { toast(r.skip ? "旁观的频道里你不在场" : "付钱那个人钱包里没钱了"); return; }
         const st0 = chpOf(_g.id); chpPut(_g.id, chpLedgerAdd(st0, { ...e0, amount: r.amount, moneyMoved: true })); setChPlayRev(v => v + 1); if (r.capped) toast("钱包里只剩 ¥" + r.amount + "，就记了这么多"); },

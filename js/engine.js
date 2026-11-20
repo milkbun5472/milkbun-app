@@ -2523,17 +2523,40 @@ function chpOwe(ledger, from, to) {
 }
 function chpSettle(s, from, to) { s.ledger = s.ledger.map(x => x.settled ? x : (x.payer === to && x.among.includes(from)) || (x.payer === from && x.among.includes(to)) ? Object.assign({}, x, { settled: true }) : x); return s; }
 // 养的东西：每过一小时饱和度掉 4，浇水/喂食 +40，陪它玩心情回来
-function chpPetNow(pet, now) {
+// 小家伙的几条状态（她 2026-11-20「搞几个状态栏，可以生图」）：全靠代码算，不调模型。
+//   饱腹 full：每小时掉 4；心情 joy：每小时掉 3，陪它玩才涨得多；精神 energy：照（虚拟）钟点走，白天高、夜里犯困。
+//   fondest：最近七天谁照顾得最多；doing：照状态从一小撮现成说法里挑一句（植物、动物各一套）；neglectDays：两样都见底以后过了几天——只提醒，不会死。
+const PET_DOING = {
+  plant: { hungry: ["叶子耷拉着，土都干裂了", "蔫蔫地垂着头"], sad: ["没精打采地朝着窗外", "叶尖有点发黄"], sleepy: ["在夜里安安静静地待着", "叶子合起来了，像在睡觉"], happy: ["叶子支棱着，绿得发亮", "新冒了一片嫩芽"], ok: ["安安静静晒着太阳", "在窗台上待着"] },
+  animal: { hungry: ["饿得在窝边转圈", "扒着盆边要吃的"], sad: ["缩在角落里不理人", "趴着一动不动"], sleepy: ["团成一团睡着了", "打着哈欠，眼睛快闭上了"], happy: ["在窝里跑来跑去", "凑过来蹭人"], ok: ["在窝里慢悠悠地溜达", "啃着东西发呆"] }
+};
+function chpPetIsPlant(kind) { return /草|花|萝|树|苗|植|多肉|仙人|藤|竹|兰|叶|盆栽|苔|菜|蒜|葱|种子/.test(String(kind || "")); }
+function chpPetNow(pet, now, hour) {
   if (!pet) return null;
-  const t0 = now || Date.now(), hrs = Math.max(0, (t0 - (pet.ts != null ? pet.ts : t0)) / 3600000);
-  const full = Math.max(0, Math.min(100, Math.round((pet.full == null ? 70 : pet.full) - hrs * 4)));
-  const mood = full >= 60 ? "精神" : full >= 30 ? "有点蔫" : "快不行了";
-  return Object.assign({}, pet, { full, mood });
+  const t0 = now || Date.now(), cl = x => Math.max(0, Math.min(100, Math.round(x)));
+  const hrs = Math.max(0, (t0 - (pet.ts != null ? pet.ts : t0)) / 3600000);
+  const full = cl((pet.full == null ? 70 : pet.full) - hrs * 4);
+  const jh = Math.max(0, (t0 - (pet.joyTs != null ? pet.joyTs : (pet.ts != null ? pet.ts : t0))) / 3600000);
+  const joy = cl((pet.joy == null ? 70 : pet.joy) - jh * 3);
+  const hr = hour != null ? hour : new Date(t0).getHours();
+  const energy = hr >= 7 && hr < 22 ? cl(90 - Math.abs(hr - 14) * 3) : hr >= 22 || hr < 1 ? 40 : 20;
+  const band = full < 30 ? "hungry" : joy < 30 ? "sad" : energy < 35 ? "sleepy" : full >= 60 && joy >= 60 ? "happy" : "ok";
+  const mood = ({ hungry: "饿了", sad: "没精打采", sleepy: "犯困", happy: "精神", ok: "还行" })[band];
+  const set = PET_DOING[chpPetIsPlant(pet.kind) ? "plant" : "animal"][band];
+  const doing = set[Math.abs(hr) % set.length];
+  const cnt = {};
+  (pet.log || []).filter(x => x && x.by && t0 - (x.ts || 0) < 7 * 86400000).forEach(x => { cnt[x.by] = (cnt[x.by] || 0) + 1; });
+  const fondest = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || null;
+  const lastCare = (pet.last && pet.last.ts) || pet.born || pet.ts || t0;
+  const neglectDays = full <= 15 && joy <= 15 ? Math.floor((t0 - lastCare) / 86400000) : 0;
+  return Object.assign({}, pet, { full, joy, energy, band, mood, doing, fondest, neglectDays });
 }
 function chpCare(pet, action, by, now) {
   const p = chpPetNow(pet, now); if (!p) return pet;
-  const add = /玩/.test(String(action || "")) ? 15 : 40;
-  return Object.assign({}, p, { full: Math.min(100, p.full + add), ts: now || Date.now(), last: { by, action: String(action || "照顾").slice(0, 8), ts: now || Date.now() } });
+  const t = now || Date.now(), play = /玩/.test(String(action || ""));
+  const log = (pet.log || []).concat([{ by, action: String(action || "照顾").slice(0, 8), ts: t }]).filter(x => t - (x.ts || 0) < 14 * 86400000).slice(-50);
+  return Object.assign({}, pet, { full: Math.min(100, p.full + (play ? 5 : 40)), ts: t, joy: Math.min(100, p.joy + (play ? 25 : 5)), joyTs: t,
+    last: { by, action: String(action || "照顾").slice(0, 8), ts: t }, log });
 }
 // 给模型看的那几行：只说现在是什么样，谁动过
 // ── 成员状态（她 2026-11-20「每个人的状态」）──────────────────────────────
@@ -2583,7 +2606,8 @@ function chpHint(s, msgs, nameOf, opts) {
   const bal = chpBalances(s.ledger);
   if (s.ledger.length) out.push("小账本：" + (bal.length ? bal.map(b => nm(b.from) + "欠" + nm(b.to) + b.amount).join("，") : "都结清了"));
   const pet = chpPetNow(s.pet, o.now);
-  if (pet) out.push("频道里养着「" + pet.name + "」（" + (pet.kind || "") + "）：现在" + pet.mood + "，饱足 " + pet.full + (pet.last ? "，上次是" + nm(pet.last.by) + "来" + pet.last.action : "，还没人照顾过"));
+  if (pet) out.push("频道里养着「" + pet.name + "」（" + (pet.kind || "还没定是什么") + "）：此刻" + pet.doing + "；饱腹 " + pet.full + "、心情 " + pet.joy + "、精神 " + pet.energy
+    + (pet.last ? "，上次是" + nm(pet.last.by) + "来" + pet.last.action : "，还没人照顾过") + (pet.fondest ? "，最近最黏" + nm(pet.fondest) : "") + (pet.neglectDays >= 3 ? "，已经好几天没人管了" : ""));
   return out.length ? "\n\n【这个频道里摆着的东西】\n" + out.join("\n") : "";
 }
 // 一轮里好几个人改同一份（她 2026-11-20「一轮调用能不能多几个人可以改」）：整份重写的话后一个人照着旧稿写，会把前一个人刚改的盖掉。
