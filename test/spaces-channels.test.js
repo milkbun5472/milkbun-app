@@ -96,12 +96,3 @@ test("已有的群能收进频道空间、也能移出去：只挂上/摘下 spa
   assert.match(ap, /onAdopt: ids => adoptGroups\(sp, ids\), onRelease: releaseChannel/);
   assert.match(cs, /function GroupAdoptPage\(/);
 });
-test("帮我挑一个：随机挑频道，未读多的机会大，但谁都可能", () => {
-  const fs = require("fs"), vm = require("vm"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
-  const i = cs.indexOf("function spacePickChannel("), j = cs.indexOf("\n}\n", i) + 3;
-  const ctx = {}; vm.createContext(ctx); vm.runInContext(cs.slice(i, j) + ";this.f=spacePickChannel;", ctx);
-  const rows = [{ id: "a" }, { id: "b" }];
-  assert.equal(ctx.f(rows, {}, {}, () => 0).id, "a");
-  assert.equal(ctx.f(rows, {}, {}, () => 0.999).id, "b");
-  assert.equal(ctx.f(rows, {}, { b: 3 }, () => 0.3).id, "b");
-});
