@@ -23055,6 +23055,18 @@ function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose }) {
       h("span", { style: { width: 21, height: 21, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null)); }),
     onDelete ? h("button", { "data-wk": "spacedelete", onClick: () => requestAppConfirm("删掉「" + space.name + "」？", "里面 " + nChannels + " 个频道的聊天记录一起删掉。想留着的话先去 设置 → 数据 → 导入与导出 → 导出全部数据。", onDelete, "删掉"), className: "w-full active:opacity-60", style: { marginTop: 26, minHeight: 44, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#c0453a" } }, "删掉这个频道空间") : null);
 }
+// 帮她挑今天去哪个频道：有人在等她（未读）、最近热闹的权重高一点，但谁都可能被挑中——是随机，不是排行
+function spacePickChannel(rows, groupChats, unreadMap, rnd) {
+  const R = rnd || Math.random, now = Date.now();
+  const w = (rows || []).map(g => {
+    const ms = (groupChats || {})[g.id] || [], last = ms.length ? (ms[ms.length - 1].ts || 0) : 0;
+    return 1 + Math.min(3, ((unreadMap || {})[g.id] || 0)) + (now - last < 86400000 ? 1.5 : 0);
+  });
+  const sum = w.reduce((a, b) => a + b, 0);
+  let x = R() * sum;
+  for (let i = 0; i < w.length; i++) { x -= w[i]; if (x <= 0) return rows[i]; }
+  return rows[rows.length - 1] || null;
+}
 // 空间首页：Teams 那一屏——顶上一块空间名片（方头像、名字、几个人），底下一行一个频道
 function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease }) {
   const t = useTheme();
@@ -23073,7 +23085,11 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
         h("div", { className: "flex-1 min-w-0" },
           h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, space.name),
           h("div", { className: "flex items-center", style: { marginTop: 6 } }, people.slice(0, 8).map((c, i) => h("span", { key: c.id, style: { marginLeft: i ? -6 : 0, borderRadius: 999, boxShadow: "0 0 0 2px " + momPaper(t), display: "inline-flex" } }, h(Avatar, { character: c, size: 22, radius: 999 })))))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".08em", padding: "14px 20px 6px" } }, "频道 · " + rows.length),
+      h("div", { className: "flex items-center justify-between", style: { padding: "10px 14px 4px 20px" } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".08em" } }, "频道 · " + rows.length),
+        // 不想自己挑今天去哪儿（她 2026-11-20「我不想选今天去哪个群聊，需要随机一点的方法帮我决定」）
+        rows.length > 1 ? h("button", { "data-wk": "chpick", onClick: () => { const g = spacePickChannel(rows, groupChats, unreadMap); if (g) { if (typeof window.__toast === "function") window.__toast("今天去 #" + (g.chName || g.name)); onOpenChannel(g); } },
+          className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + tone, color: tone, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", background: "transparent" } }, "帮我挑一个") : null),
       h("div", { style: { margin: "0 14px", background: momPaper(t), borderRadius: 14, overflow: "hidden" } },
         rows.map((g, i) => { const last = channelLast(groupChats[g.id], userLabel), un = (unreadMap || {})[g.id] || 0;
           return h("div", { key: g.id, "data-wk": "mlrow", "data-part": "channel", "data-unread": un > 0 ? "1" : "0", className: "flex items-stretch", style: { borderTop: i ? "1px solid " + t.line : "none" } },
