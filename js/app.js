@@ -22242,7 +22242,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 频道（她 2026-11-20「查手机里面频道也能显示到他手机里面吗」）：同一个空间的几个频道在他微信里收成一行，点进去才分频道；文件只给名字和谁动过
       if (group.spaceId) {
         const sp0 = (spaces || []).find(x => x && x.id === group.spaceId);
-        Object.assign(session, { spaceId: group.spaceId, spaceName: (sp0 && sp0.name) || "频道", chName: group.chName || group.name, chArchived: !!group.chArchived,
+        Object.assign(session, { spaceId: group.spaceId, spaceName: (sp0 && sp0.name) || "频道", spaceAvatar: (sp0 && sp0.avatarImage) || "", chName: group.chName || group.name, chArchived: !!group.chArchived,
           chFiles: (loadJSON("x_chfiles:" + group.id, []) || []).filter(f => f && f.name).map(f => ({ name: f.name, kind: f.kind, by: f.updatedBy || f.createdBy, ts: f.updatedTs || f.createdTs })) });
       }
       if (spectatePrivate) {

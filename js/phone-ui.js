@@ -1639,12 +1639,13 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   // 频道空间收成一行（她 2026-11-20）：真聊天里挂着 spaceId 的那几条按空间并起来，点进去是这个空间的频道列表
   const spaceChats = chats.filter(c => c && c.spaceId);
   const spaceRow = (sp, i) => h("button", { key: "sp:" + sp.id, "data-wk": "pitem", "data-kind": "space", onClick: () => setSpaceOpen(sp.id), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } },
-    h("span", { style: { width: 47, height: 47, borderRadius: 10, background: strColor(sp.name), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 20, flexShrink: 0 } }, String(sp.name || "频").slice(0, 1)),
+    // 空间设了头像就用那张（她 2026-11-20「怎么设置频道头像」），跟消息列表那一行同一张
+    sp.avatarImage ? h(Avatar, { character: { name: sp.name || "频", avatarImage: sp.avatarImage }, size: 47, radius: 10 }) : h("span", { style: { width: 47, height: 47, borderRadius: 10, background: strColor(sp.name), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 20, flexShrink: 0 } }, String(sp.name || "频").slice(0, 1)),
     h("div", { className: "flex-1 min-w-0" },
       h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#191919" } }, PTX(sp.name) + "（频道 · " + sp.rows.length + "）"),
         h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, sp.rows[0] ? phoneChatWhen(sp.rows[0], phoneNow(char && char.id)) : "")),
       h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sp.rows[0] ? "#" + sp.rows[0].chName + " · " + (sp.rows[0].last || "") : "")));
-  const spaceList = (() => { const m = new Map(); spaceChats.forEach(c => { const k = c.spaceId; if (!m.has(k)) m.set(k, { id: k, name: c.spaceName, rows: [] }); m.get(k).rows.push(c); }); m.forEach(v => v.rows.sort((a, b) => (b.ts || 0) - (a.ts || 0))); return [...m.values()]; })();
+  const spaceList = (() => { const m = new Map(); spaceChats.forEach(c => { const k = c.spaceId; if (!m.has(k)) m.set(k, { id: k, name: c.spaceName, avatarImage: c.spaceAvatar || "", rows: [] }); m.get(k).rows.push(c); }); m.forEach(v => v.rows.sort((a, b) => (b.ts || 0) - (a.ts || 0))); return [...m.values()]; })();
   if (spaceOpen && !thread && tab === "chats") {
     const sp = spaceList.find(x => x.id === spaceOpen);
     if (sp) {
