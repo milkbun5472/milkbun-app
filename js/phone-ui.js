@@ -3163,6 +3163,57 @@ const healthGroupOf = c => {
   const hit = Object.keys(HEALTH_GROUP_ALIAS).find(w => raw.indexOf(w) >= 0);
   return hit ? HEALTH_GROUP_ALIAS[hit] : "body";
 };
+// 健康那一张化验单存成图（群友 2026-11-20 许愿「健康可以保存或者存图，查手机的时候一直在疯狂截图」）：
+//   照屏幕上那张单子的样子在画布上重画一遍——一档一张，抬头、项目、结果、注、小字分解都在
+function healthSheetImage(name, title, list) {
+  const W = 1080, P = 72, S = 2.4, cv = document.createElement("canvas"), x = cv.getContext("2d");
+  const SERIF = "'Songti SC','Noto Serif SC','STSong',serif", SANS = "-apple-system,'PingFang SC','Noto Sans SC',sans-serif";
+  const wrap = (t, font, maxW) => { x.font = font; const out = []; let line = ""; for (const ch of String(t || "")) { if (ch === "\n" || x.measureText(line + ch).width > maxW) { out.push(line); line = ch === "\n" ? "" : ch; } else line += ch; } if (line) out.push(line); return out; };
+  const inner = W - P * 2 - 40;
+  // 先量高度
+  const rows = list.map(c => {
+    const note = c.note ? wrap(c.note, 13 * S + "px " + SANS, inner - 24) : [];
+    const quote = c.quote ? wrap("「" + c.quote + "」", "italic " + 12.5 * S + "px " + SANS, inner - 24) : [];
+    const stats = (Array.isArray(c.stats) ? c.stats : []).filter(z => z && (z.k || z.v)).slice(0, 3);
+    const sub = [c._zh && String(c.name || "").trim() !== c._zh ? c._zh : "", c.tag || ""].filter(Boolean).join("　");
+    const hgt = 46 * S / 1.4 + (sub ? 16 * S : 0) + note.length * 24 * S + (stats.length ? 8 * S + stats.length * 20 * S : 0) + quote.length * 22 * S + 26 * S;
+    return { c, note, quote, stats, sub, hgt };
+  });
+  const head = 150, H = Math.ceil(P + head + rows.reduce((a, r) => a + r.hgt, 0) + P + 60);
+  cv.width = W; cv.height = H;
+  x.fillStyle = HEALTH_BG; x.fillRect(0, 0, W, H);
+  x.fillStyle = "#fdfdfa"; x.fillRect(P, P, W - P * 2, H - P * 2 - 30);
+  const L = P + 20, R = W - P - 20;
+  let y = P + 54;
+  x.fillStyle = HEALTH_INK; x.font = 15 * S + "px " + SERIF; x.textBaseline = "alphabetic"; x.fillText(String(name || "本人").slice(0, 16), L, y);
+  x.fillStyle = HEALTH_DIM; x.font = 10.5 * S + "px " + SANS; x.textAlign = "right";
+  const d = new Date(); x.fillText((title ? title + " · " : "") + (d.getMonth() + 1) + "月" + d.getDate() + "日 · " + list.length + " 项", R, y); x.textAlign = "left";
+  y += 18; x.fillStyle = HEALTH_INK; x.fillRect(L, y, R - L, 5); y += 9; x.fillRect(L, y, R - L, 2);
+  y += 34; x.fillStyle = HEALTH_DIM; x.font = 10.5 * S + "px " + SANS; x.fillText("项目", L + 20, y); x.textAlign = "right"; x.fillText("结果", R, y); x.textAlign = "left";
+  y += 14; x.fillStyle = HEALTH_LINE; x.fillRect(L, y, R - L, 2);
+  rows.forEach((r, i) => {
+    const c = r.c, alert = /异常|偏[高低]|不足|过[高低多少]|警|差|超/.test(String(c.tag || ""));
+    let yy = y + 44 * S / 1.4;
+    const val = (c.value != null ? String(c.value) : "—"), unit = c.unit ? String(c.unit) : "";
+    x.font = 11.5 * S + "px " + SANS; const uw = unit ? x.measureText(unit).width + 6 : 0;
+    x.font = 16.5 * S + "px " + SERIF; const vw = x.measureText(val).width;
+    x.fillStyle = alert ? HEALTH_ALERT : HEALTH_INK; x.fillText(val, R - uw - vw, yy);
+    if (unit) { x.fillStyle = HEALTH_DIM; x.font = 11.5 * S + "px " + SANS; x.fillText(unit, R - uw + 6, yy); }
+    x.fillStyle = HEALTH_INK; x.font = 14.5 * S + "px " + SERIF;
+    let nm = String(c.name || ""); const maxN = R - uw - vw - L - 60; while (nm.length > 1 && x.measureText(nm).width > maxN) nm = nm.slice(0, -1);
+    if (alert) { x.fillStyle = HEALTH_ALERT; x.fillText("·", L, yy); x.fillStyle = HEALTH_INK; }
+    x.fillText(nm, L + 20, yy);
+    const nw = x.measureText(nm).width; x.fillStyle = HEALTH_LINE;
+    for (let dx = L + 20 + nw + 14; dx < R - uw - vw - 14; dx += 10) x.fillRect(dx, yy - 8, 4, 3);
+    if (r.sub) { yy += 16 * S; x.fillStyle = alert ? HEALTH_ALERT : HEALTH_DIM; x.font = 11 * S + "px " + SANS; x.fillText(r.sub, L + 20, yy); }
+    x.fillStyle = HEALTH_BODY; x.font = 13 * S + "px " + SANS; r.note.forEach(l => { yy += 24 * S; x.fillText(l, L + 20, yy); });
+    if (r.stats.length) { yy += 8 * S; r.stats.forEach(z => { yy += 20 * S; x.fillStyle = HEALTH_DIM; x.font = 11.5 * S + "px " + SANS; x.fillText(String(z.k || ""), L + 44, yy); x.textAlign = "right"; x.fillStyle = HEALTH_BODY; x.fillText(String(z.v || ""), R, yy); x.textAlign = "left"; }); x.fillStyle = HEALTH_LINE; x.fillRect(L + 30, yy - r.stats.length * 20 * S - 4, 2, r.stats.length * 20 * S + 8); }
+    x.fillStyle = HEALTH_DIM; x.font = "italic " + 12.5 * S + "px " + SANS; r.quote.forEach(l => { yy += 22 * S; x.fillText(l, L + 20, yy); });
+    y += r.hgt;
+    if (i < rows.length - 1) { x.fillStyle = HEALTH_LINE; x.fillRect(L, y - 6, R - L, 2); }
+  });
+  return cv.toDataURL("image/png");
+}
 function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals, drive }) {
   const [tab, setTab] = useState("body");
   // ── 「看TA玩」驱动（第五批）：健康只能看，TA盯着某一项读数而已 ──
@@ -3240,7 +3291,12 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
       h("div", { style: { borderBottom: "2px solid " + HEALTH_INK, paddingTop: 15 } },
         h("div", { className: "flex items-baseline justify-between", style: { paddingBottom: 7, gap: 10 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: HEALTH_INK, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (char && char.name) || "本人"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: HEALTH_DIM, flexShrink: 0 } }, "今天 · " + list.length + " 项"))),
+          h("div", { className: "flex items-baseline", style: { gap: 10, flexShrink: 0 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: HEALTH_DIM } }, "今天 · " + list.length + " 项"),
+            // 存图：挂在单子抬头日期旁边，跟这张单子是一体的，不另占一行
+            h("button", { "data-wk": "healthsave", "aria-label": "把这张单子存成图", className: "active:opacity-60",
+              onClick: async e => { e.stopPropagation(); try { const u = healthSheetImage((char && char.name) || "本人", title, list); const ok = window.saveImgOriginal && await window.saveImgOriginal(u, ((char && char.name) || "健康") + "·" + title); if (!ok && typeof window.__toast === "function") window.__toast("没存下来，再点一次"); } catch (er) { if (typeof window.__toast === "function") window.__toast("存图失败：" + (er.message || er)); } },
+              style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: HEALTH_ACCENT, background: "transparent", padding: "4px 0 4px 8px", borderLeft: "1px solid " + HEALTH_LINE } }, "存图")))),
       h("div", { className: "flex items-baseline justify-between", style: { borderTop: "1px solid " + HEALTH_INK, borderBottom: "1px solid " + HEALTH_LINE, marginTop: 2, padding: "6px 0 5px" } },
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".1em", color: HEALTH_DIM, paddingLeft: 9 } }, "项目"),
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".1em", color: HEALTH_DIM } }, "结果")),
