@@ -7308,9 +7308,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const hers = SK.activeFor("me", char.id), his = SK.activeOf(char.id).filter(s => String(s.by) === String(char.id)), un = userName(profileFor(char.id));
       const ago = ts => { const m = Math.round((Date.now() - ts) / 60000); return m < 60 ? Math.max(1, m) + " 分钟前" : Math.round(m / 60) + " 小时前"; };
       const L = [];
-      if (hers.length) L.push(un + "挂着的限时动态（24 小时后自己收起；你刷到了，她那边看得到你看过）：\n" + hers.map(s => "· " + ago(s.ts) + "：" + (s.desc || s.text || "一张卡") + (String(s.co) === String(char.id) ? "（这是你俩一起发的同框，挂在你们两个人的头像上）" : "") + (s.sticker ? "；" + SK.stickerLine(s.sticker) + (s.sticker.type === "poll" && (s.sticker.votes || {})[char.id] != null ? "（你已经投了「" + s.sticker.opts[s.sticker.votes[char.id]] + "」）" : "") : "")).join("\n")
+      // 配的歌也看得到（她 2026-11-20「他看得到自己发的歌吗，还有我发的」）
+      const songOf = s => s && s.music && s.music.title ? "，配着歌《" + s.music.title + "》" + (s.music.artist ? "（" + s.music.artist + "）" : "") : "";
+      if (hers.length) L.push(un + "挂着的限时动态（24 小时后自己收起；你刷到了，她那边看得到你看过）：\n" + hers.map(s => "· " + ago(s.ts) + "：" + (s.desc || s.text || "一张卡") + songOf(s) + (String(s.co) === String(char.id) ? "（这是你俩一起发的同框，挂在你们两个人的头像上）" : "") + (s.sticker ? "；" + SK.stickerLine(s.sticker) + (s.sticker.type === "poll" && (s.sticker.votes || {})[char.id] != null ? "（你已经投了「" + s.sticker.opts[s.sticker.votes[char.id]] + "」）" : "") : "")).join("\n")
         + "\n想提就在这一轮顺嘴提一句，不想提就当看过了。");
-      if (his.length) L.push("你自己挂着的限时动态：" + his.map(s => "「" + (s.text || s.desc) + "」（" + ago(s.ts) + (SK.audLabel(s) ? "，" + SK.audLabel(s).replace("你", un) : "") + "）"
+      if (his.length) L.push("你自己挂着的限时动态：" + his.map(s => "「" + (s.text || s.desc) + "」（" + ago(s.ts) + songOf(s) + (SK.audLabel(s) ? "，" + SK.audLabel(s).replace("你", un) : "") + "）"
         + (s.sticker ? "，" + SK.stickerLine(s.sticker)
           + (s.sticker.type === "poll" && (s.sticker.votes || {}).me != null ? "，" + un + "投了「" + s.sticker.opts[s.sticker.votes.me] + "」" : "")
           + (s.sticker.type === "ask" && (s.sticker.answers || []).some(a => a.who === "me") ? "，" + un + "回答了：" + s.sticker.answers.filter(a => a.who === "me").map(a => a.text).join("／") : "") : "")
