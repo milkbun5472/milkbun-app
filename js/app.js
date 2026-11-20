@@ -16158,7 +16158,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast, closet: closetTextFor(spk.id) } : { kind: gPhotoKind, me, closet: meShot ? sub._closet : (spk.id ? closetTextFor(spk.id) : ""), pov: meShot && !mySelf ? povFor(spk) : null };
       const prompt = gIsView ? buildScenePrompt(spk, gPhotoScene, { forText: false }) : gIsPart ? buildScenePrompt(spk, gPhotoScene, { body: true }) : buildPhotoPrompt(sub, gPhotoScene, st, gPhotoOpts);
       const gMinimal = gNoFace ? null : buildMinimalPhotoPrompt(sub, gCast ? { kind: "duo", cast: gCast } : { kind: gPhotoKind });
-      const out = await generateSelfieImage(prompt, refs.length ? refs : null, gNoFace ? {} : { minimalPrompt: gMinimal });
+      // 频道里养着小家伙、这张提到了它（名字或种类）：它也进画面，用它定好的那张样子当参照（她 2026-11-20「聊天里面合照」）
+      let _petAdd = "", _petRef = null;
+      try { const _g0 = (groupsRef.current || []).find(x => x && x.id === groupId), _pt = _g0 && _g0.spaceId ? chpOf(groupId).pet : null;
+        if (_pt && !gIsView && chpPetMentioned(_pt, gPhotoScene)) { _petRef = await petRefDataUrl(_pt); _petAdd = "\n画面里还有大家一起养的「" + _pt.name + "」（" + (_pt.kind || "小动物") + "）" + (_petRef ? "，长相照最后一张参考图" : "") + "。"; } } catch (e) {}
+      const out = await generateSelfieImage(prompt + _petAdd, (refs.length || _petRef) ? refs.concat(_petRef ? [_petRef] : []) : null, gNoFace ? {} : { minimalPrompt: gMinimal });
       if (out.blob) {
         const key = "img_" + spk.id + "_" + gsid + (keySuffix || "");
         await idbImgPut(key, out.blob);
@@ -19507,6 +19511,39 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const s2 = chpOf(g.id);
       if (s2.pet) { s2.pet = { ...s2.pet, lookRef: s2.pet.lookRef || key, photo: key, photos: (s2.pet.photos || []).concat([key]).slice(-12) }; chpPut(g.id, s2); }
       toast("拍好了，图片栏里也有一张");
+    } catch (e) { toast("没拍成：" + String(e && e.message || e).slice(0, 60)); }
+    finally { setPetShootingId(""); }
+  };
+  // 和小家伙合照（她 2026-11-20「想要和小家伙合照咋弄」）：挑这张里有谁，各用自己的参照锁脸，它用定好的那张样子；拍完照她发照片那样落进频道
+  const petRefDataUrl = async pet => { if (!pet || !pet.lookRef) return null; try { const b0 = await idbImgGet(pet.lookRef); return b0 ? await blobToDataUrl(b0) : null; } catch (e) { return null; } };
+  const shootPetGroupPhoto = async (g, ids) => {
+    if (petShootingId) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    const st0 = chpOf(g.id), pet = chpPetNow(st0.pet, Date.now());
+    if (!pet) return;
+    const me = meOfGroup(g.id) || {}, meName = herNameIn ? herNameIn(g.id) : userName(profile);
+    const cast = (ids || []).map(id => id === "me" ? { ...me, id: "me", name: meName } : (characters || []).find(c => c && c.id === id)).filter(Boolean);
+    if (!cast.length) { toast("先挑这张里有谁"); return; }
+    setPetShootingId(g.id);
+    try {
+      const kind = pet.kind || "一只小动物", lead = cast.find(c => c.id !== "me") || cast[0];
+      const scene = "大家抱着／围着频道里一起养的「" + pet.name + "」（" + kind + "）拍的一张合照，它在画面里很显眼；" + pet.doing + "。";
+      const st = (statesRef.current || {})[lead.id] || {};
+      const prompt = buildPhotoPrompt(lead, scene, st, { kind: cast.length > 1 ? "group" : "self", cast: cast.length > 1 ? cast : null, closet: lead.id !== "me" ? closetTextFor(lead.id) : "" });
+      const pref = await petRefDataUrl(pet);
+      const refs = cast.map(c => c.refPhoto).filter(Boolean).concat(pref ? [pref] : []);
+      const out = await generateSelfieImage(prompt + (pref ? "\n最后一张参考图是「" + pet.name + "」之前的样子：同一个它，长相颜色照它。" : ""), refs.length ? refs : null, { minimalPrompt: buildMinimalPhotoPrompt(lead, { kind: cast.length > 1 ? "group" : "self", cast: cast.length > 1 ? cast : null }) });
+      const blob = await imgOutBlob(out); if (!blob) throw new Error((out && out.err) || "没出图");
+      const key = "img_chf_petg_" + Date.now().toString(36);
+      await idbImgPut(key, blob);
+      const now = Date.now(), who = cast.map(c => c.id === "me" ? meName : (c.remark || c.name)).join("、");
+      const desc = who + " 和「" + pet.name + "」（" + kind + "）的合照";
+      const fk = "x_chfiles:" + g.id;
+      saveJSON(fk, (loadJSON(fk, []) || []).concat([{ id: "chf_" + now + "_petg", kind: "image", name: pet.name + "的合照", imgKey: key, desc, createdBy: "me", createdTs: now, updatedTs: now }]));
+      setChFilesRev(v => v + 1);
+      pGChat(g.id, p => [...p, { role: "user", kind: "photo", imageRef: key, photoMode: "real", desc, content: "[照片] " + desc, ts: now }]);
+      const s2 = chpOf(g.id); if (s2.pet) { s2.pet = { ...s2.pet, photo: key, photos: (s2.pet.photos || []).concat([key]).slice(-12) }; chpPut(g.id, s2); }
+      toast("合照拍好了，发进聊天里了");
     } catch (e) { toast("没拍成：" + String(e && e.message || e).slice(0, 60)); }
     finally { setPetShootingId(""); }
   };
@@ -39478,6 +39515,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       petHour: (() => { try { return vclockNow().getHours(); } catch (e) { return new Date().getHours(); } })(),
       petShooting: petShootingId === _g.id,
       onPetPhoto: groupSpectating(_g) ? null : () => shootChannelPet(_g),
+      onPetGroupPhoto: groupSpectating(_g) ? null : ids => shootPetGroupPhoto(_g, ids),
       onSendOff: groupSpectating(_g) ? null : how => sendOffChannelPet(_g, how),
       // 账本连着钱包（她 2026-11-20）：她记的一笔也真从付钱那人的钱包扣；结清真把钱挪过去
       onLedgerAdd: e0 => { const r = chLedgerPay(_g.id, e0.payer, e0.amount, e0.for); if (r.skip || !(r.amount > 0)) { toast(r.skip ? "旁观的频道里你不在场" : "付钱那个人钱包里没钱了"); return; }

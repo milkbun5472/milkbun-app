@@ -105,3 +105,22 @@ test("小家伙页她能喂它、陪它玩，各一天一次", () => {
   assert.match(cs, /\[\["feed", "喂它", "喂食"\], \["play", "陪它玩", "陪它玩"\]\]/);
   assert.match(cs, /chpBump\(s0, "care_" \+ k, "me"\)/);
 });
+
+test("chpPetMentioned：说到它的名字/是什么/合照才把它拍进去", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/engine.js"), "utf8");
+  const a = src.indexOf("function chpPetMentioned("), b = src.indexOf("function chpPetNow(");
+  const ctx = {}; require("vm").runInNewContext(src.slice(a, b) + ";this.f=chpPetMentioned;", ctx);
+  const pet = { name: "团子", kind: "一只橘猫" };
+  assert.equal(ctx.f(pet, "抱着团子在窗边"), true);
+  assert.equal(ctx.f(pet, "橘猫趴在桌上"), true);
+  assert.equal(ctx.f(pet, "大家合照，把它也抱上"), true);
+  assert.equal(ctx.f(pet, "在海边散步"), false);
+  assert.equal(ctx.f(null, "团子"), false);
+});
+test("和它合照：接线、旁观不给、钩子登记", () => {
+  const rd = f => require("fs").readFileSync(require("path").join(__dirname, "../js/" + f), "utf8");
+  assert.match(rd("app.js"), /onPetGroupPhoto: groupSpectating\(_g\) \? null :/);
+  assert.match(rd("app.js"), /chpPetMentioned\(_pt, gPhotoScene\)/);
+  assert.match(rd("components.js"), /"data-wk": "chpetcast"/);
+  assert.match(rd("theme-studio.js"), /\["chpetcast",/);
+});

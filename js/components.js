@@ -23227,8 +23227,9 @@ function ChannelListenBar({ song, by, playing, onStop }) {
 }
 // 墙、歌单、账本、养的（她 2026-11-20「1-7都可以做」）：文件页里跟文档图片并排的四样；数据是这个频道那一份 x_chplay，
 //   onPlay(fn) 交回改好的那份。旁观的频道只能看，不能动（她不在场）
-function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, onPlaySong, onAskSongs, nowSong, onAskPetName, onLedgerAdd, onLedgerSettle, onPetPhoto, onSendOff, petShooting, petHour }) {
+function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, onPlaySong, onAskSongs, nowSong, onAskPetName, onLedgerAdd, onLedgerSettle, onPetPhoto, onPetGroupPhoto, onSendOff, petShooting, petHour }) {
   const [byeOpen, setByeOpen] = useState(false);   // 送走它那一格（她 2026-11-20）
+  const [castSel, setCastSel] = useState(null);     // 和它合照：这张里有谁（null＝没打开）
   const [libOpen, setLibOpen] = useState(false);   // 从我的歌里挑（她 2026-11-20「歌单怎么没有选播放器里面的」）
   const t = useTheme();
   const [form, setForm] = useState({});
@@ -23310,6 +23311,12 @@ function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, o
     const busy = petShooting;
     return wrap(!spectate && onAskPetName && (pet.naming || pet.kindPending) ? h("button", { "data-wk": "chpetname", onClick: () => onAskPetName(), className: "active:opacity-60", style: { ...btn, marginBottom: 10 } },
         pet.kindPending ? "叫大家接着商量养什么" : "叫大家接着起名") : null,
+      castSel && !spectate && onPetGroupPhoto ? h("div", { "data-wk": "chpetcast", style: { ...card, marginBottom: 10 } },
+        h("div", { style: { ...small, marginBottom: 8 } }, "这张合照里有谁？各用自己的参照照锁脸，它照它定好的样子；拍完发进聊天。要先配好图像线路。"),
+        h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, [{ id: "me", name: "我" }].concat(people || []).map(p0 => { const on = castSel.includes(p0.id);
+          return h("button", { key: p0.id, "data-on": on ? "1" : "0", onClick: () => setCastSel(l => on ? l.filter(x => x !== p0.id) : l.concat([p0.id])), className: "active:opacity-60",
+            style: { minHeight: 32, padding: "0 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, p0.name); })),
+        h("button", { "data-wk": "chpetcastgo", disabled: busy || !castSel.length, onClick: () => { onPetGroupPhoto(castSel); setCastSel(null); }, className: "active:opacity-60 disabled:opacity-40", style: btn }, busy ? "在拍…" : "拍")) : null,
       h("div", { "data-wk": "chpetinfo", style: card },
         pet.photo ? h(ChfImg, { k: pet.photo, style: { width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 10, marginBottom: 10, display: "block" } }) : null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "「" + pet.name + "」" + (pet.kind ? " · " + pet.kind : pet.kindPending ? " · 还没定是什么" : "")),
@@ -23322,6 +23329,7 @@ function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, o
           ...(!spectate ? [["feed", "喂它", "喂食"], ["play", "陪它玩", "陪它玩"]].map(([k, zh, act]) => chpCount(st, "care_" + k, "me") >= 1 ? h("span", { key: k, "data-wk": "chpetact", "data-part": k, style: { color: t.fog } }, zh + "过了") :
             h("span", { key: k, "data-wk": "chpetact", "data-part": k }, tap(zh, () => onPlay(s0 => { if (!s0.pet) return s0; s0.pet = chpCare(s0.pet, act, "me", Date.now()); chpBump(s0, "care_" + k, "me"); return s0; })))) : []),
           !spectate && onPetPhoto ? tap(busy ? "在拍…" : "给它拍一张", () => { if (!busy) onPetPhoto(); }) : null,
+          !spectate && onPetGroupPhoto ? tap("和它合照", () => setCastSel(v => v ? null : ["me"])) : null,
           !spectate && onAskPetName ? tap("让大家给它起个名", () => { onPlay(s0 => { if (s0.pet) s0.pet = { ...s0.pet, naming: true }; return s0; }); onAskPetName(); }) : null,
           tap("改名字", () => requestAppPrompt("改个名字", "", pet.name, v => { const x = String(v || "").trim(); if (x) onPlay(s0 => { s0.pet = { ...s0.pet, name: x.slice(0, 12), naming: false }; return s0; }); }, "改")),
           !spectate && onSendOff ? tap("送走它", () => setByeOpen(true)) : null)),
@@ -23445,7 +23453,7 @@ function ChfImagePage({ file, nameOf, onRename, onDesc, onDelete, onClose, onRec
       h("button", { "data-wk": "chfdelete", onClick: () => requestAppConfirm("删掉「" + file.name + "」？", "这张图从频道文件里删掉，删了找不回来。", onDelete, "删掉"), className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#c0453a" } }, "删掉")));
 }
 // 文件那一页：顶栏同聊天那页（频道名），底下索引签，再下面一列文件
-function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, openId, onOpened, msgs, spectate, whoOf, onJump, onRecall, play, onPlay, people, playTab, myLib, onPlaySong, onAskSongs, nowSong, onAskPetName, onLedgerAdd, onLedgerSettle, onPetPhoto, onSendOff, petShooting, petHour }) {
+function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, openId, onOpened, msgs, spectate, whoOf, onJump, onRecall, play, onPlay, people, playTab, myLib, onPlaySong, onAskSongs, nowSong, onAskPetName, onLedgerAdd, onLedgerSettle, onPetPhoto, onPetGroupPhoto, onSendOff, petShooting, petHour }) {
   const t = useTheme();
   const [open, setOpen] = useState(null);
   const [sub, setSub] = useState("doc");   // 文档｜图片
@@ -23478,7 +23486,7 @@ function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, op
         style: { minHeight: 36, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sub === k ? t.ink : t.fog, borderBottom: "2px solid " + (sub === k ? t.ink : "transparent"), background: "transparent" } }, zh)))];
   if (play && playTab) return h("div", { "data-wk": "chfpage", "data-part": playTab, className: "h-full flex flex-col", style: { background: t.bg2 || t.bg } },
     h(Head, { zh: group.chName ? "#" + group.chName : group.name, sub: ({ wall: "墙", songs: "歌单", ledger: "账本", pet: "小家伙" })[playTab], onBack }), h(ChannelTabs, { tab: playTab, onTab }),
-    h(ChannelPlayView, { sub: playTab, play, onPlay, nameOf, spectate, people, myLib, onPlaySong, onAskSongs, nowSong, onAskPetName, onLedgerAdd, onLedgerSettle, onPetPhoto, onSendOff, petShooting, petHour }));
+    h(ChannelPlayView, { sub: playTab, play, onPlay, nameOf, spectate, people, myLib, onPlaySong, onAskSongs, nowSong, onAskPetName, onLedgerAdd, onLedgerSettle, onPetPhoto, onPetGroupPhoto, onSendOff, petShooting, petHour }));
   return h("div", { "data-wk": "chfpage", className: "h-full flex flex-col", style: { background: t.bg2 || t.bg } }, ...pageTop,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { background: t.bg, paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" } },
       h("div", { className: "flex flex-wrap gap-2", style: { padding: "14px 14px 6px" } },

@@ -2531,6 +2531,12 @@ const PET_DOING = {
   animal: { hungry: ["饿得在窝边转圈", "扒着盆边要吃的"], sad: ["缩在角落里不理人", "趴着一动不动"], sleepy: ["团成一团睡着了", "打着哈欠，眼睛快闭上了"], happy: ["在窝里跑来跑去", "凑过来蹭人"], ok: ["在窝里慢悠悠地溜达", "啃着东西发呆"] }
 };
 function chpPetIsPlant(kind) { return /草|花|萝|树|苗|植|多肉|仙人|藤|竹|兰|叶|盆栽|苔|菜|蒜|葱|种子/.test(String(kind || "")); }
+// 这张照片的说法里提到了频道养的小家伙（名字或种类里的字），才把它画进去
+function chpPetMentioned(pet, scene) {
+  const t = String(scene || ""); if (!pet || !t) return false;
+  const nm = String(pet.name || "").trim(), kd = String(pet.kind || "").replace(/^(一|两)?(只|盆|条|个|株)/, "").trim();
+  return (nm && nm !== "还没名字" && t.indexOf(nm) >= 0) || (kd.length >= 2 && t.indexOf(kd) >= 0) || /合照|一起拍|大家拍/.test(t) && /它|小家伙/.test(t);
+}
 function chpPetNow(pet, now, hour) {
   if (!pet) return null;
   const t0 = now || Date.now(), cl = x => Math.max(0, Math.min(100, Math.round(x)));
