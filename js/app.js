@@ -338,7 +338,7 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   //      跟旋钮拖到哪儿无关，多少条线路都在屏幕里，装不下就自己滚。
   //   另外补一层保险：面板后面垫一张【点哪儿都关】的透明背板。
   //   哪天布局又出岔子，至少还有一条出路——「关不掉」这种事不该只有一个开关。
-  const panelGap = onGo ? Math.max(66, Math.min(122, (window.innerWidth || 390) - 226 - 8)) : 66;   // 外圈轨道占着里侧那一截，面板挪到轨道外面
+  const panelGap = onGo ? Math.max(66, Math.min(140, (window.innerWidth || 390) - 226 - 8)) : 66;   // 外圈轨道占着里侧那一截，面板挪到轨道外面
   const panelSide = side === "left" ? { left: panelGap } : { right: panelGap };
   return h(React.Fragment, null,
     open ? h("div", { onClick: () => setOpen(false), "aria-hidden": "true",
@@ -395,9 +395,16 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
             style: { position: "fixed", zIndex: 92, left: pts[i].x - B / 2, top: pts[i].y - B / 2, width: B, height: B, padding: 0, borderRadius: "50%",
               background: it.k === "__edit" ? "transparent" : "radial-gradient(circle at 35% 30%, " + t.bg2 + ", " + t.bg + ")", color: it.k === "__edit" ? t.fog : t.ink,
               border: it.k === "__edit" ? "1px dashed " + t.line : "1px solid " + t.line, boxShadow: it.k === "__edit" ? "none" : "0 4px 12px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.6)",
-              display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1,
+              display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1,
               animation: "orbIn .32s cubic-bezier(.2,1.4,.4,1) both", animationDelay: (60 + i * 45) + "ms" } },
-            it.k === "__edit" ? "✎" : G ? h(G, { size: 17, color: t.ink, sw: 1.6 }) : it.zh.slice(0, 2)); }));
+            it.k === "__edit" ? "✎" : (() => {
+              // 跟主屏那枚图标同一套取法（她 2026-11-20「为啥有些还是线稿」）：主题里有图就用图，没有就用彩色填充版，最后才是线稿
+              const src = typeof appIconSrc === "function" ? appIconSrc(it.k) : "";
+              if (src) return h("img", { src, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%", display: "block" } });
+              const tone = typeof appTone === "function" ? appTone(it.k) : null;
+              const filled = tone && !(typeof isClassicLook === "function" && isClassicLook()) && typeof filledIconSvg === "function" ? filledIconSvg(it.k, tone.hue) : "";
+              if (filled) return h("svg", { viewBox: "0 0 24 24", width: 22, height: 22, style: { display: "block" }, dangerouslySetInnerHTML: { __html: filled } });
+              return G ? h(G, { size: 17, color: tone ? tone.glyph : t.ink, sw: 1.6 }) : it.zh.slice(0, 2); })()); }));
     })(),
     // 改快捷：勾哪些、按点的先后排，最多 6 个；改完立刻生效
     scEdit ? (() => {
