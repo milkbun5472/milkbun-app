@@ -120,10 +120,14 @@ test("卡名重了由代码认：同一个人已有的、这一批前面的", ()
 });
 test("生日、她的生日、纪念日卡：画图走服装锁", () => {
   const body = src.slice(src.indexOf("const STAMP_DAY_KINDS"), src.indexOf("const StampsCoreSafe"));
-  const f = new Function("stampLimFit", body + "return stampDayFit;")(() => "LIM");
+  const f = new Function("stampLimFit", "stampShotFit", body + "return stampDayFit;")(() => "LIM", c => c && c.text && c.text.shot ? "SHOT" : "");
   assert.equal(f({ limited: "h" }), "LIM");
   assert.match(f({ kind: "bday" }, "他"), /为「他的生日」这一天特意准备的那一身/);
   assert.equal(f({ kind: "daily" }), "");
+  // 分镜写了穿什么就锁那身（她 2026-11-18：别的种类 SSR 也查一遍）：生日、IF 都带上，她那份不带
+  assert.match(f({ kind: "bday", text: { shot: "x" } }, "他"), /SHOT$/);
+  assert.doesNotMatch(f({ kind: "mybday", text: { shot: "x" } }, "她"), /SHOT/);
+  assert.equal(f({ kind: "if", text: { shot: "x" } }), "SHOT");
 });
 test("卡名挂了这一期前缀的，存的时候、开机时摘掉", () => {
   const i = src.indexOf("  const stampNameTidy"), j = src.indexOf("  // 已经起成", i);

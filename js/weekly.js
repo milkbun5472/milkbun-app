@@ -488,13 +488,15 @@
     const perChar = {}, global = [];
     const gset = loadJSON("x_groupSettings", {}); // 群设置：判断哪些群是封闭空间（未开记忆互通）
     const pushPC = function (id, ts, line) { (perChar[id] = perChar[id] || []).push({ ts: ts, line: line }); };
+    // 动描那一行（role narration／act／parenAct）在素材里标成【动作】，数字版见 weeklyStats
+    const actTag = function (m) { return m && (m.role === "narration" || m.kind === "narration" || m.act || m.parenAct) ? "【动作】" : ""; };
     (characters || []).forEach(function (c) {
       loadJSON("x_chat:" + c.id, []).forEach(function (m) {
         if (!inWin(m, win)) return;
         const txt = cleanMsg(m); if (!txt) return;
         const ts = messageTime(m);
         const who = m.role === "user" ? uName : c.name;
-        const line = who + "：" + txt;
+        const line = actTag(m) + who + "：" + txt;
         pushPC(c.id, ts, line);       // 单聊两边都算这个角色的素材（含上下文）
         global.push({ ts: ts, line: line });
       });
@@ -510,7 +512,7 @@
             const txt = cleanMsg(m); if (!txt) return;
             const ts = messageTime(m);
             const who = m.role === "user" ? uName : c.name;
-            const line = "【侧房·" + (room.name || "未命名") + "】" + who + "：" + txt;
+            const line = "【侧房·" + (room.name || "未命名") + "】" + actTag(m) + who + "：" + txt;
             pushPC(c.id, ts, line);
             global.push({ ts: ts, line: line });
           });
@@ -565,7 +567,7 @@
         if (m.role === "user") who = uName;
         else if (m.role === "narration") who = "旁白";
         else who = m.senderName || "某人";
-        const line = "【" + g.name + groupTag(g) + "】" + who + "：" + txt;
+        const line = "【" + g.name + groupTag(g) + "】" + actTag(m) + who + "：" + txt;
         global.push({ ts: ts, line: line });
         // 专访需要的是「这个人在场的完整一段对话」，不是只摘 TA 自己的台词。
         // 否则 Lisa 在群里明明和 TA 说过话，perChar 仍只剩零碎回答，模型就会误判没聊。
@@ -594,6 +596,9 @@
   function saidOnly(t) {
     return String(t || "").replace(/（[^（）]*）|\([^()]*\)|【[^【】]*】|\*[^*\n]+\*|〔[^〔〕]*〕/g, " ").replace(/\s+/g, " ").trim();
   }
+  // 动描那一行（她 2026-11-18「修了八百遍为啥状态卡的动描还是被算进去了」）：
+  //   单聊里它是一条单独的消息（role narration，没有括号），素材里原来挂成「TA：我坐在…」，
+  //   saidOnly 只认括号、线下只认【线下】，这一种两道都漏。素材里标成【动作】，数字版整条不算（不是谁说的话）
   function weeklyStats(mat, characters, uName) {
     const rows = (mat && mat.global) || [];
     const byWho = {}, hours = new Array(24).fill(0);
@@ -603,7 +608,8 @@
       const line = String(r.line || "");
       const i = line.indexOf("：");
       if (i < 1) return;
-      const who = line.slice(0, i).replace(/^【[^】]*】/, "").trim();
+      if (/^(?:【[^】]*】)*【动作】/.test(line)) return;
+      const who = line.slice(0, i).replace(/^(?:【[^】]*】)+/, "").trim();
       const txt = line.slice(i + 1).trim();
       if (!who || !txt) return;
       total++;
@@ -711,7 +717,7 @@
   //   见 施工规则/max-tokens-floor.md。
   async function genJSON(active, sys, userContent, maxTokens) {
     const tok = Math.max(8000, Number(maxTokens) || 0);
-    const raw = await callAI(active, sys, [{ role: "user", content: userContent }], { maxTokens: tok });
+    const raw = await callAI(active, sys, [{ role: "user", content: userContent }], { maxTokens: tok, ...(typeof LONG_WRITE === "object" ? LONG_WRITE : {}) });
     return extractJSON(raw);
   }
 
@@ -1456,6 +1462,21 @@
     if (!src) return h("div", { style: Object.assign({ background: "rgba(35,32,25,.08)", aspectRatio: "2 / 3" }, props.style || {}) });
     return h("img", { src: src, alt: props.alt || "", "data-wk": "wklyphoto", style: Object.assign({ display: "block", width: "100%", height: "auto" }, props.style || {}) });
   }
+  // 照片底下那两颗小图标：保存到手机、重画（她 2026-11-18：封面先有，「专访照也加上」）。封面、专访照共用这一份
+  function PhotoActs(props) {
+    const wk = props.wk;
+    return h("div", { "data-wk": wk + "acts", style: { display: "flex", gap: 14, alignItems: "center" } },
+      [[wk + "save", "保存到手机", "M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19h14", function () {
+          if (!window.saveImgOriginal) { if (window.__toast) window.__toast("这台设备存不了图"); return; }
+          window.saveImgOriginal(props.photo, props.saveName || "周刊").then(function (ok) { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); });
+        }],
+       props.onShoot ? [wk + "redraw", props.shooting ? "重画中" : "重画", "M19 12a7 7 0 1 1-2.05-4.95M19 4v4h-4", props.shooting ? null : props.onShoot] : null].filter(Boolean).map(function (b) {
+        return h("button", { key: b[0], "data-wk": b[0], "aria-label": b[1], title: b[1], onClick: b[3], disabled: !b[3], className: "active:opacity-60",
+          style: { display: "flex", alignItems: "center", gap: 4, padding: "4px 0", border: "none", background: "transparent", color: props.color, opacity: b[3] ? .8 : .4,
+            fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".06em" } },
+          h("svg", { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" }, h("path", { d: b[2] })), b[1]);
+      }));
+  }
   // 拍照那颗按钮：点了才拍、拍的时候转着
   function ShootBtn(props) {
     return h("button", { onClick: props.busy ? null : props.onClick, disabled: !!props.busy, className: "active:opacity-60", "data-wk": "wklyshoot",
@@ -1614,9 +1635,14 @@
       ? h("div", { "data-wk": "wklycoverhero", style: { position: "relative", margin: "0 -22px 22px" } },
           // 封面照上已经排好了刊名、头条和看点（PosterLayout），这里不再叠一层网页字——叠了就是两份头条重影（她 2026-10-14）
           h(WeeklyPhoto, { imgKey: props.photo, alt: "本期封面" }),
+
           // 封面上的头条按标点截过，完整那句排在照片底下
           h("div", { style: { padding: "16px 22px 0" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".08em", color: L.tint, marginBottom: 8 } }, "头条 · 01"),
+            // 保存、重画（她 2026-11-18「搞个保存和重画」「放个好看点的地方，不然弄得我的杂志好丑」）：
+            //   不压在照片上（会盖住排好的刊名、条码），收成「头条 · 01」同一行右边两颗小字图标
+            h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".08em", color: L.tint } }, "头条 · 01"),
+              h(PhotoActs, { photo: props.photo, saveName: "周刊封面", onShoot: props.onShoot, shooting: props.shooting, color: L.tint, wk: "wklycover" })),
             h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: "calc(25px * var(--app-fs, 1))", fontWeight: 600, lineHeight: 1.18, letterSpacing: "-.02em" } }, c.headline)))
       : h("div", { style: { margin: "0 -10px 22px", padding: "24px 18px 22px", background: L.tint, color: "#fffaf3" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".08em", opacity: .72, marginBottom: 15 } }, "头条 · 01"),
@@ -1624,7 +1650,7 @@
     return h("div", { "data-wk": "wklycoversection" },
       props.photo ? headBlock : null,
       h("div", { className: "flex items-center justify-between", style: { gap: 10, marginBottom: 14, color: L.tint } },
-        props.onShoot ? h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: props.photo ? "重拍封面" : "拍这期封面（本期受访的人上封面）" }) : h("span"),
+        props.onShoot && !props.photo ? h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: "拍这期封面（本期受访的人上封面）" }) : h("span"),
         h(RegenBtn, { busy: props.busy, onClick: props.onRegen })),
       props.photo ? null : headBlock,
       c.lead ? h("div", { style: { fontFamily: "'Songti SC',Georgia,serif", fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.95, color: L.ink, marginBottom: 20, whiteSpace: "pre-wrap", columnCount: c.lead.length > 230 || (props.photo && c.lead.length > 120) ? 2 : 1, columnGap: 22 } }, c.lead) : null,
@@ -1669,7 +1695,8 @@
     return h("div", { style: { position: "relative" }, "data-wk": "wklyinterviewentry" },
       opener,
       h("div", { className: "flex items-center justify-between", style: { gap: 10, margin: "12px 0 0", color: L.tint } },
-        props.onShoot ? h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: e.photo ? "重拍专访照" : "拍一张专访照" }) : h("span"),
+        e.photo ? h(PhotoActs, { photo: e.photo, saveName: "专访 " + (e.charName || ""), onShoot: props.onShoot, shooting: props.shooting, color: L.tint, wk: "wklyiv" })
+          : props.onShoot ? h(ShootBtn, { busy: props.shooting, onClick: props.onShoot, label: "拍一张专访照" }) : h("span"),
         h(RegenBtn, { busy: props.busy, onClick: props.onRegen })),
       bigQuote(pullTop, false),
       ivx.lead ? h("div", { "data-wk": "wklyivlead", style: { fontFamily: "'STKaiti','KaiTi',serif", fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.85, color: L.muted, margin: "0 0 24px", paddingBottom: 18, borderBottom: "7px solid " + L.tint } }, ivx.lead)

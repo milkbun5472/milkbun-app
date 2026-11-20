@@ -909,6 +909,17 @@ async function gifFirstFramePng(dataUrl) {
     return cv.toDataURL("image/png");
   } catch (e) { return dataUrl; }
 }
+// 线上聊天吃进文风预设的那一段：单聊、群聊只此一份（她 2026-11-19「群聊能不能吃进文风预设」）
+function onlinePresetBlock(text) {
+  const t = String(text || "").trim();
+  return t ? "【说话方式 · 用户挑的预设】下面这份是用户在文风台里自己挑的。怎么说话、哪些说法不用、语气和分寸，照它来；它要你写旁白、场景、动作描写或写成长段的地方，你现在是在线上一条条发消息，照线上发消息的格式来。\n\n" + t : "";
+}
+// 写长文那几枪的收法：只此一份（她 2026-11-19「其他写长一点的地方也做一个公共处理放长一点」）。
+//   一场线下、一篇同人文、一章小剧场、跑团一幕、日记、周刊、线下总结、月度印象——模型写一万字要好几分钟，
+//   原来各处写死 2～5 分钟，写到一半被判超时，写好的整篇丢掉（群里 2026-11-19 截图：300 秒、300 秒、300 秒）。
+//   stream：边写边收，一直有字进来就不掐（连着 90 秒没字才算断，总时限 10 分钟，见 pumpSSE）；
+//   timeout：线路关了流式时只能干等整篇，等足 10 分钟。线下那两路自己管要不要流式，只借这个等待时间
+const LONG_WRITE = Object.freeze({ timeout: 600000, stream: true });
 async function callAI(p, system, messages, opts) {
   // opts.biFor：这一次写字的是谁（一个角色或几个）——开着双语的，system 末尾加上「原文 | 中文」那条（probeBiLine 那一份）
   if (opts && opts.biFor && typeof system === "string" && typeof probeBiLine === "function" && !/【双语】/.test(system)) {
@@ -1694,7 +1705,7 @@ function parseKeyLines(raw, keys, listKeys) {
         let arr = null;
         try { arr = JSON.parse(v.replace(/,\s*\]$/, "]")); } catch (e) {}
         if (Array.isArray(arr)) {
-          const items = arr.filter(x => !takeObj(x)).map(x => String(x == null ? "" : x).trim()).filter(Boolean);
+          const items = arr.filter(x => (x && typeof x === "object" && typeof x.act === "string") || !takeObj(x)).map(x => x && typeof x === "object" && typeof x.act === "string" ? x : String(x == null ? "" : x).trim()).filter(Boolean);
           if (items.length) out[mk.key] = items;
           return;
         }
@@ -2440,7 +2451,8 @@ function seeThroughLast(text) { return SEE_THROUGH_TAIL_RE.test(String(text || "
 // 拿一句叮嘱收尾（她 2026-10-24 截图：「你在家要是饿了先找点零嘴垫垫，别又忍着等晚饭」）——
 //   CANNED_PHRASE_BAN 的【现成的桥段】早写着这一族，照样出；跟撂狠话一样按轮提一句。
 //   只看上一轮最后一条的最后一小句：是不是冲着她的祈使（别…／记得…／不许…），或者带「别又／别再」。问句不算。
-const BOSSING_TAIL_RE = /^(?:你)?(?:可)?(?:千万|一定)?(?:别(?!的|人|处|扭|致|墅|说)|不许|不准|不要|记得|要记得|少|早点|赶紧|快去|先去|乖乖|给我)|别(?:又|再)/;
+const BOSSING_TAIL_RE = /^(?:你)?(?:可)?(?:千万|一定)?(?:别(?!的|人|处|扭|致|墅|说)|不许|不准|不要|记得|要记得|少|早点|赶紧|快去|先去|乖乖|给我)|别(?:又|再)|^[^，,]{0,8}别(?!的|人|处|扭|致|墅|说).+就(?:行|好|成)[了啦]?[~～…]*$/;
+// 她 2026-11-20「说话也是别xxx」：群里「明天早上别在画室门口喊找不到…就行」——前头垫了个时候，「别…就行」也是同一句叮嘱。
 // 祈使后面挂一句「听到没有／知道吗／记住没」（她 2026-11-13：「嘴硬很喜欢别xxx 听到没有」）：那一截是给叮嘱加码的，
 //   不是在问她。先把它连同问号摘掉，再看前面是不是叮嘱
 const BOSSING_CHECK_RE = /[，,\s]*(?:听(?:到|见)(?:了)?(?:没有|没|吗)|知道(?:了)?(?:吗|没有|没)|记住(?:了)?(?:没有|没|吗)|明白(?:了)?(?:吗|没有|没)|懂(?:了)?(?:吗|没有|没)|听话|乖)[~～…?？!！。\s]*$/;
@@ -2451,7 +2463,7 @@ function endsOnBossing(text) {
   const tail = last.split(/[，,；;]/).map(x => x.trim()).filter(Boolean).pop() || "";
   return BOSSING_TAIL_RE.test(tail.replace(/^[~～…\s]+/, ""));
 }
-const BOSSING_TAIL_HINT = "\n【收尾】你上一轮是拿一句替她安排、叮嘱她的话收尾的。那一句是场面自带的，不是你此刻要说的，里头她会怎样的那一半也多半不是她跟你说过的。这一轮最后那个位置留给你自己真想说的。";
+const BOSSING_TAIL_HINT = "\n【收尾】你上一轮是拿一句替人安排、叮嘱人的话收尾的。那一句是场面自带的，不是你此刻要说的，里头对方会怎样的那一半也多半不是她跟你说过的。这一轮最后那个位置留给你自己真想说的。";
 const SEE_THROUGH_TAIL_HINT = "\n【上一轮】你上一轮在翻她以前的事来堵她、替她下定论。这一轮回应她此刻说的这件事。";
 // 按轮提醒（狠话收尾／替她安排收尾／翻旧账看穿她）只此一份：单聊、线下、群聊都问它（她 2026-11-02：「线下群聊都接上」）。
 //   tail：上一轮他说出口的最后一句；turnText：上一轮他说的全部，一句一行。只给方向（换个收法），不加禁令
@@ -2936,7 +2948,8 @@ const AFFINITY_DELTA_SPEC = "整数 -5~5：这一轮 TA 对用户的感觉往哪
 //   这两个词不进定义，只说是此刻心里没说出口的那一句。
 const THOUGHT_MEANING = "他此刻心里正转着、没说出口的那一句，第一人称，照他脑子里真冒出来的样子写——可以是半截念头、一句嘀咕、一个闪过的画面，不用交代前因，也不用落到接下来要做什么。";
 // 普通角色那一份（她 2026-10-22：心声还被「那一句」「一句嘀咕」压着短）。言秋照旧用上面那份，一字不动。
-const THOUGHT_MEANING_CHAR = "他此刻心里正转着、没说出口的念头，第一人称，照他脑子里真冒出来的样子写，不用交代前因，也不用落到接下来要做什么。";
+// 她 2026-11-20「这个句式好八股」：群心声一水儿收在「明天非得…」「看他明天怎么办」——念头被写成了往后的盘算。说清它停在眼下这一刻。
+const THOUGHT_MEANING_CHAR = "他此刻心里正转着、没说出口的念头，第一人称，照他脑子里真冒出来的样子写。它就停在眼下这一刻：不用交代前因，也不往后去盘算回头怎么样。";
 // 心声的腔调和落点（她 2026-10-21）：只接在普通角色那几处；言秋那边一字不动（她：「言秋的不要动」），
 //   所以不并进 THOUGHT_MEANING——言秋在通话等处也吃 THOUGHT_MEANING。
 // 她 2026-10-23（亲密场面截图）：心声把她刚做的事复述一遍、再堆一串身上的反应，最后一句「招架不住」——
@@ -3112,7 +3125,7 @@ function splitCardsAndLines(s) {
 // 起头的词挂在上一泡尾巴上（她 2026-11-01 截图：「那我的诉求可太明确了第一」「严正拒绝…道具第二」）：
 //   模型换行时把「第一：」写在了上一行末尾，照换行一切，「第一」就跟着前一句走了。
 //   一泡的结尾是「第一／第二…／首先／其次／再者／最后」（后面可带：，）、而且后面还有下一泡，就挪到下一泡开头。
-const DANGLING_LEAD = /^([\s\S]*?[^\s，,：:])[\s，,]*((?:第[一二三四五六七八九十]+|首先|其次|再者|再次|最后|其一|其二|其三|此外|况且|何况|另外|还有|对了)[：:，,]?)\s*$/;
+const DANGLING_LEAD = /^([\s\S]*?[^\s，,：:])[\s，,]*((?:第[一二三四五六七八九十]+|首先|其次|再者|再次|最后|其一|其二|其三|此外|况且|何况|另外|还有|对了|怎么|为什么|难道|所以|但是|可是|不过|然后|而且|结果)[：:，,]?)\s*$/;
 const LEAD_NUMS = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
 function listGoesOn(lead, before) {
   const m = /^第([一二三四五六七八九十])/.exec(String(lead || ""));
@@ -3132,7 +3145,10 @@ function moveDanglingLeads(list) {
     // 「还有／另外／对了」挂在句尾（群里 2026-11-10 截图：「别光顾着窝在沙发上抓手柄还有」「今晚晚饭你打算怎么解决」）也是下一句的起头；
     //   只有「我也还有」「都没有了还有」这种前面是代词／副词的，才可能是这句自己的结尾，那几种不挪
     const sure = /^(首先|其次|再者|再次|其[一二三]|此外|况且|何况|另外)/.test(m[2])
-      || (/^(还有|对了)/.test(m[2]) && !/[我你他她它们也都没就只还又才再]$/.test(m[1]));
+      || (/^(还有|对了)/.test(m[2]) && !/[我你他她它们也都没就只还又才再]$/.test(m[1]))
+      // 「怎么／为什么／难道」「所以／但是／不过……」挂在句尾（她 2026-11-19 截图：「是不是我哪儿弄疼你了怎么」「你突然想试试啊」）：
+      //   前面那半句已经说完了（停在了／的／吧／啊／呢／吗这类语气词上），下一泡又是从「你我他她这那」起头的整句，这个词就是下一句的开头
+      || (/^(怎么|为什么|难道|所以|但是|可是|不过|然后|而且|结果)/.test(m[2]) && /[了的吧啊呢吗嘛呀哦]$/.test(m[1]) && /^\s*[你我他她它这那咱]/.test(out[i + 1]));
     // 正在一条条列（群里 2026-11-08 截图：「站你旁边不丢人第二」「能找到你第三」）：前面这几泡里已经出现过上一个序号（说「第二」时前面有「第一」），
     //   这个「第N」就是下一条的开头，前面没标点也挪
     const seq = !sure && listGoesOn(m[2], out.slice(0, i).join("") + m[1]);
@@ -4453,7 +4469,7 @@ function buildBundle(ctx, opts) {
   const dirs = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   if (dirs.length) parts.push(directivesBlock(dirs));
   // 文风台的预设带进线上（线下那边自己有一份，这里不重复）：说话方式照它，发消息的格式照线上
-  if (!(opts && opts.offline) && !ctx.notRoleplay && String(ctx.onlinePreset || "").trim()) parts.push("【说话方式 · 用户挑的预设】下面这份是用户在文风台里自己挑的。怎么说话、哪些说法不用、语气和分寸，照它来；它要你写旁白、场景、动作描写或写成长段的地方，你现在是在线上一条条发消息，照线上发消息的格式来。\n\n" + String(ctx.onlinePreset).trim());
+  if (!(opts && opts.offline) && !ctx.notRoleplay && String(ctx.onlinePreset || "").trim()) parts.push(onlinePresetBlock(ctx.onlinePreset));
   if (!ctx.notRoleplay && typeof ContentBoundaries !== "undefined") pushRule(ContentBoundaries.prompt);
   // 语言这一层跟内容边界并排：都是「这个世界里有没有这样东西」。
   // ⚠️言秋（notRoleplay）不发：TA不是被扮演的角色，本来就跟她同一个世界。
@@ -5544,7 +5560,9 @@ function pullPhotoEcho(list) {
   return { words: list.slice(0, i).concat(list.slice(i + 1)), photo: { kind: "none", scene } };
 }
 function pullPhotoMarker(words) {
-  const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w));
+  // 一整泡只剩个占位「[photo]」「[图片]」（她 2026-11-18 截图）：照片走 photo 那一格另发，这一泡是模型把位置也写成了字，丢掉
+  const list = (Array.isArray(words) ? words : []).map(w => String(w == null ? "" : w))
+    .filter(w => !/^\s*[\[【(（]\s*(?:photo|image|img|picture|pic|selfie|图片|照片|自拍|相片)\s*[\]】)）]\s*$/i.test(w));
   const start = list.findIndex(w => /\[\s*photo\s*[:：]/i.test(w));
   if (start < 0) return typeof pullPhotoEcho === "function" ? pullPhotoEcho(list) : { words: list, photo: null };
   let end = start, text = list[start];
@@ -8410,6 +8428,15 @@ function emoteSlotWords(words, emotes, emoteNorm) {
 //   （她 2026-09-30 截图），语音照旧掉到最后。改成纯字母的 voiceslot0，认的时候前后多了标点空白也认。
 const VOICE_SLOT_TOKEN = n => "voiceslot" + n;
 const VOICE_SLOT_RE = /^[\s\p{P}\p{S}\uE000-\uF8FF]*voiceslot(\d+)[\s\p{P}\p{S}\uE000-\uF8FF]*$/u;
+// 话中间那一行动描（她 2026-11-18「群聊一轮好几个动描，这套能不能搬到单聊」）：word 里那一项 {"act":…} 换成纯字母占位，
+//   跟 voiceslot 同一个道理——后面那几道都按字符串处理，发气泡那一圈走到它就地摆一行
+const ACT_SLOT_TOKEN = n => "actslot" + n;
+const ACT_SLOT_RE = /^[\s\p{P}\p{S}\uE000-\uF8FF]*actslot(\d+)[\s\p{P}\p{S}\uE000-\uF8FF]*$/u;
+function actSlotOf(w) { const m = ACT_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
+// 单聊一轮最多几行动描（开头那一行算一行）
+const ACT_LINES_PER_TURN = 3;
+// 单聊那句话：action 是开头那一刻，word 里那一项是说着说着换成的
+const ACT_MID_RULE = "【说着说着换了动作】action 那一格是你这一轮开口时在做的事。这一轮里你手上真换成了另一件事，就在 word 数组里换的那个位置写一项 {\"act\":\"换成在做的事\"}，写法跟 action 那一格一样；没换就不写。一轮至多两项。";
 function voiceSlotOf(w) { const m = VOICE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
 // 把「这条要用语音说」写成一段描述挂在句子前面（她 2026-10-06 截图，Gemini：
 //   「【这条语音里的声音带着刚睡醒的沙哑和浓浓的委屈】我刚才都睡着了又被你气醒了」）。
@@ -10347,7 +10374,7 @@ async function generateOffline(p, ctx, session) {
       use: "offline", logWho: (ctx.char && ctx.char.name) || "",
       maxTokens: generationBudget,
       stream: wantStreamOffline,
-      timeout: 180000,
+      timeout: LONG_WRITE.timeout,
       wantReasoning: _wantReason,
       meta: _reasonMeta,
       wireScope: "offline",
@@ -10384,7 +10411,7 @@ async function generateOffline(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace("先完成正文 JSON，再写既定的创作旁注标记块。", "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { use: "offline", logRetry: true, logWho: (ctx.char && ctx.char.name) || "", maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true }, signal: session.signal });
+    raw = await callAI(p, plainSystem, plainHist, { use: "offline", logRetry: true, logWho: (ctx.char && ctx.char.name) || "", maxTokens: generationBudget, stream: wantStreamOffline, timeout: LONG_WRITE.timeout, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true }, signal: session.signal });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
@@ -10583,7 +10610,7 @@ function offlineSummaryQuota(len) {
 }
 async function offlineSummaryCall(p, system, body, quota) {
   const q = quota || {};
-  const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + body }], { maxTokens: 12000 });
+  const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + body }], { maxTokens: 12000, ...LONG_WRITE });
   const d = extractJSON(raw);
   const take = (v, n) => (Array.isArray(v) ? v : []).map(x => String(x).trim()).filter(Boolean).slice(0, n || 6);
   if (d && d.summary) return { summary: String(d.summary).trim(), details: take(d.details, q.details), open: take(d.open, q.open) };
@@ -10644,6 +10671,28 @@ async function offlineSummaryRun(p, systemFor, text) {
   if (!parts.some(x => x.failed)) { try { merged = await offlineSummaryCall(p, systemFor(quota, "merge"), joined, quota); } catch (e) {} }
   return { summary: merged.summary || joined, details: details, open: open };
 }
+// 线下总结里这几个人是男是女（群友 2026-11-19：百合设定，人设卡写着女，重 roll 两次总结还是用「他」）：
+//   归档提示词里只有名字，模型默认写成「他」。照 CharacterPronoun 那一份，明确存了性别的才写
+function offlineSummaryGenderLine(people, profile) {
+  const P = typeof CharacterPronoun !== "undefined" ? CharacterPronoun : null;
+  const lines = [];
+  // 档案里存了性别的照存的写；没存的（她 2026-11-19「性别还是没好」——老角色没选过性别，人设正文里写着女）
+  //   把人设开头那一段给它照着判断，判断不出就直接写名字，不默认成「他」
+  (people || []).filter(c => c && c.name).forEach(c => {
+    const g = P && P.genderNote ? P.genderNote(c) : "";
+    if (g) lines.push(c.name + (g === "（女）" ? "是女性，写她用「她」" : "是男性，写他用「他」"));
+    else lines.push(c.name + "的性别照这段人设来：『" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 160) + "』，判断不出就直接写名字");
+  });
+  const me = profile && profile.name;
+  if (me) lines.push(me + "的性别照这段资料来：『" + String(profile.persona || "").replace(/\s+/g, " ").slice(0, 120) + "』，判断不出就直接写名字");
+  return lines.length ? "【人称】" + lines.join("；") + "。\n" : "";
+}
+// 收尾再说一遍（她 2026-11-19：选了性别，五万字那场重新总结还是「他」）——开头那句被后面一大段原文淹掉了，
+//   贴着要它动笔的地方再提一次；原文里旁白写错的人称也照这里改
+function offlineSummaryGenderTail(people, profile) {
+  const l = offlineSummaryGenderLine(people, profile);
+  return l ? "\n\n" + l.replace(/^【人称】/, "【动笔前再看一眼人称】summary、details、open 里每一处「他／她」都照这里写，原文里写岔了的也照这里改：") : "";
+}
 async function summarizeOffline(p, ctx, session, already) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const text = offlineSummarySource(session, m => {
@@ -10652,10 +10701,10 @@ async function summarizeOffline(p, ctx, session, already) {
     return userName + "：" + (m.content || "");
   });
   const systemFor = (q, part) => offlineSummaryPartLine(part, userName)
-    + "把下面这段『" + userName + "』与『" + ctx.char.name + "』的线下相处做记忆归档。只输出 JSON：\n" +
+    + "把下面这段『" + userName + "』与『" + ctx.char.name + "』的线下相处做记忆归档。只输出 JSON：\n" + offlineSummaryGenderLine([ctx.char], ctx.profile) +
     "{\"summary\":\"" + q.sents + "第三人称总结：在哪、做了什么、关键互动或情绪转折\"," +
     "\"details\":[\"谈话中值得长期记住的【具体细节】：彼此透露的事/新知道的信息/说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + ctx.char.name + "），最多 " + q.details + " 条，宁具体勿空泛；真没有就 []\"]," +
-    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already);
+    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already) + offlineSummaryGenderTail([ctx.char], ctx.profile);
   return await offlineSummaryRun(p, systemFor, text);
 }
 // ------- 群聊线下模式（多角色同处一地的面对面叙事）-------
@@ -11067,7 +11116,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const _reasonMeta = {};
   const _wantReason = !!ctx.wantReasoning;
   try {
-    raw = await callAI(p, system, hist, { use: "offline", logLabel: "群线下", logWho: castNames.replace(/[『』]/g, ""), maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
+    raw = await callAI(p, system, hist, { use: "offline", logLabel: "群线下", logWho: castNames.replace(/[『』]/g, ""), maxTokens: gBudget, timeout: LONG_WRITE.timeout, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
   } catch (e) {
     // 部分原生推理模型会把整次输出留在隐藏/显式思考区，随后 stop 却不给正文。
     // 仅在「启用了显式 cot + 正常 stop 空正文」这个窄条件下，无 cot 重试一次并按模型记忆；以后不再白付第一次。
@@ -11078,7 +11127,7 @@ async function generateOfflineGroup(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { use: "offline", logRetry: true, logLabel: "群线下", logWho: castNames.replace(/[『』]/g, ""), maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
+    raw = await callAI(p, plainSystem, plainHist, { use: "offline", logRetry: true, logLabel: "群线下", logWho: castNames.replace(/[『』]/g, ""), maxTokens: gBudget, timeout: LONG_WRITE.timeout, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
@@ -11171,10 +11220,10 @@ async function summarizeOfflineGroup(p, ctx, session, already) {
   });
   // 和单人 summarizeOffline 同构：总结之外，具体细节/未兑现的约定也逐条出（v47.55 平权）
   const systemFor = (q, part) => offlineSummaryPartLine(part, userName)
-    + "把下面『" + userName + "』与" + names + "的这段线下相处做记忆归档。只输出 JSON：\n" +
+    + "把下面『" + userName + "』与" + names + "的这段线下相处做记忆归档。只输出 JSON：\n" + offlineSummaryGenderLine(ctx.members, ctx.profile) +
     "{\"summary\":\"" + q.sents + "第三人称总结：他们在哪、一起做了什么、谁和谁有关键互动或情绪转折、达成的约定。具体、可复用\"," +
     "\"details\":[\"值得长期记住的【具体细节】：谁透露的事/新知道的信息/谁说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + names + "），最多 " + q.details + " 条，宁具体勿空泛；真没有就 []\"]," +
-    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already);
+    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}" + offlineSummaryAvoidBlock(already) + offlineSummaryGenderTail(ctx.members, ctx.profile);
   return await offlineSummaryRun(p, systemFor, text);
 }
 // 生成一段静音 WAV 的 data URI（用于后台保活：循环播放占住 iOS 音频会话）
@@ -11738,7 +11787,7 @@ if (typeof window !== "undefined") window.probeBiLine = probeBiLine;
 async function runProbeInner(p, ctx, probe) {
   // 等多久、能不能中途掐断：调用方传 probe.timeout / probe.signal，原样交给 callAI——
   //   别在外面拿 Promise.race 自己赛跑（赛输了请求还在后台跑、照样计费）。2026-10-20 收
-  const _probeWait = { ...(probe && probe.timeout ? { timeout: probe.timeout } : {}), ...(probe && probe.signal ? { signal: probe.signal } : {}) };
+  const _probeWait = { ...(probe && probe.timeout ? { timeout: probe.timeout } : {}), ...(probe && probe.signal ? { signal: probe.signal } : {}), ...(probe && probe.stream ? { stream: true } : {}) };   // stream：写长文那几枪（LONG_WRITE）边写边收
   // ⚠️站的位置（four-surfaces-same-context 里 v55.91 那一条）：
   // 这个开场白把模型放在【分析师的椅子】上——「不要扮演角色对话，冷静推演」。
   // 绝大多数推演（行程/钱包/相册/书架）本来就该这么站。
@@ -11941,7 +11990,7 @@ async function generateDiary(p, ctx, opts = {}) {
     + "\n——但这不是要你原地不动：你和她相处的方式、黏不黏、敢不敢说，"
     + "只要已经沉淀进上文那段『你长出来的自我』，就照现在的你写，别退回原卡的旧样子。"
     + "分辨很简单：记进长出来的自我的是成长，只是最近几篇听起来那样的是惯性。";
-  const raw = await callAI(p, system, [{ role: "user", content: (retro ? "现在是今晚睡前，把今天这一整天写成一篇日记。" : "开始写今天的日记。") + voiceTail }], { maxTokens: opts.maxTokens || 14000 });
+  const raw = await callAI(p, system, [{ role: "user", content: (retro ? "现在是今晚睡前，把今天这一整天写成一篇日记。" : "开始写今天的日记。") + voiceTail }], { maxTokens: opts.maxTokens || 14000, ...LONG_WRITE });
   const parsed = extractJSON(raw);
   if (!parsed || !Array.isArray(parsed.paras)) throw new Error("解析失败，可重试或换模型");
   return parsed;
@@ -12175,12 +12224,13 @@ function loadJSON(k, fb) {
     txtEarlyTouch(k);
     if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
       const mv = _txtMirror().get(k);
-      if (mv != null) return JSON.parse(mv);
+      if (mv != null) { const pv = JSON.parse(mv); vtsTouch(k, pv, false); return pv; }
       const ls = lsRaw.get(k); // 镜像还没灌好/迁移失败：回落 localStorage，绝不让数据凭空消失
-      return ls ? JSON.parse(ls) : fb;
+      if (!ls) return fb; const pl = JSON.parse(ls); vtsTouch(k, pl, false); return pl;
     }
     const v = lsRaw.get(k);
-    return v ? JSON.parse(v) : fb;
+    if (!v) return fb;
+    const pv = JSON.parse(v); vtsTouch(k, pv, false); return pv;
   } catch {
     return fb;
   }
@@ -12353,6 +12403,7 @@ function txtWrite(k, s) {
 }
 function saveJSON(k, v) {
   if (typeof qqFrozen === "function" && qqFrozen()) return true;   // 别的窗口在写（见 singleWriter）
+  vtsTouch(k, v, true);   // 刚写下的那几条记上虚拟时间（见 VTS_INDEX）
   let encoded = null, previous = null;
   try {
     txtEarlyTouch(k);
@@ -12758,6 +12809,15 @@ function vclockSeg(c, ts) {
   if (h) for (let i = 0; i < h.length; i++) if (h[i] && Number(ts) < Number(h[i].until)) return h[i];
   return c;
 }
+// 历史段攒多了怎么收（群里 2026-11-19：「虚拟时间聊天记录又全都变成现实时间了」「记忆库里的事被说成 11 月」）：
+//   开着「离开小手机时停住」，每走开、回来一次就多记一段；原来只留最后 300 段、把最早的直接丢掉——
+//   最早那一段一丢，vclockMapBy 就以为这只钟是「最近才拨的」，比它早的每条消息、每条记忆全按现实日子算。
+//   现在：最早那一段永远留着（它说明钟是哪一刻开的），超了只从第二段起往后丢；上限放到 2000 段
+const VCLOCK_HIST_CAP = 2000;
+function vclockTrimHist(h) {
+  const a = Array.isArray(h) ? h : [];
+  return a.length <= VCLOCK_HIST_CAP ? a : [a[0]].concat(a.slice(a.length - (VCLOCK_HIST_CAP - 1)));
+}
 function vclockKeepHist(oldClocks, newClocks, now) {
   const out = { ...(newClocks || {}) }; now = now || Date.now();
   Object.keys(out).forEach(k => {
@@ -12769,11 +12829,11 @@ function vclockKeepHist(oldClocks, newClocks, now) {
     //   关钟：把那一版虚拟钟记下来（之前的消息照旧是虚拟的日子）；开钟：把关着那段记成「现实」（real:true，原样）。
     const hist0 = Array.isArray(o.hist) ? o.hist : (Array.isArray(n.hist) ? n.hist : []);
     if (o.on && !n.on && isFinite(Number(o.base))) {
-      out[k] = { ...n, hist: [...hist0, { until: now, base: Number(o.base), at: Number(o.at || 0), speed: o.speed, ...(o.awayAt ? { awayAt: o.awayAt } : {}) }].slice(-300) };
+      out[k] = { ...n, hist: vclockTrimHist([...hist0, { until: now, base: Number(o.base), at: Number(o.at || 0), speed: o.speed, ...(o.awayAt ? { awayAt: o.awayAt } : {}) }]) };
       return;
     }
     if (!o.on && n.on) {
-      out[k] = { ...n, hist: [...hist0, { until: now, real: true }].slice(-300) };
+      out[k] = { ...n, hist: vclockTrimHist([...hist0, { until: now, real: true }]) };
       return;
     }
     if (!o.on || !n.on) { if (hist0.length && !n.hist) out[k] = { ...n, hist: hist0 }; return; }
@@ -12781,11 +12841,61 @@ function vclockKeepHist(oldClocks, newClocks, now) {
     const jump = Number(o.base) !== Number(n.base) || Number(o.at || 0) !== Number(n.at || 0) || Number(o.speed) !== Number(n.speed) || (o.awayAt || 0) !== (n.awayAt || 0);
     if (!jump) { if (o.hist && !n.hist) out[k] = { ...n, hist: o.hist }; return; }
     const seg = { until: now, base: Number(o.base), at: Number(o.at || 0), speed: o.speed, ...(o.awayAt ? { awayAt: o.awayAt } : {}) };
-    out[k] = { ...n, hist: [...(Array.isArray(o.hist) ? o.hist : []), seg].slice(-300) };
+    out[k] = { ...n, hist: vclockTrimHist([...(Array.isArray(o.hist) ? o.hist : []), seg]) };
   });
   return out;
 }
+// ── 每条东西写下那一刻就记住自己的虚拟时间（vts）（她 2026-11-19「做根本修法吧」）──────────────
+//   原来旧消息的日子全靠「钟的历史段」倒推：段一丢（攒满被删、拨钟、换设备），旧消息就整片挪走。
+//   现在聊天、群聊、线下、记忆库落盘时（saveJSON 那一处），刚写下的那几条顺手记上 vts＝那一刻的虚拟时间；
+//   读的时候 vclockMap 先查这一条有没有自带的，有就用它——全 app 一百来处读日子的地方一处都不用改。
+//   没带 vts 的老东西照旧走历史段推算。钟关着的时候不记（那一刻就是现实，不用记）。
+const VTS_INDEX = new Map();
+function vtsClockOf(k, item) {
+  const s = String(k || "");
+  if (s.indexOf("x_chat:") === 0) return s.slice(7).split("::")[0];
+  if (s.indexOf("x_offline:") === 0) return s.slice(10).split("::")[0];
+  if (s.indexOf("x_gchat:") === 0) return "g:" + s.slice(8).split("::")[0];
+  if (s.indexOf("x_goffline:") === 0) return "g:" + s.slice(11).split("::")[0];
+  if (s === "x_memLib") return item && Array.isArray(item.charIds) && item.charIds.length ? String(item.charIds[0]) : null;
+  // 单独存的那几样（她 2026-11-19「单独的也一起接了吧」）：日记、朋友圈、限时动态、情侣空间、时光胶囊——
+  //   这一条是谁的，照它身上记着的人认那只钟；认不出就照主面具那只
+  if (VTS_EXTRA[s]) { const w = item && (item.characterId || item.charId || item.ownerId || (item.by && item.by !== "me" ? item.by : "")); return w ? String(w) : null; }
+  return undefined;
+}
+const VTS_EXTRA = { x_diaries: 1, x_moments: 1, x_stories: 1, x_coupleQA: 1, x_coupleDrawer: 1, x_coupleLetters: 1, x_coupleTimeline: 1, x_coupleRecall: 1, x_coupleExDiary: 1, x_capsules: 1, x_coupleAnniv: 1, x_coupleTrips: 1 };
+function vtsTouch(k, v, stamp) {
+  try {
+    if (vtsClockOf(k) === undefined || !v || typeof v !== "object") return;
+    // 按人分开存的（日记：{ 角色id: [篇…] }）：每个人那一串当一条清单，钟照那个人
+    if (!Array.isArray(v)) { Object.keys(v).forEach(who => { const arr = v[who]; if (Array.isArray(arr)) vtsTouchList(k, arr, stamp, who); }); return; }
+    vtsTouchList(k, v, stamp, null);
+  } catch (e) {}
+}
+function vtsTouchList(k, v, stamp, who) {
+  try {
+    const off = /^x_g?offline:/.test(String(k));
+    const now = Date.now();
+    const one = it => {
+      if (!it || typeof it !== "object") return;
+      const ts = Number(it.ts);
+      if (!isFinite(ts) || ts <= 0) return;
+      // 「刚写下的」：聊天这些十分钟以内；单独存的那几样（日记写的是昨天、补写前几天）放到四天
+      if (it.vts == null && stamp && now - ts < (VTS_EXTRA[String(k)] ? 4 * 864e5 : 600000) && ts <= now + 60000) {
+        const cid = who != null ? String(who) : vtsClockOf(k, it);
+        if (typeof vclockCfg === "function" && vclockCfg(cid, ts)) { const vv = vclockMap(ts, cid); if (isFinite(vv) && vv !== ts) it.vts = vv; }
+      }
+      if (isFinite(Number(it.vts))) VTS_INDEX.set(ts, Number(it.vts));
+    };
+    const list = off ? v.reduce((a, sess) => a.concat(Array.isArray(sess && sess.msgs) ? sess.msgs : []), []) : v;
+    // 落盘时只看最新那一截（记忆库新的在前、聊天新的在后）；开机读进来时整份登记
+    //   单独存的那几样新的在前在后不一定，两头各看一截
+    const part = !stamp ? list : String(k) === "x_memLib" ? list.slice(0, 30) : VTS_EXTRA[String(k)] ? list.slice(0, 30).concat(list.slice(-30)) : list.slice(-30);
+    part.forEach(one);
+  } catch (e) {}
+}
 function vclockMap(ts, id) {
+  if (typeof VTS_INDEX !== "undefined" && VTS_INDEX.size) { const hit = VTS_INDEX.get(Number(ts)); if (hit != null) return hit; }
   const c = vclockCfg(id, ts);
   if (c) return vclockMapBy(c, ts);
   // 钟现在关着，可以前开过：那几段照当时的钟算，之后的照现实
@@ -12817,7 +12927,11 @@ function vclockMapBy(c0, ts) {
   //   11 月 1 号起开钟会记一段「之前是现实」；在那之前就开着的钟没有这一段，于是开钟以前的每条都拿这只钟去算——
   //   钟停着（speed 0）或者拨在 24 号，以前的全挤到同一天。最早那一版钟是哪一刻拨的（at），早于它的就是现实
   const h0 = Array.isArray(c0.hist) && c0.hist.length ? c0.hist[0] : c0;
-  if (h0 && !h0.real && Number(h0.at) > 0 && Number(ts) < Number(h0.at)) return Number(ts);
+  // ⚠️攒满过 300 段的旧存档（2026-11-19 前的版本会把最早几段丢掉）：h0 已经不是开钟那一刻，比它早的不能当现实，
+  //   照 h0 那一版往前推（日子可能差几天，但留在她拨的那个年月里，不会整片跳回现实）
+  const _trimmedOld = Array.isArray(c0.hist) && c0.hist.length >= 300;
+  if (h0 && !h0.real && !_trimmedOld && Number(h0.at) > 0 && Number(ts) < Number(h0.at)) return Number(ts);
+  if (h0 && !h0.real && _trimmedOld && Number(ts) < Number(h0.at)) { const sp0 = Number(h0.speed); return Number(h0.base) + (Number(ts) - Number(h0.at || 0)) * (isFinite(sp0) && sp0 >= 0 ? sp0 : 1); }
   const c = vclockSeg(c0, ts);
   if (c && c.real) return Number(ts);   // 那一段钟是关着的：照现实
   const sp = Number(c.speed);

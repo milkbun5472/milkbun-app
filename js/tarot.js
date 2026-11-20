@@ -434,7 +434,7 @@
       if (!s) { setView("home"); return null; }
       return h(SessionView, {
         session: s, characters: props.characters, profile: props.profile, active: props.active, ctxFor: props.ctxFor, apiFor: props.apiFor,
-        onForwardToChat: props.onForwardToChat, toast: props.toast,
+        onForwardToChat: props.onForwardToChat, onToMoments: props.onToMoments, toast: props.toast,
         onUpdate: updated => persist(loadSaves().map(x => x.id === updated.id ? updated : x)),
         onBack: () => { setSaves(loadSaves()); setView("home"); }
       });
@@ -1077,6 +1077,9 @@
         allRevealed && (s.readerSummary || s.summary) ? h("div", { "data-wk": "tarotsummary", style: { marginTop: 8, padding: "16px 17px", background: "linear-gradient(145deg,rgba(122,104,176,.14),rgba(184,145,80,.10))", border: "1px solid rgba(184,145,80,.26)", borderRadius: 13 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", fontWeight: 700, letterSpacing: 1, color: N.tint, marginBottom: 7 } }, "占卜师总结"),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.85, color: N.ink, whiteSpace: "pre-wrap" } }, s.readerSummary || s.summary)) : null,
+        // 发朋友圈（她 2026-11-18）：牌都翻开了才有；打开发朋友圈页，这一卦挂成一张卡，话自己写
+        allRevealed && props.onToMoments ? h("button", { "data-wk": "tarottomoments", onClick: () => props.onToMoments(s), className: "w-full active:opacity-70",
+          style: { marginTop: 12, padding: "11px 0", borderRadius: 12, border: "1px solid rgba(184,145,80,.45)", background: "transparent", color: N.tint, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "发朋友圈") : null,
         // 角色本人对这几张牌的想法
         allRevealed && s.charThought ? h("div", { "data-wk": "tarotthought", style: { marginTop: 12, display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", background: N.bg2, border: "1px solid " + N.line, borderRadius: 13 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: N.tint, flexShrink: 0 } }, s.charName + "："),

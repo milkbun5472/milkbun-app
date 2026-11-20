@@ -1,0 +1,25 @@
+import {Matrix4} from 'three';
+export function clothRotationReferences(row,bones){
+ const names=bones.map(b=>b.name),arms=['left','right'].map(side=>names.indexOf(side+'Arm'));
+ return Int32Array.from({length:row.rest.length/3},(_,i)=>{
+  let best=0,armWeight=0;const side=row.rest[i*3]<0?0:1,upper=arms[side];
+  for(let k=0;k<4;k++){const j=i*4+k;if(row.skinWeight[j]>row.skinWeight[i*4+best])best=k;
+   if(/Arm$|Forearm$/.test(names[row.skinIndex[j]]||''))armWeight+=Math.max(row.skinWeight[j],row.bentSkinWeight?.[j]||0);
+  }
+  // One hemisphere for the whole sleeve. Choosing the largest weight per
+  // vertex splits adjacent triangles when torso/upper/forearm rotations span it.
+  return upper>=0&&armWeight>0?upper:row.skinIndex[i*4+best];
+ });
+}
+export function createClothTransportKernel(core,mesh){
+ const g=mesh.geometry,n=g.attributes.position.count,bones=mesh.skeleton.bones.length,morphCount=g.morphAttributes.position?.length||0,allocations=[];
+ const reserve=bytes=>{const ptr=core.reserve(bytes);allocations.push([ptr,bytes]);return ptr},alloc=n=>reserve(n*8),write=(ptr,values)=>new Float64Array(core.memory.buffer,ptr,values.length).set(values),store=(Type,values)=>{const ptr=reserve(values.length*Type.BYTES_PER_ELEMENT);new Type(core.memory.buffer,ptr,values.length).set(values);return ptr};
+ const attribute=a=>{const data=new Float64Array(n*3);if(a)for(let i=0;i<n;i++)for(let k=0;k<3;k++)data[i*3+k]=a.getComponent(i,k);return data;};
+ const mp=alloc(n*3*morphCount),mn=alloc(n*3*morphCount);for(let j=0;j<morphCount;j++){write(mp+j*n*24,attribute(g.morphAttributes.position[j]));write(mn+j*n*24,attribute(g.morphAttributes.normal?.[j]));}
+ const references=reserve(n*4),ids=reserve(n*4),rest=alloc(n*3),normal=alloc(n*3),vsi=reserve(n*16),vsw=alloc(n*4),qr=alloc(bones*4),qd=alloc(bones*4),virtual=alloc(bones*16),posed=alloc(n*3),posedN=alloc(n*3),pos=alloc(n*3),outN=alloc(n*3),si=store(Int32Array,Array.from({length:n*4},(_,j)=>g.attributes.skinIndex.getComponent(j>>2,j%4))),sw=store(Float64Array,Array.from({length:n*4},(_,j)=>g.attributes.skinWeight.getComponent(j>>2,j%4))),actual=alloc(bones*16),exact=alloc(bones*16),bind=alloc(16),unbind=alloc(16),bodyToCloth=alloc(16),normalToCloth=alloc(9),mw=alloc(morphCount),matrix=new Matrix4();let count=0,follow=false;
+ return {configure(row,vertices){new Int32Array(core.memory.buffer,references,n).set(clothRotationReferences(row,mesh.skeleton.bones));count=vertices.length;follow=!!row.followArms;new Int32Array(core.memory.buffer,ids,count).set(vertices);new Int32Array(core.memory.buffer,vsi,n*4).set(row.skinIndex);write(rest,row.rest);write(normal,row.normal);},
+ deform(weights,rotations,duals,matrices,lifts){write(vsw,weights);for(let j=0;j<bones;j++){write(qr+j*32,rotations[j].toArray());write(qd+j*32,duals[j]);write(virtual+j*128,matrices[j].elements);}core.exports.clothDeform(count,ids,rest,normal,vsi,vsw,references,qr,qd,virtual,follow?lifts[0]:0,follow?lifts[1]:0,posed,posedN);return {position:new Float64Array(core.memory.buffer,posed,n*3),normal:new Float64Array(core.memory.buffer,posedN,n*3)};},
+ finish(matrices,transform,normalTransform,activation){write(pos,g.attributes.position.array);write(outN,g.attributes.normal.array);write(mw,mesh.morphTargetInfluences||[]);write(bind,mesh.bindMatrix.elements);write(unbind,mesh.bindMatrixInverse.elements);write(bodyToCloth,transform.elements);write(normalToCloth,normalTransform.elements);for(let j=0;j<bones;j++){write(actual+j*128,matrices[j].elements);if(activation<1){matrix.multiplyMatrices(mesh.skeleton.bones[j].matrixWorld,mesh.skeleton.boneInverses[j]);write(exact+j*128,matrix.elements);}}
+  if(!core.exports.clothFinish(count,n,ids,posed,posedN,pos,outN,si,sw,actual,exact,bind,unbind,bodyToCloth,normalToCloth,morphCount,mp,mn,mw,activation))throw Error('Garment skin transform is singular');g.attributes.position.array.set(new Float64Array(core.memory.buffer,pos,n*3));g.attributes.normal.array.set(new Float64Array(core.memory.buffer,outN,n*3));g.attributes.position.needsUpdate=true;g.attributes.normal.needsUpdate=true;
+ },dispose(){for(const [ptr,bytes]of allocations)core.release(ptr,bytes);allocations.length=0;}};
+}

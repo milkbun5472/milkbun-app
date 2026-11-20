@@ -107,7 +107,7 @@ test("穿书改叫加笔：界面、手册、提示词都改了，病历留着",
   // 2026-09-28 起加笔写在同人文那一页里（她照着代码核过的那版攻略）
   const M = (() => { const g = {}; new Function("window", man)(g); return g.AssistantManual; })();
   const f = M.byId("fanfic");
-  assert.match(f.doc, /\*\*加笔（穿书改写）：\*\* 点底栏中间的羽毛笔/,
+  assert.match(f.doc, /### 加笔（穿书改写）\n[\s\S]{0,40}点底栏中间的羽毛笔/,
     "手册原来指着一个界面上不存在的按钮——她问秋秋「加笔怎么玩」只能靠运气");
   ["加笔", "穿书"].forEach(k => assert.ok(f.kw.includes(k), "旧词也得认，不然照老叫法问就搜不到：" + k));
   assert.ok(M.find("加笔怎么玩", 4).some(x => x.id === "fanfic"));

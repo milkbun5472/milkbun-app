@@ -17,7 +17,7 @@ test("大请求走流式，短请求保持原路", () => {
   // ⚠️v74.873 在 opts 最前面插了 use:"offline"（秋秋的礼物那条线要认前台后台）。
   //   锚只钉这两项挨在一起，不钉它们是不是排在第一位。
   assert.match(engine, /maxTokens: generationBudget,\n      stream: wantStreamOffline,/, "主调用");
-  assert.match(engine, /maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline"/, "纯文本兜底");
+  assert.match(engine, /maxTokens: generationBudget, stream: wantStreamOffline, timeout: (?:180000|LONG_WRITE\.timeout), wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline"/, "纯文本兜底");
 });
 
 test("流式是安全替换：中转不支持会自动退回普通解析", () => {

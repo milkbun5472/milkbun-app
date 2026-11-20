@@ -100,5 +100,5 @@ test("为什么不靠代码去重把重复那几条挡掉，理由写在代码�
   assert.match(doc, /一段场面描写永远不会「原表述仍准确」/);
   // 闸本身照旧留着：句子变短之后它才真的开始管用
   assert.match(E, /function sameActLine\(a, b\)/);
-  assert.equal((A.match(/sameActLine\(/g) || []).length, 2, "单聊和群聊两处都要走它");
+  assert.equal((A.match(/sameActLine\(/g) || []).length, 3, "单聊开头那行、单聊话中间那行、群聊三处都要走它");
 });

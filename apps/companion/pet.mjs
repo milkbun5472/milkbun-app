@@ -3,15 +3,13 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {makeReactions} from './reactions.mjs?v=fg-cc8079f79f553b35';
-import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-cc8079f79f553b35';
-import {makeInteractions,afterInteraction} from './interactions.mjs?v=fg-cc8079f79f553b35';
-import {targetAt} from './touch-targets.mjs?v=fg-cc8079f79f553b35';
-import {MOODS,DUR,WEATHER_ACTIONS,moodBase,pulse,accent,chooseAction,touchForMood} from './motion.mjs?v=fg-cc8079f79f553b35';
-import {GLTFLoader} from '../fairy-garden/vendor/GLTFLoader.js?v=fg-cc8079f79f553b35';
-import {DRACOLoader} from '../fairy-garden/vendor/DRACOLoader.js?v=fg-cc8079f79f553b35';
-import {createTraveler,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-cc8079f79f553b35';
-import {createWardrobe,lookForTa,mergeLook,outfitId,outfitColors} from '../fairy-garden/wardrobe.mjs?v=fg-cc8079f79f553b35';
+import {makeReactions} from './reactions.mjs?v=fg-0dbfe7b80431ca19';
+import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-0dbfe7b80431ca19';
+import {makeInteractions,afterInteraction} from './interactions.mjs?v=fg-0dbfe7b80431ca19';
+import {targetAt} from './touch-targets.mjs?v=fg-0dbfe7b80431ca19';
+import {MOODS,DUR,WEATHER_ACTIONS,moodBase,pulse,accent,chooseAction,touchForMood} from './motion.mjs?v=fg-0dbfe7b80431ca19';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-0dbfe7b80431ca19';
+import {createWardrobe,lookForTa,mergeLook,outfitId,outfitColors} from '../fairy-garden/wardrobe.mjs?v=fg-0dbfe7b80431ca19';
 const mode=new URLSearchParams(location.search).get('mode')||'full',reactions=makeReactions(),interactions=makeInteractions();
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
@@ -25,7 +23,6 @@ function size(){const w=innerWidth,h=innerHeight;r.setSize(w,h);cam.aspect=w/h;
  const top=1.25,bottom=-.02,mid=(top+bottom)/2,half=(top-bottom)/2*1.08;const dist=Math.max(half/Math.tan(cam.fov*Math.PI/360),half/cam.aspect/Math.tan(cam.fov*Math.PI/360));
  cameraMid=mid;cameraDist=dist+.3;frameGround();cam.updateProjectionMatrix();}
 addEventListener('resize',size);size();
-const loader=new GLTFLoader();const draco=new DRACOLoader();draco.setDecoderPath('../fairy-garden/vendor/draco/');loader.setDRACOLoader(draco);
 let pet=null,pending=null,lastLook='',cur={look:{},ta:'TA',characterId:'',mood:'default'},outfitShowToken=0;
 let noticeAt=-Infinity,act=null,yaw=0,nextAt=3,curMood='default',sitB=0,lastT=0,soft={y:0,tilt:0,yaw:0};const clock=new T.Clock();
 let held=null,taps=[],lifeKey='',cancelTouch=()=>{};const lastActions=new Map();
@@ -59,7 +56,7 @@ addEventListener('message',e=>{if(e.data&&e.data.type==='pet-look')apply(e.data)
 function playAct(k){if(!k||!Number.isFinite(DUR[k])||held)return;if(k==='sleep'){sleeping=true;act=null;return;}if(sleeping){sleeping=false;reportWake();}act={kind:k,start:clock.getElapsedTime(),source:'chat'};}
 // 外壳告诉他你在哪一页、有没有在放歌、多久没碰手机（她 2026-09-26：点他有反应／跟着时间／看你在干嘛）。
 let ctx={screen:'',music:false,idle:false,typing:false,weather:null,returnSeq:0},sleeping=false;
-function setCtx(m){ctx={life:m.life||null,screen:String(m.screen||''),music:!!m.music,idle:!!m.idle,typing:!!m.typing,weather:m.weather||null,returnSeq:Number(m.returnSeq)||0};reactions.observe(ctx,pet?clock.getElapsedTime():0);applyLife();}
+function setCtx(m){ctx={life:m.life||null,screen:String(m.screen||''),music:!!m.music,idle:!!m.idle,typing:!!m.typing,scrolling:!!m.scrolling,weather:m.weather||null,returnSeq:Number(m.returnSeq)||0};reactions.observe(ctx,pet?clock.getElapsedTime():0);applyLife();}
 function applyLife(){
  const life=ctx.life;if(!pet||!life||life.characterId!==cur.characterId)return;
  const key=life.characterId+':'+life.rev;if(key===lifeKey)return;lifeKey=key;
@@ -76,9 +73,9 @@ function applyLife(){
 // ⚠️这行原来是模块顶层的裸 await：网抖一下就整个 iframe 卡住、pet-ready 永不发，
 //   外壳那句「小人还在来的路上…」会永远挂着（2026-09-26 发公共版前查出来的）。
 try{
- const gltf=await loader.loadAsync('../fairy-garden/doll.glb?v=fg-cc8079f79f553b35',
-   e=>{if(e&&e.total)parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(e.loaded/e.total*100))},'*');});
- pet=createTraveler(gltf.scene,true,pending?full():{});sc.add(pet.root);if(pending)apply(pending);   // 样貌先到了就直接照它建：头发按需下载，别先白下一款默认的
+ const rendering={skeletonOnly:mode==='float'};
+ const source=await loadTravelerSource(progress=>parent.postMessage({type:'pet-progress',pct:Math.min(99,Math.round(progress*100))},'*'),rendering);
+ pet=createTraveler(source,true,pending?full():{},rendering);sc.add(pet.root);if(pending)apply(pending);   // 样貌先到了就直接照它建：头发按需下载，别先白下一款默认的
  parent.postMessage({type:'pet-ready'},'*');
 }catch(err){
  parent.postMessage({type:'pet-failed',why:String((err&&err.message)||err).slice(0,200)},'*');
@@ -86,7 +83,7 @@ try{
 }
 
 const appearanceTextures=()=>{const urls=[];pet?.root.traverse(o=>{const src=o.material?.map?.image?.src;if(src&&/\/faces\//.test(src))urls.push(src);});return [...new Set(urls)];};
-window.petDebug={ready:()=>pet.ready(),frames:0,snapshot:()=>({action:sleeping?'sleep':act?.kind,sleeping,held:!!held,actionProgress:act?(clock.getElapsedTime()-act.start)*(act.tempo||1)/DUR[act.kind]:0,context:{...ctx},notice:clock.getElapsedTime()-noticeAt<DUR.hop,rootY:pet.root.position.y,canopy:pet.root.userData.emotionCanopy||0,emotion:pet.root.userData.emotion,targets:touchTargets(),mood:behaviorMood(),tempo:MOODS[behaviorMood()]?.tempo||1,idleEvery:MOODS[behaviorMood()]?.every,look:full(),faceTextures:appearanceTextures()}),play:(k,at)=>{if(k==='sleep')playAct(k);else{sleeping=false;act={kind:k,start:clock.getElapsedTime()-(at||0)*DUR[k],source:'chat'};}}};   // 截图/测试用；frames 用来验切后台真停了
+window.petDebug={ready:()=>pet.ready(),frames:0,snapshot:()=>({motionReady:!!pet.inspectMotion(),action:sleeping?'sleep':act?.kind,sleeping,held:!!held,actionProgress:act?(clock.getElapsedTime()-act.start)*(act.tempo||1)/DUR[act.kind]:0,context:{...ctx},notice:clock.getElapsedTime()-noticeAt<DUR.hop,rootY:pet.root.position.y,canopy:pet.root.userData.emotionCanopy||0,emotion:pet.root.userData.emotion,targets:touchTargets(),mood:behaviorMood(),tempo:MOODS[behaviorMood()]?.tempo||1,idleEvery:MOODS[behaviorMood()]?.every,look:full(),faceTextures:appearanceTextures()}),play:(k,at)=>{if(k==='sleep')playAct(k);else{sleeping=false;act={kind:k,start:clock.getElapsedTime()-(at||0)*DUR[k],source:'chat'};}}};   // 截图/测试用；frames 用来验切后台真停了
 // 你在哪儿：聊天→凑过去看；写东西／专注→坐在旁边安静陪；其余照心情来
 const CHAT=['thread','gthread','messages','forum'],QUIET=['diary','fanfic','memo','dreamjournal','study','pomodoro','read'];
 const night=()=>{const h=new Date().getHours();return h>=23||h<6;};
@@ -128,8 +125,11 @@ function poke(){const t=clock.getElapsedTime();if(sleeping){wake();return;}inter
 // 悬浮小人在每一页都活着，切后台也照跑——装饰品的唯一失败方式就是「开着很烦」
 // （发烫、掉电）。所以：页面看不见就真的停，悬浮那只按 24 帧画（指甲盖大小，
 // 60 帧一分钱好看都换不到）。整页那只给 40 帧，拖着转圈仍然跟手。
-const FRAME=mode==='float'?1/24:1/40;let lastDraw=-1,lastTold=null;
+// 悬浮那只一秒 12 帧（她 2026-11-18 嫌发热；原来 24）：指甲盖大小看不出差别，手机上每帧的身体和衣服计算本来就算不满 24 帧。
+//   打字、滑动的时候悬浮那只先定住不画，手停了接着动——跟聊天界面是同一条线程，它算的时候打字和滑动会跟着卡
+const FRAME=mode==='float'?1/12:1/40;let lastDraw=-1,lastTold=null;
 function frame(){const t=clock.getElapsedTime();
+ if(mode==='float'&&(ctx.typing||ctx.scrolling)&&!held)return;
  if(t-lastDraw<FRAME)return;lastDraw=t;
  draw(t);}
 function draw(t){

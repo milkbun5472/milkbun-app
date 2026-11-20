@@ -1,12 +1,12 @@
-import {makeRecipeFood,disposeFood} from './day/recipe-food.mjs?v=fg-cc8079f79f553b35';
+import {makeRecipeFood,disposeFood} from './day/recipe-food.mjs?v=fg-0dbfe7b80431ca19';
 import * as T from 'three';
-import {handSurfaceBounds} from './hand-surface.mjs?v=fg-cc8079f79f553b35';
-import {makeDreamFlower} from './keepsake-view.mjs?v=fg-cc8079f79f553b35';
-import {pointToolAt} from './reach-hand.mjs?v=fg-cc8079f79f553b35';
+import {handSurfaceBounds} from './hand-surface.mjs?v=fg-0dbfe7b80431ca19';
+import {makeDreamFlower} from './keepsake-view.mjs?v=fg-0dbfe7b80431ca19';
+import {pointToolAt} from './reach-hand.mjs?v=fg-0dbfe7b80431ca19';
 export const actionDuration=job=>job?.kind==='eat'?3.4:job?.kind==='well'?2.8:job?.kind==='lamp'?3.2:job?.kind==='wave'?3.4:job?.kind==='stretch'?3.8:['plant','dreamSow'].includes(job?.kind)?4.2:job?.kind==='gift'?3.2:job?.kind==='garden'||job?.kind==='dreamHarvest'?3.6:job?.kind==='brew'?2.5:job?.kind==='rest'?2:job?.kind==='travel'?.5:1.5;
 export function actionGesture(job){if(!job)return 'rest';if(job.kind==='garden')return job.intent==='harvest'?'harvest':'water';if(job.kind==='dreamHarvest')return 'harvest';if(['plant','dreamSow'].includes(job.kind))return 'plant';if(['wave','stretch'].includes(job.kind))return job.kind;if(job.kind==='gather')return 'gather';if(job.kind==='well')return 'draw';if(job.kind==='lamp')return 'lamp';if(job.kind==='seed')return 'hold';if(job.kind==='eat')return 'eat';return 'rest';}
 export function makeHeldFlower(){const o=makeDreamFlower();o.scale.setScalar(.36);o.name='HeldMoonFlower';return o;}
-export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
+export function makeDollLife(root,model,rig,book,syncPose=()=>{},mapHandPoint=(side,point)=>point,skeletonOnly=false){
  const group=new T.Group();group.name='DailyActionProps';model.add(group);
  const mat=c=>new T.MeshStandardMaterial({color:c,roughness:.8});const metal=mat('#88a99d'),cream=mat('#ede0c3'),tea=mat('#875b3e');
  function mesh(parent,g,m,x=0,y=0,z=0){const o=new T.Mesh(g,m);o.position.set(x,y,z);o.castShadow=true;parent.add(o);return o;}
@@ -35,7 +35,13 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
  const hands={};model.traverse(o=>{if(o.isMesh&&/^(Left|Right).hand/i.test(o.name))hands[o.name.startsWith('Left')?'left':'right']=o;});
  const feet=[];model.traverse(o=>{if(o.isMesh&&(/Rounded.boots/i.test(o.name)||o.userData.colorSlot==='boots'))feet.push(o);});
  const box=new T.Box3(),v=new T.Vector3(),tip=new T.Vector3();
- function handPoint(side='right'){syncPose();model.updateWorldMatrix(true,true);return box.setFromObject(hands[side],true).getCenter(new T.Vector3());}
+ function handPoint(side='right'){syncPose();
+  if(skeletonOnly){
+   const hand=hands[side];
+   if(!hand.geometry.boundingBox)hand.geometry.computeBoundingBox();
+   return hand.localToWorld(hand.geometry.boundingBox.getCenter(new T.Vector3()));
+  }
+  model.updateWorldMatrix(true,true);return mapHandPoint(side,box.setFromObject(hands[side],true).getCenter(new T.Vector3()));}
  const arms=Object.fromEntries(rig.map(x=>[x.label,x.p]));
  function atHand(prop,side='right'){prop.position.copy(model.worldToLocal(handPoint(side)));}
  let taskPropsActive=false,heldFood=null,foodKey='';
@@ -88,7 +94,15 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
   packet.visible=planting;grains.visible=planting&&progress>.2&&progress<.65;
   const p=Math.max(0,Math.min(1,progress)),ease=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
   const envelope=ease(p/.2)*ease((1-p)/.22);
-  if(waving){arms.rightArm.rotation.x=-2.35*envelope;arms.rightArm.rotation.z=(.45+Math.sin(p*Math.PI*10)*.22)*envelope;arms.leftArm.rotation.x=-.12*envelope;model.rotation.z=Math.sin(p*Math.PI*2)*.025*envelope;}
+  arms.rightArm.userData.straightWave=waving && skeletonOnly && model.userData.outfit==='bamboo';
+  if(waving){
+   const wideSleeve=arms.rightArm.userData.straightWave;
+   const swing=Math.sin(p*Math.PI*10)*.22;
+   arms.rightArm.rotation.x=(wideSleeve?0:-2.35)*envelope;
+   arms.rightArm.rotation.z=((wideSleeve?1.48:.45)+swing)*envelope;
+   arms.leftArm.rotation.x=-.12*envelope;
+   model.rotation.z=Math.sin(p*Math.PI*2)*.025*envelope;
+  }
   if(stretching){for(const [name,sign] of [['leftArm',1],['rightArm',-1]]){arms[name].rotation.x=-2.8*envelope;arms[name].rotation.z=-sign*.45*envelope;}model.rotation.x=-.10*envelope;model.rotation.z=Math.sin(p*Math.PI*2)*.055*envelope;}
   if(planting){
    model.rotation.x=.4*envelope;arms.leftLeg.rotation.x=arms.rightLeg.rotation.x=-.9*envelope;

@@ -17,7 +17,11 @@
         { id: "bg", zh: "走后台", note: "发呆和盘一盘也走你配的后台线路，省钱；没配后台就照旧落回线上" }],
       rateDefault: "online" },
     { id: "impression", group: "content", title: "月度印象", sub: "每月 1 号后自动写上个月的印象卡", globalDefault: true, charDefault: true },
-    { id: "moments", group: "social", title: "朋友圈", sub: "低频主动发动态", globalDefault: true, charDefault: true },
+    // 走哪条线路（她 2026-11-19「朋友圈能不能选择走后台」）：跟心上同一个挑法
+    { id: "moments", group: "social", title: "朋友圈", sub: "低频主动发动态", globalDefault: true, charDefault: true,
+      rates: [{ id: "online", zh: "走线上", note: "TA 发朋友圈、大家来评论和回复照 TA 本人说话那条走：挑过专线走专线，没挑走线上" },
+        { id: "bg", zh: "走后台", note: "发朋友圈、评论和回复都走你配的后台线路，省钱；没配后台就照旧落回线上" }],
+      rateDefault: "online" },
     { id: "forum", group: "social", title: "论坛", sub: "低频主动发帖", globalDefault: true, charDefault: true },
     { id: "whisper", group: "social", title: "悄悄话", sub: "关系内低频留言", globalDefault: true, charDefault: true },
     { id: "capsule", group: "social", title: "时光胶囊", sub: "低频主动埋下胶囊", globalDefault: true, charDefault: true },

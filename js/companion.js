@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-cc8079f79f553b35";
+  const KEY = "x_companion", BUILD = "fg-0dbfe7b80431ca19";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -121,7 +121,7 @@
   }
   function usePetContext(props, screen, char) {
     const life = usePetLife(char, props);
-    const p = useIdle(), typing = useTyping(), [weather, setWeather] = useState(null), geo = props.geo;
+    const p = useIdle(), typing = useTyping(), scrolling = useScrolling(), [weather, setWeather] = useState(null), geo = props.geo;
     useEffect(() => {
       let stop = () => {}, selected = "";
       const select = () => {
@@ -134,7 +134,7 @@
       select();window.addEventListener("weather-place", select);
       return () => { stop();window.removeEventListener("weather-place", select); };
     }, [geo && geo.lat, geo && geo.lng, props.characters, props.worlds]);
-    return { screen, music: !!props.music, idle: p.idle, returnSeq: p.returnSeq, typing, weather, life };
+    return { screen, music: !!props.music, idle: p.idle, returnSeq: p.returnSeq, typing, scrolling, weather, life };
   }
   // Observe the real message arrays after delivery. Historical imports and edits are not arrivals.
   function makeMessageWatch() {
@@ -384,6 +384,19 @@
   // 全局悬浮小人：挂在 app 外壳上（和迷你播放器同一层），在陪伴页里自己不出。
   // 在打字吗：悬浮小人会挡输入框，而一个挡住输入框的装饰品，用户第一反应是把它关掉。
   // 打字时淡下去、并且不吃点击（他不该在这时候抢你的手指）。
+  // 正在滑动吗（她 2026-11-18「这堆小人这么大会不会导致手机发热变卡」）：滑的时候悬浮小人先定住不算，停手 0.7 秒再接着动，
+  //   别跟聊天列表抢同一条线程。只在「滑了／停了」两头各改一次状态，不是每次 scroll 都重画
+  function useScrolling() {
+    const [on, setOn] = useState(false);
+    useEffect(() => {
+      let tm = 0, cur = false;
+      const go = () => { if (!cur) { cur = true; setOn(true); } clearTimeout(tm); tm = setTimeout(() => { cur = false; setOn(false); }, 700); };
+      document.addEventListener("scroll", go, { capture: true, passive: true });
+      document.addEventListener("touchmove", go, { capture: true, passive: true });
+      return () => { clearTimeout(tm); document.removeEventListener("scroll", go, { capture: true }); document.removeEventListener("touchmove", go, { capture: true }); };
+    }, []);
+    return on;
+  }
   function useTyping() {
     const [typing, setTyping] = useState(false);
     useEffect(() => {

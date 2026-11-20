@@ -5,5 +5,5 @@ const ui = fs.readFileSync(path.join(__dirname, "../js/screens-ui.js"), "utf8"),
 test("填 Cookie 那栏底下有怎么拿：先扫码，扫不了再从浏览器复制 MUSIC_U", () => {
   assert.match(ui, /"data-wk": "neteasecookiehelp"/);
   assert.match(ui, /找到名字叫 MUSIC_U 的那一行/);
-  assert.match(man, /\*\*Cookie 怎么拿：\*\*/);
+  assert.match(man, /点「Cookie 去哪儿拿？」照着做/);
 });

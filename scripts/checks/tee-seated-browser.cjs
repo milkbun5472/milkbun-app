@@ -9,7 +9,7 @@ qa.silhouette=()=>{
  const at=i=>m.localToWorld(m.getVertexPosition(i,new T.Vector3())).applyMatrix4(inv);
  const after=Array.from({length:pos.count},(_,i)=>at(i));m.morphTargetInfluences[index]=0;
  const before=Array.from({length:pos.count},(_,i)=>at(i));m.morphTargetInfluences[index]=blend;
- const hem=Math.min(...Array.from({length:pos.count},(_,i)=>pos.getY(i))),width=Math.max(...Array.from({length:pos.count},(_,i)=>Math.abs(pos.getX(i))));
+ const hem=Math.min(...Array.from({length:pos.count},(_,i)=>pos.getY(i))),width=Math.max(...Array.from({length:pos.count},(_,i)=>pos.getY(i)<hem+.012?Math.abs(pos.getX(i)):0));
  const front=[],sides=[];
  for(let i=0;i<pos.count;i++)if(pos.getY(i)<hem+.012){if(Math.abs(pos.getX(i))<.04&&pos.getZ(i)>.06)front.push(i);if(Math.abs(pos.getX(i))>width*.94&&Math.abs(pos.getZ(i))<.02)sides.push(i);}
  const rise=Math.min(...front.map(i=>after[i].y-before[i].y)),curve=Math.min(...front.map(i=>after[i].z))-Math.max(...sides.map(i=>after[i].z));

@@ -3,7 +3,7 @@ const source=fs.readFileSync('js/fairy-garden.js','utf8');
 const fn=source.slice(source.indexOf('function DressControls('),source.indexOf('function DyeControl('));
 const h=(type,props,...children)=>({type,props:props||{},children:children.flat(Infinity).filter(Boolean)});
 const DyeControl=()=>{};
-const DressControls=vm.runInNewContext('('+fn+')',{h,React:{Fragment:'fragment'},DyeControl,F_BODY:'sans-serif',HAIR_COLORS:[],G:{ink:'#344936',line:'#cbd4bd',deep:'#344936',soft:'#657561'}});
+const DressControls=vm.runInNewContext('('+fn+')',{h,useState:v=>[v,()=>{}],React:{Fragment:'fragment'},DyeControl,F_BODY:'sans-serif',HAIR_COLORS:[],G:{ink:'#344936',line:'#cbd4bd',deep:'#344936',soft:'#657561'}});
 const flatten=n=>[n,...(n.children||[]).flatMap(c=>typeof c==='object'?flatten(c):[])];
 test('each outfit exposes its actual dye regions; reset changes only its own palette',async()=>{
  const {OUTFITS,mergeLook,outfitColors}=await import('../apps/fairy-garden/wardrobe.mjs');
@@ -69,3 +69,19 @@ test('公共衣柜用当前草稿显示，iframe仍是上次颜色时开关和�
  look=mergeLook(look,{hair:'bob'});assert.equal(band(),undefined);look=mergeLook(look,{hair:'braids'});assert.equal(band().props.value,'#e6b5ce');
  assert.equal(restoreLook({hair:'braids',hairAccessoryColor:'invalid'}).hairAccessoryColor,undefined);assert.equal(hairAccessoryOf({hair:'braids',hairAccessoryColor:'invalid'}).color,'#82aabc');
  });
+test('改外貌一项一格：肤色、眼睛、衣服、头发、表情、体型各收进一个可展开的格子',()=>{
+ const tree=DressControls({who:'me',look:{me:{}},styles:{faces:{default:'默认'},dims:[{key:'x',label:'肩',min:.8,max:1.2}]},game:()=>({}),pushLook:()=>{}});
+ const heads=flatten(tree).filter(n=>n.props&&n.props['data-wk']==='dressfoldhead').map(n=>n.children[0].children[0]);
+ assert.deepEqual(heads,['肤色','眼睛','衣服','头发','表情','体型']);
+});
+test('耳饰与唇饰按左耳、右耳、唇分三段，点选方块，戴上才有色圈',async()=>{
+ const {PIERCINGS,piercingColor,mergeLook}=await import('../apps/fairy-garden/wardrobe.mjs');
+ let look={};const api={piercings:PIERCINGS,piercingColor};
+ const render=()=>flatten(DressControls({who:'me',look:{me:look},styles:{},game:()=>api,pushLook:p=>{look={...look,...p};}}));
+ let nodes=render();
+ assert.deepEqual(nodes.filter(n=>n.props['data-wk']==='piercegroup').map(n=>n.props['aria-label']),['左耳','右耳','唇']);
+ assert.equal(nodes.filter(n=>n.type==='select').length,0);
+ assert.equal(nodes.filter(n=>n.type===DyeControl&&/耳垂颜色/.test(n.props.label)).length,0);
+ const chip=nodes.find(n=>n.props['data-wk']==='piercechip'&&n.props['data-on']==='0');chip.props.onClick();
+ nodes=render();assert.equal(nodes.filter(n=>n.type===DyeControl&&/颜色$/.test(n.props.label)&&n.props.label!=='眼睛').length>=1,true);
+});

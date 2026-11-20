@@ -1,0 +1,12 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
+import {pathToFileURL,fileURLToPath} from 'node:url';
+const compiler=process.argv[2];if(!compiler)throw Error('Pass the path to AssemblyScript 0.28.20 bin/asc.js');
+const version=JSON.parse(readFileSync(new URL('../package.json',pathToFileURL(compiler)),'utf8')).version;
+if(version!=='0.28.20')throw Error('Expected AssemblyScript 0.28.20, received '+version);
+const source=fileURLToPath(new URL('./numeric-core.ts',import.meta.url)),target=fileURLToPath(new URL('../../../../apps/fairy-garden/avatar-motion/numeric-core.wasm',import.meta.url));
+const args=[source,'--outFile',target,'--optimize','--runtime','stub','--noAssert','--initialMemory','16'];
+const result=spawnSync(process.execPath,[compiler,...args],{stdio:'inherit'});if(result.status!==0)throw Error('Numeric kernel build failed');
+const sha=p=>createHash('sha256').update(readFileSync(p)).digest('hex');
+writeFileSync(new URL('./kernel-manifest.json',import.meta.url),JSON.stringify({compiler:'assemblyscript',version,sourceSha256:sha(source),wasmSha256:sha(target),options:args.slice(3)},null,2)+'\n');

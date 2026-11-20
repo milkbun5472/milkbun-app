@@ -6,5 +6,5 @@ assert.match(app, /const undoCharWalletEntry = \(charId, entryId\) =>/);
 assert.match(app, /balance: r2\(\(Number\(cur\.balance\) \|\| 0\) - \(Number\(e\.delta\) \|\| 0\)\)/);
 assert.match(app, /onUndoEntry: undoCharWalletEntry,/);
 assert.match(ui, /"data-wk": "cwundo"/);
-assert.match(rd("assistant-manual.js"), /钱按原数退回他的钱包/);
+assert.match(rd("assistant-manual.js"), /「撤销」把钱退回他的钱包/);
 console.log("ok");

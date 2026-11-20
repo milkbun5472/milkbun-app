@@ -20,3 +20,7 @@ r = pull(["今天好冷", "scene 这个词"]); assert.deepEqual(r.words, ["今�
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 assert.match(app, /const _pm = pullPhotoMarker\(words\)/);
 console.log("photo marker ok");
+
+// 她 2026-11-18 截图：一整泡只剩「[photo]」，丢掉不发
+assert.deepEqual(pull(["刚吃完", "[photo]", "【图片】", "到了先泡杯热的"]).words, ["刚吃完", "到了先泡杯热的"]);
+assert.deepEqual(pull(["我拍了张 photo 给你"]).words, ["我拍了张 photo 给你"]);

@@ -112,7 +112,7 @@ export function emotionPose(face,p){
   q.headNod=prone?-1.55*down:.5*down;break;}
  case 'phone':
   q.left=[-.32*e,0,-.35*e];q.right=[-.32*e,0,.35*e];q.leftElbow=q.rightElbow=-1.65*e;q.leftHeadHold=q.headHold=e;
-  if(e){q.leftHeadPoint=[-.25,-1.85,1.1];q.headPoint=[.35,-1.4,1.7];}
+  if(e)q.elbowPole=[.4,-1,-.3];
   q.phone=e;q.phoneTap=(.5-.5*Math.cos(p*Math.PI*18))*beat(p,.2,.32,.66,.82);q.headNod=.12*e;break;
  case 'eat': {
   const bite=beat(p,.18,.38,.53,.73),chew=Math.sin(p*Math.PI*14)*beat(p,.43,.52,.72,.86);
@@ -203,6 +203,7 @@ export function emotionPose(face,p){
   if(e)q.headPoint=[.38,-1.27,1.04-.12*tap];
   q.left=[-.1*e,0,-.22*e];q.tilt=-.045*e;q.yaw=-.08*e;break;}
  case 'cheer': { // 两只手屈肘举起来，交替向上打气
+  q.cheerSleeve=e;
   const pump=Math.sin(p*Math.PI*6)*beat(p,.16,.28,.64,.8);
   q.left=[(-1.8-.25*pump)*e,0,-.5*e];q.right=[(-1.8+.25*pump)*e,0,.5*e];
   q.leftElbow=-1.15*e;q.rightElbow=-1.15*e;q.roll=.04*pump;q.tilt=-.025*e;break;}
@@ -211,8 +212,9 @@ export function emotionPose(face,p){
   q.right=[-1.65*e,0,(.34+.26*shake)*e];q.left=[-.12*e,0,-.14*e];
   q.yaw=.17*shake;q.roll=.025*shake;break;}
  case 'chin': { // 收手托住下巴，歪头听一会儿，再轻轻点头收势
-  const hold=beat(p,0,.24,.72,1),nod=beat(p,.58,.64,.68,.76);
+  const hold=beat(p,0,.30,.72,1),nod=beat(p,.58,.64,.68,.76);
   q.right=[-.32*hold,0,.35*hold];q.left=[-.12*hold,0,-.08*hold];q.rightElbow=-1.65*hold;q.chinHold=hold;
+  if(hold){q.headPoint=[0,-.95,.7];q.elbowPole=[.7,-.7,.5];}
   q.roll=-.055*hold;q.tilt=.025*hold+.025*nod;q.yaw=-.045*hold;break;}
  case 'headlook': { // 被摸到时先抬眼，身体只轻轻转向你的手
   q.headNod=-.10*e;q.headRoll=-.025*e;q.yaw=.045*e;
@@ -264,7 +266,7 @@ export function emotionPose(face,p){
  case 'happy': // 朝你招手，另一手自然张开，身体跟着招呼轻晃
   q.right=[-2.15*e,0,(.35+Math.sin(p*Math.PI*8)*.27)*e];q.left=[-.25*e,0,-.2*e];q.roll=.055*Math.sin(p*Math.PI*4)*e;break;
  case 'amazed':{ // 双手欢呼，起势后蹦一次，再停住看你
-  q.left=[-2.55*e,0,-.5*e];q.right=[-2.55*e,0,.5*e];const j=(p-.24)/.3;q.lift=j>0&&j<1?.075*Math.sin(j*Math.PI)**2:0;q.tilt=-.025*e;break;}
+  q.outwardLift=1;q.left=[-2.55*e,0,-.5*e];q.right=[-2.55*e,0,.5*e];const j=(p-.24)/.3;q.lift=j>0&&j<1?.075*Math.sin(j*Math.PI)**2:0;q.tilt=-.025*e;break;}
  case 'cozy': // 两手向你打开，靠近一点，像邀你抱抱
   q.left=[-1.05*e,0,-.42*e];q.right=[-1.05*e,0,.42*e];q.tilt=.055*e;q.roll=.045*e;break;
  case 'relax': // 两臂舒展开，向一边伸再慢慢回来

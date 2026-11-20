@@ -40,6 +40,8 @@
       //   按全文记账会把这条消息挤出窗口（存得越全、她越读不到上下文，正好反了）。
       n += (k === "transcript") ? Math.min(TRANSCRIPT_FED_CAP, len) : len;
     });
+    // 文件消息（她发的、TA 发的）的全文挂在 text 上，拼 prompt 时整份展开
+    if (message.kind === "file" && !message.fileGone) n += String(message.text == null ? "" : message.text).length;
     if (message.ccToolResultData != null) {
       // 拼 prompt 那边是 JSON.stringify(...).slice(0, 16000)，这里按同一个上限估
       try { n += Math.min(16000, JSON.stringify(message.ccToolResultData).length); }
@@ -60,7 +62,16 @@
     for (let i = list.length - 1; i >= 0 && picked.length < maxMessages; i--) {
       const message = list[i];
       const cost = costOf(message);
-      if (picked.length && chars + cost > maxChars) break;
+      if (picked.length && chars + cost > maxChars) {
+        // 装不下的是一份文件（她 2026-11-18）：原来在这儿整个停下，文件连同它之前的聊天全都不带了——
+        //   发一份大文件反而让 TA 对更早的事失忆。现在只把这份文件换成一句「发过、全文不在了」，接着往前装
+        if (message.kind === "file" && !message.fileGone) {
+          const stub = Object.assign({}, message, { fileGone: true, text: "" });
+          const sc = costOf(stub) + 60;
+          if (chars + sc <= maxChars) { picked.push(stub); chars += sc; continue; }
+        }
+        break;
+      }
       picked.push(message);
       chars += cost;
     }

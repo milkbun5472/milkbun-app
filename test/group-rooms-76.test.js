@@ -97,7 +97,7 @@ test("平行世界：新开小表有第三项、房间上挂「平行」、群�
   assert.match(comp, /\["parallel", "平行世界", "/);
   assert.match(comp, /r\.parallel \? "平行" : ""/);
   assert.match(comp, /group && group\.parallel \? h\("div"/);
-  assert.ok(manual.includes("**平行世界**"));
+  assert.ok(manual.includes("「平行世界」"));
 });
 
 test("群房间跟单聊同一个进法：点名字那一排最底下的「小房间」，打开房间面板", () => {

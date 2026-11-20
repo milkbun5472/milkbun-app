@@ -152,6 +152,17 @@
   // 她 2026-08-30：「把 token 也放开了写」。原来是 2000–8000 的滑杆。
   // 上限留一个：填成天文数字只会让请求直接被模型拒掉或挂到超时，那不是「放开」。
   const FIC_TOKEN_MAX = 60000;
+  // 写正文那几枪给多少输出额度：只此一份（她 2026-11-19「同人文那个不能抽成公共的吗」）。
+  //   新写一批、续写下一章、把短章接着写完三处原来各算各的，新写那处只按篇幅算、没跟每章最少字数走，
+  //   设了最少 7000 字还是写到一千多就截了。n＝这一枪要写几篇；地板 65000（思考型模型的思考也从这里扣，见 max-tokens-floor）
+  // 写正文那几枪的收法：流式（群里 2026-11-19 截图：一万多字写到第 300 秒被判超时，写出来的全丢）。
+  //   边写边收，只要一直有字进来就不掐；连着 90 秒一个字都没有才算断，总时限 10 分钟（engine.js 的 pumpSSE 那一份）
+  //   线路关了流式（或者那家不支持）就只能干等它整篇写完：等待也放到 10 分钟，跟流式的总时限一样长（她 2026-11-19「非流的话没办法吧」）
+  const FIC_WRITE_OPTS = typeof LONG_WRITE === "object" ? LONG_WRITE : { timeout: 600000, stream: true };   // 全 app 写长文同一份（engine.js）
+  function ficOutCap(n, perFic, minWords) {
+    const each = Math.max(Number(perFic) || 0, Math.ceil((Number(minWords) || 0) * 2));
+    return Math.min(FIC_TOKEN_MAX * 4, Math.max(65000, 6000 + Math.max(1, Number(n) || 1) * each));
+  }
   // ── 书页（她 2026-08-30：「背景换成书页，设置加好几种预设，包括深夜模式的」）──
   // ⚠️一张纸得【连纸带墨】一起给：深夜那张纸配深色墨就什么都看不见了。
   // 所以每一张纸就是一整套主题 token，套在 ThemeContext 上——
@@ -552,17 +563,33 @@
       return fics.some(function (f) { return f && f.tabId === tb.id; });
     });
   }
+  // 预设那几本也能改名、改说明、拿掉（群里 2026-11-19 许愿「同人文的主题可以编辑和删除」）：
+  //   预设本身仍旧只住在代码里，她改过的那几处另存一份 x_fanfic_seedEdits { 版id: {name,desc} | {gone:true} }，读的时候盖上去
+  const K_SEED_EDITS = "x_fanfic_seedEdits";
+  function seedTabs() {
+    const ed = loadJSON(K_SEED_EDITS, {}) || {};
+    return SEED_TABS.filter(function (s) { return !(ed[s.id] && ed[s.id].gone); })
+      .map(function (s) { const e = ed[s.id]; return e ? Object.assign({}, s, e.name ? { name: e.name } : {}, typeof e.desc === "string" ? { desc: e.desc } : {}) : s; });
+  }
   function loadTabs() {
     const stored = loadJSON(K_TABS, null);
-    if (!stored || !Array.isArray(stored) || !stored.length) return SEED_TABS.concat(livingRetired());
+    if (!stored || !Array.isArray(stored) || !stored.length) return seedTabs().concat(livingRetired());
     // 预设永远来自代码，只把用户自定义项留在存储；旧档里的整套种子读到后会就地瘦身。
     const seedIds = SEED_TABS.map(function (s) { return s.id; });
     const custom = stored.filter(function (t) { return seedIds.indexOf(t.id) < 0 && !retiredId(t.id); });
     if (custom.length !== stored.length) saveJSON(K_TABS, custom);
-    return SEED_TABS.concat(custom).concat(livingRetired());
+    return seedTabs().concat(custom).concat(livingRetired());
   }
   function saveTabs(list) {
     const seedIds = new Set(SEED_TABS.map(function (s) { return s.id; }));
+    // 预设那几本：跟代码里原样比，改过的记下名字说明，不在单子里的记成拿掉
+    const arr = Array.isArray(list) ? list : [], ed = {};
+    SEED_TABS.forEach(function (s) {
+      const now = arr.find(function (t) { return t && t.id === s.id; });
+      if (!now) ed[s.id] = { gone: true };
+      else if (now.name !== s.name || now.desc !== s.desc) ed[s.id] = { name: now.name, desc: now.desc };
+    });
+    saveJSON(K_SEED_EDITS, ed);
     // 退役版块同样不许写回存储：它露不露面只由「底下还有没有文章」决定
     saveJSON(K_TABS, (Array.isArray(list) ? list : []).filter(function (t) { return t && !seedIds.has(t.id) && !retiredId(t.id); }));
   }
@@ -1171,7 +1198,7 @@
     const user = (one ? "写 " + n + " 篇完结短篇，每篇都一次写完、" : "写 " + n + " 篇") + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
     let batchCot = null;
     async function once(extra) {
-      const raw = await callAI(active, sys + posTail(cpChars, opts) + (extra || ""), [{ role: "user", content: user }], { maxTokens: Math.min(FIC_TOKEN_MAX * 4, 6000 + n * perFic), timeout: 300000 }); // 长文风+长正文允许 5 分钟；思考型模型的思考也从这里扣
+      const raw = await callAI(active, sys + posTail(cpChars, opts) + (extra || ""), [{ role: "user", content: user }], { maxTokens: ficOutCap(n, perFic, minWords), ...FIC_WRITE_OPTS });
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       if (sp.cot) batchCot = sp.cot; // 整批一次思考，挂到第一篇
       const d = parseJSONLoose(sp.clean);
@@ -1893,7 +1920,7 @@
       // ⚠️天花板要跟着地板走：她把最少字数调到 5000 字，而天花板还按 perFic 算，
       //   就会写到一半被截断——那才是真多花一次调用（施工规则/max-tokens-floor.md）。
       const raw = await callAI(active, sys + posTail(cpChars, ficOpts(fic, opts)) + (extra || ""), [{ role: "user", content: userMsg }],
-        { maxTokens: 65000, timeout: 300000 });
+        { maxTokens: ficOutCap(1, clampPerFic(opts.perFic), minWords), ...FIC_WRITE_OPTS });
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       const d = parseJSONLoose(sp.clean);
       if (d && d.content) return { content: String(d.content).trim(), endHook: String(d.endHook || "").trim(),
@@ -1949,7 +1976,7 @@
       (!byChar && opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL)
       + (byChar ? charVoiceTail(byChar, opts.style) : "");
     const raw = await callAI(active, sys + posTail(cpChars, ficOpts(fic, opts)), [{ role: "user", content: "接着把这一章写完，至少再写 " + Math.max(200, missing) + " 字。" }],
-      { maxTokens: 65000, timeout: 300000 });
+      { maxTokens: ficOutCap(1, clampPerFic(opts.perFic), minWords), ...FIC_WRITE_OPTS });
     const d = parseJSONLoose(raw);
     let add = d && d.add ? String(d.add).trim() : "";
     if (!add) {

@@ -81,7 +81,7 @@ test("点不着的就什么都不做——别写一次空盘，也别把整栏�
 
 test("界面：每一件详情里都有那颗删除键，而且先问一句", () => {
   assert.match(app, /onDeleteItem: carryDeleteItem,/, "app 没接上");
-  assert.match(scr, /onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore/, "CarryAll 没往下传");
+  assert.match(scr, /onTogglePin, onDeleteItem, (?:onEditItem, )?onPeek, onGen, onGenClosetMore/, "CarryAll 没往下传");
   assert.match(scr, /function CarrySection\(\{[^}]*onTogglePin, onDeleteItem,/, "CarrySection 没收");
   assert.match(scr, /requestAppConfirm\("删掉「" \+ sheet\.name \+ "」？"/, "删东西不问一句");
   assert.match(scr, /onDeleteItem\(char\.id, sectionKey, sheet\.name\); setSheet\(null\);/);

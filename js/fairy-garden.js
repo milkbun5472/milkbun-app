@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS, SHOP_WORLD } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-cc8079f79f553b35", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-0dbfe7b80431ca19", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -717,11 +717,18 @@
   // game 是游戏 iframe 里那个对象，要有 getDyes / getOutfit；pushLook 负责落盘。
   function DressControls({ who, look, styles, game, pushLook }) {
     const api=game(),selected=api?.wardrobeFor?.(who,look[who]),dyes=selected?.dyes||api?.getDyes?.(who),outfitChoice=selected?.outfit||api?.getOutfit?.(who);
+    // 一项一个格子，点开才展开（她 2026-11-20：「选外貌那个界面太长了」）；陪伴、庭院、列车都是这一份
+    const [open, setOpen] = useState("");
+    const fold = (key, label, ...kids) => h("section", { key, "data-wk": "dressfold", "data-on": open === key ? "1" : "0", style: { borderBottom: "1px solid " + G.line } },
+      h("button", { "data-wk": "dressfoldhead", onClick: () => setOpen(o => o === key ? "" : key), "aria-expanded": open === key, className: "active:opacity-70",
+        style: { width: "100%", minHeight: 48, display: "flex", alignItems: "center", justifyContent: "space-between", background: "transparent", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: G.ink } },
+        h("span", null, label), h("span", { style: { color: G.soft, fontSize: "calc(12px * var(--app-fs, 1))" } }, open === key ? "收起" : "展开")),
+      h("div", { style: { paddingBottom: 14, display: open === key ? "block" : "none" } }, ...kids));
     return h(React.Fragment, null,
-      h(DyeControl, { key: who + "skin", label: "肤色", value: dyes?.skin,
-        onChange: skin => pushLook({ skin }), palette: ["#f9e2d2", "#f2cbb4", "#dfb093", "#c58d69", "#9c694c", "#694536"] }),
+      fold("skin", "肤色", h(DyeControl, { key: who + "skin", label: "肤色", value: dyes?.skin,
+        onChange: skin => pushLook({ skin }), palette: ["#f9e2d2", "#f2cbb4", "#dfb093", "#c58d69", "#9c694c", "#694536"] })),
       // 陪伴、TA的一天、庭院、列车和小镇共用这套眼睛控件；各自仍从原角色/旅程存档读取。
-      (() => { const d = dyes || look[who] || {}, split = d.eyeMode === "split";
+      fold("eye", "眼睛", (() => { const d = dyes || look[who] || {}, split = d.eyeMode === "split";
         const palette = ["#5d4435", "#2b2230", "#3f6fa8", "#4e8a62", "#8a5bb0", "#b5433f"];
         return h("section", { "aria-label": "眼睛配色" },
           h("label", { style: { display: "flex", alignItems: "center", gap: 9, minHeight: 44, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.ink } },
@@ -729,8 +736,28 @@
           h("p", { style: { fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: 1.7, color: G.soft, margin: "2px 0 10px" } }, "按小人自己的左右选色；关闭后使用同色，异瞳配色会保留。"),
           ...(split ? [["eyeLeft", "左眼"], ["eyeRight", "右眼"]] : [["eye", "眼睛"]]).map(([key, label]) =>
             h(DyeControl, { key: who + key, label, value: d?.[key] || d?.eye || "#5d4435", onChange: value => pushLook({ [key]: value }), palette })));
-      })(),
-      h("section", { "aria-label": "衣柜", style: { marginBottom: 24 } },
+      })()),
+      // 耳饰与唇饰（她 2026-11-20：「你直接改吧」）：七个位置按左耳／右耳／唇分三小段，款式用跟发型一样的点选方块，戴上才出色圈
+      api?.piercings && fold("piercings", "耳饰与唇饰", ...[["左耳", /^leftEar/], ["右耳", /^rightEar/], ["唇", /^lip/]].map(([zh, re]) => {
+        const slots = Object.entries(api.piercings || {}).filter(([slot]) => re.test(slot));
+        if (!slots.length) return null;
+        const current = look[who] || {};
+        return h("section", { key: zh, "data-wk": "piercegroup", "aria-label": zh, style: { marginBottom: 16 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: G.ink, marginBottom: 8 } }, zh),
+          slots.map(([slot, { label, styles: choices }]) => {
+            const style = current[slot] || "", short = slots.length > 1 ? String(label).replace(/^[左右]耳/, "") : label;
+            return h("div", { key: slot, "data-wk": "pierceslot", style: { marginBottom: 10 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginBottom: 6 } }, short),
+              h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+                [["", "不戴"], ...Object.entries(choices)].map(([value, text]) => {
+                  const on = style === value;
+                  return h("button", { key: value || "none", "data-wk": "piercechip", "data-on": on ? "1" : "0", "aria-pressed": on, onClick: () => pushLook({ [slot]: value }), className: "active:opacity-70",
+                    style: { minHeight: 36, padding: "6px 11px", borderRadius: 11, border: "1px solid " + (on ? G.deep : G.line), background: on ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? G.ink : G.soft } }, text);
+                })),
+              style ? h("div", { style: { marginTop: 8 } }, h(DyeControl, { key: who + slot, label: short + "颜色", value: api.piercingColor(current, slot), onChange: hex => pushLook({ [slot + "Color"]: hex }) })) : null);
+          }));
+      }).filter(Boolean)),
+      fold("outfit", "衣服", h("section", { "aria-label": "衣柜", style: { marginBottom: 10 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } },
           Object.entries((styles && styles.outfits) || {}).map(([id, outfit]) => {
@@ -747,7 +774,8 @@
             style: { minHeight: 44, padding: "8px 14px", marginBottom: 8, border: "1px solid " + G.line, borderRadius: 10, background: "#f7f5e9", color: G.deep, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "恢复本套默认配色")].concat(slots.map(([slot, label]) => {
             const hex = selected.colors[slot] || "#8d5f66";
             return h(DyeControl, { key: who + slot, label, value: hex, onChange: value => pushLook({ outfitColors: { [slot]: value } }) });
-          })) : null; })()),
+          })) : null; })())),
+      fold("hair", "头发",
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 9 } }, "发型"),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 } },
         Object.entries((styles && styles.hair) || {}).map(([key, label]) => {
@@ -758,33 +786,6 @@
               fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.45, color: on ? G.ink : G.soft } }, label);
         })),
       !styles && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.soft } }, "发型名单还没读进来…"),
-      // 表情：换的是脸上那张贴图（doll.json 的 faces）；以后桌宠按心情自动换也走同一个 face 字段
-      styles && styles.faces ? h("div", { style: { marginTop: 18 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 9 } }, "表情"),
-        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 } },
-          Object.entries(styles.faces).map(([key, label]) => {
-            const on = ((look[who] || {}).face || "default") === key;
-            return h("button", { key, "aria-pressed": on, onClick: () => pushLook({ face: key }), className: "active:opacity-70",
-              style: { minHeight: 36, borderRadius: 11, border: "1px solid " + (on ? G.deep : G.line), background: on ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? G.ink : G.soft } }, label);
-          }))) : null,
-      // 体型：六根滑杆，1 是中性。上下限来自 doll.json（＝Blender 里那份 LIMITS）
-      ((styles && styles.dims) || []).length ? h("div", { style: { marginTop: 22 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 4 } }, "体型"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: G.soft, marginBottom: 10, lineHeight: 1.7 } }, "按这只小旅人的比例微调；拖动就能看见变化，每一项都可以单独还原。"),
-        styles.dims.map(d => {
-          const cur = Number(((look[who] || {}).dims || {})[d.key]);
-          const value = isFinite(cur) ? cur : 1;
-          return h("div", { "data-wk": "block", key: d.key, style: { marginBottom: 10, padding: "12px 13px", background: "rgba(244,229,211,.52)", border: "1px solid rgba(151,112,82,.16)", borderRadius: 14 } },
-            h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginBottom: 3 } },
-              h("span", null, d.label + " · " + Math.round(value * 100) + "%"),
-              h("button", { onClick: () => pushLook({ dims: { [d.key]: 1 } }), className: "active:opacity-60",
-                style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: Math.abs(value - 1) < .005 ? "transparent" : G.deep, background: "transparent" } }, "回到中间")),
-            h("input", { type: "range", "aria-label": d.label, min: d.min, max: d.max, step: .01, value: value,
-              onChange: e => pushLook({ dims: { [d.key]: Number(e.target.value) } }),
-              style: { width: "100%", minHeight: 28, accentColor: "#a5785c" } }),
-            h("div", { className: "flex items-center justify-between", style: { fontSize: "calc(10px * var(--app-fs, 1))", color: G.soft } },
-              h("span", null, d.low || "轻一些"), h("span", null, d.high || "多一些")));
-        })) : null,
       h(DyeControl, { key: who + "hair", label: "发色", value: dyes?.hairColor,
         onChange: hairColor => pushLook({ hairColor }), palette: HAIR_COLORS }),
       (() => { const accessory=selected?selected.accessory:api?.getHairAccessory?.(who);
@@ -800,7 +801,34 @@
             modes.map(([id, label]) => h("button", { key: id, "aria-pressed": mode === id, onClick: () => pushLook({ hairMode: id }), className: "active:opacity-70",
               style: { minHeight: 40, borderRadius: 12, border: "1px solid " + (mode === id ? G.deep : G.line), background: mode === id ? "#d4ddc7" : "#f7f5e9", color: G.ink, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, label))) : null,
           mode !== "solid" ? h(DyeControl, { key: who + "hair2", label: mode === "gradient" ? "发尾颜色" : mode === "split" ? "另一半颜色" : "挑染颜色",
-            value: d ? d.hairColor2 : null, onChange: hairColor2 => pushLook({ hairColor2 }), palette: HAIR_COLORS.concat(["#e6b5ce", "#9fb8d8", "#f0e0b8"]) }) : null); })());
+            value: d ? d.hairColor2 : null, onChange: hairColor2 => pushLook({ hairColor2 }), palette: HAIR_COLORS.concat(["#e6b5ce", "#9fb8d8", "#f0e0b8"]) }) : null); })()),
+      // 表情：换的是脸上那张贴图（doll.json 的 faces）；以后桌宠按心情自动换也走同一个 face 字段
+      styles && styles.faces ? fold("face", "表情", h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 9 } }, "表情"),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 } },
+          Object.entries(styles.faces).map(([key, label]) => {
+            const on = ((look[who] || {}).face || "default") === key;
+            return h("button", { key, "aria-pressed": on, onClick: () => pushLook({ face: key }), className: "active:opacity-70",
+              style: { minHeight: 36, borderRadius: 11, border: "1px solid " + (on ? G.deep : G.line), background: on ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? G.ink : G.soft } }, label);
+          })))) : null,
+      // 体型：六根滑杆，1 是中性。上下限来自 doll.json（＝Blender 里那份 LIMITS）
+      ((styles && styles.dims) || []).length ? fold("dims", "体型", h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: G.ink, marginBottom: 4 } }, "体型"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: G.soft, marginBottom: 10, lineHeight: 1.7 } }, "按这只小旅人的比例微调；拖动就能看见变化，每一项都可以单独还原。"),
+        styles.dims.map(d => {
+          const cur = Number(((look[who] || {}).dims || {})[d.key]);
+          const value = isFinite(cur) ? cur : 1;
+          return h("div", { "data-wk": "block", key: d.key, style: { marginBottom: 10, padding: "12px 13px", background: "rgba(244,229,211,.52)", border: "1px solid rgba(151,112,82,.16)", borderRadius: 14 } },
+            h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginBottom: 3 } },
+              h("span", null, d.label + " · " + Math.round(value * 100) + "%"),
+              h("button", { onClick: () => pushLook({ dims: { [d.key]: 1 } }), className: "active:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: Math.abs(value - 1) < .005 ? "transparent" : G.deep, background: "transparent" } }, "回到中间")),
+            h("input", { type: "range", "aria-label": d.label, min: d.min, max: d.max, step: .01, value: value,
+              onChange: e => pushLook({ dims: { [d.key]: Number(e.target.value) } }),
+              style: { width: "100%", minHeight: 28, accentColor: "#a5785c" } }),
+            h("div", { className: "flex items-center justify-between", style: { fontSize: "calc(10px * var(--app-fs, 1))", color: G.soft } },
+              h("span", null, d.low || "轻一些"), h("span", null, d.high || "多一些")));
+        }))) : null);
   }
   function DyeControl({label, value, onChange, palette}) {
     const hex = /^#[0-9a-f]{6}$/i.test(value || "") ? value : "#f2cbb4";

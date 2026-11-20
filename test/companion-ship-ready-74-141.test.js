@@ -16,8 +16,8 @@ test("看不见就真的停：它是全 app 唯一常驻的 WebGL", () => {
   assert.match(pet, /act=null;[^\n]*lastT=clock\.getElapsedTime\(\);nextAt=lastT\+1;lastDraw=-1;r\.setAnimationLoop\(frame\)/);
 });
 
-test("悬浮那只按 24 帧画（指甲盖大小，60 帧换不到一分钱好看）", () => {
-  assert.match(pet, /const FRAME=mode==='float'\?1\/24:1\/40;/);
+test("悬浮那只按 12 帧画（指甲盖大小；她 2026-11-18 嫌发热，从 24 再降一半）", () => {
+  assert.match(pet, /const FRAME=mode==='float'\?1\/12:1\/40;/);
   assert.match(pet, /if\(t-lastDraw<FRAME\)return;/);
 });
 

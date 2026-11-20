@@ -1,0 +1,14 @@
+{
+  "compiler": "assemblyscript",
+  "version": "0.28.20",
+  "sourceSha256": "eeffd0a94454de0ebcacb0db09c411d56b4e6a77e3dbd71d2f14a8661bb5b1c0",
+  "wasmSha256": "fd5209d8d359fc31c123a73c982ac37e56419a868457981dbb3177bf4ba4df04",
+  "options": [
+    "--optimize",
+    "--runtime",
+    "stub",
+    "--noAssert",
+    "--initialMemory",
+    "16"
+  ]
+}

@@ -23,3 +23,8 @@ test("forwarded records retain readable prompt content and structured provenance
   assert.match(app, /pGChat\(g\.id/);
   assert.match(app, /pChat\(toChar\.id/);
 });
+
+test("单聊转发名单里本人在最前", () => {
+  const comp = require("node:fs").readFileSync(require("node:path").resolve(__dirname, "..", "js/components.js"), "utf8");
+  require("node:assert/strict").match(comp, /h\(ForwardPickSheet, \{ chars: \[character\]\.concat\(\(characters \|\| \[\]\)\.filter\(c => c\.id !== character\.id\)\)\.filter\(Boolean\)/);
+});

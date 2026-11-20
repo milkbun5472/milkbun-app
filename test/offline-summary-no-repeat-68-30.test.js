@@ -58,7 +58,7 @@ test("六处一样喂：单人/群 × 滚动/收尾/补总结，一处都不许�
   assert.equal((app.match(/offlineRecordedOf\(sess\.id\)/g) || []).length, 6, "六个调用点没都带上已记过的那份");
   assert.match(eng, /async function summarizeOffline\(p, ctx, session, already\)/);
   assert.match(eng, /async function summarizeOfflineGroup\(p, ctx, session, already\)/);
-  assert.equal((eng.match(/\+ offlineSummaryAvoidBlock\(already\);/g) || []).length, 2, "两个总结函数没都拼上");
+  assert.equal((eng.match(/\+ offlineSummaryAvoidBlock\(already\)(?: \+ offlineSummaryGenderTail\([^)]*\))?;/g) || []).length, 2, "两个总结函数没都拼上");
 });
 
 test("拼在 system 里，不是塞进 user（施工规则/prompt-send-shape.md）", () => {

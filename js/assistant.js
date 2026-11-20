@@ -697,7 +697,7 @@
       read: () => [],                       // 记忆是往里加，不是改现有的
       write: (id, patch, ctx) => {
         if (!ctx.onAddMemories) throw new Error("这个页面没接记忆写入口");
-        const items = String(patch.text || "").split("\n").map(x => x.replace(/^[-·•\d.、\s]+/, "").trim()).filter(Boolean);
+        const items = String(patch.text || "").split("\n").map(x => x.replace(/^\s*(?:[-·•]\s*|\d{1,3}[.、)）]\s*)/, "").trim())   /* 只削列表符号；行首「2025-03-14｜」是日子，留给 memDateLead */.filter(Boolean);
         if (!items.length) throw new Error("没有可写入的条目");
         ctx.onAddMemories(id, items);       // id = charId
         return items.length;
@@ -1196,7 +1196,7 @@
       + "  ⚠️她要的事界面上本来就能点出来（删/移走/放回一个组件、换图、开关某一样），先翻攻略找到那一步，直接告诉她在哪儿点；"
       + "别拿 CSS 去藏一个本来就能删的东西（藏起来的还占着位置、也没法放回），攻略里没写的步骤也别猜一个出来。只有界面上真做不到的样子，才出 theme。\n"
       + "· pagecolor 某一页的配色（id＝那一页的 key；text 是一份 JSON，如 {\"bg2\":\"#f2ece0\"}）\n"
-      + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"
+      + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）。这件事是哪天发生的，知道就写在那一行最前面「YYYY-MM-DD｜」，不知道就不写\n"
       + (typeof window !== "undefined" && window.AssistExtras ? window.AssistExtras.docLines() : "")
       + "· rel 两个人之间的一条关系线（快照里【关系】那一栏）：id 写成 \"A->B\"（A、B 是角色或配角的名字或 id，她本人写「我」），text＝A 对 B 是什么关系（几个字）；both:true＝两个方向写成同一句；text 留空＝删掉这条线。"
       + "她说「这几个人其实是一伙的」，就给每两个该连的人各出一张；有就改、没有就加，快照里已经对的别重复出。\n"

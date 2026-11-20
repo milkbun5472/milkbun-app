@@ -3817,6 +3817,7 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
   const [sel, setSel] = useState([]); // 选中的购物车 uid
   // 用哪张面具付（她 2026-10-29「来我们慢慢开始分吧」）：""＝主面具。这一单就记在这张面具名下，查手机按它挡
   const [payMask, setPayMask] = useState("");
+  const [custom, setCustom] = useState(null); // 「自己写一件」那张表：{ name, desc, price }，null＝没开
   const [sheet, setSheet] = useState(null); // "actions" | "gift" | "paylater" | "kinship" | {kind:"regift",orderId}
   const [now, setNow] = useState(Date.now());
   const [detail, setDetail] = useState(null);   // 点开的那件商品（以前商品根本点不进去）
@@ -3906,7 +3907,20 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
   // ---------- 购物车 ----------
   const shopHead = (zh, right) => h(Head, { zh, onBack, bg: MSHOP.card, ink: MSHOP.ink, subInk: MSHOP.dim, lineInk: MSHOP.line, right: right || null });
   const cartView = h("div", { "data-wk": "shopcart", className: "flex-1 flex flex-col min-h-0" },
-    shopHead("购物车"),
+    // 自己写一件（群友 2026-11-20：想送一件自己挑的衣服，挂进衣柜就没有收到的那一下）：写好进购物车，结算照常送礼／自己买
+    shopHead("购物车", h("button", { "data-wk": "shopcustom", onClick: () => setCustom({ name: "", desc: "", price: "0" }), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.orange } }, "自己写一件")),
+    // 一张表三格一起填（她 2026-11-20：「能不能一次性三个框都出现」）
+    custom ? h("div", { "data-wk": "shopcustommask", className: "absolute inset-0 flex items-end z-50", style: { background: "rgba(20,19,25,0.42)" }, onClick: () => setCustom(null) },
+      h("div", { "data-wk": "shopcustomsheet", onClick: e => e.stopPropagation(), className: "w-full", style: { background: MSHOP.card, borderRadius: "18px 18px 0 0", padding: "18px 16px", paddingBottom: COMPOSER_PAD_BOTTOM, fontFamily: F_BODY } },
+        h("div", { style: { fontSize: "calc(15px * var(--app-fs, 1))", color: MSHOP.ink, marginBottom: 14 } }, "自己写一件"),
+        h("label", { style: { display: "block", marginBottom: 12 } }, h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: MSHOP.dim, marginBottom: 5 } }, "叫什么"), h("input", { "data-wk": "shopcustomfield", "data-part": "name", value: custom.name, onChange: e => setCustom(c => ({ ...c, name: e.target.value })), style: { width: "100%", boxSizing: "border-box", border: "1px solid #e4e4ea", borderRadius: 10, padding: "10px 12px", fontFamily: F_BODY, fontSize: 16, color: MSHOP.ink, background: "#fafafc" }, maxLength: 30, placeholder: "这件东西的名字" })),
+        h("label", { style: { display: "block", marginBottom: 12 } }, h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: MSHOP.dim, marginBottom: 5 } }, "它的样子（送出去时 TA 会看到）"), h("textarea", { "data-wk": "shopcustomfield", "data-part": "desc", value: custom.desc, onChange: e => setCustom(c => ({ ...c, desc: e.target.value })), style: { width: "100%", boxSizing: "border-box", border: "1px solid #e4e4ea", borderRadius: 10, padding: "10px 12px", fontFamily: F_BODY, fontSize: 16, color: MSHOP.ink, background: "#fafafc" }, rows: 3, maxLength: 200, placeholder: "款式、颜色、材质、为什么挑它" })),
+        h("label", { style: { display: "block", marginBottom: 12 } }, h("div", { style: { fontSize: "calc(12px * var(--app-fs, 1))", color: MSHOP.dim, marginBottom: 5 } }, "多少钱（不想花钱就填 0）"), h("input", { "data-wk": "shopcustomfield", "data-part": "price", value: custom.price, onChange: e => setCustom(c => ({ ...c, price: e.target.value })), style: { width: "100%", boxSizing: "border-box", border: "1px solid #e4e4ea", borderRadius: 10, padding: "10px 12px", fontFamily: F_BODY, fontSize: 16, color: MSHOP.ink, background: "#fafafc" }, inputMode: "decimal" })),
+        h("button", { "data-wk": "shopcustomok", disabled: !String(custom.name).trim(), onClick: () => {
+            const name = String(custom.name).trim().slice(0, 30); if (!name) return;
+            onAddCart({ name, desc: String(custom.desc || "").trim().slice(0, 200), price: Math.max(0, Math.round((Number(custom.price) || 0) * 100) / 100), cat: "其他", custom: true });
+            setCustom(null); toast("已加入购物车");
+          }, className: "w-full active:opacity-80", style: { marginTop: 4, minHeight: 46, borderRadius: 12, background: MSHOP.orange, color: "#fff", fontSize: "calc(14px * var(--app-fs, 1))", opacity: String(custom.name).trim() ? 1 : .5 } }, "放进购物车"))) : null,
     h("div", { "data-wk": "shopcartlist", className: "flex-1 overflow-y-auto px-3 py-3", style: { background: MSHOP.bg } },
       cartItems.length === 0
         ? h("div", { "data-wk": "shopempty", "data-part": "cart", className: "text-center", style: { paddingTop: 80, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: MSHOP.dim } }, "购物车是空的")
@@ -12998,7 +13012,7 @@ function clothFigure(o) {
 // 标题栏、分节标题和跳转——两份渲染各画一遍的话，改一处就必然忘掉另一处。
 function CarryAll(props) {
   const t = useTheme();
-  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, scrollTo } = props;
+  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onEditItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, scrollTo } = props;
   const scRef = useRef(null);
   const secRefs = useRef({});
   const busyAll = busyKey === "__all__";
@@ -13081,17 +13095,19 @@ function CarryAll(props) {
           closetData: data.outfit,
           busyKey: busyAll ? x.key : busyKey, giftBusy,
           pinned: ((carryPins || {})[char.id] || {})[x.key] || [],
-          onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack
+          onTogglePin, onDeleteItem, onEditItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack
         })))));
 }
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
-function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, embedded }) {
+function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onEditItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, embedded }) {
   const [closetKw, setClosetKw] = useState(""), [hangOpen, setHangOpen] = useState(false), [hang, setHang] = useState({ occ: "", name: "", note: "" });
   const t = useTheme();
   const sec = CARRY_SECTIONS.find(s => s.key === sectionKey) || {};
   const isGifts = !!sec.gifts;
   const loading = busyKey === sectionKey;
   const [sheet, setSheet] = useState(null); // {name,note,thought} AI 物品
+  const [sheetEdit, setSheetEdit] = useState(null);   // 正在改这一件：{ name, note }（群里 2026-11-19「衣柜里的衣服也可以编辑」）
+  useEffect(() => { setSheetEdit(null); }, [sheet]);
   const [openGiftId, setOpenGiftId] = useState(null);
   const [giftOccOpen, setGiftOccOpen] = useState(false);   // 「不是衣服？也挂进去」展开了没
   // 打开非礼物版块：没内容就直接生成，失败退回上一级。
@@ -13366,6 +13382,20 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
           }, characterText(char, "摆到他面前")) : null),
         // 删掉这一件（她 2026-09-18：「角色随身物这些能不能也都可以单个删除」）。
         // ⚠️单独一行、不跟上面那两颗挤在一排：那两颗是【留下它】的动作，这颗是反的。
+        // 改这一件（群里 2026-11-19）：名字和那句说明，就地改、存了就换
+        onEditItem ? (sheetEdit
+          ? h("div", { "data-wk": "carrysheetedit", style: { marginTop: 10 } },
+              h("input", { "data-wk": "input", value: sheetEdit.name, maxLength: 40, onChange: e => setSheetEdit({ ...sheetEdit, name: e.target.value }), placeholder: "叫什么",
+                style: { width: "100%", minHeight: 40, padding: "0 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", outline: "none", boxSizing: "border-box" } }),
+              h("textarea", { "data-wk": "textarea", value: sheetEdit.note, rows: 3, maxLength: 300, onChange: e => setSheetEdit({ ...sheetEdit, note: e.target.value }), placeholder: "说明（可以空着）",
+                style: { width: "100%", marginTop: 8, padding: "8px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", outline: "none", boxSizing: "border-box", resize: "vertical", lineHeight: 1.6 } }),
+              h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+                h("button", { "data-wk": "carrysheetbtn", "data-part": "editcancel", onClick: () => setSheetEdit(null), className: "flex-1 py-2.5 active:opacity-70",
+                  style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 999, border: "1px solid " + t.line, color: t.sub } }, "算了"),
+                h("button", { "data-wk": "carrysheetbtn", "data-part": "editsave", disabled: !sheetEdit.name.trim(), onClick: () => { if (onEditItem(char.id, sectionKey, sheet.name, sheetEdit)) { setSheet(null); setSheetEdit(null); } }, className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40",
+                  style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 999, background: t.ink, color: t.bg2 } }, "存好")))
+          : h("button", { "data-wk": "carrysheetbtn", "data-part": "edit", onClick: () => setSheetEdit({ name: String(sheet.name || ""), note: String(sheet.note || "") }), className: "w-full py-2.5 active:opacity-70",
+              style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", borderRadius: 999, border: "1px solid " + t.line, color: t.sub } }, "改这一件")) : null,
         onDeleteItem ? h("button", { "data-wk": "carrysheetbtn", "data-part": "delete",
           onClick: () => requestAppConfirm("删掉「" + sheet.name + "」？",
             (isPinned(sheet) ? "这一件是留着的，删掉时一起取消——不然下次刷新它会被补回来。\n" : "")
@@ -13507,7 +13537,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     sheetNode,
     giftNode);
 }
-function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear, onTogglePin, onDeleteItem, onPeek }) {
+function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear, onTogglePin, onDeleteItem, onEditItem, onPeek }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -13597,7 +13627,7 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
   // 以前是一格一页、各自一次生成；现在整页共用一次调用。
   if (open) return h(CarryAll, {
     char, data, gifts, busyKey, giftBusy, closetBusy, carryPins,
-    onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear,
+    onTogglePin, onDeleteItem, onEditItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear,
     scrollTo: open, onBack: () => setOpen(null)
   });
   // 一格一格的抽屉，摞成一个立着的柜子——她 2026-08-29 之前那版是五个白方块
@@ -13716,13 +13746,14 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
 // 在这之前压根没有正门——只能在情侣空间→照相馆里点「配一身约会装」，一次一身、
 // 还绑着某个角色。这一页是它的正门：关键词生成一次四身，也能自己挂。
 // 整页，不用半窗（施工规则/no-half-sheet.md）。
-function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, masks, maskKey, onMask, hasIn, onToggleMask }) {
+function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onEdit, onPin, onBack, masks, maskKey, onMask, hasIn, onToggleMask }) {
   // 钉住的那一身：写的是「名字：说明」这一句，跟出图常服那把锁同一格
   const pinText = x => String(x.name || "").trim() + (x.note ? "：" + String(x.note).trim() : "");
   const pinned = String((profile && profile.photoOutfit) || "").trim();
   const t = useTheme();
   const groups = closetGroups(data);
   const [kw, setKw] = useState("");
+  const [editing, setEditing] = useState(null);   // 正在改的那一身：{ occ, old, name, note }
   const [openAdd, setOpenAdd] = useState(false);
   const [occ, setOcc] = useState("");
   const [name, setName] = useState("");
@@ -13788,8 +13819,23 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack, ma
                     "aria-label": pinned === pinText(x) ? "不再固定穿这身" : "以后出图固定穿这身",
                     style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: pinned === pinText(x) ? t.bg : t.ink, background: pinned === pinText(x) ? t.ink : "transparent",
                       border: "1px solid " + t.ink, borderRadius: 999, padding: "2px 9px" } }, pinned === pinText(x) ? "固定穿着" : "固定穿") : null,
+                  onEdit ? h("button", { "data-wk": "closetsetedit", onClick: () => setEditing({ occ: g.occasion, old: x.name, name: x.name || "", note: x.note || "", pin: pinned === pinText(x) }), className: "active:opacity-60 shrink-0", "aria-label": "改这身",
+                    style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "改") : null,
                   h("button", { "data-wk": "closetsetdrop", onClick: () => onDrop(g.occasion, x.name), className: "active:opacity-60 shrink-0", "aria-label": "拿掉这身",
                     style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "拿掉")),
+                editing && editing.occ === g.occasion && editing.old === x.name ? h("div", { "data-wk": "closetsetediting", style: { marginTop: 8 } },
+                  h("input", { "data-wk": "input", value: editing.name, maxLength: 24, onChange: e => setEditing({ ...editing, name: e.target.value }), placeholder: "这身叫什么",
+                    style: { width: "100%", minHeight: 38, padding: "0 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", outline: "none", boxSizing: "border-box" } }),
+                  h("textarea", { "data-wk": "textarea", value: editing.note, rows: 3, maxLength: 140, onChange: e => setEditing({ ...editing, note: e.target.value }), placeholder: "怎么穿、什么颜色料子（可以空着）",
+                    style: { width: "100%", marginTop: 6, padding: "7px 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", outline: "none", boxSizing: "border-box", resize: "vertical", lineHeight: 1.6 } }),
+                  h("div", { className: "flex justify-end", style: { gap: 14, marginTop: 6 } },
+                    h("button", { onClick: () => setEditing(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "算了"),
+                    h("button", { "data-wk": "closetseteditsave", disabled: !editing.name.trim(), onClick: () => {
+                        if (!onEdit(editing.occ, editing.old, { name: editing.name, note: editing.note })) return;
+                        // 固定穿着的就是这一身：钉着的那句跟着换，不然改完就对不上了
+                        if (editing.pin && onPin) onPin(pinText({ name: editing.name.trim(), note: editing.note.trim() }));
+                        setEditing(null);
+                      }, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, fontWeight: 600 } }, "存好"))) : null,
                 x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, transShow(x.note)) : null,
                 // 这身也挂到别的面具（她 2026-10-19「衣柜选择衣服放哪个面具方便来回换」）：点一下挂上、再点拿走，原柜不动
                 (masks && masks.length > 1 && hasIn && onToggleMask) ? h("div", { "data-wk": "closetsetmasks", className: "flex flex-wrap items-center", style: { gap: 5, marginTop: 8 } },
@@ -14024,7 +14070,12 @@ function qaPoolOf(bookKey, bank, books, answered) {
 }
 function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, books, onSaveBook, onSaveCustom, onSaveCustomBooks, onAnswer, onSeal, onReveal, onEdit, onRemove, onReroll, onReply, onEditReply, onSaveTitle, gen, onBack }) {
   const t = useTheme();
-  const all = (entries || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => a.answeredAt - b.answeredAt);
+  // 排法（群友 2026-11-18「最新出的题在最前面，方便答题」「回答完再按顺序排」）：
+  //   TA 出的、还等你写的那几道排最前，最新的在第一页；答完的按答完那一刻（揭开的按揭开那一刻）从早到晚往后排
+  const qaWaiting = e => !!(e && e.sealed && e.byCharacter && !e.myAnswer);
+  const qaDoneAt = e => (e && (e.openedAt || e.answeredAt)) || 0;
+  const all = (entries || []).filter(e => e.characterId === partner.id).slice().sort((a, b) =>
+    qaWaiting(a) !== qaWaiting(b) ? (qaWaiting(a) ? -1 : 1) : qaWaiting(a) ? (b.answeredAt || 0) - (a.answeredAt || 0) : qaDoneAt(a) - qaDoneAt(b));
   const answered = new Set(all.map(e => e.qid));
   // 自己加的题现在是【几本】（她 2026-09-18：「我想要能多开几本自己按类型分」）
   const cbs = qaCustomBooks(customQ, customBooks);
@@ -14115,7 +14166,7 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
             // TA出的题（sealed 且她还没写）：她的那半直接在这儿写，写完两份一起打开——零调用
             (e.sealed && e.byCharacter && !e.myAnswer) ? h("div", null,
               h("textarea", { "data-wk": "textarea", value: revealDraft.id === e.id ? revealDraft.text : "", onChange: ev => setRevealDraft({ id: e.id, text: ev.target.value }), placeholder: "写下你的答案…", rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 6, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, background: "#fffdf6", color: "#3a3226", border: "1px solid #e6dcc4" } }),
-              h("button", { onClick: () => { if (revealDraft.id === e.id && onReveal && onReveal(e.id, revealDraft.text)) setRevealDraft({ id: "", text: "" }); }, disabled: !(revealDraft.id === e.id && revealDraft.text.trim()), className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 8, background: "#3a3226", color: "#fdfaf1", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "7px 16px", borderRadius: 8 } }, "写好了 · 一起打开")) :
+              h("button", { onClick: () => { if (revealDraft.id === e.id && onReveal && onReveal(e.id, revealDraft.text)) { setRevealDraft({ id: "", text: "" }); setPageIdx(9999); } }, disabled: !(revealDraft.id === e.id && revealDraft.text.trim()), className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 8, background: "#3a3226", color: "#fdfaf1", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", padding: "7px 16px", borderRadius: 8 } }, "写好了 · 一起打开")) :
             editId === e.id ? h("div", null,
               h("textarea", { "data-wk": "textarea", value: editText, onChange: ev => setEditText(ev.target.value), rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 6, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, background: "#fffdf6", color: "#3a3226", border: "1px solid #e6dcc4" } }),
               h("div", { className: "flex gap-2 mt-2" },

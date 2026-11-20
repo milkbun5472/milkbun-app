@@ -1,0 +1,281 @@
+{
+  "sourceBytes": 24589128,
+  "bytes": 17762655,
+  "sourceSHA256": "f359f0078e4b4977e58bd697fb458b93c62f6742531bd580f64287ac76ca6493",
+  "sha256": "2cda396324476a9b8e6b1055f3570b7053fee416e911a91507e5051904c34a54",
+  "channels": [
+    {
+      "pose": "five-left",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.000002164952451266626,
+      "maximum": 0.07093899697065353,
+      "maxError": 0.0000010824624041561037
+    },
+    {
+      "pose": "five-left",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.000037231283635787833,
+      "maximum": 1.2199574708938599,
+      "maxError": 0.000018619000911712646
+    },
+    {
+      "pose": "five-right",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.000002317469590139603,
+      "maximum": 0.07593652606010437,
+      "maxError": 0.0000011586962500587106
+    },
+    {
+      "pose": "five-right",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.00004741148483430506,
+      "maximum": 1.5535321235656738,
+      "maxError": 0.00002370774745941162
+    },
+    {
+      "pose": "happy",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.0000024458232184850827,
+      "maximum": 0.08014228940010071,
+      "maxError": 0.0000012228265404701233
+    },
+    {
+      "pose": "happy",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.000060665278932880675,
+      "maximum": 1.9878191947937012,
+      "maxError": 0.000030338764190673828
+    },
+    {
+      "pose": "cheer",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.0000016510489558731192,
+      "maximum": 0.0540999211370945,
+      "maxError": 8.270144462585449e-7
+    },
+    {
+      "pose": "cheer",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.000047301137931586935,
+      "maximum": 1.549916386604309,
+      "maxError": 0.00002365000545978546
+    },
+    {
+      "pose": "hips",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.0000014886948768535277,
+      "maximum": 0.04878006502985954,
+      "maxError": 7.450580596923828e-7
+    },
+    {
+      "pose": "hips",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.000035450507786347666,
+      "maximum": 1.161606788635254,
+      "maxError": 0.00001773238182067871
+    },
+    {
+      "pose": "promise",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.000002206157684093334,
+      "maximum": 0.07228916883468628,
+      "maxError": 0.0000011030351743102074
+    },
+    {
+      "pose": "promise",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.00005154295421976026,
+      "maximum": 1.6889079809188843,
+      "maxError": 0.00002577155828475952
+    },
+    {
+      "pose": "mid-left",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.000001305252610118213,
+      "maximum": 0.042769212275743484,
+      "maxError": 6.528571248054504e-7
+    },
+    {
+      "pose": "mid-left",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.00003379549342624712,
+      "maximum": 1.1073769330978394,
+      "maxError": 0.000016897916793823242
+    },
+    {
+      "pose": "timeline-36",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.0000011399769175822827,
+      "maximum": 0.037353623658418655,
+      "maxError": 5.699694156646729e-7
+    },
+    {
+      "pose": "timeline-36",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.00004788729968926517,
+      "maximum": 1.5691231489181519,
+      "maxError": 0.000023943372070789337
+    },
+    {
+      "pose": "timeline-72",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.0000018337618992872683,
+      "maximum": 0.06008687615394592,
+      "maxError": 9.168870747089386e-7
+    },
+    {
+      "pose": "timeline-72",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.000052271874622476875,
+      "maximum": 1.7127925157546997,
+      "maxError": 0.00002613663673400879
+    },
+    {
+      "pose": "body-pose-field-weld16-happy-33",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.0000015474222872179886,
+      "maximum": 0.050704386085271835,
+      "maxError": 7.748603820800781e-7
+    },
+    {
+      "pose": "body-pose-field-weld16-happy-33",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.00004594896180725703,
+      "maximum": 1.5056096315383911,
+      "maxError": 0.000022977590560913086
+    },
+    {
+      "pose": "body-pose-field-cap-happy-66",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.000002423619728854997,
+      "maximum": 0.0794147476553917,
+      "maxError": 0.0000012117670848965645
+    },
+    {
+      "pose": "body-pose-field-cap-happy-66",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.00005803739205632629,
+      "maximum": 1.9017112255096436,
+      "maxError": 0.000029027462005615234
+    },
+    {
+      "pose": "body-pose-field-cap-happy-110",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.000002437983589656666,
+      "maximum": 0.07988540828227997,
+      "maxError": 0.0000012218952178955078
+    },
+    {
+      "pose": "body-pose-field-cap-happy-110",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.00005954066168950148,
+      "maximum": 1.950968861579895,
+      "maxError": 0.000029802322387695312
+    },
+    {
+      "pose": "body-pose-field-cap-happy-152",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.0000021410699831787114,
+      "maximum": 0.07015644013881683,
+      "maxError": 0.0000010710209608078003
+    },
+    {
+      "pose": "body-pose-field-cap-happy-152",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.0000618953389338834,
+      "maximum": 2.0281245708465576,
+      "maxError": 0.00003094697603955865
+    },
+    {
+      "pose": "body-pose-field-cap-happy-207",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.0000024357791345986142,
+      "maximum": 0.07981317490339279,
+      "maxError": 0.000001218169927597046
+    },
+    {
+      "pose": "body-pose-field-cap-happy-207",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.00005929612748139101,
+      "maximum": 1.9429562091827393,
+      "maxError": 0.00002968311309814453
+    },
+    {
+      "pose": "body-pose-field-weld16-happy-243",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 0.0000014245893465034488,
+      "maximum": 0.04667951911687851,
+      "maxError": 7.124617695808411e-7
+    },
+    {
+      "pose": "body-pose-field-weld16-happy-243",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.000046407190135965476,
+      "maximum": 1.5206243991851807,
+      "maxError": 0.00002320343628525734
+    },
+    {
+      "pose": "body-pose-field-weld16-cheer-37",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 9.90663685258607e-7,
+      "maximum": 0.032461076974868774,
+      "maxError": 4.954636096954346e-7
+    },
+    {
+      "pose": "body-pose-field-weld16-cheer-37",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.00003617131524873718,
+      "maximum": 1.185225486755371,
+      "maxError": 0.000018090009689331055
+    },
+    {
+      "pose": "body-pose-field-weld16-cheer-275",
+      "channel": "positionDelta",
+      "count": 90948,
+      "scale": 8.725469595607332e-7,
+      "maximum": 0.028590746223926544,
+      "maxError": 4.363246262073517e-7
+    },
+    {
+      "pose": "body-pose-field-weld16-cheer-275",
+      "channel": "normalDelta",
+      "count": 90948,
+      "scale": 0.000036322357824324806,
+      "maximum": 1.1901746988296509,
+      "maxError": 0.000018164515495300293
+    }
+  ],
+  "protectedSHA256": "79f3ca860ad5dceed6cf3ebe2d14b57e505f1478455d782e2226e606601bccbc"
+}

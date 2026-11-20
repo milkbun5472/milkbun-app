@@ -16,7 +16,14 @@ test('exported body and outfits share connected elbows, with neutral rest morphs
 });
 test('both entry points use the same versioned rig and model graph',()=>{
  const build=JSON.parse(read('./build.json')).build,pet=read('../companion/pet.mjs').toString(),host=read('../../js/companion.js').toString();
- assert.ok(pet.includes('traveler.mjs?v='+build));assert.ok(pet.includes('doll.glb?v='+build));
+ const traveler=read('./traveler.mjs').toString(),garden=read('./game.mjs').toString();
+ for(const entry of [pet,garden]){
+  assert.ok(entry.includes('traveler.mjs?v='+build));
+  assert.ok(entry.includes('loadTravelerSource('),'product entry prepares the shared motion source');
+ }
+ assert.ok(traveler.includes('doll.glb?v='+build));
+ assert.ok(traveler.includes('avatar-motion/controller.mjs?v='+build));
+ assert.ok(traveler.includes('prepareMotionSource('));
  assert.ok(host.includes('BUILD = "'+build+'"'));
  assert.ok(read('../companion/index.html').toString().includes('pet.mjs?v='+build));
 });
@@ -31,7 +38,7 @@ test('outfits own separate sleeve coverage and rabbit source shoes',()=>{
   const shirt=gltf.nodes.find(n=>n.name==='outfit_'+id);
   assert.equal(shirt.extras.skinCoverage.sleeve[0],id==='garden'?.140:.198);
   assert.equal(shirt.extras.skinCoverage.torsoAbove,id==='ranger'?.3:.4,'bare legs stay visible');
-  assert.equal(shirt.extras.skinCoverage.torsoBelow,id==='ranger'?.675:.705,'hoodie neckline keeps the neck connected below the lining');
+  assert.equal(shirt.extras.skinCoverage.torsoBelow,{ranger:.675,garden:.715,academy:.705}[id],'each collar retains its own coverage boundary');
  }
 });
 

@@ -378,8 +378,8 @@
             const sp = ficSpineTone(tab.name, t);
             return h("button", {
               key: tab.id,
-              onClick: function () { if (on && !tab.seed) props.onEdit(tab); else props.onPick(tab.id); },
-              onDoubleClick: function () { if (!tab.seed) props.onEdit(tab); },
+              onClick: function () { if (on) props.onEdit(tab); else props.onPick(tab.id); },
+              onDoubleClick: function () { props.onEdit(tab); },
               title: tab.name,
               className: "shrink-0 active:translate-y-px relative flex items-center justify-center",
               style: {
@@ -662,7 +662,7 @@
         h("input", { "data-wk": "input", value: name, onChange: function (e) { setName(e.target.value); }, placeholder: "世界观名（如『民国』『星际』）", className: "w-full outline-none mb-3", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "10px 12px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "fictabsheetinput", "data-part": "世界观名（如『民国』『星" }),
         h("textarea", { "data-wk": "textarea", value: desc, onChange: function (e) { setDesc(e.target.value); }, placeholder: "世界观描述（= 生成时的设定层 / world book，越具体越好：背景、基调、这个世界的规则）", rows: 5, className: "w-full outline-none mb-4 resize-none", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "fictabsheettext", "data-part": "世界观描述（= 生成时的" }),
         h("div", { className: "flex items-center gap-3" },
-          editing && !editing.seed ? h("button", { onClick: function () { props.onDelete(editing.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.accent, padding: "10px 16px", borderRadius: 12, border: "1px solid " + t.line }, "data-wk": "fictabsheetbtn", "data-part": "1" }, "删除") : null,
+          editing ? h("button", { onClick: function () { props.onDelete(editing.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.accent, padding: "10px 16px", borderRadius: 12, border: "1px solid " + t.line }, "data-wk": "fictabsheetbtn", "data-part": "1" }, "删除") : null,
           h("button", { onClick: function () { if (name.trim()) props.onSave(editing ? editing.id : null, name.trim(), desc.trim()); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "fictabsheetbtn", "data-part": "2" }, "保存"))));
   }
 
