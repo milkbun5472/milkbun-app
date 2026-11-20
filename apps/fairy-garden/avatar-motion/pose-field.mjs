@@ -1,4 +1,4 @@
-import {evaluatePose} from './pose-weights.mjs?v=fg-37baabf5f9156480';
+import {evaluatePose} from './pose-weights.mjs?v=fg-b19781e67a73da4e';
 const attributesBySource=new WeakMap();
 export function install(q){
  const T=q.T,o=q.body,g=o.geometry,data=q.poseCurveData;

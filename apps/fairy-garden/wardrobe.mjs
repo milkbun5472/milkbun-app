@@ -1,4 +1,4 @@
-import {OUTFITS} from './outfits.mjs?v=fg-37baabf5f9156480';
+import {OUTFITS} from './outfits.mjs?v=fg-b19781e67a73da4e';
 export {OUTFITS};
 export const DEFAULT_SKIN='#f2cbb4';
 export const DEFAULT_LOOK={skin:DEFAULT_SKIN,hair:'korean',hairColor:'#6b4a33',cloth:'#d97a60'};
@@ -18,9 +18,10 @@ export function hairAccessoryOf(look={}){const id=hairId(look.hair),def=Object.h
 // 庭院和列车的 getDyes 都问这一处（以前两边各写一份，只有发色一个字段时还看不出来）。
 // 眼睛颜色（她 2026-09-26）：十张脸的眼珠原本都是这一个棕；没选过就是它，画面上一点不变。
 const earStyles={stud:'圆钉',double:'双钉',pearl:'珍珠',hoop:'小圈',star:'星芒钉',moon:'弯月钉',drop:'珍珠耳坠'};
+const helixStyles={...earStyles,twincuff:'双线耳骨扣',laurel:'月桂叶耳爬',pearls:'渐变三珠'};
 export const PIERCINGS={
- leftEar:{label:'左耳垂',styles:earStyles},leftEarMid:{label:'左耳第二耳洞',styles:earStyles},leftEarUpper:{label:'左耳廓上缘',styles:earStyles},
- rightEar:{label:'右耳垂',styles:earStyles},rightEarMid:{label:'右耳第二耳洞',styles:earStyles},rightEarUpper:{label:'右耳廓上缘',styles:earStyles},
+ leftEar:{label:'左耳垂',styles:earStyles},leftEarMid:{label:'左耳第二耳洞',styles:earStyles},leftEarUpper:{label:'左耳廓上缘',styles:helixStyles},
+ rightEar:{label:'右耳垂',styles:earStyles},rightEarMid:{label:'右耳第二耳洞',styles:earStyles},rightEarUpper:{label:'右耳廓上缘',styles:helixStyles},
  lipStud:{label:'唇饰',styles:{stud:'唇珠',pair:'双唇珠'}}
 };
 export function piercingColor(look,slot){

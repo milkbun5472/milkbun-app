@@ -22,6 +22,10 @@ export function createPiercings(anchor){
   if(style==='star'){
    shape.moveTo(0,.068);
    for(const [x,y] of [[.016,.018],[.052,0],[.016,-.016],[0,-.067],[-.016,-.016],[-.052,0],[-.016,.018]])shape.lineTo(x,y);
+  }else if(style==='leaf'){
+   shape.moveTo(0,-.034);
+   shape.quadraticCurveTo(-.032,-.002,0,.039);
+   shape.quadraticCurveTo(.023,.008,0,-.034);
   }else{
    shape.moveTo(.030,.055);
    shape.bezierCurveTo(-.063,.056,-.073,-.065,.031,-.052);
@@ -45,7 +49,7 @@ export function createPiercings(anchor){
    const dot=(r,x=0,y=0,z=0)=>{
     const mesh=new T.Mesh(bead,material);mesh.position.set(x,y,z);mesh.scale.set(r,r,r*.80);group.add(mesh);
    };
-   if(style==='hoop'||style==='drop'){
+   if(style==='hoop'||style==='drop'||style==='twincuff'){
     const ring=new T.Mesh(hoop,material);
     ring.position.set(side*.010,-.050,-.035);
     ring.rotation.set(-.36,side*1.05,0,'YXZ');
@@ -56,6 +60,15 @@ export function createPiercings(anchor){
      ring.position.set(side*.046,-.010,-.032);
     }
     group.add(ring);
+    if(style==='twincuff'){
+     ring.scale.setScalar(side<0?.74:.84);
+     // The helix on the viewer's left sits further inside its anchor.
+     if(side<0){ring.position.x+=.035;ring.position.z-=.009;}
+     ring.position.y+=.018;
+     const second=ring.clone();
+     second.position.y-=.054;second.position.x+=side*.006;
+     group.add(second);
+    }
     if(style==='drop'){
      // Find the bottom of the actual rotated hoop in its local plane,
      // so the bead stays suspended even when the ear site tips the hoop.
@@ -69,6 +82,17 @@ export function createPiercings(anchor){
     face.rotation.y=side*.30;
     if(style==='moon'&&side<0)face.scale.x=-1;
     group.add(face);
+   }else if(style==='laurel'){
+    for(let i=0;i<3;i++){
+     const leaf=new T.Mesh(charm('leaf'),material);
+     leaf.position.set(side*(.014-i*.017),-.052+i*.052,.013+i*.004);
+     leaf.rotation.z=side*(i===1?-.64:.62);
+     group.add(leaf);
+    }
+   }else if(style==='pearls'){
+    dot(.031,side*.012,-.063,.004);
+    dot(.025,0,0,.009);
+    dot(.019,-side*.031,.049,.014);
    }else if(style==='pair'){
     dot(.020);dot(.016,-.040,-.005,.005);
    }
@@ -77,7 +101,7 @@ export function createPiercings(anchor){
   }
   group.visible=!!style;
   if(!style)return;
-  material.color.set(color);material.metalness=style==='pearl'||style==='drop'?.08:.32;
+  material.color.set(color);material.metalness=style==='pearl'||style==='pearls'||style==='drop'?.08:.32;
   if(slot==='lipStud'){
    const [y,z]=Object.hasOwn(lipSurface,face)?lipSurface[face]:lipSurface.default;
    group.position.set(.086,y-.006,z+.009);
