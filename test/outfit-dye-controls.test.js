@@ -74,3 +74,14 @@ test('改外貌一项一格：肤色、眼睛、衣服、头发、表情、体�
  const heads=flatten(tree).filter(n=>n.props&&n.props['data-wk']==='dressfoldhead').map(n=>n.children[0].children[0]);
  assert.deepEqual(heads,['肤色','眼睛','衣服','头发','表情','体型']);
 });
+test('耳饰与唇饰按左耳、右耳、唇分三段，点选方块，戴上才有色圈',async()=>{
+ const {PIERCINGS,piercingColor,mergeLook}=await import('../apps/fairy-garden/wardrobe.mjs');
+ let look={};const api={piercings:PIERCINGS,piercingColor};
+ const render=()=>flatten(DressControls({who:'me',look:{me:look},styles:{},game:()=>api,pushLook:p=>{look={...look,...p};}}));
+ let nodes=render();
+ assert.deepEqual(nodes.filter(n=>n.props['data-wk']==='piercegroup').map(n=>n.props['aria-label']),['左耳','右耳','唇']);
+ assert.equal(nodes.filter(n=>n.type==='select').length,0);
+ assert.equal(nodes.filter(n=>n.type===DyeControl&&/耳垂颜色/.test(n.props.label)).length,0);
+ const chip=nodes.find(n=>n.props['data-wk']==='piercechip'&&n.props['data-on']==='0');chip.props.onClick();
+ nodes=render();assert.equal(nodes.filter(n=>n.type===DyeControl&&/颜色$/.test(n.props.label)&&n.props.label!=='眼睛').length>=1,true);
+});

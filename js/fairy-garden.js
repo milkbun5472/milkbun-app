@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS, SHOP_WORLD } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-37baabf5f9156480", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-0cb4be96109fd8f6", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -737,13 +737,26 @@
           ...(split ? [["eyeLeft", "左眼"], ["eyeRight", "右眼"]] : [["eye", "眼睛"]]).map(([key, label]) =>
             h(DyeControl, { key: who + key, label, value: d?.[key] || d?.eye || "#5d4435", onChange: value => pushLook({ [key]: value }), palette })));
       })()),
-      api?.piercings && fold("piercings","耳饰与唇饰",...Object.entries(api?.piercings || {}).map(([slot, {label, styles: choices}]) => {
-        const current = look[who] || {}, style = current[slot] || "";
-        return h("section", {key: slot, "aria-label": label, style: {marginBottom: 14}},
-          h("label", null, label, " ", h("select", {value: style, style: {minHeight:44}, onChange: e => pushLook({[slot]: e.target.value})},
-            h("option", {value:""}, "不戴"), ...Object.entries(choices).map(([value,text]) => h("option",{key:value,value},text)))),
-          style && h(DyeControl,{key:who+slot,label:label+"颜色",value:api.piercingColor(current,slot),onChange:hex=>pushLook({[slot+"Color"]:hex})}));
-      })),
+      // 耳饰与唇饰（她 2026-11-20：「你直接改吧」）：七个位置按左耳／右耳／唇分三小段，款式用跟发型一样的点选方块，戴上才出色圈
+      api?.piercings && fold("piercings", "耳饰与唇饰", ...[["左耳", /^leftEar/], ["右耳", /^rightEar/], ["唇", /^lip/]].map(([zh, re]) => {
+        const slots = Object.entries(api.piercings || {}).filter(([slot]) => re.test(slot));
+        if (!slots.length) return null;
+        const current = look[who] || {};
+        return h("section", { key: zh, "data-wk": "piercegroup", "aria-label": zh, style: { marginBottom: 16 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: G.ink, marginBottom: 8 } }, zh),
+          slots.map(([slot, { label, styles: choices }]) => {
+            const style = current[slot] || "", short = slots.length > 1 ? String(label).replace(/^[左右]耳/, "") : label;
+            return h("div", { key: slot, "data-wk": "pierceslot", style: { marginBottom: 10 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: G.soft, marginBottom: 6 } }, short),
+              h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+                [["", "不戴"], ...Object.entries(choices)].map(([value, text]) => {
+                  const on = style === value;
+                  return h("button", { key: value || "none", "data-wk": "piercechip", "data-on": on ? "1" : "0", "aria-pressed": on, onClick: () => pushLook({ [slot]: value }), className: "active:opacity-70",
+                    style: { minHeight: 36, padding: "6px 11px", borderRadius: 11, border: "1px solid " + (on ? G.deep : G.line), background: on ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: on ? G.ink : G.soft } }, text);
+                })),
+              style ? h("div", { style: { marginTop: 8 } }, h(DyeControl, { key: who + slot, label: short + "颜色", value: api.piercingColor(current, slot), onChange: hex => pushLook({ [slot + "Color"]: hex }) })) : null);
+          }));
+      }).filter(Boolean)),
       fold("outfit", "衣服", h("section", { "aria-label": "衣柜", style: { marginBottom: 10 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: G.ink, marginBottom: 10 } }, "挑一套衣服"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } },
