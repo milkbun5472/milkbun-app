@@ -19199,7 +19199,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   群原样不动——名字、聊天、记忆 tag、群设置（含记忆互通）都不碰，只挂上/摘下 spaceId；群里的人并进空间名单
   const adoptGroups = (sp, ids) => {
     const gs = (groups || []).filter(g => g && ids.includes(g.id) && !g.spaceId);
-    gs.forEach(g => updateGroup(g.id, { spaceId: sp.id, chName: g.chName || String(g.name || "群聊").slice(0, 16), chAbout: g.chAbout || "" }));
+    // 旁观群也能收（她 2026-11-20「旁观群他俩私聊我也想收进频道」）：那是他们背着人的私聊，收进来自动不互通——
+    //   空间里别的人看不到它，它也看不到别处；她照旧隐身在旁边看
+    gs.forEach(g => updateGroup(g.id, { spaceId: sp.id, chName: g.chName || String(g.name || "群聊").slice(0, 16), chAbout: g.chAbout || "", ...(groupSpectating(g) ? { chSolo: true } : {}) }));
     const add = [...new Set(gs.flatMap(g => g.memberIds || []))].filter(id => !(sp.memberIds || []).includes(id));
     if (add.length) saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, memberIds: [...(x.memberIds || []), ...add] } : x));
     toast("放进来 " + gs.length + " 个群");
@@ -36305,7 +36307,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onOpenChannel: g => { setActiveGroup(g); clearUnread(g.id); setChannelTab("chat"); setScreen("gthread"); },
       onSaveChannel: (g, patch) => saveChannel(sp, g, patch),
       onDeleteChannel: g => { chfPurge(g.id); deleteGroup(g.id); },
-      looseGroups: (groups || []).filter(g => g && !g.spaceId && g.roomKind !== "spectate"), onAdopt: ids => adoptGroups(sp, ids), onRelease: releaseChannel,
+      looseGroups: (groups || []).filter(g => g && !g.spaceId), onAdopt: ids => adoptGroups(sp, ids), onRelease: releaseChannel, spectateOf: groupSpectating,
       onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), onMoveChannel: (g, d) => moveChannel(sp, g, d), onToggleCat: id => toggleSpaceCat(sp, id), noMemOf: channelNoMem, pickPool: liveChars.concat((characters || []).filter(c => c && c.npc && !liveChars.some(x => x.id === c.id))) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     channelTabs: activeGroup.spaceId ? h(ChannelTabs, { tab: "chat", onTab: setChannelTab }) : null,
     onOpenStyleLab: goStyleLab,

@@ -23193,7 +23193,7 @@ function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose }) {
     onDelete ? h("button", { "data-wk": "spacedelete", onClick: () => requestAppConfirm("删掉「" + space.name + "」？", "里面 " + nChannels + " 个频道的聊天记录一起删掉。想留着的话先去 设置 → 数据 → 导入与导出 → 导出全部数据。", onDelete, "删掉"), className: "w-full active:opacity-60", style: { marginTop: 26, minHeight: 44, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#c0453a" } }, "删掉这个频道空间") : null);
 }
 // 空间首页：Teams 那一屏——顶上一块空间名片（方头像、名字、几个人），底下一行一个频道
-function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat }) {
+function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf }) {
   const t = useTheme();
   const [edit, setEdit] = useState(null);   // null | "new" | 频道那个群
   const [spEdit, setSpEdit] = useState(false);
@@ -23211,6 +23211,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
               h("span", { className: "flex-1 min-w-0" },
                 h("span", { className: "flex items-center gap-2" },
                   h("span", { "data-wk": "mlname", "data-part": "channel", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, fontWeight: un > 0 ? 600 : 400 } }, g.chName || g.name),
+                  spectateOf && spectateOf(g) ? h("span", { "data-wk": "chnomemtag", "data-part": "spectate", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 4, padding: "0 4px", flexShrink: 0 } }, "旁观") : null,
                   noMemOf && noMemOf(g.id) ? h("span", { "data-wk": "chnomemtag", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 5, padding: "0 4px", flexShrink: 0 } }, "不记") : null,
                   un > 0 ? h("span", { "data-wk": "mlbadge", "data-part": "dot", style: { width: 7, height: 7, borderRadius: 999, background: tone, flexShrink: 0 } }) : null,
                   last ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, typeof fmtStamp === "function" ? fmtStamp(last.ts, "g:" + g.id) : "") : null),
