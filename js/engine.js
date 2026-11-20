@@ -2685,7 +2685,18 @@ function peekSpaceBlock(rows, spaceName, line) {
   return "【她在的频道空间（一个空间里分好几个频道；打开时 who 写「空间 · #频道」那个名字）】\n" + sps.map(sp => "频道空间「" + (spaceName(sp.id) || "频道") + "」：\n" + sp.list.slice(0, 3).map(x =>
     "  #" + (x.g.chName || x.g.name) + "（who：" + x.g.name + "）最近：\n" + x.ms.slice(-4).map(m => "    " + line(m)).join("\n")).join("\n")).join("\n");
 }
-function chfContextBlock(files, recentText, nameOf) {
+// herLast：她最近那一句（她 2026-11-20：「搞了个今晚吃啥的文件，说看看今晚吃啥，没人去改文件，都是在聊今晚吃啥」）——
+//   她嘴里提到的那份就是这个文件；说清这一层，他们才知道她要的是在文件里动笔，不是在聊天里聊这件事
+// 认名字放宽一点：名字里去掉标点空格以后整段出现，或者名字有四个字以上、其中连着的三个字出现，都算提到了
+function chfMentioned(name, text) {
+  const norm = x => String(x || "").replace(/[\s《》〈〉「」『』“”"'.,，。!！?？:：·\-—_]/g, "").toLowerCase();
+  const n = norm(name), t = norm(text);
+  if (!n || !t) return false;
+  if (t.indexOf(n) >= 0) return true;
+  if (n.length >= 4) { for (let i = 0; i + 3 <= n.length; i++) if (t.indexOf(n.slice(i, i + 3)) >= 0) return true; }
+  return false;
+}
+function chfContextBlock(files, recentText, nameOf, herLast) {
   const list = (Array.isArray(files) ? files : []).filter(f => f && f.name);
   if (!list.length) return "";
   const who = id => id === "me" ? (nameOf ? nameOf("me") : "她") : (nameOf ? nameOf(id) : "") || "有人";
@@ -2695,9 +2706,11 @@ function chfContextBlock(files, recentText, nameOf) {
     "· 《" + f.name + "》" + (f.kind === "image" ? "（图片" + (f.desc ? "：" + String(f.desc).slice(0, 60) : "") + "）" : "（文档，" + String(f.text || "").length + " 字）")
       + "　" + who(f.updatedBy || f.createdBy) + " " + md(f.updatedTs || f.createdTs));
   const fresh = Date.now() - 30 * 60000;
-  const open = list.filter(f => f.kind === "doc" && (rt.indexOf(f.name) >= 0 || (f.updatedTs || 0) > fresh)).slice(0, 2);
+  const open = list.filter(f => f.kind === "doc" && (chfMentioned(f.name, rt) || (f.updatedTs || 0) > fresh)).slice(0, 2);
+  const herHits = open.filter(f => herLast && chfMentioned(f.name, herLast)).map(f => "《" + f.name + "》");
   const bodies = open.map(f => { const tx = String(f.text || ""); return "《" + f.name + "》全文" + (tx.length > 3000 ? "（太长，只给开头和最后一截）" : "") + "：\n" + (tx.length > 3000 ? tx.slice(0, 1800) + "\n……\n" + tx.slice(-1100) : tx); });
-  return "\n\n【这个频道的文件】频道里大家共用的文件，谁都能打开看、改，也能新建：\n" + rows.join("\n") + (bodies.length ? "\n" + bodies.join("\n\n") : "");
+  return "\n\n【这个频道的文件】频道里大家共用的文件，谁都能打开看、改，也能新建：\n" + rows.join("\n") + (bodies.length ? "\n" + bodies.join("\n\n") : "")
+    + (herHits.length ? "\n她刚才那句说到的" + herHits.join("、") + "，就是上面这份文件。文件是大家一起往里写的那张纸：往里添、划掉、改，是在 file 里写；只在聊天里说，纸上什么都不会变。" : "");
 }
 // ── 频道第三批（她 2026-11-20 「都做吧宝宝」）────────────────────────────
 // 赌气退频道：一个人对一个频道三天里只退一回；频道里只剩他一个人时不退（退了频道就空了）

@@ -16948,7 +16948,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 频道文件（她 2026-11-20）：有哪些、谁改的；提到的那份带正文。新建、改都挂在那个人那条发言的 file 上
       const gFileHint = group && group.spaceId ? chfContextBlock(loadJSON("x_chfiles:" + groupId, []),
           (groupChatsRef.current[groupId] || []).slice(-12).map(m => m && m.content || "").join("\n"),
-          id => id === "me" ? userName(profile) : (((characters || []).find(c => c.id === id) || {}).name || ""))
+          id => id === "me" ? userName(profile) : (((characters || []).find(c => c.id === id) || {}).name || ""),
+          (((groupChatsRef.current[groupId] || []).filter(m => m && m.role === "user" && m.content).slice(-1)[0]) || {}).content || "")
         + "\n【频道文件怎么动】谁想新建一份文档、或者改一份已有的，就在他自己那条发言里加 \"file\":{\"name\":\"文档名\",\"text\":\"改完之后的全文\"}——名字跟已有的一样就是改那一份，没有就是新建；text 写整份改完的样子。动不动、动哪份，照他自己此刻想不想。" : "";
       // 换个频道接着说：每人能去哪几个频道，有地方可去才提这一格
       // 他们自己开频道（她 2026-11-20「想要他们也可以创建频道」）：空间还有地方、今天还没开满时才提；只说这个字段是什么

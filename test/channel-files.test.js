@@ -82,3 +82,13 @@ test("hop 落地：那边写进几句、记未读，这边留一行 chlink，点
   assert.match(ap, /onDeleteChannel: g => \{ chfPurge\(g\.id\); deleteGroup\(g\.id\); \}/);
   assert.match(cs, /m\.kind === "chfile" \|\| m\.kind === "chlink"/);
 });
+test("文件名认法放宽：去标点空格整段出现，或长名字里连着三个字出现；她那句提到的那份会被点明是这份文件", () => {
+  const fs = require("fs"), vm = require("vm"), en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const i = en.indexOf("function chfMentioned("), j = en.indexOf("\n}\n", en.indexOf("function chfContextBlock(")) + 3;
+  const ctx = {}; vm.createContext(ctx); vm.runInContext(en.slice(i, j) + ";this.m=chfMentioned;this.b=chfContextBlock;", ctx);
+  assert.equal(ctx.m("今晚吃啥", "看看今晚吃啥"), true);
+  assert.equal(ctx.m("周末出游行程", "把出游行程排一下"), true);
+  assert.equal(ctx.m("周末行程", "周末去哪"), false);
+  const out = ctx.b([{ name: "今晚吃啥", kind: "doc", text: "火锅" }], "看看今晚吃啥", null, "看看今晚吃啥");
+  assert.match(out, /她刚才那句说到的《今晚吃啥》，就是上面这份文件/);
+});
