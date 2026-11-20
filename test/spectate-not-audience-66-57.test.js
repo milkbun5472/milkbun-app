@@ -83,6 +83,6 @@ test("普通群一个字都没变（这一轮只动旁观那一支）", () => {
   // 普通群仍要有的那几样
   assert.match(app, /绝不生成用户的新台词、动作或心声/);
   assert.match(app, /每个成员和用户「" \+ _uN \+ "」是什么关系（恋人\/暧昧\/朋友…）【只有该成员本人知道】/);
-  assert.match(app, /wishLine\(_gPar \? \"\" : wishFor\(\), userName\(profile\)/);
+  assert.match(app, /wishLine\(_gPar \? \"\" : wishFor\(\), herNameIn\(groupId\)/);
   assert.match(app, /〔对 " \+ userName\(profile\) \+ " 的好感〕/);
 });

@@ -22040,7 +22040,7 @@ function GroupThread({
     onClose: () => setSheet(null)
   }), sheet === "chain" && h(ChainComposeSheet, { onClose: () => setSheet(null), onSubmit: (topic, first) => { setSheet(null); sendRich({ role: "user", kind: "spacebot", bot: "chain", topic, items: [{ who: "me", name: (profile && profile.name) || "我", text: first, ts: Date.now() }], content: "[接龙] " + topic }); } }),
   sheet === "whisper" && h(WhisperComposeSheet, { members, onClose: () => setSheet(null), onSubmit: (c, text) => { setSheet(null); sendRich({ role: "narration", kind: "narration", who: "me", whisper: true, senderId: "me", senderName: (profile && profile.name) || "我", toId: c.id, toName: c.name, content: text }); } }),
-  sheet === "luck" && h(GroupLuckDialog, { members, meName: (profile && profile.name) || "我", onCancel: () => setSheet(null), onSend: m => { setSheet(null); sendRich(Object.assign({ role: "user" }, m)); } }), sheet === "ask" && h(AskComposeDialog, { who: "", prev: askPrev, onCancel: () => { setSheet(null); setAskPrev(null); }, onSend: a => { setSheet(null); setAskPrev(null); onStartAsk(a); } }), sheet === "poll" && h(PollComposeSheet, {
+  sheet === "luck" && h(GroupLuckDialog, { members, meName: meName || (profile && profile.name) || "我", onCancel: () => setSheet(null), onSend: m => { setSheet(null); sendRich(Object.assign({ role: "user" }, m)); } }), sheet === "ask" && h(AskComposeDialog, { who: "", prev: askPrev, onCancel: () => { setSheet(null); setAskPrev(null); }, onSend: a => { setSheet(null); setAskPrev(null); onStartAsk(a); } }), sheet === "poll" && h(PollComposeSheet, {
     onSubmit: (title, opts, anon) => {
       onStartPoll(title, opts, anon);
       setSheet(null);
