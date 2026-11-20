@@ -23095,8 +23095,9 @@ function NewSpacePage({ characters, allChars, onCreate, onClose }) {
       h("span", { style: { width: 21, height: 21, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null)); }));
 }
 // 开新频道／改一个频道：名字、这里聊什么、谁在里面（默认整个空间的人）
-function ChannelEditPage({ space, channel, allChars, noMem: noMem0, spectate: spect0, onSave, onDelete, onRelease, onClose, cats, onMove }) {
-  const [spect, setSpect] = useState(!!spect0);   // 旁观：她隐身（她 2026-11-20「已有的频道怎么变成旁观或者变回来」）
+function ChannelEditPage({ space, channel, allChars, noMem: noMem0, spectate: spect0, maskOwn: mask0, onSave, onDelete, onRelease, onClose, cats, onMove }) {
+  const [spect, setSpect] = useState(!!spect0);
+  const [chMask, setChMask] = useState(mask0 == null ? null : String(mask0 || ""));   // null＝跟空间一样   // 旁观：她隐身（她 2026-11-20「已有的频道怎么变成旁观或者变回来」）
   const t = useTheme();
   const [name, setName] = useState(channel ? channel.chName || "" : "");
   const [about, setAbout] = useState(channel ? channel.chAbout || "" : "");
@@ -23114,7 +23115,7 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, spectate: sp
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const ok = name.trim().replace(/^#/, "") && sel.length >= 1;
   return h(PageSheet, { onClose, zh: channel ? "改频道" : "新频道", sub: space.name,
-    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, spectate: spect, chSolo: solo || noMem || spect, chShareMembers: !!(shareM && solo && !noMem), chNoMem: noMem, chCat: cat, chArchived: arch, chKind: hole ? "treehole" : lounge ? "lounge" : "", chHours: night, avatarImage: chAv || null }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
+    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, maskOwn: chMask, spectate: spect, chSolo: solo || noMem || spect, chShareMembers: !!(shareM && solo && !noMem), chNoMem: noMem, chCat: cat, chArchived: arch, chKind: hole ? "treehole" : lounge ? "lounge" : "", chHours: night, avatarImage: chAv || null }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
     h("div", { "data-wk": "chav", className: "flex items-center gap-3", style: { marginBottom: 14 } },
       h(AvatarPicker, { character: { name: name || "#", color: t.tint, avatarImage: chAv }, size: 44, radius: 10, onPick: setChAv, onClear: chAv ? () => setChAv(null) : null }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, chAv ? "频道列表这一行和进去的群头像都是这张。点「移除照片」换回「#」。" : "没设头像就是一个「#」。点左边设一张，跟群头像是同一格。")),
@@ -23151,6 +23152,10 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, spectate: sp
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "跟别的频道互通"),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, noMem ? "「不影响记忆」开着，这一格跟着关。" : solo ? "关着：这个频道里的人不知道别的频道在聊什么，别的频道也看不到这里。" : "开着：大家知道同一个地方别的频道最近在聊什么。")),
       h(Toggle, { on: !solo && !noMem, onChange: v => { if (!noMem) setSolo(!v); }, color: t.accent })),
+    (typeof window.__momentMasks === "function" && window.__momentMasks().length > 1) ? h("div", { "data-wk": "chmask", style: { padding: "10px 12px", background: t.bg2, borderRadius: 10, marginBottom: 10 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 6 } }, "这个频道用哪张面具"),
+      h(MaskChips, { value: chMask, onPick: setChMask, extra: { id: null, name: "跟空间一样" } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, chMask == null ? "跟着空间那一张。" : "单独换了一张：跟戴别的面具的频道互相看不到。")) : null,
     h("div", { "data-wk": "chspect", "data-on": spect ? "1" : "0", className: "flex items-center justify-between gap-3", style: { padding: "10px 12px", background: t.bg2, borderRadius: 10, marginBottom: 10 } },
       h("div", { className: "min-w-0" },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "旁观（你隐身）"),
@@ -23470,12 +23475,25 @@ function SpaceGemsPage({ space, gems, chName, onOpen, onDelete, onClose }) {
       : h("div", { style: { padding: "40px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "还没有收进来的话"));
 }
 // 空间本身那一页：改名字、加人踢人；删整个空间也放这儿一份
+// 面具挑选那一排（频道设置、改频道页共用）：opts 来自 window.__momentMasks；extra＝最前面多一颗（比如「跟空间一样」，值 null）
+function MaskChips({ value, onPick, extra, wk }) {
+  const t = useTheme();
+  const opts = typeof window.__momentMasks === "function" ? window.__momentMasks() : [];
+  if (opts.length < 2) return null;
+  const all = (extra ? [extra] : []).concat(opts.map(o => ({ id: o.id, name: o.id ? o.name : "主面具" })));
+  return h("div", { "data-wk": wk || "maskchips", className: "flex flex-wrap", style: { gap: 6 } }, all.map(o => {
+    const on = value === o.id;
+    return h("button", { key: o.id == null ? "_same" : (o.id || "_main"), "data-on": on ? "1" : "0", onClick: () => onPick(o.id), className: "active:opacity-70",
+      style: { padding: "7px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } }, o.name);
+  }));
+}
 function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose, onSuggestTitles }) {
   const [cats, setCats] = useState((space.cats || []).map(c => ({ ...c })));
   // 自定义称号（她 2026-11-20）：名字＋怎么评，存在空间上；每周评称号时多花一次调用照这个挑人。aiTitles 关了就不评
   const [ctitles, setCtitles] = useState((space.customTitles || []).map(x => ({ ...x })));
   const [aiTitles, setAiTitles] = useState(space.aiTitles !== false);
-  const [bot, setBot] = useState(!!space.bot);   // 小频：默认关（她 2026-11-20「怎么就已经有小频了喂」）
+  const [bot, setBot] = useState(!!space.bot);
+  const [mask, setMask] = useState(String(space.maskId || ""));   // 整个空间戴哪张面具（她 2026-11-20）   // 小频：默认关（她 2026-11-20「怎么就已经有小频了喂」）
   const [sugg, setSugg] = useState(null), [suggBusy, setSuggBusy] = useState(false);
   const t = useTheme();
   const [name, setName] = useState(space.name || "");
@@ -23484,12 +23502,16 @@ function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose, onSu
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const ok = name.trim() && sel.length >= 1;
   return h(PageSheet, { onClose, zh: "频道设置", sub: space.name,
-    right: h("button", { "data-wk": "spacesave", disabled: !ok, onClick: () => ok && onSave({ name: name.trim().slice(0, 24), avatarImage: av || null, memberIds: sel, customTitles: ctitles.map(x => ({ name: String(x.name || "").trim().slice(0, 12), how: String(x.how || "").trim().slice(0, 60) })).filter(x => x.name), aiTitles, bot, cats: cats.map(c => ({ ...c, name: String(c.name || "").trim().slice(0, 12) || "分类" })) }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.ink : t.line } }, "保存") },
+    right: h("button", { "data-wk": "spacesave", disabled: !ok, onClick: () => ok && onSave({ name: name.trim().slice(0, 24), avatarImage: av || null, maskId: mask, memberIds: sel, customTitles: ctitles.map(x => ({ name: String(x.name || "").trim().slice(0, 12), how: String(x.how || "").trim().slice(0, 60) })).filter(x => x.name), aiTitles, bot, cats: cats.map(c => ({ ...c, name: String(c.name || "").trim().slice(0, 12) || "分类" })) }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.ink : t.line } }, "保存") },
     h("div", { "data-wk": "spaceav", className: "flex items-center gap-3", style: { marginBottom: 14 } },
       h(AvatarPicker, { character: { name: name || "频", color: spaceTone(space), avatarImage: av }, size: 52, radius: 12, onPick: setAv, onClear: av ? () => setAv(null) : null }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, av ? "消息列表里那一行、频道首页名片都用这张。点「移除照片」换回名字第一个字。" : "没设头像就用名字第一个字。点左边设一张，能框一块。")),
     h("input", { "data-wk": "input", value: name, onChange: e => setName(e.target.value), placeholder: "名字", className: "w-full outline-none pb-2 mb-1", style: { background: "transparent", borderBottom: "1px solid " + t.line, fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "4px 0 18px" } }, "改了名字，每个频道的群名跟着改，以前的记忆也跟着认。"),
+    (typeof window.__momentMasks === "function" && window.__momentMasks().length > 1) ? h("div", { "data-wk": "spacemask", style: { marginBottom: 18 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, "我在这里用哪张面具"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8, lineHeight: 1.6 } }, "整个空间的频道都戴这一张；单个频道可以在它的「⋯」里另挑一张。戴不同面具的频道之间互相看不到。"),
+      h(MaskChips, { value: mask, onPick: v => setMask(String(v || "")) })) : null,
     // 分类（她 2026-11-20「多起来了怎么收纳归类」）：频道列表按这几类分段，可以折起来
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, "分类（" + cats.length + "）"),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "频道列表按这几类分段，每一类能折起来。删掉一类，里面的频道回到「未分类」。哪个频道放哪一类，在那个频道的「⋯」里挑。"),
@@ -23616,7 +23638,7 @@ function SpaceMeetPage({ space, pool, onStart, onClose }) {
       h("span", { style: { width: 21, height: 21, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null)); }));
 }
 // 空间首页：Teams 那一屏——顶上一块空间名片（方头像、名字、几个人），底下一行一个频道
-function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf, onSuggestTitles , presence, statuses, herName, onMyStatus, onMeet, meetLog, onOpenMeet}) {
+function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf, onSuggestTitles , presence, statuses, herName, onMyStatus, onMeet, meetLog, onOpenMeet, maskOwnOf }) {
   const t = useTheme();
   const [edit, setEdit] = useState(null);   // null | "new" | 频道那个群
   const [spEdit, setSpEdit] = useState(false);
@@ -23716,7 +23738,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, m.date + " · " + (m.who || "大家") + (m.open ? " · 还在见" : "")),
         m.line ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, m.line) : null))) : null,
     spEdit ? h(SpaceEditPage, { space, pool: pickPool || allChars || [], onSuggestTitles, onSave: patch => { onSaveSpace(patch); setSpEdit(false); }, onDelete: onDeleteSpace, nChannels: rows.length, onClose: () => setSpEdit(false) }) : null,
-    edit ? h(ChannelEditPage, { space, channel: edit === "new" ? null : edit, allChars, noMem: edit !== "new" && !!(noMemOf && noMemOf(edit.id)), spectate: edit !== "new" && !!(spectateOf && spectateOf(edit)),
+    edit ? h(ChannelEditPage, { space, channel: edit === "new" ? null : edit, allChars, noMem: edit !== "new" && !!(noMemOf && noMemOf(edit.id)), spectate: edit !== "new" && !!(spectateOf && spectateOf(edit)), maskOwn: edit !== "new" && maskOwnOf ? maskOwnOf(edit) : null,
       onSave: patch => { onSaveChannel(edit === "new" ? null : edit, patch); setEdit(null); },
       onDelete: edit !== "new" && rows.length > 1 ? () => { onDeleteChannel(edit); setEdit(null); } : null,
       onRelease: edit !== "new" && rows.length > 1 && onRelease ? () => { onRelease(edit); setEdit(null); } : null,

@@ -23,7 +23,7 @@ test("状态一人一天最多换三回；一样的不算换", () => {
 test("接线：回复里的 status 落盘并冒一行；提示带状态；旁观不提她；聊天名字旁带状态，树洞不带", () => {
   assert.match(ap, /charStatusCanSet\(_sAll, spk\.id, _dk\)/);
   assert.match(ap, /把状态改成了「/);
-  assert.match(ap, /charStatusHint\(_all, group\.chKind === "treehole" \? \[\] : members, userName\(profile\), !groupSpectating\(group\)\)/);
+  assert.match(ap, /charStatusHint\(_all, group\.chKind === "treehole" \? \[\] : members, userName\(profile\), !groupSpectating\(group\) && !groupMaskKey\(groupId\)\)/);
   assert.match(ap, /gPlayHint \+ gStatusHint \+/);
   assert.match(cs, /m\.senderName, gRoleTag\(m\), gStatusTag\(m\)\)/);
   assert.match(cs, /group\.chKind !== "treehole" && typeof CHAR_STATUS_KEY/);

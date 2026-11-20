@@ -15,7 +15,7 @@ test("群挑面具：没挑过且全员同一张副面具就默认那张；挑�
   assert.equal(mk({ g: { maskId: "gone" } }, { a: "" }, [])("g"), "");
 });
 test("群的提示词、钟、界面都接上群那张面具", () => {
-  assert.match(app, /vclockUse\("g:" \+ groupId\);[^\n]*\n    const profile = groupProfileFor\(groupId\);/);
+  assert.match(app, /vclockUse\("g:" \+ groupId\);[^\n]*\n(?:[^\n]*\n){0,6}?    const profile = groupProfileFor\(groupId\);/);
   assert.match(app, /if \(String\(id \|\| ""\)\.indexOf\("g:"\) === 0\) return groupMaskKey/);
   assert.match(app, /profile: groupProfileFor\(group\.id\),\n    clockId: "g:" \+ group\.id,\n    maskNote: groupMaskNote\(group\.id\),/);
   assert.match(eng, /vclockUse\(ctx\.clockId != null \? ctx\.clockId : null\)/);
