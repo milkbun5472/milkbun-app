@@ -19398,12 +19398,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast("「" + sp.name + "」建好了，先有一个 #综合");
   };
   const saveChannel = (sp, g, patch) => {
-    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); updateGroup(ng.id, { chShareMembers: !!(patch.chShareMembers && patch.chSolo && !patch.chNoMem), chSolo: !!(patch.chSolo || patch.chNoMem), chCat: patch.chCat || "", chKind: patch.chKind || "", chHours: patch.chHours || null, avatarImage: patch.avatarImage || null }); toast("开了 #" + patch.chName); return; }
+    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); if (patch.spectate) { updateGroup(ng.id, { roomKind: "spectate" }); saveGroupSettingsRaw(ng.id, { spectate: true }); } updateGroup(ng.id, { chShareMembers: !!(patch.chShareMembers && patch.chSolo && !patch.chNoMem), chSolo: !!(patch.chSolo || patch.chNoMem), chCat: patch.chCat || "", chKind: patch.chKind || "", chHours: patch.chHours || null, avatarImage: patch.avatarImage || null }); toast("开了 #" + patch.chName); return; }
     const nm = channelGroupName(sp, patch.chName);
     if (nm !== g.name) renameGroup(g.id, nm);
     updateGroup(g.id, { ...(g.chLeft ? { chLeft: Object.fromEntries(Object.entries(g.chLeft).filter(([id]) => !(patch.memberIds || []).includes(id))) } : {}), chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds, chSolo: !!(patch.chSolo || patch.chNoMem),
       chShareMembers: !!(patch.chShareMembers && patch.chSolo && !patch.chNoMem), ...(patch.chCat != null ? { chCat: patch.chCat || "" } : {}), ...(patch.chKind != null ? { chKind: patch.chKind || "" } : {}), ...(patch.chHours !== undefined ? { chHours: patch.chHours || null } : {}), ...(patch.avatarImage !== undefined ? { avatarImage: patch.avatarImage || null } : {}), ...(patch.chArchived != null ? { chArchived: !!patch.chArchived } : {}) });
     if (patch.chNoMem != null && !!patch.chNoMem !== channelNoMem(g.id)) saveGroupSettingsRaw(g.id, { memoryInterop: !patch.chNoMem });
+    // 旁观开关：两头都要写——roomKind 在群自己身上，spectate 在群设置里（groupSpectating 两头都问）
+    if (patch.spectate != null && !!patch.spectate !== groupSpectating(g)) {
+      updateGroup(g.id, { roomKind: patch.spectate ? "spectate" : "group" });
+      saveGroupSettingsRaw(g.id, { spectate: !!patch.spectate });
+    }
   };
   // 频道在分类里上下挪（她 2026-11-20「多起来了怎么收纳归类」）：照现在看到的那一段的先后重新编 chOrder
   const moveChannel = (sp, g, dir) => {

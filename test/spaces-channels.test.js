@@ -87,7 +87,7 @@ test("不影响记忆的频道：就是群的「记忆互通」关着，新频�
   assert.match(ap, /spaceBlock: spaceChannelBlock\(group && spaceSibs\(\)/);
   assert.match(ap, /!\(g\.spaceId && channelNoMem\(g\.id\)\)\)\.map\(g => \{/);
   assert.match(cs, /"data-wk": "chnomem"/);
-  assert.match(cs, /chSolo: solo \|\| noMem, chShareMembers: !!\(shareM && solo && !noMem\), chNoMem: noMem/);
+  assert.match(cs, /chSolo: solo \|\| noMem \|\| spect, chShareMembers: !!\(shareM && solo && !noMem\), chNoMem: noMem/);
 });
 test("已有的群能收进频道空间、也能移出去：只挂上/摘下 spaceId，群原样不动", () => {
   const fs = require("fs"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
@@ -144,4 +144,10 @@ test("只给这里的人知道：别处只在有这几个人的频道里带上�
   assert.doesNotMatch(other, /我们|想你们/);
   const self = ctx.f(gs[1], gs, id => chats[id] || [], "她", nm);
   assert.match(self, /综合/);
+});
+test("已有的频道能切旁观、切回来：群上的 roomKind 和群设置的 spectate 两头一起改", () => {
+  const fs = require("fs"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.match(ap, /updateGroup\(g\.id, \{ roomKind: patch\.spectate \? "spectate" : "group" \}\);\s*saveGroupSettingsRaw\(g\.id, \{ spectate: !!patch\.spectate \}\);/);
+  assert.match(cs, /"data-wk": "chspect"/);
+  assert.match(cs, /spectate: spect, chSolo: solo \|\| noMem \|\| spect/);
 });

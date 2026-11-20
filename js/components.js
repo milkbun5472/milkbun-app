@@ -23095,7 +23095,8 @@ function NewSpacePage({ characters, allChars, onCreate, onClose }) {
       h("span", { style: { width: 21, height: 21, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null)); }));
 }
 // 开新频道／改一个频道：名字、这里聊什么、谁在里面（默认整个空间的人）
-function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDelete, onRelease, onClose, cats, onMove }) {
+function ChannelEditPage({ space, channel, allChars, noMem: noMem0, spectate: spect0, onSave, onDelete, onRelease, onClose, cats, onMove }) {
+  const [spect, setSpect] = useState(!!spect0);   // 旁观：她隐身（她 2026-11-20「已有的频道怎么变成旁观或者变回来」）
   const t = useTheme();
   const [name, setName] = useState(channel ? channel.chName || "" : "");
   const [about, setAbout] = useState(channel ? channel.chAbout || "" : "");
@@ -23113,7 +23114,7 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDe
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const ok = name.trim().replace(/^#/, "") && sel.length >= 1;
   return h(PageSheet, { onClose, zh: channel ? "改频道" : "新频道", sub: space.name,
-    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, chSolo: solo || noMem, chShareMembers: !!(shareM && solo && !noMem), chNoMem: noMem, chCat: cat, chArchived: arch, chKind: hole ? "treehole" : lounge ? "lounge" : "", chHours: night, avatarImage: chAv || null }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
+    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, spectate: spect, chSolo: solo || noMem || spect, chShareMembers: !!(shareM && solo && !noMem), chNoMem: noMem, chCat: cat, chArchived: arch, chKind: hole ? "treehole" : lounge ? "lounge" : "", chHours: night, avatarImage: chAv || null }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
     h("div", { "data-wk": "chav", className: "flex items-center gap-3", style: { marginBottom: 14 } },
       h(AvatarPicker, { character: { name: name || "#", color: t.tint, avatarImage: chAv }, size: 44, radius: 10, onPick: setChAv, onClear: chAv ? () => setChAv(null) : null }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, chAv ? "频道列表这一行和进去的群头像都是这张。点「移除照片」换回「#」。" : "没设头像就是一个「#」。点左边设一张，跟群头像是同一格。")),
@@ -23150,6 +23151,13 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDe
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "跟别的频道互通"),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, noMem ? "「不影响记忆」开着，这一格跟着关。" : solo ? "关着：这个频道里的人不知道别的频道在聊什么，别的频道也看不到这里。" : "开着：大家知道同一个地方别的频道最近在聊什么。")),
       h(Toggle, { on: !solo && !noMem, onChange: v => { if (!noMem) setSolo(!v); }, color: t.accent })),
+    h("div", { "data-wk": "chspect", "data-on": spect ? "1" : "0", className: "flex items-center justify-between gap-3", style: { padding: "10px 12px", background: t.bg2, borderRadius: 10, marginBottom: 10 } },
+      h("div", { className: "min-w-0" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "旁观（你隐身）"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, spect
+          ? "开着：你不下场，他们不知道你在看，这里是他们自己的地方；跟别的频道自动不互通。以前的聊天记录不动。"
+          : "关着：你是这里的一员，他们跟你说话。")),
+      h(Toggle, { on: spect, onChange: v => { setSpect(v); if (v) setSolo(true); }, color: t.accent })),
     // 关着互通时的第三档：只给这里的人（她 2026-11-20）
     solo && !noMem ? h("div", { "data-wk": "chsharem", "data-on": shareM ? "1" : "0", className: "flex items-center justify-between gap-3", style: { padding: "10px 12px", background: t.bg2, borderRadius: 10, marginBottom: 10, marginTop: -4 } },
       h("div", { className: "min-w-0" },
@@ -23708,7 +23716,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, m.date + " · " + (m.who || "大家") + (m.open ? " · 还在见" : "")),
         m.line ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, m.line) : null))) : null,
     spEdit ? h(SpaceEditPage, { space, pool: pickPool || allChars || [], onSuggestTitles, onSave: patch => { onSaveSpace(patch); setSpEdit(false); }, onDelete: onDeleteSpace, nChannels: rows.length, onClose: () => setSpEdit(false) }) : null,
-    edit ? h(ChannelEditPage, { space, channel: edit === "new" ? null : edit, allChars, noMem: edit !== "new" && !!(noMemOf && noMemOf(edit.id)),
+    edit ? h(ChannelEditPage, { space, channel: edit === "new" ? null : edit, allChars, noMem: edit !== "new" && !!(noMemOf && noMemOf(edit.id)), spectate: edit !== "new" && !!(spectateOf && spectateOf(edit)),
       onSave: patch => { onSaveChannel(edit === "new" ? null : edit, patch); setEdit(null); },
       onDelete: edit !== "new" && rows.length > 1 ? () => { onDeleteChannel(edit); setEdit(null); } : null,
       onRelease: edit !== "new" && rows.length > 1 && onRelease ? () => { onRelease(edit); setEdit(null); } : null,
