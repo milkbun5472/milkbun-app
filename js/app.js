@@ -12404,7 +12404,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (Date.now() - last < PEEK_SNEAK_GAP || Math.random() > 0.25) return;
     saveJSON("x_peekSneakLast", Date.now());
     // 偷偷翻也认她上回递手机时藏起来的那几个（群友 2026-10-31）：藏是她的意思，不该只管递过去那一回
-    handPhoneTo(charId, PEEK_PHONE_SECTIONS.map(s => s[0]), ((loadJSON("x_peekHide", {}) || {})[charId] || []), true);
+    // 偷偷翻也守你上锁的那几样（群友 2026-11-20「没给他递手机就锁不上，他自己偷偷翻都能看到」）：按这个人记住的「能翻的几样」来，没设过才是全部
+    { const _al = (loadJSON("x_peekAllow", {}) || {})[charId];
+      handPhoneTo(charId, Array.isArray(_al) && _al.length ? _al : PEEK_PHONE_SECTIONS.map(s => s[0]), ((loadJSON("x_peekHide", {}) || {})[charId] || []), true); }
   };
   // 她看到那张卡：回放（只看）／当面问（TA接）／装没看见
   // 她点开一个允许偷偷翻的人的聊天时，偶尔会发现TA刚翻过（冷却够了才有几率）
