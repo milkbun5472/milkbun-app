@@ -12946,7 +12946,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   小房间里的那一路不算：房间本来就是另一处。
     if (opts.proactive && !opts.room && offlineTogetherNow(charId)) return null;
     if (opts.proactive) {
-      const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.askFollow ? "ask_follow" : opts.remind ? "reminder" : opts.health ? "health_meal" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
+      const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.askFollow ? "ask_follow" : opts.momFollow ? "moment_follow" : opts.remind ? "reminder" : opts.health ? "health_meal" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
       // C 第4步：全局发声闸 shadow——asleep 时记 would_hold，但绝不拦截（合同 §5.1；eyes_alert 天然豁免）
       try { if (window.SleepShadow) { const chG = characters.find(c => c.id === charId); if (chG) window.SleepShadow.gateCheck(chG, outlet, settingsFor(charId).engineerEyes === true); } } catch (e) {}
@@ -13111,6 +13111,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "从你记得的那件具体的事说起，而不是从「今天是我们的纪念日」说起。"
         + "合你性子的话可以顺手准备点什么，把 gift 填成一件【只有你会想到送给 Ta 的东西】；不想送就 null。"
         + "Ta 记不记得都行，情绪到哪儿说到哪儿。" : "";
+      // 她在你朋友圈底下留了言、你在评论里回过了，又想跑回私聊说两句（她 2026-11-21）
+      const momFollowHint = opts.momFollow ? "\n\n【此刻·她在你朋友圈底下留了言】你那条朋友圈「" + String(opts.momFollow.post || "").slice(0, 80) + "」，她评论：「" + String(opts.momFollow.text || "").slice(0, 120) + "」，你已经在评论区回过了。"
+        + "你又顺手跑回私聊找她说两句——评论区里大家都看得见、不方便说的，或者想接着往下聊的，照你这个人来；别把评论区那句原样再说一遍，也别解释你为什么来私聊。" : "";
       const askFollowHint = opts.askFollow ? "\n\n【此刻·想起她那张请示】前一两天她递过一张请示「" + opts.askFollow.what + "」，你" + (opts.askFollow.status === "paid" ? "替她出了钱" : "批准了")
         + (opts.askFollow.cond ? "，条件是「" + opts.askFollow.cond + "」" : "") + "。你【主动】来问一句后续——东西到了没、用着怎么样、事办得顺不顺" + (opts.askFollow.cond ? "、条件守没守" : "") + "，照你这个人会关心的那一面问，像随口想起来。" : "";
       const bloomHint = opts.bloom ? "\n\n【此刻·你们一起养的那盆" + opts.bloom.species + "开花了】你【主动】说这件事。"
@@ -13218,7 +13221,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             + "也可以完全无关，那是你的事；但**那段是发生过的**，开口是你想说的话，不是报备行程。";
         } catch (e) { return ""; }
       })();
-      const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.health ? healthHint : opts.tripEve ? tripEveHint : opts.bdayPrep ? bdayPrepHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.askFollow ? askFollowHint : opts.wx ? wxHint : (opts.proactive || contMode)
+      const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.health ? healthHint : opts.tripEve ? tripEveHint : opts.bdayPrep ? bdayPrepHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.askFollow ? askFollowHint : opts.momFollow ? momFollowHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
           // 新开场允许普通，具体事实仍须有来源与明确归属。
           // ⚠️这一段原来写的是「**不要默认续接聊天记录最后一句**」——一刀切。
@@ -26139,7 +26142,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         text: storedText
       }]
     } : m));
-    await momentReplies(moments.find(m => m.id === id), { text, replyTo });
+    const _mom = moments.find(m => m.id === id);
+    await momentReplies(_mom, { text, replyTo });
+    // 有时候评论完他还顺手跑回私聊说两句（她 2026-11-21）：只在他自己的那条底下、大约三成，过一小会儿才来；主动消息的闸照守
+    try {
+      const cid = _mom && _mom.characterId, ch = cid && (characters || []).find(c => c && c.id === cid && !c.npc);
+      if (ch && (settingsFor(cid) || {}).proactive && Math.random() < 0.3 && !quietNow("pro") && autoRefreshOn("proactive", cid))
+        setTimeout(() => { replyNow(cid, "", null, { proactive: true, momFollow: { post: _mom.content || "", text } }).catch(() => {}); }, 20000 + Math.random() * 40000);
+    } catch (e) {}
   };
   // 「↻ 更多评论」：同一条动态下再来一轮共友的话。重复点不叠发（进行中锁）。
   const momentMoreInflight = useRef({});
