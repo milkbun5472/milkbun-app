@@ -2528,24 +2528,65 @@ function chainAppend(msgs, who, name, text) {
   }
   return null;
 }
+// 角色自己起一条接龙（她 2026-11-20「接龙也接上普通群聊，角色也可以发起」）：
+//   这个群里还有没收的接龙就不起；今天已经有人起过一回也不起（lastDay＝上回角色起头那天）
+function chainStartOk(msgs, lastDay, dayKey) {
+  if (lastDay && lastDay === dayKey) return false;
+  return !(msgs || []).some(m => m && m.kind === "spacebot" && m.bot === "chain" && !m.closed);
+}
 // 每周称号：只照这一周真聊天算，不调模型。chatsOf(gid) 拿那个频道的消息；members 是空间里的角色 id
-//   话最多＝条数最多；潜水冠军＝条数最少（可以是 0）；最爱歪楼＝去过的频道最多（至少两个）
-function spaceWeekTitles(channels, chatsOf, members, now, days) {
-  const since = (now || Date.now()) - (days || 7) * 86400000, cnt = {}, where = {};
-  (members || []).forEach(id => { cnt[id] = 0; where[id] = new Set(); });
-  (channels || []).forEach(g => (chatsOf(g.id) || []).forEach(m => {
-    if (!m || m.role !== "assistant" || !m.senderId || (m.ts || 0) < since || !(m.senderId in cnt)) return;
-    cnt[m.senderId]++; where[m.senderId].add(g.id);
-  }));
-  const ids = Object.keys(cnt), out = {};
+//   话最多＝条数最多；潜水冠军＝条数最少（可以是 0）；最爱歪楼＝去过的频道最多（至少两个）。
+//   她 2026-11-20「每周称号不能搞多一点吗」：再按真记录加几样——最晚睡（0–5 点）、最早起（5–8 点）、话题终结者
+//   （他说完那个频道 6 小时没人接）、最爱发图、被@最多、最爱悄悄话。数据不够门槛就不发；一周最多 6 个称号，一个人可以拿好几个。
+//   opts.nameOf(id)→名字（认 @），opts.hourOf(ts)→那一刻是几点（虚拟时间）。返回 { id: "称号、称号" }
+const WEEK_TITLE_CAP = 6;
+function spaceWeekTitles(channels, chatsOf, members, now, days, opts) {
+  const o = opts || {}, T = now || Date.now(), since = T - (days || 7) * 86400000;
+  const hourOf = typeof o.hourOf === "function" ? o.hourOf : (ts => new Date(ts).getHours());
+  const z = () => { const r = {}; (members || []).forEach(id => { r[id] = 0; }); return r; };
+  const cnt = z(), night = z(), dawn = z(), killer = z(), pics = z(), at = z(), wh = z(), where = {};
+  (members || []).forEach(id => { where[id] = new Set(); });
+  const names = (members || []).map(id => [id, String((o.nameOf && o.nameOf(id)) || "")]).filter(x => x[1].length >= 1);
+  (channels || []).forEach(g => {
+    const ms = (chatsOf(g.id) || []).filter(m => m && (m.ts || 0) >= since && m.role !== "system");
+    ms.forEach((m, k) => {
+      if (m.content) names.forEach(([id, nm]) => { if (String(m.content).indexOf("@" + nm) >= 0 && String(m.senderId) !== String(id)) at[id]++; });
+      if (m.role !== "assistant" || !m.senderId || !(m.senderId in cnt)) return;
+      const id = m.senderId, h0 = hourOf(m.ts || 0);
+      cnt[id]++; where[id].add(g.id);
+      if (h0 >= 0 && h0 < 5) night[id]++;
+      if (h0 >= 5 && h0 < 8) dawn[id]++;
+      if (m.kind === "photo" || m.kind === "image" || m.imageRef || m.photo) pics[id]++;
+      if (m.whisper) wh[id]++;
+      const nx = ms[k + 1], gap = (nx ? (nx.ts || 0) : T) - (m.ts || 0);
+      if (gap >= 6 * 3600000) killer[id]++;
+    });
+  });
+  const ids = Object.keys(cnt), out = {}, give = (id, label) => { if (!id) return; out[id] = out[id] ? out[id] + "、" + label : label; };
   if (ids.length < 2) return out;
-  const most = ids.slice().sort((a, b) => cnt[b] - cnt[a])[0];
-  if (cnt[most] > 0) out[most] = "本周话最多";
-  const quiet = ids.filter(id => id !== most).sort((a, b) => cnt[a] - cnt[b])[0];
-  if (quiet) out[quiet] = "潜水冠军";
-  const roam = ids.filter(id => !out[id] && where[id].size >= 2).sort((a, b) => where[b].size - where[a].size)[0];
-  if (roam) out[roam] = "最爱歪楼";
+  let n = 0;
+  const top = (tab, min) => { const id = ids.slice().sort((a, b) => tab[b] - tab[a])[0]; return id && tab[id] >= min ? id : null; };
+  const most = top(cnt, 1); if (most) { give(most, "本周话最多"); n++; }
+  const quiet = ids.filter(id => id !== most).sort((a, b) => cnt[a] - cnt[b])[0]; if (quiet) { give(quiet, "潜水冠军"); n++; }
+  const roam = ids.filter(id => !out[id] && where[id].size >= 2).sort((a, b) => where[b].size - where[a].size)[0]; if (roam && n < WEEK_TITLE_CAP) { give(roam, "最爱歪楼"); n++; }
+  [[night, 3, "最晚睡"], [dawn, 3, "最早起"], [killer, 2, "话题终结者"], [pics, 2, "最爱发图"], [at, 2, "被@最多"], [wh, 2, "最爱悄悄话"]].forEach(([tab, min, label]) => {
+    if (n >= WEEK_TITLE_CAP) return; const id = top(tab, min); if (id) { give(id, label); n++; }
+  });
   return out;
+}
+// 自定义称号那一次调用（她 2026-11-20「可以花调用自定义或者自己写保存起来评」）：这一周各频道里他们说的话，压成一份摘要。
+//   只收角色说的，不收她的；旁观、不影响记忆的频道不收（评出来的理由会贴进大家都看得到的频道）
+function spaceWeekDigest(channels, chatsOf, nameOf, now, days, cap) {
+  const since = (now || Date.now()) - (days || 7) * 86400000, out = [];
+  let len = 0; const max = cap || 6000;
+  (channels || []).forEach(g => {
+    const ms = (chatsOf(g.id) || []).filter(m => m && m.role === "assistant" && m.senderId && m.content && (m.ts || 0) >= since);
+    if (!ms.length) return;
+    const lines = ms.slice(-40).map(m => (nameOf(m.senderId) || m.senderName || "某人") + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 60));
+    const blk = "【#" + (g.chName || g.name || "") + "】\n" + lines.join("\n");
+    if (len + blk.length > max) return; out.push(blk); len += blk.length;
+  });
+  return out.join("\n");
 }
 function gemQuoteHit(quote, msgs) {
   const q = String(quote || "").replace(/^[「『"“]+|[」』"”]+$/g, "").trim();

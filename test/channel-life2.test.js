@@ -3,7 +3,7 @@ const test = require("node:test"), assert = require("node:assert/strict"), fs = 
 const en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
 const grab = (src, name) => { const i = src.indexOf("function " + name + "("); return src.slice(i, src.indexOf("\n}\n", i) + 3); };
 const ctx = {}; vm.createContext(ctx);
-vm.runInContext("const SPACE_BOT_NAME='小频';const SPACE_ASK_POOL=['a','b','c'];" + grab(en, "spaceAskPick") + grab(en, "spaceBotLine") + grab(en, "chainAppend") + grab(en, "spaceWeekTitles") + ";this.o={spaceAskPick,spaceBotLine,chainAppend,spaceWeekTitles};", ctx);
+vm.runInContext("const SPACE_BOT_NAME='小频';const WEEK_TITLE_CAP=6;const SPACE_ASK_POOL=['a','b','c'];" + grab(en, "spaceAskPick") + grab(en, "spaceBotLine") + grab(en, "chainAppend") + grab(en, "spaceWeekTitles") + ";this.o={spaceAskPick,spaceBotLine,chainAppend,spaceWeekTitles};", ctx);
 const o = ctx.o;
 test("每日一问同一天同一个空间抽到的是同一句", () => { assert.equal(o.spaceAskPick("2026-11-20", "sp1"), o.spaceAskPick("2026-11-20", "sp1")); });
 test("接龙：接最新那张没收的卡，同一个人不连着接两棒", () => {
@@ -25,7 +25,7 @@ test("旁观频道不露她：机器人和欢迎只往非旁观频道贴，一�
   assert.match(ap, /right: groupSpectating\(activeGroup\) \? null : h\(ChannelListenBtn/);
   assert.match(ap, /filter\(x => !\(x && x\.by === "me" && chSpectId\(x\.gid\)\)\)/);
   assert.match(ap, /groupSpectating\(g\) \? \[\] : added\.filter/);
-  assert.match(cs, /channelTabs && !_gSpect \? \[\["chain"/);
+  assert.match(cs, /!_gSpect \? \[\["chain"/);
   assert.match(cs, /members\.length && !_gSpect \? \[\["whisper"/);
 });
 test("悄悄话和机器人卡不出现在别的频道的动态里；她的悄悄话在群里显示成灰字一行", () => {

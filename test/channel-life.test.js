@@ -49,7 +49,7 @@ test("欢迎新人：加人、收群带进新人都走 welcomeNew，老成员接
   assert.match(ap, /if \(added\.length\) welcomeNew\(sp\.id, added\);/);
   assert.match(ap, /welcomeNew\(sp\.id, add\); \}/);
   assert.match(ap, /replyGroup\(g\.id, \{ welcome: names \}\)/);
-  assert.match(ap, /gTreeHint \+ gWelcomeHint \+/);
+  assert.match(ap, /gTreeHint \+ (?:gChainStartHint \+ )?gWelcomeHint \+/);
 });
 test("频道一起听：页签那排一颗、顶上一条，歌照播放器现读，提示里一行", () => {
   assert.match(cs, /function ChannelListenBtn\(/);

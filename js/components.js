@@ -21293,7 +21293,7 @@ function GroupThread({
     else if (r === "notyours") toast && toast("这是专属红包，只有 " + (rp.toName || "被点名的那位") + " 能领");
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ...(channelTabs && !_gSpect ? [["chain", "接龙", "checklist"]] : []), ...(members.length && !_gSpect ? [["whisper", "悄悄话", "wave"]] : []), ["luck", "骰子 · 抽签", "dice"], ...(onStartAsk ? [["ask", "请示", "checklist"]] : []), ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"]];
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ...(!_gSpect ? [["chain", "接龙", "checklist"]] : []), ...(members.length && !_gSpect ? [["whisper", "悄悄话", "wave"]] : []), ["luck", "骰子 · 抽签", "dice"], ...(onStartAsk ? [["ask", "请示", "checklist"]] : []), ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"]];
   // 我发一张表情包：表情包面板和打字联想都走这一处
   const sendMyEmote = em => sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") });
   const sendRich = msg => {
@@ -21580,7 +21580,7 @@ function GroupThread({
     if (m.kind === "spacebot") return h("div", { key: i, className: "py-1.5 flex justify-center",
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress },
       h("div", { "data-wk": "spacebot", "data-part": m.bot || "", style: { maxWidth: "86%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 12px", fontFamily: F_BODY } },
-        h("div", { style: { fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".06em", marginBottom: 4 } }, (typeof SPACE_BOT_NAME === "string" ? SPACE_BOT_NAME : "小频") + " · " + (m.bot === "ask" ? "每日一问" : m.bot === "chain" ? "接龙" : m.bot === "titles" ? "本周称号" : "")),
+        h("div", { style: { fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".06em", marginBottom: 4 } }, m.bot === "chain" ? "接龙" + (m.startedBy ? " · " + m.startedBy + " 起的头" : "") : (typeof SPACE_BOT_NAME === "string" ? SPACE_BOT_NAME : "小频") + " · " + (m.bot === "ask" ? "每日一问" : m.bot === "titles" ? "本周称号" : "")),
         h("div", { style: { fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6 } }, m.bot === "ask" ? m.q : m.bot === "chain" ? m.topic : m.content),
         m.bot === "chain" ? h("div", { "data-wk": "spacebotchain", style: { marginTop: 6 } }, (m.items || []).map((x, k) => h("div", { key: k, style: { fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6 } }, (k + 1) + ". " + (x.who === "me" ? "你" : x.name || "某人") + "：" + x.text))) : null));
     // 频道文件动过的那一行：点了打开那份（她 2026-11-20）
@@ -23271,15 +23271,19 @@ function SpaceGemsPage({ space, gems, chName, onOpen, onDelete, onClose }) {
       : h("div", { style: { padding: "40px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "还没有收进来的话"));
 }
 // 空间本身那一页：改名字、加人踢人；删整个空间也放这儿一份
-function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose }) {
+function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose, onSuggestTitles }) {
   const [cats, setCats] = useState((space.cats || []).map(c => ({ ...c })));
+  // 自定义称号（她 2026-11-20）：名字＋怎么评，存在空间上；每周评称号时多花一次调用照这个挑人。aiTitles 关了就不评
+  const [ctitles, setCtitles] = useState((space.customTitles || []).map(x => ({ ...x })));
+  const [aiTitles, setAiTitles] = useState(space.aiTitles !== false);
+  const [sugg, setSugg] = useState(null), [suggBusy, setSuggBusy] = useState(false);
   const t = useTheme();
   const [name, setName] = useState(space.name || "");
   const [sel, setSel] = useState((space.memberIds || []).slice());
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const ok = name.trim() && sel.length >= 1;
   return h(PageSheet, { onClose, zh: "频道设置", sub: space.name,
-    right: h("button", { "data-wk": "spacesave", disabled: !ok, onClick: () => ok && onSave({ name: name.trim().slice(0, 24), memberIds: sel, cats: cats.map(c => ({ ...c, name: String(c.name || "").trim().slice(0, 12) || "分类" })) }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.ink : t.line } }, "保存") },
+    right: h("button", { "data-wk": "spacesave", disabled: !ok, onClick: () => ok && onSave({ name: name.trim().slice(0, 24), memberIds: sel, customTitles: ctitles.map(x => ({ name: String(x.name || "").trim().slice(0, 12), how: String(x.how || "").trim().slice(0, 60) })).filter(x => x.name), aiTitles, cats: cats.map(c => ({ ...c, name: String(c.name || "").trim().slice(0, 12) || "分类" })) }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.ink : t.line } }, "保存") },
     h("input", { "data-wk": "input", value: name, onChange: e => setName(e.target.value), placeholder: "名字", className: "w-full outline-none pb-2 mb-1", style: { background: "transparent", borderBottom: "1px solid " + t.line, fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "4px 0 18px" } }, "改了名字，每个频道的群名跟着改，以前的记忆也跟着认。"),
     // 分类（她 2026-11-20「多起来了怎么收纳归类」）：频道列表按这几类分段，可以折起来
@@ -23291,6 +23295,26 @@ function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose }) {
       h("button", { "data-wk": "chmove", "data-part": "catdown", disabled: i === cats.length - 1, onClick: () => setCats(a => { const b = a.slice(); [b[i], b[i + 1]] = [b[i + 1], b[i]]; return b; }), className: "active:opacity-60 disabled:opacity-25", style: { minWidth: 36, minHeight: 36, color: t.ink } }, "↓"),
       h("button", { "data-wk": "chcatdel", onClick: () => setCats(a => a.filter(x => x.id !== c.id)), className: "active:opacity-60", style: { minHeight: 36, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#c0453a" } }, "删"))),
     h("button", { "data-wk": "chcatadd", onClick: () => setCats(a => a.concat([{ id: "cat_" + Date.now().toString(36), name: "新分类", collapsed: false }])), className: "active:opacity-60", style: { minHeight: 40, padding: "0 4px", marginBottom: 18, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.accent } }, "＋ 加一类"),
+    h("div", { "data-wk": "ctitles", style: { margin: "18px 0" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, "自定义称号（" + ctitles.length + "）"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8, lineHeight: 1.6 } }, "话最多、潜水、最晚睡这些每周照聊天记录自动算，不花调用。这里写的称号要读这一周的聊天才评得出，每周评称号时多花一次调用，照你写的「怎么评」挑人、写一句为什么。"),
+      ctitles.map((c, i) => h("div", { key: i, "data-wk": "ctitlerow", style: { padding: "6px 0", borderBottom: "1px solid " + t.line } },
+        h("div", { className: "flex items-center gap-2" },
+          h("input", { "data-wk": "input", value: c.name, placeholder: "称号", onChange: e => { const v = e.target.value; setCtitles(a => a.map((x, k) => k === i ? { ...x, name: v } : x)); }, className: "flex-1 outline-none min-w-0", style: { background: "transparent", fontFamily: F_BODY, fontSize: 16, color: t.ink } }),
+          h("button", { "data-wk": "ctitledel", onClick: () => setCtitles(a => a.filter((x, k) => k !== i)), className: "active:opacity-60", style: { minHeight: 36, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "删")),
+        h("input", { "data-wk": "input", value: c.how, placeholder: "怎么评，一句", onChange: e => { const v = e.target.value; setCtitles(a => a.map((x, k) => k === i ? { ...x, how: v } : x)); }, className: "w-full outline-none", style: { background: "transparent", fontFamily: F_BODY, fontSize: 16, color: t.sub } }))),
+      h("div", { className: "flex gap-2", style: { marginTop: 8 } },
+        h("button", { "data-wk": "ctitleadd", onClick: () => setCtitles(a => a.concat([{ name: "", how: "" }])), className: "active:opacity-60", style: { minHeight: 36, padding: "0 12px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "＋ 写一个"),
+        onSuggestTitles ? h("button", { "data-wk": "ctitleai", disabled: suggBusy, onClick: async () => { setSuggBusy(true); try { const r = await onSuggestTitles(); setSugg(r && r.length ? r : null); } finally { setSuggBusy(false); } }, className: "active:opacity-60 disabled:opacity-40", style: { minHeight: 36, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, suggBusy ? "在想…" : "让 AI 想几个") : null),
+      sugg ? h("div", { "data-wk": "ctitlesugg", style: { marginTop: 8, background: t.bg2, borderRadius: 10, padding: "6px 10px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "4px 0" } }, "点一个加进去，想好了再点右上「保存」"),
+        sugg.map((x, k) => h("button", { key: k, "data-wk": "ctitlepick", onClick: () => { setCtitles(a => a.concat([x])); setSugg(s0 => (s0 || []).filter((y, j) => j !== k)); }, className: "w-full text-left active:opacity-60", style: { padding: "7px 0", borderBottom: "1px solid " + t.line, fontFamily: F_BODY } },
+          h("div", { style: { fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "＋ " + x.name), h("div", { style: { fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } }, x.how)))) : null,
+      ctitles.length ? h("div", { className: "flex items-center justify-between gap-3", style: { marginTop: 10, padding: "10px 12px", background: t.bg2, borderRadius: 10 } },
+        h("div", { className: "min-w-0" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "每周用 AI 评自定义称号"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, aiTitles ? "开着：每周多一次调用。" : "关着：只发自动算的那几个，上面写的先存着不评。")),
+        h(Toggle, { on: aiTitles, onChange: setAiTitles, color: t.accent })) : null),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, "谁在这儿（" + sel.length + "）"),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "新勾上的人会进每一个频道；取消勾选就是踢出去，所有频道里都没有他了，他以前说过的话还留着。"),
     (pool || []).map(c => { const on = sel.includes(c.id); return h("button", { key: c.id, "data-wk": "spacepick", "data-on": on ? "1" : "0", onClick: () => toggle(c.id), className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "9px 0", borderBottom: "1px solid " + t.line } },
@@ -23333,7 +23357,7 @@ function LoungePanel({ people, onSit, sitting, spectate }) {
     spectate ? null : h("button", { "data-wk": "loungesit", disabled: sitting, onClick: onSit, className: "active:opacity-60", style: { marginTop: 6, minHeight: 34, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", opacity: sitting ? .5 : 1 } }, sitting ? "进去了…" : "进去坐坐"));
 }
 // 空间首页：Teams 那一屏——顶上一块空间名片（方头像、名字、几个人），底下一行一个频道
-function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf }) {
+function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf, onSuggestTitles }) {
   const t = useTheme();
   const [edit, setEdit] = useState(null);   // null | "new" | 频道那个群
   const [spEdit, setSpEdit] = useState(false);
@@ -23414,7 +23438,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
     gemOpen ? h(SpaceGemsPage, { space, gems: gems || [], chName: gid => { const g = (channels || []).find(x => x.id === gid); return g ? (g.chName || g.name) : ""; },
       onOpen: gm => { setGemOpen(false); onOpenGem && onOpenGem(gm); }, onDelete: onDeleteGem, onClose: () => setGemOpen(false) }) : null,
     adopt ? h(GroupAdoptPage, { space, groups: looseGroups || [], onPick: ids => { onAdopt(ids); setAdopt(false); }, onClose: () => setAdopt(false) }) : null,
-    spEdit ? h(SpaceEditPage, { space, pool: pickPool || allChars || [], onSave: patch => { onSaveSpace(patch); setSpEdit(false); }, onDelete: onDeleteSpace, nChannels: rows.length, onClose: () => setSpEdit(false) }) : null,
+    spEdit ? h(SpaceEditPage, { space, pool: pickPool || allChars || [], onSuggestTitles, onSave: patch => { onSaveSpace(patch); setSpEdit(false); }, onDelete: onDeleteSpace, nChannels: rows.length, onClose: () => setSpEdit(false) }) : null,
     edit ? h(ChannelEditPage, { space, channel: edit === "new" ? null : edit, allChars, noMem: edit !== "new" && !!(noMemOf && noMemOf(edit.id)),
       onSave: patch => { onSaveChannel(edit === "new" ? null : edit, patch); setEdit(null); },
       onDelete: edit !== "new" && rows.length > 1 ? () => { onDeleteChannel(edit); setEdit(null); } : null,
