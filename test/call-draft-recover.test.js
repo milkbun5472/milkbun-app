@@ -7,7 +7,12 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
 test("每多一句就存草稿", () => {
   assert.match(app, /saveJSON\("x_callDraft", \{/);
-  assert.match(app, /\}, \[call && call\.msgs\]\);/);
+  assert.match(app, /\}, \[call && call\.msgs, call && call\.shots\]\);/);
+});
+test("通话画面（img_call_）进草稿，卡退后回执上还挂着；挂断时还在出的那张补到回执上", () => {
+  assert.match(app, /x\.indexOf\("img_"\) === 0 \|\| x\.indexOf\("iv_"\) === 0/);
+  assert.match(app, /x\.kind === "callend" && x\.sessionId === cur\.sessionId \? \{ \.\.\.x, shots:/);
+  assert.match(app, /sessionId: cur\.sessionId \|\| null, log \}/);
 });
 test("正常挂断收走草稿", () => {
   const i = app.indexOf("const endCall = ");

@@ -17782,7 +17782,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   一条消息里的图只认两样：她发的真照片 imageRef（iv_ 图库键），他拍的 imgKey（img_ 键）。
   //   ⚠️iv_ 是按内容存的，同一张图设成过壁纸／头像就是同一把键——那份像素不删，只拿掉消息和照片库那一行；
   //   img_ 是一条消息一把，连像素（和 _raw 原图）一起删。
-  const msgImgRefs = m => m ? [m.imageRef, m.imgKey].filter(x => typeof x === "string" && x) : [];
+  // 通话回执上的画面（shots）也算在用，不然删别的东西时会顺手把它们当没人要的清掉
+  const msgImgRefs = m => m ? [m.imageRef, m.imgKey, ...(Array.isArray(m.shots) ? m.shots : [])].filter(x => typeof x === "string" && x) : [];
   // skip：刚删掉的那几条（状态还没落地，别把它们算成「还在用」）
   const imgStillUsed = (ref, skip) => {
     const uses = l => (l || []).some(m => !(skip && skip.has(m)) && msgImgRefs(m).indexOf(ref) >= 0);
@@ -17800,9 +17801,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 相册那两页的「删」：用到这几张的消息（单聊／小房间、群聊、线下、群线下）一起删掉，再删图
   const purgeImages = async refs => {
     const R = new Set((refs || []).filter(Boolean).map(String)); if (!R.size) return 0;
-    const hit = m => msgImgRefs(m).some(x => R.has(x));
+    // 通话回执只是挂着几张画面：删图只摘掉那几张，整张回执（转录）留着
+    const hit = m => m && [m.imageRef, m.imgKey].some(x => typeof x === "string" && R.has(x));
+    const unshot = p => p.map(m => m && Array.isArray(m.shots) && m.shots.some(x => R.has(x)) ? { ...m, shots: m.shots.filter(x => !R.has(x)) } : m);
     let n = 0;
     chatShrinkOk();
+    Object.keys(chatsRef.current || {}).forEach(k => { if ((chatsRef.current[k] || []).some(m => m && Array.isArray(m.shots) && m.shots.some(x => R.has(x)))) pChat(k, unshot); });
+    Object.keys(groupChatsRef.current || {}).forEach(k => { if ((groupChatsRef.current[k] || []).some(m => m && Array.isArray(m.shots) && m.shots.some(x => R.has(x)))) pGChat(k, unshot); });
     Object.keys(chatsRef.current || {}).forEach(k => { const c = (chatsRef.current[k] || []).filter(hit).length; if (c) { n += c; pChat(k, p => p.filter(m => !hit(m))); } });
     Object.keys(groupChatsRef.current || {}).forEach(k => { const c = (groupChatsRef.current[k] || []).filter(hit).length; if (c) { n += c; pGChat(k, p => p.filter(m => !hit(m))); } });
     const inSess = ss => (ss || []).some(se => ((se && se.msgs) || []).some(hit));
@@ -23195,17 +23200,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   现在每多一句就写一份 x_callDraft；正常挂断时 endCall 收走它，没挂断就由下次开机补成一张通话回执。
   //   ⚠️画面只留 iv_ 引用，不把整张图塞进草稿。
   useEffect(() => {
-    if (!call || !(call.msgs || []).length) return;
+    if (!call || !((call.msgs || []).length || (call.shots || []).length)) return;
     try {
       saveJSON("x_callDraft", {
         sessionId: call.sessionId, mode: call.mode, groupId: call.groupId || null, chatKey: call.chatKey || null,
         pIds: (call.participants || []).map(c => c && c.id).filter(Boolean),
         startTs: call.startTs || null, lastTs: Date.now(),
-        shots: (call.shots || []).filter(x => typeof x === "string" && x.indexOf("iv_") === 0),
+        // 通话画面的键是 img_call_ 开头（群友 2026-11-20：卡退以后视频里生的图全没了——原来只认 iv_，一张都留不下）
+        shots: (call.shots || []).filter(x => typeof x === "string" && (x.indexOf("img_") === 0 || x.indexOf("iv_") === 0)),
         log: call.msgs.map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, act: !!m.act, content: m.content, ...(m.zh ? { zh: m.zh } : {}), ts: m.ts || null }))
       });
     } catch (e) {}
-  }, [call && call.msgs]);
+  }, [call && call.msgs, call && call.shots]);
   // 开机时上一通没挂断就断了：补一张「通话中断了」的回执，转录照样点开能看
   const callDraftDoneRef = useRef(false);
   useEffect(() => {
@@ -23213,13 +23219,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     callDraftDoneRef.current = true;
     let d = null;
     try { d = loadJSON("x_callDraft", null); } catch (e) {}
-    if (!d || !Array.isArray(d.log) || !d.log.length) return;
+    if (!d || !((Array.isArray(d.log) && d.log.length) || (Array.isArray(d.shots) && d.shots.length))) return;
     if (callRef.current && callRef.current.sessionId === d.sessionId) return;
     try { localStorage.removeItem("x_callDraft"); } catch (e) {}
     const s = Math.max(0, Math.round(((Number(d.lastTs) || Date.now()) - (Number(d.startTs) || Number(d.lastTs) || Date.now())) / 1000));
     const dur = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
     const bubble = { role: "system", kind: "callend", callMode: d.mode, dur, interrupted: true, shots: (d.shots || []).length ? d.shots : undefined,
-      content: (d.mode === "video" ? "视频通话" : "语音通话") + " · 中途断了 · 时长 " + dur, ts: Number(d.lastTs) || Date.now(), id: "call_" + (Number(d.lastTs) || Date.now()), log: d.log };
+      content: (d.mode === "video" ? "视频通话" : "语音通话") + " · 中途断了 · 时长 " + dur, ts: Number(d.lastTs) || Date.now(), id: "call_" + (Number(d.lastTs) || Date.now()), log: d.log || [] };
     if (d.groupId) pGChat(d.groupId, p => [...p, bubble]);
     else if (d.chatKey || d.pIds[0]) pChat(d.chatKey || d.pIds[0], p => [...p, bubble]);
   }, [loaded]);
@@ -23271,7 +23277,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 视频通话原来只有一片深色底和一个头像圆——「看得见对方」这件事只写在提示词里，
   // 屏幕上一点都看不出来。这里就地拍一张：**在电话里的每一个人都拿TA自己的参考照锁脸**
   // （她原话「谁在电话里都锁」），画面从各人此刻的状态卡长出来（在哪、在干嘛、穿什么）。
-  // 只属于这一通：存在 call.bg 上，挂了就没了，不落进聊天记录、不进相册。
+  // 存在 call.bg / call.shots 上；挂断时跟着通话回执落进聊天（她 2026-09-02「结束了要留在聊天不能没了」），不进相册。
   const callShotCan = () => {
     const c = callRef.current;
     if (!c || c.mode !== "video") return false;
@@ -23308,6 +23314,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       await idbImgPut(key, out.blob);
       // ⚠️换一张【不删旧的】：她 2026-09-02「结束了要留在聊天不能没了」——
       //   这一通里拍过的每一张挂断后都要落进聊天，删了就真没了。封顶 4 张。
+      // 画面还在出的时候就挂了：电话已经收成回执，这一张补到那张回执上，不然图出来了却谁也没挂上
+      if (!callRef.current || callRef.current.sessionId !== cur.sessionId) {
+        const tack = p => p.map(x => x && x.kind === "callend" && x.sessionId === cur.sessionId ? { ...x, shots: [...(x.shots || []), key] } : x);
+        if (cur.groupId) pGChat(cur.groupId, tack); else if (cur.participants && cur.participants[0]) pChat(cur.chatKey || cur.participants[0].id, tack);
+        return;
+      }
       setCall(c => c ? { ...c, bg: key, shots: [...(c.shots || []), key], bgBusy: false } : c);
     } catch (e) {
       setCall(c => c ? { ...c, bgBusy: false } : c);
@@ -23741,7 +23753,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const log = (cur.msgs || []).map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, act: !!m.act, ...(m.ev ? { ev: m.ev, tid: m.tid } : {}), content: m.content, ...(m.zh ? { zh: m.zh } : {}), ts: m.ts || null }));
       // 这一通里拍过的画面跟着通话记录留下来（她：「结束了要留在聊天不能没了」）
       const shots = (cur.shots || []).filter(Boolean);
-      const bubble = { role: "system", kind: "callend", callMode: cur.mode, dur: dur, endedBy: byName || null, shots: shots.length ? shots : undefined, content: label, ts: Date.now(), id: callId, log };
+      const bubble = { role: "system", kind: "callend", callMode: cur.mode, dur: dur, endedBy: byName || null, shots: shots.length ? shots : undefined, content: label, ts: Date.now(), id: callId, sessionId: cur.sessionId || null, log };
       if (cur.groupId) pGChat(cur.groupId, p => [...p, bubble]);
       // 通话里转的账早就落进聊天了（真卡只有一张）；通话卡插到它们前面——先有这通电话，再有电话里转的钱
       else if (cur.participants[0]) pChat(cur.chatKey || cur.participants[0].id, p => {
