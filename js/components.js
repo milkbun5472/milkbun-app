@@ -22985,7 +22985,7 @@ function NewSpacePage({ characters, allChars, onCreate, onClose }) {
       h("span", { style: { width: 21, height: 21, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null)); }));
 }
 // 开新频道／改一个频道：名字、这里聊什么、谁在里面（默认整个空间的人）
-function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDelete, onClose }) {
+function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDelete, onRelease, onClose }) {
   const t = useTheme();
   const [name, setName] = useState(channel ? channel.chName || "" : "");
   const [about, setAbout] = useState(channel ? channel.chAbout || "" : "");
@@ -23020,7 +23020,21 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, onSave, onDe
       h(Avatar, { character: c, size: 34, radius: 8 }),
       h("span", { className: "flex-1 text-left truncate", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name),
       h("span", { style: { width: 21, height: 21, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null)); }),
+    channel && onRelease ? h("button", { "data-wk": "chrelease", onClick: () => requestAppConfirm("把「#" + (channel.chName || "") + "」移出去？", "它变回一个普通群，回到群聊列表里，聊天记录和记忆都不动。", onRelease, "移出去"), className: "w-full active:opacity-60", style: { marginTop: 22, minHeight: 44, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "移出去，变回普通群") : null,
     channel && onDelete ? h("button", { "data-wk": "chdelete", onClick: () => requestAppConfirm("删掉「#" + (channel.chName || "") + "」？", "这个频道里的聊天记录一起删，别的频道不受影响。", onDelete, "删掉"), className: "w-full active:opacity-60", style: { marginTop: 22, minHeight: 44, borderRadius: 11, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#c0392b" } }, "删掉这个频道") : null);
+}
+// 把已有的群放进这个频道空间：一个群就是一个频道，名字、聊天、记忆、群设置原样带进来
+function GroupAdoptPage({ space, groups, onPick, onClose }) {
+  const t = useTheme();
+  const [sel, setSel] = useState([]);
+  const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+  return h(PageSheet, { onClose, zh: "放进已有的群", sub: space.name,
+    right: h("button", { "data-wk": "chadoptok", disabled: !sel.length, onClick: () => sel.length && onPick(sel), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: sel.length ? t.ink : t.line } }, "放进来") },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 12 } }, "勾上的群各变成这里的一个频道：名字、聊天记录、记忆、群设置都原样带进来，群里的人也进这个空间。以后想拿出去，点那个频道的「⋯」→「移出去」。"),
+    (groups || []).map(g => { const on = sel.includes(g.id); return h("button", { key: g.id, "data-wk": "spacepick", "data-on": on ? "1" : "0", onClick: () => toggle(g.id), className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "11px 0", borderBottom: "1px solid " + t.line } },
+      h("span", { className: "flex-1 text-left truncate", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, g.name || "群聊"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, (g.memberIds || []).length + " 人"),
+      h("span", { style: { width: 21, height: 21, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null)); }));
 }
 // 空间本身那一页：改名字、加人踢人；删整个空间也放这儿一份
 function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose }) {
@@ -23042,10 +23056,11 @@ function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose }) {
     onDelete ? h("button", { "data-wk": "spacedelete", onClick: () => requestAppConfirm("删掉「" + space.name + "」？", "里面 " + nChannels + " 个频道的聊天记录一起删掉。想留着的话先去 设置 → 数据 → 导入与导出 → 导出全部数据。", onDelete, "删掉"), className: "w-full active:opacity-60", style: { marginTop: 26, minHeight: 44, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#c0453a" } }, "删掉这个频道空间") : null);
 }
 // 空间首页：Teams 那一屏——顶上一块空间名片（方头像、名字、几个人），底下一行一个频道
-function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf }) {
+function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease }) {
   const t = useTheme();
   const [edit, setEdit] = useState(null);   // null | "new" | 频道那个群
-  const [spEdit, setSpEdit] = useState(false);   // 空间本身：改名、加人、踢人（她 2026-11-20「加不了人踢不了人改不了名字」）
+  const [spEdit, setSpEdit] = useState(false);
+  const [adopt, setAdopt] = useState(false);   // 把已有的群放进来（她 2026-11-20「把现在的群聊收纳进去成为一个大服务器」）   // 空间本身：改名、加人、踢人（她 2026-11-20「加不了人踢不了人改不了名字」）
   const tone = spaceTone(space);
   const people = (space.memberIds || []).map(id => (allChars || []).find(c => c && c.id === id)).filter(Boolean);
   const rows = (channels || []).slice().sort((a, b) => (a.createdTs || 0) - (b.createdTs || 0));
@@ -23075,12 +23090,17 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
             h("button", { "data-wk": "chmore", "aria-label": "改这个频道", onClick: () => setEdit(g), className: "active:opacity-50 flex items-center justify-center", style: { width: 40, color: t.fog, fontSize: 18 } }, "⋯")); }),
         h("button", { "data-wk": "chnew", onClick: () => setEdit("new"), className: "w-full flex items-center gap-3 active:bg-black/5", style: { padding: "12px 14px", borderTop: rows.length ? "1px solid " + t.line : "none" } },
           h("span", { style: { width: 30, height: 30, borderRadius: 8, border: "1.5px dashed " + t.line, color: t.fog, display: "flex", alignItems: "center", justifyContent: "center" } }, h(IPlus, { size: 15, color: t.fog })),
-          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "新频道"))),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "新频道")),
+        onAdopt && (looseGroups || []).length ? h("button", { "data-wk": "chadopt", onClick: () => setAdopt(true), className: "w-full flex items-center gap-3 active:bg-black/5", style: { padding: "12px 14px", borderTop: "1px solid " + t.line } },
+          h("span", { style: { width: 30, height: 30, borderRadius: 8, border: "1.5px dashed " + t.line, color: t.fog, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 } }, "↘"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "把已有的群放进来")) : null),
       onDeleteSpace ? h("button", { "data-wk": "spacedelete", onClick: () => requestAppConfirm("删掉「" + space.name + "」？", "里面 " + rows.length + " 个频道的聊天记录一起删掉。想留着的话先去 设置 → 数据 → 导入与导出 → 导出全部数据。", onDeleteSpace, "删掉"), className: "active:opacity-60", style: { display: "block", margin: "26px auto 0", minHeight: 40, padding: "0 16px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "删掉这个频道空间") : null),
+    adopt ? h(GroupAdoptPage, { space, groups: looseGroups || [], onPick: ids => { onAdopt(ids); setAdopt(false); }, onClose: () => setAdopt(false) }) : null,
     spEdit ? h(SpaceEditPage, { space, pool: pickPool || allChars || [], onSave: patch => { onSaveSpace(patch); setSpEdit(false); }, onDelete: onDeleteSpace, nChannels: rows.length, onClose: () => setSpEdit(false) }) : null,
     edit ? h(ChannelEditPage, { space, channel: edit === "new" ? null : edit, allChars, noMem: edit !== "new" && !!(noMemOf && noMemOf(edit.id)),
       onSave: patch => { onSaveChannel(edit === "new" ? null : edit, patch); setEdit(null); },
       onDelete: edit !== "new" && rows.length > 1 ? () => { onDeleteChannel(edit); setEdit(null); } : null,
+      onRelease: edit !== "new" && rows.length > 1 && onRelease ? () => { onRelease(edit); setEdit(null); } : null,
       onClose: () => setEdit(null) }) : null);
 }
 function NewGroupSheet({

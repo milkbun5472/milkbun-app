@@ -19088,6 +19088,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     });
     toast(added.length || gone.length ? "改好了" + (added.length ? "，进来 " + added.length + " 个" : "") + (gone.length ? "，踢出 " + gone.length + " 个" : "") : "改好了");
   };
+  // 已有的群收进频道空间、或者拿出来（她 2026-11-20「把现在的群聊收纳进去成为一个大服务器」）：
+  //   群原样不动——名字、聊天、记忆 tag、群设置（含记忆互通）都不碰，只挂上/摘下 spaceId；群里的人并进空间名单
+  const adoptGroups = (sp, ids) => {
+    const gs = (groups || []).filter(g => g && ids.includes(g.id) && !g.spaceId);
+    gs.forEach(g => updateGroup(g.id, { spaceId: sp.id, chName: g.chName || String(g.name || "群聊").slice(0, 16), chAbout: g.chAbout || "" }));
+    const add = [...new Set(gs.flatMap(g => g.memberIds || []))].filter(id => !(sp.memberIds || []).includes(id));
+    if (add.length) saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, memberIds: [...(x.memberIds || []), ...add] } : x));
+    toast("放进来 " + gs.length + " 个群");
+  };
+  const releaseChannel = g => { updateGroup(g.id, { spaceId: null }); toast("「" + (g.name || "") + "」回到群聊列表了"); };
   const deleteSpace = spId => {
     const ids = (groups || []).filter(g => g && g.spaceId === spId).map(g => g.id);
     setGroups(p => { const n = p.filter(g => !ids.includes(g.id)); saveJSON("x_groups", n); return n; });
@@ -36176,6 +36186,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onOpenChannel: g => { setActiveGroup(g); clearUnread(g.id); setScreen("gthread"); },
       onSaveChannel: (g, patch) => saveChannel(sp, g, patch),
       onDeleteChannel: g => deleteGroup(g.id),
+      looseGroups: (groups || []).filter(g => g && !g.spaceId && g.roomKind !== "spectate"), onAdopt: ids => adoptGroups(sp, ids), onRelease: releaseChannel,
       onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), noMemOf: channelNoMem, pickPool: liveChars.concat((characters || []).filter(c => c && c.npc && !liveChars.some(x => x.id === c.id))) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     onOpenStyleLab: goStyleLab,
     apiProfiles: apiProfiles,

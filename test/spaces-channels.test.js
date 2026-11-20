@@ -86,3 +86,13 @@ test("不影响记忆的频道：就是群的「记忆互通」关着，新频�
   assert.match(cs, /"data-wk": "chnomem"/);
   assert.match(cs, /chSolo: solo \|\| noMem, chNoMem: noMem/);
 });
+test("已有的群能收进频道空间、也能移出去：只挂上/摘下 spaceId，群原样不动", () => {
+  const fs = require("fs"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  const i = ap.indexOf("const adoptGroups = ");
+  const body = ap.slice(i, ap.indexOf("const deleteSpace = ", i));
+  assert.match(body, /updateGroup\(g\.id, \{ spaceId: sp\.id, chName:/);
+  assert.match(body, /const releaseChannel = g => \{ updateGroup\(g\.id, \{ spaceId: null \}\)/);
+  assert.doesNotMatch(body, /renameGroup/);
+  assert.match(ap, /onAdopt: ids => adoptGroups\(sp, ids\), onRelease: releaseChannel/);
+  assert.match(cs, /function GroupAdoptPage\(/);
+});
