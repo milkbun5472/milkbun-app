@@ -12323,7 +12323,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!sneak) { try { const _a = loadJSON("x_peekAllow", {}) || {}; saveJSON("x_peekAllow", Object.assign({}, _a, { [charId]: (allow || []).map(String) })); } catch (e) {} }
     const maskIds = allMasks ? [] : peekMaskOthers(charId);
     const hideSet = new Set((hideIds || []).map(String).concat(maskIds.map(String)));
-    const seen = peekPhoneMaterial(charId, allow, hideIds, maskIds);
+    // 某一样旧数据坏了不拖垮整趟（群友 2026-11-20：只有一个角色一直报 reading 'map'，换线路、只勾聊天都没用）：
+    //   整份摆不出来就一样一样摆，摆不出来的那一样跳过，其余照翻
+    let seen;
+    try { seen = peekPhoneMaterial(charId, allow, hideIds, maskIds); }
+    catch (e0) {
+      try { console.error("[peek] material", e0); } catch (x) {}
+      seen = (allow || []).map(k => { try { return peekPhoneMaterial(charId, [k], hideIds, maskIds); } catch (e1) { try { console.error("[peek] skip " + k, e1); } catch (x) {} return ""; } }).filter(Boolean).join("\n\n");
+    }
     if (!sneak) try { window.__peekHide = hideSet; window.__peekMask = Object.assign(peekMaskInfo(maskIds), { mine: maskKeyOf(charId) }); } catch (e) {}
     const hidden = PEEK_PHONE_SECTIONS.filter(s => s[0] !== "daily" && !(allow || []).includes(s[0])).map(s => s[1]);   // 没勾日常联系人不算「藏」：那些人本来就不存在
     const c = (characters || []).find(x => x.id === charId);
