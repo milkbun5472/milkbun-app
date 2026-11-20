@@ -338,7 +338,8 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   //      跟旋钮拖到哪儿无关，多少条线路都在屏幕里，装不下就自己滚。
   //   另外补一层保险：面板后面垫一张【点哪儿都关】的透明背板。
   //   哪天布局又出岔子，至少还有一条出路——「关不掉」这种事不该只有一个开关。
-  const panelSide = side === "left" ? { left: 66 } : { right: 66 };
+  const panelGap = onGo ? Math.max(66, Math.min(122, (window.innerWidth || 390) - 226 - 8)) : 66;   // 外圈轨道占着里侧那一截，面板挪到轨道外面
+  const panelSide = side === "left" ? { left: panelGap } : { right: panelGap };
   return h(React.Fragment, null,
     open ? h("div", { onClick: () => setOpen(false), "aria-hidden": "true",
       style: { position: "fixed", inset: 0, zIndex: 89, background: "transparent" } }) : null,
@@ -366,20 +367,24 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
         style: { marginTop: 8, minHeight: 38, padding: "7px 8px", borderRadius: 10, border: "1px dashed " + t.line, background: "transparent",
           fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, textAlign: "center" } }, "去模型设置改线路 ›") : null) : null,
     // ── 外圈快捷入口（她 2026-11-20「悬浮球点开外圈弹出几个自定义快捷入口，随时能改」）──
-    //   点开旋钮时，沿着屏幕边在它上下排开：你挑的最多 6 个，最后一颗「✎」改；面板在里侧，不挡
+    //   点开旋钮时绕着它一圈轨道，你挑的最多 6 个落在轨道上，最后一颗「✎」改；面板挪到轨道外面
     (() => {
       if (!open || !onGo) return null;
       const reg = (typeof window !== "undefined" && window.__homeReg) || {};
       const appsAll = [["messages", "信息"], ["forum", "论坛"], ["diary", "日记"], ["config", "设置"]].concat(Object.keys(reg).filter(k => reg[k] && reg[k].kind === "app" && reg[k].zh).map(k => [k, reg[k].zh]));
       const zhOf = k => (appsAll.find(x => x[0] === k) || [k, k])[1];
       const items = scs.filter(k => appsAll.some(x => x[0] === k)).map(k => ({ k, zh: zhOf(k) })).concat([{ k: "__edit", zh: "✎ 改" }]);
-      const hh = window.innerHeight || 800, cy = (drag ? drag.y : (pos ? Math.min(Math.max(pos.top, 70), Math.max(70, hh - 130)) : hh * 0.42) + 23), slots = [];
-      for (let d = 1; slots.length < items.length && d < 12; d++) [cy - d * 50, cy + d * 50].forEach(y => { if (slots.length < items.length && y > 50 && y < hh - 70) slots.push(y); });
-      return items.map((it, i) => h("button", { key: it.k, "data-wk": it.k === "__edit" ? "modelfloatscedit" : "modelfloatsc",
-        onClick: () => { if (it.k === "__edit") { setScEdit(true); return; } setOpen(false); onGo(it.k); }, className: "active:opacity-70",
-        style: Object.assign({ position: "fixed", zIndex: 92, top: (slots[i] || cy) - 23, width: 50, height: 46, padding: "0 3px", borderRadius: 23, lineHeight: 1.15, background: t.bg2, color: it.k === "__edit" ? t.fog : t.ink,
-          border: "1px solid " + t.line, boxShadow: "0 4px 12px rgba(0,0,0,.16)", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", overflow: "hidden", wordBreak: "break-all" },
-          side === "left" ? { left: 10 } : { right: 10 }) }, it.k === "__edit" ? "✎" : it.zh.slice(0, 4)));   // 一列跟旋钮同宽，不压到里侧的面板
+      // 环绕旋钮的一圈轨道（她 2026-11-20「外圈的 orbit，按键小一点在轨道上」）：只画朝屏幕里的那半圈，按键均匀落在轨道上
+      const ww = window.innerWidth || 390, hh = window.innerHeight || 800, R = 74, B = 34;
+      const cy = (drag ? drag.y : (pos ? Math.min(Math.max(pos.top, 70), Math.max(70, hh - 130)) : hh * 0.42) + 23), cx = side === "left" ? 12 + 23 : ww - 12 - 23;
+      const n = items.length, a0 = side === "left" ? -80 : 100, a1 = side === "left" ? 80 : 260;
+      const pts = items.map((_, i) => { const deg = n === 1 ? (a0 + a1) / 2 : a0 + (a1 - a0) * i / (n - 1), rad = deg * Math.PI / 180; return { x: cx + R * Math.cos(rad), y: Math.min(Math.max(cy + R * Math.sin(rad), 40), hh - 40) }; });
+      return [h("div", { key: "orbit", "aria-hidden": "true", style: { position: "fixed", zIndex: 91, left: cx - R, top: cy - R, width: R * 2, height: R * 2, borderRadius: "50%", border: "1.5px dashed " + t.line, pointerEvents: "none" } })]
+        .concat(items.map((it, i) => h("button", { key: it.k, "data-wk": it.k === "__edit" ? "modelfloatscedit" : "modelfloatsc", "aria-label": it.zh,
+          onClick: () => { if (it.k === "__edit") { setScEdit(true); return; } setOpen(false); onGo(it.k); }, className: "active:scale-95",
+          style: { position: "fixed", zIndex: 92, left: pts[i].x - B / 2, top: pts[i].y - B / 2, width: B, height: B, padding: 0, borderRadius: "50%", background: t.bg2, color: it.k === "__edit" ? t.fog : t.ink,
+            border: "1px solid " + t.line, boxShadow: "0 3px 10px rgba(0,0,0,.18)", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" } },
+          it.k === "__edit" ? "✎" : it.zh.slice(0, 2))));
     })(),
     // 改快捷：勾哪些、按点的先后排，最多 6 个；改完立刻生效
     scEdit ? (() => {
