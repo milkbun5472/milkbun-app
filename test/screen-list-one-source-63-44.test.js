@@ -73,10 +73,10 @@ test("每一页都指得到手册里真有的一条", () => {
 test("手册把「CSS 能改哪些页、图标皮肤归谁点」说清楚了", () => {
   const theme = MAN.byId("theme");
   assert.ok(theme, "主题工作台那条没了");
-  assert.match(theme.doc, /写给全 App，或者限定某一页/, "没说清 CSS 能写给每一页");
+  assert.match(theme.doc, /选「全 App」或某一页/, "没说清 CSS 能写给每一页");
   const qq = MAN.byId("assistant").doc;
-  assert.match(qq, /界面 CSS 装修/, "没说清这件事秋秋能代劳");
-  assert.match(qq, /图标皮肤她碰不了/, "没说清图标皮肤它碰不了——不说就会有人以为它能改");
+  assert.match(qq, /能改：\*\* 界面 CSS/, "没说清这件事秋秋能代劳");
+  assert.match(qq, /碰不了的：\*\* 图标皮肤/, "没说清图标皮肤它碰不了——不说就会有人以为它能改");
   // 说到做到：秋秋能动手的确实只有这几样，图标不在里面
   const T = asst.slice(asst.indexOf("  const TARGETS = {"), asst.indexOf("\n  };", asst.indexOf("  const TARGETS = {")));
   ["style:", "persona:", "appearance:", "profile:", "theme:", "memory:"].forEach(k =>
