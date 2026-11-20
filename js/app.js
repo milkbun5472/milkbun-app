@@ -19430,6 +19430,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (j < 0 || j >= a.length) return;
     [a[i], a[j]] = [a[j], a[i]];
     a.forEach((r, k) => updateGroup(r.id, { chOrder: k }));
+    if (sp.chSort !== "manual") saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, chSort: "manual" } : x));   // 手动挪了就改成「按我排的」
   };
   // 分类折起来／展开（记在空间上，下次进来还是这样）
   const toggleSpaceCat = (sp, catId) => saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, cats: (x.cats || []).map(c => c.id === catId ? { ...c, collapsed: !c.collapsed } : c) } : x));
@@ -19449,6 +19450,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } catch (e) { toast("没想出来：" + String(e.message || e).slice(0, 60)); return []; }
   };
   const saveSpace = (sp, patch) => {
+    // 只切排序（「按最近／按我排的」那颗）：不走改名加人那一套，也不弹「改好了」
+    if (patch && Object.keys(patch).length === 1 && patch.chSort) { saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, chSort: patch.chSort } : x)); return; }
     const name = String(patch.name || sp.name).slice(0, 24), now = (patch.memberIds || sp.memberIds || []).slice();
     const added = now.filter(id => !(sp.memberIds || []).includes(id)), gone = (sp.memberIds || []).filter(id => !now.includes(id));
     saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, name, memberIds: now, ...(patch.maskId !== undefined ? { maskId: String(patch.maskId || "") } : {}), ...(patch.bot !== undefined ? { bot: !!patch.bot, ...(patch.bot && !x.bot ? { botOnTs: Date.now(), titlesTs: 0 } : {}) } : {}), ...(patch.avatarImage !== undefined ? { avatarImage: patch.avatarImage || null } : {}), ...(Array.isArray(patch.cats) ? { cats: patch.cats } : {}), ...(Array.isArray(patch.customTitles) ? { customTitles: patch.customTitles } : {}), ...(typeof patch.aiTitles === "boolean" ? { aiTitles: patch.aiTitles } : {}) } : x));

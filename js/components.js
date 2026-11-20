@@ -23650,7 +23650,9 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
   const people = (space.memberIds || []).map(id => (allChars || []).find(c => c && c.id === id)).filter(Boolean);
   const rows = (channels || []).slice().sort((a, b) => (a.createdTs || 0) - (b.createdTs || 0));
   // 分类 + 归档（她 2026-11-20「后面如果多起来了怎么收纳归类」）：spaceCatGroups 在 engine.js
-  const segs = spaceCatGroups(rows, space.cats || []), live = rows.filter(g => !g.chArchived);
+  const byRecent = space.chSort !== "manual";
+  const lastTsOfCh = g => { const ms = groupChats[g.id] || []; for (let i = ms.length - 1; i >= 0; i--) { const m = ms[i]; if (m && m.content && m.role !== "system") return m.ts || 0; } return 0; };
+  const segs = spaceCatGroups(rows, space.cats || [], byRecent ? lastTsOfCh : null), live = rows.filter(g => !g.chArchived);
   const [talking, setTalking] = useState(false);
   const [meetOpen, setMeetOpen] = useState(false);   // 见面（她 2026-11-20「这里可以直接线下」）
   const [meetLogOpen, setMeetLogOpen] = useState(false);
@@ -23695,7 +23697,10 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
           h("button", { "data-wk": "spacedigestclose", onClick: onDismissDigest, className: "active:opacity-60", style: { minHeight: 28, padding: "0 4px", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub } }, "知道了")),
         digest.map(d => { const g = rows.find(x => x.id === d.id); return g ? h("button", { key: d.id, "data-wk": "spacedigestrow", onClick: () => onOpenChannel(g), className: "w-full text-left active:opacity-60 truncate", style: { display: "block", padding: "4px 0", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "#" + (g.chName || g.name) + " · " + d.n + " 条" + (d.last ? "　" + d.last : "")) : null; })) : null,
       h("div", { className: "flex items-center justify-between", style: { padding: "10px 14px 4px 20px" } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".08em" } }, "频道 · " + live.length),
+        h("span", { className: "flex items-center gap-2" },
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, letterSpacing: ".08em" } }, "频道 · " + live.length),
+          onSaveSpace ? h("button", { "data-wk": "chsort", "data-on": byRecent ? "1" : "0", onClick: () => onSaveSpace({ chSort: byRecent ? "manual" : "recent" }), className: "active:opacity-60",
+            style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 8px", background: "transparent" } }, byRecent ? "按最近" : "按我排的") : null),
         // 不想自己找话题的时候，让他们自己在几个频道里聊一轮（她 2026-11-20）：一按一次，按的时候才花调用
         h("span", { className: "flex items-center", style: { gap: 8 } },
         onMeet ? h("button", { "data-wk": "spacemeet", "aria-label": "挑几个人出去见一面", onClick: () => setMeetOpen(true),

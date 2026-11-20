@@ -38,7 +38,7 @@ test("接线：开频道字段、分类和归档界面、他手机里的空间�
   assert.match(ap, /const moveChannel = \(sp, g, dir\)/);
   assert.match(ap, /peekSpaceBlock\(gAll\.filter\(x => x\.g\.spaceId\)/);
   assert.match(ap, /Object\.assign\(session, \{ spaceId: group\.spaceId/);
-  assert.match(cs, /const segs = spaceCatGroups\(rows, space\.cats \|\| \[\]\)/);
+  assert.match(cs, /const segs = spaceCatGroups\(rows, space\.cats \|\| \[\], byRecent \? lastTsOfCh : null\)/);
   assert.match(cs, /"data-wk": "charchive"/);
   assert.match(pu, /"data-kind": "space", onClick: \(\) => setSpaceOpen\(sp\.id\)/);
   assert.match(en, /!x\.chSolo && !x\.chArchived\s*\n?\s*&& \(x\.memberIds/);
@@ -64,4 +64,13 @@ test("让他们聊一会儿接线：走 replyGroup，跑完记一张 x_spaceDige
   assert.match(body, /await replyGroup\(g\.id\)/);
   assert.match(body, /saveJSON\("x_spaceDigest:" \+ sp\.id, out\)/);
   assert.match(ap, /onTalk: \(\) => talkSpace\(sp\)/);
+});
+test("频道默认按最近有人说话排；给不了时间就照手动顺序", () => {
+  const fs = require("fs"), vm = require("vm"), en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const i = en.indexOf("function spaceCatGroups("), j = en.indexOf("function chHopTargets(");
+  const ctx = {}; vm.createContext(ctx); vm.runInContext(en.slice(i, j) + ";this.f=spaceCatGroups;", ctx);
+  const chs = [{ id: "a", chOrder: 0 }, { id: "b", chOrder: 1 }, { id: "c", chOrder: 2 }];
+  const ts = { a: 1, b: 9, c: 5 };
+  assert.deepEqual(ctx.f(chs, [], g => ts[g.id]).groups[0].rows.map(g => g.id), ["b", "c", "a"]);
+  assert.deepEqual(ctx.f(chs, []).groups[0].rows.map(g => g.id), ["a", "b", "c"]);
 });

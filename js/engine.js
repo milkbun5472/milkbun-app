@@ -2827,9 +2827,10 @@ function spaceTalkPick(channels, chatsOf, memberCount, n, rnd, now) {
   }
   return out;
 }
-function spaceCatGroups(channels, cats) {
+// lastTsOf 给了就按最近有人说话排（她 2026-11-20「最近聊过的排上面」）；不给（或她选了「按我排的」）照手动挪的顺序
+function spaceCatGroups(channels, cats, lastTsOf) {
   const live = (channels || []).filter(g => g && !g.chArchived), arch = (channels || []).filter(g => g && g.chArchived);
-  const ord = (a, b) => ((a.chOrder != null ? a.chOrder : 1e15 + (a.createdTs || 0)) - (b.chOrder != null ? b.chOrder : 1e15 + (b.createdTs || 0))) || ((a.createdTs || 0) - (b.createdTs || 0));
+  const ord = typeof lastTsOf === "function" ? (a, b) => (lastTsOf(b) - lastTsOf(a)) || ((b.createdTs || 0) - (a.createdTs || 0)) : (a, b) => ((a.chOrder != null ? a.chOrder : 1e15 + (a.createdTs || 0)) - (b.chOrder != null ? b.chOrder : 1e15 + (b.createdTs || 0))) || ((a.createdTs || 0) - (b.createdTs || 0));
   const ids = new Set((cats || []).map(c => c && c.id));
   const out = (cats || []).filter(Boolean).map(c => ({ cat: c, rows: live.filter(g => g.chCat === c.id).sort(ord) }));
   const loose = live.filter(g => !g.chCat || !ids.has(g.chCat)).sort(ord);
