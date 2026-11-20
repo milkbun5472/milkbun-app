@@ -16422,7 +16422,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 群里那颗「让他们自己聊」打开时，设置页「群里自己聊」的总闸要是关着就一起开
   // 修罗场那一段：群设置里开了才有，线上群聊和群线下共用这一份（one-public-mechanism）
   const groupDramaRule = gid => gsFor(gid).drama
-    ? "\n\n【修罗场 · 这个群关系不保密（用户自己打开的）】\n这个群里，每个成员都知道用户「" + userName(profile) + "」和群里其他成员各是什么关系——上面那些标着〔以下是某某跟用户的关系〕的段落，在这个群里对所有成员都是公开的，大家都看得见。"
+    ? "\n\n【修罗场 · 这个群关系不保密（用户自己打开的）】\n这个群里，每个成员都知道用户「" + herNameIn(gid) + "」和群里其他成员各是什么关系——上面那些标着〔以下是某某跟用户的关系〕的段落，在这个群里对所有成员都是公开的，大家都看得见。"
       + "（只公开【跟用户的关系】那几段；各人的行程、此刻在干嘛、心声，照旧只有本人知道。）"
       // ⚠️她 2026-10-02：「群聊加了个修罗场但是还是吵不起来啊，而且他们之间都没有设定关系，
       //   理论上除了顾朝顾暮都是互相不认识的」——截图里她发「宝宝我爱你」，一群人在讨论语法。
@@ -16545,7 +16545,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const gOffSess = (groupOfflinesRef.current[groupId] || []).find(s => s && !s.endTs && (s.msgs || []).length);
     let gOfflineHint = "";
     if (gOffSess) {
-      const _un = userName(profile);
+      const _un = herNameIn(groupId);
       const _gnarr = (gOffSess.msgs.find(m => m.role === "narration") || {}).content || "";
       const _gr = (gOffSess.msgs || []).filter(m => m && !isOocMsg(m) && m.content).slice(-8).map(m => (m.role === "narration" ? "【场景】" : m.role === "user" ? _un : (m.senderName || "某人")) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 80)).join("\n");
       gOfflineHint = "\n\n【你们此刻正在一场群线下相处 · 进行中】" + (_gnarr ? "（场景：" + String(_gnarr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "——用户从线上给群里发消息，多半是这场线下的间隙里插空发的；你们清楚大家此刻正面对面在一起，就顺着接，**照「我们正在一块儿」来说话**，人已经到了、已经在一起一阵了。最近线下：\n" + _gr;
@@ -16575,7 +16575,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       if (!active) throw new Error("请先配置 API");
       const gchat = groupChatsRef.current[groupId] || [];
-      const gQuoteCatalog = window.GroupQuote ? window.GroupQuote.buildCatalog(gchat, userName(profile), 50) : [];
+      const gQuoteCatalog = window.GroupQuote ? window.GroupQuote.buildCatalog(gchat, herNameIn(groupId), 50) : [];
       const gQuoteByMessage = new Map(gQuoteCatalog.map(x => [x.message, x]));
       const gQuoteCatalogText = gQuoteCatalog.length ? "\n\n【可正式引用的旧消息 · 跨轮有效】\n" + gQuoteCatalog.map(x => x.alias + "｜" + x.senderName + "｜" + x.preview).join("\n") + "\n需要显示引用气泡时，用 quoteId 填对应 Q 编号。即使相隔数轮也可以回引；相同文字必须依作者和编号区分，绝不能猜是谁说的。只口头提『你刚刚说过』而不需要引用气泡时，可以不填。" : "";
       const _graw0 = groupContextRows(groupId);
@@ -16634,7 +16634,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const pj = members.map(c => {
           const before = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !m.kind && (!cutTs || (m.ts || 0) < cutTs)).slice(-_preJoinN);
           if (!before.length) return "";
-          const lines = before.map(m => (m.role === "user" ? userName(profile) : c.name) + "：" + m.content).join("\n");
+          const lines = before.map(m => (m.role === "user" ? herNameIn(groupId) : c.name) + "：" + m.content).join("\n");
           return "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕入群前和用户的私聊：\n" + lines;
         }).filter(Boolean).join("\n\n");
         // ⚠️这一整块以前是【没有隐私围栏】的共享注入（隔壁 interop 的 memLines 有铁律、它没有），
@@ -16733,7 +16733,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       const asPrivate = gs.spectate && members.length === 2;
       let dir = groupStageLine({ spectate: !!gs.spectate, pairNames: asPrivate ? [members[0].name, members[1].name] : [],
-        userName: userName(profile), offline: false });
+        userName: herNameIn(groupId), offline: false });
       // 一轮的条数随人数放宽：人少几条就够，人多（拉了一堆人）要多聊几个来回、别草草收场
       // ⚠️她 2026-09-12：「能不能不要这么小气宝宝！你越小气它就越偷懒，现在还是 aba」。
       //   她说的是我：下限 2→3→4 一格一格往上抠，又在提示词里叠了一层层「不许」。
@@ -16794,7 +16794,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const _t = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), "g:" + groupId) : Date.now());   // 这个群认的那只虚拟钟
         const who = members.filter(c => c && !c.npc && daysUntilBirthday(c.birthday, _t) === 0).map(c => c.name);
         if (!who.length) return "";
-        const uN = userName(profile);
+        const uN = herNameIn(groupId);
         const hers = daysUntilBirthday(profile && profile.birthday, _t) === 0;
         return "\n【今天是谁的生日】今天是" + who.map(n => "「" + n + "」").join("、") + "的生日"
           + (hers ? "，也是 " + uN + " 的生日（同一天）。" : "，**不是 " + uN + " 的生日**：生日快乐、寿星、想怎么过，这些都是冲着上面这位的。今天要被大家记得的是上面这位。")
@@ -16802,33 +16802,33 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       })();
       const gPolls = _graw.filter(m => m.kind === "poll");
       const _gInv = pendingGroupInviteOf(groupId);
-      const gInviteHint = _gInv ? "\n【邀约】" + inviteAskText(_gInv, userName(profile)) + "被约到的成员（" + inviteNames(_gInv) + "）表态时，在自己这条发言对象里加 dateReply:{\"go\":\"yes\" 或 \"no\",\"say\":\"答应的话，写在回执上给她的一句（可空）\"}；"
+      const gInviteHint = _gInv ? "\n【邀约】" + inviteAskText(_gInv, herNameIn(groupId)) + "被约到的成员（" + inviteNames(_gInv) + "）表态时，在自己这条发言对象里加 dateReply:{\"go\":\"yes\" 或 \"no\",\"say\":\"答应的话，写在回执上给她的一句（可空）\"}；"
         + ((_gInv.replies && Object.keys(_gInv.replies).length) ? "已经回过的（" + _gInv.invitees.filter(x => _gInv.replies[x.id]).map(x => x.name + (_gInv.replies[x.id] === "yes" ? "去" : "不去")).join("、") + "）不用再填；" : "")
         + "没被约到的人不填，各人只答自己的。" : "";
       // 群主和管理员（群友 2026-10-25）：谁是群主、谁是管理员、谁正被禁言着——成员都知道，说话照这个来
       const _gRoles = groupRoles(gs);
       const _gImIn = imInGroup(group) && !gs.spectate;
-      const _gRoleName = id => id === "me" ? userName(profile) : ((members.find(c => c.id === id) || {}).name || "");
+      const _gRoleName = id => id === "me" ? herNameIn(groupId) : ((members.find(c => c.id === id) || {}).name || "");
       const _gMutedNow = members.filter(c => groupMutedLeft(gs, c.id) > 0);
-      const _gTitles = members.map(c => [c.name, groupTitleOf(gs, c.id)]).filter(x => x[1]).concat(_gImIn && groupTitleOf(gs, "me") ? [[userName(profile), groupTitleOf(gs, "me")]] : []);
+      const _gTitles = members.map(c => [c.name, groupTitleOf(gs, c.id)]).filter(x => x[1]).concat(_gImIn && groupTitleOf(gs, "me") ? [[herNameIn(groupId), groupTitleOf(gs, "me")]] : []);
       const gTitleHint = (_gTitles.length ? "\n【群头衔】名字前面挂着的专属头衔，人人看得见：" + _gTitles.map(x => "「" + x[0] + "」是「" + x[1] + "」").join("、") + "。" : "")
         + (_gRoles.owner && _gRoles.owner !== "me" ? "\n群主想给谁封个头衔或者撤掉，在自己那条发言对象里加 \"title\":{\"name\":\"成员名\",\"text\":\"头衔（12 字以内，撤掉就留空）\"}；照群主这个人的性子和群里刚发生的事来，不是每轮都封。" : "");
       const _gLk = luckyOf(groupId), _gLkU = typeof luckyUnits === "function" ? luckyUnits(_gLk.word) : [];
       const gLuckyHint = _gLk.word && _gLkU.length ? "\n【群幸运字符】这个群在一起养「" + _gLk.word + "」，已经点亮 " + (_gLk.lit || 0) + "/" + _gLkU.length + " 个字"
         + ((_gLk.lit || 0) ? "（" + _gLkU.slice(0, _gLk.lit).join("") + "）" : "") + "，再聊大约 " + Math.max(1, LUCKY_PER - (_gLk.prog || 0)) + " 条点亮下一个；一整天没人说话会熄一个。大家都看得见，提不提照各人的性子。" : "";
       // 悄悄话（她 2026-10-30「可以开发一个悄悄话做灰字」）：背着全群只对一个人说的一句。只有那个人听得见
-      const gWhisperHint = members.length >= 2 ? "\n【悄悄话】成员想背着群里别人、只对某一个人（另一位成员，或 " + userName(profile) + "）说一句时，在自己的发言对象里加 whisper:{\"to\":\"那个人的名字\",\"text\":\"那句话\"}。悄悄话只有 to 那个人听得见：别的成员不知道这句、也接不上它；被说的那个人可以回一句悄悄话、装没事，或者当场说破。真有背着人的话才说，一整轮最多一句。上文里标着【悄悄话】的，照它写的谁听得见来。" : "";
+      const gWhisperHint = members.length >= 2 ? "\n【悄悄话】成员想背着群里别人、只对某一个人（另一位成员，或 " + herNameIn(groupId) + "）说一句时，在自己的发言对象里加 whisper:{\"to\":\"那个人的名字\",\"text\":\"那句话\"}。悄悄话只有 to 那个人听得见：别的成员不知道这句、也接不上它；被说的那个人可以回一句悄悄话、装没事，或者当场说破。真有背着人的话才说，一整轮最多一句。上文里标着【悄悄话】的，照它写的谁听得见来。" : "";
       // 拉人、踢人（她 2026-10-26「群聊可以踢人拉人」）：群外、跟群里谁有关系线的人才拉得进来
       const _gOutside = _gPar ? [] : liveChars.filter(c => !(group.memberIds || []).includes(c.id) && members.some(m => (rels || {})[m.id + "->" + c.id] || (rels || {})[c.id + "->" + m.id])).slice(0, 12);
       const gKickInviteHint = "\n【拉人和踢人】"
         + (_gOutside.length ? "群外认识的人：" + _gOutside.map(c => "「" + c.name + "」（" + members.filter(m => (rels || {})[m.id + "->" + c.id] || (rels || {})[c.id + "->" + m.id]).map(m => m.name).join("、") + " 认识）").join("、")
           + "。群里谁想把认识的人拉进来，在自己那条发言对象里加 \"invite\":\"那人的名字\"，只能拉自己认识的。" : "")
-        + (_gRoles.owner || _gRoles.admins.length ? "群主能把群里任何一个人移出群聊" + (_gImIn ? "（" + userName(profile) + "也算，除非她自己是群主）" : "") + "，管理员只能移普通成员；群主谁也移不了。真要踢，在自己那条发言对象里加 \"kick\":\"成员名\"。" : "")
+        + (_gRoles.owner || _gRoles.admins.length ? "群主能把群里任何一个人移出群聊" + (_gImIn ? "（" + herNameIn(groupId) + "也算，除非她自己是群主）" : "") + "，管理员只能移普通成员；群主谁也移不了。真要踢，在自己那条发言对象里加 \"kick\":\"成员名\"。" : "")
         + "拉人、踢人都是这个人照自己的性子、跟对方的关系、群里刚发生的事真会做的事，不是动不动就用；一轮里最多拉一个、踢一个。";
       // 群里的人挂着的限时动态（第三版，她 2026-11-14「群里讨论」）：大家都刷得到，有人聊起来就聊，不聊也行；平行世界房间不带
       const gStoryHint = (() => { const SK = window.Stories; if (!SK || _gPar) return "";
         const rows = members.map(c => ({ c, l: SK.activeOf(c.id).filter(s0 => String(s0.by) === String(c.id) && SK.audLabel(s0) === "") })).filter(x => x.l.length)
-          .concat(_gImIn ? [{ c: { name: userName(profile) }, l: SK.activeOf("me").filter(s0 => s0.by === "me" && !(s0.audience || []).length) }] : []).filter(x => x.l.length);
+          .concat(_gImIn ? [{ c: { name: herNameIn(groupId) }, l: SK.activeOf("me").filter(s0 => s0.by === "me" && !(s0.audience || []).length) }] : []).filter(x => x.l.length);
         return rows.length ? "\n【群里谁挂着限时动态】" + rows.map(x => x.c.name + "：" + x.l.map(s0 => "「" + (s0.text || s0.desc || "一张卡") + "」").join("、")).join("；") + "。大家都刷得到，有人想聊就聊起来，不聊也行。" : ""; })();
       const gRoleHint = (_gRoles.owner || _gRoles.admins.length) ? "\n【群主和管理员】"
         + (_gRoles.owner && (_gImIn || _gRoles.owner !== "me") && _gRoleName(_gRoles.owner) ? "群主是「" + _gRoleName(_gRoles.owner) + "」。" : "")
@@ -16839,7 +16839,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               return used.length ? "现在叫「" + g0.name + "」" + ((g0.oldNames || []).length ? "，以前叫过" + g0.oldNames.map(x => "「" + x + "」").join("、") : "") + "；真要改就改成一个不一样的，别在这几个上换个字。" : ""; })() : "")
         + "群主可以禁言任何一个成员，管理员只能禁言普通成员；群主谁也禁不了"
         // ⚠️旁观群里她不在场：这一句提到她的名字，成员就当群里多了个一直不说话的「新来的」（群友 2026-10-25 截图）
-        + (_gImIn ? "，" + userName(profile) + "也禁不了" : "") + "。真要禁言某人，在自己那条发言对象里加 \"mute\":{\"name\":\"成员名\",\"minutes\":分钟数}，解禁加 \"unmute\":\"成员名\"。"
+        + (_gImIn ? "，" + herNameIn(groupId) + "也禁不了" : "") + "。真要禁言某人，在自己那条发言对象里加 \"mute\":{\"name\":\"成员名\",\"minutes\":分钟数}，解禁加 \"unmute\":\"成员名\"。"
         + "这是这个人照自己的性子和此刻的处境会不会真动手的事，不是每次有分歧都要用。"
         + (_gMutedNow.length ? "现在被禁言的：" + _gMutedNow.map(c => "「" + c.name + "」还剩约 " + Math.ceil(groupMutedLeft(gs, c.id) / 60000) + " 分钟").join("、") + "——禁言期间这个人发不出消息，不要给他写发言。" : "")
         : "";
@@ -16857,7 +16857,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const gFaceMembers = gSelfieMembers.filter(c => c.appearance || c.refPhoto);
       // 合照只在【用户传了参考照 且 该成员也传了参考照】时才开放——两张脸都拿真照片喂，绝不一张真一张编
       const gDuoMembers = imgSiteNoRef() ? gFaceMembers.slice() : (meOfGroup(groupId) || {}).refPhoto ? gFaceMembers.filter(c => c.refPhoto) : [];
-      const gUName = (profile && profile.name) || "用户";
+      const gUName = herNameIn(groupId) || "用户";
       // 合照要几张脸就得有几张参考照；凑不够两个人就别把 group 这个选项给模型，免得它开空头支票（不锁脸的站照外貌画，不要参考照）
       const gGroupShotOk = (imgSiteNoRef() ? members.filter(Boolean).length + 1 : members.filter(c => c && c.refPhoto).length + ((meOfGroup(groupId) || {}).refPhoto ? 1 : 0)) >= 2
         && (imgSiteNoRef() || members.filter(c => c && c.refPhoto).length >= 1);
@@ -16982,7 +16982,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             ? ",\"mood\":\"（只有配角填）此刻中文心情词（禁止英文内部标签）\",\"wearing\":\"（只有配角填）此刻穿着一句（保持连续，且跟场合对得上）\"" + gActionField
             : (_gActDesc ? gActionField : ""));
       // 互通群复用单聊更新标准；封闭群不写回。
-      const impressionField = window.Gaze && gs.memoryInterop ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"更新后的整块正文\"}（可选；" + window.Gaze.updateRule(userName(profile)) + "）" : "";
+      const impressionField = window.Gaze && gs.memoryInterop ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"更新后的整块正文\"}（可选；" + window.Gaze.updateRule(herNameIn(groupId)) + "）" : "";
       // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
       const gWorld = loreText(loreRef.current, { charIds: members.map(m => m.id), groupId: groupId, scope: "chat", text: hist });
       // 群规矩（用户 OOC 立的长期准则，复用 directives[groupId]）→ 注入，让群成员记得并遵守（item 4）
@@ -16997,7 +16997,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 频道文件（她 2026-11-20）：有哪些、谁改的；提到的那份带正文。新建、改都挂在那个人那条发言的 file 上
       const gFileHint = group && group.spaceId ? chfContextBlock(loadJSON("x_chfiles:" + groupId, []),
           (groupChatsRef.current[groupId] || []).slice(-12).map(m => m && m.content || "").join("\n"),
-          id => id === "me" ? userName(profile) : (((characters || []).find(c => c.id === id) || {}).name || ""),
+          id => id === "me" ? herNameIn(groupId) : (((characters || []).find(c => c.id === id) || {}).name || ""),
           (((groupChatsRef.current[groupId] || []).filter(m => m && m.role === "user" && m.content).slice(-1)[0]) || {}).content || "")
         + (() => { // 她那句说到了频道里哪张图：只给说明那一行，不给像素
             const _her = (((groupChatsRef.current[groupId] || []).filter(m => m && m.role === "user" && m.content && m.kind !== "photo").slice(-1)[0]) || {}).content || "";
@@ -17023,13 +17023,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const mp = thAliasMapOf(groupChatsRef.current[groupId] || []);
         members.forEach(c => { mp[String(c.id)] = mp[String(c.id)] || thAlias(mp, c.id).map[String(c.id)]; });
         if (!mp.me) mp.me = thAlias(mp, "me").map.me;
-        return "\n\n【这个频道是树洞】屏幕上每个人都只显示一个代号，谁也看不见谁的名字和头像，" + userName(profile) + " 也一样，没有谁是例外。各人的代号：" + members.map(c => c.name + "＝树洞 #" + mp[String(c.id)]).join("、") + "、" + userName(profile) + "＝树洞 #" + mp.me
+        return "\n\n【这个频道是树洞】屏幕上每个人都只显示一个代号，谁也看不见谁的名字和头像，" + herNameIn(groupId) + " 也一样，没有谁是例外。各人的代号：" + members.map(c => c.name + "＝树洞 #" + mp[String(c.id)]).join("、") + "、" + herNameIn(groupId) + "＝树洞 #" + mp.me
           + "。每个人只知道自己是哪一号；上面原文里带的名字只是给你分清谁说了哪句。写出来的话里不提任何人的名字，指人就说几号，也不会有人说自己看见了谁的名字——别人是谁，只能从说话的样子去猜。";
       })() : "";
       // 频道里摆着的东西＋他们能怎么动（她 2026-11-20「1-7都可以做」）：只说是什么、怎么写；到了当天上限的那一样就不提
       const gPlayHint = group && group.spaceId ? (() => {
         const st = chpOf(groupId), spect = groupSpectating(group), tree = group.chKind === "treehole";
-        const have = chpHint(st, groupChatsRef.current[groupId] || [], id => (((characters || []).find(c => c.id === id) || {}).name || id), { her: userName(profile) });
+        const have = chpHint(st, groupChatsRef.current[groupId] || [], id => (((characters || []).find(c => c.id === id) || {}).name || id), { her: herNameIn(groupId) });
         const can = [];
         can.push("\"react\":{\"quote\":\"最近一句话里逐字的一小段\",\"emoji\":\"" + CHP_EMOJI.join("") + " 里挑一个\"}——在那句底下点个表情，不用开口也算表了态");
         if (!spect && chpCount(st, "rename") < CHP_CAP.rename) can.push("\"rename\":{\"name\":\"新频道名\",\"about\":\"新的一句这里聊什么\"}——两样可以只写一样，频道里大家都看得到是谁改的，别人也能改回去");
@@ -17050,7 +17050,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 约定（她 2026-11-20）：接下来七天大家定下的事；今天有的写在前面；他们也能在发言里定新的、标做完
       const gPlanHint = group && group.spaceId && !groupSpectating(group) ? (() => {
         const _pl = loadJSON("x_spacePlans:" + group.spaceId, []) || [], _td = (() => { const d = typeof vclockNow === "function" ? vclockNow() : new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })();
-        const _up = planUpcoming(_pl, _td, 7), _nm = id => id === "me" ? userName(profile) : (((characters || []).find(c => c.id === id) || {}).name || "");
+        const _up = planUpcoming(_pl, _td, 7), _nm = id => id === "me" ? herNameIn(groupId) : (((characters || []).find(c => c.id === id) || {}).name || "");
         const _line = p => (p.date === _td ? "今天" : p.date) + (p.time ? " " + p.time : "") + " " + p.title + (p.who && p.who.length ? "（" + p.who.map(_nm).filter(Boolean).join("、") + "）" : "");
         const _today = _up.filter(p => p.date === _td);
         const _mine = _pl.filter(p => p && p.by && p.by !== "me" && p.ts && new Date(p.ts).toDateString() === new Date().toDateString()).length;
@@ -17060,10 +17060,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const gStatusHint = group && group.spaceId ? (() => {
         const _all = loadJSON(CHAR_STATUS_KEY, {}) || {};
         // 她那句状态是主面具挂着的：戴别的面具的频道里不给（那里的人认的是另一个她）
-        return charStatusHint(_all, group.chKind === "treehole" ? [] : members, userName(profile), !groupSpectating(group) && !groupMaskKey(groupId))
+        return charStatusHint(_all, group.chKind === "treehole" ? [] : members, herNameIn(groupId), !groupSpectating(group) && !groupMaskKey(groupId))
           + (group.chKind === "treehole" ? "" : "\n谁想换一句挂在自己名字底下的状态，在他自己那条发言里加 \"status\":{\"emoji\":\"一个表情，可不写\",\"text\":\"一句短话\"}——那是挂着给大家看的一句，心情、处境变了就换，大家都看得到他换了什么。");
       })() : "";
-      const gListenHint = group && group.spaceId && group.chListen && !groupSpectating(group) ? (() => { const L0 = chListenOf(groupId); return L0 ? "\n\n【一起听】这个频道里大家现在一起在听《" + L0.song.title + "》" + (L0.song.artist ? " - " + L0.song.artist : "") + "（" + userName(profile) + " 放的" + (player.playing ? "，正放着" : "，这会儿暂停了") + "），在这个频道的人都听得到。" : ""; })() : "";
+      const gListenHint = group && group.spaceId && group.chListen && !groupSpectating(group) ? (() => { const L0 = chListenOf(groupId); return L0 ? "\n\n【一起听】这个频道里大家现在一起在听《" + L0.song.title + "》" + (L0.song.artist ? " - " + L0.song.artist : "") + "（" + herNameIn(groupId) + " 放的" + (player.playing ? "，正放着" : "，这会儿暂停了") + "），在这个频道的人都听得到。" : ""; })() : "";
       // 起一条接龙：群里眼下没有在接的、今天也还没人起过头才摆这一格；她在旁观就不摆
       const _chDay = new Date(typeof vclockNow === "function" ? vclockNow() : Date.now()).toDateString();
       const gChainStartHint = group && !groupSpectating(group) && !_subRoot && chainStartOk(groupChatsRef.current[groupId] || [], group.chainStartDay, _chDay)
@@ -17082,7 +17082,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       })() : "";
       // 楼中楼（她 2026-11-20）：在串里——说清楚这一轮在哪一串里；在主线——列出正热的几串，谁想回进某一串就带上 sub
       const gSubHint = group && group.spaceId ? (() => {
-        const ms0 = groupChatsRef.current[groupId] || [], nm0 = m => m.role === "user" ? userName(profile) : (m.senderName || "有人");
+        const ms0 = groupChatsRef.current[groupId] || [], nm0 = m => m.role === "user" ? herNameIn(groupId) : (m.senderName || "有人");
         if (_subRoot) { const root = ms0.find(m => subRootKey(m) === _subRoot);
           return root ? "\n\n【这一串】现在是在「" + nm0(root) + "：" + String(root.content || "").replace(/\s+/g, " ").slice(0, 60) + "」底下回的一串里，大家这一轮说的话都回在这一串里，围着这一句接着歪、接着聊；主线上的事上面也垫了几句。" : ""; }
         const th = subThreadsOf(ms0), keys = Object.keys(th).slice(-4);
@@ -17091,7 +17091,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "谁想回进某一串，就在他那条发言里加 \"sub\":{\"root\":\"那条消息里逐字的一小段\",\"text\":\"他回在串里的话\"}。";
       })() : "";
       // 赌气退频道（她 2026-11-20）：真被惹急了、待不下去的人可以自己退出这个频道；别的频道照旧在，要等有人把他劝回来
-      const gLoungeHint = rgOpts && rgOpts.loungeSit ? "\n\n【挂机房】这里是大家挂着的地方，各忙各的，不一定在聊天。" + userName(profile) + " 刚进来坐下了，什么都还没说。谁注意到了、腾得出手，就抬头招呼一句或者照样忙自己的，各按各的样子。" : "";
+      const gLoungeHint = rgOpts && rgOpts.loungeSit ? "\n\n【挂机房】这里是大家挂着的地方，各忙各的，不一定在聊天。" + herNameIn(groupId) + " 刚进来坐下了，什么都还没说。谁注意到了、腾得出手，就抬头招呼一句或者照样忙自己的，各按各的样子。" : "";
       const gLeaveHint = group && group.spaceId && !groupSpectating(group) && members.length > 1 && !_subRoot
         ? "\n\n【退出这个频道】谁在这儿真被惹急了、待不下去，可以在他那条发言里加 \"leave\":{\"why\":\"他为什么走（一句）\"}——他就真的退出了 #" + (group.chName || group.name || "") + "，别的频道照旧在。退了以后要等有人去私下把他劝回来。" : "";
       const gHopHint = group && group.spaceId ? (() => {
@@ -17117,24 +17117,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         //   没开动描时一个字都不发——线上就只有台词，那一份在这儿是白发（她立的：一堆禁令会变笨）。
         // 群里也吃文风预设（她 2026-11-19）：跟单聊同一颗开关、同一段话，开关和挑哪份记在群设置里
         + (() => { try { return gs.onlinePresetOn && gs.onlinePresetId && window.StylePresets ? "\n\n" + onlinePresetBlock(window.StylePresets.textFor(gs.onlinePresetId, "online", {})) : ""; } catch (e) { return ""; } })()
-        + (_gActDesc ? "\n\n" + ownActNoBracketRule(userName(profile)) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_gActDesc && gs.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
+        + (_gActDesc ? "\n\n" + ownActNoBracketRule(herNameIn(groupId)) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_gActDesc && gs.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
       // 她想要什么（四处一样喂）：这是用户的信息，群里共享一份，不像随身物是每人私有
       // 她今天身上带着什么（四处一样喂）：这一条原来只在单聊那几处有——
       // 她带着东西来见【他们】，群里却一个字都看不到（群里那位 2026-09-15 报的）。
       // ⚠️句子走 engine 的 onMeLine 一份，别在这儿另写一版。
       const _gOnMe = _gPar ? "" : onMeFor();
-      const gOnMeHint = (_gOnMe && !groupSpectating(group)) ? "\n\n" + onMeLine(_gOnMe, userName(profile)) : "";
-      const gWishHint = wishLine(_gPar ? "" : wishFor(), userName(profile), { group: true, spectate: gs.spectate, gift: true });
+      const gOnMeHint = (_gOnMe && !groupSpectating(group)) ? "\n\n" + onMeLine(_gOnMe, herNameIn(groupId)) : "";
+      const gWishHint = wishLine(_gPar ? "" : wishFor(), herNameIn(groupId), { group: true, spectate: gs.spectate, gift: true });
       // 同处一室（她 2026-09-10：「群里也接共处一室吧」）：句子跟单聊共用同一份，
       // 只多传一个 group 参数。⚠️线下正开着就不发——那一段自己已经把面对面讲清楚了
       // （跟单聊 offlineNow 那处同一条判据）。旁观群不发：她不在场。
       const gSameRoomHint = (gSameRoomFor(groupId) && !gs.spectate && !(offlineGroup && offlineGroup.id === groupId))
-        ? "\n\n" + samePlacePresence(userName(profile), true) : "";
+        ? "\n\n" + samePlacePresence(herNameIn(groupId), true) : "";
       // 她 2026-10-02：「顾朝顾暮现在就说把我带回家在他们身边了」——同居那俩的私聊旧记录里全是「端进去」「在卧室吗」，
       //   单聊那条「记录里说在一块儿就是在一块儿」到了群里，就成了谁都能宣称她此刻在自己身边。
       //   没开同处一室时把来源说清楚：她此刻在哪，只看这个群里说过的话。
       const gWhereHint = (!gSameRoomFor(groupId) && !gs.spectate && !(offlineGroup && offlineGroup.id === groupId))
-        ? "\n\n【她此刻在哪】只看这个群里说过的话。私聊里那些在一块儿的记录是之前的事，不说明她现在在你身边；群里没人说过她在哪，那你就不知道她在哪——照「不知道」来。你自己日程里写着跟她在一块儿的那一格，也只是你原本的打算——她没在群里说，就不算她此刻在你身边。\n" + apartPresence(userName(profile), true) : "";
+        ? "\n\n【她此刻在哪】只看这个群里说过的话。私聊里那些在一块儿的记录是之前的事，不说明她现在在你身边；群里没人说过她在哪，那你就不知道她在哪——照「不知道」来。你自己日程里写着跟她在一块儿的那一格，也只是你原本的打算——她没在群里说，就不算她此刻在你身边。\n" + apartPresence(herNameIn(groupId), true) : "";
       // ── 旁观群里唯一变的一件事：她不是【听众】（她 2026-09-11）──
       // 起因：「大晏趣闻·旁观中」里陆闻把话头扔进群里，说「Lisa你评评理」。
       // ⚠️v66.56 我第一版改过头了，她当场纠正：「我有旁观群就是看他们感情的，你去掉好感和
@@ -17147,7 +17147,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   而【身份铁律】那句「用户不是可代写的群成员」读起来就是「她是群成员，只是不许代写」，
       //   离输出还更近。所以要治的是那一句，不是把她整个抹掉。
       const gSpec = !!gs.spectate;
-      const _uN = userName(profile);
+      const _uN = herNameIn(groupId);
       // ⚠️旁观群不给 call：这个字段明说是「跟用户发起通话」，而旁观群的身份铁律
       //   写着「绝不许对着用户说话、@ Ta、把话头扔给 Ta」——两句话直接打架，
       //   模型收到的是一道自相矛盾的题。语音和红包留着：那两样是他俩【彼此之间】的事
@@ -17172,12 +17172,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   于是历史里那个「老群友斗嘴」的样子次次压过前提。这里只重申局面，不加新规矩。
       // ⚠️上一版这段写死了「唯一的男朋友」「她那句冲谁」「不是语法题」——她说这本身就是限制。只摆局面。
       const gDramaTail = gsFor(groupId).drama
-        ? "\n\n【修罗场 · 回到此刻】上面的群聊是已经发生的事。你们各自跟 " + userName(profile) + " 是什么关系，现在当着彼此摆在明面上了——"
+        ? "\n\n【修罗场 · 回到此刻】上面的群聊是已经发生的事。你们各自跟 " + herNameIn(groupId) + " 是什么关系，现在当着彼此摆在明面上了——"
           + (() => {
             // 她 2026-10-02「重roll了」：还是围着她那句话打转（发错群、撤回），没人说「你也是她男朋友？」——
             //   关系散在前面五六段里，模型没把它摆到眼前。在这儿点名摆一遍。
             const tog = members.filter(c => spaceLover(couples[c.id])).map(c => c.name);
-            return tog.length > 1 ? "摆在明面上的就是：" + tog.join("、") + "——这几个人，全都跟 " + userName(profile) + " 在一起。你之前要是不知道别人也是，那就是现在知道了。" : "";
+            return tog.length > 1 ? "摆在明面上的就是：" + tog.join("、") + "——这几个人，全都跟 " + herNameIn(groupId) + " 在一起。你之前要是不知道别人也是，那就是现在知道了。" : "";
           })()
           + "这件事在你心里是什么分量、你打算怎么对待它，按你自己那张卡来——你平时怎么说话，这会儿还是那个人在说话。"
         : "";
@@ -17194,7 +17194,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (gchat[i].role === "assistant") break;
         if (gchat[i].role === "user" || gchat[i].role === "narration") tail.unshift(gchat[i]);
       }
-      let userContent = tail.length ? tail.map(m => { const quoteLead = m.replyTo ? "【引用 " + (m.replyToSenderName || "作者未知") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 120) + "』】" : ""; return m.role === "narration" ? narrTag(m) + m.content : userName(profile) + quoteLead + (m.parenAct ? "（这条里（）括起来的是她真在做的动作，括号外才是她说的话）" : "") + ": " + (m.kind === "selfie" && m.role === "user" && m.imageRef ? "【这条是她发进群的一张她自己的" + (m.photoKind === "myshot" ? "照片（别人拍的她）" : "自拍") + "，已作为视觉输入附上，请在场成员直接看图后自然回应】" + (m.desc ? " 她拍的是：" + m.desc : "") : m.kind === "photo" && m.imageRef ? "【这条附有一张真实照片，请所有在场成员直接看图后自然回应；不要假装看不到，也不要只复述配文】" + (m.desc ? " 配文：" + m.desc : "") : m.content); }).join("\n") : "（请群成员顺着上面的对话自然继续聊）";
+      let userContent = tail.length ? tail.map(m => { const quoteLead = m.replyTo ? "【引用 " + (m.replyToSenderName || "作者未知") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 120) + "』】" : ""; return m.role === "narration" ? narrTag(m) + m.content : herNameIn(groupId) + quoteLead + (m.parenAct ? "（这条里（）括起来的是她真在做的动作，括号外才是她说的话）" : "") + ": " + (m.kind === "selfie" && m.role === "user" && m.imageRef ? "【这条是她发进群的一张她自己的" + (m.photoKind === "myshot" ? "照片（别人拍的她）" : "自拍") + "，已作为视觉输入附上，请在场成员直接看图后自然回应】" + (m.desc ? " 她拍的是：" + m.desc : "") : m.kind === "photo" && m.imageRef ? "【这条附有一张真实照片，请所有在场成员直接看图后自然回应；不要假装看不到，也不要只复述配文】" + (m.desc ? " 配文：" + m.desc : "") : m.content); }).join("\n") : "（请群成员顺着上面的对话自然继续聊）";
       // ── 她开口的那一轮，也得有人告诉他们「接彼此的话」（她 2026-09-11）──────
       // 她原话：「群里还是我说话他们就不互相接话了」。
       // ⚠️病根是这一层**只长在一条分支上**：她没出声那一轮（下面 !tail.length 那段）
@@ -17225,7 +17225,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   病根不是记不住，是**这句话叫他们把她删掉**。
       // 「没出声」和「不在场」是两件事：她可以人就在那儿、正被抱着，只是这一轮没说话。
       // 所以这一段只说前半件（别催她要回应），后半件反过来钉死（不许把她挪走、不许重开场面）。
-      if (!tail.length) userContent += "\n\n【重要·TA 还在场，场面照常往下走】上面的记录里连着几条都没有「" + userName(profile)
+      if (!tail.length) userContent += "\n\n【重要·TA 还在场，场面照常往下走】上面的记录里连着几条都没有「" + herNameIn(groupId)
         + "」发言，那只是因为 TA 此刻没在群里【打字】——【不是】不理你们、不是已读不回、不是在生气、也不是出了什么事。"
         + "\n⚠️**「没出声」不等于「不在场」**：上文里正在发生的事，人还是那些人、地方还是那个地方。"
         + "TA 要是本来就在这场面里，那 TA 现在【仍然在】，只是这一轮没开口——绝不许因为 TA 没说话就把 TA 挪走、写成 TA 走了/睡了/不在了，"
@@ -17385,7 +17385,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       {
         // 名字先认成群里那个人的正式名字，再交给身份闸（闸只认原名；认不出的人整轮会被丢掉）
         arr = arr.map(it => { if (!it || typeof it !== "object") return it; const m = pickMember(members, it.name); return m && members.filter(x => x.name === m.name).length === 1 ? { ...it, name: m.name } : it; });
-        const guarded = window.GroupIdentityGuard ? window.GroupIdentityGuard.sanitize(arr, members, userName(profile)) : { items: arr, dropped: [], thoughtsDropped: [] };
+        const guarded = window.GroupIdentityGuard ? window.GroupIdentityGuard.sanitize(arr, members, herNameIn(groupId)) : { items: arr, dropped: [], thoughtsDropped: [] };
         // ⚠️自发那一轮的条数上限【原来只写在提示词里】（"一次产出 n~m 条"）——那只降概率。
         //   模型多写几条，下面这个循环照单全收，她设的「自发总条数上限」就成了摆设
         //   （她 2026-09-10：「群自发聊天怎么感觉停不下来了，都超了限制还在发」）。
@@ -17538,7 +17538,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             if (_ch) pGChat(groupId, p => p.map((m, k) => k === _ch.idx ? _ch.msg : m));
           }
           if (spk && item.whisper && typeof item.whisper === "object" && String(item.whisper.text || "").trim()) {
-            const _wTo = String(item.whisper.to || "").trim(), _un = userName(profile);
+            const _wTo = String(item.whisper.to || "").trim(), _un = herNameIn(groupId);
             const _wc = members.find(c => c && c.id !== spk.id && (c.name === _wTo || c.remark === _wTo));
             const _toMe = !_wc && _wTo && (_wTo === _un || /^(我|她|你|用户)$/.test(_wTo));
             if (_wc || _toMe) {
@@ -17774,7 +17774,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           if (group && group.spaceId && spk && (item.react || item.rename || item.pin || item.unpin || item.note || item.scribble || item.tear || item.song || item.skip || item.ledger || item.settle || item.care || item.petName || item.petKind || item.plan || item.planDone)) {
             try {
               const _st = chpOf(groupId), _ms = groupChatsRef.current[groupId] || [], _sp = (spaces || []).find(x => x && x.id === group.spaceId), _spect = groupSpectating(group);
-              const _idOf = n => { const t = String(n || "").trim(); if (!t) return ""; if (t === userName(profile) || t === "她" || t === "我们的她") return "me"; const c = members.find(x => x.name === t || x.remark === t); return c ? c.id : t; };
+              const _idOf = n => { const t = String(n || "").trim(); if (!t) return ""; if (t === herNameIn(groupId) || t === "她" || t === "我们的她") return "me"; const c = members.find(x => x.name === t || x.remark === t); return c ? c.id : t; };
               const _say = txt => _gLuck.push({ role: "system", kind: "chlink", toGid: groupId, senderId: spk.id, content: txt });
               if (item.react && typeof item.react === "object") { const k = chpFindMsg(_ms, item.react.quote, 20), em = String(item.react.emoji || "").trim(); if (k >= 0 && em) pGChat(groupId, p => p.map((m, j) => j === k ? chpReactMsg(m, spk.id, em) : m)); }
               if (item.rename && typeof item.rename === "object" && !_spect && chpCount(_st, "rename") < CHP_CAP.rename && _sp) {
@@ -17882,7 +17882,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             } catch (e) {}
           }
           if (item.luck && typeof item.luck === "object" && spk) {
-            const L0 = item.luck, me0 = userName(profile);
+            const L0 = item.luck, me0 = herNameIn(groupId);
             if (L0.type === "dice") {
               const n0 = Math.max(1, Math.min(3, Number(L0.n) || 1)), vals = Array.from({ length: n0 }, () => 1 + Math.floor(Math.random() * 6));
               _gLuck.push({ role: "assistant", senderId: spk.id, senderName: spk.name, kind: "luck", luck: { type: "dice", vals, by: spk.name },
@@ -18277,7 +18277,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       pollId,
       title: t,
       anon: !!anon,
-      by: char ? char.name : (gsFor(groupId).spectate ? "旁白" : profile.name || "我"),
+      by: char ? char.name : (gsFor(groupId).spectate ? "旁白" : herNameIn(groupId) || "我"),
       options: opts.map(o => ({
         text: o,
         voters: []
@@ -18314,7 +18314,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const settleGroupAsk = (groupId, pollId) => {
     const poll = groupPoll(groupId, pollId);
     if (!poll || !poll.ask || poll.askResult || !poll.askVoted) return;
-    const me = profile.name || "我";   // 跟 onVote 落票时同一个名字
+    const me = herNameIn(groupId) || "我";   // 跟 onVote 落票时同一个名字
     const tl = AskSlip.tally(poll);
     if (poll.role !== "user" && tl.yes.indexOf(me) < 0 && tl.no.indexOf(me) < 0) return;
     const amt = AskSlip.amountOf(poll.ask.amount), what = String(poll.ask.what || "").slice(0, 20);
@@ -18480,7 +18480,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       kind: "redpacket",
       rpId: rpId,
       byMe: true,
-      by: profile.name || "我",
+      by: herNameIn(groupId) || "我",
       toId: to ? to.id : null,
       toName: to ? (to.remark || to.name) : "",
       total: a,
@@ -18518,7 +18518,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         gKickedRef.current[groupId] = ["me"];
         updateGroup(groupId, { roomKind: "spectate" });
         saveGroupSettings(groupId, { spectate: true });
-        line(spk.name + " 把 " + userName(profile) + " 移出了群聊");
+        line(spk.name + " 把 " + herNameIn(groupId) + " 移出了群聊");
         toast("你被 " + spk.name + " 移出了群聊 · 群设置里点「回到群里」就能回去");
       }
     }
@@ -18545,7 +18545,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     // 群主封头衔／撤头衔
     if (item.title && typeof item.title === "object" && groupRoleOf(gs0, spk.id) === "owner") {
-      const tg = String(item.title.name || "") === userName(profile) && imInGroup((groupsRef.current || []).find(x => x.id === groupId)) ? { id: "me", name: userName(profile) } : pickMember(members, item.title.name);
+      const tg = String(item.title.name || "") === herNameIn(groupId) && imInGroup((groupsRef.current || []).find(x => x.id === groupId)) ? { id: "me", name: herNameIn(groupId) } : pickMember(members, item.title.name);
       if (tg) {
         const tx = String(item.title.text || "").replace(/[「」"“”]/g, "").trim().slice(0, 12);
         const was = groupTitleOf(gsFor(groupId), tg.id);
@@ -18592,7 +18592,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const to = (() => {
       const nm = String(toId == null ? "" : toId).trim();
       if (!nm) return null;
-      if (nm === (profile.name || "我") || nm === "我" || nm === "用户") return { id: "me", name: profile.name || "我" };
+      if (nm === (profile.name || "我") || nm === "我" || nm === "用户") return { id: "me", name: herNameIn(groupId) || "我" };
       const g0 = groups.find(x => x.id === groupId);
       const ids = (g0 && g0.memberIds) || [];
       const c = characters.find(x => ids.indexOf(x.id) >= 0 && x.id !== char.id && (x.name === nm || x.remark === nm));
@@ -18624,7 +18624,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 我领红包：角色发的能领，我自己发的也能领（她 2026-10-31：「自己发的自己可以抢吧，应该是三秒后他们抢」）——
   //   跟微信群一样，发的人自己也能点开抢一个；角色照旧三秒后开抢
   const claimRedPacket = (groupId, msgIdx) => {
-    const meName = profile.name || "我";
+    const meName = herNameIn(groupId) || "我";
     const rp = (groupChatsRef.current[groupId] || [])[msgIdx];
     if (!rp || rp.kind !== "redpacket") return null;
     // 专属红包：点名给别人的，她碰不到（"me" 才是给她的）
@@ -18831,7 +18831,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const g = (groupsRef.current || []).find(x => x.id === groupId);
     if (!g) return null;
     const mem = (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
-    const imIn = imInGroup(g), me = userName(profile);
+    const imIn = imInGroup(g), me = herNameIn(groupId);
     const hist = (groupChatsRef.current[groupId] || []).filter(m => m && m.content && m.role !== "system").slice(-40)
       .map(m => (m.role === "user" ? me : (m.senderName || "")) + "：" + String(m.content).slice(0, 80)).join("\n");
     try {
@@ -19661,7 +19661,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const list = loadJSON(gemKey(spId), []) || [];
     if (list.some(x => x && x.gid === gid && x.mts === m.ts && x.text === m.content)) { if (by === "me") toast("这句已经在精华里了"); return false; }
     const byName = by === "me" ? "我" : (((characters || []).find(c => c.id === by) || {}).name || "");
-    const who = m.role === "user" ? userName(profile) : (m.senderName || "有人");
+    const who = m.role === "user" ? herNameIn(gid) : (m.senderName || "有人");
     saveJSON(gemKey(spId), [...list, { id: "gem_" + Date.now() + "_" + Math.floor(Math.random() * 1000), gid, mts: m.ts || 0, who, text: String(m.content).slice(0, 300), by, byName, why: why ? String(why).slice(0, 60) : "", ts: Date.now(), day: dayKeyNow() }].slice(-200));
     setSpaceGemRev(v => v + 1);
     return true;
@@ -19880,7 +19880,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const setGroupPresence = (groupId, inGroup) => {
     const g = groups.find(x => x.id === groupId);
     if (!g || imInGroup(g) === !!inGroup) return;
-    const me = userName(profile);
+    const me = herNameIn(groupId);
     updateGroup(groupId, { roomKind: inGroup ? "group" : "spectate" });
     saveGroupSettings(groupId, { spectate: !inGroup });
     if (inGroup) {
@@ -37109,7 +37109,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 群头像也住在 group 上（她 2026-10-02）；null＝移除，回到四宫格
       if (gAvNew !== undefined && gAvNew !== (activeGroup.avatarImage || null)) updateGroup(activeGroup.id, { avatarImage: gAvNew || null });
       if (rest.titles) {
-        const was = gsFor(activeGroup.id).titles || {}, me = userName(profile);
+        const was = gsFor(activeGroup.id).titles || {}, me = herNameIn(activeGroup.id);
         const nmOf = id => id === "me" ? me : ((characters.find(c => c.id === id) || {}).name || "");
         const changed = Object.keys({ ...was, ...rest.titles }).filter(id => (was[id] || "") !== (rest.titles[id] || "") && nmOf(id));
         if (changed.length) pushGroupRich(activeGroup.id, { role: "system", content: changed.map(id => rest.titles[id] ? nmOf(id) + " 的头衔换成了「" + rest.titles[id] + "」" : nmOf(id) + " 的头衔撤掉了").join("；") });
@@ -37117,7 +37117,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (rest.mutes) {
         delete gMuteLiveRef.current[activeGroup.id];   // 她在设置里改了禁言，以这份为准
         // 她亲手禁言、解禁的，群里落一行灰字，大家下一轮看得见
-        const was = groupRoles(gsFor(activeGroup.id)).mutes, now = Date.now(), me = userName(profile);
+        const was = groupRoles(gsFor(activeGroup.id)).mutes, now = Date.now(), me = herNameIn(activeGroup.id);
         const nmOf = id => (characters.find(c => c.id === id) || {}).name || "";
         Object.keys(rest.mutes).forEach(id => { const u = Number(rest.mutes[id]) || 0; if (u > now && u !== Number(was[id]) && nmOf(id))
           pushGroupRich(activeGroup.id, { role: "system", content: me + " 把 " + nmOf(id) + " 禁言了 " + Math.round((u - now) / 60000) + " 分钟" }); });
@@ -37130,7 +37130,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     canPeekMember: c => memberStatePeekable(activeGroup.id, c),
     onStartPoll: (title, options, anon) => startPoll(activeGroup.id, title, options, anon),
     onGenVotes: idx => genPollVotes(activeGroup.id, idx),
-    onVote: (idx, optIdx) => { castVote(activeGroup.id, idx, optIdx, profile.name || "我"); const _pl = groupPoll(activeGroup.id, idx); if (_pl && _pl.ask) setTimeout(() => settleGroupAsk(activeGroup.id, _pl.pollId), 300); },
+    onVote: (idx, optIdx) => { castVote(activeGroup.id, idx, optIdx, herNameIn(activeGroup.id) || "我"); const _pl = groupPoll(activeGroup.id, idx); if (_pl && _pl.ask) setTimeout(() => settleGroupAsk(activeGroup.id, _pl.pollId), 300); },
     onStartAsk: a => startAsk(activeGroup.id, a),
     onSendRedPacket: (total, count, message, toId, kin) => sendRedPacket(activeGroup.id, total, count, message, toId, kin),
     onClaim: idx => claimRedPacket(activeGroup.id, idx),
