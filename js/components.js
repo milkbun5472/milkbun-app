@@ -23700,14 +23700,76 @@ function SpaceMeetPage({ space, pool, onStart, onClose }) {
       h("span", { className: "flex-1 text-left truncate", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name),
       h("span", { style: { width: 21, height: 21, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null)); }));
 }
+// 约定的日子说成人话：今天／明天／后天／11月25日（周三）＋几点
+function planToday() { const d = typeof vclockNow === "function" ? vclockNow() : new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function planWhenZh(p) {
+  if (!p || !p.date) return "";
+  const t0 = new Date(planToday() + "T00:00:00").getTime(), d = new Date(p.date + "T00:00:00"), n = Math.round((d.getTime() - t0) / 864e5);
+  const day = n === 0 ? "今天" : n === 1 ? "明天" : n === 2 ? "后天" : (d.getMonth() + 1) + "月" + d.getDate() + "日（周" + "日一二三四五六"[d.getDay()] + "）";
+  return day + (p.time ? " " + p.time : "");
+}
+// 空间内搜索：聊天、文件、墙、精华一起搜；停手 300 毫秒再搜，不在每个字上跑
+function SpaceSearchPage({ space, run, onPick, onClose }) {
+  const t = useTheme();
+  const [q, setQ] = useState(""), [res, setRes] = useState(null);
+  useEffect(() => { if (!q.trim()) { setRes(null); return; } const tm = setTimeout(() => { try { setRes(run(q)); } catch (e) { setRes([]); } }, 300); return () => clearTimeout(tm); }, [q]);
+  const KZ = { msg: "聊天", file: "文件", note: "墙", gem: "精华" };
+  const md = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  return h(PageSheet, { onClose, zh: "在这里搜", sub: space.name },
+    h("input", { "data-wk": "spacesearchinput", value: q, onChange: e => setQ(e.target.value), autoFocus: true, placeholder: "搜聊天、文件、墙、精华（空格分开几个词都要有）", className: "w-full outline-none",
+      style: { minWidth: 0, minHeight: 42, borderRadius: 10, padding: "0 12px", background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 16, color: t.ink, marginBottom: 12 } }),
+    res == null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "打几个字，这个空间里每个频道一起搜。")
+      : !res.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "没搜到。")
+      : res.map((r, i) => h("button", { key: i, "data-wk": "spacesearchrow", "data-part": r.kind, onClick: () => onPick(r), className: "w-full text-left active:opacity-60", style: { display: "block", padding: "10px 0", borderBottom: "1px solid " + t.line } },
+          h("div", { className: "flex items-center", style: { gap: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } },
+            h("span", { style: { border: "1px solid " + t.line, borderRadius: 4, padding: "0 4px" } }, KZ[r.kind] || ""), "#" + (r.ch || ""), r.who ? "· " + r.who : "", h("span", { style: { marginLeft: "auto" } }, md(r.ts))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, marginTop: 3, lineHeight: 1.5, wordBreak: "break-word" } }, String(r.text).slice(0, 140)))));
+}
+// 约定：大家定下的日子。她能加、改、删、标做完；他们在频道里也会定（plan 字段）
+function SpacePlansPage({ space, plans, people, onSave, onClose }) {
+  const t = useTheme();
+  const [f, setF] = useState({ title: "", when: "", who: [] }), [editId, setEditId] = useState(null);
+  const today = planToday();
+  const parsed = f.when.trim() && typeof planParseWhen === "function" ? planParseWhen(f.when, typeof vclockNow === "function" ? vclockNow() : new Date()) : null;
+  const up = (plans || []).filter(p => p && !p.done && p.date >= today).sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")));
+  const past = (plans || []).filter(p => p && (p.done || p.date < today)).sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 30);
+  const nm = id => id === "me" ? "我" : (((people || []).find(c => c.id === id) || {}).name || "有人");
+  const save = () => { const ti = f.title.trim(); if (!ti || !parsed) return;
+    const row = { title: ti.slice(0, 40), date: parsed.date, time: parsed.time || "", who: f.who.slice() };
+    onSave(editId ? (plans || []).map(p => p.id === editId ? { ...p, ...row } : p) : (plans || []).concat([{ id: "pl_" + Date.now(), ...row, by: "me", ts: Date.now(), done: false }]));
+    setF({ title: "", when: "", who: [] }); setEditId(null); };
+  const row = p => h("div", { key: p.id, "data-wk": "spaceplanrow", "data-done": p.done ? "1" : "0", style: { padding: "10px 0", borderBottom: "1px solid " + t.line, opacity: p.done ? .55 : 1 } },
+    h("div", { className: "flex items-baseline", style: { gap: 8 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent, flexShrink: 0 } }, planWhenZh(p)),
+      h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, textDecoration: p.done ? "line-through" : "none", wordBreak: "break-word" } }, p.title)),
+    h("div", { className: "flex items-center", style: { gap: 12, marginTop: 4, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } },
+      h("span", { className: "flex-1 min-w-0 truncate" }, (p.who && p.who.length ? p.who.map(nm).join("、") + " · " : "") + nm(p.by) + " 定的"),
+      h("button", { onClick: () => onSave((plans || []).map(x => x.id === p.id ? { ...x, done: !x.done } : x)), className: "active:opacity-60", style: { color: t.sub } }, p.done ? "没做完" : "做完了"),
+      h("button", { onClick: () => { setEditId(p.id); setF({ title: p.title, when: p.date + (p.time ? " " + p.time : ""), who: p.who || [] }); }, className: "active:opacity-60", style: { color: t.sub } }, "改"),
+      h("button", { onClick: () => requestAppConfirm("删掉这个约定？", p.title, () => onSave((plans || []).filter(x => x.id !== p.id)), "删掉"), className: "active:opacity-60", style: { color: t.sub } }, "删")));
+  return h(PageSheet, { onClose, zh: "约定", sub: space.name },
+    h("div", { "data-wk": "spaceplanform", style: { padding: 12, background: t.bg2, borderRadius: 12, marginBottom: 16 } },
+      h("input", { "data-wk": "input", value: f.title, onChange: e => setF({ ...f, title: e.target.value }), placeholder: "约了什么", className: "w-full outline-none", style: { minWidth: 0, minHeight: 40, borderRadius: 9, padding: "0 10px", background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 16, color: t.ink, marginBottom: 8 } }),
+      h("input", { "data-wk": "input", value: f.when, onChange: e => setF({ ...f, when: e.target.value }), placeholder: "哪天（明天、周六、11月25日、2026-12-01 18:30…）", className: "w-full outline-none", style: { minWidth: 0, minHeight: 40, borderRadius: 9, padding: "0 10px", background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 16, color: t.ink } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: parsed ? t.accent : t.fog, margin: "4px 0 8px" } }, f.when.trim() ? (parsed ? "→ " + planWhenZh(parsed) : "没读懂这个日子") : "照 App 里的日子算，开了虚拟时间就照虚拟的。"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 10 } }, (people || []).map(c => { const on = f.who.includes(c.id);
+        return h("button", { key: c.id, onClick: () => setF({ ...f, who: on ? f.who.filter(x => x !== c.id) : f.who.concat([c.id]) }), className: "active:opacity-60", style: { minHeight: 30, padding: "0 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, c.remark || c.name); })),
+      h("button", { "data-wk": "spaceplansave", disabled: !f.title.trim() || !parsed, onClick: save, className: "active:opacity-60 disabled:opacity-40", style: { minHeight: 38, padding: "0 16px", borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, editId ? "改好了" : "定下来")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, "接下来"),
+    up.length ? up.map(row) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "6px 0 10px" } }, "还没有约定。频道里大家聊着定下的，也会出现在这儿。"),
+    past.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, margin: "18px 0 4px" } }, "做完的、过去的") : null,
+    past.map(row));
+}
 // 空间首页：Teams 那一屏——顶上一块空间名片（方头像、名字、几个人），底下一行一个频道
-function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf, onSuggestTitles , presence, statuses, herName, onMyStatus, onMeet, meetLog, onOpenMeet, maskOwnOf }) {
+function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf, onSuggestTitles , presence, statuses, herName, onMyStatus, onMeet, meetLog, onOpenMeet, maskOwnOf, searchRun, onPickResult, plans, onSavePlans }) {
   const t = useTheme();
   const [edit, setEdit] = useState(null);   // null | "new" | 频道那个群
   const [spEdit, setSpEdit] = useState(false);
   const [archOpen, setArchOpen] = useState(false);   // 归档那一摞默认折着
   const [gemOpen, setGemOpen] = useState(() => { try { if (window.__gemOpenFor === space.id) { window.__gemOpenFor = null; return true; } } catch (e) {} return false; });   // 精华墙那一页（「某某 把一句收进了精华」那一行点进来时直接开着）
-  const [memOpen, setMemOpen] = useState(false);   // 成员那一页（她 2026-11-20「每个人的状态」）
+  const [memOpen, setMemOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);   // 空间内搜索（她 2026-11-20）
+  const [planOpen, setPlanOpen] = useState(false);       // 约定   // 成员那一页（她 2026-11-20「每个人的状态」）
   const [adopt, setAdopt] = useState(false);   // 把已有的群放进来（她 2026-11-20「把现在的群聊收纳进去成为一个大服务器」）   // 空间本身：改名、加人、踢人（她 2026-11-20「加不了人踢不了人改不了名字」）
   const tone = spaceTone(space);
   const people = (space.memberIds || []).map(id => (allChars || []).find(c => c && c.id === id)).filter(Boolean);
@@ -23740,7 +23802,9 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
             h("button", { "data-wk": "chmore", "aria-label": "改这个频道", onClick: () => setEdit(g), className: "active:opacity-50 flex items-center justify-center", style: { width: 40, color: t.fog, fontSize: 18 } }, "⋯")); };
   return h("div", { "data-wk": "mlpage", "data-part": "space", className: "h-full flex flex-col", style: msgAppBg(t) },
     h(Head, { zh: space.name, sub: "频道 · " + people.length + " 人", onBack, bg: wxGrey(t),
-      right: h("button", { "data-wk": "chnew", "aria-label": "新频道", onClick: () => setEdit("new"), className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 34 } }, h(IPlus, { size: 20, color: t.ink })) }),
+      right: h("span", { className: "flex items-center" },
+        searchRun ? h("button", { "data-wk": "spacesearchbtn", "aria-label": "在这个空间里搜", onClick: () => setSearchOpen(true), className: "active:opacity-50 flex items-center justify-center", style: { width: 38, height: 34, fontSize: 17, color: t.ink } }, "⌕") : null,
+        h("button", { "data-wk": "chnew", "aria-label": "新频道", onClick: () => setEdit("new"), className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 34 } }, h(IPlus, { size: 20, color: t.ink }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" } },
       h("button", { "data-wk": "spacecard", onClick: () => onSaveSpace && setSpEdit(true), className: "flex items-center gap-3 text-left active:opacity-70", style: { width: "calc(100% - 28px)",  margin: "12px 14px 6px", padding: "14px 14px", background: momPaper(t), borderRadius: 14, borderLeft: "4px solid " + tone } },
         h(SpaceTile, { sp: space, size: 46 }),
@@ -23751,6 +23815,10 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
       h("button", { "data-wk": "spacemembers", onClick: () => setMemOpen(true), className: "flex items-center justify-between active:opacity-70", style: { width: "calc(100% - 28px)", margin: "8px 14px 0", padding: "11px 14px", background: momPaper(t), borderRadius: 12, fontFamily: F_BODY } },
         h("span", { style: { fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "成员 · " + people.length),
         h("span", { className: "truncate", style: { marginLeft: 10, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, maxWidth: "70%" } }, people.filter(c => ((presence || {})[c.id] || {}).k === "online").length + " 个在线 ›")),
+      // 约定（她 2026-11-20「124 做吧」第 4 条）：大家定下的日子
+      onSavePlans ? h("button", { "data-wk": "spaceplans", onClick: () => setPlanOpen(true), className: "flex items-center justify-between active:opacity-70", style: { width: "calc(100% - 28px)", margin: "8px 14px 0", padding: "11px 14px", background: momPaper(t), borderRadius: 12, fontFamily: F_BODY } },
+        h("span", { style: { fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "约定 · " + (plans || []).filter(p => p && !p.done).length),
+        h("span", { className: "truncate", style: { marginLeft: 10, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, maxWidth: "70%" } }, (() => { const nx = typeof planUpcoming === "function" ? planUpcoming(plans || [], planToday(), 60)[0] : null; return nx ? planWhenZh(nx) + " " + nx.title + " ›" : "大家定下的日子 ›"; })())) : null,
       // 精华墙入口（她 2026-11-20）：这个地方攒下的名场面
       h("button", { "data-wk": "spacegems", onClick: () => setGemOpen(true), className: "flex items-center justify-between active:opacity-70", style: { width: "calc(100% - 28px)", margin: "8px 14px 0", padding: "11px 14px", background: momPaper(t), borderRadius: 12, fontFamily: F_BODY } },
         h("span", { style: { fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "精华 · " + (gems || []).length),
@@ -23801,6 +23869,8 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
     gemOpen ? h(SpaceGemsPage, { space, gems: gems || [], chName: gid => { const g = (channels || []).find(x => x.id === gid); return g ? (g.chName || g.name) : ""; },
       onOpen: gm => { setGemOpen(false); onOpenGem && onOpenGem(gm); }, onDelete: onDeleteGem, onClose: () => setGemOpen(false) }) : null,
     adopt ? h(GroupAdoptPage, { space, groups: looseGroups || [], onPick: ids => { onAdopt(ids); setAdopt(false); }, onClose: () => setAdopt(false) }) : null,
+    searchOpen ? h(SpaceSearchPage, { space, run: searchRun, onPick: r => { setSearchOpen(false); onPickResult && onPickResult(r); }, onClose: () => setSearchOpen(false) }) : null,
+    planOpen ? h(SpacePlansPage, { space, plans: plans || [], people, onSave: onSavePlans, onClose: () => setPlanOpen(false) }) : null,
     memOpen ? h(SpaceMembersPage, { space, people, presence: presence || {}, statuses: statuses || {}, herName, onMyStatus, onClose: () => setMemOpen(false) }) : null,
     meetOpen ? h(SpaceMeetPage, { space, pool: (space.memberIds || []).map(id => (allChars || []).concat(pickPool || []).find(c => c && c.id === id)).filter(Boolean), onClose: () => setMeetOpen(false), onStart: (ids, note) => { setMeetOpen(false); onMeet(ids, note); } }) : null,
     meetLogOpen ? h(PageSheet, { onClose: () => setMeetLogOpen(false), zh: "见面记录", sub: space.name },
