@@ -7,7 +7,7 @@ test("公告块：空的不发，有字带上", () => {
 });
 test("群线上、群线下、群通话都读同一份 gs.notice", () => {
   assert.match(app, /const gNoticeHint = groupNoticeBlock\(gsFor\(groupId\)\.notice\)/);
-  assert.match(app, /rgOpts\.rerollAvoid\) \+ gNoticeHint \+ (?:gFileHint \+ (?:gHopHint \+ (?:gNewChHint \+ )?)?)?gDirHint/);
+  assert.match(app, /rgOpts\.rerollAvoid\) \+ gNoticeHint \+ (?:gFileHint \+ (?:gHopHint \+ (?:gNewChHint \+ (?:gGemHint \+ (?:gLifeHint \+ )?)?)?)?)?gDirHint/);
   assert.match(app, /groupNotice: gsFor\(group\.id\)\.notice \|\| null/);
   assert.match(eng, /groupNoticeBlock\(ctx\.groupNotice\) \+/);
   assert.match(app, /cur\.groupId \? groupNoticeBlock\(gsFor\(cur\.groupId\)\.notice\)/);
