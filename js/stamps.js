@@ -588,7 +588,7 @@
             if (!tabs.length) return null;
             tabs.unshift({ k: "main", label: "第一面", has: true });
             return h("div", { "data-wk": "stampfacetabs", className: "flex flex-wrap justify-center", style: { gap: 6, marginTop: 8 } }, tabs.map(t => { const on = side === t.k;
-              return h("button", { key: t.k, onClick: () => { setSide(t.k); if (!t.has && t.draw && !on) t.draw(); }, className: "active:opacity-70",
+              return h("button", { key: t.k, onClick: () => { setSide(t.k); if (!t.has && t.draw && !on) { if (card.drawing && Date.now() - (card.drawingTs || 0) < 180000) { toast && toast("还在画，画好了会自己换上"); return; } t.draw(); } },   // 还在画的时候再点一次不再另画一张，免得后画好的那张把先出来的盖掉（群友 2026-11-20） className: "active:opacity-70",
                 style: { padding: "5px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: fs(12), border: (t.has ? "1px solid " : "1px dashed ") + COPPER, background: on ? COPPER : "transparent", color: on ? "#FFF8E9" : COPPER, opacity: t.has || on ? 1 : .75 } },
                 (t.has ? "" : "＋ ") + t.label); })); })(),
 
