@@ -1,4 +1,4 @@
-import {lineArgyleSleeves} from './argyle-sleeve-lining.mjs?v=fg-0dbfe7b80431ca19';
+import {anchorArgyleSleeves,lineArgyleSleeves} from './argyle-sleeve-lining.mjs?v=fg-0dbfe7b80431ca19';
 import {applyOutfitMeshEdits} from './outfit-mesh-edits.mjs?v=fg-0dbfe7b80431ca19';
 let motionController;
 async function loadMotionController(){
@@ -38,7 +38,11 @@ function outfitSource(id,skeletonOnly=false){
   if(!outfitLoader){const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);outfitLoader=new GLTFLoader();outfitLoader.setDRACOLoader(draco);}
   const url=new URL('./outfits/'+id+'.glb'+new URL(import.meta.url).search,import.meta.url).href;
   // 失败了不留在表里：下次换衣服还能重试，不会一次网抖就永远穿不上
-  OUTFIT_FILES.set(key,Promise.all([outfitLoader.loadAsync(url),skeletonOnly?null:loadMotionController().then(m=>m.prepareOutfitMotion(id))]).then(([g,motion])=>(motion&&applyOutfitMeshEdits(g.scene,motion.meshEdits),OUTFIT_READY.set(key,g.scene),g.scene),e=>{OUTFIT_FILES.delete(key);throw e;}));
+  OUTFIT_FILES.set(key,Promise.all([outfitLoader.loadAsync(url),skeletonOnly?null:loadMotionController().then(m=>m.prepareOutfitMotion(id))]).then(([g,motion])=>{
+   if(motion)applyOutfitMeshEdits(g.scene,motion.meshEdits);
+   if(skeletonOnly&&id==='argyle')anchorArgyleSleeves(g.scene.getObjectByName('outfit_argyle_trim'));
+   OUTFIT_READY.set(key,g.scene);return g.scene;
+  },e=>{OUTFIT_FILES.delete(key);throw e;}));
  }
  return OUTFIT_FILES.get(key);
 }
