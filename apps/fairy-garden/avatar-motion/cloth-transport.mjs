@@ -1,11 +1,11 @@
-import {bindRobeArmhole} from './robe-armhole.mjs?v=fg-00aa3cc25a2329ce';
-import {bindCoatSleeves} from './coat-sleeves.mjs?v=fg-00aa3cc25a2329ce';
-import {academyForearmCores} from './academy-sleeve-samples.mjs?v=fg-00aa3cc25a2329ce';
-import {bindAcademySleeve} from './academy-sleeve-weights.mjs?v=fg-00aa3cc25a2329ce';
-import {createSleeveEase} from './sleeve-ease.mjs?v=fg-00aa3cc25a2329ce';
-import {createSleeveEnvelope} from './sleeve-envelope.mjs?v=fg-00aa3cc25a2329ce';
-import {createClothTransportKernel,clothRotationReferences} from './cloth-transport-kernel.mjs?v=fg-00aa3cc25a2329ce';
-import {fitRigid} from './rigid-fit.mjs?v=fg-00aa3cc25a2329ce';
+import {bindRobeArmhole} from './robe-armhole.mjs?v=fg-37baabf5f9156480';
+import {bindCoatSleeves} from './coat-sleeves.mjs?v=fg-37baabf5f9156480';
+import {academyForearmCores} from './academy-sleeve-samples.mjs?v=fg-37baabf5f9156480';
+import {bindAcademySleeve} from './academy-sleeve-weights.mjs?v=fg-37baabf5f9156480';
+import {createSleeveEase} from './sleeve-ease.mjs?v=fg-37baabf5f9156480';
+import {createSleeveEnvelope} from './sleeve-envelope.mjs?v=fg-37baabf5f9156480';
+import {createClothTransportKernel,clothRotationReferences} from './cloth-transport-kernel.mjs?v=fg-37baabf5f9156480';
+import {fitRigid} from './rigid-fit.mjs?v=fg-37baabf5f9156480';
 // Transport a material direction with the arm, then align it to the body surface.
 // The reference contains axial roll that a direction-only reconstruction cannot recover.
 export function sleeveRotation(T,restAxis,posedAxis,reference){

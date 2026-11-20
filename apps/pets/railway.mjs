@@ -1,4 +1,4 @@
-import {restorePetState,snapshotPetState} from './state.mjs?v=fg-00aa3cc25a2329ce';
+import {restorePetState,snapshotPetState} from './state.mjs?v=fg-37baabf5f9156480';
 
 // Landing moves the user's view to the station; every resident keeps its real
 // location, ongoing work, belongings and care history in the existing world.
