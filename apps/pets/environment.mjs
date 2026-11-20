@@ -1,5 +1,5 @@
-import {weatherLook} from '../fairy-garden/weather-look.mjs?v=fg-0cb4be96109fd8f6';
-import {SEASONS,seasonOf,calendarSeason} from '../fairy-garden/world.mjs?v=fg-0cb4be96109fd8f6';
+import {weatherLook} from '../fairy-garden/weather-look.mjs?v=fg-0dbfe7b80431ca19';
+import {SEASONS,seasonOf,calendarSeason} from '../fairy-garden/world.mjs?v=fg-0dbfe7b80431ca19';
 const clamp=x=>Math.max(0,Math.min(1,x));
 // Local-clock environments share one visual weather draw and daylight calculation.
 export function townEnvironment(time,epoch,{seasonIndex=time.season,weatherWeights=null,weatherEpoch=epoch,dawnStart=330}={}){

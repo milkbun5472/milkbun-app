@@ -1,4 +1,4 @@
-import {createBodyPoseKernel} from './body-pose-kernel.mjs?v=fg-0cb4be96109fd8f6';
+import {createBodyPoseKernel} from './body-pose-kernel.mjs?v=fg-0dbfe7b80431ca19';
 
 export function install(q){
 const T=q.T,o=q.body,g=o.geometry,n=g.attributes.position.count,SI=g.attributes.skinIndex.array,SW=g.attributes.skinWeight.array,saved=o.skeleton.bones.map(()=>new T.Matrix4()),current=o.skeleton.bones.map(()=>new T.Matrix4());let buffer,linear,inverse,translation;const kernel=q.bodyPoseKernel??=(q.numericCore?createBodyPoseKernel(q.numericCore,g,o.skeleton.bones.length,q.mesh):null);if(!kernel){buffer=new Float64Array(n*3);linear=new Float64Array(n*9);inverse=new Float64Array(n*9);translation=new Float64Array(n*3)}q.posedBuffer=null;q.poseLinear=linear;q.poseInverse=inverse;q.poseTranslation=translation;
