@@ -17548,7 +17548,7 @@ function EmoteSuggest({ hits, anchor, onPick }) {
       style: { width: 58, height: 58, borderRadius: 10, padding: 0, background: t.bg, border: "none", overflow: "hidden" } },
       h("img", { src: stickerSrc(em.url), alt: em.keyword || "", referrerPolicy: "no-referrer", style: { width: "100%", height: "100%", objectFit: "contain" } }))));
 }
-function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keepKey, emotePacks, onEmote }) {
+function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keepKey, emotePacks, onEmote, atList }) {
   const [draft, setDraftRaw] = useState(() => draftGet(keepKey));
   const setDraft = v => { setDraftRaw(v); draftPut(keepKey, v); };
   // 同一个框换了对话（单聊里直接切人）：换成那个对话自己的草稿
@@ -17582,6 +17582,12 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
     return () => clearTimeout(tm);
   }, [draft, emotePacks]);
   const clear = () => setDraft("");
+  // @ 名单（她 2026-11-20「频道里面@可以出现可以选择的名单和@所有人的选项」）：框尾刚打了一个「@」（开头或空格后）才弹；
+  //   只看最后一个字，不扫别的（typing-hot-path）；位置只在弹出那一下量一次
+  const atOpen = !!(atList && atList.length) && /(^|\s)@$/.test(draft);
+  const [atAt, setAtAt] = useState(0);
+  useEffect(() => { if (!atOpen) return; try { if (ref.current) setAtAt(Math.max(0, (window.innerHeight || 0) - ref.current.getBoundingClientRect().top + 8)); } catch (e) {} }, [atOpen]);
+  const pickAt = label => { setDraft(draft.replace(/@$/, "@" + label + " ")); setTimeout(() => { try { ref.current && ref.current.focus({ preventScroll: true }); } catch (e) {} }, 0); };
   // 发完键盘别收（群里 2026-10-22「发一次消息键盘就自动下落，想连发只能再点一次输入框」）：
   //   发送键按下不抢焦点；有的手机照样先失焦了，那就看是不是刚失焦，是的话在这次点击里把焦点还回去
   const blurAt = useRef(0);
@@ -17616,7 +17622,12 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
       style: Object.assign({ borderRadius: 20, resize: "none", lineHeight: 1.45, maxHeight: DRAFT_MAX_H, overflowY: "auto", display: "block" }, inputStyle)
     }, inputProps || {})),
     after ? after(draft, fire, clear) : null,
-    onEmote ? h(EmoteSuggest, { hits: sug.hits, anchor: sug.at, onPick: em => { setDraft(""); setSug({ hits: [], at: 0 }); onEmote(em); } }) : null);
+    onEmote ? h(EmoteSuggest, { hits: sug.hits, anchor: sug.at, onPick: em => { setDraft(""); setSug({ hits: [], at: 0 }); onEmote(em); } }) : null,
+    atOpen ? h("div", { "data-wk": "atlist", style: { position: "fixed", left: 12, right: 12, bottom: atAt || 80, zIndex: 60, maxHeight: 240, overflowY: "auto", background: "#fff", borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,.14)", padding: "6px 0" } },
+      atList.map(it => h("button", { key: it.key, "data-wk": "atitem", "data-part": it.key === "__all" ? "all" : "member", onMouseDown: e => e.preventDefault(), onClick: () => pickAt(it.label),
+        className: "w-full flex items-center gap-3 active:bg-black/5", style: { minHeight: 44, padding: "6px 14px", textAlign: "left" } },
+        it.face || h("span", { style: { width: 30, height: 30, borderRadius: 999, background: "#eef0f2", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 } }, "@"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#222" } }, it.key === "__all" ? "所有人" : it.label)))) : null);
 }
 function ReplyKey({ sending, disabled, title, onClick, hold }) {
   const t = useTheme();
@@ -21932,6 +21943,8 @@ function GroupThread({
   })), h(DraftInput, {
     keepKey: group && group.id ? "group:" + group.id : null,
     emotePacks: emotePacks, onEmote: sendMyEmote,
+    // @ 名单：旁观群里她不在场，不给；树洞里只有「所有人」（名字不能露）
+    atList: _gSpect ? null : [{ key: "__all", label: "所有人" }].concat(group && group.chKind === "treehole" ? [] : members.map(c => ({ key: c.id, label: c.remark || c.name, face: h(Avatar, { character: c, size: 30, radius: 999 }) }))),
     inputProps: { "data-wk": "chatinput" },
     placeholder: gNarrBar && gKind === "dir" ? "往后往哪儿聊：比如聊到周末去哪儿玩…" : gNarrBar && gKind === "as" && gs.spectate ? "替 " + ((members.find(c => c.id === asId) || members[0] || {}).name || "TA") + " 说一句…" : chatMode === "ooc" ? "出戏说：跟演他们的那位说，可以让它改、也可以问状态…" : chatMode === "narr" ? "写一句旁白：下雨了、有人推门进来…" : gs.spectate ? "写一句旁白，推动剧情…" : "在群里发言…",
     inputStyle: {
@@ -23328,6 +23341,7 @@ function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose, onSu
   // 自定义称号（她 2026-11-20）：名字＋怎么评，存在空间上；每周评称号时多花一次调用照这个挑人。aiTitles 关了就不评
   const [ctitles, setCtitles] = useState((space.customTitles || []).map(x => ({ ...x })));
   const [aiTitles, setAiTitles] = useState(space.aiTitles !== false);
+  const [bot, setBot] = useState(!!space.bot);   // 小频：默认关（她 2026-11-20「怎么就已经有小频了喂」）
   const [sugg, setSugg] = useState(null), [suggBusy, setSuggBusy] = useState(false);
   const t = useTheme();
   const [name, setName] = useState(space.name || "");
@@ -23336,7 +23350,7 @@ function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose, onSu
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const ok = name.trim() && sel.length >= 1;
   return h(PageSheet, { onClose, zh: "频道设置", sub: space.name,
-    right: h("button", { "data-wk": "spacesave", disabled: !ok, onClick: () => ok && onSave({ name: name.trim().slice(0, 24), avatarImage: av || null, memberIds: sel, customTitles: ctitles.map(x => ({ name: String(x.name || "").trim().slice(0, 12), how: String(x.how || "").trim().slice(0, 60) })).filter(x => x.name), aiTitles, cats: cats.map(c => ({ ...c, name: String(c.name || "").trim().slice(0, 12) || "分类" })) }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.ink : t.line } }, "保存") },
+    right: h("button", { "data-wk": "spacesave", disabled: !ok, onClick: () => ok && onSave({ name: name.trim().slice(0, 24), avatarImage: av || null, memberIds: sel, customTitles: ctitles.map(x => ({ name: String(x.name || "").trim().slice(0, 12), how: String(x.how || "").trim().slice(0, 60) })).filter(x => x.name), aiTitles, bot, cats: cats.map(c => ({ ...c, name: String(c.name || "").trim().slice(0, 12) || "分类" })) }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.ink : t.line } }, "保存") },
     h("div", { "data-wk": "spaceav", className: "flex items-center gap-3", style: { marginBottom: 14 } },
       h(AvatarPicker, { character: { name: name || "频", color: spaceTone(space), avatarImage: av }, size: 52, radius: 12, onPick: setAv, onClear: av ? () => setAv(null) : null }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, av ? "消息列表里那一行、频道首页名片都用这张。点「移除照片」换回名字第一个字。" : "没设头像就用名字第一个字。点左边设一张，能框一块。")),
@@ -23352,7 +23366,12 @@ function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose, onSu
       h("button", { "data-wk": "chcatdel", onClick: () => setCats(a => a.filter(x => x.id !== c.id)), className: "active:opacity-60", style: { minHeight: 36, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#c0453a" } }, "删"))),
     h("button", { "data-wk": "chcatadd", onClick: () => setCats(a => a.concat([{ id: "cat_" + Date.now().toString(36), name: "新分类", collapsed: false }])), className: "active:opacity-60", style: { minHeight: 40, padding: "0 4px", marginBottom: 18, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.accent } }, "＋ 加一类"),
     h("div", { "data-wk": "ctitles", style: { margin: "18px 0" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, "自定义称号（" + ctitles.length + "）"),
+      h("div", { "data-wk": "spacebottoggle", className: "flex items-center justify-between gap-3", style: { padding: "10px 12px", background: t.bg2, borderRadius: 10, marginBottom: 14 } },
+        h("div", { className: "min-w-0" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "小频（每日一问、每周称号）"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, bot ? "开着：每天你第一次进来，小频在 #综合 贴一个问题（花一次调用）；打开满一周后开始每周评一次称号。" : "关着：小频不出现，不发每日一问，也不评称号。接龙照常能用。")),
+        h(Toggle, { on: bot, onChange: setBot, color: t.accent })),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, "自定义称号（" + ctitles.length + "）" + (bot ? "" : "　·　要先打开上面的小频才会评")),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8, lineHeight: 1.6 } }, "话最多、潜水、最晚睡这些每周照聊天记录自动算，不花调用。这里写的称号要读这一周的聊天才评得出，每周评称号时多花一次调用，照你写的「怎么评」挑人、写一句为什么。"),
       ctitles.map((c, i) => h("div", { key: i, "data-wk": "ctitlerow", style: { padding: "6px 0", borderBottom: "1px solid " + t.line } },
         h("div", { className: "flex items-center gap-2" },

@@ -2540,6 +2540,25 @@ function chainStartOk(msgs, lastDay, dayKey) {
 //   （他说完那个频道 6 小时没人接）、最爱发图、被@最多、最爱悄悄话。数据不够门槛就不发；一周最多 6 个称号，一个人可以拿好几个。
 //   opts.nameOf(id)→名字（认 @），opts.hourOf(ts)→那一刻是几点（虚拟时间）。返回 { id: "称号、称号" }
 const WEEK_TITLE_CAP = 6;
+// @ 了谁（她 2026-11-20「@可以出现可以选择的名单和@所有人的选项」）：从她那句里认「@所有人」和「@名字」，
+//   名字认本名和备注，长的先比（「@顾朝阳」不会被认成顾朝）
+function atMentions(text, members) {
+  const t = String(text || "");
+  const all = /@\s?(所有人|全体成员|全体|大家|all)/i.test(t);
+  const ids = [];
+  const names = [];
+  (members || []).forEach(c => { if (!c) return; [c.remark, c.name].filter(Boolean).forEach(n => names.push({ id: c.id, n: String(n) })); });
+  names.sort((a, b) => b.n.length - a.n.length);
+  let rest = t;
+  names.forEach(x => { const k = "@" + x.n; if (rest.indexOf(k) >= 0) { if (ids.indexOf(x.id) < 0) ids.push(x.id); rest = rest.split(k).join(" "); } });
+  return { all, ids };
+}
+// 这周该不该评称号：上次评过满 7 天；从没评过的，要从起算那天（小频打开、空间建好里晚的那个）满 7 天
+function spaceTitlesDue(lastTs, startTs, now) {
+  const W = 7 * 86400000;
+  if (lastTs) return now - lastTs > W;
+  return now - (Number(startTs) || now) >= W;
+}
 function spaceWeekTitles(channels, chatsOf, members, now, days, opts) {
   const o = opts || {}, T = now || Date.now(), since = T - (days || 7) * 86400000;
   const hourOf = typeof o.hourOf === "function" ? o.hourOf : (ts => new Date(ts).getHours());

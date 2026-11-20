@@ -56,5 +56,5 @@ test("频道一起听：页签那排一颗、顶上一条，歌照播放器现�
   assert.match(cs, /function ChannelListenBar\(/);
   assert.match(ap, /const chListenOf = gid =>/);
   assert.match(ap, /const toggleChListen = gid =>/);
-  assert.match(ap, /gWelcomeHint \+ gListenHint \+/);
+  assert.match(ap, /gWelcomeHint \+ (?:gAtHint \+ )?gListenHint \+/);
 });
