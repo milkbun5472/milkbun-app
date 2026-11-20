@@ -14452,7 +14452,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // ⚠️吞图案真凶(2026-08-14 三案并破):此处原本重建对象只留 role/content,把挂在最后一条
         // 用户消息上的 _imageRefs 抖掉了——而她的新照片永远在最后一条上,于是新图永丢、旧图冒名。
         // 必须展开保留原字段。
-        g[_i] = { ...g[_i], content: (bundleVolatile ? "【此刻的实时背景（只服务这一轮，不是历史）】\n" + bundleVolatile + "\n\n———\n" : "") + g[_i].content + _taskFull };
+        { const _pre = bundleVolatile ? "【此刻的实时背景（只服务这一轮，不是历史）】\n" + bundleVolatile + "\n\n———\n" : "";
+          g[_i] = { ...g[_i], content: _pre + g[_i].content + _taskFull, _extraLen: (g[_i]._extraLen || 0) + _pre.length + String(_taskFull || "").length }; }
         // 她刚换的那张头像也给他看一眼（附在她这一轮的消息上，跟她发的照片同一条路）
         { const _av = opts.herAvatar && opts.herAvatar.ref; if (_av && ((typeof isImgRef === "function" && isImgRef(_av)) || /^data:image/.test(String(_av)))) g[_i] = { ...g[_i], _imageRefs: [...(g[_i]._imageRefs || []), _av] }; }
         { const _av = opts.hisAvatar && opts.hisAvatar.ref; if (_av && ((typeof isImgRef === "function" && isImgRef(_av)) || /^data:image/.test(String(_av)))) g[_i] = { ...g[_i], _imageRefs: [...(g[_i]._imageRefs || []), _av] }; }
@@ -14463,7 +14464,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       } } }
       // 这一轮翻出来的〔照做〕条目，在最后一条用户消息的最末尾再说一遍（engine.js loreDoNow 那段写了为什么）
       const _doTail = typeof loreDoNow === "function" ? loreDoNow(loreRef.current, { scope: "chat", charIds: [charId], text: recentChatText(char) }) : "";
-      if (_doTail) { for (let _i = g.length - 1; _i >= 0; _i--) { if (g[_i].role === "user") { g[_i] = { ...g[_i], content: g[_i].content + _doTail }; break; } } }
+      if (_doTail) { for (let _i = g.length - 1; _i >= 0; _i--) { if (g[_i].role === "user") { g[_i] = { ...g[_i], content: g[_i].content + _doTail, _extraLen: (g[_i]._extraLen || 0) + _doTail.length }; break; } } }
       // 真照片按需从 IndexedDB 临时展开，只附最近 2 张（公共那一份 expandMessageImages，一起学也走它）。
       // ⚠️只交出 role/content/_imageRefs：g 上别的字段不往外带（原来这一段就是这么收窄的）。
       const _imgMeta = {};
@@ -14473,7 +14474,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       try {
         const _txt = m => typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.map(x => (x && x.text) || "").join("") : "";
         const _first = g.find(m => m && (m.role === "user" || m.role === "assistant"));
-        window.__histReceipt = Object.assign({}, window.__histReceipt || {}, { [charId]: { ts: Date.now(), n: g.length, chars: g.reduce((s, m) => s + _txt(m).length, 0),
+        window.__histReceipt = Object.assign({}, window.__histReceipt || {}, { [charId]: { ts: Date.now(), n: g.length, chars: g.reduce((s, m) => s + Math.max(0, _txt(m).length - (m._extraLen || 0)), 0),   // 只算聊天记录本身：附在最后一条上的实时背景、回复格式说明不算（群友 2026-11-21「102 条怎么有四万字」）
           first: _first ? _txt(_first).replace(/\s+/g, " ").slice(0, 40) : "" } });
       } catch (e) {}
       if (_imgMeta.droppedImages) toast("一次发的图太多，这一轮只给 TA 看了最后 " + FRESH_IMG_CAP + " 张", 4000);
