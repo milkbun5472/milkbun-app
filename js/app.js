@@ -12299,9 +12299,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 递手机前面那几步（编日常联系人、拼素材）要是哪一步出了错，原来没人接：录像那层一直挂着「正在想」，看着就是卡死、点了没反应
   //   （群友 2026-11-14「原来的角色都查不了 user 的手机，只有新角色能」）。现在接住：收起那层、把出错那句弹出来，好知道是哪一步
+  // 翻手机报错带上出事的那一行（群友 2026-11-20：只有一个角色一直报 reading 'map'，没有位置就只能猜）：
+  //   取调用栈里第一条 js/ 下的帧，截成「文件:行」，让她截图回来就能定位
+  const peekErrWhere = e => {
+    try {
+      const st = String((e && e.stack) || "");
+      const m = st.match(/js\/([\w.-]+\.js)(?:\?[^:\s)]*)?:(\d+):\d+/);
+      return m ? "（" + m[1] + ":" + m[2] + "）" : "";
+    } catch (x) { return ""; }
+  };
   const handPhoneTo = async (charId, allow, hideIds, sneak, allMasks) => {
     try { return await handPhoneToInner(charId, allow, hideIds, sneak, allMasks); }
-    catch (e) { try { console.error("[peek]", e); } catch (e2) {} if (!sneak) { setPeekPlay(null); toast("这次没翻成，出错在：" + ((e && e.message) || String(e)).slice(0, 80)); } }
+    catch (e) { try { console.error("[peek]", e); } catch (e2) {} if (!sneak) { setPeekPlay(null); toast("这次没翻成，出错在：" + ((e && e.message) || String(e)).slice(0, 80) + peekErrWhere(e)); } }
   };
   const handPhoneToInner = async (charId, allow, hideIds, sneak, allMasks) => {
     // 勾了「日常联系人」才编（她 2026-10-17：「查手机那里搞个开关就行要不要生成」）；偷偷翻的那一路不现编，有现成的才带
@@ -12400,7 +12409,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   原来录像当场就收了，一句话没有，看着就像TA拿了手机不翻。先再要一次，还是空的就照实说。
       if (!script.length) { d = await ask(); script = clean(d); }
       if (!script.length && !sneak) toast("这次没翻出东西来：模型没写出翻手机的过程，可以再递一次；老这样就换个模型，或者递的时候多勾几样");
-    } catch (e) { if (!sneak) toast("这次没翻成：" + (e.message || "再试一次")); }
+    } catch (e) { try { console.error("[peek]", e); } catch (e2) {} if (!sneak) toast("这次没翻成：" + (e.message || "再试一次") + peekErrWhere(e)); }
     if (sneak) {
       if (!script.length) return;
       // 手脚当场就动了；她回放时只看，不再动一遍
