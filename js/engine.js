@@ -2502,7 +2502,16 @@ function chpScribble(s, quote, text, by) { const n = chpNoteFind(s, quote), t = 
 // 撕掉：自己贴的随时能撕；别人贴的放够一天才撕得动
 function chpTearOk(n, by, now) { return !!n && (n.by === by || (now || Date.now()) - (n.ts || 0) > 86400000); }
 function chpTear(s, quote, by, now) { const n = chpNoteFind(s, quote); if (!chpTearOk(n, by, now)) return s; s.notes = s.notes.filter(x => x.id !== n.id); return s; }
-function chpSongAdd(s, title, artist, by) { const t = String(title || "").trim().slice(0, 40); if (!t) return s; if (s.playlist.some(x => x.title === t)) return s; s.playlist = s.playlist.concat([{ title: t, artist: String(artist || "").trim().slice(0, 30), by, ts: Date.now(), skip: [] }]).slice(-30); return s; }
+// 歌名对歌库：认得宽一点（她 2026-11-20「我的歌判定范围能不能宽一点 找不到要的歌」）——
+// 大小写、全半角、空格标点、书名号、括号里的 Live/版本 都不算；一边包含另一边也算同一首，歌手能对上的优先
+function chpSongNorm(x) { return String(x || "").normalize("NFKC").toLowerCase().replace(/[（(【\[][^）)】\]]*[）)】\]]/g, "").replace(/[\s《》<>"'“”‘’·・\-_.,，。!！?？~～、:：/|]+/g, ""); }
+function chpSongMatch(lib, x) { if (!x) return null; const want = chpSongNorm(x.title), wa = chpSongNorm(x.artist); if (!want) return null;
+  const list = (lib || []).filter(y => y && y.title), artOk = y => !wa || !chpSongNorm(y.artist) || chpSongNorm(y.artist).includes(wa) || wa.includes(chpSongNorm(y.artist));
+  const eq = list.filter(y => chpSongNorm(y.title) === want); if (eq.length) return eq.find(artOk) || eq[0];
+  if (want.length < 2) return null;
+  const part = list.filter(y => { const n = chpSongNorm(y.title); return n.length >= 2 && (n.includes(want) || want.includes(n)); });
+  return part.find(artOk) || part[0] || null; }
+function chpSongAdd(s, title, artist, by) { const t = String(title || "").trim().slice(0, 40); if (!t) return s; if (s.playlist.some(x => chpSongNorm(x.title) === chpSongNorm(t))) return s; s.playlist = s.playlist.concat([{ title: t, artist: String(artist || "").trim().slice(0, 30), by, ts: Date.now(), skip: [] }]).slice(-30); return s; }
 function chpSkipVote(s, title, by) { const i = title ? s.playlist.findIndex(x => x.title === title) : -1; if (i < 0) return s; s.playlist = s.playlist.map((x, k) => k === i && !(x.skip || []).includes(by) ? Object.assign({}, x, { skip: (x.skip || []).concat([by]) }) : x); return s; }
 function chpSkipDue(song, present) { const n = (song && song.skip || []).length; return n > 0 && n * 2 >= Math.max(1, present || 1); }
 function chpLedgerAdd(s, e) { const amt = Math.round((Number(e && e.amount) || 0) * 100) / 100; if (!(amt > 0) || !e.payer) return s; s.ledger = s.ledger.concat([{ id: "l" + Date.now() + Math.floor(Math.random() * 1000), payer: String(e.payer), amount: amt, for: String(e.for || "").slice(0, 30), among: (Array.isArray(e.among) && e.among.length ? e.among : [e.payer]).map(String), by: e.by || "", ts: Date.now(), settled: false, ...(e.moneyMoved ? { moneyMoved: true } : {}) }]).slice(-80); return s; }

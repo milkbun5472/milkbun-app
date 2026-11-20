@@ -130,3 +130,15 @@ test("频道长按菜单不放点个表情、收藏、收进时刻", () => {
   assert.match(src, /const plus = \[onGem \? "gem"/);
   assert.match(src, /k !== "fav" && k !== "shike"/);
 });
+
+test("歌名对歌库认得宽一点；歌单不再手写加一首", () => {
+  const c = {}; vm.createContext(c);
+  vm.runInContext(en.slice(en.indexOf("function chpSongNorm"), en.indexOf("function chpSongAdd")) + ";this.M=chpSongMatch;", c);
+  const lib = [{ title: "晴天 (Live)", artist: "周杰伦" }, { title: "Shape of You", artist: "Ed Sheeran" }];
+  assert.equal(c.M(lib, { title: "《晴天》" }).artist, "周杰伦");
+  assert.equal(c.M(lib, { title: "shape of you" }).title, "Shape of You");
+  assert.equal(c.M(lib, { title: "Shape" }).title, "Shape of You");
+  assert.equal(c.M(lib, { title: "稻香" }), null);
+  assert.doesNotMatch(cs, /"data-wk": "chsongadd"/);
+  assert.match(cs, /"data-wk": "chsongq"/);
+});

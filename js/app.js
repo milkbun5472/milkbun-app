@@ -39512,7 +39512,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 歌单：从她的歌库挑、点「放这首」走播放器；「让他们各挑一首」＝回聊天跑一轮，提示里说她想让大家各放一首（她 2026-11-20）
       nowSong: (() => { const cur = player.songId && player.songId !== KEEPALIVE_ID ? resolveSong(player.songId) : null; return cur && cur.title ? { title: cur.title, artist: cur.artist || "" } : null; })(),
       myLib: ((listenRef.current || {}).songs || []).filter(x => x && x.title).map(x => ({ id: x.id, title: x.title, artist: x.artist || "" })),
-      onPlaySong: x => { const L = listenRef.current || {}; const song = (L.songs || []).find(y => y && y.title === x.title); if (song) playSong(song); },
+      onPlaySong: x => { const L = listenRef.current || {}; const song = chpSongMatch(L.songs, x); if (song) playSong(song); },
       onAskSongs: groupSpectating(_g) ? null : () => { window.__chAskSongs = _g.id; setChannelTab("chat"); replyGroup(_g.id); },
       onAskPetName: groupSpectating(_g) ? null : () => { setChannelTab("chat"); replyGroup(_g.id); },
       // 小家伙（她 2026-11-20「状态栏、生图、送走、大家决定养啥」）：精神照虚拟钟点；拍照只有她按，角色不会自己拍
