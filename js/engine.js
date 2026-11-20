@@ -2494,6 +2494,39 @@ function chNewCheck(space, allGroups, name, dayKey) {
   if (!k || !chNewRoom(space, allGroups, dayKey)) return false;
   return !(allGroups || []).some(x => x && x.spaceId === space.id && (() => { const o = chNorm(x.chName || x.name); return o === k || (o.length >= 2 && k.length >= 2 && (o.indexOf(k) >= 0 || k.indexOf(o) >= 0)); })());
 }
+// ── 频道的日子（她 2026-11-20「做吧宝宝」：精华墙、树洞、深夜频道、一起听）──────────────
+// 精华：她长按收、或者他们自己提名。提名那句必须真是这个频道最近说过的话（逐字是里面的一段），不然不收
+function gemQuoteHit(quote, msgs) {
+  const q = String(quote || "").replace(/^[「『"“]+|[」』"”]+$/g, "").trim();
+  if (q.length < 2) return null;
+  const ms = (msgs || []).slice(-30);
+  for (let i = ms.length - 1; i >= 0; i--) { const m = ms[i]; if (m && m.content && m.role !== "system" && String(m.content).indexOf(q) >= 0) return m; }
+  return null;
+}
+// 一个频道一天他们自己只提名一回（她收的不算）
+function gemDayOk(gems, gid, dayKey) {
+  return !(gems || []).some(x => x && x.gid === gid && x.by !== "me" && x.day === dayKey);
+}
+// 给频道里的人看的那一行：这个地方最近几句名场面
+function gemLine(gems, nameOfGid) {
+  const g = (gems || []).slice(-3);
+  if (!g.length) return "";
+  return "\n【这个地方的精华墙】大家收进精华的名场面（最近几句）：" + g.map(x => "「" + String(x.text || "").replace(/\s+/g, " ").slice(0, 40) + "」——" + (x.who || "有人") + (nameOfGid && nameOfGid(x.gid) ? "，在 #" + nameOfGid(x.gid) : "")).join("；");
+}
+// 树洞：每个说话的人一个固定代号，按进来的先后发号，存在群身上（thAliases：{ id: 号 }）。她自己也有一个
+function thAlias(map, id) {
+  const m = { ...(map || {}) }, k = String(id || "");
+  if (!k) return { map: m, alias: "树洞" };
+  if (!m[k]) m[k] = Object.keys(m).length ? Math.max(...Object.values(m).map(Number).filter(n => n > 0)) + 1 : 1;
+  return { map: m, alias: "树洞 #" + m[k] };
+}
+// 深夜频道：hours = { from: 22, to: 5 }（整点），跨午夜也认；没设就是一直开着
+function chHoursOpen(hours, date) {
+  if (!hours || hours.from == null || hours.to == null) return true;
+  const h = (date || new Date()).getHours(), f = Number(hours.from), t = Number(hours.to);
+  if (f === t) return true;
+  return f < t ? (h >= f && h < t) : (h >= f || h < t);
+}
 function chCatOf(cats, want) {
   const k = chNorm(want);
   if (!k) return "";

@@ -18383,6 +18383,8 @@ const MSG_MENU = {
   copy: ["复制", "copy"], fav: ["收藏", "bookmark"], quote: ["引用", "quote"],
   // 收进时刻（另一个窗口 2026-10-03：机器认不出的心动瞬间，由她来挑）
   shike: ["收进时刻", "shikeStar"],
+  // 频道里收进这个地方的精华墙（她 2026-11-20）
+  gem: ["收进精华", "bookmark"],
   edit: ["编辑", "pencil"], reroll: ["重Roll", "redo"], speak: ["念出来", "wave"],
   // 只重拍这张图（她 2026-10-01）：TA 那一轮的话留着，只把这张照片重新画一遍
   reshoot: ["只重拍这张图", "picture"],
@@ -20955,6 +20957,8 @@ function SelfMeAngle({ third, onPick, t }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, d))));
 }
 function GroupThread({
+  onGem,           // 频道里长按「收进精华」（她 2026-11-20）；普通群是 null
+  channelBar,      // 频道顶上那条「一起听」（她 2026-11-20）
   channelTabs,     // 频道那一层的「聊天｜文件」索引签（她 2026-11-20）；普通群是 null
   onOpenStyleLab,
   apiProfiles,     // 群设置里挑这个群单独走哪条线路
@@ -21475,6 +21479,7 @@ function GroupThread({
     wk: "headink"
   }))),
   channelTabs || null,
+  channelBar || null,
   // 群公告钉条（群友 2026-10-27）：顶栏底下一条，点开看全文、再点收起；改公告就在群设置里
   gs.notice && String(gs.notice.text || "").trim() ? h("button", { "data-wk": "gnoticebar", onClick: () => setNoticeOpen(v => !v), className: "shrink-0 w-full text-left active:opacity-70",
     style: { position: "relative", zIndex: 2, display: "flex", gap: 8, alignItems: "flex-start", padding: "8px 16px", background: gChatBg ? "rgba(255,255,255,0.55)" : t.bg2, borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.55, color: t.sub } },
@@ -21566,7 +21571,7 @@ function GroupThread({
     // 频道文件动过的那一行：点了打开那份（她 2026-11-20）
     // 「某某 去了／从 #频道 过来」那一行同一个样子，点了去那个频道（她 2026-11-20）
     if (m.kind === "chfile" || m.kind === "chlink") return h("div", { key: i, className: "text-center py-1.5" },
-      h("button", { "data-wk": "note", "data-part": m.kind, onClick: () => m.kind === "chlink" ? (window.__openChannel && window.__openChannel(m.toGid)) : (window.__openChFile && window.__openChFile(group && group.id, m.fileId)), className: "active:opacity-60",
+      h("button", { "data-wk": "note", "data-part": m.kind, onClick: () => m.kind === "chlink" ? (m.toGems ? (window.__openSpaceGems && window.__openSpaceGems(m.toGems)) : (window.__openChannel && window.__openChannel(m.toGid))) : (window.__openChFile && window.__openChFile(group && group.id, m.fileId)), className: "active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, textDecoration: "underline", textUnderlineOffset: 3 } }, m.content));
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
@@ -22104,10 +22109,11 @@ function GroupThread({
     message: messages[menu],
     idx: menu,
     isMine: messages[menu] && messages[menu].role === "user",
-    items: menuItemsForKind(messages[menu], canSpeakMsg(messages[menu])),
+    items: (() => { const it = menuItemsForKind(messages[menu], canSpeakMsg(messages[menu])); const mm = messages[menu]; return onGem && mm && mm.content && it[0] && it[0].indexOf("copy") >= 0 ? [it[0].concat(["gem"])].concat(it.slice(1)) : it; })(),
     onClose: () => setMenu(null),
     onAction: act => {
-      if (act === "multi") { setSelMode(true); setSelIds([menu]); }
+      if (act === "gem") { onGem && onGem(menu); }
+      else if (act === "multi") { setSelMode(true); setSelIds([menu]); }
       else if (act === "quote") { const mm = messages[menu]; if (mm && mm.content) setQuoted(window.GroupQuote ? window.GroupQuote.makeSelection(mm, menu, meName) : String(mm.content)); }
       else if (act === "speak") { speakMsg(menu, messages[menu]); }
       else if (act === "del") { const at = menu; if (onDeleteMessages) requestAppConfirm("删除这条消息？", "只从你这边的聊天记录里删掉，不是撤回。删了不能恢复。", () => onDeleteMessages([at]), "删除"); }
@@ -23163,6 +23169,21 @@ function GroupAdoptPage({ space, groups, onPick, onClose }) {
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, (g.memberIds || []).length + " 人"),
       h("span", { style: { width: 21, height: 21, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null)); }));
 }
+// 精华墙：这个地方攒下的名场面。谁说的、在哪个频道、哪天，谁收的（他们自己提名的写着为什么）；点一条回到那句话
+function SpaceGemsPage({ space, gems, chName, onOpen, onDelete, onClose }) {
+  const t = useTheme();
+  const list = (gems || []).slice().reverse();
+  const day = ts => { const d = new Date(ts || 0); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
+  return h(PageSheet, { onClose, zh: "精华", sub: space.name },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 12 } }, "频道里长按一句话「收进精华」就会放到这儿；他们自己也会把觉得好笑、好哭的那句收进来。频道里的人知道最近这几句。"),
+    list.length ? list.map(gm => h("div", { key: gm.id, "data-wk": "spacegem", style: { padding: "12px 0", borderBottom: "1px solid " + t.line } },
+      h("button", { onClick: () => onOpen(gm), className: "w-full text-left active:opacity-70" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, "「" + String(gm.text || "") + "」"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 4 } }, "—— " + (gm.who || "有人") + (chName(gm.gid) ? " · #" + chName(gm.gid) : "") + " · " + day(gm.mts || gm.ts)),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, (gm.by === "me" ? "你收的" : (gm.byName || "有人") + "收的") + (gm.why ? "：" + gm.why : ""))),
+      onDelete ? h("button", { "data-wk": "spacegemdel", onClick: () => requestAppConfirm("从精华里拿掉这句？", "只是不放在精华墙上了，聊天里那句还在。", () => onDelete(gm.id), "拿掉"), className: "active:opacity-60", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "拿掉") : null))
+      : h("div", { style: { padding: "40px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "还没有收进来的话"));
+}
 // 空间本身那一页：改名字、加人踢人；删整个空间也放这儿一份
 function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose }) {
   const [cats, setCats] = useState((space.cats || []).map(c => ({ ...c })));
@@ -23193,11 +23214,12 @@ function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose }) {
     onDelete ? h("button", { "data-wk": "spacedelete", onClick: () => requestAppConfirm("删掉「" + space.name + "」？", "里面 " + nChannels + " 个频道的聊天记录一起删掉。想留着的话先去 设置 → 数据 → 导入与导出 → 导出全部数据。", onDelete, "删掉"), className: "w-full active:opacity-60", style: { marginTop: 26, minHeight: 44, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#c0453a" } }, "删掉这个频道空间") : null);
 }
 // 空间首页：Teams 那一屏——顶上一块空间名片（方头像、名字、几个人），底下一行一个频道
-function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest }) {
+function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf }) {
   const t = useTheme();
   const [edit, setEdit] = useState(null);   // null | "new" | 频道那个群
   const [spEdit, setSpEdit] = useState(false);
   const [archOpen, setArchOpen] = useState(false);   // 归档那一摞默认折着
+  const [gemOpen, setGemOpen] = useState(() => { try { if (window.__gemOpenFor === space.id) { window.__gemOpenFor = null; return true; } } catch (e) {} return false; });   // 精华墙那一页（「某某 把一句收进了精华」那一行点进来时直接开着）
   const [adopt, setAdopt] = useState(false);   // 把已有的群放进来（她 2026-11-20「把现在的群聊收纳进去成为一个大服务器」）   // 空间本身：改名、加人、踢人（她 2026-11-20「加不了人踢不了人改不了名字」）
   const tone = spaceTone(space);
   const people = (space.memberIds || []).map(id => (allChars || []).find(c => c && c.id === id)).filter(Boolean);
@@ -23229,6 +23251,10 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
         h("div", { className: "flex-1 min-w-0" },
           h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, space.name),
           h("div", { className: "flex items-center", style: { marginTop: 6 } }, people.slice(0, 8).map((c, i) => h("span", { key: c.id, style: { marginLeft: i ? -6 : 0, borderRadius: 999, boxShadow: "0 0 0 2px " + momPaper(t), display: "inline-flex" } }, h(Avatar, { character: c, size: 22, radius: 999 })))))),
+      // 精华墙入口（她 2026-11-20）：这个地方攒下的名场面
+      h("button", { "data-wk": "spacegems", onClick: () => setGemOpen(true), className: "flex items-center justify-between active:opacity-70", style: { width: "calc(100% - 28px)", margin: "8px 14px 0", padding: "11px 14px", background: momPaper(t), borderRadius: 12, fontFamily: F_BODY } },
+        h("span", { style: { fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "精华 · " + (gems || []).length),
+        h("span", { className: "truncate", style: { marginLeft: 10, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, maxWidth: "70%" } }, (gems || []).length ? "「" + String(gems[gems.length - 1].text || "").slice(0, 18) + "」 ›" : "长按频道里的一句「收进精华」 ›")),
       // 刚才他们自己聊了哪几处：点哪条进哪个频道，「知道了」收掉
       digest && digest.length ? h("div", { "data-wk": "spacedigest", style: { margin: "8px 14px 0", padding: "10px 12px", background: momPaper(t), borderRadius: 12, borderLeft: "3px solid " + tone } },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 4 } },
@@ -23264,6 +23290,8 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "归档 · " + segs.archived.length)),
         archOpen ? h("div", { style: { margin: "0 14px", background: momPaper(t), borderRadius: 14, overflow: "hidden", opacity: .75 } }, segs.archived.map(chRow)) : null) : null,
       onDeleteSpace ? h("button", { "data-wk": "spacedelete", onClick: () => requestAppConfirm("删掉「" + space.name + "」？", "里面 " + rows.length + " 个频道的聊天记录一起删掉。想留着的话先去 设置 → 数据 → 导入与导出 → 导出全部数据。", onDeleteSpace, "删掉"), className: "active:opacity-60", style: { display: "block", margin: "26px auto 0", minHeight: 40, padding: "0 16px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "删掉这个频道空间") : null),
+    gemOpen ? h(SpaceGemsPage, { space, gems: gems || [], chName: gid => { const g = (channels || []).find(x => x.id === gid); return g ? (g.chName || g.name) : ""; },
+      onOpen: gm => { setGemOpen(false); onOpenGem && onOpenGem(gm); }, onDelete: onDeleteGem, onClose: () => setGemOpen(false) }) : null,
     adopt ? h(GroupAdoptPage, { space, groups: looseGroups || [], onPick: ids => { onAdopt(ids); setAdopt(false); }, onClose: () => setAdopt(false) }) : null,
     spEdit ? h(SpaceEditPage, { space, pool: pickPool || allChars || [], onSave: patch => { onSaveSpace(patch); setSpEdit(false); }, onDelete: onDeleteSpace, nChannels: rows.length, onClose: () => setSpEdit(false) }) : null,
     edit ? h(ChannelEditPage, { space, channel: edit === "new" ? null : edit, allChars, noMem: edit !== "new" && !!(noMemOf && noMemOf(edit.id)),
