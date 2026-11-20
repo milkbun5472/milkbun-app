@@ -338,13 +338,14 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   //      跟旋钮拖到哪儿无关，多少条线路都在屏幕里，装不下就自己滚。
   //   另外补一层保险：面板后面垫一张【点哪儿都关】的透明背板。
   //   哪天布局又出岔子，至少还有一条出路——「关不掉」这种事不该只有一个开关。
-  const panelGap = onGo ? Math.max(66, Math.min(140, (window.innerWidth || 390) - 226 - 8)) : 66;   // 外圈轨道占着里侧那一截，面板挪到轨道外面
+  const PANEL_W = 196;   // 面板窄一点（她 2026-11-20「不用那么宽」），旁边留给轨道
+  const panelGap = onGo ? Math.max(66, Math.min(140, (window.innerWidth || 390) - PANEL_W - 8)) : 66;   // 外圈轨道占着里侧那一截，面板挪到轨道外面
   const panelSide = side === "left" ? { left: panelGap } : { right: panelGap };
   return h(React.Fragment, null,
     open ? h("div", { onClick: () => setOpen(false), "aria-hidden": "true",
       style: { position: "fixed", inset: 0, zIndex: 89, background: "transparent" } }) : null,
     open ? h("div", { style: Object.assign({ position: "fixed", zIndex: 91, top: "50%", transform: "translateY(-50%)",
-      width: 226, maxHeight: "76vh", overflowY: "auto", WebkitOverflowScrolling: "touch",
+      width: PANEL_W, maxHeight: "76vh", overflowY: "auto", WebkitOverflowScrolling: "touch",
       padding: 12, borderRadius: 18, background: t.bg2,
       border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,.22)" }, panelSide) },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "快速切换模型"),
