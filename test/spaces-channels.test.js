@@ -101,7 +101,7 @@ test("已有的群能收进频道空间、也能移出去：只挂上/摘下 spa
 });
 test("旁观群也能收进频道：收进来自动不互通，名字旁标「旁观」", () => {
   const fs = require("fs"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
-  assert.match(ap, /looseGroups: \(groups \|\| \[\]\)\.filter\(g => g && !g\.spaceId\),/);
+  assert.match(ap, /looseGroups: \(groups \|\| \[\]\)\.filter\(g => g && !g\.spaceId && !g\.roomOf\),/);
   assert.match(ap, /\.\.\.\(groupSpectating\(g\) \? \{ chSolo: true \} : \{\}\)/);
   assert.match(cs, /spectateOf && spectateOf\(g\) \?/);
 });
