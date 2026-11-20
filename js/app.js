@@ -20981,7 +20981,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 原来是 1/5 帖强制匿名、且只看最近 5 帖有没有匿名过——叠上「模型自己也会挑匿名」
       // 和「随机版块 1/6 命中匿名吧」，最后匿名占比高得离谱（她 2026-08-29 报）。压到 1/9，
       // 回看窗口拉到 8 帖：匿名要稀有才有分量，天天匿名等于没有匿名。
-      const myBoardsForPost = typeof forumCustomBoards === "function" ? forumCustomBoards() : [];
+      // 藏起来的吧角色也不去发（群友 2026-11-20：开了一堆自己的吧，自带的那几个想不要了）——
+      //   藏起来的吧顶上那排没有，帖子发进去她就看不见。全藏光了就照旧，不让他没地方发
+      const hidBoards = typeof forumBoardPrefs === "function" ? forumBoardPrefs().hidden : [];
+      const myBoardsAll = typeof forumCustomBoards === "function" ? forumCustomBoards() : [];
+      const baseShown = ["吐槽", "日常", "求助", "兴趣", "脑洞", "匿名"].filter(n => hidBoards.indexOf(n + "吧") < 0);
+      const myShown = myBoardsAll.filter(b => hidBoards.indexOf(b.name) < 0);
+      const allHid = !baseShown.length && !myShown.length;
+      const baseForPost = allHid ? ["吐槽", "日常", "求助", "兴趣", "脑洞", "匿名"] : baseShown;
+      const myBoardsForPost = allHid ? myBoardsAll : myShown;
       const forumHabit = charForumMeta(char);
       // 这一帖用哪个身份：代码掷，不让模型挑（施工规则/bans-make-it-dumber：掷轴不掷答案）。
       //   8-29 那次模型挑得匿名太多，改成提示词里「大号十次七八次」，结果又几乎只剩大号
@@ -20995,7 +21003,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const avoidRepeat = myLast ? "\n\n【绝不要重复你最近发过的帖】你最近发的是：\n" + myRecent.map(p0 => "· 《" + String(p0.title || "").slice(0, 40) + "》「" + String(p0.body || "").replace(/\s+/g, " ").slice(0, 50) + "」").join("\n") + "\n这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
       const d = await runProbeRetry(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: forumFmtLine() + "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（发在哪个吧：吐槽/日常/求助/兴趣/脑洞/匿名" + myBoardsForPost.map(b => "/" + b.name).join("") + "，你这条写的是什么就去哪儿；用哪个身份发下面已经定好了）。\n【这一帖用「" + ({ main: "大号", alt: "固定小号", anonymous: "匿名" })[rolledId] + "」发，identity 填 " + rolledId + "】"
+        instruction: forumFmtLine() + "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（发在哪个吧：" + baseForPost.concat(myBoardsForPost.map(b => b.name)).join("/") + "，你这条写的是什么就去哪儿；用哪个身份发下面已经定好了）。\n【这一帖用「" + ({ main: "大号", alt: "固定小号", anonymous: "匿名" })[rolledId] + "」发，identity 填 " + rolledId + "】"
           + ({ main: "顶着自己的名字说话：认识他的人都看得见，说的是他愿意公开的那一面。",
               alt: "用固定小号：认识他的人认不出来——写他不想让熟人看见、但也算不上见不得人的那一面（太幼稚、太丧、太较真、和公开形象不符的爱好或牢骚）。正文不许自曝身份。",
               anonymous: "匿名：这件事和他这个人扯不上任何关系——写他平时绝不会顶着名字说的真心话、心事或怨气。正文不许自曝身份。" })[rolledId] + FORUM_ID_VOICE + "\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + FORUM_PHOTO_LINE + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat
@@ -21003,14 +21011,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           //   也不许为了让他去而硬掷——「不应该为了让他写在我的吧而强迫改原本要写的吧」）：写什么去哪儿，他自己挑
           + (myBoardsForPost.length ? "\n\n【这几个吧各聊什么】" + myBoardsForPost.map(b => b.name + (b.about ? "：" + b.about : "")).join("；") + "。发在这里头的，board 填吧的全名。" : "")
           + (fixedBoard ? "\n\n【这一帖发在「" + fixedBoard + "」】" + forumBoardVoice(fixedBoard) + "上面让你挑吧的那几句不算数了，board 就填「" + fixedBoard + "」。" : ""),
-        schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一" + (myBoardsForPost.length ? "，或者 " + myBoardsForPost.map(b => b.name).join("/") : "") + "\",\"identity\":\"" + rolledId + "\",\"title\":\"标题\",\"body\":\"正文2-4句\"" + FORUM_PHOTO_FIELD + forumFmtField() + "}",
+        schemaHint: "{\"board\":\"" + baseForPost.concat(myBoardsForPost.map(b => b.name)).join("/") + " 之一\",\"identity\":\"" + rolledId + "\",\"title\":\"标题\",\"body\":\"正文2-4句\"" + FORUM_PHOTO_FIELD + forumFmtField() + "}",
         maxTokens: FTOK.post
       });
       // 模型可能回「吐槽」也可能回「吐槽吧」，统一归到四版块的正式名（否则帖子 board 不在 FORUM_BOARDS，版块/关注页都筛不到）
       const bmap = { "吐槽": "吐槽吧", "日常": "日常吧", "求助": "求助吧", "兴趣": "兴趣吧", "脑洞": "脑洞吧", "匿名": "匿名吧" };
       const rawBoard = String((d && d.board) || "").replace(/吧$/, "");
       const mine = myBoardsForPost.find(b => b.name.replace(/吧$/, "") === rawBoard);
-      const board = fixedBoard || (forceAnon ? "匿名吧" : (bmap[rawBoard] || (mine && mine.name) || "日常吧"));
+      const okBoard = n => n && (allHid || hidBoards.indexOf(n) < 0) ? n : "";
+      const fallBoard = baseForPost.length ? baseForPost.filter(n => n !== "匿名")[0] ? baseForPost.filter(n => n !== "匿名")[0] + "吧" : baseForPost[0] + "吧" : myBoardsForPost[0].name;
+      const board = fixedBoard || (forceAnon && okBoard("匿名吧") ? "匿名吧" : (okBoard(bmap[rawBoard]) || okBoard(mine && mine.name) || (okBoard("日常吧") || fallBoard)));
       if (!(d && d.title)) { if (manual) throw new Error(char.name + " 没写出来"); return null; }
       // 身份以掷出来的为准（模型交别的也不认）；匿名吧照旧一律匿名（postCharToForum 里管）
       const rec = postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: rolledId, photo: d.photo, photoWho: d.photoWho }, manual ? "手动发帖" : "auto");

@@ -64,8 +64,10 @@ test("她开的吧有自己的语气；角色逛论坛也会去——跟那六�
   assert.match(v, /不是路过的人在给外行介绍这个话题/);
   // 她 2026-10-25：原来写成「对得上才去」等于劝退——她开的吧跟那六个平起平坐，写什么去哪儿他自己挑，也不硬掷他去
   assert.match(app, /\(myBoardsForPost\.length \? "\\n\\n【这几个吧各聊什么】"/);
-  assert.match(app, /myBoardsForPost\.map\(b => "\/" \+ b\./, "她的吧没跟那六个并排摆");
+  assert.match(app, /baseForPost\.concat\(myBoardsForPost\.map\(b => b\.name\)\)/, "她的吧没跟那六个并排摆");
   assert.doesNotMatch(app, /只有你这条内容本来就属于那个吧才去/, "劝退那句又回来了");
   // v73.310 前面多了「指定发在哪个吧」那一格（她按「请角色来发帖」时就发在她正看的那一版）
-  assert.match(app, /const board = fixedBoard \|\| \(forceAnon \? "匿名吧" : \(bmap\[rawBoard\] \|\| \(mine && mine\.name\) \|\| "日常吧"\)\);/, "模型挑了她的吧，落账时得认得");
+  assert.match(app, /okBoard\(bmap\[rawBoard\]\) \|\| okBoard\(mine && mine\.name\)/, "模型挑了她的吧，落账时得认得");
+  // 藏起来的吧角色不去发（群友 2026-11-20）
+  assert.match(app, /const hidBoards = typeof forumBoardPrefs === "function" \? forumBoardPrefs\(\)\.hidden : \[\]/);
 });
