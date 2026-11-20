@@ -17003,7 +17003,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (chpCount(st, "song") < CHP_CAP.song) can.push("\"song\":{\"title\":\"歌名\",\"artist\":\"歌手\"}——往频道歌单里加一首");
         if (window.__chAskSongs === groupId) { window.__chAskSongs = null; can.push("她刚才想让大家各往歌单里放一首自己想听的：这一轮谁想放，就用上面的 song 写进去，可以顺嘴说一句为什么挑这首"); }
         if (st.playlist.length) can.push("\"skip\":{\"title\":\"歌单里那首的歌名\"}——投票想切掉它");
-        can.push("\"ledger\":{\"payer\":\"谁付的钱\",\"amount\":数字,\"for\":\"买了什么\",\"among\":[\"这笔钱算在谁头上（名字）\"]}、\"settle\":{\"from\":\"欠钱的人\",\"to\":\"收钱的人\"}——频道里的小账本，不碰谁的钱包");
+        can.push("\"ledger\":{\"payer\":\"谁付的钱\",\"amount\":数字,\"for\":\"买了什么\",\"among\":[\"这笔钱算在谁头上（名字）\"]}、\"settle\":{\"from\":\"欠钱的人\",\"to\":\"收钱的人\"}——这本账连着各人真的钱包：记一笔，付钱那个人钱包里就真少了这笔；settle 是欠钱的人把钱真挪给对方，钱包里不够就只挪得动剩下的那么多");
         if (st.pet && st.pet.naming) can.push("\"petName\":{\"name\":\"名字\"}——频道里养的" + (st.pet.kind || "那个小家伙") + "还没名字，她想让大家给它起一个：各自提、互相挑，觉得定下来了就由一个人用 petName 写进去");
         if (st.pet) can.push("\"care\":{\"action\":\"浇水/喂食/陪它玩\"}——照顾频道里养着的「" + st.pet.name + "」，每人一天一次");
         return have + "\n【频道里还能这样动】谁想动，就在他自己那条发言里加上对应的字段，一轮里几个人可以各动各的：\n· " + can.join("\n· ") + (tree ? "\n（树洞里大家都是代号，动了什么也只显示代号。）" : "");
@@ -17741,8 +17741,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               if (item.tear && typeof item.tear === "object") { const n0 = _st.notes.length; chpTear(_st, item.tear.quote, spk.id, Date.now()); if (_st.notes.length < n0) _say(spk.name + " 撕掉了一张便利贴"); }
               if (item.song && typeof item.song === "object" && chpCount(_st, "song") < CHP_CAP.song) { const n0 = _st.playlist.length; chpSongAdd(_st, item.song.title, item.song.artist, spk.id); if (_st.playlist.length > n0) { chpBump(_st, "song"); _say(spk.name + " 往歌单里加了《" + String(item.song.title).slice(0, 30) + "》"); } }
               if (item.skip) { const tt = typeof item.skip === "object" ? item.skip.title : ""; chpSkipVote(_st, tt || (((chListenOf(groupId) || {}).song) || {}).title, spk.id); }
-              if (item.ledger && typeof item.ledger === "object") { const n0 = _st.ledger.length; chpLedgerAdd(_st, { payer: _idOf(item.ledger.payer) || spk.id, amount: item.ledger.amount, for: item.ledger.for, among: (Array.isArray(item.ledger.among) ? item.ledger.among : []).map(_idOf).filter(Boolean), by: spk.id }); if (_st.ledger.length > n0) _say(spk.name + " 记了一笔账"); }
-              if (item.settle && typeof item.settle === "object") { const f = _idOf(item.settle.from), t2 = _idOf(item.settle.to); if (f && t2) { chpSettle(_st, f, t2); _say(spk.name + " 记下：两个人这笔结清了"); } }
+              if (item.ledger && typeof item.ledger === "object") { const _py = _idOf(item.ledger.payer) || spk.id, _pr = chLedgerPay(groupId, _py, item.ledger.amount, item.ledger.for);
+                if (!_pr.skip && _pr.amount > 0) { const n0 = _st.ledger.length; chpLedgerAdd(_st, { payer: _py, amount: _pr.amount, for: item.ledger.for, among: (Array.isArray(item.ledger.among) ? item.ledger.among : []).map(_idOf).filter(Boolean), by: spk.id, moneyMoved: true });
+                  if (_st.ledger.length > n0) _say(spk.name + " 记了一笔账：" + (_py === "me" ? "你" : (((characters || []).find(c => c.id === _py) || {}).name || "有人")) + " 付了 ¥" + _pr.amount + (_pr.capped ? "（钱包里只剩这么多）" : "") + "，从钱包里扣了"); } }
+              if (item.settle && typeof item.settle === "object") { const f = _idOf(item.settle.from), t2 = _idOf(item.settle.to);
+                if (f && t2) { chpPut(groupId, _st); const _nm = id => id === "me" ? "你" : (((characters || []).find(c => c.id === id) || {}).name || "有人"); const _r = chLedgerSettle(groupId, f, t2, _nm);
+                  Object.assign(_st, chpOf(groupId)); if (_r && _r.amount > 0) _say(spk.name + " 记下：" + _nm(_r.from) + " 还了 " + _nm(_r.to) + " ¥" + _r.amount + (_r.short ? "，钱不够，还差一点没还完" : "，结清了")); else if (_r) _say(spk.name + " 记下：两个人这笔结清了"); } }
               if (item.care && _st.pet && chpCount(_st, "care", spk.id) < 1) { _st.pet = chpCare(_st.pet, typeof item.care === "object" ? item.care.action : item.care, spk.id, Date.now()); chpBump(_st, "care", spk.id); _say(spk.name + " 去照顾了「" + _st.pet.name + "」"); }
               // 给养的起名（她 2026-11-20「花调用让大家选一个」）：还没定名的时候，谁先把大家挑好的那个写进来就定下
               if (item.petName && _st.pet && _st.pet.naming) { const _pn = String(typeof item.petName === "object" ? item.petName.name : item.petName || "").trim().slice(0, 12);
@@ -22742,6 +22746,37 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return isFinite(n) ? n * mult : 0;
   };
   const r2 = n => Math.round(Number(n) * 100) / 100;
+  // ── 频道账本接钱包（她 2026-11-20「搞成和钱包互通吧」）────────────────
+  //   记一笔＝付钱的那个人真花了这笔：她从钱包扣（照这个频道戴的面具那只钱包），角色从他自己的钱包扣，不够就只扣到他剩下的那么多；
+  //   结清＝欠钱的那个把钱挪给对方。都走原来那两条：changeWallet / adjustCharBalance，流水里写着是哪个频道的账本。
+  //   旁观频道里她不在场，她那一头一律不动钱。
+  const chLedgerHas = (gid, id) => id === "me" ? balanceOf(walletMaskFor({ groupId: gid })) : charBalanceOf(id);
+  const chLedgerMove = (gid, id, delta, label) => {
+    if (!id || !delta) return;
+    if (id === "me") changeWallet(delta, label, "transfer", { where: "频道", groupId: gid });
+    else adjustCharBalance(id, delta, label, "transfer");
+  };
+  const chLedgerPay = (gid, payer, amount, what) => {
+    const g = (groupsRef.current || []).find(x => x && x.id === gid);
+    if (payer === "me" && groupSpectating(g)) return { amount: 0, capped: false, skip: true };
+    const want = Math.round((Number(amount) || 0) * 100) / 100, have = Math.max(0, chLedgerHas(gid, payer));
+    const amt = Math.min(want, Math.round(have * 100) / 100);
+    if (amt > 0) chLedgerMove(gid, payer, -amt, "频道 #" + ((g && g.chName) || "") + " 账本：付了" + (what ? " " + String(what).slice(0, 12) : "") + " ¥" + amt);
+    return { amount: amt, capped: amt < want };
+  };
+  const chLedgerSettle = (gid, from, to, nameOf) => {
+    const g = (groupsRef.current || []).find(x => x && x.id === gid), st = chpOf(gid);
+    if ((from === "me" || to === "me") && groupSpectating(g)) return null;
+    const owe = chpOwe(st.ledger, from, to);
+    if (!owe || !(owe.amount > 0)) { chpPut(gid, chpSettle(st, from, to)); return { amount: 0 }; }
+    const have = Math.max(0, chLedgerHas(gid, owe.from)), amt = Math.min(owe.amount, Math.round(have * 100) / 100), ch = (g && g.chName) || "";
+    if (amt > 0) {
+      chLedgerMove(gid, owe.from, -amt, "频道 #" + ch + " 账本：还 " + nameOf(owe.to) + " ¥" + amt);
+      chLedgerMove(gid, owe.to, amt, "频道 #" + ch + " 账本：" + nameOf(owe.from) + " 还来 ¥" + amt);
+    }
+    if (amt >= owe.amount - 0.004) chpPut(gid, chpSettle(st, from, to));
+    return { from: owe.from, to: owe.to, amount: amt, short: amt < owe.amount - 0.004 };
+  };
   const charBalanceOf = id => {
     const w = charWalletRef.current[id];
     return w && w.balance != null ? Number(w.balance) : CHAR_DEFAULT_BAL;
@@ -39320,6 +39355,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onPlaySong: x => { const L = listenRef.current || {}; const song = (L.songs || []).find(y => y && y.title === x.title); if (song) playSong(song); },
       onAskSongs: groupSpectating(_g) ? null : () => { window.__chAskSongs = _g.id; setChannelTab("chat"); replyGroup(_g.id); },
       onAskPetName: groupSpectating(_g) ? null : () => { setChannelTab("chat"); replyGroup(_g.id); },
+      // 账本连着钱包（她 2026-11-20）：她记的一笔也真从付钱那人的钱包扣；结清真把钱挪过去
+      onLedgerAdd: e0 => { const r = chLedgerPay(_g.id, e0.payer, e0.amount, e0.for); if (r.skip || !(r.amount > 0)) { toast(r.skip ? "旁观的频道里你不在场" : "付钱那个人钱包里没钱了"); return; }
+        const st0 = chpOf(_g.id); chpPut(_g.id, chpLedgerAdd(st0, { ...e0, amount: r.amount, moneyMoved: true })); setChPlayRev(v => v + 1); if (r.capped) toast("钱包里只剩 ¥" + r.amount + "，就记了这么多"); },
+      onLedgerSettle: (from, to) => { const nm = id => id === "me" ? "你" : (((characters || []).find(c => c.id === id) || {}).name || "有人"); const r = chLedgerSettle(_g.id, from, to, nm); setChPlayRev(v => v + 1);
+        if (r && r.amount > 0) toast(nm(r.from) + " 还了 " + nm(r.to) + " ¥" + r.amount + (r.short ? "，钱不够，还差一点" : "")); },
       // 墙、歌单、账本、养的（她 2026-11-20）：这个频道那一份 x_chplay
       play: (chPlayRev, chpOf(_g.id)), onPlay: fn => { const s2 = fn(chpOf(_g.id)) || chpOf(_g.id); chpPut(_g.id, s2); },
       people: (_g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => ({ id: c.id, name: c.remark || c.name })),

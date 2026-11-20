@@ -2505,12 +2505,21 @@ function chpTear(s, quote, by, now) { const n = chpNoteFind(s, quote); if (!chpT
 function chpSongAdd(s, title, artist, by) { const t = String(title || "").trim().slice(0, 40); if (!t) return s; if (s.playlist.some(x => x.title === t)) return s; s.playlist = s.playlist.concat([{ title: t, artist: String(artist || "").trim().slice(0, 30), by, ts: Date.now(), skip: [] }]).slice(-30); return s; }
 function chpSkipVote(s, title, by) { const i = title ? s.playlist.findIndex(x => x.title === title) : -1; if (i < 0) return s; s.playlist = s.playlist.map((x, k) => k === i && !(x.skip || []).includes(by) ? Object.assign({}, x, { skip: (x.skip || []).concat([by]) }) : x); return s; }
 function chpSkipDue(song, present) { const n = (song && song.skip || []).length; return n > 0 && n * 2 >= Math.max(1, present || 1); }
-function chpLedgerAdd(s, e) { const amt = Math.round((Number(e && e.amount) || 0) * 100) / 100; if (!(amt > 0) || !e.payer) return s; s.ledger = s.ledger.concat([{ id: "l" + Date.now() + Math.floor(Math.random() * 1000), payer: String(e.payer), amount: amt, for: String(e.for || "").slice(0, 30), among: (Array.isArray(e.among) && e.among.length ? e.among : [e.payer]).map(String), by: e.by || "", ts: Date.now(), settled: false }]).slice(-80); return s; }
+function chpLedgerAdd(s, e) { const amt = Math.round((Number(e && e.amount) || 0) * 100) / 100; if (!(amt > 0) || !e.payer) return s; s.ledger = s.ledger.concat([{ id: "l" + Date.now() + Math.floor(Math.random() * 1000), payer: String(e.payer), amount: amt, for: String(e.for || "").slice(0, 30), among: (Array.isArray(e.among) && e.among.length ? e.among : [e.payer]).map(String), by: e.by || "", ts: Date.now(), settled: false, ...(e.moneyMoved ? { moneyMoved: true } : {}) }]).slice(-80); return s; }
 // 谁欠谁：每笔均摊给 among，没结的才算；返回 [{from,to,amount}]，两两相抵
 function chpBalances(ledger) {
   const net = {};
   (ledger || []).filter(x => x && !x.settled).forEach(x => { const share = x.amount / x.among.length; x.among.forEach(p => { if (p === x.payer) return; const k = p + "→" + x.payer, r = x.payer + "→" + p; net[k] = (net[k] || 0) + share; if (net[r]) { const m = Math.min(net[k], net[r]); net[k] -= m; net[r] -= m; } }); });
   return Object.keys(net).filter(k => net[k] > 0.004).map(k => { const [from, to] = k.split("→"); return { from, to, amount: Math.round(net[k] * 100) / 100 }; });
+}
+// 两个人之间这会儿谁欠谁、欠多少（她 2026-11-20「账本搞成和钱包互通」）：结清时照这个数从欠的那个钱包挪到对方钱包。
+//   只算动过真钱的那几笔（moneyMoved）；以前没接钱包时记的旧账只当记录，不再从钱包里还
+function chpOwe(ledger, from, to) {
+  const b = chpBalances((ledger || []).filter(x => x && x.moneyMoved));
+  const hit = b.find(x => x.from === from && x.to === to);
+  if (hit) return { from, to, amount: hit.amount };
+  const rev = b.find(x => x.from === to && x.to === from);
+  return rev ? { from: to, to: from, amount: rev.amount } : null;
 }
 function chpSettle(s, from, to) { s.ledger = s.ledger.map(x => x.settled ? x : (x.payer === to && x.among.includes(from)) || (x.payer === from && x.among.includes(to)) ? Object.assign({}, x, { settled: true }) : x); return s; }
 // 养的东西：每过一小时饱和度掉 4，浇水/喂食 +40，陪它玩心情回来

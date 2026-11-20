@@ -61,3 +61,15 @@ test("歌单一天十首；小家伙能先不起名，让大家定一个", () =>
   assert.match(ap, /if \(item\.petName && _st\.pet && _st\.pet\.naming\)/);
   assert.match(ap, /onAskPetName: groupSpectating\(_g\) \? null :/);
 });
+test("账本连着钱包：只有动过钱的几笔算欠款；记账从付钱人钱包扣，结清在两边钱包挪", () => {
+  const fs = require("fs"), vm = require("vm"), en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+  const i = en.indexOf("function chpBalances("), j = en.indexOf("// 养的东西：每过一小时");
+  const ctx = {}; vm.createContext(ctx); vm.runInContext(en.slice(i, j) + ";this.owe=chpOwe;", ctx);
+  const L = [{ payer: "a", amount: 30, among: ["a", "b", "me"], moneyMoved: true }, { payer: "b", amount: 100, among: ["b", "me"] }];
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.owe(L, "me", "a"))), { from: "me", to: "a", amount: 10 });
+  assert.equal(ctx.owe(L, "me", "b"), null);   // 旧账没动过钱，不算
+  assert.match(ap, /const chLedgerPay = \(gid, payer, amount, what\) =>/);
+  assert.match(ap, /chLedgerMove\(gid, owe\.from, -amt,/);
+  assert.match(ap, /chLedgerMove\(gid, owe\.to, amt,/);
+  assert.match(ap, /moneyMoved: true/);
+});
