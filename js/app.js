@@ -2814,6 +2814,8 @@ function App() {
   const sameRoomFor = id => !!(settingsFor(id) || {}).sameRoom;
   const actDescFor = id => !!(settingsFor(id) || {}).actDesc;
   // 限时动态（她 2026-11-14）：没单独设过的跟着「自由发朋友圈」走
+  // 朋友圈 24 小时上限（她 2026-11-21）：设了数的，这 24 小时里 TA 自己发够了就先不发；没设＝不限
+  const momRoomFor = id => { const mx = Number((settingsFor(id) || {}).momMax) || 0; if (!mx) return true; const t0 = Date.now() - 86400000; return (momentsRef.current || []).filter(m => m && String(m.characterId) === String(id) && !m.manual && (m.ts || 0) > t0).length < mx; };
   const storyOnFor = id => { const s = settingsFor(id) || {}; return s.autoStory != null ? !!s.autoStory : !!s.autoMoment; };
   // 每 24 小时最多发几条（她 2026-11-14）：挂着的满了，这一格就不给 TA 了（省得 TA 填了又白排一张）
   const storyMaxFor = id => { const n = Number((settingsFor(id) || {}).storyMax); return Number.isFinite(n) && n >= 1 ? Math.min(10, Math.round(n)) : 3; };
@@ -15637,7 +15639,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         delivered = true;
       }
       // 仅当该角色开启了「自由发朋友圈」才把 Ta 想发的动态发出去
-      const mo = !char.npc && settingsFor(charId).autoMoment && parsed.moment && String(parsed.moment).toLowerCase() !== "null" ? String(parsed.moment) : null;
+      const mo = !char.npc && settingsFor(charId).autoMoment && momRoomFor(charId) && parsed.moment && String(parsed.moment).toLowerCase() !== "null" ? String(parsed.moment) : null;
       if (mo) { pMom(p => [{
         id: "m_" + Date.now(),
         characterId: charId,
@@ -21433,7 +21435,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   论坛的新内容只有两条路：她自己在论坛里按（刷新 / 请TA们发帖 / 让TA发一条），
       //   或者角色低频主动发帖那一条（autoForumForChar，设置里「论坛」那个开关管得住）。
       // 开了「自己发朋友圈」的配角也进这一池（她 2026-10-22）
-      if (kind === "moments") { const ps = liveChars.concat((characters || []).filter(c => c && c.npc && c.npcMoments)).filter(c => autoRefreshOn("moments", c.id)); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("moments", pk, () => genMoment(pk)); } }
+      if (kind === "moments") { const ps = liveChars.concat((characters || []).filter(c => c && c.npc && c.npcMoments)).filter(c => autoRefreshOn("moments", c.id) && momRoomFor(c.id)); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("moments", pk, () => genMoment(pk)); } }
       else if (kind === "whisper") { const ps = liveChars.filter(c => autoRefreshOn("whisper", c.id) && couples[c.id] && couples[c.id].status === "together"); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("whisper", pk, () => genWhisper(pk)); } }
     } catch (e) {/* 静默 */}
   };
@@ -21585,7 +21587,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     };
     const due = [];
     if (autoRefreshOn("whisper", charId) && isCouple && n.whisper >= 15) due.push("whisper");
-    if (autoRefreshOn("moments", charId) && n.moment >= 30) due.push("moment");
+    if (autoRefreshOn("moments", charId) && n.moment >= 30 && momRoomFor(charId)) due.push("moment");
     if (autoRefreshOn("forum", charId) && !isBody(charId) && (n.forum >= 50 || Date.now() - (n.lastForumTs || Date.now()) >= 3 * 86400000) && !(forumOffRef.current || []).includes(charId)) due.push("forum");
     // 时光胶囊要比朋友圈/悄悄话稀：≥80 轮、14 天冷却，而且同一角色不能有两颗未拆信同时在路上（v53.94）。
     // 被冷却/未拆闸拦住时不清计数；条件一满足，下一轮即可自然补发。
@@ -26097,6 +26099,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         id: newMomId,
         ...(_pinNew ? { top: true, topTs: Date.now() } : {}),
         characterId: char.id,
+        ...(momOpts && momOpts.manual ? { manual: true } : {}),   // 她点「让角色发一条」的不算进 24 小时上限
         content,
         image: newMomImage,
         ...(_zyPost ? { zy: { testName: String(_zyPost.testName || "").slice(0, 40), title: String(_zyPost.title).slice(0, 40), line: String(_zyPost.line || "").slice(0, 120), who: "我" } } : {}),
@@ -36458,7 +36461,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       setActiveChar(c);
       setScreen("contact");
     },
-    onGenMoment: genMoment,
+    onGenMoment: (c, o) => genMoment(c, Object.assign({}, o || {}, { manual: true })),
     genMoment: gen.moment,
     onLikeMoment: likeMoment,
     onCommentMoment: commentMoment,

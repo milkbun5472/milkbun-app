@@ -24573,6 +24573,7 @@ function ChatSettings({
   const [autoStory, setAutoStory] = useState(settings.autoStory != null ? !!settings.autoStory : !!settings.autoMoment);
   const [storyPhoto, setStoryPhoto] = useState(!!settings.storyPhoto);
   const [storyMax, setStoryMax] = useState(Math.max(1, Math.min(10, Number(settings.storyMax) || 3)));
+  const [momMax, setMomMax] = useState(Number(settings.momMax) > 0 ? String(Math.floor(Number(settings.momMax))) : "");   // 朋友圈 24 小时上限，空着＝不限（她 2026-11-21）
   // 模型思考链（v56.42）：默认关。她要它是为了看模型当时在想什么、以及验中转有没有换模型。
   const [showReasoning, setShowReasoning] = useState(!!settings.showReasoning);
   // 双语（v56.56）：让模型生成的时候顺手把中译一起给出来，替掉事后调免费接口那条路
@@ -24978,6 +24979,7 @@ function ChatSettings({
       autoStory,
       storyPhoto,
       storyMax,
+      momMax: Number(momMax) > 0 ? Math.floor(Number(momMax)) : 0,
       showReasoning,
       bilingual,
       proactive,
@@ -25452,6 +25454,12 @@ function ChatSettings({
       marginTop: 2
     }
   }, "开启后聊天中 Ta 会主动发动态")), h(Toggle, { on: autoMoment, onChange: v => setAutoMoment(v), color: t.tint })),
+  autoMoment ? h("div", { "data-wk": "mommax", className: "flex items-center justify-between pt-5" },
+    h("div", { style: { paddingRight: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.sub } }, "朋友圈 24 小时里最多发几条"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "空着就是不限。只管 Ta 自己发的，你点「让角色发一条」不算")),
+    h("input", { "data-wk": "input", type: "number", inputMode: "numeric", min: 1, value: momMax, placeholder: "不限", onChange: e => setMomMax(e.target.value.replace(/[^\d]/g, "").slice(0, 3)),
+      style: { flexShrink: 0, width: 72, minHeight: 36, padding: "0 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, textAlign: "center", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } })) : null,
   [["允许发限时动态", "聊着天 Ta 想顺手发一条时，就排一张竖版卡挂 24 小时（头像外一圈彩框），过后收进 Ta 朋友圈主页的「过往限时动态」。发一条花一次调用", autoStory, setAutoStory, "storyauto"],
     ["限时动态配照片", "开了，Ta 发的动态里会有一张 Ta 此刻的照片（多花一次生图）；关着就是纯排版的字卡", storyPhoto, setStoryPhoto, "storyphoto"]]
     .filter((x, k) => k === 0 || autoStory)
