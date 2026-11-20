@@ -12055,7 +12055,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const vis = Array.isArray(m.visibleTo) && m.visibleTo.length ? m.visibleTo : null;
         const hidFromYou = (vis && !vis.map(String).includes(String(viewerId))) || (m.hiddenFrom || []).includes(String(viewerId));
         return "· " + md(m.ts) + "　" + cut(m.content, 80) + pic(m)
-          + (hidFromYou ? "\n  ⚠这条设了只给" + vis.map(id => nameOf(id) || "别人").join("、") + "看——你平时刷不到" : "") + tail(m);
+          + (hidFromYou ? (vis ? "\n  ⚠这条设了只给" + vis.map(id => nameOf(id) || "别人").join("、") + "看——你平时刷不到" : "\n  ⚠这条设了不给你看——你平时刷不到") : "") + tail(m);
       }).join("\n"));
     }
     if (on("calendar")) {
