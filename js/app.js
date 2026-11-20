@@ -379,12 +379,25 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
       const cy = (drag ? drag.y : (pos ? Math.min(Math.max(pos.top, 70), Math.max(70, hh - 130)) : hh * 0.42) + 23), cx = side === "left" ? 12 + 23 : ww - 12 - 23;
       const n = items.length, a0 = side === "left" ? -80 : 100, a1 = side === "left" ? 80 : 260;
       const pts = items.map((_, i) => { const deg = n === 1 ? (a0 + a1) / 2 : a0 + (a1 - a0) * i / (n - 1), rad = deg * Math.PI / 180; return { x: cx + R * Math.cos(rad), y: Math.min(Math.max(cy + R * Math.sin(rad), 40), hh - 40) }; });
-      return [h("div", { key: "orbit", "aria-hidden": "true", style: { position: "fixed", zIndex: 91, left: cx - R, top: cy - R, width: R * 2, height: R * 2, borderRadius: "50%", border: "1.5px dashed " + t.line, pointerEvents: "none" } })]
-        .concat(items.map((it, i) => h("button", { key: it.k, "data-wk": it.k === "__edit" ? "modelfloatscedit" : "modelfloatsc", "aria-label": it.zh,
-          onClick: () => { if (it.k === "__edit") { setScEdit(true); return; } setOpen(false); onGo(it.k); }, className: "active:scale-95",
-          style: { position: "fixed", zIndex: 92, left: pts[i].x - B / 2, top: pts[i].y - B / 2, width: B, height: B, padding: 0, borderRadius: "50%", background: t.bg2, color: it.k === "__edit" ? t.fog : t.ink,
-            border: "1px solid " + t.line, boxShadow: "0 3px 10px rgba(0,0,0,.18)", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" } },
-          it.k === "__edit" ? "✎" : it.zh.slice(0, 2))));
+      // 好看一点（她 2026-11-20）：轨道是一道细的渐隐弧线，按键是跟主屏同一枚图标的小玻璃珠，一颗颗沿轨道弹出来
+      const iconOf = k => { const r = reg[k]; return r && r.G ? r.G : ({ messages: typeof GMsg !== "undefined" ? GMsg : null, forum: typeof GForum !== "undefined" ? GForum : null, diary: typeof GDiary !== "undefined" ? GDiary : null, config: typeof GConfig !== "undefined" ? GConfig : null })[k] || null; };
+      const arcD = (() => { const p0 = { x: cx + R * Math.cos(a0 * Math.PI / 180), y: cy + R * Math.sin(a0 * Math.PI / 180) }, p1 = { x: cx + R * Math.cos(a1 * Math.PI / 180), y: cy + R * Math.sin(a1 * Math.PI / 180) };
+        return "M " + p0.x + " " + p0.y + " A " + R + " " + R + " 0 0 1 " + p1.x + " " + p1.y; })();
+      return [h("style", { key: "orbcss" }, "@keyframes orbIn{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}@keyframes orbArc{from{stroke-dashoffset:260}to{stroke-dashoffset:0}}"),
+        h("svg", { key: "orbit", "aria-hidden": "true", width: ww, height: hh, style: { position: "fixed", left: 0, top: 0, zIndex: 91, pointerEvents: "none", overflow: "visible" } },
+          h("defs", null, h("linearGradient", { id: "orbGrad", x1: "0", y1: "0", x2: "0", y2: "1" },
+            h("stop", { offset: "0", stopColor: t.ink, stopOpacity: 0 }), h("stop", { offset: ".5", stopColor: t.ink, stopOpacity: .32 }), h("stop", { offset: "1", stopColor: t.ink, stopOpacity: 0 }))),
+          h("circle", { cx, cy, r: R + 10, fill: "none", stroke: t.ink, strokeOpacity: .05, strokeWidth: 18 }),
+          h("path", { d: arcD, fill: "none", stroke: "url(#orbGrad)", strokeWidth: 1.2, strokeLinecap: "round", strokeDasharray: 260, style: { animation: "orbArc .45s ease-out both" } }))]
+        .concat(items.map((it, i) => { const G = it.k === "__edit" ? null : iconOf(it.k);
+          return h("button", { key: it.k, "data-wk": it.k === "__edit" ? "modelfloatscedit" : "modelfloatsc", "aria-label": it.zh, title: it.zh,
+            onClick: () => { if (it.k === "__edit") { setScEdit(true); return; } setOpen(false); onGo(it.k); },
+            style: { position: "fixed", zIndex: 92, left: pts[i].x - B / 2, top: pts[i].y - B / 2, width: B, height: B, padding: 0, borderRadius: "50%",
+              background: it.k === "__edit" ? "transparent" : "radial-gradient(circle at 35% 30%, " + t.bg2 + ", " + t.bg + ")", color: it.k === "__edit" ? t.fog : t.ink,
+              border: it.k === "__edit" ? "1px dashed " + t.line : "1px solid " + t.line, boxShadow: it.k === "__edit" ? "none" : "0 4px 12px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.6)",
+              display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1,
+              animation: "orbIn .32s cubic-bezier(.2,1.4,.4,1) both", animationDelay: (60 + i * 45) + "ms" } },
+            it.k === "__edit" ? "✎" : G ? h(G, { size: 17, color: t.ink, sw: 1.6 }) : it.zh.slice(0, 2)); }));
     })(),
     // 改快捷：勾哪些、按点的先后排，最多 6 个；改完立刻生效
     scEdit ? (() => {
