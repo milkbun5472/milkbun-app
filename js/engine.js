@@ -2726,6 +2726,13 @@ function peekSpaceBlock(rows, spaceName, line) {
   return "【她在的频道空间（一个空间里分好几个频道；打开时 who 写「空间 · #频道」那个名字）】\n" + sps.map(sp => "频道空间「" + (spaceName(sp.id) || "频道") + "」：\n" + sp.list.slice(0, 3).map(x =>
     "  #" + (x.g.chName || x.g.name) + "（who：" + x.g.name + "）最近：\n" + x.ms.slice(-4).map(m => "    " + line(m)).join("\n")).join("\n")).join("\n");
 }
+// 他们今天自己新建了几份（她 2026-11-20「往更主动调吧」）：主动往文件里写，但新建一天一个频道最多两份，满了只改不新建
+const CHF_CHAR_NEW_PER_DAY = 2;
+function chfCharNewToday(files, dayOf, now) {
+  const today = dayOf(now);
+  return (Array.isArray(files) ? files : []).filter(f => f && f.kind === "doc" && f.createdBy && f.createdBy !== "me" && f.createdTs && dayOf(f.createdTs) === today).length;
+}
+function chfCanCharCreate(files, dayOf, now) { return chfCharNewToday(files, dayOf, now) < CHF_CHAR_NEW_PER_DAY; }
 // herLast：她最近那一句（她 2026-11-20：「搞了个今晚吃啥的文件，说看看今晚吃啥，没人去改文件，都是在聊今晚吃啥」）——
 //   她嘴里提到的那份就是这个文件；说清这一层，他们才知道她要的是在文件里动笔，不是在聊天里聊这件事
 // 认名字放宽一点：名字里去掉标点空格以后整段出现，或者名字有四个字以上、其中连着的三个字出现，都算提到了
