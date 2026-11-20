@@ -19058,10 +19058,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast("「" + sp.name + "」建好了，先有一个 #综合");
   };
   const saveChannel = (sp, g, patch) => {
-    if (!g) { createChannel(sp, patch.chName, patch.chAbout, patch.memberIds); toast("开了 #" + patch.chName); return; }
+    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds); if (patch.chSolo) updateGroup(ng.id, { chSolo: true }); toast("开了 #" + patch.chName); return; }
     const nm = channelGroupName(sp, patch.chName);
     if (nm !== g.name) renameGroup(g.id, nm);
-    updateGroup(g.id, { chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds });
+    updateGroup(g.id, { chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds, chSolo: !!patch.chSolo });
   };
   // 空间本身：改名、加人、踢人（她 2026-11-20「加不了人踢不了人改不了名字」）。
   //   改名＝每个频道的群名一起改（renameGroup 会把旧记忆的 tag 一起迁）；新人进每个频道，踢掉的从每个频道拿掉

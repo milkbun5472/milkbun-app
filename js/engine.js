@@ -2443,7 +2443,9 @@ const OVERREACH_BAN = STOCK_REPLY_BAN;
 function spaceChannelBlock(g, allGroups, chatsOf, uName) {
   if (!g || !g.spaceId) return "";
   const out = ["【这个频道】你们现在在「#" + (g.chName || g.name || "") + "」" + (g.chAbout ? "：" + String(g.chAbout).slice(0, 120) : "") + "。这是同一群人待的一个地方里的一个频道，同一个地方还有别的频道。"];
-  const sibs = (allGroups || []).filter(x => x && x.spaceId === g.spaceId && x.id !== g.id).slice(0, 6);
+  // 不互通的频道（她 2026-11-20「能搞不互通记忆吗」）：chSolo 的那个频道看不到别处，别处也看不到它
+  if (g.chSolo) return "\n\n" + out[0].replace(/。这是同一群人待的一个地方里的一个频道.*$/, "。");
+  const sibs = (allGroups || []).filter(x => x && x.spaceId === g.spaceId && x.id !== g.id && !x.chSolo).slice(0, 6);
   const rows = sibs.map(x => {
     const ms = (chatsOf(x.id) || []).filter(m => m && m.content && !m.recalled && m.role !== "system").slice(-2);
     const said = ms.map(m => (m.role === "user" ? (uName || "她") : (m.senderName || "有人")) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 50)).join("／");

@@ -22985,12 +22985,13 @@ function ChannelEditPage({ space, channel, allChars, onSave, onDelete, onClose }
   const t = useTheme();
   const [name, setName] = useState(channel ? channel.chName || "" : "");
   const [about, setAbout] = useState(channel ? channel.chAbout || "" : "");
+  const [solo, setSolo] = useState(!!(channel && channel.chSolo));
   const pool = (space.memberIds || []).map(id => (allChars || []).find(c => c && c.id === id)).filter(Boolean);
   const [sel, setSel] = useState(channel ? (channel.memberIds || []) : pool.map(c => c.id));
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const ok = name.trim().replace(/^#/, "") && sel.length >= 1;
   return h(PageSheet, { onClose, zh: channel ? "改频道" : "新频道", sub: space.name,
-    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
+    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, chSolo: solo }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
     h("div", { className: "flex items-baseline gap-1 pb-2 mb-4", style: { borderBottom: "1px solid " + t.line } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.fog } }, "#"),
       h("input", { "data-wk": "input", value: name, onChange: e => setName(e.target.value), placeholder: "频道名", className: "flex-1 outline-none", style: { background: "transparent", fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink } })),
@@ -22998,6 +22999,11 @@ function ChannelEditPage({ space, channel, allChars, onSave, onDelete, onClose }
     h("textarea", { "data-wk": "input", value: about, onChange: e => setAbout(e.target.value), rows: 2, placeholder: "一句话就行，大家进了这个频道就照这个来聊",
       className: "w-full outline-none mb-1", style: { background: t.bg2, borderRadius: 10, padding: "9px 11px", fontFamily: F_BODY, fontSize: 16, color: t.ink, resize: "none" } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 16 } }, "会跟着这个频道一起给到大家，改了下一轮就照新的。"),
+    h("div", { "data-wk": "chsolo", className: "flex items-center justify-between gap-3", style: { padding: "10px 12px", background: t.bg2, borderRadius: 10, marginBottom: 18 } },
+      h("div", { className: "min-w-0" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "跟别的频道互通"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, solo ? "关着：这个频道里的人不知道别的频道在聊什么，别的频道也看不到这里。" : "开着：大家知道同一个地方别的频道最近在聊什么。")),
+      h(Toggle, { on: !solo, onChange: v => setSolo(!v), color: t.accent })),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 8 } }, "谁在这个频道（" + sel.length + "）"),
     pool.map(c => { const on = sel.includes(c.id); return h("button", { key: c.id, "data-wk": "spacepick", "data-on": on ? "1" : "0", onClick: () => toggle(c.id), className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "9px 0", borderBottom: "1px solid " + t.line } },
       h(Avatar, { character: c, size: 34, radius: 8 }),

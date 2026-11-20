@@ -64,3 +64,15 @@ test("频道空间能改名、加人、踢人：名片点进设置页，改名�
   assert.match(body, /filter\(id => !gone\.includes\(id\)\)\.concat\(added/);
   assert.match(ap, /onSaveSpace: patch => saveSpace\(sp, patch\)/);
 });
+test("频道可以不互通：chSolo 的频道看不到别处，别处也看不到它", () => {
+  const fs = require("fs"), vm = require("vm"), en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const i = en.indexOf("function spaceChannelBlock("), j = en.indexOf("function groupNoticeBlock(", i);
+  const ctx = {}; vm.createContext(ctx); vm.runInContext(en.slice(i, j) + ";this.f=spaceChannelBlock;", ctx);
+  const gs = [{ id: "a", spaceId: "s", chName: "综合" }, { id: "b", spaceId: "s", chName: "秘密", chSolo: true }, { id: "c", spaceId: "s", chName: "深夜" }];
+  const chats = { a: [{ role: "user", content: "早" }], b: [{ role: "user", content: "嘘" }], c: [{ role: "user", content: "困" }] };
+  const of = id => chats[id];
+  assert.doesNotMatch(ctx.f(gs[0], gs, of, "她"), /秘密/);
+  assert.match(ctx.f(gs[0], gs, of, "她"), /深夜/);
+  const solo = ctx.f(gs[1], gs, of, "她");
+  assert.doesNotMatch(solo, /综合|深夜|别的频道/);
+});
