@@ -19063,6 +19063,22 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (nm !== g.name) renameGroup(g.id, nm);
     updateGroup(g.id, { chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds });
   };
+  // 空间本身：改名、加人、踢人（她 2026-11-20「加不了人踢不了人改不了名字」）。
+  //   改名＝每个频道的群名一起改（renameGroup 会把旧记忆的 tag 一起迁）；新人进每个频道，踢掉的从每个频道拿掉
+  const saveSpace = (sp, patch) => {
+    const name = String(patch.name || sp.name).slice(0, 24), now = (patch.memberIds || sp.memberIds || []).slice();
+    const added = now.filter(id => !(sp.memberIds || []).includes(id)), gone = (sp.memberIds || []).filter(id => !now.includes(id));
+    saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, name, memberIds: now } : x));
+    (groups || []).filter(g => g && g.spaceId === sp.id).forEach(g => {
+      if (name !== sp.name) renameGroup(g.id, channelGroupName({ name }, g.chName));
+      if (added.length || gone.length) {
+        let m = (g.memberIds || []).filter(id => !gone.includes(id)).concat(added.filter(id => !(g.memberIds || []).includes(id)));
+        if (!m.length) m = now.slice();
+        updateGroup(g.id, { memberIds: m });
+      }
+    });
+    toast(added.length || gone.length ? "改好了" + (added.length ? "，进来 " + added.length + " 个" : "") + (gone.length ? "，踢出 " + gone.length + " 个" : "") : "改好了");
+  };
   const deleteSpace = spId => {
     const ids = (groups || []).filter(g => g && g.spaceId === spId).map(g => g.id);
     setGroups(p => { const n = p.filter(g => !ids.includes(g.id)); saveJSON("x_groups", n); return n; });
@@ -36151,7 +36167,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onOpenChannel: g => { setActiveGroup(g); clearUnread(g.id); setScreen("gthread"); },
       onSaveChannel: (g, patch) => saveChannel(sp, g, patch),
       onDeleteChannel: g => deleteGroup(g.id),
-      onDeleteSpace: () => deleteSpace(sp.id) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+      onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), pickPool: liveChars.concat((characters || []).filter(c => c && c.npc && !liveChars.some(x => x.id === c.id))) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     onOpenStyleLab: goStyleLab,
     apiProfiles: apiProfiles,
     // 换一个群就是一块新的聊天屏（跟单聊 key 一样）：不然从 A 群点弹窗进 B 群，还停在 A 群翻到的那个高度、也不重新钉底

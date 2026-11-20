@@ -53,3 +53,14 @@ test("SpaceView 渲染：一行一个频道，带说明、最后一句、未读�
   assert.deepEqual(wp("mllast", "channel").map(n => n.kids[0]), ["阿屿：在吗", "还没人说话"]);
   assert.equal(wk("chnew").length, 1);   // 列表最后一行；顶栏那颗挂在 Head 的 right 上
 });
+test("频道空间能改名、加人、踢人：名片点进设置页，改名跟着改每个频道的群名，人增减落到每个频道", () => {
+  const fs = require("fs"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+  assert.match(cs, /function SpaceEditPage\(/);
+  assert.match(cs, /"data-wk": "spacecard", onClick: \(\) => onSaveSpace && setSpEdit\(true\)/);
+  assert.doesNotMatch(cs.slice(cs.indexOf("function ChannelEditPage("), cs.indexOf("function NewGroupSheet(")), /window\.confirm/);
+  const i = ap.indexOf("const saveSpace = ");
+  const body = ap.slice(i, ap.indexOf("const deleteSpace = ", i));
+  assert.match(body, /renameGroup\(g\.id, channelGroupName\(\{ name \}, g\.chName\)\)/);
+  assert.match(body, /filter\(id => !gone\.includes\(id\)\)\.concat\(added/);
+  assert.match(ap, /onSaveSpace: patch => saveSpace\(sp, patch\)/);
+});
