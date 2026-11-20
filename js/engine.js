@@ -714,6 +714,14 @@ function stripLeakedThoughts(t) {
   if ((head.match(/[\u4e00-\u9fff]/g) || []).length > head.length * 0.05 || head.trim().length < 40) return s;
   return s.slice(at).trim();
 }
+// 写到一半被上游拦下（群友 2026-11-20：日记调用记录一排「成功」、输出十几个 token、日记一篇没有）：
+//   有正文但停止原因是内容审查，那一小截不是写完的东西，交给调用方只会解析失败、被当成成功吞掉。
+//   gemini 与 openai 兼容两条方言都过这一处。「length」不算——截断的 JSON 各处还有 repairJSON 兜。
+const BLOCKED_FINISH_RE = /^(content_filter|safety|prohibited_content|blocklist|spii|recitation|image_safety|other)$/i;
+function assertNotBlocked(reason, t, model, diag) {
+  if (!reason || !BLOCKED_FINISH_RE.test(String(reason))) return;
+  throw new Error("写到一半被线路那头拦下了（停止原因：" + reason + "），只回来 " + String(t || "").length + " 个字。多半是这次内容碰了上游的审查——换个模型或线路再试。" + (diag ? "\n" + diag : ""));
+}
 function assertNotUpstreamError(t, model, diag) {
   t = stripLeakedThoughts(t);
   const hit = upstreamErrorInContent(t);
@@ -1472,6 +1480,7 @@ async function callAIOnce(p, system, messages, opts) {
       const blocked = d.promptFeedback && d.promptFeedback.blockReason;
       throw new Error("模型返回为空" + (reason || blocked ? "（停止原因：" + (reason || blocked) + "）" : "（上游没有返回正文）") + "\n" + callDiag(model, _promptChars, maxTokens, _t0));
     }
+    assertNotBlocked(d.candidates && d.candidates[0] && d.candidates[0].finishReason, t, model, callDiag(model, _promptChars, maxTokens, _t0));
     return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));
   }
   const root = oaRootOf(base);   // 自带版本号的、结尾写了 # 的都不再补 /v1
@@ -1605,6 +1614,7 @@ async function callAIOnce(p, system, messages, opts) {
   if (_rzn) _putMeta(_rzn[1], "openai:" + _rzn[0]);
   const t = (_msg && _msg.content || "").trim();
   if (!t) throw new Error("模型返回为空" + (choice && choice.finish_reason ? "（停止原因：" + choice.finish_reason + "）" : "（上游没有返回正文）") + "\n" + callDiag(model, _promptChars, maxTokens, _t0));
+  assertNotBlocked(choice && choice.finish_reason, t, model, callDiag(model, _promptChars, maxTokens, _t0));
   return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));
 }
 function repairJSON(t) {

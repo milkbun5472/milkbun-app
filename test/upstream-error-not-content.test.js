@@ -78,9 +78,14 @@ test("失败时要报清楚这一次到底发了多大、等了多久", () => {
 });
 
 test("「模型返回为空」那三处也要带诊断，不然只剩一句空话", () => {
-  assert.equal((engine.match(/callDiag\(model, _promptChars, maxTokens, _t0\)/g) || []).length, 6,
-    "3 处 return + 3 处返回为空");
+  assert.equal((engine.match(/callDiag\(model, _promptChars, maxTokens, _t0\)/g) || []).length, 8,
+    "3 处 return + 3 处返回为空 + 2 处被拦下");
   // 提示词规模必须把 system 和 messages 都算上，只算一头会看不出真实体量
   assert.match(engine, /const _promptChars = String\(system \|\| ""\)\.length/);
   assert.match(engine, /reduce\(\(n, m\) => n \+ String\(\(m && m\.content\) \|\| ""\)\.length, 0\)/);
+});
+test("写到一半被审查拦下：停止原因是内容审查就报出来，不当成功交回去", () => {
+  assert.match(engine, /const BLOCKED_FINISH_RE = /);
+  assert.match(engine, /assertNotBlocked\(d\.candidates && d\.candidates\[0\] && d\.candidates\[0\]\.finishReason/);
+  assert.match(engine, /assertNotBlocked\(choice && choice\.finish_reason/);
 });

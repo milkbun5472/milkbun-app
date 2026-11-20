@@ -20621,7 +20621,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return n;
       });
     } catch (e) {
+      // 自动写的也说出来（群友 2026-11-20：调用记录一排成功、站里扣了费、日记一篇没有，什么提示都没有）
       if (opts.manual) toast("生成失败：" + e.message);
+      else toast(((characters.find(c => c.id === charId) || {}).name || "TA") + " 的日记没写成：" + String(e.message || e).split("\n")[0].slice(0, 80));
     } finally {
       diaryFlightRef.current.delete(charId);
       setDiaryBusy(b => ({ ...b, [charId]: false }));
