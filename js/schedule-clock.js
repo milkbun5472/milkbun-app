@@ -148,11 +148,16 @@
     return out.map((q, i) => ({ ...q, seq: i + 1 }));
   };
   // 她自己的作息 · 免打扰（她 2026-10-17）：cfg = { on, from:"HH:MM", to:"HH:MM", noPro, noBg }，按这台手机的钟算，跨零点也行
-  const quietActive = (cfg, kind, date) => {
-    if (!cfg || !cfg.on || !(kind === "pro" ? cfg.noPro : cfg.noBg)) return false;
-    const a = toMin(cfg.from), b = toMin(cfg.to); if (a == null || b == null || a === b) return false;
-    const d = date || new Date(), n = d.getHours() * 60 + d.getMinutes();
+  //   最多三段（她 2026-11-20「可以自定义好几个时间段吗」）：cfg.more 里再放两段 { from, to, noPro, noBg }，每段自己勾；落在任意一段里就算
+  const quietOne = (q, kind, n) => {
+    if (!q || !(kind === "pro" ? q.noPro : q.noBg)) return false;
+    const a = toMin(q.from), b = toMin(q.to); if (a == null || b == null || a === b) return false;
     return a < b ? (n >= a && n < b) : (n >= a || n < b);
+  };
+  const quietActive = (cfg, kind, date) => {
+    if (!cfg || !cfg.on) return false;
+    const d = date || new Date(), n = d.getHours() * 60 + d.getMinutes();
+    return [cfg].concat(Array.isArray(cfg.more) ? cfg.more.slice(0, 2) : []).some(q => quietOne(q, kind, n));
   };
   return { quietActive, mirrorJoint, formatDayParts, deviceDayKey, parseDayKey, offsetMinutes, dayKey, localMinute, characterFrame, planDay, planMinute, planFollows, shiftDayKey, currentSeqIdx, currentSlot };
 });
