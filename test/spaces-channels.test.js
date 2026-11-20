@@ -38,7 +38,7 @@ test("spaceChannelBlock：说这个频道聊什么，再摆别的频道最近两
 test("SpaceView 渲染：一行一个频道，带说明、最后一句、未读点和新频道那一行", () => {
   const src = ["spaceTone", "SpaceTile", "channelLast", "SpaceView"].map(n => slice(comp, n === "spaceTone" ? "const SPACE_TONES" : "function " + n + "(", n === "SpaceView" ? "function NewGroupSheet(" : (n === "spaceTone" ? "function SpaceTile(" : n === "SpaceTile" ? "function channelLast(" : "function NewSpacePage("))).join("\n");
   const h = (type, props, ...kids) => ({ type, props: props || {}, kids: kids.flat(Infinity).filter(x => x != null && x !== false) });
-  const ctx = { h, useState: v => [v, () => {}], useTheme: () => ({ ink: "#111", sub: "#555", fog: "#999", line: "#ddd", bg: "#fff", bg2: "#fff", accent: "#46c" }), msgAppBg: () => ({}), wxGrey: () => "#f7f7f7", momPaper: () => "#fff", Head: "Head", Avatar: "Avatar", IPlus: "IPlus", ChannelEditPage: "ChannelEditPage", F_BODY: "s", F_DISPLAY: "s", fmtStamp: () => "1分钟前", window: {} };
+  const ctx = { h, useState: v => [v, () => {}], useTheme: () => ({ ink: "#111", sub: "#555", fog: "#999", line: "#ddd", bg: "#fff", bg2: "#fff", accent: "#46c" }), msgAppBg: () => ({}), wxGrey: () => "#f7f7f7", momPaper: () => "#fff", Head: "Head", Avatar: "Avatar", IPlus: "IPlus", ChannelEditPage: "ChannelEditPage", SpaceGemsPage: "SpaceGemsPage", F_BODY: "s", F_DISPLAY: "s", fmtStamp: () => "1分钟前", window: {} };
   vm.createContext(ctx);
   { const en = require("fs").readFileSync(__dirname + "/../js/engine.js", "utf8"); vm.runInContext(en.slice(en.indexOf("const CH_ACTIVE_MAX"), en.indexOf("function chHopTargets(")), ctx); }   // 真的那份分段（engine.js）
   vm.runInContext(src + ";this.SpaceView=SpaceView;", ctx);
