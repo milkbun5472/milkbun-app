@@ -1017,6 +1017,8 @@
       + "     她说「顶栏太高／跟时间叠了／顶栏跑到最上面去了」：先在她现有的 CSS 里找对 chathead 的 padding、min-height、height、position:absolute/fixed，照上面这条改回来，别再往上加新的。同一个选择器写了好几块的，【越靠后的越算数】：在前面补一条留白，后面那块 height:52px／padding:0 14px 照样把它盖掉——要改就改最后那块，或者把那几块并成一块。\n"
       // 群里 2026-10-19：她要「底栏透明」，秋秋给了 background:transparent，底栏下面那截露出一条米色，补了 body、外层都没用
       + "     她说「底部不贴边／最底下多一条颜色／底栏下面露一截」：是底栏（composer）没把自己的颜色铺到屏幕最底。底栏要写【实色或渐变】＋ padding-bottom: var(--app-safe-bottom) !important，一路铺到底；她想要「透明」，就把底栏刷成跟聊天底色同一个颜色，别写 transparent——透明了露出来的是底下那层，不是她的背景。别去刷 body、外壳。\n"
+      // 群里 2026-11-20：安卓浏览器里装了美化，聊天页底下的输入栏整个不见了
+      + "     她说「输入栏没了／不见了／被挡住了／打不了字」：先叫她去 设置 → 外观与壁纸 把「输入栏往上抬」拖到最右、确认「自动适配底边」开着。还不行，就在她的 CSS 最后补 [data-wk=\"composer\"] { display: flex !important; visibility: visible !important; opacity: 1 !important; transform: none !important; } 再加 :root { --composer-lift: 60px !important; }，60 不够往上加（拉条最多只到 80，这里能写更大）。同时翻她现有的 CSS：给聊天正文、外层写死了 height／100vh、或者给 composer 写了 display:none／position:fixed／bottom 负数的，那一条才是病根，删掉它。\n"
       + "  【共用件上的（顶栏、半窗、空状态、头像、开关、输入框这些，绝大多数页面都有）】\n" + fmt(ts.WK_COMMON) + "\n"
       + scoped + "\n"
       + wkHere()
