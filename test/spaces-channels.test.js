@@ -149,7 +149,7 @@ test("已有的频道能切旁观、切回来：群上的 roomKind 和群设置�
   const fs = require("fs"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
   assert.match(ap, /updateGroup\(g\.id, \{ roomKind: patch\.spectate \? "spectate" : "group" \}\);\s*saveGroupSettingsRaw\(g\.id, \{ spectate: !!patch\.spectate \}\);/);
   assert.match(cs, /"data-wk": "chspect"/);
-  assert.match(cs, /spectate: spect, chSolo: solo \|\| noMem \|\| spect/);
+  assert.match(cs, /spectate: spect, chNotify: notify, chSolo: solo \|\| noMem \|\| spect/);
 });
 test("频道里开小房间：房间不抄频道那几格，不以同名频道出现；带小房间的群能收进来，房间本身不在可收名单里", () => {
   const ap = require("fs").readFileSync(__dirname + "/../js/app.js", "utf8");

@@ -2870,6 +2870,79 @@ function spaceCatGroups(channels, cats, lastTsOf) {
   if (loose.length || !out.length) out.push({ cat: null, rows: loose });
   return { groups: out, archived: arch.sort(ord) };
 }
+// ── 频道通知等级（她 2026-11-20「124 做吧」第 1 条）──────────────────────────
+//   chNotify: "all"（默认）/ "mention"（只在 @我 时）/ "mute"（静音）。
+//   频道那一行照旧写着自己几条没看；算进空间那一行、App 角标、横幅和提示音的，只有该算的那几条。
+function chMentionsHer(text, names) {
+  const t = String(text || "");
+  if (/@(所有人|大家|全体)/.test(t)) return true;
+  return (names || []).filter(Boolean).some(n => t.indexOf("@" + n) >= 0);
+}
+// 该算多少条：un＝这个频道没看的条数；msgs＝这个频道的消息（取最后 un 条看有没有 @她）
+function chNotifyCount(g, un, msgs, names) {
+  const mode = (g && g.chNotify) || "all";
+  if (!un || mode === "mute") return 0;
+  if (mode === "mention") return (msgs || []).slice(-un).filter(m => m && m.role !== "user" && chMentionsHer(m.content, names)).length;
+  return un;
+}
+// ── 空间内搜索（第 2 条）：聊天、文档、墙、精华一起搜；一个词切开也认（空格分开的几个词都要出现）
+function spaceSearch(q, src, cap) {
+  const words = String(q || "").toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const hit = txt => { const t = String(txt || "").toLowerCase(); return words.every(w => t.indexOf(w) >= 0); };
+  const out = [], max = cap || 100;
+  const S = src || {};
+  (S.channels || []).forEach(g => {
+    (((S.chatsOf && S.chatsOf(g.id)) || [])).forEach(m => {
+      if (!m || !m.content || m.recalled || m.role === "system" || m.whisper) return;
+      if (hit(m.content) || hit(m.senderName)) out.push({ kind: "msg", gid: g.id, ch: g.chName || g.name || "", who: m.role === "user" ? "我" : (g.chKind === "treehole" ? "有人" : (m.senderName || "有人")), text: String(m.content), ts: m.ts || 0 });
+    });
+    (((S.filesOf && S.filesOf(g.id)) || [])).forEach(f => {
+      if (!f || !f.name) return;
+      const line = f.kind === "doc" ? String(f.text || "").split("\n").find(l => hit(l)) : (hit(f.desc) ? f.desc : "");
+      if (hit(f.name) || line) out.push({ kind: "file", gid: g.id, ch: g.chName || g.name || "", fileId: f.id, text: "《" + f.name + "》" + (line ? "：" + String(line).slice(0, 80) : ""), ts: f.updatedTs || f.createdTs || 0 });
+    });
+    const pl = (S.playOf && S.playOf(g.id)) || {};
+    (pl.notes || []).forEach(n => { if (n && hit(n.text)) out.push({ kind: "note", gid: g.id, ch: g.chName || g.name || "", text: "便利贴：" + String(n.text), ts: n.ts || 0 }); });
+  });
+  (S.gems || []).forEach(x => { if (x && hit(x.text)) out.push({ kind: "gem", gid: x.gid, ch: x.ch || "", who: x.who || "", text: "精华：" + String(x.text), ts: x.ts || 0 }); });
+  return out.sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, max);
+}
+// ── 空间约定（第 4 条）：把一句「哪天」读成 YYYY-MM-DD（＋可选 HH:MM）；读不出就 null
+//   认：2026-11-22 / 11月22日 / 11/22 / 今天 明天 后天 大后天 / 周X 星期X（下一个，今天是周X就今天）/ 下周X
+function planParseWhen(str, now) {
+  const s = String(str || "").trim(), base = now instanceof Date ? now : new Date(now || Date.now());
+  if (!s) return null;
+  const pad = n => String(n).padStart(2, "0"), fmt = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const day0 = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  let d = null, m;
+  if ((m = s.match(/(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/))) d = new Date(+m[1], +m[2] - 1, +m[3]);
+  else if ((m = s.match(/(\d{1,2})月(\d{1,2})[日号]?/)) || (m = s.match(/(?:^|\D)(\d{1,2})\/(\d{1,2})(?:\D|$)/))) {
+    d = new Date(day0.getFullYear(), +m[1] - 1, +m[2]);
+    if (d < day0) d = new Date(day0.getFullYear() + 1, +m[1] - 1, +m[2]);
+  } else if (/大后天/.test(s)) d = new Date(day0.getTime() + 3 * 864e5);
+  else if (/后天/.test(s)) d = new Date(day0.getTime() + 2 * 864e5);
+  else if (/明天|明晚|明早/.test(s)) d = new Date(day0.getTime() + 864e5);
+  else if (/今天|今晚|今早|待会|一会/.test(s)) d = day0;
+  else if ((m = s.match(/(下)?(?:周|星期|礼拜)([一二三四五六日天])/))) {
+    const want = "日一二三四五六".indexOf(m[2] === "天" ? "日" : m[2]);
+    let add = (want - day0.getDay() + 7) % 7;
+    // 下周X：下一个自然周（周一起算）里的那一天
+    if (m[1]) { const toMon = ((8 - day0.getDay()) % 7) || 7; add = toMon + ((want + 6) % 7); }
+    d = new Date(day0.getTime() + add * 864e5);
+  }
+  if (!d || isNaN(d.getTime())) return null;
+  const tm = s.match(/(\d{1,2})[:：](\d{2})/) || s.match(/(\d{1,2})点(半)?/);
+  let time = "";
+  if (tm) { let hh = +tm[1]; const mm = tm[2] === "半" ? 30 : (tm[2] && /^\d+$/.test(tm[2]) ? +tm[2] : 0); if (/下午|晚上|今晚|明晚/.test(s) && hh < 12) hh += 12; if (hh < 24) time = pad(hh) + ":" + pad(mm); }
+  return { date: fmt(d), time };
+}
+// 接下来几天的约定（含今天），按日子排；today 是 YYYY-MM-DD
+function planUpcoming(plans, today, days) {
+  const end = new Date(today + "T00:00:00").getTime() + (days || 7) * 864e5;
+  return (plans || []).filter(p => p && !p.done && p.date >= today && new Date(p.date + "T00:00:00").getTime() < end)
+    .sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")));
+}
 function chHopTargets(origin, allGroups, speakerId, noMemOf) {
   if (!origin || !origin.spaceId || origin.chSolo || (noMemOf && noMemOf(origin.id))) return [];
   return (allGroups || []).filter(x => x && x.spaceId === origin.spaceId && x.id !== origin.id && !x.chSolo && !x.chArchived

@@ -9645,7 +9645,7 @@ function Messages({
       h("div", { "data-wk": "mllast", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog }, className: "truncate" }, last ? last.content : "打个招呼吧")),
     last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.line } }, fmtStamp(last.ts, c.id))); };
   // 频道空间那一行：Teams 那种圆角方块＋名字，底下「#哪个频道 · 谁：最后一句」
-  const renderSpaceRow = it => { const sp = it.sp, last = it.last, un = it.chs.reduce((n, g) => n + (unreadMap[g.id] || 0), 0);
+  const renderSpaceRow = it => { const sp = it.sp, last = it.last, _hn = typeof window.__herNames === "function" ? window.__herNames() : [], un = it.chs.reduce((n, g) => n + chNotifyCount(g, unreadMap[g.id] || 0, groupChats[g.id] || [], _hn), 0);   // 静音、只在 @我 时的频道不全算（她 2026-11-20）
     return h("button", { key: it.key, "data-chatid": sp.id, "data-wk": "mlrow", "data-kind": "space", "data-unread": un > 0 ? "1" : "0", onClick: () => guardClick(() => onOpenSpace && onOpenSpace(sp)), className: "w-full flex items-center gap-3 px-5 py-3.5 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, background: rowBg(sp.id) } },
       h("div", { "data-wk": "mlavatar", className: "relative shrink-0" }, h(SpaceTile, { sp, size: 50 }), unreadBadge(un)),
       h("div", { className: "flex-1 text-left min-w-0" },
@@ -23097,6 +23097,7 @@ function NewSpacePage({ characters, allChars, onCreate, onClose }) {
 // 开新频道／改一个频道：名字、这里聊什么、谁在里面（默认整个空间的人）
 function ChannelEditPage({ space, channel, allChars, noMem: noMem0, spectate: spect0, maskOwn: mask0, onSave, onDelete, onRelease, onClose, cats, onMove }) {
   const [spect, setSpect] = useState(!!spect0);
+  const [notify, setNotify] = useState((channel && channel.chNotify) || "all");   // 通知等级（她 2026-11-20）
   const [chMask, setChMask] = useState(mask0 == null ? null : String(mask0 || ""));   // null＝跟空间一样   // 旁观：她隐身（她 2026-11-20「已有的频道怎么变成旁观或者变回来」）
   const t = useTheme();
   const [name, setName] = useState(channel ? channel.chName || "" : "");
@@ -23115,7 +23116,7 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, spectate: sp
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const ok = name.trim().replace(/^#/, "") && sel.length >= 1;
   return h(PageSheet, { onClose, zh: channel ? "改频道" : "新频道", sub: space.name,
-    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, maskOwn: chMask, spectate: spect, chSolo: solo || noMem || spect, chShareMembers: !!(shareM && solo && !noMem), chNoMem: noMem, chCat: cat, chArchived: arch, chKind: hole ? "treehole" : lounge ? "lounge" : "", chHours: night, avatarImage: chAv || null }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
+    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, maskOwn: chMask, spectate: spect, chNotify: notify, chSolo: solo || noMem || spect, chShareMembers: !!(shareM && solo && !noMem), chNoMem: noMem, chCat: cat, chArchived: arch, chKind: hole ? "treehole" : lounge ? "lounge" : "", chHours: night, avatarImage: chAv || null }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
     h("div", { "data-wk": "chav", className: "flex items-center gap-3", style: { marginBottom: 14 } },
       h(AvatarPicker, { character: { name: name || "#", color: t.tint, avatarImage: chAv }, size: 44, radius: 10, onPick: setChAv, onClear: chAv ? () => setChAv(null) : null }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, chAv ? "频道列表这一行和进去的群头像都是这张。点「移除照片」换回「#」。" : "没设头像就是一个「#」。点左边设一张，跟群头像是同一格。")),
@@ -23156,6 +23157,15 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, spectate: sp
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 6 } }, "这个频道用哪张面具"),
       h(MaskChips, { value: chMask, onPick: setChMask, extra: { id: null, name: "跟空间一样" } }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, chMask == null ? "跟着空间那一张。" : "单独换了一张：跟戴别的面具的频道互相看不到。")) : null,
+    h("div", { "data-wk": "chnotify", style: { padding: "10px 12px", background: t.bg2, borderRadius: 10, marginBottom: 10 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink, marginBottom: 6 } }, "提醒"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6 } }, [["all", "全部提醒"], ["mention", "只在 @我 时"], ["mute", "静音"]].map(([k, zh]) =>
+        h("button", { key: k, "data-wk": "chnotifyopt", "data-part": k, "data-on": notify === k ? "1" : "0", onClick: () => setNotify(k), className: "active:opacity-60",
+          style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (notify === k ? t.ink : t.line), background: notify === k ? t.ink : "transparent", color: notify === k ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, zh))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } },
+        notify === "mute" ? "静音：不弹横幅、不响，也不算进空间那一行的未读；频道这一行还是写着几条没看（灰的）。"
+          : notify === "mention" ? "只在 @我 时：有人 @你、@所有人 才弹、才算进空间那一行的未读；别的照样记着，灰的。"
+          : "全部提醒：每条都弹、都算。")),
     h("div", { "data-wk": "chspect", "data-on": spect ? "1" : "0", className: "flex items-center justify-between gap-3", style: { padding: "10px 12px", background: t.bg2, borderRadius: 10, marginBottom: 10 } },
       h("div", { className: "min-w-0" },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "旁观（你隐身）"),
@@ -23721,7 +23731,9 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
                   spectateOf && spectateOf(g) ? h("span", { "data-wk": "chnomemtag", "data-part": "spectate", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 4, padding: "0 4px", flexShrink: 0 } }, "旁观") : null,
                   noMemOf && noMemOf(g.id) ? h("span", { "data-wk": "chnomemtag", style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 5, padding: "0 4px", flexShrink: 0 } }, "不记") : null,
                   // 跟消息列表一样写几条（她 2026-11-20「不能在频道旁边显示红点多少条」）
-                  un > 0 ? h("span", { "data-wk": "mlbadge", "data-part": "channel", style: { minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, un > 99 ? "99+" : un) : null,
+                  g.chNotify === "mute" || g.chNotify === "mention" ? h("span", { "data-wk": "chnotifytag", "data-part": g.chNotify, title: g.chNotify === "mute" ? "静音" : "只在 @我 时提醒", style: { fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, g.chNotify === "mute" ? "🔕" : "@") : null,
+                  // 静音、只在 @我 时：自己的条数照写，灰的（不算进空间那一行）
+                  un > 0 ? h("span", { "data-wk": "mlbadge", "data-part": "channel", "data-quiet": g.chNotify === "mute" || g.chNotify === "mention" ? "1" : "0", style: { minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: g.chNotify === "mute" || g.chNotify === "mention" ? t.fog : t.accent, color: "#fff", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, un > 99 ? "99+" : un) : null,
                   last ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, flexShrink: 0 } }, typeof fmtStamp === "function" ? fmtStamp(last.ts, "g:" + g.id) : "") : null),
                 g.chAbout ? h("span", { "data-wk": "chabout", className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 2 } }, g.chAbout) : null,
                 h("span", { "data-wk": "mllast", "data-part": "channel", className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, last ? (last.who ? last.who + "：" : "") + last.text : "还没人说话"))),

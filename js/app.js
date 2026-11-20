@@ -3484,7 +3484,12 @@ function App() {
   };
   const desireApiFor = id => policyApiFor("desire", id);
   // 只算【还存在的角色/群】的未读——防幽灵红点（未读挂在已删角色/群等列表里看不到的 key 上，加进总数却清不掉，她 2026-07-23 报）
-  const unreadTotal = Object.entries(unreadMap).reduce((a, kv) => a + ((characters.some(c => c.id === kv[0]) || groups.some(g => g.id === kv[0])) ? (kv[1] || 0) : 0), 0);
+  // 她在聊天里会被叫的名字（@ 认的就是这些）：名字、各张面具的名字
+  const herNamesNow = () => { const out = [userName(profile)]; try { (window.__momentMasks || []).forEach(m => m && m.name && out.push(m.name)); } catch (e) {} return [...new Set(out.filter(Boolean))]; };
+  window.__herNames = herNamesNow;
+  const unreadTotal = Object.entries(unreadMap).reduce((a, kv) => { const g = groups.find(x => x && x.id === kv[0]);
+    if (g && g.spaceId) return a + chNotifyCount(g, kv[1] || 0, groupChats[g.id] || [], herNamesNow());
+    return a + ((characters.some(c => c.id === kv[0]) || g) ? (kv[1] || 0) : 0); }, 0);
   // 顺手把孤儿未读 key 从存档里清掉（角色/群删了但未读残留），让幽灵红点彻底消失
   useEffect(() => {
     if (!loaded) return;
@@ -5475,9 +5480,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 未读小红点 +k（角色发来消息时若没在看这个聊天就累加）
   const bumpUnread = (id, k, roomId) => {
-    pushBanner(id, k, roomId);
+    // 频道的通知等级（她 2026-11-20）：静音不弹不响；「只在 @我 时」只有这几条里 @了她 才弹、才响。条数照记
+    const _ng = (groupsRef.current || []).find(g => g && g.id === id && g.spaceId);
+    const _loud = !_ng || chNotifyCount(_ng, k, groupChatsRef.current[id] || [], herNamesNow()) > 0;
+    if (_loud) pushBanner(id, k, roomId);
     // 提示音（群友 2026-10-26）：设置 → 通用里挑了才响，跟横幅一样只在人不在那条聊天时（来这儿的都是没在看的）
-    try { const _ps = prefsRef.current || {}; if (_ps.msgSound && typeof playMsgSound === "function") playMsgSound(_ps.msgSound, _ps.msgSoundVol); } catch (e) {}
+    try { const _ps = prefsRef.current || {}; if (_loud && _ps.msgSound && typeof playMsgSound === "function") playMsgSound(_ps.msgSound, _ps.msgSoundVol); } catch (e) {}
     setUnreadMap(p => {
       const n = { ...p, [id]: (p[id] || 0) + k };
       saveJSON("x_unread", n);
@@ -19464,11 +19472,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setChannelTab("chat"); replyGroup(g.id);
   };
   const saveChannel = (sp, g, patch) => {
-    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); if (patch.maskOwn != null) saveGroupSettingsRaw(ng.id, { maskId: String(patch.maskOwn || "") }); if (patch.spectate) { updateGroup(ng.id, { roomKind: "spectate" }); saveGroupSettingsRaw(ng.id, { spectate: true }); } updateGroup(ng.id, { chShareMembers: !!(patch.chShareMembers && patch.chSolo && !patch.chNoMem), chSolo: !!(patch.chSolo || patch.chNoMem), chCat: patch.chCat || "", chKind: patch.chKind || "", chHours: patch.chHours || null, avatarImage: patch.avatarImage || null }); toast("开了 #" + patch.chName); return; }
+    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); if (patch.maskOwn != null) saveGroupSettingsRaw(ng.id, { maskId: String(patch.maskOwn || "") }); if (patch.spectate) { updateGroup(ng.id, { roomKind: "spectate" }); saveGroupSettingsRaw(ng.id, { spectate: true }); } updateGroup(ng.id, { chNotify: patch.chNotify || "all", chShareMembers: !!(patch.chShareMembers && patch.chSolo && !patch.chNoMem), chSolo: !!(patch.chSolo || patch.chNoMem), chCat: patch.chCat || "", chKind: patch.chKind || "", chHours: patch.chHours || null, avatarImage: patch.avatarImage || null }); toast("开了 #" + patch.chName); return; }
     const nm = channelGroupName(sp, patch.chName);
     if (nm !== g.name) renameGroup(g.id, nm);
     updateGroup(g.id, { ...(g.chLeft ? { chLeft: Object.fromEntries(Object.entries(g.chLeft).filter(([id]) => !(patch.memberIds || []).includes(id))) } : {}), chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds, chSolo: !!(patch.chSolo || patch.chNoMem),
-      chShareMembers: !!(patch.chShareMembers && patch.chSolo && !patch.chNoMem), ...(patch.chCat != null ? { chCat: patch.chCat || "" } : {}), ...(patch.chKind != null ? { chKind: patch.chKind || "" } : {}), ...(patch.chHours !== undefined ? { chHours: patch.chHours || null } : {}), ...(patch.avatarImage !== undefined ? { avatarImage: patch.avatarImage || null } : {}), ...(patch.chArchived != null ? { chArchived: !!patch.chArchived } : {}) });
+      chShareMembers: !!(patch.chShareMembers && patch.chSolo && !patch.chNoMem), ...(patch.chNotify ? { chNotify: patch.chNotify } : {}), ...(patch.chCat != null ? { chCat: patch.chCat || "" } : {}), ...(patch.chKind != null ? { chKind: patch.chKind || "" } : {}), ...(patch.chHours !== undefined ? { chHours: patch.chHours || null } : {}), ...(patch.avatarImage !== undefined ? { avatarImage: patch.avatarImage || null } : {}), ...(patch.chArchived != null ? { chArchived: !!patch.chArchived } : {}) });
     if (patch.chNoMem != null && !!patch.chNoMem !== channelNoMem(g.id)) saveGroupSettingsRaw(g.id, { memoryInterop: !patch.chNoMem });
     // 频道自己的面具：null＝跟空间那张（清掉 gs.maskId），否则单独挑一张
     if (patch.maskOwn !== undefined) saveGroupSettingsRaw(g.id, { maskId: patch.maskOwn == null ? null : String(patch.maskOwn || "") });
