@@ -24,7 +24,7 @@ test("旁观频道不露她：机器人和欢迎只往非旁观频道贴，一�
   assert.match(ap, /gListenHint = group && group\.spaceId && group\.chListen && !groupSpectating\(group\)/);
   assert.match(ap, /L0 = spect \? null : chListenOf\(activeGroup\.id\)/);
   assert.match(ap, /filter\(x => !\(x && x\.by === "me" && chSpectId\(x\.gid\)\)\)/);
-  assert.match(ap, /groupSpectating\(g\) \? \[\] : added\.filter/);
+  assert.match(ap, /_priv \? \[\] : added\.filter/);
   assert.match(cs, /!_gSpect \? \[\["chain"/);
   assert.match(cs, /members\.length && !_gSpect \? \[\["whisper"/);
 });

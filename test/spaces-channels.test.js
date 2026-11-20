@@ -64,7 +64,7 @@ test("频道空间能改名、加人、踢人：名片点进设置页，改名�
   const i = ap.indexOf("const saveSpace = ");
   const body = ap.slice(i, ap.indexOf("const deleteSpace = ", i));
   assert.match(body, /renameGroup\(g\.id, channelGroupName\(\{ name \}, g\.chName\)\)/);
-  assert.match(body, /filter\(id => !gone\.includes\(id\)\)\.concat\(groupSpectating\(g\) \? \[\] : added/);
+  assert.match(body, /filter\(id => !gone\.includes\(id\)\)\.concat\(_priv \? \[\] : added/);
   assert.match(ap, /onSaveSpace: patch => saveSpace\(sp, patch\)/);
 });
 test("频道可以不互通：chSolo 的频道看不到别处，别处也看不到它", () => {
@@ -122,4 +122,11 @@ test("头像：空间头像存在空间上、频道头像就是群头像那一�
   assert.match(cs, /chHours: night, avatarImage: chAv \|\| null \}/);
   assert.match(cs, /g\.avatarImage \? h\("span", \{ "data-wk": "mlavatar", "data-part": "channel"/);
   assert.match(ap, /patch\.avatarImage !== undefined \? \{ avatarImage: patch\.avatarImage \|\| null \}/);
+});
+test("往空间加人不往私下的频道里塞：旁观、不互通、不影响记忆的频道都跳过", () => {
+  const ap = require("fs").readFileSync(__dirname + "/../js/app.js", "utf8");
+  const i = ap.indexOf("const saveSpace = ");
+  const body = ap.slice(i, ap.indexOf("toast(added.length", i));
+  assert.match(body, /const _priv = groupSpectating\(g\) \|\| !!g\.chSolo \|\| channelNoMem\(g\.id\);/);
+  assert.match(body, /concat\(_priv \? \[\] : added\.filter/);
 });

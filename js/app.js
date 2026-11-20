@@ -19383,9 +19383,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     (groups || []).filter(g => g && g.spaceId === sp.id).forEach(g => {
       if (name !== sp.name) renameGroup(g.id, channelGroupName({ name }, g.chName));
       if (added.length || gone.length) {
-        // 旁观频道是他们几个背着人的私聊：新人不往里塞，踢掉的照样拿出去
-        let m = (g.memberIds || []).filter(id => !gone.includes(id)).concat(groupSpectating(g) ? [] : added.filter(id => !(g.memberIds || []).includes(id)));
-        if (!m.length) m = groupSpectating(g) ? (g.memberIds || []) : now.slice();
+        // 私下的频道不往里塞新人：旁观的、不互通的、不影响记忆的（她 2026-11-20：「我和双胞胎谈恋爱的三人群放进频道会不会翻车」）——
+        //   要谁进去，她自己去那个频道「⋯」里勾；踢掉的照样拿出去
+        const _priv = groupSpectating(g) || !!g.chSolo || channelNoMem(g.id);
+        let m = (g.memberIds || []).filter(id => !gone.includes(id)).concat(_priv ? [] : added.filter(id => !(g.memberIds || []).includes(id)));
+        if (!m.length) m = _priv ? (g.memberIds || []) : now.slice();
         updateGroup(g.id, { memberIds: m });
       }
     });

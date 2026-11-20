@@ -23504,7 +23504,7 @@ function SpaceEditPage({ space, pool, onSave, onDelete, nChannels, onClose, onSu
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, aiTitles ? "开着：每周多一次调用。" : "关着：只发自动算的那几个，上面写的先存着不评。")),
         h(Toggle, { on: aiTitles, onChange: setAiTitles, color: t.accent })) : null),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 4 } }, "谁在这儿（" + sel.length + "）"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "新勾上的人会进每一个频道；取消勾选就是踢出去，所有频道里都没有他了，他以前说过的话还留着。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "新勾上的人会进每一个普通频道（不互通、不影响记忆、旁观的频道不会自动拉人，要谁进去去那个频道的「⋯」里勾）；取消勾选就是踢出去，所有频道里都没有他了，他以前说过的话还留着。"),
     (pool || []).map(c => { const on = sel.includes(c.id); return h("button", { key: c.id, "data-wk": "spacepick", "data-on": on ? "1" : "0", onClick: () => toggle(c.id), className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "9px 0", borderBottom: "1px solid " + t.line } },
       h(Avatar, { character: c, size: 34, radius: 8 }),
       h("span", { className: "flex-1 text-left truncate", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name),
