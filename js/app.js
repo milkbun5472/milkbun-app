@@ -17001,6 +17001,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (chpCount(st, "note") < CHP_CAP.note) can.push("\"note\":{\"text\":\"往墙上贴一张便利贴\"}");
         can.push("\"scribble\":{\"on\":\"墙上那张便利贴里的一小段\",\"text\":\"在上面写一句\"}、\"tear\":{\"quote\":\"…\"}——撕的是自己的，或者贴了一天以上的");
         if (chpCount(st, "song") < CHP_CAP.song) can.push("\"song\":{\"title\":\"歌名\",\"artist\":\"歌手\"}——往频道歌单里加一首");
+        if (window.__chAskSongs === groupId) { window.__chAskSongs = null; can.push("她刚才想让大家各往歌单里放一首自己想听的：这一轮谁想放，就用上面的 song 写进去，可以顺嘴说一句为什么挑这首"); }
         if (st.playlist.length) can.push("\"skip\":{\"title\":\"歌单里那首的歌名\"}——投票想切掉它");
         can.push("\"ledger\":{\"payer\":\"谁付的钱\",\"amount\":数字,\"for\":\"买了什么\",\"among\":[\"这笔钱算在谁头上（名字）\"]}、\"settle\":{\"from\":\"欠钱的人\",\"to\":\"收钱的人\"}——频道里的小账本，不碰谁的钱包");
         if (st.pet) can.push("\"care\":{\"action\":\"浇水/喂食/陪它玩\"}——照顾频道里养着的「" + st.pet.name + "」，每人一天一次");
@@ -39309,6 +39310,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   if (screen === "gthread" && activeGroup && activeGroup.spaceId && ["files", "wall", "songs", "ledger", "pet"].includes(channelTab)) {
     const _g = activeGroup, _fk = "x_chfiles:" + _g.id;
     body = h(ChannelFilesPage, { key: "chf:" + _g.id, rev: chFilesRev, group: _g, files: loadJSON(_fk, []), playTab: channelTab === "files" ? null : channelTab,
+      // 歌单：从她的歌库挑、点「放这首」走播放器；「让他们各挑一首」＝回聊天跑一轮，提示里说她想让大家各放一首（她 2026-11-20）
+      myLib: ((listenRef.current || {}).songs || []).filter(x => x && x.title).map(x => ({ id: x.id, title: x.title, artist: x.artist || "" })),
+      onPlaySong: x => { const L = listenRef.current || {}; const song = (L.songs || []).find(y => y && y.title === x.title); if (song) playSong(song); },
+      onAskSongs: groupSpectating(_g) ? null : () => { window.__chAskSongs = _g.id; setChannelTab("chat"); replyGroup(_g.id); },
       // 墙、歌单、账本、养的（她 2026-11-20）：这个频道那一份 x_chplay
       play: (chPlayRev, chpOf(_g.id)), onPlay: fn => { const s2 = fn(chpOf(_g.id)) || chpOf(_g.id); chpPut(_g.id, s2); },
       people: (_g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => ({ id: c.id, name: c.remark || c.name })),

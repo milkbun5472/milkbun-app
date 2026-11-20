@@ -48,3 +48,10 @@ test("接线：回复里的字段落地、提示词带着摆着的东西；顶�
   assert.doesNotMatch(ap, /h\(ChannelListenBar, \{/);
   assert.match(ap, /onReact: activeGroup\.spaceId && !groupSpectating\(activeGroup\)/);
 });
+test("歌单能从她的歌库挑、点「放这首」走播放器、「让他们各挑一首」回聊天跑一轮", () => {
+  const fs = require("fs"), ap = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cs = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.match(cs, /"data-wk": "chsonglib"/);
+  assert.match(cs, /"data-wk": "chsongask"/);
+  assert.match(ap, /onAskSongs: groupSpectating\(_g\) \? null : \(\) => \{ window\.__chAskSongs = _g\.id; setChannelTab\("chat"\); replyGroup\(_g\.id\); \}/);
+  assert.match(ap, /if \(window\.__chAskSongs === groupId\) \{ window\.__chAskSongs = null;/);
+});

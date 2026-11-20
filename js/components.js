@@ -23217,7 +23217,8 @@ function ChannelListenBar({ song, by, playing, onStop }) {
 }
 // 墙、歌单、账本、养的（她 2026-11-20「1-7都可以做」）：文件页里跟文档图片并排的四样；数据是这个频道那一份 x_chplay，
 //   onPlay(fn) 交回改好的那份。旁观的频道只能看，不能动（她不在场）
-function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people }) {
+function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, onPlaySong, onAskSongs }) {
+  const [libOpen, setLibOpen] = useState(false);   // 从我的歌里挑（她 2026-11-20「歌单怎么没有选播放器里面的」）
   const t = useTheme();
   const [form, setForm] = useState({});
   const st = play || {}, nm = id => id === "me" ? "我" : ((nameOf && nameOf(id)) || id || "有人");
@@ -23239,11 +23240,20 @@ function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people }) {
   if (sub === "songs") { const present = Math.max(1, (people || []).length);
     return wrap(
       spectate ? null : h("button", { "data-wk": "chsongadd", onClick: () => requestAppPrompt("往歌单里加一首", "写歌名，后面可以空一格写歌手。", "", v => { const x = String(v || "").trim(); if (!x) return; const [ti, ...ar] = x.split(/\s+/); onPlay(s0 => chpSongAdd(s0, ti, ar.join(" "), "me")); }, "加进去"), className: "active:opacity-60", style: { ...btn, marginBottom: 10 } }, "加一首"),
-      h("div", { style: { ...small, marginBottom: 10 } }, "大家一起往里塞歌；开着一起听时，谁嫌难听会投票切歌，一半以上的人想切就会提醒你。"),
+      !spectate ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 10 } },
+        (myLib || []).length ? h("button", { "data-wk": "chsonglib", onClick: () => setLibOpen(v => !v), className: "active:opacity-60", style: btn }, libOpen ? "收起我的歌" : "从我的歌里挑") : null,
+        onAskSongs ? h("button", { "data-wk": "chsongask", onClick: onAskSongs, className: "active:opacity-60", style: btn }, "让他们各挑一首") : null) : null,
+      libOpen ? h("div", { "data-wk": "chsonglist", style: { ...card, maxHeight: 260, overflowY: "auto", marginBottom: 10 } }, (myLib || []).slice(0, 200).map(x => {
+        const inList = (st.playlist || []).some(y => y.title === x.title);
+        return h("button", { key: x.id || x.title, disabled: inList, onClick: () => onPlay(s0 => chpSongAdd(s0, x.title, x.artist || "", "me")), className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { display: "block", padding: "7px 0", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } },
+          "《" + x.title + "》" + (x.artist ? " - " + x.artist : "") + (inList ? "　已在歌单" : "")); })) : null,
+      h("div", { style: { ...small, marginBottom: 10 } }, "大家一起往里塞歌；开着一起听时，谁嫌难听会投票切歌，一半以上的人想切就会提醒你。歌单里你的歌库有的那首，点「放这首」就在播放器里放。"),
       (st.playlist || []).length ? st.playlist.slice().reverse().map(x => h("div", { key: x.title, "data-wk": "chsong", style: card },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "《" + x.title + "》" + (x.artist ? " - " + x.artist : "")),
         h("div", { className: "flex items-center justify-between", style: { ...small, marginTop: 3 } }, nm(x.by) + " 加的" + ((x.skip || []).length ? " · " + x.skip.map(nm).join("、") + " 想切" : ""),
-          tap("拿掉", () => onPlay(s0 => { s0.playlist = s0.playlist.filter(y => y.title !== x.title); return s0; }))),
+          h("span", { className: "flex items-center", style: { gap: 10 } },
+            onPlaySong && (myLib || []).some(y => y.title === x.title) ? tap("放这首", () => onPlaySong(x)) : null,
+            tap("拿掉", () => onPlay(s0 => { s0.playlist = s0.playlist.filter(y => y.title !== x.title); return s0; })))),
         chpSkipDue(x, present) ? h("div", { style: { ...small, color: t.tint, marginTop: 3 } }, "大家投票切歌了") : null)) : h("div", { style: small }, "歌单还是空的。")); }
   if (sub === "ledger") { const bal = chpBalances(st.ledger || []), who = [{ id: "me", name: "我" }].concat(people || []);
     const f = form, setF = p => setForm(x => ({ ...x, ...p }));
@@ -23386,7 +23396,7 @@ function ChfImagePage({ file, nameOf, onRename, onDesc, onDelete, onClose, onRec
       h("button", { "data-wk": "chfdelete", onClick: () => requestAppConfirm("删掉「" + file.name + "」？", "这张图从频道文件里删掉，删了找不回来。", onDelete, "删掉"), className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#c0453a" } }, "删掉")));
 }
 // 文件那一页：顶栏同聊天那页（频道名），底下索引签，再下面一列文件
-function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, openId, onOpened, msgs, spectate, whoOf, onJump, onRecall, play, onPlay, people, playTab }) {
+function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, openId, onOpened, msgs, spectate, whoOf, onJump, onRecall, play, onPlay, people, playTab, myLib, onPlaySong, onAskSongs }) {
   const t = useTheme();
   const [open, setOpen] = useState(null);
   const [sub, setSub] = useState("doc");   // 文档｜图片
@@ -23419,7 +23429,7 @@ function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, op
         style: { minHeight: 36, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sub === k ? t.ink : t.fog, borderBottom: "2px solid " + (sub === k ? t.ink : "transparent"), background: "transparent" } }, zh)))];
   if (play && playTab) return h("div", { "data-wk": "chfpage", "data-part": playTab, className: "h-full flex flex-col", style: { background: t.bg2 || t.bg } },
     h(Head, { zh: group.chName ? "#" + group.chName : group.name, sub: ({ wall: "墙", songs: "歌单", ledger: "账本", pet: "养的" })[playTab], onBack }), h(ChannelTabs, { tab: playTab, onTab }),
-    h(ChannelPlayView, { sub: playTab, play, onPlay, nameOf, spectate, people }));
+    h(ChannelPlayView, { sub: playTab, play, onPlay, nameOf, spectate, people, myLib, onPlaySong, onAskSongs }));
   return h("div", { "data-wk": "chfpage", className: "h-full flex flex-col", style: { background: t.bg2 || t.bg } }, ...pageTop,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { background: t.bg, paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" } },
       h("div", { className: "flex flex-wrap gap-2", style: { padding: "14px 14px 6px" } },
