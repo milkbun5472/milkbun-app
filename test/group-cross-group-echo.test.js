@@ -6,7 +6,7 @@ test("群里每个人也带着他在别的互通群最近聊的：按时间窗�
   assert.match(body, /otherGroups && c\.name \+ " 在别的群里最近聊的/);
   const j = app.indexOf("const crossRecentFor = (charId, opts = {}) => {"), cr = app.slice(j, app.indexOf("\n  };", j));
   assert.match(cr, /if \(surfaces\.includes\("group"\)\)/);
-  assert.match(cr, /g\.id === opts\.excludeGroup \|\| !gsFor\(g\.id\)\.memoryInterop/);
+  assert.match(cr, /g\.id === opts\.excludeGroup \|\| \(opts\.excludeGroups && opts\.excludeGroups\.includes\(g\.id\)\) \|\| !groupFlowsTo\(g, charId\)/);
   assert.match(app, /spectate: !imInGroup\(group\) \|\| !!gs\.spectate, groupId: group\.id, parallel: _gPar \}\)/);
 });
 

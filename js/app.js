@@ -7703,7 +7703,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return t ? "『你在的群里最近聊的（带时间和群名，和你俩私聊按真实先后顺序理解）』\n" + t : ""; })(),
     // 群线下回显（v50.66）：这个角色参加过的群线下(大家面对面)最近片段，带时间戳，让单聊接得上"刚一起线下相处过"。
     //   只互通群 + 该角色在场；群线下是共同经历、非私密，无需 own-scope 遮蔽。
-    groupOfflineEcho: (groups || []).filter(g => gsFor(g.id).memoryInterop && (g.memberIds || []).includes(char.id)).map(g => {
+    // 审计 #7：挑的是最近线下过的两个群（不是数组里前两个），两个群合用一份预算；能不能流过来走 groupFlowsTo
+    groupOfflineEcho: (() => { let _left = memCfgRef.current.crossBudget || 800;
+      const _lastOff = g => Math.max(0, ...((groupOfflinesRef.current[g.id] || []).map(s => Number((s && (s.endTs || s.startTs)) || 0))));
+      return (groups || []).filter(g => g && (g.memberIds || []).includes(char.id) && groupFlowsTo(g, char.id) && !groupSpectating(g)).sort((a, b) => _lastOff(b) - _lastOff(a)).slice(0, 2).map(g => {
       const crossMs = (memCfgRef.current.crossHours || 72) * 3600000;
       const cutoff = Date.now() - crossMs;
       const msgs = [];
@@ -7712,10 +7715,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       msgs.sort((a, b) => (a.ts || 0) - (b.ts || 0));
       const others = (g.memberIds || []).filter(id => id !== char.id).map(id => { const c = characters.find(x => x.id === id); return c ? c.name : null; }).filter(Boolean);
       // 字符预算封顶（走 crossBudget 拉条）：从近往回收
-      const budget = memCfgRef.current.crossBudget || 800; const picked = []; let used = 0;
-      for (let i = msgs.length - 1; i >= 0; i--) { const m = msgs[i]; const ln = (aiStampFor(char.id, m.ts) ? "[" + aiStampFor(char.id, m.ts) + "] " : "") + (m.role === "narration" ? "【场景】" : (m.role === "user" ? userName(profile) : (m.senderName || "某人")) + "：") + String(m.content).replace(/\s+/g, " ").slice(0, 70); if (used + ln.length > budget && picked.length) break; used += ln.length + 1; picked.push(ln); }
+      const budget = _left; const picked = []; let used = 0;
+      for (let i = msgs.length - 1; i >= 0; i--) { const m = msgs[i]; const ln = (aiStampFor(char.id, m.ts) ? "[" + aiStampFor(char.id, m.ts) + "] " : "") + (m.role === "narration" ? "【场景】" : (m.role === "user" ? herNameIn(g.id) : (m.senderName || "某人")) + "：") + String(m.content).replace(/\s+/g, " ").slice(0, 70); if (used + ln.length > budget && picked.length) break; used += ln.length + 1; picked.push(ln); }
+      _left = Math.max(0, _left - used);
       return "『群「" + g.name + "」多人线下" + (others.length ? "（在场还有 " + others.join("、") + "）" : "") + "』\n" + picked.reverse().join("\n");
-    }).filter(Boolean).slice(0, 2).join("\n\n"),
+    }).filter(Boolean).join("\n\n"); })(),
     // 单人线上 + 正在进行的单人线下，是同一条按真实时间排序的临时上下文。
     // 只在生成 prompt 时合流，不互相写入存档；已结束线下仍由 offlinelog/记忆承接。
     // engineerEyes 保持专线，不参与这套普通角色合流。
@@ -10159,7 +10163,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       out.push({ key: m.id || ("m" + m.ts), m, who: c.remark || c.name, session: mine.find(x => x && x.startTs === m.startTs) || null, sessions: mine, char: c });
     });
     (groupsRef.current || []).forEach(g => {
-      if (!g || !(g.memberIds || []).includes(charId) || !gsFor(g.id).memoryInterop) return;
+      if (!g || !(g.memberIds || []).includes(charId) || !gsFor(g.id).memoryInterop || !groupFlowsTo(g, charId)) return;
       const list = groupOfflinesRef.current[g.id] || loadJSON("x_goffline:" + g.id, []) || [];
       (groupChatsRef.current[g.id] || []).forEach(m => {
         if (!m || m.kind !== "datememory" || !m.place) return;
@@ -10246,12 +10250,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!rows.length) return rows;
     const first = rows[0].ts || 0;
     const marks = (groupOfflinesRef.current[groupId] || []).filter(x => x && x.endTs && Number(x.endTs) > first && (x.msgs || []).length)
-      .map(x => ({ role: "narration", content: "（这之间大家线下见过一面：" + fmtStampAI(x.startTs || x.endTs, char.id) + " 到 " + fmtStampAI(x.endTs, char.id) + "，已经结束了" + (x.summary ? "；经过：" + String(x.summary).replace(/\s+/g, " ").slice(0, 200) : "") + "）", ts: Number(x.endTs) }));
+      .map(x => ({ role: "narration", content: "（这之间大家线下见过一面：" + fmtStampAI(x.startTs || x.endTs, "g:" + groupId) + " 到 " + fmtStampAI(x.endTs, "g:" + groupId) + "，已经结束了" + (x.summary ? "；经过：" + String(x.summary).replace(/\s+/g, " ").slice(0, 200) : "") + "）", ts: Number(x.endTs) }));
     return rows.concat(marks).sort((a, b) => (a.ts || 0) - (b.ts || 0));
   };
   // 统一「跨情境近况流」(v50.66，她要四个情境带时间戳互看、按真实顺序衔接)：某角色最近在【单聊线上 + 单人线下】
   //   发生的原话 beats，合并→每条打 [时间·场景]→按真实 ts 排序→字符预算封顶（从近往回收）。
   //   供群线下(每成员各注入自己那份、守 own-chat-only 隐私)等场景衔接刚在别处发生的细节。
+  // 这个群的事能不能流到 viewer 那儿（审计 2026-11-20：不互通的频道、换了面具的群原来照样往单聊里漏，还带着她真名）。
+  //   只此一处判：开着互通、不是不互通的频道（只给这里的人的那种只给里面的人）、不是平行房间、面具对得上、不是藏起来的见面群（除非他在里面）
+  const groupFlowsTo = (g, viewerId) => {
+    if (!g || !gsFor(g.id).memoryInterop || g.parallel) return false;
+    const isMem = (g.memberIds || []).map(String).includes(String(viewerId));
+    if (g.chSolo && !(g.chShareMembers && isMem)) return false;
+    if (g.chHidden && !isMem) return false;
+    try { if (typeof groupMaskKey === "function" && typeof maskKeyOf === "function" && (groupMaskKey(g.id) || "") !== (maskKeyOf(viewerId) || "")) return false; } catch (e) {}
+    return true;
+  };
+  // 群里她叫什么：照这个群戴的那张面具
+  const herNameIn = gid => { try { const p = typeof groupProfileFor === "function" ? groupProfileFor(gid) : null; return (p && p.name) || userName(profile); } catch (e) { return userName(profile); } };
   const crossRecentFor = (charId, opts = {}) => {
     // 时间窗 + 字符预算走召回设置的拉条（crossHours / crossBudget），调用处不再写死；opts 仍可覆盖
     const budget = opts.budget || (memCfgRef.current.crossBudget || 800);
@@ -10277,7 +10293,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 他在的、开着互通的群（她 2026-10-27：「群聊带的应该是按时间上下文，不是限制条数」）——跟上面两样同一个时间窗、同一份字数预算。
     //   闭群不外流；正在说话的那个群（excludeGroup）自己有完整记录，不重复带
     if (surfaces.includes("group")) (groups || []).forEach(g => {
-      if (!g || g.id === opts.excludeGroup || !gsFor(g.id).memoryInterop || !(g.memberIds || []).includes(charId)) return;
+      if (!g || g.id === opts.excludeGroup || (opts.excludeGroups && opts.excludeGroups.includes(g.id)) || !groupFlowsTo(g, charId) || !(g.memberIds || []).includes(charId)) return;
+      const uNameG = herNameIn(g.id);
       // 她那时候在不在群里（她 2026-11-04：「之前在群里后来退出变旁观，或者反过来呢」）：照那几行「退出了群聊／拉进了群聊」逐条算，
       //   不是只看她现在在不在。没换过的群，就照现在的身份
       const _gl = groupChatsRef.current[g.id] || [];
@@ -10286,11 +10303,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       let _inNow = _first ? _first === "out" : !groupSpectating(g);
       _gl.forEach(m => {
         const _p = _pres(m); if (_p) { _inNow = _p === "in"; return; }
-        if (!m || m.recalled || !m.content || isOocMsg(m) || m.role === "system" || !contextAllowsMessage(m)) return;
+        // 只有图没有字的照片也算一句（审计 #10）；小频那种卡片不是谁说的话（#8）
+        const _txt = m && (m.content || (m.kind === "photo" ? "[照片" + (m.desc ? "：" + String(m.desc).slice(0, 60) : "") + "]" : ""));
+        if (!m || m.recalled || !_txt || isOocMsg(m) || m.role === "system" || m.kind === "spacebot" || !contextAllowsMessage(m)) return;
         if (sinceMs && (m.ts || 0) < sinceMs) return;
         // 悄悄话只进说的人和被说的人那儿
         if (m.whisper && m.senderId !== charId && m.toId !== charId) return;
-        beats.push({ ts: m.ts || 0, gid: g.id, surface: "群「" + g.name + "」" + (_inNow ? "" : "·她那时不在这个群里"), who: m.whisper ? "【悄悄话】" + (m.senderName || "某人") + " 小声对 " + (m.toId === charId ? "你" : (m.toName || "某人")) : m.role === "user" ? uName : m.role === "narration" ? "【旁白】" : (m.senderName || "某人"), text: String(m.content) });
+        beats.push({ ts: m.ts || 0, gid: g.id, surface: "群「" + g.name + "」" + (_inNow ? "" : "·她那时不在这个群里"), who: m.whisper ? "【悄悄话】" + (m.senderName || "某人") + " 小声对 " + (m.toId === charId ? "你" : (m.toName || "某人")) : m.role === "user" ? uNameG : m.role === "narration" ? "【旁白】" : (m.senderName || "某人"), text: String(_txt) });
       });
     });
     if (!beats.length) return "";
@@ -10486,7 +10505,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了
     directives: directives[group.id] || [],
     groupNotice: gsFor(group.id).notice || null,
-    spaceBlock: spaceChannelBlock(group && spaceSibs(group.id).find(x => x && x.id === group.id) || group, spaceSibs(group && group.id), id => groupChatsRef.current[id] || [], userName(profile), id => (((characters || []).find(c => c && String(c.id) === String(id)) || {}).name || "")) + (group && group.spaceId && group.chKind !== "meet" && !channelNoMem(group.id) && spaceMeetMaskOk(group) ? spaceMeetLine(group.spaceId) : ""),
+    spaceBlock: spaceChannelBlock(group && spaceSibs(group.id).find(x => x && x.id === group.id) || group, spaceSibs(group && group.id), id => groupChatsRef.current[id] || [], herNameIn(group.id), id => (((characters || []).find(c => c && String(c.id) === String(id)) || {}).name || "")) + (group && group.spaceId && group.chKind !== "meet" && !channelNoMem(group.id) && spaceMeetMaskOk(group) ? spaceMeetLine(group.spaceId) : ""),
     // 跨情境近况（v50.66）：每个成员各自最近在【单聊线上 + 单人线下】和用户之间发生的事，带时间戳，
     //   让群线下接得上刚在别处聊过的细节。own-chat-only：只带该成员自己那份，engine 侧再加隐私铁律(别的成员不知情)。
     memberRecent: _par ? [] : (group.memberIds || []).map(id => {
@@ -10494,7 +10513,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!c) return null;
       const own = (memSplit && memSplit.perChar[String(id)]) || [];
       const ownMem = own.length ? "记忆库里【只有 " + c.name + " 知道】的事：\n" + formatMemLib(own).trim() : "";
-      const lines = [ownMem, crossRecentFor(id)].filter(x => x && x.trim()).join("\n"); // 时间窗/预算走召回设置拉条
+      // 审计 #4：跟群线上同一条规矩——互通群带实时私聊；封闭群只带他入群前那一截私聊（不让外面实时的事流进来）
+      const _open = gsFor(group.id).memoryInterop;
+      const _pre = _open ? "" : (() => { const cut = groupCreatedTs(group); const before = (chatsRef.current[id] || []).filter(m => m && !m.recalled && !m.kind && m.content && (!cut || (m.ts || 0) < cut)).slice(-(gsFor(group.id).preJoinN == null ? 20 : Number(gsFor(group.id).preJoinN) || 0));
+        return before.length ? "【入群前和" + userName(profile) + "的私聊】\n" + before.map(m => (m.role === "user" ? userName(profile) : c.name) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 120)).join("\n") : ""; })();
+      const lines = [ownMem, _open ? crossRecentFor(id) : _pre].filter(x => x && x.trim()).join("\n"); // 时间窗/预算走召回设置拉条
       return lines ? { name: c.name, lines } : null;
     }).filter(Boolean),
     // 记忆分区：不互通的群是封闭空间，线下也不读全局记忆库（不让外部记忆流入）。
@@ -13877,7 +13900,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 只挑【最近有动静的那个共同群】，省得TA自己乱选；没有共同群就不开这个能力。
       // 同上：封闭群不收外面的话，别把私聊里的东西投进去
       const _gsFor = gid => { try { return (loadJSON("x_groupSettings", {}) || {})[gid] || {}; } catch (e) { return {}; } };
-      const _myGroups = (groups || []).filter(g => g && (g.memberIds || []).includes(char.id) && _gsFor(g.id).memoryInterop);
+      const _myGroups = (groups || []).filter(g => g && (g.memberIds || []).includes(char.id) && _gsFor(g.id).memoryInterop && groupFlowsTo(g, char.id) && !groupSpectating(g));
       const _gLast = g => { const arr = groupChatsRef.current[g.id] || []; return arr.length ? Number(arr[arr.length - 1].ts || 0) : 0; };
       const toGroupTarget = _myGroups.slice().sort((a, b) => _gLast(b) - _gLast(a))[0] || null;
       const TOGROUP_ODDS = 1 / 3;
@@ -17073,7 +17096,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return rows.length ? "\n\n【换个频道接着说】同一个地方还有别的频道。谁觉得接下来这段更该到另一个频道去说，就在他自己那条发言里加 \"hop\":{\"to\":\"频道名\",\"lines\":[\"他到那边说的话\"]}（一到四句）——他真的会去那个频道把这几句说出来，这边留一行他去了哪儿；不想去就不加。各人能去的：\n" + rows.join("\n") : "";
       })() : "";
       const gNoticeHint = groupNoticeBlock(gsFor(groupId).notice)
-        + spaceChannelBlock(spaceSibs(groupId).find(x => x && x.id === groupId), spaceSibs(groupId), id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), userName(profile), id => (((characters || []).find(c => c && String(c.id) === String(id)) || {}).name || ""))
+        + spaceChannelBlock(spaceSibs(groupId).find(x => x && x.id === groupId), spaceSibs(groupId), id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), herNameIn(groupId), id => (((characters || []).find(c => c && String(c.id) === String(id)) || {}).name || ""))
         + (group && group.spaceId && group.chKind !== "meet" && !channelNoMem(groupId) && !groupSpectating(group) && spaceMeetMaskOk(group) ? spaceMeetLine(group.spaceId) : "")
         + gSubHint + gLeaveHint + gLoungeHint;
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
@@ -23941,6 +23964,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   字数预算按拉条放宽：私聊每条约 200 字，再加跨情境那份预算
     const _pn = Number(opts.privateCtxN) || 0;
     const priv = opts.interop && _pn > 0 ? crossRecentFor(c.id, { surfaces: ["online", "offline", "group"], onlineN: _pn, excludeGroup: opts.groupId,
+      // 审计 #6：在频道里时，同一空间别的频道已经在公共那段「别的频道最近」里了，私密段不再带一遍
+      excludeGroups: (() => { if (typeof groupsRef === "undefined") return null; const _g0 = (groupsRef.current || []).find(x => x && x.id === opts.groupId); return _g0 && _g0.spaceId ? (groupsRef.current || []).filter(x => x && x.spaceId === _g0.spaceId).map(x => x.id) : null; })(),
       budget: (memCfgRef.current.crossBudget || 800) * 2 + _pn * 220 }) : "";
     const offBeats = "";
     // 前几次线下跟实时私聊同一道闸：封闭群、私聊窗口关成 0 的不带
