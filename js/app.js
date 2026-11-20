@@ -1874,6 +1874,9 @@ function App() {
   const [loungeSitting, setLoungeSitting] = useState(false);
   const loungeSitRef = useRef({});   // 每个挂机房上次「进去坐坐」的时间：半小时里只招呼一回
   const spacesRef = useRef([]); spacesRef.current = spaces;
+  // 挑「发到哪个群」的名单（groupPickList）在组件外头也要知道有哪些空间：转发那张单子在 components.js 里
+  if (typeof window !== "undefined") window.__spacesNow = spaces;
+  const pickGroupsOf = list => typeof groupPickList === "function" ? groupPickList(list, spaces, typeof vclockNow === "function" ? vclockNow() : new Date()) : list;
   const [spaceGemRev, setSpaceGemRev] = useState(0);   // 精华墙改了就重读（x_spaceGems:<空间id>）
   const [spaceDigestRev, setSpaceDigestRev] = useState(0);   // 「刚才他们聊了」那张卡改了就重读
   const [newSpaceOpen, setNewSpaceOpen] = useState(false);
@@ -37098,7 +37101,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 他关注了谁（互关的第 3 条）：回关了你就有你；再加上跟他有关系的那几个角色（有号的才算），只列名字
     followingOf: cid => ((characters || []).filter(x => x.id !== cid && !x.npc && (rels[cid + "->" + x.id] || rels[x.id + "->" + cid])).map(x => x.name)).slice(0, 12),
     pms: (forumPMs || []).filter(t => pmAcctOf(t) === pmAcctNow()),
-    groups: groups,
+    groups: pickGroupsOf(groups),
     gen: gen,
     forumMe: forumMe,
     // 按面具发帖：主面具＋别的面具，挑哪张就用哪张的名字头像发
@@ -37156,7 +37159,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // ⚠️购物这一屏里【她本人要当场做事】：送礼要把东西递到人手上、代付要开口请人付钱。
     //   旁观群里她根本不在场（她 2026-09-10：「旁观群可以去掉，因为我都不在场」），
     //   所以名单在这儿就滤掉——滤在这一处，送礼和代付两屏一起对，不用各滤一遍。
-    groups: groups.filter(imInGroup),
+    groups: pickGroupsOf(groups.filter(imInGroup)),
     kinshipCards: kinshipCards,
     feed: shopFeed,
     busy: shopBusy,
@@ -37193,7 +37196,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     orders: peekMaskView() ? orders.filter(o => !(peekMaskView().mine != null && orderMaskOf(o) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : orders,
     log: peekMaskView() ? takeoutLog.filter(o => !(peekMaskView().mine != null && orderMaskOf(o) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : takeoutLog,
     characters: shopPeople,
-    groups: groups.filter(imInGroup),
+    groups: pickGroupsOf(groups.filter(imInGroup)),
     kinshipCards: kinshipCards,
     feed: takeoutFeed,
     busy: takeoutBusy,
@@ -37855,7 +37858,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return { id: c.id, name: c.name, persona: c.persona || "",
         note: (owner ? owner.name + " 身边的人" : "配角") + "；" + (c.knowsUser ? "也认识 " + userName(profile) : "不认识 " + userName(profile) + "，只认得 " + (owner ? owner.name : "台上那位")) };
     })),
-    groups: groups,
+    groups: pickGroupsOf(groups),
     profile: profile,
     worldbook: loreForContext("debate", [], ""),
     worldbookFor: (charIds, text) => loreForContext("debate", charIds, text),
@@ -38131,7 +38134,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onReplay: (charId, rec) => setZyWatch({ charId, testId: rec.testId, recId: rec.id, replay: true }),
     characters: liveChars, apiFor: apiFor, ctxFor: ctxFor, toast: toast, meName: userName(profile),
     // 两个角色意见不一样的那题丢进他俩都在的群（跟星测「发到群里」同一个口）：她发一条，群里的人照常接话
-    groups: groups,
+    groups: pickGroupsOf(groups),
     onShareToGroup: (gid, text) => { pGChat(gid, p => [...p, { role: "user", content: text, ts: Date.now() }]); toast("发到群里了"); try { replyGroup(gid, {}); } catch (e) {} },
     onBack: goHome,
     // 转发结果：她转过去的，算她发的；他从聊天记录里看得到
@@ -38156,7 +38159,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       openChatById(c.id);
     },
     // 群榜「发到群里」（她 2026-10-05）：她自己发一条，群里的人照常接话
-    groups: groups,
+    groups: pickGroupsOf(groups),
     onShareToGroup: (gid, text) => {
       pGChat(gid, p => [...p, { role: "user", content: text, ts: Date.now() }]);
       toast("发到群里了");
@@ -38676,7 +38679,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 于是「哪里能看见配角」永远是 grep 得出来的一小串，而不是散在各处。
     allChars: characters,
     profile: profile,
-    groups: groups,
+    groups: pickGroupsOf(groups),
     worldbook: loreForContext("creative", [], ""),
     worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     toast: toast,

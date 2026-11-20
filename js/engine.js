@@ -2624,6 +2624,28 @@ function thView(msgs) {
   return (msgs || []).map(m => m && m.role === "assistant" && m.senderId && map[String(m.senderId)] ? { ...m, senderName: "树洞 #" + map[String(m.senderId)], senderId: "th:" + map[String(m.senderId)], thAnon: true } : m);
 }
 // 深夜频道：hours = { from: 22, to: 5 }（整点），跨午夜也认；没设就是一直开着
+// 挑「发到哪个群」的名单（她 2026-11-20「全app里能转发到群的是不是也得接一个能转发到频道」）：
+//   转发、送礼、外卖代付、塔罗/同人/辩论分享……凡是挑一个群当去处的，都过这一份。
+//   频道就是挂着 spaceId 的群，照样能去；归档的、这会儿没到点开的不列。普通群在前，频道按空间排在后面，
+//   名字写成「#频道 · 空间名」，pickSpace 留给要分段显示的那几处。传进来的是群本身的浅拷贝，id 不变，发过去走的还是那个群。
+function groupPickList(groups, spaces, now) {
+  const sp = Array.isArray(spaces) ? spaces : [];
+  const t = now || new Date();
+  const plain = [], chans = [];
+  (groups || []).forEach(g => {
+    if (!g) return;
+    if (!g.spaceId) { plain.push(g); return; }
+    if (g.chArchived) return;
+    if (g.chHours && typeof chHoursOpen === "function" && !chHoursOpen(g.chHours, t)) return;
+    const s = sp.find(x => x && x.id === g.spaceId);
+    if (!s) return;
+    chans.push({ ...g, name: "#" + (g.chName || g.name || "频道") + " · " + (s.name || "频道"), pickSpace: s.name || "频道", pickSpaceAvatar: s.avatarImage || "" });
+  });
+  const order = id => { const i = sp.findIndex(x => x && x.id === id); return i < 0 ? 1e9 : i; };
+  chans.sort((a, b) => (order(a.spaceId) - order(b.spaceId)) || ((a.chOrder || 0) - (b.chOrder || 0)) || ((a.createdTs || 0) - (b.createdTs || 0)));
+  return plain.concat(chans);
+}
+if (typeof window !== "undefined") window.groupPickList = groupPickList;
 function chHoursOpen(hours, date) {
   if (!hours || hours.from == null || hours.to == null) return true;
   const h = (date || new Date()).getHours(), f = Number(hours.from), t = Number(hours.to);

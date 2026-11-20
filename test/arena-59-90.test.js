@@ -318,7 +318,7 @@ test("分享：单聊和群聊都能发；走聊天记录卡，正文是整场�
   assert.match(app, /v\.best && v\.best\.quote \? "\\n【最狠的那一句】"/);
   assert.match(app, /"\\n\\n（还没收台）"/, "没收台就分享的话，得说清这是半场");
   // 接线：groups 和两个回调都传下去了
-  assert.match(app, /groups: groups,[\s\S]{0,400}onShareToChat: shareArenaToChat,\n\s*onShareToGroup: shareArenaToGroup,/);
+  assert.match(app, /groups: (?:pickGroupsOf\(groups\)|groups),[\s\S]{0,400}onShareToChat: shareArenaToChat,\n\s*onShareToGroup: shareArenaToGroup,/);
   assert.match(dbt, /groups: props\.groups,[\s\S]{0,240}onShareToChat: props\.onShareToChat, onShareToGroup: props\.onShareToGroup,/);
   // 面板：居中框，不是半窗（no-half-sheet.md）
   assert.match(dbt, /const sharePanel = shareOpen && typeof CenterCard === "function" \? h\(CenterCard/);

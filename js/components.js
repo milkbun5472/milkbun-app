@@ -16278,9 +16278,17 @@ function ChatForwardCard({ m, isU, onOpen }) {
       h("div", { className: "px-3.5 py-2", style: { borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, (m.forward && m.forward.label) || "聊天记录")));
 }
 // 点开看全部
+// 挑群名单里那一格头像：群／频道设了头像就用，频道没设用空间的，都没有就是「👥」（频道是「#」）
+function groupPickFace(g, size, t) {
+  const img = g && (g.avatarImage || g.pickSpaceAvatar);
+  if (img) return h(Avatar, { character: { name: g.name || "群", avatarImage: img }, size: size || 34, radius: 7 });
+  return h("div", { "data-wk": "block", style: { width: size || 34, height: size || 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: t.sub } }, g && g.spaceId ? "#" : "👥");
+}
 // 转发给谁（单聊、群聊共用一份）：点一行勾上／取消，可以勾好几个；底下「发送」一起发（她 2026-11-04）
-function ForwardPickSheet({ chars, groups, mode, setMode, onClose, onSend }) {
+function ForwardPickSheet({ chars, groups: groups0, mode, setMode, onClose, onSend }) {
   const t = useTheme();
+  // 频道也是去处（她 2026-11-20）：名单过公共那一份 groupPickList——归档的、没到点的不列，频道排在普通群后面、写成「#频道 · 空间名」
+  const groups = typeof groupPickList === "function" ? groupPickList(groups0, (typeof window !== "undefined" && window.__spacesNow) || [], typeof vclockNow === "function" ? vclockNow() : new Date()) : groups0;
   const [sel, setSel] = useState([]);
   const keyOf = d => d.type + ":" + d.id, on = d => sel.some(x => keyOf(x) === keyOf(d));
   const flip = d => setSel(l => on(d) ? l.filter(x => keyOf(x) !== keyOf(d)) : l.concat([d]));
@@ -16294,7 +16302,7 @@ function ForwardPickSheet({ chars, groups, mode, setMode, onClose, onSend }) {
       style: { minHeight: 34, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: mode === k ? t.bg2 : t.ink, background: mode === k ? t.ink : "transparent", border: "1px solid " + (mode === k ? t.ink : t.line) } }, zh))),
     h("div", { className: "space-y-1 max-h-72 overflow-y-auto" },
       (chars || []).map(c => row({ type: "chat", id: c.id }, h(Avatar, { character: c, size: 34, radius: 7 }), c.remark || c.name)),
-      (groups || []).map(g => row({ type: "group", id: g.id }, h("div", { "data-wk": "block", style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } }, "👥"), g.name)),
+      (groups || []).map(g => row({ type: "group", id: g.id }, groupPickFace(g, 34, t), g.name)),
       empty ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "12px 0" } }, "没有其他角色可转发") : null),
     empty ? null : h("button", { "data-wk": "fwdsend", onClick: () => sel.length && onSend(sel), disabled: !sel.length, className: "w-full active:opacity-70 disabled:opacity-40",
       style: { marginTop: 12, minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, sel.length ? "发送给 " + sel.length + " 个" : "先勾上要发给谁"));
