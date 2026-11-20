@@ -59,7 +59,7 @@ test("文件页渲染：索引签、三个按钮、一行一个文件", () => {
   // 文档｜图片分两栏（她 2026-11-20）：文档那栏只列文档，图片去图片栏
   assert.equal(wk("chfrow").length, 1);
   assert.equal(wk("chfsubtab").length, 2);
-  assert.equal(wk("chtab").length, 2);
+  assert.equal(wk("chtab").length, 6);   // 聊天 文件 墙 歌单 账本 养的（她 2026-11-20 提到上一级）
   assert.equal(wk("chtab").find(n => n.props["data-part"] === "files").props["data-on"], "1");
   assert.equal(wk("chfnew").length + wk("chfupimg").length + wk("chfuptxt").length, 3);
 });

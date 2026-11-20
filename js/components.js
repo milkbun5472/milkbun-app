@@ -23282,13 +23282,16 @@ function ChannelTabs({ tab, onTab, bg, right }) {
   const t = useTheme(), paper = bg || t.bg;
   const one = (k, zh) => { const on = tab === k;
     return h("button", { key: k, "data-wk": "chtab", "data-part": k, "data-on": on ? "1" : "0", onClick: () => !on && onTab(k), className: "active:opacity-70",
-      style: { position: "relative", flex: "0 0 auto", minWidth: 56, height: on ? 30 : 26, marginTop: on ? 0 : 4, padding: "0 12px", borderRadius: "8px 8px 0 0",
+      style: { position: "relative", flex: "0 0 auto", minWidth: 44, height: on ? 30 : 26, marginTop: on ? 0 : 4, padding: "0 12px", borderRadius: "8px 8px 0 0",
         background: on ? paper : "transparent", border: "1px solid " + (on ? t.line : "transparent"), borderBottom: "none",
         fontFamily: F_DISPLAY, fontSize: "calc(" + (on ? 13 : 12.5) + "px * var(--app-fs, 1))", color: on ? t.ink : t.fog, marginBottom: -1, zIndex: on ? 2 : 1 } },
       zh,
       k === "files" ? h("span", { "aria-hidden": "true", style: { position: "absolute", top: -1, right: -1, width: 8, height: 8, background: "linear-gradient(225deg, " + (t.bg2 || t.bg) + " 50%, " + t.line + " 50%)", borderTopRightRadius: 8 } }) : null); };
+  // 墙、歌单、账本、养的提到这一排（她 2026-11-20「除了文档和图片全部都放上面一级」）；签多了就横着滑，右边那串小签照旧
   return h("div", { "data-wk": "chtabs", className: "shrink-0 flex items-end", style: { gap: 2, height: 38, padding: "4px 10px 0", borderBottom: "1px solid " + t.line, position: "relative", zIndex: 2 } },
-    one("chat", "聊天"), one("files", "文件"), right ? h("div", { className: "min-w-0 flex items-center", style: { marginLeft: "auto", alignSelf: "center", gap: 6, paddingBottom: 3 } }, right) : null);
+    h("div", { className: "flex items-end overflow-x-auto", style: { gap: 2, minWidth: 0, flex: "0 1 auto", scrollbarWidth: "none" } },
+      one("chat", "聊天"), one("files", "文件"), one("wall", "墙"), one("songs", "歌单"), one("ledger", "账本"), one("pet", "养的")),
+    right ? h("div", { className: "min-w-0 flex items-center", style: { marginLeft: "auto", alignSelf: "center", gap: 6, paddingBottom: 3 } }, right) : null);
 }
 // 聊天页那一行：矮索引签＋右边那串小签（给一个就摆一个），open 是当前摊开的那一样，摊开的盖在聊天上面、不往下挤
 function ChannelTopRow({ onTab, listen, pins, notice, pet, spectate, onJumpPin, onUnpin, onCare }) {
@@ -23383,7 +23386,7 @@ function ChfImagePage({ file, nameOf, onRename, onDesc, onDelete, onClose, onRec
       h("button", { "data-wk": "chfdelete", onClick: () => requestAppConfirm("删掉「" + file.name + "」？", "这张图从频道文件里删掉，删了找不回来。", onDelete, "删掉"), className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#c0453a" } }, "删掉")));
 }
 // 文件那一页：顶栏同聊天那页（频道名），底下索引签，再下面一列文件
-function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, openId, onOpened, msgs, spectate, whoOf, onJump, onRecall, play, onPlay, people }) {
+function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, openId, onOpened, msgs, spectate, whoOf, onJump, onRecall, play, onPlay, people, playTab }) {
   const t = useTheme();
   const [open, setOpen] = useState(null);
   const [sub, setSub] = useState("doc");   // 文档｜图片
@@ -23409,13 +23412,14 @@ function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, op
   // 墙、歌单、账本、养的（她 2026-11-20「1-7都可以做」）：跟文档图片并排的几样，内容在 ChannelPlayView
   const pageTop = [
     h(Head, { zh: group.chName ? "#" + group.chName : group.name, sub: "频道文件 · " + (list.length + gallery.length), onBack }),
-    h(ChannelTabs, { tab: "files", onTab }),
+    h(ChannelTabs, { tab: playTab || "files", onTab }),
     // 文档｜图片：一条细横线上两个字，选中那个下面压一笔，跟上面那排索引签分得开
     h("div", { "data-wk": "chfsub", className: "flex overflow-x-auto", style: { gap: 22, padding: "10px 18px 0", background: t.bg, borderBottom: "1px solid " + t.line } },
-      [["doc", "文档 · " + list.length], ["img", "图片 · " + gallery.length]].concat(play ? [["wall", "墙"], ["songs", "歌单"], ["ledger", "账本"], ["pet", "养的"]] : []).map(([k, zh]) => h("button", { key: k, "data-wk": "chfsubtab", "data-part": k, "data-on": sub === k ? "1" : "0", onClick: () => setSub(k), className: "active:opacity-60",
+      [["doc", "文档 · " + list.length], ["img", "图片 · " + gallery.length]].map(([k, zh]) => h("button", { key: k, "data-wk": "chfsubtab", "data-part": k, "data-on": sub === k ? "1" : "0", onClick: () => setSub(k), className: "active:opacity-60",
         style: { minHeight: 36, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: sub === k ? t.ink : t.fog, borderBottom: "2px solid " + (sub === k ? t.ink : "transparent"), background: "transparent" } }, zh)))];
-  if (play && ["wall", "songs", "ledger", "pet"].includes(sub)) return h("div", { "data-wk": "chfpage", className: "h-full flex flex-col", style: { background: t.bg2 || t.bg } }, ...pageTop,
-    h(ChannelPlayView, { sub, play, onPlay, nameOf, spectate, people }));
+  if (play && playTab) return h("div", { "data-wk": "chfpage", "data-part": playTab, className: "h-full flex flex-col", style: { background: t.bg2 || t.bg } },
+    h(Head, { zh: group.chName ? "#" + group.chName : group.name, sub: ({ wall: "墙", songs: "歌单", ledger: "账本", pet: "养的" })[playTab], onBack }), h(ChannelTabs, { tab: playTab, onTab }),
+    h(ChannelPlayView, { sub: playTab, play, onPlay, nameOf, spectate, people }));
   return h("div", { "data-wk": "chfpage", className: "h-full flex flex-col", style: { background: t.bg2 || t.bg } }, ...pageTop,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { background: t.bg, paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" } },
       h("div", { className: "flex flex-wrap gap-2", style: { padding: "14px 14px 6px" } },

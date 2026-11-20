@@ -39306,9 +39306,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast: toast
   });
   // 频道的「文件」那一页：顶栏、索引签跟聊天那页同一套，返回也回频道首页
-  if (screen === "gthread" && activeGroup && activeGroup.spaceId && channelTab === "files") {
+  if (screen === "gthread" && activeGroup && activeGroup.spaceId && ["files", "wall", "songs", "ledger", "pet"].includes(channelTab)) {
     const _g = activeGroup, _fk = "x_chfiles:" + _g.id;
-    body = h(ChannelFilesPage, { key: "chf:" + _g.id, rev: chFilesRev, group: _g, files: loadJSON(_fk, []),
+    body = h(ChannelFilesPage, { key: "chf:" + _g.id, rev: chFilesRev, group: _g, files: loadJSON(_fk, []), playTab: channelTab === "files" ? null : channelTab,
       // 墙、歌单、账本、养的（她 2026-11-20）：这个频道那一份 x_chplay
       play: (chPlayRev, chpOf(_g.id)), onPlay: fn => { const s2 = fn(chpOf(_g.id)) || chpOf(_g.id); chpPut(_g.id, s2); },
       people: (_g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => ({ id: c.id, name: c.remark || c.name })),
