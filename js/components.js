@@ -21373,6 +21373,10 @@ function GroupThread({
     setGroupPhotoImg("");
     setPhotoOpen(false);
   };
+  // 频道里名字旁边带一句他挂着的状态（她 2026-11-20「第二层我也想聊天里面能看到」）：只显示他现在那一句，淡淡的；树洞里不显示
+  const _stAll = group && group.spaceId && group.chKind !== "treehole" && typeof CHAR_STATUS_KEY !== "undefined" ? (loadJSON(CHAR_STATUS_KEY, {}) || {}) : null;
+  const gStatusTag = m => { const st = _stAll && m && m.senderId ? _stAll[m.senderId] : null, l = st && typeof charStatusLabel === "function" ? charStatusLabel(st) : "";
+    return l ? h("span", { "data-wk": "gstatus", style: { marginLeft: 5, color: t.fog, opacity: 0.8, fontSize: "calc(9.5px * var(--app-fs, 1))" } }, l.length > 12 ? l.slice(0, 12) + "…" : l) : null; };
   // 名字旁边挂个小牌子：群主、管理员；被禁言着的写「禁言中」
   const gRoleTag = m => {
     const id = m && (m.role === "user" ? "me" : m.senderId);
@@ -21824,7 +21828,7 @@ function GroupThread({
         marginBottom: 2,
         marginLeft: 2
       }
-    }, m.senderName, gRoleTag(m)), m.replyTo && h("div", {
+    }, m.senderName, gRoleTag(m), gStatusTag(m)), m.replyTo && h("div", {
       "data-wk": "quote", "data-me": isU ? "1" : "0", "data-from": quoteFromOf(messages, i, m) || undefined,
       style: {
         fontFamily: F_BODY,
@@ -23544,13 +23548,46 @@ function LoungePanel({ people, onSit, sitting, spectate }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 5, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.doing || "在这儿待着")))),
     spectate ? null : h("button", { "data-wk": "loungesit", disabled: sitting, onClick: onSit, className: "active:opacity-60", style: { marginTop: 6, minHeight: 34, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", opacity: sitting ? .5 : 1 } }, sitting ? "进去了…" : "进去坐坐"));
 }
+// 在线状态那颗小圆点：在线绿、离开黄、勿扰红、睡了月牙
+const PRESENCE_COLOR = { online: "#3fae6a", idle: "#e0a53a", dnd: "#d6544a", sleep: "#8a8fb3" };
+function PresenceDot({ p, size, ring }) {
+  if (!p) return null;
+  const z = size || 9;
+  return h("span", { "data-wk": "presdot", "data-part": p.k, title: p.zh, style: { position: "absolute", right: -1, bottom: -1, width: z, height: z, borderRadius: 999, background: p.k === "sleep" ? "transparent" : PRESENCE_COLOR[p.k], boxShadow: "0 0 0 2px " + (ring || "#fff"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: z, lineHeight: 1, color: PRESENCE_COLOR.sleep } }, p.k === "sleep" ? "☾" : null);
+}
+// 成员页：一人一行，圆点、名字、挂着的状态、此刻在哪；最上面是她自己那一句（所有空间共用）
+function SpaceMembersPage({ space, people, presence, statuses, herName, onMyStatus, onClose }) {
+  const t = useTheme();
+  const mine = (statuses || {}).me || {};
+  const [emo, setEmo] = useState(mine.emoji || "");
+  const [txt, setTxt] = useState(mine.text || "");
+  const lab = st => typeof charStatusLabel === "function" ? charStatusLabel(st) : ((st && st.text) || "");
+  const where = p => !p ? "" : p.k === "online" ? (p.where ? "在 #" + p.where : "在线") : p.k === "sleep" ? "睡了" : p.k === "dnd" ? "勿扰" + (p.what ? " · " + p.what : "") : "离开" + (p.what ? " · " + p.what : "");
+  return h(PageSheet, { onClose, zh: "成员", sub: space.name },
+    h("div", { "data-wk": "mystatus", style: { padding: "12px", background: t.bg2, borderRadius: 12, marginBottom: 16 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 8 } }, "我的状态（" + (herName || "我") + "，所有频道空间共用这一句，他们看得到）"),
+      h("div", { className: "flex items-center gap-2" },
+        h("input", { "data-wk": "input", value: emo, onChange: e => setEmo(e.target.value.slice(0, 4)), placeholder: "🙂", className: "outline-none text-center", style: { width: 46, minHeight: 40, borderRadius: 9, background: t.bg, border: "1px solid " + t.line, fontSize: 16 } }),
+        h("input", { "data-wk": "input", value: txt, onChange: e => setTxt(e.target.value.slice(0, 30)), placeholder: "挂一句", className: "flex-1 outline-none", style: { minHeight: 40, borderRadius: 9, padding: "0 10px", background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 16, color: t.ink } }),
+        h("button", { "data-wk": "mystatussave", onClick: () => onMyStatus && onMyStatus({ emoji: emo.trim(), text: txt.trim() }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 12px", borderRadius: 9, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "挂上"),
+        (mine.text || mine.emoji) ? h("button", { "data-wk": "mystatusclear", onClick: () => { setEmo(""); setTxt(""); onMyStatus && onMyStatus(null); }, className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "摘掉") : null)),
+    (people || []).map(c => { const p = (presence || {})[c.id], st = lab((statuses || {})[c.id]);
+      return h("div", { key: c.id, "data-wk": "memberrow", "data-part": p ? p.k : "", className: "flex items-center gap-3", style: { padding: "10px 0", borderBottom: "1px solid " + t.line } },
+        h("span", { style: { position: "relative", display: "inline-flex", flexShrink: 0 } }, h(Avatar, { character: c, size: 38, radius: 999 }), h(PresenceDot, { p, size: 11, ring: t.bg2 })),
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { className: "flex items-baseline gap-2" },
+            h("span", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: p ? PRESENCE_COLOR[p.k] : t.fog, flexShrink: 0 } }, where(p))),
+          st ? h("div", { "data-wk": "memberstatus", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 2 } }, st) : null)); }));
+}
 // 空间首页：Teams 那一屏——顶上一块空间名片（方头像、名字、几个人），底下一行一个频道
-function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf, onSuggestTitles }) {
+function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf, onSuggestTitles , presence, statuses, herName, onMyStatus}) {
   const t = useTheme();
   const [edit, setEdit] = useState(null);   // null | "new" | 频道那个群
   const [spEdit, setSpEdit] = useState(false);
   const [archOpen, setArchOpen] = useState(false);   // 归档那一摞默认折着
   const [gemOpen, setGemOpen] = useState(() => { try { if (window.__gemOpenFor === space.id) { window.__gemOpenFor = null; return true; } } catch (e) {} return false; });   // 精华墙那一页（「某某 把一句收进了精华」那一行点进来时直接开着）
+  const [memOpen, setMemOpen] = useState(false);   // 成员那一页（她 2026-11-20「每个人的状态」）
   const [adopt, setAdopt] = useState(false);   // 把已有的群放进来（她 2026-11-20「把现在的群聊收纳进去成为一个大服务器」）   // 空间本身：改名、加人、踢人（她 2026-11-20「加不了人踢不了人改不了名字」）
   const tone = spaceTone(space);
   const people = (space.memberIds || []).map(id => (allChars || []).find(c => c && c.id === id)).filter(Boolean);
@@ -23583,7 +23620,11 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
         h(SpaceTile, { sp: space, size: 46 }),
         h("div", { className: "flex-1 min-w-0" },
           h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, space.name),
-          h("div", { className: "flex items-center", style: { marginTop: 6 } }, people.slice(0, 8).map((c, i) => h("span", { key: c.id, style: { marginLeft: i ? -6 : 0, borderRadius: 999, boxShadow: "0 0 0 2px " + momPaper(t), display: "inline-flex" } }, h(Avatar, { character: c, size: 22, radius: 999 })))))),
+          h("div", { className: "flex items-center", style: { marginTop: 6 } }, people.slice(0, 8).map((c, i) => h("span", { key: c.id, style: { position: "relative", marginLeft: i ? -6 : 0, borderRadius: 999, boxShadow: "0 0 0 2px " + momPaper(t), display: "inline-flex" } }, h(Avatar, { character: c, size: 22, radius: 999 }), h(PresenceDot, { p: (presence || {})[c.id], size: 8, ring: momPaper(t) })))))),
+      // 成员：每个人此刻在不在、挂着什么状态、在哪个频道
+      h("button", { "data-wk": "spacemembers", onClick: () => setMemOpen(true), className: "flex items-center justify-between active:opacity-70", style: { width: "calc(100% - 28px)", margin: "8px 14px 0", padding: "11px 14px", background: momPaper(t), borderRadius: 12, fontFamily: F_BODY } },
+        h("span", { style: { fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "成员 · " + people.length),
+        h("span", { className: "truncate", style: { marginLeft: 10, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, maxWidth: "70%" } }, people.filter(c => ((presence || {})[c.id] || {}).k === "online").length + " 个在线 ›")),
       // 精华墙入口（她 2026-11-20）：这个地方攒下的名场面
       h("button", { "data-wk": "spacegems", onClick: () => setGemOpen(true), className: "flex items-center justify-between active:opacity-70", style: { width: "calc(100% - 28px)", margin: "8px 14px 0", padding: "11px 14px", background: momPaper(t), borderRadius: 12, fontFamily: F_BODY } },
         h("span", { style: { fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "精华 · " + (gems || []).length),
@@ -23626,6 +23667,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
     gemOpen ? h(SpaceGemsPage, { space, gems: gems || [], chName: gid => { const g = (channels || []).find(x => x.id === gid); return g ? (g.chName || g.name) : ""; },
       onOpen: gm => { setGemOpen(false); onOpenGem && onOpenGem(gm); }, onDelete: onDeleteGem, onClose: () => setGemOpen(false) }) : null,
     adopt ? h(GroupAdoptPage, { space, groups: looseGroups || [], onPick: ids => { onAdopt(ids); setAdopt(false); }, onClose: () => setAdopt(false) }) : null,
+    memOpen ? h(SpaceMembersPage, { space, people, presence: presence || {}, statuses: statuses || {}, herName, onMyStatus, onClose: () => setMemOpen(false) }) : null,
     spEdit ? h(SpaceEditPage, { space, pool: pickPool || allChars || [], onSuggestTitles, onSave: patch => { onSaveSpace(patch); setSpEdit(false); }, onDelete: onDeleteSpace, nChannels: rows.length, onClose: () => setSpEdit(false) }) : null,
     edit ? h(ChannelEditPage, { space, channel: edit === "new" ? null : edit, allChars, noMem: edit !== "new" && !!(noMemOf && noMemOf(edit.id)),
       onSave: patch => { onSaveChannel(edit === "new" ? null : edit, patch); setEdit(null); },

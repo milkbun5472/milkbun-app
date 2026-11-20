@@ -2527,6 +2527,42 @@ function chpCare(pet, action, by, now) {
   return Object.assign({}, p, { full: Math.min(100, p.full + add), ts: now || Date.now(), last: { by, action: String(action || "照顾").slice(0, 8), ts: now || Date.now() } });
 }
 // 给模型看的那几行：只说现在是什么样，谁动过
+// ── 成员状态（她 2026-11-20「每个人的状态」）──────────────────────────────
+// 两层：①在线状态：照聊天记录和日程现算，不花调用；②挂在名字底下的一句状态：角色自己改、她也能挂，所有空间共用一份。
+// 存 x_charStatus = { [charId 或 "me"]: { emoji, text, ts, day, n } }，n 是那一天改了几次。
+const CHAR_STATUS_KEY = "x_charStatus";
+const CHAR_STATUS_CAP = 3;   // 一个人一天最多改三回
+// 在线状态：lastTs＝他最近一次在这个空间里开口的时刻，lastCh＝在哪个频道；sched＝日程上这会儿那一格（schedNowBriefFor 交来的）
+function presenceOf(lastTs, lastCh, sched, now) {
+  const t = Number(now) || Date.now();
+  if (lastTs && t - lastTs < 60 * 60000) return { k: "online", zh: "在线", where: lastCh || "" };
+  const ty = String((sched && sched.type) || "");
+  if (/sleep/.test(ty)) return { k: "sleep", zh: "睡了" };
+  if (/work|study/.test(ty)) return { k: "dnd", zh: "勿扰", what: (sched && sched.title) || "" };
+  return { k: "idle", zh: "离开", what: (sched && sched.title) || "" };
+}
+// 改状态的闸：同一天改到第三次就不再收
+function charStatusCanSet(all, id, dayKey) {
+  const cur = (all || {})[id];
+  return !cur || cur.day !== dayKey || (cur.n || 0) < CHAR_STATUS_CAP;
+}
+function charStatusSet(all, id, st, dayKey, now) {
+  const cur = (all || {})[id] || {};
+  const text = String((st && st.text) || "").replace(/\s+/g, " ").trim().slice(0, 30);
+  const emoji = String((st && st.emoji) || "").trim().slice(0, 4);
+  if (!text && !emoji) return { all, changed: false };
+  if (text === (cur.text || "") && emoji === (cur.emoji || "")) return { all, changed: false };
+  const n = cur.day === dayKey ? (cur.n || 0) + 1 : 1;
+  return { all: { ...(all || {}), [id]: { emoji, text, ts: now || Date.now(), day: dayKey, n } }, changed: true };
+}
+function charStatusLabel(st) { return st && (st.text || st.emoji) ? ((st.emoji ? st.emoji + " " : "") + (st.text || "")).trim() : ""; }
+// 给模型的一行：在场的人各挂着什么状态、她挂着什么。herOk＝能不能提她（旁观频道里她不在场）
+function charStatusHint(all, members, herName, herOk) {
+  const rows = (members || []).map(c => { const l = charStatusLabel((all || {})[c.id]); return l ? c.name + "「" + l + "」" : ""; }).filter(Boolean);
+  const her = herOk ? charStatusLabel((all || {}).me) : "";
+  if (!rows.length && !her) return "";
+  return "\n\n【名字底下挂着的状态】大家各自在名字底下挂了一句，谁都看得到：" + rows.concat(her ? [(herName || "她") + "「" + her + "」"] : []).join("；") + "。";
+}
 function chpHint(s, msgs, nameOf, opts) {
   const o = opts || {}, nm = id => id === "me" ? (o.her || "她") : ((nameOf && nameOf(id)) || id || "有人"), out = [];
   const rx = (msgs || []).slice(-20).filter(m => m && m.reacts && Object.keys(m.reacts).length).slice(-5)
