@@ -104,3 +104,12 @@ test("旁观群也能收进频道：收进来自动不互通，名字旁标「�
   assert.match(ap, /\.\.\.\(groupSpectating\(g\) \? \{ chSolo: true \} : \{\}\)/);
   assert.match(cs, /spectateOf && spectateOf\(g\) \?/);
 });
+test("别的频道带哪几个：有这里的人在的先带，同类里按最近有人说话排", () => {
+  const fs = require("fs"), vm = require("vm"), en = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
+  const i = en.indexOf("function spaceChannelBlock("), j = en.indexOf("\n}\n", i) + 3;
+  const ctx = {}; vm.createContext(ctx); vm.runInContext(en.slice(i, j) + ";this.f=spaceChannelBlock;", ctx);
+  const gs = [{ id: "me", spaceId: "s", chName: "这里", memberIds: ["a"] }, { id: "old", spaceId: "s", chName: "老", memberIds: ["b"] }, { id: "hot", spaceId: "s", chName: "热", memberIds: ["b"] }, { id: "mate", spaceId: "s", chName: "熟", memberIds: ["a"] }];
+  const chats = { old: [{ role: "user", content: "x", ts: 1 }], hot: [{ role: "user", content: "y", ts: 9 }], mate: [{ role: "user", content: "z", ts: 2 }] };
+  const out = ctx.f(gs[0], gs, id => chats[id] || [], "她");
+  assert.ok(out.indexOf("#熟") < out.indexOf("#热") && out.indexOf("#热") < out.indexOf("#老"));
+});

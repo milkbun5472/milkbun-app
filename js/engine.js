@@ -2552,7 +2552,13 @@ function spaceChannelBlock(g, allGroups, chatsOf, uName) {
   const out = ["【这个频道】你们现在在「#" + (g.chName || g.name || "") + "」" + (g.chAbout ? "：" + String(g.chAbout).slice(0, 120) : "") + "。这是同一群人待的一个地方里的一个频道，同一个地方还有别的频道。"];
   // 不互通的频道（她 2026-11-20「能搞不互通记忆吗」）：chSolo 的那个频道看不到别处，别处也看不到它
   if (g.chSolo) return "\n\n" + out[0].replace(/。这是同一群人待的一个地方里的一个频道.*$/, "。");
-  const sibs = (allGroups || []).filter(x => x && x.spaceId === g.spaceId && x.id !== g.id && !x.chSolo && !x.chArchived).slice(0, 6);
+  // 挑哪几个频道带进来（她 2026-11-20「按成员在的群聊时间线排序互通就行了」）：跟一堆群聊时一样按最近有人说话排，
+  //   有这里的人也在的频道先带——那是他们自己刚待过的地方；归档、不互通的不带
+  const lastTs = x => { const ms = chatsOf(x.id) || []; for (let i = ms.length - 1; i >= 0; i--) { const m = ms[i]; if (m && m.content && m.role !== "system") return m.ts || 0; } return 0; };
+  const mine = new Set((g.memberIds || []).map(String));
+  const sibs = (allGroups || []).filter(x => x && x.spaceId === g.spaceId && x.id !== g.id && !x.chSolo && !x.chArchived)
+    .map(x => ({ x, t: lastTs(x), share: (x.memberIds || []).some(id => mine.has(String(id))) ? 1 : 0 }))
+    .sort((a, b) => (b.share - a.share) || (b.t - a.t)).slice(0, 6).map(o => o.x);
   const rows = sibs.map(x => {
     const ms = (chatsOf(x.id) || []).filter(m => m && m.content && !m.recalled && m.role !== "system").slice(-2);
     const said = ms.map(m => (m.role === "user" ? (uName || "她") : (m.senderName || "有人")) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 50)).join("／");
