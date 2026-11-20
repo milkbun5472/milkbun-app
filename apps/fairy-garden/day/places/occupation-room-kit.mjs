@@ -1,5 +1,5 @@
-import {roomSeat} from './room-kit.mjs?v=fg-2ebeb032f9e25b38';
-import {cabinet} from './work-room-kit.mjs?v=fg-2ebeb032f9e25b38';
+import {roomSeat} from './room-kit.mjs?v=fg-5b5e7a80466cc3fc';
+import {cabinet} from './work-room-kit.mjs?v=fg-5b5e7a80466cc3fc';
 // All new work rooms use the same physical chairs, approach anchors and batching.
 export function furnishRoom(k,furniture,{cabinetColor='#819ca4'}={}){
  for(const p of furniture){

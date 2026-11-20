@@ -1,6 +1,6 @@
-import './home-hobbies.js?v=fg-2ebeb032f9e25b38';
-import {furniturePoint} from './home-catalog.mjs?v=fg-2ebeb032f9e25b38';
-import {motionClock} from './motion-profile.mjs?v=fg-2ebeb032f9e25b38';
+import './home-hobbies.js?v=fg-5b5e7a80466cc3fc';
+import {furniturePoint} from './home-catalog.mjs?v=fg-5b5e7a80466cc3fc';
+import {motionClock} from './motion-profile.mjs?v=fg-5b5e7a80466cc3fc';
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export function homeHobbyTask(stage,spot,map,elapsed,{moving=false,position,motion=null,actor=null}={}){
  const hobby=globalThis.CharDayHomeHobbies.activities[stage.action];
