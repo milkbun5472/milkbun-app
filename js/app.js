@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.836";
+const APP_VERSION = "v89.838";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8133,6 +8133,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         let segDirty = false;
         (characters || []).forEach(c => {
           if (!c || c.npc || !storyOnFor(c.id)) return;
+          // 跟朋友圈同一道闸（她 2026-11-20「是不是漏了时间段不刷新的闸」）：免打扰里勾了后台不跑／不发主动消息、面具在休息、收起来的人，都不自己发
+          if (!autoRefreshOn("moments", c.id) || quietNow("pro")) return;
           const sg = typeof schedNowSegFor === "function" ? schedNowSegFor(c) : null;
           if (!sg || !sg.cur || sg.cur.type === "sleep") return;
           const k = schedLocalDayKey(c) + "#" + (sg.cur.time || sg.idx), was = segSeen[c.id];

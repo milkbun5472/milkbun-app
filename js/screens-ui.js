@@ -6178,7 +6178,18 @@ function QuietHoursBox({ t, toast }) {
     q.on ? h("div", null,
       h("div", { className: "flex items-center", style: { gap: 8, margin: "6px 0 4px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "从", tm("from"), "到", tm("to")),
       row("这段时间不发主动消息", "谁都不来找你，醒着的也不来。你自己设的提醒照常到。", q.noPro, () => put({ noPro: !q.noPro }), "quietpro"),
-      row("这段时间后台不跑", "日程、日记、朋友圈、刷手机、自动记忆这些自己跑的都停；点开看一下也不会被带着跑起来。你自己点了要的（比如在日记、周刊里点生成）照常出。", q.noBg, () => put({ noBg: !q.noBg }), "quietbg")) : null);
+      row("这段时间后台不跑", "日程、日记、朋友圈、刷手机、自动记忆这些自己跑的都停；点开看一下也不会被带着跑起来。你自己点了要的（比如在日记、周刊里点生成）照常出。", q.noBg, () => put({ noBg: !q.noBg }), "quietbg"),
+      // 再加两段（她 2026-11-20）：比如上班、午睡；每段自己勾两样
+      (q.more || []).slice(0, 2).map((m, i) => { const setM = patch => put({ more: (q.more || []).map((x, k) => k === i ? { ...x, ...patch } : x) });
+        const tmM = k => h("input", { type: "time", value: m[k] || "", onChange: e => setM({ [k]: e.target.value }), "data-wk": "input",
+          style: { minHeight: 40, padding: "0 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } });
+        return h("div", { key: i, "data-wk": "quietmore", style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + t.line } },
+          h("div", { className: "flex items-center", style: { gap: 8, margin: "0 0 4px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "第 " + (i + 2) + " 段：从", tmM("from"), "到", tmM("to"),
+            h("button", { "data-wk": "quietmoredel", onClick: () => put({ more: (q.more || []).filter((_, k) => k !== i) }), className: "active:opacity-60", style: { marginLeft: "auto", minHeight: 36, padding: "0 8px", color: t.fog } }, "删掉")),
+          row("不发主动消息", "", m.noPro, () => setM({ noPro: !m.noPro }), "quietmorepro"),
+          row("后台不跑", "", m.noBg, () => setM({ noBg: !m.noBg }), "quietmorebg")); }),
+      (q.more || []).length < 2 ? h("button", { "data-wk": "quietmoreadd", onClick: () => put({ more: (q.more || []).concat([{ from: "12:30", to: "13:30", noPro: true, noBg: false }]) }), className: "active:opacity-60",
+        style: { marginTop: 8, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint || t.ink } }, "＋ 再加一段（比如上班、午睡）") : null) : null);
 }
 function NeteaseApiHelp({ toast }) {
   const t = useTheme();
