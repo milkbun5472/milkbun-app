@@ -33,3 +33,8 @@ test("悄悄话和机器人卡不出现在别的频道的动态里；她的悄�
   assert.match(cs, /text: m\.who === "char" \|\| m\.whisper \? groupActText\(m\) : m\.content/);
   assert.match(ap, /m\.kind === "spacebot" \? spaceBotLine\(m\)/);
 });
+test("群聊那边自己定义 _gSpect（v89.883 只在单聊里定义，进群白屏）", () => {
+  const cs = require("fs").readFileSync(__dirname + "/../js/components.js", "utf8");
+  const i = cs.indexOf("function GroupThread("), j = cs.indexOf("const PANEL = [", i);
+  assert.match(cs.slice(i, j), /const _gSpect = /);
+});

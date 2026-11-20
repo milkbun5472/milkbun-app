@@ -21293,6 +21293,8 @@ function GroupThread({
     else if (r === "notyours") toast && toast("这是专属红包，只有 " + (rp.toName || "被点名的那位") + " 能领");
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
+  // 旁观群里没有接龙、悄悄话（她不在场）。这一格原来只在单聊那边定义了，群这边没有，进群就白屏（v89.883）
+  const _gSpect = !!((settings && settings.spectate) || (group && group.roomKind === "spectate"));
   const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ...(!_gSpect ? [["chain", "接龙", "checklist"]] : []), ...(members.length && !_gSpect ? [["whisper", "悄悄话", "wave"]] : []), ["luck", "骰子 · 抽签", "dice"], ...(onStartAsk ? [["ask", "请示", "checklist"]] : []), ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"]];
   // 我发一张表情包：表情包面板和打字联想都走这一处
   const sendMyEmote = em => sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword + (em.selfFace ? "（画的是她自己）" : "") });
