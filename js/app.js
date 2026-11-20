@@ -1438,7 +1438,7 @@ function App() {
     if (auto && window.Gaze.markAutoSeed) window.Gaze.markAutoSeed(char.id);
     setGazeSeedBusy(true);
     try {
-      const uN = userName(profile);
+      const uN = userName(profileFor(char.id) || profile);
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-40).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-6000);
       // 拆成两份：被拦时 gazeCall 会自动改用 slim（去掉聊天记录那一块）再打一次
       // 世界书（v64.50，她 2026-09-06 点名：「这块你也把世界书接进去吧…
@@ -1608,7 +1608,7 @@ function App() {
     if (window.Gaze.markReview) window.Gaze.markReview(char.id, manual);   // 先记游标再刷
     setGazeReviewBusy(true);
     try {
-      const uN = userName(profile);
+      const uN = userName(profileFor(char.id) || profile);
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-60).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-8000);
       // 拆成两份：被拦时 gazeCall 会自动改用 slim（去掉聊天记录那一块）再打一次
       // 世界书（v64.50，她 2026-09-06 点名：「这块你也把世界书接进去吧…
@@ -3669,7 +3669,7 @@ function App() {
       && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
     if (!fresh.length) { toast("上次摘要以后还没有新对话"); return null; }
     const toTs = Math.max.apply(null, fresh.map(m => Number(m.ts || 0)));
-    const transcript = fresh.map(m => (m.role === "user" ? userName(profile) : character.name) + "：" + gameChatText(m)).join("\n");
+    const transcript = fresh.map(m => (m.role === "user" ? userName(profileFor(character.id) || profile) : character.name) + "：" + gameChatText(m)).join("\n");
     try {
       const raw = await callAI(apiFor(character.id),
         "你是房间交接整理器。只根据原话，忠实整理这段对话中真正发生的事、双方表达的感受、做出的决定、仍未结束的事和值得主聊天接住的变化。不得杜撰，不把设想写成事实，不代替任何人说新台词。输出一段自然中文正文，不要标题、列表、JSON 或代码块。" + gameChatSummaryContext(fresh) + "\n\n房间名：" + room.name + "\n需要整理的新增原话：\n" + transcript,
@@ -5895,7 +5895,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const s = (list || []).find(x => x && !x.endTs && (x.msgs || []).length > 0);
     if (s) {
       const char = characters.find(c => c.id === charId);
-      const uName = (profile && profile.name) || "用户";
+      const uName = ((profileFor(charId) || profile) || {}).name || "用户";
       const narr = (s.msgs.find(m => m.role === "narration") || {}).content || "";
       // 把进行中线下的最近几句一起带进线上上下文——线上才接得住「我去买菜」这种半途插话（她 2026-07-23 买菜例子）：
       //   线下说去买菜 → 切线上问买啥（TA知道你俩正约会、你刚出去）→ 买完回来接着线下，全程不用结束线下。
@@ -6966,7 +6966,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 印象卡各场景共用读取；群内放在本人私有段，读主线与写回主线分开。
   const gazeFor = charId => {
     if (noGaze(charId) || (characters.find(c => c.id === charId) || {}).npc || !window.Gaze || !window.Gaze.text) return "";
-    return String(window.Gaze.text(charId, userName(profile)) || "").trim();
+    return String(window.Gaze.text(charId, userName(profileFor(charId) || profile)) || "").trim();
   };
   // ⚠️心愿单是【念给某个角色听】的，所以按他那边的钱写（她 2026-09-18 收 A 类）。
   //   群里那一路说不清是谁，不传就是人民币。
@@ -7137,8 +7137,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 「你俩此刻在一起」两个来源走同一个口子：线下场次正开着（旧）、同处一室开着（新）。
     // 真开着线下的时候不重复说一遍——那段自己已经把面对面讲清楚了。
     offlineNow: (sameRoomFor(char.id) && !offlineTogetherNow(char.id)
-      ? samePlacePresence(userName(profile)) + (offlineActiveFor(char.id) ? "\n" + offlineActiveFor(char.id) : "")
-      : (offlineActiveFor(char.id) || (sameRoomFor(char.id) ? "" : apartPresence(userName(profile))))),
+      ? samePlacePresence(userName(profileFor(char.id) || profile)) + (offlineActiveFor(char.id) ? "\n" + offlineActiveFor(char.id) : "")
+      : (offlineActiveFor(char.id) || (sameRoomFor(char.id) ? "" : apartPresence(userName(profileFor(char.id) || profile))))),
     rels,
     // 情侣状态（表白在一起后自动生效，不用去改「关系」字段）：together 权威、覆盖旧关系标签
     coupleStatus: (() => {
@@ -7150,7 +7150,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return "";
     })(),
     // 空间门口的门牌、谁的东西在谁那儿、今晚留没留灯——只是事实，照常聊天时 TA 心里有数
-    spaceDoor: (() => { const cp = !char.npc && couples[char.id]; return cp && cp.status === "together" ? spaceDoorLine(char, userName(profile)) : ""; })(),
+    spaceDoor: (() => { const cp = !char.npc && couples[char.id]; return cp && cp.status === "together" ? spaceDoorLine(char, userName(profileFor(char.id) || profile)) : ""; })(),
     // 他给她起的那个称呼（抽卡 s_title，她点了「收下」才有）。
     // ⚠️走 ctx → buildBundle 这条【白送的】路：单聊线上/线下、通话、穿书、匿名箱、
     //   解梦馆换个入口自然就有。群聊那两处不走 buildBundle，另外接（见 nickLineFor）。
@@ -7180,7 +7180,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (b.offWhy === "sulk") return "你前阵子跟" + uN + "闹别扭，在论坛上取关了她的号，现在还没关回去。";
       return ""; })(),
     shikeNote: (!char.npc && window.ShikeKit && window.ShikeKit.chatNote)
-      ? window.ShikeKit.chatNote(char, { chats: chatsRef.current, lib: memLibRef.current, couples, profile, uName: userName(profile) }) : "",
+      ? window.ShikeKit.chatNote(char, { chats: chatsRef.current, lib: memLibRef.current, couples, profile, uName: userName(profileFor(char.id) || profile) }) : "",
     // 心情会自己平复：注入前按放了多久重新表述（存储不动，历史照留）。
     // 隔了一夜以上就不再报「你此刻的心情是X」——那是上次相处结束时的读数，
     // 提示词照原样塞进去，等于要求TA把三天前那阵气重演一遍（她 2026-08-24 问到的）。
@@ -7199,7 +7199,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     watchedNote: (window.PhoneWatch && !isBody(char.id))
       ? window.PhoneWatch.watchedNote(
           window.PhoneWatch.knockedToday((knockLogRef.current || {})[char.id], Date.now()),
-          userName(profile))
+          userName(profileFor(char.id) || profile))
       : "",
     // A 情绪底色（v62.39 起走 buildBundle）：她 2026-09-04 问「八处不一起喂吗」。
     // 原来它挂在【单聊线上那两条任务串】上——那是「一条条 push 的」那一类，换个入口就一个字都没有。
@@ -7515,7 +7515,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 生日（用户/角色自己）+ 日历三视角（世界事件人人知、我的日历按可见名单、角色自己视角）。dateKey 与 calKey 同格式：年-月-日，月 1-based 不补零。
     dateNote: (() => {
       const cal = calendar || {};
-      const uName = userName(profile);
+      const uName = userName(profileFor(char.id) || profile);
       // 「今天」照 TA 那只虚拟钟（2026-10-31 排查）：生日、日历、节日、纪念日倒数都按钟上的日子说
       const today = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now()); today.setHours(0, 0, 0, 0);
       const tK = today.getFullYear() + "-" + (today.getMonth() + 1) + "-" + today.getDate();
@@ -7646,7 +7646,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   拆成两栏：nowPlaying 跟着「在场」走（哪间房都给），listenLog 留在记忆那一组。
     nowPlaying: (() => {
       const L = listenRef.current || {};
-      const uName = userName(profile);
+      const uName = userName(profileFor(char.id) || profile);
       const lines = [];
       if (L.partnerId === char.id && player.songId && player.songId !== KEEPALIVE_ID) {
         const cur = resolveSong(player.songId);
@@ -7661,7 +7661,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     })(),
     listenLog: (() => {
       const L = listenRef.current || {};
-      const uName = userName(profile);
+      const uName = userName(profileFor(char.id) || profile);
       const lines = [];
       // 一起听过的歌 → 记忆。带粗时间（v54.49 她点头）：不带的话上个月的歌和昨晚的歌
       // 在 TA 眼里一样近，会把旧歌当刚听过的聊
@@ -7821,7 +7821,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!all.length) return "";
       const wantStart = 0;
       const lines = [];
-      const uName = userName(profile);
+      const uName = userName(profileFor(char.id) || profile);
       const budget = memCfgRef.current.recentBudget || 8000; // 字符预算(召回设置可调)：从最近往回收，攒够就停（老而仍在窗内的事由自动抽取+摘要兜底）
       // 她 2026-08-28：「跑了很多长线下，一堆没用的描写占着字数，本来可以带更多密度的聊天记录都被描写占满了」。
       // 实测（8000 字预算、线下一拍 300 字）：线下拿走 6120 字，线上只剩 635 字——九成预算给了描写；
@@ -9520,7 +9520,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 合照必须两张参考照都在，否则降级成「她替TA拍的单人照」——绝不一张真一张编。
     let kind = wantMe ? "me" : ["other", "duo", "group"].includes(arg.kind) ? arg.kind : "self";
     if (kind === "duo" && !offlinePhotoCanDuo(char)) kind = "other";
-    if (kind === "duo" && typeof photoDuoSaid === "function" && !photoDuoSaid(scene, userName(profile))) kind = "self";
+    if (kind === "duo" && typeof photoDuoSaid === "function" && !photoDuoSaid(scene, userName(profileFor(char.id) || profile))) kind = "self";
     let cast = kind === "group" ? (arg.cast || []) : null;
     if (kind === "group" && (!cast || cast.length < 2)) { kind = "other"; cast = null; }
     // reuseSid：重拍 / 改描述重拍（她 2026-10-02：「线下的图不能编辑重roll」）——就地换这一格的像素，不另挂一张。
@@ -9738,7 +9738,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _offSeen = isBody(charId) ? null : freshOfflinePhoto(charId);
       const _offSeenAvatarOk = !!(_offSeen && avatarCoolOk(charId));
       oCtx.photoSeenSpec = _offSeen
-        ? "【photoSeen·上面输出形状的追加项】" + photoSeenHint(_offSeenAvatarOk, profile.name || "她").replace(/^\n/, "")
+        ? "【photoSeen·上面输出形状的追加项】" + photoSeenHint(_offSeenAvatarOk, ((profileFor(charId) || profile) || {}).name || "她").replace(/^\n/, "")
         : "";
       // 世界书注入：用线下这段自己的文本做关键词命中（ctxFor 默认用线上聊天文本），常驻/绑定词条照常进
       const offText = (workSess.msgs || []).slice(-8).map(m => m.content || "").join("\n");
@@ -9990,7 +9990,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!offlineApiFor(charId)) { toast("请先到设置配置 API"); return; }
     startLane("c:" + scopeKey);
     try {
-      const uName = (profile && profile.name) || "我";
+      const uName = ((profileFor(charId) || profile) || {}).name || "我";
       const offText = (sess.msgs || []).filter(m => !isOocMsg(m)).slice(-10).map(m => (m.role === "char" ? char.name : m.role === "narration" ? "【场景】" : uName) + "：" + (m.content || "")).join("\n");
       const q = text.trim() + (offText ? "\n\n【背景：我们此刻正在线下面对面相处，最近这几段经过】\n" + offText : "");
       // ⚠️这里原来是裸的 ctxFor(char)：**完全没过房间那道闸**。
@@ -11059,7 +11059,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const raw = String(log.transcript || "").trim();
     if (!raw) { toast("这张卡上没存原话，放不回去"); return; }
     const char = isG ? null : characters.find(c => String(c.id) === String(ownerId));
-    const uName = userName(profile);
+    const uName = userName((char && profileFor(char.id)) || profile);
     // 一行一句：〔时间〕谁：话。话里自己带换行的，接到上一句后面
     //   带时间戳的转录只认带戳那几行起新的一句——不然话里一行「……：……」也会被当成换人说话
     const rows = [], stamped = /^〔[^〕]*〕/.test(raw);
@@ -12452,7 +12452,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         logFrom: sneak ? "查手机·他偷偷翻你手机" : "查手机·他翻你手机",
         // ⚠️她 2026-10-01 的截图：心声成了旁观者在点评（「这个角色被构建得非常逼真」「现实里看起来很缺觉」）。
         //   这一枪是 probe，模型容易站到幕后去看。所以把「你是谁、这些对你来说是什么」放在最前面说清楚。
-        instruction: "你就是「" + c.name + "」本人，此刻在你自己的日子里。" + userName(profile) + (sneak ? " 没注意，手机就放在那儿，你偷偷拿起来翻了——她不知道" : " 把她的手机递给了你") + "——对你来说这些全是真的：她是你认识的那个人，"
+        instruction: "你就是「" + c.name + "」本人，此刻在你自己的日子里。" + userName(profileFor(charId) || profile) + (sneak ? " 没注意，手机就放在那儿，你偷偷拿起来翻了——她不知道" : " 把她的手机递给了你") + "——对你来说这些全是真的：她是你认识的那个人，"
           + "聊天里那些人是活生生的人，她跟他们说的话、转出去的钱、写下的东西都真发生过。你翻到的每一样，心里冒出来的都是【你这个人】此刻对她、对那个人、对那件事的真实反应，用你平时的口吻。"
           // 虚拟时间开着时，「今天是哪天」照 TA 认的那张面具的钟（她 2026-10-11）
           + (() => { if (typeof vclockCfg === "function" && vclockCfg(charId)) return "\n今天是" + vclockLabel(Date.now(), charId) + "——下面写着日子的，都按今天往回算是几天前的事。";
@@ -16223,7 +16223,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const pinMomentToShike = m => {
     if (!m || !m.characterId) return;
     const char = characters.find(c => c.id === m.characterId);
-    const me = profile.name || "我";
+    const me = ((profileFor(char.id) || profile) || {}).name || "我";
     const ts0 = Number(m.ts) || Date.now();
     const rows = [{ role: "assistant", content: String(m.content || ""), ts: ts0, _who: char ? (char.remark || char.name) : "", ...(m.image && isImgRef(m.image) ? { imageRef: m.image } : {}) }]
       .concat((m.comments || []).filter(c => c && c.text).map((c, i) => ({ role: c.author === me ? "user" : "assistant", content: String(c.text), ts: ts0 + i + 1, _who: c.author || "" })));
@@ -16284,7 +16284,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } else if (act === "quote") {
       toast("已引用（在输入框继续说）");
     } else if (act === "memsave") {
-      const who = m.role === "user" ? profile.name || "我" : activeChar.name;
+      const who = m.role === "user" ? userName(profileFor(activeChar.id) || profile) || "我" : activeChar.name;
       addMemEntry({
         text: who + "：" + gameChatText(m),
         charIds: [activeChar.id],
@@ -20151,16 +20151,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (cur.deleted) {
       setBlockFor(charId, { deleted: false });
       pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把 TA 加回了好友", sub: "block", ts: Date.now() }]);
-      try { addMemEntry({ text: userName(profile) + "删了我好友以后，又自己把我加了回来", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      try { addMemEntry({ text: userName((profileFor(charId) || profile)) + "删了我好友以后，又自己把我加了回来", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
       toast("加回好友了"); return;
     }
     // 删之前最后那几句（她 2026-11-08：「就是让他知道因为什么删了」）：她删的时候不写理由，这几句就是他能看到的来由
-    const _uN = userName(profile), _cN = (characters.find(x => x.id === charId) || {}).name || "你";
+    const _uN = userName((profileFor(charId) || profile)), _cN = (characters.find(x => x.id === charId) || {}).name || "你";
     const lastWords = (chatsRef.current[charId] || []).filter(m => m && !m.recalled && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim() && !isOocMsg(m))
       .slice(-6).map(m => (m.role === "user" ? _uN : _cN) + "：" + m.content.replace(/\s+/g, " ").slice(0, 60)).join("\n");
     setBlockFor(charId, { deleted: true, deletedTs: Date.now(), reqs: [], lastWords });
     pChat(charId, p => [...p, { role: "system", kind: "system", content: "你删除了好友 TA", sub: "block", ts: Date.now() }]);
-    try { addMemEntry({ text: userName(profile) + "把我删了好友", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+    try { addMemEntry({ text: userName((profileFor(charId) || profile)) + "把我删了好友", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
     toast("删掉了。TA 发不了消息，想你了会来加你");
   };
   const FRIEND_REQ_GAP = 4 * 3600e3;   // 两次申请至少隔这么久；有一条还没处理的就先等着
@@ -20207,11 +20207,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       setBlockFor(charId, { reqs });
       setBlockFor(charId, mine ? { theyBlocked: false } : { deleted: false });
       pChat(charId, p => [...p, { role: "system", kind: "system", content: "你通过了" + (req.alt ? "「" + req.alt + "」（是 TA）" : " TA ") + "的好友申请", sub: "block", ts: Date.now() }]);
-      try { addMemEntry({ text: (mine ? "删了" + userName(profile) + "以后，我自己回头" : "被" + userName(profile) + "删了以后，") + "用" + who + "发好友申请，她通过了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      try { addMemEntry({ text: (mine ? "删了" + userName((profileFor(charId) || profile)) + "以后，我自己回头" : "被" + userName((profileFor(charId) || profile)) + "删了以后，") + "用" + who + "发好友申请，她通过了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
       toast("加上了");
     } else {
       setBlockFor(charId, { reqs });
-      try { addMemEntry({ text: (mine ? "删了" + userName(profile) + "以后，我自己回头" : "被" + userName(profile) + "删了以后，") + "用" + who + "发好友申请，被她拒了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      try { addMemEntry({ text: (mine ? "删了" + userName((profileFor(charId) || profile)) + "以后，我自己回头" : "被" + userName((profileFor(charId) || profile)) + "删了以后，") + "用" + who + "发好友申请，被她拒了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
       toast("拒绝了");
     }
   };
@@ -21406,7 +21406,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         groups: memberGroups,
         groupChats: diaryGroupChats,
         groupOfflines: diaryGroupOfflines
-      }, { fromTs: ds, untilTs: de, limit: 0, userName: userName(profile), charName: char.name }) : [];
+      }, { fromTs: ds, untilTs: de, limit: 0, userName: userName((profileFor(charId) || profile)), charName: char.name }) : [];
       const clock = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
       // ⚠️「摆到TA面前」那张卡（phonepeek / 随身物转发）的正文是 App 拼出来的机器文案：
       //   〈想买清单〉《商品全名》｜TA自己写的那句 why。整段原样进素材，模型就会把商品名
@@ -21848,7 +21848,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 三处主动埋/回埋/回信必须同一个站位，不然同一个人写出来是三种腔调
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "此刻你心里一动，想悄悄给 " + (profile.name || "Ta") + " 埋一颗【现在写下、到期才送达】的时光胶囊。"
+        instruction: "此刻你心里一动，想悄悄给 " + ((profileFor(char.id) || profile).name || "Ta") + " 埋一颗【现在写下、到期才送达】的时光胶囊。"
           + capsuleGuide + "第一人称，贴你的人设与此刻心情；别客套、别落款。" + avoid,
         schemaHint: "{\"letter\":\"信的正文\"}",
         maxTokens: 20000
@@ -25197,7 +25197,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const hadTopics = [...new Set(mine.map(r => String(r.topic || "").trim()).filter(Boolean))];
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你往" + (profile.name || "她") + "的匿名提问箱里投一个问题。\n"
+        instruction: "你往" + ((profileFor(char.id) || profile).name || "她") + "的匿名提问箱里投一个问题。\n"
           + "【她看不见是你投的】她只看得到一个网名和一句签名，不知道是谁。所以别落款、别写只有你会说的口头禅当签名、"
           + "也别在问题里点破你是谁——但话该带着你自己的性子，她猜得出来是你、还是猜不出来，那是她的事，不是你要控制的。\n"
           // ⚠️她 2026-09-19 截图：出来的全是「如果身边有个人…」「这种人到底是…」
