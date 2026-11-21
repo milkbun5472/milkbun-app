@@ -17577,10 +17577,13 @@ function ReplyKey({ sending, disabled, title, onClick, hold }) {
   const lit = sending ? t.accent : t.ink;
   const Leaf = typeof window !== "undefined" ? window.GYanqiuLeaf : null;
   return h("button", {
-    "data-wk": "chatreply",
+    "data-wk": "chatreply", "data-busy": sending ? "1" : undefined,
     onClick: onClick, disabled: disabled, title: title,
     className: "active:opacity-60 disabled:opacity-40 shrink-0 flex items-center justify-center",
-    style: { width: 40, height: 40, background: "transparent", border: "none", padding: 0 }
+    // 「Ta 正在写」时整颗键一起轻轻摇（她 2026-11-21：粉色日记里线下右下角那颗「按不动」）——
+    //   原来只有里面那片叶子在摇，美化把叶子藏了、换成自己的图，这一摇就看不见了，等回复的那几秒像是键坏了。
+    //   摇在按键本身上，换了什么图都看得见。
+    style: Object.assign({ width: 40, height: 40, background: "transparent", border: "none", padding: 0 }, sending ? { animation: "wk-maple 2.6s ease-in-out infinite" } : null)
   },
     h("style", null, "@keyframes wk-maple{0%{transform:rotate(-8deg) translateY(0)}"
       + "50%{transform:rotate(11deg) translateY(-1.4px)}100%{transform:rotate(-8deg) translateY(0)}}"),
