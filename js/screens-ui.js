@@ -2387,7 +2387,7 @@ function Forum({
     return h("div", { "data-wk": "foboardsortpage", className: "flex flex-col", style: { position: "absolute", inset: 0, zIndex: 60, background: FORUM_SKIN.bg } },
       h(Head, { zh: "吧的顺序", onBack: () => setSortOpen(false) }),
       h("div", { className: "flex-1 overflow-y-auto px-4", style: { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.55, color: FORUM_SKIN.fog, padding: "10px 0 6px" } }, "↑↓ 挪位置，顶上那排和发帖选吧都照这个顺序。藏起来的吧只是不在顶上那排出现，帖子、发帖选吧、他们去那儿发帖都照常。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.55, color: FORUM_SKIN.fog, padding: "10px 0 6px" } }, "↑↓ 挪位置，顶上那排和发帖选吧都照这个顺序。藏起来的吧不在顶上那排出现，它的帖子也不进「发现」「关注」和新回复，刷新和角色发帖都不往里发；帖子没删，取消就回来，收藏过的还在「收藏」里。"),
         list.map((n, i) => { const off = hid.indexOf(n) >= 0; return h("div", { key: n, "data-wk": "foboardsortrow", className: "flex items-center", style: { gap: 4, minHeight: 52, borderBottom: "1px solid " + FORUM_SKIN.line } },
           h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: off ? FORUM_SKIN.fog : FORUM_SKIN.ink, textDecoration: off ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n),
           h("button", { "data-wk": "foboardhide", onClick: () => toggleHide(n), className: "active:opacity-60 shrink-0", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: off ? FORUM_SKIN.accent : FORUM_SKIN.fog, background: "transparent", border: "none" } }, off ? "放出来" : "藏起来"),
