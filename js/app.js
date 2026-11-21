@@ -13016,6 +13016,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
     if (laneBusy("c:" + chatKey)) return null;
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return null;
+    // 线下还开着（没结束，不管多久没动）：天气卡、健康提醒都不发（她 2026-11-22「我在线下然后现实出门了他给我来了一句你就这样跑了」）
+    if (opts.proactive && (opts.wx || opts.health) && !opts.room && ((offlinesRef.current[charId] || loadJSON("x_offline:" + charId, [])) || []).some(s0 => s0 && !s0.endTs && (s0.msgs || []).length)) return null;
     if (opts.proactive) {
       const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.askFollow ? "ask_follow" : opts.remind ? "reminder" : opts.health ? "health_meal" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
