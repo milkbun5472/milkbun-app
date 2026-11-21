@@ -142,3 +142,8 @@ test("歌名对歌库认得宽一点；歌单不再手写加一首", () => {
   assert.doesNotMatch(cs, /"data-wk": "chsongadd"/);
   assert.match(cs, /"data-wk": "chsongq"/);
 });
+
+test("按了让他们各挑一首：这一轮的正题放在最后", () => {
+  assert.match(ap, /_askSongs \? "\\n\\n【这一轮的正题】"/);
+  assert.match(ap, /_askSongs \|\| chpCount\(st, "song"\) < CHP_CAP\.song/);
+});
