@@ -12066,8 +12066,6 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
-  // 旁观（她隐身在旁边看）：悄悄话、接龙这种会露出她在的，都不给
-  const _gSpect = !!((settings && settings.spectate) || (group && group.roomKind === "spectate"));
   const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["packet", "红包", "packet"], ["ask", "请示", "checklist"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"], ["topics", "话题卡", "quote"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => key !== "topics" || !!character).filter(([key]) => room && !room.main ? !["moments", "transfer", "packet", "ask", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "ask" || !!onSendAsk).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
   // 我发一张表情包：表情包面板和打字联想都走这一处
   const sendMyEmote = em => {

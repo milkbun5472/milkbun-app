@@ -157,3 +157,8 @@ test("送走小家伙、新人进来：也放到最后当正题", () => {
   assert.match(ap, /_petBye \? "\\n\\n【这一轮的正题】"/);
   assert.match(ap, /gWelcomeHint \? "\\n\\n【这一轮的正题】先招呼刚进来的/);
 });
+
+test("单聊页不引用群里才有的 settings／group（v89.935 白屏）", () => {
+  const a = cs.indexOf("function ChatThread("), b = cs.indexOf("\nfunction ", a + 10);
+  assert.doesNotMatch(cs.slice(a, b), /const _gSpect/);
+});
