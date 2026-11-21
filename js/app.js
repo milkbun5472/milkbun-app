@@ -27799,7 +27799,6 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _gN = _gen.batch ? String(_gen.batch) : "3-5";
       const _gLen = _gen.lenMin && _gen.lenMax ? " " + _gen.lenMin + "～" + _gen.lenMax + " 字" : _gen.lenMax ? " 不超过 " + _gen.lenMax + " 字" : _gen.lenMin ? " 至少 " + _gen.lenMin + " 字" : " 2-4 句";
       const d = await runProbeRetry(active, forumWorldCtx(board, genW), {
-        logFrom: "论坛·刷新这个吧（网友发新帖）",   // 调用记录里原来显示成「其他·网友说到的日子…」（她 2026-11-21）
         instruction: forumLoreLine(genW) + "\n" + forumBoardVoice(board) + forumNpcRule(board) + castLine + seenLine + forumFmtLine() + " 生成 " + _gN + " 条不同网友刚发的新主帖（items 数组就是 " + _gN + " 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文" + _gLen + "）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
         schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"" + FORUM_PHOTO_FIELD + forumFmtField() + (cast ? ",\"cast\":\"只有配角那一条填 true\"" : "") + "}]}",
         maxTokens: FTOK.board
@@ -36709,7 +36708,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const c = pool.length ? pool[Math.floor(Math.random() * pool.length)] : characters[0];
       if (!c) return null;
       const d = await runProbe(bgActive, ctxFor(c), {
-        voice: true,
+        voice: true, logFrom: "命运转盘·角色起哄",
         instruction: "用户选择困难，把决定交给了手机主屏上的「命运转盘」" + (title ? "（转盘主题：" + title + "）" : "") + "。转盘上的选项：" + items.join("、") + "。刚刚指针停在了【" + result + "】。以「" + c.name + "」的口吻对这个结果说一两句话——起哄、拍板、吐槽 Ta 的选择困难、或者对结果本身发表意见都行，按你的人设和此刻心情来，像随口说的，加起来别超过 40 字。",
         schemaHint: "{\"say\":\"一两句话\"}",
         maxTokens: 14000   // cheap_required 线路已显式配置时仍保留完整思考预算
@@ -37796,7 +37795,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const ins = "给一个双人合照照相馆想 6 个拍照题材，彼此差得开、好看、好玩。" + (String(hint || "").trim() ? "她想要的方向：「" + String(hint).trim().slice(0, 80) + "」。" : "")
           + (have && have.length ? "这些已经有了，别重复：" + have.slice(0, 40).join("、") + "。" : "")
           + "每个给 zh（题材名，2~6 个字）和 line（一两句：这个题材里两个人在哪、穿什么、什么身份、什么氛围，给生图模型看的，60~120 字）。";
-        const raw = await callAI(p, ins + "\n只输出 JSON：{\"themes\":[{\"zh\":\"\",\"line\":\"\"}]}", [{ role: "user", content: "开始。" }], { maxTokens: 8000 });
+        const raw = await callAI(p, ins + "\n只输出 JSON：{\"themes\":[{\"zh\":\"\",\"line\":\"\"}]}", [{ role: "user", content: "开始。" }], { logFrom: "照相馆·想题材", maxTokens: 8000 });
         const d = extractJSON(raw);
         return (d && Array.isArray(d.themes) ? d.themes : []).filter(x => x && String(x.zh || "").trim()).slice(0, 8)
           .map(x => ({ zh: String(x.zh).trim().slice(0, 12), line: String(x.line || "").trim().slice(0, 300) }));
@@ -37810,7 +37809,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const ins = "给一个照相馆想 6 种好看、彼此差得开的画风，拿来把两个人的合照画成插画/艺术风格。" + (String(hint || "").trim() ? "她想要的方向：「" + String(hint).trim().slice(0, 80) + "」。" : "")
             + (have && have.length ? "这些已经有了，别重复：" + have.slice(0, 40).join("、") + "。" : "")
             + "每种给 name（画风名，2~8 个字）和 desc（写给生图模型看的一段描述，60~140 字：线条、上色、质感、配色、像哪类作品，具体到能照着画）。";
-        const raw = await callAI(p, ins + "\n只输出 JSON：{\"styles\":[{\"name\":\"\",\"desc\":\"\"}]}", [{ role: "user", content: "开始。" }], { maxTokens: 8000 });
+        const raw = await callAI(p, ins + "\n只输出 JSON：{\"styles\":[{\"name\":\"\",\"desc\":\"\"}]}", [{ role: "user", content: "开始。" }], { logFrom: "照相馆·想画风", maxTokens: 8000 });
         const d = extractJSON(raw);
         return (d && Array.isArray(d.styles) ? d.styles : []).filter(x => x && String(x.name || "").trim()).slice(0, 8)
           .map(x => ({ name: String(x.name).trim().slice(0, 20), desc: String(x.desc || "").trim().slice(0, 300) }));
@@ -39020,7 +39019,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!p) { toast("先到设置配置 API"); return null; }
       try {
         const raw = await callAI(p, "你在替她整理一张回忆卡。只根据下面这段原话，写一段第三人称的小结（三到六句）：那天发生了什么、两个人说了什么要紧的、情绪怎么走的。不编原话里没有的事，不加评价，不写标题。",
-          [{ role: "user", content: "卡片名：" + m.title + "\n原话：\n" + (m.raw || []).join("\n").slice(0, 12000) }], { maxTokens: 8000, timeout: 120000 });
+          [{ role: "user", content: "卡片名：" + m.title + "\n原话：\n" + (m.raw || []).join("\n").slice(0, 12000) }], { logFrom: "回忆卡小结", maxTokens: 8000, timeout: 120000 });
         const txt = String(raw || "").replace(/^```[^\n]*\n?|```$/g, "").trim();
         if (!txt) throw new Error("模型没有返回内容");
         return txt.slice(0, 1200);
