@@ -2833,6 +2833,13 @@ function thView(msgs) {
   const map = thAliasMapOf(msgs);
   return (msgs || []).map(m => m && m.role === "assistant" && m.senderId && map[String(m.senderId)] ? { ...m, senderName: "树洞 #" + map[String(m.senderId)], senderId: "th:" + map[String(m.senderId)], thAnon: true } : m);
 }
+// 树洞对外露脸的公共口子（她 2026-11-21「这个不能抽一份公共的吗」）：凡是把频道里的话拿出去给她看的地方
+//   ——聊天页、列表预览、通知、长图、搜索——都过这两个。不是树洞就原样返回
+function chAnonMsgs(g, msgs) { return g && g.chKind === "treehole" ? thView(msgs || []) : (msgs || []); }
+function chAnonName(g, msgs, senderId, name) {
+  if (!g || g.chKind !== "treehole" || !senderId) return name || "";
+  const mp = thAliasMapOf(msgs || []); return "树洞 #" + (mp[String(senderId)] || thAlias(mp, senderId).map[String(senderId)] || "?");
+}
 // 深夜频道：hours = { from: 22, to: 5 }（整点），跨午夜也认；没设就是一直开着
 // 挑「发到哪个群」的名单（她 2026-11-20「全app里能转发到群的是不是也得接一个能转发到频道」）：
 //   转发、送礼、外卖代付、塔罗/同人/辩论分享……凡是挑一个群当去处的，都过这一份。

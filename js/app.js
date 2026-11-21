@@ -5453,7 +5453,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const body = String((last && last.content) || "").replace(/\s+/g, " ").trim();
     const text = g
       // 树洞里提醒也只露代号（她 2026-11-21「消息提示怎么还有名字」）
-      ? (((last && last.senderName) ? (g.chKind === "treehole" && last.senderId ? "树洞 #" + (thAliasMapOf(groupChatsRef.current[g.id] || [])[String(last.senderId)] || "?") : last.senderName) + "：" : "") + (body || "发来一条消息")).slice(0, 44)
+      ? (((last && last.senderName) ? chAnonName(g, groupChatsRef.current[g.id], last.senderId, last.senderName) + "：" : "") + (body || "发来一条消息")).slice(0, 44)
       : (body || "发来一条消息").slice(0, 44);
     const b = {
       key: "b" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
@@ -17781,7 +17781,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               if (window.Notify && window.Notify.groupBubble) window.Notify.groupBubble({
                 title: (group && group.name) || "群聊",
                 // 树洞里锁屏通知也只露代号（她 2026-11-21 截图：锁屏上还是真名）
-                body: (spk.name ? (group && group.chKind === "treehole" ? "树洞 #" + (thAliasMapOf(groupChatsRef.current[groupId] || [])[String(spk.id)] || thAlias(thAliasMapOf(groupChatsRef.current[groupId] || []), spk.id).map[String(spk.id)] || "?") : spk.name) + "：" : "") + gBubbles[j],
+                body: (spk.name ? chAnonName(group, groupChatsRef.current[groupId], spk.id, spk.name) + "：" : "") + gBubbles[j],
                 chatKey: "g:" + groupId, turnId: gTurnId, bubbleId: "word-" + i + "-" + j,
                 groupId: groupId
               });
@@ -19822,7 +19822,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const before = (groupChatsRef.current[g.id] || []).length;
       try { await replyGroup(g.id); } catch (e) {}
       const added = (groupChatsRef.current[g.id] || []).slice(before).filter(m => m && m.role === "assistant" && m.content);
-      if (added.length) { const lm = added[added.length - 1]; out.push({ id: g.id, n: added.length, last: ((lm.senderName ? (g.chKind === "treehole" && lm.senderId ? "树洞 #" + (thAliasMapOf(groupChatsRef.current[g.id] || [])[String(lm.senderId)] || "?") : lm.senderName) + "：" : "") + String(lm.content)).replace(/\s+/g, " ").slice(0, 30) }); }
+      if (added.length) { const lm = added[added.length - 1]; out.push({ id: g.id, n: added.length, last: ((lm.senderName ? chAnonName(g, groupChatsRef.current[g.id], lm.senderId, lm.senderName) + "：" : "") + String(lm.content)).replace(/\s+/g, " ").slice(0, 30) }); }
     }
     saveJSON("x_spaceDigest:" + sp.id, out);
     setSpaceDigestRev(x => x + 1);
@@ -37037,7 +37037,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return h(SpaceView, { key: "sp::" + sp.id, space: sp, channels: (groups || []).filter(g => g && g.spaceId === sp.id && !g.chHidden && !g.roomOf),
       // 空间内搜索、约定（她 2026-11-20）
       searchRun: q => { const chs = (groups || []).filter(g => g && g.spaceId === sp.id && !g.roomOf); const chN = gid => { const g = chs.find(x => x.id === gid); return g ? (g.chHidden ? "见面" : (g.chName || g.name)) : ""; };
-        return spaceSearch(q, { channels: chs.map(g => g.chHidden ? { ...g, chName: "见面" } : g), chatsOf: id => { const _m = groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []); return chs.some(g => g.id === id && g.chKind === "treehole") ? thView(_m) : _m; }, filesOf: id => loadJSON("x_chfiles:" + id, []) || [], playOf: id => chpOf(id),
+        return spaceSearch(q, { channels: chs.map(g => g.chHidden ? { ...g, chName: "见面" } : g), chatsOf: id => chAnonMsgs(chs.find(g => g.id === id), groupChatsRef.current[id] || loadJSON("x_gchat:" + id, [])), filesOf: id => loadJSON("x_chfiles:" + id, []) || [], playOf: id => chpOf(id),
           gems: (loadJSON(gemKey(sp.id), []) || []).map(x => ({ ...x, ch: chN(x.gid) })) }, 100); },
       onPickResult: r => { const g = (groups || []).find(x => x && x.id === r.gid); if (!g) return; if (chClosedNow(g.id)) { chLockedToast(g); return; }
         setActiveGroup(g); clearUnread(g.id);
@@ -37108,7 +37108,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     allChars: characters,   // 群成员/群设置要按 id 找人；加人选单另有规矩（NPC 只能进主人的群）
     rels: rels,             // 加人选单要按「已有关系」分组（她 2026-08-25）
     // 树洞频道：屏幕上他们只剩代号（她 2026-11-20）。只换显示，存档里还是真名，按条号改、删照旧对得上
-    messages: (activeGroup.chKind === "treehole" || ((groups || []).find(g => g.id === activeGroup.id) || {}).chKind === "treehole") ? thView(groupChats[activeGroup.id] || []) : (groupChats[activeGroup.id] || []),
+    messages: chAnonMsgs(((groups || []).find(g => g.id === activeGroup.id) || activeGroup), groupChats[activeGroup.id]),
     onStopGen: stopBtnFor("g:" + activeGroup.id),
     sending: sending,
     profile: groupProfileFor(activeGroup.id),
@@ -37153,7 +37153,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onLongShot: indices => {
       const g0 = activeGroup, _th = (((groups || []).find(g => g.id === g0.id) || g0).chKind === "treehole");
       // 树洞的长图也只露代号、不放头像（她 2026-11-21 长图上全是真名）
-      const msgs = _th ? thView(groupChatsRef.current[g0.id] || []) : (groupChatsRef.current[g0.id] || []);
+      const msgs = chAnonMsgs(((groups || []).find(g => g.id === g0.id) || g0), groupChatsRef.current[g0.id]);
       const picked = indices.slice().sort((a, b) => a - b).map(i => msgs[i]).filter(Boolean);
       if (!window.ChatLongShot) return;
       toast("在拼长图…");

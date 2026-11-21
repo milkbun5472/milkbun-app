@@ -213,17 +213,17 @@ test("不满一周评出来的称号不挂", () => {
 });
 
 test("树洞：提醒只露代号；提示里说清大家来树洞是不顶着自己说话", () => {
-  assert.match(ap, /g\.chKind === "treehole" && last\.senderId \? "树洞 #"/);
+  assert.match(ap, /chAnonName\(g, groupChatsRef\.current\[g\.id\], last\.senderId, last\.senderName\)/);
   assert.match(ap, /大家来树洞，就是因为在这儿说话不用顶着自己/);
 });
 
 test("树洞长图只露代号、不放头像", () => {
-  assert.match(ap, /const msgs = _th \? thView\(groupChatsRef\.current\[g0\.id\] \|\| \[\]\)/);
+  assert.match(ap, /const msgs = chAnonMsgs\(/);
   assert.match(ap, /avatarSrcOf: id => _th \? null/);
 });
 
 test("树洞锁屏通知只露代号", () => {
-  assert.match(ap, /body: \(spk\.name \? \(group && group\.chKind === "treehole" \? "树洞 #"/);
+  assert.match(ap, /chAnonName\(group, groupChatsRef\.current\[groupId\], spk\.id, spk\.name\)/);
 });
 
 test("树洞代号每个号一张固定的匿名脸", () => {
@@ -252,9 +252,11 @@ test("文档能导出成 txt", () => {
 });
 
 test("树洞：频道列表、消息列表、空间搜索里也只露代号", () => {
-  assert.match(cs, /const last = channelLast\(g\.chKind === "treehole" && typeof thView === "function" \? thView/);
-  assert.match(cs, /const l = channelLast\(g\.chKind === "treehole"/);
-  assert.match(ap, /g\.chKind === "treehole"\) \? thView\(_m\) : _m;/);
+  assert.match(cs, /const last = channelLast\(chAnonMsgs\(g, groupChats\[g\.id\]\), userLabel\)/);
+  assert.match(cs, /const l = channelLast\(chAnonMsgs\(g, groupChats\[g\.id\]\), "我"\)/);
+  assert.match(ap, /chatsOf: id => chAnonMsgs\(/);
+  // 公共口子只有一份，别处不再各写一套 thView 判断
+  assert.doesNotMatch(ap + cs, /chKind === "treehole"[^\n]{0,40}\? thView\(/);
 });
 
 test("树洞的话不流到别处", () => {
