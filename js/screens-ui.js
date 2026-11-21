@@ -14,14 +14,16 @@ function ModelChips({ models, value, onPick }) {
   if (!models || !models.length) return null;
   const toggle = m => { const n = favs.indexOf(m) >= 0 ? favs.filter(x => x !== m) : favs.concat([m]); setFavs(n); saveJSON("x_modelFavs", n); if (typeof window.__toast === "function") window.__toast(n.indexOf(m) >= 0 ? "收藏了 " + m : "取消收藏 " + m); };
   const list = models.filter(m => favs.indexOf(m) >= 0).concat(models.filter(m => favs.indexOf(m) < 0));
-  return h("div", { "data-wk": "block", className: "flex flex-wrap gap-1.5", style: { marginTop: 8, maxHeight: 118, overflowY: "auto" } },
+  return h("div", null,
+    h("div", { "data-wk": "modelchiptip", style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "长按一个收藏，收藏的排最前；下架了也记着，再上架还在。"),
+    h("div", { "data-wk": "block", className: "flex flex-wrap gap-1.5", style: { marginTop: 6, maxHeight: 118, overflowY: "auto" } },
     list.map(m => { const on = value === m, fav = favs.indexOf(m) >= 0;
       return h("button", { key: m, "data-wk": "modelchip", "data-on": fav ? "1" : "0",
         onPointerDown: () => { fired.current = false; clearTimeout(pressT.current); pressT.current = setTimeout(() => { fired.current = true; toggle(m); }, 550); },
         onPointerUp: () => clearTimeout(pressT.current), onPointerLeave: () => clearTimeout(pressT.current), onPointerCancel: () => clearTimeout(pressT.current),
         onContextMenu: e => e.preventDefault(),
         onClick: () => { if (fired.current) { fired.current = false; return; } onPick(m); }, className: "active:opacity-70",
-        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.sub, border: "1px solid " + (fav ? t.ink : t.line), WebkitUserSelect: "none", userSelect: "none" } }, (fav ? "★ " : "") + m); }));
+        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.sub, border: "1px solid " + (fav ? t.ink : t.line), WebkitUserSelect: "none", userSelect: "none" } }, (fav ? "★ " : "") + m); })));
 }
 function STW(who, el) {
   const id = who && typeof who === "object" ? (String(who.authorType || "").indexOf("character") === 0 ? who.authorId : null) : who;
