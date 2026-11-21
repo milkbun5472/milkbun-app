@@ -19710,7 +19710,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 收进频道的旁观群（她隐身在旁边看）：她在那儿的事一件都不许露——机器人卡、欢迎、悄悄话、一起听、她收的精华都绕开它
   const chSpectId = gid => groupSpectating((groupsRef.current || []).find(x => x && x.id === gid));
   const spaceHomeChannel = spId => {
-    const chs = (groupsRef.current || []).filter(g => g && g.spaceId === spId && !g.chArchived && !chClosedNow(g.id) && !groupSpectating(g));
+    // 挂机房不当小频贴东西的地方（她 2026-11-21「挂机房突然搞出了本周头衔」）
+    const chs = (groupsRef.current || []).filter(g => g && g.spaceId === spId && !g.chArchived && !chClosedNow(g.id) && !groupSpectating(g) && g.chKind !== "lounge");
     return chs.find(x => x.chName === "综合") || chs.slice().sort((a, b) => (a.createdTs || 0) - (b.createdTs || 0))[0] || null;
   };
   // 小活动机器人（她 2026-11-20 第二批）：每天第一次进这个空间时贴一张「每日一问」；满一周发一回称号。
