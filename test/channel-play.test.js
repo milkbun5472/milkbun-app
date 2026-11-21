@@ -246,3 +246,7 @@ test("文件每行按谁写的分颜色：顺着历史算", () => {
   assert.equal(c.B(f).map(r => r.by).join(","), "me,x,y");
   assert.match(cs, /"data-wk": "chfline"/);
 });
+
+test("文档能导出成 txt", () => {
+  assert.match(cs, /"data-wk": "chfexport", onClick: async \(\) => \{ try \{ await saveTextFile\(/);
+});
