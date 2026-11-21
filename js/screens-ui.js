@@ -2352,7 +2352,10 @@ function Forum({
   //   FORUM_SKIN 是全论坛共用的那一份，这里整份换掉，不用每处各判一次
   const [nav, setNav] = useState("home");           // home | search | pm | me
   // 隐藏了的吧不当默认那一格（群里 2026-11-21「隐藏了一点进去还是原先默认的吧」）
-  const [tab, setTab] = useState(() => { const sh = forumBoardsShown(); return sh.indexOf("吐槽吧") >= 0 ? "吐槽吧" : (sh[0] || "关注"); });           // 主页版块 或 "关注"
+  const firstShownBoard = () => { const sh = forumBoardsShown(); return sh.indexOf("吐槽吧") >= 0 ? "吐槽吧" : (sh[0] || "关注"); };
+  const [tab, setTab] = useState(firstShownBoard);           // 主页版块 或 "关注"
+  // 论坛一直挂着、或者刚在「吧的顺序」里把当前这个吧藏了（她 2026-11-21 截图：藏了还停在吐槽吧）：落到第一个没藏的
+  useEffect(() => { if (forumBoardPrefs().hidden.indexOf(tab) >= 0) setTab(firstShownBoard()); });
   const [feedSort, setFeedSort] = useState("active"); // active | latest | hot
   // 「新帖在这里」「新回复在这里」默认收着，只露一行标题和数（她 2026-10-07：「能不能搞 dropdown 隐藏，点开才展开」）
   const [newPostsOpen, setNewPostsOpen] = useState(false);
@@ -2429,7 +2432,7 @@ function Forum({
     requestAppConfirm("拆掉「" + name + "」？", n ? "里面 " + n + " 个帖不会删，会挪到「搜索」那一页里。" : "这个吧里还没有帖，拆了就没了。", () => {
     if (n && onDropBoard) onDropBoard(name);
     saveBoards(forumCustomBoards().filter(b => b.name !== name));
-    setTab("吐槽吧"); setPage(1);
+    setTab(firstShownBoard()); setPage(1);
   }, "拆吧");
   };
   // 这一格是不是她开的吧；横杠上挂什么（写死的吧规，或者她写的那句简介）
