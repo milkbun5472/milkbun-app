@@ -10889,6 +10889,9 @@ function MomentsFeed({
   const _mk = maskView === null ? "" : "me#" + (maskView || "main");
   const cover = (_mk && coverOf && coverOf(_mk)) || coverAll, coverPos = _mk && coverOf && coverOf(_mk) ? (coverOf(_mk + "@pos") || "") : coverPosAll;
   const onSetCover = _mk && onSetCoverFor ? d => onSetCoverFor(_mk, d) : onSetCoverAll;
+  // 封面上那块名字和头像也跟着这张面具（她 2026-11-22「头像也换不了」）：用面具列表里它自己那份，没挑面具时照旧是主面具
+  const _viewMe = maskView === null ? null : ((window.__momentMasks ? window.__momentMasks() : []).find(x => x.id === maskView) || null);
+  const meShown = _viewMe ? { name: _viewMe.name, avatarImage: _viewMe.avatarImage, color: _viewMe.color } : { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: profile && profile.color };
   const [moreFor, setMoreFor] = useState(null);     // 哪一条的「··」点开了
   // 长按一条评论删掉（群友 2026-11-02）：按住 600ms，挪开手指就算了；按出来之后那一下不算点
   const [delCm, setDelCm] = useState(null);
@@ -10976,8 +10979,8 @@ function MomentsFeed({
       maskView !== null ? h("button", { "data-wk": "momaskchip", onClick: () => setMaskView(null), style: { position: "absolute", top: 16, left: 14, padding: "5px 11px", borderRadius: 999, background: "rgba(0,0,0,.35)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
         "只看「" + (((window.__momentMasks ? window.__momentMasks() : []).find(x => x.id === maskView) || {}).name || "这张面具") + "」 ×") : null,
       h("div", { className: "flex items-end", style: { position: "absolute", right: 16, bottom: -30, gap: 12 } },
-        h("button", { onClick: onOpenMine, "data-wk": "momyname", className: "active:opacity-70", style: { marginBottom: 38, fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,.55)" } }, (profile && profile.name) || "我"),
-        h("button", { onClick: onOpenMine, "data-wk": "momyavatar", className: "active:opacity-70" }, h(Avatar, { character: { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: profile && profile.color }, size: 68, radius: 10 })))), newsBar || null, gen && /*#__PURE__*/React.createElement(Spinner, {
+        h("button", { onClick: onOpenMine, "data-wk": "momyname", className: "active:opacity-70", style: { marginBottom: 38, fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,.55)" } }, meShown.name),
+        h("button", { onClick: onOpenMine, "data-wk": "momyavatar", className: "active:opacity-70" }, h(Avatar, { character: meShown, size: 68, radius: 10 })))), newsBar || null, gen && /*#__PURE__*/React.createElement(Spinner, {
     label: "正在发朋友圈…"
   }), !gen && moments.length === 0 && /*#__PURE__*/React.createElement(Empty, {
     text: "朋友圈还没有动态",
