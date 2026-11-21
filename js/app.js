@@ -2597,6 +2597,9 @@ function App() {
   // 不参与选路：选路一律走 pickRoute。
   const routePicked = id => !!(id && apiProfiles.some(p => p.id === id));
   const offlineActive = pickRoute(offlineApiId, active);
+  // 小游戏单独那一档（她 2026-11-22）：没挑就跟线下走，跟原来一样
+  const [gameApiId, setGameApiId] = useState(() => loadJSON("x_gameApi", null));
+  const gameActive = pickRoute(gameApiId, offlineActive);
   // 和设置页同一契约：不选跟随主模型，选了走独立线路；失效的显式选择不偷偷换线路。
   const bgActive = pickRoute(bgApiId, active);
   const bgActiveRef = useRef(bgActive); bgActiveRef.current = bgActive;
@@ -38766,8 +38769,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   });else if (screen === "games") body = h(Games, {
     entry: gameEntry,
     // 小游戏需要规则推演与长程角色演绎，统一走线下创作线路。
-    active: offlineActive,
-    bgActive: offlineActive,
+    active: gameActive,
+    bgActive: gameActive, apiProfiles, gameApiId, onSetGameApi: id => { setGameApiId(id); saveJSON("x_gameApi", id); },
     // 认识的配角也能上桌（群里 2026-10-03：「玩游戏这里能不能加入认识的 npc」）。小游戏是沙盒，只读不写主线，
     //   配角进来不会碰到好感/心情那些（配角本来就没有）；选人页把配角单列一组。
     characters: playChars,
