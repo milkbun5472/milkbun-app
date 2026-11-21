@@ -36893,7 +36893,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onTopMoment: topMoment,
     onPinMoment: pinMomentToShike,
     onOpenMomProfile: openMomProfile,
-    momCover: momentsCover.me || "", momCoverPos: momentsCover["me@pos"] || "", onShareMoment: shareMomentTo, onSetMomCover: uri => { setMomentCover("me", uri); setMomentCover("me@pos", ""); }, momCoverOf: k => momentsCover[k] || "", onSetMomCoverFor: (k, uri) => { setMomentCover(k, uri); setMomentCover(k + "@pos", ""); },
+    momCover: momentsCover.me || "", momCoverPos: momentsCover["me@pos"] || "", onShareMoment: shareMomentTo, onSetMomCover: uri => { setMomentCover("me", uri); setMomentCover("me@pos", ""); }, momCoverOf: k => momentsCover[k] || "", onSetMomCoverFor: (k, uri) => { setMomentCover(k, uri); setMomentCover(k + "@pos", ""); }, onSetMomCoverKey: (k, v) => setMomentCover(k, v),
     onEditProfile: () => setProfileOpen(true),
     onOpenWallet: () => setScreen("wallet"),
     onOpenFavorites: () => setScreen("favorites"),

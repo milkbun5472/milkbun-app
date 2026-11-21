@@ -9384,7 +9384,7 @@ function BackupBanner({ onOpenSettings }) {
       style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none" } }, "×"));
 }
 function Messages({
-  momCover, momCoverPos, momCoverOf, onSetMomCover, onSetMomCoverFor, onShareMoment,
+  momCover, momCoverPos, momCoverOf, onSetMomCover, onSetMomCoverFor, onSetMomCoverKey, onShareMoment,
   onStoryNow,     // 让某个 TA 现在发一条限时动态（不占名额）
   onStoryReply,   // 回别人的限时动态（她 2026-11-14）：(story, text) → 落进跟 TA 的聊天
   onPinMoment,
@@ -9911,7 +9911,7 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } }, x.like ? "赞了你" : (x.reply ? "回复了你：" : "评论：") + x.text)),
         h("div", { style: { width: 44, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.4, overflow: "hidden", maxHeight: 44 } }, String(x.m.text || x.m.content || "").slice(0, 24)))),
       h("button", { "data-wk": "momnewsclear", onClick: () => { setNewsOpen(false); onMomentsSeen && onMomentsSeen(); }, className: "w-full active:opacity-70", style: { padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "都看过了")) : null) : null,
-    cover: momCover, coverPos: momCoverPos, coverOf: momCoverOf, onSetCover: onSetMomCover, onSetCoverFor: onSetMomCoverFor, camOpen: momCam, setCamOpen: setMomCam, onOpenMine: () => onOpenMomProfile && onOpenMomProfile(null, true)
+    cover: momCover, coverPos: momCoverPos, coverOf: momCoverOf, onSetCover: onSetMomCover, onSetCoverFor: onSetMomCoverFor, onSetCoverKey: onSetMomCoverKey, camOpen: momCam, setCamOpen: setMomCam, onOpenMine: () => onOpenMomProfile && onOpenMomProfile(null, true)
   }), tab === "me" && h("div", {
     className: "p-5"
   }, h("button", {
@@ -10880,7 +10880,7 @@ function MomentsFeed({
   onPin,
   onOpenProfile,
   onDelComment,
-  cover: coverAll, coverPos: coverPosAll, coverOf, onOpenMine, onSetCover: onSetCoverAll, onSetCoverFor, camOpen, setCamOpen, newsBar, onShare
+  cover: coverAll, coverPos: coverPosAll, coverOf, onOpenMine, onSetCover: onSetCoverAll, onSetCoverFor, onSetCoverKey, camOpen, setCamOpen, newsBar, onShare
 }) {
   const [shareM, setShareM] = useState(null);   // 要转进哪个人聊天的那一条
   const [lockFor, setLockFor] = useState(null); // 点开了哪一条的小锁（看给谁看）
@@ -10889,6 +10889,7 @@ function MomentsFeed({
   const _mk = maskView === null ? "" : "me#" + (maskView || "main");
   const cover = (_mk && coverOf && coverOf(_mk)) || coverAll, coverPos = _mk && coverOf && coverOf(_mk) ? (coverOf(_mk + "@pos") || "") : coverPosAll;
   const onSetCover = _mk && onSetCoverFor ? d => onSetCoverFor(_mk, d) : onSetCoverAll;
+  const CA = useCoverAdj(cover, coverPos, onSetCoverKey ? pos => onSetCoverKey((_mk && coverOf && coverOf(_mk) ? _mk : "me") + "@pos", pos) : null);
   // 封面上那块名字和头像也跟着这张面具（她 2026-11-22「头像也换不了」）：用面具列表里它自己那份，没挑面具时照旧是主面具
   const _viewMe = maskView === null ? null : ((window.__momentMasks ? window.__momentMasks() : []).find(x => x.id === maskView) || null);
   const meShown = _viewMe ? { name: _viewMe.name, avatarImage: _viewMe.avatarImage, color: _viewMe.color } : { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: profile && profile.color };
@@ -10960,8 +10961,9 @@ function MomentsFeed({
     //   点开挑「发朋友圈／让角色发」、自动配图的开关也在这儿（她 2026-11-14「跟微信一样，相机键可以选发朋友圈、让他发或者自动配图」）
     //   原来那颗「发朋友圈」的挂点 mocompose 照旧挂在菜单里那一颗上
     h("div", { "data-wk": "mocoverhead", style: { position: "relative", marginBottom: 46 } },
-      h("div", { "data-wk": "mocover", style: { height: 270, background: cover ? "center/cover no-repeat url(" + resolveImg(cover) + ")" : "linear-gradient(160deg," + t.bg + "," + t.line + ")", backgroundPosition: cover ? (coverPos || "center") : undefined } }),
-      onSetCover ? h(MomentCoverPick, { onPicked: d => onSetCover(d), style: { position: "absolute", top: 12, right: 14 } }) : null,
+      h("div", { ...CA.boxProps, "data-wk": "mocover", style: { position: "relative", height: 270, background: cover ? "center/cover no-repeat url(" + resolveImg(cover) + ")" : "linear-gradient(160deg," + t.bg + "," + t.line + ")", backgroundPosition: cover ? CA.posNow : undefined, touchAction: CA.adj ? "none" : undefined } }, CA.overlay()),
+      onSetCover ? h(MomentCoverPick, { onPicked: d => { onSetCover(d); CA.picked(); }, style: { position: "absolute", top: 12, right: 14 } }) : null,
+      CA.btn({ top: 14 }),
       camOpen ? h("div", { onClick: () => setCamOpen(false), style: { position: "fixed", inset: 0, zIndex: 59 } }) : null,
       camOpen ? h("div", { "data-wk": "mocammenu", style: { position: "fixed", top: "calc(env(safe-area-inset-top, 0px) + 58px)", right: 14, zIndex: 60, width: 230, maxWidth: "calc(100vw - 28px)", maxHeight: "calc(100dvh - env(safe-area-inset-top, 0px) - 140px)", overflowY: "auto", overscrollBehavior: "contain", padding: "4px 0", borderRadius: 12, background: momPaper(t), border: "1px solid " + t.line, boxShadow: "0 8px 24px rgba(0,0,0,.18)" } },
         h("button", { "data-wk": "mocompose", onClick: () => { setCamOpen(false); onCompose(); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
@@ -11290,31 +11292,12 @@ function MomentAutoImgSwitch() { return h(AutoImgSwitch, { storeKey: "x_momentAu
 // 「不看 TA 的朋友圈」（群友 2026-10-31）：她这边刷朋友圈时把这几位的藏起来；TA 照常发，TA 那头什么都不知道。
 function momMutedIds() { try { const v = loadJSON("x_momMute", []); return Array.isArray(v) ? v.map(String) : []; } catch (e) { return []; } }
 // 朋友圈个人页（仿微信「我的相册/TA 的朋友圈」）：封面 + 头像 + 签名 + 此人所有动态；me 可发/删/换封面
-function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter, profile, characters: rawCharacters, moments, cover, coverPos, onSetCoverPos, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onTopMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
-  const [stArch, setStArch] = useState(null);   // 点开的那条过往限时动态（hook 放最前，下面有提前 return）
-  const [moreFor, setMoreFor] = useState(null);   // 哪一条的「··」点开了
-  const character = chatFace(rawCharacter), characters = (rawCharacters || []).map(chatFace);   // 主页上的头像也认聊天那张
-  const t = useTheme();
-  const [compose, setCompose] = useState(false);
-  const [commenting, setCommenting] = useState(null);
-  const [cText, setCText] = useState("");
-  const [cReply, setCReply] = useState(null); // 点某条评论=定向回复 TA
-  const [imgView, setImgView] = useState(null);
-  const [imgMid, setImgMid] = useState(null);
-  const [delId, setDelId] = useState(null);
-  const coverRef = useRef(null);
+// 朋友圈封面拖着调位置（群友 2026-10-08）：个人主页和朋友圈首页共用这一份（她 2026-11-22「朋友圈背景能不能可以调节图片位置」）
+//   选完图直接进调整，或者点「调位置」；在封面上拖，松手不存，点「好了」才存。
+function useCoverAdj(cover, coverPos, onSetCoverPos) {
   const [adj, setAdj] = useState(null); // { x, y } 百分比；null＝不在调
   const coverBoxRef = useRef(null);
   const dragRef = useRef(null);
-  if (!isMe && !character) return null;
-  const author = isMe ? { name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color } : character;
-  const name = isMe ? (profile.name || "我") : (character.remark || character.name);
-  // 签名：优先用传进来的（角色页＝查手机·微信里那句朋友圈签名），否则回落到 motto/tagline
-  const sign = (signature != null && String(signature).trim()) ? signature : (isMe ? (profile.tagline || "") : (character.motto || character.tagline || ""));
-  const list = (moments || []).filter(m => isMe ? m.mine : (m.characterId === character.id && !m.mine)).slice().sort((a, b) => (b.top ? 1 : 0) - (a.top ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
-  // 封面拖着调位置（群友 2026-10-08：「朋友圈壁纸要是能自己调位置就好了」）：
-  //   选完图直接进调整，或者点「调位置」；在封面上拖，松手不存，点「好了」才存。
-  const posNow = adj ? (adj.x + "% " + adj.y + "%") : (coverPos || "center");
   const startAdj = () => { const m = /^([\d.]+)% ([\d.]+)%$/.exec(coverPos || ""); setAdj(m ? { x: +m[1], y: +m[2] } : { x: 50, y: 50 }); };
   const adjDown = e => {
     if (!adj || !cover) return;
@@ -11333,7 +11316,41 @@ function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter
     setAdj({ x: d.ox > 1 ? cl(d.x0 - (e.clientX - d.sx) / d.ox * 100) : 50, y: d.oy > 1 ? cl(d.y0 - (e.clientY - d.sy) / d.oy * 100) : 50 });
   };
   const adjUp = () => { dragRef.current = null; };
-  const pickCover = e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1400, 0.82).then(d => { onSetCover(d); if (onSetCoverPos) { onSetCoverPos(""); setAdj({ x: 50, y: 50 }); } }); e.target.value = ""; };
+  const posNow = adj ? (adj.x + "% " + adj.y + "%") : (coverPos || "center");
+  const boxProps = { ref: coverBoxRef, onPointerDown: adjDown, onPointerMove: adjMove, onPointerUp: adjUp, onPointerCancel: adjUp };
+  const overlay = () => adj && cover ? h("div", { "data-wk": "mocoveradj", style: { position: "absolute", inset: 0, zIndex: 3, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", padding: "0 16px 14px", gap: 8, pointerEvents: "none", boxShadow: "inset 0 0 0 2px rgba(255,255,255,.7)" } },
+        h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#fff", background: "rgba(0,0,0,.42)", borderRadius: 999, padding: "4px 12px" } }, "拖动封面调位置"),
+        h("div", { className: "flex", style: { gap: 8, pointerEvents: "auto" } },
+          h("button", { onPointerDown: e => e.stopPropagation(), onClick: () => setAdj(null), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", background: "rgba(0,0,0,.42)", borderRadius: 999, padding: "6px 16px", minHeight: 32 } }, "取消"),
+          h("button", { onPointerDown: e => e.stopPropagation(), onClick: () => { onSetCoverPos && onSetCoverPos(adj.x + "% " + adj.y + "%"); setAdj(null); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#1a1a1a", background: "#fff", borderRadius: 999, padding: "6px 16px", minHeight: 32 } }, "好了"))) : null;
+  const btn = style => cover && onSetCoverPos && !adj ? h("button", { "data-wk": "mocoverposbtn", onClick: startAdj, className: "active:opacity-70", style: Object.assign({ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", right: 58, padding: "6px 12px", borderRadius: 999, background: "rgba(0,0,0,0.32)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#fff" }, style || {}) }, "调位置") : null;
+  const picked = () => { if (onSetCoverPos) { onSetCoverPos(""); setAdj({ x: 50, y: 50 }); } };
+  return { adj, posNow, boxProps, overlay, btn, picked };
+}
+function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter, profile, characters: rawCharacters, moments, cover, coverPos, onSetCoverPos, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onTopMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
+  const [stArch, setStArch] = useState(null);   // 点开的那条过往限时动态（hook 放最前，下面有提前 return）
+  const [moreFor, setMoreFor] = useState(null);   // 哪一条的「··」点开了
+  const character = chatFace(rawCharacter), characters = (rawCharacters || []).map(chatFace);   // 主页上的头像也认聊天那张
+  const t = useTheme();
+  const [compose, setCompose] = useState(false);
+  const [commenting, setCommenting] = useState(null);
+  const [cText, setCText] = useState("");
+  const [cReply, setCReply] = useState(null); // 点某条评论=定向回复 TA
+  const [imgView, setImgView] = useState(null);
+  const [imgMid, setImgMid] = useState(null);
+  const [delId, setDelId] = useState(null);
+  const coverRef = useRef(null);
+  const CA = useCoverAdj(cover, coverPos, onSetCoverPos), adj = CA.adj, posNow = CA.posNow;
+  if (!isMe && !character) return null;
+  const author = isMe ? { name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color } : character;
+  const name = isMe ? (profile.name || "我") : (character.remark || character.name);
+  // 签名：优先用传进来的（角色页＝查手机·微信里那句朋友圈签名），否则回落到 motto/tagline
+  const sign = (signature != null && String(signature).trim()) ? signature : (isMe ? (profile.tagline || "") : (character.motto || character.tagline || ""));
+  const list = (moments || []).filter(m => isMe ? m.mine : (m.characterId === character.id && !m.mine)).slice().sort((a, b) => (b.top ? 1 : 0) - (a.top ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
+  // 封面拖着调位置（群友 2026-10-08：「朋友圈壁纸要是能自己调位置就好了」）：
+  //   选完图直接进调整，或者点「调位置」；在封面上拖，松手不存，点「好了」才存。
+
+  const pickCover = e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1400, 0.82).then(d => { onSetCover(d); CA.picked(); }); e.target.value = ""; };
   const sendC = m => { if (cText.trim()) { onCommentMoment(m.id, cText.trim(), cReply || undefined); setCommenting(null); setCReply(null); setCText(""); } };
 
   const momentRow = m => h("div", { key: m.id, "data-wk": "moprofilepost", "data-top": m.top ? "1" : "0", className: "px-5 py-4", style: { borderBottom: "1px solid " + t.line } },
@@ -11369,19 +11386,15 @@ function MomentsProfile({ momRange, onSetMomRange, isMe, character: rawCharacter
   //   地是灰的、格子是白的」。所以这一页要的不是铺一张纸，而是别在同一个 app 里出现两种底：
   //   这儿原来是 t.bg2（偏白）、消息那一页是 t.bg（灰），进出一趟颜色会跳一下。
   return h("div", { "data-wk": "momprofilepage", "data-part": "momentsprofile", className: "h-full flex flex-col", style: msgAppBg(t) },
-    h("div", { ref: coverBoxRef, "data-wk": "mocover", "data-on": cover ? "1" : undefined, onPointerDown: adjDown, onPointerMove: adjMove, onPointerUp: adjUp, onPointerCancel: adjUp, style: { position: "relative", height: 210, flexShrink: 0, touchAction: adj ? "none" : undefined, cursor: adj ? "grab" : undefined, background: cover ? (posNow + "/cover no-repeat url(\"" + resolveImg(cover) + "\")") : "linear-gradient(135deg,#8a8577,#5f5b50)" } },
-      adj && cover ? h("div", { "data-wk": "mocoveradj", style: { position: "absolute", inset: 0, zIndex: 3, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", padding: "0 16px 14px", gap: 8, pointerEvents: "none", boxShadow: "inset 0 0 0 2px rgba(255,255,255,.7)" } },
-        h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "#fff", background: "rgba(0,0,0,.42)", borderRadius: 999, padding: "4px 12px" } }, "拖动封面调位置"),
-        h("div", { className: "flex", style: { gap: 8, pointerEvents: "auto" } },
-          h("button", { onPointerDown: e => e.stopPropagation(), onClick: () => setAdj(null), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#fff", background: "rgba(0,0,0,.42)", borderRadius: 999, padding: "6px 16px", minHeight: 32 } }, "取消"),
-          h("button", { onPointerDown: e => e.stopPropagation(), onClick: () => { onSetCoverPos && onSetCoverPos(adj.x + "% " + adj.y + "%"); setAdj(null); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#1a1a1a", background: "#fff", borderRadius: 999, padding: "6px 16px", minHeight: 32 } }, "好了"))) : null,
+    h("div", { ...CA.boxProps, "data-wk": "mocover", "data-on": cover ? "1" : undefined, style: { position: "relative", height: 210, flexShrink: 0, touchAction: adj ? "none" : undefined, cursor: adj ? "grab" : undefined, background: cover ? (posNow + "/cover no-repeat url(\"" + resolveImg(cover) + "\")") : "linear-gradient(135deg,#8a8577,#5f5b50)" } },
+      CA.overlay(),
       // 没自己设过图时，把查手机里生成的那句【封面描述】当封面：一张TA挑的图，
       // 我们只有那句描述，那就把描述本身摆上去，别拿一块灰渐变糊弄过去
       (!cover && coverText) ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 18px 44px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.7, color: "rgba(255,255,255,.88)", textShadow: "0 1px 5px rgba(0,0,0,.5)", maxWidth: 250 } }, coverText)) : null,
       h("button", { onClick: onBack, className: "active:opacity-60", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 10px)", left: 14, width: 34, height: 34, borderRadius: 999, background: "rgba(0,0,0,0.32)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IArrow, { size: 19, color: "#fff" })),
-      onSetCover ? h(MomentCoverPick, { onPicked: d => { onSetCover(d); if (onSetCoverPos) { onSetCoverPos(""); setAdj({ x: 50, y: 50 }); } }, style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 10px)", right: 14 } }) : null,
-      cover && onSetCoverPos && !adj && h("button", { onClick: startAdj, className: "active:opacity-70", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", right: 58, padding: "6px 12px", borderRadius: 999, background: "rgba(0,0,0,0.32)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#fff" } }, "调位置"),
+      onSetCover ? h(MomentCoverPick, { onPicked: d => { onSetCover(d); CA.picked(); }, style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 10px)", right: 14 } }) : null,
+      CA.btn(),
       h("div", { "data-wk": "moprofilehead", style: { position: "absolute", right: 16, bottom: -30, display: "flex", alignItems: "flex-start", gap: 12 } },
         h("div", { style: { textAlign: "right", maxWidth: 190, paddingTop: 2 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", lineHeight: 1, color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,0.55)" } }, name)),
