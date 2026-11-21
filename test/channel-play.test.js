@@ -152,3 +152,8 @@ test("叫大家起名／商量养什么：也是这一轮的正题", () => {
   assert.match(ap, /window\.__chAskPet = _g\.id; setChannelTab\("chat"\)/);
   assert.match(ap, /_askPet \? "\\n\\n【这一轮的正题】"/);
 });
+
+test("送走小家伙、新人进来：也放到最后当正题", () => {
+  assert.match(ap, /_petBye \? "\\n\\n【这一轮的正题】"/);
+  assert.match(ap, /gWelcomeHint \? "\\n\\n【这一轮的正题】先招呼刚进来的/);
+});
