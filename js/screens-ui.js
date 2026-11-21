@@ -12889,10 +12889,10 @@ function Favorites({ favorites, characters, onBack, onDelete }) {
                   h("div", { "data-wk": "favvoicehead", className: "flex items-center gap-2", style: { marginBottom: 5 } },
                     h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: SCRAP_FOG } }, "语音" + (f.dur ? " · " + f.dur + "″" : "")),
                     (ftp && typeof TtsDot === "function" && f.role !== "user") ? h(TtsDot, { k: f.id, text: f.content, spk: c, tp: ftp }) : null),
-                  h("div", { "data-wk": "favtext", "data-part": "voice", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, f.content || ""))
+                  h("div", { "data-wk": "favtext", "data-part": "voice", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, f.content && typeof TransText === "function" ? h(TransText, { text: f.content, isU: f.role === "user", zhReady: f.zh, ink: SCRAP_INK }) : (f.content || "")))
               : f.kind === "photo"
               ? h("div", { "data-wk": "favtext", "data-part": "photo", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, "照片 · " + (f.content || "（没写说明）"))
-              : h("div", { "data-wk": "favtext", "data-part": "text", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, f.content || "（无文本内容）")))));
+              : h("div", { "data-wk": "favtext", "data-part": "text", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: SCRAP_INK, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, f.content && typeof TransText === "function" ? h(TransText, { text: f.content, isU: f.role === "user", zhReady: f.zh, ink: SCRAP_INK }) : (f.content || "（无文本内容）"))))));
   }
   const chars = (characters || []).filter(c => byChar[c.id] && byChar[c.id].length);
   return h("div", { "data-wk": "favpage", className: "h-full flex flex-col", style: KRAFT(t) },

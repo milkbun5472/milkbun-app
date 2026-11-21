@@ -16042,7 +16042,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // ---- long-press actions ----
   const addFavorite = (charId, m) => {
     // imgKey/desc/dur 也要带走：不然收藏的自拍打开是「无文本消息」、语音丢时长
-    const entry = { id: "fav_" + Date.now() + "_" + Math.floor(Math.random() * 1000), charId, role: m.role, content: m.content || "", kind: m.kind || null, url: m.url || null, imgKey: m.imgKey || null, desc: m.desc || null, dur: m.dur || null, keyword: m.keyword || null, ts: m.ts || Date.now(), savedTs: Date.now() };
+    const entry = { id: "fav_" + Date.now() + "_" + Math.floor(Math.random() * 1000), charId, role: m.role, content: m.content || "", kind: m.kind || null, url: m.url || null, imgKey: m.imgKey || null, desc: m.desc || null, dur: m.dur || null, keyword: m.keyword || null, ...(m.zh ? { zh: m.zh } : {}), ts: m.ts || Date.now(), savedTs: Date.now() };
     setFavorites(p => { const n = [entry, ...p]; saveJSON("x_favorites", n); return n; });
     toast("已收藏");
   };
