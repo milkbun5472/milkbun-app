@@ -27168,7 +27168,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   vice versa」）。切到某个世界才按世界分——想让两条线的人别碰面，就切过去逛。
   const forumInWorld = (c, post) => !!c && (forumCurWorld() === "*" || forumThreadWorld(post) === "*" || charWorldOf(c.id) === forumThreadWorld(post));
   // 同 persona1 那条：36 个字只够一个职业标签，楼里的角色就成了那一行的黑话机（她 2026-10-08）
-  const forumCharList = post => { const _cs = forumActiveChars().filter(c => !post || forumInWorld(c, post)); const _b = Math.max(400, Math.min(2000, Math.floor(8000 / Math.max(1, _cs.length)))); return _cs.map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").replace(/\s+/g, " ").slice(0, _b) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜平时用大号，需要遮一下时习惯用" + (m.identityBias === "alt" ? "固定小号" : "匿名") + "）"; }).join("；"); };
+  const forumCharList = (post, onlyIds) => { const _cs = forumActiveChars().filter(c => (!post || forumInWorld(c, post)) && (!onlyIds || onlyIds.indexOf(c.id) >= 0)); const _b = Math.max(400, Math.min(2000, Math.floor(8000 / Math.max(1, _cs.length)))); return _cs.map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").replace(/\s+/g, " ").slice(0, _b) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜平时用大号，需要遮一下时习惯用" + (m.identityBias === "alt" ? "固定小号" : "匿名") + "）"; }).join("；"); };
   const toggleForumChar = charId => setAutoRefreshChar("forum", charId, (forumOffRef.current || []).includes(charId));
   // NPC 主帖不绑定具体角色，用一个「论坛网友」合成 ctx（仍带世界书 + 去人机味总则）
   // 楼层落盘失败不许静默（照 commitEmotePacks 那一处的写法：
@@ -28037,7 +28037,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     src.forEach(m => m.ids.forEach(id => {
       if (out.some(x => x.id === id) || spokeAfter(id, m.ts)) return;
       const c = forumActiveChars().find(x => x.id === id && forumInWorld(x, post));
-      if (c) { out.push({ id, kind: "char", name: c.name, where: m.where, who: m.who, persona: _srch ? String(c.persona || "").replace(/\s+/g, " ").slice(0, 300) : "" }); return; }
+      if (c) { out.push({ id, kind: "char", name: c.name, where: m.where, who: m.who, search: _srch }); return; }
       const n = FORUM_NPC_REGISTRY.find(x => x.id === id);
       if (n) out.push({ id, kind: "npc", name: n.name, where: m.where, who: m.who });
     }));
@@ -28046,9 +28046,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 被点名的人：这一轮一定来一条，而且知道自己是被点了名才来的（不另花调用，拼进这一波本来就有的生成里）
   const forumMentionRule = due => !(due && due.length) ? "" : "\n【这帖里有人点了名】\n" + due.map(m => m.kind === "char"
       ? "「" + m.name + "」：「" + (m.who || "楼主") + "」在" + m.where + "里 @ 了你，你知道自己被点了名；这一轮你一定来回一条（char 填「" + m.name + "」）。"
-        + (m.persona ? "Ta 是：" + m.persona : "")
+
       : "常驻熟面孔「" + m.name + "」：「" + (m.who || "楼主") + "」在" + m.where + "里 @ 了你；这一轮你一定来回一条（npcId 填 " + m.id + "）。").join("\n")
-    + (due.some(m => m.persona) ? "\n上面说不要出现认识的角色的，对这几位被点了名的不算。" : "") + "\n";
+    // 搜来的帖平时不带角色名单：被点名的那几位用论坛那份公共名单（forumCharList）补上，不另截一份人设
+    + (due.some(m => m.search) ? "\n上面说不要出现认识的角色的，对这几位被点了名的不算。他们是：" + forumCharList(null, due.filter(m => m.search).map(m => m.id)) : "") + "\n";
   // 她身边的配角也来回她的帖（群友 2026-10-22：「我今天发的帖子，npc 都不跟我互动」）：
   //   原来楼里只有正式角色和路人，配角只会自己偶尔发一帖。她用主面具、大号发的帖，挂在她身边的配角
   //   和认识她的那些配角刷得到，每轮掷一下点一两位来回帖；人设给全，按跟她的真实关系说话。
