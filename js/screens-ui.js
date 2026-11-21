@@ -5,6 +5,24 @@
 // 只在点开那一页时才用到，改成用到才加载（js/lazy-mods.js，组名 screens）。
 // 开机、聊天、论坛要用的那一半还在 screens.js、开机加载。这里的名字照旧是全局的，跟原来写在一份里一样用；
 // screens.js 那边不许反过来用这里的东西（怎么分的见 slim/lazy-2 那次提交说明）。
+// 拉下来的模型列表（文字/图像/向量三处共用这一份）：长按一个收藏，收藏的排最前、带 ★，再长按取消（群友 2026-11-22「拉取模型的时候可以收藏，好几次把名称差不多的点错了」）
+//   收藏是全 app 一份（x_modelFavs），不分站点：同一个模型名在哪家都是它
+function ModelChips({ models, value, onPick }) {
+  const t = useTheme();
+  const [favs, setFavs] = useState(() => { try { const v = loadJSON("x_modelFavs", []); return Array.isArray(v) ? v : []; } catch (e) { return []; } });
+  const pressT = useRef(null), fired = useRef(false);
+  if (!models || !models.length) return null;
+  const toggle = m => { const n = favs.indexOf(m) >= 0 ? favs.filter(x => x !== m) : favs.concat([m]); setFavs(n); saveJSON("x_modelFavs", n); if (typeof window.__toast === "function") window.__toast(n.indexOf(m) >= 0 ? "收藏了 " + m : "取消收藏 " + m); };
+  const list = models.filter(m => favs.indexOf(m) >= 0).concat(models.filter(m => favs.indexOf(m) < 0));
+  return h("div", { "data-wk": "block", className: "flex flex-wrap gap-1.5", style: { marginTop: 8, maxHeight: 118, overflowY: "auto" } },
+    list.map(m => { const on = value === m, fav = favs.indexOf(m) >= 0;
+      return h("button", { key: m, "data-wk": "modelchip", "data-on": fav ? "1" : "0",
+        onPointerDown: () => { fired.current = false; clearTimeout(pressT.current); pressT.current = setTimeout(() => { fired.current = true; toggle(m); }, 550); },
+        onPointerUp: () => clearTimeout(pressT.current), onPointerLeave: () => clearTimeout(pressT.current), onPointerCancel: () => clearTimeout(pressT.current),
+        onContextMenu: e => e.preventDefault(),
+        onClick: () => { if (fired.current) { fired.current = false; return; } onPick(m); }, className: "active:opacity-70",
+        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.sub, border: "1px solid " + (fav ? t.ink : t.line), WebkitUserSelect: "none", userSelect: "none" } }, (fav ? "★ " : "") + m); }));
+}
 function STW(who, el) {
   const id = who && typeof who === "object" ? (String(who.authorType || "").indexOf("character") === 0 ? who.authorId : null) : who;
   return id && typeof window !== "undefined" && window.TransWho ? h(window.TransWho, { id: id }, el) : el;
@@ -6912,7 +6930,7 @@ function ImageApiConfig({ toast }) {
         h("div", { className: "flex gap-2" },
           h("input", { "data-wk": "input", value: c.model || "", onChange: e => set({ model: e.target.value }), placeholder: "gpt-image-2", style: Object.assign({}, inSt, { flex: 1 }) }),
           h("button", { "data-wk": "block", onClick: pull, disabled: fetching, className: "shrink-0 active:opacity-70 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "0 14px" } }, fetching ? "拉取中…" : "拉取模型")),
-        models.length > 0 ? h("div", { "data-wk": "block", className: "flex flex-wrap gap-1.5", style: { marginTop: 8, maxHeight: 118, overflowY: "auto" } }, models.map(m => h("button", { key: m, onClick: () => set({ model: m }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, background: c.model === m ? t.ink : t.bg2, color: c.model === m ? t.bg2 : t.sub, border: "1px solid " + t.line } }, m))) : null,
+        h(ModelChips, { models, value: c.model, onPick: m => set({ model: m }) }) || null,
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "填那个站里写的模型名，一字不差；点「拉取模型」能看到站里有哪些。框里的 gpt-image-2 只是占位。"))),
       h("div", { className: "flex gap-3" },
         h("div", { className: "flex-1" }, row("尺寸", h("select", { value: c.size || "1024x1536", onChange: e => set({ size: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
@@ -7040,7 +7058,7 @@ function EmbedApiConfig({ toast }) {
         h("div", { className: "flex gap-2" },
           h("input", { "data-wk": "input", value: c.model || "", onChange: e => set({ model: e.target.value }), placeholder: "text-embedding-3-small", style: Object.assign({}, inSt, { flex: 1 }) }),
           h("button", { "data-wk": "block", onClick: pull, disabled: fetching, className: "shrink-0 active:opacity-70 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "0 14px" } }, fetching ? "拉取中…" : "拉取模型")),
-        models.length > 0 ? h("div", { "data-wk": "block", className: "flex flex-wrap gap-1.5", style: { marginTop: 8, maxHeight: 118, overflowY: "auto" } }, models.map(m => h("button", { key: m, onClick: () => set({ model: m }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, background: c.model === m ? t.ink : t.bg2, color: c.model === m ? t.bg2 : t.sub, border: "1px solid " + t.line } }, m))) : null,
+        h(ModelChips, { models, value: c.model, onPick: m => set({ model: m }) }) || null,
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "填一个【embedding】模型名（名字通常含 embedding / embed / bge）。常见能用的：text-embedding-3-small（便宜够用）、text-embedding-3-large、bge-m3。"))),
       h("button", { "data-wk": "block", onClick: runTest, disabled: test && test.busy, className: "w-full mt-2 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, test && test.busy ? "检测中…" : "🔬 测一下这个 embedding 接口"),
       test && !test.busy ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap", padding: "10px 12px", borderRadius: 10, marginTop: 10, background: test.ok ? "rgba(90,150,90,0.1)" : "rgba(194,90,74,0.09)", border: "1px solid " + (test.ok ? "#8ab88a55" : "#c25a4a55"), color: test.ok ? "#4a7a4a" : "#b0503f" } },
@@ -8083,22 +8101,7 @@ function ApiConfig({
     style: {
       fontSize: "calc(16px * var(--app-fs, 1))"
     }
-  }), models.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "mt-3 flex flex-wrap gap-1.5 max-h-32 overflow-y-auto"
-  }, models.map(m => /*#__PURE__*/React.createElement("button", {
-    key: m,
-    onClick: () => upd({
-      model: m
-    }),
-    style: {
-      fontFamily: F_BODY,
-      fontSize: "calc(11px * var(--app-fs, 1))",
-      padding: "4px 9px",
-      borderRadius: 999,
-      border: `1px solid ${cur.model === m ? t.ink : t.line}`,
-      color: cur.model === m ? t.ink : t.fog
-    }
-  }, m)))),
+  }), h(ModelChips, { models, value: cur.model, onPick: m => upd({ model: m }) })),
   // 测一下（群友 2026-10-27「设置 API 时没有测试模型之类的吗」）：用这一页现在填的地址、key、模型发一句极短的话，
   //   通了显示它回了什么、花了几秒；不通把报错原话摆出来。点一次就是一次很小的调用
   h("div", { "data-wk": "apitest", style: { margin: "-6px 0 18px" } },
