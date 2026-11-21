@@ -221,3 +221,7 @@ test("树洞长图只露代号、不放头像", () => {
   assert.match(ap, /const msgs = _th \? thView\(groupChatsRef\.current\[g0\.id\] \|\| \[\]\)/);
   assert.match(ap, /avatarSrcOf: id => _th \? null/);
 });
+
+test("树洞锁屏通知只露代号", () => {
+  assert.match(ap, /body: \(spk\.name \? \(group && group\.chKind === "treehole" \? "树洞 #"/);
+});

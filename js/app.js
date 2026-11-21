@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.970";
+const APP_VERSION = "v89.971";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17771,7 +17771,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               //   同一个气泡重报不会堆重复；标题写群名，正文带上是谁说的。
               if (window.Notify && window.Notify.groupBubble) window.Notify.groupBubble({
                 title: (group && group.name) || "群聊",
-                body: (spk.name ? spk.name + "：" : "") + gBubbles[j],
+                // 树洞里锁屏通知也只露代号（她 2026-11-21 截图：锁屏上还是真名）
+                body: (spk.name ? (group && group.chKind === "treehole" ? "树洞 #" + (thAliasMapOf(groupChatsRef.current[groupId] || [])[String(spk.id)] || thAlias(thAliasMapOf(groupChatsRef.current[groupId] || []), spk.id).map[String(spk.id)] || "?") : spk.name) + "：" : "") + gBubbles[j],
                 chatKey: "g:" + groupId, turnId: gTurnId, bubbleId: "word-" + i + "-" + j,
                 groupId: groupId
               });
