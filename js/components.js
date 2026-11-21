@@ -21341,7 +21341,10 @@ function GroupThread({
     if ((dests || []).length > 1 && toast) toast("已转发到 " + dests.length + " 处");
   };
   // 群里也用TA单聊里那张头像（她 2026-10-02）：聊天头像 chatAvatar 只换脸，档案那张不动
-  const memberById = id => chatFace((allChars || characters).find(x => x.id === id));
+  // 树洞代号（th:几）：每个号一张固定的匿名脸，文字、表情包、卡片都用这一张（她 2026-11-21「发表情包头像颜色不一样」）
+  const TH_TONES = ["#c98b6b", "#7f9c8a", "#8a86b8", "#b88a9e", "#9aa36b", "#6b93b8", "#b8a06b", "#8f7b6b"];
+  const memberById = id => { const s0 = String(id || ""); if (s0.indexOf("th:") === 0) { const n = parseInt(s0.slice(3), 10) || 0; return { id: s0, name: "树洞 #" + n, color: TH_TONES[n % TH_TONES.length] }; }
+    return chatFace((allChars || characters).find(x => x.id === id)); };
   const members = (group.memberIds || []).map(memberById).filter(Boolean);
   // 旁白那一栏什么时候出来：旁白模式，或者旁观群照常打字（旁观群打的字本来就是旁白）
   // 旁观群那一排（旁白／替谁说／往后的方向）只在切进旁白模式时出来，平时打开聊天不占地方（她 2026-10-26）；

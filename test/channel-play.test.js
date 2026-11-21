@@ -225,3 +225,7 @@ test("树洞长图只露代号、不放头像", () => {
 test("树洞锁屏通知只露代号", () => {
   assert.match(ap, /body: \(spk\.name \? \(group && group\.chKind === "treehole" \? "树洞 #"/);
 });
+
+test("树洞代号每个号一张固定的匿名脸", () => {
+  assert.match(cs, /if \(s0\.indexOf\("th:"\) === 0\) \{ const n = parseInt/);
+});
