@@ -27799,6 +27799,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _gN = _gen.batch ? String(_gen.batch) : "3-5";
       const _gLen = _gen.lenMin && _gen.lenMax ? " " + _gen.lenMin + "～" + _gen.lenMax + " 字" : _gen.lenMax ? " 不超过 " + _gen.lenMax + " 字" : _gen.lenMin ? " 至少 " + _gen.lenMin + " 字" : " 2-4 句";
       const d = await runProbeRetry(active, forumWorldCtx(board, genW), {
+        logFrom: "论坛·刷新这个吧（网友发新帖）",   // 调用记录里原来显示成「其他·网友说到的日子…」（她 2026-11-21）
         instruction: forumLoreLine(genW) + "\n" + forumBoardVoice(board) + forumNpcRule(board) + castLine + seenLine + forumFmtLine() + " 生成 " + _gN + " 条不同网友刚发的新主帖（items 数组就是 " + _gN + " 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文" + _gLen + "）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
         schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"" + FORUM_PHOTO_FIELD + forumFmtField() + (cast ? ",\"cast\":\"只有配角那一条填 true\"" : "") + "}]}",
         maxTokens: FTOK.board
