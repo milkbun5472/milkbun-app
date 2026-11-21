@@ -31,7 +31,7 @@
   // v 必须等于 app.js 的 APP_VERSION，否则测试 manual-stamp 红。
   // 这一版改了哪几条就把 id 写进 entries；这一版她用起来什么都没变（纯修内部、纯测试），
   // entries 留空、在 none 里写一句为什么——不许光改号不写理由。
-                                                            const STAMP = {"v":"v89.971","entries":["none"],"none":""};
+                                                            const STAMP = {"v":"v89.972","entries":["config"],"none":""};
   const E = [
     { id: "chat", app: "chat", zh: "说话 · 单聊", where: "消息列表里点开一个人",
       what: "和一个角色线上聊天的用法：发消息、加号里的功能、通话、他会主动做的事。",
