@@ -16934,7 +16934,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 她不在这个群里（旁观群）时，从群里私聊她就等于主动找她：那个人关了「主动发消息」就不开这扇门
       //   （她 2026-10-24：关了主动的角色一个月没找她，旁观群里聊着聊着突然私聊来了）
       const gDmToHerOk = c => imInGroup(group) || autoRefreshOn("proactive", c.id);
-      const gDmMembers = gs.memoryInterop
+      // 树洞里谁也不知道哪一号是她，私聊找上门就等于掀了她的马甲（她 2026-11-21「我在树洞说话为啥他还能来私聊我」）
+      const gDmMembers = gs.memoryInterop && !(group && group.chKind === "treehole")
         ? members.filter(c => c && !(blocks[c.id] && (blocks[c.id].iBlocked || blocks[c.id].theyBlocked)) && gDmToHerOk(c))
         : [];
       const GDM_ODDS = 1 / 3;

@@ -229,3 +229,7 @@ test("树洞锁屏通知只露代号", () => {
 test("树洞代号每个号一张固定的匿名脸", () => {
   assert.match(cs, /if \(s0\.indexOf\("th:"\) === 0\) \{ const n = parseInt/);
 });
+
+test("树洞里不私聊她", () => {
+  assert.match(ap, /const gDmMembers = gs\.memoryInterop && !\(group && group\.chKind === "treehole"\)/);
+});
