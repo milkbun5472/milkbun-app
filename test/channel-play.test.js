@@ -147,3 +147,8 @@ test("按了让他们各挑一首：这一轮的正题放在最后", () => {
   assert.match(ap, /_askSongs \? "\\n\\n【这一轮的正题】"/);
   assert.match(ap, /_askSongs \|\| chpCount\(st, "song"\) < CHP_CAP\.song/);
 });
+
+test("叫大家起名／商量养什么：也是这一轮的正题", () => {
+  assert.match(ap, /window\.__chAskPet = _g\.id; setChannelTab\("chat"\)/);
+  assert.match(ap, /_askPet \? "\\n\\n【这一轮的正题】"/);
+});
