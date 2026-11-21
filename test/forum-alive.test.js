@@ -11,14 +11,14 @@ const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 // 死点是同一件事的三个面：她发的帖没人理、红点不认「回我的」、她的帖数字永远是 0。
 
 test("A · 她发帖之后要排一张时间表，陆续有人来回", () => {
-  const post = app.slice(app.indexOf("const postMyForum ="), app.indexOf("const postMyForum =") + 1800);
+  const post = app.slice(app.indexOf("const postMyForum ="), app.indexOf("const genForumSearch", app.indexOf("const postMyForum =")));
   assert.match(post, /forumMineEnqueue\(rec\.id\)/, "发完就该排期，不能只弹个 toast 就结束");
   assert.match(app, /const FORUM_MINE_WAVES_MS = \[3 \* 60000, 22 \* 60000, 70 \* 60000, 3 \* 3600000, 8 \* 3600000\]/,
     "五波：3 分钟到 8 小时，像真论坛那样陆续来");
   const tick = app.slice(app.indexOf("const forumMineTick"), app.indexOf("const forumMineBumpSocial"));
   assert.match(tick, /bgActiveRef\.current \|\| active/, "走后台池，比聊天线便宜");
   assert.match(tick, /if \(forumWaveBusyRef\.current\) return;/, "一次只推进一波，别同秒并发烧调用");
-  assert.match(tick, /\.slice\(0, 2\)/, "一波最多 1~2 层");
+  assert.match(tick, /\.slice\(0, 2 \+ forumMentionsDue\(post, existing\)\.length\)/, "一波最多 1~2 层（被她点了名的人另算，一定来）");
   assert.match(tick, /if \(!post\) \{ const q2 = forumMineQueue\(\); delete q2\[hitId\]/, "帖子被淘汰了要清队列，别空转");
   assert.match(tick, /q4\[hitId\]\.waves\[hitIdx\] = Date\.now\(\) \+ 10 \* 60000/, "失败不推进 done，往后挪十分钟重试");
 });

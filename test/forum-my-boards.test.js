@@ -40,7 +40,7 @@ test("「一共有哪些吧」只有一份：tab、版块筛选、搜索页、�
   const live = scr.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.match(live, /\[\.\.\.forumBoardsShown\(\), "关注", "收藏"\]/, "tab 那一排（藏起来的不出现，顺序照排序）");
   assert.match(live, /function forumBoardsShown\(\) \{ const hid = forumBoardPrefs\(\)\.hidden; return forumBoardsAll\(\)\.filter/);
-  assert.match(live, /tab === "收藏" \|\| forumBoardsAll\(\)\.includes\(p\.board\)/, "版块筛选——漏了这处，她开的吧 tab 上有、帖子却跑去搜索页");
+  assert.match(live, /tab === "收藏" \|\| \(forumBoardsAll\(\)\.includes\(p\.board\) && boardOn\(p\)\)/, "版块筛选——漏了这处，她开的吧 tab 上有、帖子却跑去搜索页");
   assert.match(live, /!forumBoardsAll\(\)\.includes\(p\.board\)/, "搜索页");
   assert.match(live, /forumBoardsAll\(\)\.map\(b => chip\(b, cbBoard === b/, "发帖选吧");
   assert.ok(!/FORUM_BOARDS\.includes\(p\.board\)/.test(live), "还有地方只认那六个老吧");
@@ -64,8 +64,10 @@ test("她开的吧有自己的语气；角色逛论坛也会去——跟那六�
   assert.match(v, /不是路过的人在给外行介绍这个话题/);
   // 她 2026-10-25：原来写成「对得上才去」等于劝退——她开的吧跟那六个平起平坐，写什么去哪儿他自己挑，也不硬掷他去
   assert.match(app, /\(myBoardsForPost\.length \? "\\n\\n【这几个吧各聊什么】"/);
-  assert.match(app, /myBoardsForPost\.map\(b => "\/" \+ b\./, "她的吧没跟那六个并排摆");
+  assert.match(app, /baseForPost\.concat\(myBoardsForPost\.map\(b => b\.name\)\)/, "她的吧没跟那六个并排摆");
   assert.doesNotMatch(app, /只有你这条内容本来就属于那个吧才去/, "劝退那句又回来了");
   // v73.310 前面多了「指定发在哪个吧」那一格（她按「请角色来发帖」时就发在她正看的那一版）
-  assert.match(app, /const board = fixedBoard \|\| \(forceAnon \? "匿名吧" : \(bmap\[rawBoard\] \|\| \(mine && mine\.name\) \|\| "日常吧"\)\);/, "模型挑了她的吧，落账时得认得");
+  assert.match(app, /okBoard\(bmap\[rawBoard\]\) \|\| okBoard\(mine && mine\.name\)/, "模型挑了她的吧，落账时得认得");
+  // 藏起来的吧角色不去发（群友 2026-11-20）
+  assert.match(app, /const hidBoards = typeof forumBoardPrefs === "function" \? forumBoardPrefs\(\)\.hidden : \[\]/);
 });

@@ -35,7 +35,7 @@ test("群里的同处一室：句子跟单聊共用一份，只多传一个参�
   // 真发进群的 system 了，而且三个不发的情形都挡住
   assert.match(app, /const gSameRoomHint = \(gSameRoomFor\(groupId\) && !gs\.spectate && !\(offlineGroup && offlineGroup\.id === groupId\)\)/,
     "旁观群/线下正开着这两种情形没挡");
-  assert.match(app, /samePlacePresence\(userName\(profile\), true\)/, "群里没传 group");
+  assert.match(app, /samePlacePresence\(herNameIn\(groupId\), true\)/, "群里没传 group");
   assert.match(app, /dir \+ commonTurn \+ gSameRoomHint \+/, "算了却没发下去");
 });
 

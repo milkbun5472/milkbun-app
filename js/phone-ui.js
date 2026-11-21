@@ -500,7 +500,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
     h("div", { className: "shrink-0" },
       h(Head, { zh: "邮件" + (unreadN ? " · " + unreadN + " 封未读" : ""), sub: S(me.addr),
         bg: "transparent", noLine: true, ink: MAIL_INK, subInk: MAIL_DIM, onBack,
-        right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 38, height: 38 } }, h(IRefresh, { size: 17, color: MAIL_INK })) }),
+        right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: MAIL_INK, name: ((char && (char.remark || char.name)) || "TA") + "的邮件" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 38, height: 38 } }, h(IRefresh, { size: 17, color: MAIL_INK }))) }),
       // ── 三页＝吊挂文件夹的标签舌（tabs-not-plain-pills）─────────────
       //   原来是三颗白药丸分段：那是 iOS 的通用控件，搬到任何 app 里都成立。
       //   信箱现实里是几个夹子，夹子的舌是【梯形】——两侧斜切、宽度按名字走、
@@ -805,7 +805,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
     // ⚠️封皮这一块【不许再自己垫 safeTop】：刘海归 Head 让，两层都让就顶出去一截
     h("div", { className: "shrink-0", style: { background: TALLY_INK } },
       h(Head, { zh: "账簿", bg: "transparent", noLine: true, ink: TALLY_BG, onBack,
-        right: onRefresh ? h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_BG })) : null }),
+        right: onRefresh ? h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: TALLY_BG, name: ((char && (char.remark || char.name)) || "TA") + "的账本" }), h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_BG }))) : null }),
       // ── 五栏＝账簿边上伸出来的索引标签（v59.65）─────────────────
       // 她 2026-09-01：「这几个tab药丸形状还是有点普通」。
       // 药丸是哪儿都能用的那一种，换个 app 照样成立——按她那条老判据就是写坏了。
@@ -1323,6 +1323,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const herAv = (char && char.myChatAvatar) || (profile && profile.avatarImage);
   const [tab, setTab] = useState("chats");
   const [thread, setThread] = useState(null);
+  const [spaceOpen, setSpaceOpen] = useState(null);   // 他微信里点开的那个频道空间（只看，真聊天）
   // 她改TA通讯录里的备注（她 2026-10-07）：null＝没在改，字符串＝正在改的草稿
   const [remarkDraft, setRemarkDraft] = useState(null);
   // ── 她自己在TA手机上打的那一句（她 2026-09-14）──────────────────────────
@@ -1635,7 +1636,38 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const topBar = tab === "chats" ? searchHead : tab === "contacts" ? contactsHead : plainHead;
   let body;
   if (thread && thread.type === "contact") body = null;
-  if (tab === "chats") body = h("div", null, chats.map(chatRow));
+  // 频道空间收成一行（她 2026-11-20）：真聊天里挂着 spaceId 的那几条按空间并起来，点进去是这个空间的频道列表
+  const spaceChats = chats.filter(c => c && c.spaceId);
+  const spaceRow = (sp, i) => h("button", { key: "sp:" + sp.id, "data-wk": "pitem", "data-kind": "space", onClick: () => setSpaceOpen(sp.id), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } },
+    // 空间设了头像就用那张（她 2026-11-20「怎么设置频道头像」），跟消息列表那一行同一张
+    sp.avatarImage ? h(Avatar, { character: { name: sp.name || "频", avatarImage: sp.avatarImage }, size: 47, radius: 10 }) : h("span", { style: { width: 47, height: 47, borderRadius: 10, background: strColor(sp.name), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 20, flexShrink: 0 } }, String(sp.name || "频").slice(0, 1)),
+    h("div", { className: "flex-1 min-w-0" },
+      h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#191919" } }, PTX(sp.name) + "（频道 · " + sp.rows.length + "）"),
+        h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, sp.rows[0] ? phoneChatWhen(sp.rows[0], phoneNow(char && char.id)) : "")),
+      h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sp.rows[0] ? "#" + sp.rows[0].chName + " · " + (sp.rows[0].last || "") : "")));
+  const spaceList = (() => { const m = new Map(); spaceChats.forEach(c => { const k = c.spaceId; if (!m.has(k)) m.set(k, { id: k, name: c.spaceName, avatarImage: c.spaceAvatar || "", rows: [] }); m.get(k).rows.push(c); }); m.forEach(v => v.rows.sort((a, b) => (b.ts || 0) - (a.ts || 0))); return [...m.values()]; })();
+  if (spaceOpen && !thread && tab === "chats") {
+    const sp = spaceList.find(x => x.id === spaceOpen);
+    if (sp) {
+      const files = []; sp.rows.forEach(c => (c.chFiles || []).forEach(f => files.push({ ...f, ch: c.chName })));
+      return h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "papp", "data-app": "wechat", style: { background: "#ededed" } }, innerHead(sp.name, "频道", () => setSpaceOpen(null)),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
+          sp.rows.filter(c => !c.chArchived).map((c, i) => h("button", { key: c.id || i, "data-wk": "pitem", "data-kind": "channel", onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 60, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } },
+            h("span", { style: { width: 36, height: 36, borderRadius: 8, background: "#e8e8e8", color: "#666", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 18, flexShrink: 0 } }, "#"),
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#191919" } }, "#" + PTX(c.chName)), h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c, phoneNow(char && char.id)))),
+              h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#999", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || "")))),
+          files.length ? h("div", { style: { padding: "12px 14px 6px", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#888" } }, "频道文件 · " + files.length) : null,
+          files.map((f, i) => h("div", { key: "f" + i, "data-wk": "pitem", "data-kind": "file", className: "flex items-center gap-3", style: { background: "#fff", padding: "10px 14px", borderBottom: "1px solid #eee" } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: "#191919", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (f.kind === "image" ? "🖼 " : "📄 ") + f.name),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, "#" + f.ch)))));
+    }
+  }
+  if (tab === "chats") body = h("div", null, (() => {
+    const seen = new Set(); const out = [];
+    chats.forEach((c, i) => { if (c && c.spaceId) { if (seen.has(c.spaceId)) return; seen.add(c.spaceId); const sp = spaceList.find(x => x.id === c.spaceId); if (sp) out.push(spaceRow(sp, i)); return; } out.push(chatRow(c, i)); });
+    return out;
+  })());
   else if (tab === "contacts") body = h("div", null, h("div", { style: { padding: "7px 14px", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#888", background: "#f4f4f4" } }, "联系人 · " + contacts.length), contacts.map(contactRow));
   else if (tab === "moments") {
     // 挂点挂在【谁发的】上：TA半夜翻谁的朋友圈，圆点要落在那一条上（原来朋友圈那一栏
@@ -2154,7 +2186,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
   const palOf = i => READ_PALETTES[i % READ_PALETTES.length];
   const chrome = h(Head, { zh: tab === "shelf" ? "书架" : "阅读档案", bg: READ_BG, noLine: true, ink: READ_INK, onBack,
     right:
-    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演书架", className: "active:opacity-50 disabled:opacity-35 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: READ_INK })) });
+    h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: READ_INK, name: ((char && (char.remark || char.name)) || "TA") + "的书架" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演书架", className: "active:opacity-50 disabled:opacity-35 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: READ_INK }))) });
   // 书脊：深底上一律浅色书脊配深字——保证每一架都看得清，也不会有哪一架糊进背景
   const spineStyle = (pal, w, ht) => ({
     width: w, height: ht, borderRadius: "3px 8px 8px 3px", position: "relative", overflow: "hidden",
@@ -2637,7 +2669,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     noLine: true,
     ink: SHOP_INK,
     onBack: onBack,
-    right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: SHOP_INK })) });
+    right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: SHOP_INK, name: ((char && (char.remark || char.name)) || "TA") + "的购物" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: SHOP_INK }))) });
   // ── 详情：整页，不是半窗（no-half-sheet）───────────────────────────
   // 原来是从底下掀起来的半窗。这一层的正文是TA为什么想买这样东西——
   // 那是这一格的命，从来不是三行能说完的，也不需要同时看见底下那一列。
@@ -3072,7 +3104,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     noLine: true,
     ink: TAKE_INK,
     onBack: onBack,
-    right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: TAKE_INK })) });
+    right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: TAKE_INK, name: ((char && (char.remark || char.name)) || "TA") + "的外卖" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: TAKE_INK }))) });
   const nav = h("div", {
     className: "shrink-0 grid",
     style: { gridTemplateColumns: "repeat(" + PAGES.length + ",minmax(0,1fr))", padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.97)", borderTop: "1px solid #eae6df" }
@@ -3163,6 +3195,92 @@ const healthGroupOf = c => {
   const hit = Object.keys(HEALTH_GROUP_ALIAS).find(w => raw.indexOf(w) >= 0);
   return hit ? HEALTH_GROUP_ALIAS[hit] : "body";
 };
+// ── 整页存图（她 2026-11-20：「一个个弄了，合适的话；相册论坛这种不用」）─────────────
+//   查手机里那些页（邮件、账本、购物、外卖、日历、便签……）顶栏刷新键左边一颗「存图」：把这一页能往下翻的整段内容
+//   一次画成一张长图，进相册。只此一份：每个 app 只是摆这颗按钮，怎么截、怎么存都在这儿。
+//   截图库 vendor/modern-screenshot.js（MIT）点了才去载，平时不占开机。健康那一档档化验单另有自己的单张存法。
+let _shotLib = null;
+function loadShotLib() {
+  if (window.modernScreenshot) return Promise.resolve(window.modernScreenshot);
+  if (_shotLib) return _shotLib;
+  _shotLib = new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "vendor/modern-screenshot.js"; sc.onload = () => window.modernScreenshot ? ok(window.modernScreenshot) : no(new Error("截图组件没载上")); sc.onerror = () => { _shotLib = null; no(new Error("截图组件没载上，网不好再点一次")); }; document.head.appendChild(sc); });
+  return _shotLib;
+}
+// 从按钮往上找这一页，再在页里挑能滚的那一块里最长的那个——那就是这一页的正文
+function phoneShotTarget(btn) {
+  let page = btn; for (let i = 0; i < 8 && page && page.parentElement; i++) page = page.parentElement;
+  const all = page ? Array.from(page.querySelectorAll("*")) : [];
+  let best = null;
+  all.forEach(el => { const st = getComputedStyle(el); if (/(auto|scroll)/.test(st.overflowY) && el.scrollHeight > 40 && (!best || el.scrollHeight > best.scrollHeight)) best = el; });
+  return best;
+}
+async function savePhoneScreen(btn, name) {
+  const el = phoneShotTarget(btn);
+  if (!el) throw new Error("这一页没找到能存的内容");
+  const lib = await loadShotLib();
+  let bg = "#ffffff"; for (let n = el; n; n = n.parentElement) { const c = getComputedStyle(n).backgroundColor; if (c && !/rgba\(0, 0, 0, 0\)|transparent/.test(c)) { bg = c; break; } }
+  const url = await lib.domToPng(el, { width: el.clientWidth, height: el.scrollHeight, scale: 2, backgroundColor: bg,
+    style: { height: el.scrollHeight + "px", maxHeight: "none", overflow: "visible" } });
+  const ok = window.saveImgOriginal && await window.saveImgOriginal(url, name);
+  if (!ok) throw new Error("没存下来，再点一次");
+}
+function PhoneShotBtn({ color, name }) {
+  const [busy, setBusy] = useState(false);
+  return h("button", { "data-wk": "phoneshot", "aria-label": "这一页存成图", disabled: busy, className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center",
+    onClick: async e => { const b = e.currentTarget; setBusy(true); try { await savePhoneScreen(b, name); } catch (er) { if (typeof window.__toast === "function") window.__toast("存图失败：" + ((er && er.message) || er)); } finally { setBusy(false); } },
+    style: { minWidth: 36, height: 36, padding: "0 4px", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: color } }, busy ? "…" : "存图");
+}
+// 健康那一张化验单存成图（群友 2026-11-20 许愿「健康可以保存或者存图，查手机的时候一直在疯狂截图」）：
+//   照屏幕上那张单子的样子在画布上重画一遍——一档一张，抬头、项目、结果、注、小字分解都在
+function healthSheetImage(name, title, list) {
+  const W = 1080, P = 72, S = 2.4, cv = document.createElement("canvas"), x = cv.getContext("2d");
+  const SERIF = "'Songti SC','Noto Serif SC','STSong',serif", SANS = "-apple-system,'PingFang SC','Noto Sans SC',sans-serif";
+  const wrap = (t, font, maxW) => { x.font = font; const out = []; let line = ""; for (const ch of String(t || "")) { if (ch === "\n" || x.measureText(line + ch).width > maxW) { out.push(line); line = ch === "\n" ? "" : ch; } else line += ch; } if (line) out.push(line); return out; };
+  const inner = W - P * 2 - 40;
+  // 先量高度
+  const rows = list.map(c => {
+    const note = c.note ? wrap(c.note, 13 * S + "px " + SANS, inner - 24) : [];
+    const quote = c.quote ? wrap("「" + c.quote + "」", "italic " + 12.5 * S + "px " + SANS, inner - 24) : [];
+    const stats = (Array.isArray(c.stats) ? c.stats : []).filter(z => z && (z.k || z.v)).slice(0, 3);
+    const sub = [c._zh && String(c.name || "").trim() !== c._zh ? c._zh : "", c.tag || ""].filter(Boolean).join("　");
+    const hgt = 46 * S / 1.4 + (sub ? 16 * S : 0) + note.length * 24 * S + (stats.length ? 8 * S + stats.length * 20 * S : 0) + quote.length * 22 * S + 26 * S;
+    return { c, note, quote, stats, sub, hgt };
+  });
+  const head = 150, H = Math.ceil(P + head + rows.reduce((a, r) => a + r.hgt, 0) + P + 60);
+  cv.width = W; cv.height = H;
+  x.fillStyle = HEALTH_BG; x.fillRect(0, 0, W, H);
+  x.fillStyle = "#fdfdfa"; x.fillRect(P, P, W - P * 2, H - P * 2 - 30);
+  const L = P + 20, R = W - P - 20;
+  let y = P + 54;
+  x.fillStyle = HEALTH_INK; x.font = 15 * S + "px " + SERIF; x.textBaseline = "alphabetic"; x.fillText(String(name || "本人").slice(0, 16), L, y);
+  x.fillStyle = HEALTH_DIM; x.font = 10.5 * S + "px " + SANS; x.textAlign = "right";
+  const d = new Date(); x.fillText((title ? title + " · " : "") + (d.getMonth() + 1) + "月" + d.getDate() + "日 · " + list.length + " 项", R, y); x.textAlign = "left";
+  y += 18; x.fillStyle = HEALTH_INK; x.fillRect(L, y, R - L, 5); y += 9; x.fillRect(L, y, R - L, 2);
+  y += 34; x.fillStyle = HEALTH_DIM; x.font = 10.5 * S + "px " + SANS; x.fillText("项目", L + 20, y); x.textAlign = "right"; x.fillText("结果", R, y); x.textAlign = "left";
+  y += 14; x.fillStyle = HEALTH_LINE; x.fillRect(L, y, R - L, 2);
+  rows.forEach((r, i) => {
+    const c = r.c, alert = /异常|偏[高低]|不足|过[高低多少]|警|差|超/.test(String(c.tag || ""));
+    let yy = y + 44 * S / 1.4;
+    const val = (c.value != null ? String(c.value) : "—"), unit = c.unit ? String(c.unit) : "";
+    x.font = 11.5 * S + "px " + SANS; const uw = unit ? x.measureText(unit).width + 6 : 0;
+    x.font = 16.5 * S + "px " + SERIF; const vw = x.measureText(val).width;
+    x.fillStyle = alert ? HEALTH_ALERT : HEALTH_INK; x.fillText(val, R - uw - vw, yy);
+    if (unit) { x.fillStyle = HEALTH_DIM; x.font = 11.5 * S + "px " + SANS; x.fillText(unit, R - uw + 6, yy); }
+    x.fillStyle = HEALTH_INK; x.font = 14.5 * S + "px " + SERIF;
+    let nm = String(c.name || ""); const maxN = R - uw - vw - L - 60; while (nm.length > 1 && x.measureText(nm).width > maxN) nm = nm.slice(0, -1);
+    if (alert) { x.fillStyle = HEALTH_ALERT; x.fillText("·", L, yy); x.fillStyle = HEALTH_INK; }
+    x.fillText(nm, L + 20, yy);
+    const nw = x.measureText(nm).width; x.fillStyle = HEALTH_LINE;
+    for (let dx = L + 20 + nw + 14; dx < R - uw - vw - 14; dx += 10) x.fillRect(dx, yy - 8, 4, 3);
+    if (r.sub) { yy += 16 * S; x.fillStyle = alert ? HEALTH_ALERT : HEALTH_DIM; x.font = 11 * S + "px " + SANS; x.fillText(r.sub, L + 20, yy); }
+    x.fillStyle = HEALTH_BODY; x.font = 13 * S + "px " + SANS; r.note.forEach(l => { yy += 24 * S; x.fillText(l, L + 20, yy); });
+    if (r.stats.length) { yy += 8 * S; r.stats.forEach(z => { yy += 20 * S; x.fillStyle = HEALTH_DIM; x.font = 11.5 * S + "px " + SANS; x.fillText(String(z.k || ""), L + 44, yy); x.textAlign = "right"; x.fillStyle = HEALTH_BODY; x.fillText(String(z.v || ""), R, yy); x.textAlign = "left"; }); x.fillStyle = HEALTH_LINE; x.fillRect(L + 30, yy - r.stats.length * 20 * S - 4, 2, r.stats.length * 20 * S + 8); }
+    x.fillStyle = HEALTH_DIM; x.font = "italic " + 12.5 * S + "px " + SANS; r.quote.forEach(l => { yy += 22 * S; x.fillText(l, L + 20, yy); });
+    y += r.hgt;
+    if (i < rows.length - 1) { x.fillStyle = HEALTH_LINE; x.fillRect(L, y - 6, R - L, 2); }
+  });
+  return cv.toDataURL("image/png");
+}
 function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals, drive }) {
   const [tab, setTab] = useState("body");
   // ── 「看TA玩」驱动（第五批）：健康只能看，TA盯着某一项读数而已 ──
@@ -3240,7 +3358,12 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals,
       h("div", { style: { borderBottom: "2px solid " + HEALTH_INK, paddingTop: 15 } },
         h("div", { className: "flex items-baseline justify-between", style: { paddingBottom: 7, gap: 10 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: HEALTH_INK, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (char && char.name) || "本人"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: HEALTH_DIM, flexShrink: 0 } }, "今天 · " + list.length + " 项"))),
+          h("div", { className: "flex items-baseline", style: { gap: 10, flexShrink: 0 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: HEALTH_DIM } }, "今天 · " + list.length + " 项"),
+            // 存图：挂在单子抬头日期旁边，跟这张单子是一体的，不另占一行
+            h("button", { "data-wk": "healthsave", "aria-label": "把这张单子存成图", className: "active:opacity-60",
+              onClick: async e => { e.stopPropagation(); try { const u = healthSheetImage((char && char.name) || "本人", title, list); const ok = window.saveImgOriginal && await window.saveImgOriginal(u, ((char && char.name) || "健康") + "·" + title); if (!ok && typeof window.__toast === "function") window.__toast("没存下来，再点一次"); } catch (er) { if (typeof window.__toast === "function") window.__toast("存图失败：" + (er.message || er)); } },
+              style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: HEALTH_ACCENT, background: "transparent", padding: "4px 0 4px 8px", borderLeft: "1px solid " + HEALTH_LINE } }, "存图")))),
       h("div", { className: "flex items-baseline justify-between", style: { borderTop: "1px solid " + HEALTH_INK, borderBottom: "1px solid " + HEALTH_LINE, marginTop: 2, padding: "6px 0 5px" } },
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".1em", color: HEALTH_DIM, paddingLeft: 9 } }, "项目"),
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".1em", color: HEALTH_DIM } }, "结果")),
@@ -3474,7 +3597,7 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
             skin: { ink: BILI_INK, dim: BILI_DIM, soft: "#f1f2f3", accent: BILI_PINK } })
         : h("div", { className: "flex-1 min-w-0 flex items-center", style: { height: 32, borderRadius: 99, background: "#f1f2f3", padding: "0 13px" } },
             h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: BILI_DIM } }, "搜索")),
-      h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 34, height: 34 } }, h(IRefresh, { size: 17, color: BILI_INK }))),
+      h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: BILI_INK, name: ((char && (char.remark || char.name)) || "TA") + "的视频" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 34, height: 34 } }, h(IRefresh, { size: 17, color: BILI_INK })))),
     // TA自己的账号条：昵称 + 等级 + UID（她 2026-08-29 说找不到，原来只藏在搜索框占位里）
     (me.name || me.uid) ? h("div", { className: "flex items-center px-3 pb-2.5", style: { gap: 10 } },
       h("div", { style: { width: 34, height: 34, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + BILI_PINK + "," + BILI_BLUE + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } }, String(me.name || char.name || "?").trim().slice(0, 1)),
@@ -3553,7 +3676,7 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek, driv
       noLine: true,
       ink: INK,
       onBack: onBack,
-      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: INK })) }),
+      right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: INK, name: ((char && (char.remark || char.name)) || "TA") + "的深夜" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: INK }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 24px" } },
       (me.lastAt || me.note) ? h("div", { style: { padding: "10px 0 16px", borderBottom: "1px solid rgba(232,227,230,.08)", marginBottom: 4 } },
         (me.uid || me.lastAt) ? h("div", { className: "flex items-center justify-between" },
@@ -3749,7 +3872,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
           style: { fontFamily: F_DISPLAY, fontSize: i === chan ? 16 : 14, color: i === chan ? PLAZA_INK : "#b0b0b8", padding: "3px 2px", borderBottom: i === chan ? "2px solid " + PLAZA_RED : "2px solid transparent" }
         }, c)))
       : searchPill ? null : h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: PLAZA_INK } }, page.zh),
-    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: PLAZA_INK })));
+    h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: PLAZA_INK, name: ((char && (char.remark || char.name)) || "TA") + "的广场" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: PLAZA_INK }))));
   // ⚠️整页要【顶掉】列表，不是浮在它上面——所以在这儿 return，
   // 而且必须排在所有 hook 后面（提前 return 的组件里 hook 一律排最前，见 #310 那次教训）。
   if (detailPage) return detailPage;
@@ -3855,7 +3978,7 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
       noLine: true,
       ink: CAL_INK,
       onBack: onBack,
-      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CAL_INK })) }),
+      right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: CAL_INK, name: ((char && (char.remark || char.name)) || "TA") + "的日历" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CAL_INK }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 14px 22px" } },
       h("div", { "data-wk": "block", style: { background: "#fff", borderRadius: 18, padding: "14px 12px 10px", marginBottom: 16 } },
         // 翻月那一行（她 2026-09-06 要的「能不能换月份显示之前的和之后的」）
@@ -3977,7 +4100,7 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }
       noLine: true,
       ink: "#4a4438",
       onBack: onBack,
-      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: "#4a4438" })) }),
+      right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: "#4a4438", name: ((char && (char.remark || char.name)) || "TA") + "的便签" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: "#4a4438" }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 14px 26px" } },
       items.length
         ? h("div", { className: "grid grid-cols-2", style: { gap: 13, alignItems: "start" } },
@@ -4126,7 +4249,7 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
       noLine: true,
       ink: CLIP_DESKINK,
       onBack: onBack,
-      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CLIP_DESKINK })) }),
+      right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: CLIP_DESKINK, name: ((char && (char.remark || char.name)) || "TA") + "的剪贴板" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: CLIP_DESKINK }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 18px 28px" } },
       items.length ? [sec("差一点就发出去", held, true), sec("复制过的", sent, false)]
         : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "rgba(240,238,232,.35)" } }, "剪贴板是空的")),
@@ -4335,7 +4458,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
                 h("span", { "aria-hidden": "true", style: { display: "inline-block", width: 1.5, height: 13, marginLeft: 1, verticalAlign: "-2px", background: BR_BLUE, animation: "wkcaret 1s steps(2) infinite" } }))
             : h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#55555c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                 me.name ? me.name + (me.uid ? " · " + me.uid : "") : (char.remark || char.name) + " 的浏览器")),
-        h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: BR_INK }))),
+        h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: BR_INK, name: ((char && (char.remark || char.name)) || "TA") + "的浏览器" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: BR_INK })))),
       // ── 四页＝浏览器的标签条（tabs-not-plain-pills）──────────────────
       //   原来是四颗白药丸分段：那是 iOS 的通用控件，搬到任何 app 里都成立。
       //   标签条不一样：上圆下方、贴着页边，选中那张【跟底下的页面连成一片】
@@ -4560,7 +4683,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek, dri
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   return h("div", { className: "h-full min-h-0 flex flex-col relative", "data-wk": "papp", "data-app": "calls", style: { background: CALL_BG } },
     h(Head, { zh: page.zh, bg: "transparent", noLine: true, ink: CALL_INK, onBack,
-      right: h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: CALL_INK })) }),
+      right: h("span", { className: "flex items-center" }, h(PhoneShotBtn, { color: CALL_INK, name: ((char && (char.remark || char.name)) || "TA") + "的通话" }), h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: CALL_INK }))) }),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 14px 22px" } }, PTX(page.body)),
     // ── 四页＝电话 app 底下那条图标栏（tabs-not-plain-pills）──────────
     //   原来是顶上四颗白药丸：那是 iOS 的通用分段控件，搬到任何 app 里都成立。

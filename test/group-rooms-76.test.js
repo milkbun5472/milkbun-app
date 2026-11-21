@@ -17,8 +17,9 @@ test("开房间：照主群抄一份，挂 roomOf，两种走同一个群设置�
 });
 
 test("聊天列表和群聊列表不单独列房间，未读算进主群那行", () => {
-  assert.match(comp, /groups\.filter\(g => !g\.roomOf\)\.map\(g =>/);
-  assert.match(comp, /\(groups \|\| \[\]\)\.filter\(g => !g\.roomOf\)\.map\(g => h\("button"/);
+  // 频道里的群（spaceId）也不单独占行，整块频道空间一行（spaces-channels.test.js）
+  assert.match(comp, /groups\.filter\(g => !g\.roomOf && !g\.spaceId\)\.map\(g =>/);
+  assert.match(comp, /\(groups \|\| \[\]\)\.filter\(g => !g\.roomOf && !g\.spaceId\)\.map\(g => h\("button"/);
   assert.match(fnBody(comp, "const renderGroupRow = "), /r\.roomOf === g\.id/);
 });
 

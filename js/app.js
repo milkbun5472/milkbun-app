@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.836";
+const APP_VERSION = "v89.983";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -214,7 +214,8 @@ function ScreenBoundaryClass() {
 //   论坛、一起听、备忘录、手记都拿掉了：主屏一路找过去最容易点错，也没翻出过一句戳人的心声。
 const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"], ["moments", "我的朋友圈"], ["daily", "日常联系人（照我的人设自动编几个：同事、家人、群）"]];
 if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
-function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock, vclock, onVClock, onOpenApi }) {
+function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock, vclock, onVClock, onOpenApi, onGo }) {
+  const [scs, setScs] = useState(() => { const v = loadJSON("x_floatShortcuts", []); return Array.isArray(v) ? v.slice(0, 6) : []; }), [scEdit, setScEdit] = useState(false);
   const t = useTheme();
   const [open, setOpen] = useState(false);
   // 三档收着，点哪一档才摊开哪一档（她 2026-09-22：「点开悬浮球是三项收着的
@@ -337,12 +338,14 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   //      跟旋钮拖到哪儿无关，多少条线路都在屏幕里，装不下就自己滚。
   //   另外补一层保险：面板后面垫一张【点哪儿都关】的透明背板。
   //   哪天布局又出岔子，至少还有一条出路——「关不掉」这种事不该只有一个开关。
-  const panelSide = side === "left" ? { left: 66 } : { right: 66 };
+  const PANEL_W = 196;   // 面板窄一点（她 2026-11-20「不用那么宽」），旁边留给轨道
+  const panelGap = onGo ? Math.max(66, Math.min(140, (window.innerWidth || 390) - PANEL_W - 8)) : 66;   // 外圈轨道占着里侧那一截，面板挪到轨道外面
+  const panelSide = side === "left" ? { left: panelGap } : { right: panelGap };
   return h(React.Fragment, null,
     open ? h("div", { onClick: () => setOpen(false), "aria-hidden": "true",
       style: { position: "fixed", inset: 0, zIndex: 89, background: "transparent" } }) : null,
     open ? h("div", { style: Object.assign({ position: "fixed", zIndex: 91, top: "50%", transform: "translateY(-50%)",
-      width: 226, maxHeight: "76vh", overflowY: "auto", WebkitOverflowScrolling: "touch",
+      width: PANEL_W, maxHeight: "76vh", overflowY: "auto", WebkitOverflowScrolling: "touch",
       padding: 12, borderRadius: 18, background: t.bg2,
       border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,.22)" }, panelSide) },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "快速切换模型"),
@@ -364,6 +367,62 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
       onOpenApi ? h("button", { "data-wk": "modelfloatapi", onClick: () => { setOpen(false); onOpenApi(); }, className: "w-full active:opacity-60",
         style: { marginTop: 8, minHeight: 38, padding: "7px 8px", borderRadius: 10, border: "1px dashed " + t.line, background: "transparent",
           fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, textAlign: "center" } }, "去模型设置改线路 ›") : null) : null,
+    // ── 外圈快捷入口（她 2026-11-20「悬浮球点开外圈弹出几个自定义快捷入口，随时能改」）──
+    //   点开旋钮时绕着它一圈轨道，你挑的最多 6 个落在轨道上，最后一颗「✎」改；面板挪到轨道外面
+    (() => {
+      if (!open || !onGo) return null;
+      const reg = (typeof window !== "undefined" && window.__homeReg) || {};
+      const appsAll = [["messages", "信息"], ["forum", "论坛"], ["diary", "日记"], ["config", "设置"]].concat(Object.keys(reg).filter(k => reg[k] && reg[k].kind === "app" && reg[k].zh).map(k => [k, reg[k].zh]));
+      const zhOf = k => (appsAll.find(x => x[0] === k) || [k, k])[1];
+      const items = scs.filter(k => appsAll.some(x => x[0] === k)).map(k => ({ k, zh: zhOf(k) })).concat([{ k: "__edit", zh: "✎ 改" }]);
+      // 环绕旋钮的一圈轨道（她 2026-11-20「外圈的 orbit，按键小一点在轨道上」）：只画朝屏幕里的那半圈，按键均匀落在轨道上
+      const ww = window.innerWidth || 390, hh = window.innerHeight || 800, R = 74, B = 34;
+      const cy = (drag ? drag.y : (pos ? Math.min(Math.max(pos.top, 70), Math.max(70, hh - 130)) : hh * 0.42) + 23), cx = side === "left" ? 12 + 23 : ww - 12 - 23;
+      const n = items.length, a0 = side === "left" ? -80 : 100, a1 = side === "left" ? 80 : 260;
+      const pts = items.map((_, i) => { const deg = n === 1 ? (a0 + a1) / 2 : a0 + (a1 - a0) * i / (n - 1), rad = deg * Math.PI / 180; return { x: cx + R * Math.cos(rad), y: Math.min(Math.max(cy + R * Math.sin(rad), 40), hh - 40) }; });
+      // 好看一点（她 2026-11-20）：轨道是一道细的渐隐弧线，按键是跟主屏同一枚图标的小玻璃珠，一颗颗沿轨道弹出来
+      const iconOf = k => { const r = reg[k]; return r && r.G ? r.G : ({ messages: typeof GMsg !== "undefined" ? GMsg : null, forum: typeof GForum !== "undefined" ? GForum : null, diary: typeof GDiary !== "undefined" ? GDiary : null, config: typeof GConfig !== "undefined" ? GConfig : null })[k] || null; };
+      const arcD = (() => { const p0 = { x: cx + R * Math.cos(a0 * Math.PI / 180), y: cy + R * Math.sin(a0 * Math.PI / 180) }, p1 = { x: cx + R * Math.cos(a1 * Math.PI / 180), y: cy + R * Math.sin(a1 * Math.PI / 180) };
+        return "M " + p0.x + " " + p0.y + " A " + R + " " + R + " 0 0 1 " + p1.x + " " + p1.y; })();
+      return [h("style", { key: "orbcss" }, "@keyframes orbIn{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}@keyframes orbArc{from{stroke-dashoffset:260}to{stroke-dashoffset:0}}"),
+        h("svg", { key: "orbit", "aria-hidden": "true", width: ww, height: hh, style: { position: "fixed", left: 0, top: 0, zIndex: 91, pointerEvents: "none", overflow: "visible" } },
+          h("defs", null, h("linearGradient", { id: "orbGrad", x1: "0", y1: "0", x2: "0", y2: "1" },
+            h("stop", { offset: "0", stopColor: t.ink, stopOpacity: 0 }), h("stop", { offset: ".5", stopColor: t.ink, stopOpacity: .32 }), h("stop", { offset: "1", stopColor: t.ink, stopOpacity: 0 }))),
+          h("circle", { cx, cy, r: R + 10, fill: "none", stroke: t.ink, strokeOpacity: .05, strokeWidth: 18 }),
+          h("path", { d: arcD, fill: "none", stroke: "url(#orbGrad)", strokeWidth: 1.2, strokeLinecap: "round", strokeDasharray: 260, style: { animation: "orbArc .45s ease-out both" } }))]
+        .concat(items.map((it, i) => { const G = it.k === "__edit" ? null : iconOf(it.k);
+          return h("button", { key: it.k, "data-wk": it.k === "__edit" ? "modelfloatscedit" : "modelfloatsc", "aria-label": it.zh, title: it.zh,
+            onClick: () => { if (it.k === "__edit") { setScEdit(true); return; } setOpen(false); onGo(it.k); },
+            style: { position: "fixed", zIndex: 92, left: pts[i].x - B / 2, top: pts[i].y - B / 2, width: B, height: B, padding: 0, borderRadius: "50%",
+              background: it.k === "__edit" ? "transparent" : "radial-gradient(circle at 35% 30%, " + t.bg2 + ", " + t.bg + ")", color: it.k === "__edit" ? t.fog : t.ink,
+              border: it.k === "__edit" ? "1px dashed " + t.line : "1px solid " + t.line, boxShadow: it.k === "__edit" ? "none" : "0 4px 12px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.6)",
+              display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", lineHeight: 1,
+              animation: "orbIn .32s cubic-bezier(.2,1.4,.4,1) both", animationDelay: (60 + i * 45) + "ms" } },
+            it.k === "__edit" ? "✎" : (() => {
+              // 跟主屏那枚图标同一套取法（她 2026-11-20「为啥有些还是线稿」）：主题里有图就用图，没有就用彩色填充版，最后才是线稿
+              const src = typeof appIconSrc === "function" ? appIconSrc(it.k) : "";
+              if (src) return h("img", { src, alt: "", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%", display: "block" } });
+              const tone = typeof appTone === "function" ? appTone(it.k) : null;
+              const filled = tone && !(typeof isClassicLook === "function" && isClassicLook()) && typeof filledIconSvg === "function" ? filledIconSvg(it.k, tone.hue) : "";
+              if (filled) return h("svg", { viewBox: "0 0 24 24", width: 22, height: 22, style: { display: "block" }, dangerouslySetInnerHTML: { __html: filled } });
+              return G ? h(G, { size: 17, color: tone ? tone.glyph : t.ink, sw: 1.6 }) : it.zh.slice(0, 2); })()); }));
+    })(),
+    // 改快捷：勾哪些、按点的先后排，最多 6 个；改完立刻生效
+    scEdit ? (() => {
+      const reg = (typeof window !== "undefined" && window.__homeReg) || {};
+      const appsAll = [["messages", "信息"], ["forum", "论坛"], ["diary", "日记"], ["config", "设置"]].concat(Object.keys(reg).filter(k => reg[k] && reg[k].kind === "app" && reg[k].zh).map(k => [k, reg[k].zh]));
+      const save = v => { setScs(v); saveJSON("x_floatShortcuts", v); };
+      return h("div", { "data-wk": "modelfloatscsheet", onClick: () => setScEdit(false), style: { position: "fixed", inset: 0, zIndex: 95, background: "rgba(0,0,0,.35)", display: "flex", alignItems: "flex-end", justifyContent: "center" } },
+        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 480, maxHeight: "72vh", overflowY: "auto", padding: "16px 16px calc(16px + env(safe-area-inset-bottom, 0px))", borderRadius: "18px 18px 0 0", background: t.bg2 } },
+          h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "旋钮外圈的快捷入口"),
+            h("button", { onClick: () => setScEdit(false), style: { minHeight: 36, padding: "0 10px", color: t.ink, fontFamily: F_BODY } }, "好了")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 10 } }, "点一下加上、再点一下去掉，最多 6 个，按点的先后排（" + scs.length + " / 6）。"),
+          h("div", { className: "flex flex-wrap", style: { gap: 8 } }, appsAll.map(([k, zh]) => { const at = scs.indexOf(k);
+            return h("button", { key: k, "data-wk": "modelfloatscpick", "data-on": at >= 0 ? "1" : "0", onClick: () => at >= 0 ? save(scs.filter(x => x !== k)) : scs.length < 6 ? save(scs.concat([k])) : (window.__toast && window.__toast("最多 6 个，先去掉一个")),
+              style: { minHeight: 36, padding: "0 12px", borderRadius: 18, border: "1px solid " + (at >= 0 ? t.ink : t.line), background: at >= 0 ? t.ink : "transparent", color: at >= 0 ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
+              (at >= 0 ? (at + 1) + " · " : "") + zh); }))));
+    })() : null,
     h("div", { style: Object.assign({ position: "fixed", zIndex: 90, display: "flex", alignItems: "center", gap: 8 }, anchor) },
     // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）──────────────────
     // 原来是一颗近黑的圆 + 一圈白边 + 一个等宽字体的 ⇄：那是随便哪个 app 都有的
@@ -697,6 +756,8 @@ function App() {
   const [forumCharMeta, setForumCharMeta] = useState({});  // { [charId]: {handle,bio,joinTs,following,followers} }（AI 生成一次）
   const forumOffRef = useRef([]);   // 不逛论坛的角色 id：从自动策略里 forum 那一格算出来（见 autoRefreshOn 下面）
   const forumPostsRef = useRef([]); forumPostsRef.current = forumPosts;
+  // 正文里贴进来的帖子（[[post:ID]]）喂给模型前要换成《标题》：screens.js 的 forumLinkPlain 从这儿读帖子
+  if (typeof forumLinkSource === "function") forumLinkSource(() => forumPostsRef.current);
   const forumCommentsRef = useRef({}); forumCommentsRef.current = forumComments;
   const forumCInflightRef = useRef({}); // 每帖评论生成的进行中锁（防重入覆盖）
   const forumPMsRef = useRef([]); forumPMsRef.current = forumPMs;
@@ -1379,7 +1440,7 @@ function App() {
     if (auto && window.Gaze.markAutoSeed) window.Gaze.markAutoSeed(char.id);
     setGazeSeedBusy(true);
     try {
-      const uN = userName(profile);
+      const uN = userName(profileFor(char.id) || profile);
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-40).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-6000);
       // 拆成两份：被拦时 gazeCall 会自动改用 slim（去掉聊天记录那一块）再打一次
       // 世界书（v64.50，她 2026-09-06 点名：「这块你也把世界书接进去吧…
@@ -1549,7 +1610,7 @@ function App() {
     if (window.Gaze.markReview) window.Gaze.markReview(char.id, manual);   // 先记游标再刷
     setGazeReviewBusy(true);
     try {
-      const uN = userName(profile);
+      const uN = userName(profileFor(char.id) || profile);
       const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-60).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-8000);
       // 拆成两份：被拦时 gazeCall 会自动改用 slim（去掉聊天记录那一块）再打一次
       // 世界书（v64.50，她 2026-09-06 点名：「这块你也把世界书接进去吧…
@@ -1808,6 +1869,32 @@ function App() {
   const couplesRef = useRef(couples); couplesRef.current = couples;
   const coupleAnnivRef = useRef(coupleAnniv); coupleAnnivRef.current = coupleAnniv;
   const [newGroupOpen, setNewGroupOpen] = useState(false);
+  // 频道（她 2026-11-20）：x_spaces 一块一个地方，频道是 groups 里挂着 spaceId 的那几个群
+  const [spaces, setSpaces] = useState([]);
+  const [subOpen, setSubOpen] = useState(null);   // 楼中楼那一串：{ gid, root }（她 2026-11-20）
+  const [subBusy, setSubBusy] = useState(false);
+  const [loungeSitting, setLoungeSitting] = useState(false);
+  const loungeSitRef = useRef({});   // 每个挂机房上次「进去坐坐」的时间：半小时里只招呼一回
+  const spacesRef = useRef([]); spacesRef.current = spaces;
+  // 挑「发到哪个群」的名单（groupPickList）在组件外头也要知道有哪些空间：转发那张单子在 components.js 里
+  if (typeof window !== "undefined") window.__spacesNow = spaces;
+  const pickGroupsOf = list => typeof groupPickList === "function" ? groupPickList(list, spaces, typeof vclockNow === "function" ? vclockNow() : new Date()) : list;
+  const [spacePlanRev, setSpacePlanRev] = useState(0);   // 约定改了就重读（x_spacePlans:<空间id>，她 2026-11-20）
+  const [spaceGemRev, setSpaceGemRev] = useState(0);   // 精华墙改了就重读（x_spaceGems:<空间id>）
+  const [spaceDigestRev, setSpaceDigestRev] = useState(0);   // 「刚才他们聊了」那张卡改了就重读
+  const [newSpaceOpen, setNewSpaceOpen] = useState(false);
+  const [activeSpaceId, setActiveSpaceId] = useState(null);
+  // 进空间首页、或者进它的某个频道时，小活动机器人看一眼今天贴过没有（spaceBotTick 在下面定义，跑的时候早就有了）
+  const _botSpId = screen === "space" ? activeSpaceId : (screen === "gthread" && activeGroup && activeGroup.spaceId) || null;
+  useEffect(() => { if (_botSpId && typeof spaceBotTick === "function") spaceBotTick(_botSpId).catch(() => {}); }, [_botSpId]);
+  // 频道的「聊天｜文件」（她 2026-11-20）：在看哪一页、要直接打开哪一份；文件存 x_chfiles:<群id>，改一次 rev 加一让页面重读
+  const [channelTab, setChannelTab] = useState("chat");
+  const [chFileOpen, setChFileOpen] = useState(null);
+  const [chFilesRev, setChFilesRev] = useState(0);
+  // 频道里一起摆弄的小东西（置顶、便利贴墙、歌单、小账本、养的东西）：一个频道一份 x_chplay:<群id>，纯函数都在 engine.js 的 chp*
+  const [chPlayRev, setChPlayRev] = useState(0);
+  const chpOf = gid => chpNorm(loadJSON("x_chplay:" + gid, null), dayKeyNow());
+  const chpPut = (gid, st) => { saveJSON("x_chplay:" + gid, st); setChPlayRev(v => v + 1); };
   const [profileOpen, setProfileOpen] = useState(false);
   // 主页名片：与聊天「我」的人设解耦，单独一份 { name, sign, tags:[] }
   const [homeCard, setHomeCard] = useState({ name: "", sign: "", tags: [] });
@@ -2012,6 +2099,7 @@ function App() {
     })();
     setCharacters(c);
     setGroups(loadJSON("x_groups", []));
+    setSpaces(loadJSON("x_spaces", []));
     setGroupSettings(loadJSON("x_groupSettings", {}));
     setMoments(loadJSON("x_moments", []));
     setMomentsCover(loadJSON("x_momentsCover", {}));
@@ -2736,6 +2824,8 @@ function App() {
   const sameRoomFor = id => !!(settingsFor(id) || {}).sameRoom;
   const actDescFor = id => !!(settingsFor(id) || {}).actDesc;
   // 限时动态（她 2026-11-14）：没单独设过的跟着「自由发朋友圈」走
+  // 朋友圈 24 小时上限（她 2026-11-21）：设了数的，这 24 小时里 TA 自己发够了就先不发；没设＝不限
+  const momRoomFor = id => { const mx = Number((settingsFor(id) || {}).momMax) || 0; if (!mx) return true; const t0 = Date.now() - 86400000; return (momentsRef.current || []).filter(m => m && String(m.characterId) === String(id) && !m.manual && (m.ts || 0) > t0).length < mx; };
   const storyOnFor = id => { const s = settingsFor(id) || {}; return s.autoStory != null ? !!s.autoStory : !!s.autoMoment; };
   // 每 24 小时最多发几条（她 2026-11-14）：挂着的满了，这一格就不给 TA 了（省得 TA 填了又白排一张）
   const storyMaxFor = id => { const n = Number((settingsFor(id) || {}).storyMax); return Number.isFinite(n) && n >= 1 ? Math.min(10, Math.round(n)) : 3; };
@@ -3397,7 +3487,12 @@ function App() {
   };
   const desireApiFor = id => policyApiFor("desire", id);
   // 只算【还存在的角色/群】的未读——防幽灵红点（未读挂在已删角色/群等列表里看不到的 key 上，加进总数却清不掉，她 2026-07-23 报）
-  const unreadTotal = Object.entries(unreadMap).reduce((a, kv) => a + ((characters.some(c => c.id === kv[0]) || groups.some(g => g.id === kv[0])) ? (kv[1] || 0) : 0), 0);
+  // 她在聊天里会被叫的名字（@ 认的就是这些）：名字、各张面具的名字
+  const herNamesNow = () => { const out = [userName(profile)]; try { (window.__momentMasks || []).forEach(m => m && m.name && out.push(m.name)); } catch (e) {} return [...new Set(out.filter(Boolean))]; };
+  window.__herNames = herNamesNow;
+  const unreadTotal = Object.entries(unreadMap).reduce((a, kv) => { const g = groups.find(x => x && x.id === kv[0]);
+    if (g && g.spaceId) return a + chNotifyCount(g, kv[1] || 0, groupChats[g.id] || [], herNamesNow());
+    return a + ((characters.some(c => c.id === kv[0]) || g) ? (kv[1] || 0) : 0); }, 0);
   // 顺手把孤儿未读 key 从存档里清掉（角色/群删了但未读残留），让幽灵红点彻底消失
   useEffect(() => {
     if (!loaded) return;
@@ -3576,7 +3671,7 @@ function App() {
       && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
     if (!fresh.length) { toast("上次摘要以后还没有新对话"); return null; }
     const toTs = Math.max.apply(null, fresh.map(m => Number(m.ts || 0)));
-    const transcript = fresh.map(m => (m.role === "user" ? userName(profile) : character.name) + "：" + gameChatText(m)).join("\n");
+    const transcript = fresh.map(m => (m.role === "user" ? userName(profileFor(character.id) || profile) : character.name) + "：" + gameChatText(m)).join("\n");
     try {
       const raw = await callAI(apiFor(character.id),
         "你是房间交接整理器。只根据原话，忠实整理这段对话中真正发生的事、双方表达的感受、做出的决定、仍未结束的事和值得主聊天接住的变化。不得杜撰，不把设想写成事实，不代替任何人说新台词。输出一段自然中文正文，不要标题、列表、JSON 或代码块。" + gameChatSummaryContext(fresh) + "\n\n房间名：" + room.name + "\n需要整理的新增原话：\n" + transcript,
@@ -3859,6 +3954,8 @@ function App() {
     if (r.ev.length) setTimeout(() => luckyLines(gid, r.ev), 0);
   };
   const pGChat = (id, u) => { const run = () => setGroupChats(p => pGChatNext(p, id, u)); if (hiddenFlush(run)) return; run(); };
+  // 楼中楼那一轮（replyGroup 的 sub）在函数里遮住 pGChat，新落的几条挂上 replyRoot；外头那份从这里拿
+  const pGChatOuter = (id, u) => pGChat(id, u);
   const pGChatNext = (p, id, u) => {
     const pl = p[id] || [];
     const n = typeof u === "function" ? u(pl) : u;
@@ -5355,7 +5452,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (last && last.ledgerKey && last.ts && Date.now() - last.ts > 300000) return;
     const body = String((last && last.content) || "").replace(/\s+/g, " ").trim();
     const text = g
-      ? (((last && last.senderName) ? last.senderName + "：" : "") + (body || "发来一条消息")).slice(0, 44)
+      // 树洞里提醒也只露代号（她 2026-11-21「消息提示怎么还有名字」）
+      ? (((last && last.senderName) ? chAnonName(g, groupChatsRef.current[g.id], last.senderId, last.senderName) + "：" : "") + (body || "发来一条消息")).slice(0, 44)
       : (body || "发来一条消息").slice(0, 44);
     const b = {
       key: "b" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
@@ -5386,9 +5484,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 未读小红点 +k（角色发来消息时若没在看这个聊天就累加）
   const bumpUnread = (id, k, roomId) => {
-    pushBanner(id, k, roomId);
+    // 频道的通知等级（她 2026-11-20）：静音不弹不响；「只在 @我 时」只有这几条里 @了她 才弹、才响。条数照记
+    const _ng = (groupsRef.current || []).find(g => g && g.id === id && g.spaceId);
+    const _loud = !_ng || chNotifyCount(_ng, k, groupChatsRef.current[id] || [], herNamesNow()) > 0;
+    if (_loud) pushBanner(id, k, roomId);
     // 提示音（群友 2026-10-26）：设置 → 通用里挑了才响，跟横幅一样只在人不在那条聊天时（来这儿的都是没在看的）
-    try { const _ps = prefsRef.current || {}; if (_ps.msgSound && typeof playMsgSound === "function") playMsgSound(_ps.msgSound, _ps.msgSoundVol); } catch (e) {}
+    try { const _ps = prefsRef.current || {}; if (_loud && _ps.msgSound && typeof playMsgSound === "function") playMsgSound(_ps.msgSound, _ps.msgSoundVol); } catch (e) {}
     setUnreadMap(p => {
       const n = { ...p, [id]: (p[id] || 0) + k };
       saveJSON("x_unread", n);
@@ -5790,6 +5891,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return (lastTs > 0 && Date.now() - lastTs < OFFLINE_TOGETHER_MIN * 60000) ? sess : null;
   };
   const offlineTogetherNow = charId => !!offlineTogetherSess(charId);
+  // 上一次见面（她 2026-11-21：出门玩着，主动却报「刚开完会」）：只摆事实、不下要求——线下可能只是忘了关，散没散让 TA 自己判断
+  const lastMeetFact = charId => {
+    try {
+      let list = offlinesRef.current[charId]; if (!list) list = loadJSON("x_offline:" + charId, []);
+      let best = null, bt = 0;
+      (list || []).forEach(s => (s && s.msgs || []).forEach(m => { if (m && (m.ts || 0) > bt && m.content) { bt = m.ts; best = m; } }));
+      if (!best || Date.now() - bt > 12 * 3600000) return "";
+      const min = Math.round((Date.now() - bt) / 60000), ago = min < 60 ? min + " 分钟" : Math.round(min / 60) + " 小时";
+      return "\n【上一次见面】你们最近一次线下见面停在 " + ago + "前，最后那一拍是：" + String(best.content).replace(/\s+/g, " ").slice(0, 120);
+    } catch (e) { return ""; }
+  };
   // 有没有一场还没散的线下（供聊天感知：别把正在进行的线下当「还没开始」催用户）
   const offlineActiveFor = charId => {
     let list = offlinesRef.current[charId];
@@ -5797,7 +5909,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const s = (list || []).find(x => x && !x.endTs && (x.msgs || []).length > 0);
     if (s) {
       const char = characters.find(c => c.id === charId);
-      const uName = (profile && profile.name) || "用户";
+      const uName = ((profileFor(charId) || profile) || {}).name || "用户";
       const narr = (s.msgs.find(m => m.role === "narration") || {}).content || "";
       // 把进行中线下的最近几句一起带进线上上下文——线上才接得住「我去买菜」这种半途插话（她 2026-07-23 买菜例子）：
       //   线下说去买菜 → 切线上问买啥（TA知道你俩正约会、你刚出去）→ 买完回来接着线下，全程不用结束线下。
@@ -6868,7 +6980,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 印象卡各场景共用读取；群内放在本人私有段，读主线与写回主线分开。
   const gazeFor = charId => {
     if (noGaze(charId) || (characters.find(c => c.id === charId) || {}).npc || !window.Gaze || !window.Gaze.text) return "";
-    return String(window.Gaze.text(charId, userName(profile)) || "").trim();
+    return String(window.Gaze.text(charId, userName(profileFor(charId) || profile)) || "").trim();
   };
   // ⚠️心愿单是【念给某个角色听】的，所以按他那边的钱写（她 2026-09-18 收 A 类）。
   //   群里那一路说不清是谁，不传就是人民币。
@@ -6909,7 +7021,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   一个群只戴一张脸（同一句话对着一屋子人），所以是【群】挑，不是每个成员各挑。
   //   键跟 maskKeyOf 一个口径：主面具＝""。那张被删了就回主面具。
   const groupMaskKey = gid => {
-    const raw = (gsFor(gid) || {}).maskId;
+    let raw = (gsFor(gid) || {}).maskId;
+    // 频道：自己没挑就跟空间那张（她 2026-11-20「不同的面具开频道怎么算」——面具挂在空间这一层，单个频道还能单独换）
+    if (raw == null) { const _g0 = (groupsRef.current || groups || []).find(x => x && x.id === gid);
+      if (_g0 && _g0.spaceId) { const _sp0 = (spacesRef.current || spaces || []).find(x => x && x.id === _g0.spaceId); if (_sp0) raw = _sp0.maskId || ""; } }
     if (raw == null) {   // 没挑过：全员都认同一张副面具，就默认那一张（不然一群副面具的人对着主面具，反倒全成了陌生人）
       const g = (groupsRef.current || groups || []).find(x => x && x.id === gid);
       const ks = ((g && g.memberIds) || []).map(id => maskKeyOf(id));
@@ -7036,8 +7151,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 「你俩此刻在一起」两个来源走同一个口子：线下场次正开着（旧）、同处一室开着（新）。
     // 真开着线下的时候不重复说一遍——那段自己已经把面对面讲清楚了。
     offlineNow: (sameRoomFor(char.id) && !offlineTogetherNow(char.id)
-      ? samePlacePresence(userName(profile)) + (offlineActiveFor(char.id) ? "\n" + offlineActiveFor(char.id) : "")
-      : (offlineActiveFor(char.id) || (sameRoomFor(char.id) ? "" : apartPresence(userName(profile))))),
+      ? samePlacePresence(userName(profileFor(char.id) || profile)) + (offlineActiveFor(char.id) ? "\n" + offlineActiveFor(char.id) : "")
+      : (offlineActiveFor(char.id) || (sameRoomFor(char.id) ? "" : apartPresence(userName(profileFor(char.id) || profile))))),
     rels,
     // 情侣状态（表白在一起后自动生效，不用去改「关系」字段）：together 权威、覆盖旧关系标签
     coupleStatus: (() => {
@@ -7049,7 +7164,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return "";
     })(),
     // 空间门口的门牌、谁的东西在谁那儿、今晚留没留灯——只是事实，照常聊天时 TA 心里有数
-    spaceDoor: (() => { const cp = !char.npc && couples[char.id]; return cp && cp.status === "together" ? spaceDoorLine(char, userName(profile)) : ""; })(),
+    spaceDoor: (() => { const cp = !char.npc && couples[char.id]; return cp && cp.status === "together" ? spaceDoorLine(char, userName(profileFor(char.id) || profile)) : ""; })(),
     // 他给她起的那个称呼（抽卡 s_title，她点了「收下」才有）。
     // ⚠️走 ctx → buildBundle 这条【白送的】路：单聊线上/线下、通话、穿书、匿名箱、
     //   解梦馆换个入口自然就有。群聊那两处不走 buildBundle，另外接（见 nickLineFor）。
@@ -7079,7 +7194,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (b.offWhy === "sulk") return "你前阵子跟" + uN + "闹别扭，在论坛上取关了她的号，现在还没关回去。";
       return ""; })(),
     shikeNote: (!char.npc && window.ShikeKit && window.ShikeKit.chatNote)
-      ? window.ShikeKit.chatNote(char, { chats: chatsRef.current, lib: memLibRef.current, couples, profile, uName: userName(profile) }) : "",
+      ? window.ShikeKit.chatNote(char, { chats: chatsRef.current, lib: memLibRef.current, couples, profile, uName: userName(profileFor(char.id) || profile) }) : "",
     // 心情会自己平复：注入前按放了多久重新表述（存储不动，历史照留）。
     // 隔了一夜以上就不再报「你此刻的心情是X」——那是上次相处结束时的读数，
     // 提示词照原样塞进去，等于要求TA把三天前那阵气重演一遍（她 2026-08-24 问到的）。
@@ -7098,7 +7213,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     watchedNote: (window.PhoneWatch && !isBody(char.id))
       ? window.PhoneWatch.watchedNote(
           window.PhoneWatch.knockedToday((knockLogRef.current || {})[char.id], Date.now()),
-          userName(profile))
+          userName(profileFor(char.id) || profile))
       : "",
     // A 情绪底色（v62.39 起走 buildBundle）：她 2026-09-04 问「八处不一起喂吗」。
     // 原来它挂在【单聊线上那两条任务串】上——那是「一条条 push 的」那一类，换个入口就一个字都没有。
@@ -7249,9 +7364,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const hers = SK.activeFor("me", char.id), his = SK.activeOf(char.id).filter(s => String(s.by) === String(char.id)), un = userName(profileFor(char.id));
       const ago = ts => { const m = Math.round((Date.now() - ts) / 60000); return m < 60 ? Math.max(1, m) + " 分钟前" : Math.round(m / 60) + " 小时前"; };
       const L = [];
-      if (hers.length) L.push(un + "挂着的限时动态（24 小时后自己收起；你刷到了，她那边看得到你看过）：\n" + hers.map(s => "· " + ago(s.ts) + "：" + (s.desc || s.text || "一张卡") + (String(s.co) === String(char.id) ? "（这是你俩一起发的同框，挂在你们两个人的头像上）" : "") + (s.sticker ? "；" + SK.stickerLine(s.sticker) + (s.sticker.type === "poll" && (s.sticker.votes || {})[char.id] != null ? "（你已经投了「" + s.sticker.opts[s.sticker.votes[char.id]] + "」）" : "") : "")).join("\n")
+      // 配的歌也看得到（她 2026-11-20「他看得到自己发的歌吗，还有我发的」）
+      const songOf = s => s && s.music && s.music.title ? "，配着歌《" + s.music.title + "》" + (s.music.artist ? "（" + s.music.artist + "）" : "") : "";
+      if (hers.length) L.push(un + "挂着的限时动态（24 小时后自己收起；你刷到了，她那边看得到你看过）：\n" + hers.map(s => "· " + ago(s.ts) + "：" + (s.desc || s.text || "一张卡") + songOf(s) + (String(s.co) === String(char.id) ? "（这是你俩一起发的同框，挂在你们两个人的头像上）" : "") + (s.sticker ? "；" + SK.stickerLine(s.sticker) + (s.sticker.type === "poll" && (s.sticker.votes || {})[char.id] != null ? "（你已经投了「" + s.sticker.opts[s.sticker.votes[char.id]] + "」）" : "") : "")).join("\n")
         + "\n想提就在这一轮顺嘴提一句，不想提就当看过了。");
-      if (his.length) L.push("你自己挂着的限时动态：" + his.map(s => "「" + (s.text || s.desc) + "」（" + ago(s.ts) + (SK.audLabel(s) ? "，" + SK.audLabel(s).replace("你", un) : "") + "）"
+      if (his.length) L.push("你自己挂着的限时动态：" + his.map(s => "「" + (s.text || s.desc) + "」（" + ago(s.ts) + songOf(s) + (SK.audLabel(s) ? "，" + SK.audLabel(s).replace("你", un) : "") + "）"
         + (s.sticker ? "，" + SK.stickerLine(s.sticker)
           + (s.sticker.type === "poll" && (s.sticker.votes || {}).me != null ? "，" + un + "投了「" + s.sticker.opts[s.sticker.votes.me] + "」" : "")
           + (s.sticker.type === "ask" && (s.sticker.answers || []).some(a => a.who === "me") ? "，" + un + "回答了：" + s.sticker.answers.filter(a => a.who === "me").map(a => a.text).join("／") : "") : "")
@@ -7377,7 +7494,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const rs = reps.slice(-2).map(r => who(r) + "：" + String(r.content).slice(0, 30));
           push((reps[reps.length - 1] || {}).ts || f.ts,
             "你在「" + (p.authorName || "别人") + "」的帖「" + String(p.title || "").slice(0, 16) + "」下说过“"
-            + String(f.content || "").slice(0, 26) + "”，有人回你：" + rs.join("；"));
+            + forumLinkPlain(f.content).slice(0, 26) + "”，有人回你：" + rs.join("；"));
         });
       });
 
@@ -7386,9 +7503,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const fl = cmts[p.id] || [];
         const mine = fl.some(f => f.authorId === char.id || (f.replies || []).some(r => r.authorId === char.id));
         const others = fl.filter(f => f.authorType !== "me").slice(0, 2)
-          .map(f => (f.authorName || "有人") + "：" + String(f.content || "").slice(0, 28));
+          .map(f => (f.authorName || "有人") + "：" + forumLinkPlain(f.content).slice(0, 28));
         push(p.ts, meName + "在「" + p.board + "」发了帖「" + p.title + "」"
-          + (p.body ? "（" + String(p.body).replace(/\s+/g, " ").slice(0, 40) + "）" : "")
+          + (p.body ? "（" + forumLinkPlain(p.body).replace(/\s+/g, " ").slice(0, 40) + "）" : "")
           + (others.length ? "，楼下有人回：" + others.join("；") : "，还没什么人回")
           + (mine ? "。你也在下面回过。" : "。"));
       });
@@ -7412,7 +7529,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 生日（用户/角色自己）+ 日历三视角（世界事件人人知、我的日历按可见名单、角色自己视角）。dateKey 与 calKey 同格式：年-月-日，月 1-based 不补零。
     dateNote: (() => {
       const cal = calendar || {};
-      const uName = userName(profile);
+      const uName = userName(profileFor(char.id) || profile);
       // 「今天」照 TA 那只虚拟钟（2026-10-31 排查）：生日、日历、节日、纪念日倒数都按钟上的日子说
       const today = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now()); today.setHours(0, 0, 0, 0);
       const tK = today.getFullYear() + "-" + (today.getMonth() + 1) + "-" + today.getDate();
@@ -7543,7 +7660,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   拆成两栏：nowPlaying 跟着「在场」走（哪间房都给），listenLog 留在记忆那一组。
     nowPlaying: (() => {
       const L = listenRef.current || {};
-      const uName = userName(profile);
+      const uName = userName(profileFor(char.id) || profile);
       const lines = [];
       if (L.partnerId === char.id && player.songId && player.songId !== KEEPALIVE_ID) {
         const cur = resolveSong(player.songId);
@@ -7558,7 +7675,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     })(),
     listenLog: (() => {
       const L = listenRef.current || {};
-      const uName = userName(profile);
+      const uName = userName(profileFor(char.id) || profile);
       const lines = [];
       // 一起听过的歌 → 记忆。带粗时间（v54.49 她点头）：不带的话上个月的歌和昨晚的歌
       // 在 TA 眼里一样近，会把旧歌当刚听过的聊
@@ -7600,7 +7717,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return t ? "『你在的群里最近聊的（带时间和群名，和你俩私聊按真实先后顺序理解）』\n" + t : ""; })(),
     // 群线下回显（v50.66）：这个角色参加过的群线下(大家面对面)最近片段，带时间戳，让单聊接得上"刚一起线下相处过"。
     //   只互通群 + 该角色在场；群线下是共同经历、非私密，无需 own-scope 遮蔽。
-    groupOfflineEcho: (groups || []).filter(g => gsFor(g.id).memoryInterop && (g.memberIds || []).includes(char.id)).map(g => {
+    // 审计 #7：挑的是最近线下过的两个群（不是数组里前两个），两个群合用一份预算；能不能流过来走 groupFlowsTo
+    groupOfflineEcho: (() => { let _left = memCfgRef.current.crossBudget || 800;
+      const _lastOff = g => Math.max(0, ...((groupOfflinesRef.current[g.id] || []).map(s => Number((s && (s.endTs || s.startTs)) || 0))));
+      return (groups || []).filter(g => g && (g.memberIds || []).includes(char.id) && groupFlowsTo(g, char.id) && !groupSpectating(g)).sort((a, b) => _lastOff(b) - _lastOff(a)).slice(0, 2).map(g => {
       const crossMs = (memCfgRef.current.crossHours || 72) * 3600000;
       const cutoff = Date.now() - crossMs;
       const msgs = [];
@@ -7609,10 +7729,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       msgs.sort((a, b) => (a.ts || 0) - (b.ts || 0));
       const others = (g.memberIds || []).filter(id => id !== char.id).map(id => { const c = characters.find(x => x.id === id); return c ? c.name : null; }).filter(Boolean);
       // 字符预算封顶（走 crossBudget 拉条）：从近往回收
-      const budget = memCfgRef.current.crossBudget || 800; const picked = []; let used = 0;
-      for (let i = msgs.length - 1; i >= 0; i--) { const m = msgs[i]; const ln = (aiStampFor(char.id, m.ts) ? "[" + aiStampFor(char.id, m.ts) + "] " : "") + (m.role === "narration" ? "【场景】" : (m.role === "user" ? userName(profile) : (m.senderName || "某人")) + "：") + String(m.content).replace(/\s+/g, " ").slice(0, 70); if (used + ln.length > budget && picked.length) break; used += ln.length + 1; picked.push(ln); }
+      const budget = _left; const picked = []; let used = 0;
+      for (let i = msgs.length - 1; i >= 0; i--) { const m = msgs[i]; const ln = (aiStampFor(char.id, m.ts) ? "[" + aiStampFor(char.id, m.ts) + "] " : "") + (m.role === "narration" ? "【场景】" : (m.role === "user" ? herNameIn(g.id) : (m.senderName || "某人")) + "：") + String(m.content).replace(/\s+/g, " ").slice(0, 70); if (used + ln.length > budget && picked.length) break; used += ln.length + 1; picked.push(ln); }
+      _left = Math.max(0, _left - used);
       return "『群「" + g.name + "」多人线下" + (others.length ? "（在场还有 " + others.join("、") + "）" : "") + "』\n" + picked.reverse().join("\n");
-    }).filter(Boolean).slice(0, 2).join("\n\n"),
+    }).filter(Boolean).join("\n\n"); })(),
     // 单人线上 + 正在进行的单人线下，是同一条按真实时间排序的临时上下文。
     // 只在生成 prompt 时合流，不互相写入存档；已结束线下仍由 offlinelog/记忆承接。
     // engineerEyes 保持专线，不参与这套普通角色合流。
@@ -7714,7 +7835,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!all.length) return "";
       const wantStart = 0;
       const lines = [];
-      const uName = userName(profile);
+      const uName = userName(profileFor(char.id) || profile);
       const budget = memCfgRef.current.recentBudget || 8000; // 字符预算(召回设置可调)：从最近往回收，攒够就停（老而仍在窗内的事由自动抽取+摘要兜底）
       // 她 2026-08-28：「跑了很多长线下，一堆没用的描写占着字数，本来可以带更多密度的聊天记录都被描写占满了」。
       // 实测（8000 字预算、线下一拍 300 字）：线下拿走 6120 字，线上只剩 635 字——九成预算给了描写；
@@ -7910,6 +8031,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const gid = group.id;
         const gs = gsFor(gid);
         if (!gs.memoryInterop || gs.autoChat === false || !autoRefreshOn("groupChat")) continue;
+        // 挂机房是各忙各的地方，不自己聊起来（她 2026-11-21「为啥我的挂机房自己会聊天」）；她在群设置里特意打开过自动聊天的照旧
+        if (group.chKind === "lounge" && gs.autoChat !== true) continue;
         if (groupCallActive(gid)) continue; // 通话缩小仍算通话，不另起线上自发轮
         if (laneBusy("g:" + gid)) continue;
         // ⚠️「线下正在进行」不等于「线下浮层开着」（她 2026-08-31 报）：
@@ -8133,6 +8256,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         let segDirty = false;
         (characters || []).forEach(c => {
           if (!c || c.npc || !storyOnFor(c.id)) return;
+          // 跟朋友圈同一道闸（她 2026-11-20「是不是漏了时间段不刷新的闸」）：免打扰里勾了后台不跑／不发主动消息、面具在休息、收起来的人，都不自己发
+          if (!autoRefreshOn("moments", c.id) || quietNow("pro")) return;
           const sg = typeof schedNowSegFor === "function" ? schedNowSegFor(c) : null;
           if (!sg || !sg.cur || sg.cur.type === "sleep") return;
           const k = schedLocalDayKey(c) + "#" + (sg.cur.time || sg.idx), was = segSeen[c.id];
@@ -8638,8 +8763,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (!autoRefreshOn("proactive", cid)) continue;   // 聊天设置那颗和设置页那栏是同一格
           if (autoRefreshOn("proactive", cid) && laneBusy("c:" + cid)) pWhy(cid, "TA 这会儿正在回别的（上一条还在写）");
           if (laneBusy("c:" + cid)) continue;
-          if (currentlyTogetherWithChar(cid)) pWhy(cid, "你们此刻在一起（共处一室或见面开着），想你会落成在一起时的动作，不发线上消息");
-          if (currentlyTogetherWithChar(cid)) continue;
+          // 在一起（同处一室、线下没结束）不再挡（她 2026-11-21：「主动消息当成在一起说话来发不是不发」
+          //   「我从来没有触发过线下写新的一拍」）：照样在线上这一路来，提示里改成当面开口
           // 正跟你通着电话：人就在线上说着话，不该再另发一条主动消息（她 2026-10-06）
           const _onCall = callRef.current && (callRef.current.participants || []).some(p => p && p.id === cid);
           if (_onCall) pWhy(cid, "你们正在通电话，电话里说着呢，不另发消息");
@@ -8647,9 +8772,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // 有没有一场进行中的线下（同居/常在一起）。有【正在演的场景】→ 把「思念攒够→主动」落成【线下一拍】而不是线上消息（她 2026-07-23）。
           const _offL = offlinesRef.current[cid] || [];
           // 常驻线下(同居=一直在一起)：只要有进行中的场景就把主动落成线下一拍，不看远近；非常驻：只有此刻真面对面(近)才线下，挂着已散→线上
-          const activeOff = settingsFor(cid).defaultOffline
-            ? (offlinesRef.current[cid] || []).find(s => s && !s.endTs && (s.msgs || []).length)
-            : offlineTogetherSess(cid);
+          // 她 2026-11-21：想你不再落成线下的一拍，一律走线上；人在一起时由 proactiveHintAll 改成当面开口
+          const activeOff = null;
           const activeOffScene = activeOff && (activeOff.msgs || []).length > 0 ? activeOff : null;
           // 线上路径：她正开着这个聊天时，只在【她正在打字】时让一让；线下路径（有场景）：她看着/离开都能自己动。
           // ⚠️原来是「开着这个聊天就不发」，注释说「前台那套负责」——可前台根本没有思念这一路（群友 2026-10-01：
@@ -8787,7 +8911,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const proactiveWhyNow = cid => {
     const c = (characters || []).find(x => x.id === cid); if (!c) return "";
     if (!autoRefreshOn("proactive", cid)) return "「允许 Ta 主动发消息」关着";
-    if (currentlyTogetherWithChar(cid)) return "你们此刻在一起（共处一室或见面开着），想你会落成在一起时的动作，不发线上消息";
     if (laneBusy("c:" + cid)) return "TA 这会儿正在回别的（上一条还在写）";
     const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && !isOocMsg(m) && !autoPostNotTalk(m));
     if (!ms.length) return "你们还没聊过天";
@@ -9411,7 +9534,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 合照必须两张参考照都在，否则降级成「她替TA拍的单人照」——绝不一张真一张编。
     let kind = wantMe ? "me" : ["other", "duo", "group"].includes(arg.kind) ? arg.kind : "self";
     if (kind === "duo" && !offlinePhotoCanDuo(char)) kind = "other";
-    if (kind === "duo" && typeof photoDuoSaid === "function" && !photoDuoSaid(scene, userName(profile))) kind = "self";
+    if (kind === "duo" && typeof photoDuoSaid === "function" && !photoDuoSaid(scene, userName(profileFor(char.id) || profile))) kind = "self";
     let cast = kind === "group" ? (arg.cast || []) : null;
     if (kind === "group" && (!cast || cast.length < 2)) { kind = "other"; cast = null; }
     // reuseSid：重拍 / 改描述重拍（她 2026-10-02：「线下的图不能编辑重roll」）——就地换这一格的像素，不另挂一张。
@@ -9629,7 +9752,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _offSeen = isBody(charId) ? null : freshOfflinePhoto(charId);
       const _offSeenAvatarOk = !!(_offSeen && avatarCoolOk(charId));
       oCtx.photoSeenSpec = _offSeen
-        ? "【photoSeen·上面输出形状的追加项】" + photoSeenHint(_offSeenAvatarOk, profile.name || "她").replace(/^\n/, "")
+        ? "【photoSeen·上面输出形状的追加项】" + photoSeenHint(_offSeenAvatarOk, ((profileFor(charId) || profile) || {}).name || "她").replace(/^\n/, "")
         : "";
       // 世界书注入：用线下这段自己的文本做关键词命中（ctxFor 默认用线上聊天文本），常驻/绑定词条照常进
       const offText = (workSess.msgs || []).slice(-8).map(m => m.content || "").join("\n");
@@ -9881,7 +10004,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!offlineApiFor(charId)) { toast("请先到设置配置 API"); return; }
     startLane("c:" + scopeKey);
     try {
-      const uName = (profile && profile.name) || "我";
+      const uName = ((profileFor(charId) || profile) || {}).name || "我";
       const offText = (sess.msgs || []).filter(m => !isOocMsg(m)).slice(-10).map(m => (m.role === "char" ? char.name : m.role === "narration" ? "【场景】" : uName) + "：" + (m.content || "")).join("\n");
       const q = text.trim() + (offText ? "\n\n【背景：我们此刻正在线下面对面相处，最近这几段经过】\n" + offText : "");
       // ⚠️这里原来是裸的 ctxFor(char)：**完全没过房间那道闸**。
@@ -10054,7 +10177,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       out.push({ key: m.id || ("m" + m.ts), m, who: c.remark || c.name, session: mine.find(x => x && x.startTs === m.startTs) || null, sessions: mine, char: c });
     });
     (groupsRef.current || []).forEach(g => {
-      if (!g || !(g.memberIds || []).includes(charId) || !gsFor(g.id).memoryInterop) return;
+      if (!g || !(g.memberIds || []).includes(charId) || !gsFor(g.id).memoryInterop || !groupFlowsTo(g, charId)) return;
       const list = groupOfflinesRef.current[g.id] || loadJSON("x_goffline:" + g.id, []) || [];
       (groupChatsRef.current[g.id] || []).forEach(m => {
         if (!m || m.kind !== "datememory" || !m.place) return;
@@ -10141,12 +10264,26 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!rows.length) return rows;
     const first = rows[0].ts || 0;
     const marks = (groupOfflinesRef.current[groupId] || []).filter(x => x && x.endTs && Number(x.endTs) > first && (x.msgs || []).length)
-      .map(x => ({ role: "narration", content: "（这之间大家线下见过一面：" + fmtStampAI(x.startTs || x.endTs, char.id) + " 到 " + fmtStampAI(x.endTs, char.id) + "，已经结束了" + (x.summary ? "；经过：" + String(x.summary).replace(/\s+/g, " ").slice(0, 200) : "") + "）", ts: Number(x.endTs) }));
+      .map(x => ({ role: "narration", content: "（这之间大家线下见过一面：" + fmtStampAI(x.startTs || x.endTs, "g:" + groupId) + " 到 " + fmtStampAI(x.endTs, "g:" + groupId) + "，已经结束了" + (x.summary ? "；经过：" + String(x.summary).replace(/\s+/g, " ").slice(0, 200) : "") + "）", ts: Number(x.endTs) }));
     return rows.concat(marks).sort((a, b) => (a.ts || 0) - (b.ts || 0));
   };
   // 统一「跨情境近况流」(v50.66，她要四个情境带时间戳互看、按真实顺序衔接)：某角色最近在【单聊线上 + 单人线下】
   //   发生的原话 beats，合并→每条打 [时间·场景]→按真实 ts 排序→字符预算封顶（从近往回收）。
   //   供群线下(每成员各注入自己那份、守 own-chat-only 隐私)等场景衔接刚在别处发生的细节。
+  // 这个群的事能不能流到 viewer 那儿（审计 2026-11-20：不互通的频道、换了面具的群原来照样往单聊里漏，还带着她真名）。
+  //   只此一处判：开着互通、不是不互通的频道（只给这里的人的那种只给里面的人）、不是平行房间、面具对得上、不是藏起来的见面群（除非他在里面）
+  const groupFlowsTo = (g, viewerId) => {
+    if (!g || !gsFor(g.id).memoryInterop || g.parallel) return false;
+    const isMem = (g.memberIds || []).map(String).includes(String(viewerId));
+    if (g.chSolo && !(g.chShareMembers && isMem)) return false;
+    if (g.chHidden && !isMem) return false;
+    // 树洞里说的话带着真名流去别处，单聊里一提「你在树洞说……」马甲就掉了（她 2026-11-21「树洞还在漏」）：树洞不往外流
+    if (g.chKind === "treehole") return false;
+    try { if (typeof groupMaskKey === "function" && typeof maskKeyOf === "function" && (groupMaskKey(g.id) || "") !== (maskKeyOf(viewerId) || "")) return false; } catch (e) {}
+    return true;
+  };
+  // 群里她叫什么：照这个群戴的那张面具
+  const herNameIn = gid => { try { const p = typeof groupProfileFor === "function" ? groupProfileFor(gid) : null; return (p && p.name) || userName(profile); } catch (e) { return userName(profile); } };
   const crossRecentFor = (charId, opts = {}) => {
     // 时间窗 + 字符预算走召回设置的拉条（crossHours / crossBudget），调用处不再写死；opts 仍可覆盖
     const budget = opts.budget || (memCfgRef.current.crossBudget || 800);
@@ -10172,7 +10309,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 他在的、开着互通的群（她 2026-10-27：「群聊带的应该是按时间上下文，不是限制条数」）——跟上面两样同一个时间窗、同一份字数预算。
     //   闭群不外流；正在说话的那个群（excludeGroup）自己有完整记录，不重复带
     if (surfaces.includes("group")) (groups || []).forEach(g => {
-      if (!g || g.id === opts.excludeGroup || !gsFor(g.id).memoryInterop || !(g.memberIds || []).includes(charId)) return;
+      if (!g || g.id === opts.excludeGroup || (opts.excludeGroups && opts.excludeGroups.includes(g.id)) || !groupFlowsTo(g, charId) || !(g.memberIds || []).includes(charId)) return;
+      const uNameG = herNameIn(g.id);
       // 她那时候在不在群里（她 2026-11-04：「之前在群里后来退出变旁观，或者反过来呢」）：照那几行「退出了群聊／拉进了群聊」逐条算，
       //   不是只看她现在在不在。没换过的群，就照现在的身份
       const _gl = groupChatsRef.current[g.id] || [];
@@ -10181,11 +10319,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       let _inNow = _first ? _first === "out" : !groupSpectating(g);
       _gl.forEach(m => {
         const _p = _pres(m); if (_p) { _inNow = _p === "in"; return; }
-        if (!m || m.recalled || !m.content || isOocMsg(m) || m.role === "system" || !contextAllowsMessage(m)) return;
+        // 只有图没有字的照片也算一句（审计 #10）；小频那种卡片不是谁说的话（#8）
+        const _txt = m && (m.content || (m.kind === "photo" ? "[照片" + (m.desc ? "：" + String(m.desc).slice(0, 60) : "") + "]" : ""));
+        if (!m || m.recalled || !_txt || isOocMsg(m) || m.role === "system" || m.kind === "spacebot" || !contextAllowsMessage(m)) return;
         if (sinceMs && (m.ts || 0) < sinceMs) return;
         // 悄悄话只进说的人和被说的人那儿
         if (m.whisper && m.senderId !== charId && m.toId !== charId) return;
-        beats.push({ ts: m.ts || 0, gid: g.id, surface: "群「" + g.name + "」" + (_inNow ? "" : "·她那时不在这个群里"), who: m.whisper ? "【悄悄话】" + (m.senderName || "某人") + " 小声对 " + (m.toId === charId ? "你" : (m.toName || "某人")) : m.role === "user" ? uName : m.role === "narration" ? "【旁白】" : (m.senderName || "某人"), text: String(m.content) });
+        beats.push({ ts: m.ts || 0, gid: g.id, surface: "群「" + g.name + "」" + (_inNow ? "" : "·她那时不在这个群里"), who: m.whisper ? "【悄悄话】" + (m.senderName || "某人") + " 小声对 " + (m.toId === charId ? "你" : (m.toName || "某人")) : m.role === "user" ? uNameG : m.role === "narration" ? "【旁白】" : (m.senderName || "某人"), text: String(_txt) });
       });
     });
     if (!beats.length) return "";
@@ -10381,6 +10521,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了
     directives: directives[group.id] || [],
     groupNotice: gsFor(group.id).notice || null,
+    spaceBlock: spaceChannelBlock(group && spaceSibs(group.id).find(x => x && x.id === group.id) || group, spaceSibs(group && group.id), id => groupChatsRef.current[id] || [], herNameIn(group.id), id => (((characters || []).find(c => c && String(c.id) === String(id)) || {}).name || "")) + (group && group.spaceId && group.chKind !== "meet" && !channelNoMem(group.id) && spaceMeetMaskOk(group) ? spaceMeetLine(group.spaceId) : ""),
     // 跨情境近况（v50.66）：每个成员各自最近在【单聊线上 + 单人线下】和用户之间发生的事，带时间戳，
     //   让群线下接得上刚在别处聊过的细节。own-chat-only：只带该成员自己那份，engine 侧再加隐私铁律(别的成员不知情)。
     memberRecent: _par ? [] : (group.memberIds || []).map(id => {
@@ -10388,7 +10529,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!c) return null;
       const own = (memSplit && memSplit.perChar[String(id)]) || [];
       const ownMem = own.length ? "记忆库里【只有 " + c.name + " 知道】的事：\n" + formatMemLib(own).trim() : "";
-      const lines = [ownMem, crossRecentFor(id)].filter(x => x && x.trim()).join("\n"); // 时间窗/预算走召回设置拉条
+      // 审计 #4：跟群线上同一条规矩——互通群带实时私聊；封闭群只带他入群前那一截私聊（不让外面实时的事流进来）
+      const _open = gsFor(group.id).memoryInterop;
+      const _pre = _open ? "" : (() => { const cut = groupCreatedTs(group); const before = (chatsRef.current[id] || []).filter(m => m && !m.recalled && !m.kind && m.content && (!cut || (m.ts || 0) < cut)).slice(-(gsFor(group.id).preJoinN == null ? 20 : Number(gsFor(group.id).preJoinN) || 0));
+        return before.length ? "【入群前和" + userName(profile) + "的私聊】\n" + before.map(m => (m.role === "user" ? userName(profile) : c.name) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 120)).join("\n") : ""; })();
+      const lines = [ownMem, _open ? crossRecentFor(id) : _pre].filter(x => x && x.trim()).join("\n"); // 时间窗/预算走召回设置拉条
       return lines ? { name: c.name, lines } : null;
     }).filter(Boolean),
     // 记忆分区：不互通的群是封闭空间，线下也不读全局记忆库（不让外部记忆流入）。
@@ -10694,7 +10839,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const startGroupOffline = async (groupId, opts) => {
     const profile = groupProfileFor(groupId);
-    const group = groups.find(g => g.id === groupId);
+    // 刚建好的东道群还没进 groups 这一拍的闭包（空间见面），从 ref 或者调用方递来的那份里认
+    const group = groups.find(g => g.id === groupId) || (groupsRef.current || []).find(g => g && g.id === groupId) || (opts && opts._host);
     if (!group) return;
     const opening = (opts.opening || "").trim();
     // 群线下同一个规矩：上一场选过的文风／预设台，下一场先用它（自动开的那一场也是）
@@ -10929,7 +11075,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const raw = String(log.transcript || "").trim();
     if (!raw) { toast("这张卡上没存原话，放不回去"); return; }
     const char = isG ? null : characters.find(c => String(c.id) === String(ownerId));
-    const uName = userName(profile);
+    const uName = userName((char && profileFor(char.id)) || profile);
     // 一行一句：〔时间〕谁：话。话里自己带换行的，接到上一句后面
     //   带时间戳的转录只认带戳那几行起新的一句——不然话里一行「……：……」也会被当成换人说话
     const rows = [], stamped = /^〔[^〕]*〕/.test(raw);
@@ -11891,10 +12037,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       };
       if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(arc).join("\n"));
       // 她在里面的群也照群看（她 2026-10-02：「看群也正常看，不要变成单聊」）；旁观群不是她的聊天，不给看
-      const gRows = (groupsRef.current || []).filter(g => g && shownId(g.id) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => {
+      // 「不影响记忆」的频道不往外露（她 2026-11-20）：翻手机也翻不到
+      const gAll = (groupsRef.current || []).filter(g => g && shownId(g.id) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate) && !(g.spaceId && channelNoMem(g.id))).map(g => {
         const ms = (groupChatsRef.current[g.id] || []).filter(m => m && m.content && !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration");
         return { g, ms, last: ms.length ? (ms[ms.length - 1].ts || 0) : 0 };
-      }).filter(x => x.ms.length).sort((a, b) => b.last - a.last).slice(0, 2);
+      }).filter(x => x.ms.length).sort((a, b) => b.last - a.last);
+      const gRows = gAll.filter(x => !x.g.spaceId).slice(0, 2);
+      // 频道（她 2026-11-20）：同一个空间的几个频道按空间摆，不当成一个个散群——peekSpaceBlock（engine.js）
+      { const spb = peekSpaceBlock(gAll.filter(x => x.g.spaceId), id => ((spaces || []).find(x => x && x.id === id) || {}).name, (m) => (m.role === "user" ? "她" : "「" + (m.senderName || "有人") + "」") + "：" + cut(m.content, 60));
+        if (spb) out.push(spb); }
       if (gRows.length) out.push("【她在的群（打开时 who 写群名）】\n" + gRows.map(x => "群「" + (x.g.name || "群聊") + "」（最近这些）：\n"
         + x.ms.slice(-14).map(m => "  " + (m.role === "user" ? "她" : "「" + (m.senderName || "群里有人") + "」") + "：" + cut(m.content, 60)).join("\n")).join("\n"));
       // 拿她跟你说话的样子对着看——同一个人，对你和对别人语气差在哪儿（她 2026-10-01：「不够男朋友查岗翻出女朋友跟别人语气暧昧」）
@@ -11909,7 +12060,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 别的面具那几个人在底下的评论、提到他们的帖，一起不在（他们根本不认识这个「她」）
       const floors = p => (Array.isArray(cms[p.id]) ? cms[p.id] : []).filter(f => f && !maskTrace(f.authorName) && !maskTrace(f.body || f.text || f.content)).slice(0, 5).map(f => "    " + (f.authorType === "me" ? "她" : cut(f.authorName, 12) || "有人") + "评论：" + cut(f.body || f.text || f.content, 50)
         + (Array.isArray(f.replies) && f.replies.length ? "\n" + f.replies.slice(0, 2).map(r => "      ↳" + (r.authorType === "me" ? "她" : cut(r.authorName, 12) || "有人") + "：" + cut(r.body || r.text || r.content, 40)).join("\n") : "")).join("\n");
-      if (mine.length) out.push("【论坛发过的帖】\n" + mine.map(p => "· " + md(p.ts) + "发在" + (p.board || "") + (p.anon || p.board === "匿名吧" ? "（匿名发的）" : p.alt ? "（用她的小号「" + cut(p.authorName, 12) + "」发的——平时没人知道这是她）" : "") + "《" + cut(p.title, 30) + "》" + cut(p.body, 70) + (floors(p) ? "\n" + floors(p) : "")).join("\n"));
+      if (mine.length) out.push("【论坛发过的帖】\n" + mine.map(p => "· " + md(p.ts) + "发在" + (p.board || "") + (p.anon || p.board === "匿名吧" ? "（匿名发的）" : p.alt ? "（用她的小号「" + cut(p.authorName, 12) + "」发的——平时没人知道这是她）" : "") + "《" + cut(p.title, 30) + "》" + cut(forumLinkPlain(p.body), 70) + (floors(p) ? "\n" + floors(p) : "")).join("\n"));
     }
     if (on("money")) {
       // 按 id 也挡一道（群里 2026-10-18：「不能查到我给别人点的」）：备注改过、名字没写进 label 的那几笔照样露
@@ -11992,7 +12143,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const vis = Array.isArray(m.visibleTo) && m.visibleTo.length ? m.visibleTo : null;
         const hidFromYou = (vis && !vis.map(String).includes(String(viewerId))) || (m.hiddenFrom || []).includes(String(viewerId));
         return "· " + md(m.ts) + "　" + cut(m.content, 80) + pic(m)
-          + (hidFromYou ? "\n  ⚠这条设了只给" + vis.map(id => nameOf(id) || "别人").join("、") + "看——你平时刷不到" : "") + tail(m);
+          + (hidFromYou ? (vis ? "\n  ⚠这条设了只给" + vis.map(id => nameOf(id) || "别人").join("、") + "看——你平时刷不到" : "\n  ⚠这条设了不给你看——你平时刷不到") : "") + tail(m);
       }).join("\n"));
     }
     if (on("calendar")) {
@@ -12183,6 +12334,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const momInRange = m => { const d = momRange === "3d" ? 3 : momRange === "1m" ? 30 : momRange === "6m" ? 182 : 0; return !d || Date.now() - (m.ts || 0) <= d * 86400000; };
   const momSeen = (m, charId) => !!m && !!m.mine && momInRange(m) && !friendCut(charId) && !(m.hiddenFrom || []).includes(String(charId)) && ((m.remind || []).includes(charId) || (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || "")));
   // 发朋友圈那页挑面具用：主面具一张 + 其余几张（跟论坛挑面具同一份名单）；发出来的那条显示用哪张的名字和头像
+  // 朋友圈「随机挑一个」不是纯随机（她 2026-11-21「1234 都混起来算」）：久没发的、今天有事的、这两天聊得多的、心情起伏大的更容易轮到；
+  //   刚发过的、上次刚抽到的很难再中。只按本机已有的东西算，不花调用
+  window.__momentPick = list => {
+    const now = Date.now(), H = 3600000, cands = (list || []).filter(Boolean); if (!cands.length) return null;
+    const last = (() => { try { return loadJSON("x_momentLastPick", "") || ""; } catch (e) { return ""; } })();
+    const td = new Date(), md = (td.getMonth() + 1) + "-" + td.getDate();
+    const w = cands.map(c => {
+      const mine = (momentsRef.current || []).filter(m => m && String(m.characterId) === String(c.id)).map(m => m.ts || 0), lt = mine.length ? Math.max(...mine) : 0;
+      let x = lt ? Math.min(3, 0.3 + (now - lt) / (24 * H)) : 3;                      // ① 越久没发越容易
+      if (lt && now - lt < 3 * H) x *= 0.15;
+      try { const b = String(c.birthday || "").match(/(\d{1,2})\D+(\d{1,2})\D*$/); if (b && (+b[1]) + "-" + (+b[2]) === md) x += 1.5; } catch (e) {}   // ② 今天有事：生日
+      try { const sg = typeof schedNowSegFor === "function" ? schedNowSegFor(c) : null; if (sg && sg.cur && !/sleep|work|study|routine/.test(String(sg.cur.type || ""))) x += 0.5; } catch (e) {}   //    日程上正在做点别的
+      try { const n = (chatsRef.current[c.id] || []).filter(m => m && (m.ts || 0) > now - 48 * H).length; x += Math.min(1.5, n / 40); } catch (e) {}   // ③ 这两天聊得多
+      try { const mo = String(((statesRef.current || {})[c.id] || {}).mood || ""); if (/开心|兴奋|激动|雀跃|难过|失落|委屈|生气|烦|焦虑|低落|想你|想她|心动/.test(mo)) x += 0.8; } catch (e) {}   // ④ 心情起伏大
+      if (String(c.id) === String(last) && cands.length > 1) x *= 0.1;
+      return Math.max(0.01, x);
+    });
+    let r = Math.random() * w.reduce((a, b) => a + b, 0), k = 0; for (; k < w.length - 1; k++) { r -= w[k]; if (r <= 0) break; }
+    try { saveJSON("x_momentLastPick", String(cands[k].id)); } catch (e) {}
+    return cands[k];
+  };
   window.__momentMasks = () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage, color: profile.color }]
     .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
   window.__maskKeyOf = id => maskKeyOf(id);
@@ -12236,9 +12408,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 递手机前面那几步（编日常联系人、拼素材）要是哪一步出了错，原来没人接：录像那层一直挂着「正在想」，看着就是卡死、点了没反应
   //   （群友 2026-11-14「原来的角色都查不了 user 的手机，只有新角色能」）。现在接住：收起那层、把出错那句弹出来，好知道是哪一步
+  // 翻手机报错带上出事的那一行（群友 2026-11-20：只有一个角色一直报 reading 'map'，没有位置就只能猜）：
+  //   取调用栈里第一条 js/ 下的帧，截成「文件:行」，让她截图回来就能定位
+  const peekErrWhere = e => {
+    try {
+      const st = String((e && e.stack) || "");
+      const m = st.match(/js\/([\w.-]+\.js)(?:\?[^:\s)]*)?:(\d+):\d+/);
+      return m ? "（" + m[1] + ":" + m[2] + "）" : "";
+    } catch (x) { return ""; }
+  };
   const handPhoneTo = async (charId, allow, hideIds, sneak, allMasks) => {
     try { return await handPhoneToInner(charId, allow, hideIds, sneak, allMasks); }
-    catch (e) { try { console.error("[peek]", e); } catch (e2) {} if (!sneak) { setPeekPlay(null); toast("这次没翻成，出错在：" + ((e && e.message) || String(e)).slice(0, 80)); } }
+    catch (e) { try { console.error("[peek]", e); } catch (e2) {} if (!sneak) { setPeekPlay(null); toast("这次没翻成，出错在：" + ((e && e.message) || String(e)).slice(0, 80) + peekErrWhere(e)); } }
   };
   const handPhoneToInner = async (charId, allow, hideIds, sneak, allMasks) => {
     // 勾了「日常联系人」才编（她 2026-10-17：「查手机那里搞个开关就行要不要生成」）；偷偷翻的那一路不现编，有现成的才带
@@ -12251,7 +12432,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!sneak) { try { const _a = loadJSON("x_peekAllow", {}) || {}; saveJSON("x_peekAllow", Object.assign({}, _a, { [charId]: (allow || []).map(String) })); } catch (e) {} }
     const maskIds = allMasks ? [] : peekMaskOthers(charId);
     const hideSet = new Set((hideIds || []).map(String).concat(maskIds.map(String)));
-    const seen = peekPhoneMaterial(charId, allow, hideIds, maskIds);
+    // 某一样旧数据坏了不拖垮整趟（群友 2026-11-20：只有一个角色一直报 reading 'map'，换线路、只勾聊天都没用）：
+    //   整份摆不出来就一样一样摆，摆不出来的那一样跳过，其余照翻
+    let seen;
+    try { seen = peekPhoneMaterial(charId, allow, hideIds, maskIds); }
+    catch (e0) {
+      try { console.error("[peek] material", e0); } catch (x) {}
+      seen = (allow || []).map(k => { try { return peekPhoneMaterial(charId, [k], hideIds, maskIds); } catch (e1) { try { console.error("[peek] skip " + k, e1); } catch (x) {} return ""; } }).filter(Boolean).join("\n\n");
+    }
     if (!sneak) try { window.__peekHide = hideSet; window.__peekMask = Object.assign(peekMaskInfo(maskIds), { mine: maskKeyOf(charId) }); } catch (e) {}
     const hidden = PEEK_PHONE_SECTIONS.filter(s => s[0] !== "daily" && !(allow || []).includes(s[0])).map(s => s[1]);   // 没勾日常联系人不算「藏」：那些人本来就不存在
     const c = (characters || []).find(x => x.id === charId);
@@ -12274,13 +12462,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const gate = Object.keys(clues);
     try {
       const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))).map(x => x.remark || x.name).slice(0, 12)
-        .concat((groupsRef.current || []).filter(g => g && g.name && !hideSet.has(String(g.id)) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => g.name).slice(0, 4));
+        .concat((groupsRef.current || []).filter(g => g && g.name && !hideSet.has(String(g.id)) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate) && !(g.spaceId && channelNoMem(g.id))).map(g => g.name).slice(0, 4));
       const ask = () => runProbe(apiFor(charId), ctxFor(c), {
         // 调用记录里叫得出名字（她 2026-10-22 截图：原来只显示「其他·你就是某某…」，认不出是哪一样）
         logFrom: sneak ? "查手机·他偷偷翻你手机" : "查手机·他翻你手机",
         // ⚠️她 2026-10-01 的截图：心声成了旁观者在点评（「这个角色被构建得非常逼真」「现实里看起来很缺觉」）。
         //   这一枪是 probe，模型容易站到幕后去看。所以把「你是谁、这些对你来说是什么」放在最前面说清楚。
-        instruction: "你就是「" + c.name + "」本人，此刻在你自己的日子里。" + userName(profile) + (sneak ? " 没注意，手机就放在那儿，你偷偷拿起来翻了——她不知道" : " 把她的手机递给了你") + "——对你来说这些全是真的：她是你认识的那个人，"
+        instruction: "你就是「" + c.name + "」本人，此刻在你自己的日子里。" + userName(profileFor(charId) || profile) + (sneak ? " 没注意，手机就放在那儿，你偷偷拿起来翻了——她不知道" : " 把她的手机递给了你") + "——对你来说这些全是真的：她是你认识的那个人，"
           + "聊天里那些人是活生生的人，她跟他们说的话、转出去的钱、写下的东西都真发生过。你翻到的每一样，心里冒出来的都是【你这个人】此刻对她、对那个人、对那件事的真实反应，用你平时的口吻。"
           // 虚拟时间开着时，「今天是哪天」照 TA 认的那张面具的钟（她 2026-10-11）
           + (() => { if (typeof vclockCfg === "function" && vclockCfg(charId)) return "\n今天是" + vclockLabel(Date.now(), charId) + "——下面写着日子的，都按今天往回算是几天前的事。";
@@ -12337,7 +12525,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   原来录像当场就收了，一句话没有，看着就像TA拿了手机不翻。先再要一次，还是空的就照实说。
       if (!script.length) { d = await ask(); script = clean(d); }
       if (!script.length && !sneak) toast("这次没翻出东西来：模型没写出翻手机的过程，可以再递一次；老这样就换个模型，或者递的时候多勾几样");
-    } catch (e) { if (!sneak) toast("这次没翻成：" + (e.message || "再试一次")); }
+    } catch (e) { try { console.error("[peek]", e); } catch (e2) {} if (!sneak) toast("这次没翻成：" + (e.message || "再试一次") + peekErrWhere(e)); }
     if (sneak) {
       if (!script.length) return;
       // 手脚当场就动了；她回放时只看，不再动一遍
@@ -12364,7 +12552,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (Date.now() - last < PEEK_SNEAK_GAP || Math.random() > 0.25) return;
     saveJSON("x_peekSneakLast", Date.now());
     // 偷偷翻也认她上回递手机时藏起来的那几个（群友 2026-10-31）：藏是她的意思，不该只管递过去那一回
-    handPhoneTo(charId, PEEK_PHONE_SECTIONS.map(s => s[0]), ((loadJSON("x_peekHide", {}) || {})[charId] || []), true);
+    // 偷偷翻也守你上锁的那几样（群友 2026-11-20「没给他递手机就锁不上，他自己偷偷翻都能看到」）：按这个人记住的「能翻的几样」来，没设过才是全部
+    { const _al = (loadJSON("x_peekAllow", {}) || {})[charId];
+      handPhoneTo(charId, Array.isArray(_al) && _al.length ? _al : PEEK_PHONE_SECTIONS.map(s => s[0]), ((loadJSON("x_peekHide", {}) || {})[charId] || []), true); }
   };
   // 她看到那张卡：回放（只看）／当面问（TA接）／装没看见
   // 她点开一个允许偷偷翻的人的聊天时，偶尔会发现TA刚翻过（冷却够了才有几率）
@@ -12823,10 +13013,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
     if (laneBusy("c:" + chatKey)) return null;
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return null;
-    if (opts.proactive && currentlyTogetherWithChar(charId)) return null;
-    // 单人线下正演着（最近一拍够新）：生日、提醒、吃饭这些岔路也别从线上冒出来——人就在跟前（群友 2026-10-29「线下见面唠嗑了，他线上还在说在路上」）。
-    //   小房间里的那一路不算：房间本来就是另一处。
-    if (opts.proactive && !opts.room && offlineTogetherNow(charId)) return null;
     if (opts.proactive) {
       const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.askFollow ? "ask_follow" : opts.remind ? "reminder" : opts.health ? "health_meal" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
@@ -13114,7 +13300,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             //   「允许普通」治的是硬编新鲜事，「简短」却被读成了「主动就该短」。长短归这个人自己。
             + "按你与当前收件人的关系和此刻来意开口，允许普通，不必每次有新鲜事或独特表达。"
             + "说多少照你此刻想说多少、照你这个人平时发消息的习惯：有话就连着几条说完，真没什么就一两句。不要机械套用报备、关心、安排的固定流程。\n"
-            + "**不许续演的是【情绪】**：上一轮的委屈、焦虑、兴奋、争执，隔了这一阵都该落下去了，这会儿是新的心情；Ta 没回就是没回。\n"
+            // 她 2026-11-21：原句一刀切「情绪都该落下去」，没和好的事也被翻了篇；也不许点名哪种情绪（点了就是给方向）
+            + "隔了这一阵，心情不一定就换了：上一轮的事放没放下、放下多少，照你这个人、照那件事在你心里有多大来。没过去的就还在，过去了的就让它过去。只是别一开口就翻旧账、质问 Ta；Ta 没回就是没回。\n"
             + "**但你俩上次聊到哪儿、一起干了什么、有没有说了一半的事，你是记得的**——顺着它开口完全可以。\n"
             // 群里 2026-10-17：「他只会问她，不会分享」——原来那两句举例都是问句，落点全在她身上
             + "开口的落点也可以在你自己这边：你此刻手上在做的事、刚碰上的事、看到想到的东西。真人隔一阵主动来找人，常常是先说自己，不是先问对方；一开口全是在问她，就成了查岗。\n"
@@ -13130,7 +13317,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️并进 proactiveHint 本身，不另起一个变量：多一个变量就多一处会忘记接上
       // 的地方（「一层写在两处，第二处没跟上」在这份文件里已经犯过太多次）。
       // 单聊主动的收件人固定是当前用户；群聊/线下保留各自场景，不在这里改路由。
-      const proactiveHintAll = proactiveHint + offTailHint + openerAvoid + (opts.proactive
+      const proactiveHintAll = proactiveHint + offTailHint + openerAvoid + (opts.proactive && !currentlyTogetherWithChar(charId) ? lastMeetFact(charId) : "") + (opts.proactive && currentlyTogetherWithChar(charId)
+        ? "\n【此刻你们在一起】这一次不是隔着手机发消息：你人就在" + uName + "身边，是你自己先开口跟她说话——话是当面说出口的，她是听见的。不说「发消息」「看到你消息」「打字」这类隔着手机的话。"
+        : "") + (opts.proactive
         ? "\n【本次收件人】你正在给「" + uName + "」发私聊。关系网中的其他角色是独立的人；他们的身份、物品、经历和与你的共同生活，不属于收件人。提及第三人时保留其姓名或明确称谓；只有上下文明确属于收件人的事实才用‘你’指代。不了解收件人的近况就保持未知，不为主动开口补造共同经历。\n"
         : "");
       // dongnian 阶段二（v48.80）：这条主动消息由内心「思念漂到阈值」驱动的话，把当前五轴的语气/分寸喂进来——别扭/赌气/柔软/脆弱由此刻状态定，别直说出来
@@ -13235,6 +13424,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // #B 说漏嘴 + 今昔（心上）：绝大多数轮次是空串，守聊天预算铁律。
       //    今昔优先（毕业后一次性今昔对比，用掉即清）；否则约 1/4 轮挑一条高权重活念想塞【一行】，
       //    契不契合由 TA 当场定夺；显灵注入即记一次「被想起」（体力活）。
+      // 话题卡「我俩都能用」那一行（她 2026-11-21）：她点了「让 TA 来问」就这一轮带上；否则照 components.js 的 topicCardTurn 掷（25%／一天 3 次／一张歇 3 天）。
+      //   普通回复和主动消息都挂这一格，不另发请求；群、配角、本体模式不带。回复成功才记账（见下面 delivered 那一行）。
+      const _topicCard = (!sideRoom && !_body && !char.npc && typeof window.topicCardTurn === "function") ? window.topicCardTurn(charId) : null;
+      const topicCardHint = _topicCard ? _topicCard.line : "";
       let desireHint = "";
       const dEcho = !sideRoom && window.HeartKit && !opts.proactive && (desiresRef.current[charId] || {}).echoPending;
       if (dEcho) {
@@ -13726,7 +13919,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 只挑【最近有动静的那个共同群】，省得TA自己乱选；没有共同群就不开这个能力。
       // 同上：封闭群不收外面的话，别把私聊里的东西投进去
       const _gsFor = gid => { try { return (loadJSON("x_groupSettings", {}) || {})[gid] || {}; } catch (e) { return {}; } };
-      const _myGroups = (groups || []).filter(g => g && (g.memberIds || []).includes(char.id) && _gsFor(g.id).memoryInterop);
+      const _myGroups = (groups || []).filter(g => g && (g.memberIds || []).includes(char.id) && _gsFor(g.id).memoryInterop && groupFlowsTo(g, char.id) && !groupSpectating(g));
       const _gLast = g => { const arr = groupChatsRef.current[g.id] || []; return arr.length ? Number(arr[arr.length - 1].ts || 0) : 0; };
       const toGroupTarget = _myGroups.slice().sort((a, b) => _gLast(b) - _gLast(a))[0] || null;
       const TOGROUP_ODDS = 1 / 3;
@@ -13941,6 +14134,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       for (let i = openCaps.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, openCaps[i])) openCaps.splice(i, 1);
       for (let i = capState.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, capState[i].split(/[：:]/)[0])) capState.splice(i, 1);
+      // 他之前在某个频道赌气退出了（她 2026-11-20）：私聊里知道这件事；被劝好了就自己回去
+      if (!room) { const _left = (groups || []).filter(g => g && g.spaceId && g.chLeft && g.chLeft[char.id]);
+        if (_left.length) capState.push("rejoin：你之前赌气退出了 " + _left.map(g => "#" + (g.chName || g.name) + (g.chLeft[char.id].why ? "（因为" + g.chLeft[char.id].why + "）" : "")).join("、") + "。要是这一轮被劝好了、愿意回去，填 \"rejoin\":{\"channel\":\"频道名\"}，你就真的回到那个频道；还没消气就不填。"); }
       const capabilityHint = "\n【本轮开放能力】" + openCaps.join(", ") + (capState.length ? "\n【本轮能力状态】\n" + capState.join("\n") : "");
       // 言秋在手机这间房走的是本人专线，不吃普通角色的完整能力协议；但 Lisa 点名让TA
       // 记日期/记账时，必须把同一张真写入凭证递给TA。只补传输字段，不给TA说法、态度或
@@ -13997,7 +14193,7 @@ ${SCHED_LATER_SPEC}
 ${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；redPacket:{"amount":数字,"note":"写在红包上的一句"}=发红包（她拆开前看不到多少）；location:{"name":"地点"}=位置；stick:{"quote":"她某句话里的原话，照抄几个字","emoji":"一个 emoji"}=往她那句话上贴一个表情（像 QQ 的贴表情，贴在她气泡角上，不是一句话）；想贴的是你自己的表情包，就把 emoji 换成 "emote":"表情包关键词"；pat:true=用微信「拍一拍」戳她一下（聊天里只出现一行灰字，不是一句话；想拍就拍，不用再在 word 里写「拍了拍你」）${char.myPatSig ? "，那一行显示「你拍了拍她 " + char.myPatSig + "」" : ""}；patSig:"新后缀"=把你自己的拍一拍后缀换掉（她拍你时显示「她拍了拍你 ＋这半句」${char.patSig ? "，现在是「" + char.patSig + "」" : "，现在没有"}；真想换才换）；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有","at":"想让它几点送到（HH:MM，你那边的钟点），不填就是尽快"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回。text 照原话抄：抄的是你前面几轮已经发出去的某一条（说错了、发错了、漏了不该露的字），就撤那一条；是这一轮新写的，会先正常显示一秒再变成「已撤回」；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；momentSong:string=想给这条朋友圈配一首歌就写「歌名 歌手」（要是真有的歌，搜到才挂上）；momentPlace:string=想给这条朋友圈带个定位就写那个地方（你此刻真在的地方）；momentChat:string[]=想给这条朋友圈配一张你俩聊天记录的截图，就把最近聊天里要截进去的那几句原话照抄进来（她说的、你说的都行，一字不改，两到十二句，截多截少照你想晒的那一段）；storyVote:string=投她限时动态上那个投票：写你选的那一项原文；storyRepost:string=把她最新那条限时动态转进你自己的动态，写你配的那句话；storyReact:{"emoji":"一个 emoji","say":"回在她动态底下的一句（可空）"}=在她最新那条限时动态上留个反应，她点开自己的动态就看得到；story:string=顺手发一条限时动态（挂 24 小时）：写你此刻想发的那一下是什么，一句话，App 另外把它排成一张竖版卡；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；file:{"name":"文件名（带扩展名）","text":"文件里的全文"}=发给她一份文件（她让你改她发来的文件、或者你要交给她一整份东西时用：改好的整份写进 text，聊天里只说一两句；不是长消息的替代品）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；${actDescFor(charId) && (settingsFor(charId) || {}).actMid !== false ? "动描开着时 word 里也可以写 {\"act\":…}（见「说着说着换了动作」）；" : ""}语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；redPacket:{"amount":数字,"note":"写在红包上的一句"}=发红包（她拆开前看不到多少）；location:{"name":"地点"}=位置；stick:{"quote":"她某句话里的原话，照抄几个字","emoji":"一个 emoji"}=往她那句话上贴一个表情（像 QQ 的贴表情，贴在她气泡角上，不是一句话）；想贴的是你自己的表情包，就把 emoji 换成 "emote":"表情包关键词"；pat:true=用微信「拍一拍」戳她一下（聊天里只出现一行灰字，不是一句话；想拍就拍，不用再在 word 里写「拍了拍你」）${char.myPatSig ? "，那一行显示「你拍了拍她 " + char.myPatSig + "」" : ""}；patSig:"新后缀"=把你自己的拍一拍后缀换掉（她拍你时显示「她拍了拍你 ＋这半句」${char.patSig ? "，现在是「" + char.patSig + "」" : "，现在没有"}；真想换才换）；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有","at":"想让它几点送到（HH:MM，你那边的钟点），不填就是尽快"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回。text 照原话抄：抄的是你前面几轮已经发出去的某一条（说错了、发错了、漏了不该露的字），就撤那一条；是这一轮新写的，会先正常显示一秒再变成「已撤回」；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；momentSong:string=想给这条朋友圈配一首歌就写「歌名 歌手」（要是真有的歌，搜到才挂上）；momentPlace:string=想给这条朋友圈带个定位就写那个地方（你此刻真在的地方）；momentChat:string[]=想给这条朋友圈配一张你俩聊天记录的截图，就把最近聊天里要截进去的那几句原话照抄进来（她说的、你说的都行，一字不改，两到十二句，截多截少照你想晒的那一段）；storyVote:string=投她限时动态上那个投票：写你选的那一项原文；storyRepost:string=把她最新那条限时动态转进你自己的动态，写你配的那句话；storyReact:{"emoji":"一个 emoji","say":"回在她动态底下的一句（可空）"}=在她最新那条限时动态上留个反应，她点开自己的动态就看得到；story:string=顺手发一条限时动态（挂 24 小时）：写你此刻想发的那一下是什么，一句话，App 另外把它排成一张竖版卡；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；file:{"name":"文件名（带扩展名）","text":"文件里的全文"}=发给她一份文件（她让你改她发来的文件、或者你要交给她一整份东西时用：改好的整份写进 text，聊天里只说一两句；不是长消息的替代品）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账；health:[{\"kind\":\"meal\",\"meal\":\"breakfast|lunch|dinner|snack\",\"name\":\"吃了什么\",\"kcal\":估的整数} 或 {\"kind\":\"water\",\"cups\":杯数} 或 {\"kind\":\"sport\",\"sport\":\"跑步等\",\"min\":分钟} 或 {\"kind\":\"weight\",\"kg\":数字} 或 {\"kind\":\"sleep\",\"bed\":\"HH:MM\",\"wake\":\"HH:MM\"} 或 {\"kind\":\"steps\",\"steps\":数字} 或 {\"kind\":\"mood\",\"v\":0到4}，每条都可带 \"date\":\"YYYY-MM-DD\"]=替她记进健康。这几个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，一句话就够。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不填 minutes）","about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填；**说了「我现在过去，二十分钟到」这种正往她那儿赶的话也算**；**约好了几点（「五点半门口逮你」「七点来接你」）也算，那就填 at，不填 minutes**（about 写「到了跟她说一声」，minutes 就是你说的路上要多久），minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}${_luckyLine}`;
@@ -14150,7 +14346,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "。这一轮 photo 一定要填，kind 填 " + (["self", "other", "duo"].includes(_askPh.kind) ? _askPh.kind : "self")
         + "；画面照你此刻真实在哪、在做什么、穿什么来，她这句里要看什么就拍什么。嘴上怎么接照你这个人，愿不愿意都可以说，但照片要发。" : "";
       const _halfHint = _askPhotoHint + _lockHint + (_halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就不扯。" : "");
-      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + pendHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _threatTailHint + _bossTailHint + _seeThroughHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
+      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + pendHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + topicCardHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _threatTailHint + _bossTailHint + _seeThroughHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
       // 线上导演便签：只给模型看，不算她说的话；放在本轮任务末尾，离生成最近
       const _dirLive = chatDirNotesLive(chatKey);
@@ -14302,7 +14498,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             + (m.theirStick && (m.theirStick.emoji || m.theirStick.keyword) ? "\n【你往她这句上贴过一个 " + (m.theirStick.emoji || "表情包「" + m.theirStick.keyword + "」") + "；这是你做过的、真实发生过的事，不是谁说的话】" : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
           // 她的图：照片/请示/商品图走 imageRef，她的自拍走 imgKey
-          const _uRef = (m.kind === "photo" || m.kind === "selfie" || m.kind === "ask" || m.goodsImg) ? (m.imageRef || (m.kind === "selfie" ? m.imgKey : null)) : null;
+          const _uRef = (m.kind === "photo" || m.kind === "selfie" || m.kind === "ask" || m.goodsImg || m.storyImg) ? (m.imageRef || (m.kind === "selfie" ? m.imgKey : null)) : null;
           // 他上一轮自己发出去的那张（她 2026-10-31：「他生图下一轮回复后能不能让他也看到实际生出来的画面」）：
           //   助手那一侧挂不了图（很多接口不收），挂到紧跟着的这一条她的消息上，写明是他自己发的那张
           const _own = _ownPicNext; _ownPicNext = null;
@@ -14371,7 +14567,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // ⚠️吞图案真凶(2026-08-14 三案并破):此处原本重建对象只留 role/content,把挂在最后一条
         // 用户消息上的 _imageRefs 抖掉了——而她的新照片永远在最后一条上,于是新图永丢、旧图冒名。
         // 必须展开保留原字段。
-        g[_i] = { ...g[_i], content: (bundleVolatile ? "【此刻的实时背景（只服务这一轮，不是历史）】\n" + bundleVolatile + "\n\n———\n" : "") + g[_i].content + _taskFull };
+        { const _pre = bundleVolatile ? "【此刻的实时背景（只服务这一轮，不是历史）】\n" + bundleVolatile + "\n\n———\n" : "";
+          g[_i] = { ...g[_i], content: _pre + g[_i].content + _taskFull, _extraLen: (g[_i]._extraLen || 0) + _pre.length + String(_taskFull || "").length }; }
         // 她刚换的那张头像也给他看一眼（附在她这一轮的消息上，跟她发的照片同一条路）
         { const _av = opts.herAvatar && opts.herAvatar.ref; if (_av && ((typeof isImgRef === "function" && isImgRef(_av)) || /^data:image/.test(String(_av)))) g[_i] = { ...g[_i], _imageRefs: [...(g[_i]._imageRefs || []), _av] }; }
         { const _av = opts.hisAvatar && opts.hisAvatar.ref; if (_av && ((typeof isImgRef === "function" && isImgRef(_av)) || /^data:image/.test(String(_av)))) g[_i] = { ...g[_i], _imageRefs: [...(g[_i]._imageRefs || []), _av] }; }
@@ -14382,7 +14579,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       } } }
       // 这一轮翻出来的〔照做〕条目，在最后一条用户消息的最末尾再说一遍（engine.js loreDoNow 那段写了为什么）
       const _doTail = typeof loreDoNow === "function" ? loreDoNow(loreRef.current, { scope: "chat", charIds: [charId], text: recentChatText(char) }) : "";
-      if (_doTail) { for (let _i = g.length - 1; _i >= 0; _i--) { if (g[_i].role === "user") { g[_i] = { ...g[_i], content: g[_i].content + _doTail }; break; } } }
+      if (_doTail) { for (let _i = g.length - 1; _i >= 0; _i--) { if (g[_i].role === "user") { g[_i] = { ...g[_i], content: g[_i].content + _doTail, _extraLen: (g[_i]._extraLen || 0) + _doTail.length }; break; } } }
       // 真照片按需从 IndexedDB 临时展开，只附最近 2 张（公共那一份 expandMessageImages，一起学也走它）。
       // ⚠️只交出 role/content/_imageRefs：g 上别的字段不往外带（原来这一段就是这么收窄的）。
       const _imgMeta = {};
@@ -14392,7 +14589,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       try {
         const _txt = m => typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.map(x => (x && x.text) || "").join("") : "";
         const _first = g.find(m => m && (m.role === "user" || m.role === "assistant"));
-        window.__histReceipt = Object.assign({}, window.__histReceipt || {}, { [charId]: { ts: Date.now(), n: g.length, chars: g.reduce((s, m) => s + _txt(m).length, 0),
+        window.__histReceipt = Object.assign({}, window.__histReceipt || {}, { [charId]: { ts: Date.now(), n: g.length, chars: g.reduce((s, m) => s + Math.max(0, _txt(m).length - (m._extraLen || 0)), 0),   // 只算聊天记录本身：附在最后一条上的实时背景、回复格式说明不算（群友 2026-11-21「102 条怎么有四万字」）
           first: _first ? _txt(_first).replace(/\s+/g, " ").slice(0, 40) : "" } });
       } catch (e) {}
       if (_imgMeta.droppedImages) toast("一次发的图太多，这一轮只给 TA 看了最后 " + FRESH_IMG_CAP + " 张", 4000);
@@ -15472,6 +15669,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         pChat(chatKey, p => [...p, { role: "assistant", kind: "pat", content: _pn + " 拍了拍我" + (_ps ? " " + _ps : ""), ts: Date.now(), turnId: "pat_" + Date.now(), read: false }]);
         delivered = true;
       }
+      // 被劝好了，回到之前赌气退出的那个频道（她 2026-11-20）
+      if (parsed.rejoin && typeof parsed.rejoin === "object") {
+        try {
+          const _rn = String(parsed.rejoin.channel || "").trim().replace(/^#+/, "");
+          const _rg = (groupsRef.current || []).find(g => g && g.spaceId && g.chLeft && g.chLeft[char.id] && (!_rn || g.chName === _rn || g.name === _rn));
+          if (_rg) {
+            const _cl = { ...(_rg.chLeft || {}) }; delete _cl[char.id];
+            updateGroup(_rg.id, { memberIds: [...new Set([...(_rg.memberIds || []), char.id])], chLeft: _cl });
+            pGChatOuter(_rg.id, p => [...p, { role: "system", kind: "chlink", toGid: _rg.id, senderId: char.id, content: char.name + " 回到了 #" + (_rg.chName || _rg.name), ts: Date.now() }]);
+          }
+        } catch (e) {}
+      }
       // TA 发回来的文件（她 2026-11-18「角色给他发文档他能改了发回来吗」「都做吧」）：跟她发的同一种消息，挂在TA那侧，点开能看、能存
       if (parsed.file && typeof parsed.file === "object" && String(parsed.file.text || "").trim()) {
         const _ft = String(parsed.file.text), _fn = String(parsed.file.name || "").trim().replace(/[\\/:*?"<>|]/g, "").slice(0, 60) || "文件.txt";
@@ -15492,7 +15701,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         delivered = true;
       }
       // 仅当该角色开启了「自由发朋友圈」才把 Ta 想发的动态发出去
-      const mo = !char.npc && settingsFor(charId).autoMoment && parsed.moment && String(parsed.moment).toLowerCase() !== "null" ? String(parsed.moment) : null;
+      const mo = !char.npc && settingsFor(charId).autoMoment && momRoomFor(charId) && parsed.moment && String(parsed.moment).toLowerCase() !== "null" ? String(parsed.moment) : null;
       if (mo) { pMom(p => [{
         id: "m_" + Date.now(),
         characterId: charId,
@@ -15730,6 +15939,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (seenTo > Number(room.mainCursorTs || 0) || clearOneShot) window.ChatRooms.save(charId, { ...room, mainCursorTs: seenTo, syncOnce: clearOneShot ? false : room.syncOnce });
       }
       if (delivered && _wh) delete waitHerRef.current[charId];
+      if (delivered && _topicCard) _topicCard.commit();
       return delivered;
     } catch (e) {
       if (_abort.signal.aborted) return null;       // 她自己点叉断掉的：不留「发送失败」
@@ -15968,7 +16178,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast, closet: closetTextFor(spk.id) } : { kind: gPhotoKind, me, closet: meShot ? sub._closet : (spk.id ? closetTextFor(spk.id) : ""), pov: meShot && !mySelf ? povFor(spk) : null };
       const prompt = gIsView ? buildScenePrompt(spk, gPhotoScene, { forText: false }) : gIsPart ? buildScenePrompt(spk, gPhotoScene, { body: true }) : buildPhotoPrompt(sub, gPhotoScene, st, gPhotoOpts);
       const gMinimal = gNoFace ? null : buildMinimalPhotoPrompt(sub, gCast ? { kind: "duo", cast: gCast } : { kind: gPhotoKind });
-      const out = await generateSelfieImage(prompt, refs.length ? refs : null, gNoFace ? {} : { minimalPrompt: gMinimal });
+      // 频道里养着小家伙、这张提到了它（名字或种类）：它也进画面，用它定好的那张样子当参照（她 2026-11-20「聊天里面合照」）
+      let _petAdd = "", _petRef = null;
+      try { const _g0 = (groupsRef.current || []).find(x => x && x.id === groupId), _pt = _g0 && _g0.spaceId ? chpOf(groupId).pet : null;
+        if (_pt && !gIsView && chpPetMentioned(_pt, gPhotoScene)) { _petRef = await petRefDataUrl(_pt); _petAdd = "\n画面里还有大家一起养的「" + _pt.name + "」（" + (_pt.kind || "小动物") + "）" + (_petRef ? "，长相照最后一张参考图" : "") + "。"; } } catch (e) {}
+      const out = await generateSelfieImage(prompt + _petAdd, (refs.length || _petRef) ? refs.concat(_petRef ? [_petRef] : []) : null, gNoFace ? {} : { minimalPrompt: gMinimal });
       if (out.blob) {
         const key = "img_" + spk.id + "_" + gsid + (keySuffix || "");
         await idbImgPut(key, out.blob);
@@ -16029,7 +16243,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const pinMomentToShike = m => {
     if (!m || !m.characterId) return;
     const char = characters.find(c => c.id === m.characterId);
-    const me = profile.name || "我";
+    const me = ((profileFor(char.id) || profile) || {}).name || "我";
     const ts0 = Number(m.ts) || Date.now();
     const rows = [{ role: "assistant", content: String(m.content || ""), ts: ts0, _who: char ? (char.remark || char.name) : "", ...(m.image && isImgRef(m.image) ? { imageRef: m.image } : {}) }]
       .concat((m.comments || []).filter(c => c && c.text).map((c, i) => ({ role: c.author === me ? "user" : "assistant", content: String(c.text), ts: ts0 + i + 1, _who: c.author || "" })));
@@ -16090,7 +16304,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } else if (act === "quote") {
       toast("已引用（在输入框继续说）");
     } else if (act === "memsave") {
-      const who = m.role === "user" ? profile.name || "我" : activeChar.name;
+      const who = m.role === "user" ? userName(profileFor(activeChar.id) || profile) || "我" : activeChar.name;
       addMemEntry({
         text: who + "：" + gameChatText(m),
         charIds: [activeChar.id],
@@ -16228,7 +16442,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 群里那颗「让他们自己聊」打开时，设置页「群里自己聊」的总闸要是关着就一起开
   // 修罗场那一段：群设置里开了才有，线上群聊和群线下共用这一份（one-public-mechanism）
   const groupDramaRule = gid => gsFor(gid).drama
-    ? "\n\n【修罗场 · 这个群关系不保密（用户自己打开的）】\n这个群里，每个成员都知道用户「" + userName(profile) + "」和群里其他成员各是什么关系——上面那些标着〔以下是某某跟用户的关系〕的段落，在这个群里对所有成员都是公开的，大家都看得见。"
+    ? "\n\n【修罗场 · 这个群关系不保密（用户自己打开的）】\n这个群里，每个成员都知道用户「" + herNameIn(gid) + "」和群里其他成员各是什么关系——上面那些标着〔以下是某某跟用户的关系〕的段落，在这个群里对所有成员都是公开的，大家都看得见。"
       + "（只公开【跟用户的关系】那几段；各人的行程、此刻在干嘛、心声，照旧只有本人知道。）"
       // ⚠️她 2026-10-02：「群聊加了个修罗场但是还是吵不起来啊，而且他们之间都没有设定关系，
       //   理论上除了顾朝顾暮都是互相不认识的」——截图里她发「宝宝我爱你」，一群人在讨论语法。
@@ -16305,7 +16519,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 让群成员基于当前全部记录回应一次（不新增我的输入）
   const replyGroup = async (groupId, rgOpts = {}) => {
     if (typeof vclockUse === "function") vclockUse("g:" + groupId);   // 群里报时、时间戳走群挑的那张面具的钟（没挑＝主面具）
+    // 楼中楼（她 2026-11-20）：在某一串里说话时，这一轮大家落下的话都回在那一串里（挂 replyRoot），主线不刷
+    const _subRoot = rgOpts && rgOpts.sub ? String(rgOpts.sub) : "";
+    const pGChat = _subRoot ? (gid, u) => pGChatOuter(gid, gid !== groupId ? u : p => { const n = u(p); return Array.isArray(n) ? n.map((m, k) => k >= p.length && m && !m.replyRoot && m.role !== "system" ? { ...m, replyRoot: _subRoot } : m) : n; }) : pGChatOuter;
     const profile = groupProfileFor(groupId);   // 群里的「你」＝群挑的那张面具
+    if (rgOpts && rgOpts.auto && chClosedNow(groupId)) return;   // 深夜频道没到点：后台不在这儿自己聊
     // 群里自己聊（rgOpts.auto）是后台自己跑的：挂上群名
     if (rgOpts && rgOpts.auto && !rgOpts._bg && typeof bgJob === "function") return bgJob("groupChat", (groups || []).find(g => g.id === groupId), () => replyGroup(groupId, { ...rgOpts, _bg: true }));
     if (rgOpts.auto && groupCallActive(groupId)) return;
@@ -16325,7 +16543,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     const group = groups.find(g => g.id === groupId);
     const members = group.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
-    const gs = gsFor(groupId);
+    const gs = chGsMerge(groupId, gsFor(groupId));
     // 有成员此刻正和用户在别处【线下面对面】进行中：别让 TA 在群里分身、别出现在和那场线下矛盾的场景（她报：顾朝线下购物、群里却煮汤给两人）
     // ⚠️旁观的群是他们自己的一场戏，她不在里头：她在别处和谁线下相处，不该让那个人在这场戏里「腾不出手、整轮不出现」
     //   （她 2026-09-26「为啥群里只有一个人说话」「还是不行啊」——两个人的旁观群里只剩一个人开口）。
@@ -16347,7 +16565,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const gOffSess = (groupOfflinesRef.current[groupId] || []).find(s => s && !s.endTs && (s.msgs || []).length);
     let gOfflineHint = "";
     if (gOffSess) {
-      const _un = userName(profile);
+      const _un = herNameIn(groupId);
       const _gnarr = (gOffSess.msgs.find(m => m.role === "narration") || {}).content || "";
       const _gr = (gOffSess.msgs || []).filter(m => m && !isOocMsg(m) && m.content).slice(-8).map(m => (m.role === "narration" ? "【场景】" : m.role === "user" ? _un : (m.senderName || "某人")) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 80)).join("\n");
       gOfflineHint = "\n\n【你们此刻正在一场群线下相处 · 进行中】" + (_gnarr ? "（场景：" + String(_gnarr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "——用户从线上给群里发消息，多半是这场线下的间隙里插空发的；你们清楚大家此刻正面对面在一起，就顺着接，**照「我们正在一块儿」来说话**，人已经到了、已经在一起一阵了。最近线下：\n" + _gr;
@@ -16377,10 +16595,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try {
       if (!active) throw new Error("请先配置 API");
       const gchat = groupChatsRef.current[groupId] || [];
-      const gQuoteCatalog = window.GroupQuote ? window.GroupQuote.buildCatalog(gchat, userName(profile), 50) : [];
+      const gQuoteCatalog = window.GroupQuote ? window.GroupQuote.buildCatalog(gchat, herNameIn(groupId), 50) : [];
       const gQuoteByMessage = new Map(gQuoteCatalog.map(x => [x.message, x]));
       const gQuoteCatalogText = gQuoteCatalog.length ? "\n\n【可正式引用的旧消息 · 跨轮有效】\n" + gQuoteCatalog.map(x => x.alias + "｜" + x.senderName + "｜" + x.preview).join("\n") + "\n需要显示引用气泡时，用 quoteId 填对应 Q 编号。即使相隔数轮也可以回引；相同文字必须依作者和编号区分，绝不能猜是谁说的。只口头提『你刚刚说过』而不需要引用气泡时，可以不填。" : "";
-      const _graw = groupContextRows(groupId);
+      const _graw0 = groupContextRows(groupId);
+      // 主线上下文不带串里的话（串在下面另给一行摘要）；在串里说话时，给主线最近几句垫底，再给根那条和整串
+      const _graw = _subRoot ? (() => { const main = _graw0.filter(m => !m.replyRoot), root = main.find(m => subRootKey(m) === _subRoot);
+        return main.slice(-6).filter(m => m !== root).concat(root ? [root] : []).concat(_graw0.filter(m => String(m.replyRoot || "") === _subRoot)); })()
+        : _graw0.filter(m => !m.replyRoot);
       const fmtGLine = groupHistLine;
       // 插时间断点：相邻消息间隔 >1.5h 就标一行「隔了约X、到了几点」——让模型知道时间过去了、别把旧事当正在发生（item 3/5）
       const _gparts = []; let _gprev = 0;
@@ -16432,7 +16654,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const pj = members.map(c => {
           const before = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !m.kind && (!cutTs || (m.ts || 0) < cutTs)).slice(-_preJoinN);
           if (!before.length) return "";
-          const lines = before.map(m => (m.role === "user" ? userName(profile) : c.name) + "：" + m.content).join("\n");
+          const lines = before.map(m => (m.role === "user" ? herNameIn(groupId) : c.name) + "：" + m.content).join("\n");
           return "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕入群前和用户的私聊：\n" + lines;
         }).filter(Boolean).join("\n\n");
         // ⚠️这一整块以前是【没有隐私围栏】的共享注入（隔壁 interop 的 memLines 有铁律、它没有），
@@ -16531,7 +16753,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       const asPrivate = gs.spectate && members.length === 2;
       let dir = groupStageLine({ spectate: !!gs.spectate, pairNames: asPrivate ? [members[0].name, members[1].name] : [],
-        userName: userName(profile), offline: false });
+        userName: herNameIn(groupId), offline: false });
       // 一轮的条数随人数放宽：人少几条就够，人多（拉了一堆人）要多聊几个来回、别草草收场
       // ⚠️她 2026-09-12：「能不能不要这么小气宝宝！你越小气它就越偷懒，现在还是 aba」。
       //   她说的是我：下限 2→3→4 一格一格往上抠，又在提示词里叠了一层层「不许」。
@@ -16592,7 +16814,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const _t = new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), "g:" + groupId) : Date.now());   // 这个群认的那只虚拟钟
         const who = members.filter(c => c && !c.npc && daysUntilBirthday(c.birthday, _t) === 0).map(c => c.name);
         if (!who.length) return "";
-        const uN = userName(profile);
+        const uN = herNameIn(groupId);
         const hers = daysUntilBirthday(profile && profile.birthday, _t) === 0;
         return "\n【今天是谁的生日】今天是" + who.map(n => "「" + n + "」").join("、") + "的生日"
           + (hers ? "，也是 " + uN + " 的生日（同一天）。" : "，**不是 " + uN + " 的生日**：生日快乐、寿星、想怎么过，这些都是冲着上面这位的。今天要被大家记得的是上面这位。")
@@ -16600,33 +16822,33 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       })();
       const gPolls = _graw.filter(m => m.kind === "poll");
       const _gInv = pendingGroupInviteOf(groupId);
-      const gInviteHint = _gInv ? "\n【邀约】" + inviteAskText(_gInv, userName(profile)) + "被约到的成员（" + inviteNames(_gInv) + "）表态时，在自己这条发言对象里加 dateReply:{\"go\":\"yes\" 或 \"no\",\"say\":\"答应的话，写在回执上给她的一句（可空）\"}；"
+      const gInviteHint = _gInv ? "\n【邀约】" + inviteAskText(_gInv, herNameIn(groupId)) + "被约到的成员（" + inviteNames(_gInv) + "）表态时，在自己这条发言对象里加 dateReply:{\"go\":\"yes\" 或 \"no\",\"say\":\"答应的话，写在回执上给她的一句（可空）\"}；"
         + ((_gInv.replies && Object.keys(_gInv.replies).length) ? "已经回过的（" + _gInv.invitees.filter(x => _gInv.replies[x.id]).map(x => x.name + (_gInv.replies[x.id] === "yes" ? "去" : "不去")).join("、") + "）不用再填；" : "")
         + "没被约到的人不填，各人只答自己的。" : "";
       // 群主和管理员（群友 2026-10-25）：谁是群主、谁是管理员、谁正被禁言着——成员都知道，说话照这个来
       const _gRoles = groupRoles(gs);
       const _gImIn = imInGroup(group) && !gs.spectate;
-      const _gRoleName = id => id === "me" ? userName(profile) : ((members.find(c => c.id === id) || {}).name || "");
+      const _gRoleName = id => id === "me" ? herNameIn(groupId) : ((members.find(c => c.id === id) || {}).name || "");
       const _gMutedNow = members.filter(c => groupMutedLeft(gs, c.id) > 0);
-      const _gTitles = members.map(c => [c.name, groupTitleOf(gs, c.id)]).filter(x => x[1]).concat(_gImIn && groupTitleOf(gs, "me") ? [[userName(profile), groupTitleOf(gs, "me")]] : []);
+      const _gTitles = members.map(c => [c.name, groupTitleOf(gs, c.id)]).filter(x => x[1]).concat(_gImIn && groupTitleOf(gs, "me") ? [[herNameIn(groupId), groupTitleOf(gs, "me")]] : []);
       const gTitleHint = (_gTitles.length ? "\n【群头衔】名字前面挂着的专属头衔，人人看得见：" + _gTitles.map(x => "「" + x[0] + "」是「" + x[1] + "」").join("、") + "。" : "")
         + (_gRoles.owner && _gRoles.owner !== "me" ? "\n群主想给谁封个头衔或者撤掉，在自己那条发言对象里加 \"title\":{\"name\":\"成员名\",\"text\":\"头衔（12 字以内，撤掉就留空）\"}；照群主这个人的性子和群里刚发生的事来，不是每轮都封。" : "");
       const _gLk = luckyOf(groupId), _gLkU = typeof luckyUnits === "function" ? luckyUnits(_gLk.word) : [];
       const gLuckyHint = _gLk.word && _gLkU.length ? "\n【群幸运字符】这个群在一起养「" + _gLk.word + "」，已经点亮 " + (_gLk.lit || 0) + "/" + _gLkU.length + " 个字"
         + ((_gLk.lit || 0) ? "（" + _gLkU.slice(0, _gLk.lit).join("") + "）" : "") + "，再聊大约 " + Math.max(1, LUCKY_PER - (_gLk.prog || 0)) + " 条点亮下一个；一整天没人说话会熄一个。大家都看得见，提不提照各人的性子。" : "";
       // 悄悄话（她 2026-10-30「可以开发一个悄悄话做灰字」）：背着全群只对一个人说的一句。只有那个人听得见
-      const gWhisperHint = members.length >= 2 ? "\n【悄悄话】成员想背着群里别人、只对某一个人（另一位成员，或 " + userName(profile) + "）说一句时，在自己的发言对象里加 whisper:{\"to\":\"那个人的名字\",\"text\":\"那句话\"}。悄悄话只有 to 那个人听得见：别的成员不知道这句、也接不上它；被说的那个人可以回一句悄悄话、装没事，或者当场说破。真有背着人的话才说，一整轮最多一句。上文里标着【悄悄话】的，照它写的谁听得见来。" : "";
+      const gWhisperHint = members.length >= 2 ? "\n【悄悄话】成员想背着群里别人、只对某一个人（另一位成员，或 " + herNameIn(groupId) + "）说一句时，在自己的发言对象里加 whisper:{\"to\":\"那个人的名字\",\"text\":\"那句话\"}。悄悄话只有 to 那个人听得见：别的成员不知道这句、也接不上它；被说的那个人可以回一句悄悄话、装没事，或者当场说破。真有背着人的话才说，一整轮最多一句。上文里标着【悄悄话】的，照它写的谁听得见来。" : "";
       // 拉人、踢人（她 2026-10-26「群聊可以踢人拉人」）：群外、跟群里谁有关系线的人才拉得进来
       const _gOutside = _gPar ? [] : liveChars.filter(c => !(group.memberIds || []).includes(c.id) && members.some(m => (rels || {})[m.id + "->" + c.id] || (rels || {})[c.id + "->" + m.id])).slice(0, 12);
       const gKickInviteHint = "\n【拉人和踢人】"
         + (_gOutside.length ? "群外认识的人：" + _gOutside.map(c => "「" + c.name + "」（" + members.filter(m => (rels || {})[m.id + "->" + c.id] || (rels || {})[c.id + "->" + m.id]).map(m => m.name).join("、") + " 认识）").join("、")
           + "。群里谁想把认识的人拉进来，在自己那条发言对象里加 \"invite\":\"那人的名字\"，只能拉自己认识的。" : "")
-        + (_gRoles.owner || _gRoles.admins.length ? "群主能把群里任何一个人移出群聊" + (_gImIn ? "（" + userName(profile) + "也算，除非她自己是群主）" : "") + "，管理员只能移普通成员；群主谁也移不了。真要踢，在自己那条发言对象里加 \"kick\":\"成员名\"。" : "")
+        + (_gRoles.owner || _gRoles.admins.length ? "群主能把群里任何一个人移出群聊" + (_gImIn ? "（" + herNameIn(groupId) + "也算，除非她自己是群主）" : "") + "，管理员只能移普通成员；群主谁也移不了。真要踢，在自己那条发言对象里加 \"kick\":\"成员名\"。" : "")
         + "拉人、踢人都是这个人照自己的性子、跟对方的关系、群里刚发生的事真会做的事，不是动不动就用；一轮里最多拉一个、踢一个。";
       // 群里的人挂着的限时动态（第三版，她 2026-11-14「群里讨论」）：大家都刷得到，有人聊起来就聊，不聊也行；平行世界房间不带
       const gStoryHint = (() => { const SK = window.Stories; if (!SK || _gPar) return "";
         const rows = members.map(c => ({ c, l: SK.activeOf(c.id).filter(s0 => String(s0.by) === String(c.id) && SK.audLabel(s0) === "") })).filter(x => x.l.length)
-          .concat(_gImIn ? [{ c: { name: userName(profile) }, l: SK.activeOf("me").filter(s0 => s0.by === "me" && !(s0.audience || []).length) }] : []).filter(x => x.l.length);
+          .concat(_gImIn ? [{ c: { name: herNameIn(groupId) }, l: SK.activeOf("me").filter(s0 => s0.by === "me" && !(s0.audience || []).length) }] : []).filter(x => x.l.length);
         return rows.length ? "\n【群里谁挂着限时动态】" + rows.map(x => x.c.name + "：" + x.l.map(s0 => "「" + (s0.text || s0.desc || "一张卡") + "」").join("、")).join("；") + "。大家都刷得到，有人想聊就聊起来，不聊也行。" : ""; })();
       const gRoleHint = (_gRoles.owner || _gRoles.admins.length) ? "\n【群主和管理员】"
         + (_gRoles.owner && (_gImIn || _gRoles.owner !== "me") && _gRoleName(_gRoles.owner) ? "群主是「" + _gRoleName(_gRoles.owner) + "」。" : "")
@@ -16637,7 +16859,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               return used.length ? "现在叫「" + g0.name + "」" + ((g0.oldNames || []).length ? "，以前叫过" + g0.oldNames.map(x => "「" + x + "」").join("、") : "") + "；真要改就改成一个不一样的，别在这几个上换个字。" : ""; })() : "")
         + "群主可以禁言任何一个成员，管理员只能禁言普通成员；群主谁也禁不了"
         // ⚠️旁观群里她不在场：这一句提到她的名字，成员就当群里多了个一直不说话的「新来的」（群友 2026-10-25 截图）
-        + (_gImIn ? "，" + userName(profile) + "也禁不了" : "") + "。真要禁言某人，在自己那条发言对象里加 \"mute\":{\"name\":\"成员名\",\"minutes\":分钟数}，解禁加 \"unmute\":\"成员名\"。"
+        + (_gImIn ? "，" + herNameIn(groupId) + "也禁不了" : "") + "。真要禁言某人，在自己那条发言对象里加 \"mute\":{\"name\":\"成员名\",\"minutes\":分钟数}，解禁加 \"unmute\":\"成员名\"。"
         + "这是这个人照自己的性子和此刻的处境会不会真动手的事，不是每次有分歧都要用。"
         + (_gMutedNow.length ? "现在被禁言的：" + _gMutedNow.map(c => "「" + c.name + "」还剩约 " + Math.ceil(groupMutedLeft(gs, c.id) / 60000) + " 分钟").join("、") + "——禁言期间这个人发不出消息，不要给他写发言。" : "")
         : "";
@@ -16655,7 +16877,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const gFaceMembers = gSelfieMembers.filter(c => c.appearance || c.refPhoto);
       // 合照只在【用户传了参考照 且 该成员也传了参考照】时才开放——两张脸都拿真照片喂，绝不一张真一张编
       const gDuoMembers = imgSiteNoRef() ? gFaceMembers.slice() : (meOfGroup(groupId) || {}).refPhoto ? gFaceMembers.filter(c => c.refPhoto) : [];
-      const gUName = (profile && profile.name) || "用户";
+      const gUName = herNameIn(groupId) || "用户";
       // 合照要几张脸就得有几张参考照；凑不够两个人就别把 group 这个选项给模型，免得它开空头支票（不锁脸的站照外貌画，不要参考照）
       const gGroupShotOk = (imgSiteNoRef() ? members.filter(Boolean).length + 1 : members.filter(c => c && c.refPhoto).length + ((meOfGroup(groupId) || {}).refPhoto ? 1 : 0)) >= 2
         && (imgSiteNoRef() || members.filter(c => c && c.refPhoto).length >= 1);
@@ -16714,7 +16936,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 她不在这个群里（旁观群）时，从群里私聊她就等于主动找她：那个人关了「主动发消息」就不开这扇门
       //   （她 2026-10-24：关了主动的角色一个月没找她，旁观群里聊着聊着突然私聊来了）
       const gDmToHerOk = c => imInGroup(group) || autoRefreshOn("proactive", c.id);
-      const gDmMembers = gs.memoryInterop
+      // 树洞里谁也不知道哪一号是她，私聊找上门就等于掀了她的马甲（她 2026-11-21「我在树洞说话为啥他还能来私聊我」）
+      const gDmMembers = gs.memoryInterop && !(group && group.chKind === "treehole")
         ? members.filter(c => c && !(blocks[c.id] && (blocks[c.id].iBlocked || blocks[c.id].theyBlocked)) && gDmToHerOk(c))
         : [];
       const GDM_ODDS = 1 / 3;
@@ -16780,7 +17003,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             ? ",\"mood\":\"（只有配角填）此刻中文心情词（禁止英文内部标签）\",\"wearing\":\"（只有配角填）此刻穿着一句（保持连续，且跟场合对得上）\"" + gActionField
             : (_gActDesc ? gActionField : ""));
       // 互通群复用单聊更新标准；封闭群不写回。
-      const impressionField = window.Gaze && gs.memoryInterop ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"更新后的整块正文\"}（可选；" + window.Gaze.updateRule(userName(profile)) + "）" : "";
+      const impressionField = window.Gaze && gs.memoryInterop ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"更新后的整块正文\"}（可选；" + window.Gaze.updateRule(herNameIn(groupId)) + "）" : "";
       // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
       const gWorld = loreText(loreRef.current, { charIds: members.map(m => m.id), groupId: groupId, scope: "chat", text: hist });
       // 群规矩（用户 OOC 立的长期准则，复用 directives[groupId]）→ 注入，让群成员记得并遵守（item 4）
@@ -16792,7 +17015,128 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return Number(d && d.turns) > 0 ? txt + "（临时约定，还剩 " + Number(d.turns) + " 轮，到期后自动作废、不再遵守）" : txt;
       }).filter(s => s);
       const gDirHint = gDirs.length ? "\n\n【⚠️群规矩·最高优先级，压过下面的对话惯性】这些是用户之前（场外）跟你们立好、你们已经答应了的约定，每一条【现在就生效】（没标临时的即长期有效）：\n" + gDirs.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n——就算上面的聊天记录里大家还在聊相关话题，也从这一轮起严格照约定来（惯性不是理由）；用户若问「是不是说好了」，大方承认记得并已经在做，绝不许一脸茫然装不知道。" : "";
-      const gNoticeHint = groupNoticeBlock(gsFor(groupId).notice);
+      // 频道文件（她 2026-11-20）：有哪些、谁改的；提到的那份带正文。新建、改都挂在那个人那条发言的 file 上
+      const gFileHint = group && group.spaceId ? chfContextBlock(loadJSON("x_chfiles:" + groupId, []),
+          (groupChatsRef.current[groupId] || []).slice(-12).map(m => m && m.content || "").join("\n"),
+          id => id === "me" ? herNameIn(groupId) : (((characters || []).find(c => c.id === id) || {}).name || ""),
+          (((groupChatsRef.current[groupId] || []).filter(m => m && m.role === "user" && m.content).slice(-1)[0]) || {}).content || "")
+        + (() => { // 她那句说到了频道里哪张图：只给说明那一行，不给像素
+            const _her = (((groupChatsRef.current[groupId] || []).filter(m => m && m.role === "user" && m.content && m.kind !== "photo").slice(-1)[0]) || {}).content || "";
+            const _hit = typeof chfGalleryMentioned === "function" ? chfGalleryMentioned(chfGallery(groupChatsRef.current[groupId] || [], loadJSON("x_chfiles:" + groupId, [])), _her) : [];
+            return _hit.length ? "\n她刚才那句说到的图：" + _hit.map(g => "「" + g.desc.slice(0, 80) + "」（" + (g.who && g.who.role === "user" ? "她" : (g.who && g.who.senderName) || "有人") + "发的）").join("；") + "。" : ""; })()
+        // 往主动调（她 2026-11-20「往更主动调吧」）：聊出了值得留下的东西，有人顺手把它写进文件；新建一天最多两份，满了只说改
+        + (() => { const _fs = loadJSON("x_chfiles:" + groupId, []), _canNew = chfCanCharCreate(_fs, ts => { const _d = new Date(typeof vclockMap === "function" ? vclockMap(ts) : ts); return _d.getFullYear() + "-" + _d.getMonth() + "-" + _d.getDate(); }, Date.now());
+            return "\n【频道文件怎么动】文件是这里大家一起放东西的地方，跟聊天并排的另一块地方：可以是定下来的事，也可以是随手记的一句、写着玩的东西、一个人自己想留的小纸条；不用正式，也不用长，几行就是一份。聊着聊着谁想往那儿放点什么、动一下别人放的，就去放、去动。"
+              + (_canNew ? "写进一份已有的就是改那份，没有合适的就新开一份。" : "今天大家已经新开过好几份了，这会儿往已有的文件里写。")
+              + "写法是在他自己那条发言里加 \"file\":{\"name\":\"文档名\",\"add\":[\"往末尾添的一行\"],\"remove\":[\"要删掉的那一行原文\"]}——add 是添、remove 是把逐字对上的那几行删掉，两样可以只写一样；想整份重写就写 {\"name\",\"text\":\"整份全文\"}。名字跟已有的一样就是改那一份" + (_canNew ? "，没有就是新开" : "") + "。同一轮好几个人都可以各在自己那条里动同一份，按先后一个接一个写进去，谁也不会盖掉谁。"; })() : "";
+      // 换个频道接着说：每人能去哪几个频道，有地方可去才提这一格
+      // 他们自己开频道（她 2026-11-20「想要他们也可以创建频道」）：空间还有地方、今天还没开满时才提；只说这个字段是什么
+      const gNewChHint = group && group.spaceId && !channelNoMem(groupId) && !group.chSolo ? (() => {
+        const sp = (spaces || []).find(x => x && x.id === group.spaceId);
+        if (!sp || !chNewRoom(sp, spaceSibs(), dayKeyNow())) return "";
+        const cats = (sp.cats || []).map(c => c.name).filter(Boolean);
+        return "\n\n【开个新频道】这个地方的频道是大家一起用的，谁都能开。有人觉得有件事值得单独一个频道来聊，就在他自己那条发言里加 \"newChannel\":{\"name\":\"频道名\",\"about\":\"这里聊什么，一句\",\"members\":[\"拉进去的人的名字\"]"
+          + (cats.length ? ",\"cat\":\"放进哪一类（" + cats.join("／") + "）\"" : "") + ",\"lines\":[\"他在新频道里说的第一两句\"]}——频道会真的开出来，这边留一行他开了什么。已经有差不多的频道就用那个。现在有的频道："
+          + spaceSibs().filter(x => x && x.spaceId === sp.id).map(x => "#" + (x.chName || x.name)).join("、");
+      })() : "";
+      // 树洞（她 2026-11-20）：照论坛匿名帖那一段的说法——屏幕上只有代号，原文里的名字只是让你分清谁说的
+      const gTreeHint = group && group.spaceId && group.chKind === "treehole" ? (() => {
+        const mp = thAliasMapOf(groupChatsRef.current[groupId] || []);
+        members.forEach(c => { mp[String(c.id)] = mp[String(c.id)] || thAlias(mp, c.id).map[String(c.id)]; });
+        if (!mp.me) mp.me = thAlias(mp, "me").map.me;
+        return "\n\n【这个频道是树洞】屏幕上每个人都只显示一个代号，谁也看不见谁的名字和头像，" + herNameIn(groupId) + " 也一样，没有谁是例外。各人的代号：" + members.map(c => c.name + "＝树洞 #" + mp[String(c.id)]).join("、") + "、" + herNameIn(groupId) + "＝树洞 #" + mp.me
+          + "。每个人只知道自己是哪一号；上面原文里带的名字只是给你分清谁说了哪句。写出来的话里不提任何人的名字，指人就说几号，也不会有人说自己看见了谁的名字——别人是谁，只能从说话的样子去猜。"
+          // 马甲要像马甲（她 2026-11-21「一开口就说是大家马甲跟没有一样」）：说清楚大家来这儿是为了什么，身份自然就收着
+          + "大家来树洞，就是因为在这儿说话不用顶着自己：说的是平时顶着名字不好说出口的心里话、牢骚、秘密；自己是谁、跟这里谁是什么关系，是不往外露的那部分——一句话里带着自己的名字、只有自己才有的身份经历、跟某个人的具体关系，别人就一下认出来了，这种话在树洞里换成不点名的说法。别人猜自己是谁，可以装傻、岔开、反问；在树洞里谁也不会主动认领自己是几号。";
+      })() : "";
+      // 频道里摆着的东西＋他们能怎么动（她 2026-11-20「1-7都可以做」）：只说是什么、怎么写；到了当天上限的那一样就不提
+      // 她按了「让他们各挑一首」（她 2026-11-20「点了他们还是接着晚餐在说」）：这件事是这一轮的正题，放到最后紧挨着输出说
+      let _askSongs = false, _askPet = "", _petBye = "";
+      const gPlayHint = group && group.spaceId ? (() => {
+        const st = chpOf(groupId), spect = groupSpectating(group), tree = group.chKind === "treehole";
+        const have = chpHint(st, groupChatsRef.current[groupId] || [], id => (((characters || []).find(c => c.id === id) || {}).name || id), { her: herNameIn(groupId) });
+        const can = [];
+        // 点个表情不另摆：群里本来就有「stick」贴表情（她 2026-11-21「这不就是一样的」）
+        if (!spect && chpCount(st, "rename") < CHP_CAP.rename) can.push(["rename", "\"rename\":{\"name\":\"新频道名\",\"about\":\"新的一句这里聊什么\"}——两样可以只写一样，频道里大家都看得到是谁改的，别人也能改回去"]);
+        can.push(["pin", "\"pin\":{\"quote\":\"要钉到顶上那句里逐字的一小段\"} 或 \"unpin\":{\"quote\":\"…\"}——置顶最多三条"]);
+        if (chpCount(st, "note") < CHP_CAP.note) can.push(["w", "\"note\":{\"text\":\"往墙上贴一张便利贴\"}"]);
+        can.push(["w", "\"scribble\":{\"on\":\"墙上那张便利贴里的一小段\",\"text\":\"在上面写一句\"}、\"tear\":{\"quote\":\"…\"}——撕的是自己的，或者贴了一天以上的"]);
+        if (window.__chAskSongs === groupId) { window.__chAskSongs = null; _askSongs = true; }
+        if (window.__chAskPet === groupId) { window.__chAskPet = null; if (st.pet && (st.pet.kindPending || st.pet.naming)) _askPet = st.pet.kindPending ? "kind" : "name"; }
+        if (_askSongs || chpCount(st, "song") < CHP_CAP.song) can.push(["song", "\"song\":{\"title\":\"歌名\",\"artist\":\"歌手\"}——往频道歌单里加一首"]);
+        if (st.playlist.length) can.push(["skip", "\"skip\":{\"title\":\"歌单里那首的歌名\"}——投票想切掉它"]);
+        can.push(["ledger", "\"ledger\":{\"payer\":\"谁付的钱\",\"amount\":数字,\"for\":\"买了什么\",\"among\":[\"这笔钱算在谁头上（名字）\"]}、\"settle\":{\"from\":\"欠钱的人\",\"to\":\"收钱的人\"}——这本账连着各人真的钱包：记一笔，付钱那个人钱包里就真少了这笔；settle 是欠钱的人把钱真挪给对方，钱包里不够就只挪得动剩下的那么多"]);
+        if (st.pet && st.pet.kindPending) can.push(["f", "\"petKind\":{\"kind\":\"养什么（一种植物或一种小动物）\"}——她想让大家决定频道里养什么：各自提、互相挑，觉得定下来了就由一个人用 petKind 写进去"]);
+        if (window.__chPetBye && window.__chPetBye.gid === groupId) { const _b = window.__chPetBye; window.__chPetBye = null; _petBye = "频道里养的「" + _b.name + "」" + (_b.kind ? "（" + _b.kind + "）" : "") + "刚刚" + _b.how + "，它不在这儿了"; }
+        if (st.pet && st.pet.naming) can.push(["f", "\"petName\":{\"name\":\"名字\"}——频道里养的" + (st.pet.kind || "那个小家伙") + "还没名字，她想让大家给它起一个：各自提、互相挑，觉得定下来了就由一个人用 petName 写进去"]);
+        if (st.pet) can.push(["care", "\"care\":{\"action\":\"浇水/喂食/陪它玩\"}——照顾频道里养着的「" + st.pet.name + "」，每人一天一次"]);
+        // 一轮只摆几样（她 2026-11-21「能做的太多了所以他们都不做」「主要是文件和墙想多弄点」）：
+        // 墙每轮都摆；她叫的、跟眼下聊的对得上的摆上；剩下的每轮轮流抽一样
+        const _rt = (groupChatsRef.current[groupId] || []).slice(-8).map(m => (m && m.content) || "").join("\n");
+        const _petLow = (() => { const _pn = st.pet && typeof chpPetNow === "function" ? chpPetNow(st.pet, Date.now()) : null; return !!(_pn && ((_pn.full != null && _pn.full < 45) || (_pn.joy != null && _pn.joy < 45))); })();
+        const _hot = { w: true, f: true, song: _askSongs || !!(group.chListen) || /歌|听|曲|唱/.test(_rt), skip: !!(group.chListen) && /难听|切歌|换一首|换首/.test(_rt), ledger: /钱|请客|付|块|元|AA|买单|报销|账/.test(_rt), care: _petLow || /喂|浇|饿|渴|小家伙/.test(_rt), rename: /改名|频道名|改个名|换个名/.test(_rt), pin: /置顶|钉|顶上/.test(_rt) };
+        const _keep = can.filter(x => _hot[x[0]]), _rest = can.filter(x => !_hot[x[0]]);
+        // 没聊到的也轮流出来（她 2026-11-21「除了聊到也可以随机出来」）：每轮抽两样
+        for (let _i = 0; _i < 2 && _rest.length; _i++) _keep.push(_rest.splice(Math.floor(Math.random() * _rest.length), 1)[0]);
+        return have + "\n【频道里还能这样动】谁想动，就在他自己那条发言里加上对应的字段，一轮里几个人可以各动各的：\n· " + _keep.map(x => x[1]).join("\n· ") + (tree ? "\n（树洞里大家都是代号，动了什么也只显示代号。）" : "");
+      })() : "";
+      // 名字底下挂的状态（她 2026-11-20「每个人的状态」）：大家挂着什么、她挂着什么；旁观频道里不提她
+      // 约定（她 2026-11-20）：接下来七天大家定下的事；今天有的写在前面；他们也能在发言里定新的、标做完
+      const gPlanHint = group && group.spaceId && !groupSpectating(group) ? (() => {
+        const _pl = loadJSON("x_spacePlans:" + group.spaceId, []) || [], _td = (() => { const d = typeof vclockNow === "function" ? vclockNow() : new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })();
+        const _up = planUpcoming(_pl, _td, 7), _nm = id => id === "me" ? herNameIn(groupId) : (((characters || []).find(c => c.id === id) || {}).name || "");
+        const _line = p => (p.date === _td ? "今天" : p.date) + (p.time ? " " + p.time : "") + " " + p.title + (p.who && p.who.length ? "（" + p.who.map(_nm).filter(Boolean).join("、") + "）" : "");
+        const _today = _up.filter(p => p.date === _td);
+        const _mine = _pl.filter(p => p && p.by && p.by !== "me" && p.ts && new Date(p.ts).toDateString() === new Date().toDateString()).length;
+        return (_up.length ? "\n【这里大家定下的约定】" + _up.map(_line).join("；") + (_today.length ? "。今天就有：" + _today.map(p => p.title).join("、") + "，到了这天大家心里都记着" : "") + "。" : "")
+          + (_mine < 3 ? "\n聊着聊着定下了哪天一起做什么，谁想记下来，就在他自己那条发言里加 \"plan\":{\"title\":\"约了什么\",\"when\":\"哪天，可以写明天、周六、11月25日、几点\",\"who\":[\"一起的人的名字\"]}；做完了的用 \"planDone\":{\"title\":\"那个约定\"}。" : "");
+      })() : "";
+      const gStatusHint = group && group.spaceId ? (() => {
+        const _all = loadJSON(CHAR_STATUS_KEY, {}) || {};
+        // 她那句状态是主面具挂着的：戴别的面具的频道里不给（那里的人认的是另一个她）
+        return charStatusHint(_all, group.chKind === "treehole" ? [] : members, herNameIn(groupId), !groupSpectating(group) && !groupMaskKey(groupId))
+          + (group.chKind === "treehole" ? "" : "\n谁想换一句挂在自己名字底下的状态，在他自己那条发言里加 \"status\":{\"emoji\":\"一个表情，可不写\",\"text\":\"一句短话\"}——那是挂着给大家看的一句，心情、处境变了就换，大家都看得到他换了什么。");
+      })() : "";
+      const gListenHint = group && group.spaceId && group.chListen && !groupSpectating(group) ? (() => { const L0 = chListenOf(groupId); return L0 ? "\n\n【一起听】这个频道里大家现在一起在听《" + L0.song.title + "》" + (L0.song.artist ? " - " + L0.song.artist : "") + "（" + herNameIn(groupId) + " 放的" + (player.playing ? "，正放着" : "，这会儿暂停了") + "），在这个频道的人都听得到。" : ""; })() : "";
+      // 起一条接龙：群里眼下没有在接的、今天也还没人起过头才摆这一格；她在旁观就不摆
+      const _chDay = new Date(typeof vclockNow === "function" ? vclockNow() : Date.now()).toDateString();
+      const gChainStartHint = group && !groupSpectating(group) && !_subRoot && chainStartOk(groupChatsRef.current[groupId] || [], group.chainStartDay, _chDay)
+        ? "\n\n【起一条接龙】这个群眼下没有在接的接龙。谁想起个头，可以在自己那条发言里加 \"chainStart\":{\"topic\":\"接什么\",\"first\":\"你接的第一棒\"}——会贴出一张接龙卡，大家之后往下接。" : "";
+      // 她 @ 了谁：点到的人这一轮各回她一句；@所有人＝在场每个人都冒个头（只看她这一轮最新那句）
+      const _atLast = (((groupChatsRef.current[groupId] || []).filter(m => m && m.role === "user" && m.content && !m.whisper).slice(-1)[0]) || {});
+      const _atFresh = _atLast.ts && Date.now() - _atLast.ts < 30 * 60000 ? atMentions(_atLast.content, group && group.chKind === "treehole" ? [] : members) : { all: false, ids: [] };
+      const gAtHint = _atFresh.all ? "\n\n【她 @ 了所有人】她刚才那句是冲着在场每个人说的：这一轮每个人都会冒个头回她，哪怕只是一句。"
+        : _atFresh.ids.length ? "\n\n【她 @ 了谁】她刚才那句点了 " + _atFresh.ids.map(id => (members.find(c => c.id === id) || {}).name).filter(Boolean).join("、") + " 的名：被点到的人这一轮都会出来回她。" : "";
+      const gWelcomeHint = rgOpts && Array.isArray(rgOpts.welcome) && rgOpts.welcome.length ? "\n\n【刚进来的人】" + rgOpts.welcome.join("、") + " 刚刚加入了这个地方，现在也在这个频道里。" : "";
+      // 精华墙：最近几句名场面摆给他们；今天这个频道还没人提名过才提那一格
+      const gGemHint = group && group.spaceId ? (() => {
+        const gl = (loadJSON(gemKey(group.spaceId), []) || []).filter(x => !(x && x.by === "me" && chSpectId(x.gid)) && (!x || !x.gid || chMaskSame(x.gid, groupId)));
+        const nm = gid => { const x = (groupsRef.current || []).find(y => y && y.id === gid); return x ? (x.chName || x.name) : ""; };
+        return gemLine(gl, nm) + (gemDayOk(gl, groupId, dayKeyNow()) ? "\n【收进精华】这个地方有一面精华墙，放的是大家觉得值得留下的那几句。谁觉得刚才频道里哪句话好笑、好哭、该留着，就在他自己那条发言里加 \"gem\":{\"quote\":\"那句话里的原文\",\"why\":\"为什么收，一句\"}——quote 照原话抄一段，会真的收上墙。" : "");
+      })() : "";
+      // 楼中楼（她 2026-11-20）：在串里——说清楚这一轮在哪一串里；在主线——列出正热的几串，谁想回进某一串就带上 sub
+      const gSubHint = group && group.spaceId ? (() => {
+        const ms0 = groupChatsRef.current[groupId] || [], nm0 = m => m.role === "user" ? herNameIn(groupId) : (m.senderName || "有人");
+        if (_subRoot) { const root = ms0.find(m => subRootKey(m) === _subRoot);
+          return root ? "\n\n【这一串】现在是在「" + nm0(root) + "：" + String(root.content || "").replace(/\s+/g, " ").slice(0, 60) + "」底下回的一串里，大家这一轮说的话都回在这一串里，围着这一句接着歪、接着聊；主线上的事上面也垫了几句。" : ""; }
+        const th = subThreadsOf(ms0), keys = Object.keys(th).slice(-4);
+        const rows = keys.map(k => { const root = ms0.find(m => subRootKey(m) === k), L = th[k].last; return root ? "· 「" + nm0(root) + "：" + String(root.content || "").replace(/\s+/g, " ").slice(0, 30) + "」底下 " + th[k].n + " 条，最后 " + nm0(L) + "：" + String(L.content || "").replace(/\s+/g, " ").slice(0, 30) : ""; }).filter(Boolean);
+        return "\n\n【楼中楼】频道里一条消息底下可以单独回一串，歪楼、接梗就回在那一串里，不刷主线。" + (rows.length ? "现在有这几串：\n" + rows.join("\n") + "\n" : "")
+          + "谁想回进某一串，就在他那条发言里加 \"sub\":{\"root\":\"那条消息里逐字的一小段\",\"text\":\"他回在串里的话\"}。";
+      })() : "";
+      // 赌气退频道（她 2026-11-20）：真被惹急了、待不下去的人可以自己退出这个频道；别的频道照旧在，要等有人把他劝回来
+      const gLoungeHint = rgOpts && rgOpts.loungeSit ? "\n\n【挂机房】这里是大家挂着的地方，各忙各的，不一定在聊天。" + herNameIn(groupId) + " 刚进来坐下了，什么都还没说。谁注意到了、腾得出手，就抬头招呼一句或者照样忙自己的，各按各的样子。" : "";
+      const gLeaveHint = group && group.spaceId && !groupSpectating(group) && members.length > 1 && !_subRoot
+        ? "\n\n【退出这个频道】谁在这儿真被惹急了、待不下去，可以在他那条发言里加 \"leave\":{\"why\":\"他为什么走（一句）\"}——他就真的退出了 #" + (group.chName || group.name || "") + "，别的频道照旧在。退了以后要等有人去私下把他劝回来。" : "";
+      const gHopHint = group && group.spaceId ? (() => {
+        const sibs = spaceSibs(groupId), og = sibs.find(x => x && x.id === groupId);
+        const rows = members.map(c => { const ts = chHopTargets(og, sibs, c.id, id => channelNoMem(id) || (id !== groupId && chClosedNow(id))); return ts.length ? c.name + "：" + ts.map(x => "#" + x.chName).join("、") : ""; }).filter(Boolean);
+        return rows.length ? "\n\n【换个频道接着说】同一个地方还有别的频道。谁觉得接下来这段更该到另一个频道去说，就在他自己那条发言里加 \"hop\":{\"to\":\"频道名\",\"lines\":[\"他到那边说的话\"]}（一到四句）——他真的会去那个频道把这几句说出来，这边留一行他去了哪儿；不想去就不加。各人能去的：\n" + rows.join("\n") : "";
+      })() : "";
+      const gNoticeHint = groupNoticeBlock(gsFor(groupId).notice)
+        + spaceChannelBlock(spaceSibs(groupId).find(x => x && x.id === groupId), spaceSibs(groupId), id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), herNameIn(groupId), id => (((characters || []).find(c => c && String(c.id) === String(id)) || {}).name || ""))
+        + (group && group.spaceId && group.chKind !== "meet" && !channelNoMem(groupId) && !groupSpectating(group) && spaceMeetMaskOk(group) ? spaceMeetLine(group.spaceId) : "")
+        + gSubHint + gLeaveHint + gLoungeHint;
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
       // ONLINE_CHAT_RULE_V2 开头那句「完全代入当前角色」是给单聊写的：群里有好几个人，
       // 「当前角色」没有指代对象，这句话就空转了，真正决定站位的反倒是下面的任务描述。
@@ -16807,24 +17151,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         //   没开动描时一个字都不发——线上就只有台词，那一份在这儿是白发（她立的：一堆禁令会变笨）。
         // 群里也吃文风预设（她 2026-11-19）：跟单聊同一颗开关、同一段话，开关和挑哪份记在群设置里
         + (() => { try { return gs.onlinePresetOn && gs.onlinePresetId && window.StylePresets ? "\n\n" + onlinePresetBlock(window.StylePresets.textFor(gs.onlinePresetId, "online", {})) : ""; } catch (e) { return ""; } })()
-        + (_gActDesc ? "\n\n" + ownActNoBracketRule(userName(profile)) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_gActDesc && gs.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
+        + (_gActDesc ? "\n\n" + ownActNoBracketRule(herNameIn(groupId)) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_gActDesc && gs.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
       // 她想要什么（四处一样喂）：这是用户的信息，群里共享一份，不像随身物是每人私有
       // 她今天身上带着什么（四处一样喂）：这一条原来只在单聊那几处有——
       // 她带着东西来见【他们】，群里却一个字都看不到（群里那位 2026-09-15 报的）。
       // ⚠️句子走 engine 的 onMeLine 一份，别在这儿另写一版。
       const _gOnMe = _gPar ? "" : onMeFor();
-      const gOnMeHint = (_gOnMe && !groupSpectating(group)) ? "\n\n" + onMeLine(_gOnMe, userName(profile)) : "";
-      const gWishHint = wishLine(_gPar ? "" : wishFor(), userName(profile), { group: true, spectate: gs.spectate, gift: true });
+      const gOnMeHint = (_gOnMe && !groupSpectating(group)) ? "\n\n" + onMeLine(_gOnMe, herNameIn(groupId)) : "";
+      const gWishHint = wishLine(_gPar ? "" : wishFor(), herNameIn(groupId), { group: true, spectate: gs.spectate, gift: true });
       // 同处一室（她 2026-09-10：「群里也接共处一室吧」）：句子跟单聊共用同一份，
       // 只多传一个 group 参数。⚠️线下正开着就不发——那一段自己已经把面对面讲清楚了
       // （跟单聊 offlineNow 那处同一条判据）。旁观群不发：她不在场。
       const gSameRoomHint = (gSameRoomFor(groupId) && !gs.spectate && !(offlineGroup && offlineGroup.id === groupId))
-        ? "\n\n" + samePlacePresence(userName(profile), true) : "";
+        ? "\n\n" + samePlacePresence(herNameIn(groupId), true) : "";
       // 她 2026-10-02：「顾朝顾暮现在就说把我带回家在他们身边了」——同居那俩的私聊旧记录里全是「端进去」「在卧室吗」，
       //   单聊那条「记录里说在一块儿就是在一块儿」到了群里，就成了谁都能宣称她此刻在自己身边。
       //   没开同处一室时把来源说清楚：她此刻在哪，只看这个群里说过的话。
       const gWhereHint = (!gSameRoomFor(groupId) && !gs.spectate && !(offlineGroup && offlineGroup.id === groupId))
-        ? "\n\n【她此刻在哪】只看这个群里说过的话。私聊里那些在一块儿的记录是之前的事，不说明她现在在你身边；群里没人说过她在哪，那你就不知道她在哪——照「不知道」来。你自己日程里写着跟她在一块儿的那一格，也只是你原本的打算——她没在群里说，就不算她此刻在你身边。\n" + apartPresence(userName(profile), true) : "";
+        ? "\n\n【她此刻在哪】只看这个群里说过的话。私聊里那些在一块儿的记录是之前的事，不说明她现在在你身边；群里没人说过她在哪，那你就不知道她在哪——照「不知道」来。你自己日程里写着跟她在一块儿的那一格，也只是你原本的打算——她没在群里说，就不算她此刻在你身边。\n" + apartPresence(herNameIn(groupId), true) : "";
       // ── 旁观群里唯一变的一件事：她不是【听众】（她 2026-09-11）──
       // 起因：「大晏趣闻·旁观中」里陆闻把话头扔进群里，说「Lisa你评评理」。
       // ⚠️v66.56 我第一版改过头了，她当场纠正：「我有旁观群就是看他们感情的，你去掉好感和
@@ -16837,7 +17181,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   而【身份铁律】那句「用户不是可代写的群成员」读起来就是「她是群成员，只是不许代写」，
       //   离输出还更近。所以要治的是那一句，不是把她整个抹掉。
       const gSpec = !!gs.spectate;
-      const _uN = userName(profile);
+      const _uN = herNameIn(groupId);
       // ⚠️旁观群不给 call：这个字段明说是「跟用户发起通话」，而旁观群的身份铁律
       //   写着「绝不许对着用户说话、@ Ta、把话头扔给 Ta」——两句话直接打架，
       //   模型收到的是一道自相矛盾的题。语音和红包留着：那两样是他俩【彼此之间】的事
@@ -16862,12 +17206,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   于是历史里那个「老群友斗嘴」的样子次次压过前提。这里只重申局面，不加新规矩。
       // ⚠️上一版这段写死了「唯一的男朋友」「她那句冲谁」「不是语法题」——她说这本身就是限制。只摆局面。
       const gDramaTail = gsFor(groupId).drama
-        ? "\n\n【修罗场 · 回到此刻】上面的群聊是已经发生的事。你们各自跟 " + userName(profile) + " 是什么关系，现在当着彼此摆在明面上了——"
+        ? "\n\n【修罗场 · 回到此刻】上面的群聊是已经发生的事。你们各自跟 " + herNameIn(groupId) + " 是什么关系，现在当着彼此摆在明面上了——"
           + (() => {
             // 她 2026-10-02「重roll了」：还是围着她那句话打转（发错群、撤回），没人说「你也是她男朋友？」——
             //   关系散在前面五六段里，模型没把它摆到眼前。在这儿点名摆一遍。
             const tog = members.filter(c => spaceLover(couples[c.id])).map(c => c.name);
-            return tog.length > 1 ? "摆在明面上的就是：" + tog.join("、") + "——这几个人，全都跟 " + userName(profile) + " 在一起。你之前要是不知道别人也是，那就是现在知道了。" : "";
+            return tog.length > 1 ? "摆在明面上的就是：" + tog.join("、") + "——这几个人，全都跟 " + herNameIn(groupId) + " 在一起。你之前要是不知道别人也是，那就是现在知道了。" : "";
           })()
           + "这件事在你心里是什么分量、你打算怎么对待它，按你自己那张卡来——你平时怎么说话，这会儿还是那个人在说话。"
         : "";
@@ -16876,7 +17220,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 群里拍一拍（她 2026-10-25）：她在群里时能拍她或别的成员；旁观群里只能拍群里的人
       const gStickField = ",\"stick\":{\"quote\":\"（可选）群里某条消息里的原话，照抄几个字\",\"emoji\":\"一个 emoji\"}（想贴自己的表情包就把 emoji 换成 \"emote\":\"表情包关键词\"；往那条气泡上贴一个表情，像 QQ 的贴表情：群里谁的哪句话让你当下有了反应、这个反应一个表情就说得清的时候，就随手贴一个，贴了照样可以说话，也可以只贴不说；没有反应就整个省掉）";
       const gPatField = ",\"pat\":\"（可选）想用「拍一拍」戳谁一下就填那个人的名字（" + (imInGroup(group) ? gUName + " 或" : "") + "群里某位成员）；是一个动作，不是一句话，不用再在 text 里写「拍了拍」\"";
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gStoryHint + (() => { const _g0 = (groupsRef.current || []).find(x => x.id === groupId); const _n = groupNamedByNote(_g0, ""); return _n ? "\n【群名】" + _n + "（起名的那个人自己知道是自己起的）。" : ""; })() + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；定下的是以后的事，就加 " + SCHED_LATER_SPEC + "同样只填他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gStickField + "" + gDmField + thoughtField + impressionField + "}；某成员这一轮在群里亲口说了过一会儿／几点再回来（到了、忙完了、拿到了就来群里说），就在 Ta 那条加 \"laterPromise\":{\"minutes\":几分钟后,\"about\":\"回来要说/要做的事\"}（说的是几点就把 minutes 换成 \"at\":\"HH:MM\"），到点 Ta 会自己回群里开话头；没说就不加；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。要靠运气定的事，谁都可以自己掷骰子或抽签：那条加 \"luck\":{\"type\":\"dice\",\"n\":骰子颗数1到3} 或 {\"type\":\"draw\",\"what\":\"抽什么\",\"n\":抽几个人}，结果由手机现掷现抽、发成一张卡，这一条里别替它报结果，结果出来以后大家照着接。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gFileHint + gHopHint + gNewChHint + gGemHint + gTreeHint + gChainStartHint + gWelcomeHint + gAtHint + gListenHint + gPlayHint + gStatusHint + gPlanHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gStoryHint + (() => { const _g0 = (groupsRef.current || []).find(x => x.id === groupId); const _n = groupNamedByNote(_g0, ""); return _n ? "\n【群名】" + _n + "（起名的那个人自己知道是自己起的）。" : ""; })() + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；定下的是以后的事，就加 " + SCHED_LATER_SPEC + "同样只填他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + (() => { // 状态挂了很久或者还没挂的，这一轮点一个人（她 2026-11-21「聊了还是不改状态」）：挂着的那句跟他此刻对不上，他会顺手换掉
+        if (!group || !group.spaceId || group.chKind === "treehole" || _askSongs || _askPet || _petBye || gWelcomeHint) return "";
+        const _sa = loadJSON(CHAR_STATUS_KEY, {}) || {}, _dk = dayKeyNow();
+        const _stale = members.filter(c => c && charStatusCanSet(_sa, c.id, _dk) && (!_sa[c.id] || Date.now() - (Number(_sa[c.id].ts) || 0) > 6 * 3600000));
+        if (!_stale.length || Math.random() > 0.5) return "";
+        const _c = _stale[Math.floor(Math.random() * _stale.length)], _now = _sa[_c.id] ? charStatusLabel(_sa[_c.id]) : "";
+        return "\n\n【" + _c.name + " 名字底下的状态】" + (_now ? "还挂着「" + _now + "」，是好几个小时前挂的" : "还空着") + "。挂着的那句跟他这会儿的心情、在干的事对不上时，他这一轮会在自己那条发言里用 status 换一句新的。"; })() + (group && group.spaceId && !_askSongs && !_askPet && !_petBye && !gWelcomeHint && group.chKind !== "lounge" ? "\n\n【墙和文件】这里的墙和文件是大家常去摆弄的：这一轮里有一两个人会顺手往墙上贴一张、在别人那张上写一句，或者把聊到的东西往文件里添几行、开一份新的。" : "") + (_petBye ? "\n\n【这一轮的正题】" + _petBye + "。这一轮在场的人各自对这件事有点反应：想它、说起跟它的一件小事、或者照自己的性子轻描淡写一句；刚才在聊的事等这轮过去再接。" : "") + (gWelcomeHint ? "\n\n【这一轮的正题】先招呼刚进来的 " + rgOpts.welcome.join("、") + "：在场的人照自己的性子跟新来的打个招呼、介绍一句这里，新来的人也说说话；刚才在聊的事等这轮过去再接。" : "") + (_askPet ? "\n\n【这一轮的正题】" + herNameIn(groupId) + (_askPet === "kind" ? " 刚在频道里叫大家商量养什么。这一轮在场的人各自提想养的（一种植物或一种小动物），说为什么，互相挑一挑；觉得定下来了就由一个人用 petKind 写进去。" : " 刚在频道里叫大家给养的小家伙起名。这一轮在场的人各自提一个名字，说为什么，互相挑一挑；觉得定下来了就由一个人用 petName 写进去。") + "刚才在聊的事等这轮过去再接。" : "") + (_askSongs ? "\n\n【这一轮的正题】" + herNameIn(groupId) + " 刚在频道歌单那里按了「让大家各挑一首」。这一轮在场的人各往歌单里放一首自己此刻想听的歌（用 song 字段），顺嘴说为什么挑它，也可以互相评一句别人挑的；刚才在聊的事等这轮过去再接。" : "") + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；要引用的是这一轮里前面某人刚说的那条（目录里还没有），填 R 加它在本数组里的序号（R1 是第一条）；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选，不看字面\"" + gCallField + gPatField + "" + gStickField + "" + gDmField + thoughtField + impressionField + "}；某成员这一轮在群里亲口说了过一会儿／几点再回来（到了、忙完了、拿到了就来群里说），就在 Ta 那条加 \"laterPromise\":{\"minutes\":几分钟后,\"about\":\"回来要说/要做的事\"}（说的是几点就把 minutes 换成 \"at\":\"HH:MM\"），到点 Ta 会自己回群里开话头；没说就不加；某成员想撤掉自己说过的一句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"：text 照原话抄前面几轮自己已经发出去的那句，就撤那一句；写的是这一轮新的话，会先正常显示一秒再变成已撤回——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。要靠运气定的事，谁都可以自己掷骰子或抽签：那条加 \"luck\":{\"type\":\"dice\",\"n\":骰子颗数1到3} 或 {\"type\":\"draw\",\"what\":\"抽什么\",\"n\":抽几个人}，结果由手机现掷现抽、发成一张卡，这一条里别替它报结果，结果出来以后大家照着接。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。谁自己有件事想先让大家批（想买个东西、想请假、想换工作……照这个人会有的事），可以在那条加 \"askNew\":{\"what\":\"想干嘛\",\"reason\":\"理由\",\"amount\":要花的钱数（不花钱写 0）}，大家投准或驳，过半就准，准了钱从这个人钱包出；没有就不加。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -16884,7 +17234,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (gchat[i].role === "assistant") break;
         if (gchat[i].role === "user" || gchat[i].role === "narration") tail.unshift(gchat[i]);
       }
-      let userContent = tail.length ? tail.map(m => { const quoteLead = m.replyTo ? "【引用 " + (m.replyToSenderName || "作者未知") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 120) + "』】" : ""; return m.role === "narration" ? narrTag(m) + m.content : userName(profile) + quoteLead + (m.parenAct ? "（这条里（）括起来的是她真在做的动作，括号外才是她说的话）" : "") + ": " + (m.kind === "selfie" && m.role === "user" && m.imageRef ? "【这条是她发进群的一张她自己的" + (m.photoKind === "myshot" ? "照片（别人拍的她）" : "自拍") + "，已作为视觉输入附上，请在场成员直接看图后自然回应】" + (m.desc ? " 她拍的是：" + m.desc : "") : m.kind === "photo" && m.imageRef ? "【这条附有一张真实照片，请所有在场成员直接看图后自然回应；不要假装看不到，也不要只复述配文】" + (m.desc ? " 配文：" + m.desc : "") : m.content); }).join("\n") : "（请群成员顺着上面的对话自然继续聊）";
+      let userContent = tail.length ? tail.map(m => { const quoteLead = m.replyTo ? "【引用 " + (m.replyToSenderName || "作者未知") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 120) + "』】" : ""; return m.role === "narration" ? narrTag(m) + m.content : herNameIn(groupId) + quoteLead + (m.parenAct ? "（这条里（）括起来的是她真在做的动作，括号外才是她说的话）" : "") + ": " + (m.kind === "selfie" && m.role === "user" && m.imageRef ? "【这条是她发进群的一张她自己的" + (m.photoKind === "myshot" ? "照片（别人拍的她）" : "自拍") + "，已作为视觉输入附上，请在场成员直接看图后自然回应】" + (m.desc ? " 她拍的是：" + m.desc : "") : m.kind === "photo" && m.imageRef ? "【这条附有一张真实照片，请所有在场成员直接看图后自然回应；不要假装看不到，也不要只复述配文】" + (m.desc ? " 配文：" + m.desc : "") : m.content); }).join("\n") : "（请群成员顺着上面的对话自然继续聊）";
       // ── 她开口的那一轮，也得有人告诉他们「接彼此的话」（她 2026-09-11）──────
       // 她原话：「群里还是我说话他们就不互相接话了」。
       // ⚠️病根是这一层**只长在一条分支上**：她没出声那一轮（下面 !tail.length 那段）
@@ -16915,7 +17265,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   病根不是记不住，是**这句话叫他们把她删掉**。
       // 「没出声」和「不在场」是两件事：她可以人就在那儿、正被抱着，只是这一轮没说话。
       // 所以这一段只说前半件（别催她要回应），后半件反过来钉死（不许把她挪走、不许重开场面）。
-      if (!tail.length) userContent += "\n\n【重要·TA 还在场，场面照常往下走】上面的记录里连着几条都没有「" + userName(profile)
+      if (!tail.length) userContent += "\n\n【重要·TA 还在场，场面照常往下走】上面的记录里连着几条都没有「" + herNameIn(groupId)
         + "」发言，那只是因为 TA 此刻没在群里【打字】——【不是】不理你们、不是已读不回、不是在生气、也不是出了什么事。"
         + "\n⚠️**「没出声」不等于「不在场」**：上文里正在发生的事，人还是那些人、地方还是那个地方。"
         + "TA 要是本来就在这场面里，那 TA 现在【仍然在】，只是这一轮没开口——绝不许因为 TA 没说话就把 TA 挪走、写成 TA 走了/睡了/不在了，"
@@ -16962,6 +17312,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       for (const ref of groupImageRefs) {
         try {
           if (String(ref).indexOf("data:") === 0) groupImageDataUrls.push(ref);
+          // 本机图库的图（频道里上传的 img_chf_、通话画面 img_call_）拿回聊天里时也要真给大家看（她 2026-11-20 图片栏召回）
+          else if (String(ref).indexOf("img_") === 0 && typeof idbImgGet === "function" && typeof blobToDataUrl === "function") { const blob = await idbImgGet(ref); if (blob) groupImageDataUrls.push(await blobToDataUrl(blob)); }
           else if (String(ref).indexOf("iv_") === 0 && typeof imgVaultFetchBlob === "function" && typeof blobToDataUrl === "function") {
             // 群聊同装吞图案兜底(单11):双路取图+一拍重试,和私聊一致
             let blob = await imgVaultFetchBlob(ref);
@@ -17073,7 +17425,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       {
         // 名字先认成群里那个人的正式名字，再交给身份闸（闸只认原名；认不出的人整轮会被丢掉）
         arr = arr.map(it => { if (!it || typeof it !== "object") return it; const m = pickMember(members, it.name); return m && members.filter(x => x.name === m.name).length === 1 ? { ...it, name: m.name } : it; });
-        const guarded = window.GroupIdentityGuard ? window.GroupIdentityGuard.sanitize(arr, members, userName(profile)) : { items: arr, dropped: [], thoughtsDropped: [] };
+        const guarded = window.GroupIdentityGuard ? window.GroupIdentityGuard.sanitize(arr, members, herNameIn(groupId)) : { items: arr, dropped: [], thoughtsDropped: [] };
         // ⚠️自发那一轮的条数上限【原来只写在提示词里】（"一次产出 n~m 条"）——那只降概率。
         //   模型多写几条，下面这个循环照单全收，她设的「自发总条数上限」就成了摆设
         //   （她 2026-09-10：「群自发聊天怎么感觉停不下来了，都超了限制还在发」）。
@@ -17209,8 +17561,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           }
           if (item.text) _gSaidRun += " " + item.text;   // 后面的人要能看见TA刚说的
           const gTurnId = "gt_" + gRoundTs + "_" + i;
+          // 角色起一条接龙：一轮只认第一个，今天记一笔
+          if (spk && item.chainStart && typeof item.chainStart === "object" && String(item.chainStart.topic || "").trim() && String(item.chainStart.first || "").trim() && !groupSpectating(group)) {
+            const _cd = new Date(typeof vclockNow === "function" ? vclockNow() : Date.now()).toDateString(), _g1 = (groupsRef.current || []).find(x => x && x.id === groupId) || group;
+            if (chainStartOk(groupChatsRef.current[groupId] || [], _g1 && _g1.chainStartDay, _cd)) {
+              const _card = { role: "assistant", kind: "spacebot", bot: "chain", senderId: spk.id, senderName: spk.name, startedBy: spk.name, topic: String(item.chainStart.topic).trim().slice(0, 40), items: [{ who: spk.id, name: spk.name, text: String(item.chainStart.first).trim().slice(0, 80), ts: Date.now() }], content: "[接龙] " + String(item.chainStart.topic).trim().slice(0, 40), ts: Date.now(), read: false };
+              groupChatsRef.current[groupId] = [...(groupChatsRef.current[groupId] || []), _card];
+              pGChat(groupId, p => [...p, _card]);
+              updateGroup(groupId, { chainStartDay: _cd });
+              if (_g1) _g1.chainStartDay = _cd;
+            }
+          }
+          // 接龙接一棒（频道小活动机器人那张卡）
+          if (spk && item.chain && typeof item.chain === "object" && String(item.chain.text || "").trim()) {
+            const _ch = chainAppend(groupChatsRef.current[groupId] || [], spk.id, spk.name, item.chain.text);
+            if (_ch) pGChat(groupId, p => p.map((m, k) => k === _ch.idx ? _ch.msg : m));
+          }
           if (spk && item.whisper && typeof item.whisper === "object" && String(item.whisper.text || "").trim()) {
-            const _wTo = String(item.whisper.to || "").trim(), _un = userName(profile);
+            const _wTo = String(item.whisper.to || "").trim(), _un = herNameIn(groupId);
             const _wc = members.find(c => c && c.id !== spk.id && (c.name === _wTo || c.remark === _wTo));
             const _toMe = !_wc && _wTo && (_wTo === _un || /^(我|她|你|用户)$/.test(_wTo));
             if (_wc || _toMe) {
@@ -17412,7 +17780,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               //   同一个气泡重报不会堆重复；标题写群名，正文带上是谁说的。
               if (window.Notify && window.Notify.groupBubble) window.Notify.groupBubble({
                 title: (group && group.name) || "群聊",
-                body: (spk.name ? spk.name + "：" : "") + gBubbles[j],
+                // 树洞里锁屏通知也只露代号（她 2026-11-21 截图：锁屏上还是真名）
+                body: (spk.name ? chAnonName(group, groupChatsRef.current[groupId], spk.id, spk.name) + "：" : "") + gBubbles[j],
                 chatKey: "g:" + groupId, turnId: gTurnId, bubbleId: "word-" + i + "-" + j,
                 groupId: groupId
               });
@@ -17420,8 +17789,141 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           }
           // 他们自己掷骰子／抽签（她 2026-11-19「群里他们不能发起骰子和抽签吗」）：跟她「+」里那颗同一张卡，结果手机现掷。
           //   先收着，整轮发完再摆在最底下（她 2026-11-19 两张截图：先是跑到「那我真扔了啊」前面，后来夹在别人的话中间）
+          // 频道文件：他在这条里新建／改了一份文档（她 2026-11-20）。写进频道文件、记一笔历史，群里冒一行「某某 编辑了《名》」，点了打开那份
+          if (group && group.spaceId && item.file && typeof item.file === "object" && spk && String(item.file.name || "").trim()) {
+            try {
+              const _fs0 = loadJSON("x_chfiles:" + groupId, []);
+              const _isNew = !_fs0.some(f => f && f.kind === "doc" && String(f.name).trim() === String(item.file.name).trim());
+              if (_isNew && !chfCanCharCreate(_fs0, ts => { const _d = new Date(typeof vclockMap === "function" ? vclockMap(ts) : ts); return _d.getFullYear() + "-" + _d.getMonth() + "-" + _d.getDate(); }, Date.now())) throw new Error("今天新建满了");
+              const _cur0 = (_fs0.find(f => f && f.kind === "doc" && String(f.name).trim() === String(item.file.name).trim()) || {}).text || "";
+              const r0 = chfApplyDoc(_fs0, item.file.name, chfPatchText(_cur0, item.file), spk.id);
+              if (r0.op) { saveJSON("x_chfiles:" + groupId, r0.files); setChFilesRev(v => v + 1);
+                _gLuck.push({ role: "system", kind: "chfile", fileId: r0.file.id, senderId: spk.id, content: spk.name + (r0.op === "create" ? " 新建了" : " 编辑了") + "《" + r0.file.name + "》" }); }
+            } catch (e) {}
+          }
+          // 换一句挂在名字底下的状态：一人一天三回，所有空间共用一份；频道里留一行淡的「某某 把状态改成了…」
+          if (group && group.spaceId && spk && group.chKind !== "treehole" && item.status && typeof item.status === "object") {
+            try {
+              const _sAll = loadJSON(CHAR_STATUS_KEY, {}) || {}, _dk = dayKeyNow();
+              if (charStatusCanSet(_sAll, spk.id, _dk)) {
+                const r = charStatusSet(_sAll, spk.id, item.status, _dk, Date.now());
+                if (r.changed) { saveJSON(CHAR_STATUS_KEY, r.all); _gLuck.push({ role: "system", kind: "chlink", toGid: groupId, senderId: spk.id, content: spk.name + " 把状态改成了「" + charStatusLabel(r.all[spk.id]) + "」" }); }
+              }
+            } catch (e) {}
+          }
+          // 频道里一起摆弄的小东西（她 2026-11-20「1-7都可以做」）：表情回应、改名、置顶、便利贴、歌单、小账本、养的东西
+          if (group && group.spaceId && spk && (item.react || item.rename || item.pin || item.unpin || item.note || item.scribble || item.tear || item.song || item.skip || item.ledger || item.settle || item.care || item.petName || item.petKind || item.plan || item.planDone)) {
+            try {
+              const _st = chpOf(groupId), _ms = groupChatsRef.current[groupId] || [], _sp = (spaces || []).find(x => x && x.id === group.spaceId), _spect = groupSpectating(group);
+              const _idOf = n => { const t = String(n || "").trim(); if (!t) return ""; if (t === herNameIn(groupId) || t === "她" || t === "我们的她") return "me"; const c = members.find(x => x.name === t || x.remark === t); return c ? c.id : t; };
+              const _say = txt => _gLuck.push({ role: "system", kind: "chlink", toGid: groupId, senderId: spk.id, content: txt });
+              if (item.react && typeof item.react === "object") { const k = chpFindMsg(_ms, item.react.quote, 20), em = String(item.react.emoji || "").trim(); if (k >= 0 && em) pGChat(groupId, p => p.map((m, j) => j === k ? chpReactMsg(m, spk.id, em) : m)); }
+              if (item.rename && typeof item.rename === "object" && !_spect && chpCount(_st, "rename") < CHP_CAP.rename && _sp) {
+                const nn = String(item.rename.name || "").replace(/^#+/, "").trim().slice(0, 16), ab = String(item.rename.about || "").trim().slice(0, 120), g0 = (groupsRef.current || []).find(x => x.id === groupId) || group;
+                if (nn && nn !== g0.chName) { renameGroup(groupId, channelGroupName(_sp, nn), spk.id); updateGroup(groupId, { chName: nn }); _say(spk.name + " 把频道名改成了 #" + nn); chpBump(_st, "rename"); }
+                if (ab && ab !== g0.chAbout) { updateGroup(groupId, { chAbout: ab }); _say(spk.name + " 把这里聊什么改成了「" + ab + "」"); if (!nn) chpBump(_st, "rename"); }
+              }
+              if (item.pin && typeof item.pin === "object") { const k = chpFindMsg(_ms, item.pin.quote, 40); if (k >= 0) { chpPin(_st, _ms[k], spk.id); _say(spk.name + " 置顶了一句"); } }
+              if (item.unpin && typeof item.unpin === "object") { const q = String(item.unpin.quote || "").trim(), pp = q && _st.pins.find(x => x.text.indexOf(q) >= 0); if (pp) { chpUnpin(_st, pp.key); _say(spk.name + " 取消了一条置顶"); } }
+              if (item.note && typeof item.note === "object" && chpCount(_st, "note") < CHP_CAP.note && String(item.note.text || "").trim()) { chpNoteAdd(_st, item.note.text, spk.id); chpBump(_st, "note"); _say(spk.name + " 往墙上贴了张便利贴"); }
+              if (item.scribble && typeof item.scribble === "object") { const _nb = JSON.stringify(_st.notes); chpScribble(_st, item.scribble.on, item.scribble.text, spk.id); if (JSON.stringify(_st.notes) !== _nb) _say(spk.name + " 在墙上一张便利贴上写了一句"); }
+              if (item.tear && typeof item.tear === "object") { const n0 = _st.notes.length; chpTear(_st, item.tear.quote, spk.id, Date.now()); if (_st.notes.length < n0) _say(spk.name + " 撕掉了一张便利贴"); }
+              if (item.song && typeof item.song === "object" && chpCount(_st, "song") < CHP_CAP.song) { const n0 = _st.playlist.length; chpSongAdd(_st, item.song.title, item.song.artist, spk.id); if (_st.playlist.length > n0) { chpBump(_st, "song"); _say(spk.name + " 往歌单里加了《" + String(item.song.title).slice(0, 30) + "》"); } }
+              if (item.skip) { const tt = typeof item.skip === "object" ? item.skip.title : ""; chpSkipVote(_st, tt || (((chListenOf(groupId) || {}).song) || {}).title, spk.id); }
+              if (item.ledger && typeof item.ledger === "object") { const _py = _idOf(item.ledger.payer) || spk.id, _pr = chLedgerPay(groupId, _py, item.ledger.amount, item.ledger.for);
+                if (!_pr.skip && _pr.amount > 0) { const n0 = _st.ledger.length; chpLedgerAdd(_st, { payer: _py, amount: _pr.amount, for: item.ledger.for, among: (Array.isArray(item.ledger.among) ? item.ledger.among : []).map(_idOf).filter(Boolean), by: spk.id, moneyMoved: true });
+                  if (_st.ledger.length > n0) _say(spk.name + " 记了一笔账：" + (_py === "me" ? "你" : (((characters || []).find(c => c.id === _py) || {}).name || "有人")) + " 付了 ¥" + _pr.amount + (_pr.capped ? "（钱包里只剩这么多）" : "") + "，从钱包里扣了"); } }
+              if (item.settle && typeof item.settle === "object") { const f = _idOf(item.settle.from), t2 = _idOf(item.settle.to);
+                if (f && t2) { chpPut(groupId, _st); const _nm = id => id === "me" ? "你" : (((characters || []).find(c => c.id === id) || {}).name || "有人"); const _r = chLedgerSettle(groupId, f, t2, _nm);
+                  Object.assign(_st, chpOf(groupId)); if (_r && _r.amount > 0) _say(spk.name + " 记下：" + _nm(_r.from) + " 还了 " + _nm(_r.to) + " ¥" + _r.amount + (_r.short ? "，钱不够，还差一点没还完" : "，结清了")); else if (_r) _say(spk.name + " 记下：两个人这笔结清了"); } }
+              if (item.care && _st.pet && chpCount(_st, "care", spk.id) < 1) { _st.pet = chpCare(_st.pet, typeof item.care === "object" ? item.care.action : item.care, spk.id, Date.now()); chpBump(_st, "care", spk.id); _say(spk.name + " 去照顾了「" + _st.pet.name + "」"); }
+              // 给养的起名（她 2026-11-20「花调用让大家选一个」）：还没定名的时候，谁先把大家挑好的那个写进来就定下
+              if (item.petKind && _st.pet && _st.pet.kindPending) { const _pk = String(typeof item.petKind === "object" ? item.petKind.kind : item.petKind || "").trim().slice(0, 16);
+                if (_pk) { _st.pet = { ..._st.pet, kind: _pk, kindPending: false }; _say(spk.name + " 说大家决定养" + _pk); } }
+              // 约定（她 2026-11-20）：他们定的写进空间约定，一天最多三个；planDone 照标题认（逐字或包含）
+              if ((item.plan || item.planDone) && !groupSpectating(group)) {
+                const _pk = "x_spacePlans:" + group.spaceId, _pl = loadJSON(_pk, []) || [], _now = typeof vclockNow === "function" ? vclockNow() : new Date();
+                if (item.plan && typeof item.plan === "object") {
+                  const _ti = String(item.plan.title || "").trim().slice(0, 40), _w = planParseWhen(item.plan.when, _now);
+                  const _cnt = _pl.filter(p => p && p.by && p.by !== "me" && p.ts && new Date(p.ts).toDateString() === new Date().toDateString()).length;
+                  if (_ti && _w && _cnt < 3 && !_pl.some(p => p && !p.done && p.title === _ti && p.date === _w.date)) {
+                    const _who = (Array.isArray(item.plan.who) ? item.plan.who : []).map(n => { const c = members.find(x => x && (x.name === n || x.remark === n)); return c ? c.id : null; }).filter(Boolean);
+                    _pl.push({ id: "pl_" + Date.now() + "_" + Math.floor(Math.random() * 1000), title: _ti, date: _w.date, time: _w.time || "", who: _who, by: spk.id, ts: Date.now(), done: false, gid: groupId });
+                    saveJSON(_pk, _pl); setSpacePlanRev(v => v + 1); _say(spk.name + " 记下了约定：" + _ti + "（" + _w.date + (_w.time ? " " + _w.time : "") + "）");
+                  }
+                }
+                if (item.planDone) { const _q = String(typeof item.planDone === "object" ? item.planDone.title : item.planDone || "").trim();
+                  const _hit = _q && _pl.find(p => p && !p.done && (p.title === _q || p.title.indexOf(_q) >= 0 || _q.indexOf(p.title) >= 0));
+                  if (_hit) { _hit.done = true; saveJSON(_pk, _pl); setSpacePlanRev(v => v + 1); _say(spk.name + " 把「" + _hit.title + "」标成做完了"); } }
+              }
+              if (item.petName && _st.pet && _st.pet.naming) { const _pn = String(typeof item.petName === "object" ? item.petName.name : item.petName || "").trim().slice(0, 12);
+                if (_pn) { _st.pet = { ..._st.pet, name: _pn, naming: false }; _say(spk.name + " 说大家定了，它就叫「" + _pn + "」"); } }
+              chpPut(groupId, _st);
+            } catch (e) {}
+          }
+          // 他换到别的频道接着说（她 2026-11-20）：那几句真落进那个频道（那边记未读），这边留一行「某某 去了 #频道」，点了过去
+          if (group && group.spaceId && item.hop && typeof item.hop === "object" && spk) {
+            try {
+              const sibs0 = spaceSibs(groupId), tg = chHopPick(chHopTargets(sibs0.find(x => x && x.id === groupId), sibs0, spk.id, id => channelNoMem(id) || (id !== groupId && chClosedNow(id))), item.hop.to);
+              const ls0 = (Array.isArray(item.hop.lines) ? item.hop.lines : [item.hop.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, 4);
+              if (tg && ls0.length) {
+                const t0 = Date.now(), from0 = (group.chName || group.name || "");
+                pGChat(tg.id, p => [...p, { role: "system", kind: "chlink", toGid: groupId, content: spk.name + " 从 #" + from0 + " 过来", ts: t0 },
+                  ...ls0.map((x, k) => ({ role: "assistant", senderId: spk.id, senderName: spk.name, content: x, ts: t0 + 1 + k }))]);
+                setUnreadMap(p => { const n = { ...p, [tg.id]: (p[tg.id] || 0) + ls0.length }; saveJSON("x_unread", n); return n; });
+                _gLuck.push({ role: "system", kind: "chlink", toGid: tg.id, senderId: spk.id, content: spk.name + " 去了 #" + tg.chName });
+              }
+            } catch (e) {}
+          }
+          // 他回进某一串（楼中楼）：根得是主线最近真说过的那条
+          if (group && group.spaceId && !_subRoot && item.sub && typeof item.sub === "object" && spk) {
+            try {
+              const hitS = subRootHit(item.sub.root, groupChatsRef.current[groupId] || []), txS = String(item.sub.text || "").trim();
+              if (hitS && txS) pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, content: txS.slice(0, 500), replyRoot: subRootKey(hitS), ts: Date.now(), turnId: gTurnId }]);
+            } catch (e) {}
+          }
+          // 他赌气退出这个频道：真从名单里拿掉，记下为什么；三天里只退一回
+          if (group && group.spaceId && !_subRoot && !groupSpectating(group) && item.leave && typeof item.leave === "object" && spk) {
+            try {
+              const g0 = (groupsRef.current || []).find(x => x && x.id === groupId) || group, nowL = Date.now();
+              if (chLeaveOk(g0, spk.id, nowL)) {
+                const why0 = String(item.leave.why || "").trim().slice(0, 60);
+                updateGroup(groupId, { memberIds: (g0.memberIds || []).filter(id => id !== spk.id), chLeft: { ...(g0.chLeft || {}), [spk.id]: { ts: nowL, why: why0 } }, chLeftLog: { ...(g0.chLeftLog || {}), [spk.id]: nowL } });
+                _gLuck.push({ role: "system", kind: "chlink", toGid: groupId, senderId: spk.id, content: spk.name + " 退出了 #" + (group.chName || group.name || "") });
+              }
+            } catch (e) {}
+          }
+          // 他把一句收进精华（她 2026-11-20）：得是这个频道最近真说过的话；一个频道一天他们自己只提一回
+          if (group && group.spaceId && item.gem && typeof item.gem === "object" && spk) {
+            try {
+              const gl0 = loadJSON(gemKey(group.spaceId), []) || [], hit0 = gemQuoteHit(item.gem.quote, groupChatsRef.current[groupId] || []);
+              if (hit0 && gemDayOk(gl0, groupId, dayKeyNow()) && addGem(group.spaceId, groupId, hit0, spk.id, item.gem.why))
+                _gLuck.push({ role: "system", kind: "chlink", toGems: group.spaceId, senderId: spk.id, content: spk.name + " 把一句收进了精华" });
+            } catch (e) {}
+          }
+          // 他自己开了个频道（她 2026-11-20）：真开出来（chNewCheck 管上限、一天几个、重名），拉上点名的人，第一两句落进去，这边留一行点了过去
+          if (group && group.spaceId && item.newChannel && typeof item.newChannel === "object" && spk && !channelNoMem(groupId) && !group.chSolo) {
+            try {
+              const sp1 = (spaces || []).find(x => x && x.id === group.spaceId), nc = item.newChannel, dk = dayKeyNow();
+              const nm1 = String(nc.name || "").trim().replace(/^#+/, "").slice(0, 16);
+              if (sp1 && nm1 && chNewCheck(sp1, spaceSibs(), nm1, dk)) {
+                const byName = n => { const k = String(n || "").trim(); return (sp1.memberIds || []).find(id => { const c = characters.find(x => x.id === id); return c && (c.name === k || c.remark === k); }); };
+                const mem1 = [...new Set([spk.id, ...(Array.isArray(nc.members) ? nc.members : []).map(byName).filter(Boolean)])].filter(id => (sp1.memberIds || []).includes(id));
+                const ng = createChannel(sp1, nm1, String(nc.about || "").trim().slice(0, 120), mem1.length ? mem1 : [spk.id]);
+                const cat1 = chCatOf(sp1.cats, nc.cat);
+                updateGroup(ng.id, { createdBy: spk.id, ...(cat1 ? { chCat: cat1 } : {}) });
+                saveSpaces(p => p.map(x => x.id === sp1.id ? { ...x, newChDay: { d: dk, n: ((x.newChDay || {}).d === dk ? ((x.newChDay || {}).n || 0) : 0) + 1 } } : x));
+                const ls1 = (Array.isArray(nc.lines) ? nc.lines : [nc.lines]).map(x => String(x || "").trim()).filter(Boolean).slice(0, 3);
+                const t1 = Date.now();
+                pGChat(ng.id, p => [...p, { role: "system", kind: "chlink", toGid: groupId, content: spk.name + " 开了这个频道（从 #" + (group.chName || group.name || "") + " 过来）", ts: t1 },
+                  ...ls1.map((x, k) => ({ role: "assistant", senderId: spk.id, senderName: spk.name, content: x, ts: t1 + 1 + k }))]);
+                if (ls1.length) setUnreadMap(p => { const n = { ...p, [ng.id]: (p[ng.id] || 0) + ls1.length }; saveJSON("x_unread", n); return n; });
+                _gLuck.push({ role: "system", kind: "chlink", toGid: ng.id, senderId: spk.id, content: spk.name + " 开了 #" + nm1 });
+              }
+            } catch (e) {}
+          }
           if (item.luck && typeof item.luck === "object" && spk) {
-            const L0 = item.luck, me0 = userName(profile);
+            const L0 = item.luck, me0 = herNameIn(groupId);
             if (L0.type === "dice") {
               const n0 = Math.max(1, Math.min(3, Number(L0.n) || 1)), vals = Array.from({ length: n0 }, () => 1 + Math.floor(Math.random() * 6));
               _gLuck.push({ role: "assistant", senderId: spk.id, senderName: spk.name, kind: "luck", luck: { type: "dice", vals, by: spk.name },
@@ -17717,7 +18219,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   一条消息里的图只认两样：她发的真照片 imageRef（iv_ 图库键），他拍的 imgKey（img_ 键）。
   //   ⚠️iv_ 是按内容存的，同一张图设成过壁纸／头像就是同一把键——那份像素不删，只拿掉消息和照片库那一行；
   //   img_ 是一条消息一把，连像素（和 _raw 原图）一起删。
-  const msgImgRefs = m => m ? [m.imageRef, m.imgKey].filter(x => typeof x === "string" && x) : [];
+  // 通话回执上的画面（shots）也算在用，不然删别的东西时会顺手把它们当没人要的清掉
+  const msgImgRefs = m => m ? [m.imageRef, m.imgKey, ...(Array.isArray(m.shots) ? m.shots : [])].filter(x => typeof x === "string" && x) : [];
   // skip：刚删掉的那几条（状态还没落地，别把它们算成「还在用」）
   const imgStillUsed = (ref, skip) => {
     const uses = l => (l || []).some(m => !(skip && skip.has(m)) && msgImgRefs(m).indexOf(ref) >= 0);
@@ -17735,9 +18238,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 相册那两页的「删」：用到这几张的消息（单聊／小房间、群聊、线下、群线下）一起删掉，再删图
   const purgeImages = async refs => {
     const R = new Set((refs || []).filter(Boolean).map(String)); if (!R.size) return 0;
-    const hit = m => msgImgRefs(m).some(x => R.has(x));
+    // 通话回执只是挂着几张画面：删图只摘掉那几张，整张回执（转录）留着
+    const hit = m => m && [m.imageRef, m.imgKey].some(x => typeof x === "string" && R.has(x));
+    const unshot = p => p.map(m => m && Array.isArray(m.shots) && m.shots.some(x => R.has(x)) ? { ...m, shots: m.shots.filter(x => !R.has(x)) } : m);
     let n = 0;
     chatShrinkOk();
+    Object.keys(chatsRef.current || {}).forEach(k => { if ((chatsRef.current[k] || []).some(m => m && Array.isArray(m.shots) && m.shots.some(x => R.has(x)))) pChat(k, unshot); });
+    Object.keys(groupChatsRef.current || {}).forEach(k => { if ((groupChatsRef.current[k] || []).some(m => m && Array.isArray(m.shots) && m.shots.some(x => R.has(x)))) pGChat(k, unshot); });
     Object.keys(chatsRef.current || {}).forEach(k => { const c = (chatsRef.current[k] || []).filter(hit).length; if (c) { n += c; pChat(k, p => p.filter(m => !hit(m))); } });
     Object.keys(groupChatsRef.current || {}).forEach(k => { const c = (groupChatsRef.current[k] || []).filter(hit).length; if (c) { n += c; pGChat(k, p => p.filter(m => !hit(m))); } });
     const inSess = ss => (ss || []).some(se => ((se && se.msgs) || []).some(hit));
@@ -17811,7 +18318,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       pollId,
       title: t,
       anon: !!anon,
-      by: char ? char.name : (gsFor(groupId).spectate ? "旁白" : profile.name || "我"),
+      by: char ? char.name : (gsFor(groupId).spectate ? "旁白" : herNameIn(groupId) || "我"),
       options: opts.map(o => ({
         text: o,
         voters: []
@@ -17848,7 +18355,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const settleGroupAsk = (groupId, pollId) => {
     const poll = groupPoll(groupId, pollId);
     if (!poll || !poll.ask || poll.askResult || !poll.askVoted) return;
-    const me = profile.name || "我";   // 跟 onVote 落票时同一个名字
+    const me = herNameIn(groupId) || "我";   // 跟 onVote 落票时同一个名字
     const tl = AskSlip.tally(poll);
     if (poll.role !== "user" && tl.yes.indexOf(me) < 0 && tl.no.indexOf(me) < 0) return;
     const amt = AskSlip.amountOf(poll.ask.amount), what = String(poll.ask.what || "").slice(0, 20);
@@ -18014,7 +18521,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       kind: "redpacket",
       rpId: rpId,
       byMe: true,
-      by: profile.name || "我",
+      by: herNameIn(groupId) || "我",
       toId: to ? to.id : null,
       toName: to ? (to.remark || to.name) : "",
       total: a,
@@ -18052,7 +18559,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         gKickedRef.current[groupId] = ["me"];
         updateGroup(groupId, { roomKind: "spectate" });
         saveGroupSettings(groupId, { spectate: true });
-        line(spk.name + " 把 " + userName(profile) + " 移出了群聊");
+        line(spk.name + " 把 " + herNameIn(groupId) + " 移出了群聊");
         toast("你被 " + spk.name + " 移出了群聊 · 群设置里点「回到群里」就能回去");
       }
     }
@@ -18079,7 +18586,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     // 群主封头衔／撤头衔
     if (item.title && typeof item.title === "object" && groupRoleOf(gs0, spk.id) === "owner") {
-      const tg = String(item.title.name || "") === userName(profile) && imInGroup((groupsRef.current || []).find(x => x.id === groupId)) ? { id: "me", name: userName(profile) } : pickMember(members, item.title.name);
+      const tg = String(item.title.name || "") === herNameIn(groupId) && imInGroup((groupsRef.current || []).find(x => x.id === groupId)) ? { id: "me", name: herNameIn(groupId) } : pickMember(members, item.title.name);
       if (tg) {
         const tx = String(item.title.text || "").replace(/[「」"“”]/g, "").trim().slice(0, 12);
         const was = groupTitleOf(gsFor(groupId), tg.id);
@@ -18126,7 +18633,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const to = (() => {
       const nm = String(toId == null ? "" : toId).trim();
       if (!nm) return null;
-      if (nm === (profile.name || "我") || nm === "我" || nm === "用户") return { id: "me", name: profile.name || "我" };
+      if (nm === (profile.name || "我") || nm === "我" || nm === "用户") return { id: "me", name: herNameIn(groupId) || "我" };
       const g0 = groups.find(x => x.id === groupId);
       const ids = (g0 && g0.memberIds) || [];
       const c = characters.find(x => ids.indexOf(x.id) >= 0 && x.id !== char.id && (x.name === nm || x.remark === nm));
@@ -18158,7 +18665,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 我领红包：角色发的能领，我自己发的也能领（她 2026-10-31：「自己发的自己可以抢吧，应该是三秒后他们抢」）——
   //   跟微信群一样，发的人自己也能点开抢一个；角色照旧三秒后开抢
   const claimRedPacket = (groupId, msgIdx) => {
-    const meName = profile.name || "我";
+    const meName = herNameIn(groupId) || "我";
     const rp = (groupChatsRef.current[groupId] || [])[msgIdx];
     if (!rp || rp.kind !== "redpacket") return null;
     // 专属红包：点名给别人的，她碰不到（"me" 才是给她的）
@@ -18365,7 +18872,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const g = (groupsRef.current || []).find(x => x.id === groupId);
     if (!g) return null;
     const mem = (g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
-    const imIn = imInGroup(g), me = userName(profile);
+    const imIn = imInGroup(g), me = herNameIn(groupId);
     const hist = (groupChatsRef.current[groupId] || []).filter(m => m && m.content && m.role !== "system").slice(-40)
       .map(m => (m.role === "user" ? me : (m.senderName || "")) + "：" + String(m.content).slice(0, 80)).join("\n");
     try {
@@ -18931,6 +19438,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const nm = String(name || "").trim().slice(0, 30) || "小房间";
     const par = kind === "parallel";
     const g = { ...parent, id: "g_" + Date.now(), name: nm, roomOf: parent.id, createdTs: Date.now(), ...(par ? { parallel: true } : {}) };
+    // 频道开的小房间不是新频道（她 2026-11-20「空间单独还是可以继续开小房间对吧」）：频道那几格不跟着抄，不然它会以同名频道出现在频道列表里
+    ["spaceId", "chName", "chAbout", "chKind", "chCat", "chOrder", "chSolo", "chShareMembers", "chArchived", "chHours", "chHidden", "chLeft", "chLeftLog", "thAlias"].forEach(k => { delete g[k]; });
     groupsRef.current = [...(groupsRef.current || []), g];   // 建完马上就会生成，别等下一次渲染才认得它是平行房间
     setGroups(p => { const n = [...p, g]; saveJSON("x_groups", n); return n; });
     // 主群自己这条聊天的进度（总结到哪、公告、禁言）不抄，房间从头开始
@@ -18941,6 +19450,407 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setScreen("gthread");
     toast("开了一间「" + nm + "」");
     return g;
+  };
+  // ── 频道 ──────────────────────────────────────────────────────────
+  //   频道就是一个普通的群，多挂 spaceId / chName / chAbout 三格；群的名字写成「空间名 · #频道名」，
+  //   这样群记忆的 tag、调用记录、提醒里认得出是哪个频道。建、改、删都走群原来那几条路。
+  const saveSpaces = fn => setSpaces(p => { const n = fn(p); saveJSON("x_spaces", n); return n; });
+  const channelGroupName = (sp, ch) => String((sp && sp.name) || "频道").slice(0, 12) + " · #" + String(ch || "").slice(0, 10);
+  // 频道「不影响记忆」（她 2026-11-20「我要是想开一个完全不影响记忆的频道」）＝这个群的「记忆互通」关着。
+  //   不另造一套：闭群那一路早就管着不进记忆库、不动好感、不写印象卡、不往别处喂（groupClosed / memoryInterop），
+  //   这里只是把那个开关摆到频道上；关着的频道在 spaceChannelBlock 里也当不互通（看不到别处，别处也看不到它）。
+  const channelNoMem = gid => !gsFor(gid).memoryInterop;
+  // originId：站在哪个频道看——面具不同的频道当成不互通（她 2026-11-20：换了面具就是另一个「她」，两边不串）
+  const spaceSibs = originId => { const om = originId ? groupMaskKey(originId) : null;
+    // 以前从频道开出来的小房间身上还抄着 spaceId：它不是频道，摘掉
+    return (groupsRef.current || []).map(x => x && x.roomOf && x.spaceId ? { ...x, spaceId: null } : x).map(x => { if (!x || !x.spaceId) return x;
+      const off = (channelNoMem(x.id) && !x.chSolo) || (om != null && x.id !== originId && groupMaskKey(x.id) !== om);
+      return off ? { ...x, chSolo: true, chShareMembers: false } : x; }); };
+  const chMaskSame = (a, b) => groupMaskKey(a) === groupMaskKey(b);
+  const dayKeyNow = () => { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
+  const createChannel = (sp, chName, chAbout, memberIds, noMem) => {
+    const g = { id: "g_" + Date.now() + "_" + Math.floor(Math.random() * 1000), name: channelGroupName(sp, chName), memberIds: (memberIds || []).slice(), roomKind: "group", namedBy: "me",
+      createdTs: Date.now(), spaceId: sp.id, chName: String(chName || "").slice(0, 16), chAbout: String(chAbout || "").slice(0, 120) };
+    groupsRef.current = [...(groupsRef.current || []), g];
+    setGroups(p => { const n = [...p, g]; saveJSON("x_groups", n); return n; });
+    // 频道是同一群人的分支：默认互通记忆；勾了「不影响记忆」的才关着
+    saveGroupSettingsRaw(g.id, { memoryInterop: !noMem });
+    return g;
+  };
+  // 空间里直接见一面（她 2026-11-20「我是说这里可以直接线下」）：每个空间一个藏起来的东道群（chKind:"meet"），
+  //   挂 chArchived 让换频道、开频道、让他们聊、挑群转发、别的频道的动态都绕开它，chHidden 让频道列表和消息列表都不列它；
+  //   这一场只有她勾的人在场——走群线下原有的 present（邀约那一场就是这么只放答应了的人进来）
+  const spaceMeetHost = (sp, make) => {
+    const g0 = (groupsRef.current || []).find(g => g && g.spaceId === sp.id && g.chKind === "meet");
+    if (g0 || !make) return g0 || null;
+    const g = createChannel(sp, "见面", "空间里的人出去见面的地方", sp.memberIds || []);
+    const g2 = { ...g, chKind: "meet", chHidden: true, chArchived: true };
+    groupsRef.current = (groupsRef.current || []).map(x => x && x.id === g.id ? g2 : x);
+    setGroups(p => { const n = p.map(x => x && x.id === g.id ? g2 : x); saveJSON("x_groups", n); return n; });
+    return g2;
+  };
+  const startSpaceMeet = async (sp, ids, note) => {
+    const host = spaceMeetHost(sp, true);
+    const want = (ids || []).filter(Boolean);
+    const all = [...new Set([...(host.memberIds || []), ...(sp.memberIds || [])])];
+    if (all.length !== (host.memberIds || []).length) { updateGroup(host.id, { memberIds: all }); host.memberIds = all; groupsRef.current = (groupsRef.current || []).map(x => x && x.id === host.id ? { ...x, memberIds: all } : x); }
+    openGroupOffline(host);
+    await startGroupOffline(host.id, { opening: note || "", present: want, _host: host });
+  };
+  // 空间里最近一次见面（两天内）：各频道的人知道谁和她出去见过
+  const spaceMeetMaskOk = g => { const _h = (groupsRef.current || []).find(x => x && x.spaceId === g.spaceId && x.chKind === "meet"); return !_h || chMaskSame(_h.id, g.id); };
+  const spaceMeetLine = spaceId => {
+    const host = (groupsRef.current || []).find(g => g && g.spaceId === spaceId && g.chKind === "meet");
+    if (!host) return "";
+    const s0 = (loadJSON("x_goffline:" + host.id, []) || []).filter(x => x && x.startTs && Date.now() - (x.endTs || x.startTs) < 2 * 86400000).sort((a, b) => (b.startTs || 0) - (a.startTs || 0))[0];
+    if (!s0) return "";
+    const nm = id => { const c = (characters || []).find(x => x && x.id === id); return c ? (c.remark || c.name) : ""; };
+    const who = (s0.present || host.memberIds || []).map(nm).filter(Boolean);
+    return who.length ? "\n【最近见过面】" + who.join("、") + " 和 " + userName(profile) + (s0.endTs ? " 前不久" : " 这会儿正") + "出去见了一面" + (s0.datePlace ? "（" + s0.datePlace + "）" : "") + "。" : "";
+  };
+  const spaceMeetLog = sp => {
+    const host = (groupsRef.current || []).find(g => g && g.spaceId === sp.id && g.chKind === "meet");
+    if (!host) return [];
+    const nm = id => { const c = (characters || []).find(x => x && x.id === id); return c ? (c.remark || c.name) : ""; };
+    return (loadJSON("x_goffline:" + host.id, []) || []).filter(x => x && x.startTs).sort((a, b) => (b.startTs || 0) - (a.startTs || 0)).map(x => {
+      const d = new Date(x.startTs), first = ((x.msgs || []).find(m => m && m.content && m.role !== "user") || (x.msgs || [])[0] || {}).content || "";
+      return { id: x.id, date: (d.getMonth() + 1) + "月" + d.getDate() + "日", who: (x.present || host.memberIds || []).map(nm).filter(Boolean).join("、"), line: String(x.summary || first).replace(/\s+/g, " ").slice(0, 60), open: !x.endTs };
+    });
+  };
+  const createSpace = (name, memberIds) => {
+    const sp = { id: "sp_" + Date.now(), name: String(name || "").slice(0, 24), memberIds: (memberIds || []).slice(), ts: Date.now() };
+    saveSpaces(p => [...p, sp]);
+    createChannel(sp, "综合", "什么都可以聊", sp.memberIds);
+    setNewSpaceOpen(false);
+    setActiveSpaceId(sp.id);
+    setScreen("space");
+    toast("「" + sp.name + "」建好了，先有一个 #综合");
+  };
+  // 给频道里养的拍一张（她 2026-11-20）：跟购物「画一张」同一条生图路；第一张定成它的样子，以后拿它当参照，免得每次长得不一样。
+  //   存 img_chf_pet_…，同时放进频道文件的图片（图片栏里看得到、能拿到聊天里），卡片上摆最新那张
+  const [petShootingId, setPetShootingId] = useState("");
+  const shootChannelPet = async g => {
+    if (petShootingId) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    const st0 = chpOf(g.id), hr = (() => { try { return vclockNow().getHours(); } catch (e) { return new Date().getHours(); } })(), pet = chpPetNow(st0.pet, Date.now(), hr);
+    if (!pet) return;
+    setPetShootingId(g.id);
+    try {
+      const kind = pet.kind || "一只小动物";
+      const prompt = "一张手机随手拍的照片：大家一起养的「" + pet.name + "」，是" + kind + "。它此刻" + pet.doing + "。"
+        + (pet.band === "hungry" || pet.band === "sad" ? "看着有点蔫。" : pet.band === "sleepy" ? "光线偏暗，安安静静的。" : "看着精神。")
+        + "画面主体就是它和它待的地方，生活里真实的样子，没有人脸，画面里不要任何文字。";
+      let ref = null;
+      if (pet.lookRef) { try { const b0 = await idbImgGet(pet.lookRef); if (b0) ref = await blobToDataUrl(b0); } catch (e) {} }
+      const out = await generateSelfieImage(prompt + (ref ? "\n参考图是它之前的样子：同一个它，长相、颜色、花纹照参考图，只换此刻的状态和角度。" : ""), ref, { size: "1024x1024", still: true });
+      const blob = await imgOutBlob(out); if (!blob) throw new Error((out && out.err) || "没出图");
+      const key = "img_chf_pet_" + Date.now().toString(36);
+      await idbImgPut(key, blob);
+      const fk = "x_chfiles:" + g.id, now = Date.now();
+      saveJSON(fk, (loadJSON(fk, []) || []).concat([{ id: "chf_" + now + "_pet", kind: "image", name: pet.name + "的照片", imgKey: key, desc: "「" + pet.name + "」（" + kind + "）" + pet.doing, createdBy: "me", createdTs: now, updatedTs: now }]));
+      setChFilesRev(v => v + 1);
+      const s2 = chpOf(g.id);
+      if (s2.pet) { s2.pet = { ...s2.pet, lookRef: s2.pet.lookRef || key, photo: key, photos: (s2.pet.photos || []).concat([key]).slice(-12) }; chpPut(g.id, s2); }
+      toast("拍好了，图片栏里也有一张");
+    } catch (e) { toast("没拍成：" + String(e && e.message || e).slice(0, 60)); }
+    finally { setPetShootingId(""); }
+  };
+  // 和小家伙合照（她 2026-11-20「想要和小家伙合照咋弄」）：挑这张里有谁，各用自己的参照锁脸，它用定好的那张样子；拍完照她发照片那样落进频道
+  const petRefDataUrl = async pet => { if (!pet || !pet.lookRef) return null; try { const b0 = await idbImgGet(pet.lookRef); return b0 ? await blobToDataUrl(b0) : null; } catch (e) { return null; } };
+  const shootPetGroupPhoto = async (g, ids) => {
+    if (petShootingId) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    const st0 = chpOf(g.id), pet = chpPetNow(st0.pet, Date.now());
+    if (!pet) return;
+    const me = meOfGroup(g.id) || {}, meName = herNameIn ? herNameIn(g.id) : userName(profile);
+    const cast = (ids || []).map(id => id === "me" ? { ...me, id: "me", name: meName } : (characters || []).find(c => c && c.id === id)).filter(Boolean);
+    if (!cast.length) { toast("先挑这张里有谁"); return; }
+    setPetShootingId(g.id);
+    try {
+      const kind = pet.kind || "一只小动物", lead = cast.find(c => c.id !== "me") || cast[0];
+      const scene = "大家抱着／围着频道里一起养的「" + pet.name + "」（" + kind + "）拍的一张合照，它在画面里很显眼；" + pet.doing + "。";
+      const st = (statesRef.current || {})[lead.id] || {};
+      const prompt = buildPhotoPrompt(lead, scene, st, { kind: cast.length > 1 ? "group" : "self", cast: cast.length > 1 ? cast : null, closet: lead.id !== "me" ? closetTextFor(lead.id) : "" });
+      const pref = await petRefDataUrl(pet);
+      const refs = cast.map(c => c.refPhoto).filter(Boolean).concat(pref ? [pref] : []);
+      const out = await generateSelfieImage(prompt + (pref ? "\n最后一张参考图是「" + pet.name + "」之前的样子：同一个它，长相颜色照它。" : ""), refs.length ? refs : null, { minimalPrompt: buildMinimalPhotoPrompt(lead, { kind: cast.length > 1 ? "group" : "self", cast: cast.length > 1 ? cast : null }) });
+      const blob = await imgOutBlob(out); if (!blob) throw new Error((out && out.err) || "没出图");
+      const key = "img_chf_petg_" + Date.now().toString(36);
+      await idbImgPut(key, blob);
+      const now = Date.now(), who = cast.map(c => c.id === "me" ? meName : (c.remark || c.name)).join("、");
+      const desc = who + " 和「" + pet.name + "」（" + kind + "）的合照";
+      const fk = "x_chfiles:" + g.id;
+      saveJSON(fk, (loadJSON(fk, []) || []).concat([{ id: "chf_" + now + "_petg", kind: "image", name: pet.name + "的合照", imgKey: key, desc, createdBy: "me", createdTs: now, updatedTs: now }]));
+      setChFilesRev(v => v + 1);
+      // 聊天气泡认的是相册里的 iv_ 引用，图片栏那份 img_chf_ 是另一处存的：另存一份进相册再发（她 2026-11-21「小家伙里能显示，聊天里不行」）
+      let _ref = ""; try { _ref = await imgToVault(await blobToDataUrl(blob)); } catch (e) {}
+      if (String(_ref || "").indexOf("iv_") === 0) pGChat(g.id, p => [...p, { role: "user", kind: "photo", imageRef: _ref, photoMode: "real", desc, content: "[照片] " + desc, ts: now }]);
+      const s2 = chpOf(g.id); if (s2.pet) { s2.pet = { ...s2.pet, photo: key, photos: (s2.pet.photos || []).concat([key]).slice(-12) }; chpPut(g.id, s2); }
+      toast("合照拍好了，发进聊天里了");
+    } catch (e) { toast("没拍成：" + String(e && e.message || e).slice(0, 60)); }
+    finally { setPetShootingId(""); }
+  };
+  // 送走它（她 2026-11-20「什么时候养完或者换一种」）：收进「养过的」，频道里冒一行告别，再让大家接一轮
+  const sendOffChannelPet = (g, how) => {
+    const s2 = chpOf(g.id), p = chpPetNow(s2.pet, Date.now());
+    if (!p) return;
+    const fond = p.fondest ? (p.fondest === "me" ? "我" : (((characters || []).find(c => c.id === p.fondest) || {}).name || "")) : "";
+    s2.petsPast = (s2.petsPast || []).concat([{ name: p.name, kind: p.kind || "", from: p.born || p.ts || Date.now(), to: Date.now(), how: String(how || "送走了"), fondest: fond, photos: p.photos || [] }]).slice(-20);
+    s2.pet = null; chpPut(g.id, s2);
+    pGChat(g.id, q => [...q, { role: "system", kind: "chlink", toGid: g.id, content: "「" + p.name + "」" + String(how || "送走了") + "，它收进了「养过的」", ts: Date.now() }]);
+    window.__chPetBye = { gid: g.id, name: p.name, kind: p.kind || "", how: String(how || "送走了") };
+    setChannelTab("chat"); replyGroup(g.id);
+  };
+  const saveChannel = (sp, g, patch) => {
+    if (!g) { const ng = createChannel(sp, patch.chName, patch.chAbout, patch.memberIds, !!patch.chNoMem); if (patch.chIcon) updateGroup(ng.id, { chIcon: patch.chIcon }); if (patch.maskOwn != null) saveGroupSettingsRaw(ng.id, { maskId: String(patch.maskOwn || "") }); if (patch.spectate) { updateGroup(ng.id, { roomKind: "spectate" }); saveGroupSettingsRaw(ng.id, { spectate: true }); } updateGroup(ng.id, { chNotify: patch.chNotify || "all", chShareMembers: !!(patch.chShareMembers && patch.chSolo && !patch.chNoMem), chSolo: !!(patch.chSolo || patch.chNoMem), chCat: patch.chCat || "", chKind: patch.chKind || "", chHours: patch.chHours || null, avatarImage: patch.avatarImage || null }); toast("开了 #" + patch.chName); return; }
+    const nm = channelGroupName(sp, patch.chName);
+    if (nm !== g.name) renameGroup(g.id, nm);
+    updateGroup(g.id, { ...(patch.chIcon != null ? { chIcon: patch.chIcon } : {}), ...(g.chLeft ? { chLeft: Object.fromEntries(Object.entries(g.chLeft).filter(([id]) => !(patch.memberIds || []).includes(id))) } : {}), chName: patch.chName, chAbout: patch.chAbout, memberIds: patch.memberIds, chSolo: !!(patch.chSolo || patch.chNoMem),
+      chShareMembers: !!(patch.chShareMembers && patch.chSolo && !patch.chNoMem), ...(patch.chNotify ? { chNotify: patch.chNotify } : {}), ...(patch.chCat != null ? { chCat: patch.chCat || "" } : {}), ...(patch.chKind != null ? { chKind: patch.chKind || "" } : {}), ...(patch.chHours !== undefined ? { chHours: patch.chHours || null } : {}), ...(patch.avatarImage !== undefined ? { avatarImage: patch.avatarImage || null } : {}), ...(patch.chArchived != null ? { chArchived: !!patch.chArchived } : {}) });
+    if (patch.chNoMem != null && !!patch.chNoMem !== channelNoMem(g.id)) saveGroupSettingsRaw(g.id, { memoryInterop: !patch.chNoMem });
+    // 频道自己的面具：null＝跟空间那张（清掉 gs.maskId），否则单独挑一张
+    if (patch.maskOwn !== undefined) saveGroupSettingsRaw(g.id, { maskId: patch.maskOwn == null ? null : String(patch.maskOwn || "") });
+    // 旁观开关：两头都要写——roomKind 在群自己身上，spectate 在群设置里（groupSpectating 两头都问）
+    if (patch.spectate != null && !!patch.spectate !== groupSpectating(g)) {
+      updateGroup(g.id, { roomKind: patch.spectate ? "spectate" : "group" });
+      saveGroupSettingsRaw(g.id, { spectate: !!patch.spectate });
+    }
+  };
+  // 频道在分类里上下挪（她 2026-11-20「多起来了怎么收纳归类」）：照现在看到的那一段的先后重新编 chOrder
+  const moveChannel = (sp, g, dir) => {
+    const seg = spaceCatGroups((groups || []).filter(x => x && x.spaceId === sp.id), sp.cats || []).groups.find(x => x.rows.some(r => r.id === g.id));
+    if (!seg) return;
+    const a = seg.rows.slice(), i = a.findIndex(r => r.id === g.id), j = i + dir;
+    if (j < 0 || j >= a.length) return;
+    [a[i], a[j]] = [a[j], a[i]];
+    a.forEach((r, k) => updateGroup(r.id, { chOrder: k }));
+    if (sp.chSort !== "manual") saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, chSort: "manual" } : x));   // 手动挪了就改成「按我排的」
+  };
+  // 分类折起来／展开（记在空间上，下次进来还是这样）
+  const toggleSpaceCat = (sp, catId) => saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, cats: (x.cats || []).map(c => c.id === catId ? { ...c, collapsed: !c.collapsed } : c) } : x));
+  // 空间本身：改名、加人、踢人（她 2026-11-20「加不了人踢不了人改不了名字」）。
+  //   改名＝每个频道的群名一起改（renameGroup 会把旧记忆的 tag 一起迁）；新人进每个频道，踢掉的从每个频道拿掉
+  // 让 AI 想几个自定义称号（她 2026-11-20）：一次调用，照这个地方的人和频道出 3–5 个，她挑了才存
+  const suggestSpaceTitles = async sp => {
+    const api = bgActiveRef.current || active;
+    if (!api || typeof runProbe !== "function") { toast("先去 设置 → 模型 配一条线路"); return []; }
+    const nm = (sp.memberIds || []).map(id => ((characters || []).find(c => c.id === id) || {}).name).filter(Boolean);
+    const chs = (groupsRef.current || []).filter(g => g && g.spaceId === sp.id && !g.chArchived).map(g => "#" + (g.chName || g.name) + (g.chAbout ? "（" + g.chAbout + "）" : ""));
+    try {
+      const d = await runProbe(api, { char: { id: "__spacebot", name: SPACE_BOT_NAME, persona: "" }, chars: characters, rels, profile, timeAware: false }, { tag: "频道称号", logFrom: "频道·想称号", maxTokens: 8000,
+        instruction: "「" + sp.name + "」这个地方的人有：" + nm.join("、") + "；频道有：" + chs.join("、") + "。想 3 到 5 个每周能评的称号，每个配一句怎么评——照这一周谁在聊天里做了什么来挑人，跟这群人、这些频道沾边。",
+        schemaHint: "{\"titles\":[{\"name\":\"称号（12 字内）\",\"how\":\"怎么评，一句\"}]}" });
+      return (Array.isArray(d && d.titles) ? d.titles : []).filter(x => x && x.name).slice(0, 5).map(x => ({ name: String(x.name).trim().slice(0, 12), how: String(x.how || "").trim().slice(0, 60) }));
+    } catch (e) { toast("没想出来：" + String(e.message || e).slice(0, 60)); return []; }
+  };
+  const saveSpace = (sp, patch) => {
+    // 只切排序（「按最近／按我排的」那颗）：不走改名加人那一套，也不弹「改好了」
+    if (patch && Object.keys(patch).length === 1 && patch.chSort) { saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, chSort: patch.chSort } : x)); return; }
+    const name = String(patch.name || sp.name).slice(0, 24), now = (patch.memberIds || sp.memberIds || []).slice();
+    const added = now.filter(id => !(sp.memberIds || []).includes(id)), gone = (sp.memberIds || []).filter(id => !now.includes(id));
+    saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, name, memberIds: now, ...(patch.maskId !== undefined ? { maskId: String(patch.maskId || "") } : {}), ...(patch.bot !== undefined ? { bot: !!patch.bot, ...(patch.bot && !x.bot ? { botOnTs: Date.now(), titlesTs: 0 } : {}) } : {}), ...(patch.avatarImage !== undefined ? { avatarImage: patch.avatarImage || null } : {}), ...(Array.isArray(patch.cats) ? { cats: patch.cats } : {}), ...(Array.isArray(patch.customTitles) ? { customTitles: patch.customTitles } : {}), ...(typeof patch.aiTitles === "boolean" ? { aiTitles: patch.aiTitles } : {}) } : x));
+    // 删掉的分类：里面的频道回到「未分类」
+    if (Array.isArray(patch.cats)) { const keep = new Set(patch.cats.map(c => c.id)); (groups || []).filter(g => g && g.spaceId === sp.id && g.chCat && !keep.has(g.chCat)).forEach(g => updateGroup(g.id, { chCat: "" })); }
+    (groups || []).filter(g => g && g.spaceId === sp.id).forEach(g => {
+      if (name !== sp.name) renameGroup(g.id, channelGroupName({ name }, g.chName));
+      if (added.length || gone.length) {
+        // 私下的频道不往里塞新人：旁观的、不互通的、不影响记忆的（她 2026-11-20：「我和双胞胎谈恋爱的三人群放进频道会不会翻车」）——
+        //   要谁进去，她自己去那个频道「⋯」里勾；踢掉的照样拿出去
+        const _priv = groupSpectating(g) || !!g.chSolo || channelNoMem(g.id);
+        let m = (g.memberIds || []).filter(id => !gone.includes(id)).concat(_priv ? [] : added.filter(id => !(g.memberIds || []).includes(id)));
+        if (!m.length) m = _priv ? (g.memberIds || []) : now.slice();
+        updateGroup(g.id, { memberIds: m });
+      }
+    });
+    if (added.length) welcomeNew(sp.id, added);
+    toast(added.length || gone.length ? "改好了" + (added.length ? "，进来 " + added.length + " 个" : "") + (gone.length ? "，踢出 " + gone.length + " 个" : "") : "改好了");
+  };
+  // 已有的群收进频道空间、或者拿出来（她 2026-11-20「把现在的群聊收纳进去成为一个大服务器」）：
+  //   群原样不动——名字、聊天、记忆 tag、群设置（含记忆互通）都不碰，只挂上/摘下 spaceId；群里的人并进空间名单
+  // 进去坐坐（挂机房，她 2026-11-20）：她按了才跑一轮，半小时里一个挂机房只跑一回；旁观的挂机房她是隐身的，不跑
+  const loungeSit = async gid => {
+    const g = (groups || []).find(x => x && x.id === gid);
+    if (!g || groupSpectating(g) || loungeSitting) return;
+    const last = loungeSitRef.current[gid] || 0;
+    if (Date.now() - last < 30 * 60000) { toast("刚坐下没多久，大家都看到你了"); return; }
+    loungeSitRef.current[gid] = Date.now();
+    setLoungeSitting(true);
+    try { await replyGroup(gid, { loungeSit: true }); } finally { setLoungeSitting(false); }
+  };
+  const adoptGroups = (sp, ids) => {
+    const gs = (groups || []).filter(g => g && ids.includes(g.id) && !g.spaceId);
+    // 旁观群也能收（她 2026-11-20「旁观群他俩私聊我也想收进频道」）：那是他们背着人的私聊，收进来自动不互通——
+    //   空间里别的人看不到它，它也看不到别处；她照旧隐身在旁边看
+    gs.forEach(g => updateGroup(g.id, { spaceId: sp.id, chName: g.chName || String(g.name || "群聊").slice(0, 16), chAbout: g.chAbout || "", ...(groupSpectating(g) ? { chSolo: true } : {}) }));
+    const add = [...new Set(gs.flatMap(g => g.memberIds || []))].filter(id => !(sp.memberIds || []).includes(id));
+    if (add.length) { saveSpaces(p => p.map(x => x.id === sp.id ? { ...x, memberIds: [...(x.memberIds || []), ...add] } : x)); welcomeNew(sp.id, add); }
+    // 收进来的群自己挑过别的面具：留着当它的单独面具，说一声
+    const _diffMask = gs.filter(g => { const r = (gsFor(g.id) || {}).maskId; return r != null && String(r || "") !== String(sp.maskId || ""); });
+    if (_diffMask.length) { toast("「" + _diffMask.map(g => g.name).join("、") + "」原来戴着别的面具，留着它自己那张；跟别的面具的频道互相看不到"); return; }
+    toast("放进来 " + gs.length + " 个群");
+  };
+  const releaseChannel = g => { updateGroup(g.id, { spaceId: null }); toast("「" + (g.name || "") + "」回到群聊列表了"); };
+  // 频道没了，它的文件（x_chfiles:<群id>）和上传的图一起清掉，不留没人认的
+  const chfPurge = gid => {
+    try { const fs = loadJSON("x_chfiles:" + gid, []) || [], ks = fs.map(f => f && f.imgKey).filter(Boolean);
+      localStorage.removeItem("x_chfiles:" + gid); if (ks.length) dropImgFiles(ks, null, true); } catch (e) {}
+  };
+  // 「让他们聊一会儿」（她 2026-11-20）：挑最多 3 个频道，各走一轮跟按黑色回复键同一条 replyGroup，
+  //   一个接一个跑；跑完记一张「刚才他们聊了」的小卡（x_spaceDigest:<空间id>），她点「知道了」才收
+  // 精华墙（她 2026-11-20）：x_spaceGems:<空间id> 一条一句；她长按收，或者频道里有人提名
+  const gemKey = spId => "x_spaceGems:" + spId;
+  const addGem = (spId, gid, m, by, why) => {
+    if (!spId || !m || !m.content) return false;
+    const list = loadJSON(gemKey(spId), []) || [];
+    if (list.some(x => x && x.gid === gid && x.mts === m.ts && x.text === m.content)) { if (by === "me") toast("这句已经在精华里了"); return false; }
+    const byName = by === "me" ? "我" : (((characters || []).find(c => c.id === by) || {}).name || "");
+    const who = m.role === "user" ? herNameIn(gid) : (m.senderName || "有人");
+    saveJSON(gemKey(spId), [...list, { id: "gem_" + Date.now() + "_" + Math.floor(Math.random() * 1000), gid, mts: m.ts || 0, who, text: String(m.content).slice(0, 300), by, byName, why: why ? String(why).slice(0, 60) : "", ts: Date.now(), day: dayKeyNow() }].slice(-200));
+    setSpaceGemRev(v => v + 1);
+    return true;
+  };
+  // 深夜频道（她 2026-11-20）：chHours 那几个钟头以外锁着——进不去，他们也不往这儿跑、不在这儿自己聊
+  const chClosedNow = gid => { const g = (groupsRef.current || []).find(x => x && x.id === gid); return !!(g && g.chHours && !chHoursOpen(g.chHours, vclockNow())); };
+  const chLockedToast = g => { toast("#" + (g.chName || g.name) + " 要 " + g.chHours.from + ":00 才开"); };
+  // 欢迎新人（她 2026-11-20）：空间里进了新的人，在 #综合（没有就头一个开着的频道）冒一行「某某 加入了」，
+  //   再让老成员照常接一轮——就是「让他们继续」那一条路，提示里只说一句谁刚进来
+  const welcomeNew = (spId, ids) => {
+    const names = (ids || []).map(id => ((characters || []).find(c => c.id === id) || {}).name).filter(Boolean);
+    if (!names.length) return;
+    setTimeout(() => {
+      const g = spaceHomeChannel(spId);
+      if (!g) return;
+      pGChat(g.id, p => [...p, { role: "system", kind: "system", content: names.join("、") + " 加入了", ts: Date.now() }]);
+      if (active) replyGroup(g.id, { welcome: names }).catch(() => {});
+    }, 300);
+  };
+  // 空间的「#综合」：机器人贴卡、欢迎新人都往这儿（没有 #综合 就头一个开着的频道）
+  // 收进频道的旁观群（她隐身在旁边看）：她在那儿的事一件都不许露——机器人卡、欢迎、悄悄话、一起听、她收的精华都绕开它
+  const chSpectId = gid => groupSpectating((groupsRef.current || []).find(x => x && x.id === gid));
+  const spaceHomeChannel = spId => {
+    // 挂机房不当小频贴东西的地方（她 2026-11-21「挂机房突然搞出了本周头衔」）
+    const chs = (groupsRef.current || []).filter(g => g && g.spaceId === spId && !g.chArchived && !chClosedNow(g.id) && !groupSpectating(g) && g.chKind !== "lounge");
+    return chs.find(x => x.chName === "综合") || chs.slice().sort((a, b) => (a.createdTs || 0) - (b.createdTs || 0))[0] || null;
+  };
+  // 小活动机器人（她 2026-11-20 第二批）：每天第一次进这个空间时贴一张「每日一问」；满一周发一回称号。
+  //   称号只照这一周真聊天的条数算，不调模型；每日一问有线路就现编一句，没有就从一小摞里抽
+  const spaceBotTick = async spId => {
+    const sp = (spacesRef.current || []).find(x => x && x.id === spId); if (!sp) return;
+    // 小频默认关着（她 2026-11-20「怎么就已经有小频了喂」）：频道设置里打开了才发每日一问、评称号
+    if (!sp.bot) return;
+    const home = spaceHomeChannel(spId); if (!home) return;
+    const now = vclockNow(), dk = now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate();
+    if (sp.askDay !== dk) {
+      saveSpaces(p => p.map(x => x.id === spId ? { ...x, askDay: dk } : x));
+      let q = spaceAskPick(dk, spId);
+      try {
+        const api = bgActiveRef.current || active;
+        if (api && typeof runProbe === "function") {
+          const nm = (sp.memberIds || []).map(id => ((characters || []).find(c => c.id === id) || {}).name).filter(Boolean).join("、");
+          const d = await runProbe(api, { char: { id: "__spacebot", name: SPACE_BOT_NAME, persona: "" }, chars: characters, rels, profile, timeAware: false }, { tag: "频道每日一问", logFrom: "频道·每日一问", maxTokens: 8000, once: true,
+            instruction: "你是「" + sp.name + "」这个地方贴每日一问的小机器人，不是里面的哪个人。这里的人有：" + nm + "。出一个今天的问题，大家都能随口答上一句，跟这些人平时会聊的东西沾边。只出问题本身，一句。",
+            schemaHint: "{\"q\":\"今天的问题\"}" });
+          if (d && d.q && String(d.q).trim()) q = String(d.q).trim().slice(0, 60);
+        }
+      } catch (e) {}
+      pGChat(home.id, p => [...p, { role: "system", kind: "spacebot", bot: "ask", q, content: SPACE_BOT_NAME + "·每日一问：" + q, ts: Date.now() }]);
+    }
+    // 称号满一周才评：从小频打开那天（botOnTs）、空间建好那天里晚的那个算起，满 7 天才评第一次
+    const _tStart = Math.max(Number(sp.botOnTs) || 0, Number(sp.ts) || 0);
+    if (spaceTitlesDue(sp.titlesTs, _tStart, Date.now())) {
+      const chs = (groupsRef.current || []).filter(g => g && g.spaceId === spId);
+      const chatsOf = id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []);
+      const nameOf = id => ((characters || []).find(c => c.id === id) || {}).name || "";
+      saveSpaces(p => p.map(x => x.id === spId ? { ...x, titlesTs: Date.now() } : x));   // 先占住这一周，评自定义那一枪慢，别让第二次进来又评一遍
+      const tt = spaceWeekTitles(chs, chatsOf, sp.memberIds || [], Date.now(), 7, { nameOf, hourOf: ts => (typeof vclockMap === "function" ? new Date(vclockMap(ts)) : new Date(ts)).getHours() });
+      // 自定义称号：她写好存着的，每周花一次调用照她写的标准挑人、写一句为什么；她关了「每周用 AI 评」就不评
+      const why = {}, customs = (sp.customTitles || []).filter(x => x && String(x.name || "").trim());
+      if (customs.length && sp.aiTitles !== false) {
+        try {
+          const api = bgActiveRef.current || active;
+          const dig = spaceWeekDigest(chs.filter(g => !groupSpectating(g) && !channelNoMem(g.id)), chatsOf, nameOf, Date.now(), 7, 6000);
+          const nm = (sp.memberIds || []).map(nameOf).filter(Boolean);
+          if (api && typeof runProbe === "function" && dig && nm.length) {
+            const d = await runProbe(api, { char: { id: "__spacebot", name: SPACE_BOT_NAME, persona: "" }, chars: characters, rels, profile, timeAware: false }, { tag: "频道称号", logFrom: "频道·每周自定义称号", maxTokens: 8000, once: true,
+              instruction: "你是「" + sp.name + "」这个地方每周评称号的小机器人，不是里面的哪个人。下面是这一周这些人在各个频道里说过的话，人只有这几个：" + nm.join("、") + "。\n\n" + dig
+                + "\n\n要评的称号（名字＝怎么评）：\n" + customs.map(x => "· " + String(x.name).trim() + "＝" + String(x.how || "").trim()).join("\n")
+                + "\n\n每个称号照它的标准，从这几个人里挑这一周最配的那一个，理由是这一周真发生过的事，一句话。这一周的记录里看不出谁配，这个称号就不填。",
+              schemaHint: "{\"picks\":[{\"title\":\"称号名\",\"who\":\"人名\",\"why\":\"一句理由\"}]}" });
+            (Array.isArray(d && d.picks) ? d.picks : []).forEach(x => {
+              const c = customs.find(t0 => String(t0.name).trim() === String(x && x.title || "").trim());
+              const id = (sp.memberIds || []).find(i0 => nameOf(i0) === String(x && x.who || "").trim());
+              if (!c || !id) return;
+              const lb = String(c.name).trim().slice(0, 12);
+              tt[id] = tt[id] ? tt[id] + "、" + lb : lb;
+              if (x.why) why[lb] = String(x.why).trim().slice(0, 60);
+            });
+          }
+        } catch (e) {}
+      }
+      saveSpaces(p => p.map(x => x.id === spId ? { ...x, titles: tt, titleWhy: why, titlesTs: Date.now() } : x));
+      const line = Object.keys(tt).map(id => (nameOf(id) || "某人") + "：" + String(tt[id]).split("、").map(lb => lb + (why[lb] ? "（" + why[lb] + "）" : "")).join("、")).join("\n");
+      if (line) pGChat(home.id, p => [...p, { role: "system", kind: "spacebot", bot: "titles", content: line, ts: Date.now() }]);
+    }
+  };
+  // 频道里挂的每周称号并进群头衔那一格显示：群主封的头衔优先，没封的才挂称号
+  const chGsMerge = (gid, gs0) => {
+    const g = (groupsRef.current || []).find(x => x && x.id === gid);
+    const sp = g && g.spaceId ? (spacesRef.current || []).find(x => x && x.id === g.spaceId) : null;
+    if (!sp || !sp.titles || !Object.keys(sp.titles).length) return gs0;
+    // 不满一周就评出来的那批（11-20 晚上之前的版本一开小频就评）不挂（她 2026-11-21「空间才建一天」）
+    if ((Number(sp.titlesTs) || 0) - Math.max(Number(sp.botOnTs) || 0, Number(sp.ts) || 0) < 6 * 86400000) return gs0;
+    return { ...gs0, titles: { ...sp.titles, ...((gs0 && gs0.titles) || {}) } };
+  };
+  // 频道里一起听（她 2026-11-20）：开着的时候，你播放器里正放的那首就是这个频道里大家一起在听的；歌是你这边放的那一首，
+  //   不另起一个播放器。chListen 只记「这个频道开着一起听」，歌本身每次照播放器现读
+  const chListenOf = gid => { const g = (groupsRef.current || []).find(x => x && x.id === gid); if (!g || !g.chListen) return null;
+    const sg = player.songId && player.songId !== KEEPALIVE_ID ? resolveSong(player.songId) : null; return sg ? { song: sg, by: g.chListen.by === "me" ? "你" : g.chListen.by } : null; };
+  const toggleChListen = gid => {
+    const g = (groupsRef.current || []).find(x => x && x.id === gid); if (!g) return;
+    if (g.chListen) { updateGroup(gid, { chListen: null }); return; }
+    if (!(player.songId && player.songId !== KEEPALIVE_ID)) { toast("先去「一起听」放一首歌，再回来点"); return; }
+    updateGroup(gid, { chListen: { by: "me", ts: Date.now() } });
+    pGChat(gid, p => [...p, { role: "system", kind: "system", content: "你开了一起听", ts: Date.now() }]);
+  };
+  const talkSpace = async sp => {
+    if (!active) { toast("先去 设置 → 模型 配一条线路"); return; }
+    const chs = (groups || []).filter(g => g && g.spaceId === sp.id && !chClosedNow(g.id));
+    const pick = spaceTalkPick(chs, id => groupChatsRef.current[id] || [], g => (g.memberIds || []).filter(id => characters.some(c => c.id === id)).length, 3);
+    if (!pick.length) { toast("没有能聊的频道"); return; }
+    const out = [];
+    for (const g of pick) {
+      const before = (groupChatsRef.current[g.id] || []).length;
+      try { await replyGroup(g.id); } catch (e) {}
+      const added = (groupChatsRef.current[g.id] || []).slice(before).filter(m => m && m.role === "assistant" && m.content);
+      if (added.length) { const lm = added[added.length - 1]; out.push({ id: g.id, n: added.length, last: ((lm.senderName ? chAnonName(g, groupChatsRef.current[g.id], lm.senderId, lm.senderName) + "：" : "") + String(lm.content)).replace(/\s+/g, " ").slice(0, 30) }); }
+    }
+    saveJSON("x_spaceDigest:" + sp.id, out);
+    setSpaceDigestRev(x => x + 1);
+    if (!out.length) toast("这次没人开口");
+  };
+  // 每个人在这个空间的在线状态：最近一小时在这儿开过口＝在线（写在哪个频道），不然照日程：睡着＝睡了，上班上课＝勿扰，其余＝离开
+  const spacePresence = spId => {
+    const out = {}, now = typeof vclockNow === "function" ? vclockNow() : Date.now();
+    const chs = (groups || []).filter(g => g && g.spaceId === spId && !groupSpectating(g));
+    const sp = (spaces || []).find(x => x && x.id === spId);
+    ((sp && sp.memberIds) || []).forEach(id => {
+      let lt = 0, lc = "";
+      chs.forEach(g => { const ms = groupChatsRef.current[g.id] || []; for (let i = ms.length - 1; i >= 0; i--) { const m = ms[i]; if (m && m.senderId === id && m.role === "assistant") { if ((m.ts || 0) > lt) { lt = m.ts || 0; lc = g.chName || g.name; } break; } } });
+      const c = (characters || []).find(x => x && x.id === id);
+      let sc = null; try { sc = c ? schedNowBriefFor(c) : null; } catch (e) {}
+      out[id] = presenceOf(lt, lc, sc, Date.now());
+    });
+    return out;
+  };
+  const deleteSpace = spId => {
+    const ids = (groups || []).filter(g => g && g.spaceId === spId).map(g => g.id);
+    ids.forEach(chfPurge);
+    setGroups(p => { const n = p.filter(g => !ids.includes(g.id)); saveJSON("x_groups", n); return n; });
+    setGroupChats(p => { const n = { ...p }; ids.forEach(id => delete n[id]); return n; });
+    ids.forEach(id => localStorage.removeItem("x_gchat:" + id));
+    setGroupSettings(p => { const n = { ...p }; ids.forEach(id => delete n[id]); saveJSON("x_groupSettings", n); return n; });
+    saveSpaces(p => p.filter(x => x.id !== spId));
+    setActiveSpaceId(null); setScreen("messages"); toast("频道空间删掉了");
   };
   const updateGroup = (groupId, patch) => setGroups(p => {
     const n = p.map(g => g.id === groupId ? { ...g, ...patch } : g);
@@ -18982,6 +19892,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     setGroupSettings(p => { const n = { ...p }; ids.forEach(id => delete n[id]); saveJSON("x_groupSettings", n); return n; });
     const parent = self && self.roomOf ? groups.find(g => g && g.id === self.roomOf) : null;
     if (parent) { setActiveGroup(parent); setScreen("gthread"); toast("这间小房间删掉了"); return; }
+    if (self && self.spaceId) { setActiveGroup(null); setActiveSpaceId(self.spaceId); setScreen("space"); toast("这个频道删掉了"); return; }
     setActiveGroup(null);
     setScreen("messages");
     toast(ids.length > 1 ? "群聊和它的 " + (ids.length - 1) + " 间小房间都删掉了" : "群聊已删除");
@@ -19015,7 +19926,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const setGroupPresence = (groupId, inGroup) => {
     const g = groups.find(x => x.id === groupId);
     if (!g || imInGroup(g) === !!inGroup) return;
-    const me = userName(profile);
+    const me = herNameIn(groupId);
     updateGroup(groupId, { roomKind: inGroup ? "group" : "spectate" });
     saveGroupSettings(groupId, { spectate: !inGroup });
     if (inGroup) {
@@ -19286,16 +20197,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (cur.deleted) {
       setBlockFor(charId, { deleted: false });
       pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把 TA 加回了好友", sub: "block", ts: Date.now() }]);
-      try { addMemEntry({ text: userName(profile) + "删了我好友以后，又自己把我加了回来", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      try { addMemEntry({ text: userName((profileFor(charId) || profile)) + "删了我好友以后，又自己把我加了回来", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
       toast("加回好友了"); return;
     }
     // 删之前最后那几句（她 2026-11-08：「就是让他知道因为什么删了」）：她删的时候不写理由，这几句就是他能看到的来由
-    const _uN = userName(profile), _cN = (characters.find(x => x.id === charId) || {}).name || "你";
+    const _uN = userName((profileFor(charId) || profile)), _cN = (characters.find(x => x.id === charId) || {}).name || "你";
     const lastWords = (chatsRef.current[charId] || []).filter(m => m && !m.recalled && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim() && !isOocMsg(m))
       .slice(-6).map(m => (m.role === "user" ? _uN : _cN) + "：" + m.content.replace(/\s+/g, " ").slice(0, 60)).join("\n");
     setBlockFor(charId, { deleted: true, deletedTs: Date.now(), reqs: [], lastWords });
     pChat(charId, p => [...p, { role: "system", kind: "system", content: "你删除了好友 TA", sub: "block", ts: Date.now() }]);
-    try { addMemEntry({ text: userName(profile) + "把我删了好友", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+    try { addMemEntry({ text: userName((profileFor(charId) || profile)) + "把我删了好友", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
     toast("删掉了。TA 发不了消息，想你了会来加你");
   };
   const FRIEND_REQ_GAP = 4 * 3600e3;   // 两次申请至少隔这么久；有一条还没处理的就先等着
@@ -19342,11 +20253,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       setBlockFor(charId, { reqs });
       setBlockFor(charId, mine ? { theyBlocked: false } : { deleted: false });
       pChat(charId, p => [...p, { role: "system", kind: "system", content: "你通过了" + (req.alt ? "「" + req.alt + "」（是 TA）" : " TA ") + "的好友申请", sub: "block", ts: Date.now() }]);
-      try { addMemEntry({ text: (mine ? "删了" + userName(profile) + "以后，我自己回头" : "被" + userName(profile) + "删了以后，") + "用" + who + "发好友申请，她通过了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      try { addMemEntry({ text: (mine ? "删了" + userName((profileFor(charId) || profile)) + "以后，我自己回头" : "被" + userName((profileFor(charId) || profile)) + "删了以后，") + "用" + who + "发好友申请，她通过了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
       toast("加上了");
     } else {
       setBlockFor(charId, { reqs });
-      try { addMemEntry({ text: (mine ? "删了" + userName(profile) + "以后，我自己回头" : "被" + userName(profile) + "删了以后，") + "用" + who + "发好友申请，被她拒了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
+      try { addMemEntry({ text: (mine ? "删了" + userName((profileFor(charId) || profile)) + "以后，我自己回头" : "被" + userName((profileFor(charId) || profile)) + "删了以后，") + "用" + who + "发好友申请，被她拒了", tags: ["删好友"], charIds: [charId], knownBy: [charId], source: "auto" }); } catch (e) {}
       toast("拒绝了");
     }
   };
@@ -20541,7 +21452,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         groups: memberGroups,
         groupChats: diaryGroupChats,
         groupOfflines: diaryGroupOfflines
-      }, { fromTs: ds, untilTs: de, limit: 0, userName: userName(profile), charName: char.name }) : [];
+      }, { fromTs: ds, untilTs: de, limit: 0, userName: userName((profileFor(charId) || profile)), charName: char.name }) : [];
       const clock = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
       // ⚠️「摆到TA面前」那张卡（phonepeek / 随身物转发）的正文是 App 拼出来的机器文案：
       //   〈想买清单〉《商品全名》｜TA自己写的那句 why。整段原样进素材，模型就会把商品名
@@ -20621,7 +21532,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         return n;
       });
     } catch (e) {
+      // 自动写的也说出来（群友 2026-11-20：调用记录一排成功、站里扣了费、日记一篇没有，什么提示都没有）
       if (opts.manual) toast("生成失败：" + e.message);
+      else toast(((characters.find(c => c.id === charId) || {}).name || "TA") + " 的日记没写成：" + String(e.message || e).split("\n")[0].slice(0, 80));
     } finally {
       diaryFlightRef.current.delete(charId);
       setDiaryBusy(b => ({ ...b, [charId]: false }));
@@ -20880,7 +21793,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //   论坛的新内容只有两条路：她自己在论坛里按（刷新 / 请TA们发帖 / 让TA发一条），
       //   或者角色低频主动发帖那一条（autoForumForChar，设置里「论坛」那个开关管得住）。
       // 开了「自己发朋友圈」的配角也进这一池（她 2026-10-22）
-      if (kind === "moments") { const ps = liveChars.concat((characters || []).filter(c => c && c.npc && c.npcMoments)).filter(c => autoRefreshOn("moments", c.id)); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("moments", pk, () => genMoment(pk)); } }
+      if (kind === "moments") { const ps = liveChars.concat((characters || []).filter(c => c && c.npc && c.npcMoments)).filter(c => autoRefreshOn("moments", c.id) && momRoomFor(c.id)); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("moments", pk, () => genMoment(pk)); } }
       else if (kind === "whisper") { const ps = liveChars.filter(c => autoRefreshOn("whisper", c.id) && couples[c.id] && couples[c.id].status === "together"); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("whisper", pk, () => genWhisper(pk)); } }
     } catch (e) {/* 静默 */}
   };
@@ -20914,7 +21827,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 原来是 1/5 帖强制匿名、且只看最近 5 帖有没有匿名过——叠上「模型自己也会挑匿名」
       // 和「随机版块 1/6 命中匿名吧」，最后匿名占比高得离谱（她 2026-08-29 报）。压到 1/9，
       // 回看窗口拉到 8 帖：匿名要稀有才有分量，天天匿名等于没有匿名。
-      const myBoardsForPost = typeof forumCustomBoards === "function" ? forumCustomBoards() : [];
+      // 藏起来的吧角色也不去发（群友 2026-11-20：开了一堆自己的吧，自带的那几个想不要了）——
+      //   藏起来的吧顶上那排没有，帖子发进去她就看不见。全藏光了就照旧，不让他没地方发
+      const hidBoards = typeof forumBoardPrefs === "function" ? forumBoardPrefs().hidden : [];
+      const myBoardsAll = typeof forumCustomBoards === "function" ? forumCustomBoards() : [];
+      const baseShown = ["吐槽", "日常", "求助", "兴趣", "脑洞", "匿名"].filter(n => hidBoards.indexOf(n + "吧") < 0);
+      const myShown = myBoardsAll.filter(b => hidBoards.indexOf(b.name) < 0);
+      const allHid = !baseShown.length && !myShown.length;
+      const baseForPost = allHid ? ["吐槽", "日常", "求助", "兴趣", "脑洞", "匿名"] : baseShown;
+      const myBoardsForPost = allHid ? myBoardsAll : myShown;
       const forumHabit = charForumMeta(char);
       // 这一帖用哪个身份：代码掷，不让模型挑（施工规则/bans-make-it-dumber：掷轴不掷答案）。
       //   8-29 那次模型挑得匿名太多，改成提示词里「大号十次七八次」，结果又几乎只剩大号
@@ -20926,24 +21847,27 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 不止上一贴（她 2026-10-26 去重那一轮）：只看一贴，隔一贴又绕回同一个话题。最近八贴都摆出来
       const myRecent = (forumPostsRef.current || []).filter(p => p.authorId === char.id).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 8);
       const avoidRepeat = myLast ? "\n\n【绝不要重复你最近发过的帖】你最近发的是：\n" + myRecent.map(p0 => "· 《" + String(p0.title || "").slice(0, 40) + "》「" + String(p0.body || "").replace(/\s+/g, " ").slice(0, 50) + "」").join("\n") + "\n这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
-      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+      const d = await runProbeRetry(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: forumFmtLine() + "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（发在哪个吧：吐槽/日常/求助/兴趣/脑洞/匿名" + myBoardsForPost.map(b => "/" + b.name).join("") + "，你这条写的是什么就去哪儿；用哪个身份发下面已经定好了）。\n【这一帖用「" + ({ main: "大号", alt: "固定小号", anonymous: "匿名" })[rolledId] + "」发，identity 填 " + rolledId + "】"
+        instruction: forumFmtLine() + "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（发在哪个吧：" + baseForPost.concat(myBoardsForPost.map(b => b.name)).join("/") + "，你这条写的是什么就去哪儿；用哪个身份发下面已经定好了）。\n【这一帖用「" + ({ main: "大号", alt: "固定小号", anonymous: "匿名" })[rolledId] + "」发，identity 填 " + rolledId + "】"
           + ({ main: "顶着自己的名字说话：认识他的人都看得见，说的是他愿意公开的那一面。",
               alt: "用固定小号：认识他的人认不出来——写他不想让熟人看见、但也算不上见不得人的那一面（太幼稚、太丧、太较真、和公开形象不符的爱好或牢骚）。正文不许自曝身份。",
               anonymous: "匿名：这件事和他这个人扯不上任何关系——写他平时绝不会顶着名字说的真心话、心事或怨气。正文不许自曝身份。" })[rolledId] + FORUM_ID_VOICE + "\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + FORUM_PHOTO_LINE + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat
           // 她自己开的吧（x_forumBoards）跟那六个平起平坐（她 2026-10-25：原来写成「对得上才去」，等于劝退；
           //   也不许为了让他去而硬掷——「不应该为了让他写在我的吧而强迫改原本要写的吧」）：写什么去哪儿，他自己挑
           + (myBoardsForPost.length ? "\n\n【这几个吧各聊什么】" + myBoardsForPost.map(b => b.name + (b.about ? "：" + b.about : "")).join("；") + "。发在这里头的，board 填吧的全名。" : "")
+          + forumRefLine()
           + (fixedBoard ? "\n\n【这一帖发在「" + fixedBoard + "」】" + forumBoardVoice(fixedBoard) + "上面让你挑吧的那几句不算数了，board 就填「" + fixedBoard + "」。" : ""),
-        schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一" + (myBoardsForPost.length ? "，或者 " + myBoardsForPost.map(b => b.name).join("/") : "") + "\",\"identity\":\"" + rolledId + "\",\"title\":\"标题\",\"body\":\"正文2-4句\"" + FORUM_PHOTO_FIELD + forumFmtField() + "}",
+        schemaHint: "{\"board\":\"" + baseForPost.concat(myBoardsForPost.map(b => b.name)).join("/") + " 之一\",\"identity\":\"" + rolledId + "\",\"title\":\"标题\",\"body\":\"正文2-4句\"" + FORUM_PHOTO_FIELD + forumFmtField() + "}",
         maxTokens: FTOK.post
       });
       // 模型可能回「吐槽」也可能回「吐槽吧」，统一归到四版块的正式名（否则帖子 board 不在 FORUM_BOARDS，版块/关注页都筛不到）
       const bmap = { "吐槽": "吐槽吧", "日常": "日常吧", "求助": "求助吧", "兴趣": "兴趣吧", "脑洞": "脑洞吧", "匿名": "匿名吧" };
       const rawBoard = String((d && d.board) || "").replace(/吧$/, "");
       const mine = myBoardsForPost.find(b => b.name.replace(/吧$/, "") === rawBoard);
-      const board = fixedBoard || (forceAnon ? "匿名吧" : (bmap[rawBoard] || (mine && mine.name) || "日常吧"));
+      const okBoard = n => n && (allHid || hidBoards.indexOf(n) < 0) ? n : "";
+      const fallBoard = baseForPost.length ? baseForPost.filter(n => n !== "匿名")[0] ? baseForPost.filter(n => n !== "匿名")[0] + "吧" : baseForPost[0] + "吧" : myBoardsForPost[0].name;
+      const board = fixedBoard || (forceAnon && okBoard("匿名吧") ? "匿名吧" : (okBoard(bmap[rawBoard]) || okBoard(mine && mine.name) || (okBoard("日常吧") || fallBoard)));
       if (!(d && d.title)) { if (manual) throw new Error(char.name + " 没写出来"); return null; }
       // 身份以掷出来的为准（模型交别的也不认）；匿名吧照旧一律匿名（postCharToForum 里管）
       const rec = postCharToForum(char, board, { title: String(d.title), body: String(d.body || ""), identity: rolledId, photo: d.photo, photoWho: d.photoWho }, manual ? "手动发帖" : "auto");
@@ -20971,7 +21895,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 三处主动埋/回埋/回信必须同一个站位，不然同一个人写出来是三种腔调
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "此刻你心里一动，想悄悄给 " + (profile.name || "Ta") + " 埋一颗【现在写下、到期才送达】的时光胶囊。"
+        instruction: "此刻你心里一动，想悄悄给 " + ((profileFor(char.id) || profile).name || "Ta") + " 埋一颗【现在写下、到期才送达】的时光胶囊。"
           + capsuleGuide + "第一人称，贴你的人设与此刻心情；别客套、别落款。" + avoid,
         schemaHint: "{\"letter\":\"信的正文\"}",
         maxTokens: 20000
@@ -21022,7 +21946,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     };
     const due = [];
     if (autoRefreshOn("whisper", charId) && isCouple && n.whisper >= 15) due.push("whisper");
-    if (autoRefreshOn("moments", charId) && n.moment >= 30) due.push("moment");
+    if (autoRefreshOn("moments", charId) && n.moment >= 30 && momRoomFor(charId)) due.push("moment");
     if (autoRefreshOn("forum", charId) && !isBody(charId) && (n.forum >= 50 || Date.now() - (n.lastForumTs || Date.now()) >= 3 * 86400000) && !(forumOffRef.current || []).includes(charId)) due.push("forum");
     // 时光胶囊要比朋友圈/悄悄话稀：≥80 轮、14 天冷却，而且同一角色不能有两颗未拆信同时在路上（v53.94）。
     // 被冷却/未拆闸拦住时不清计数；条件一满足，下一轮即可自然补发。
@@ -21273,7 +22197,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (st.seenLimited[k]) return; st.seenLimited[k] = 1; changed = true;
       const c = liveChars.find(x => x.id === a.charId); if (!c) return;
       stampMail(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封纪念日的信：「" + a.name + "」。里面是 5 张纪念日券，点一下就能领〕", ts: Date.now(),
-        stampBdLetter: { id: "al_" + Date.now().toString(36) + a.id, bdKey, n: 5, by: c.remark || c.name, to: profile.name || "你", day: w.day, anniv: a.name }, read: false }]);
+        stampBdLetter: { id: "al_" + Date.now().toString(36) + a.id, bdKey, n: 5, by: c.remark || c.name, to: userName(profileFor(c.id)) || "你", day: w.day, anniv: a.name }, read: false }]);
     });
     if (changed) C2.save(st);
   };
@@ -21293,7 +22217,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         fresh.forEach(m => { st.seenLimited[key(m)] = 1; }); changed = true;
         const m = fresh[fresh.length - 1];
         stampMail(c.id, p => [...p, { role: "char", kind: "stampbdletter", content: "〔从邮票册给你寄了一封信：「" + m[1] + "」。里面是 " + m[2] + " 张十连券，点一下就能领〕", ts: Date.now(),
-          stampBdLetter: { id: "ml_" + Date.now().toString(36) + k + m[0] + c.id, bdKey: null, n: m[2], by: c.remark || c.name, to: profile.name || "你", day: Date.now(), mile: m[1] }, read: false }]);
+          stampBdLetter: { id: "ml_" + Date.now().toString(36) + k + m[0] + c.id, bdKey: null, n: m[2], by: c.remark || c.name, to: userName(profileFor(c.id)) || "你", day: Date.now(), mile: m[1] }, read: false }]);
       });
     });
     if (changed) C2.save(st);
@@ -21358,6 +22282,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     try { stampBdLetterSweep(); } catch (e) {}
     try { stampAnnivLetterSweep(); } catch (e) {}
     try { stampMileSweep(); } catch (e) {}
+    // 已经寄到聊天里的纪念日信、十连券信：收信人照他现在认的那张面具改过来（她 2026-11-21「想留着这个聊的话咋办」）。只改名字，领没领、几张都不动
+    try { liveChars.forEach(c => { const want = userName(profileFor(c.id)); if (!want) return;
+      const bad = (chatsRef.current[c.id] || []).some(m => m && m.kind === "stampbdletter" && m.stampBdLetter && (m.stampBdLetter.anniv || m.stampBdLetter.mile) && m.stampBdLetter.to !== want);
+      if (bad) pChat(c.id, p => p.map(m => m && m.kind === "stampbdletter" && m.stampBdLetter && (m.stampBdLetter.anniv || m.stampBdLetter.mile) && m.stampBdLetter.to !== want ? { ...m, stampBdLetter: { ...m.stampBdLetter, to: want } } : m)); }); } catch (e) {}
     const steps = [schedGenAllToday, schedMaybeSelfRevise, walletCatchAllToday,
       desireMuseAllToday, desireTendAllToday, phoneWeeklySweep, autoImpressionSweep, astroSignSweep];
     for (const step of steps) { try { await step(); } catch (e) {/* 一步失手不拖累后面几步 */ } }
@@ -21683,6 +22611,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const session = { id: "actual:group:" + group.id, type: spectatePrivate ? "private" : "group", name: spectatePrivate && other ? (other.remark || other.name) : (group.name || "群聊"), avatarImage: spectatePrivate && other ? other.avatarImage : groupAvatar, time: stamp(last.ts), last: last.text, ts: last.ts, messages,
         // 群里这几个真人的所有叫法，带给避重名单用（群名本身不是人名，不带）
         memberNames: others.reduce((a, c) => a.concat([c.name, c.remark, netOf(c)]), []).filter(Boolean) };
+      // 频道（她 2026-11-20「查手机里面频道也能显示到他手机里面吗」）：同一个空间的几个频道在他微信里收成一行，点进去才分频道；文件只给名字和谁动过
+      if (group.spaceId) {
+        const sp0 = (spaces || []).find(x => x && x.id === group.spaceId);
+        Object.assign(session, { spaceId: group.spaceId, spaceName: (sp0 && sp0.name) || "频道", spaceAvatar: (sp0 && sp0.avatarImage) || "", chName: group.chName || group.name, chArchived: !!group.chArchived,
+          chFiles: (loadJSON("x_chfiles:" + group.id, []) || []).filter(f => f && f.name).map(f => ({ name: f.name, kind: f.kind, by: f.updatedBy || f.createdBy, ts: f.updatedTs || f.createdTs })) });
+      }
       if (spectatePrivate) {
         const pairKey = memberIds.map(String).sort().join("|");
         const prev = spectatePrivateByPair.get(pairKey);
@@ -22005,6 +22939,37 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return isFinite(n) ? n * mult : 0;
   };
   const r2 = n => Math.round(Number(n) * 100) / 100;
+  // ── 频道账本接钱包（她 2026-11-20「搞成和钱包互通吧」）────────────────
+  //   记一笔＝付钱的那个人真花了这笔：她从钱包扣（照这个频道戴的面具那只钱包），角色从他自己的钱包扣，不够就只扣到他剩下的那么多；
+  //   结清＝欠钱的那个把钱挪给对方。都走原来那两条：changeWallet / adjustCharBalance，流水里写着是哪个频道的账本。
+  //   旁观频道里她不在场，她那一头一律不动钱。
+  const chLedgerHas = (gid, id) => id === "me" ? balanceOf(walletMaskFor({ groupId: gid })) : charBalanceOf(id);
+  const chLedgerMove = (gid, id, delta, label) => {
+    if (!id || !delta) return;
+    if (id === "me") changeWallet(delta, label, "transfer", { where: "频道", groupId: gid });
+    else adjustCharBalance(id, delta, label, "transfer");
+  };
+  const chLedgerPay = (gid, payer, amount, what) => {
+    const g = (groupsRef.current || []).find(x => x && x.id === gid);
+    if (payer === "me" && groupSpectating(g)) return { amount: 0, capped: false, skip: true };
+    const want = Math.round((Number(amount) || 0) * 100) / 100, have = Math.max(0, chLedgerHas(gid, payer));
+    const amt = Math.min(want, Math.round(have * 100) / 100);
+    if (amt > 0) chLedgerMove(gid, payer, -amt, "频道 #" + ((g && g.chName) || "") + " 账本：付了" + (what ? " " + String(what).slice(0, 12) : "") + " ¥" + amt);
+    return { amount: amt, capped: amt < want };
+  };
+  const chLedgerSettle = (gid, from, to, nameOf) => {
+    const g = (groupsRef.current || []).find(x => x && x.id === gid), st = chpOf(gid);
+    if ((from === "me" || to === "me") && groupSpectating(g)) return null;
+    const owe = chpOwe(st.ledger, from, to);
+    if (!owe || !(owe.amount > 0)) { chpPut(gid, chpSettle(st, from, to)); return { amount: 0 }; }
+    const have = Math.max(0, chLedgerHas(gid, owe.from)), amt = Math.min(owe.amount, Math.round(have * 100) / 100), ch = (g && g.chName) || "";
+    if (amt > 0) {
+      chLedgerMove(gid, owe.from, -amt, "频道 #" + ch + " 账本：还 " + nameOf(owe.to) + " ¥" + amt);
+      chLedgerMove(gid, owe.to, amt, "频道 #" + ch + " 账本：" + nameOf(owe.from) + " 还来 ¥" + amt);
+    }
+    if (amt >= owe.amount - 0.004) chpPut(gid, chpSettle(st, from, to));
+    return { from: owe.from, to: owe.to, amount: amt, short: amt < owe.amount - 0.004 };
+  };
   const charBalanceOf = id => {
     const w = charWalletRef.current[id];
     return w && w.balance != null ? Number(w.balance) : CHAR_DEFAULT_BAL;
@@ -22999,6 +23964,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // ⚠️没有 content 的是【v71.67 之前转的老卡】：那会儿只存了 post 的几个字段、
     //   没存帖子 id，楼里那几层现在也查不回来，所以这条兜底只报楼主那一段，
     //   不去拼第二份 forumShareText（施工规则/one-public-mechanism.md）。
+    : m.kind === "spacebot" ? spaceBotLine(m)
     : m.whisper ? "【悄悄话·只有 " + (m.toName || "某人") + " 听见，别的成员不知道】" + (m.senderName || "某人") + " 小声对 " + (m.toName || "某人") + "：" + m.content
     : m.role === "narration" ? narrTag(m) + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) + (m.parenAct ? "（这条里（）括起来的是她真在做的动作，括号外才是她说的话）" : "") : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : (m.kind === "photo" && m.descOnly) ? "[已经实际发出一张照片，本人必须记得，不能马上重复发] 内容：" + (m.desc || "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : m.photoKind === "me" ? "帮她拍的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "transfer" ? transferLineForModel(m, m.role === "user" ? userName(profile) : (m.senderName || "TA"), m.toName || "群里某位", m.toId) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[" + (m.toId ? "发了个专属红包，点名只给 " + (m.toName || "某位") + "：¥" : "发红包 ¥") + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
@@ -23086,6 +24052,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   字数预算按拉条放宽：私聊每条约 200 字，再加跨情境那份预算
     const _pn = Number(opts.privateCtxN) || 0;
     const priv = opts.interop && _pn > 0 ? crossRecentFor(c.id, { surfaces: ["online", "offline", "group"], onlineN: _pn, excludeGroup: opts.groupId,
+      // 审计 #6：在频道里时，同一空间别的频道已经在公共那段「别的频道最近」里了，私密段不再带一遍
+      excludeGroups: (() => { if (typeof groupsRef === "undefined") return null; const _g0 = (groupsRef.current || []).find(x => x && x.id === opts.groupId); return _g0 && _g0.spaceId ? (groupsRef.current || []).filter(x => x && x.spaceId === _g0.spaceId).map(x => x.id) : null; })(),
       budget: (memCfgRef.current.crossBudget || 800) * 2 + _pn * 220 }) : "";
     const offBeats = "";
     // 前几次线下跟实时私聊同一道闸：封闭群、私聊窗口关成 0 的不带
@@ -23118,17 +24086,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   现在每多一句就写一份 x_callDraft；正常挂断时 endCall 收走它，没挂断就由下次开机补成一张通话回执。
   //   ⚠️画面只留 iv_ 引用，不把整张图塞进草稿。
   useEffect(() => {
-    if (!call || !(call.msgs || []).length) return;
+    if (!call || !((call.msgs || []).length || (call.shots || []).length)) return;
     try {
       saveJSON("x_callDraft", {
         sessionId: call.sessionId, mode: call.mode, groupId: call.groupId || null, chatKey: call.chatKey || null,
         pIds: (call.participants || []).map(c => c && c.id).filter(Boolean),
         startTs: call.startTs || null, lastTs: Date.now(),
-        shots: (call.shots || []).filter(x => typeof x === "string" && x.indexOf("iv_") === 0),
+        // 通话画面的键是 img_call_ 开头（群友 2026-11-20：卡退以后视频里生的图全没了——原来只认 iv_，一张都留不下）
+        shots: (call.shots || []).filter(x => typeof x === "string" && (x.indexOf("img_") === 0 || x.indexOf("iv_") === 0)),
         log: call.msgs.map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, act: !!m.act, content: m.content, ...(m.zh ? { zh: m.zh } : {}), ts: m.ts || null }))
       });
     } catch (e) {}
-  }, [call && call.msgs]);
+  }, [call && call.msgs, call && call.shots]);
   // 开机时上一通没挂断就断了：补一张「通话中断了」的回执，转录照样点开能看
   const callDraftDoneRef = useRef(false);
   useEffect(() => {
@@ -23136,13 +24105,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     callDraftDoneRef.current = true;
     let d = null;
     try { d = loadJSON("x_callDraft", null); } catch (e) {}
-    if (!d || !Array.isArray(d.log) || !d.log.length) return;
+    if (!d || !((Array.isArray(d.log) && d.log.length) || (Array.isArray(d.shots) && d.shots.length))) return;
     if (callRef.current && callRef.current.sessionId === d.sessionId) return;
     try { localStorage.removeItem("x_callDraft"); } catch (e) {}
     const s = Math.max(0, Math.round(((Number(d.lastTs) || Date.now()) - (Number(d.startTs) || Number(d.lastTs) || Date.now())) / 1000));
     const dur = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
     const bubble = { role: "system", kind: "callend", callMode: d.mode, dur, interrupted: true, shots: (d.shots || []).length ? d.shots : undefined,
-      content: (d.mode === "video" ? "视频通话" : "语音通话") + " · 中途断了 · 时长 " + dur, ts: Number(d.lastTs) || Date.now(), id: "call_" + (Number(d.lastTs) || Date.now()), log: d.log };
+      content: (d.mode === "video" ? "视频通话" : "语音通话") + " · 中途断了 · 时长 " + dur, ts: Number(d.lastTs) || Date.now(), id: "call_" + (Number(d.lastTs) || Date.now()), log: d.log || [] };
     if (d.groupId) pGChat(d.groupId, p => [...p, bubble]);
     else if (d.chatKey || d.pIds[0]) pChat(d.chatKey || d.pIds[0], p => [...p, bubble]);
   }, [loaded]);
@@ -23194,7 +24163,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 视频通话原来只有一片深色底和一个头像圆——「看得见对方」这件事只写在提示词里，
   // 屏幕上一点都看不出来。这里就地拍一张：**在电话里的每一个人都拿TA自己的参考照锁脸**
   // （她原话「谁在电话里都锁」），画面从各人此刻的状态卡长出来（在哪、在干嘛、穿什么）。
-  // 只属于这一通：存在 call.bg 上，挂了就没了，不落进聊天记录、不进相册。
+  // 存在 call.bg / call.shots 上；挂断时跟着通话回执落进聊天（她 2026-09-02「结束了要留在聊天不能没了」），不进相册。
   const callShotCan = () => {
     const c = callRef.current;
     if (!c || c.mode !== "video") return false;
@@ -23231,6 +24200,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       await idbImgPut(key, out.blob);
       // ⚠️换一张【不删旧的】：她 2026-09-02「结束了要留在聊天不能没了」——
       //   这一通里拍过的每一张挂断后都要落进聊天，删了就真没了。封顶 4 张。
+      // 画面还在出的时候就挂了：电话已经收成回执，这一张补到那张回执上，不然图出来了却谁也没挂上
+      if (!callRef.current || callRef.current.sessionId !== cur.sessionId) {
+        const tack = p => p.map(x => x && x.kind === "callend" && x.sessionId === cur.sessionId ? { ...x, shots: [...(x.shots || []), key] } : x);
+        if (cur.groupId) pGChat(cur.groupId, tack); else if (cur.participants && cur.participants[0]) pChat(cur.chatKey || cur.participants[0].id, tack);
+        return;
+      }
       setCall(c => c ? { ...c, bg: key, shots: [...(c.shots || []), key], bgBusy: false } : c);
     } catch (e) {
       setCall(c => c ? { ...c, bgBusy: false } : c);
@@ -23664,7 +24639,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const log = (cur.msgs || []).map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, act: !!m.act, ...(m.ev ? { ev: m.ev, tid: m.tid } : {}), content: m.content, ...(m.zh ? { zh: m.zh } : {}), ts: m.ts || null }));
       // 这一通里拍过的画面跟着通话记录留下来（她：「结束了要留在聊天不能没了」）
       const shots = (cur.shots || []).filter(Boolean);
-      const bubble = { role: "system", kind: "callend", callMode: cur.mode, dur: dur, endedBy: byName || null, shots: shots.length ? shots : undefined, content: label, ts: Date.now(), id: callId, log };
+      const bubble = { role: "system", kind: "callend", callMode: cur.mode, dur: dur, endedBy: byName || null, shots: shots.length ? shots : undefined, content: label, ts: Date.now(), id: callId, sessionId: cur.sessionId || null, log };
       if (cur.groupId) pGChat(cur.groupId, p => [...p, bubble]);
       // 通话里转的账早就落进聊天了（真卡只有一张）；通话卡插到它们前面——先有这通电话，再有电话里转的钱
       else if (cur.participants[0]) pChat(cur.chatKey || cur.participants[0].id, p => {
@@ -24269,7 +25244,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const hadTopics = [...new Set(mine.map(r => String(r.topic || "").trim()).filter(Boolean))];
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "你往" + (profile.name || "她") + "的匿名提问箱里投一个问题。\n"
+        instruction: "你往" + ((profileFor(char.id) || profile).name || "她") + "的匿名提问箱里投一个问题。\n"
           + "【她看不见是你投的】她只看得到一个网名和一句签名，不知道是谁。所以别落款、别写只有你会说的口头禅当签名、"
           + "也别在问题里点破你是谁——但话该带着你自己的性子，她猜得出来是你、还是猜不出来，那是她的事，不是你要控制的。\n"
           // ⚠️她 2026-09-19 截图：出来的全是「如果身边有个人…」「这种人到底是…」
@@ -25502,7 +26477,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _momBi = ProbeZh.on(settingsFor(char.id));
       // 评论也一起译（她 2026-10-03：「朋友圈评论的外语能不能也翻译了」）——在同一轮里要，不额外花钱。说法走公共的 ProbeZh
       const _momBiSpec = _momBi ? ProbeZh.spec("这条朋友圈正文", "下面那些评论里，不是中文的那几条也各自给一份中译，填在那条评论自己的 zh 里。") : "";
-      const d = await runProbe(policyApiFor("moments", char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
+      const d = await runProbeRetry(policyApiFor("moments", char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
         voice: true,
         instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + (_zyPost ? "\n\n【这一条发的是什么】你刚做完一套照影小测「" + _zyPost.testName + "」，测出来是「" + _zyPost.title + "」" + (_zyPost.line && _zyPost.line !== _zyPost.title ? "（" + _zyPost.line + "）" : "") + "。这条朋友圈会挂着这张结果卡，你写的是配在卡上面的那几句——你自己对这个结果怎么看，照你平时发朋友圈的样子。\n" : _momAxes) + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。那些相处每句都带着时间：这条是现在发的，隔了一夜、半天的事是那时候的事，回头提一句可以，今天别的事也一样能发。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的评论（0-6 条，多少看这一条本身招不招人说话、你这个人人缘怎么样，每条都不一样，冷清的一条没有、热闹的能有五六条），和点了赞的人（likers，0-8 个名字：刷到了、顺手点个赞的人；评论的人也可以点赞，只点赞不说话的也算）。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat + _momBiSpec,
         schemaHint: _momImgOpen
@@ -25520,6 +26495,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         id: newMomId,
         ...(_pinNew ? { top: true, topTs: Date.now() } : {}),
         characterId: char.id,
+        ...(momOpts && momOpts.manual ? { manual: true } : {}),   // 她点「让角色发一条」的不算进 24 小时上限
         content,
         image: newMomImage,
         ...(_zyPost ? { zy: { testName: String(_zyPost.testName || "").slice(0, 40), title: String(_zyPost.title).slice(0, 40), line: String(_zyPost.line || "").slice(0, 120), who: "我" } } : {}),
@@ -25763,8 +26739,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const _rosterPersona = [...new Set(roster.map(momCharByName).filter(c => c && c.id !== primary.id))].slice(0, 8).map(c => "- " + (c.remark || c.name) + (c.remark && c.remark !== c.name ? "（" + c.name + "）" : "") + "：" + momPersonaBrief(c)).join("\n");
       const _rosterBlock = _rosterPersona ? "\n【评论区里别人各自是什么样的人（他们开口照各自的人设和口气，别都写成一个味）】\n" + _rosterPersona + "\n" : "";
       const system = bundle + _rosterBlock + (isMine ? MOMENT_TAKEOUT_ASK + momentCartAsk() + momStrangerPairs([...new Set(roster.map(momCharByName).filter(Boolean))]) : "") + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + whoLines + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\",\"who\":\"（只有人设里提到的人才填）身份词\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.concat(_threadPeople).join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。这是大家在评论区一起聊：除了回用户，也可以接评论区里别人刚说的（包括这一轮前面那条），回谁就把那人的名字填进 replyTo。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"replyTo\":\"回复谁（回用户就填用户的名字）\",\"text\":\"回复内容\"}]}");
-      const raw = await callAI(policyApiFor("moments", primary.id), system, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
+      // 顺手私聊（她 2026-11-21「为啥不能同一次调用」）：她在【他自己那条】底下留言时，同一次里让发帖的他决定要不要再私聊她几句；主动消息的闸照守
+      const dmChar = !more && !isMine && mom.characterId ? (characters || []).find(c => c && c.id === mom.characterId && !c.npc) : null;
+      const dmOk = !!(dmChar && (settingsFor(dmChar.id) || {}).proactive && !quietNow("pro") && autoRefreshOn("proactive", dmChar.id) && !(typeof sleepPhaseOf === "function" && sleepPhaseOf(dmChar) === "asleep"));
+      const dmAsk = dmOk ? "\n【顺手私聊（可空）】发帖的「" + (dmChar.remark || dmChar.name) + "」看了她这条评论，如果他会想再跑回私聊跟她说几句——评论区里大家都看得见、不方便说的，或者想接着往下聊的——就在 JSON 里加一个 dm 字段：字符串数组，是他私聊发给她的一两句，照他这个人；别重复评论区里那句，也别解释为什么来私聊。多数时候不用私聊，那就填 null。" : "";
+      const raw = await callAI(policyApiFor("moments", primary.id), system + dmAsk, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
       const d = extractJSON(raw) || {};
+      try {
+        const dm = dmOk && Array.isArray(d.dm) ? d.dm.map(x => String(x || "").trim()).filter(x => x && x.toLowerCase() !== "null").slice(0, 3) : [];
+        if (dm.length) setTimeout(() => { pChat(dmChar.id, p => [...p, ...dm.map((x, k) => ({ role: "assistant", content: x, ts: Date.now() + k }))]);
+          if (window.Notify) window.Notify.push({ title: dmChar.remark || dmChar.name, body: dm[0], tag: "momdm-" + dmChar.id, charId: dmChar.id }); }, 15000 + Math.random() * 30000);
+      } catch (e) {}
       // 容错解析：{replies:[...]} / 裸数组 / {reply} / {text}
       let reps = [];
       if (Array.isArray(d.replies)) reps = d.replies;
@@ -25814,7 +26799,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         text: storedText
       }]
     } : m));
-    await momentReplies(moments.find(m => m.id === id), { text, replyTo });
+    const _mom = moments.find(m => m.id === id);
+    await momentReplies(_mom, { text, replyTo });
   };
   // 「↻ 更多评论」：同一条动态下再来一轮共友的话。重复点不叠发（进行中锁）。
   const momentMoreInflight = useRef({});
@@ -26208,7 +27194,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   vice versa」）。切到某个世界才按世界分——想让两条线的人别碰面，就切过去逛。
   const forumInWorld = (c, post) => !!c && (forumCurWorld() === "*" || forumThreadWorld(post) === "*" || charWorldOf(c.id) === forumThreadWorld(post));
   // 同 persona1 那条：36 个字只够一个职业标签，楼里的角色就成了那一行的黑话机（她 2026-10-08）
-  const forumCharList = post => { const _cs = forumActiveChars().filter(c => !post || forumInWorld(c, post)); const _b = Math.max(400, Math.min(2000, Math.floor(8000 / Math.max(1, _cs.length)))); return _cs.map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").replace(/\s+/g, " ").slice(0, _b) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜平时用大号，需要遮一下时习惯用" + (m.identityBias === "alt" ? "固定小号" : "匿名") + "）"; }).join("；"); };
+  const forumCharList = (post, onlyIds) => { const _cs = forumActiveChars().filter(c => (!post || forumInWorld(c, post)) && (!onlyIds || onlyIds.indexOf(c.id) >= 0)); const _b = Math.max(400, Math.min(2000, Math.floor(8000 / Math.max(1, _cs.length)))); return _cs.map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").replace(/\s+/g, " ").slice(0, _b) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜平时用大号，需要遮一下时习惯用" + (m.identityBias === "alt" ? "固定小号" : "匿名") + "）"; }).join("；"); };
   const toggleForumChar = charId => setAutoRefreshChar("forum", charId, (forumOffRef.current || []).includes(charId));
   // NPC 主帖不绑定具体角色，用一个「论坛网友」合成 ctx（仍带世界书 + 去人机味总则）
   // 楼层落盘失败不许静默（照 commitEmotePacks 那一处的写法：
@@ -26220,6 +27206,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 一轮只吭一声，免得写一次弹一次。
   const forumSaveWarned = useRef(false);
   const saveForumComments = next => {
+    try { forumRefsTagAll(next); } catch (e) {}
     try { noteForumCharMeets(next); } catch (e) {}
     if (saveJSON("x_forumComments", next)) return true;
     if (!forumSaveWarned.current) {
@@ -26527,7 +27514,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + "\n⚠️**没点到名单上的一律按路人落账**——想让某个熟面孔开口，npcId 或者名单上那个名字必须写出来。"
       + (ties.length ? "\n【熟面孔之间已经存在的公开交情】\n" + ties.join("\n") + "\n同帖遇见时可以自然接旧梗、附和或抬杠；别每次重新自我介绍，也别把公开交情写成私密记忆。" : "")
       + "\n角色或熟面孔回另一个角色或熟面孔的那一条，顺手标 meetTone：这一句冲对方是什么调子——warm（搭上话、附和）/ spar（抬杠、呛）/ 留空。先照想写的写，写完照实标。"
-      + (userTies.length ? "\n【与用户公开账号的既往碰面】\n" + userTies.join("\n") + "\n只承认公开见过，别凭空补共同经历。" : "") + "\n";
+      + (userTies.length ? "\n【与用户公开账号的既往碰面】\n" + userTies.join("\n") + "\n只承认公开见过，别凭空补共同经历。" : "") + "\n"
+      + forumRefLine();
   };
   // 模型【点名】了才算熟面孔：npcId，或者 handle／名字对得上名单。点不上就返回 null。
   const forumNpcNamed = (x, board) => {
@@ -26699,7 +27687,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return { items: out.slice(0, 160) };
   };
   // runProbe 简单重试：单次结构化内容偶尔截断/解析失败，重试一次
-  const runProbeRetry = async (p, ctx, probe) => { try { return await runProbe(p, ctx, probe); } catch (e) { if (!failRetryOn()) throw e; return await runProbe(p, ctx, probe); } };
+  // 「失败了自动再试一次」管整次调用：断线、超时、空回、被拦都再要一次。格式坏了那种 runProbe 里自己已经补过一枪，这里不再叠
+  //   （群友 2026-11-20：论坛、朋友圈有时生成失败，又不知道他发在哪个板块，想让他再试一次）
+  function runProbeRetry(p, ctx, probe) { return runProbe(p, ctx, probe).catch(e => { if (!failRetryOn() || /^解析失败/.test(String(e && e.message || ""))) throw e; return runProbe(p, ctx, probe); }); }
   // 写入帖子并对该版块做 NPC 硬上限清理（删最旧 NPC 帖，角色帖免疫）
   // 全库 NPC 帖总封顶（v62.42，审计 P1）：按版块的 30 条封不住「搜索吧」——
   // 每次搜索 board 都是新名字，永远轮不到那道闸，十次搜索就是十个永不清理的版块。
@@ -26722,7 +27712,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const appendForumPosts = (recs, board) => setForumPosts(prev => {
     // 这一批记到她现在逛的那个世界（已经自己带了 world 的不动）
     const _w = forumCurWorld() === "*" ? "" : forumCurWorld();
-    let n = [...recs.map(r => r && typeof r.world !== "string" ? { ...r, world: _w } : r).map(r => r ? { ...r, ...forumFmtTag() } : r), ...prev];
+    let n = [...recs.map(r => r && typeof r.world !== "string" ? { ...r, world: _w } : r).map(r => r ? forumRefsTag({ ...r, ...forumFmtTag() }, forumAtCandsNow(), prev) : r), ...prev];
     const kill = new Set();
     const spare = forumTouchedPosts(forumCommentsRef.current);
     const evictable = x => x.authorType === "npc" && !x.keptFrom && !spare.has(x.id) && !forumCInflightRef.current[x.id];
@@ -27058,6 +28048,45 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const mutuals = meOwn ? (knowers || []).filter(c => ((forumBackRef.current || {})[c.id] || {}).on && (forumFollowsRef.current || []).includes(c.id)) : [];
     return mutuals.length ? "\n【互相关注】" + mutuals.map(c => "「" + c.name + "」").join("、") + " 跟她在论坛上互关，她一发帖他们就刷到了：这一轮里他们要是还没在这帖出现过，至少来一位，用大号。\n" : "";
   };
+  // 她 @ 过、还没来回过的人（她 2026-11-21「@ 了的人一定要来」）：帖子正文、她开的楼、她写的楼中楼里挑过的 mentions，
+  //   之后这人在这帖里还没写过一条的，就算欠着。不另存「待回」的标记——从楼里现看，回过了自然就不欠了。
+  //   extra：刚发出去、还没进 forumCommentsRef 的那一条（{ ids, ts, where, who }）
+  const forumMentionsDue = (post, floors, extra) => {
+    // 搜来的陌生话题吧也算（她 2026-11-21「搜索出来的想让他来看来评论也是合理的吧」）：只放被点名的那几位进来，见 forumMentionRule
+    if (!post) return [];
+    const src = [];
+    const push = (x, where) => { if (x && Array.isArray(x.mentions) && x.mentions.length) src.push({ ids: x.mentions.filter(id => id !== x.authorId), ts: Number(x.ts || x.visibleAt) || 0, where, who: x.authorName }); };
+    push(post, "帖子正文");
+    (floors || []).forEach(f => { push(f, f && f.floor ? f.floor + "楼" : "这一楼"); ((f && f.replies) || []).forEach(r => push(r, (f.floor ? f.floor + "楼的" : "") + "楼中楼")); });
+    (extra || []).forEach(x => x && Array.isArray(x.ids) && x.ids.length && src.push(x));
+    const spokeAfter = (id, ts) => (floors || []).some(f => f && ((f.authorId === id && f.authorType !== "me" && Number(f.ts || f.visibleAt || 0) > ts)
+      || (f.replies || []).some(r => r && r.authorId === id && r.authorType !== "me" && Number(r.ts || 0) > ts)));
+    const out = [], _srch = /^搜索/.test(post.triggerSource || "");
+    src.forEach(m => m.ids.forEach(id => {
+      if (out.some(x => x.id === id) || spokeAfter(id, m.ts)) return;
+      const c = forumActiveChars().find(x => x.id === id && forumInWorld(x, post));
+      if (c) { out.push({ id, kind: "char", name: c.name, where: m.where, who: m.who, search: _srch }); return; }
+      const n = FORUM_NPC_REGISTRY.find(x => x.id === id);
+      if (n) out.push({ id, kind: "npc", name: n.name, where: m.where, who: m.who });
+    }));
+    return out;
+  };
+  // 模型写的帖／楼也能 @、贴帖子：存档那一下用同一份名单认（screens.js forumRefsTag）。她这个号的名字也在名单里（key="me"）
+  const forumAtCandsNow = () => {
+    const me = myForumName(null);
+    return forumAtCandidates(forumActiveChars(), forumOffRef.current).concat(me && me !== "匿名者" ? [{ key: "me", label: me, kind: "me" }] : []);
+  };
+  const forumRefsTagAll = fc => { const cands = forumAtCandsNow(), ps = forumPostsRef.current;
+    Object.keys(fc || {}).forEach(pid => (fc[pid] || []).forEach(f => { forumRefsTag(f, cands, ps); ((f && f.replies) || []).forEach(r => forumRefsTag(r, cands, ps)); })); };
+  // 能贴的帖：一小份目录，四路刷楼（forumNpcRule）和角色自己发帖都带上
+  const forumRefLine = () => { const cat = forumLinkCatalog(forumPostsRef.current); return cat ? "\n【能贴的帖】想提到下面某一帖，就在正文里原样写它后面那个 [[post:…]]，会显示成那一帖的小卡：\n" + cat + "\n" : ""; };
+  // 被点名的人：这一轮一定来一条，而且知道自己是被点了名才来的（不另花调用，拼进这一波本来就有的生成里）
+  const forumMentionRule = due => !(due && due.length) ? "" : "\n【这帖里有人点了名】\n" + due.map(m => m.kind === "char"
+      ? "「" + m.name + "」：「" + (m.who || "楼主") + "」在" + m.where + "里 @ 了你，你知道自己被点了名；这一轮你一定来回一条（char 填「" + m.name + "」）。"
+
+      : "常驻熟面孔「" + m.name + "」：「" + (m.who || "楼主") + "」在" + m.where + "里 @ 了你；这一轮你一定来回一条（npcId 填 " + m.id + "）。").join("\n")
+    // 搜来的帖平时不带角色名单：被点名的那几位用论坛那份公共名单（forumCharList）补上，不另截一份人设
+    + (due.some(m => m.search) ? "\n上面说不要出现认识的角色的，对这几位被点了名的不算。他们是：" + forumCharList(null, due.filter(m => m.search).map(m => m.id)) : "") + "\n";
   // 她身边的配角也来回她的帖（群友 2026-10-22：「我今天发的帖子，npc 都不跟我互动」）：
   //   原来楼里只有正式角色和路人，配角只会自己偶尔发一帖。她用主面具、大号发的帖，挂在她身边的配角
   //   和认识她的那些配角刷得到，每轮掷一下点一两位来回帖；人设给全，按跟她的真实关系说话。
@@ -27155,7 +28184,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 第二轮起同样要认得出楼主是她（她发帖后那几波陆续来回走的正是这条路）
       // 楼主角色可以钉一楼（她 2026-11-02）：只给判断方向，不给样子
       const opPinRule = opChar ? " 楼主还可以把楼里的一楼置顶：照你的性子和你跟评论的人的关系，觉得谁说到你心坎上、或者想抬举谁，就在最外层填 pin_floor＝那一楼的楼号；想换一楼就填新的，不想动就填 0。" : "";
-      const opRule2Full = opRule2 + opPinRule + meRule + opMineBan;
+      const opRule2Full = opRule2 + opPinRule + meRule + opMineBan + forumMentionRule(forumMentionsDue(post, floors));
       return {
         instruction: forumPostVoice(post) + forumNpcRule(post.board) + " " + opRule2Full + forumPinLine(post, opts.existingFloors) + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + forumWithPhoto(post.body, post) + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " " + FORUM_ID_VOICE + FORUM_THREAD_LINE + FORUM_PHOTO_LINE,
         schemaHint: "{" + (opChar ? "\"pin_floor\":0," : "") + "\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色发言才填角色名\",\"identity\":\"main|alt|anonymous（角色才填）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复\"" + FORUM_PHOTO_FIELD + ",\"replies\":[]}]}",
@@ -27169,7 +28198,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       ? "**楼里是常驻熟面孔与一次性路人的混合**，**不要出现你认识的任何角色**——这是搜来的陌生话题吧。"
       : "**大多数楼是常驻熟面孔与一次性路人**；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠。角色冒泡时 identity 可以是 main（大号）、alt（固定小号）或 anonymous（匿名）——**别全用大号**：角色冒泡的楼里大约三成该是小号或匿名（想说点不方便顶着名字说的、想看热闹不想被认出来的时候）；" + FORUM_ID_VOICE + "小号/匿名的文字仍必须贴本人，但绝不能在正文自曝身份。**第一轮不必让所有角色都出现**；写不出贴人设的评论就别让 Ta 出现，宁可全路人、绝不 OOC：" + (poolStr || "（暂无其他角色）") + "。角色发言填 char=角色名与 identity，不再填 npcId。";
     return {
-      instruction: forumPostVoice(post) + forumNpcRule(post.board) + " " + opRule + relBlock
+      instruction: forumPostVoice(post) + forumNpcRule(post.board) + " " + opRule + relBlock + forumMentionRule(forumMentionsDue(post, forumCommentsRef.current[post.id] || []))
         + forumCharGrounding(opChar, post, "楼主") + poolChars.map(c => forumCharGrounding(c, post, "这帖里可能开口的")).join("")
         + " 帖子：标题「" + post.title + "」，正文「" + forumWithPhoto(post.body, post) + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "" + FORUM_THREAD_LINE + (isSearch ? "楼中楼里也全是常驻网友和路人。" : "楼中楼里可以是常驻网友或角色 char，或楼主回某条评论时 is_op=true。") + FORUM_PHOTO_LINE,
       schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色才填\",\"identity\":\"main|alt|anonymous\",\"content\":\"回复\"" + FORUM_PHOTO_FIELD + ",\"replies\":[]}]}",
@@ -27328,6 +28357,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       anon: anonB, triggerSource: triggerSource || "", ts: base, world: charWorldOf(char.id), ...forumFmtTag(),
       ...forumCounts(char.id + base, content.replyCount || (3 + forumHash(char.id) % 40))
     };
+    forumRefsTag(rec, forumAtCandsNow(), forumPostsRef.current);
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
     // 开关在贴吧顶上（x_forumAutoImg，默认关）：开着就顺手把这张配图画出来
     if (rec.photo && !rec.photo.imageRef && loadJSON("x_forumAutoImg", false) && imgApiReady()) setTimeout(() => forumGenImage(rec.id), 60);
@@ -27459,7 +28489,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const forumShareFloors = post => {
     const rows = forumCommentsRef.current[post.id] || [];
     if (!rows.length) return "｜（楼里还没人回）";
-    const say = x => (x.authorName || "有人") + "：" + String(x.content || "").replace(/\s+/g, " ").slice(0, FORUM_SHARE_FLOOR_LEN);
+    const say = x => (x.authorName || "有人") + "：" + forumLinkPlain(x.content).replace(/\s+/g, " ").slice(0, FORUM_SHARE_FLOOR_LEN);
     const shown = rows.slice(-FORUM_SHARE_FLOORS).map(f => {
       const back = (f.replies || []).slice(-1)[0];
       return say(f) + (back ? "（有人回：" + say(back) + "）" : "");
@@ -27468,19 +28498,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return "｜楼里：" + shown.join("；") + (rest > 0 ? "（前面还有 " + rest + " 层没列）" : "");
   };
   const forumShareText = (post, tags) => "[转发了一条贴吧帖]「" + post.board + "」《" + post.title + "》｜"
-    + forumWithPhoto(String(post.body || "").replace(/\s+/g, " ").slice(0, 160), post) + "｜作者显示：" + post.authorName
+    + forumWithPhoto(forumLinkPlain(post.body).replace(/\s+/g, " ").slice(0, 160), post) + "｜作者显示：" + post.authorName
     + forumShareFloors(post) + (tags || "");
   // 帖子／一楼评论转进论坛私信（群友 2026-10-18 许愿）：就当她在私信里发了这一段，对方照常回
   const forwardPostToPM = (post, threadId) => {
     const who = post.anon || post.board === "匿名吧" ? "匿名" : (post.authorName || "");
-    const txt = "〔转给你看〕" + (who ? who + " 在" : "") + "【" + (post.board || "论坛") + "】" + "《" + String(post.title || "").slice(0, 40) + "》：" + String(post.body || "").replace(/\s+/g, " ").slice(0, 300);
+    const txt = "〔转给你看〕" + (who ? who + " 在" : "") + "【" + (post.board || "论坛") + "】" + "《" + String(post.title || "").slice(0, 40) + "》：" + forumLinkPlain(post.body).replace(/\s+/g, " ").slice(0, 300);
     sendForumPM(threadId, txt);
     toast("转过去了");
   };
   const forwardPostToChat = (post, toChar) => {
     pChat(toChar.id, p => [...p, {
       role: "user", kind: "forumshare",
-      post: { board: post.board, title: post.title, body: post.body, authorName: post.authorName, anon: !!post.anon },
+      post: { board: post.board, title: post.title, body: forumLinkPlain(post.body), authorName: post.authorName, anon: !!post.anon },
       content: forumShareText(post, forumOwnTags(post, toChar.id)),
       ts: Date.now(), read: false
     }]);
@@ -27727,7 +28757,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }).filter(Boolean).join("");
     pGChat(groupId, p => [...p, {
       role: "user", kind: "forumshare", senderName: profile.name || "我",
-      post: { board: post.board, title: post.title, body: post.body, authorName: post.authorName, anon: !!post.anon },
+      post: { board: post.board, title: post.title, body: forumLinkPlain(post.body), authorName: post.authorName, anon: !!post.anon },
       content: forumShareText(post, tags),
       ts: Date.now()
     }]);
@@ -27937,7 +28967,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         (f.replies || []).forEach(r => { if (r.authorId === "me" && r.content && acctMine(r)) myComments.push(r.content); });
       }));
       const actLines = [];
-      myPosts.forEach(p => actLines.push("· 发帖《" + p.title + "》" + (p.body ? "：" + String(p.body).slice(0, 70) : "") + "（在" + p.board + "）"));
+      myPosts.forEach(p => actLines.push("· 发帖《" + p.title + "》" + (p.body ? "：" + forumLinkPlain(p.body).slice(0, 70) : "") + "（在" + p.board + "）"));
       myComments.slice(0, 8).forEach(c => actLines.push("· 评论过：" + String(c).slice(0, 60)));
       const hasActivity = actLines.length > 0;
       // ⚠️杠精这件事【提示词只能降概率，代码这一道才保证】（她 2026-09-01：「不需要每次
@@ -28290,7 +29320,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const d = await runProbeRetry(p, forumWorldCtx((post.title || "") + "\n" + (post.body || ""), forumThreadWorld(post)),
         forumCommentProbe(post, "1-2", { round2: true, existingFloors: existing, repliedChars: forumRepliedCharCells(existing) }));
       forumPinFromModel(post, d, existing);
-      const cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content).slice(0, 2);
+      // 被点名的人这一波一定要来：模型多写的那几条留着，不被「一波一两条」截掉（forumMentionsDue）
+      const cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content).slice(0, 2 + forumMentionsDue(post, existing).length);
       if (cs.length) {
         const base = Date.now(), start = existing.length + 2;
         const floorByNum = new Map(existing.map(f => [f.floor, f]));
@@ -28378,33 +29409,35 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (add > 0 || w >= 1) editForumMe({ followers: f0 + Math.max(w >= 1 ? 1 : 0, add) });
   };
   const fansCount = post => !(post && (post.board === "匿名吧" || post.anon)) && !usingAlt(post) && !forumMaskNow();
-  const addForumFloor = (post, text, photo) => {
+  // mentions：她在这句里 @ 了谁（界面那头 forumMentionIds 认出来的 id，角色或常驻熟面孔）
+  const addForumFloor = (post, text, photo, mentions) => {
     const base = Date.now();
     const fid = "fc_me_" + base;
     const floorNo = ((forumCommentsRef.current[post.id] || []).length) + 2;
-    const floor = { id: fid, authorId: "me", authorType: "me", ...(usingAlt(post) ? { alt: true } : {}), ...myMaskTag(post), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), floor: floorNo, content: text, ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ts: base, likeCount: 0, replies: [] };
+    const floor = { id: fid, authorId: "me", authorType: "me", ...(usingAlt(post) ? { alt: true } : {}), ...myMaskTag(post), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), floor: floorNo, content: text, ...(Array.isArray(mentions) && mentions.length ? { mentions: mentions.slice(0, 12) } : {}), ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ts: base, likeCount: 0, replies: [] };
     setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveForumComments(n); return n; });
     if (post.authorType === "npc") touchForumPublicTie(post.authorId, "mine");   // 她去接他的话
     bumpReplyBy(post.id, 1);
     if (fansCount(post)) growMyFans(0.3);
-    genRepliesToMe(post, fid, forumWithPhoto(text, floor), "", floor);
+    genRepliesToMe(post, fid, forumWithPhoto(text, floor), "", floor, [{ ids: floor.mentions || [], ts: base - 1, where: "她刚开的这一楼", who: floor.authorName }]);
   };
   // 我回复楼中楼 → 随后刷几条回我的挂到同一层
   // toName：我回的是【楼里某一条】时那个人的名字（回楼层本身时是空的）。
   // 它有两个用处：① 界面上写「回复 @某某」，一层楼里谁在跟谁说话看得出来；
   // ② 下面那一轮生成里，【被 @ 的那个人】才是必回我的人——原来一律强制层主回，
   //    于是我明明在回三楼的路人乙，跳出来答话的却永远是层主（她 2026-09-01 报的那个「接不上话」）。
-  const addForumSubReply = (post, floorId, text, toName) => {
+  const addForumSubReply = (post, floorId, text, toName, mentions) => {
+    const subTs = Date.now();
     const targetFloor = (forumCommentsRef.current[post.id] || []).find(f => f.id === floorId);
     if (targetFloor && targetFloor.authorType === "npc") touchForumPublicTie(targetFloor.authorId, "mine");
     const to = String(toName || "").trim();
     setForumComments(prev => {
-      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { ...(usingAlt(post) ? { alt: true } : {}), ...myMaskTag(post), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), authorType: "me", authorId: "me", content: text, toName: to, ts: Date.now() }] } : f);
+      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { ...(usingAlt(post) ? { alt: true } : {}), ...myMaskTag(post), ...(Array.isArray(mentions) && mentions.length ? { mentions: mentions.slice(0, 12) } : {}), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), authorType: "me", authorId: "me", content: text, toName: to, ts: Date.now() }] } : f);
       const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;
     });
     bumpReplyBy(post.id, 1);
     if (fansCount(post)) growMyFans(0.3);
-    genRepliesToMe(post, floorId, text, to);
+    genRepliesToMe(post, floorId, forumWithPhoto(text, null), to, null, [{ ids: Array.isArray(mentions) ? mentions : [], ts: subTs - 1, where: "这一楼的楼中楼", who: myForumName(post) }]);
   };
   // 生成回复「我这条评论」的楼中楼：【层主（这层楼的作者）必回我】；【发帖的帖主看情况】——
   // 这层 TA 回过且没新话就不许再出现（治「帖主重复评论」）；其余 0-3 条路人/真关心的角色。
@@ -28422,7 +29455,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + ths.map(t => "· 「" + t.npcName + "」：" + t.messages.slice(-6).map(m => (m.from === "me" ? me : t.npcName) + "：" + String(m.text || "").slice(0, 60)).join(" / ")).join("\n")
       + "\n私信里的事是你们两个人之间的，评论区是公开的：认得她、语气接得上就行，私信里的具体内容别当众说出来。\n";
   };
-  const genRepliesToMe = async (post, floorId, myText, toName, knownFloor) => {
+  const genRepliesToMe = async (post, floorId, myText, toName, knownFloor, mentionNow) => {
     if (!active) return;
     setGen(g => ({ ...g, forumReplyMe: floorId }));
     try {
@@ -28488,7 +29521,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             ? "① 这层楼就是「" + meNow + "」自己开的——**【" + meNow + "】是真人本人，你绝对不许以 Ta 的名义写任何一句**，一条都不要标 is_owner。让别人来接话。\n"
             : "① **必须恰有一条是" + (resp.inFloor ? "被 TA 回的那个人" : "层主") + "「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n") +
           (opIsMe ? "② 这帖是「" + meNow + "」本人发的——**不许以帖主的名义写任何一句**，一条都不要标 is_op。\n" : "② 帖主「" + opName + "」**看情况**：只有 Ta 对这条真有话说才回一条（那条 is_op 设 true）" + (oc ? "；**帖主回复里涉及的任何细节都必须依据上方【楼主真实设定】里的真实经历与人设，绝不许现编、别捏造没发生过的事**" : "") + "；" + (opReplied ? "**Ta 在这层已经回过（见上面现场），除非有全新的内容要说，否则【不要】让 Ta 再出现，绝不重复之前说过的意思。**" : "可回可不回，别硬凑。") + "\n") +
-          "③ " + others + "\n每条含 content；常驻网友给 npcId，角色给 char。语气各异，照每个人看到 TA 这句话真会有的反应来，别一个腔调。" + REAL_DISAGREE + "\n"
+          "③ " + others + forumMentionRule(forumMentionsDue(post, (forumCommentsRef.current[post.id] || []).map(f => f.id === floorId && knownFloor ? knownFloor : f).concat(knownFloor && !(forumCommentsRef.current[post.id] || []).some(f => f.id === floorId) ? [knownFloor] : []), mentionNow)) + "\n每条含 content；常驻网友给 npcId，角色给 char。语气各异，照每个人看到 TA 这句话真会有的反应来，别一个腔调。" + REAL_DISAGREE + "\n"
           + "④ 常驻熟面孔那几条【顺手标一下 toMe】：这一句冲 @" + meNow
           + " 去的是什么调子——warm（搭上话、附和、帮腔）/ spar（抬杠、呛、唱反调）/ 留空（只是路过，没冲着谁）。"
           + "**这一栏不许影响你写什么**：先照你想写的写，写完照实标一个；为了标而改内容就本末倒置了。",
@@ -28550,13 +29583,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 我发帖
   // as：「main」大号 /「alt」小号（她 2026-10-06）。小号的名字在「我」那页设，没设过就用一个默认的
-  const postMyForum = (board, title, body, photo, as, more) => {
+  const postMyForum = (board, title, body, photo, as, more, mentions) => {
     const anonB = board === "匿名吧";
     const altB = !anonB && (as ? as === "alt" : forumMe.using === "alt");
     const altName = String(forumMe.altName || "").trim() || "一只不说话的鱼";
     const base = Date.now();
     const maskB = !anonB && !altB ? forumMaskNow() : "";
-    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", ...(altB ? { alt: true } : {}), ...(maskB ? { mask: maskB } : {}), authorName: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ...(forumPhotoOf({ photo }) && forumMorePhotos({ morePhotos: more }).length ? { morePhotos: forumMorePhotos({ morePhotos: more }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld(), ...forumFmtTag() };
+    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", ...(altB ? { alt: true } : {}), ...(maskB ? { mask: maskB } : {}), authorName: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(Array.isArray(mentions) && mentions.length ? { mentions: mentions.slice(0, 12) } : {}), ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ...(forumPhotoOf({ photo }) && forumMorePhotos({ morePhotos: more }).length ? { morePhotos: forumMorePhotos({ morePhotos: more }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld(), ...forumFmtTag() };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
     // 小号发的帖安安静静放着：不排队叫人来回，打开也不现编一楼（她 2026-10-06：两个都要）
     if (altB) { setForumComments(prev => { const n = { ...prev, [rec.id]: [] }; saveForumComments(n); return n; }); toast("已用小号发到「" + board + "」"); return; }
@@ -29635,6 +30668,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const out0 = await generateSelfieImage(buildPhotoPrompt(sub, desc, st, { pov: povFor(char), kind: "other", me, closet: me.closet || "" }), [sub.refPhoto].filter(Boolean).length ? [sub.refPhoto] : null, { size: "1024x1536" });
       if (!out0 || !out0.blob) throw new Error("没画出来"); return out0.blob;
     }
+    // 她 2026-11-21「为何不是合照」：photoKind 填了 self，画面里却写着她也在（「你坐在椅子上歪头凑近镜头」）——照画面来，拍成合照
+    if ((kind === "self" || !kind) && duoFacesOk(char) && typeof photoDuoSaid === "function" && photoDuoSaid(desc, userName(meP0 || profile))) kind = "duo";
     if (kind === "duo" && duoFacesOk(char)) {
       const out0 = await generateSelfieImage(buildPhotoPrompt(char, desc, st, { kind: "duo", me, closet: closetTextFor(char.id) }), [char.refPhoto, meP0 && meP0.refPhoto].filter(Boolean), { size: "1024x1536" });
       if (!out0 || !out0.blob) throw new Error("没画出来"); return out0.blob;
@@ -29713,8 +30748,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         voice: true, logLabel: "限时动态",
         instruction: relSay(char) + "。你要发一条限时动态（挂 24 小时就收起来），" + (idea ? "此刻想发的是：「" + idea + "」。" : "发什么由你自己定：限时动态是你自己日子的一角——照你今天的日程此刻在干嘛、在哪儿、看见了什么、手边有什么、心里过了什么都行；跟她有关的、只关你自己的都可以，照你这一下真在想的是哪件。") + "把它排成一张竖版手机卡，照你自己的审美来："
           + "bg 背景从这几种里挑一个：" + bgs + "；font 字体：hand 花体英文、brush 中文手写、serif 宋体、sans 黑体；"
-          + "texts 是卡上的字，1 到 4 块，每块 t 写什么、x 和 y 是在卡上的位置（0 到 1，左上角是 0,0；最上面那一截 y 小于 0.2 的地方压着你的头像和名字，最下面 y 大于 0.85 的地方压着回复框）、size 字号（40 到 160）、color 颜色（#hex）、r 歪多少度（-15 到 15）、font 可以单独换；"
+          + "texts 是卡上的字，每块 t 写什么、x 和 y 是在卡上的位置（0 到 1，左上角是 0,0；最上面那一截 y 小于 0.2 的地方压着你的头像和名字，最下面 y 大于 0.85 的地方压着回复框）、size 字号（40 到 160）、color 颜色（#hex）、r 歪多少度（-15 到 15）、font 可以单独换；"
           + "stickers 是贴纸，0 到 5 个 emoji，ch 是哪个、x y 位置、size 大小（60 到 200）。"
+          // 别总是一上一下（她 2026-11-21）：不给例子，只说要换、再带上他最近几条是怎么摆的
+          + "版面每条换一种排法，字的多少、大小、位置、方向都照这一条要说的、想让人先看到什么来排。"
+          + (() => { try { const rec = window.Stories.all().filter(s0 => s0 && String(s0.by) === String(char.id) && s0.raw && Array.isArray(s0.raw.texts)).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 3);
+              const desc = s0 => { const tx = s0.raw.texts.filter(x => x && (x.t || x.text)); return tx.length + " 块字：" + tx.map(x => { const y = Number(x.y), xx = Number(x.x); return (y < 0.38 ? "上" : y > 0.62 ? "下" : "中") + (xx < 0.35 ? "偏左" : xx > 0.65 ? "偏右" : "") + (Number(x.size) >= 120 ? "大字" : Number(x.size) <= 60 ? "小字" : ""); }).join("、"); };
+              return rec.length ? "你最近几条是这么摆的：" + rec.map(desc).join("；") + "。这条换一种。" : ""; } catch (e) { return ""; } })()
           + "photo 写这张卡要配的那张照片拍的是什么（一句画面描述），photoKind 是哪一种：self 你自拍、view 随手拍的风景或场景、thing 手边的东西或吃的" + (canShootMe(char.id) ? "、her 你拍的她（画面里是她）" : "") + (duoFacesOk(char) ? "、duo 你俩的合照" : "") + "。挑哪一种看这一条想让人看见什么：想让人看见你自己此刻的样子就是 self；想让人看见你眼前的地方、手边的东西就是 view、thing" + (canShootMe(char.id) ? "；想让人看见她就是 her" : "") + (duoFacesOk(char) ? "；想让你俩一起出现在画面里就是 duo" : "") + "——这几种在限时动态里都常见，照你这个人平时爱不爱露脸来"
           // 她 2026-11-17「限时动态为啥不会发自拍类或者合照」：上面那句「日子的一角」列的全是往外拍的东西，模型就几乎只挑风景和东西
           + "；photoY 是照片中心在卡上的高度（0.3 到 0.7），字和贴纸别压在照片中间。"
@@ -35704,7 +36744,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const c = pool.length ? pool[Math.floor(Math.random() * pool.length)] : characters[0];
       if (!c) return null;
       const d = await runProbe(bgActive, ctxFor(c), {
-        voice: true,
+        voice: true, logFrom: "命运转盘·角色起哄",
         instruction: "用户选择困难，把决定交给了手机主屏上的「命运转盘」" + (title ? "（转盘主题：" + title + "）" : "") + "。转盘上的选项：" + items.join("、") + "。刚刚指针停在了【" + result + "】。以「" + c.name + "」的口吻对这个结果说一两句话——起哄、拍板、吐槽 Ta 的选择困难、或者对结果本身发表意见都行，按你的人设和此刻心情来，像随口说的，加起来别超过 40 字。",
         schemaHint: "{\"say\":\"一两句话\"}",
         maxTokens: 14000   // cheap_required 线路已显式配置时仍保留完整思考预算
@@ -35792,7 +36832,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onStoryReply: (st, tx, kind) => {
       const c = (characters || []).find(x => x && String(x.id) === String(st.by));
       if (!c) return;
-      pChat(c.id, p => [...p, { role: "user", content: tx, replyTo: kind === "ask" && st.sticker ? "【限时动态·回答提问】" + st.sticker.q : (kind === "react" ? "【对限时动态的回应】" : "【限时动态】") + (st.text || st.desc || "一张卡"), ts: Date.now(), read: true }]);
+      pChat(c.id, p => [...p, { role: "user", content: tx, replyTo: kind === "ask" && st.sticker ? "【限时动态·回答提问】" + st.sticker.q : (kind === "react" ? "【对限时动态的回应】" : "【限时动态】") + (st.text || st.desc || "一张卡") + (st.imgKey ? "（这条动态的样子随本轮附图给你看）" : ""), ts: Date.now(), read: true, ...(st.imgKey ? { imageRef: st.imgKey, storyImg: true } : {}) }]);
       if (window.Stories) window.Stories.addReply(st.id, "me", tx);
       toast("回复发到跟 " + (c.remark || c.name) + " 的聊天里了");
     },
@@ -35856,12 +36896,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     hiddenChats: hiddenChats,
     onHideChat: id => { hideChat(id); setPinnedChats(p => { if (!p.includes(id)) return p; const n = p.filter(x => x !== id); saveJSON("x_pinnedChats", n); return n; }); toast("从列表里删掉了，聊天记录和配角都还在；再聊就会回来"); },
     onNewGroup: () => setNewGroupOpen(true),
+    spaces: spaces,
+    onOpenSpace: sp => { setActiveSpaceId(sp.id); setScreen("space"); },
+    onNewSpace: () => setNewSpaceOpen(true),
     onOpenContact: c => {
       setContactBack(null);
       setActiveChar(c);
       setScreen("contact");
     },
-    onGenMoment: genMoment,
+    onGenMoment: (c, o) => genMoment(c, Object.assign({}, o || {}, { manual: true })),
     genMoment: gen.moment,
     onLikeMoment: likeMoment,
     onCommentMoment: commentMoment,
@@ -35873,7 +36916,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onTopMoment: topMoment,
     onPinMoment: pinMomentToShike,
     onOpenMomProfile: openMomProfile,
-    momCover: momentsCover.me || "", momCoverPos: momentsCover["me@pos"] || "", onShareMoment: shareMomentTo, onSetMomCover: uri => { setMomentCover("me", uri); setMomentCover("me@pos", ""); },
+    momCover: momentsCover.me || "", momCoverPos: momentsCover["me@pos"] || "", onShareMoment: shareMomentTo, onSetMomCover: uri => { setMomentCover("me", uri); setMomentCover("me@pos", ""); }, momCoverOf: k => momentsCover[k] || "", onSetMomCoverFor: (k, uri) => { setMomentCover(k, uri); setMomentCover(k + "@pos", ""); }, onSetMomCoverKey: (k, v) => setMomentCover(k, v),
     onEditProfile: () => setProfileOpen(true),
     onOpenWallet: () => setScreen("wallet"),
     onOpenFavorites: () => setScreen("favorites"),
@@ -35990,7 +37033,49 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // ⚠️从庭院退出来是【回这间房的聊天】，不是回消息列表：她本来就在这间房里
       onBack: () => setGardenOpen("")
     };
-  })());else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+  })());else if (screen === "space" && (spaces || []).some(x => x.id === activeSpaceId)) body = (() => { const sp = spaces.find(x => x.id === activeSpaceId);
+    return h(SpaceView, { key: "sp::" + sp.id, space: sp, channels: (groups || []).filter(g => g && g.spaceId === sp.id && !g.chHidden && !g.roomOf),
+      // 空间内搜索、约定（她 2026-11-20）
+      searchRun: q => { const chs = (groups || []).filter(g => g && g.spaceId === sp.id && !g.roomOf); const chN = gid => { const g = chs.find(x => x.id === gid); return g ? (g.chHidden ? "见面" : (g.chName || g.name)) : ""; };
+        return spaceSearch(q, { channels: chs.map(g => g.chHidden ? { ...g, chName: "见面" } : g), chatsOf: id => chAnonMsgs(chs.find(g => g.id === id), groupChatsRef.current[id] || loadJSON("x_gchat:" + id, [])), filesOf: id => loadJSON("x_chfiles:" + id, []) || [], playOf: id => chpOf(id),
+          gems: (loadJSON(gemKey(sp.id), []) || []).map(x => ({ ...x, ch: chN(x.gid) })) }, 100); },
+      onPickResult: r => { const g = (groups || []).find(x => x && x.id === r.gid); if (!g) return; if (chClosedNow(g.id)) { chLockedToast(g); return; }
+        setActiveGroup(g); clearUnread(g.id);
+        if (r.kind === "file" && r.fileId) { setChFileOpen(r.fileId); setChannelTab("files"); }
+        else if (r.kind === "note") setChannelTab("wall");
+        else { setChannelTab("chat"); if (r.ts) setWalletTrace({ type: "group", id: g.id, ts: r.ts, key: Date.now() }); }
+        setScreen("gthread"); },
+      plans: (spacePlanRev, loadJSON("x_spacePlans:" + sp.id, []) || []),
+      onSavePlans: list => { saveJSON("x_spacePlans:" + sp.id, list); setSpacePlanRev(v => v + 1); },
+      onMeet: (ids, note) => startSpaceMeet(sp, ids, note), meetLog: spaceMeetLog(sp), onOpenMeet: () => { const host = spaceMeetHost(sp); if (host) openGroupOffline(host); }, groupChats, unreadMap, allChars: characters, userLabel: "我",
+      onBack: () => setScreen("messages"),
+      onOpenChannel: g => { if (chClosedNow(g.id)) { chLockedToast(g); return; } setActiveGroup(g); clearUnread(g.id); setChannelTab("chat"); setScreen("gthread"); },
+      hoursOf: g => g.chHours ? (chClosedNow(g.id) ? g.chHours.from + ":00 开" : "开到 " + g.chHours.to + ":00") : "",
+      onSaveChannel: (g, patch) => saveChannel(sp, g, patch),
+      onDeleteChannel: g => { chfPurge(g.id); deleteGroup(g.id); },
+      looseGroups: (groups || []).filter(g => g && !g.spaceId && !g.roomOf), onAdopt: ids => adoptGroups(sp, ids), onRelease: releaseChannel, spectateOf: groupSpectating, maskOwnOf: g => { const r = (gsFor(g.id) || {}).maskId; return r == null ? null : String(r || ""); }, onTalk: () => talkSpace(sp), gems: (spaceGemRev, loadJSON(gemKey(sp.id), [])), onDeleteGem: id => { saveJSON(gemKey(sp.id), (loadJSON(gemKey(sp.id), []) || []).filter(x => x && x.id !== id)); setSpaceGemRev(v => v + 1); },
+      onOpenGem: gm => { window.__openChannel && window.__openChannel(gm.gid); if (gm.mts) setWalletTrace({ type: "group", id: gm.gid, ts: gm.mts, key: Date.now() }); }, digest: (spaceDigestRev, loadJSON("x_spaceDigest:" + sp.id, [])), onDismissDigest: () => { saveJSON("x_spaceDigest:" + sp.id, []); setSpaceDigestRev(x => x + 1); },
+      onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), presence: spacePresence(sp.id), statuses: loadJSON(CHAR_STATUS_KEY, {}) || {}, herName: userName(profile),
+      onMyStatus: st => { const _a = loadJSON(CHAR_STATUS_KEY, {}) || {}; if (!st || (!st.text && !st.emoji)) { const n = { ..._a }; delete n.me; saveJSON(CHAR_STATUS_KEY, n); } else { const r = charStatusSet(_a, "me", st, dayKeyNow() + "_me" + Date.now(), Date.now()); if (r.changed) saveJSON(CHAR_STATUS_KEY, r.all); } setChFilesRev(v => v + 1); }, onSuggestTitles: () => suggestSpaceTitles(sp), onMoveChannel: (g, d) => moveChannel(sp, g, d), onToggleCat: id => toggleSpaceCat(sp, id), noMemOf: channelNoMem, pickPool: liveChars.concat((characters || []).filter(c => c && c.npc && !liveChars.some(x => x.id === c.id))) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+    // 顶上一行（她 2026-11-20 截图「顶上太高把聊天挤没了」）：矮索引签＋右边小签（♪/在听的歌、置顶、公告、养的），点开才摊开
+    channelTabs: activeGroup.spaceId ? (chPlayRev, (() => { const st = chpOf(activeGroup.id), spect = groupSpectating(activeGroup), pet0 = chpPetNow(st.pet, Date.now());
+      const pet = pet0 && pet0.last ? { ...pet0, lastName: (characters.find(c => c.id === pet0.last.by) || {}).name || "" } : pet0, L0 = spect ? null : chListenOf(activeGroup.id);
+      const cur = L0 && L0.song ? st.playlist.find(x => x.title === L0.song.title) : null, notice = String(((gsFor(activeGroup.id) || {}).notice || {}).text || "").trim();
+      return h(ChannelTopRow, { onTab: setChannelTab, spectate: spect, notice: notice || null, pins: st.pins, pet,
+        listen: { on: !!L0, song: L0 && L0.song, by: L0 && L0.by, playing: !!player.playing, playlist: st.playlist, skipDue: cur ? chpSkipDue(cur, (activeGroup.memberIds || []).length) : false, onToggle: () => toggleChListen(activeGroup.id), onStop: () => toggleChListen(activeGroup.id) },
+        onJumpPin: p0 => setWalletTrace({ type: "group", id: activeGroup.id, ts: Number(p0.key), key: Date.now() }),
+        onUnpin: spect ? null : p0 => { const s2 = chpOf(activeGroup.id); chpUnpin(s2, p0.key); chpPut(activeGroup.id, s2); },
+        onCare: spect || chpCount(st, "care", "me") >= 1 ? null : () => { const s2 = chpOf(activeGroup.id); s2.pet = chpCare(s2.pet, "照顾", "me", Date.now()); chpBump(s2, "care", "me"); chpPut(activeGroup.id, s2); toast("照顾过「" + s2.pet.name + "」了"); } }); })()) : null,
+    channelBar: activeGroup.spaceId ? h(React.Fragment, null,
+      // 挂机房（她 2026-11-20）：顶上一排人各自在干嘛，照日程现算，不调模型
+      ((groups || []).find(g => g.id === activeGroup.id) || activeGroup).chKind === "lounge" ? h(LoungePanel, { spectate: groupSpectating(activeGroup), sitting: loungeSitting,
+        people: (activeGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => { const b = typeof schedNowBriefFor === "function" ? schedNowBriefFor(c) : null; return { id: c.id, c, doing: b ? [b.title, b.location].filter(Boolean).join(" · ") : "" }; }),
+        onSit: () => loungeSit(activeGroup.id) }) : null) : null,
+    onSub: activeGroup.spaceId && !groupSpectating(activeGroup) ? key => setSubOpen({ gid: activeGroup.id, root: key }) : null,
+    // 表情回应、置顶（她 2026-11-20）：旁观的频道里她不在场，这两样都不给
+    onReact: activeGroup.spaceId && !groupSpectating(activeGroup) ? (idx, em) => pGChat(activeGroup.id, p => p.map((m, j) => j === idx ? chpReactMsg(m, "me", em) : m)) : null,
+    onPin: activeGroup.spaceId && !groupSpectating(activeGroup) ? idx => { const m = (groupChats[activeGroup.id] || [])[idx]; if (!m || !m.content) return; const st = chpOf(activeGroup.id); chpPin(st, m, "me"); chpPut(activeGroup.id, st); toast("置顶了"); pGChat(activeGroup.id, q => [...q, { role: "system", kind: "chlink", toGid: activeGroup.id, content: "你把「" + String(m.content).slice(0, 24) + "」置顶了", ts: Date.now() }]); } : null,
+    onGem: activeGroup.spaceId ? idx => { const m = (groupChats[activeGroup.id] || [])[idx]; if (addGem(activeGroup.spaceId, activeGroup.id, m, "me")) toast("收进精华了"); } : null,
     onOpenStyleLab: goStyleLab,
     apiProfiles: apiProfiles,
     // 换一个群就是一块新的聊天屏（跟单聊 key 一样）：不然从 A 群点弹窗进 B 群，还停在 A 群翻到的那个高度、也不重新钉底
@@ -36022,17 +37107,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSetMyPlace: p => setMyPlaceFrom(p, null),
     allChars: characters,   // 群成员/群设置要按 id 找人；加人选单另有规矩（NPC 只能进主人的群）
     rels: rels,             // 加人选单要按「已有关系」分组（她 2026-08-25）
-    messages: groupChats[activeGroup.id] || [],
+    // 树洞频道：屏幕上他们只剩代号（她 2026-11-20）。只换显示，存档里还是真名，按条号改、删照旧对得上
+    messages: chAnonMsgs(((groups || []).find(g => g.id === activeGroup.id) || activeGroup), groupChats[activeGroup.id]),
     onStopGen: stopBtnFor("g:" + activeGroup.id),
     sending: sending,
     profile: groupProfileFor(activeGroup.id),
     meName: groupProfileFor(activeGroup.id).name || profile.name || "我",
     myBalance: balanceOf(maskKeyOf("g:" + activeGroup.id)),   // 群里花的是这个群用的那张面具的钱
-    settings: { ...gsFor(activeGroup.id), autoChat: gsFor(activeGroup.id).autoChat !== false && autoRefreshOn("groupChat") },
+    settings: { ...chGsMerge(activeGroup.id, gsFor(activeGroup.id)), autoChat: gsFor(activeGroup.id).autoChat !== false && autoRefreshOn("groupChat") },
     directives: directives[activeGroup.id] || [],
     onRemoveDirective: dirId => removeDirective(activeGroup.id, dirId),
     onSetDirectiveTurns: (dirId, turns) => setDirectiveTurns(activeGroup.id, dirId, turns),
-    onBack: () => setScreen("messages"),
+    // 频道里的群退回它那块空间首页，不是消息列表
+    onBack: () => { if (activeGroup.spaceId && (spaces || []).some(x => x.id === activeGroup.spaceId)) { setActiveSpaceId(activeGroup.spaceId); setScreen("space"); } else setScreen("messages"); },
     onSend: txt => pushGroupUser(activeGroup.id, txt),
     dirNotes: chatDirNotes["g:" + activeGroup.id] || [],
     // 群公告：存群设置，群里落一行灰字（谁发的：你在群里就是你；旁观时算群主的，没群主就写「群主」）
@@ -36064,13 +37151,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
     // 群聊也能存成长图（她 2026-10-23）：谁说的就画谁的头像和名字
     onLongShot: indices => {
-      const g0 = activeGroup, msgs = groupChatsRef.current[g0.id] || [];
+      const g0 = activeGroup, _th = (((groups || []).find(g => g.id === g0.id) || g0).chKind === "treehole");
+      // 树洞的长图也只露代号、不放头像（她 2026-11-21 长图上全是真名）
+      const msgs = chAnonMsgs(((groups || []).find(g => g.id === g0.id) || g0), groupChatsRef.current[g0.id]);
       const picked = indices.slice().sort((a, b) => a - b).map(i => msgs[i]).filter(Boolean);
       if (!window.ChatLongShot) return;
       toast("在拼长图…");
       window.ChatLongShot.save({ msgs: picked, group: true, title: g0.name || "群聊", sub: (g0.memberIds || []).length + 1 + " 人",
-        foot: (() => { const d = new Date(); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; })(), ta: {}, me: { avatar: (profile || {}).avatarImage },
-        avatarSrcOf: id => (characters.find(c => c.id === id) || {}).avatarImage })
+        foot: (() => { const d = new Date(); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; })(), ta: {}, me: { avatar: _th ? null : (profile || {}).avatarImage },
+        avatarSrcOf: id => _th ? null : (characters.find(c => c.id === id) || {}).avatarImage })
         .then(via => toast(via === "cancel" ? "取消了，没存" : via === "share" ? "在分享面板里选「存储图像」" : "长图存下来了"))
         .catch(e => toast("没拼成：" + String((e && e.message) || e).slice(0, 40)));
     },
@@ -36115,8 +37204,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (_gname != null) renameGroup(activeGroup.id, _gname, _gnameBy || "");
       // 群头像也住在 group 上（她 2026-10-02）；null＝移除，回到四宫格
       if (gAvNew !== undefined && gAvNew !== (activeGroup.avatarImage || null)) updateGroup(activeGroup.id, { avatarImage: gAvNew || null });
+      // 设置页拿到的头衔里并进了频道每周称号（chGsMerge）；存回来时把原样没动的称号剔掉，免得称号被当成群主封的、还冒一行「头衔换成了」（她 2026-11-21）
+      if (rest.titles && activeGroup.spaceId) { const _sp = (spacesRef.current || []).find(x => x && x.id === activeGroup.spaceId), _wk = (_sp && _sp.titles) || {}, _own = gsFor(activeGroup.id).titles || {};
+        rest.titles = Object.fromEntries(Object.entries(rest.titles).filter(([id, v]) => !(v && _wk[id] === v && !_own[id]))); }
       if (rest.titles) {
-        const was = gsFor(activeGroup.id).titles || {}, me = userName(profile);
+        const was = gsFor(activeGroup.id).titles || {}, me = herNameIn(activeGroup.id);
         const nmOf = id => id === "me" ? me : ((characters.find(c => c.id === id) || {}).name || "");
         const changed = Object.keys({ ...was, ...rest.titles }).filter(id => (was[id] || "") !== (rest.titles[id] || "") && nmOf(id));
         if (changed.length) pushGroupRich(activeGroup.id, { role: "system", content: changed.map(id => rest.titles[id] ? nmOf(id) + " 的头衔换成了「" + rest.titles[id] + "」" : nmOf(id) + " 的头衔撤掉了").join("；") });
@@ -36124,7 +37216,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (rest.mutes) {
         delete gMuteLiveRef.current[activeGroup.id];   // 她在设置里改了禁言，以这份为准
         // 她亲手禁言、解禁的，群里落一行灰字，大家下一轮看得见
-        const was = groupRoles(gsFor(activeGroup.id)).mutes, now = Date.now(), me = userName(profile);
+        const was = groupRoles(gsFor(activeGroup.id)).mutes, now = Date.now(), me = herNameIn(activeGroup.id);
         const nmOf = id => (characters.find(c => c.id === id) || {}).name || "";
         Object.keys(rest.mutes).forEach(id => { const u = Number(rest.mutes[id]) || 0; if (u > now && u !== Number(was[id]) && nmOf(id))
           pushGroupRich(activeGroup.id, { role: "system", content: me + " 把 " + nmOf(id) + " 禁言了 " + Math.round((u - now) / 60000) + " 分钟" }); });
@@ -36137,7 +37229,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     canPeekMember: c => memberStatePeekable(activeGroup.id, c),
     onStartPoll: (title, options, anon) => startPoll(activeGroup.id, title, options, anon),
     onGenVotes: idx => genPollVotes(activeGroup.id, idx),
-    onVote: (idx, optIdx) => { castVote(activeGroup.id, idx, optIdx, profile.name || "我"); const _pl = groupPoll(activeGroup.id, idx); if (_pl && _pl.ask) setTimeout(() => settleGroupAsk(activeGroup.id, _pl.pollId), 300); },
+    onVote: (idx, optIdx) => { castVote(activeGroup.id, idx, optIdx, herNameIn(activeGroup.id) || "我"); const _pl = groupPoll(activeGroup.id, idx); if (_pl && _pl.ask) setTimeout(() => settleGroupAsk(activeGroup.id, _pl.pollId), 300); },
     onStartAsk: a => startAsk(activeGroup.id, a),
     onSendRedPacket: (total, count, message, toId, kin) => sendRedPacket(activeGroup.id, total, count, message, toId, kin),
     onClaim: idx => claimRedPacket(activeGroup.id, idx),
@@ -36478,7 +37570,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 他关注了谁（互关的第 3 条）：回关了你就有你；再加上跟他有关系的那几个角色（有号的才算），只列名字
     followingOf: cid => ((characters || []).filter(x => x.id !== cid && !x.npc && (rels[cid + "->" + x.id] || rels[x.id + "->" + cid])).map(x => x.name)).slice(0, 12),
     pms: (forumPMs || []).filter(t => pmAcctOf(t) === pmAcctNow()),
-    groups: groups,
+    groups: pickGroupsOf(groups),
     gen: gen,
     forumMe: forumMe,
     // 按面具发帖：主面具＋别的面具，挑哪张就用哪张的名字头像发
@@ -36536,7 +37628,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // ⚠️购物这一屏里【她本人要当场做事】：送礼要把东西递到人手上、代付要开口请人付钱。
     //   旁观群里她根本不在场（她 2026-09-10：「旁观群可以去掉，因为我都不在场」），
     //   所以名单在这儿就滤掉——滤在这一处，送礼和代付两屏一起对，不用各滤一遍。
-    groups: groups.filter(imInGroup),
+    groups: pickGroupsOf(groups.filter(imInGroup)),
     kinshipCards: kinshipCards,
     feed: shopFeed,
     busy: shopBusy,
@@ -36573,7 +37665,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     orders: peekMaskView() ? orders.filter(o => !(peekMaskView().mine != null && orderMaskOf(o) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : orders,
     log: peekMaskView() ? takeoutLog.filter(o => !(peekMaskView().mine != null && orderMaskOf(o) !== peekMaskView().mine) && !peekMaskHit(peekMaskView(), String(o.payLabel || "") + " " + String(o.name || ""), o.fromCharId)) : takeoutLog,
     characters: shopPeople,
-    groups: groups.filter(imInGroup),
+    groups: pickGroupsOf(groups.filter(imInGroup)),
     kinshipCards: kinshipCards,
     feed: takeoutFeed,
     busy: takeoutBusy,
@@ -36744,7 +37836,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const ins = "给一个双人合照照相馆想 6 个拍照题材，彼此差得开、好看、好玩。" + (String(hint || "").trim() ? "她想要的方向：「" + String(hint).trim().slice(0, 80) + "」。" : "")
           + (have && have.length ? "这些已经有了，别重复：" + have.slice(0, 40).join("、") + "。" : "")
           + "每个给 zh（题材名，2~6 个字）和 line（一两句：这个题材里两个人在哪、穿什么、什么身份、什么氛围，给生图模型看的，60~120 字）。";
-        const raw = await callAI(p, ins + "\n只输出 JSON：{\"themes\":[{\"zh\":\"\",\"line\":\"\"}]}", [{ role: "user", content: "开始。" }], { maxTokens: 8000 });
+        const raw = await callAI(p, ins + "\n只输出 JSON：{\"themes\":[{\"zh\":\"\",\"line\":\"\"}]}", [{ role: "user", content: "开始。" }], { logFrom: "照相馆·想题材", maxTokens: 8000 });
         const d = extractJSON(raw);
         return (d && Array.isArray(d.themes) ? d.themes : []).filter(x => x && String(x.zh || "").trim()).slice(0, 8)
           .map(x => ({ zh: String(x.zh).trim().slice(0, 12), line: String(x.line || "").trim().slice(0, 300) }));
@@ -36758,7 +37850,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const ins = "给一个照相馆想 6 种好看、彼此差得开的画风，拿来把两个人的合照画成插画/艺术风格。" + (String(hint || "").trim() ? "她想要的方向：「" + String(hint).trim().slice(0, 80) + "」。" : "")
             + (have && have.length ? "这些已经有了，别重复：" + have.slice(0, 40).join("、") + "。" : "")
             + "每种给 name（画风名，2~8 个字）和 desc（写给生图模型看的一段描述，60~140 字：线条、上色、质感、配色、像哪类作品，具体到能照着画）。";
-        const raw = await callAI(p, ins + "\n只输出 JSON：{\"styles\":[{\"name\":\"\",\"desc\":\"\"}]}", [{ role: "user", content: "开始。" }], { maxTokens: 8000 });
+        const raw = await callAI(p, ins + "\n只输出 JSON：{\"styles\":[{\"name\":\"\",\"desc\":\"\"}]}", [{ role: "user", content: "开始。" }], { logFrom: "照相馆·想画风", maxTokens: 8000 });
         const d = extractJSON(raw);
         return (d && Array.isArray(d.styles) ? d.styles : []).filter(x => x && String(x.name || "").trim()).slice(0, 8)
           .map(x => ({ name: String(x.name).trim().slice(0, 20), desc: String(x.desc || "").trim().slice(0, 300) }));
@@ -37235,7 +38327,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       return { id: c.id, name: c.name, persona: c.persona || "",
         note: (owner ? owner.name + " 身边的人" : "配角") + "；" + (c.knowsUser ? "也认识 " + userName(profile) : "不认识 " + userName(profile) + "，只认得 " + (owner ? owner.name : "台上那位")) };
     })),
-    groups: groups,
+    groups: pickGroupsOf(groups),
     profile: profile,
     worldbook: loreForContext("debate", [], ""),
     worldbookFor: (charIds, text) => loreForContext("debate", charIds, text),
@@ -37511,7 +38603,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onReplay: (charId, rec) => setZyWatch({ charId, testId: rec.testId, recId: rec.id, replay: true }),
     characters: liveChars, apiFor: apiFor, ctxFor: ctxFor, toast: toast, meName: userName(profile),
     // 两个角色意见不一样的那题丢进他俩都在的群（跟星测「发到群里」同一个口）：她发一条，群里的人照常接话
-    groups: groups,
+    groups: pickGroupsOf(groups),
     onShareToGroup: (gid, text) => { pGChat(gid, p => [...p, { role: "user", content: text, ts: Date.now() }]); toast("发到群里了"); try { replyGroup(gid, {}); } catch (e) {} },
     onBack: goHome,
     // 转发结果：她转过去的，算她发的；他从聊天记录里看得到
@@ -37536,7 +38628,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       openChatById(c.id);
     },
     // 群榜「发到群里」（她 2026-10-05）：她自己发一条，群里的人照常接话
-    groups: groups,
+    groups: pickGroupsOf(groups),
     onShareToGroup: (gid, text) => {
       pGChat(gid, p => [...p, { role: "user", content: text, ts: Date.now() }]);
       toast("发到群里了");
@@ -37968,7 +39060,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!p) { toast("先到设置配置 API"); return null; }
       try {
         const raw = await callAI(p, "你在替她整理一张回忆卡。只根据下面这段原话，写一段第三人称的小结（三到六句）：那天发生了什么、两个人说了什么要紧的、情绪怎么走的。不编原话里没有的事，不加评价，不写标题。",
-          [{ role: "user", content: "卡片名：" + m.title + "\n原话：\n" + (m.raw || []).join("\n").slice(0, 12000) }], { maxTokens: 8000, timeout: 120000 });
+          [{ role: "user", content: "卡片名：" + m.title + "\n原话：\n" + (m.raw || []).join("\n").slice(0, 12000) }], { logFrom: "回忆卡小结", maxTokens: 8000, timeout: 120000 });
         const txt = String(raw || "").replace(/^```[^\n]*\n?|```$/g, "").trim();
         if (!txt) throw new Error("模型没有返回内容");
         return txt.slice(0, 1200);
@@ -38056,7 +39148,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 于是「哪里能看见配角」永远是 grep 得出来的一小串，而不是散在各处。
     allChars: characters,
     profile: profile,
-    groups: groups,
+    groups: pickGroupsOf(groups),
     worldbook: loreForContext("creative", [], ""),
     worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     toast: toast,
@@ -38512,6 +39604,60 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     debugBundleFor: inspectBundleFor,
     toast: toast
   });
+  // 频道的「文件」那一页：顶栏、索引签跟聊天那页同一套，返回也回频道首页
+  if (screen === "gthread" && activeGroup && activeGroup.spaceId && ["files", "wall", "songs", "ledger", "pet"].includes(channelTab)) {
+    const _g = activeGroup, _fk = "x_chfiles:" + _g.id;
+    body = h(ChannelFilesPage, { key: "chf:" + _g.id, rev: chFilesRev, group: _g, files: loadJSON(_fk, []), playTab: channelTab === "files" ? null : channelTab,
+      // 歌单：从她的歌库挑、点「放这首」走播放器；「让他们各挑一首」＝回聊天跑一轮，提示里说她想让大家各放一首（她 2026-11-20）
+      nowSong: (() => { const cur = player.songId && player.songId !== KEEPALIVE_ID ? resolveSong(player.songId) : null; return cur && cur.title ? { title: cur.title, artist: cur.artist || "" } : null; })(),
+      myLib: ((listenRef.current || {}).songs || []).filter(x => x && x.title).map(x => ({ id: x.id, title: x.title, artist: x.artist || "" })),
+      onPlaySong: x => { const L = listenRef.current || {}; const song = chpSongMatch(L.songs, x); if (song) playSong(song); },
+      onAskSongs: groupSpectating(_g) ? null : () => { window.__chAskSongs = _g.id; setChannelTab("chat"); replyGroup(_g.id); },
+      onAskPetName: groupSpectating(_g) ? null : () => { window.__chAskPet = _g.id; setChannelTab("chat"); replyGroup(_g.id); },
+      // 小家伙（她 2026-11-20「状态栏、生图、送走、大家决定养啥」）：精神照虚拟钟点；拍照只有她按，角色不会自己拍
+      petHour: (() => { try { return vclockNow().getHours(); } catch (e) { return new Date().getHours(); } })(),
+      petShooting: petShootingId === _g.id,
+      onPetPhoto: groupSpectating(_g) ? null : () => shootChannelPet(_g),
+      onPetGroupPhoto: groupSpectating(_g) ? null : ids => shootPetGroupPhoto(_g, ids),
+      onSendOff: groupSpectating(_g) ? null : how => sendOffChannelPet(_g, how),
+      // 账本连着钱包（她 2026-11-20）：她记的一笔也真从付钱那人的钱包扣；结清真把钱挪过去
+      onLedgerAdd: e0 => { const r = chLedgerPay(_g.id, e0.payer, e0.amount, e0.for); if (r.skip || !(r.amount > 0)) { toast(r.skip ? "旁观的频道里你不在场" : "付钱那个人钱包里没钱了"); return; }
+        const st0 = chpOf(_g.id); chpPut(_g.id, chpLedgerAdd(st0, { ...e0, amount: r.amount, moneyMoved: true })); setChPlayRev(v => v + 1); { const _nm = id => id === "me" ? "你" : (((characters || []).find(c => c.id === id) || {}).name || "有人"); pGChat(_g.id, q => [...q, { role: "system", kind: "chlink", toGid: _g.id, content: "你在账本上记了一笔：" + _nm(e0.payer) + " 付了 ¥" + r.amount + (e0.for ? "（" + String(e0.for).slice(0, 20) + "）" : ""), ts: Date.now() }]); } if (r.capped) toast("钱包里只剩 ¥" + r.amount + "，就记了这么多"); },
+      onLedgerSettle: (from, to) => { const nm = id => id === "me" ? "你" : (((characters || []).find(c => c.id === id) || {}).name || "有人"); const r = chLedgerSettle(_g.id, from, to, nm); setChPlayRev(v => v + 1);
+        if (r && r.amount > 0) { toast(nm(r.from) + " 还了 " + nm(r.to) + " ¥" + r.amount + (r.short ? "，钱不够，还差一点" : "")); pGChat(_g.id, q => [...q, { role: "system", kind: "chlink", toGid: _g.id, content: "你在账本上结了一笔：" + nm(r.from) + " 还了 " + nm(r.to) + " ¥" + r.amount, ts: Date.now() }]); } },
+      // 墙、歌单、账本、养的（她 2026-11-20）：这个频道那一份 x_chplay
+      play: (chPlayRev, chpOf(_g.id)), onPlay: fn => { const _s0 = chpOf(_g.id), _b = JSON.parse(JSON.stringify(_s0.notes || [])), _pl0 = (_s0.playlist || []).map(x => x.title), _pet0 = _s0.pet ? { name: _s0.pet.name, lastTs: (_s0.pet.last || {}).ts || 0 } : null; const s2 = fn(chpOf(_g.id)) || chpOf(_g.id); chpPut(_g.id, s2);
+        // 她贴了、写了，聊天里留一行（她 2026-11-21「贴墙了能不能也有提示」）：大家都看得到，下一轮他们也知道
+        if (!groupSpectating(_g)) { const _ln = [];
+          (s2.notes || []).forEach(n => { const o0 = _b.find(x => x.id === n.id); if (!o0 && n.by === "me") _ln.push("你往墙上贴了张便利贴：「" + String(n.text || "").slice(0, 40) + "」");
+            else if (o0) (n.doodles || []).slice((o0.doodles || []).length).filter(d => d && d.by === "me").forEach(d => _ln.push("你在「" + String(n.text || "").slice(0, 16) + "」那张上写了：「" + String(d.text || "").slice(0, 30) + "」")); });
+          // 歌单、小家伙也一样（她 2026-11-21「账本切歌照顾小家伙之类的都会有提示的了吧」）
+          (s2.playlist || []).filter(x => x && x.by === "me" && _pl0.indexOf(x.title) < 0).forEach(x => _ln.push("你往歌单里加了《" + x.title + "》"));
+          _pl0.filter(t0 => !(s2.playlist || []).some(x => x.title === t0)).forEach(t0 => _ln.push("你把《" + t0 + "》从歌单里拿掉了"));
+          if (_pet0 && s2.pet) { const _l = s2.pet.last || {};
+            if ((_l.ts || 0) > _pet0.lastTs && _l.by === "me") _ln.push("你去照顾了「" + s2.pet.name + "」（" + (_l.action || "照顾") + "）");
+            if (s2.pet.name !== _pet0.name && !s2.pet.naming) _ln.push("你给它改名叫「" + s2.pet.name + "」"); }
+          if (_ln.length) pGChat(_g.id, q => [...q, ..._ln.map(c => ({ role: "system", kind: "chlink", toGid: _g.id, content: c, ts: Date.now() }))]); } },
+      people: (_g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => ({ id: c.id, name: c.remark || c.name })),
+      nameOf: id => id === "me" ? "我" : (((characters || []).find(c => c.id === id) || {}).name || "有人"),
+      onSaveFiles: n => { const _old = loadJSON(_fk, []) || []; saveJSON(_fk, n); setChFilesRev(v => v + 1);
+        // 她新建、改了文件，聊天里也留一行（跟他们动文件那行同一种，点了能打开）
+        if (!groupSpectating(_g)) { const _ln = (n || []).filter(f => f && f.id).map(f => { const o0 = _old.find(x => x && x.id === f.id); return !o0 ? { f, op: " 新建了" } : f.kind !== "image" && (f.updatedTs || 0) > (o0.updatedTs || 0) && f.updatedBy === "me" ? { f, op: " 编辑了" } : null; }).filter(Boolean);
+          if (_ln.length) pGChat(_g.id, q => [...q, ..._ln.map(x => ({ role: "system", kind: "chfile", fileId: x.f.id, content: "你" + x.op + "《" + x.f.name + "》", ts: Date.now() }))]); } },
+      onTab: setChannelTab, openId: chFileOpen, onOpened: () => setChFileOpen(null),
+      // 图片栏（她 2026-11-20）：聊天里出现过的图只收引用；「拿到聊天里」照她发照片那样落一条，下一轮走同一条看图的路
+      msgs: groupChatsRef.current[_g.id] || [], spectate: groupSpectating(_g),
+      whoOf: w => !w ? "有人" : w.role === "user" ? "我" : (w.senderName || (((characters || []).find(c => c.id === w.senderId) || {}).name) || "有人"),
+      onJump: g => { setChannelTab("chat"); if (g.ts) setWalletTrace({ type: "group", id: _g.id, ts: g.ts, key: Date.now() }); },
+      onRecall: g => { if (groupSpectating(_g)) return; const d = String(g.desc || "").trim();
+        pushGroupRich(_g.id, { role: "user", kind: "photo", imageRef: g.ref, photoMode: "real", desc: d, recallOf: g.ts || null, content: d ? "[照片] " + d : "[照片]", read: true });
+        setChannelTab("chat"); toast("拿到聊天里了——按回复，大家就接着这张聊"); },
+      onBack: () => { setChannelTab("chat"); if ((spaces || []).some(x => x.id === _g.spaceId)) { setActiveSpaceId(_g.spaceId); setScreen("space"); } else setScreen("messages"); } });
+  }
+  // 「某某 去了 #频道」那一行点了过去（她 2026-11-20）：跟频道首页点进频道同一条路
+  window.__openChannel = gid => { const g = (groupsRef.current || []).find(x => x && x.id === gid); if (!g) return; if (chClosedNow(g.id)) { chLockedToast(g); return; } setActiveGroup(g); clearUnread(g.id); setChannelTab("chat"); setScreen("gthread"); };
+  window.__openSpaceGems = spId => { if (!(spaces || []).some(x => x.id === spId)) return; window.__gemOpenFor = spId; setActiveSpaceId(spId); setScreen("space"); };
+  window.__openChFile = (gid, fid) => { if (!gid || !fid) return; setChFileOpen(fid); setChannelTab("files"); };
   // 刘海那一条归各个界面的顶栏自己吃（v56.63，见 engine.js 的 safeTop）：
   // 顶栏和状态栏是同一个元素，中间没有交界，也就没有缝。
   // ⚠️主屏是唯一的例外，仍旧留着这条空带——它和 Home 的 height:100vh 是配好的一对，
@@ -39096,6 +40242,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     idOf: who => { const x = (characters || []).find(c => c.remark === who || c.name === who); if (x) return x.id; const g = (groupsRef.current || []).find(g => g && g.name === who); return g ? g.id : null; },
     selfName: (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || (((characters || []).find(x => x.id === peekPlay.charId) || {}).name) || ""
   }), modelFloatOn && h(ModelQuickSwitch, {
+    // 外圈的快捷入口（她 2026-11-20）：跟主屏点图标去的是同一处
+    onGo: k => { if (k === "listen") goListen(null); else setScreen(k); },
     // 面板里「去模型设置」：直接落到 设置 → 模，返回回到现在这一页
     onOpenApi: () => { setConfigBack({ screen }); setConfigPage("api"); setScreen("config"); },
     profiles: apiProfiles,
@@ -39120,7 +40268,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const all = typeof vclockKeepHist === "function" ? vclockKeepHist(old, { ...old, [k]: v }) : { ...old, [k]: v };
       const p = { ...cur, vclocks: all }; delete p.vclock; setPrefs(p); saveJSON("x_prefs", p); },
     onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast(id === "__off__" ? "后台线路关了：记忆、日程、钱包这些后台活不跑了；主动私聊、日记、朋友圈走TA自己的线路，照常" : "后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
-  }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
+  }), subOpen && screen === "gthread" && activeGroup && activeGroup.id === subOpen.gid && h(SubThreadPage, { group: activeGroup, messages: groupChats[subOpen.gid] || [], rootKey: subOpen.root, userLabel: "我", sending: subBusy, onClose: () => setSubOpen(null),
+    onSend: async v => { const gid = subOpen.gid, root = subOpen.root; pGChatOuter(gid, p => [...p, { role: "user", content: v, ts: Date.now(), replyRoot: root }]); setSubBusy(true); try { await new Promise(r => setTimeout(r, 60)); await replyGroup(gid, { sub: root }); } finally { setSubBusy(false); } } }), newSpaceOpen && h(NewSpacePage, { characters: liveChars, allChars: characters, onCreate: createSpace, onClose: () => setNewSpaceOpen(false) }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
     characters: liveChars,
     allChars: characters,   // 建群时配角也能直接选（她 2026-10-03：要简单点）
     onCreate: createGroup,

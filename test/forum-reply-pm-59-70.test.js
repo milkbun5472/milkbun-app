@@ -8,7 +8,7 @@ const ap = fs.readFileSync(path.join(root, "js", "app.js"), "utf8");
 const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b, i + a.length)); };
 const floorRow = cut(sc, "function floorRow(post, cm, i)", "\n  const sendReply");
 const pmList = cut(sc, "function pmList()", "\n  // ---- 回复我的");
-const sub = cut(ap, "const addForumSubReply = (post, floorId, text, toName)", "\n  // 生成回复");
+const sub = cut(ap, "const addForumSubReply = (", "\n  // 生成回复");
 const genMe = cut(ap, "const genRepliesToMe = async (", "\n  const genForumPost");
 
 // 她 2026-09-01：「我回复了帖子然后有楼中楼我就没办法回复了，别人的楼中楼也不行」
@@ -24,10 +24,10 @@ test("楼中楼里每一条都能回，不只是楼层那一行", () => {
 test("回楼中楼仍然落在同一层，用 @ 标对象，不做第三层嵌套", () => {
   // 真做三层嵌套在手机上没法读，老数据也要迁
   assert.ok(floorRow.indexOf("r.replies") < 0, "开始渲染第三层了");
-  assert.match(sc, /if \(replyTo\) onReplySub\(open, replyTo\.floorId, rTxt\.trim\(\), replyTo\.toName \|\| ""\); else onReplyFloor/,
+  assert.match(sc, /if \(replyTo\) onReplySub\(open, replyTo\.floorId, rTxt\.trim\(\), replyTo\.toName \|\| ""(, ments)?\); else onReplyFloor/,
     "发送时没把「回的是谁」带过去");
   assert.match(sub, /content: text, toName: to, ts: Date\.now\(\)/, "我那条没记下回的是谁");
-  assert.match(sub, /genRepliesToMe\(post, floorId, text, to\)/, "生成那一轮不知道我回的是谁");
+  assert.match(sub, /genRepliesToMe\(post, floorId, (text|forumWithPhoto\(text, null\)), to[,)]/, "生成那一轮不知道我回的是谁");
 });
 
 test("被我 @ 的那个人才是必回我的人，不是永远层主", () => {

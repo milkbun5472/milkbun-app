@@ -35,7 +35,7 @@
     //   哪一类都不是）：一段纯文字，不导进哪里，别人点进去整份看、复制、存成文件
     { key: "doc", zh: "文档", seal: "档", color: "#5d7a8c", hint: "提示词、玩法开局、教程、说明……不导进哪里，别人点进去整份复制或者存成文件" },
     // 梗与话题（她 2026-10-31，群里许愿「上传聊天梗和聊天话题的地方」）：一条一个梗/话题，一段短字＋可配截图；
-    //   详情里「放进聊天」能勾好几个人，进到那几个人聊天 ＋ 面板的「话题卡」里，点一张填进输入框（只给自己用）
+    //   详情里「放进聊天」能勾好几个人，进到那几个人聊天 ＋ 面板的「话题卡」里，点一张填进输入框（「只我用」那行只给自己用；「我俩都能用」那行 TA 偶尔也会拿来问）
     { key: "topic", zh: "梗与话题", seal: "梗", color: "#b5654a", hint: "一个聊天梗、一个话题、一句能逗 TA 的话；别人能放进自己的聊天里用" },
     // 留言板（她 2026-10-16：「纯发帖子反馈之类的，给不玩 qq 的人也能反馈」）：只有一段字和截图，没有导入；
     //   不进「全部」那面墙（后端就不给），只在这一格里看
@@ -378,7 +378,7 @@
 
   // ── 放哪儿：全 App，或者某一个人的聊天窗／某一个群／某一个人的线下 ─────
   //   CSS 三处都能放；整套聊天美化只有聊天窗和群（线下没有那一套皮）。
-  function Place({ t, props, busy, slots, onPick, onAll, onCancel, note }) {
+  function Place({ t, props, busy, slots, onPick, onAll, onCancel, note, extra }) {
     const [tab, setTab] = useState(slots[0]);
     const [sel, setSel] = useState([]);   // 勾上的那几个；换标签就清空，免得人和群混着放
     useEffect(() => { setSel([]); }, [tab]);
@@ -394,6 +394,7 @@
           h(Btn, { t, disabled: busy, onClick: onCancel }, "先不放")))
       : h(React.Fragment, null,
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.6 } }, note || "整套换上，直接生效。不满意在那一页的设置里点「↶ 回到上一版」。"),
+        extra || null,
         h("div", { style: { marginTop: 10 } }, h(Btn, { t, disabled: busy, onClick: onCancel }, "先不放"))),
       h("div", { "data-wk": "nestplacetabs", style: { marginTop: 14 } },
         h(Cubbies, { t, kind: tab, onPick: setTab, cols: slots.length, flush: true, items: slots.map(k => ({ key: k, zh: zh[k] })) })),
@@ -476,6 +477,7 @@
   // ── 一条东西点进去（她 2026-10-16 定的 B：揭下来的那张纸条 + 一本留言簿）──────────
   function Detail({ t, id, props, me, onClose, onGone, onUser, onLogin, onEdit }) {
     const [it, setIt] = useState(null), [err, setErr] = useState(""), [busy, setBusy] = useState(false);
+    const [topicBoth, setTopicBoth] = useState(false);   // 梗与话题放进聊天：放进话题卡的哪一行（默认只我用）
     const [placing, setPlacing] = useState(false);   // CSS／整套聊天美化：先问放哪儿
     const [follow, setFollow] = useState(null);       // null＝还不知道
     const [tries, setTries] = useState(0);   // 「再试一次」
@@ -506,7 +508,7 @@
         for (const x of picks) {
           if (it.kind === "topic") {
             if (typeof window.topicCardsPut !== "function") break;
-            const text = String(d.payload || "").trim(), card0 = { id: "nest:" + it.id, title: d.title || "", text, ts: Date.now() };
+            const text = String(d.payload || "").trim(), card0 = Object.assign({ id: "nest:" + it.id, title: d.title || "", text, ts: Date.now() }, topicBoth ? { both: true } : {});
             window.topicCardsPut(x.id, l => [card0].concat(l.filter(y => y.id !== card0.id)).slice(0, 60)); done.push(x.name); continue;
           }
           try { if (it.kind === "css") cssInto(where, x.id, d.payload, d.title, props); else await lookInto(where, x.id, d.payload, props); done.push(x.name); } catch (_) {}
@@ -641,7 +643,8 @@
           isPost && admin ? h("div", { "data-wk": "nestpostmark", className: "flex", style: { gap: 8, marginTop: 8 } },
             ["got", "fixed", ""].map(st => h(Btn, { key: st || "none", t, solid: (it.status || "") === st, onClick: () => setStatus(st), wk: "nestmark" }, st ? "标「" + STATUS[st].zh + "」" : "不标"))) : null,
           placing ? h(Place, { t, props, busy, slots: it.kind === "css" ? ["chat", "group", "offline"] : it.kind === "topic" ? ["chat"] : ["chat", "group"],
-            onPick: placeMany, onAll: it.kind === "css" ? doImport : null, note: it.kind === "topic" ? "勾几个人：放进 TA 们聊天 ＋ 面板的「话题卡」里，想用的时候点一张填进输入框，自己改了再发。" : "", onCancel: () => setPlacing(false) }) : null,
+            onPick: placeMany, onAll: it.kind === "css" ? doImport : null, note: it.kind === "topic" ? "勾几个人：放进 TA 们聊天 ＋ 面板的「话题卡」里，想用的时候点一张填进输入框，自己改了再发。" : "", extra: it.kind === "topic" && typeof window.PairPick === "function" ? h(window.PairPick, { wk: "nesttopicrow", value: topicBoth, onPick: setTopicBoth, t, options: window.TOPIC_ROWS }) : null,
+            onCancel: () => setPlacing(false) }) : null,
           h(Shots, { t, it, props }),
           preview && !isPost && !isDoc && !isTopic ? h("div", { style: { marginTop: 18 } }, label(t, "里面是什么"),
             h("div", { "data-wk": "nestpreview", style: Object.assign({ fontFamily: it.kind === "css" ? "ui-monospace,Menlo,monospace" : F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.7,

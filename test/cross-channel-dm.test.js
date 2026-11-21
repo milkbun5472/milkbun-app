@@ -81,7 +81,7 @@ test("封闭群不许牵线到私聊——记忆不进也不出", () => {
     "群→私聊要先看这个群开没开记忆互通");
   assert.match(app, /封闭群（没开记忆互通）是密封空间：记忆不进也不出/);
   // 反方向同理：私聊里的话不许投进封闭群
-  assert.match(app, /_gsFor\(g\.id\)\.memoryInterop\)/);
+  assert.match(app, /_gsFor\(g\.id\)\.memoryInterop && groupFlowsTo\(g, char\.id\)/);
   assert.match(app, /封闭群不收外面的话，别把私聊里的东西投进去/);
 });
 

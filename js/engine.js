@@ -714,6 +714,14 @@ function stripLeakedThoughts(t) {
   if ((head.match(/[\u4e00-\u9fff]/g) || []).length > head.length * 0.05 || head.trim().length < 40) return s;
   return s.slice(at).trim();
 }
+// 写到一半被上游拦下（群友 2026-11-20：日记调用记录一排「成功」、输出十几个 token、日记一篇没有）：
+//   有正文但停止原因是内容审查，那一小截不是写完的东西，交给调用方只会解析失败、被当成成功吞掉。
+//   gemini 与 openai 兼容两条方言都过这一处。「length」不算——截断的 JSON 各处还有 repairJSON 兜。
+const BLOCKED_FINISH_RE = /^(content_filter|safety|prohibited_content|blocklist|spii|recitation|image_safety|other)$/i;
+function assertNotBlocked(reason, t, model, diag) {
+  if (!reason || !BLOCKED_FINISH_RE.test(String(reason))) return;
+  throw new Error("写到一半被线路那头拦下了（停止原因：" + reason + "），只回来 " + String(t || "").length + " 个字。多半是这次内容碰了上游的审查——换个模型或线路再试。" + (diag ? "\n" + diag : ""));
+}
 function assertNotUpstreamError(t, model, diag) {
   t = stripLeakedThoughts(t);
   const hit = upstreamErrorInContent(t);
@@ -852,8 +860,8 @@ if (typeof window !== "undefined") window.CallLog = CallLog;
 // 「在干嘛」认不出来时按【是谁叫的】认（她 2026-10-09：「其他的也来慢慢补吧」）：
 //   一百多处调用不一处处手写，在进 callAI／runProbe 那一刻看一眼调用栈——先认函数名，再认文件。
 //   新加一处调用、表里没有，就显示「其他」；看见哪个常出现就往这两张表里补一行。
-const CALL_FN_LABEL = Object.freeze({"gachaRedeem": "抽卡兑换", "mkThread": "查手机·聊天记录", "desireTendAllToday": "念头", "sendForumPM": "论坛私信", "openAnon": "匿名提问", "makeupOpen": "和好间", "callSend": "通话", "askYesNo": "问TA答不答应", "askAnonMe": "匿名提问", "_replyTurn": "聊天回复", "wearMatch": "穿搭", "watchKnock": "一起看", "unlinkCouple": "解除情侣", "tripPlanGen": "旅行行程", "summarizeChatRoom": "小房间小结", "schedMaybeSelfRevise": "日程自己改", "runProbeRetry": "重试", "routeWorld": "地图路线", "rerollCoupleQA": "情侣问答", "requestKinshipRaise": "亲属卡加额度", "replyGroup": "群聊", "refreshAnonPersona": "匿名主页", "reactToUserMoment": "回你的朋友圈", "radioAsk": "电台", "pinWishAsChar": "愿望板", "openAnonBox": "匿名箱", "observeRelationshipBShadow": "关系观察", "notifyChapterToChars": "同人文通知", "myClosetGen": "我的衣柜", "momentReplies": "朋友圈评论", "makeupSay": "和好间", "leaveInCoupleSpace": "情侣空间留言", "leaveAtHis": "去TA那儿留言", "ifOpen": "另一种我们", "ifAdvance": "另一种我们", "handPhoneTo": "给TA看手机", "generateTemperamentDraft": "写性格", "genWorldNodes": "地图", "genWorld": "地图", "genWhisper": "悄悄话", "genWeekSpend": "一周消费", "genWatchSession": "一起看", "genWalletProfile": "钱包档案", "genTimelineMusing": "时光轴感慨", "genTakeout": "外卖", "genSnoop": "查手机", "genShop": "购物", "genScheduleWeek": "一周日程", "genScheduleDay": "日程", "genPollVotes": "群投票", "genPhoneApp": "查手机", "genPhoneAll": "查手机", "genNetizenQ": "网友提问", "genMoment": "朋友圈", "genLetterReply": "情书回信", "genGiftThought": "礼物心声", "genExDiaryReply": "交换日记", "genDwellPlace": "住处", "genDateOutfits": "约会穿搭", "genDailySpend": "每日消费", "genCoupleRecall": "情侣回忆", "genCoupleLetter": "情书", "genCoupleDisc": "情侣唱片", "genClosetMore": "衣柜", "genCharPlaylist": "TA的歌单", "genCarrySection": "随身物品", "genCarryAll": "随身物品", "genCalMonth": "日历", "genAnonMe": "匿名主页", "gazeCall": "印象卡", "gardenPlantGen": "种花", "ensureCharForumMeta": "论坛主页", "endCall": "通话小结", "desireMuseFor": "念头", "decidePayLater": "代付", "decideGroupPayLater": "群代付", "charReceiveGiftReact": "收到礼物", "brewAnonPool": "匿名箱", "blockedReaction": "拉黑反应", "backfillMemEmotion": "记忆补情绪", "autoForumForChar": "论坛发帖", "autoBuryCapsuleForChar": "时光胶囊", "astroSignSweep": "星盘", "askAnon": "匿名提问", "answerCoupleQA": "情侣问答", "_pageTheme": "页面配色", "summarizeGroup": "总结群聊", "summarizeChatBlock": "总结聊天", "summarizeChat": "总结聊天", "scenePhotoBrief": "线下照片", "offlineSummaryCall": "线下小结", "offlineRewriteScene": "线下改写", "naiTagsFor": "生图标签", "jpKanaReading": "日文注音", "generateDiaryComment": "日记评论", "_transModel": "翻译", "probeAs": "直播", "probeMany": "直播", "askStranger": "刷视频", "probeStranger": "刷视频", "onSummarizePin": "回忆卡", "onRecall": "回忆卡", "onConnect": "电台", "onStudio": "电台", "onWheelReact": "转盘", "phoneCalendarFor": "查手机·日历", "genForumBoard": "论坛", "loadForumComments": "论坛评论", "genMoreComments": "论坛评论", "refreshForumPMs": "论坛私信", "startForumPM": "论坛私信", "forumMineTick": "论坛", "genRepliesToMe": "论坛回复", "genForumSearch": "论坛搜索"});
-const CALL_FILE_LABEL = Object.freeze({"assistant": "秋秋", "astro": "星盘", "capsule": "时光胶囊", "companion": "桌宠", "debate": "擂台", "dream": "梦境", "dreamjournal": "梦境日记", "fairy-garden": "小世界", "fanfic": "同人文", "games": "小游戏", "health": "健康", "impression": "月度印象", "ledger": "记账", "listen-talk": "一起听", "memo": "备忘录", "pomodoro": "番茄钟", "read": "一起读", "study": "一起学", "style-presets": "文风预设", "tarot": "塔罗", "theater": "小剧场", "trpg": "跑团", "watch": "一起看", "weekly": "周刊"});
+const CALL_FN_LABEL = Object.freeze({"writeBdayLetter": "生日信", "openBdayPlan": "生日计划", "suggestGroupName": "起群名", "drawLuckyChat": "幸运字符", "stampBeg": "集邮·生日池讨卡", "stampWriteSmall": "集邮·写小卡", "stampWriteSSR": "集邮·写 SSR", "stampInner": "集邮·SSR 换他视角重读", "stampExtra": "集邮·加一面", "stampReshot": "集邮·重拍", "stampPoke": "集邮·戳卡面", "genMyWeek": "我的一周", "regenCharAlt": "论坛·重起小号", "askForumWechat": "论坛·要微信", "spaceHomeTa": "情侣空间·TA 动手", "spaceBookTa": "情侣空间·TA 动笔", "collageArrange": "拼贴·TA 摆", "collageLook": "拼贴·TA 看看动几下", "collageChoose": "拼贴·TA 挑一个", "collageDraft": "拼贴·TA 起稿", "tripBookSearch": "旅行·查机票酒店", "comicFromMessages": "聊天变漫画", "coverCopy": "封面上的字", "studioShoot": "照相馆·拍", "replyToQA": "情侣问答·回答", "pickEmoteNine": "表情包·挑九宫格", "pickMyEmoteNine": "表情包·挑我的九宫格", "extractMemories": "记忆·提取", "extractGroupMemories": "记忆·群聊提取", "splitMemoryToEntries": "记忆·拆条", "generateRelation": "生成关系", "generateMyNpc": "生成我的配角", "generateNpcs": "生成配角", "generateNpc": "生成配角", "generateOfflineGroup": "群线下", "oocAsk": "场外问一句", "oocAskGroup": "群里场外问一句", "generateDiary": "日记", "gachaRedeem": "抽卡兑换", "mkThread": "查手机·聊天记录", "desireTendAllToday": "念头", "sendForumPM": "论坛私信", "openAnon": "匿名提问", "makeupOpen": "和好间", "callSend": "通话", "askYesNo": "问TA答不答应", "askAnonMe": "匿名提问", "_replyTurn": "聊天回复", "wearMatch": "穿搭", "watchKnock": "一起看", "unlinkCouple": "解除情侣", "tripPlanGen": "旅行行程", "summarizeChatRoom": "小房间小结", "schedMaybeSelfRevise": "日程自己改", "runProbeRetry": "重试", "routeWorld": "地图路线", "rerollCoupleQA": "情侣问答", "requestKinshipRaise": "亲属卡加额度", "replyGroup": "群聊", "refreshAnonPersona": "匿名主页", "reactToUserMoment": "回你的朋友圈", "radioAsk": "电台", "pinWishAsChar": "愿望板", "openAnonBox": "匿名箱", "observeRelationshipBShadow": "关系观察", "notifyChapterToChars": "同人文通知", "myClosetGen": "我的衣柜", "momentReplies": "朋友圈评论", "makeupSay": "和好间", "leaveInCoupleSpace": "情侣空间留言", "leaveAtHis": "去TA那儿留言", "ifOpen": "另一种我们", "ifAdvance": "另一种我们", "handPhoneTo": "给TA看手机", "generateTemperamentDraft": "写性格", "genWorldNodes": "地图", "genWorld": "地图", "genWhisper": "悄悄话", "genWeekSpend": "一周消费", "genWatchSession": "一起看", "genWalletProfile": "钱包档案", "genTimelineMusing": "时光轴感慨", "genTakeout": "外卖", "genSnoop": "查手机", "genShop": "购物", "genScheduleWeek": "一周日程", "genScheduleDay": "日程", "genPollVotes": "群投票", "genPhoneApp": "查手机", "genPhoneAll": "查手机", "genNetizenQ": "网友提问", "genMoment": "朋友圈", "genLetterReply": "情书回信", "genGiftThought": "礼物心声", "genExDiaryReply": "交换日记", "genDwellPlace": "住处", "genDateOutfits": "约会穿搭", "genDailySpend": "每日消费", "genCoupleRecall": "情侣回忆", "genCoupleLetter": "情书", "genCoupleDisc": "情侣唱片", "genClosetMore": "衣柜", "genCharPlaylist": "TA的歌单", "genCarrySection": "随身物品", "genCarryAll": "随身物品", "genCalMonth": "日历", "genAnonMe": "匿名主页", "gazeCall": "印象卡", "gardenPlantGen": "种花", "ensureCharForumMeta": "论坛主页", "endCall": "通话小结", "desireMuseFor": "念头", "decidePayLater": "代付", "decideGroupPayLater": "群代付", "charReceiveGiftReact": "收到礼物", "brewAnonPool": "匿名箱", "blockedReaction": "拉黑反应", "backfillMemEmotion": "记忆补情绪", "autoForumForChar": "论坛发帖", "autoBuryCapsuleForChar": "时光胶囊", "astroSignSweep": "星盘", "askAnon": "匿名提问", "answerCoupleQA": "情侣问答", "_pageTheme": "页面配色", "summarizeGroup": "总结群聊", "summarizeChatBlock": "总结聊天", "summarizeChat": "总结聊天", "scenePhotoBrief": "线下照片", "offlineSummaryCall": "线下小结", "offlineRewriteScene": "线下改写", "naiTagsFor": "生图标签", "jpKanaReading": "日文注音", "generateDiaryComment": "日记评论", "_transModel": "翻译", "probeAs": "直播", "probeMany": "直播", "askStranger": "刷视频", "probeStranger": "刷视频", "onSummarizePin": "回忆卡", "onRecall": "回忆卡", "onConnect": "电台", "onStudio": "电台", "onWheelReact": "转盘", "phoneCalendarFor": "查手机·日历", "genForumBoard": "论坛", "loadForumComments": "论坛评论", "genMoreComments": "论坛评论", "refreshForumPMs": "论坛私信", "startForumPM": "论坛私信", "forumMineTick": "论坛", "genRepliesToMe": "论坛回复", "genForumSearch": "论坛搜索"});
+const CALL_FILE_LABEL = Object.freeze({"fanfic-core": "同人", "impression-core": "印象卡", "ledger-core": "记账", "zhaoying-core": "照影·性格小测", "assistant": "秋秋", "astro": "星盘", "capsule": "时光胶囊", "companion": "桌宠", "debate": "擂台", "dream": "梦境", "dreamjournal": "梦境日记", "fairy-garden": "小世界", "fanfic": "同人文", "games": "小游戏", "health": "健康", "impression": "月度印象", "ledger": "记账", "listen-talk": "一起听", "memo": "备忘录", "pomodoro": "番茄钟", "read": "一起读", "study": "一起学", "style-presets": "文风预设", "tarot": "塔罗", "theater": "小剧场", "trpg": "跑团", "watch": "一起看", "weekly": "周刊"});
 // tag 是调用点自己起的名字：中文直接用；英文那几个翻一下，认不出的不显示（落到「其他」），别把英文摆到她眼前
 const CALL_TAG_LABEL = Object.freeze({ live: "直播", shua: "刷视频", phoneWatch: "查手机", "notif-test": "测试通知", astro: "星盘", tarot: "塔罗", "wh-": "悄悄话", "mom-": "朋友圈", health: "健康" });
 function callTagLabel(tag) {
@@ -1472,6 +1480,7 @@ async function callAIOnce(p, system, messages, opts) {
       const blocked = d.promptFeedback && d.promptFeedback.blockReason;
       throw new Error("模型返回为空" + (reason || blocked ? "（停止原因：" + (reason || blocked) + "）" : "（上游没有返回正文）") + "\n" + callDiag(model, _promptChars, maxTokens, _t0));
     }
+    assertNotBlocked(d.candidates && d.candidates[0] && d.candidates[0].finishReason, t, model, callDiag(model, _promptChars, maxTokens, _t0));
     return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));
   }
   const root = oaRootOf(base);   // 自带版本号的、结尾写了 # 的都不再补 /v1
@@ -1605,6 +1614,7 @@ async function callAIOnce(p, system, messages, opts) {
   if (_rzn) _putMeta(_rzn[1], "openai:" + _rzn[0]);
   const t = (_msg && _msg.content || "").trim();
   if (!t) throw new Error("模型返回为空" + (choice && choice.finish_reason ? "（停止原因：" + choice.finish_reason + "）" : "（上游没有返回正文）") + "\n" + callDiag(model, _promptChars, maxTokens, _t0));
+  assertNotBlocked(choice && choice.finish_reason, t, model, callDiag(model, _promptChars, maxTokens, _t0));
   return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));
 }
 function repairJSON(t) {
@@ -2427,6 +2437,683 @@ const OVERREACH_BAN = STOCK_REPLY_BAN;
 // 她立下的长期准则那一块：单聊和一起学共用这一份说法（施工规则/one-public-mechanism）
 // 群公告（群友 2026-10-27 许愿）：存在群设置 gs.notice = { text, ts, by }。群线上、群线下、群通话都读这一支。
 //   它是群里人人看得到的一段置顶文字，不是规矩：照着聊、提它、吐槽它都行，用不上就不提。
+// ── 频道文件（她 2026-11-20「做一个简约版的可以聊天的，可以放点文件进去，角色大家可以改或者创建新文件，可以看到谁改了啥，或者可以上传图片」）──
+// 一个频道一份：x_chfiles:<群id> = [{ id, kind:"doc"|"image", name, text?, imgKey?, desc?, createdBy, createdTs, updatedTs, history:[{by,ts,before,after}] }]
+//   by 是 "me" 或角色 id。历史每份最多留 CHF_HIST_CAP 条，再早的丢掉（文件本身不受影响）。
+const CHF_HIST_CAP = 30;
+const chfNameKey = n => String(n || "").replace(/[《》「」"'\s]/g, "").replace(/\.(txt|md)$/i, "").toLowerCase();
+// 按行对比：LCS，行太多时只比前后各一截，中间整段当改了。回 [{t:"same"|"add"|"del", s}]
+function chfLineDiff(before, after) {
+  const A = String(before || "").split("\n"), B = String(after || "").split("\n");
+  if (A.length * B.length > 250000) return A.map(s => ({ t: "del", s })).concat(B.map(s => ({ t: "add", s })));
+  const n = A.length, m = B.length, L = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = []; let i = 0, j = 0;
+  while (i < n && j < m) { if (A[i] === B[j]) { out.push({ t: "same", s: A[i] }); i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) out.push({ t: "del", s: A[i++] }); else out.push({ t: "add", s: B[j++] }); }
+  while (i < n) out.push({ t: "del", s: A[i++] });
+  while (j < m) out.push({ t: "add", s: B[j++] });
+  return out;
+}
+function chfDiffSummary(before, after) {
+  if (before == null || before === "") return "新建";
+  const d = chfLineDiff(before, after), a = d.filter(x => x.t === "add" && x.s.trim()).length, r = d.filter(x => x.t === "del" && x.s.trim()).length;
+  return !a && !r ? "没改字" : [a ? "加了 " + a + " 行" : "", r ? "删了 " + r + " 行" : ""].filter(Boolean).join("、");
+}
+// 写一份文档（新建或改）：同名（不计书名号、扩展名、大小写）就是改，没有就新建。回 { files, file, op }
+// ── 频道里一起摆弄的小东西（她 2026-11-20「1-7都可以做」）──────────────────────────
+// 表情回应、改频道名、置顶、便利贴墙、共享歌单、小账本、养个东西：只此一份纯函数，界面和回复落地都问这里。
+//   一个频道一份 x_chplay:<群id>（表情回应挂在消息自己身上，改名走频道本来那条路）。
+const CHP_EMOJI = ["😂", "👍", "❤️", "🙄", "😭", "😳", "🤔", "👀"];
+const CHP_CAP = { rename: 1, note: 4, song: 10, pins: 3 };
+function chpEmpty() { return { pins: [], notes: [], playlist: [], ledger: [], pet: null, day: "", cnt: {} }; }
+function chpNorm(st, day) {
+  const s = Object.assign(chpEmpty(), st && typeof st === "object" ? st : {});
+  ["pins", "notes", "playlist", "ledger"].forEach(k => { if (!Array.isArray(s[k])) s[k] = []; });
+  if (day && s.day !== day) { s.day = day; s.cnt = {}; }
+  if (!s.cnt || typeof s.cnt !== "object") s.cnt = {};
+  return s;
+}
+// 计数：kind 每天一份；per 给了就是按人计
+function chpCount(s, kind, per) { const k = kind + (per ? ":" + per : ""); return (s.cnt && s.cnt[k]) || 0; }
+function chpBump(s, kind, per) { const k = kind + (per ? ":" + per : ""); s.cnt = Object.assign({}, s.cnt, { [k]: chpCount(s, kind, per) + 1 }); return s; }
+// 在最近 n 条里找逐字含 quote 的那一条，返回下标（从后往前，最新的先）
+function chpFindMsg(msgs, quote, n) {
+  const q = String(quote || "").trim(); if (q.length < 2) return -1;
+  const arr = Array.isArray(msgs) ? msgs : [], from = Math.max(0, arr.length - (n || 20));
+  for (let i = arr.length - 1; i >= from; i--) { const m = arr[i]; if (m && !m.recalled && m.content && String(m.content).indexOf(q) >= 0) return i; }
+  return -1;
+}
+function chpReactMsg(m, who, emoji) {
+  if (!m || !who) return m;
+  const r = Object.assign({}, m.reacts || {});
+  if (!emoji || r[who] === emoji) delete r[who]; else r[who] = String(emoji).slice(0, 4);
+  return Object.assign({}, m, { reacts: r });
+}
+function chpPin(s, m, by) {
+  if (!m || !m.content) return s;
+  const key = String(m.ts || ""), pins = s.pins.filter(p => p.key !== key);
+  pins.push({ key, text: String(m.content).slice(0, 200), who: m.role === "user" ? "me" : (m.senderName || ""), by, ts: Date.now() });
+  s.pins = pins.slice(-CHP_CAP.pins); return s;
+}
+function chpUnpin(s, key) { s.pins = s.pins.filter(p => p.key !== String(key)); return s; }
+function chpNoteAdd(s, text, by) { const t = String(text || "").trim().slice(0, 140); if (!t) return s; s.notes = s.notes.concat([{ id: "n" + Date.now() + Math.floor(Math.random() * 1000), text: t, by, ts: Date.now(), color: s.notes.length % 5, doodles: [] }]).slice(-40); return s; }
+function chpNoteFind(s, quote) { const q = String(quote || "").trim(); return q ? s.notes.find(n => n.text.indexOf(q) >= 0 || q.indexOf(n.text) >= 0) || null : null; }
+function chpScribble(s, quote, text, by) { const n = chpNoteFind(s, quote), t = String(text || "").trim().slice(0, 80); if (!n || !t) return s; s.notes = s.notes.map(x => x.id === n.id ? Object.assign({}, x, { doodles: (x.doodles || []).concat([{ by, text: t, ts: Date.now() }]).slice(-8) }) : x); return s; }
+// 撕掉：自己贴的随时能撕；别人贴的放够一天才撕得动
+function chpTearOk(n, by, now) { return !!n && (n.by === by || (now || Date.now()) - (n.ts || 0) > 86400000); }
+function chpTear(s, quote, by, now) { const n = chpNoteFind(s, quote); if (!chpTearOk(n, by, now)) return s; s.notes = s.notes.filter(x => x.id !== n.id); return s; }
+// 歌名对歌库：认得宽一点（她 2026-11-20「我的歌判定范围能不能宽一点 找不到要的歌」）——
+// 大小写、全半角、空格标点、书名号、括号里的 Live/版本 都不算；一边包含另一边也算同一首，歌手能对上的优先
+function chpSongNorm(x) { return String(x || "").normalize("NFKC").toLowerCase().replace(/[（(【\[][^）)】\]]*[）)】\]]/g, "").replace(/[\s《》<>"'“”‘’·・\-_.,，。!！?？~～、:：/|]+/g, ""); }
+function chpSongMatch(lib, x) { if (!x) return null; const want = chpSongNorm(x.title), wa = chpSongNorm(x.artist); if (!want) return null;
+  const list = (lib || []).filter(y => y && y.title), artOk = y => !wa || !chpSongNorm(y.artist) || chpSongNorm(y.artist).includes(wa) || wa.includes(chpSongNorm(y.artist));
+  const eq = list.filter(y => chpSongNorm(y.title) === want); if (eq.length) return eq.find(artOk) || eq[0];
+  if (want.length < 2) return null;
+  const part = list.filter(y => { const n = chpSongNorm(y.title); return n.length >= 2 && (n.includes(want) || want.includes(n)); });
+  return part.find(artOk) || part[0] || null; }
+function chpSongAdd(s, title, artist, by) { const t = String(title || "").trim().slice(0, 40); if (!t) return s; if (s.playlist.some(x => chpSongNorm(x.title) === chpSongNorm(t))) return s; s.playlist = s.playlist.concat([{ title: t, artist: String(artist || "").trim().slice(0, 30), by, ts: Date.now(), skip: [] }]).slice(-30); return s; }
+function chpSkipVote(s, title, by) { const i = title ? s.playlist.findIndex(x => x.title === title) : -1; if (i < 0) return s; s.playlist = s.playlist.map((x, k) => k === i && !(x.skip || []).includes(by) ? Object.assign({}, x, { skip: (x.skip || []).concat([by]) }) : x); return s; }
+function chpSkipDue(song, present) { const n = (song && song.skip || []).length; return n > 0 && n * 2 >= Math.max(1, present || 1); }
+function chpLedgerAdd(s, e) { const amt = Math.round((Number(e && e.amount) || 0) * 100) / 100; if (!(amt > 0) || !e.payer) return s; s.ledger = s.ledger.concat([{ id: "l" + Date.now() + Math.floor(Math.random() * 1000), payer: String(e.payer), amount: amt, for: String(e.for || "").slice(0, 30), among: (Array.isArray(e.among) && e.among.length ? e.among : [e.payer]).map(String), by: e.by || "", ts: Date.now(), settled: false, ...(e.moneyMoved ? { moneyMoved: true } : {}) }]).slice(-80); return s; }
+// 谁欠谁：每笔均摊给 among，没结的才算；返回 [{from,to,amount}]，两两相抵
+function chpBalances(ledger) {
+  const net = {};
+  (ledger || []).filter(x => x && !x.settled).forEach(x => { const share = x.amount / x.among.length; x.among.forEach(p => { if (p === x.payer) return; const k = p + "→" + x.payer, r = x.payer + "→" + p; net[k] = (net[k] || 0) + share; if (net[r]) { const m = Math.min(net[k], net[r]); net[k] -= m; net[r] -= m; } }); });
+  return Object.keys(net).filter(k => net[k] > 0.004).map(k => { const [from, to] = k.split("→"); return { from, to, amount: Math.round(net[k] * 100) / 100 }; });
+}
+// 两个人之间这会儿谁欠谁、欠多少（她 2026-11-20「账本搞成和钱包互通」）：结清时照这个数从欠的那个钱包挪到对方钱包。
+//   只算动过真钱的那几笔（moneyMoved）；以前没接钱包时记的旧账只当记录，不再从钱包里还
+function chpOwe(ledger, from, to) {
+  const b = chpBalances((ledger || []).filter(x => x && x.moneyMoved));
+  const hit = b.find(x => x.from === from && x.to === to);
+  if (hit) return { from, to, amount: hit.amount };
+  const rev = b.find(x => x.from === to && x.to === from);
+  return rev ? { from: to, to: from, amount: rev.amount } : null;
+}
+function chpSettle(s, from, to) { s.ledger = s.ledger.map(x => x.settled ? x : (x.payer === to && x.among.includes(from)) || (x.payer === from && x.among.includes(to)) ? Object.assign({}, x, { settled: true }) : x); return s; }
+// 养的东西：每过一小时饱和度掉 4，浇水/喂食 +40，陪它玩心情回来
+// 小家伙的几条状态（她 2026-11-20「搞几个状态栏，可以生图」）：全靠代码算，不调模型。
+//   饱腹 full：每小时掉 4；心情 joy：每小时掉 3，陪它玩才涨得多；精神 energy：照（虚拟）钟点走，白天高、夜里犯困。
+//   fondest：最近七天谁照顾得最多；doing：照状态从一小撮现成说法里挑一句（植物、动物各一套）；neglectDays：两样都见底以后过了几天——只提醒，不会死。
+const PET_DOING = {
+  plant: { hungry: ["叶子耷拉着，土都干裂了", "蔫蔫地垂着头"], sad: ["没精打采地朝着窗外", "叶尖有点发黄"], sleepy: ["在夜里安安静静地待着", "叶子合起来了，像在睡觉"], happy: ["叶子支棱着，绿得发亮", "新冒了一片嫩芽"], ok: ["安安静静晒着太阳", "在窗台上待着"] },
+  animal: { hungry: ["饿得在窝边转圈", "扒着盆边要吃的"], sad: ["缩在角落里不理人", "趴着一动不动"], sleepy: ["团成一团睡着了", "打着哈欠，眼睛快闭上了"], happy: ["在窝里跑来跑去", "凑过来蹭人"], ok: ["在窝里慢悠悠地溜达", "啃着东西发呆"] }
+};
+function chpPetIsPlant(kind) { return /草|花|萝|树|苗|植|多肉|仙人|藤|竹|兰|叶|盆栽|苔|菜|蒜|葱|种子/.test(String(kind || "")); }
+// 这张照片的说法里提到了频道养的小家伙（名字或种类里的字），才把它画进去
+function chpPetMentioned(pet, scene) {
+  const t = String(scene || ""); if (!pet || !t) return false;
+  const nm = String(pet.name || "").trim(), kd = String(pet.kind || "").replace(/^(一|两)?(只|盆|条|个|株)/, "").trim();
+  return (nm && nm !== "还没名字" && t.indexOf(nm) >= 0) || (kd.length >= 2 && t.indexOf(kd) >= 0) || /合照|一起拍|大家拍/.test(t) && /它|小家伙/.test(t);
+}
+function chpPetNow(pet, now, hour) {
+  if (!pet) return null;
+  const t0 = now || Date.now(), cl = x => Math.max(0, Math.min(100, Math.round(x)));
+  const hrs = Math.max(0, (t0 - (pet.ts != null ? pet.ts : t0)) / 3600000);
+  const full = cl((pet.full == null ? 70 : pet.full) - hrs * 4);
+  const jh = Math.max(0, (t0 - (pet.joyTs != null ? pet.joyTs : (pet.ts != null ? pet.ts : t0))) / 3600000);
+  const joy = cl((pet.joy == null ? 70 : pet.joy) - jh * 3);
+  const hr = hour != null ? hour : new Date(t0).getHours();
+  const energy = hr >= 7 && hr < 22 ? cl(90 - Math.abs(hr - 14) * 3) : hr >= 22 || hr < 1 ? 40 : 20;
+  const band = full < 30 ? "hungry" : joy < 30 ? "sad" : energy < 35 ? "sleepy" : full >= 60 && joy >= 60 ? "happy" : "ok";
+  const mood = ({ hungry: "饿了", sad: "没精打采", sleepy: "犯困", happy: "精神", ok: "还行" })[band];
+  const set = PET_DOING[chpPetIsPlant(pet.kind) ? "plant" : "animal"][band];
+  const doing = set[Math.abs(hr) % set.length];
+  const cnt = {};
+  (pet.log || []).filter(x => x && x.by && t0 - (x.ts || 0) < 7 * 86400000).forEach(x => { cnt[x.by] = (cnt[x.by] || 0) + 1; });
+  const fondest = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || null;
+  const lastCare = (pet.last && pet.last.ts) || pet.born || pet.ts || t0;
+  const neglectDays = full <= 15 && joy <= 15 ? Math.floor((t0 - lastCare) / 86400000) : 0;
+  return Object.assign({}, pet, { full, joy, energy, band, mood, doing, fondest, neglectDays });
+}
+function chpCare(pet, action, by, now) {
+  const p = chpPetNow(pet, now); if (!p) return pet;
+  const t = now || Date.now(), play = /玩/.test(String(action || ""));
+  const log = (pet.log || []).concat([{ by, action: String(action || "照顾").slice(0, 8), ts: t }]).filter(x => t - (x.ts || 0) < 14 * 86400000).slice(-50);
+  return Object.assign({}, pet, { full: Math.min(100, p.full + (play ? 5 : 40)), ts: t, joy: Math.min(100, p.joy + (play ? 25 : 5)), joyTs: t,
+    last: { by, action: String(action || "照顾").slice(0, 8), ts: t }, log });
+}
+// 给模型看的那几行：只说现在是什么样，谁动过
+// ── 成员状态（她 2026-11-20「每个人的状态」）──────────────────────────────
+// 两层：①在线状态：照聊天记录和日程现算，不花调用；②挂在名字底下的一句状态：角色自己改、她也能挂，所有空间共用一份。
+// 存 x_charStatus = { [charId 或 "me"]: { emoji, text, ts, day, n } }，n 是那一天改了几次。
+const CHAR_STATUS_KEY = "x_charStatus";
+const CHAR_STATUS_CAP = 3;   // 一个人一天最多改三回
+// 在线状态：lastTs＝他最近一次在这个空间里开口的时刻，lastCh＝在哪个频道；sched＝日程上这会儿那一格（schedNowBriefFor 交来的）
+function presenceOf(lastTs, lastCh, sched, now) {
+  const t = Number(now) || Date.now();
+  if (lastTs && t - lastTs < 60 * 60000) return { k: "online", zh: "在线", where: lastCh || "" };
+  const ty = String((sched && sched.type) || "");
+  if (/sleep/.test(ty)) return { k: "sleep", zh: "睡了" };
+  if (/work|study/.test(ty)) return { k: "dnd", zh: "勿扰", what: (sched && sched.title) || "" };
+  return { k: "idle", zh: "离开", what: (sched && sched.title) || "" };
+}
+// 改状态的闸：同一天改到第三次就不再收
+function charStatusCanSet(all, id, dayKey) {
+  const cur = (all || {})[id];
+  return !cur || cur.day !== dayKey || (cur.n || 0) < CHAR_STATUS_CAP;
+}
+function charStatusSet(all, id, st, dayKey, now) {
+  const cur = (all || {})[id] || {};
+  const text = String((st && st.text) || "").replace(/\s+/g, " ").trim().slice(0, 30);
+  const emoji = String((st && st.emoji) || "").trim().slice(0, 4);
+  if (!text && !emoji) return { all, changed: false };
+  if (text === (cur.text || "") && emoji === (cur.emoji || "")) return { all, changed: false };
+  const n = cur.day === dayKey ? (cur.n || 0) + 1 : 1;
+  return { all: { ...(all || {}), [id]: { emoji, text, ts: now || Date.now(), day: dayKey, n } }, changed: true };
+}
+function charStatusLabel(st) { return st && (st.text || st.emoji) ? ((st.emoji ? st.emoji + " " : "") + (st.text || "")).trim() : ""; }
+// 给模型的一行：在场的人各挂着什么状态、她挂着什么。herOk＝能不能提她（旁观频道里她不在场）
+function charStatusHint(all, members, herName, herOk) {
+  const rows = (members || []).map(c => { const l = charStatusLabel((all || {})[c.id]); return l ? c.name + "「" + l + "」" : ""; }).filter(Boolean);
+  const her = herOk ? charStatusLabel((all || {}).me) : "";
+  if (!rows.length && !her) return "";
+  return "\n\n【名字底下挂着的状态】大家各自在名字底下挂了一句，谁都看得到：" + rows.concat(her ? [(herName || "她") + "「" + her + "」"] : []).join("；") + "。";
+}
+function chpHint(s, msgs, nameOf, opts) {
+  const o = opts || {}, nm = id => id === "me" ? (o.her || "她") : ((nameOf && nameOf(id)) || id || "有人"), out = [];
+  const rx = (msgs || []).slice(-20).filter(m => m && m.reacts && Object.keys(m.reacts).length).slice(-5)
+    .map(m => "「" + String(m.content || "").replace(/\s+/g, " ").slice(0, 20) + "」← " + Object.keys(m.reacts).map(w => nm(w) + m.reacts[w]).join(" "));
+  if (rx.length) out.push("表情回应：" + rx.join("；"));
+  if (s.pins.length) out.push("置顶：" + s.pins.map(p => "「" + p.text.slice(0, 40) + "」").join("、"));
+  if (s.notes.length) out.push("墙上的便利贴：" + s.notes.slice(-8).map(n => "「" + n.text.slice(0, 40) + "」(" + nm(n.by) + (n.doodles && n.doodles.length ? "，上面被写了" + n.doodles.map(d => nm(d.by) + "：" + d.text.slice(0, 20)).join("／") : "") + ")").join(" "));
+  if (s.playlist.length) out.push("频道歌单：" + s.playlist.slice(-6).map(x => "《" + x.title + "》" + nm(x.by) + "加的" + (x.skip && x.skip.length ? "，" + x.skip.map(nm).join("、") + "想切" : "")).join("；"));
+  const bal = chpBalances(s.ledger);
+  if (s.ledger.length) out.push("小账本：" + (bal.length ? bal.map(b => nm(b.from) + "欠" + nm(b.to) + b.amount).join("，") : "都结清了"));
+  const pet = chpPetNow(s.pet, o.now);
+  if (pet) out.push("频道里养着「" + pet.name + "」（" + (pet.kind || "还没定是什么") + "）：此刻" + pet.doing + "；饱腹 " + pet.full + "、心情 " + pet.joy + "、精神 " + pet.energy
+    + (pet.last ? "，上次是" + nm(pet.last.by) + "来" + pet.last.action : "，还没人照顾过") + (pet.fondest ? "，最近最黏" + nm(pet.fondest) : "") + (pet.neglectDays >= 3 ? "，已经好几天没人管了" : ""));
+  return out.length ? "\n\n【这个频道里摆着的东西】\n" + out.join("\n") : "";
+}
+// 一轮里好几个人改同一份（她 2026-11-20「一轮调用能不能多几个人可以改」）：整份重写的话后一个人照着旧稿写，会把前一个人刚改的盖掉。
+//   所以也认按行改：add 往末尾添几行，remove 删掉逐字对上的几行；同一轮按顺序一个接一个落在最新那份上，谁改的都留着。
+//   text（整份重写）照旧认，有 text 就以 text 为准。
+function chfPatchText(cur, op) {
+  const o = op || {};
+  if (typeof o.text === "string" && o.text.trim()) return o.text;
+  let lines = String(cur || "").split("\n");
+  const rm = (Array.isArray(o.remove) ? o.remove : o.remove ? [o.remove] : []).map(x => String(x || "").trim()).filter(Boolean);
+  if (rm.length) lines = lines.filter(l => !rm.includes(String(l).trim()));
+  const add = (Array.isArray(o.add) ? o.add : o.add ? [o.add] : []).map(x => String(x || "")).filter(x => x.trim());
+  if (add.length) { while (lines.length && !String(lines[lines.length - 1]).trim()) lines.pop(); lines = lines.concat(add); }
+  return lines.join("\n");
+}
+function chfApplyDoc(files, name, text, by, now) {
+  const list = Array.isArray(files) ? files.slice() : [], t = now || Date.now();
+  const nm = String(name || "").replace(/^[《「]|[》」]$/g, "").trim().slice(0, 40), body = String(text == null ? "" : text).slice(0, 20000);
+  if (!nm) return { files: list, file: null, op: "" };
+  const k = chfNameKey(nm), i = list.findIndex(f => f && f.kind === "doc" && chfNameKey(f.name) === k);
+  if (i < 0) {
+    const file = { id: "chf_" + t + "_" + Math.floor(Math.random() * 10000), kind: "doc", name: nm, text: body, createdBy: by, createdTs: t, updatedTs: t, history: [{ by, ts: t, before: "", after: body }] };
+    return { files: list.concat([file]), file, op: "create" };
+  }
+  const old = list[i];
+  if (String(old.text || "") === body) return { files: list, file: old, op: "" };
+  const file = { ...old, text: body, updatedTs: t, updatedBy: by, history: (old.history || []).concat([{ by, ts: t, before: String(old.text || ""), after: body }]).slice(-CHF_HIST_CAP) };
+  list[i] = file;
+  return { files: list, file, op: "edit" };
+}
+// 每一行是谁写的（她 2026-11-21「编辑文件的时候能不能每个人颜色不一样」）：顺着改动历史一版一版往下走，
+//   留下来的行还算原来那个人的，新冒出来的行算这一次改的人。历史只留最近几十次，最早那版整份算创建的人。对不上就不分（返回 null）
+function chfBlame(file) {
+  const f = file || {}, H = Array.isArray(f.history) ? f.history : [];
+  const split = x => String(x || "").split("\n");
+  let cur = split(H.length ? H[0].before : f.text).map(l => ({ l, by: f.createdBy || "" }));
+  if (H.length && !String(H[0].before || "")) cur = [];
+  for (const e of H) {
+    const pool = cur.slice();
+    cur = split(e.after).map(l => { const k = pool.findIndex(x => x.l === l); if (k >= 0) return pool.splice(k, 1)[0]; return { l, by: e.by || "" }; });
+  }
+  return cur.map(x => x.l).join("\n") === String(f.text || "") ? cur : null;
+}
+// 给模型看的这一块：频道里有哪些文件、谁最近动过；正文只在聊天里提到它、或上一轮刚改过时才带，截一截
+// 换个频道接着说（她 2026-11-20「聊着聊着可以自己到别的频道说话」）：这个人能去哪几个频道。
+//   同一个空间、他本人在那个频道里；不影响记忆、不互通的频道既去不了，也不能从那儿出去。noMemOf(gid) 判「不影响记忆」
+// 他们自己开频道（她 2026-11-20）：能不能开、开在哪一类。
+//   上限：没归档的频道满 12 个就不开；一个空间一天最多开 2 个（计数记在空间上 newChDay:{d,n}）；名字跟已有的（归档的也算）一样或几乎一样就不开
+const CH_ACTIVE_MAX = 12, CH_NEW_PER_DAY = 2;
+function chNorm(n) { return String(n || "").replace(/^#+/, "").replace(/[\s·._\-—–()（）「」【】#]/g, "").toLowerCase(); }
+function chNewRoom(space, allGroups, dayKey) {
+  if (!space) return false;
+  const chs = (allGroups || []).filter(x => x && x.spaceId === space.id);
+  if (chs.filter(x => !x.chArchived).length >= CH_ACTIVE_MAX) return false;
+  const c = space.newChDay || {};
+  return !(c.d === dayKey && (c.n || 0) >= CH_NEW_PER_DAY);
+}
+function chNewCheck(space, allGroups, name, dayKey) {
+  const k = chNorm(name);
+  if (!k || !chNewRoom(space, allGroups, dayKey)) return false;
+  return !(allGroups || []).some(x => x && x.spaceId === space.id && (() => { const o = chNorm(x.chName || x.name); return o === k || (o.length >= 2 && k.length >= 2 && (o.indexOf(k) >= 0 || k.indexOf(o) >= 0)); })());
+}
+// ── 频道的日子（她 2026-11-20「做吧宝宝」：精华墙、树洞、深夜频道、一起听）──────────────
+// 精华：她长按收、或者他们自己提名。提名那句必须真是这个频道最近说过的话（逐字是里面的一段），不然不收
+// ── 频道的小活动机器人（她 2026-11-20 第二批）──────────────────────────────
+// 不是角色：没有人设、不接话，只往频道里贴卡片——每日一问、接龙、每周称号。卡片 kind:"spacebot"，bot 写是哪一种。
+const SPACE_BOT_NAME = "小频";
+// 每日一问没线路时从这一小摞里抽；有线路时现编一句（spaceAskInstruction）
+const SPACE_ASK_POOL = ["最近一次笑出声是因为什么", "今天最想吃的一样东西", "如果明天放假一天，打算怎么过", "最近循环最多的一首歌", "有没有一件一直想做还没做的小事", "今天的天气配什么心情", "最近一次被谁暖到了", "手机里最近一张照片拍的是什么", "小时候最怕的东西", "现在最想去的一个地方"];
+function spaceAskPick(dayKey, spId) {
+  let h = 0; const k = String(dayKey) + "|" + String(spId || "");
+  for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0;
+  return SPACE_ASK_POOL[h % SPACE_ASK_POOL.length];
+}
+// 一条机器人卡给模型看的那一行（聊天上下文里）
+function spaceBotLine(m) {
+  if (!m || m.kind !== "spacebot") return "";
+  if (m.bot === "ask") return "【" + SPACE_BOT_NAME + "·每日一问（机器人贴的，不是谁说的）】" + (m.q || "") + "——想答就在自己那句里接，不想答也行";
+  if (m.bot === "chain") return "【接龙「" + (m.topic || "") + "」】已经接了：" + (m.items || []).map(x => (x.name || "某人") + "「" + x.text + "」").join(" → ") + "。想接下一棒，就在自己那条发言里加 \"chain\":{\"text\":\"你接的这一句\"}";
+  if (m.bot === "titles") return "【" + SPACE_BOT_NAME + "·本周称号（照这一周真聊天的条数算的）】" + (m.content || "");
+  return "（" + (m.content || "") + "）";
+}
+// 接龙接一棒：只接最新那张没收的接龙卡；同一个人不连着接两棒
+function chainAppend(msgs, who, name, text) {
+  const t = String(text || "").trim().slice(0, 80);
+  if (!t) return null;
+  for (let i = (msgs || []).length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (m && m.kind === "spacebot" && m.bot === "chain" && !m.closed) {
+      const items = m.items || [];
+      if (items.length && String(items[items.length - 1].who) === String(who)) return null;
+      return { idx: i, msg: { ...m, items: items.concat([{ who, name, text: t, ts: Date.now() }]).slice(-40) } };
+    }
+  }
+  return null;
+}
+// 角色自己起一条接龙（她 2026-11-20「接龙也接上普通群聊，角色也可以发起」）：
+//   这个群里还有没收的接龙就不起；今天已经有人起过一回也不起（lastDay＝上回角色起头那天）
+function chainStartOk(msgs, lastDay, dayKey) {
+  if (lastDay && lastDay === dayKey) return false;
+  return !(msgs || []).some(m => m && m.kind === "spacebot" && m.bot === "chain" && !m.closed);
+}
+// 每周称号：只照这一周真聊天算，不调模型。chatsOf(gid) 拿那个频道的消息；members 是空间里的角色 id
+//   话最多＝条数最多；潜水冠军＝条数最少（可以是 0）；最爱歪楼＝去过的频道最多（至少两个）。
+//   她 2026-11-20「每周称号不能搞多一点吗」：再按真记录加几样——最晚睡（0–5 点）、最早起（5–8 点）、话题终结者
+//   （他说完那个频道 6 小时没人接）、最爱发图、被@最多、最爱悄悄话。数据不够门槛就不发；一周最多 6 个称号，一个人可以拿好几个。
+//   opts.nameOf(id)→名字（认 @），opts.hourOf(ts)→那一刻是几点（虚拟时间）。返回 { id: "称号、称号" }
+const WEEK_TITLE_CAP = 6;
+// @ 了谁（她 2026-11-20「@可以出现可以选择的名单和@所有人的选项」）：从她那句里认「@所有人」和「@名字」，
+//   名字认本名和备注，长的先比（「@顾朝阳」不会被认成顾朝）
+function atMentions(text, members) {
+  const t = String(text || "");
+  const all = /@\s?(所有人|全体成员|全体|大家|all)/i.test(t);
+  const ids = [];
+  const names = [];
+  (members || []).forEach(c => { if (!c) return; [c.remark, c.name].filter(Boolean).forEach(n => names.push({ id: c.id, n: String(n) })); });
+  names.sort((a, b) => b.n.length - a.n.length);
+  let rest = t;
+  names.forEach(x => { const k = "@" + x.n; if (rest.indexOf(k) >= 0) { if (ids.indexOf(x.id) < 0) ids.push(x.id); rest = rest.split(k).join(" "); } });
+  return { all, ids };
+}
+// 这周该不该评称号：上次评过满 7 天；从没评过的，要从起算那天（小频打开、空间建好里晚的那个）满 7 天
+function spaceTitlesDue(lastTs, startTs, now) {
+  const W = 7 * 86400000;
+  if (lastTs) return now - lastTs > W;
+  return now - (Number(startTs) || now) >= W;
+}
+function spaceWeekTitles(channels, chatsOf, members, now, days, opts) {
+  const o = opts || {}, T = now || Date.now(), since = T - (days || 7) * 86400000;
+  const hourOf = typeof o.hourOf === "function" ? o.hourOf : (ts => new Date(ts).getHours());
+  const z = () => { const r = {}; (members || []).forEach(id => { r[id] = 0; }); return r; };
+  const cnt = z(), night = z(), dawn = z(), killer = z(), pics = z(), at = z(), wh = z(), where = {};
+  (members || []).forEach(id => { where[id] = new Set(); });
+  const names = (members || []).map(id => [id, String((o.nameOf && o.nameOf(id)) || "")]).filter(x => x[1].length >= 1);
+  (channels || []).forEach(g => {
+    const ms = (chatsOf(g.id) || []).filter(m => m && (m.ts || 0) >= since && m.role !== "system");
+    ms.forEach((m, k) => {
+      if (m.content) names.forEach(([id, nm]) => { if (String(m.content).indexOf("@" + nm) >= 0 && String(m.senderId) !== String(id)) at[id]++; });
+      if (m.role !== "assistant" || !m.senderId || !(m.senderId in cnt)) return;
+      const id = m.senderId, h0 = hourOf(m.ts || 0);
+      cnt[id]++; where[id].add(g.id);
+      if (h0 >= 0 && h0 < 5) night[id]++;
+      if (h0 >= 5 && h0 < 8) dawn[id]++;
+      if (m.kind === "photo" || m.kind === "image" || m.imageRef || m.photo) pics[id]++;
+      if (m.whisper) wh[id]++;
+      const nx = ms[k + 1], gap = (nx ? (nx.ts || 0) : T) - (m.ts || 0);
+      if (gap >= 6 * 3600000) killer[id]++;
+    });
+  });
+  const ids = Object.keys(cnt), out = {}, give = (id, label) => { if (!id) return; out[id] = out[id] ? out[id] + "、" + label : label; };
+  if (ids.length < 2) return out;
+  let n = 0;
+  const top = (tab, min) => { const id = ids.slice().sort((a, b) => tab[b] - tab[a])[0]; return id && tab[id] >= min ? id : null; };
+  const most = top(cnt, 1); if (most) { give(most, "本周话最多"); n++; }
+  const quiet = ids.filter(id => id !== most).sort((a, b) => cnt[a] - cnt[b])[0]; if (quiet) { give(quiet, "潜水冠军"); n++; }
+  const roam = ids.filter(id => !out[id] && where[id].size >= 2).sort((a, b) => where[b].size - where[a].size)[0]; if (roam && n < WEEK_TITLE_CAP) { give(roam, "最爱歪楼"); n++; }
+  [[night, 3, "最晚睡"], [dawn, 3, "最早起"], [killer, 2, "话题终结者"], [pics, 2, "最爱发图"], [at, 2, "被@最多"], [wh, 2, "最爱悄悄话"]].forEach(([tab, min, label]) => {
+    if (n >= WEEK_TITLE_CAP) return; const id = top(tab, min); if (id) { give(id, label); n++; }
+  });
+  return out;
+}
+// 自定义称号那一次调用（她 2026-11-20「可以花调用自定义或者自己写保存起来评」）：这一周各频道里他们说的话，压成一份摘要。
+//   只收角色说的，不收她的；旁观、不影响记忆的频道不收（评出来的理由会贴进大家都看得到的频道）
+function spaceWeekDigest(channels, chatsOf, nameOf, now, days, cap) {
+  const since = (now || Date.now()) - (days || 7) * 86400000, out = [];
+  let len = 0; const max = cap || 6000;
+  (channels || []).forEach(g => {
+    const ms = (chatsOf(g.id) || []).filter(m => m && m.role === "assistant" && m.senderId && m.content && (m.ts || 0) >= since);
+    if (!ms.length) return;
+    const lines = ms.slice(-40).map(m => (nameOf(m.senderId) || m.senderName || "某人") + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 60));
+    const blk = "【#" + (g.chName || g.name || "") + "】\n" + lines.join("\n");
+    if (len + blk.length > max) return; out.push(blk); len += blk.length;
+  });
+  return out.join("\n");
+}
+function gemQuoteHit(quote, msgs) {
+  const q = String(quote || "").replace(/^[「『"“]+|[」』"”]+$/g, "").trim();
+  if (q.length < 2) return null;
+  const ms = (msgs || []).slice(-30);
+  for (let i = ms.length - 1; i >= 0; i--) { const m = ms[i]; if (m && m.content && m.role !== "system" && String(m.content).indexOf(q) >= 0) return m; }
+  return null;
+}
+// 一个频道一天他们自己只提名一回（她收的不算）
+function gemDayOk(gems, gid, dayKey) {
+  return !(gems || []).some(x => x && x.gid === gid && x.by !== "me" && x.day === dayKey);
+}
+// 给频道里的人看的那一行：这个地方最近几句名场面
+function gemLine(gems, nameOfGid) {
+  const g = (gems || []).slice(-3);
+  if (!g.length) return "";
+  return "\n【这个地方的精华墙】大家收进精华的名场面（最近几句）：" + g.map(x => "「" + String(x.text || "").replace(/\s+/g, " ").slice(0, 40) + "」——" + (x.who || "有人") + (nameOfGid && nameOfGid(x.gid) ? "，在 #" + nameOfGid(x.gid) : "")).join("；");
+}
+// 树洞：每个说话的人一个固定代号，按进来的先后发号，存在群身上（thAliases：{ id: 号 }）。她自己也有一个
+function thAlias(map, id) {
+  const m = { ...(map || {}) }, k = String(id || "");
+  if (!k) return { map: m, alias: "树洞" };
+  if (!m[k]) m[k] = Object.keys(m).length ? Math.max(...Object.values(m).map(Number).filter(n => n > 0)) + 1 : 1;
+  return { map: m, alias: "树洞 #" + m[k] };
+}
+// 按先后给这个树洞频道里说过话的每个人发号（她是 "me"），同一份聊天每次算出来都一样
+function thAliasMapOf(msgs) {
+  let map = {};
+  (msgs || []).forEach(m => { if (!m || m.role === "system") return; const k = m.role === "user" ? "me" : (m.role === "assistant" && m.senderId ? String(m.senderId) : ""); if (k) map = thAlias(map, k).map; });
+  return map;
+}
+// 屏幕上那一份：他们的名字和头像换成代号（她自己那边本来就是右边的「我」）
+function thView(msgs) {
+  const map = thAliasMapOf(msgs);
+  return (msgs || []).map(m => m && m.role === "assistant" && m.senderId && map[String(m.senderId)] ? { ...m, senderName: "树洞 #" + map[String(m.senderId)], senderId: "th:" + map[String(m.senderId)], thAnon: true } : m);
+}
+// 树洞对外露脸的公共口子（她 2026-11-21「这个不能抽一份公共的吗」）：凡是把频道里的话拿出去给她看的地方
+//   ——聊天页、列表预览、通知、长图、搜索——都过这两个。不是树洞就原样返回
+function chAnonMsgs(g, msgs) { return g && g.chKind === "treehole" ? thView(msgs || []) : (msgs || []); }
+function chAnonName(g, msgs, senderId, name) {
+  if (!g || g.chKind !== "treehole" || !senderId) return name || "";
+  const mp = thAliasMapOf(msgs || []); return "树洞 #" + (mp[String(senderId)] || thAlias(mp, senderId).map[String(senderId)] || "?");
+}
+// 深夜频道：hours = { from: 22, to: 5 }（整点），跨午夜也认；没设就是一直开着
+// 挑「发到哪个群」的名单（她 2026-11-20「全app里能转发到群的是不是也得接一个能转发到频道」）：
+//   转发、送礼、外卖代付、塔罗/同人/辩论分享……凡是挑一个群当去处的，都过这一份。
+//   频道就是挂着 spaceId 的群，照样能去；归档的、这会儿没到点开的不列。普通群在前，频道按空间排在后面，
+//   名字写成「#频道 · 空间名」，pickSpace 留给要分段显示的那几处。传进来的是群本身的浅拷贝，id 不变，发过去走的还是那个群。
+function groupPickList(groups, spaces, now) {
+  const sp = Array.isArray(spaces) ? spaces : [];
+  const t = now || new Date();
+  const plain = [], chans = [];
+  (groups || []).forEach(g => {
+    if (!g) return;
+    if (!g.spaceId) { plain.push(g); return; }
+    if (g.chArchived) return;
+    if (g.chHours && typeof chHoursOpen === "function" && !chHoursOpen(g.chHours, t)) return;
+    const s = sp.find(x => x && x.id === g.spaceId);
+    if (!s) return;
+    chans.push({ ...g, name: "#" + (g.chName || g.name || "频道") + " · " + (s.name || "频道"), pickSpace: s.name || "频道", pickSpaceAvatar: s.avatarImage || "" });
+  });
+  const order = id => { const i = sp.findIndex(x => x && x.id === id); return i < 0 ? 1e9 : i; };
+  chans.sort((a, b) => (order(a.spaceId) - order(b.spaceId)) || ((a.chOrder || 0) - (b.chOrder || 0)) || ((a.createdTs || 0) - (b.createdTs || 0)));
+  return plain.concat(chans);
+}
+if (typeof window !== "undefined") window.groupPickList = groupPickList;
+function chHoursOpen(hours, date) {
+  if (!hours || hours.from == null || hours.to == null) return true;
+  const h = (date || new Date()).getHours(), f = Number(hours.from), t = Number(hours.to);
+  if (f === t) return true;
+  return f < t ? (h >= f && h < t) : (h >= f || h < t);
+}
+function chCatOf(cats, want) {
+  const k = chNorm(want);
+  if (!k) return "";
+  const c = (cats || []).find(x => x && chNorm(x.name) === k) || (cats || []).find(x => x && chNorm(x.name).indexOf(k) >= 0);
+  return c ? c.id : "";
+}
+// 频道首页那一摞：按分类分段（分类的先后照 space.cats；没分类的在「未分类」），段里照 chOrder 再照建的先后；归档的单独一摞
+// 「让他们聊一会儿」挑哪几个频道（她 2026-11-20「搞一个常驻可以补的按钮相当于让他们自己聊」）：
+//   归档的、一个角色都没有的不挑；刚聊过的（最近一条离现在近）机会小一点，冷着的大一点；随机挑，最多 n 个
+function spaceTalkPick(channels, chatsOf, memberCount, n, rnd, now) {
+  const R = rnd || Math.random, T = now || Date.now();
+  let pool = (channels || []).filter(g => g && !g.chArchived && memberCount(g) > 0).map(g => {
+    const ms = chatsOf(g.id) || []; let last = 0;
+    for (let i = ms.length - 1; i >= 0; i--) { const m = ms[i]; if (m && m.role !== "system") { last = m.ts || 0; break; } }
+    const idleH = last ? (T - last) / 3600000 : 48;
+    // 挂机房是大家各忙各的地方，「让他们聊一会儿」少挑它（她 2026-11-20）
+    return { g, w: (1 + Math.min(4, idleH / 6)) * (g.chKind === "lounge" ? 0.3 : 1) };
+  });
+  const out = [];
+  while (pool.length && out.length < (n || 3)) {
+    const sum = pool.reduce((a, o) => a + o.w, 0); let x = R() * sum, k = pool.length - 1;
+    for (let i = 0; i < pool.length; i++) { x -= pool[i].w; if (x <= 0) { k = i; break; } }
+    out.push(pool[k].g); pool.splice(k, 1);
+  }
+  return out;
+}
+// lastTsOf 给了就按最近有人说话排（她 2026-11-20「最近聊过的排上面」）；不给（或她选了「按我排的」）照手动挪的顺序
+function spaceCatGroups(channels, cats, lastTsOf) {
+  const live = (channels || []).filter(g => g && !g.chArchived), arch = (channels || []).filter(g => g && g.chArchived);
+  const ord = typeof lastTsOf === "function" ? (a, b) => (lastTsOf(b) - lastTsOf(a)) || ((b.createdTs || 0) - (a.createdTs || 0)) : (a, b) => ((a.chOrder != null ? a.chOrder : 1e15 + (a.createdTs || 0)) - (b.chOrder != null ? b.chOrder : 1e15 + (b.createdTs || 0))) || ((a.createdTs || 0) - (b.createdTs || 0));
+  const ids = new Set((cats || []).map(c => c && c.id));
+  const out = (cats || []).filter(Boolean).map(c => ({ cat: c, rows: live.filter(g => g.chCat === c.id).sort(ord) }));
+  const loose = live.filter(g => !g.chCat || !ids.has(g.chCat)).sort(ord);
+  if (loose.length || !out.length) out.push({ cat: null, rows: loose });
+  return { groups: out, archived: arch.sort(ord) };
+}
+// ── 频道通知等级（她 2026-11-20「124 做吧」第 1 条）──────────────────────────
+//   chNotify: "all"（默认）/ "mention"（只在 @我 时）/ "mute"（静音）。
+//   频道那一行照旧写着自己几条没看；算进空间那一行、App 角标、横幅和提示音的，只有该算的那几条。
+function chMentionsHer(text, names) {
+  const t = String(text || "");
+  if (/@(所有人|大家|全体)/.test(t)) return true;
+  return (names || []).filter(Boolean).some(n => t.indexOf("@" + n) >= 0);
+}
+// 该算多少条：un＝这个频道没看的条数；msgs＝这个频道的消息（取最后 un 条看有没有 @她）
+function chNotifyCount(g, un, msgs, names) {
+  const mode = (g && g.chNotify) || "all";
+  if (!un || mode === "mute") return 0;
+  if (mode === "mention") return (msgs || []).slice(-un).filter(m => m && m.role !== "user" && chMentionsHer(m.content, names)).length;
+  return un;
+}
+// ── 空间内搜索（第 2 条）：聊天、文档、墙、精华一起搜；一个词切开也认（空格分开的几个词都要出现）
+function spaceSearch(q, src, cap) {
+  const words = String(q || "").toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const hit = txt => { const t = String(txt || "").toLowerCase(); return words.every(w => t.indexOf(w) >= 0); };
+  const out = [], max = cap || 100;
+  const S = src || {};
+  (S.channels || []).forEach(g => {
+    (((S.chatsOf && S.chatsOf(g.id)) || [])).forEach(m => {
+      if (!m || !m.content || m.recalled || m.role === "system" || m.whisper) return;
+      if (hit(m.content) || hit(m.senderName)) out.push({ kind: "msg", gid: g.id, ch: g.chName || g.name || "", who: m.role === "user" ? "我" : (g.chKind === "treehole" ? "有人" : (m.senderName || "有人")), text: String(m.content), ts: m.ts || 0 });
+    });
+    (((S.filesOf && S.filesOf(g.id)) || [])).forEach(f => {
+      if (!f || !f.name) return;
+      const line = f.kind === "doc" ? String(f.text || "").split("\n").find(l => hit(l)) : (hit(f.desc) ? f.desc : "");
+      if (hit(f.name) || line) out.push({ kind: "file", gid: g.id, ch: g.chName || g.name || "", fileId: f.id, text: "《" + f.name + "》" + (line ? "：" + String(line).slice(0, 80) : ""), ts: f.updatedTs || f.createdTs || 0 });
+    });
+    const pl = (S.playOf && S.playOf(g.id)) || {};
+    (pl.notes || []).forEach(n => { if (n && hit(n.text)) out.push({ kind: "note", gid: g.id, ch: g.chName || g.name || "", text: "便利贴：" + String(n.text), ts: n.ts || 0 }); });
+  });
+  (S.gems || []).forEach(x => { if (x && hit(x.text)) out.push({ kind: "gem", gid: x.gid, ch: x.ch || "", who: x.who || "", text: "精华：" + String(x.text), ts: x.ts || 0 }); });
+  return out.sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, max);
+}
+// ── 空间约定（第 4 条）：把一句「哪天」读成 YYYY-MM-DD（＋可选 HH:MM）；读不出就 null
+//   认：2026-11-22 / 11月22日 / 11/22 / 今天 明天 后天 大后天 / 周X 星期X（下一个，今天是周X就今天）/ 下周X
+function planParseWhen(str, now) {
+  const s = String(str || "").trim(), base = now instanceof Date ? now : new Date(now || Date.now());
+  if (!s) return null;
+  const pad = n => String(n).padStart(2, "0"), fmt = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const day0 = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  let d = null, m;
+  if ((m = s.match(/(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/))) d = new Date(+m[1], +m[2] - 1, +m[3]);
+  else if ((m = s.match(/(\d{1,2})月(\d{1,2})[日号]?/)) || (m = s.match(/(?:^|\D)(\d{1,2})\/(\d{1,2})(?:\D|$)/))) {
+    d = new Date(day0.getFullYear(), +m[1] - 1, +m[2]);
+    if (d < day0) d = new Date(day0.getFullYear() + 1, +m[1] - 1, +m[2]);
+  } else if (/大后天/.test(s)) d = new Date(day0.getTime() + 3 * 864e5);
+  else if (/后天/.test(s)) d = new Date(day0.getTime() + 2 * 864e5);
+  else if (/明天|明晚|明早/.test(s)) d = new Date(day0.getTime() + 864e5);
+  else if (/今天|今晚|今早|待会|一会/.test(s)) d = day0;
+  else if ((m = s.match(/(下)?(?:周|星期|礼拜)([一二三四五六日天])/))) {
+    const want = "日一二三四五六".indexOf(m[2] === "天" ? "日" : m[2]);
+    let add = (want - day0.getDay() + 7) % 7;
+    // 下周X：下一个自然周（周一起算）里的那一天
+    if (m[1]) { const toMon = ((8 - day0.getDay()) % 7) || 7; add = toMon + ((want + 6) % 7); }
+    d = new Date(day0.getTime() + add * 864e5);
+  }
+  if (!d || isNaN(d.getTime())) return null;
+  const tm = s.match(/(\d{1,2})[:：](\d{2})/) || s.match(/(\d{1,2})点(半)?/);
+  let time = "";
+  if (tm) { let hh = +tm[1]; const mm = tm[2] === "半" ? 30 : (tm[2] && /^\d+$/.test(tm[2]) ? +tm[2] : 0); if (/下午|晚上|今晚|明晚/.test(s) && hh < 12) hh += 12; if (hh < 24) time = pad(hh) + ":" + pad(mm); }
+  return { date: fmt(d), time };
+}
+// 接下来几天的约定（含今天），按日子排；today 是 YYYY-MM-DD
+function planUpcoming(plans, today, days) {
+  const end = new Date(today + "T00:00:00").getTime() + (days || 7) * 864e5;
+  return (plans || []).filter(p => p && !p.done && p.date >= today && new Date(p.date + "T00:00:00").getTime() < end)
+    .sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")));
+}
+function chHopTargets(origin, allGroups, speakerId, noMemOf) {
+  if (!origin || !origin.spaceId || origin.chSolo || (noMemOf && noMemOf(origin.id))) return [];
+  return (allGroups || []).filter(x => x && x.spaceId === origin.spaceId && x.id !== origin.id && !x.chSolo && !x.chArchived
+    && (x.memberIds || []).map(String).includes(String(speakerId)) && !(noMemOf && noMemOf(x.id)));
+}
+function chHopPick(targets, to) {
+  const k = String(to || "").trim().replace(/^#+/, "");
+  if (!k) return null;
+  return (targets || []).find(x => x.chName === k) || (targets || []).find(x => String(x.chName || "").indexOf(k) >= 0 || k.indexOf(String(x.chName || "")) >= 0 && x.chName) || null;
+}
+// 他翻她手机时看到的频道（她 2026-11-20）：rows = [{ g, ms, last }]，同一个空间的并成一段，最近的两个空间、每个空间最近三个频道、每个频道最后四句。
+//   who 写频道那个群的名字（「空间 · #频道」），跟回放里认群名是同一份
+function peekSpaceBlock(rows, spaceName, line) {
+  const by = new Map();
+  (rows || []).filter(x => x && x.g && x.g.spaceId && !x.g.chArchived).forEach(x => { const k = x.g.spaceId; if (!by.has(k)) by.set(k, []); by.get(k).push(x); });
+  const sps = [...by.entries()].map(([id, list]) => ({ id, list: list.sort((a, b) => b.last - a.last), last: Math.max(...list.map(x => x.last || 0)) })).sort((a, b) => b.last - a.last).slice(0, 2);
+  if (!sps.length) return "";
+  return "【她在的频道空间（一个空间里分好几个频道；打开时 who 写「空间 · #频道」那个名字）】\n" + sps.map(sp => "频道空间「" + (spaceName(sp.id) || "频道") + "」：\n" + sp.list.slice(0, 3).map(x =>
+    "  #" + (x.g.chName || x.g.name) + "（who：" + x.g.name + "）最近：\n" + x.ms.slice(-4).map(m => "    " + line(m)).join("\n")).join("\n")).join("\n");
+}
+// 他们今天自己新建了几份（她 2026-11-20「往更主动调吧」）：主动往文件里写，但新建一天一个频道最多两份，满了只改不新建
+const CHF_CHAR_NEW_PER_DAY = 3;
+function chfCharNewToday(files, dayOf, now) {
+  const today = dayOf(now);
+  return (Array.isArray(files) ? files : []).filter(f => f && f.kind === "doc" && f.createdBy && f.createdBy !== "me" && f.createdTs && dayOf(f.createdTs) === today).length;
+}
+function chfCanCharCreate(files, dayOf, now) { return chfCharNewToday(files, dayOf, now) < CHF_CHAR_NEW_PER_DAY; }
+// herLast：她最近那一句（她 2026-11-20：「搞了个今晚吃啥的文件，说看看今晚吃啥，没人去改文件，都是在聊今晚吃啥」）——
+//   她嘴里提到的那份就是这个文件；说清这一层，他们才知道她要的是在文件里动笔，不是在聊天里聊这件事
+// 认名字放宽一点：名字里去掉标点空格以后整段出现，或者名字有四个字以上、其中连着的三个字出现，都算提到了
+// 频道「文件 · 图片」那一栏（她 2026-11-20「发出去和生成的图片可以放那里，也可以被重新聊天召回」）：
+//   不另存一份图，只把聊天里出现过的图的引用（imageRef / 问卷图 / 通话画面）和上传进来的图收成一列；同一张只算一次
+//   msgs：这个频道的聊天；files：x_chfiles 那一份。回 [{ ref, from:"chat"|"file", who:{role,senderId,senderName}, ts, desc, fileId?, gen? }]，新的在前
+function chfGallery(msgs, files) {
+  const out = [], seen = new Set();
+  const add = (ref, row) => { const r = String(ref || ""); if (!r || seen.has(r) || !/^(iv_|img_|data:image\/|https?:)/.test(r)) return; seen.add(r); out.push(Object.assign({ ref: r }, row)); };
+  (Array.isArray(msgs) ? msgs : []).forEach(m => {
+    if (!m || m.recalled) return;
+    const who = { role: m.role, senderId: m.senderId || null, senderName: m.senderName || null };
+    const base = { from: "chat", who, ts: m.ts || 0, gen: m.role !== "user" && m.photoMode !== "real" };
+    if (m.imageRef) add(m.imageRef, Object.assign({ desc: String(m.desc || "").trim() }, base));
+    if (m.ask && m.ask.imageRef) add(m.ask.imageRef, Object.assign({ desc: String(m.ask.q || m.ask.title || "").trim() }, base));
+    (Array.isArray(m.shots) ? m.shots : []).forEach(k => add(k, Object.assign({ desc: "通话里拍的画面" }, base)));
+  });
+  (Array.isArray(files) ? files : []).forEach(f => { if (f && f.kind === "image" && f.imgKey) add(f.imgKey, { from: "file", fileId: f.id, who: { role: f.createdBy === "me" ? "user" : "assistant", senderId: f.createdBy === "me" ? null : f.createdBy, senderName: null }, ts: f.createdTs || 0, desc: String(f.desc || f.name || "").trim() }); });
+  return out.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+}
+// 她那句说到了哪张图（按图的说明认，跟文件认名字同一个认法）：只给说明那一行，不给像素，省得每轮都背着图
+function chfGalleryMentioned(gallery, herLast) {
+  const t = String(herLast || "");
+  if (!t) return [];
+  return (gallery || []).filter(g => g.desc && g.desc.length >= 2 && chfMentioned(g.desc.slice(0, 24), t)).slice(0, 2);
+}
+function chfMentioned(name, text) {
+  const norm = x => String(x || "").replace(/[\s《》〈〉「」『』“”"'.,，。!！?？:：·\-—_]/g, "").toLowerCase();
+  const n = norm(name), t = norm(text);
+  if (!n || !t) return false;
+  if (t.indexOf(n) >= 0) return true;
+  if (n.length >= 4) { for (let i = 0; i + 3 <= n.length; i++) if (t.indexOf(n.slice(i, i + 3)) >= 0) return true; }
+  return false;
+}
+function chfContextBlock(files, recentText, nameOf, herLast) {
+  const list = (Array.isArray(files) ? files : []).filter(f => f && f.name);
+  if (!list.length) return "";
+  const who = id => id === "me" ? (nameOf ? nameOf("me") : "她") : (nameOf ? nameOf(id) : "") || "有人";
+  const md = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日" + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  const rt = String(recentText || "");
+  const rows = list.slice().sort((a, b) => (b.updatedTs || 0) - (a.updatedTs || 0)).slice(0, 20).map(f =>
+    "· 《" + f.name + "》" + (f.kind === "image" ? "（图片" + (f.desc ? "：" + String(f.desc).slice(0, 60) : "") + "）" : "（文档，" + String(f.text || "").length + " 字）")
+      + "　" + who(f.updatedBy || f.createdBy) + " " + md(f.updatedTs || f.createdTs));
+  const fresh = Date.now() - 30 * 60000;
+  const open = list.filter(f => f.kind === "doc" && (chfMentioned(f.name, rt) || (f.updatedTs || 0) > fresh)).slice(0, 2);
+  const herHits = open.filter(f => herLast && chfMentioned(f.name, herLast)).map(f => "《" + f.name + "》");
+  const bodies = open.map(f => { const tx = String(f.text || ""); return "《" + f.name + "》全文" + (tx.length > 3000 ? "（太长，只给开头和最后一截）" : "") + "：\n" + (tx.length > 3000 ? tx.slice(0, 1800) + "\n……\n" + tx.slice(-1100) : tx); });
+  return "\n\n【这个频道的文件】频道里大家共用的文件，谁都能打开看、改，也能新建：\n" + rows.join("\n") + (bodies.length ? "\n" + bodies.join("\n\n") : "")
+    + (herHits.length ? "\n她刚才那句说到的" + herHits.join("、") + "，就是上面这份文件。文件是大家一起往里写的那张纸：往里添、划掉、改，是在 file 里写；只在聊天里说，纸上什么都不会变。" : "");
+}
+// ── 频道第三批（她 2026-11-20 「都做吧宝宝」）────────────────────────────
+// 赌气退频道：一个人对一个频道三天里只退一回；频道里只剩他一个人时不退（退了频道就空了）
+const CH_LEAVE_GAP = 3 * 86400000;
+function chLeaveOk(g, charId, now) {
+  if (!g || !charId) return false;
+  const ids = (g.memberIds || []).map(String);
+  if (ids.indexOf(String(charId)) < 0 || ids.length < 2) return false;
+  const last = ((g.chLeftLog || {})[charId]) || 0;
+  return !last || (now || Date.now()) - last >= CH_LEAVE_GAP;
+}
+// 楼中楼：一条消息底下回的一串。串里的消息挂着 replyRoot（根那条的 ts），主线上不画、只在根底下留一行
+function subRootKey(m) { return m && m.ts ? String(m.ts) : ""; }
+function subThreadsOf(msgs) {
+  const out = {};
+  (msgs || []).forEach(m => { if (!m || !m.replyRoot || m.recalled) return; const k = String(m.replyRoot), o = out[k] || (out[k] = { n: 0, last: null }); o.n++; o.last = m; });
+  return out;
+}
+// 他们往一串里回：root 是根那条里逐字出现过的一小段，在最近 40 条主线消息里找
+function subRootHit(quote, msgs) {
+  const q = String(quote || "").trim();
+  if (q.length < 2) return null;
+  const ms = (msgs || []).filter(m => m && !m.replyRoot && !m.recalled && m.content && m.ts).slice(-40);
+  for (let i = ms.length - 1; i >= 0; i--) if (String(ms[i].content).indexOf(q) >= 0) return ms[i];
+  return null;
+}
+// 频道（她 2026-11-20）：群挂着 spaceId 时，它是一个频道空间里的一个频道。给两样事实：
+//   这个频道是聊什么的（她写的那句），和同一个空间里别的频道最近在说什么（各一两句），大家知道别处在发生什么。
+//   chatsOf(id) 拿那个群的消息；uName 是她的名字。线上群、群线下都走这一份。
+function spaceChannelBlock(g, allGroups, chatsOf, uName, nameOf) {
+  if (!g || !g.spaceId) return "";
+  const out = ["【这个频道】你们现在在「#" + (g.chName || g.name || "") + "」" + (g.chAbout ? "：" + String(g.chAbout).slice(0, 120) : "") + "。这是同一群人待的一个地方里的一个频道，同一个地方还有别的频道。"];
+  // 不互通的频道（她 2026-11-20「能搞不互通记忆吗」）：chSolo 的那个频道看不到别处，别处也看不到它
+  // 「只给这里的人」（她 2026-11-20「双胞胎两边都知道另一边，但不想让频道里其他人知道」）：chShareMembers 的频道别人看不到，
+  //   但它自己照常看得见别处；它里面的人去了别的频道，那边会带上这里最近几句，标明只有这几个人知道
+  if (g.chSolo && !g.chShareMembers) return "\n\n" + out[0].replace(/。这是同一群人待的一个地方里的一个频道.*$/, "。");
+  // 挑哪几个频道带进来（她 2026-11-20「按成员在的群聊时间线排序互通就行了」）：跟一堆群聊时一样按最近有人说话排，
+  //   有这里的人也在的频道先带——那是他们自己刚待过的地方；归档、不互通的不带
+  const lastTs = x => { const ms = chatsOf(x.id) || []; for (let i = ms.length - 1; i >= 0; i--) { const m = ms[i]; if (m && m.content && m.role !== "system") return m.ts || 0; } return 0; };
+  const mine = new Set((g.memberIds || []).map(String));
+  const sibs = (allGroups || []).filter(x => x && x.spaceId === g.spaceId && x.id !== g.id && !x.chSolo && !x.chArchived)
+    .map(x => ({ x, t: lastTs(x), share: (x.memberIds || []).some(id => mine.has(String(id))) ? 1 : 0 }))
+    .sort((a, b) => (b.share - a.share) || (b.t - a.t)).slice(0, 6).map(o => o.x);
+  const rows = sibs.map(x => {
+    const ms = (chatsOf(x.id) || []).filter(m => m && m.content && !m.recalled && m.role !== "system" && !m.whisper && m.kind !== "spacebot").slice(-2);
+    const said = ms.map(m => (x.chKind === "treehole" ? "有人" : (m.role === "user" ? (uName || "她") : (m.senderName || "有人"))) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 50)).join("／");
+    return "· #" + (x.chName || x.name || "") + (x.chAbout ? "（" + String(x.chAbout).slice(0, 30) + "）" : "") + (said ? "　最近：" + said : "　还没人说话");
+  });
+  if (rows.length) out.push("【同一个地方的别的频道】\n" + rows.join("\n"));
+  const mineIds = new Set((g.memberIds || []).map(String));
+  const priv = (allGroups || []).filter(x => x && x.spaceId === g.spaceId && x.id !== g.id && x.chShareMembers && !x.chArchived && (x.memberIds || []).some(id => mineIds.has(String(id)))).slice(0, 2);
+  priv.forEach(x => {
+    const who = (x.memberIds || []).filter(id => mineIds.has(String(id))).map(id => (nameOf && nameOf(id)) || "").filter(Boolean);
+    if (!who.length) return;
+    const ms = (chatsOf(x.id) || []).filter(m => m && m.content && !m.recalled && m.role !== "system" && !m.whisper && m.kind !== "spacebot").slice(-3);
+    const said = ms.map(m => (m.role === "user" ? (uName || "她") : (m.senderName || "有人")) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 60)).join("／");
+    out.push("【只有" + who.join("、") + "知道的】" + who.join("、") + "跟" + (uName || "她") + "还有一个只有这几个人在的地方 #" + (x.chName || x.name || "") + (said ? "，那边最近：" + said : "") + "。这里别的人不知道那个地方、也不知道那边说过什么；" + who.join("、") + "心里有数，当着别人的面不提。");
+  });
+  return "\n\n" + out.join("\n");
+}
 function groupNoticeBlock(notice) {
   const t = String((notice && notice.text) || "").trim();
   if (!t) return "";
@@ -8436,7 +9123,8 @@ function actSlotOf(w) { const m = ACT_SLOT_RE.exec(String(w == null ? "" : w)); 
 // 单聊一轮最多几行动描（开头那一行算一行）
 const ACT_LINES_PER_TURN = 3;
 // 单聊那句话：action 是开头那一刻，word 里那一项是说着说着换成的
-const ACT_MID_RULE = "【说着说着换了动作】action 那一格是你这一轮开口时在做的事。这一轮里你手上真换成了另一件事，就在 word 数组里换的那个位置写一项 {\"act\":\"换成在做的事\"}，写法跟 action 那一格一样；没换就不写。一轮至多两项。";
+// 她 2026-11-21「动描也很少触发」：原句只认「手上真换成了另一件事」，几句话里很少换事，于是几乎不写
+const ACT_MID_RULE = "【说着说着换了动作】action 那一格是你这一轮开口时的样子。说的过程中你那边有了新的一下——身上、手上、脸上变了——就在 word 数组里那个位置写一项 {\"act\":\"……\"}，写法跟 action 那一格一样；没有就不写。一轮至多两项。";
 function voiceSlotOf(w) { const m = VOICE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
 // 把「这条要用语音说」写成一段描述挂在句子前面（她 2026-10-06 截图，Gemini：
 //   「【这条语音里的声音带着刚睡醒的沙哑和浓浓的委屈】我刚才都睡着了又被你气醒了」）。
@@ -11040,6 +11728,7 @@ async function generateOfflineGroup(p, ctx, session) {
     wishLine(ctx.wishLog, userName, { group: true, gift: false }) +
     "\n\n【在场角色间的关系（有方向）】\n" + relLines + (ctx.dramaRule || "") +
     groupNoticeBlock(ctx.groupNotice) +
+    (ctx.spaceBlock || "") +
     (gDirs.length ? "\n\n【用户立下的长期规矩（高优先·在场所有角色务必遵守）】\n这些是用户明确要求的准则，优先级高于一般演绎习惯；在不违背各自核心人设的前提下务必遵守：\n" + gDirs.map((s, i) => (i + 1) + ". " + s.trim()).join("\n") : "") +
     (loreSplit(ctx.worldbook).topic ? "\n\n【世界书 · 这一轮聊到的】\n" + loreSplit(ctx.worldbook).topic : "") +
     (ctx.extMem && String(ctx.extMem).trim() ? "\n\n【外置记忆库·这一轮搜到的（同一段人生，对不上时以发生过的为准）】\n" + String(ctx.extMem).trim() : "") +
@@ -11761,7 +12450,9 @@ async function runProbe(p, ctx, probe) {
   let _from = ""; try { _from = callerLabelOf(new Error().stack); } catch (e) {}
   // 两张表都认不出、又没起 tag 的：拿它要干的那件事开头几个字当名字（她 2026-10-18 群里截图：一排「其他」看不出是什么）
   if (!_from && probe && typeof probe === "object" && !probe.logFrom && !(typeof callTagLabel === "function" && callTagLabel(probe.tag))) {
-    const _ins = String(probe.instruction || "").replace(/【[^】]{0,30}】/g, "").replace(/[\s「」"“”]+/g, "").slice(0, 14);
+    // 开头是日期、钟点的（她 2026-11-20 截图「其他·2026年11月20日周五2…」）：跳过去，拿后面真正要干的事起名
+    const _ins = String(probe.instruction || "").replace(/【[^】]{0,30}】/g, "").replace(/[\s「」"“”]+/g, "")
+      .replace(/^(?:(?:现在是|今天是|此刻是|现在|今天)?(?:\d{4}年)?(?:\d{1,2}月\d{1,2}日)?(?:周[一二三四五六日天]|星期[一二三四五六日天])?(?:[上下]午|凌晨|早上|晚上|中午|傍晚)?(?:\d{1,2}[:：点]\d{0,2}分?)?[，,。；;：:、]?)+/, "").slice(0, 14);
     if (_ins) probe = Object.assign({}, probe, { logFrom: "其他·" + _ins + "…" });
   }
   if (_from && probe && typeof probe === "object" && !probe.logFrom) probe = Object.assign({}, probe, { logFrom: _from });

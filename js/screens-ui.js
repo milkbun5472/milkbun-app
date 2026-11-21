@@ -5,6 +5,26 @@
 // 只在点开那一页时才用到，改成用到才加载（js/lazy-mods.js，组名 screens）。
 // 开机、聊天、论坛要用的那一半还在 screens.js、开机加载。这里的名字照旧是全局的，跟原来写在一份里一样用；
 // screens.js 那边不许反过来用这里的东西（怎么分的见 slim/lazy-2 那次提交说明）。
+// 拉下来的模型列表（文字/图像/向量三处共用这一份）：长按一个收藏，收藏的排最前、带 ★，再长按取消（群友 2026-11-22「拉取模型的时候可以收藏，好几次把名称差不多的点错了」）
+//   收藏是全 app 一份（x_modelFavs），不分站点：同一个模型名在哪家都是它
+function ModelChips({ models, value, onPick }) {
+  const t = useTheme();
+  const [favs, setFavs] = useState(() => { try { const v = loadJSON("x_modelFavs", []); return Array.isArray(v) ? v : []; } catch (e) { return []; } });
+  const pressT = useRef(null), fired = useRef(false);
+  if (!models || !models.length) return null;
+  const toggle = m => { const n = favs.indexOf(m) >= 0 ? favs.filter(x => x !== m) : favs.concat([m]); setFavs(n); saveJSON("x_modelFavs", n); if (typeof window.__toast === "function") window.__toast(n.indexOf(m) >= 0 ? "收藏了 " + m : "取消收藏 " + m); };
+  const list = models.filter(m => favs.indexOf(m) >= 0).concat(models.filter(m => favs.indexOf(m) < 0));
+  return h("div", null,
+    h("div", { "data-wk": "modelchiptip", style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "长按一个收藏，收藏的排最前；下架了也记着，再上架还在。"),
+    h("div", { "data-wk": "block", className: "flex flex-wrap gap-1.5", style: { marginTop: 6, maxHeight: 118, overflowY: "auto" } },
+    list.map(m => { const on = value === m, fav = favs.indexOf(m) >= 0;
+      return h("button", { key: m, "data-wk": "modelchip", "data-on": fav ? "1" : "0",
+        onPointerDown: () => { fired.current = false; clearTimeout(pressT.current); pressT.current = setTimeout(() => { fired.current = true; toggle(m); }, 550); },
+        onPointerUp: () => clearTimeout(pressT.current), onPointerLeave: () => clearTimeout(pressT.current), onPointerCancel: () => clearTimeout(pressT.current),
+        onContextMenu: e => e.preventDefault(),
+        onClick: () => { if (fired.current) { fired.current = false; return; } onPick(m); }, className: "active:opacity-70",
+        style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.sub, border: "1px solid " + (fav ? t.ink : t.line), WebkitUserSelect: "none", userSelect: "none" } }, (fav ? "★ " : "") + m); })));
+}
 function STW(who, el) {
   const id = who && typeof who === "object" ? (String(who.authorType || "").indexOf("character") === 0 ? who.authorId : null) : who;
   return id && typeof window !== "undefined" && window.TransWho ? h(window.TransWho, { id: id }, el) : el;
@@ -2351,7 +2371,11 @@ function Forum({
   // 配色跟着排版换（她 2026-10-24「配色也改成小红书吧」）：双列＝小红书的白底红字，单列＝原来的小报绿
   //   FORUM_SKIN 是全论坛共用的那一份，这里整份换掉，不用每处各判一次
   const [nav, setNav] = useState("home");           // home | search | pm | me
-  const [tab, setTab] = useState("吐槽吧");           // 主页版块 或 "关注"
+  // 隐藏了的吧不当默认那一格（群里 2026-11-21「隐藏了一点进去还是原先默认的吧」）
+  const firstShownBoard = () => { const sh = forumBoardsShown(); return sh.indexOf("吐槽吧") >= 0 ? "吐槽吧" : (sh[0] || "关注"); };
+  const [tab, setTab] = useState(firstShownBoard);           // 主页版块 或 "关注"
+  // 论坛一直挂着、或者刚在「吧的顺序」里把当前这个吧藏了（她 2026-11-21 截图：藏了还停在吐槽吧）：落到第一个没藏的
+  useEffect(() => { if (forumBoardPrefs().hidden.indexOf(tab) >= 0) setTab(firstShownBoard()); });
   const [feedSort, setFeedSort] = useState("active"); // active | latest | hot
   // 「新帖在这里」「新回复在这里」默认收着，只露一行标题和数（她 2026-10-07：「能不能搞 dropdown 隐藏，点开才展开」）
   const [newPostsOpen, setNewPostsOpen] = useState(false);
@@ -2386,7 +2410,7 @@ function Forum({
     return h("div", { "data-wk": "foboardsortpage", className: "flex flex-col", style: { position: "absolute", inset: 0, zIndex: 60, background: FORUM_SKIN.bg } },
       h(Head, { zh: "吧的顺序", onBack: () => setSortOpen(false) }),
       h("div", { className: "flex-1 overflow-y-auto px-4", style: { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.55, color: FORUM_SKIN.fog, padding: "10px 0 6px" } }, "↑↓ 挪位置，顶上那排和发帖选吧都照这个顺序。藏起来的吧只是不在顶上那排出现，帖子、发帖选吧、他们去那儿发帖都照常。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.55, color: FORUM_SKIN.fog, padding: "10px 0 6px" } }, "↑↓ 挪位置，顶上那排和发帖选吧都照这个顺序。藏起来的吧不在顶上那排出现，它的帖子也不进「发现」「关注」和新回复，刷新和角色发帖都不往里发；帖子没删，取消就回来，收藏过的还在「收藏」里。"),
         list.map((n, i) => { const off = hid.indexOf(n) >= 0; return h("div", { key: n, "data-wk": "foboardsortrow", className: "flex items-center", style: { gap: 4, minHeight: 52, borderBottom: "1px solid " + FORUM_SKIN.line } },
           h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: off ? FORUM_SKIN.fog : FORUM_SKIN.ink, textDecoration: off ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n),
           h("button", { "data-wk": "foboardhide", onClick: () => toggleHide(n), className: "active:opacity-60 shrink-0", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: off ? FORUM_SKIN.accent : FORUM_SKIN.fog, background: "transparent", border: "none" } }, off ? "放出来" : "藏起来"),
@@ -2428,7 +2452,7 @@ function Forum({
     requestAppConfirm("拆掉「" + name + "」？", n ? "里面 " + n + " 个帖不会删，会挪到「搜索」那一页里。" : "这个吧里还没有帖，拆了就没了。", () => {
     if (n && onDropBoard) onDropBoard(name);
     saveBoards(forumCustomBoards().filter(b => b.name !== name));
-    setTab("吐槽吧"); setPage(1);
+    setTab(firstShownBoard()); setPage(1);
   }, "拆吧");
   };
   // 这一格是不是她开的吧；横杠上挂什么（写死的吧规，或者她写的那句简介）
@@ -2451,6 +2475,11 @@ function Forum({
   const [cbTitle, setCbTitle] = useState("");
   const [cbBody, setCbBody] = useState("");
   const [rTxt, setRtxt] = useState("");
+  // @ 人、贴帖子（她 2026-11-21）：发帖正文、回楼、楼中楼三个框都能用；名单和认名字走 screens.js 那几个 forumAt*/forumLink*
+  const cbBodyRef = useRef(null);
+  const [linkPick, setLinkPick] = useState(null);   // null＝收着；"cb"＝往发帖正文里贴；"reply"＝往回复框里贴
+  const [linkQ, setLinkQ] = useState("");
+  const atCands = useMemo(() => forumAtCandidates(characters, forumOff), [characters, forumOff]);
   // 配图（她 2026-09-24）：发帖那张、回楼那张各一份草稿；photoView＝点开看的那一张
   const [cbPhoto, setCbPhoto] = useState(null);
   // 第二张起（群友 2026-10-27「论坛也可以多图」）：最多九张，第一张还是 cbPhoto（封面）
@@ -2544,7 +2573,9 @@ function Forum({
     return interaction / Math.pow(ageHours + 2, 1.18);
   };
   const unreadFloors = postId => (cmts[postId] || []).filter(x => forumVisible(x) && x.authorType !== "me" && floorArrivedAt(x) > Number(forumReadCursors[postId] || 0)).length;
-  const forumUnreadRows = (posts || []).filter(forumVisible).map(post => ({ post, count: unreadFloors(post.id) }))
+  // 隐藏了的吧：帖子、新回复、红点一并不出（收藏夹除外——那是她自己存的）
+  const boardOn = p => !p || forumBoardPrefs().hidden.indexOf(p.board) < 0;
+  const forumUnreadRows = (posts || []).filter(p => forumVisible(p) && boardOn(p)).map(post => ({ post, count: unreadFloors(post.id) }))
     .filter(x => x.count > 0).sort((a, b) => postLastActivity(b.post) - postLastActivity(a.post));
   const forumUnreadTotal = forumUnreadRows.reduce((n, x) => n + x.count, 0);
   const [newPostSeen, setNewPostSeen] = useState([]);
@@ -2554,17 +2585,22 @@ function Forum({
   (posts || []).forEach(p => (cmts[p.id] || []).forEach((f, floorIndex) => {
     if (!forumVisible(f)) return;
     const floorTs = floorArrivedAt(f);
-    if (p.authorType === "me" && f.authorType !== "me" && floorTs > forumNoticeEpoch) {
+    // 被人 @ 了（她 2026-11-21）：别人写的楼／楼中楼 mentions 里有她（"me"），跟「回复了你」进同一个收件箱
+    const atMe = x => !!(x && x.authorType !== "me" && Array.isArray(x.mentions) && x.mentions.indexOf("me") >= 0);
+    if (((p.authorType === "me" && f.authorType !== "me") || atMe(f)) && floorTs > forumNoticeEpoch) {
       const id = "floor:" + p.id + ":" + (f.id || floorIndex);
-      forumNotices.push({ id, post: p, floorId: f.id, author: f, authorName: f.authorName || "网友", content: f.content || "", ts: floorTs, kind: "回复了你的帖子" });
+      forumNotices.push({ id, post: p, floorId: f.id, author: f, authorName: f.authorName || "网友", content: f.content || "", ts: floorTs, kind: p.authorType === "me" ? "回复了你的帖子" : "@了你" });
     }
     (f.replies || []).forEach((r, replyIndex) => {
       const ts = Math.max(floorTs, Number(r.ts || 0));
-      if (r.authorType === "me" || ts <= forumNoticeEpoch || !(r.replyToMe || f.authorType === "me")) return;
+      if (r.authorType === "me" || ts <= forumNoticeEpoch || !(r.replyToMe || f.authorType === "me" || atMe(r))) return;
       const id = "reply:" + p.id + ":" + (f.id || floorIndex) + ":" + (r.id || r.ts || replyIndex);
-      forumNotices.push({ id, post: p, floorId: f.id, author: r, authorName: r.authorName || "网友", content: r.content || "", ts, kind: "回复了你" });
+      forumNotices.push({ id, post: p, floorId: f.id, author: r, authorName: r.authorName || "网友", content: r.content || "", ts, kind: (r.replyToMe || f.authorType === "me") ? "回复了你" : "@了你" });
     });
   }));
+  // 帖子正文里 @ 了她（角色、网友发的帖）
+  (posts || []).forEach(p => { if (forumVisible(p) && p.authorType !== "me" && Array.isArray(p.mentions) && p.mentions.indexOf("me") >= 0 && Number(p.visibleAt || p.ts || 0) > forumNoticeEpoch)
+    forumNotices.push({ id: "post:" + p.id, post: p, floorId: null, author: p, authorName: p.anon ? "匿名用户" : (p.authorName || "网友"), content: p.title || "", ts: Number(p.visibleAt || p.ts || 0), kind: "@了你" }); });
   forumNotices.sort((a, b) => b.ts - a.ts);
   // 「全部标为已读」记一道水位线（群友 2026-10-16：标完还剩 97 条）——原来一条一条记键、最多留 800 个，
   //   一口气标几百条时它们的时间戳全一样，裁到 800 是随手裁，剩下那截又成了没读。水位线以下的一律算读过。
@@ -2638,7 +2674,8 @@ function Forum({
   const replyInputRef = useRef(null);
   const replyFromNotice = n => {
     markNoticesRead([n.id]); openPost(n.post);
-    setReplyTo({ floorId: n.floorId, name: n.authorName, toName: n.kind === "回复了你" ? n.authorName : "" });
+    //   「@了你」：楼中楼里点的名 → 回那个人；楼里点的 → 回那一层；帖子正文里点的 → 直接在帖子底下回
+    if (n.floorId) setReplyTo({ floorId: n.floorId, name: n.authorName, toName: n.kind === "回复了你" ? n.authorName : "", ...(n.kind === "@了你" && /^reply:/.test(n.id) ? { toName: n.authorName } : {}) });
     setTimeout(() => {
       const el = document.getElementById("forum-floor-" + n.floorId);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -2711,6 +2748,61 @@ function Forum({
     : a && !a.anon ? enterSub(() => setNpcProfile({ id: a.authorId || id, name: a.authorName || "网友", handle: a.authorHandle || a.authorName || "guest" })) : null;
   const goAltProfile = a => { if (!isAlt(a) || !a.authorId) return; enterSub(() => setAltProfile({ authorId: a.authorId, name: a.authorName || "小号", handle: a.authorHandle || a.authorName || "side" })); };
   const goNpcProfile = a => { if (!a || a.anon || a.authorType !== "npc" || !a.authorId) return; enterSub(() => setNpcProfile({ id: a.authorId, name: a.authorName || "网友", handle: a.authorHandle || a.authorName || "guest" })); };
+  // ── @ 人／贴帖子：名单、高亮、小卡 ──
+  // 名单就是群聊频道那一份 @ 名单（components.js 的 useAtPicker），角色带头像；弹在发帖整页里，所以挂到 body 上
+  const atItems = atCands.map(x => x.kind === "char" ? Object.assign({}, x, { face: h(Avatar, { character: charOf(x.key) || { name: x.label }, size: 30, radius: 999 }) }) : Object.assign({}, x, { note: "熟面孔" }));
+  const cbAtPicker = useAtPicker(cbBody, setCbBody, cbBodyRef, composer ? atItems : null, { portal: true, zIndex: 1200 });
+  const replyAtPicker = useAtPicker(rTxt, setRtxt, replyInputRef, open ? atItems : null, { portal: true, zIndex: 1200 });
+  const openMention = c => { if (c.kind === "char") goProfile(c.key); else goNpcProfile({ authorType: "npc", authorId: c.key, authorName: c.label, authorHandle: c.handle || c.label }); };
+  const richRe = useMemo(() => {
+    const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const names = atCands.map(c => c.label).sort((a, b) => b.length - a.length).map(esc);
+    return new RegExp("(\\[\\[post:[A-Za-z0-9_.:-]+\\]\\]" + (names.length ? "|@(?:" + names.join("|") + ")" : "") + ")");
+  }, [atCands]);
+  // 贴进来的那个帖：标题＋吧，点了打开那一帖；帖子没了就灰着写「帖子已删除」
+  const linkCard = (lp, onTap, wk, key) => h("span", { key: key, role: "button", "data-wk": wk || "folinkcard", onClick: e => { e.stopPropagation(); onTap(); },
+    className: "active:opacity-70", style: { display: "flex", alignItems: "center", gap: 8, maxWidth: "100%", minWidth: 0, margin: "6px 0", padding: "8px 10px", minHeight: 40, borderRadius: 12, border: "1px solid " + FORUM_SKIN.line, borderLeft: "3px solid " + forumBoardSkin(lp.board)[0], background: FORUM_SKIN.paper, cursor: "pointer", whiteSpace: "normal" } },
+    h("span", { className: "min-w-0", style: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: FORUM_SKIN.ink } }, STX(lp.title || "无题")),
+    h("span", { style: { flexShrink: 0 } }, tag(lp.board)));
+  const linkToken = (id, key) => {
+    const lp = forumLinkedPost(id, posts);
+    if (!lp) return h("span", { key: key, "data-wk": "folinkcard", "data-gone": "1", style: { display: "inline-block", margin: "6px 0", padding: "6px 10px", borderRadius: 12, border: "1px dashed " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FORUM_SKIN.fog } }, "帖子已删除");
+    return linkCard(lp, () => openPost(lp), "folinkcard", key);
+  };
+  // 正文／楼／楼中楼里的字：@ 名单里的人标成链接色、点了去TA的论坛主页；[[post:ID]] 画成小卡。两样都没有就照原样走
+  const rich = (who, txt) => {
+    const s0 = String(txt || "");
+    if (!richRe.test(s0)) return STW(who, STX(s0));
+    return STW(who, s0.split(richRe).map((x, k) => {
+      if (!x) return null;
+      const lm = /^\[\[post:([A-Za-z0-9_.:-]+)\]\]$/.exec(x);
+      if (lm) return linkToken(lm[1], k);
+      const mc = x[0] === "@" ? atCands.find(c => "@" + c.label === x) : null;
+      if (mc) return h("span", { key: k, role: "button", "data-wk": "fomention", "data-part": mc.kind, onClick: e => { e.stopPropagation(); openMention(mc); }, style: { color: FORUM_SKIN.link || FORUM_SKIN.accent, cursor: "pointer" } }, x);
+      return h(Fragment, { key: k }, STX(x));
+    }));
+  };
+  const insertLink = p => {
+    const tk = forumLinkToken(p.id);
+    const add = v => { const b = String(v || ""); return b + (b && !/\s$/.test(b) ? " " : "") + tk + " "; };
+    if (linkPick === "cb") setCbBody(add); else setRtxt(add);
+    setLinkPick(null); setLinkQ("");
+  };
+  const linkBtn = which => h("button", { "data-wk": "folinkbtn", onClick: () => { setLinkQ(""); setLinkPick(which); }, "aria-label": "贴帖子", title: "贴一个帖子进来", className: "shrink-0 active:opacity-60",
+    style: which === "cb" ? { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" }
+      : { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FORUM_SKIN.fog, background: "transparent", whiteSpace: "nowrap" } }, which === "cb" ? "＋ 贴帖子" : "贴帖");
+  // 挑一个帖：整页（no-half-sheet），上面搜，下面最近的帖；行和正文里那张小卡是同一个样子
+  const linkPickPage = () => {
+    const q = linkQ.trim();
+    const list = (posts || []).filter(x => x && x.id && forumVisible(x) && (!open || x.id !== open.id) && (!q || (String(x.title || "") + " " + String(x.body || "")).indexOf(q) >= 0))
+      .sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0)).slice(0, 40);
+    return h(PageSheet, { onClose: () => setLinkPick(null), zh: "贴一个帖子" },
+      h("div", { "data-wk": "folinkpick" },
+        h("input", { "data-wk": "folinksearch", value: linkQ, onChange: e => setLinkQ(e.target.value), placeholder: "搜标题或正文", className: "w-full outline-none px-3.5 py-2.5 rounded-lg",
+          style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "8px 0 4px" } }, "挑一帖，正文里会多一张它的小卡，点了就打开那一帖；楼里的人也看得到它讲什么。"),
+        list.length ? list.map(x => linkCard(x, () => insertLink(x), "folinkrow", x.id)) : h(Empty, { text: q ? "没搜到" : "还没有帖子" })));
+  };
   const toggleNpcFollow = id => setNpcFollows(prev => {
     const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
     try { localStorage.setItem("x_forumNpcFollows", JSON.stringify(next)); } catch (e) {}
@@ -2809,7 +2901,7 @@ function Forum({
         : h("div", { style: { height: hgt, padding: 12, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", background: "linear-gradient(160deg," + bs[1] + "," + bs[0] + "33)",
             fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.45, color: FORUM_SKIN.ink, overflow: "hidden" } }, (ph && ph.desc) || p.title || ""),
       h("div", { style: { padding: "8px 9px 9px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.45, color: FORUM_SKIN.ink, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.title || String(p.body || "").slice(0, 40)),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.45, color: FORUM_SKIN.ink, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.title || forumLinkPlain(p.body, posts).slice(0, 40)),
         h("div", { className: "flex items-center gap-1.5", style: { marginTop: 7 } },
           avatarBtn(p, 18, p.anon),
           h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: FORUM_SKIN.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nameOf(p)),
@@ -2844,7 +2936,7 @@ function Forum({
             className: "active:opacity-60 text-left", style: { display: "block", maxWidth: "100%", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: FORUM_SKIN.fog, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
             "接着《" + String(p.refTitle).slice(0, 22) + "》") : null,
           p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16.5px * var(--app-fs, 1))", lineHeight: 1.38, color: FORUM_SKIN.ink, marginTop: 5 } }, STW(p, STX(p.title))),
-          p.body && h("div", { "data-wk": "fobody", className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.65, color: FORUM_SKIN.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
+          p.body && h("div", { "data-wk": "fobody", className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.65, color: FORUM_SKIN.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, STW(p, STX(forumLinkPlain(p.body, posts)))),
           forumPhotoOf(p) && h("div", { className: "flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: FORUM_SKIN.fog, marginTop: 5 } }, h(PGlyph, { k: "album", size: 12, color: FORUM_SKIN.fog }), "配图"),
           actBar(p))));
   }
@@ -2889,7 +2981,7 @@ function Forum({
                 requestAppConfirm("删掉这一楼", (cm.authorType === "me" ? "这楼是你自己写的，删了回不来。" : "") + "楼里的楼中楼也一起删。", () => onDeleteFloor(post.id, cm.id), "删掉"); },
                 title: "删掉这一楼", className: "shrink-0 active:opacity-60",
                 style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1, color: FORUM_SKIN.fog, padding: "0 2px", marginLeft: 2 } }, "✕"))),
-          cm.content ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.sub, marginTop: 2 } }, STW(cm, STX(atClean(cm.content)))) : null,
+          cm.content ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.sub, marginTop: 2 } }, rich(cm, atClean(cm.content, cm))) : null,
           forumPhotoCard(cm, 220),
           ((cm.replies || []).length > 0 || (gen && gen.forumReplyMe === cm.id)) && h("div", { "data-wk": "foreplies", className: "mt-2 px-2.5 py-1.5", style: { borderRadius: 8, background: t.bg2 } },
             // ⚠️楼中楼里的每一条都要能回（她 2026-09-01：「我回复了帖子然后有楼中楼我就
@@ -2905,7 +2997,7 @@ function Forum({
               r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, ((post && post.anon) || cm.anon || r.anon) ? " 回复 匿名用户" : " 回复 @" + r.toName),
               isFreshReply(r) && newTag(),
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, "："),
-              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, STW(r, STX(atClean(r.content)))),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, rich(r, atClean(r.content, r))),
               h("button", {
                 onClick: () => setReplyTo({ floorId: cm.id, name: (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName), toName: (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName) }),
                 className: "active:opacity-60",
@@ -2927,7 +3019,8 @@ function Forum({
     const ph = replyTo ? null : photoAttachValue(rPhoto);
     if (!rTxt.trim() && !ph) return;
     // toName 只有在回【楼中楼里某一条】时才有；回楼层本身时是空的
-    if (replyTo) onReplySub(open, replyTo.floorId, rTxt.trim(), replyTo.toName || ""); else onReplyFloor(open, rTxt.trim(), ph);
+    const ments = forumMentionIds(rTxt, atCands);
+    if (replyTo) onReplySub(open, replyTo.floorId, rTxt.trim(), replyTo.toName || "", ments); else onReplyFloor(open, rTxt.trim(), ph, ments);
     setRtxt(""); setReplyTo(null); setRPhoto(null); setRPhotoOn(false);
   };
 
@@ -2935,20 +3028,22 @@ function Forum({
   //   显示时把那个 @ 摘掉，话照留。认得的名字＝这帖里出现过的网名、handle、角色名和她自己。
   // ⚠️放在组件这一层：楼层和楼中楼是在 detail() 外面那几个函数里画的（v74.010 放进 detail() 里，
   //   外面拿不到，整页崩成「Can't find variable: atClean」）。
-  const atClean = txt => {
+  const atClean = (txt, rec) => {
     const p = open;
     if (!p) return String(txt || "");
     const floors = cmts[p.id] || [];
     const known = new Set([p.authorName, p.authorHandle, meChar && meChar.name, forumMe && forumMe.handle].concat(
       ...floors.map(f => [f && f.authorName, f && f.authorHandle].concat(...((f && f.replies) || []).map(r => [r && r.authorName, r && r.authorHandle]))),
-      (characters || []).map(x => x && x.name)).filter(Boolean).map(x => String(x).trim()));
+      (characters || []).map(x => x && x.name),
+      // 她自己点过名的那几位（@ 名单里挑的，熟面孔可能还没在这帖出现过）
+      ((rec && rec.mentions) || []).map(id => { const c = atCands.find(x => x.key === id); return c && c.label; })).filter(Boolean).map(x => String(x).trim()));
     return String(txt || "").replace(/@([^\s@，。,.!！?？:：、）)」]+)\s*/g, (all, name) => known.has(name) ? all : "");
   };
   // 小红书评论的热度：作者回过、被很多人接话的评论更容易被顶上去（只在显示时算，存档不动）
   // 双列：一左一右轮着放（CSS 分栏是先把左边一列填满，两三篇时全挤在左边）
   const xhsGrid = (list, wk) => h("div", { "data-wk": wk || "foxhsgrid", className: "flex items-start", style: { gap: 8, padding: "10px 10px 0" } },
     [0, 1].map(col => h("div", { key: col, className: "flex-1 min-w-0" }, list.filter((x, i) => i % 2 === col).map(noteCard))));
-  const xhsRandBoard = () => { const bs = forumBoardsAll().filter(b => b !== "匿名吧"); return bs[Math.floor(Math.random() * bs.length)] || "日常吧"; };
+  const xhsRandBoard = () => { const bs = forumBoardsShown().filter(b => b !== "匿名吧"); return bs[Math.floor(Math.random() * bs.length)] || "日常吧"; };
   const xhsAuthorReplied = (post, cm) => (cm.replies || []).some(r => r && (r.isOp || (!post.anon && r.authorName === post.authorName)));
   const xhsLikes = (post, cm) => Number(cm.likeCount || 0) + (cm.replies || []).length * 6 + (xhsAuthorReplied(post, cm) ? 24 : 0);
   // 小红书的主页：获赞与收藏一行，下面笔记排成双列；自己的主页多「收藏」「赞过」两栏
@@ -3013,7 +3108,7 @@ function Forum({
     const parts = txt.split(/(#[^\s#，。,.!！?？]+)/);
     return h("div", { "data-wk": "foxhsbody", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } },
       // 话题点一下去搜（她 2026-10-26）：只填好搜索框、不自动去搜——搜一次要花一次调用，按不按她定
-      parts.map((x, k) => /^#/.test(x) ? h("span", { key: k, "data-wk": "foxhstag", onClick: e => { e.stopPropagation(); setSearchQ(x.slice(1)); closePost(); setNav("search"); }, style: { color: FORUM_SKIN.link, cursor: "pointer" } }, x) : h(Fragment, { key: k }, STW(p, STX(x)))));
+      parts.map((x, k) => /^#/.test(x) ? h("span", { key: k, "data-wk": "foxhstag", onClick: e => { e.stopPropagation(); setSearchQ(x.slice(1)); closePost(); setNav("search"); }, style: { color: FORUM_SKIN.link, cursor: "pointer" } }, x) : h(Fragment, { key: k }, rich(p, x))));
   }
   // 小红书笔记底下那一排：赞 / 收藏 / 评论，再加转发
   function xhsBar(p) {
@@ -3053,7 +3148,7 @@ function Forum({
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.anon ? "匿名" : "@" + (p.authorHandle || p.authorName)) + " · " + timeAgo(p.ts))),
             delBtn(p)),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, STX(p.title)),
-          xhs ? xhsBody(p) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, STW(p, STX(p.body))),
+          xhs ? xhsBody(p) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, rich(p, p.body)),
           xhsPhotos(p),   // 好几张就左右滑：贴吧样子也一样（群友 2026-10-27）
           xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, forumTag(p.board) + "　编辑于 " + timeAgo(p.ts) + " " + forumIpOf(p, ipCharOf(p), p)) : h("div", { className: "mt-3 flex items-center flex-wrap", style: { gap: 8 } }, tag(p.board), h("span", { "data-wk": "forumip", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "IP属地：" + forumIpOf(p, ipCharOf(p), p))),
           xhs ? xhsBar(p) : actBar(p),
@@ -3083,8 +3178,10 @@ function Forum({
         !replyTo && rPhotoOn && h("div", { style: { padding: "0 0 8px" } }, h(PhotoAttach, { value: rPhoto, onChange: setRPhoto, toast: toast })),
         h("div", { className: "flex items-center gap-2", style: { minWidth: 0 } },
           !replyTo && h("button", { onClick: () => { if (rPhotoOn) setRPhoto(null); setRPhotoOn(!rPhotoOn); }, "aria-label": "配图", className: "shrink-0 flex items-center justify-center active:opacity-60", style: { width: 40, height: 40 } }, h(PGlyph, { k: "album", size: 20, color: rPhotoOn ? FORUM_SKIN.accent : FORUM_SKIN.fog })),
+          linkBtn("reply"),
           h("input", { ref: replyInputRef, value: rTxt, onChange: e => setRtxt(e.target.value), onKeyDown: e => e.key === "Enter" && sendReply(), placeholder: replyTo ? "回复 " + replyTo.name + "…" : (p.fmt === "xhs" ? "说点什么…" : "发布你的回复"), className: "flex-1 min-w-0 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", background: FORUM_SKIN.paper, color: FORUM_SKIN.ink, border: "1px solid " + FORUM_SKIN.line } }),
-          h("button", { onClick: sendReply, "data-wk": "fosend", className: "shrink-0 px-4 py-2 rounded-full active:opacity-70", style: { background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", whiteSpace: "nowrap" } }, "发送"))));
+          h("button", { onClick: sendReply, "data-wk": "fosend", className: "shrink-0 px-4 py-2 rounded-full active:opacity-70", style: { background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", whiteSpace: "nowrap" } }, "发送")),
+        replyAtPicker));
   }
 
   // ---- 角色/我 主页 ----
@@ -3389,7 +3486,7 @@ function Forum({
   // ---- 主页版块列表 ----
   function homeFeed() {
     // 两套帖子各走各的：双列只列小红书格式那套（fmt:"xhs"），单列只列原来那套
-    let arr = (posts || []).filter(p => forumVisible(p) && (tab === "收藏" || forumBoardsAll().includes(p.board)) && (p.fmt === "xhs") === cardLayout);
+    let arr = (posts || []).filter(p => forumVisible(p) && (tab === "收藏" || (forumBoardsAll().includes(p.board) && boardOn(p))) && (p.fmt === "xhs") === cardLayout);
     if (tab === "收藏") arr = arr.filter(p => bookmarked.has(p.id));
     else if (tab === "关注") arr = arr.filter(followedPost);
     else if (tab !== "发现") arr = arr.filter(p => p.board === tab);
@@ -3499,7 +3596,7 @@ function Forum({
           style: { minHeight: 32, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", background: tab === k ? FORUM_SKIN.paper : "transparent", color: tab === k ? FORUM_SKIN.ink : FORUM_SKIN.fog, fontWeight: tab === k ? 700 : 400, border: "1px solid " + (tab === k ? FORUM_SKIN.line : "transparent") } }, zh))
           .concat([h("button", { key: "__sortboard", "data-wk": "foboardsort", onClick: () => setSortOpen(true), className: "shrink-0 whitespace-nowrap active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px dashed " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, background: "transparent" } }, "排序"), h("button", { key: "__newboard", onClick: () => setNewBoard({ name: "", about: "" }), className: "shrink-0 whitespace-nowrap active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px dashed " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: FORUM_SKIN.sub } }, "＋ 新话题")]))),
     (!inSub && nav === "home" && !cardLayout) && h("div", { "data-wk": "foboards", className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.bar, scrollbarWidth: "none" } }, [...forumBoardsShown(), "关注", "收藏"].map(b => {
-      const count = (posts || []).filter(p => forumVisible(p) && (b === "收藏" ? bookmarked.has(p.id) : b === "关注" ? followedPost(p) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
+      const count = (posts || []).filter(p => forumVisible(p) && (b === "收藏" ? bookmarked.has(p.id) : b === "关注" ? followedPost(p) && boardOn(p) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
       return chip((cardLayout && b !== "关注" && b !== "收藏" ? "#" : "") + b + (count > 0 ? " · " + count : ""), tab === b, () => { setTab(b); setPage(1); });
     }).concat([
       // 开个吧：排在最后，虚线描边——它不是一个吧，是一个「再开一个」的空位
@@ -3598,6 +3695,7 @@ function Forum({
         : !photoView.imageRef && photoView.itemId && typeof window.forumGenImage === "function" ? () => window.forumGenImage(photoView.itemId) : null,
       onRegen: photoView.pmAt && typeof window.forumPMGenImage === "function" ? d => window.forumPMGenImage(photoView.pmAt.tid, photoView.pmAt.i, false, true, d)
         : photoView.itemId && typeof window.forumGenImage === "function" ? d => window.forumGenImage(photoView.itemId, false, true, d) : null }),
+    linkPick && linkPickPage(),
     composer && h(PageSheet, { onClose: () => setComposer(false), tall: true },
       h(Eyebrow, { style: { marginBottom: 10 } }, cardLayout ? "发笔记" : "发帖"),
       // 小红书那样先放图，再写标题正文，最后挑 #话题
@@ -3609,10 +3707,13 @@ function Forum({
         chip("大号 · " + ((forumMe && forumMe.handle) || meChar.name), cbAs === "main", () => setCbAs("main")),
         chip("小号 · " + (((forumMe && forumMe.altName) || "").trim() || "一只不说话的鱼"), cbAs === "alt", () => setCbAs("alt"))) : null,
       h("input", { "data-wk": "input", value: cbTitle, onChange: e => setCbTitle(e.target.value), placeholder: cardLayout ? "填写标题会有更多赞哦" : "标题", className: "w-full outline-none px-3.5 py-2.5 rounded-lg mb-2", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
-      h("textarea", { "data-wk": "textarea", value: cbBody, onChange: e => setCbBody(e.target.value), placeholder: cardLayout ? "添加正文" : "正文…", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", minHeight: 120, background: t.bg2, color: t.ink, border: `1px solid ${t.line}`, resize: "none" } }),
+      h("textarea", { ref: cbBodyRef, "data-wk": "textarea", value: cbBody, onChange: e => setCbBody(e.target.value), placeholder: cardLayout ? "添加正文" : "正文…", className: "w-full outline-none px-3.5 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", minHeight: 120, background: t.bg2, color: t.ink, border: `1px solid ${t.line}`, resize: "none" } }),
+      cbAtPicker,
+      h("div", { className: "flex items-center gap-2 mt-2 flex-wrap" }, linkBtn("cb"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "正文里打「@」可以点名，被点到的人下一波会来回你")),
       cardLayout ? h("div", { "data-wk": "foxhstopics", className: "flex gap-1.5 mt-2 flex-wrap" }, forumBoardsAll().map(b => chip(forumTag(b), cbBoard === b, () => setCbBoard(b))))
         : h("div", { className: "mt-2" }, cbPhotos()),
-      h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim(), photoAttachValue(cbPhoto), cbAs, cbMore.map(photoAttachValue).filter(Boolean)); setCbTitle(""); setCbBody(""); setCbPhoto(null); setCbMore([]); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, cardLayout ? "发布笔记" : "发布")),
+      h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim(), photoAttachValue(cbPhoto), cbAs, cbMore.map(photoAttachValue).filter(Boolean), forumMentionIds(cbBody, atCands)); setCbTitle(""); setCbBody(""); setCbPhoto(null); setCbMore([]); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, cardLayout ? "发布笔记" : "发布")),
     // 编辑我的资料
     editPost && typeof CenterCard === "function" && h(CenterCard, { onClose: () => setEditPost(null), maxWidth: 360, wk: "centercard" },
       h("div", { style: { padding: "16px 17px 17px" } },
@@ -6178,7 +6279,18 @@ function QuietHoursBox({ t, toast }) {
     q.on ? h("div", null,
       h("div", { className: "flex items-center", style: { gap: 8, margin: "6px 0 4px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "从", tm("from"), "到", tm("to")),
       row("这段时间不发主动消息", "谁都不来找你，醒着的也不来。你自己设的提醒照常到。", q.noPro, () => put({ noPro: !q.noPro }), "quietpro"),
-      row("这段时间后台不跑", "日程、日记、朋友圈、刷手机、自动记忆这些自己跑的都停；点开看一下也不会被带着跑起来。你自己点了要的（比如在日记、周刊里点生成）照常出。", q.noBg, () => put({ noBg: !q.noBg }), "quietbg")) : null);
+      row("这段时间后台不跑", "日程、日记、朋友圈、刷手机、自动记忆这些自己跑的都停；点开看一下也不会被带着跑起来。你自己点了要的（比如在日记、周刊里点生成）照常出。", q.noBg, () => put({ noBg: !q.noBg }), "quietbg"),
+      // 再加两段（她 2026-11-20）：比如上班、午睡；每段自己勾两样
+      (q.more || []).slice(0, 2).map((m, i) => { const setM = patch => put({ more: (q.more || []).map((x, k) => k === i ? { ...x, ...patch } : x) });
+        const tmM = k => h("input", { type: "time", value: m[k] || "", onChange: e => setM({ [k]: e.target.value }), "data-wk": "input",
+          style: { minHeight: 40, padding: "0 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } });
+        return h("div", { key: i, "data-wk": "quietmore", style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + t.line } },
+          h("div", { className: "flex items-center", style: { gap: 8, margin: "0 0 4px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "第 " + (i + 2) + " 段：从", tmM("from"), "到", tmM("to"),
+            h("button", { "data-wk": "quietmoredel", onClick: () => put({ more: (q.more || []).filter((_, k) => k !== i) }), className: "active:opacity-60", style: { marginLeft: "auto", minHeight: 36, padding: "0 8px", color: t.fog } }, "删掉")),
+          row("不发主动消息", "", m.noPro, () => setM({ noPro: !m.noPro }), "quietmorepro"),
+          row("后台不跑", "", m.noBg, () => setM({ noBg: !m.noBg }), "quietmorebg")); }),
+      (q.more || []).length < 2 ? h("button", { "data-wk": "quietmoreadd", onClick: () => put({ more: (q.more || []).concat([{ from: "12:30", to: "13:30", noPro: true, noBg: false }]) }), className: "active:opacity-60",
+        style: { marginTop: 8, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.tint || t.ink } }, "＋ 再加一段（比如上班、午睡）") : null) : null);
 }
 function NeteaseApiHelp({ toast }) {
   const t = useTheme();
@@ -6820,7 +6932,7 @@ function ImageApiConfig({ toast }) {
         h("div", { className: "flex gap-2" },
           h("input", { "data-wk": "input", value: c.model || "", onChange: e => set({ model: e.target.value }), placeholder: "gpt-image-2", style: Object.assign({}, inSt, { flex: 1 }) }),
           h("button", { "data-wk": "block", onClick: pull, disabled: fetching, className: "shrink-0 active:opacity-70 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "0 14px" } }, fetching ? "拉取中…" : "拉取模型")),
-        models.length > 0 ? h("div", { "data-wk": "block", className: "flex flex-wrap gap-1.5", style: { marginTop: 8, maxHeight: 118, overflowY: "auto" } }, models.map(m => h("button", { key: m, onClick: () => set({ model: m }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, background: c.model === m ? t.ink : t.bg2, color: c.model === m ? t.bg2 : t.sub, border: "1px solid " + t.line } }, m))) : null,
+        h(ModelChips, { models, value: c.model, onPick: m => set({ model: m }) }) || null,
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "填那个站里写的模型名，一字不差；点「拉取模型」能看到站里有哪些。框里的 gpt-image-2 只是占位。"))),
       h("div", { className: "flex gap-3" },
         h("div", { className: "flex-1" }, row("尺寸", h("select", { value: c.size || "1024x1536", onChange: e => set({ size: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
@@ -6948,7 +7060,7 @@ function EmbedApiConfig({ toast }) {
         h("div", { className: "flex gap-2" },
           h("input", { "data-wk": "input", value: c.model || "", onChange: e => set({ model: e.target.value }), placeholder: "text-embedding-3-small", style: Object.assign({}, inSt, { flex: 1 }) }),
           h("button", { "data-wk": "block", onClick: pull, disabled: fetching, className: "shrink-0 active:opacity-70 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "0 14px" } }, fetching ? "拉取中…" : "拉取模型")),
-        models.length > 0 ? h("div", { "data-wk": "block", className: "flex flex-wrap gap-1.5", style: { marginTop: 8, maxHeight: 118, overflowY: "auto" } }, models.map(m => h("button", { key: m, onClick: () => set({ model: m }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", padding: "4px 10px", borderRadius: 999, background: c.model === m ? t.ink : t.bg2, color: c.model === m ? t.bg2 : t.sub, border: "1px solid " + t.line } }, m))) : null,
+        h(ModelChips, { models, value: c.model, onPick: m => set({ model: m }) }) || null,
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "填一个【embedding】模型名（名字通常含 embedding / embed / bge）。常见能用的：text-embedding-3-small（便宜够用）、text-embedding-3-large、bge-m3。"))),
       h("button", { "data-wk": "block", onClick: runTest, disabled: test && test.busy, className: "w-full mt-2 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, test && test.busy ? "检测中…" : "🔬 测一下这个 embedding 接口"),
       test && !test.busy ? h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, whiteSpace: "pre-wrap", padding: "10px 12px", borderRadius: 10, marginTop: 10, background: test.ok ? "rgba(90,150,90,0.1)" : "rgba(194,90,74,0.09)", border: "1px solid " + (test.ok ? "#8ab88a55" : "#c25a4a55"), color: test.ok ? "#4a7a4a" : "#b0503f" } },
@@ -7991,22 +8103,7 @@ function ApiConfig({
     style: {
       fontSize: "calc(16px * var(--app-fs, 1))"
     }
-  }), models.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "mt-3 flex flex-wrap gap-1.5 max-h-32 overflow-y-auto"
-  }, models.map(m => /*#__PURE__*/React.createElement("button", {
-    key: m,
-    onClick: () => upd({
-      model: m
-    }),
-    style: {
-      fontFamily: F_BODY,
-      fontSize: "calc(11px * var(--app-fs, 1))",
-      padding: "4px 9px",
-      borderRadius: 999,
-      border: `1px solid ${cur.model === m ? t.ink : t.line}`,
-      color: cur.model === m ? t.ink : t.fog
-    }
-  }, m)))),
+  }), h(ModelChips, { models, value: cur.model, onPick: m => upd({ model: m }) })),
   // 测一下（群友 2026-10-27「设置 API 时没有测试模型之类的吗」）：用这一页现在填的地址、key、模型发一句极短的话，
   //   通了显示它回了什么、花了几秒；不通把报错原话摆出来。点一次就是一次很小的调用
   h("div", { "data-wk": "apitest", style: { margin: "-6px 0 18px" } },

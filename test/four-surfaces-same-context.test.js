@@ -80,8 +80,8 @@ test("群聊线上补上心情/好感/印象卡", () => {
   // 群聊那一处真的用了这一份（不是各写各的）
   assert.match(app, /const _now = groupNowSegs\(c, \{ interop: gs\.memoryInterop[^)]*\}\);/);
   // 印象卡读一律给，落在本人私有段
-  assert.match(app, /const gz = gazeFor\(c\.id\);/);
-  assert.match(app, /const gz = gazeFor\(c\.id\)/);
+  // 配角也走这一段以后（2026-11-18「军火给 npc，在群里他忘记了」）：配角没有印象卡，所以写成 npc ? "" : gazeFor(...)
+  assert.match(app, /const gz = (?:npc \? "" : )?gazeFor\(c\.id\);/);
 });
 
 test("群聊线下也补上，同样的分档", () => {

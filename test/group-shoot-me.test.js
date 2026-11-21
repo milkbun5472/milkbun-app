@@ -4,7 +4,7 @@ const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8"), cmp = fs.readF
 test("群里照片多一档「生成我的自拍」，自拍／别人拍的两格跟单聊共用一份", () => {
   assert.match(cmp, /\["describe", "只发文字描述"\], \.\.\.\(onShootMe \? \[\["selfme", "生成我的自拍"\]\] : \[\]\)\]/);
   assert.equal((cmp.match(/h\(SelfMeAngle, \{/g) || []).length, 2);
-  assert.equal((cmp.match(/"data-wk": "selfmeangle"/g) || []).length, 1, "那两格只写一份");
+  assert.equal((cmp.match(/wk: "selfmeangle"/g) || []).length, 1, "那两格只写一份（走公共的 PairPick）");
   assert.match(cmp, /onShootMe && onShootMe\(v, gSelfThird\)/);
 });
 test("app 里照这个群的面具画、走 drawGroupSelfie、画好挂进图片仓库", () => {

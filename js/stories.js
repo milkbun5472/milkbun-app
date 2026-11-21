@@ -357,12 +357,16 @@
     const h = React.createElement, t = typeof useTheme === "function" ? useTheme() : {};
     const [, tick] = React.useState(0);
     React.useEffect(() => { const f = () => tick(x => x + 1); window.addEventListener("lisa-stories", f); return () => window.removeEventListener("lisa-stories", f); }, []);
+    const [open, setOpen] = React.useState(false);   // 平时收成一排小格横着滑，不把下面的朋友圈压到底（她 2026-11-21「越来越多很难翻」）；点「全部」才铺开三列
     const past = pastOf(by);
     if (!past.length) return null;
-    return h("div", { "data-wk": "storyarchive", style: { margin: "10px 0" } },
-      h("div", { className: "flex items-center", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "0 2px 6px" } }, h("span", { className: "flex-1" }, (title || "过往限时动态") + " · " + past.length),
-        h("button", { "data-wk": "storyrecap", onClick: () => recap(by, past), style: { color: t.sub } }, "拼这个月")),
-      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 } }, past.slice(0, 60).map((s, k) => h(ArchCell, { key: s.id, s, k, past, onOpen, t }))));
+    return h("div", { "data-wk": "storyarchive", "data-open": open ? "1" : "0", style: { margin: "10px 0" } },
+      h("div", { className: "flex items-center", style: { gap: 12, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, margin: "0 2px 6px" } }, h("span", { className: "flex-1" }, (title || "过往限时动态") + " · " + past.length),
+        open ? h("button", { "data-wk": "storyrecap", onClick: () => recap(by, past), style: { color: t.sub } }, "拼这个月") : null,
+        h("button", { "data-wk": "storyarchivetoggle", onClick: () => setOpen(v => !v), style: { color: t.sub } }, open ? "收起 ▴" : "全部 ▾")),
+      open
+        ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 } }, past.slice(0, 60).map((s, k) => h(ArchCell, { key: s.id, s, k, past, onOpen, t })))
+        : h("div", { className: "flex", style: { gap: 6, overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 2 } }, past.slice(0, 20).map((s, k) => h("div", { key: s.id, style: { flex: "0 0 64px" } }, h(ArchCell, { s, k, past, onOpen, t })))));
   }
   // 精选那一排：一组一个圆，点开照样全屏翻（朋友圈主页顶上）
   function StoryHighlights({ by, onOpen }) {

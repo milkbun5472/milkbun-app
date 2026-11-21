@@ -5,6 +5,42 @@ const openings = [
   [184, 739, 716, 717, 4483, 4482, 4480, 4508, 4521, 4533, 4696, 4575, 4573, 4598, 6018, 6019, 6002, 6008, 6004, 6009, 6036, 6035, 6060, 6010, 6011, 6012, 6015, 6040, 6970, 6969, 6968, 6979, 6980, 6985, 6987, 6971, 6986, 7974, 6983, 6981, 6972, 7995, 7067, 7059, 7058, 7056, 6973, 6974, 6975, 6976, 6984, 6977, 6982, 6978, 6988, 4236, 4223, 4215, 4201, 4261, 4311, 4224, 4266, 4293, 4310, 4432, 412, 368, 342, 307, 272, 251, 465, 216, 409, 405],
 ];
 
+// Float mode uses only the authored skeleton. Keep the sleeve opening
+// attached to the vest and taper the arm influence towards the free cuff.
+export function anchorArgyleSleeves(shirt){
+ const {position,skinIndex,skinWeight}=shirt.geometry.attributes;
+ const torso=shirt.skeleton.bones.findIndex(b=>b.name==='body');
+ if(torso<0)return;
+ for(let i=0;i<position.count;i++){
+  const x=position.getX(i),y=position.getY(i),z=position.getZ(i);
+  if(Math.abs(x)<.07||y<.42)continue;
+  const ring=openings.find(ids=>Math.sign(position.getX(ids[0]))===Math.sign(x));
+  let distanceSq=Infinity;
+  for(const j of ring){
+   const dx=x-position.getX(j),dy=y-position.getY(j),dz=z-position.getZ(j);
+   distanceSq=Math.min(distanceSq,dx*dx+dy*dy+dz*dz);
+  }
+  const t=Math.min(1,Math.sqrt(distanceSq)/.064);
+  if(t===1)continue;
+  const retain=t*t*(3-2*t);
+  let bodySlot=-1,transferred=0;
+  for(let k=0;k<4;k++){
+   if(skinIndex.getComponent(i,k)===torso){bodySlot=k;break;}
+   if(!skinWeight.getComponent(i,k))bodySlot=k;
+  }
+  if(bodySlot<0)continue;
+  for(let k=0;k<4;k++){
+   if(k===bodySlot)continue;
+   const weight=skinWeight.getComponent(i,k);
+   transferred+=weight*(1-retain);
+   skinWeight.setComponent(i,k,weight*retain);
+  }
+  skinIndex.setComponent(i,bodySlot,torso);
+  skinWeight.setComponent(i,bodySlot,skinWeight.getComponent(i,bodySlot)+transferred);
+ }
+ skinIndex.needsUpdate=true;skinWeight.needsUpdate=true;
+}
+
 // Round the shirt over its open shoulder edge toward the vest insert.
 export function lineArgyleSleeves(T, shirt, knitMaterial) {
  const raw = shirt.geometry.attributes.position;

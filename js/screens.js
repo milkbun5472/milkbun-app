@@ -622,7 +622,9 @@ function forumMorePhotos(x) {
 }
 function forumWithPhoto(text, x) {
   const p = forumPhotoOf(x);
-  const s = String(text || "");
+  // 贴进来的帖子换成《标题》，再在后面挂一句它讲什么（forumLinkPlain／forumLinkNotes）
+  const raw = String(text || "");
+  const s = typeof forumLinkPlain === "function" ? forumLinkPlain(raw) + forumLinkNotes(raw) : raw;
   if (!p) return s;
   const more = forumMorePhotos(x);
   const line = more.length
@@ -653,8 +655,70 @@ function forumFloorTranscript(floors) {
     return [head].concat(subs).join("\n");
   }).join("\n");
 }
+// ── 论坛里的 @ 人和贴帖子（她 2026-11-21）────────────────────────────
+// 发帖、回楼、楼中楼都能 @ 她的角色和常驻熟面孔，也能贴一个别的帖子进来。
+//   @ 存成记录上的 mentions:[id]；贴帖子存成正文里的 [[post:ID]]，显示成一张小卡，喂给模型时换成《标题》。
+//   界面那头（screens-ui.js 的 Forum）和生成那头（app.js）都只从这几个函数里拿，不各写一份。
+const FORUM_LINK_RE = /\[\[post:([A-Za-z0-9_.:-]+)\]\]/g;
+const forumLinkToken = id => "[[post:" + id + "]]";
+function forumLinkIds(text) { const out = []; String(text || "").replace(FORUM_LINK_RE, (a, id) => { if (out.indexOf(id) < 0) out.push(id); return a; }); return out; }
+// 帖子从哪儿读：app.js 开机时把 forumPostsRef 递进来（界面那头直接用 props 里的 posts）
+let _forumLinkPosts = null;
+function forumLinkSource(fn) { _forumLinkPosts = typeof fn === "function" ? fn : null; }
+function forumLinkedPost(id, posts) {
+  const list = posts || (_forumLinkPosts ? _forumLinkPosts() : []) || [];
+  return list.find(p => p && p.id === id) || null;
+}
+// 给模型看的那份：token 换成《标题》；帖子没了就是《帖子已删除》
+function forumLinkPlain(text, posts) {
+  return String(text || "").replace(FORUM_LINK_RE, (a, id) => { const p = forumLinkedPost(id, posts); return p ? "《" + String(p.title || "无题") + "》" : "《帖子已删除》"; });
+}
+// 贴进来的帖子讲的是什么：标题＋吧＋正文开头，模型才接得上话
+function forumLinkNotes(text, posts) {
+  return forumLinkIds(text).map(id => forumLinkedPost(id, posts)).filter(Boolean).map(p =>
+    " 〔贴了一个帖子《" + String(p.title || "无题") + "》（" + (p.board || "论坛") + "）：" + forumLinkPlain(p.body, posts).replace(/\s+/g, " ").slice(0, 60) + "〕").join("");
+}
+// @ 名单：她的角色（没收起来、论坛没关的，用论坛里大号的名字）＋常驻熟面孔
+function forumAtCandidates(chars, forumOff) {
+  const off = forumOff || [];
+  return (chars || []).filter(c => c && c.id && !c.npc && !c.shelved && off.indexOf(c.id) < 0).map(c => ({ key: c.id, label: String(c.name || "").trim(), kind: "char" }))
+    .concat(forumOwnerRegulars().map(n => ({ key: n.id, label: n.name, kind: "npc", handle: n.handle })))
+    .filter(x => x.label);
+}
+// 发出去那一下才认：正文里还留着「@名字」的才算 @ 了（删掉的、打错的不算）；长名字先认，免得「阿」吃掉「阿远」
+function forumMentionIds(text, cands) {
+  let s = String(text || ""); const out = [];
+  (cands || []).slice().sort((a, b) => b.label.length - a.label.length).forEach(c => {
+    if (s.indexOf("@" + c.label) < 0) return;
+    if (out.indexOf(c.key) < 0) out.push(c.key);
+    s = s.split("@" + c.label).join("\u0000");
+  });
+  return out;
+}
 // 吧规只许从这一处读（她 2026-10-17 群里许愿「自己开的吧能加吧规吗」）：自带的吧读写死的那份，她开的吧读她写的 rules。
 //   置顶那块牌子和喂给模型的那份都走这里。
+// 模型写出来的帖／楼／楼中楼也能 @ 人、贴帖子（她 2026-11-21 第二轮）：存档那一下认一遍，跟她自己那几条存成一样的样子。
+//   rec.content（楼）或 rec.body（帖）里：认得出的「@名字」→ mentions；贴错的 [[post:ID]]（帖子不存在）整个摘掉。
+//   cands 是 forumAtCandidates 那份名单，再加上她这个号的名字（key="me"）。自己 @ 自己不算。
+//   她自己写的那几条在发出去时就认过了（forumMentionIds），这里不碰；已经带 mentions 的也不再认。
+function forumRefsTag(rec, cands, posts) {
+  if (!rec || typeof rec !== "object" || rec.authorType === "me") return rec;
+  const key = typeof rec.content === "string" ? "content" : typeof rec.body === "string" ? "body" : "";
+  const txt = key ? rec[key] : "";
+  if (!txt || (txt.indexOf("@") < 0 && txt.indexOf("[[post:") < 0)) return rec;
+  if (txt.indexOf("[[post:") >= 0) rec[key] = txt.replace(FORUM_LINK_RE, (a, id) => forumLinkedPost(id, posts) ? a : "");
+  if (rec.mentions === undefined && txt.indexOf("@") >= 0) {
+    const ids = forumMentionIds(rec[key], cands).filter(id => id !== rec.authorId);
+    if (ids.length) rec.mentions = ids.slice(0, 12);
+  }
+  return rec;
+}
+// 能贴的帖：给模型的一小份目录（最近有人在说的那几帖），一行一帖「《标题》（吧）[[post:ID]]」
+function forumLinkCatalog(posts, exceptId, n) {
+  return (posts || []).filter(p => p && p.id && p.id !== exceptId && p.title && !p.anon && p.board !== "匿名吧" && !(p.visibleAt && Number(p.visibleAt) > Date.now()))
+    .sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0)).slice(0, n || 6)
+    .map(p => "《" + String(p.title) + "》（" + (p.board || "论坛") + "）" + forumLinkToken(p.id)).join("\n");
+}
 function forumBoardRulesOf(name) {
   if (FORUM_BOARD_RULES[name]) return FORUM_BOARD_RULES[name];
   const b = forumCustomBoards().find(x => x.name === name);

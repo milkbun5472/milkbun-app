@@ -1,8 +1,8 @@
-import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-0dbfe7b80431ca19';
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-29ad6c7f1af761d3';
 import * as T from 'three';
-import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-0dbfe7b80431ca19';
-import {computer} from './work-room-kit.mjs?v=fg-0dbfe7b80431ca19';
-import {cameraRig,softbox} from './media-kit.mjs?v=fg-0dbfe7b80431ca19';
+import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-29ad6c7f1af761d3';
+import {computer} from './work-room-kit.mjs?v=fg-29ad6c7f1af761d3';
+import {cameraRig,softbox} from './media-kit.mjs?v=fg-29ad6c7f1af761d3';
 const FLOOR=.08,SIZE={w:16,d:12};
 const furniture=[
  {id:'film-backdrop',kind:'panel',x:-3.64,z:-5.24,w:7.45,d:.45},

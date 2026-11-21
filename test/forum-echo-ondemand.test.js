@@ -14,10 +14,10 @@ const body = app.slice(a, b).replace(/^\s*forumEcho: \(\(\) => \{/, "").replace(
 const now = Date.now(), H = 3600000, D = 86400000;
 const run = (said, posts, cmts) => new Function(
   "ctxOpts", "settingsFor", "char", "profile", "forumPostsRef", "forumCommentsRef",
-  "isForumCharAuthor", "lastUserTurnText", "chatsRef",
+  "isForumCharAuthor", "lastUserTurnText", "chatsRef", "forumLinkPlain",
   "return (()=>{" + body + "})();")(
   { chat: true }, () => ({}), { id: "c1", name: "沈屿白" }, { name: "Lisa" },
-  { current: posts }, { current: cmts }, p => p.authorId === "c1", () => said, { current: { c1: [] } });
+  { current: posts }, { current: cmts }, p => p.authorId === "c1", () => said, { current: { c1: [] } }, t => String(t || ""));
 
 const oldPost = [{ id: "p1", authorId: "c1", title: "两天前发的", board: "日常吧", ts: now - 2 * D }];
 const oldFloorOldReply = { p1: [{ id: "f1", authorId: "c1", content: "我那条", ts: now - 2 * D, isOp: true, replies: [{ authorName: "路人", content: "旧回复", ts: now - 2 * D }] }] };
