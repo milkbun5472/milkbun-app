@@ -23939,23 +23939,21 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
         searchRun ? h("button", { "data-wk": "spacesearchbtn", "aria-label": "在这个空间里搜", onClick: () => setSearchOpen(true), className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 34 } }, h(ISearch, { size: 20, color: t.ink })) : null,
         h("button", { "data-wk": "chnew", "aria-label": "新频道", onClick: () => setEdit("new"), className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 34 } }, h(IPlus, { size: 20, color: t.ink }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 24px)" } },
-      h("button", { "data-wk": "spacecard", onClick: () => onSaveSpace && setSpEdit(true), className: "flex items-center gap-3 text-left active:opacity-70", style: { width: "calc(100% - 28px)",  margin: "12px 14px 6px", padding: "14px 14px", background: momPaper(t), borderRadius: 14, borderLeft: "4px solid " + tone } },
+      h("button", { "data-wk": "spacecard", onClick: () => onSaveSpace && setSpEdit(true), className: "flex items-center gap-3 text-left active:opacity-70", style: { width: "calc(100% - 28px)",  margin: "12px 14px 6px", padding: "14px 14px", background: momPaper(t), borderRadius: 14 } },
         h(SpaceTile, { sp: space, size: 46 }),
         h("div", { className: "flex-1 min-w-0" },
           h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, space.name),
           h("div", { className: "flex items-center", style: { marginTop: 6 } }, people.slice(0, 8).map((c, i) => h("span", { key: c.id, style: { position: "relative", marginLeft: i ? -6 : 0, borderRadius: 999, boxShadow: "0 0 0 2px " + momPaper(t), display: "inline-flex" } }, h(Avatar, { character: c, size: 22, radius: 999 }), h(PresenceDot, { p: (presence || {})[c.id], size: 8, ring: momPaper(t) })))))),
-      // 成员：每个人此刻在不在、挂着什么状态、在哪个频道
-      h("button", { "data-wk": "spacemembers", onClick: () => setMemOpen(true), className: "flex items-center justify-between active:opacity-70", style: { width: "calc(100% - 28px)", margin: "8px 14px 0", padding: "11px 14px", background: momPaper(t), borderRadius: 12, fontFamily: F_BODY } },
-        h("span", { style: { fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "成员 · " + people.length),
-        h("span", { className: "truncate", style: { marginLeft: 10, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, maxWidth: "70%" } }, people.filter(c => ((presence || {})[c.id] || {}).k === "online").length + " 个在线 ›")),
-      // 约定（她 2026-11-20「124 做吧」第 4 条）：大家定下的日子
-      onSavePlans ? h("button", { "data-wk": "spaceplans", onClick: () => setPlanOpen(true), className: "flex items-center justify-between active:opacity-70", style: { width: "calc(100% - 28px)", margin: "8px 14px 0", padding: "11px 14px", background: momPaper(t), borderRadius: 12, fontFamily: F_BODY } },
-        h("span", { style: { fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "约定 · " + (plans || []).filter(p => p && !p.done).length),
-        h("span", { className: "truncate", style: { marginLeft: 10, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, maxWidth: "70%" } }, (() => { const nx = typeof planUpcoming === "function" ? planUpcoming(plans || [], planToday(), 60)[0] : null; return nx ? planWhenZh(nx) + " " + nx.title + " ›" : "大家定下的日子 ›"; })())) : null,
-      // 精华墙入口（她 2026-11-20）：这个地方攒下的名场面
-      h("button", { "data-wk": "spacegems", onClick: () => setGemOpen(true), className: "flex items-center justify-between active:opacity-70", style: { width: "calc(100% - 28px)", margin: "8px 14px 0", padding: "11px 14px", background: momPaper(t), borderRadius: 12, fontFamily: F_BODY } },
-        h("span", { style: { fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "精华 · " + (gems || []).length),
-        h("span", { className: "truncate", style: { marginLeft: 10, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, maxWidth: "70%" } }, (gems || []).length ? "「" + String(gems[gems.length - 1].text || "").slice(0, 18) + "」 ›" : "长按频道里的一句「收进精华」 ›")),
+      // 成员／约定／精华：三格并成一排（她 2026-11-21「还有这些框」简约美化）。每格还是原来那个挂点
+      (() => { const cell = { flex: "1 1 0", minWidth: 0, padding: "10px 8px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontFamily: F_BODY, background: "transparent" },
+          num = { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.2 }, lab = { fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog }, sep = () => h("span", { "aria-hidden": "true", style: { width: 1, alignSelf: "stretch", margin: "10px 0", background: t.line } });
+        const online = people.filter(c => ((presence || {})[c.id] || {}).k === "online").length;
+        return h("div", { "data-wk": "spacestats", className: "flex", style: { width: "calc(100% - 28px)", margin: "8px 14px 0", background: momPaper(t), borderRadius: 12 } },
+          h("button", { "data-wk": "spacemembers", onClick: () => setMemOpen(true), className: "active:opacity-60", style: cell }, h("span", { style: num }, people.length), h("span", { className: "truncate", style: lab }, "成员 · " + online + " 在线")),
+          onSavePlans ? sep() : null,
+          onSavePlans ? h("button", { "data-wk": "spaceplans", onClick: () => setPlanOpen(true), className: "active:opacity-60", style: cell }, h("span", { style: num }, (plans || []).filter(p => p && !p.done).length), h("span", { className: "truncate", style: lab }, "约定")) : null,
+          sep(),
+          h("button", { "data-wk": "spacegems", onClick: () => setGemOpen(true), className: "active:opacity-60", style: cell }, h("span", { style: num }, (gems || []).length), h("span", { className: "truncate", style: lab }, "精华"))); })(),
       // 刚才他们自己聊了哪几处：点哪条进哪个频道，「知道了」收掉
       digest && digest.length ? h("div", { "data-wk": "spacedigest", style: { margin: "8px 14px 0", padding: "10px 12px", background: momPaper(t), borderRadius: 12, borderLeft: "3px solid " + tone } },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 4 } },

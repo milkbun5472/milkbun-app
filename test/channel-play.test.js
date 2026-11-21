@@ -268,3 +268,8 @@ test("墙：纸条、胶带、写的一句、底下一行各有挂点；频道�
   assert.match(cs, /g\.chIcon \|\| "#"/);
   assert.match(ap, /patch\.chIcon != null \? \{ chIcon: patch\.chIcon \}/);
 });
+
+test("频道首页成员／约定／精华并成一排三格", () => {
+  assert.match(cs, /"data-wk": "spacestats"/);
+  assert.doesNotMatch(cs, /borderRadius: 14, borderLeft: "4px solid " \+ tone/);
+});
