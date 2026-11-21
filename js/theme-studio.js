@@ -483,7 +483,7 @@
         ["gazecard","每一块便签（data-k＝me.person 这类块名；data-empty=\"1\" 还没写）"],["gazecardname","便签标题"],["gazecardtext","便签正文"],["gazecardtime","便签底下「N 天前写的」"],
         ["gazebtn","底下的按钮（data-kind＝review 再看一遍 / redo 整份重写 / history 从前那几版 / seed 第一次写）"],
         ["gazelock","信纸里「锁住这块」（data-on＝1 已锁）"],
-        ["gazedelver","信纸里删掉一版（data-part＝now 现在这版 / old 旧的那版）"],
+        ["gazedelver","信纸里删掉一版（data-part＝now 现在这版 / old 旧的那版）"],["gazeedit","信纸里长按正文改字的那个输入框"],["gazeeditsave","改字的「好了」"],["gazeeditcancel","改字的「算了」"],
         ["gazeusever","信纸里旧版底下的「用这版」"],
         ["gazelockmark","卡片右上「已锁」小字"],
         ["gazeletter","点开一块后的那张信纸"],["gazehistory","「从前都怎么写的」那张总表"],
