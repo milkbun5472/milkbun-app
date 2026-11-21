@@ -10277,6 +10277,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const isMem = (g.memberIds || []).map(String).includes(String(viewerId));
     if (g.chSolo && !(g.chShareMembers && isMem)) return false;
     if (g.chHidden && !isMem) return false;
+    // 树洞里说的话带着真名流去别处，单聊里一提「你在树洞说……」马甲就掉了（她 2026-11-21「树洞还在漏」）：树洞不往外流
+    if (g.chKind === "treehole") return false;
     try { if (typeof groupMaskKey === "function" && typeof maskKeyOf === "function" && (groupMaskKey(g.id) || "") !== (maskKeyOf(viewerId) || "")) return false; } catch (e) {}
     return true;
   };

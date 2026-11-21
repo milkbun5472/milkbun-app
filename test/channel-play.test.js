@@ -256,3 +256,7 @@ test("树洞：频道列表、消息列表、空间搜索里也只露代号", ()
   assert.match(cs, /const l = channelLast\(g\.chKind === "treehole"/);
   assert.match(ap, /g\.chKind === "treehole"\) \? thView\(_m\) : _m;/);
 });
+
+test("树洞的话不流到别处", () => {
+  assert.match(ap, /if \(g\.chKind === "treehole"\) return false;/);
+});
