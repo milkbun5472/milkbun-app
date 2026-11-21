@@ -19,7 +19,7 @@ test("称号只照这一周真聊天的条数算，她不算在里面", () => {
   assert.equal(t.x, "本周话最多"); assert.equal(t.y, "潜水冠军"); assert.equal(t.z, "最爱歪楼"); assert.ok(!("me" in t));
 });
 test("旁观频道不露她：机器人和欢迎只往非旁观频道贴，一起听、悄悄话、接龙在旁观里都不给，她收的旁观精华不被提起，新人不塞进旁观频道", () => {
-  assert.match(ap, /const spaceHomeChannel = spId => \{\n\s+const chs = [^\n]*!groupSpectating\(g\)\);/);
+  assert.match(ap, /const spaceHomeChannel = spId => \{\n[^\n]*\n\s+const chs = [^\n]*!groupSpectating\(g\) && g\.chKind !== "lounge"\);/);
   assert.match(ap, /const welcomeNew = [\s\S]{0,400}const g = spaceHomeChannel\(spId\);/);
   assert.match(ap, /gListenHint = group && group\.spaceId && group\.chListen && !groupSpectating\(group\)/);
   assert.match(ap, /L0 = spect \? null : chListenOf\(activeGroup\.id\)/);
