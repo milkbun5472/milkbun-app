@@ -30587,6 +30587,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const out0 = await generateSelfieImage(buildPhotoPrompt(sub, desc, st, { pov: povFor(char), kind: "other", me, closet: me.closet || "" }), [sub.refPhoto].filter(Boolean).length ? [sub.refPhoto] : null, { size: "1024x1536" });
       if (!out0 || !out0.blob) throw new Error("没画出来"); return out0.blob;
     }
+    // 她 2026-11-21「为何不是合照」：photoKind 填了 self，画面里却写着她也在（「你坐在椅子上歪头凑近镜头」）——照画面来，拍成合照
+    if ((kind === "self" || !kind) && duoFacesOk(char) && typeof photoDuoSaid === "function" && photoDuoSaid(desc, userName(meP0 || profile))) kind = "duo";
     if (kind === "duo" && duoFacesOk(char)) {
       const out0 = await generateSelfieImage(buildPhotoPrompt(char, desc, st, { kind: "duo", me, closet: closetTextFor(char.id) }), [char.refPhoto, meP0 && meP0.refPhoto].filter(Boolean), { size: "1024x1536" });
       if (!out0 || !out0.blob) throw new Error("没画出来"); return out0.blob;
