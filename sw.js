@@ -167,7 +167,14 @@ async function keptAssets(cache) {
 }
 async function serveShell(event, req) {
   const cache = await caches.open(SHELL_CACHE);
-  const cached = await cache.match("__index__");
+  let cached = await cache.match("__index__");
+  // ⚠️缓存里那份旧 index 点名的文件必须【全在】才拿它开门（2026-11-21 她：「换了新方法我也很容易有东西没拉下来」）：
+  //   旧版 SW 不管块齐没齐都把 index 存下；手机也会自己清掉一部分缓存。缺了的那几份只能去网上按旧地址拿，
+  //   拿不到（文件改名、删掉了）就是开机那张「有几个文件没加载进来」。有缺口的旧版不如直接用新版。
+  if (cached) {
+    try { if ((await missingAssets(cache, shellAssets(await cached.clone().text()))).length) cached = null; }
+    catch (e) { cached = null; }
+  }
   let fresh;
   try {
     // 有旧版兜底时网络最多等 4 秒：拿不到就先用旧版开门

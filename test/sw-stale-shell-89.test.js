@@ -17,3 +17,6 @@ console.log("sw-stale-shell ok");
 assert.match(install, /shellAssets\(prevHtml\)/, "换 index 时没留上一代");
 assert.match(sw, /!keep\.has\(ku\.href\)\) cache\.delete\(k\)/, "页面现拿新块时把缓存 index 还点名的旧版本删了");
 console.log("sw-keep-prev ok");
+// 有缺口的旧 index 不许拿来开门
+assert.match(serve, /missingAssets\(cache, shellAssets\(await cached\.clone\(\)\.text\(\)\)\)\)\.length\) cached = null/, "旧 index 缺块也拿来开门");
+console.log("sw-no-holey-index ok");
