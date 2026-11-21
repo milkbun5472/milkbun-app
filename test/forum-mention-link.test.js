@@ -12,7 +12,7 @@ const cut = (s, a, b) => { const i = s.indexOf(a), j = s.indexOf(b, i + a.length
 
 // screens.js 那几个公共函数真跑
 const helpers = new Function("forumOwnerRegulars", cut(scr, "const FORUM_LINK_RE", "function forumBoardRulesOf(")
-  + ";return { forumLinkToken, forumLinkIds, forumLinkSource, forumLinkPlain, forumLinkNotes, forumAtCandidates, forumMentionIds };")(
+  + ";return { forumLinkToken, forumLinkIds, forumLinkSource, forumLinkPlain, forumLinkNotes, forumAtCandidates, forumMentionIds, forumRefsTag, forumLinkCatalog };")(
   () => [{ id: "npc_regular_moyu", name: "摸鱼办主任", handle: "moyu_office" }]);
 
 test("@ 名单：公共的 useAtPicker，论坛三个框都接上；新挂点都登记了", () => {
@@ -106,4 +106,39 @@ test("贴帖子：token 画成小卡；喂模型换成《标题》再挂一句�
   const card = cut(ui, "  const linkCard = (", "  const linkToken = ");
   assert.match(card, /maxWidth: "100%", minWidth: 0/);
   assert.match(card, /textOverflow: "ellipsis", whiteSpace: "nowrap"/);
+});
+
+test("角色／网友写的帖和楼也能 @、贴帖：存档那一下认，贴错的帖摘掉，自己 @ 自己不算", () => {
+  const posts = [{ id: "fp_a", title: "面馆", board: "日常吧", body: "x", ts: 5 }, { id: "fp_anon", title: "树洞", board: "匿名吧", body: "y", ts: 9 }];
+  const cands = [{ key: "c1", label: "沈屿白" }, { key: "c2", label: "陆闻" }, { key: "me", label: "小鱼" }];
+  // 桩照写入方：buildForumFloor 写的楼（authorType character、authorId 角色 id、content）
+  const f = helpers.forumRefsTag({ authorType: "character", authorId: "c1", content: "@陆闻 @沈屿白 @小鱼 看 [[post:fp_a]] 和 [[post:fp_nope]]" }, cands, posts);
+  assert.deepEqual(f.mentions, ["c2", "me"]);
+  assert.ok(f.content.includes("[[post:fp_a]]") && !f.content.includes("fp_nope"));
+  // 帖子（postCharToForum 写的 body）
+  assert.deepEqual(helpers.forumRefsTag({ authorType: "npc", authorId: "npc_regular_moyu", body: "@沈屿白 出来" }, cands, posts).mentions, ["c1"]);
+  // 她自己的不碰（发出去时已经认过）
+  const mine = { authorType: "me", content: "@陆闻 [[post:fp_nope]]" };
+  assert.deepEqual(helpers.forumRefsTag(mine, cands, posts), { authorType: "me", content: "@陆闻 [[post:fp_nope]]" });
+  // 能贴的帖目录：一行一帖，匿名吧不进
+  assert.equal(helpers.forumLinkCatalog(posts), "《面馆》（日常吧）[[post:fp_a]]");
+  // 接线：存楼、存帖、提示词、收件箱
+  assert.match(cut(app, "const saveForumComments = ", "return false;"), /forumRefsTagAll\(next\)/);
+  assert.match(cut(app, "const appendForumPosts = ", "const kill"), /forumRefsTag\(\{ \.\.\.r, \.\.\.forumFmtTag\(\) \}, forumAtCandsNow\(\), prev\)/);
+  assert.match(cut(app, "const postCharToForum = ", "setForumPosts("), /forumRefsTag\(rec, forumAtCandsNow\(\), forumPostsRef\.current\)/);
+  assert.match(cut(app, "const forumNpcRule = ", "const forumNpcNamed"), /\+ forumRefLine\(\);\n  \};/);
+  assert.match(app, /\+ forumRefLine\(\)\n\s*\+ \(fixedBoard \?/);
+  assert.match(app, /const forumAtCandsNow = \(\) => \{\n\s*const me = myForumName\(null\);/);
+  assert.match(ui, /kind: p\.authorType === "me" \? "回复了你的帖子" : "@了你"/);
+  assert.match(ui, /forumNotices\.push\(\{ id: "post:" \+ p\.id/);
+});
+
+test("谁 @ 的都算欠着：角色在楼里点了另一个角色，那人下一波来", () => {
+  const due = new Function("forumActiveChars", "forumInWorld", "FORUM_NPC_REGISTRY",
+    cut(app, "  const forumMentionsDue = ", "  const forumAtCandsNow = ") + ";return forumMentionsDue;")(
+    () => [{ id: "c1", name: "沈屿白" }, { id: "c2", name: "陆闻" }], () => true, []);
+  const floors = [{ id: "f1", floor: 2, authorType: "character", authorId: "c1", authorName: "沈屿白", content: "@陆闻 @沈屿白", mentions: ["c2", "c1"], ts: 100, replies: [] }];
+  assert.deepEqual(due({ id: "p", authorType: "npc", ts: 1 }, floors).map(x => x.id + "@" + x.where + "@" + x.who), ["c2@2楼@沈屿白"], "自己点自己不算");
+  floors.push({ id: "f2", floor: 3, authorType: "character", authorId: "c2", content: "来了", ts: 200, replies: [] });
+  assert.deepEqual(due({ id: "p", authorType: "npc", ts: 1 }, floors), []);
 });

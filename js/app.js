@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.956";
+const APP_VERSION = "v89.963";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -21835,6 +21835,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 她自己开的吧（x_forumBoards）跟那六个平起平坐（她 2026-10-25：原来写成「对得上才去」，等于劝退；
           //   也不许为了让他去而硬掷——「不应该为了让他写在我的吧而强迫改原本要写的吧」）：写什么去哪儿，他自己挑
           + (myBoardsForPost.length ? "\n\n【这几个吧各聊什么】" + myBoardsForPost.map(b => b.name + (b.about ? "：" + b.about : "")).join("；") + "。发在这里头的，board 填吧的全名。" : "")
+          + forumRefLine()
           + (fixedBoard ? "\n\n【这一帖发在「" + fixedBoard + "」】" + forumBoardVoice(fixedBoard) + "上面让你挑吧的那几句不算数了，board 就填「" + fixedBoard + "」。" : ""),
         schemaHint: "{\"board\":\"" + baseForPost.concat(myBoardsForPost.map(b => b.name)).join("/") + " 之一\",\"identity\":\"" + rolledId + "\",\"title\":\"标题\",\"body\":\"正文2-4句\"" + FORUM_PHOTO_FIELD + forumFmtField() + "}",
         maxTokens: FTOK.post
@@ -27184,6 +27185,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 一轮只吭一声，免得写一次弹一次。
   const forumSaveWarned = useRef(false);
   const saveForumComments = next => {
+    try { forumRefsTagAll(next); } catch (e) {}
     try { noteForumCharMeets(next); } catch (e) {}
     if (saveJSON("x_forumComments", next)) return true;
     if (!forumSaveWarned.current) {
@@ -27491,7 +27493,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + "\n⚠️**没点到名单上的一律按路人落账**——想让某个熟面孔开口，npcId 或者名单上那个名字必须写出来。"
       + (ties.length ? "\n【熟面孔之间已经存在的公开交情】\n" + ties.join("\n") + "\n同帖遇见时可以自然接旧梗、附和或抬杠；别每次重新自我介绍，也别把公开交情写成私密记忆。" : "")
       + "\n角色或熟面孔回另一个角色或熟面孔的那一条，顺手标 meetTone：这一句冲对方是什么调子——warm（搭上话、附和）/ spar（抬杠、呛）/ 留空。先照想写的写，写完照实标。"
-      + (userTies.length ? "\n【与用户公开账号的既往碰面】\n" + userTies.join("\n") + "\n只承认公开见过，别凭空补共同经历。" : "") + "\n";
+      + (userTies.length ? "\n【与用户公开账号的既往碰面】\n" + userTies.join("\n") + "\n只承认公开见过，别凭空补共同经历。" : "") + "\n"
+      + forumRefLine();
   };
   // 模型【点名】了才算熟面孔：npcId，或者 handle／名字对得上名单。点不上就返回 null。
   const forumNpcNamed = (x, board) => {
@@ -27688,7 +27691,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const appendForumPosts = (recs, board) => setForumPosts(prev => {
     // 这一批记到她现在逛的那个世界（已经自己带了 world 的不动）
     const _w = forumCurWorld() === "*" ? "" : forumCurWorld();
-    let n = [...recs.map(r => r && typeof r.world !== "string" ? { ...r, world: _w } : r).map(r => r ? { ...r, ...forumFmtTag() } : r), ...prev];
+    let n = [...recs.map(r => r && typeof r.world !== "string" ? { ...r, world: _w } : r).map(r => r ? forumRefsTag({ ...r, ...forumFmtTag() }, forumAtCandsNow(), prev) : r), ...prev];
     const kill = new Set();
     const spare = forumTouchedPosts(forumCommentsRef.current);
     const evictable = x => x.authorType === "npc" && !x.keptFrom && !spare.has(x.id) && !forumCInflightRef.current[x.id];
@@ -28031,9 +28034,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 搜来的陌生话题吧也算（她 2026-11-21「搜索出来的想让他来看来评论也是合理的吧」）：只放被点名的那几位进来，见 forumMentionRule
     if (!post) return [];
     const src = [];
-    const push = (x, where) => { if (x && x.authorType === "me" && Array.isArray(x.mentions) && x.mentions.length) src.push({ ids: x.mentions, ts: Number(x.ts) || 0, where, who: x.authorName }); };
+    const push = (x, where) => { if (x && Array.isArray(x.mentions) && x.mentions.length) src.push({ ids: x.mentions.filter(id => id !== x.authorId), ts: Number(x.ts || x.visibleAt) || 0, where, who: x.authorName }); };
     push(post, "帖子正文");
-    (floors || []).forEach(f => { push(f, f && f.floor ? f.floor + "楼" : "她开的那一楼"); ((f && f.replies) || []).forEach(r => push(r, (f.floor ? f.floor + "楼的" : "") + "楼中楼")); });
+    (floors || []).forEach(f => { push(f, f && f.floor ? f.floor + "楼" : "这一楼"); ((f && f.replies) || []).forEach(r => push(r, (f.floor ? f.floor + "楼的" : "") + "楼中楼")); });
     (extra || []).forEach(x => x && Array.isArray(x.ids) && x.ids.length && src.push(x));
     const spokeAfter = (id, ts) => (floors || []).some(f => f && ((f.authorId === id && f.authorType !== "me" && Number(f.ts || f.visibleAt || 0) > ts)
       || (f.replies || []).some(r => r && r.authorId === id && r.authorType !== "me" && Number(r.ts || 0) > ts)));
@@ -28047,6 +28050,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }));
     return out;
   };
+  // 模型写的帖／楼也能 @、贴帖子：存档那一下用同一份名单认（screens.js forumRefsTag）。她这个号的名字也在名单里（key="me"）
+  const forumAtCandsNow = () => {
+    const me = myForumName(null);
+    return forumAtCandidates(forumActiveChars(), forumOffRef.current).concat(me && me !== "匿名者" ? [{ key: "me", label: me, kind: "me" }] : []);
+  };
+  const forumRefsTagAll = fc => { const cands = forumAtCandsNow(), ps = forumPostsRef.current;
+    Object.keys(fc || {}).forEach(pid => (fc[pid] || []).forEach(f => { forumRefsTag(f, cands, ps); ((f && f.replies) || []).forEach(r => forumRefsTag(r, cands, ps)); })); };
+  // 能贴的帖：一小份目录，四路刷楼（forumNpcRule）和角色自己发帖都带上
+  const forumRefLine = () => { const cat = forumLinkCatalog(forumPostsRef.current); return cat ? "\n【能贴的帖】想提到下面某一帖，就在正文里原样写它后面那个 [[post:…]]，会显示成那一帖的小卡：\n" + cat + "\n" : ""; };
   // 被点名的人：这一轮一定来一条，而且知道自己是被点了名才来的（不另花调用，拼进这一波本来就有的生成里）
   const forumMentionRule = due => !(due && due.length) ? "" : "\n【这帖里有人点了名】\n" + due.map(m => m.kind === "char"
       ? "「" + m.name + "」：「" + (m.who || "楼主") + "」在" + m.where + "里 @ 了你，你知道自己被点了名；这一轮你一定来回一条（char 填「" + m.name + "」）。"
@@ -28324,6 +28336,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       anon: anonB, triggerSource: triggerSource || "", ts: base, world: charWorldOf(char.id), ...forumFmtTag(),
       ...forumCounts(char.id + base, content.replyCount || (3 + forumHash(char.id) % 40))
     };
+    forumRefsTag(rec, forumAtCandsNow(), forumPostsRef.current);
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
     // 开关在贴吧顶上（x_forumAutoImg，默认关）：开着就顺手把这张配图画出来
     if (rec.photo && !rec.photo.imageRef && loadJSON("x_forumAutoImg", false) && imgApiReady()) setTimeout(() => forumGenImage(rec.id), 60);
@@ -36882,7 +36895,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onTopMoment: topMoment,
     onPinMoment: pinMomentToShike,
     onOpenMomProfile: openMomProfile,
-    momCover: momentsCover.me || "", momCoverPos: momentsCover["me@pos"] || "", onShareMoment: shareMomentTo, onSetMomCover: uri => { setMomentCover("me", uri); setMomentCover("me@pos", ""); },
+    momCover: momentsCover.me || "", momCoverPos: momentsCover["me@pos"] || "", onShareMoment: shareMomentTo, onSetMomCover: uri => { setMomentCover("me", uri); setMomentCover("me@pos", ""); }, momCoverOf: k => momentsCover[k] || "", onSetMomCoverFor: (k, uri) => { setMomentCover(k, uri); setMomentCover(k + "@pos", ""); }, onSetMomCoverKey: (k, v) => setMomentCover(k, v),
     onEditProfile: () => setProfileOpen(true),
     onOpenWallet: () => setScreen("wallet"),
     onOpenFavorites: () => setScreen("favorites"),

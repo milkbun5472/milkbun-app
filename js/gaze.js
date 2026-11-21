@@ -8,9 +8,15 @@
 // ============================================================
 (function () {
   const useState = React.useState;
+  const useRef = React.useRef;
   const ME = [["person", "她是个什么样的人"], ["soft", "她的软肋和雷区"], ["like", "我吃她哪一套·头疼哪一套"], ["recent", "最近的她"], ["unread", "我还没看懂的部分"]];
   const US = [["what", "我们现在算什么"], ["how", "我们的相处方式"], ["marks", "走到这里的几个节点"], ["elephant", "我假装没注意的事"], ["want", "我担心的·我想要的"]];
   const KEYS = {}; ME.forEach(([k, n]) => KEYS["me." + k] = n); US.forEach(([k, n]) => KEYS["us." + k] = n);
+  // 小标题她自己改的那份（她 2026-11-22）：只管屏幕上显示的字，KEYS 和发给模型的 ASK 一个字不动；全部角色共用一份
+  const TITLE_KEY = "x_gazeTitles";
+  const titlesMine = () => { try { const v = JSON.parse(localStorage.getItem(TITLE_KEY) || "{}"); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; } };
+  const titleOf = k => { const t = titlesMine()[k]; return (t && String(t).trim()) || KEYS[k] || ""; };
+  const setTitle = (k, t) => { try { const m = titlesMine(); const v = String(t || "").trim(); if (v && v !== KEYS[k]) m[k] = v; else delete m[k]; localStorage.setItem(TITLE_KEY, JSON.stringify(m)); } catch (e) {} };
   // ── 发给模型时换一套说法（v64.56）────────────────────────────────────
   // 她 2026-09-06 试下来：**只有两个角色能过**，别的都被 Gemini 拦在输入那一关。
   // 有角色能过 ⇒ 光有这十道题不够；换个角色又不过 ⇒ 光有人设也不够
@@ -85,6 +91,15 @@
     if (!KEYS[k]) return false;
     const d = load(); const box = boxOf(d, charId);
     box.locks = Object.assign({}, box.locks); if (on) box.locks[k] = 1; else delete box.locks[k];
+    d[charId] = box; persist(d, charId); return true;
+  }
+  // 她手改这一块的字（她 2026-11-22：男 u 想把「她」改成「他」，界面上不加选项）：只改字，不算他新写一版、不进历次改写
+  function editBlock(charId, k, text) {
+    const t = String(text == null ? "" : text).trim();
+    if (!KEYS[k] || !t) return false;
+    const d = load(); const box = boxOf(d, charId);
+    if (!box.blocks || !box.blocks[k]) return false;
+    box.blocks = Object.assign({}, box.blocks, { [k]: Object.assign({}, box.blocks[k], { text: t, edited: 1 }) });
     d[charId] = box; persist(d, charId); return true;
   }
   const histAt = (box, k, ts, text) => (box.hist || []).findIndex(x => x.k === k && (Number(x.ts) || 0) === (Number(ts) || 0) && x.old === text);
@@ -530,6 +545,12 @@
     const [allOpen, setAllOpen] = useState(false); // 「历次改写」总表
     const [seenTick, setSeenTick] = useState(0);   // 标记已读后要重画红点
     const [whyOpen, setWhyOpen] = useState(false); // 复看败因的原文，点开才看
+    const [editTx, setEditTx] = useState(null);    // 长按信纸正文进来改字；null＝没在改
+    const pressT = useRef(null);
+    const pressOn = () => { clearTimeout(pressT.current); pressT.current = setTimeout(() => { const b = box.blocks[openK]; if (b && b.text) setEditTx(b.text); }, 550); };
+    const pressOff = () => clearTimeout(pressT.current);
+    const [editTitle, setEditTitle] = useState(null);   // 长按信纸标题改小标题
+    const tPressOn = () => { clearTimeout(pressT.current); pressT.current = setTimeout(() => setEditTitle(titleOf(openK)), 550); };
     const box = boxOf(load(), charId);
     const say = s => characterText({ gender: ta }, s);
     const unseen = new Set(unseenKeys(charId));
@@ -542,11 +563,21 @@
     const locked = !!(openK && (box.locks || {})[openK]);
     const vBtn = on => ({ minHeight: 30, padding: "3px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 1, border: "1px solid " + (on ? GOLD : "rgba(172,138,91,.45)"), background: on ? GOLD : "transparent", color: on ? "#fff" : GOLD });
     const full = openK && ReactDOM.createPortal(
-      h("div", { onClick: () => setOpenK(null), style: { position: "fixed", inset: 0, zIndex: 260, background: "rgba(43,38,30,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+      h("div", { onClick: () => { setOpenK(null); setEditTx(null); setEditTitle(null); }, style: { position: "fixed", inset: 0, zIndex: 260, background: "rgba(43,38,30,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
         h("div", { "data-wk": "gazeletter", onClick: e => e.stopPropagation(), style: { position: "relative", maxHeight: "74vh", overflowY: "auto", width: "100%", maxWidth: 400, backgroundColor: PAPER, backgroundImage: "repeating-linear-gradient(transparent, transparent 29px, rgba(120,100,70,.07) 29px, rgba(120,100,70,.07) 30px), linear-gradient(" + PAPER + "," + PAPER + " 60%, #f7efdf)", borderRadius: 4, padding: "34px 26px 24px", boxShadow: "0 22px 60px rgba(0,0,0,.32)" } },
           tape(),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: INKSOFT, marginBottom: 16, letterSpacing: 2 } }, KEYS[openK]),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: INKSOFT, lineHeight: "30px", whiteSpace: "pre-wrap" } }, (box.blocks[openK] || {}).text || say("他还没往这想过。")),
+          editTitle != null
+            ? h("div", { className: "flex items-center", style: { gap: 8, marginBottom: 16 } },
+                h("input", { "data-wk": "gazetitleedit", value: editTitle, autoFocus: true, maxLength: 24, onChange: e => setEditTitle(e.target.value), style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: INKSOFT, background: "transparent", border: "1px dashed rgba(172,138,91,.55)", borderRadius: 8, padding: "2px 8px", outline: "none" } }),
+                h("button", { "data-wk": "gazeeditsave", onClick: () => { setTitle(openK, editTitle); setEditTitle(null); setSeenTick(x => x + 1); }, style: vBtn(true) }, "好了"))
+            : h("div", { onPointerDown: tPressOn, onPointerUp: pressOff, onPointerLeave: pressOff, onPointerCancel: pressOff, onContextMenu: e => e.preventDefault(), style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: INKSOFT, marginBottom: 16, letterSpacing: 2, WebkitUserSelect: "none", userSelect: "none" } }, titleOf(openK)),
+          editTx != null
+            ? h("div", null,
+                h("textarea", { "data-wk": "gazeedit", value: editTx, autoFocus: true, onChange: e => setEditTx(e.target.value), rows: 8, style: { width: "100%", fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: INKSOFT, lineHeight: "30px", background: "transparent", border: "1px dashed rgba(172,138,91,.55)", borderRadius: 8, padding: "4px 8px", outline: "none", resize: "vertical" } }),
+                h("div", { className: "flex items-center", style: { gap: 8, marginTop: 8, justifyContent: "flex-end" } },
+                  h("button", { "data-wk": "gazeeditcancel", onClick: () => setEditTx(null), style: vBtn(false) }, "算了"),
+                  h("button", { "data-wk": "gazeeditsave", onClick: () => { if (editBlock(charId, openK, editTx)) { setEditTx(null); setSeenTick(x => x + 1); } }, style: vBtn(true) }, "好了")))
+            : h("div", { onPointerDown: pressOn, onPointerUp: pressOff, onPointerLeave: pressOff, onPointerCancel: pressOff, onContextMenu: e => e.preventDefault(), style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: INKSOFT, lineHeight: "30px", whiteSpace: "pre-wrap", WebkitUserSelect: "none", userSelect: "none" } }, (box.blocks[openK] || {}).text || say("他还没往这想过。")),
           box.blocks[openK] && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: GOLD, marginTop: 18, textAlign: "right" } }, "—— 写于 " + gazeDay(box.blocks[openK].ts, charId)),
           // 锁住／删掉这版（群里 2026-10-09：「重 roll 也会覆盖，想把重 roll 的删除」）——删了，上一版顶回来
           box.blocks[openK] && h("div", { className: "flex items-center", style: { gap: 8, marginTop: 12, justifyContent: "flex-end" } },
@@ -575,7 +606,7 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: GOLD, marginBottom: 16 } }, "共 " + revs.length + " 版 · 最新的在最上面"),
           revs.length ? revs.map((x, i) => h("div", { key: i, style: { marginBottom: 16, paddingBottom: 14, borderBottom: i === revs.length - 1 ? "none" : "1px dashed rgba(120,100,70,.2)" } },
             h("div", { className: "flex items-center", style: { gap: 6, marginBottom: 4 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: 2, color: GOLD } }, KEYS[x.k]),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", letterSpacing: 2, color: GOLD } }, titleOf(x.k)),
               x.now ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: 1, color: "#fff", background: GOLD, borderRadius: 999, padding: "1px 6px" } }, "现在") : null,
               h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: "rgba(172,138,91,.7)" } }, x.ts ? gazeDay(x.ts, charId) : "")),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: x.now ? INKSOFT : "rgba(92,82,68,.62)", lineHeight: 2, whiteSpace: "pre-wrap" } }, transShow(x.text))))
@@ -680,7 +711,7 @@
           tape({ transform: "rotate(" + (i % 2 ? 2 : -2) + "deg)" }),
           unseen.has(fk) ? dot({ position: "absolute", top: 9, right: 10 }) : null,
           (box.locks || {})[fk] ? h("span", { "data-wk": "gazelockmark", style: { position: "absolute", top: 7, right: 22, fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: GOLD } }, "已锁") : null,
-          h("div", { "data-wk": "gazecardname", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: INKSOFT, letterSpacing: 1.5, marginBottom: 6 } }, name),
+          h("div", { "data-wk": "gazecardname", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: INKSOFT, letterSpacing: 1.5, marginBottom: 6 } }, titleOf(fk)),
           h("div", { "data-wk": "gazecardtext", style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: b ? "rgba(92,82,68,.85)" : "rgba(92,82,68,.4)", lineHeight: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" } }, b ? b.text : say("他还没往这想过。")),
           (function () {
             // 这一块【上次什么时候被碰过】。她 2026-09-04：「有些角色的 Ta 眼里确实一直

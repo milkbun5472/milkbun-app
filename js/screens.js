@@ -697,6 +697,28 @@ function forumMentionIds(text, cands) {
 }
 // 吧规只许从这一处读（她 2026-10-17 群里许愿「自己开的吧能加吧规吗」）：自带的吧读写死的那份，她开的吧读她写的 rules。
 //   置顶那块牌子和喂给模型的那份都走这里。
+// 模型写出来的帖／楼／楼中楼也能 @ 人、贴帖子（她 2026-11-21 第二轮）：存档那一下认一遍，跟她自己那几条存成一样的样子。
+//   rec.content（楼）或 rec.body（帖）里：认得出的「@名字」→ mentions；贴错的 [[post:ID]]（帖子不存在）整个摘掉。
+//   cands 是 forumAtCandidates 那份名单，再加上她这个号的名字（key="me"）。自己 @ 自己不算。
+//   她自己写的那几条在发出去时就认过了（forumMentionIds），这里不碰；已经带 mentions 的也不再认。
+function forumRefsTag(rec, cands, posts) {
+  if (!rec || typeof rec !== "object" || rec.authorType === "me") return rec;
+  const key = typeof rec.content === "string" ? "content" : typeof rec.body === "string" ? "body" : "";
+  const txt = key ? rec[key] : "";
+  if (!txt || (txt.indexOf("@") < 0 && txt.indexOf("[[post:") < 0)) return rec;
+  if (txt.indexOf("[[post:") >= 0) rec[key] = txt.replace(FORUM_LINK_RE, (a, id) => forumLinkedPost(id, posts) ? a : "");
+  if (rec.mentions === undefined && txt.indexOf("@") >= 0) {
+    const ids = forumMentionIds(rec[key], cands).filter(id => id !== rec.authorId);
+    if (ids.length) rec.mentions = ids.slice(0, 12);
+  }
+  return rec;
+}
+// 能贴的帖：给模型的一小份目录（最近有人在说的那几帖），一行一帖「《标题》（吧）[[post:ID]]」
+function forumLinkCatalog(posts, exceptId, n) {
+  return (posts || []).filter(p => p && p.id && p.id !== exceptId && p.title && !p.anon && p.board !== "匿名吧" && !(p.visibleAt && Number(p.visibleAt) > Date.now()))
+    .sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0)).slice(0, n || 6)
+    .map(p => "《" + String(p.title) + "》（" + (p.board || "论坛") + "）" + forumLinkToken(p.id)).join("\n");
+}
 function forumBoardRulesOf(name) {
   if (FORUM_BOARD_RULES[name]) return FORUM_BOARD_RULES[name];
   const b = forumCustomBoards().find(x => x.name === name);
