@@ -5452,7 +5452,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (last && last.ledgerKey && last.ts && Date.now() - last.ts > 300000) return;
     const body = String((last && last.content) || "").replace(/\s+/g, " ").trim();
     const text = g
-      ? (((last && last.senderName) ? last.senderName + "：" : "") + (body || "发来一条消息")).slice(0, 44)
+      // 树洞里提醒也只露代号（她 2026-11-21「消息提示怎么还有名字」）
+      ? (((last && last.senderName) ? (g.chKind === "treehole" && last.senderId ? "树洞 #" + (thAliasMapOf(groupChatsRef.current[g.id] || [])[String(last.senderId)] || "?") : last.senderName) + "：" : "") + (body || "发来一条消息")).slice(0, 44)
       : (body || "发来一条消息").slice(0, 44);
     const b = {
       key: "b" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
@@ -17036,7 +17037,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         members.forEach(c => { mp[String(c.id)] = mp[String(c.id)] || thAlias(mp, c.id).map[String(c.id)]; });
         if (!mp.me) mp.me = thAlias(mp, "me").map.me;
         return "\n\n【这个频道是树洞】屏幕上每个人都只显示一个代号，谁也看不见谁的名字和头像，" + herNameIn(groupId) + " 也一样，没有谁是例外。各人的代号：" + members.map(c => c.name + "＝树洞 #" + mp[String(c.id)]).join("、") + "、" + herNameIn(groupId) + "＝树洞 #" + mp.me
-          + "。每个人只知道自己是哪一号；上面原文里带的名字只是给你分清谁说了哪句。写出来的话里不提任何人的名字，指人就说几号，也不会有人说自己看见了谁的名字——别人是谁，只能从说话的样子去猜。";
+          + "。每个人只知道自己是哪一号；上面原文里带的名字只是给你分清谁说了哪句。写出来的话里不提任何人的名字，指人就说几号，也不会有人说自己看见了谁的名字——别人是谁，只能从说话的样子去猜。"
+          // 马甲要像马甲（她 2026-11-21「一开口就说是大家马甲跟没有一样」）：说清楚大家来这儿是为了什么，身份自然就收着
+          + "大家来树洞，就是因为在这儿说话不用顶着自己：说的是平时顶着名字不好说出口的心里话、牢骚、秘密；自己是谁、跟这里谁是什么关系，是不往外露的那部分——一句话里带着自己的名字、只有自己才有的身份经历、跟某个人的具体关系，别人就一下认出来了，这种话在树洞里换成不点名的说法。别人猜自己是谁，可以装傻、岔开、反问；在树洞里谁也不会主动认领自己是几号。";
       })() : "";
       // 频道里摆着的东西＋他们能怎么动（她 2026-11-20「1-7都可以做」）：只说是什么、怎么写；到了当天上限的那一样就不提
       // 她按了「让他们各挑一首」（她 2026-11-20「点了他们还是接着晚餐在说」）：这件事是这一轮的正题，放到最后紧挨着输出说
@@ -19804,7 +19807,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const before = (groupChatsRef.current[g.id] || []).length;
       try { await replyGroup(g.id); } catch (e) {}
       const added = (groupChatsRef.current[g.id] || []).slice(before).filter(m => m && m.role === "assistant" && m.content);
-      if (added.length) { const lm = added[added.length - 1]; out.push({ id: g.id, n: added.length, last: ((lm.senderName ? lm.senderName + "：" : "") + String(lm.content)).replace(/\s+/g, " ").slice(0, 30) }); }
+      if (added.length) { const lm = added[added.length - 1]; out.push({ id: g.id, n: added.length, last: ((lm.senderName ? (g.chKind === "treehole" && lm.senderId ? "树洞 #" + (thAliasMapOf(groupChatsRef.current[g.id] || [])[String(lm.senderId)] || "?") : lm.senderName) + "：" : "") + String(lm.content)).replace(/\s+/g, " ").slice(0, 30) }); }
     }
     saveJSON("x_spaceDigest:" + sp.id, out);
     setSpaceDigestRev(x => x + 1);

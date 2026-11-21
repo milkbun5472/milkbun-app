@@ -211,3 +211,8 @@ test("树洞里她也是代号；存群设置不把每周称号当成封的头�
 test("不满一周评出来的称号不挂", () => {
   assert.match(ap, /\(Number\(sp\.titlesTs\) \|\| 0\) - Math\.max\(Number\(sp\.botOnTs\) \|\| 0, Number\(sp\.ts\) \|\| 0\) < 6 \* 86400000\) return gs0;/);
 });
+
+test("树洞：提醒只露代号；提示里说清大家来树洞是不顶着自己说话", () => {
+  assert.match(ap, /g\.chKind === "treehole" && last\.senderId \? "树洞 #"/);
+  assert.match(ap, /大家来树洞，就是因为在这儿说话不用顶着自己/);
+});
