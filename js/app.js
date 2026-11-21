@@ -36999,7 +36999,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onSub: activeGroup.spaceId && !groupSpectating(activeGroup) ? key => setSubOpen({ gid: activeGroup.id, root: key }) : null,
     // 表情回应、置顶（她 2026-11-20）：旁观的频道里她不在场，这两样都不给
     onReact: activeGroup.spaceId && !groupSpectating(activeGroup) ? (idx, em) => pGChat(activeGroup.id, p => p.map((m, j) => j === idx ? chpReactMsg(m, "me", em) : m)) : null,
-    onPin: activeGroup.spaceId && !groupSpectating(activeGroup) ? idx => { const m = (groupChats[activeGroup.id] || [])[idx]; if (!m || !m.content) return; const st = chpOf(activeGroup.id); chpPin(st, m, "me"); chpPut(activeGroup.id, st); toast("置顶了"); } : null,
+    onPin: activeGroup.spaceId && !groupSpectating(activeGroup) ? idx => { const m = (groupChats[activeGroup.id] || [])[idx]; if (!m || !m.content) return; const st = chpOf(activeGroup.id); chpPin(st, m, "me"); chpPut(activeGroup.id, st); toast("置顶了"); pGChat(activeGroup.id, q => [...q, { role: "system", kind: "chlink", toGid: activeGroup.id, content: "你把「" + String(m.content).slice(0, 24) + "」置顶了", ts: Date.now() }]); } : null,
     onGem: activeGroup.spaceId ? idx => { const m = (groupChats[activeGroup.id] || [])[idx]; if (addGem(activeGroup.spaceId, activeGroup.id, m, "me")) toast("收进精华了"); } : null,
     onOpenStyleLab: goStyleLab,
     apiProfiles: apiProfiles,
@@ -39542,15 +39542,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onSendOff: groupSpectating(_g) ? null : how => sendOffChannelPet(_g, how),
       // 账本连着钱包（她 2026-11-20）：她记的一笔也真从付钱那人的钱包扣；结清真把钱挪过去
       onLedgerAdd: e0 => { const r = chLedgerPay(_g.id, e0.payer, e0.amount, e0.for); if (r.skip || !(r.amount > 0)) { toast(r.skip ? "旁观的频道里你不在场" : "付钱那个人钱包里没钱了"); return; }
-        const st0 = chpOf(_g.id); chpPut(_g.id, chpLedgerAdd(st0, { ...e0, amount: r.amount, moneyMoved: true })); setChPlayRev(v => v + 1); if (r.capped) toast("钱包里只剩 ¥" + r.amount + "，就记了这么多"); },
+        const st0 = chpOf(_g.id); chpPut(_g.id, chpLedgerAdd(st0, { ...e0, amount: r.amount, moneyMoved: true })); setChPlayRev(v => v + 1); { const _nm = id => id === "me" ? "你" : (((characters || []).find(c => c.id === id) || {}).name || "有人"); pGChat(_g.id, q => [...q, { role: "system", kind: "chlink", toGid: _g.id, content: "你在账本上记了一笔：" + _nm(e0.payer) + " 付了 ¥" + r.amount + (e0.for ? "（" + String(e0.for).slice(0, 20) + "）" : ""), ts: Date.now() }]); } if (r.capped) toast("钱包里只剩 ¥" + r.amount + "，就记了这么多"); },
       onLedgerSettle: (from, to) => { const nm = id => id === "me" ? "你" : (((characters || []).find(c => c.id === id) || {}).name || "有人"); const r = chLedgerSettle(_g.id, from, to, nm); setChPlayRev(v => v + 1);
-        if (r && r.amount > 0) toast(nm(r.from) + " 还了 " + nm(r.to) + " ¥" + r.amount + (r.short ? "，钱不够，还差一点" : "")); },
+        if (r && r.amount > 0) { toast(nm(r.from) + " 还了 " + nm(r.to) + " ¥" + r.amount + (r.short ? "，钱不够，还差一点" : "")); pGChat(_g.id, q => [...q, { role: "system", kind: "chlink", toGid: _g.id, content: "你在账本上结了一笔：" + nm(r.from) + " 还了 " + nm(r.to) + " ¥" + r.amount, ts: Date.now() }]); } },
       // 墙、歌单、账本、养的（她 2026-11-20）：这个频道那一份 x_chplay
-      play: (chPlayRev, chpOf(_g.id)), onPlay: fn => { const _b = JSON.parse(JSON.stringify(chpOf(_g.id).notes || [])); const s2 = fn(chpOf(_g.id)) || chpOf(_g.id); chpPut(_g.id, s2);
+      play: (chPlayRev, chpOf(_g.id)), onPlay: fn => { const _s0 = chpOf(_g.id), _b = JSON.parse(JSON.stringify(_s0.notes || [])), _pl0 = (_s0.playlist || []).map(x => x.title), _pet0 = _s0.pet ? { name: _s0.pet.name, lastTs: (_s0.pet.last || {}).ts || 0 } : null; const s2 = fn(chpOf(_g.id)) || chpOf(_g.id); chpPut(_g.id, s2);
         // 她贴了、写了，聊天里留一行（她 2026-11-21「贴墙了能不能也有提示」）：大家都看得到，下一轮他们也知道
         if (!groupSpectating(_g)) { const _ln = [];
           (s2.notes || []).forEach(n => { const o0 = _b.find(x => x.id === n.id); if (!o0 && n.by === "me") _ln.push("你往墙上贴了张便利贴：「" + String(n.text || "").slice(0, 40) + "」");
             else if (o0) (n.doodles || []).slice((o0.doodles || []).length).filter(d => d && d.by === "me").forEach(d => _ln.push("你在「" + String(n.text || "").slice(0, 16) + "」那张上写了：「" + String(d.text || "").slice(0, 30) + "」")); });
+          // 歌单、小家伙也一样（她 2026-11-21「账本切歌照顾小家伙之类的都会有提示的了吧」）
+          (s2.playlist || []).filter(x => x && x.by === "me" && _pl0.indexOf(x.title) < 0).forEach(x => _ln.push("你往歌单里加了《" + x.title + "》"));
+          _pl0.filter(t0 => !(s2.playlist || []).some(x => x.title === t0)).forEach(t0 => _ln.push("你把《" + t0 + "》从歌单里拿掉了"));
+          if (_pet0 && s2.pet) { const _l = s2.pet.last || {};
+            if ((_l.ts || 0) > _pet0.lastTs && _l.by === "me") _ln.push("你去照顾了「" + s2.pet.name + "」（" + (_l.action || "照顾") + "）");
+            if (s2.pet.name !== _pet0.name && !s2.pet.naming) _ln.push("你给它改名叫「" + s2.pet.name + "」"); }
           if (_ln.length) pGChat(_g.id, q => [...q, ..._ln.map(c => ({ role: "system", kind: "chlink", toGid: _g.id, content: c, ts: Date.now() }))]); } },
       people: (_g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => ({ id: c.id, name: c.remark || c.name })),
       nameOf: id => id === "me" ? "我" : (((characters || []).find(c => c.id === id) || {}).name || "有人"),
