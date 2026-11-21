@@ -8030,6 +8030,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const gid = group.id;
         const gs = gsFor(gid);
         if (!gs.memoryInterop || gs.autoChat === false || !autoRefreshOn("groupChat")) continue;
+        // 挂机房是各忙各的地方，不自己聊起来（她 2026-11-21「为啥我的挂机房自己会聊天」）；她在群设置里特意打开过自动聊天的照旧
+        if (group.chKind === "lounge" && gs.autoChat !== true) continue;
         if (groupCallActive(gid)) continue; // 通话缩小仍算通话，不另起线上自发轮
         if (laneBusy("g:" + gid)) continue;
         // ⚠️「线下正在进行」不等于「线下浮层开着」（她 2026-08-31 报）：

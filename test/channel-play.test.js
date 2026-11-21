@@ -193,3 +193,7 @@ test("聊天照片气泡 img_ 键也认（ChfImg）；图片改说明不冒「�
   assert.match(cs, /\? h\(ChfImg, \{ k: m\.imageRef,/);
   assert.match(ap, /f\.kind !== "image" && \(f\.updatedTs/);
 });
+
+test("挂机房不自己聊起来，除非特意开了自动聊天", () => {
+  assert.match(ap, /if \(group\.chKind === "lounge" && gs\.autoChat !== true\) continue;/);
+});
