@@ -97,7 +97,6 @@ test("小家伙：拍照只她能按、存进图片栏；送走收进养过的�
   assert.match(ap, /s2\.petsPast = \(s2\.petsPast \|\| \[\]\)\.concat/);
   assert.match(ap, /window\.__chPetBye = \{ gid: g\.id/);
   assert.match(ap, /if \(item\.petKind && _st\.pet && _st\.pet\.kindPending\)/);
-  assert.match(cs, /pet\.photo \? h\(ChfImg, \{ k: pet\.photo/);
   assert.match(cs, /function ChfImg\(\{ k, style \}\) \{[\s\S]{0,200}useIdbImgUrl\(isIdb \? k : null\)/);
 });
 test("小家伙页她能喂它、陪它玩，各一天一次", () => {

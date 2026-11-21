@@ -23555,12 +23555,12 @@ function SpaceGemsPage({ space, gems, chName, onOpen, onDelete, onClose }) {
 }
 // 空间本身那一页：改名字、加人踢人；删整个空间也放这儿一份
 // 面具挑选那一排（频道设置、改频道页共用）：opts 来自 window.__momentMasks；extra＝最前面多一颗（比如「跟空间一样」，值 null）
-function MaskChips({ value, onPick, extra, wk }) {
+function MaskChips({ value, onPick, extra }) {
   const t = useTheme();
   const opts = typeof window.__momentMasks === "function" ? window.__momentMasks() : [];
   if (opts.length < 2) return null;
   const all = (extra ? [extra] : []).concat(opts.map(o => ({ id: o.id, name: o.id ? o.name : "主面具" })));
-  return h("div", { "data-wk": wk || "maskchips", className: "flex flex-wrap", style: { gap: 6 } }, all.map(o => {
+  return h("div", { "data-wk": "maskchips", className: "flex flex-wrap", style: { gap: 6 } }, all.map(o => {
     const on = value === o.id;
     return h("button", { key: o.id == null ? "_same" : (o.id || "_main"), "data-on": on ? "1" : "0", onClick: () => onPick(o.id), className: "active:opacity-70",
       style: { padding: "7px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } }, o.name);

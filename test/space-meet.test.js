@@ -6,7 +6,7 @@ test("东道群藏起来、只放勾上的人、各频道知道见过面", () =>
   const body = ap.slice(i, ap.indexOf("const createSpace = ", i));
   assert.match(body, /chKind: "meet", chHidden: true, chArchived: true/);
   assert.match(body, /startGroupOffline\(host\.id, \{ opening: note \|\| "", present: want/);
-  assert.match(ap, /channels: \(groups \|\| \[\]\)\.filter\(g => g && g\.spaceId === sp\.id && !g\.chHidden\)/);
+  assert.match(ap, /channels: \(groups \|\| \[\]\)\.filter\(g => g && g\.spaceId === sp\.id && !g\.chHidden && !g\.roomOf\)/);
   assert.match(ap, /spaceMeetLine\(group\.spaceId\)/);
   assert.match(ap, /\|\| \(opts && opts\._host\);/);
   assert.match(cs, /function SpaceMeetPage\(/);
