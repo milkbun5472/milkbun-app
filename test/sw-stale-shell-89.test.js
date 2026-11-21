@@ -13,3 +13,7 @@ const put = install.indexOf('cache.put("__index__"'), del = install.indexOf("cac
 assert.ok(put > 0 && del > put, "换 index 之后才清旧版本");
 assert.ok(install.indexOf("missingAssets") < put, "先补齐块再换 index");
 console.log("sw-stale-shell ok");
+// 上一代留着：更新前就开着的旧标签页还要按旧 ?v= 拿延后加载的代码（2026-11-21 旧标签页白屏）
+assert.match(install, /shellAssets\(prevHtml\)/, "换 index 时没留上一代");
+assert.match(sw, /!keep\.has\(ku\.href\)\) cache\.delete\(k\)/, "页面现拿新块时把缓存 index 还点名的旧版本删了");
+console.log("sw-keep-prev ok");

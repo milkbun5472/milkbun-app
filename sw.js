@@ -94,12 +94,17 @@ self.addEventListener("fetch", (event) => {
     if (res && (res.ok || res.type === "opaque") && !looksLikeFallback(url, res)) {
       cache.put(req, res.clone());
       // 同路径旧版本就地清理（防 ?v= 逐版累积吃存储）
+      // ⚠️缓存里那份 index 还点着名的旧版本不许删（2026-11-21 群友「旧标签页点 app 白屏」）：
+      //   更新前就开着的标签页还在跑旧版，它点进大页面时要按旧 ?v= 现拿那几份延后加载的代码；
+      //   缓存里删了就去网上拿，而 CF 不认 ?v=，拿回来的是新版内容——新代码塞进旧页面，执行到一半炸，
+      //   再点一次就是「Identifier 'NOTIFY_ROW' has already been declared」，整页白。
       if (isVersionedAsset(url)) {
+        const keep = await keptAssets(cache);
         const keys = await cache.keys();
         keys.forEach(k => {
           try {
             const ku = new URL(k.url);
-            if (ku.origin === url.origin && ku.pathname === url.pathname && ku.search !== url.search) cache.delete(k);
+            if (ku.origin === url.origin && ku.pathname === url.pathname && ku.search !== url.search && !keep.has(ku.href)) cache.delete(k);
           } catch (e) {}
         });
       }
@@ -137,15 +142,28 @@ async function installShell(html, headers, urls) {
     if (!res.ok || looksLikeFallback(new URL(u), res)) throw new Error("shell asset " + res.status + " " + u);
     await cache.put(u, res);
   }
-  // 块全齐 → 换 index → 清掉被新 index 取代的同路径旧版本
+  // 块全齐 → 换 index → 清掉同路径的更老版本。
+  //   ⚠️上一代（被换下来的那份 index 点名的）留着：还开着的旧标签页要用它们，删了它就去网上拿到新内容。
+  //   再上一代才清——每个文件最多留两份。
+  const prevHtml = await (async () => { try { const r = await cache.match("__index__"); return r ? await r.text() : ""; } catch (e) { return ""; } })();
   await cache.put("__index__", new Response(html, { headers }));
-  const want = new Map(urls.map(u => { const x = new URL(u); return [x.pathname, x.search]; }));
+  _kept = null;
+  const keep = new Set(urls.concat(shellAssets(prevHtml)));
+  const paths = new Set(urls.map(u => new URL(u).pathname));
   for (const k of await cache.keys()) {
     try {
       const ku = new URL(k.url);
-      if (ku.origin === self.location.origin && want.has(ku.pathname) && want.get(ku.pathname) !== ku.search) await cache.delete(k);
+      if (ku.origin === self.location.origin && paths.has(ku.pathname) && ku.search && !keep.has(ku.href)) await cache.delete(k);
     } catch (e) {}
   }
+}
+// 缓存里那份 index 点名的文件（按 index 内容记一份，换 index 时清掉重算）
+let _kept = null;
+async function keptAssets(cache) {
+  if (_kept) return _kept;
+  try { const r = await cache.match("__index__"); _kept = new Set(r ? shellAssets(await r.text()) : []); }
+  catch (e) { _kept = new Set(); }
+  return _kept;
 }
 async function serveShell(event, req) {
   const cache = await caches.open(SHELL_CACHE);
@@ -168,7 +186,7 @@ async function serveShell(event, req) {
   const miss = await missingAssets(cache, urls);
   if (!miss.length || !cached) {
     // 新版块已齐（或第一次装没得选）：用新版；块没齐的话由页面自己按缓存优先去拉
-    if (!miss.length) await cache.put("__index__", new Response(html, { headers }));
+    if (!miss.length) { await cache.put("__index__", new Response(html, { headers })); _kept = null; }
     else event.waitUntil(installShell(html, headers, urls).catch(e => console.warn("[sw] 首装补块未完成", e)));
     return new Response(html, { status: fresh.status, statusText: fresh.statusText, headers });
   }

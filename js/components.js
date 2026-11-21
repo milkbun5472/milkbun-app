@@ -2175,7 +2175,8 @@ function LazyGate({ group, render, onBack, zh }) {
   const ready = !L || L.isLoaded(group);
   const [, bump] = useState(0);
   const [err, setErr] = useState("");
-  const go = () => { setErr(""); L.load(group).then(() => bump(n => n + 1), e => setErr((e && e.message) || String(e))); };
+  const [reload, setReload] = useState(false);
+  const go = () => { setErr(""); L.load(group).then(() => bump(n => n + 1), e => { setReload(!!(e && e.needReload)); setErr((e && e.message) || String(e)); }); };
   useEffect(() => { if (!ready) go(); }, [group]);
   if (ready) return render();
   // 不自己铺底：就是一层过渡页，透出 App 本来那层底（mobile-ui-layout §3.5 那套外壳归真页面）
@@ -2185,9 +2186,9 @@ function LazyGate({ group, render, onBack, zh }) {
       !err
         ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "在打开……")
         : h(React.Fragment, null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7 } }, "没打开：网好像断了。", h("br"), err),
-            h("button", { "data-wk": "lazyretry", onClick: go, className: "active:opacity-60",
-              style: { minHeight: 44, padding: "0 20px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "再试一次"))));
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7 } }, reload ? "没打开。" : "没打开：网好像断了。", h("br"), err),
+            h("button", { "data-wk": "lazyretry", onClick: reload ? () => { try { location.reload(); } catch (e) {} } : go, className: "active:opacity-60",
+              style: { minHeight: 44, padding: "0 20px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, reload ? "刷新" : "再试一次"))));
 }
 // 用到才加载的那几页：开机先放一个「替身」占住它的名字（app.js 里照旧写 h(Debate, {…})，一个字不用改）。
 //   点进去时替身给出 LazyGate 那一层、把这一组装上，装好了在同一个位置画真页面。
