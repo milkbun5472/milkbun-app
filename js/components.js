@@ -23201,6 +23201,7 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, spectate: sp
   const t = useTheme();
   const [name, setName] = useState(channel ? channel.chName || "" : "");
   const [about, setAbout] = useState(channel ? channel.chAbout || "" : "");
+  const [icon, setIcon] = useState(channel ? channel.chIcon || "" : "");   // 没头像时那一格放的小图标，空着就是「#」（她 2026-11-21 简约美化）
   const [solo, setSolo] = useState(!!(channel && channel.chSolo));
   const [shareM, setShareM] = useState(!!(channel && channel.chShareMembers));
   const [hole, setHole] = useState(!!(channel && channel.chKind === "treehole"));   // 树洞：大家匿名
@@ -23215,12 +23216,12 @@ function ChannelEditPage({ space, channel, allChars, noMem: noMem0, spectate: sp
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const ok = name.trim().replace(/^#/, "") && sel.length >= 1;
   return h(PageSheet, { onClose, zh: channel ? "改频道" : "新频道", sub: space.name,
-    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, maskOwn: chMask, spectate: spect, chNotify: notify, chSolo: solo || noMem || spect, chShareMembers: !!(shareM && solo && !noMem), chNoMem: noMem, chCat: cat, chArchived: arch, chKind: hole ? "treehole" : lounge ? "lounge" : "", chHours: night, avatarImage: chAv || null }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
+    right: h("button", { "data-wk": "chsave", disabled: !ok, onClick: () => ok && onSave({ chIcon: Array.from(icon.trim()).slice(0, 2).join(""), chName: name.trim().replace(/^#+/, "").slice(0, 16), chAbout: about.trim().slice(0, 120), memberIds: sel, maskOwn: chMask, spectate: spect, chNotify: notify, chSolo: solo || noMem || spect, chShareMembers: !!(shareM && solo && !noMem), chNoMem: noMem, chCat: cat, chArchived: arch, chKind: hole ? "treehole" : lounge ? "lounge" : "", chHours: night, avatarImage: chAv || null }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: ok ? t.accent : t.line } }, "保存") },
     h("div", { "data-wk": "chav", className: "flex items-center gap-3", style: { marginBottom: 14 } },
       h(AvatarPicker, { character: { name: name || "#", color: t.tint, avatarImage: chAv }, size: 44, radius: 10, onPick: setChAv, onClear: chAv ? () => setChAv(null) : null }),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } }, chAv ? "频道列表这一行和进去的群头像都是这张。点「移除照片」换回「#」。" : "没设头像就是一个「#」。点左边设一张，跟群头像是同一格。")),
     h("div", { className: "flex items-baseline gap-1 pb-2 mb-4", style: { borderBottom: "1px solid " + t.line } },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.fog } }, "#"),
+      h("input", { "data-wk": "chicon", value: icon, onChange: e => setIcon(Array.from(e.target.value).slice(-2).join("")), placeholder: "#", "aria-label": "频道图标", className: "outline-none", style: { width: 34, minWidth: 0, textAlign: "center", background: "transparent", fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: icon ? t.ink : t.fog } }),
       h("input", { "data-wk": "input", value: name, onChange: e => setName(e.target.value), placeholder: "频道名", className: "flex-1 outline-none", style: { background: "transparent", fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink } })),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 6 } }, "这里聊什么"),
     h("textarea", { "data-wk": "input", value: about, onChange: e => setAbout(e.target.value), rows: 2, placeholder: "一句话就行，大家进了这个频道就照这个来聊",
@@ -23344,10 +23345,14 @@ function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, o
   if (sub === "wall") return wrap(
     spectate ? null : h("button", { "data-wk": "chnoteadd", onClick: () => requestAppPrompt("贴一张便利贴", "写什么都行，几个字也算。", "", v => { const x = String(v || "").trim(); if (x) onPlay(s0 => chpNoteAdd(s0, x, "me")); }, "贴上"), className: "active:opacity-60", style: { ...btn, marginBottom: 10 } }, "贴一张"),
     h("div", { style: { ...small, marginBottom: 10 } }, "大家都能往墙上贴、在别人的纸条上写一句、撕掉自己的或者贴了一天以上的。"),
-    (st.notes || []).length ? h("div", { "data-wk": "chnotes", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 } }, st.notes.slice().reverse().map(n => h("div", { key: n.id, "data-wk": "chnote", style: { background: NOTE_TINT[(n.color || 0) % NOTE_TINT.length], borderRadius: 4, padding: "10px 10px 8px", boxShadow: "0 2px 6px rgba(0,0,0,.08)", color: "#3a3226", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.5 } },
-      h("div", { style: { whiteSpace: "pre-wrap", wordBreak: "break-word" } }, n.text),
-      (n.doodles || []).map((d, k) => h("div", { key: k, style: { fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#6b5d48", marginTop: 4, fontStyle: "italic" } }, nm(d.by) + "：" + d.text)),
-      h("div", { className: "flex items-center justify-between", style: { marginTop: 6, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#8a7b63" } }, nm(n.by),
+    // 墙（她 2026-11-21「简约风方便美化」）：一张张纸条，轻轻歪一点、顶上一截胶带；每一块都有自己的挂点，颜色走 data-part
+    (st.notes || []).length ? h("div", { "data-wk": "chnotes", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "14px 10px", paddingTop: 6 } }, st.notes.slice().reverse().map((n, i) => h("div", { key: n.id, "data-wk": "chnote", "data-part": "c" + ((n.color || 0) % NOTE_TINT.length), "data-mine": n.by === "me" ? "1" : "0",
+        style: { position: "relative", background: NOTE_TINT[(n.color || 0) % NOTE_TINT.length], borderRadius: 3, padding: "16px 11px 9px", boxShadow: "0 1px 2px rgba(0,0,0,.06), 0 4px 10px rgba(0,0,0,.05)", color: "#3a3226", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, transform: "rotate(" + (i % 3 === 0 ? -1.2 : i % 3 === 1 ? 0.8 : -0.4) + "deg)" } },
+      h("span", { "data-wk": "chnotetape", "aria-hidden": "true", style: { position: "absolute", top: -6, left: "50%", width: 38, height: 13, marginLeft: -19, background: "rgba(255,255,255,.55)", boxShadow: "0 0 0 1px rgba(0,0,0,.04)", transform: "rotate(-2deg)" } }),
+      h("div", { "data-wk": "chnotetext", style: { whiteSpace: "pre-wrap", wordBreak: "break-word" } }, n.text),
+      (n.doodles || []).length ? h("div", { style: { marginTop: 7, paddingTop: 5, borderTop: "1px dashed rgba(58,50,38,.18)" } },
+        n.doodles.map((d, k) => h("div", { key: k, "data-wk": "chnotedoodle", style: { fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#6b5d48", marginTop: k ? 3 : 0 } }, h("span", { style: { opacity: 0.7 } }, nm(d.by) + "　"), d.text))) : null,
+      h("div", { "data-wk": "chnotemeta", className: "flex items-center justify-between", style: { marginTop: 8, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#8a7b63" } }, "— " + nm(n.by),
         h("span", { className: "flex gap-3" }, tap("写一句", () => requestAppPrompt("在这张上写一句", "", "", v => { const x = String(v || "").trim(); if (x) onPlay(s0 => chpScribble(s0, n.text, x, "me")); }, "写上")),
           n.by === "me" || Date.now() - (n.ts || 0) > 86400000 ? tap("撕掉", () => onPlay(s0 => { s0.notes = s0.notes.filter(x => x.id !== n.id); return s0; })) : null))))) : h("div", { style: small }, "墙上还空着。"));
   if (sub === "songs") { const present = Math.max(1, (people || []).length);
@@ -23912,7 +23917,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
   const chRow = (g, i) => { const last = channelLast(chAnonMsgs(g, groupChats[g.id]), userLabel), un = (unreadMap || {})[g.id] || 0;
           return h("div", { key: g.id, "data-wk": "mlrow", "data-part": "channel", "data-unread": un > 0 ? "1" : "0", className: "flex items-stretch", style: { borderTop: i ? "1px solid " + t.line : "none" } },
             h("button", { onClick: () => onOpenChannel(g), className: "flex-1 min-w-0 flex items-start gap-3 text-left active:bg-black/5", style: { padding: "12px 4px 12px 14px" } },
-              g.avatarImage ? h("span", { "data-wk": "mlavatar", "data-part": "channel", style: { display: "inline-flex", flexShrink: 0 } }, h(Avatar, { character: { name: g.chName || g.name || "#", avatarImage: g.avatarImage }, size: 30, radius: 8 })) : h("span", { "data-wk": "mlavatar", "data-part": "channel", style: { width: 30, height: 30, borderRadius: 8, background: tone + "1f", color: tone, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, flexShrink: 0 } }, "#"),
+              g.avatarImage ? h("span", { "data-wk": "mlavatar", "data-part": "channel", style: { display: "inline-flex", flexShrink: 0 } }, h(Avatar, { character: { name: g.chName || g.name || "#", avatarImage: g.avatarImage }, size: 30, radius: 8 })) : h("span", { "data-wk": "mlavatar", "data-part": "channel", style: { width: 30, height: 30, borderRadius: 8, background: tone + "1f", color: tone, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: g.chIcon ? 16 : 17, flexShrink: 0 } }, g.chIcon || "#"),
               h("span", { className: "flex-1 min-w-0" },
                 h("span", { className: "flex items-center gap-2" },
                   h("span", { "data-wk": "mlname", "data-part": "channel", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, fontWeight: un > 0 ? 600 : 400 } }, g.chName || g.name),

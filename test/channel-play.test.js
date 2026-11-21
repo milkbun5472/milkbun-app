@@ -262,3 +262,9 @@ test("树洞：频道列表、消息列表、空间搜索里也只露代号", ()
 test("树洞的话不流到别处", () => {
   assert.match(ap, /if \(g\.chKind === "treehole"\) return false;/);
 });
+
+test("墙：纸条、胶带、写的一句、底下一行各有挂点；频道能挑一个图标", () => {
+  for (const k of ["chnotetape", "chnotetext", "chnotedoodle", "chnotemeta", "chicon"]) assert.match(cs, new RegExp('"data-wk": "' + k + '"'));
+  assert.match(cs, /g\.chIcon \|\| "#"/);
+  assert.match(ap, /patch\.chIcon != null \? \{ chIcon: patch\.chIcon \}/);
+});
