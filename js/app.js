@@ -14487,7 +14487,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             + (m.theirStick && (m.theirStick.emoji || m.theirStick.keyword) ? "\n【你往她这句上贴过一个 " + (m.theirStick.emoji || "表情包「" + m.theirStick.keyword + "」") + "；这是你做过的、真实发生过的事，不是谁说的话】" : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
           // 她的图：照片/请示/商品图走 imageRef，她的自拍走 imgKey
-          const _uRef = (m.kind === "photo" || m.kind === "selfie" || m.kind === "ask" || m.goodsImg) ? (m.imageRef || (m.kind === "selfie" ? m.imgKey : null)) : null;
+          const _uRef = (m.kind === "photo" || m.kind === "selfie" || m.kind === "ask" || m.goodsImg || m.storyImg) ? (m.imageRef || (m.kind === "selfie" ? m.imgKey : null)) : null;
           // 他上一轮自己发出去的那张（她 2026-10-31：「他生图下一轮回复后能不能让他也看到实际生出来的画面」）：
           //   助手那一侧挂不了图（很多接口不收），挂到紧跟着的这一条她的消息上，写明是他自己发的那张
           const _own = _ownPicNext; _ownPicNext = null;
@@ -36759,7 +36759,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onStoryReply: (st, tx, kind) => {
       const c = (characters || []).find(x => x && String(x.id) === String(st.by));
       if (!c) return;
-      pChat(c.id, p => [...p, { role: "user", content: tx, replyTo: kind === "ask" && st.sticker ? "【限时动态·回答提问】" + st.sticker.q : (kind === "react" ? "【对限时动态的回应】" : "【限时动态】") + (st.text || st.desc || "一张卡"), ts: Date.now(), read: true }]);
+      pChat(c.id, p => [...p, { role: "user", content: tx, replyTo: kind === "ask" && st.sticker ? "【限时动态·回答提问】" + st.sticker.q : (kind === "react" ? "【对限时动态的回应】" : "【限时动态】") + (st.text || st.desc || "一张卡") + (st.imgKey ? "（这条动态的样子随本轮附图给你看）" : ""), ts: Date.now(), read: true, ...(st.imgKey ? { imageRef: st.imgKey, storyImg: true } : {}) }]);
       if (window.Stories) window.Stories.addReply(st.id, "me", tx);
       toast("回复发到跟 " + (c.remark || c.name) + " 的聊天里了");
     },
