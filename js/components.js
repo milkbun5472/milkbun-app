@@ -9384,7 +9384,7 @@ function BackupBanner({ onOpenSettings }) {
       style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none" } }, "×"));
 }
 function Messages({
-  momCover, momCoverPos, onSetMomCover, onShareMoment,
+  momCover, momCoverPos, momCoverOf, onSetMomCover, onSetMomCoverFor, onShareMoment,
   onStoryNow,     // 让某个 TA 现在发一条限时动态（不占名额）
   onStoryReply,   // 回别人的限时动态（她 2026-11-14）：(story, text) → 落进跟 TA 的聊天
   onPinMoment,
@@ -9911,7 +9911,7 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } }, x.like ? "赞了你" : (x.reply ? "回复了你：" : "评论：") + x.text)),
         h("div", { style: { width: 44, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.4, overflow: "hidden", maxHeight: 44 } }, String(x.m.text || x.m.content || "").slice(0, 24)))),
       h("button", { "data-wk": "momnewsclear", onClick: () => { setNewsOpen(false); onMomentsSeen && onMomentsSeen(); }, className: "w-full active:opacity-70", style: { padding: "10px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "都看过了")) : null) : null,
-    cover: momCover, coverPos: momCoverPos, onSetCover: onSetMomCover, camOpen: momCam, setCamOpen: setMomCam, onOpenMine: () => onOpenMomProfile && onOpenMomProfile(null, true)
+    cover: momCover, coverPos: momCoverPos, coverOf: momCoverOf, onSetCover: onSetMomCover, onSetCoverFor: onSetMomCoverFor, camOpen: momCam, setCamOpen: setMomCam, onOpenMine: () => onOpenMomProfile && onOpenMomProfile(null, true)
   }), tab === "me" && h("div", {
     className: "p-5"
   }, h("button", {
@@ -10880,11 +10880,15 @@ function MomentsFeed({
   onPin,
   onOpenProfile,
   onDelComment,
-  cover, coverPos, onOpenMine, onSetCover, camOpen, setCamOpen, newsBar, onShare
+  cover: coverAll, coverPos: coverPosAll, coverOf, onOpenMine, onSetCover: onSetCoverAll, onSetCoverFor, camOpen, setCamOpen, newsBar, onShare
 }) {
   const [shareM, setShareM] = useState(null);   // 要转进哪个人聊天的那一条
   const [lockFor, setLockFor] = useState(null); // 点开了哪一条的小锁（看给谁看）
   const [maskView, setMaskView] = useState(null);   // null＝看全部；某张面具的 id（主面具是 ""）＝只看认这张面具的人
+  // 每张面具自己的封面（她 2026-11-22「filter 朋友圈面具能不能自定义每个面具的背景」）：只看某张面具时，封面换成它的、换封面也存到它名下；没设过就用总的那张
+  const _mk = maskView === null ? "" : "me#" + (maskView || "main");
+  const cover = (_mk && coverOf && coverOf(_mk)) || coverAll, coverPos = _mk && coverOf && coverOf(_mk) ? (coverOf(_mk + "@pos") || "") : coverPosAll;
+  const onSetCover = _mk && onSetCoverFor ? d => onSetCoverFor(_mk, d) : onSetCoverAll;
   const [moreFor, setMoreFor] = useState(null);     // 哪一条的「··」点开了
   // 长按一条评论删掉（群友 2026-11-02）：按住 600ms，挪开手指就算了；按出来之后那一下不算点
   const [delCm, setDelCm] = useState(null);
