@@ -37035,7 +37035,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return h(SpaceView, { key: "sp::" + sp.id, space: sp, channels: (groups || []).filter(g => g && g.spaceId === sp.id && !g.chHidden && !g.roomOf),
       // 空间内搜索、约定（她 2026-11-20）
       searchRun: q => { const chs = (groups || []).filter(g => g && g.spaceId === sp.id && !g.roomOf); const chN = gid => { const g = chs.find(x => x.id === gid); return g ? (g.chHidden ? "见面" : (g.chName || g.name)) : ""; };
-        return spaceSearch(q, { channels: chs.map(g => g.chHidden ? { ...g, chName: "见面" } : g), chatsOf: id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), filesOf: id => loadJSON("x_chfiles:" + id, []) || [], playOf: id => chpOf(id),
+        return spaceSearch(q, { channels: chs.map(g => g.chHidden ? { ...g, chName: "见面" } : g), chatsOf: id => { const _m = groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []); return chs.some(g => g.id === id && g.chKind === "treehole") ? thView(_m) : _m; }, filesOf: id => loadJSON("x_chfiles:" + id, []) || [], playOf: id => chpOf(id),
           gems: (loadJSON(gemKey(sp.id), []) || []).map(x => ({ ...x, ch: chN(x.gid) })) }, 100); },
       onPickResult: r => { const g = (groups || []).find(x => x && x.id === r.gid); if (!g) return; if (chClosedNow(g.id)) { chLockedToast(g); return; }
         setActiveGroup(g); clearUnread(g.id);

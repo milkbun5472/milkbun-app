@@ -250,3 +250,9 @@ test("文件每行按谁写的分颜色：顺着历史算", () => {
 test("文档能导出成 txt", () => {
   assert.match(cs, /"data-wk": "chfexport", onClick: async \(\) => \{ try \{ await saveTextFile\(/);
 });
+
+test("树洞：频道列表、消息列表、空间搜索里也只露代号", () => {
+  assert.match(cs, /const last = channelLast\(g\.chKind === "treehole" && typeof thView === "function" \? thView/);
+  assert.match(cs, /const l = channelLast\(g\.chKind === "treehole"/);
+  assert.match(ap, /g\.chKind === "treehole"\) \? thView\(_m\) : _m;/);
+});

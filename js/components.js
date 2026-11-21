@@ -9520,7 +9520,7 @@ function Messages({
     // 群里的小房间（她 2026-11-13「群聊咋开房间」）不单独占一行：最后一条和时间算进主群那行，入口在主群顶上那排
     // 频道里的那几个群不单独占行：整个频道空间占一行（SpaceRow），最后一句和未读加在一起
     ...(spaces || []).map(sp => { const chs = groups.filter(g => g && g.spaceId === sp.id && !g.chHidden); let last = null, lastG = null;
-      chs.forEach(g => { const l = channelLast(groupChats[g.id], "我"); if (l && (!last || l.ts > last.ts)) { last = l; lastG = g; } });
+      chs.forEach(g => { const l = channelLast(g.chKind === "treehole" && typeof thView === "function" ? thView(groupChats[g.id] || []) : groupChats[g.id], "我"); if (l && (!last || l.ts > last.ts)) { last = l; lastG = g; } });
       return { key: "sp_" + sp.id, id: sp.id, type: "space", sp, chs, last, lastG, ts: Math.max(last ? last.ts : 0, sp.ts || 0) }; }),
     ...groups.filter(g => !g.roomOf && !g.spaceId).map(g => { const rooms = groups.filter(r => r.roomOf === g.id); let last; [g].concat(rooms).forEach(x => { const ms = groupChats[x.id] || [], m = ms[ms.length - 1]; if (m && (!last || (m.ts || 0) > (last.ts || 0))) last = m; }); const off = Math.max(0, ...[g].concat(rooms).map(x => offLast[x.id] || 0)); return { key: "g_" + g.id, id: g.id, type: "group", g: g, last: last, ts: Math.max(last ? (last.ts || 0) : 0, off) }; }),
     // 配角私聊（她 2026-10-03）：聊过才进列表，没聊过的不冒出来——入口在通讯录 → 配角 → 详情页「发消息」。
@@ -23909,7 +23909,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
   const [talking, setTalking] = useState(false);
   const [meetOpen, setMeetOpen] = useState(false);   // 见面（她 2026-11-20「这里可以直接线下」）
   const [meetLogOpen, setMeetLogOpen] = useState(false);
-  const chRow = (g, i) => { const last = channelLast(groupChats[g.id], userLabel), un = (unreadMap || {})[g.id] || 0;
+  const chRow = (g, i) => { const last = channelLast(g.chKind === "treehole" && typeof thView === "function" ? thView(groupChats[g.id] || []) : groupChats[g.id], userLabel), un = (unreadMap || {})[g.id] || 0;
           return h("div", { key: g.id, "data-wk": "mlrow", "data-part": "channel", "data-unread": un > 0 ? "1" : "0", className: "flex items-stretch", style: { borderTop: i ? "1px solid " + t.line : "none" } },
             h("button", { onClick: () => onOpenChannel(g), className: "flex-1 min-w-0 flex items-start gap-3 text-left active:bg-black/5", style: { padding: "12px 4px 12px 14px" } },
               g.avatarImage ? h("span", { "data-wk": "mlavatar", "data-part": "channel", style: { display: "inline-flex", flexShrink: 0 } }, h(Avatar, { character: { name: g.chName || g.name || "#", avatarImage: g.avatarImage }, size: 30, radius: 8 })) : h("span", { "data-wk": "mlavatar", "data-part": "channel", style: { width: 30, height: 30, borderRadius: 8, background: tone + "1f", color: tone, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, flexShrink: 0 } }, "#"),
