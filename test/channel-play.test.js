@@ -233,3 +233,8 @@ test("树洞代号每个号一张固定的匿名脸", () => {
 test("树洞里不私聊她", () => {
   assert.match(ap, /const gDmMembers = gs\.memoryInterop && !\(group && group\.chKind === "treehole"\)/);
 });
+
+test("状态挂久了或空着：一半的轮次点一个人换状态", () => {
+  assert.match(ap, /名字底下的状态】/);
+  assert.match(ap, /Date\.now\(\) - \(Number\(_sa\[c\.id\]\.ts\) \|\| 0\) > 6 \* 3600000/);
+});
