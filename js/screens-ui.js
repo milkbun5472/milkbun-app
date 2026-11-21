@@ -2351,7 +2351,11 @@ function Forum({
   // 配色跟着排版换（她 2026-10-24「配色也改成小红书吧」）：双列＝小红书的白底红字，单列＝原来的小报绿
   //   FORUM_SKIN 是全论坛共用的那一份，这里整份换掉，不用每处各判一次
   const [nav, setNav] = useState("home");           // home | search | pm | me
-  const [tab, setTab] = useState("吐槽吧");           // 主页版块 或 "关注"
+  // 隐藏了的吧不当默认那一格（群里 2026-11-21「隐藏了一点进去还是原先默认的吧」）
+  const firstShownBoard = () => { const sh = forumBoardsShown(); return sh.indexOf("吐槽吧") >= 0 ? "吐槽吧" : (sh[0] || "关注"); };
+  const [tab, setTab] = useState(firstShownBoard);           // 主页版块 或 "关注"
+  // 论坛一直挂着、或者刚在「吧的顺序」里把当前这个吧藏了（她 2026-11-21 截图：藏了还停在吐槽吧）：落到第一个没藏的
+  useEffect(() => { if (forumBoardPrefs().hidden.indexOf(tab) >= 0) setTab(firstShownBoard()); });
   const [feedSort, setFeedSort] = useState("active"); // active | latest | hot
   // 「新帖在这里」「新回复在这里」默认收着，只露一行标题和数（她 2026-10-07：「能不能搞 dropdown 隐藏，点开才展开」）
   const [newPostsOpen, setNewPostsOpen] = useState(false);
@@ -2386,7 +2390,7 @@ function Forum({
     return h("div", { "data-wk": "foboardsortpage", className: "flex flex-col", style: { position: "absolute", inset: 0, zIndex: 60, background: FORUM_SKIN.bg } },
       h(Head, { zh: "吧的顺序", onBack: () => setSortOpen(false) }),
       h("div", { className: "flex-1 overflow-y-auto px-4", style: { paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.55, color: FORUM_SKIN.fog, padding: "10px 0 6px" } }, "↑↓ 挪位置，顶上那排和发帖选吧都照这个顺序。藏起来的吧只是不在顶上那排出现，帖子、发帖选吧、他们去那儿发帖都照常。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.55, color: FORUM_SKIN.fog, padding: "10px 0 6px" } }, "↑↓ 挪位置，顶上那排和发帖选吧都照这个顺序。藏起来的吧不在顶上那排出现，它的帖子也不进「发现」「关注」和新回复，刷新和角色发帖都不往里发；帖子没删，取消就回来，收藏过的还在「收藏」里。"),
         list.map((n, i) => { const off = hid.indexOf(n) >= 0; return h("div", { key: n, "data-wk": "foboardsortrow", className: "flex items-center", style: { gap: 4, minHeight: 52, borderBottom: "1px solid " + FORUM_SKIN.line } },
           h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: off ? FORUM_SKIN.fog : FORUM_SKIN.ink, textDecoration: off ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n),
           h("button", { "data-wk": "foboardhide", onClick: () => toggleHide(n), className: "active:opacity-60 shrink-0", style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: off ? FORUM_SKIN.accent : FORUM_SKIN.fog, background: "transparent", border: "none" } }, off ? "放出来" : "藏起来"),
@@ -2428,7 +2432,7 @@ function Forum({
     requestAppConfirm("拆掉「" + name + "」？", n ? "里面 " + n + " 个帖不会删，会挪到「搜索」那一页里。" : "这个吧里还没有帖，拆了就没了。", () => {
     if (n && onDropBoard) onDropBoard(name);
     saveBoards(forumCustomBoards().filter(b => b.name !== name));
-    setTab("吐槽吧"); setPage(1);
+    setTab(firstShownBoard()); setPage(1);
   }, "拆吧");
   };
   // 这一格是不是她开的吧；横杠上挂什么（写死的吧规，或者她写的那句简介）
@@ -2544,7 +2548,9 @@ function Forum({
     return interaction / Math.pow(ageHours + 2, 1.18);
   };
   const unreadFloors = postId => (cmts[postId] || []).filter(x => forumVisible(x) && x.authorType !== "me" && floorArrivedAt(x) > Number(forumReadCursors[postId] || 0)).length;
-  const forumUnreadRows = (posts || []).filter(forumVisible).map(post => ({ post, count: unreadFloors(post.id) }))
+  // 隐藏了的吧：帖子、新回复、红点一并不出（收藏夹除外——那是她自己存的）
+  const boardOn = p => !p || forumBoardPrefs().hidden.indexOf(p.board) < 0;
+  const forumUnreadRows = (posts || []).filter(p => forumVisible(p) && boardOn(p)).map(post => ({ post, count: unreadFloors(post.id) }))
     .filter(x => x.count > 0).sort((a, b) => postLastActivity(b.post) - postLastActivity(a.post));
   const forumUnreadTotal = forumUnreadRows.reduce((n, x) => n + x.count, 0);
   const [newPostSeen, setNewPostSeen] = useState([]);
@@ -2948,7 +2954,7 @@ function Forum({
   // 双列：一左一右轮着放（CSS 分栏是先把左边一列填满，两三篇时全挤在左边）
   const xhsGrid = (list, wk) => h("div", { "data-wk": wk || "foxhsgrid", className: "flex items-start", style: { gap: 8, padding: "10px 10px 0" } },
     [0, 1].map(col => h("div", { key: col, className: "flex-1 min-w-0" }, list.filter((x, i) => i % 2 === col).map(noteCard))));
-  const xhsRandBoard = () => { const bs = forumBoardsAll().filter(b => b !== "匿名吧"); return bs[Math.floor(Math.random() * bs.length)] || "日常吧"; };
+  const xhsRandBoard = () => { const bs = forumBoardsShown().filter(b => b !== "匿名吧"); return bs[Math.floor(Math.random() * bs.length)] || "日常吧"; };
   const xhsAuthorReplied = (post, cm) => (cm.replies || []).some(r => r && (r.isOp || (!post.anon && r.authorName === post.authorName)));
   const xhsLikes = (post, cm) => Number(cm.likeCount || 0) + (cm.replies || []).length * 6 + (xhsAuthorReplied(post, cm) ? 24 : 0);
   // 小红书的主页：获赞与收藏一行，下面笔记排成双列；自己的主页多「收藏」「赞过」两栏
@@ -3389,7 +3395,7 @@ function Forum({
   // ---- 主页版块列表 ----
   function homeFeed() {
     // 两套帖子各走各的：双列只列小红书格式那套（fmt:"xhs"），单列只列原来那套
-    let arr = (posts || []).filter(p => forumVisible(p) && (tab === "收藏" || forumBoardsAll().includes(p.board)) && (p.fmt === "xhs") === cardLayout);
+    let arr = (posts || []).filter(p => forumVisible(p) && (tab === "收藏" || (forumBoardsAll().includes(p.board) && boardOn(p))) && (p.fmt === "xhs") === cardLayout);
     if (tab === "收藏") arr = arr.filter(p => bookmarked.has(p.id));
     else if (tab === "关注") arr = arr.filter(followedPost);
     else if (tab !== "发现") arr = arr.filter(p => p.board === tab);
@@ -3499,7 +3505,7 @@ function Forum({
           style: { minHeight: 32, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", background: tab === k ? FORUM_SKIN.paper : "transparent", color: tab === k ? FORUM_SKIN.ink : FORUM_SKIN.fog, fontWeight: tab === k ? 700 : 400, border: "1px solid " + (tab === k ? FORUM_SKIN.line : "transparent") } }, zh))
           .concat([h("button", { key: "__sortboard", "data-wk": "foboardsort", onClick: () => setSortOpen(true), className: "shrink-0 whitespace-nowrap active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px dashed " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, background: "transparent" } }, "排序"), h("button", { key: "__newboard", onClick: () => setNewBoard({ name: "", about: "" }), className: "shrink-0 whitespace-nowrap active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px dashed " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: FORUM_SKIN.sub } }, "＋ 新话题")]))),
     (!inSub && nav === "home" && !cardLayout) && h("div", { "data-wk": "foboards", className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: FORUM_SKIN.bar, scrollbarWidth: "none" } }, [...forumBoardsShown(), "关注", "收藏"].map(b => {
-      const count = (posts || []).filter(p => forumVisible(p) && (b === "收藏" ? bookmarked.has(p.id) : b === "关注" ? followedPost(p) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
+      const count = (posts || []).filter(p => forumVisible(p) && (b === "收藏" ? bookmarked.has(p.id) : b === "关注" ? followedPost(p) && boardOn(p) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
       return chip((cardLayout && b !== "关注" && b !== "收藏" ? "#" : "") + b + (count > 0 ? " · " + count : ""), tab === b, () => { setTab(b); setPage(1); });
     }).concat([
       // 开个吧：排在最后，虚线描边——它不是一个吧，是一个「再开一个」的空位
