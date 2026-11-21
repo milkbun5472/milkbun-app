@@ -17042,8 +17042,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const have = chpHint(st, groupChatsRef.current[groupId] || [], id => (((characters || []).find(c => c.id === id) || {}).name || id), { her: herNameIn(groupId) });
         const can = [];
         can.push(["r", "\"react\":{\"quote\":\"最近一句话里逐字的一小段\",\"emoji\":\"" + CHP_EMOJI.join("") + " 里挑一个\"}——在那句底下点个表情，不用开口也算表了态"]);
-        if (!spect && chpCount(st, "rename") < CHP_CAP.rename) can.push(["r", "\"rename\":{\"name\":\"新频道名\",\"about\":\"新的一句这里聊什么\"}——两样可以只写一样，频道里大家都看得到是谁改的，别人也能改回去"]);
-        can.push(["r", "\"pin\":{\"quote\":\"要钉到顶上那句里逐字的一小段\"} 或 \"unpin\":{\"quote\":\"…\"}——置顶最多三条"]);
+        if (!spect && chpCount(st, "rename") < CHP_CAP.rename) can.push(["rename", "\"rename\":{\"name\":\"新频道名\",\"about\":\"新的一句这里聊什么\"}——两样可以只写一样，频道里大家都看得到是谁改的，别人也能改回去"]);
+        can.push(["pin", "\"pin\":{\"quote\":\"要钉到顶上那句里逐字的一小段\"} 或 \"unpin\":{\"quote\":\"…\"}——置顶最多三条"]);
         if (chpCount(st, "note") < CHP_CAP.note) can.push(["w", "\"note\":{\"text\":\"往墙上贴一张便利贴\"}"]);
         can.push(["w", "\"scribble\":{\"on\":\"墙上那张便利贴里的一小段\",\"text\":\"在上面写一句\"}、\"tear\":{\"quote\":\"…\"}——撕的是自己的，或者贴了一天以上的"]);
         if (window.__chAskSongs === groupId) { window.__chAskSongs = null; _askSongs = true; }
@@ -17059,7 +17059,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 墙每轮都摆；她叫的、跟眼下聊的对得上的摆上；剩下的每轮轮流抽一样
         const _rt = (groupChatsRef.current[groupId] || []).slice(-8).map(m => (m && m.content) || "").join("\n");
         const _petLow = (() => { const _pn = st.pet && typeof chpPetNow === "function" ? chpPetNow(st.pet, Date.now()) : null; return !!(_pn && ((_pn.full != null && _pn.full < 45) || (_pn.joy != null && _pn.joy < 45))); })();
-        const _hot = { w: true, f: true, song: _askSongs || !!(group.chListen) || /歌|听|曲|唱/.test(_rt), skip: !!(group.chListen) && /难听|切歌|换一首|换首/.test(_rt), ledger: /钱|请客|付|块|元|AA|买单|报销|账/.test(_rt), care: _petLow || /喂|浇|饿|渴/.test(_rt) };
+        const _hot = { w: true, f: true, song: _askSongs || !!(group.chListen) || /歌|听|曲|唱/.test(_rt), skip: !!(group.chListen) && /难听|切歌|换一首|换首/.test(_rt), ledger: /钱|请客|付|块|元|AA|买单|报销|账/.test(_rt), care: _petLow || /喂|浇|饿|渴|小家伙/.test(_rt), rename: /改名|频道名|改个名|换个名/.test(_rt), pin: /置顶|钉|顶上/.test(_rt), r: /表情|点个/.test(_rt) };
         const _keep = can.filter(x => _hot[x[0]]), _rest = can.filter(x => !_hot[x[0]]);
         if (_rest.length) _keep.push(_rest[Math.floor(Math.random() * _rest.length)]);
         return have + "\n【频道里还能这样动】谁想动，就在他自己那条发言里加上对应的字段，一轮里几个人可以各动各的：\n· " + _keep.map(x => x[1]).join("\n· ") + (tree ? "\n（树洞里大家都是代号，动了什么也只显示代号。）" : "");
