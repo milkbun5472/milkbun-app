@@ -55,8 +55,15 @@
     s.text = text + "\n//# sourceURL=" + src.split("?")[0];
     document.head.appendChild(s);   // 内联脚本挂上就同步执行完
   };
+  const broken = {};
+  const staleErr = group => {
+    const e = new Error("这一页的代码跟正在开着的秋秋机对不上（多半是开着的时候更新过了），刷新一下就好。" + (broken[group] ? "\n" + broken[group] : ""));
+    e.needReload = true;
+    return e;
+  };
   function load(group) {
     if (loaded[group]) return Promise.resolve();
+    if (broken[group]) return Promise.reject(staleErr(group));
     if (pending[group]) return pending[group];
     const tags = tagsOf(group);
     if (!tags.length) { loaded[group] = true; return Promise.resolve(); }   // 这一组没登记延后（比如测试或老版本页面）：当它本来就在
@@ -67,7 +74,19 @@
         texts.forEach(p => p.catch(() => {}));   // 先挂上接手的，别在等前面那份时冒「未处理」
         for (let i = 0; i < todo.length; i++) {
           const text = await texts[i];   // 前面那份没到，后面的已经在下着了
-          await runText(todo[i].getAttribute("data-src"), text);
+          // ⚠️执行到一半炸了，不许下次再执行同一份（2026-11-21 群友旧标签页白屏）：
+          //   顶层的 const 已经登记进全局，再跑一遍只会撞「Identifier … has already been declared」，
+          //   真病根被盖住、点多少次都白。最常见的起因是这页在 app 更新前就开着：旧页面拿到了新版代码。
+          //   所以记下这一组坏了，告诉她刷新——刷新才能让页面和代码对上。
+          //   只管【内联执行】那一种：走原 src 的（含动态导入）没下载下来是网的事，照旧下次重试。
+          const src = todo[i].getAttribute("data-src");
+          if (/\bimport\s*(?:\(|\/[/*])/.test(text)) await runText(src, text);
+          else try { runText(src, text); }
+          catch (e) {
+            broken[group] = String((e && e.message) || e).slice(0, 160);
+            todo[i].setAttribute("data-done", "1");
+            throw staleErr(group);
+          }
           todo[i].setAttribute("data-done", "1");   // 半路断了，下次从没跑过的那份接着来，跑过的不重跑
         }
       } else {
