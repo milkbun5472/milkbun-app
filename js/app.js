@@ -17061,7 +17061,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const _petLow = (() => { const _pn = st.pet && typeof chpPetNow === "function" ? chpPetNow(st.pet, Date.now()) : null; return !!(_pn && ((_pn.full != null && _pn.full < 45) || (_pn.joy != null && _pn.joy < 45))); })();
         const _hot = { w: true, f: true, song: _askSongs || !!(group.chListen) || /歌|听|曲|唱/.test(_rt), skip: !!(group.chListen) && /难听|切歌|换一首|换首/.test(_rt), ledger: /钱|请客|付|块|元|AA|买单|报销|账/.test(_rt), care: _petLow || /喂|浇|饿|渴|小家伙/.test(_rt), rename: /改名|频道名|改个名|换个名/.test(_rt), pin: /置顶|钉|顶上/.test(_rt) };
         const _keep = can.filter(x => _hot[x[0]]), _rest = can.filter(x => !_hot[x[0]]);
-        if (_rest.length) _keep.push(_rest[Math.floor(Math.random() * _rest.length)]);
+        // 没聊到的也轮流出来（她 2026-11-21「除了聊到也可以随机出来」）：每轮抽两样
+        for (let _i = 0; _i < 2 && _rest.length; _i++) _keep.push(_rest.splice(Math.floor(Math.random() * _rest.length), 1)[0]);
         return have + "\n【频道里还能这样动】谁想动，就在他自己那条发言里加上对应的字段，一轮里几个人可以各动各的：\n· " + _keep.map(x => x[1]).join("\n· ") + (tree ? "\n（树洞里大家都是代号，动了什么也只显示代号。）" : "");
       })() : "";
       // 名字底下挂的状态（她 2026-11-20「每个人的状态」）：大家挂着什么、她挂着什么；旁观频道里不提她
