@@ -162,3 +162,20 @@ test("单聊页不引用群里才有的 settings／group（v89.935 白屏）", (
   const a = cs.indexOf("function ChatThread("), b = cs.indexOf("\nfunction ", a + 10);
   assert.doesNotMatch(cs.slice(a, b), /const _gSpect/);
 });
+
+test("一轮只摆几样：墙每轮都有，剩下的跟眼下有关的加一样轮流的；墙和文件每轮提一句", () => {
+  assert.match(ap, /const _keep = can\.filter\(x => _hot\[x\[0\]\]\)/);
+  assert.match(ap, /_hot = \{ w: true, f: true/);
+  assert.match(ap, /【墙和文件】/);
+});
+
+test("她贴墙、在便利贴上写、新建／改文件：聊天里留一行；他们写便利贴也留一行", () => {
+  assert.match(ap, /你往墙上贴了张便利贴：「/);
+  assert.match(ap, /那张上写了：「/);
+  assert.match(ap, /kind: "chfile", fileId: x\.f\.id, content: "你" \+ x\.op/);
+  assert.match(ap, /_say\(spk\.name \+ " 在墙上一张便利贴上写了一句"\)/);
+});
+
+test("她记账、结账、加歌、拿掉歌、照顾小家伙、改名、置顶：聊天里都留一行", () => {
+  for (const re of [/你在账本上记了一笔/, /你在账本上结了一笔/, /你往歌单里加了《/, /从歌单里拿掉了/, /你去照顾了「/, /你给它改名叫「/, /」置顶了", ts/]) assert.match(ap, re);
+});
