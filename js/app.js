@@ -19779,6 +19779,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const g = (groupsRef.current || []).find(x => x && x.id === gid);
     const sp = g && g.spaceId ? (spacesRef.current || []).find(x => x && x.id === g.spaceId) : null;
     if (!sp || !sp.titles || !Object.keys(sp.titles).length) return gs0;
+    // 不满一周就评出来的那批（11-20 晚上之前的版本一开小频就评）不挂（她 2026-11-21「空间才建一天」）
+    if ((Number(sp.titlesTs) || 0) - Math.max(Number(sp.botOnTs) || 0, Number(sp.ts) || 0) < 6 * 86400000) return gs0;
     return { ...gs0, titles: { ...sp.titles, ...((gs0 && gs0.titles) || {}) } };
   };
   // 频道里一起听（她 2026-11-20）：开着的时候，你播放器里正放的那首就是这个频道里大家一起在听的；歌是你这边放的那一首，

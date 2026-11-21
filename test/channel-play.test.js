@@ -207,3 +207,7 @@ test("树洞里她也是代号；存群设置不把每周称号当成封的头�
   assert.match(cs, /_thMe \|\| meName\)/);
   assert.match(ap, /!\(v && _wk\[id\] === v && !_own\[id\]\)/);
 });
+
+test("不满一周评出来的称号不挂", () => {
+  assert.match(ap, /\(Number\(sp\.titlesTs\) \|\| 0\) - Math\.max\(Number\(sp\.botOnTs\) \|\| 0, Number\(sp\.ts\) \|\| 0\) < 6 \* 86400000\) return gs0;/);
+});
