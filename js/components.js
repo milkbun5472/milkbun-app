@@ -23230,6 +23230,7 @@ function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, o
   const [castSel, setCastSel] = useState(null);     // 和它合照：这张里有谁（null＝没打开）
   const [libOpen, setLibOpen] = useState(false);   // 从我的歌里挑（她 2026-11-20「歌单怎么没有选播放器里面的」）
   const [libQ, setLibQ] = useState("");
+  const [petView, setPetView] = useState(null);   // 小家伙那张大图看的是哪一张
   const t = useTheme();
   const [form, setForm] = useState({});
   const st = play || {}, nm = id => id === "me" ? "我" : ((nameOf && nameOf(id)) || id || "有人");
@@ -23319,7 +23320,13 @@ function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, o
             style: { minHeight: 32, padding: "0 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, p0.name); })),
         h("button", { "data-wk": "chpetcastgo", disabled: busy || !castSel.length, onClick: () => { onPetGroupPhoto(castSel); setCastSel(null); }, className: "active:opacity-60 disabled:opacity-40", style: btn }, busy ? "在拍…" : "拍")) : null,
       h("div", { "data-wk": "chpetinfo", style: card },
-        pet.photo ? h(ChfImg, { k: pet.photo, style: { width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 10, marginBottom: 10, display: "block" } }) : null,
+        // 大图默认是定妆照；拍过的都排在底下一小排，点哪张看哪张（她 2026-11-21「拍了合照怎么看回定妆照」）
+        (() => { const _ref = pet.lookRef || pet.photo, _all = [_ref].concat((pet.photos || []).filter(k => k && k !== _ref)).filter(Boolean), _cur = _all.indexOf(petView) >= 0 ? petView : _ref;
+          return _cur ? h("div", { style: { marginBottom: 10 } },
+            h(ChfImg, { k: _cur, style: { width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 10, display: "block" } }),
+            _all.length > 1 ? h("div", { "data-wk": "chpetphotos", className: "flex", style: { gap: 6, marginTop: 6, overflowX: "auto" } }, _all.map((k, i) => h("button", { key: k, "data-on": k === _cur ? "1" : "0", onClick: () => setPetView(k), className: "active:opacity-60 shrink-0", style: { width: 52, textAlign: "center", opacity: k === _cur ? 1 : 0.6 } },
+              h(ChfImg, { k, style: { width: 52, height: 52, objectFit: "cover", borderRadius: 8, display: "block", border: k === _cur ? "2px solid " + t.ink : "none", boxSizing: "border-box" } }),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, i === 0 ? "定妆照" : "第" + i + "张")))) : null) : null; })(),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "「" + pet.name + "」" + (pet.kind ? " · " + pet.kind : pet.kindPending ? " · 还没定是什么" : "")),
         h("div", { "data-wk": "chpetdoing", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, marginTop: 4 } }, "此刻" + pet.doing),
         bar("饱腹", pet.full, "full"), bar("心情", pet.joy, "joy"), bar("精神", pet.energy, "energy"),

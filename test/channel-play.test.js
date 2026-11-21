@@ -179,3 +179,8 @@ test("她贴墙、在便利贴上写、新建／改文件：聊天里留一行�
 test("她记账、结账、加歌、拿掉歌、照顾小家伙、改名、置顶：聊天里都留一行", () => {
   for (const re of [/你在账本上记了一笔/, /你在账本上结了一笔/, /你往歌单里加了《/, /从歌单里拿掉了/, /你去照顾了「/, /你给它改名叫「/, /」置顶了", ts/]) assert.match(ap, re);
 });
+
+test("小家伙大图默认定妆照，拍过的排在底下能点回去", () => {
+  assert.match(cs, /_ref = pet\.lookRef \|\| pet\.photo/);
+  assert.match(cs, /"data-wk": "chpetphotos"/);
+});
