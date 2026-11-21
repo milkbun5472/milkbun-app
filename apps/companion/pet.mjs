@@ -3,17 +3,17 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {makeReactions} from './reactions.mjs?v=fg-810d3c084a6e8474';
-import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-810d3c084a6e8474';
-import {makeInteractions,afterInteraction} from './interactions.mjs?v=fg-810d3c084a6e8474';
-import {targetAt} from './touch-targets.mjs?v=fg-810d3c084a6e8474';
-import {MOODS,DUR,WEATHER_ACTIONS,moodBase,pulse,accent,chooseAction,touchForMood} from './motion.mjs?v=fg-810d3c084a6e8474';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-810d3c084a6e8474';
-import {createWardrobe,lookForTa,mergeLook,outfitId,outfitColors} from '../fairy-garden/wardrobe.mjs?v=fg-810d3c084a6e8474';
+import {makeReactions} from './reactions.mjs?v=fg-29ad6c7f1af761d3';
+import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-29ad6c7f1af761d3';
+import {makeInteractions,afterInteraction} from './interactions.mjs?v=fg-29ad6c7f1af761d3';
+import {targetAt} from './touch-targets.mjs?v=fg-29ad6c7f1af761d3';
+import {MOODS,DUR,WEATHER_ACTIONS,moodBase,pulse,accent,chooseAction,touchForMood} from './motion.mjs?v=fg-29ad6c7f1af761d3';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-29ad6c7f1af761d3';
+import {createWardrobe,lookForTa,mergeLook,outfitId,outfitColors} from '../fairy-garden/wardrobe.mjs?v=fg-29ad6c7f1af761d3';
 const mode=new URLSearchParams(location.search).get('mode')||'full',reactions=makeReactions(),interactions=makeInteractions();
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
-const r=new T.WebGLRenderer({antialias:true,alpha:true});r.setClearColor(0,0);r.setPixelRatio(Math.min(2,devicePixelRatio||1));r.outputColorSpace=T.SRGBColorSpace;document.body.append(r.domElement);
+const r=new T.WebGLRenderer({antialias:true,alpha:true});r.setClearColor(0,0);r.setPixelRatio(Math.min(mode==='float'?1.5:2,devicePixelRatio||1));r.outputColorSpace=T.SRGBColorSpace;document.body.append(r.domElement);
 const sc=new T.Scene();sc.add(new T.HemisphereLight('#fff8ee','#b8a38c',2.3));const sun=new T.DirectionalLight('#ffffff',1.5);sun.position.set(1.2,3,2.6);sc.add(sun);
 const cam=new T.PerspectiveCamera(mode==='float'?24:26,1,.05,20);
 let cameraMid=.615,cameraDist=3.3;
@@ -56,7 +56,8 @@ addEventListener('message',e=>{if(e.data&&e.data.type==='pet-look')apply(e.data)
 function playAct(k){if(!k||!Number.isFinite(DUR[k])||held)return;if(k==='sleep'){sleeping=true;act=null;return;}if(sleeping){sleeping=false;reportWake();}act={kind:k,start:clock.getElapsedTime(),source:'chat'};}
 // 外壳告诉他你在哪一页、有没有在放歌、多久没碰手机（她 2026-09-26：点他有反应／跟着时间／看你在干嘛）。
 let ctx={screen:'',music:false,idle:false,typing:false,weather:null,returnSeq:0},sleeping=false;
-function setCtx(m){ctx={life:m.life||null,screen:String(m.screen||''),music:!!m.music,idle:!!m.idle,typing:!!m.typing,scrolling:!!m.scrolling,weather:m.weather||null,returnSeq:Number(m.returnSeq)||0};reactions.observe(ctx,pet?clock.getElapsedTime():0);applyLife();}
+let syncFloatLoop=()=>{};
+function setCtx(m){ctx={life:m.life||null,screen:String(m.screen||''),music:!!m.music,idle:!!m.idle,typing:!!m.typing,scrolling:!!m.scrolling,weather:m.weather||null,returnSeq:Number(m.returnSeq)||0};reactions.observe(ctx,pet?clock.getElapsedTime():0);applyLife();syncFloatLoop();}
 function applyLife(){
  const life=ctx.life;if(!pet||!life||life.characterId!==cur.characterId)return;
  const key=life.characterId+':'+life.rev;if(key===lifeKey)return;lifeKey=key;
@@ -130,7 +131,7 @@ function poke(){const t=clock.getElapsedTime();if(sleeping){wake();return;}inter
 const FRAME=mode==='float'?1/12:1/40;let lastDraw=-1,lastTold=null;
 function frame(){const t=clock.getElapsedTime();
  if(mode==='float'&&(ctx.typing||ctx.scrolling)&&!held)return;
- if(t-lastDraw<FRAME)return;lastDraw=t;
+ if(mode!=='float'&&t-lastDraw<FRAME)return;lastDraw=t;
  draw(t);}
 function draw(t){
  const face=behaviorMood(),M=MOODS[face]||MOODS.default;
@@ -170,18 +171,29 @@ function draw(t){
  // 他这会儿在干什么，报给外壳写成一行字——十种心情各一套动作，不说没人看得出来
  const now=sleeping?'sleep':held?'held':act?act.kind:'';
  if(now!==lastTold){lastTold=now;parent.postMessage({type:'pet-act',kind:now},'*');}}
-r.setAnimationLoop(frame);
+// A throttled animation loop still wakes the chat at the display refresh rate.
+let floatTimer=null;
+syncFloatLoop=()=>{
+ if(mode!=='float')return;
+ if(document.hidden||((ctx.typing||ctx.scrolling)&&!held)){
+  clearTimeout(floatTimer);floatTimer=null;return;
+ }
+ if(floatTimer!==null)return;
+ const delay=Math.max(0,(FRAME-clock.getElapsedTime()+lastDraw)*1000);
+ floatTimer=setTimeout(()=>{floatTimer=null;frame();syncFloatLoop();},Math.ceil(delay));
+};
+if(mode==='float')syncFloatLoop();else if(!document.hidden)r.setAnimationLoop(frame);
 // 切后台／锁屏／换到别的 app：停到看得见再说（clock 照走，回来时不让他从半个动作里接）
 document.addEventListener('visibilitychange',()=>{
- if(document.hidden){cancelTouch();interactions.reset();r.setAnimationLoop(null);return;}
- if(act?.source!=='routine')act=null;noticeAt=-Infinity;lastT=clock.getElapsedTime();nextAt=lastT+1;lastDraw=-1;r.setAnimationLoop(frame);});
+ if(document.hidden){cancelTouch();interactions.reset();if(mode==='float')syncFloatLoop();else r.setAnimationLoop(null);return;}
+ if(act?.source!=='routine')act=null;noticeAt=-Infinity;lastT=clock.getElapsedTime();nextAt=lastT+1;lastDraw=-1;if(mode==='float')syncFloatLoop();else r.setAnimationLoop(frame);});
 // 点他：两种模式都一样。按住不动半秒＝拎起来，松手落地。
 // 悬浮时不再用「点小人」打开陪伴页——那一下留给他的反应；打开改成点底下那条把手（js/companion.js）。
 for(const k of ['contextmenu','selectstart','dragstart'])addEventListener(k,e=>e.preventDefault());   // iOS 长按的选框/菜单
 {let down=null,moved=0,timer=0;
- cancelTouch=()=>{clearTimeout(timer);held=null;down=null;};
- addEventListener('pointerdown',e=>{if(e.isPrimary===false)return;try{r.domElement.setPointerCapture(e.pointerId);}catch(_){}down={id:e.pointerId,x:e.clientX,y:e.clientY,last:e.clientX,lastY:e.clientY};moved=0;clearTimeout(timer);timer=setTimeout(()=>{if(down&&moved<6){held=true;act=null;if(sleeping){sleeping=false;reportWake();}}},450);});
+ cancelTouch=()=>{clearTimeout(timer);held=null;down=null;syncFloatLoop();};
+ addEventListener('pointerdown',e=>{if(e.isPrimary===false)return;try{r.domElement.setPointerCapture(e.pointerId);}catch(_){}down={id:e.pointerId,x:e.clientX,y:e.clientY,last:e.clientX,lastY:e.clientY};moved=0;clearTimeout(timer);timer=setTimeout(()=>{if(down&&moved<6){held=true;syncFloatLoop();act=null;if(sleeping){sleeping=false;reportWake();}}},450);});
  addEventListener('pointermove',e=>{if(!down||down.id!==e.pointerId)return;moved+=Math.hypot(e.clientX-down.last,e.clientY-down.lastY);if(mode!=='float'&&!held)yaw+=(e.clientX-down.last)*.01;down.last=e.clientX;down.lastY=e.clientY;});
- addEventListener('pointerup',e=>{if(!down||down.id!==e.pointerId)return;clearTimeout(timer);if(held){held=null;act=interactions.drop(clock.getElapsedTime(),behaviorMood());parent.postMessage({type:'pet-poke',kind:'lift',count:1},'*');}else if(down&&moved<6)touch(e.clientX,e.clientY);down=null;});
+ addEventListener('pointerup',e=>{if(!down||down.id!==e.pointerId)return;clearTimeout(timer);if(held){held=null;act=interactions.drop(clock.getElapsedTime(),behaviorMood());parent.postMessage({type:'pet-poke',kind:'lift',count:1},'*');}else if(down&&moved<6)touch(e.clientX,e.clientY);down=null;syncFloatLoop();});
  addEventListener('pointercancel',e=>{if(down?.id===e.pointerId)cancelTouch();});
  addEventListener('lostpointercapture',e=>{if(down?.id===e.pointerId)cancelTouch();});}

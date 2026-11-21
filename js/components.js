@@ -23242,6 +23242,7 @@ function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, o
   const [castSel, setCastSel] = useState(null);     // 和它合照：这张里有谁（null＝没打开）
   const [libOpen, setLibOpen] = useState(false);   // 从我的歌里挑（她 2026-11-20「歌单怎么没有选播放器里面的」）
   const [libQ, setLibQ] = useState("");
+  const [petView, setPetView] = useState(null);   // 小家伙那张大图看的是哪一张
   const t = useTheme();
   const [form, setForm] = useState({});
   const st = play || {}, nm = id => id === "me" ? "我" : ((nameOf && nameOf(id)) || id || "有人");
@@ -23331,7 +23332,13 @@ function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, o
             style: { minHeight: 32, padding: "0 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, p0.name); })),
         h("button", { "data-wk": "chpetcastgo", disabled: busy || !castSel.length, onClick: () => { onPetGroupPhoto(castSel); setCastSel(null); }, className: "active:opacity-60 disabled:opacity-40", style: btn }, busy ? "在拍…" : "拍")) : null,
       h("div", { "data-wk": "chpetinfo", style: card },
-        pet.photo ? h(ChfImg, { k: pet.photo, style: { width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 10, marginBottom: 10, display: "block" } }) : null,
+        // 大图默认是定妆照；拍过的都排在底下一小排，点哪张看哪张（她 2026-11-21「拍了合照怎么看回定妆照」）
+        (() => { const _ref = pet.lookRef || pet.photo, _all = [_ref].concat((pet.photos || []).filter(k => k && k !== _ref)).filter(Boolean), _cur = _all.indexOf(petView) >= 0 ? petView : _ref;
+          return _cur ? h("div", { style: { marginBottom: 10 } },
+            h(ChfImg, { k: _cur, style: { width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 10, display: "block" } }),
+            _all.length > 1 ? h("div", { "data-wk": "chpetphotos", className: "flex", style: { gap: 6, marginTop: 6, overflowX: "auto" } }, _all.map((k, i) => h("button", { key: k, "data-on": k === _cur ? "1" : "0", onClick: () => setPetView(k), className: "active:opacity-60 shrink-0", style: { width: 52, textAlign: "center", opacity: k === _cur ? 1 : 0.6 } },
+              h(ChfImg, { k, style: { width: 52, height: 52, objectFit: "cover", borderRadius: 8, display: "block", border: k === _cur ? "2px solid " + t.ink : "none", boxSizing: "border-box" } }),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, i === 0 ? "定妆照" : "第" + i + "张")))) : null) : null; })(),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "「" + pet.name + "」" + (pet.kind ? " · " + pet.kind : pet.kindPending ? " · 还没定是什么" : "")),
         h("div", { "data-wk": "chpetdoing", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, marginTop: 4 } }, "此刻" + pet.doing),
         bar("饱腹", pet.full, "full"), bar("心情", pet.joy, "joy"), bar("精神", pet.energy, "energy"),
@@ -23560,12 +23567,12 @@ function SpaceGemsPage({ space, gems, chName, onOpen, onDelete, onClose }) {
 }
 // 空间本身那一页：改名字、加人踢人；删整个空间也放这儿一份
 // 面具挑选那一排（频道设置、改频道页共用）：opts 来自 window.__momentMasks；extra＝最前面多一颗（比如「跟空间一样」，值 null）
-function MaskChips({ value, onPick, extra, wk }) {
+function MaskChips({ value, onPick, extra }) {
   const t = useTheme();
   const opts = typeof window.__momentMasks === "function" ? window.__momentMasks() : [];
   if (opts.length < 2) return null;
   const all = (extra ? [extra] : []).concat(opts.map(o => ({ id: o.id, name: o.id ? o.name : "主面具" })));
-  return h("div", { "data-wk": wk || "maskchips", className: "flex flex-wrap", style: { gap: 6 } }, all.map(o => {
+  return h("div", { "data-wk": "maskchips", className: "flex flex-wrap", style: { gap: 6 } }, all.map(o => {
     const on = value === o.id;
     return h("button", { key: o.id == null ? "_same" : (o.id || "_main"), "data-on": on ? "1" : "0", onClick: () => onPick(o.id), className: "active:opacity-70",
       style: { padding: "7px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } }, o.name);

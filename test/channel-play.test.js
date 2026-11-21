@@ -97,7 +97,6 @@ test("小家伙：拍照只她能按、存进图片栏；送走收进养过的�
   assert.match(ap, /s2\.petsPast = \(s2\.petsPast \|\| \[\]\)\.concat/);
   assert.match(ap, /window\.__chPetBye = \{ gid: g\.id/);
   assert.match(ap, /if \(item\.petKind && _st\.pet && _st\.pet\.kindPending\)/);
-  assert.match(cs, /pet\.photo \? h\(ChfImg, \{ k: pet\.photo/);
   assert.match(cs, /function ChfImg\(\{ k, style \}\) \{[\s\S]{0,200}useIdbImgUrl\(isIdb \? k : null\)/);
 });
 test("小家伙页她能喂它、陪它玩，各一天一次", () => {
@@ -178,4 +177,14 @@ test("她贴墙、在便利贴上写、新建／改文件：聊天里留一行�
 
 test("她记账、结账、加歌、拿掉歌、照顾小家伙、改名、置顶：聊天里都留一行", () => {
   for (const re of [/你在账本上记了一笔/, /你在账本上结了一笔/, /你往歌单里加了《/, /从歌单里拿掉了/, /你去照顾了「/, /你给它改名叫「/, /」置顶了", ts/]) assert.match(ap, re);
+});
+
+test("小家伙大图默认定妆照，拍过的排在底下能点回去", () => {
+  assert.match(cs, /_ref = pet\.lookRef \|\| pet\.photo/);
+  assert.match(cs, /"data-wk": "chpetphotos"/);
+});
+
+test("小家伙合照发进聊天用相册引用（iv_），气泡才认得", () => {
+  assert.match(ap, /_ref = await imgToVault\(await blobToDataUrl\(blob\)\)/);
+  assert.doesNotMatch(ap, /kind: "photo", imageRef: key, photoMode: "real", desc, content: "\[照片\] " \+ desc/);
 });
