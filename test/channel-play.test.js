@@ -162,3 +162,9 @@ test("单聊页不引用群里才有的 settings／group（v89.935 白屏）", (
   const a = cs.indexOf("function ChatThread("), b = cs.indexOf("\nfunction ", a + 10);
   assert.doesNotMatch(cs.slice(a, b), /const _gSpect/);
 });
+
+test("一轮只摆几样：墙每轮都有，剩下的跟眼下有关的加一样轮流的；墙和文件每轮提一句", () => {
+  assert.match(ap, /const _keep = can\.filter\(x => _hot\[x\[0\]\]\)/);
+  assert.match(ap, /_hot = \{ w: true, f: true/);
+  assert.match(ap, /【墙和文件】/);
+});
