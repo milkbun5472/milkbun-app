@@ -39566,7 +39566,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       nameOf: id => id === "me" ? "我" : (((characters || []).find(c => c.id === id) || {}).name || "有人"),
       onSaveFiles: n => { const _old = loadJSON(_fk, []) || []; saveJSON(_fk, n); setChFilesRev(v => v + 1);
         // 她新建、改了文件，聊天里也留一行（跟他们动文件那行同一种，点了能打开）
-        if (!groupSpectating(_g)) { const _ln = (n || []).filter(f => f && f.id).map(f => { const o0 = _old.find(x => x && x.id === f.id); return !o0 ? { f, op: " 新建了" } : (f.updatedTs || 0) > (o0.updatedTs || 0) && f.updatedBy === "me" ? { f, op: " 编辑了" } : null; }).filter(Boolean);
+        if (!groupSpectating(_g)) { const _ln = (n || []).filter(f => f && f.id).map(f => { const o0 = _old.find(x => x && x.id === f.id); return !o0 ? { f, op: " 新建了" } : f.kind !== "image" && (f.updatedTs || 0) > (o0.updatedTs || 0) && f.updatedBy === "me" ? { f, op: " 编辑了" } : null; }).filter(Boolean);
           if (_ln.length) pGChat(_g.id, q => [...q, ..._ln.map(x => ({ role: "system", kind: "chfile", fileId: x.f.id, content: "你" + x.op + "《" + x.f.name + "》", ts: Date.now() }))]); } },
       onTab: setChannelTab, openId: chFileOpen, onOpened: () => setChFileOpen(null),
       // 图片栏（她 2026-11-20）：聊天里出现过的图只收引用；「拿到聊天里」照她发照片那样落一条，下一轮走同一条看图的路

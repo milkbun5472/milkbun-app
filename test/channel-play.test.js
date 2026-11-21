@@ -188,3 +188,8 @@ test("小家伙合照发进聊天用相册引用（iv_），气泡才认得", ()
   assert.match(ap, /_ref = await imgToVault\(await blobToDataUrl\(blob\)\)/);
   assert.doesNotMatch(ap, /kind: "photo", imageRef: key, photoMode: "real", desc, content: "\[照片\] " \+ desc/);
 });
+
+test("聊天照片气泡 img_ 键也认（ChfImg）；图片改说明不冒「编辑了」", () => {
+  assert.match(cs, /\? h\(ChfImg, \{ k: m\.imageRef,/);
+  assert.match(ap, /f\.kind !== "image" && \(f\.updatedTs/);
+});

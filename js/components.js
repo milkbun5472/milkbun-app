@@ -11544,7 +11544,8 @@ function PhotoCard({ m, mine, onOpen, max }) {
     border: "1px solid rgba(35,31,27,.10)", boxShadow: "0 6px 16px rgba(35,31,27,.13)"
   };
   const face = m.imageRef
-    ? h("img", { src: resolveImg(m.imageRef), alt: cap || "照片",
+    // 频道图片栏、小家伙那几张存的是 img_ 键（本机图库），跟相册的 iv_ 不在一处：ChfImg 两种都认（她 2026-11-21 聊天里显示成问号）
+    ? h(ChfImg, { k: m.imageRef,
         style: { display: "block", width: "100%", maxHeight: 320, objectFit: "cover", borderRadius: 4, background: "#e9e3d8", boxShadow: "inset 0 0 0 1px rgba(35,31,27,.10)" } })
     // 相面：没有像素的时候，这里放的就是她写的那句话——那才是这张照片的内容
     // 相面、相面上的字、右下「点开看这张」各自一个挂点（群友 2026-09-30：「这个照片卡片是没法改变颜色的吗」——
@@ -11629,7 +11630,7 @@ function PhotoSheet({ m, onClose, toast, onGen, onRegen }) {
     h(Eyebrow, { style: { marginBottom: 10 } }, "照片"),
     m.imageRef
       ? h("div", null,
-          h("img", { src: resolveImg(m.imageRef), alt: cap || "照片", style: { width: "100%", maxHeight: "64vh", objectFit: "contain", borderRadius: 12, display: "block", background: t.bg } }),
+          h(ChfImg, { k: m.imageRef, style: { width: "100%", maxHeight: "64vh", objectFit: "contain", borderRadius: 12, display: "block", background: t.bg } }),
           cap ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap" } }, cap) : null,
           h("button", { onClick: function () {
               if (!window.saveImgOriginal) return toast && toast("这台设备存不了图");
