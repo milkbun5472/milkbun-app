@@ -37136,13 +37136,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
     // 群聊也能存成长图（她 2026-10-23）：谁说的就画谁的头像和名字
     onLongShot: indices => {
-      const g0 = activeGroup, msgs = groupChatsRef.current[g0.id] || [];
+      const g0 = activeGroup, _th = (((groups || []).find(g => g.id === g0.id) || g0).chKind === "treehole");
+      // 树洞的长图也只露代号、不放头像（她 2026-11-21 长图上全是真名）
+      const msgs = _th ? thView(groupChatsRef.current[g0.id] || []) : (groupChatsRef.current[g0.id] || []);
       const picked = indices.slice().sort((a, b) => a - b).map(i => msgs[i]).filter(Boolean);
       if (!window.ChatLongShot) return;
       toast("在拼长图…");
       window.ChatLongShot.save({ msgs: picked, group: true, title: g0.name || "群聊", sub: (g0.memberIds || []).length + 1 + " 人",
-        foot: (() => { const d = new Date(); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; })(), ta: {}, me: { avatar: (profile || {}).avatarImage },
-        avatarSrcOf: id => (characters.find(c => c.id === id) || {}).avatarImage })
+        foot: (() => { const d = new Date(); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; })(), ta: {}, me: { avatar: _th ? null : (profile || {}).avatarImage },
+        avatarSrcOf: id => _th ? null : (characters.find(c => c.id === id) || {}).avatarImage })
         .then(via => toast(via === "cancel" ? "取消了，没存" : via === "share" ? "在分享面板里选「存储图像」" : "长图存下来了"))
         .catch(e => toast("没拼成：" + String((e && e.message) || e).slice(0, 40)));
     },

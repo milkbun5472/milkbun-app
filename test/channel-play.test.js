@@ -216,3 +216,8 @@ test("树洞：提醒只露代号；提示里说清大家来树洞是不顶着�
   assert.match(ap, /g\.chKind === "treehole" && last\.senderId \? "树洞 #"/);
   assert.match(ap, /大家来树洞，就是因为在这儿说话不用顶着自己/);
 });
+
+test("树洞长图只露代号、不放头像", () => {
+  assert.match(ap, /const msgs = _th \? thView\(groupChatsRef\.current\[g0\.id\] \|\| \[\]\)/);
+  assert.match(ap, /avatarSrcOf: id => _th \? null/);
+});
