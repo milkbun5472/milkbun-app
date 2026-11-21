@@ -28024,7 +28024,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   之后这人在这帖里还没写过一条的，就算欠着。不另存「待回」的标记——从楼里现看，回过了自然就不欠了。
   //   extra：刚发出去、还没进 forumCommentsRef 的那一条（{ ids, ts, where, who }）
   const forumMentionsDue = (post, floors, extra) => {
-    if (!post || /^搜索/.test(post.triggerSource || "")) return [];   // 搜来的陌生话题吧里不出现认识的角色，那条规矩不动
+    // 搜来的陌生话题吧也算（她 2026-11-21「搜索出来的想让他来看来评论也是合理的吧」）：只放被点名的那几位进来，见 forumMentionRule
+    if (!post) return [];
     const src = [];
     const push = (x, where) => { if (x && x.authorType === "me" && Array.isArray(x.mentions) && x.mentions.length) src.push({ ids: x.mentions, ts: Number(x.ts) || 0, where, who: x.authorName }); };
     push(post, "帖子正文");
@@ -28032,11 +28033,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     (extra || []).forEach(x => x && Array.isArray(x.ids) && x.ids.length && src.push(x));
     const spokeAfter = (id, ts) => (floors || []).some(f => f && ((f.authorId === id && f.authorType !== "me" && Number(f.ts || f.visibleAt || 0) > ts)
       || (f.replies || []).some(r => r && r.authorId === id && r.authorType !== "me" && Number(r.ts || 0) > ts)));
-    const out = [];
+    const out = [], _srch = /^搜索/.test(post.triggerSource || "");
     src.forEach(m => m.ids.forEach(id => {
       if (out.some(x => x.id === id) || spokeAfter(id, m.ts)) return;
       const c = forumActiveChars().find(x => x.id === id && forumInWorld(x, post));
-      if (c) { out.push({ id, kind: "char", name: c.name, where: m.where, who: m.who }); return; }
+      if (c) { out.push({ id, kind: "char", name: c.name, where: m.where, who: m.who, persona: _srch ? String(c.persona || "").replace(/\s+/g, " ").slice(0, 300) : "" }); return; }
       const n = FORUM_NPC_REGISTRY.find(x => x.id === id);
       if (n) out.push({ id, kind: "npc", name: n.name, where: m.where, who: m.who });
     }));
@@ -28045,7 +28046,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 被点名的人：这一轮一定来一条，而且知道自己是被点了名才来的（不另花调用，拼进这一波本来就有的生成里）
   const forumMentionRule = due => !(due && due.length) ? "" : "\n【这帖里有人点了名】\n" + due.map(m => m.kind === "char"
       ? "「" + m.name + "」：「" + (m.who || "楼主") + "」在" + m.where + "里 @ 了你，你知道自己被点了名；这一轮你一定来回一条（char 填「" + m.name + "」）。"
-      : "常驻熟面孔「" + m.name + "」：「" + (m.who || "楼主") + "」在" + m.where + "里 @ 了你；这一轮你一定来回一条（npcId 填 " + m.id + "）。").join("\n") + "\n";
+        + (m.persona ? "Ta 是：" + m.persona : "")
+      : "常驻熟面孔「" + m.name + "」：「" + (m.who || "楼主") + "」在" + m.where + "里 @ 了你；这一轮你一定来回一条（npcId 填 " + m.id + "）。").join("\n")
+    + (due.some(m => m.persona) ? "\n上面说不要出现认识的角色的，对这几位被点了名的不算。" : "") + "\n";
   // 她身边的配角也来回她的帖（群友 2026-10-22：「我今天发的帖子，npc 都不跟我互动」）：
   //   原来楼里只有正式角色和路人，配角只会自己偶尔发一帖。她用主面具、大号发的帖，挂在她身边的配角
   //   和认识她的那些配角刷得到，每轮掷一下点一两位来回帖；人设给全，按跟她的真实关系说话。
