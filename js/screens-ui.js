@@ -2565,17 +2565,22 @@ function Forum({
   (posts || []).forEach(p => (cmts[p.id] || []).forEach((f, floorIndex) => {
     if (!forumVisible(f)) return;
     const floorTs = floorArrivedAt(f);
-    if (p.authorType === "me" && f.authorType !== "me" && floorTs > forumNoticeEpoch) {
+    // 被人 @ 了（她 2026-11-21）：别人写的楼／楼中楼 mentions 里有她（"me"），跟「回复了你」进同一个收件箱
+    const atMe = x => !!(x && x.authorType !== "me" && Array.isArray(x.mentions) && x.mentions.indexOf("me") >= 0);
+    if (((p.authorType === "me" && f.authorType !== "me") || atMe(f)) && floorTs > forumNoticeEpoch) {
       const id = "floor:" + p.id + ":" + (f.id || floorIndex);
-      forumNotices.push({ id, post: p, floorId: f.id, author: f, authorName: f.authorName || "网友", content: f.content || "", ts: floorTs, kind: "回复了你的帖子" });
+      forumNotices.push({ id, post: p, floorId: f.id, author: f, authorName: f.authorName || "网友", content: f.content || "", ts: floorTs, kind: p.authorType === "me" ? "回复了你的帖子" : "@了你" });
     }
     (f.replies || []).forEach((r, replyIndex) => {
       const ts = Math.max(floorTs, Number(r.ts || 0));
-      if (r.authorType === "me" || ts <= forumNoticeEpoch || !(r.replyToMe || f.authorType === "me")) return;
+      if (r.authorType === "me" || ts <= forumNoticeEpoch || !(r.replyToMe || f.authorType === "me" || atMe(r))) return;
       const id = "reply:" + p.id + ":" + (f.id || floorIndex) + ":" + (r.id || r.ts || replyIndex);
-      forumNotices.push({ id, post: p, floorId: f.id, author: r, authorName: r.authorName || "网友", content: r.content || "", ts, kind: "回复了你" });
+      forumNotices.push({ id, post: p, floorId: f.id, author: r, authorName: r.authorName || "网友", content: r.content || "", ts, kind: (r.replyToMe || f.authorType === "me") ? "回复了你" : "@了你" });
     });
   }));
+  // 帖子正文里 @ 了她（角色、网友发的帖）
+  (posts || []).forEach(p => { if (forumVisible(p) && p.authorType !== "me" && Array.isArray(p.mentions) && p.mentions.indexOf("me") >= 0 && Number(p.visibleAt || p.ts || 0) > forumNoticeEpoch)
+    forumNotices.push({ id: "post:" + p.id, post: p, floorId: null, author: p, authorName: p.anon ? "匿名用户" : (p.authorName || "网友"), content: p.title || "", ts: Number(p.visibleAt || p.ts || 0), kind: "@了你" }); });
   forumNotices.sort((a, b) => b.ts - a.ts);
   // 「全部标为已读」记一道水位线（群友 2026-10-16：标完还剩 97 条）——原来一条一条记键、最多留 800 个，
   //   一口气标几百条时它们的时间戳全一样，裁到 800 是随手裁，剩下那截又成了没读。水位线以下的一律算读过。
@@ -2649,7 +2654,8 @@ function Forum({
   const replyInputRef = useRef(null);
   const replyFromNotice = n => {
     markNoticesRead([n.id]); openPost(n.post);
-    setReplyTo({ floorId: n.floorId, name: n.authorName, toName: n.kind === "回复了你" ? n.authorName : "" });
+    //   「@了你」：楼中楼里点的名 → 回那个人；楼里点的 → 回那一层；帖子正文里点的 → 直接在帖子底下回
+    if (n.floorId) setReplyTo({ floorId: n.floorId, name: n.authorName, toName: n.kind === "回复了你" ? n.authorName : "", ...(n.kind === "@了你" && /^reply:/.test(n.id) ? { toName: n.authorName } : {}) });
     setTimeout(() => {
       const el = document.getElementById("forum-floor-" + n.floorId);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
