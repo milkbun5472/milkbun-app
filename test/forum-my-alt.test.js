@@ -4,7 +4,7 @@ const fs = require("fs");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const scr = (fs.readFileSync(__dirname + "/../js/screens.js", "utf8") + "\n" + fs.readFileSync(__dirname + "/../js/screens-ui.js", "utf8"));
 test("她能用小号发帖：角色认不出、她自己帖子里回楼也是小号", () => {
-  assert.ok(/const postMyForum = \(board, title, body, photo, as, more\) =>/.test(app));
+  assert.ok(/const postMyForum = \(board, title, body, photo, as, more(, mentions)?\) =>/.test(app));
   assert.ok(/\.\.\.\(altB \? \{ alt: true \} : \{\}\)/.test(app));
   assert.ok(/const meOwn = post\.authorType === "me" && !post\.anon && !post\.alt/.test(app), "楼里的角色不把小号当成她");
   assert.ok(/const myPub = p => p\.authorType === "me" && !p\.anon && !p\.alt/.test(app), "小号帖不进角色知道的那份");

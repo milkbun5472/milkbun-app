@@ -17583,10 +17583,7 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
   const clear = () => setDraft("");
   // @ 名单（她 2026-11-20「频道里面@可以出现可以选择的名单和@所有人的选项」）：框尾刚打了一个「@」（开头或空格后）才弹；
   //   只看最后一个字，不扫别的（typing-hot-path）；位置只在弹出那一下量一次
-  const atOpen = !!(atList && atList.length) && /(^|\s)@$/.test(draft);
-  const [atAt, setAtAt] = useState(0);
-  useEffect(() => { if (!atOpen) return; try { if (ref.current) setAtAt(Math.max(0, (window.innerHeight || 0) - ref.current.getBoundingClientRect().top + 8)); } catch (e) {} }, [atOpen]);
-  const pickAt = label => { setDraft(draft.replace(/@$/, "@" + label + " ")); setTimeout(() => { try { ref.current && ref.current.focus({ preventScroll: true }); } catch (e) {} }, 0); };
+  const atPicker = useAtPicker(draft, setDraft, ref, atList);
   // 发完键盘别收（群里 2026-10-22「发一次消息键盘就自动下落，想连发只能再点一次输入框」）：
   //   发送键按下不抢焦点；有的手机照样先失焦了，那就看是不是刚失焦，是的话在这次点击里把焦点还回去
   const blurAt = useRef(0);
@@ -17622,11 +17619,26 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
     }, inputProps || {})),
     after ? after(draft, fire, clear) : null,
     onEmote ? h(EmoteSuggest, { hits: sug.hits, anchor: sug.at, onPick: em => { setDraft(""); setSug({ hits: [], at: 0 }); onEmote(em); } }) : null,
-    atOpen ? h("div", { "data-wk": "atlist", style: { position: "fixed", left: 12, right: 12, bottom: atAt || 80, zIndex: 60, maxHeight: 240, overflowY: "auto", background: "#fff", borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,.14)", padding: "6px 0" } },
-      atList.map(it => h("button", { key: it.key, "data-wk": "atitem", "data-part": it.key === "__all" ? "all" : "member", onMouseDown: e => e.preventDefault(), onClick: () => pickAt(it.label),
-        className: "w-full flex items-center gap-3 active:bg-black/5", style: { minHeight: 44, padding: "6px 14px", textAlign: "left" } },
-        it.face || h("span", { style: { width: 30, height: 30, borderRadius: 999, background: "#eef0f2", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 } }, "@"),
-        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#222" } }, it.key === "__all" ? "所有人" : it.label)))) : null);
+    atPicker);
+}
+// @ 名单（群聊频道、论坛发帖／回楼共用这一份，她 2026-11-21「论坛也能 @」）：框尾刚打了一个「@」（开头或空格后）才弹；
+//   只看最后一个字，不扫别的（typing-hot-path）；位置只在弹出那一下量一次。
+//   items：[{ key, label, face? }]，key＝"__all" 是「所有人」；挑一个就把框尾那个「@」换成「@名字 」。
+//   portal：弹在半窗／整页弹层里的输入框要挂到 body 上，不然被那一层的层级盖住
+function useAtPicker(text, setText, ref, items, opts) {
+  const o = opts || {};
+  const open = !!(items && items.length) && /(^|\s)@$/.test(String(text || ""));
+  const [at, setAt] = useState(0);
+  useEffect(() => { if (!open) return; try { if (ref.current) setAt(Math.max(0, (window.innerHeight || 0) - ref.current.getBoundingClientRect().top + 8)); } catch (e) {} }, [open]);
+  if (!open) return null;
+  const pick = label => { setText(String(text || "").replace(/@$/, "@" + label + " ")); setTimeout(() => { try { ref.current && ref.current.focus({ preventScroll: true }); } catch (e) {} }, 0); };
+  const list = h("div", { "data-wk": "atlist", style: { position: "fixed", left: 12, right: 12, bottom: at || 80, zIndex: o.zIndex || 60, maxHeight: 240, overflowY: "auto", background: "#fff", borderRadius: 14, boxShadow: "0 6px 24px rgba(0,0,0,.14)", padding: "6px 0" } },
+    items.map(it => h("button", { key: it.key, "data-wk": "atitem", "data-part": it.key === "__all" ? "all" : (it.kind || "member"), onMouseDown: e => e.preventDefault(), onClick: () => pick(it.label),
+      className: "w-full flex items-center gap-3 active:bg-black/5", style: { minHeight: 44, padding: "6px 14px", textAlign: "left" } },
+      it.face || h("span", { style: { width: 30, height: 30, borderRadius: 999, background: "#eef0f2", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 } }, "@"),
+      h("span", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, it.key === "__all" ? "所有人" : it.label),
+      it.note ? h("span", { style: { marginLeft: "auto", flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#999" } }, it.note) : null)));
+  return o.portal && typeof ReactDOM !== "undefined" ? ReactDOM.createPortal(list, document.body) : list;
 }
 function ReplyKey({ sending, disabled, title, onClick, hold }) {
   const t = useTheme();

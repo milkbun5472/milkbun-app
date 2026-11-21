@@ -622,7 +622,9 @@ function forumMorePhotos(x) {
 }
 function forumWithPhoto(text, x) {
   const p = forumPhotoOf(x);
-  const s = String(text || "");
+  // 贴进来的帖子换成《标题》，再在后面挂一句它讲什么（forumLinkPlain／forumLinkNotes）
+  const raw = String(text || "");
+  const s = typeof forumLinkPlain === "function" ? forumLinkPlain(raw) + forumLinkNotes(raw) : raw;
   if (!p) return s;
   const more = forumMorePhotos(x);
   const line = more.length
@@ -652,6 +654,46 @@ function forumFloorTranscript(floors) {
     const subs = (f.replies || []).filter(r => r && r.content).map(r => "  └ " + forumStamp(r.ts) + (r.isOp ? "【楼主】" : "") + (r.authorName || "某人") + (r.toName ? " 回 " + r.toName : "") + "：" + forumWithPhoto(r.content, r).replace(/\s+/g, " "));
     return [head].concat(subs).join("\n");
   }).join("\n");
+}
+// ── 论坛里的 @ 人和贴帖子（她 2026-11-21）────────────────────────────
+// 发帖、回楼、楼中楼都能 @ 她的角色和常驻熟面孔，也能贴一个别的帖子进来。
+//   @ 存成记录上的 mentions:[id]；贴帖子存成正文里的 [[post:ID]]，显示成一张小卡，喂给模型时换成《标题》。
+//   界面那头（screens-ui.js 的 Forum）和生成那头（app.js）都只从这几个函数里拿，不各写一份。
+const FORUM_LINK_RE = /\[\[post:([A-Za-z0-9_.:-]+)\]\]/g;
+const forumLinkToken = id => "[[post:" + id + "]]";
+function forumLinkIds(text) { const out = []; String(text || "").replace(FORUM_LINK_RE, (a, id) => { if (out.indexOf(id) < 0) out.push(id); return a; }); return out; }
+// 帖子从哪儿读：app.js 开机时把 forumPostsRef 递进来（界面那头直接用 props 里的 posts）
+let _forumLinkPosts = null;
+function forumLinkSource(fn) { _forumLinkPosts = typeof fn === "function" ? fn : null; }
+function forumLinkedPost(id, posts) {
+  const list = posts || (_forumLinkPosts ? _forumLinkPosts() : []) || [];
+  return list.find(p => p && p.id === id) || null;
+}
+// 给模型看的那份：token 换成《标题》；帖子没了就是《帖子已删除》
+function forumLinkPlain(text, posts) {
+  return String(text || "").replace(FORUM_LINK_RE, (a, id) => { const p = forumLinkedPost(id, posts); return p ? "《" + String(p.title || "无题") + "》" : "《帖子已删除》"; });
+}
+// 贴进来的帖子讲的是什么：标题＋吧＋正文开头，模型才接得上话
+function forumLinkNotes(text, posts) {
+  return forumLinkIds(text).map(id => forumLinkedPost(id, posts)).filter(Boolean).map(p =>
+    " 〔贴了一个帖子《" + String(p.title || "无题") + "》（" + (p.board || "论坛") + "）：" + forumLinkPlain(p.body, posts).replace(/\s+/g, " ").slice(0, 60) + "〕").join("");
+}
+// @ 名单：她的角色（没收起来、论坛没关的，用论坛里大号的名字）＋常驻熟面孔
+function forumAtCandidates(chars, forumOff) {
+  const off = forumOff || [];
+  return (chars || []).filter(c => c && c.id && !c.npc && !c.shelved && off.indexOf(c.id) < 0).map(c => ({ key: c.id, label: String(c.name || "").trim(), kind: "char" }))
+    .concat(forumOwnerRegulars().map(n => ({ key: n.id, label: n.name, kind: "npc", handle: n.handle })))
+    .filter(x => x.label);
+}
+// 发出去那一下才认：正文里还留着「@名字」的才算 @ 了（删掉的、打错的不算）；长名字先认，免得「阿」吃掉「阿远」
+function forumMentionIds(text, cands) {
+  let s = String(text || ""); const out = [];
+  (cands || []).slice().sort((a, b) => b.label.length - a.label.length).forEach(c => {
+    if (s.indexOf("@" + c.label) < 0) return;
+    if (out.indexOf(c.key) < 0) out.push(c.key);
+    s = s.split("@" + c.label).join("\u0000");
+  });
+  return out;
 }
 // 吧规只许从这一处读（她 2026-10-17 群里许愿「自己开的吧能加吧规吗」）：自带的吧读写死的那份，她开的吧读她写的 rules。
 //   置顶那块牌子和喂给模型的那份都走这里。
