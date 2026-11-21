@@ -9103,7 +9103,8 @@ function actSlotOf(w) { const m = ACT_SLOT_RE.exec(String(w == null ? "" : w)); 
 // 单聊一轮最多几行动描（开头那一行算一行）
 const ACT_LINES_PER_TURN = 3;
 // 单聊那句话：action 是开头那一刻，word 里那一项是说着说着换成的
-const ACT_MID_RULE = "【说着说着换了动作】action 那一格是你这一轮开口时在做的事。这一轮里你手上真换成了另一件事，就在 word 数组里换的那个位置写一项 {\"act\":\"换成在做的事\"}，写法跟 action 那一格一样；没换就不写。一轮至多两项。";
+// 她 2026-11-21「动描也很少触发」：原句只认「手上真换成了另一件事」，几句话里很少换事，于是几乎不写
+const ACT_MID_RULE = "【说着说着换了动作】action 那一格是你这一轮开口时的样子。说的过程中你那边有了新的一下——身上、手上、脸上变了——就在 word 数组里那个位置写一项 {\"act\":\"……\"}，写法跟 action 那一格一样；没有就不写。一轮至多两项。";
 function voiceSlotOf(w) { const m = VOICE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
 // 把「这条要用语音说」写成一段描述挂在句子前面（她 2026-10-06 截图，Gemini：
 //   「【这条语音里的声音带着刚睡醒的沙哑和浓浓的委屈】我刚才都睡着了又被你气醒了」）。
