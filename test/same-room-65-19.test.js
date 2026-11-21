@@ -77,7 +77,7 @@ test("常驻指令里那个「你俩隔着屏幕」的前提摘掉了", () => {
 test("在场那一层走 offlineNow 同一个口子；真开着线下时不说两遍", () => {
   assert.match(app, /offlineNow: \(sameRoomFor\(char\.id\) && !offlineTogetherNow\(char\.id\)/,
     "同处一室没接进 ctxFor 那一个口子");
-  assert.match(app, /\? samePlacePresence\(userName\(profile\)\)/);
+  assert.match(app, /\? samePlacePresence\(userName\(profileFor\(char\.id\) \|\| profile\)\)/);
   // 「地点以在一起为准」——日程写着他在公司也不算数，不然他会两头都信
   // v66.30：这句按【单聊/群里】分了两种说法，前半截仍是同一份
   assert.match(eng, /【地点以「在一起」为准】/);
