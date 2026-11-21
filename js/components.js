@@ -21151,7 +21151,10 @@ function GroupThread({
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息]
   // 这个群单独给我设过头像就用那张（她 2026-10-14：「群聊我改不了自己的头像」——单聊有这一格，群一直没有）
   // 同单聊那条：群里单设的「我的头像」读不出来就跳过，用这个群那张面具的头像
-  const meAv = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: (gsp.myAvatar && (typeof resolveImg !== "function" || resolveImg(gsp.myAvatar)) ? gsp.myAvatar : null) || (profile && profile.avatarImage) };
+  // 树洞里她也是一个代号（她 2026-11-21「我的树洞怎么不是匿名」）：名字换成「树洞 #几（我）」，头像不放照片
+  const _thMe = group && group.chKind === "treehole" && typeof thAliasMapOf === "function" ? (() => { const mp = thAliasMapOf(messages || []); const a = mp.me || ((thAlias(mp, "me") || {}).map || {}).me; return a ? "树洞 #" + a + "（我）" : "树洞（我）"; })() : "";
+  const meAv0 = { name: meName || "我", color: (profile && profile.color) || t.tint, avatarImage: (gsp.myAvatar && (typeof resolveImg !== "function" || resolveImg(gsp.myAvatar)) ? gsp.myAvatar : null) || (profile && profile.avatarImage) };
+  const meAv = _thMe ? { name: "树", color: t.fog, avatarImage: null } : meAv0;
   const fmtT = ts => fmtMsgClock(ts, group && group.id ? "g:" + group.id : null, gsp.timeSec);   // 跟单聊同一支（engine.js）
   const subLine = m => { const parts = []; if (gsp.showRead) parts.push(m.role === "user" ? (m.read === false ? "已送达" : "已读") : "已读"); if (gsp.showTime) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [panel, setPanel] = useState(false);
@@ -21846,10 +21849,10 @@ function GroupThread({
         maxWidth: "72%",
         minWidth: 0
       }, (cardLayout(m.content) || {}).col)
-    }, isU && gsp.showMyName && h("span", {
+    }, isU && (gsp.showMyName || _thMe) && h("span", {
       "data-wk": "name", "data-me": "1",
       style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 2, marginRight: 2 }
-    }, gRoleTag(m), h("span", { style: { marginLeft: 4 } }, meName)), !isU && h("span", {
+    }, _thMe ? null : gRoleTag(m), h("span", { style: { marginLeft: 4 } }, _thMe || meName)), !isU && h("span", {
       "data-wk": "name", "data-me": "0",
       style: {
         fontFamily: F_BODY,

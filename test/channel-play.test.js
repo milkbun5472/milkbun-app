@@ -201,3 +201,9 @@ test("挂机房不自己聊起来，除非特意开了自动聊天", () => {
 test("小频每日一问、称号不贴进挂机房", () => {
   assert.match(ap, /!groupSpectating\(g\) && g\.chKind !== "lounge"\);\n    return chs\.find/);
 });
+
+test("树洞里她也是代号；存群设置不把每周称号当成封的头衔", () => {
+  assert.match(cs, /const meAv = _thMe \? \{ name: "树"/);
+  assert.match(cs, /_thMe \|\| meName\)/);
+  assert.match(ap, /!\(v && _wk\[id\] === v && !_own\[id\]\)/);
+});

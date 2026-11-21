@@ -37182,6 +37182,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (_gname != null) renameGroup(activeGroup.id, _gname, _gnameBy || "");
       // 群头像也住在 group 上（她 2026-10-02）；null＝移除，回到四宫格
       if (gAvNew !== undefined && gAvNew !== (activeGroup.avatarImage || null)) updateGroup(activeGroup.id, { avatarImage: gAvNew || null });
+      // 设置页拿到的头衔里并进了频道每周称号（chGsMerge）；存回来时把原样没动的称号剔掉，免得称号被当成群主封的、还冒一行「头衔换成了」（她 2026-11-21）
+      if (rest.titles && activeGroup.spaceId) { const _sp = (spacesRef.current || []).find(x => x && x.id === activeGroup.spaceId), _wk = (_sp && _sp.titles) || {}, _own = gsFor(activeGroup.id).titles || {};
+        rest.titles = Object.fromEntries(Object.entries(rest.titles).filter(([id, v]) => !(v && _wk[id] === v && !_own[id]))); }
       if (rest.titles) {
         const was = gsFor(activeGroup.id).titles || {}, me = herNameIn(activeGroup.id);
         const nmOf = id => id === "me" ? me : ((characters.find(c => c.id === id) || {}).name || "");
