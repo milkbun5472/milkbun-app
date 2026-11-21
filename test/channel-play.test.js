@@ -168,3 +168,10 @@ test("一轮只摆几样：墙每轮都有，剩下的跟眼下有关的加一�
   assert.match(ap, /_hot = \{ w: true, f: true/);
   assert.match(ap, /【墙和文件】/);
 });
+
+test("她贴墙、在便利贴上写、新建／改文件：聊天里留一行；他们写便利贴也留一行", () => {
+  assert.match(ap, /你往墙上贴了张便利贴：「/);
+  assert.match(ap, /那张上写了：「/);
+  assert.match(ap, /kind: "chfile", fileId: x\.f\.id, content: "你" \+ x\.op/);
+  assert.match(ap, /_say\(spk\.name \+ " 在墙上一张便利贴上写了一句"\)/);
+});

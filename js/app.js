@@ -17804,7 +17804,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               if (item.pin && typeof item.pin === "object") { const k = chpFindMsg(_ms, item.pin.quote, 40); if (k >= 0) { chpPin(_st, _ms[k], spk.id); _say(spk.name + " 置顶了一句"); } }
               if (item.unpin && typeof item.unpin === "object") { const q = String(item.unpin.quote || "").trim(), pp = q && _st.pins.find(x => x.text.indexOf(q) >= 0); if (pp) { chpUnpin(_st, pp.key); _say(spk.name + " 取消了一条置顶"); } }
               if (item.note && typeof item.note === "object" && chpCount(_st, "note") < CHP_CAP.note && String(item.note.text || "").trim()) { chpNoteAdd(_st, item.note.text, spk.id); chpBump(_st, "note"); _say(spk.name + " 往墙上贴了张便利贴"); }
-              if (item.scribble && typeof item.scribble === "object") chpScribble(_st, item.scribble.on, item.scribble.text, spk.id);
+              if (item.scribble && typeof item.scribble === "object") { const _nb = JSON.stringify(_st.notes); chpScribble(_st, item.scribble.on, item.scribble.text, spk.id); if (JSON.stringify(_st.notes) !== _nb) _say(spk.name + " 在墙上一张便利贴上写了一句"); }
               if (item.tear && typeof item.tear === "object") { const n0 = _st.notes.length; chpTear(_st, item.tear.quote, spk.id, Date.now()); if (_st.notes.length < n0) _say(spk.name + " 撕掉了一张便利贴"); }
               if (item.song && typeof item.song === "object" && chpCount(_st, "song") < CHP_CAP.song) { const n0 = _st.playlist.length; chpSongAdd(_st, item.song.title, item.song.artist, spk.id); if (_st.playlist.length > n0) { chpBump(_st, "song"); _say(spk.name + " 往歌单里加了《" + String(item.song.title).slice(0, 30) + "》"); } }
               if (item.skip) { const tt = typeof item.skip === "object" ? item.skip.title : ""; chpSkipVote(_st, tt || (((chListenOf(groupId) || {}).song) || {}).title, spk.id); }
@@ -39546,10 +39546,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onLedgerSettle: (from, to) => { const nm = id => id === "me" ? "你" : (((characters || []).find(c => c.id === id) || {}).name || "有人"); const r = chLedgerSettle(_g.id, from, to, nm); setChPlayRev(v => v + 1);
         if (r && r.amount > 0) toast(nm(r.from) + " 还了 " + nm(r.to) + " ¥" + r.amount + (r.short ? "，钱不够，还差一点" : "")); },
       // 墙、歌单、账本、养的（她 2026-11-20）：这个频道那一份 x_chplay
-      play: (chPlayRev, chpOf(_g.id)), onPlay: fn => { const s2 = fn(chpOf(_g.id)) || chpOf(_g.id); chpPut(_g.id, s2); },
+      play: (chPlayRev, chpOf(_g.id)), onPlay: fn => { const _b = JSON.parse(JSON.stringify(chpOf(_g.id).notes || [])); const s2 = fn(chpOf(_g.id)) || chpOf(_g.id); chpPut(_g.id, s2);
+        // 她贴了、写了，聊天里留一行（她 2026-11-21「贴墙了能不能也有提示」）：大家都看得到，下一轮他们也知道
+        if (!groupSpectating(_g)) { const _ln = [];
+          (s2.notes || []).forEach(n => { const o0 = _b.find(x => x.id === n.id); if (!o0 && n.by === "me") _ln.push("你往墙上贴了张便利贴：「" + String(n.text || "").slice(0, 40) + "」");
+            else if (o0) (n.doodles || []).slice((o0.doodles || []).length).filter(d => d && d.by === "me").forEach(d => _ln.push("你在「" + String(n.text || "").slice(0, 16) + "」那张上写了：「" + String(d.text || "").slice(0, 30) + "」")); });
+          if (_ln.length) pGChat(_g.id, q => [...q, ..._ln.map(c => ({ role: "system", kind: "chlink", toGid: _g.id, content: c, ts: Date.now() }))]); } },
       people: (_g.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => ({ id: c.id, name: c.remark || c.name })),
       nameOf: id => id === "me" ? "我" : (((characters || []).find(c => c.id === id) || {}).name || "有人"),
-      onSaveFiles: n => { saveJSON(_fk, n); setChFilesRev(v => v + 1); },
+      onSaveFiles: n => { const _old = loadJSON(_fk, []) || []; saveJSON(_fk, n); setChFilesRev(v => v + 1);
+        // 她新建、改了文件，聊天里也留一行（跟他们动文件那行同一种，点了能打开）
+        if (!groupSpectating(_g)) { const _ln = (n || []).filter(f => f && f.id).map(f => { const o0 = _old.find(x => x && x.id === f.id); return !o0 ? { f, op: " 新建了" } : (f.updatedTs || 0) > (o0.updatedTs || 0) && f.updatedBy === "me" ? { f, op: " 编辑了" } : null; }).filter(Boolean);
+          if (_ln.length) pGChat(_g.id, q => [...q, ..._ln.map(x => ({ role: "system", kind: "chfile", fileId: x.f.id, content: "你" + x.op + "《" + x.f.name + "》", ts: Date.now() }))]); } },
       onTab: setChannelTab, openId: chFileOpen, onOpened: () => setChFileOpen(null),
       // 图片栏（她 2026-11-20）：聊天里出现过的图只收引用；「拿到聊天里」照她发照片那样落一条，下一轮走同一条看图的路
       msgs: groupChatsRef.current[_g.id] || [], spectate: groupSpectating(_g),
