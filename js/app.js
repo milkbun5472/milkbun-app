@@ -13422,6 +13422,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // #B 说漏嘴 + 今昔（心上）：绝大多数轮次是空串，守聊天预算铁律。
       //    今昔优先（毕业后一次性今昔对比，用掉即清）；否则约 1/4 轮挑一条高权重活念想塞【一行】，
       //    契不契合由 TA 当场定夺；显灵注入即记一次「被想起」（体力活）。
+      // 话题卡「我俩都能用」那一行（她 2026-11-21）：她点了「让 TA 来问」就这一轮带上；否则照 components.js 的 topicCardTurn 掷（25%／一天 3 次／一张歇 3 天）。
+      //   普通回复和主动消息都挂这一格，不另发请求；群、配角、本体模式不带。回复成功才记账（见下面 delivered 那一行）。
+      const _topicCard = (!sideRoom && !_body && !char.npc && typeof window.topicCardTurn === "function") ? window.topicCardTurn(charId) : null;
+      const topicCardHint = _topicCard ? _topicCard.line : "";
       let desireHint = "";
       const dEcho = !sideRoom && window.HeartKit && !opts.proactive && (desiresRef.current[charId] || {}).echoPending;
       if (dEcho) {
@@ -14340,7 +14344,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "。这一轮 photo 一定要填，kind 填 " + (["self", "other", "duo"].includes(_askPh.kind) ? _askPh.kind : "self")
         + "；画面照你此刻真实在哪、在做什么、穿什么来，她这句里要看什么就拍什么。嘴上怎么接照你这个人，愿不愿意都可以说，但照片要发。" : "";
       const _halfHint = _askPhotoHint + _lockHint + (_halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就不扯。" : "");
-      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + pendHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _threatTailHint + _bossTailHint + _seeThroughHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
+      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + pendHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + topicCardHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _threatTailHint + _bossTailHint + _seeThroughHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
       // 线上导演便签：只给模型看，不算她说的话；放在本轮任务末尾，离生成最近
       const _dirLive = chatDirNotesLive(chatKey);
@@ -15933,6 +15937,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (seenTo > Number(room.mainCursorTs || 0) || clearOneShot) window.ChatRooms.save(charId, { ...room, mainCursorTs: seenTo, syncOnce: clearOneShot ? false : room.syncOnce });
       }
       if (delivered && _wh) delete waitHerRef.current[charId];
+      if (delivered && _topicCard) _topicCard.commit();
       return delivered;
     } catch (e) {
       if (_abort.signal.aborted) return null;       // 她自己点叉断掉的：不留「发送失败」
