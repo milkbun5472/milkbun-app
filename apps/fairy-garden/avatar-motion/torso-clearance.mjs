@@ -1,4 +1,4 @@
-import {makeSurfaceQuery} from './surface-query.mjs?v=fg-810d3c084a6e8474';
+import {makeSurfaceQuery} from './surface-query.mjs?v=fg-29ad6c7f1af761d3';
 export function install(q){
 const T=q.T,o=q.body,g=o.geometry,R=q.dimensionRest,C=q.dimensionCanonicalRest,F=g.index.array,SI=g.attributes.skinIndex.array,SW=g.attributes.skinWeight.array,d=q.jointFlowData,n=g.attributes.position.count,smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)},P=new Float64Array(n*3),N=new Float64Array(n*3),v=new T.Vector3(),a=new T.Vector3(),b=new T.Vector3(),c=new T.Vector3(),norm=new T.Vector3(),cp=new T.Vector3(),bary=new T.Vector3(),tri=new T.Triangle();
 const owner=[1,4].map(bone=>Float64Array.from({length:n},(_,i)=>{let w=0;for(let k=0;k<4;k++)if(SI[i*4+k]===bone||SI[i*4+k]===bone+1)w+=SW[i*4+k];return w}));
