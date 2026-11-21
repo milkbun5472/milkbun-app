@@ -183,3 +183,8 @@ test("小家伙大图默认定妆照，拍过的排在底下能点回去", () =>
   assert.match(cs, /_ref = pet\.lookRef \|\| pet\.photo/);
   assert.match(cs, /"data-wk": "chpetphotos"/);
 });
+
+test("小家伙合照发进聊天用相册引用（iv_），气泡才认得", () => {
+  assert.match(ap, /_ref = await imgToVault\(await blobToDataUrl\(blob\)\)/);
+  assert.doesNotMatch(ap, /kind: "photo", imageRef: key, photoMode: "real", desc, content: "\[照片\] " \+ desc/);
+});

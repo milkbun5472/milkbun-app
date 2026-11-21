@@ -19560,7 +19560,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const fk = "x_chfiles:" + g.id;
       saveJSON(fk, (loadJSON(fk, []) || []).concat([{ id: "chf_" + now + "_petg", kind: "image", name: pet.name + "的合照", imgKey: key, desc, createdBy: "me", createdTs: now, updatedTs: now }]));
       setChFilesRev(v => v + 1);
-      pGChat(g.id, p => [...p, { role: "user", kind: "photo", imageRef: key, photoMode: "real", desc, content: "[照片] " + desc, ts: now }]);
+      // 聊天气泡认的是相册里的 iv_ 引用，图片栏那份 img_chf_ 是另一处存的：另存一份进相册再发（她 2026-11-21「小家伙里能显示，聊天里不行」）
+      let _ref = ""; try { _ref = await imgToVault(await blobToDataUrl(blob)); } catch (e) {}
+      if (String(_ref || "").indexOf("iv_") === 0) pGChat(g.id, p => [...p, { role: "user", kind: "photo", imageRef: _ref, photoMode: "real", desc, content: "[照片] " + desc, ts: now }]);
       const s2 = chpOf(g.id); if (s2.pet) { s2.pet = { ...s2.pet, photo: key, photos: (s2.pet.photos || []).concat([key]).slice(-12) }; chpPut(g.id, s2); }
       toast("合照拍好了，发进聊天里了");
     } catch (e) { toast("没拍成：" + String(e && e.message || e).slice(0, 60)); }
