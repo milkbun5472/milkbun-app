@@ -40,7 +40,7 @@ test("「一共有哪些吧」只有一份：tab、版块筛选、搜索页、�
   const live = scr.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.match(live, /\[\.\.\.forumBoardsShown\(\), "关注", "收藏"\]/, "tab 那一排（藏起来的不出现，顺序照排序）");
   assert.match(live, /function forumBoardsShown\(\) \{ const hid = forumBoardPrefs\(\)\.hidden; return forumBoardsAll\(\)\.filter/);
-  assert.match(live, /tab === "收藏" \|\| forumBoardsAll\(\)\.includes\(p\.board\)/, "版块筛选——漏了这处，她开的吧 tab 上有、帖子却跑去搜索页");
+  assert.match(live, /tab === "收藏" \|\| \(forumBoardsAll\(\)\.includes\(p\.board\) && boardOn\(p\)\)/, "版块筛选——漏了这处，她开的吧 tab 上有、帖子却跑去搜索页");
   assert.match(live, /!forumBoardsAll\(\)\.includes\(p\.board\)/, "搜索页");
   assert.match(live, /forumBoardsAll\(\)\.map\(b => chip\(b, cbBoard === b/, "发帖选吧");
   assert.ok(!/FORUM_BOARDS\.includes\(p\.board\)/.test(live), "还有地方只认那六个老吧");
