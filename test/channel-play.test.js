@@ -238,3 +238,11 @@ test("状态挂久了或空着：一半的轮次点一个人换状态", () => {
   assert.match(ap, /名字底下的状态】/);
   assert.match(ap, /Date\.now\(\) - \(Number\(_sa\[c\.id\]\.ts\) \|\| 0\) > 6 \* 3600000/);
 });
+
+test("文件每行按谁写的分颜色：顺着历史算", () => {
+  const c = {}; vm.createContext(c);
+  vm.runInContext(en.slice(en.indexOf("function chfBlame"), en.indexOf("// 给模型看的这一块")) + ";this.B=chfBlame;", c);
+  const f = { createdBy: "me", text: "a\nb\nc", history: [{ by: "me", before: "", after: "a" }, { by: "x", before: "a", after: "a\nb" }, { by: "y", before: "a\nb", after: "a\nb\nc" }] };
+  assert.deepEqual(c.B(f).map(r => r.by), ["me", "x", "y"]);
+  assert.match(cs, /"data-wk": "chfline"/);
+});

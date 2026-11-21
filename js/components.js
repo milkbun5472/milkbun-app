@@ -23544,7 +23544,16 @@ function ChfDocPage({ file, nameOf, onSave, onDelete, onRename, onClose }) {
       : h("button", { "data-wk": "chfedit", onClick: () => { setDraft(file.text || ""); setEdit(true); }, className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "改") },
     edit ? h("textarea", { ref: taRef, "data-wk": "textarea", value: draft, onChange: e => { setDraft(e.target.value); if (typeof fitTextarea === "function") fitTextarea(e.target, 100000); }, rows: 8,
         className: "w-full outline-none", style: { background: t.bg2, borderRadius: 10, padding: "10px 12px", fontFamily: F_BODY, fontSize: 16, lineHeight: 1.7, color: t.ink, resize: "none" } })
-      : h("div", { "data-wk": "chfbody", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap", wordBreak: "break-word", minHeight: 80 } }, file.text || h("span", { style: { color: t.fog } }, "空的，点右上「改」写点什么")),
+      : h("div", { "data-wk": "chfbody", style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap", wordBreak: "break-word", minHeight: 80 } }, file.text ? (() => {
+          // 每个人写的行一种颜色，底下一排写着谁是什么颜色（她 2026-11-21）
+          const bl = typeof chfBlame === "function" ? chfBlame(file) : null, who = bl ? Array.from(new Set(bl.map(x => x.by).filter(Boolean))) : [];
+          if (!bl || who.length < 2) return file.text;
+          const TONES = ["#b5653f", "#4f7f6a", "#6a64a8", "#a45a7c", "#7d8a3a", "#3f74a6", "#a1813a", "#7a5f4f"], col = id => TONES[Math.max(0, who.indexOf(id)) % TONES.length];
+          return h(React.Fragment, null,
+            bl.map((x, i) => h("div", { key: i, "data-wk": "chfline", style: { color: x.by ? col(x.by) : t.ink, borderLeft: "3px solid " + (x.by ? col(x.by) : "transparent"), paddingLeft: 8, minHeight: "1.85em" } }, x.l || " ")),
+            h("div", { "data-wk": "chfwho", className: "flex flex-wrap", style: { gap: 10, marginTop: 12, fontSize: "calc(11px * var(--app-fs, 1))" } },
+              who.map(id => h("span", { key: id, style: { color: col(id) } }, "▍" + (nameOf ? nameOf(id) : id)))));
+        })() : h("span", { style: { color: t.fog } }, "空的，点右上「改」写点什么")),
     !edit ? h("div", { className: "flex gap-2", style: { marginTop: 24 } },
       h("button", { "data-wk": "chfhistbtn", onClick: () => setHist("list"), className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "改动历史 · " + (file.history || []).length),
       h("button", { "data-wk": "chfrename", onClick: () => requestAppPrompt("改名字", "", file.name, v => { const n = String(v || "").trim(); if (n) onRename(n); }, "好"), className: "active:opacity-60", style: { minHeight: 42, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "改名"),
