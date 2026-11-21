@@ -124,3 +124,31 @@ test("和它合照：接线、旁观不给、钩子登记", () => {
   assert.match(rd("components.js"), /"data-wk": "chpetcast"/);
   assert.match(rd("theme-studio.js"), /\["chpetcast",/);
 });
+
+test("频道长按菜单不放点个表情、收藏、收进时刻", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/components.js"), "utf8");
+  assert.match(src, /const plus = \[onGem \? "gem"/);
+  assert.match(src, /k !== "fav" && k !== "shike"/);
+});
+
+test("歌名对歌库认得宽一点；歌单不再手写加一首", () => {
+  const c = {}; vm.createContext(c);
+  vm.runInContext(en.slice(en.indexOf("function chpSongNorm"), en.indexOf("function chpSongAdd")) + ";this.M=chpSongMatch;", c);
+  const lib = [{ title: "晴天 (Live)", artist: "周杰伦" }, { title: "Shape of You", artist: "Ed Sheeran" }];
+  assert.equal(c.M(lib, { title: "《晴天》" }).artist, "周杰伦");
+  assert.equal(c.M(lib, { title: "shape of you" }).title, "Shape of You");
+  assert.equal(c.M(lib, { title: "Shape" }).title, "Shape of You");
+  assert.equal(c.M(lib, { title: "稻香" }), null);
+  assert.doesNotMatch(cs, /"data-wk": "chsongadd"/);
+  assert.match(cs, /"data-wk": "chsongq"/);
+});
+
+test("按了让他们各挑一首：这一轮的正题放在最后", () => {
+  assert.match(ap, /_askSongs \? "\\n\\n【这一轮的正题】"/);
+  assert.match(ap, /_askSongs \|\| chpCount\(st, "song"\) < CHP_CAP\.song/);
+});
+
+test("叫大家起名／商量养什么：也是这一轮的正题", () => {
+  assert.match(ap, /window\.__chAskPet = _g\.id; setChannelTab\("chat"\)/);
+  assert.match(ap, /_askPet \? "\\n\\n【这一轮的正题】"/);
+});
