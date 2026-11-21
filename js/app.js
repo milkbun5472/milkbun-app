@@ -5888,6 +5888,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return (lastTs > 0 && Date.now() - lastTs < OFFLINE_TOGETHER_MIN * 60000) ? sess : null;
   };
   const offlineTogetherNow = charId => !!offlineTogetherSess(charId);
+  // 上一次见面（她 2026-11-21：出门玩着，主动却报「刚开完会」）：只摆事实、不下要求——线下可能只是忘了关，散没散让 TA 自己判断
+  const lastMeetFact = charId => {
+    try {
+      let list = offlinesRef.current[charId]; if (!list) list = loadJSON("x_offline:" + charId, []);
+      let best = null, bt = 0;
+      (list || []).forEach(s => (s && s.msgs || []).forEach(m => { if (m && (m.ts || 0) > bt && m.content) { bt = m.ts; best = m; } }));
+      if (!best || Date.now() - bt > 12 * 3600000) return "";
+      const min = Math.round((Date.now() - bt) / 60000), ago = min < 60 ? min + " 分钟" : Math.round(min / 60) + " 小时";
+      return "\n【上一次见面】你们最近一次线下见面停在 " + ago + "前，最后那一拍是：" + String(best.content).replace(/\s+/g, " ").slice(0, 120);
+    } catch (e) { return ""; }
+  };
   // 有没有一场还没散的线下（供聊天感知：别把正在进行的线下当「还没开始」催用户）
   const offlineActiveFor = charId => {
     let list = offlinesRef.current[charId];
@@ -13282,7 +13293,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             //   「允许普通」治的是硬编新鲜事，「简短」却被读成了「主动就该短」。长短归这个人自己。
             + "按你与当前收件人的关系和此刻来意开口，允许普通，不必每次有新鲜事或独特表达。"
             + "说多少照你此刻想说多少、照你这个人平时发消息的习惯：有话就连着几条说完，真没什么就一两句。不要机械套用报备、关心、安排的固定流程。\n"
-            + "**不许续演的是【情绪】**：上一轮的委屈、焦虑、兴奋、争执，隔了这一阵都该落下去了，这会儿是新的心情；Ta 没回就是没回。\n"
+            // 她 2026-11-21：原句一刀切「情绪都该落下去」，没和好的事也被翻了篇；也不许点名哪种情绪（点了就是给方向）
+            + "隔了这一阵，心情不一定就换了：上一轮的事放没放下、放下多少，照你这个人、照那件事在你心里有多大来。没过去的就还在，过去了的就让它过去。只是别一开口就翻旧账、质问 Ta；Ta 没回就是没回。\n"
             + "**但你俩上次聊到哪儿、一起干了什么、有没有说了一半的事，你是记得的**——顺着它开口完全可以。\n"
             // 群里 2026-10-17：「他只会问她，不会分享」——原来那两句举例都是问句，落点全在她身上
             + "开口的落点也可以在你自己这边：你此刻手上在做的事、刚碰上的事、看到想到的东西。真人隔一阵主动来找人，常常是先说自己，不是先问对方；一开口全是在问她，就成了查岗。\n"
@@ -13298,7 +13310,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️并进 proactiveHint 本身，不另起一个变量：多一个变量就多一处会忘记接上
       // 的地方（「一层写在两处，第二处没跟上」在这份文件里已经犯过太多次）。
       // 单聊主动的收件人固定是当前用户；群聊/线下保留各自场景，不在这里改路由。
-      const proactiveHintAll = proactiveHint + offTailHint + openerAvoid + (opts.proactive && currentlyTogetherWithChar(charId)
+      const proactiveHintAll = proactiveHint + offTailHint + openerAvoid + (opts.proactive && !currentlyTogetherWithChar(charId) ? lastMeetFact(charId) : "") + (opts.proactive && currentlyTogetherWithChar(charId)
         ? "\n【此刻你们在一起】这一次不是隔着手机发消息：你人就在" + uName + "身边，是你自己先开口跟她说话——话是当面说出口的，她是听见的。不说「发消息」「看到你消息」「打字」这类隔着手机的话。"
         : "") + (opts.proactive
         ? "\n【本次收件人】你正在给「" + uName + "」发私聊。关系网中的其他角色是独立的人；他们的身份、物品、经历和与你的共同生活，不属于收件人。提及第三人时保留其姓名或明确称谓；只有上下文明确属于收件人的事实才用‘你’指代。不了解收件人的近况就保持未知，不为主动开口补造共同经历。\n"
