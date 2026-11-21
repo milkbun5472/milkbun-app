@@ -2820,10 +2820,6 @@ function App() {
   //     「面对面还是隔着屏幕」不改TA说什么。
   //   · 穿书 / 匿名信箱 / 解梦馆 —— 不适用：那几处不是你俩此刻在同一个地方说话。
   const sameRoomFor = id => !!(settingsFor(id) || {}).sameRoom;
-  // 主动这一路的「在一起」闸（她 2026-11-21：「主动消息当成在一起说话来发不是不发！」）：
-  //   只开着「同处一室」＝人就在旁边，想你照样开口，只是当面说（samePlacePresence 那段管怎么说）；
-  //   线下正演着、群里线下开着，才是真的落成那一场里的动作、不另起一条
-  const togetherNoPro = id => !sameRoomFor(id) && currentlyTogetherWithChar(id);
   const actDescFor = id => !!(settingsFor(id) || {}).actDesc;
   // 限时动态（她 2026-11-14）：没单独设过的跟着「自由发朋友圈」走
   // 朋友圈 24 小时上限（她 2026-11-21）：设了数的，这 24 小时里 TA 自己发够了就先不发；没设＝不限
@@ -8751,8 +8747,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (!autoRefreshOn("proactive", cid)) continue;   // 聊天设置那颗和设置页那栏是同一格
           if (autoRefreshOn("proactive", cid) && laneBusy("c:" + cid)) pWhy(cid, "TA 这会儿正在回别的（上一条还在写）");
           if (laneBusy("c:" + cid)) continue;
-          if (togetherNoPro(cid)) pWhy(cid, "你们正在线下见面（单聊或群里的线下还没结束），想你会落成那场线下里的动作，不另发消息");
-          if (togetherNoPro(cid)) continue;
+          // 在一起（同处一室、线下没结束）不再挡（她 2026-11-21：「主动消息当成在一起说话来发不是不发」
+          //   「我从来没有触发过线下写新的一拍」）：照样在线上这一路来，提示里改成当面开口
           // 正跟你通着电话：人就在线上说着话，不该再另发一条主动消息（她 2026-10-06）
           const _onCall = callRef.current && (callRef.current.participants || []).some(p => p && p.id === cid);
           if (_onCall) pWhy(cid, "你们正在通电话，电话里说着呢，不另发消息");
@@ -8760,9 +8756,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // 有没有一场进行中的线下（同居/常在一起）。有【正在演的场景】→ 把「思念攒够→主动」落成【线下一拍】而不是线上消息（她 2026-07-23）。
           const _offL = offlinesRef.current[cid] || [];
           // 常驻线下(同居=一直在一起)：只要有进行中的场景就把主动落成线下一拍，不看远近；非常驻：只有此刻真面对面(近)才线下，挂着已散→线上
-          const activeOff = settingsFor(cid).defaultOffline
-            ? (offlinesRef.current[cid] || []).find(s => s && !s.endTs && (s.msgs || []).length)
-            : offlineTogetherSess(cid);
+          // 她 2026-11-21：想你不再落成线下的一拍，一律走线上；人在一起时由 proactiveHintAll 改成当面开口
+          const activeOff = null;
           const activeOffScene = activeOff && (activeOff.msgs || []).length > 0 ? activeOff : null;
           // 线上路径：她正开着这个聊天时，只在【她正在打字】时让一让；线下路径（有场景）：她看着/离开都能自己动。
           // ⚠️原来是「开着这个聊天就不发」，注释说「前台那套负责」——可前台根本没有思念这一路（群友 2026-10-01：
@@ -8900,7 +8895,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const proactiveWhyNow = cid => {
     const c = (characters || []).find(x => x.id === cid); if (!c) return "";
     if (!autoRefreshOn("proactive", cid)) return "「允许 Ta 主动发消息」关着";
-    if (togetherNoPro(cid)) return "你们正在线下见面（单聊或群里的线下还没结束），想你会落成那场线下里的动作，不另发消息";
     if (laneBusy("c:" + cid)) return "TA 这会儿正在回别的（上一条还在写）";
     const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && !isOocMsg(m) && !autoPostNotTalk(m));
     if (!ms.length) return "你们还没聊过天";
@@ -13001,10 +12995,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
     if (laneBusy("c:" + chatKey)) return null;
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return null;
-    if (opts.proactive && togetherNoPro(charId)) return null;
-    // 单人线下正演着（最近一拍够新）：生日、提醒、吃饭这些岔路也别从线上冒出来——人就在跟前（群友 2026-10-29「线下见面唠嗑了，他线上还在说在路上」）。
-    //   小房间里的那一路不算：房间本来就是另一处。
-    if (opts.proactive && !opts.room && offlineTogetherNow(charId)) return null;
     if (opts.proactive) {
       const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.askFollow ? "ask_follow" : opts.remind ? "reminder" : opts.health ? "health_meal" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
@@ -13308,8 +13298,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️并进 proactiveHint 本身，不另起一个变量：多一个变量就多一处会忘记接上
       // 的地方（「一层写在两处，第二处没跟上」在这份文件里已经犯过太多次）。
       // 单聊主动的收件人固定是当前用户；群聊/线下保留各自场景，不在这里改路由。
-      const proactiveHintAll = proactiveHint + offTailHint + openerAvoid + (opts.proactive && sameRoomFor(charId)
-        ? "\n【此刻同处一室】这一次不是隔着手机发消息：你人就在" + uName + "身边，是你自己先开口跟她说话。照上面「同处一室」那段当面说。"
+      const proactiveHintAll = proactiveHint + offTailHint + openerAvoid + (opts.proactive && currentlyTogetherWithChar(charId)
+        ? "\n【此刻你们在一起】这一次不是隔着手机发消息：你人就在" + uName + "身边，是你自己先开口跟她说话——话是当面说出口的，她是听见的。不说「发消息」「看到你消息」「打字」这类隔着手机的话。"
         : "") + (opts.proactive
         ? "\n【本次收件人】你正在给「" + uName + "」发私聊。关系网中的其他角色是独立的人；他们的身份、物品、经历和与你的共同生活，不属于收件人。提及第三人时保留其姓名或明确称谓；只有上下文明确属于收件人的事实才用‘你’指代。不了解收件人的近况就保持未知，不为主动开口补造共同经历。\n"
         : "");

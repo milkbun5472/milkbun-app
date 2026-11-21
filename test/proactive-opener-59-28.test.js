@@ -45,7 +45,7 @@ test("真实主动提示拼接锁定收件人，第三人事实不转成用户�
   const end = app.indexOf(';', start);
   const source = app.slice(start, end + 1);
   // ⚠️v72.62 这一串里多了一项 offTailHint（刚散场那段线下的尾巴），跟着喂进去当占位
-  const run = new Function("opts", "uName", "proactiveHint", "offTailHint", "openerAvoid", "sameRoomFor", "charId", source + "\nreturn proactiveHintAll;");
+  const run = new Function("opts", "uName", "proactiveHint", "offTailHint", "openerAvoid", "currentlyTogetherWithChar", "charId", source + "\nreturn proactiveHintAll;");
   for (const opts of [{ proactive: true }, { proactive: true, promise: {} }, { proactive: true, bday: true }]) {
     const result = run(opts, "测试收件人", "开场", "", "历史", () => false, "c");
     assert.match(result, /正在给「测试收件人」发私聊/);
