@@ -49,22 +49,36 @@ self.addEventListener("fetch", (event) => {
   const scope = new URL("./", self.location.href);
   const mainDocument = url.pathname === scope.pathname || url.pathname === new URL("index.html", scope).pathname;
   const navigationKey = mainDocument ? "__index__" : "__page__:" + url.origin + url.pathname;
-  // 导航：网络优先，断网退缓存
+  // 导航：主壳＝「旧版先进、新版后台下齐再换」（2026-11-21 她要的）；子页面照旧网络优先。
+  //   开机慢的病根不是 index.html，是它后面那 7 块 bundle：网慢时每次重开都从头下，
+  //   永远下不完。所以——
+  //   · 拿到新 index：它点名的 ?v= 文件【全在缓存里】→ 直接用新版（秒开）；
+  //   · 有缺的、且手上有一份完整的旧 index → 先用旧版开门，后台把缺的一块块下进缓存，
+  //     全下齐了才把新 index 换进来；下次打开就是新版，而且还是秒开。
+  //     中途被杀也不白下：已下好的块留着，下次接着补。
+  //   · 没有旧 index（第一次装、按过「清掉离线缓存」）→ 照旧直接用新版。
+  //   · 断网/超时 → 用缓存那份。
+  //   GitHub Pages（家里）和 CF（公共版）一样不认 ?v=，同一套逻辑两边通用（v89.987 网页版实测）。
+  //   ⚠️缓存里的 __index__ 永远是「点名文件全齐」的那一份，旧版开门不会缺块。
+  //   ⚠️后台下新块时【不清】同路径旧版本：旧 index 还要用它们；换 index 那一刻才清。
+  //     （CF 不认 ?v=，旧 URL 一旦被删再去网上拿，拿回来的是新内容——新旧混跑，必须防。）
   if (req.mode === "navigate") {
-    event.respondWith((async () => {
-      try {
-        // iOS 主屏幕 Web App 还会在 Cache Storage 外保留 HTTP 磁盘缓存。
-        // 导航显式 no-store，保证在线启动不被旧 index.html 黏住。
-        const fresh = await fetch(req, { cache: "no-store" });
-        const cache = await caches.open(SHELL_CACHE);
-        if (fresh.ok) await cache.put(navigationKey, fresh.clone());
-        return fresh;
-      } catch (e) {
-        const cached = await caches.match(navigationKey);
-        if (cached) return cached;
-        throw e;
-      }
-    })());
+    if (!mainDocument) {
+      event.respondWith((async () => {
+        try {
+          const fresh = await fetch(req, { cache: "no-store" });
+          const cache = await caches.open(SHELL_CACHE);
+          if (fresh.ok) await cache.put(navigationKey, fresh.clone());
+          return fresh;
+        } catch (e) {
+          const cached = await caches.match(navigationKey);
+          if (cached) return cached;
+          throw e;
+        }
+      })());
+      return;
+    }
+    event.respondWith(serveShell(event, req));
     return;
   }
 
@@ -93,6 +107,79 @@ self.addEventListener("fetch", (event) => {
     return res;
   })());
 });
+
+// ===== 主壳：旧版先进、新版后台下 =====
+function shellAssets(html) {
+  const out = new Set();
+  const re = /(?:src|href)="([^"]+[?&]v=[^"]+)"/g;
+  let m;
+  while ((m = re.exec(html))) {
+    try {
+      const u = new URL(m[1].replace(/&amp;/g, "&"), self.registration.scope);
+      if (u.origin === self.location.origin) out.add(u.href);
+    } catch (e) {}
+  }
+  return [...out];
+}
+async function missingAssets(cache, urls) {
+  const miss = [];
+  for (const u of urls) {
+    const hit = await cache.match(u);
+    if (!hit || looksLikeFallback(new URL(u), hit)) miss.push(u);
+  }
+  return miss;
+}
+let shellJob = null;   // 同一时刻只跑一份后台下载
+async function installShell(html, headers, urls) {
+  const cache = await caches.open(SHELL_CACHE);
+  for (const u of await missingAssets(cache, urls)) {
+    const res = await fetch(u, { cache: "no-store" });
+    if (!res.ok || looksLikeFallback(new URL(u), res)) throw new Error("shell asset " + res.status + " " + u);
+    await cache.put(u, res);
+  }
+  // 块全齐 → 换 index → 清掉被新 index 取代的同路径旧版本
+  await cache.put("__index__", new Response(html, { headers }));
+  const want = new Map(urls.map(u => { const x = new URL(u); return [x.pathname, x.search]; }));
+  for (const k of await cache.keys()) {
+    try {
+      const ku = new URL(k.url);
+      if (ku.origin === self.location.origin && want.has(ku.pathname) && want.get(ku.pathname) !== ku.search) await cache.delete(k);
+    } catch (e) {}
+  }
+}
+async function serveShell(event, req) {
+  const cache = await caches.open(SHELL_CACHE);
+  const cached = await cache.match("__index__");
+  let fresh;
+  try {
+    // 有旧版兜底时网络最多等 4 秒：拿不到就先用旧版开门
+    const ctl = cached && typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = ctl ? setTimeout(() => ctl.abort(), 4000) : 0;
+    try { fresh = await fetch(req, { cache: "no-store", signal: ctl ? ctl.signal : undefined }); }
+    finally { if (timer) clearTimeout(timer); }
+  } catch (e) {
+    if (cached) return cached;
+    throw e;
+  }
+  if (!fresh.ok) return cached || fresh;
+  const html = await fresh.clone().text();
+  const urls = shellAssets(html);
+  const headers = new Headers(fresh.headers);
+  const miss = await missingAssets(cache, urls);
+  if (!miss.length || !cached) {
+    // 新版块已齐（或第一次装没得选）：用新版；块没齐的话由页面自己按缓存优先去拉
+    if (!miss.length) await cache.put("__index__", new Response(html, { headers }));
+    else event.waitUntil(installShell(html, headers, urls).catch(e => console.warn("[sw] 首装补块未完成", e)));
+    return new Response(html, { status: fresh.status, statusText: fresh.statusText, headers });
+  }
+  if (!shellJob) {
+    shellJob = installShell(html, headers, urls)
+      .catch(e => console.warn("[sw] 新版后台下载未完成，下次接着下", e))
+      .finally(() => { shellJob = null; });
+  }
+  event.waitUntil(shellJob);
+  return cached;
+}
 
 // ===== 页面发来「显示本地通知」的指令（纯前端，不依赖推送服务器）=====
 // 这是 iOS PWA 也能弹锁屏通知的关键：页面 postMessage → SW showNotification。

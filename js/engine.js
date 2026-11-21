@@ -2653,6 +2653,19 @@ function chfApplyDoc(files, name, text, by, now) {
   list[i] = file;
   return { files: list, file, op: "edit" };
 }
+// 每一行是谁写的（她 2026-11-21「编辑文件的时候能不能每个人颜色不一样」）：顺着改动历史一版一版往下走，
+//   留下来的行还算原来那个人的，新冒出来的行算这一次改的人。历史只留最近几十次，最早那版整份算创建的人。对不上就不分（返回 null）
+function chfBlame(file) {
+  const f = file || {}, H = Array.isArray(f.history) ? f.history : [];
+  const split = x => String(x || "").split("\n");
+  let cur = split(H.length ? H[0].before : f.text).map(l => ({ l, by: f.createdBy || "" }));
+  if (H.length && !String(H[0].before || "")) cur = [];
+  for (const e of H) {
+    const pool = cur.slice();
+    cur = split(e.after).map(l => { const k = pool.findIndex(x => x.l === l); if (k >= 0) return pool.splice(k, 1)[0]; return { l, by: e.by || "" }; });
+  }
+  return cur.map(x => x.l).join("\n") === String(f.text || "") ? cur : null;
+}
 // 给模型看的这一块：频道里有哪些文件、谁最近动过；正文只在聊天里提到它、或上一轮刚改过时才带，截一截
 // 换个频道接着说（她 2026-11-20「聊着聊着可以自己到别的频道说话」）：这个人能去哪几个频道。
 //   同一个空间、他本人在那个频道里；不影响记忆、不互通的频道既去不了，也不能从那儿出去。noMemOf(gid) 判「不影响记忆」
@@ -2819,6 +2832,13 @@ function thAliasMapOf(msgs) {
 function thView(msgs) {
   const map = thAliasMapOf(msgs);
   return (msgs || []).map(m => m && m.role === "assistant" && m.senderId && map[String(m.senderId)] ? { ...m, senderName: "树洞 #" + map[String(m.senderId)], senderId: "th:" + map[String(m.senderId)], thAnon: true } : m);
+}
+// 树洞对外露脸的公共口子（她 2026-11-21「这个不能抽一份公共的吗」）：凡是把频道里的话拿出去给她看的地方
+//   ——聊天页、列表预览、通知、长图、搜索——都过这两个。不是树洞就原样返回
+function chAnonMsgs(g, msgs) { return g && g.chKind === "treehole" ? thView(msgs || []) : (msgs || []); }
+function chAnonName(g, msgs, senderId, name) {
+  if (!g || g.chKind !== "treehole" || !senderId) return name || "";
+  const mp = thAliasMapOf(msgs || []); return "树洞 #" + (mp[String(senderId)] || thAlias(mp, senderId).map[String(senderId)] || "?");
 }
 // 深夜频道：hours = { from: 22, to: 5 }（整点），跨午夜也认；没设就是一直开着
 // 挑「发到哪个群」的名单（她 2026-11-20「全app里能转发到群的是不是也得接一个能转发到频道」）：

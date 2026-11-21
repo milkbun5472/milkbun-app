@@ -213,15 +213,63 @@ test("不满一周评出来的称号不挂", () => {
 });
 
 test("树洞：提醒只露代号；提示里说清大家来树洞是不顶着自己说话", () => {
-  assert.match(ap, /g\.chKind === "treehole" && last\.senderId \? "树洞 #"/);
+  assert.match(ap, /chAnonName\(g, groupChatsRef\.current\[g\.id\], last\.senderId, last\.senderName\)/);
   assert.match(ap, /大家来树洞，就是因为在这儿说话不用顶着自己/);
 });
 
 test("树洞长图只露代号、不放头像", () => {
-  assert.match(ap, /const msgs = _th \? thView\(groupChatsRef\.current\[g0\.id\] \|\| \[\]\)/);
+  assert.match(ap, /const msgs = chAnonMsgs\(/);
   assert.match(ap, /avatarSrcOf: id => _th \? null/);
 });
 
 test("树洞锁屏通知只露代号", () => {
-  assert.match(ap, /body: \(spk\.name \? \(group && group\.chKind === "treehole" \? "树洞 #"/);
+  assert.match(ap, /chAnonName\(group, groupChatsRef\.current\[groupId\], spk\.id, spk\.name\)/);
+});
+
+test("树洞代号每个号一张固定的匿名脸", () => {
+  assert.match(cs, /if \(s0\.indexOf\("th:"\) === 0\) \{ const n = parseInt/);
+});
+
+test("树洞里不私聊她", () => {
+  assert.match(ap, /const gDmMembers = gs\.memoryInterop && !\(group && group\.chKind === "treehole"\)/);
+});
+
+test("状态挂久了或空着：一半的轮次点一个人换状态", () => {
+  assert.match(ap, /名字底下的状态】/);
+  assert.match(ap, /Date\.now\(\) - \(Number\(_sa\[c\.id\]\.ts\) \|\| 0\) > 6 \* 3600000/);
+});
+
+test("文件每行按谁写的分颜色：顺着历史算", () => {
+  const c = {}; vm.createContext(c);
+  vm.runInContext(en.slice(en.indexOf("function chfBlame"), en.indexOf("// 给模型看的这一块")) + ";this.B=chfBlame;", c);
+  const f = { createdBy: "me", text: "a\nb\nc", history: [{ by: "me", before: "", after: "a" }, { by: "x", before: "a", after: "a\nb" }, { by: "y", before: "a\nb", after: "a\nb\nc" }] };
+  assert.equal(c.B(f).map(r => r.by).join(","), "me,x,y");
+  assert.match(cs, /"data-wk": "chfline"/);
+});
+
+test("文档能导出成 txt", () => {
+  assert.match(cs, /"data-wk": "chfexport", onClick: async \(\) => \{ try \{ await saveTextFile\(/);
+});
+
+test("树洞：频道列表、消息列表、空间搜索里也只露代号", () => {
+  assert.match(cs, /const last = channelLast\(chAnonMsgs\(g, groupChats\[g\.id\]\), userLabel\)/);
+  assert.match(cs, /const l = channelLast\(chAnonMsgs\(g, groupChats\[g\.id\]\), "我"\)/);
+  assert.match(ap, /chatsOf: id => chAnonMsgs\(/);
+  // 公共口子只有一份，别处不再各写一套 thView 判断
+  assert.doesNotMatch(ap + cs, /chKind === "treehole"[^\n]{0,40}\? thView\(/);
+});
+
+test("树洞的话不流到别处", () => {
+  assert.match(ap, /if \(g\.chKind === "treehole"\) return false;/);
+});
+
+test("墙：纸条、胶带、写的一句、底下一行各有挂点；频道能挑一个图标", () => {
+  for (const k of ["chnotetape", "chnotetext", "chnotedoodle", "chnotemeta", "chicon"]) assert.match(cs, new RegExp('"data-wk": "' + k + '"'));
+  assert.match(cs, /g\.chIcon \|\| "#"/);
+  assert.match(ap, /patch\.chIcon != null \? \{ chIcon: patch\.chIcon \}/);
+});
+
+test("频道首页成员／约定／精华并成一排三格", () => {
+  assert.match(cs, /"data-wk": "spacestats"/);
+  assert.doesNotMatch(cs, /borderRadius: 14, borderLeft: "4px solid " \+ tone/);
 });
