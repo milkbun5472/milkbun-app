@@ -17444,10 +17444,48 @@ function fitTextarea(el, maxH) {
 //   setItem 会悄悄失败，草稿根本没存住。现在先记在内存里（这一趟进进出出一定在），
 //   再攒一下写进 x_drafts（大仓库 IDB），关了 app 再开也在。
 // 话题卡（她 2026-10-31，群里许愿「上传聊天梗和聊天话题的地方」）：从小窝「梗与话题」放进某个人的聊天，
-//   一人一叠，存 x_topicCards（跟着云同步走）。只给你自己用：点一张填进输入框，你改了再发；不进 TA 的提示词。
+//   一人一叠，存 x_topicCards（跟着云同步走）。点一张填进输入框，你改了再发。
+//   分两行（她 2026-11-21）：「只我用」不进 TA 的提示词；「我俩都能用」（card.both）TA 偶尔也会顺口问起来。
 const topicCardsOf = id => { try { const m = loadJSON("x_topicCards", {}); return Array.isArray(m && m[id]) ? m[id] : []; } catch (e) { return []; } };
 const topicCardsPut = (id, fn) => { const m = loadJSON("x_topicCards", {}) || {}; const next = fn(Array.isArray(m[id]) ? m[id] : []); if (next.length) m[id] = next; else delete m[id]; saveJSON("x_topicCards", m); return next; };
 window.topicCardsOf = topicCardsOf; window.topicCardsPut = topicCardsPut;
+// TA 这一轮要不要带一张「我俩都能用」的卡（单聊回复 / 主动消息都从 app.js 的 _replyTurn 来问这一处）：
+//   ① 她点了「让 TA 来问」（card.ask）→ 这一轮一定带，回复成功才清掉；
+//   ② 否则在代码里掷：25%；同一个人一天最多 3 次（数当天 offeredTs 落在今天的卡）；一张卡被带过以后歇 3 天。
+//   掷骰和计数都在这儿，提示词里只有那一行。
+const TOPIC_TA_P = 0.25, TOPIC_TA_DAY_CAP = 3, TOPIC_TA_REST_MS = 3 * 86400e3;
+const topicDayOf = ts => { const d = new Date(ts); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
+function topicCardPick(list, now, rand) {
+  const both = (Array.isArray(list) ? list : []).filter(x => x && x.both && String(x.text || "").trim());
+  const ask = both.find(x => x.ask);
+  if (ask) return { card: ask, forced: true };
+  const today = topicDayOf(now);
+  if (both.filter(x => x.offeredTs && topicDayOf(x.offeredTs) === today).length >= TOPIC_TA_DAY_CAP) return null;
+  if (!(rand() < TOPIC_TA_P)) return null;
+  const ok = both.filter(x => !x.offeredTs || now - x.offeredTs >= TOPIC_TA_REST_MS);
+  return ok.length ? { card: ok[Math.min(ok.length - 1, Math.floor(rand() * ok.length))], forced: false } : null;
+}
+function topicCardTurn(charId, now, rand) {
+  now = now || Date.now();
+  const p = topicCardPick(topicCardsOf(charId), now, rand || Math.random);
+  if (!p) return null;
+  const text = String(p.card.text).trim(), id = p.card.id;
+  const line = p.forced ? "\n【这一轮顺口问一句】你想问 Ta：「" + text + "」。照你自己的口气，接在这轮的话里问出来。"
+    : "\n【手边的一个话题】你心里挂着这个，聊到合适的地方可以顺口问 Ta 或者聊起来：「" + text + "」。接不上就不提。";
+  return { line, forced: p.forced, commit: () => topicCardsPut(charId, l => l.map(y => { if (y.id !== id) return y; const { ask, ...rest } = y; return Object.assign(rest, { offeredTs: now }); })) };
+}
+window.topicCardTurn = topicCardTurn;
+// 两格挑一格（「自拍／别人拍的」、话题卡「只我用／我俩都能用」共用）：options＝[[值, 字, 小字说明?], …]
+function PairPick({ value, options, onPick, t, wk }) {
+  return h("div", { "data-wk": wk, className: "flex gap-2", style: { marginTop: 8 } }, options.map(([v, l, d]) =>
+    h("button", { key: l, onClick: () => onPick(v), "aria-pressed": value === v, className: "flex-1 text-left active:opacity-70",
+      style: { minHeight: 44, padding: "7px 10px", borderRadius: 10, border: "1.5px solid " + (value === v ? t.ink : t.line), background: value === v ? t.bg : "transparent" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, l),
+      d ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, d) : null)));
+}
+window.PairPick = PairPick;
+const TOPIC_ROWS = [[false, "只我用", "点一张填进你的输入框"], [true, "我俩都能用", "TA 偶尔也会拿来问你"]];
+window.TOPIC_ROWS = TOPIC_ROWS;
 // 话题卡那一页（她 2026-10-31「话题卡本身能不能互通」）：点一张填进输入框；自己写一张；传到小窝；也放给别的角色
 // 存过的生图描述（群友 2026-10-31：「许愿生图指令可以像话题梗那样保存」）：发照片里写描述的那一格下面，
 //   存过的摆一排，点一下填进框里；框里有字时多一颗「存起来」。所有人共用一份（x_photoPrompts），最多 40 条，长按一条删掉。
@@ -17473,11 +17511,14 @@ function TopicCardsSheet({ charId, onClose, onUse }) {
   const [list, setList] = useState(() => topicCardsOf(charId));
   const [writing, setWriting] = useState(null);   // 正在写的那张：字符串
   const [sharing, setSharing] = useState(null), [pick, setPick] = useState([]);   // 「也给别人」：哪一张、勾了谁
+  const [writeBoth, setWriteBoth] = useState(false);   // 自己写／导入的那几张放哪一行：默认只我用
+  const [menu, setMenu] = useState(null);   // 长按一张弹出来的那一小块（挪行、往前往后、让 TA 来问）
+  const { startPress, endPress } = useLongPressMenu(x => { if (!delSel) setMenu(x); });
   const [delSel, setDelSel] = useState(null);   // 选几张删（群友 2026-10-31：导进来一大叠，要能一起删）：null＝没在选；数组＝勾了的 id
   const others = sharing ? (loadJSON("x_characters", []) || []).filter(c => c && !c.npc && c.id !== charId) : [];
   const small = { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub || t.fog, padding: "6px 10px", minHeight: 32, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2 };
   const saveNew = () => { const text = String(writing || "").trim(); if (!text) return;
-    setList(topicCardsPut(charId, l => [{ id: "own:" + Date.now().toString(36), title: "", text, ts: Date.now() }].concat(l).slice(0, 60))); setWriting(null); };
+    setList(topicCardsPut(charId, l => [Object.assign({ id: "own:" + Date.now().toString(36), title: "", text, ts: Date.now() }, writeBoth ? { both: true } : {})].concat(l).slice(0, 60))); setWriting(null); };
   // 从文件导入（群友 2026-10-31）：走公共那个选文件（txt/md/docx/PDF 都认）；空一行算一张，一张超 1000 字就切开，整叠照旧最多 60 张
   const importFile = () => pickTextFile(msg => {
     const txt = String((msg && msg.text) || "").replace(/\r\n?/g, "\n");
@@ -17490,6 +17531,16 @@ function TopicCardsSheet({ charId, onClose, onUse }) {
     setList(topicCardsPut(charId, l => fresh.concat(l).slice(0, 60)));
     fileToast("放进来 " + parts.length + " 张" + (parts.length > room ? "（满 60 张了，最旧的几张挤掉了）" : ""));
   }, { max: 60000 });
+  // 长按菜单那几样：都只改这一叠里的这一张，往前往后只在同一行里挪
+  const patch = (id, fn) => setList(topicCardsPut(charId, l => l.map(y => y.id === id ? fn(y) : y)));
+  const moveRow = x => patch(x.id, y => { const { both, ask, ...rest } = y; return x.both ? rest : Object.assign(rest, { both: true }); });
+  const shift = (x, dir) => setList(topicCardsPut(charId, l => {
+    const i = l.findIndex(y => y.id === x.id), same = k => !!(l[k] && l[k].both) === !!x.both;
+    let j = i + dir; while (j >= 0 && j < l.length && !same(j)) j += dir;
+    if (i < 0 || j < 0 || j >= l.length) return l;
+    const n = l.slice(); n[i] = l[j]; n[j] = l[i]; return n; }));
+  const askTa = x => { setList(topicCardsPut(charId, l => l.map(y => { const { ask, ...rest } = y; return y.id === x.id ? Object.assign(rest, { ask: true }) : rest; })));
+    typeof toast === "function" && toast("TA 下一次开口会顺口问你这个"); };
   const toNest = x => { window.__nestPending = { kind: "topic", text: x.text, title: x.title || "" }; onClose(); if (typeof window.__goScreen === "function") window.__goScreen("nest"); };
   const shareGo = () => { const x = sharing; if (!x || !pick.length) return;
     pick.forEach(id => topicCardsPut(id, l => [Object.assign({}, x, { ts: Date.now() })].concat(l.filter(y => y.id !== x.id)).slice(0, 60)));
@@ -17510,6 +17561,7 @@ function TopicCardsSheet({ charId, onClose, onUse }) {
       : h("div", { "data-wk": "topiccardwrite", style: { margin: "6px 0 8px" } },
           h("textarea", { value: writing, maxLength: 1000, rows: 4, autoFocus: true, placeholder: "一个梗、一个想跟 TA 聊的话题……", onChange: e => setWriting(e.target.value), className: "w-full outline-none",
             style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", resize: "vertical" } }),
+          h(PairPick, { wk: "topiccardrowpick", value: writeBoth, onPick: setWriteBoth, t, options: TOPIC_ROWS }),
           h("div", { className: "flex", style: { gap: 8, marginTop: 8, justifyContent: "flex-end" } },
             h("button", { onClick: () => setWriting(null), className: "active:opacity-60", style: small }, "算了"),
             h("button", { onClick: saveNew, disabled: !String(writing).trim(), className: "active:opacity-60 disabled:opacity-40", style: Object.assign({}, small, { color: "#fff", background: t.accent, border: "none" }) }, "存进这一叠"))),
@@ -17523,8 +17575,15 @@ function TopicCardsSheet({ charId, onClose, onUse }) {
         h("div", { className: "flex", style: { gap: 8, marginTop: 10, justifyContent: "flex-end" } },
           h("button", { onClick: () => { setSharing(null); setPick([]); }, className: "active:opacity-60", style: small }, "算了"),
           h("button", { onClick: shareGo, disabled: !pick.length, className: "active:opacity-60 disabled:opacity-40", style: Object.assign({}, small, { color: "#fff", background: t.accent, border: "none" }) }, pick.length ? "放进 " + pick.length + " 个人" : "先勾人"))) : null,
-      list.length ? list.map(x => h("div", { key: x.id, "data-wk": "topiccard", style: { padding: "12px 0", borderBottom: "1px solid " + t.line } },
+      list.length ? TOPIC_ROWS.map(([both, zh]) => { const row = list.filter(x => !!x.both === both);
+        return h("div", { key: zh, "data-wk": "topiccardrow", "data-both": both ? "1" : "0", style: { marginTop: 14 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "4px 0", borderBottom: "1px solid " + t.line } }, zh + (row.length ? " · " + row.length : "")),
+          row.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "12px 0" } }, both ? "长按一张卡，挪到这一行，TA 偶尔也会拿来问你。" : "这一行空着。"),
+          row.map(x => h("div", { key: x.id, "data-wk": "topiccard", style: { padding: "12px 0", borderBottom: "1px solid " + t.line, position: "relative" } },
+        x.both ? h("span", { "data-wk": "topiccardboth", "aria-hidden": true, style: { position: "absolute", top: 8, right: 0, width: 6, height: 6, borderRadius: 999, background: x.ask ? t.accent : t.fog, opacity: x.ask ? 1 : .6 } }) : null,
         h("button", { onClick: () => delSel ? setDelSel(d => d.includes(x.id) ? d.filter(y => y !== x.id) : d.concat([x.id])) : onUse(x), className: "w-full active:opacity-60",
+          onTouchStart: () => startPress(x), onTouchEnd: endPress, onTouchMove: endPress, onTouchCancel: endPress,
+          onMouseDown: () => startPress(x), onMouseUp: endPress, onMouseLeave: endPress, onContextMenu: e => e.preventDefault(),
           style: Object.assign({ textAlign: "left" }, delSel ? { paddingLeft: 30, position: "relative" } : {}) },
           delSel ? h("span", { style: { position: "absolute", left: 0, top: 2, width: 20, height: 20, borderRadius: 999, border: "1.5px solid " + (delSel.includes(x.id) ? "#c0503f" : t.line), background: delSel.includes(x.id) ? "#c0503f" : "transparent", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" } }, delSel.includes(x.id) ? "✓" : "") : null,
           x.title && x.title !== x.text ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 3 } }, x.title) : null,
@@ -17532,8 +17591,16 @@ function TopicCardsSheet({ charId, onClose, onUse }) {
         h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
           h("button", { "data-wk": "topiccardshareto", onClick: () => { setSharing(x); setPick([]); }, className: "active:opacity-60", style: small }, "也给别人"),
           h("button", { "data-wk": "topiccardnest", onClick: () => toNest(x), className: "active:opacity-60", style: small }, "传到小窝"),
-          h("button", { "data-wk": "topiccarddel", onClick: () => setList(topicCardsPut(charId, l => l.filter(y => y.id !== x.id))), className: "active:opacity-60", style: small }, "拿掉"))))
-      : writing == null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "18px 0" } }, "这一叠还空着。自己写一张，或者去小窝「梗与话题」挑几张放进来。") : null));
+          h("button", { "data-wk": "topiccarddel", onClick: () => setList(topicCardsPut(charId, l => l.filter(y => y.id !== x.id))), className: "active:opacity-60", style: small }, "拿掉"))))); })
+      : writing == null ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "18px 0" } }, "这一叠还空着。自己写一张，或者去小窝「梗与话题」挑几张放进来。") : null),
+    menu && h(Sheet, { onClose: () => setMenu(null) },
+      h("div", { "data-wk": "topiccardmenu", className: "px-5 pb-6 pt-1" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, menu.title || menu.text),
+        [[menu.both ? "挪到 只我用" : "挪到 我俩都能用", () => moveRow(menu)], ["往前挪", () => shift(menu, -1)], ["往后挪", () => shift(menu, 1)]]
+          .concat(menu.both ? [["让 TA 来问", () => askTa(menu)]] : []).map(([zh, fn], i) => h("button", {
+          key: zh, "data-wk": "topiccardmenuitem", onClick: () => { setMenu(null); fn(); },
+          className: "w-full text-left py-3 active:opacity-60",
+          style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, borderTop: i ? `1px solid ${t.line}` : "none" } }, zh)))));
 }
 const DRAFTS = (() => { let m = null; return () => { if (!m) { m = {}; try { const v = loadJSON("x_drafts", {}); if (v && typeof v === "object") m = v; } catch (e) {} } return m; }; })();
 let draftSaveT = 0;
@@ -21004,11 +21071,7 @@ function GroupOfflineMode({
 //   点下去什么都不会变。又是「一层写在两处，第二处没跟上」。
 // 「生成我的照片」自拍／别人拍的那两格：单聊、群聊共用
 function SelfMeAngle({ third, onPick, t }) {
-  return h("div", { "data-wk": "selfmeangle", className: "flex gap-2", style: { marginTop: 8 } }, [[false, "自拍", "手机举在面前"], [true, "别人拍的", "第三人角度，拍你在做的事"]].map(([v, l, d]) =>
-    h("button", { key: l, onClick: () => onPick(v), "aria-pressed": third === v, className: "flex-1 text-left active:opacity-70",
-      style: { minHeight: 44, padding: "7px 10px", borderRadius: 10, border: "1.5px solid " + (third === v ? t.ink : t.line), background: third === v ? t.bg : "transparent" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, l),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, d))));
+  return h(PairPick, { wk: "selfmeangle", value: third, onPick, t, options: [[false, "自拍", "手机举在面前"], [true, "别人拍的", "第三人角度，拍你在做的事"]] });
 }
 function GroupThread({
   onGem,           // 频道里长按「收进精华」（她 2026-11-20）；普通群是 null
