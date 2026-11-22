@@ -350,7 +350,9 @@
   const CHUNK = 12000;                                   // 一片多少字：DataChannel 跨浏览器能稳收的一条在 16KB 上下，留余量
   const IMG_MAX = { photo: 160000, emote: 60000 };       // 线上那张图最长多少字（压不进去就再缩）
   const FILE_TEXT_MAX = 12000;
-  const RICH_TYPES = ["emote", "photo", "voice", "geo", "pat", "rp", "poll", "namecard", "file"];
+  // game＝小游戏邀请卡、gamerec＝战绩卡（白名单在 js/netroom-games.js 的 cleanInvite / cleanRecord）
+  const RICH_TYPES = ["emote", "photo", "voice", "geo", "pat", "rp", "poll", "namecard", "file", "game", "gamerec"];
+  const GC = () => root.NetGameCore || null;
   const cut = (v, n) => String(v == null ? "" : v).slice(0, n);
   const isImg = (v, max) => typeof v === "string" && /^data:image\/(jpeg|png|webp|gif);base64,/.test(v) && v.length <= max;
   const localRef = v => typeof v === "string" && /^(iv_|img_)[\w-]+$/.test(v) ? v.slice(0, 80) : "";
@@ -386,6 +388,8 @@
       return o;
     }
     if (type === "namecard") { const c = cardOf({ id: "card", name: x.name, avatarEmoji: x.emoji, color: x.color }, x.avatar); return { name: c.name, avatar: c.avatar, emoji: c.emoji, color: c.color }; }
+    if (type === "game") return GC() ? GC().cleanInvite(x) : null;
+    if (type === "gamerec") return GC() ? GC().cleanRecord(x) : null;
     if (type === "file") return { name: cut(x.name, 80), size: Math.max(0, Number(x.size) || 0), chars: Math.max(0, Number(x.chars) || 0), cut: !!x.cut, text: cut(x.text, FILE_TEXT_MAX) };
     return null;
   }
@@ -408,6 +412,8 @@
       return "[投票] " + x.title + "：" + ops;
     }
     if (m.type === "namecard") return "[名片] " + (x.name || "");
+    if (m.type === "game") return GC() ? GC().inviteLine(x) : "[小游戏邀请] " + (x.zh || "");
+    if (m.type === "gamerec") return GC() ? GC().recordLine(x) : "[小游戏战绩] " + (x.zh || "") + "：" + (x.text || "");
     if (m.type === "file") return "[文件] " + (x.name || "文件") + "（" + (x.chars || 0) + " 字" + (x.cut ? "，只给了前面一段" : "") + "）\n" + String(x.text || "").slice(0, 4000);
     return String(m.text || "");
   }
@@ -797,9 +803,15 @@
     return img ? { img } : {};
   }
   // 一条消息里的那张卡／那颗气泡：跟单聊、群聊用的是同一批组件
-  function RichBody({ m, mine, meName, onRp, onVote, voters }) {
+  function RichBody({ m, mine, meName, onRp, onVote, voters, game, onRec }) {
     const t = useTheme();
     const x = m.x || {};
+    // 小游戏的两张卡：房间页里能点（报名、开始、回看）；以前的房间里只剩那一行字
+    const UI = root.NetGameUI;
+    if ((m.type === "game" || m.type === "gamerec") && (!UI || !game && m.type === "game"))
+      return h("div", { "data-wk": "nrbubble", style: { padding: "8px 12px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(13), color: t.ink, lineHeight: 1.6, maxWidth: 260 } }, Core.richLine(m));
+    if (m.type === "game") return h(UI.InviteCard, Object.assign({ x }, game));
+    if (m.type === "gamerec") return h(UI.RecordCard, { x, onOpen: onRec });
     if (m.type === "emote") return h(EmoteBubble, { url: x.url || "", keyword: x.keyword, max: 112 });
     if (m.type === "photo") return h(PhotoCard, { m: { imageRef: x.imageRef || "", desc: x.desc }, mine, max: 220 });
     if (m.type === "voice") return h("div", { "data-wk": "bubble", "data-me": mine ? "1" : "0", "data-kind": "voice", style: { padding: "8px 12px", borderRadius: 14, background: mine ? t.ink : t.bg2, color: mine ? t.bg : t.ink, border: "1px solid " + t.line } },
@@ -864,7 +876,7 @@
 
   // ＋ 里的那些：跟单聊、群聊用的同一套键（ChatToolKey）。两个人之间、本机的那几样（通话、通话记录、朋友圈、转账、亲属卡、给TA看手机、邀约、半窗）不放
   const NR_PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["chatsearch", "查找记录", "magnifier"],
-    ["poll", "投票", "bars"], ["rp", "红包", "packet"], ["ask", "请示", "checklist"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["file", "文件", "file"], ["topics", "话题卡", "quote"]];
+    ["poll", "投票", "bars"], ["rp", "红包", "packet"], ["ask", "请示", "checklist"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["file", "文件", "file"], ["topics", "话题卡", "quote"], ["game", "小游戏", "dice"]];
   // 房间页 ＋ 面板、各个小窗、长按菜单（拆在外面，免得 NetRoomApp 一大坨）
   function roomExtras(A) {
     const { t, room, sheet, setSheet, props, myNick, charsById } = A;
@@ -879,7 +891,7 @@
     const myRow = room.msgs[A.menuAt];
     return [
       A.panel && h("div", { key: "panel", "data-wk": "chatpanel", className: "shrink-0 grid grid-cols-4 gap-y-5 px-5 py-5", style: Object.assign({ background: t.bg2, borderTop: "1px solid " + t.line }, CHAT_PANEL_SCROLL) },
-        NR_PANEL.filter(([k]) => k !== "topics" || (room.myChars || []).length).map(([k, zh, glyph]) => h(ChatToolKey, { key: k, k, zh, glyph, onTap: A.onTap }))),
+        NR_PANEL.filter(([k]) => (k !== "topics" || (room.myChars || []).length) && (k !== "game" || !!root.NetGameSession)).map(([k, zh, glyph]) => h(ChatToolKey, { key: k, k, zh, glyph, onTap: A.onTap }))),
       sheet === "sticker" && h(Sheet, { key: "st", onClose: close, tall: true },
         h(StickerPanel, { packs: props.emotePacks || [], emotes: [], onPick: em => { close(); A.sendEmote(em); } })),
       sheet === "photo" && h(Sheet, { key: "ph", onClose: close },
@@ -968,18 +980,20 @@
     };
     // 发给房里所有人：每条带编号和「谁说的」；直连不上的那几位由跟 TA 通着的人转过去。
     //   太长的（带图的、补发整份记录的）拆成几片发，每片一个编号，收的那头拼齐了再认
-    const send = obj => {
+    //   to：只发给这一个人（小游戏里只给某人看的那份），直连不上就交给一个跟 TA 通着的人转，不广播
+    const send = (obj, to) => {
       const m = mesh.current; if (!m) return;
-      const env = Object.assign({ nid: Core.rid(), o: meId.current }, obj);
+      const env = Object.assign({ nid: Core.rid(), o: meId.current }, obj, to ? { to } : {});
       seen.current.add(env.nid);
       const raw = JSON.stringify(env);
       const out = raw.length > Core.CHUNK ? Core.splitRaw(raw, Core.CHUNK).map((d, i, a) => {
-        const p = { nid: Core.rid(), o: meId.current, t: "part", pid: env.nid, i, n: a.length, d };
+        const p = Object.assign({ nid: Core.rid(), o: meId.current, t: "part", pid: env.nid, i, n: a.length, d }, to ? { to } : {});
         seen.current.add(p.nid); return JSON.stringify(p);
       }) : [raw];
-      const ids = m.openIds();
+      const ids = to ? routeTo(to, null) : m.openIds();
       out.forEach(r => ids.forEach(id => m.sendTo(id, r)));
     };
+    const routeTo = (to, cameFrom) => GC() ? GC().privateRoute(mesh.current ? mesh.current.openIds() : [], to, linkMap.current, cameFrom) : [];
     const sendLinks = () => { if (mesh.current) send({ t: "links", ids: mesh.current.openIds() }); };
     const joiner = useRef(Core.Joiner(60000));
     const left = useRef(new Set());       // 说过 bye 的人：TA 再报到时记一行「回来了」
@@ -990,7 +1004,11 @@
       seen.current.add(e.nid);
       const origin = String(e.o || fromId).slice(0, 40);
       const m = mesh.current;
-      if (m) Core.forwardTargets(m.openIds(), fromId, origin, linkMap.current).forEach(id => m.sendTo(id, raw));
+      // 只给某一个人的：不是给我的就只往那个人那边递一下，自己不看、也不转给别人
+      if (e.to) {
+        const to = String(e.to).slice(0, 40);
+        if (to !== meId.current) { if (m) routeTo(to, fromId).forEach(id => m.sendTo(id, raw)); return; }
+      } else if (m) Core.forwardTargets(m.openIds(), fromId, origin, linkMap.current).forEach(id => m.sendTo(id, raw));
       if (e.t === "part") {
         const full = joiner.current(origin + "|" + String(e.pid || ""), e.i, e.n, e.d);
         if (!full) return;
@@ -1017,6 +1035,7 @@
             if (left.current.has(origin)) { left.current.delete(origin); sysLine(nick + " 回来了"); }
             else if (!known) sysLine(nick + " 进了房间");
             announce(roomRef.current);
+            if (games.current) ensureGames().then(() => games.current && games.current.resend()).catch(() => {});
           }
         }
         syncNet();
@@ -1054,6 +1073,10 @@
           const fresh = list.filter(w => w.kind === "char").map(w => Object.assign(Core.wireMsg(w, true), { side: "peer", peerId: origin, by: origin }));
           commit(Core.upsertRoom(Core.replaceTurn(roomRef.current, tid, fresh)));
         });
+      } else if (e.t === "game") {
+        // 小游戏：游戏那几样先装上（规则和棋盘在小游戏里），再交给这一局
+        const gs = games.current; if (!gs) return;
+        ensureGames().then(() => gs.onMessage(e, origin)).catch(() => {});
       } else if (e.t === "bye") {
         delete linkMap.current[origin];
         Object.keys(linkMap.current).forEach(k => { linkMap.current[k] = linkMap.current[k].filter(x => x !== origin); });
@@ -1075,6 +1098,7 @@
       setErr(""); setPeerTyping({}); setNet({ open: [], fail: [], reach: [] });
       try { mesh.current && mesh.current.close(); } catch (e) {}
       mesh.current = null; linkMap.current = {}; seen.current = new Set(); greeted.current = new Set();
+      games.current = newGames(); setGameId(null);
       const c = resume ? resume.code : host ? Core.newCode() : String(joinCode).trim();
       if (!host && !Core.validCode(c)) { setErr("房间号是 6 位数字"); return; }
       let base = resume ? (Core.loadRooms().find(x => x.id === resume.id) || resume) : null;
@@ -1174,6 +1198,57 @@
     const editOwn = (id, text) => { commit(Core.upsertRoom(Core.editMsg(roomRef.current, id, text, "me"))); send({ t: "edit", id, text }); };
     const recallOwn = id => { commit(Core.upsertRoom(Core.recallMsg(roomRef.current, id, "me"))); send({ t: "recall", id }); };
     const dropLocal = id => commit(Core.upsertRoom(Core.dropMsg(roomRef.current, id)));
+    // ── 小游戏（js/netroom-games.js）：房主那台当庄，其余每台只管自己的座位 ──
+    const games = useRef(null);
+    const [, setGTick] = useState(0);
+    const [gameId, setGameId] = useState(null);        // 正开着的那张牌桌
+    const [recId, setRecId] = useState(null);          // 点开回看的那张战绩卡（消息 id）
+    const [gamePend, setGamePend] = useState(null);    // 大厅里配好、还没发卡的那一局 { game, cfg }
+    const [prep, setPrep] = useState({ surface: "", truth: "" });
+    const [joinAt, setJoinAt] = useState(null), [joinPick, setJoinPick] = useState({});
+    const [gameBusy, setGameBusy] = useState(false);
+    const propsRef = useRef(props); propsRef.current = props;
+    const pageRef = useRef(page); pageRef.current = page;
+    const ensureGames = () => root.GameShared || !root.LazyMods ? Promise.resolve() : root.LazyMods.load("games");
+    const newGames = () => root.NetGameSession ? root.NetGameSession({
+      me: () => meId.current, nick: () => myNick(), nickOf: id => nickOf(id),
+      send: (obj, to) => send(obj, to),
+      post: (type, x) => sayRich(type, x),
+      // 邀请卡只认开这一局的那个人改：我开的改我那条；别人开的只改 TA 发的那条
+      patchCard: (gid, x, mine, origin) => updX(m => m.type === "game" && m.x && m.x.gid === gid && (mine ? m.side === "me" : m.side === "peer" && m.peerId === origin), () => x),
+      hostApi: () => propsRef.current.gameApi ? propsRef.current.gameApi() : null,
+      apiFor: id => propsRef.current.apiFor ? propsRef.current.apiFor(id) : null,
+      charOf: id => (propsRef.current.characters || []).find(c => c.id === id) || null,
+      presence: () => presence(),
+      onChange: () => setGTick(n => n + 1),
+      onOpenGame: gid => { if (pageRef.current === "chat") { setGameId(gid); setPage("game"); } },
+      toast: s => propsRef.current.toast && propsRef.current.toast(s)
+    }) : null;
+    // 掉线托管：每三秒看一眼轮到的人还在不在
+    useEffect(() => { const id = setInterval(() => { try { games.current && games.current.tick(Date.now()); } catch (e) {} }, 3000); return () => clearInterval(id); }, []);
+    useEffect(() => { if ((page === "game" || page === "gamerec" || page === "gameprep") && !root.GameShared) ensureGames().then(() => setGTick(n => n + 1)).catch(() => {}); }, [page]);
+    // 大厅里配好了：房主自己这边上谁＝开局配置里勾的那几个（观战就不坐），发一张邀请卡
+    const sendInvite = (game, cfg, pz) => {
+      if (!games.current) games.current = newGames();
+      if (!games.current) return;
+      const picks = (cfg.mode === "spectate" ? [] : [{ kind: "user" }]).concat((cfg.charIds || []).map(id => { const c = (roomRef.current.myChars || []).find(x => x.id === id); return c ? { kind: "char", charId: c.id, name: c.name } : null; }).filter(Boolean));
+      games.current.invite({ key: game.key, zh: game.zh, min: game.min, max: game.max }, cfg, picks, pz || null);
+      setGamePend(null); setPage("chat");
+    };
+    const onConfigured = (game, cfg) => {
+      if (game.key === "haigui") { setGamePend({ game, cfg }); setPrep({ surface: "", truth: "" }); setPage("gameprep"); return; }
+      sendInvite(game, cfg);
+    };
+    const gameHandlers = m => {
+      const x = m.x || {}, gs = games.current;
+      return { me: meId.current, busy: gameBusy,
+        onJoin: () => { setJoinPick({}); setJoinAt({ gid: x.gid, host: x.host }); },
+        onLeave: () => gs && gs.join(x.gid, [], x.host),
+        onAdd: () => gs && gs.addSeat(x.gid),
+        onCancel: () => gs && gs.cancel(x.gid),
+        onStart: async () => { if (!gs) return; setGameBusy(true); try { if (await gs.start(x.gid)) { setGameId(x.gid); setPage("game"); } } finally { setGameBusy(false); } },
+        onOpen: () => { setGameId(x.gid); setPage("game"); } };
+    };
     // ── 角色开口：一次连发的几条算一轮（turnId），能整轮重新说 ──
     const presence = () => { const o = {}; ((roomRef.current && roomRef.current.peers) || []).forEach(p => { o[p.peerId] = netRef.current.open.indexOf(p.peerId) >= 0 ? "on" : netRef.current.reach.indexOf(p.peerId) >= 0 ? "relay" : netRef.current.fail.indexOf(p.peerId) >= 0 ? "fail" : "off"; }); return o; };
     const speak = async (c, rerollId) => {
@@ -1299,6 +1374,7 @@
     // ＋ 里点了哪一样
     const onTap = k => {
       setPanel(false);
+      if (k === "game") { setPage("gamepick"); return; }
       if (k === "location") setSheet("geo");
       else if (k === "photo") { setPhotoImgs([]); setPhotoText(""); setSheet("photo"); }
       else if (k === "file") pickTextFile(msg => sayRich("file", msg));
@@ -1340,6 +1416,7 @@
     // 每一行：长按、卡片、这一轮最后一条底下的「重新说 ‹ 1/2 ›」
     const rowProps = (r, interactive) => (m, i) => {
       const o = { rich: x => h(RichBody, { m: x, mine: x.side === "me", meName: myNick(), voters: Math.max(1, headCount(r) - 1),
+        game: interactive && x.type === "game" ? gameHandlers(x) : null, onRec: () => { setRecId(x.id); setViewId(r.id); setPage("gamerec"); },
         onRp: interactive ? () => setRpOpen(x.x.rpId) : undefined, onVote: interactive ? opt => vote(x.x.pollId, opt, myNick()) : undefined }) };
       if (!interactive) return o;
       o.onPress = onPress; o.onRelease = onRelease;
@@ -1460,7 +1537,71 @@
               myChars.some(c => busy[c.id]) ? "在想…" : "一起说")),
           h(Composer, { onSend: sayHuman, disabled: alone, fillRef, plusOn: panel, onPlus: () => setPanel(v => !v) })),
         ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sayRich, sendRp,
-          photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }));
+          photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
+        // 报名：你自己、你带进房间的人，勾谁谁占一个座位
+        joinAt && h(Sheet, { key: "gj", onClose: () => setJoinAt(null) },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(17), color: t.ink, marginBottom: 6 } }, "你这边上谁"),
+          h(Note, null, "每人占一个座位。你带来的角色轮到时由你这台手机用 TA 的线路替 TA 出手。座位不够的，勾了也坐不上。"),
+          h("div", { style: { display: "flex", flexDirection: "column", gap: 4, margin: "10px 0" } },
+            [{ id: "_me", label: myNick() + "（我自己）" }].concat(myChars.map(c => ({ id: c.id, label: c.name, c }))).map(r => h("label", { key: r.id, className: "flex items-center", style: { gap: 12, minHeight: 44 } },
+              h("input", { type: "checkbox", "data-wk": "nrgamepick", checked: !!joinPick[r.id], onChange: e => setJoinPick(p => Object.assign({}, p, { [r.id]: e.target.checked })) }),
+              r.c ? h(Avatar, { character: charsById[r.c.id] || { id: r.c.id, name: r.c.name }, size: 30 }) : null,
+              h("span", { style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink } }, r.label)))),
+          h(Btn, { label: "坐下", primary: true, wk: "nrgamejoinok", disabled: !Object.keys(joinPick).some(k => joinPick[k]), onClick: () => {
+            const picks = (joinPick._me ? [{ kind: "user" }] : []).concat(myChars.filter(c => joinPick[c.id]).map(c => ({ kind: "char", charId: c.id, name: c.name })));
+            const ja = joinAt; setJoinAt(null);
+            const left = games.current ? games.current.join(ja.gid, picks, ja.host) : [];
+            if (left.length) props.toast && props.toast("座位不够，" + left.length + " 个没坐上");
+          } })));
+    }
+
+    // ── 小游戏那几页 ──
+    if (page === "gamepick" && room) {
+      // 挑游戏、设开局：就是小游戏大厅那一套，只摆接得住多台手机一起玩的那几盒；勾的角色＝你这边上场的人
+      const G = root.Games;
+      const mine = (room.myChars || []).map(c => charsById[c.id]).filter(Boolean);
+      if (!G || !root.NetGameCore) return shell(h(Head, { zh: "小游戏", onBack: () => setPage("chat") }), scroll([h(Note, { key: "n" }, "小游戏没装上，回去再点一次试试。")]));
+      return h(G, { characters: mine, profile: props.profile, only: root.NetGameCore.supported(), onConfigured,
+        intro: "挑一盒、设好开局（开局页里勾的角色就是你这边上场的人），房里会出现一张邀请卡，大家在卡上报名，你点开始。", onBack: () => setPage("chat") });
+    }
+    if (page === "gameprep" && room && gamePend) {
+      return shell(h(Head, { zh: "出一锅汤", onBack: () => setPage("gamepick") }), scroll([
+        h(Note, { key: "n" }, "你是庄：汤底只在你这台手机上，别人只看得到汤面。自己写一道就填下面两格；空着就用你的线路现出一道（开局时出，花你一次调用）。判每个人的问题也走你的线路。"),
+        h("textarea", { key: "s", "data-wk": "nrsoupsurface", value: prep.surface, rows: 3, placeholder: "汤面：大家看得到的那段怪事", onChange: e => setPrep(p => Object.assign({}, p, { surface: e.target.value.slice(0, 600) })),
+          style: { width: "100%", resize: "none", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "9px 12px", fontFamily: F_BODY, fontSize: fs(14) } }),
+        h("textarea", { key: "t", "data-wk": "nrsouptruth", value: prep.truth, rows: 4, placeholder: "汤底：真相（只你看得到）", onChange: e => setPrep(p => Object.assign({}, p, { truth: e.target.value.slice(0, 1200) })),
+          style: { width: "100%", resize: "none", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "9px 12px", fontFamily: F_BODY, fontSize: fs(14) } }),
+        h(Btn, { key: "go", label: "发邀请卡", primary: true, wk: "nrsoupsend", onClick: () => sendInvite(gamePend.game, gamePend.cfg, prep.surface.trim() && prep.truth.trim() ? { surface: prep.surface, truth: prep.truth } : null) })
+      ]));
+    }
+    if (page === "game" && room) {
+      const gs = games.current, sv = gs && gameId ? gs.seen(gameId) : null;
+      const A = sv && root.NetGameCore ? root.NetGameCore.ADAPTERS[sv.inv.key] : null;
+      if (!sv || !A || !root.GameShared) return shell(h(Head, { zh: "小游戏", onBack: () => setPage("chat") }), scroll([h(Note, { key: "n" }, "在等房主那边把牌桌发过来…")]));
+      const inv = sv.inv, isHost = gs.isHost(gameId), done = inv.status === "done";
+      const pr = presence(), hostGone = !isHost && pr[inv.host] !== "on" && pr[inv.host] !== "relay";
+      const mySeat = inv.seats.some(x => x.peer === meId.current && x.kind !== "npc");
+      return shell(
+        h(Head, { zh: inv.zh, sub: done ? "这一局打完了" : mySeat ? "你在桌上" : "你在旁边看", onBack: () => setPage("chat") }),
+        h("div", { "data-wk": "nrgamearea", className: "shrink-0", style: { maxHeight: "62%", overflowY: "auto", borderBottom: "1px solid " + t.line } },
+          hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "房主（这一局的庄）现在不在房里，这一局停在这儿；TA 回来就接着打。")),
+          h(A.Table, { inv, view: sv.view, me: meId.current, isHost, onMove: (seat, mv) => gs.move(gameId, seat, mv), onReveal: () => gs.reveal(gameId) }),
+          done && h("div", { className: "flex", style: { gap: 8, padding: "0 16px 12px" } },
+            isHost && h(Btn, { label: "再来一局", primary: true, wk: "nrgameagain", onClick: () => { gs.again(gameId); setPage("chat"); } }),
+            h(Btn, { label: "回聊天", wk: "nrgameback", onClick: () => setPage("chat") }))),
+        h(MsgList, { room, myCharsById: charsById, rowProps: rowProps(room, true) }),
+        h("div", { "data-wk": "nrcomposer", className: "shrink-0", style: { borderTop: "1px solid " + t.line, background: t.bg, padding: "8px 12px", paddingBottom: COMPOSER_PAD_BOTTOM } },
+          h(Composer, { onSend: sayHuman, disabled: !mesh.current || net.reach.length === 0 })));
+    }
+    if (page === "gamerec") {
+      const r = (room && room.id === viewId ? room : null) || rooms.find(x => x.id === viewId) || room;
+      const m = r && (r.msgs || []).find(x => x.id === recId);
+      const A = m && root.NetGameCore ? root.NetGameCore.ADAPTERS[m.x.key] : null;
+      const back = () => setPage(room && entered.current ? "chat" : "view");
+      return shell(h(Head, { zh: m ? m.x.zh + " · 回看" : "回看", onBack: back }),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 24 } },
+          m && h("div", { style: { padding: "12px 16px 0" } }, h(Note, null, m.x.text)),
+          m && A && m.x.replay && root.GameShared ? h(A.Replay, { rec: m.x }) : h("div", { style: { padding: 16 } }, h(Note, null, m ? "这一局没有能回看的棋谱。" : "找不到这张战绩卡了。"))));
     }
 
     if (page === "leave" && room) {
