@@ -231,3 +231,23 @@ test("心有灵犀：两人各写各的，两边都交了才亮；没亮之前�
   st = A.apply(st, -1, { end: true }, { inv }).st;
   assert.match(A.result(st, inv).text, /对上 1 次/);
 });
+
+test("谁是卧底：NPC 描述、投票只拿自己那个词，不知道自己是不是卧底；第一轮投票给「拿不准就弃票」的出口；弃票不算票", async () => {
+  const seen = [];
+  const spy = { setup: async () => ({ pair: { civ: "苹果", spy: "梨" } }), hits: (g, w) => g === w,
+    clues: async (api, ps, prior, r, m, pre) => { seen.push({ k: "clue", ps: JSON.parse(JSON.stringify(ps)), pre }); return [{ text: "甜的" }]; },
+    votes: async (api, ps, clues, names, m, u, pre) => { seen.push({ k: "vote", ps: JSON.parse(JSON.stringify(ps)), pre }); return [{ target: "弃票" }]; } };
+  const { G } = load(spy);
+  const A = G.ADAPTERS.spy, inv = mkInv(G, "spy", 4, { seats: [{ kind: "npc", name: "甲" }, { kind: "npc", name: "乙" }, { kind: "npc", name: "丙" }, { kind: "npc", name: "丁" }] });
+  let st = await A.init(inv, { hostApi: {} });
+  for (let k = 0; k < 8 && st.phase !== "done"; k++) { const ti = A.turn(st); if (ti < 0) break; const mv = await A.npcMove(st, ti, inv, { hostApi: {} }); st = (await A.apply(st, ti, mv, { inv })).st; }
+  assert.ok(seen.length >= 8);
+  seen.forEach(x => {
+    assert.strictEqual(x.ps.length, 1);
+    assert.strictEqual(x.ps[0].role, "unknown", "NPC 不知道自己是不是卧底");
+    assert.ok(["苹果", "梨"].indexOf(x.ps[0].word) >= 0);
+    assert.ok(!JSON.stringify(x).includes(x.ps[0].word === "苹果" ? "梨" : "苹果"), "别人的词不进这一次");
+  });
+  assert.ok(seen.some(x => x.k === "vote" && /弃票/.test(x.pre)));
+  assert.ok(st.log.some(l => /平票，这一轮没人出局|没人出局/.test(l.text)), "全员弃票＝没人出局");
+});

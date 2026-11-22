@@ -330,6 +330,9 @@
     st.log.push({ text: "—— 第 " + st.round + " 轮描述 ——" });
     return st;
   }
+  // 给描述和投票的两句出口（只这一桌用；单机那份提示词本身不动）
+  const SPY_CLUE_HINT = "\n\n每人一句只给一个侧面，挑前面（包括前几轮）还没人说过的那一面；觉得自己的词跟大家不太一路，就贴着大家的说法说。";
+  const SPY_VOTE_EARLY = "\n\n这才第一轮，每人只说了一句，信息很少：真看出谁不对劲就投，拿不准就弃票（target 填「弃票」），大部分人这时候该是拿不准的。";
   ADAPTERS.spy = {
     // 描述本身就是桌上说的话；每人手里一个词，NPC 的描述不并进别人的调用
     zh: "谁是卧底", needPriv: true, mergeNpc: null,
@@ -391,15 +394,17 @@
       const S = GS().spy, clues = (v.clues || []).map(c => ({ name: nmOf(inv, c.seat), text: c.text }));
       if (!api) return v.phase === "clue" ? { text: "" } : v.phase === "vote" ? { target: -1 } : { guess: "" };
       const me = { name: who.name, word, role, skill: "普通", persona: who.persona };
-      if (v.phase === "clue") { const rows = await S.clues(api, [me], (v.clues || []).filter(c => c.round === v.round).map(c => ({ name: nmOf(inv, c.seat), text: c.text })), v.round, inv.mode, ""); return { text: cut(((rows || [])[0] || {}).text, 60) }; }
+      // 前几轮说过的也摆上（标着第几轮）：换一个侧面说，别把别人已经说过的点再说一遍
+      if (v.phase === "clue") { const rows = await S.clues(api, [me], (v.clues || []).map(c => ({ name: (c.round === v.round ? "" : "（第 " + c.round + " 轮）") + nmOf(inv, c.seat), text: c.text })), v.round, inv.mode, SPY_CLUE_HINT); return { text: cut(((rows || [])[0] || {}).text, 60) }; }
       if (v.phase === "vote") {
         const names = v.alive.map((a, j) => a && j !== i ? nmOf(inv, j) : null).filter(Boolean);
-        const rows = await S.votes(api, [me], clues, names, inv.mode, "", ""), t = String(((rows || [])[0] || {}).target || "").trim();
+        const rows = await S.votes(api, [me], clues, names, inv.mode, "", v.round <= 1 ? SPY_VOTE_EARLY : ""), t = String(((rows || [])[0] || {}).target || "").trim();
         return { target: v.alive.findIndex((a, j) => a && j !== i && nmOf(inv, j) === t) };
       }
       const r = await S.guess(api, me, clues, inv.mode); return { guess: cut(r && r.guess, 30) };
     },
-    npcMove(st, i, inv, ctx) { return this.think(this.view(st), i, inv, ctx.hostApi, NPC_WHO(nmOf(inv, i)), st.words[i], st.roles[i]).catch(() => ({ pass: true })); },
+    // NPC 跟角色一样只拿自己那个词、不知道自己是不是卧底（庄那台手里有全部的词，一个字都不往这次调用里放）
+    npcMove(st, i, inv, ctx) { return this.think(this.view(st), i, inv, ctx.hostApi, NPC_WHO(nmOf(inv, i)), st.words[i], "unknown").catch(() => ({ pass: true })); },
     // 角色只拿得到自己的词：不知道自己是不是卧底
     charMove(view, i, inv, ctx) { if (!ctx.priv || !ctx.api) return { pass: true }; return this.think(view, i, inv, ctx.api, charWho(ctx.char, ctx.opts), ctx.priv.word, "unknown").catch(() => ({ pass: true })); },
     result(st, inv) {
@@ -655,7 +660,7 @@
         : note(t, myTurn ? (view.phase === "clue" ? "轮到你描述（别说出词本身）" : view.phase === "vote" ? "投一个你最怀疑的人" : "你被投出来了，是卧底：猜一次平民的词") : waitLine(inv, ti, seat, view.phase === "clue" ? "在想怎么说…" : view.phase === "vote" ? "在投票…" : "在猜词…")),
       myTurn && view.phase !== "vote" ? h("input", { key: "i", "data-wk": "nrspyinput", value: d, onChange: e => setD(e.target.value.slice(0, view.phase === "clue" ? 60 : 30)), placeholder: view.phase === "clue" ? "一句话描述你的词" : "猜平民的词（空着就是不猜）", style: box(t) }) : null,
       myTurn && view.phase !== "vote" ? h("button", { key: "b", "data-wk": "nrspysend", onClick: () => onMove(ti, view.phase === "clue" ? { text: d.trim() } : { guess: d.trim() }), disabled: view.phase === "clue" && !d.trim(), style: Object.assign(pill(t, true), { alignSelf: "center" }) }, view.phase === "clue" ? "说" : "猜") : null,
-      myTurn && view.phase === "vote" ? h("div", { key: "v", "data-wk": "nrspyvote", className: "flex flex-wrap justify-center", style: { gap: 6 } }, inv.seats.map((s, i) => view.alive[i] && i !== ti ? h("button", { key: i, onClick: () => onMove(ti, { target: i }), style: small(t, false) }, s.name) : null).concat([h("button", { key: "x", onClick: () => onMove(ti, { target: -1 }), style: small(t, false) }, "弃票")])) : null,
+      myTurn && view.phase === "vote" ? h("div", { key: "v", "data-wk": "nrspyvote", className: "flex flex-wrap justify-center", style: { gap: 6 } }, inv.seats.map((s, i) => view.alive[i] && i !== ti ? h("button", { key: i, onClick: () => onMove(ti, { target: i }), style: small(t, false) }, s.name) : null).concat([h("button", { key: "x", onClick: () => onMove(ti, { target: -1 }), style: small(t, false) }, "这轮弃票")])) : null,
       h(Log, { key: "l", t, log: view.log, n: 12 }),
       isHost && view.phase !== "done" ? h("button", { key: "e", onClick: onReveal, style: Object.assign(small(t, false), { alignSelf: "flex-start" }) }, "到这儿结束（亮词）") : null]);
   }
