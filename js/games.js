@@ -763,7 +763,7 @@
   const LAST_CFG_KEY = "x_gameLastCfg";
   function GameSetup(props) {
     const t = props.t, game = props.game;
-    // props.hide：别处借这一页开局、某几项在那边不起作用时，按名字收起来（stake / injectChat / ccSeat / boardTeach / gmkBrain / q25Host）
+    // props.hide：别处借这一页开局、某几项在那边不起作用时，按名字收起来（stake / injectChat / ccSeat / boardTeach / gmkBrain / q25Host；狼阵营某一种 wolf_<key>、阿瓦隆某个特殊角色 av_<key>）
     const hid = function (k) { return (props.hide || []).indexOf(k) >= 0; };
     const [stake, setStake] = useState("");          // 彩头：输的人要做什么（可空）
     const [skillPins, setSkillPins] = useState(loadSkillPins);
@@ -1041,7 +1041,7 @@
             // 狼阵营特殊角色（把一头狼换成狼王/白狼王）
             h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 12, flexWrap: "wrap" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "狼阵营"),
-              [{ key: null, zh: "普通狼" }, { key: "wolfking", zh: "狼王" }, { key: "whitewolf", zh: "白狼王" }].map(function (o) {
+              [{ key: null, zh: "普通狼" }, { key: "wolfking", zh: "狼王" }, { key: "whitewolf", zh: "白狼王" }].filter(function (o) { return !hid("wolf_" + o.key); }).map(function (o) {
                 const on = wolfRole === o.key;
                 return h("button", { "data-wk": "gamewolfrole", "data-on": on ? "1" : "0", key: o.key || "plain", onClick: function () { setWolfRole(o.key); }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, background: on ? "#c0553f" : t.bg2, border: "1px solid " + (on ? "#c0553f" : t.line), borderRadius: 999, padding: "5px 13px" } }, o.zh);
               })),
@@ -1058,7 +1058,7 @@
             [{ k: "lady", zh: "湖中仙女", d: "7 人起生效：第 2/3/4 个任务后，持牌人查验一人真实阵营并当众宣布（可以撒谎），牌传给被验的人" },
              { k: "percival", zh: "派西维尔 + 莫甘娜", d: "派西维尔认得梅林，但莫甘娜伪装成梅林混淆 TA（成对加入）" },
              { k: "mordred", zh: "莫德雷德", d: "坏人，且【梅林看不见 TA】——好人更难" },
-             { k: "oberon", zh: "奥伯伦", d: "坏人，但和其他坏人互不相识、不知彼此" }].map(function (o) {
+             { k: "oberon", zh: "奥伯伦", d: "坏人，但和其他坏人互不相识、不知彼此" }].filter(function (o) { return !hid("av_" + o.k); }).map(function (o) {
               return h(ToggleRow, { key: o.k, t: t, label: o.zh, sub: o.d, on: !!avOpts[o.k], onToggle: function () { setAvOpts(function (s) { const n = Object.assign({}, s); n[o.k] = !s[o.k]; return n; }); } });
             }),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "任务队伍规模按人数自动配，第 4 个任务在 7 人以上需 2 张失败票。3 个任务成功后刺客还有终局刺杀。")) : null)),
@@ -1899,6 +1899,32 @@
     const raw = await callRetry(api, sys, [{ role: "user", content: "要自爆吗？" }], { maxTokens: 8600 });
     return extractJSON(raw) || {};
   }
+  // 胜负：好人=狼全灭胜。狼胜——屠城=剩余好人≤狼数(平局及以下)；屠边=神营 或 民营 被杀绝（该营原本存在才算）
+  function wolfWinner(list, winMode) {
+      const al = list.filter(function (p) { return p.alive; });
+      const wolfAlive = al.filter(function (p) { return isWolfRole(p.role); }).length;
+      if (wolfAlive === 0) return "good";
+      const goodAlive = al.length - wolfAlive;
+      if (winMode === "all") { return goodAlive <= wolfAlive ? "wolf" : null; }
+      const godsTotal = list.filter(function (p) { return isGodRole(p.role); }).length;
+      const villTotal = list.filter(function (p) { return p.role === "villager"; }).length;
+      const godsAlive = al.filter(function (p) { return isGodRole(p.role); }).length;
+      const villAlive = al.filter(function (p) { return p.role === "villager"; }).length;
+      if ((godsTotal > 0 && godsAlive === 0) || (villTotal > 0 && villAlive === 0)) return "wolf";
+      return null;
+    }
+  // 每个人自己知道的那一句（身份＋手里的私密信息）；info：{ seerKnown, pot:{heal,poison}, graveKnown }
+  function wolfPrivText(p, list, info) {
+    info = info || {};
+      if (isWolfRole(p.role)) { const team = list.filter(function (x) { return isWolfRole(x.role) && x.name !== p.name && x.alive; }).map(function (x) { return x.name; }); const sp = p.role === "wolfking" ? "你是【狼王】：被投票或被狼刀……其实狼刀不到你，主要是被投出局时，可以开枪带走【一个】人（被女巫毒死则开不了枪）——优先带走关键神或强好人。" : p.role === "whitewolf" ? "你是【白狼王】：只能在【白天自爆】时带走一个人（被投票/被毒/被刀出局都不能带人）。自爆＝亮身份、带一人、直接天黑，用来搅局止损或炸关键神。" : ""; return "你是狼人。" + (team.length ? "狼队友：" + team.join("、") + "。" : "只剩你一头狼。") + sp + "目标：伪装好人、必要时悍跳预言家、带偏好人。护队友——但当某个队友已经被架住、明显保不住时，**按你的水平决定要不要弃车保帅**：可以切割、甚至顺水推舟投掉这个队友，保住自己的身份和信任，别为一个救不回的同伙陪葬（水平越高越懂止损；讲义气或水平低的才死保到底）。"; }
+      if (p.role === "seer") { const k = info.seerKnown || []; return "你是预言家。查验记录：" + (k.length ? k.map(function (x) { return x.name + "=" + (x.isWolf ? "狼人" : "好人"); }).join("、") : "还没查过") + "。可跳预言家报验人建信任，或视情况隐藏。"; }
+      if (p.role === "witch") { const pot = info.pot || {}; return "你是女巫（神职）。解药" + (pot.heal ? "还在" : "已用掉") + "、毒药" + (pot.poison ? "还在" : "已用掉") + "。白天你知道自己是神，可以隐藏，也可在合适时机跳出来、用救人/毒人的信息建立信任或指认狼。"; }
+      if (p.role === "hunter") { return "你是猎人（神职）。被狼刀或被投票出局时能开枪带走一个人（被女巫毒死则开不了枪）。白天可以隐藏身份，也可在被怀疑/关键时刻亮猎人身份威慑狼、稳住场面。"; }
+      if (p.role === "guard") { return "你是守卫（神职）。每晚可守护一人挡掉当晚的狼刀，但【不能连续两晚守同一个人】，可以守自己。注意『同守同救』：你守的人若当晚又被女巫用解药救，会互相抵消致其死亡。白天可隐藏，也可在关键时亮守卫身份、用守人信息帮好人建信任。"; }
+      if (p.role === "idiot") { return "你是白痴（神职）。白天若被投票放逐，会当场翻牌亮明白痴身份、免于出局并留在场上，但从此【永久失去投票权】。夜里被狼刀或被女巫毒照常死。" + (p.idiotRevealed ? "（你已翻牌，全场都知道你是白痴，你不能再投票了。）" : "可以隐藏，也可赌一手故意被投来自证清白——但翻牌后就没票了，谨慎。"); }
+      if (p.role === "gravekeeper") { const k = info.graveKnown || []; return "你是守墓人（神职）。每次白天放逐后，你会私下得知【被放逐的那个人是狼还是好人】。已验尸：" + (k.length ? k.map(function (x) { return x.name + "=" + (x.isWolf ? "狼" : "好人"); }).join("、") : "还没有人被放逐过") + "。可用这些确定信息在白天带票、指认或洗清，也可视情况隐藏（一亮身份就容易被狼刀）。"; }
+      return "你是平民，没有夜晚技能，靠逻辑站边找狼。";
+    }
   function validWolfTarget(target, list) {
     if (!target || /空刀|不刀|不杀|弃刀|skip|pass|none|null/i.test(String(target))) return null;
     const tp = (list || []).find(function (p) { return p.alive && !isWolfRole(p.role) && (p.name === target || String(target).indexOf(p.name) >= 0); });
@@ -2220,29 +2246,8 @@
     useEffect(function () { setPickerOpen(true); }, [phase, nightStage, poisonPick, seerResult, hunterCtx, witchCtx, boomPick]);
 
     // 胜负：好人=狼全灭胜。狼胜——屠城=剩余好人≤狼数(平局及以下)；屠边=神营 或 民营 被杀绝（该营原本存在才算）
-    const computeWin = function (list) {
-      const al = list.filter(function (p) { return p.alive; });
-      const wolfAlive = al.filter(function (p) { return isWolfRole(p.role); }).length;
-      if (wolfAlive === 0) return "good";
-      const goodAlive = al.length - wolfAlive;
-      if (cfg.winMode === "all") { return goodAlive <= wolfAlive ? "wolf" : null; }
-      const godsTotal = list.filter(function (p) { return isGodRole(p.role); }).length;
-      const villTotal = list.filter(function (p) { return p.role === "villager"; }).length;
-      const godsAlive = al.filter(function (p) { return isGodRole(p.role); }).length;
-      const villAlive = al.filter(function (p) { return p.role === "villager"; }).length;
-      if ((godsTotal > 0 && godsAlive === 0) || (villTotal > 0 && villAlive === 0)) return "wolf";
-      return null;
-    };
-    const privateFor = function (p, list) {
-      if (isWolfRole(p.role)) { const team = list.filter(function (x) { return isWolfRole(x.role) && x.name !== p.name && x.alive; }).map(function (x) { return x.name; }); const sp = p.role === "wolfking" ? "你是【狼王】：被投票或被狼刀……其实狼刀不到你，主要是被投出局时，可以开枪带走【一个】人（被女巫毒死则开不了枪）——优先带走关键神或强好人。" : p.role === "whitewolf" ? "你是【白狼王】：只能在【白天自爆】时带走一个人（被投票/被毒/被刀出局都不能带人）。自爆＝亮身份、带一人、直接天黑，用来搅局止损或炸关键神。" : ""; return "你是狼人。" + (team.length ? "狼队友：" + team.join("、") + "。" : "只剩你一头狼。") + sp + "目标：伪装好人、必要时悍跳预言家、带偏好人。护队友——但当某个队友已经被架住、明显保不住时，**按你的水平决定要不要弃车保帅**：可以切割、甚至顺水推舟投掉这个队友，保住自己的身份和信任，别为一个救不回的同伙陪葬（水平越高越懂止损；讲义气或水平低的才死保到底）。"; }
-      if (p.role === "seer") { const k = seerKnowRef.current[p.name] || []; return "你是预言家。查验记录：" + (k.length ? k.map(function (x) { return x.name + "=" + (x.isWolf ? "狼人" : "好人"); }).join("、") : "还没查过") + "。可跳预言家报验人建信任，或视情况隐藏。"; }
-      if (p.role === "witch") { const pot = witchPotRef.current; return "你是女巫（神职）。解药" + (pot.heal ? "还在" : "已用掉") + "、毒药" + (pot.poison ? "还在" : "已用掉") + "。白天你知道自己是神，可以隐藏，也可在合适时机跳出来、用救人/毒人的信息建立信任或指认狼。"; }
-      if (p.role === "hunter") { return "你是猎人（神职）。被狼刀或被投票出局时能开枪带走一个人（被女巫毒死则开不了枪）。白天可以隐藏身份，也可在被怀疑/关键时刻亮猎人身份威慑狼、稳住场面。"; }
-      if (p.role === "guard") { return "你是守卫（神职）。每晚可守护一人挡掉当晚的狼刀，但【不能连续两晚守同一个人】，可以守自己。注意『同守同救』：你守的人若当晚又被女巫用解药救，会互相抵消致其死亡。白天可隐藏，也可在关键时亮守卫身份、用守人信息帮好人建信任。"; }
-      if (p.role === "idiot") { return "你是白痴（神职）。白天若被投票放逐，会当场翻牌亮明白痴身份、免于出局并留在场上，但从此【永久失去投票权】。夜里被狼刀或被女巫毒照常死。" + (p.idiotRevealed ? "（你已翻牌，全场都知道你是白痴，你不能再投票了。）" : "可以隐藏，也可赌一手故意被投来自证清白——但翻牌后就没票了，谨慎。"); }
-      if (p.role === "gravekeeper") { const k = graveKnowRef.current[p.name] || []; return "你是守墓人（神职）。每次白天放逐后，你会私下得知【被放逐的那个人是狼还是好人】。已验尸：" + (k.length ? k.map(function (x) { return x.name + "=" + (x.isWolf ? "狼" : "好人"); }).join("、") : "还没有人被放逐过") + "。可用这些确定信息在白天带票、指认或洗清，也可视情况隐藏（一亮身份就容易被狼刀）。"; }
-      return "你是平民，没有夜晚技能，靠逻辑站边找狼。";
-    };
+    const computeWin = function (list) { return wolfWinner(list, cfg.winMode); };
+    const privateFor = function (p, list) { return wolfPrivText(p, list, { seerKnown: seerKnowRef.current[p.name] || [], pot: witchPotRef.current, graveKnown: graveKnowRef.current[p.name] || [] }); };
     const shortLog = function () { return logDataRef.current.filter(function (it) { return it.type === "speech" || it.type === "vote" || it.type === "death" || it.type === "out"; }).slice(-32).map(function (it) { if (it.type === "speech") return it.name + "发言：" + it.text; if (it.type === "vote") return it.name + "投给" + (it.target || "弃票") + "（" + (it.reason || "") + "）"; return it.text; }).join("\n"); };
 
     // ---- 开局 ----
@@ -4545,6 +4550,7 @@
   }
   // 给「主持人视角」的一句身份+已知信息（用于喂 AI 让每人按自己掌握的信息行动）
   function avSecretFor(p, players) {
+    if (p.secret) return p.secret;   // 只知道自己那一份的人（不在同一台手机上的座位）：身份那一句由 TA 自己那份私密信息写好带进来
     const others = players.filter(function (x) { return x !== p; });
     if (p.role === "merlin") return "梅林——看得见坏人：" + (others.filter(function (x) { return x.side === "evil" && x.role !== "mordred"; }).map(function (x) { return x.name; }).join("、") || "（无）") + "（但不知谁是刺客，必须藏好自己别暴露）";
     if (p.role === "percival") { const s = others.filter(function (x) { return x.role === "merlin" || x.role === "morgana"; }).map(function (x) { return x.name; }); return "派西维尔——看到 " + (s.join("、") || "—") + (s.length >= 2 ? " 里一个是梅林、一个是莫甘娜（伪装梅林）但分不清，要护住真梅林" : " 是梅林"); }
@@ -9265,6 +9271,11 @@
     },
     // 谁是卧底：出词、一句描述、投票、出局卧底猜词，都是单机那几枪（一次只喂一个人也行）
     spy: { setup: setupSpy, clues: genCluesBatch, votes: genVotesBatch, guess: genSpyGuess, hits: spyGuessHits },
+    // 狼人杀：板子、身份那一句、胜负、夜里各神职和白天发言投票，都是单机那几枪（一次只喂一个人也行；座位上不带 engineer 就不走言秋亲打）
+    wolf: { GODS: GODS, WOLF_SPECIALS: WOLF_SPECIALS, roleName: roleName, isWolfRole: isWolfRole, isGodRole: isGodRole, wolfCount: wolfCount, standardBoard: standardBoard, boardLine: boardLine, boardState: boardState,
+      winner: wolfWinner, privText: wolfPrivText, tallyKill: tallyKill, validTarget: validWolfTarget, night: genNight, witch: genWitch, hunter: genHunter, speeches: genSpeechesBatch, votes: genDayVotes },
+    // 阿瓦隆：配身份、任务人数、谁知道谁、组队／投票／出任务／刺杀（玩家对象带 secret 时就用这一句当 TA 知道的，不再从全桌身份推）
+    avalon: { QUEST: AV_QUEST, EVIL: AV_EVIL, ROLE_ZH: AV_ROLE_ZH, side: avSide, failsReq: avFailsReq, board: avalonBoard, secretFor: avSecretFor, revealFor: avRevealFor, propose: genProposal, votes: genAvVotes, quest: genQuest, assassin: genAssassin },
     voiceRules: gameVoiceRules, call: callRetry
   };
   if (typeof window !== "undefined") window.GameShared = GameShared;
