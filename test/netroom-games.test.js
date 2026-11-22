@@ -240,7 +240,7 @@ test("接线：＋ 面板有「小游戏」、大厅只摆接得住的那几盒�
   assert.ok(a > 0 && b > a, "netroom-games.js 要在 netroom.js 前面加载");
   assert.match(idx, /data-lazy="netroom" data-src="js\/netroom-games\.js/);
   assert.match(nsrc, /\["game", "小游戏", "dice"\]/);
-  assert.match(nsrc, /only: root\.NetGameCore\.supported\(\), onConfigured/);
+  assert.match(nsrc, /only: root\.NetGameCore\.supported\(\), extra, onConfigured/);
   assert.match(games, /if \(props\.onConfigured\) \{ props\.onConfigured\(game, config\); return; \}/);
   // 公共版要把联机整个摘掉：小游戏里抽出来的公共那份不许带联机字样
   assert.ok(!/联机|netroom|NetRoom/.test(games), "games.js 里不许出现联机字样");

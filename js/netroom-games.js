@@ -20,6 +20,10 @@
 //   cleanReplay(r)                 → 战绩卡里回看那一份的白名单
 //   stateText(view, seatIdx, inv, priv) → 当前局面写成一段人话，给房里开口的角色当背景（单人开口、一起说都带）；
 //                                   只用公开那一份 view，priv 只在 seatIdx 正是这个角色自己的座位时才给
+//   （可选）charOpts               → 报名单上每个上台的人能调哪几项，盖过下面 CHAR_OPTS 那张表（"side"＝挑正方／反方）
+//   （可选）cleanSide(x) / watch(view, inv, ctx) → 桌边那一路（观众席弹幕、赛后感言）：谁都能发、直接广播、不经庄；
+//                                   watch 在每台手机看到新局面时问一句「我这台带来的角色要不要开口」，返回要广播的几条
+//   （可选）shelf / Prep           → 不在单机小游戏目录里的那几盒：大厅架子上多摆一个盒子，点了进它自己的开局页
 //   Table / Replay                 → 牌桌、回看的界面（复用小游戏原来的部件）。Table 拿到 { inv, view, priv, myApi, me, isHost, onMove, onReveal }
 //
 // 牌桌不占整页：开着时是浮在房间聊天上的半窗（components.js 的 HalfWinFrame，单聊半窗同一份外壳），能拖、能收起成小条。
@@ -46,6 +50,7 @@
     if (kind !== "npc") o.peer = cut(s.peer, 40);
     if (kind === "char") { o.charId = cut(s.charId, 40); if (s.tag) o.tag = cut(s.tag, 8); }
     if (s.away) o.away = true;
+    if (s.side === "pro" || s.side === "con") o.side = s.side;   // 报名时自己挑的那一边（辩论用；别的游戏不看）
     return o;
   }
   function cleanInvite(x) {
@@ -105,7 +110,7 @@
       seen.add(key);
       const i = seats.findIndex(s => s.kind === "open");
       if (i < 0) { dropped.push(p); return; }
-      seats[i] = cleanSeat(p.kind === "user" ? { kind: "user", peer, name: nick } : { kind: "char", peer, charId: p.charId, name: p.name, tag: p.tag });
+      seats[i] = cleanSeat(p.kind === "user" ? { kind: "user", peer, name: nick, side: p.side } : { kind: "char", peer, charId: p.charId, name: p.name, tag: p.tag, side: p.side });
     });
     return { inv: Object.assign({}, inv, { seats }), dropped };
   }
@@ -200,7 +205,7 @@
   const charWho = (c, opts) => ({ name: (c && (c.remark || c.name)) || "TA", persona: ((c && c.persona) || "") + (opts && opts.recent && opts.recentText ? "\n【和带你来的人最近在单聊里聊的】" + cut(opts.recentText, 600) : "") });
   // 报名那张单上，每个勾上的角色可以调哪几项（跟单机开局页按角色调的是同一批）
   const CHAR_OPTS = { chess: ["skill"], xiangqi: ["skill"], jungle: ["skill"], go: ["skill"], gomoku: ["casual"], haigui: ["recent"], q25: ["recent"], story: ["recent"], tod: ["recent"], monopoly: [] };
-  const charOptKinds = key => CHAR_OPTS[key] || [];
+  const charOptKinds = key => (ADAPTERS[key] && ADAPTERS[key].charOpts) || CHAR_OPTS[key] || [];
   const NPC_WHO = n => ({ name: n, persona: "来凑桌的路人，普通玩家。", isNpc: true });
 
   // ── 谁出题（海龟汤、25 问）：房主 / 系统现出 / 指定某个座位 / 轮流（每局「再来一局」换下一个座位）──
@@ -732,6 +737,26 @@
       seen[inv.gid] = Object.assign({}, cur || {}, { inv, view, seq });
       changed();
       actOwn(inv.gid);
+      watchOwn(inv.gid);
+    }
+    // 桌边那一路（辩论的观众席弹幕、赛后感言）：谁都能发，直接广播给房里每个人，不经庄、不进对局状态
+    function sideAdd(gid, x) {
+      const s = seen[gid], ad = s && A(s.inv.key); if (!ad || !ad.cleanSide) return;
+      const c = ad.cleanSide(x); if (!c) return;
+      s.side = (s.side || []).concat([c]).slice(-80); changed();
+    }
+    function side(gid, x) {
+      const s = seen[gid], ad = s && A(s.inv.key); if (!ad || !ad.cleanSide) return;
+      const c = ad.cleanSide(Object.assign({}, x, { peer: o.me() })); if (!c) return;
+      sideAdd(gid, c); o.send({ t: "game", op: "side", gid, x: c });
+    }
+    // 我这台带来的、没上台的角色（还有台上那几位的感言）：这一局有新动静时，问一下这个游戏要不要替 TA 们开口
+    async function watchOwn(gid) {
+      const s = seen[gid], ad = s && A(s.inv.key); if (!ad || !ad.watch || !o.myChars) return;
+      const k = "w:" + gid + ":" + s.seq; if (acting.has(k)) return; acting.add(k);
+      let outs = [];
+      try { outs = await ad.watch(s.view, s.inv, { me: o.me(), seq: s.seq, side: s.side || [], myChars: o.myChars() || [], charOf: o.charOf, apiFor: o.apiFor, charOpts: cid => (o.charOpts && o.charOpts(gid, cid)) || {} }) || []; } catch (e) { outs = []; }
+      outs.forEach(x => side(gid, x));
     }
     // 轮到我这台带来的角色：用 TA 自己的线路想一手，交给庄
     async function actOwn(gid) {
@@ -846,7 +871,7 @@
         o.post("game", inv);
         return ngid;
       },
-      move,
+      move, side,
       reveal(gid) { if (host[gid]) hostApply(gid, -1, { reveal: true }, o.me()); },
       // 收到房里别人发来的 {t:"game"}：认不得的 op 不理（以后的新版本发来的）
       onMessage(e, origin) {
@@ -857,7 +882,7 @@
         else if (e.op === "join") {
           const nick = o.nickOf(origin);
           // 报名只收这几样：角色怎么下、带不带最近单聊那些设置留在主人那台，不发过来（tag 只是座位旁那两个字）
-          const picks = (Array.isArray(e.picks) ? e.picks : []).slice(0, 12).map(p => p && p.kind === "char" ? { kind: "char", charId: cut(p.charId, 40), name: cut(p.name, 40), tag: cut(p.tag, 8) } : { kind: "user" });
+          const picks = (Array.isArray(e.picks) ? e.picks : []).slice(0, 12).map(p => p && p.kind === "char" ? { kind: "char", charId: cut(p.charId, 40), name: cut(p.name, 40), tag: cut(p.tag, 8), side: p.side } : { kind: "user", side: p && p.side });
           const r = joinSeats(g.inv, origin, nick, picks);
           g.inv = r.inv; shareCard(g);
           // 坐不下的那几个告诉 TA，不让 TA 以为点了没反应
@@ -873,6 +898,7 @@
           local(inv, view, int(e.seq, 0, 1e9, 0));
           if (!was && o.onOpenGame && inv.seats.some(s => s.peer === o.me())) o.onOpenGame(gid);
         } else if (e.op === "priv") { const s = seen[gid]; if (s && s.inv.host === origin) { s.priv = e.data; changed(); } }
+        else if (e.op === "side") { const x = e.x && typeof e.x === "object" ? Object.assign({}, e.x, { peer: origin }) : null; if (x) sideAdd(gid, x); }
         else if (e.op === "oops") { o.toast && o.toast(cut(e.text, 120)); }
       },
       // 有人（重新）进了房：把还在打的那几局再发一遍，TA 那边接得上

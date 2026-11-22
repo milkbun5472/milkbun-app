@@ -285,6 +285,7 @@
   //   拿 ink 当带子色的话，深盒底下会挂一条【浅色】带——整架就它俩反过来了。
   const LID = {
     spy:       { paper: "#efe7d8", ink: "#4a4438", hot: "#b0553f", band: "#4a4438", bandInk: "#efe7d8" },
+    debate:    { paper: "#ece3dc", ink: "#4a3f3a", hot: "#c25a4a", band: "#4a3f3a", bandInk: "#ece3dc" },
     haigui:    { paper: "#dde8e5", ink: "#364a46", hot: "#4f8378", band: "#364a46", bandInk: "#dde8e5" },
     q25:       { paper: "#eae5ef", ink: "#443c4d", hot: "#7a5f96", band: "#443c4d", bandInk: "#eae5ef" },
     tod:       { paper: "#f3e2db", ink: "#55403a", hot: "#c26a4e", band: "#55403a", bandInk: "#f3e2db" },
@@ -509,6 +510,14 @@
         h("rect", { key: "d", x: 65, y: 46.8, width: 13, height: 2.4, rx: 1.2, fill: c.hot }),
         h("path", { key: "e", d: "M80 50l16-16 4 4-16 16-6 2z", fill: c.hot, opacity: .9 })
       ],
+      // 辩论擂台（只在房间里有）：两张讲台，一红一蓝，中间一道台面
+      debate: [
+        h("rect", { key: "a", x: 16, y: 62, width: 88, height: 5, rx: 2, fill: c.ink, opacity: .35 }),
+        h("path", { key: "b", d: "M24 36h26l-4 26H28z", fill: c.hot, opacity: .85 }),
+        h("path", { key: "c", d: "M70 36h26l-4 26H74z", fill: "#3f6d8c", opacity: .85 }),
+        h("circle", { key: "d", cx: 37, cy: 26, r: 6, fill: c.ink, opacity: .5 }),
+        h("circle", { key: "e", cx: 83, cy: 26, r: 6, fill: c.ink, opacity: .5 })
+      ],
       uno: [0, 1, 2, 3].map(function (i) {
         const rot = -24 + i * 16, col = [c.hot, "#e8b53c", "#3f7fd0", "#4f9a58"][i];
         return h("g", { key: "u" + i, transform: "rotate(" + rot + " 60 76)" },
@@ -702,14 +711,14 @@
         (function () {
           const rows = [];
           // props.only：只摆这几盒（别处借大厅挑游戏时，只给挑它接得住的那几个）
-          const shelf = props.only ? GAMES.filter(function (g) { return props.only.indexOf(g.key) >= 0; }) : GAMES;
+          const shelf = (props.only ? GAMES.filter(function (g) { return props.only.indexOf(g.key) >= 0; }) : GAMES).concat(props.extra || []);   // extra：借大厅的那一处自己带的盒子（点了走它自己的 onPick）
           for (let i = 0; i < shelf.length; i += 2) rows.push(shelf.slice(i, i + 2));
           return rows.map(function (row, ri) {
             return h("div", { "data-wk": "gameshelf", key: "row" + ri, style: { marginBottom: 20 } },
               h("div", { style: { display: "flex", gap: 12, alignItems: "flex-end" } },
                 row.map(function (g) {
                   const c = LID[g.key] || LID.spy;
-                  return h("button", { "data-wk": "gamelid", key: g.key, onClick: function () { fromRoom.current = null; setGame(g); }, className: "active:opacity-85",
+                  return h("button", { "data-wk": "gamelid", key: g.key, onClick: function () { if (g.onPick) return g.onPick(); fromRoom.current = null; setGame(g); }, className: "active:opacity-85",
                     style: { flex: "1 1 0", minWidth: 0, textAlign: "left", padding: 0, background: "transparent" } },
                     // 盒子：盒面 + 底下那道深边＝盒子的厚度，所以它是个盒子不是一张卡
                     h("div", { style: { borderRadius: 9, overflow: "hidden", boxShadow: "0 3px 0 " + c.band + ", 0 7px 14px rgba(0,0,0,.20)" } },
