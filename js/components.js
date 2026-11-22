@@ -277,9 +277,20 @@ function LookUndoRow({ count, step, onDone, toast }) {
     pill("↶ 回到上一版（存着 " + (c.back || 0) + " 版）", () => go("back"), !!c.back),
     c.fwd ? pill("↷ 换回来", () => go("fwd"), true) : null);
 }
-function ChatCssFields({ css, setCSS, fileBase, seedName, seedCSS, onPeek, page, title }) {
+function ChatCssFields({ css: savedCSS, setCSS: saveCSS, fileBase, seedName, seedCSS, onPeek, page, title }) {
   const t = useTheme();
   const fileRef = useRef(null), editRef = useRef(null);
+  // 打字先落在框里，停手 700ms 才真存（群友 2026-11-22：把十几万字的整套圣诞美化贴进聊天设置的 CSS，「只要我想调整 css 就会黑屏」）——
+  //   原来每敲一个字就把整份存一遍、整个聊天窗跟着重铺一遍，十几万字带着一串内嵌图片，iPhone 几下就撑爆、页面黑掉重来。
+  //   按钮（清空、导入、起稿、插图）照旧当场存。
+  const [css, setDraft] = useState(savedCSS || "");
+  const pending = useRef(null), lastSaved = useRef(savedCSS || ""), saveRef = useRef(saveCSS);
+  saveRef.current = saveCSS;   // 存的那个函数每次渲染都可能换（里面捏着最新的设置），定时器到点、关页面时都要用最新的那个
+  useEffect(() => { if ((savedCSS || "") !== lastSaved.current && !pending.current) { lastSaved.current = savedCSS || ""; setDraft(savedCSS || ""); } }, [savedCSS]);
+  const flush = v => { clearTimeout(pending.current); pending.current = null; lastSaved.current = v; saveRef.current(v); };
+  const setCSS = v => { setDraft(v); flush(v); };
+  const typeCSS = v => { setDraft(v); clearTimeout(pending.current); pending.current = setTimeout(() => flush(v), 700); };
+  useEffect(() => () => { if (pending.current) { clearTimeout(pending.current); saveRef.current(editRef.current ? editRef.current.value : lastSaved.current); } }, []);
   const TS = typeof window !== "undefined" && window.ThemeStudio;
   const bad = TS && css ? TS.unsafeReason(css) : "";
   const exportCSS = () => { if (css.trim() && typeof saveTextFile === "function") saveTextFile((fileBase || "聊天") + "-聊天.css", css, "text/css"); };
@@ -295,7 +306,7 @@ function ChatCssFields({ css, setCSS, fileBase, seedName, seedCSS, onPeek, page,
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.6 } },
       "压在上面所有层之上，只在这个聊天窗里生效。写法跟主题工作台「" + (page === "gthread" ? "群聊页" : "单聊页") + "」那格一样，不用自己加前缀。"
       + "图片可以用图库里的（下面「插入图库图片」），也可以直接写别处的地址 url(https://…)——那个网站删了图，这里也就没了。"),
-    h("textarea", { "data-wk": "textarea", ref: editRef, value: css, onChange: e => setCSS(e.target.value), rows: 8, spellCheck: false,
+    h("textarea", { "data-wk": "textarea", ref: editRef, value: css, onChange: e => typeCSS(e.target.value), onBlur: e => { if (pending.current) flush(e.target.value); }, rows: 8, spellCheck: false,
       placeholder: '[data-wk="chat"] { … }',
       style: { width: "100%", marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid " + (bad ? t.accent : t.line), background: t.bg2, color: t.ink,
         fontFamily: "ui-monospace, Menlo, monospace", fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, resize: "vertical" } }),
