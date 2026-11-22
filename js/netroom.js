@@ -206,12 +206,23 @@
       return "\n- " + p.nick + (names.length ? "，TA 带来的是：" + names.join("、") : "，没带人") + "。";
     }).join("");
   }
+  // 面具跟着角色走（她 2026-11-22）：这个人认的是哪张面具，就按那张的名字认她；
+  //   房间里大家看到的是她进房时填的昵称，两个不一样时说清「房间记录里的 X 就是她」。
+  function youAlias(room, char) {
+    const you = String((char && char.you) || "").trim(), nick = String(room.myNick || "").trim();
+    return you && nick && you !== nick ? "你认识的 " + you + " 在这个房间里用的名字是「" + nick + "」，房间记录里写着「" + nick + "」的那些话就是 " + you + " 说的" : "";
+  }
+  function youLine(room, char) {
+    const you = String((char && char.you) || "").trim() || room.myNick;
+    const a = youAlias(room, char);
+    return you + (a ? "（" + a + "）" : "");
+  }
   function lineInstruction(room, char) {
     room = normalizeRoom(room);
     const mine = (room.myChars || []).filter(c => c.id !== char.id).map(c => c.name);
     const n = 1 + (room.peers || []).length;
     return "【这里是联机房间】" + room.myNick + " 用自己的手机和别人的手机连在了一起，房间里一共 " + n + " 个人，每人各带了自己的人进来，大家在同一个房间里说话。"
-      + "\n- 带你来的是 " + room.myNick + (mine.length ? "，跟你一起来的还有：" + mine.join("、") : "") + "。"
+      + "\n- 带你来的是 " + youLine(room, char) + (mine.length ? "，跟你一起来的还有：" + mine.join("、") : "") + "。"
       + "\n另外几方：" + (sidesLines(room) || "\n- （还没别人进来）")
       + "\n别人带来的这几位你只知道名字和他们在这里说过的话，其余的你不知道，也不用替他们补。"
       + "\n\n【房间里到现在的全部聊天】\n" + (transcript(room) || "（还没人说话）")
@@ -225,7 +236,7 @@
   }
   function memoryInstruction(room, char) {
     room = normalizeRoom(room);
-    return "把下面这次「" + room.myNick + " 带你进联机房间，跟 " + (peerNames(room).join("、") || "别人") + " 那边的人聊天」的经历，浓缩成 1~3 句会长期记住的事（你的第一人称）："
+    return (youAlias(room, char) ? "（" + youAlias(room, char) + "）\n" : "") + "把下面这次「" + (char.you || room.myNick) + " 带你进联机房间，跟 " + (peerNames(room).join("、") || "别人") + " 那边的人聊天」的经历，浓缩成 1~3 句会长期记住的事（你的第一人称）："
       + "见了谁、聊了什么、谁让你印象深、你自己说过的要紧的话。只写沉淀下来的，不记流水账。别人带来的人你只知道名字和他们在这里说的话。"
       + "\n房间里的几方：" + sidesLines(room)
       + "\n\n【这次房间里的全部聊天】\n" + transcript(room);
@@ -678,7 +689,7 @@
         // 没勾「带上最近单聊」的，单聊和线下那几段不进这次的料
         const ctx0 = props.ctxFor(char), ctx = c.recent ? ctx0 : Object.assign({}, ctx0, { recentChat: "", pastOffline: "" });
         const d = await runProbe(p, ctx, { voice: true, tag: "netroom",
-          instruction: Core.lineInstruction(cur, { id: char.id, name: char.remark || char.name }),
+          instruction: Core.lineInstruction(cur, { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" }),
           schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}", maxTokens: 12000 });
         // 一次连发几条（她 2026-11-22：「为啥角色一次只会说一句话」）；老格式 text 也认
         const lines = Core.sayLines(d);
@@ -697,7 +708,7 @@
       const p = props.apiFor ? props.apiFor(char.id) : null;
       if (!p) throw new Error("先去 设置·API 配一条线路");
       const d = await runProbe(p, props.ctxFor(char), { voice: true, tag: "netroom",
-        instruction: Core.memoryInstruction(r, { id: char.id, name: char.remark || char.name }),
+        instruction: Core.memoryInstruction(r, { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" }),
         schemaHint: "{\"memory\":\"1~3 句，第一人称\"}", maxTokens: 12000 });
       const text = String((d && d.memory) || "").trim();
       if (!text) throw new Error("没浓缩出什么");

@@ -230,3 +230,13 @@ test("重新连上直接回到房间页（输入框在），不停在等人那�
   // 房间页里输入框一直渲染着，没人在线只是灰掉
   assert.match(src, /h\(Composer, \{ onSend: sayHuman, disabled: alone \}\)/);
 });
+
+test("面具跟着角色走：按 TA 认的那张面具名字称呼你，昵称不一样时说清是同一个人", () => {
+  const { C } = load();
+  const room = { id: "m1", myNick: "小雨", peers: [], myChars: [{ id: "a", name: "甲" }], msgs: [] };
+  const t1 = C.lineInstruction(room, { id: "a", name: "甲", you: "阿梨" });
+  assert.ok(t1.includes("带你来的是 阿梨（你认识的 阿梨 在这个房间里用的名字是「小雨」"));
+  const t2 = C.lineInstruction(room, { id: "a", name: "甲", you: "小雨" });
+  assert.ok(t2.includes("带你来的是 小雨") && !t2.includes("你认识的"));
+  assert.ok(C.memoryInstruction(room, { id: "a", name: "甲", you: "阿梨" }).includes("阿梨 带你进联机房间"));
+});
