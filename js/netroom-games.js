@@ -861,6 +861,7 @@
       if (sv.kind === "user") s.priv = data;
       changed();
       actOwn(gid);
+      talkOwn(gid);
     }
     function local(inv, view, seq) {
       const cur = seen[inv.gid];
@@ -897,6 +898,8 @@
       const jobs = [];
       inv.seats.forEach((seat, i) => {
         if (seat.kind !== "char" || seat.peer !== o.me() || seat.away || optsOf(gid, seat.charId).talk === false) return;
+        // 手牌类：这一手的那份 priv 还没到就先不说（到了 gotPriv 会再叫一次）
+        const pv0 = (s.privs || {})[i]; if (ad.needPriv && !over && !(pv0 && pv0.seq >= seq)) return;
         let why = ""; try { why = ad.talkMoment ? ad.talkMoment(view, i, inv) || "" : ""; } catch (e) { why = ""; }
         if (over) why = "这一局刚打完。";
         const key = gid + ":c" + i + (over ? ":end" : "");
