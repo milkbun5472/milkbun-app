@@ -416,12 +416,12 @@
   }
   // 一条消息给人读、给模型读的那一行
   function richLine(m) {
-    const x = m.x || {}, who = m.name || "TA";
+    const x = m.x || {}, who = m.name || "有人";   // 名字缺了：发的人可能是真人也可能是角色，不用 TA
     if (m.type === "emote") return "[表情] " + (x.keyword || "");
     if (m.type === "photo") return x.desc ? "[照片] " + x.desc : "[照片]";
     if (m.type === "voice") return "[语音] " + (x.content || "");
     if (m.type === "geo") return "[位置] " + (x.name || "");
-    if (m.type === "pat") return who + " 拍了拍 " + (x.to || "TA");
+    if (m.type === "pat") return who + " 拍了拍 " + (x.to || "某人");
     if (m.type === "rp") {
       const cl = x.claims || [];
       return "[红包] " + (x.message || "恭喜发财，大吉大利") + "（" + x.count + " 个，只是玩法不动钱包）"
