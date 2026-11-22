@@ -1277,7 +1277,7 @@
       const recent = o.recent != null ? !!o.recent : !!(mc && mc.recent), ch = charsById[cid];
       let recentText = "";
       if (recent && ch && propsRef.current.ctxFor) { try { recentText = String((propsRef.current.ctxFor(ch, { chat: true }) || {}).recentChat || "").slice(-600); } catch (e) {} }
-      return { casual: !!o.casual, recent, recentText };
+      return { casual: !!o.casual, recent, recentText, botSkill: o.botSkill || "" };
     };
     const setCharOpt = (cid, k, v) => setCharOpts(m => Object.assign({}, m, { [cid]: Object.assign({}, m[cid] || {}, { [k]: v }) }));
     // 座位旁那两个字（大家都看得到）：钉的牌技档、随手
@@ -1285,6 +1285,8 @@
       const GSh = root.GameShared, kinds = GC() ? GC().charOptKinds(key) : [], bits = [];
       if (kinds.indexOf("skill") >= 0 && GSh && GSh.skill) { const pin = GSh.skill.load()[cid], o = GSh.skill.PINS.find(x => x.k && x.k === pin); if (o) bits.push(o.zh); }
       if (kinds.indexOf("casual") >= 0 && (charOptsRef.current[cid] || {}).casual) bits.push("随手");
+      const bs = (charOptsRef.current[cid] || {}).botSkill, BS = GSh && GSh.cards && GSh.cards.BOT_SKILL;
+      if (kinds.indexOf("botSkill") >= 0 && BS && BS[bs]) bits.push(BS[bs].zh);
       return bits.join("·");
     };
     // 报名：你自己、你带进房间的人，勾谁谁占一个座位；勾上的角色下面展开这一盒能按人调的那几项（跟单机开局页同一批）
@@ -1292,7 +1294,7 @@
       if (!joinAt) return null;
       const kinds = GC() ? GC().charOptKinds(joinAt.key) : [], GSh = root.GameShared;
       const seg = (cid, k, val, opts) => h("div", { className: "flex flex-wrap", style: { gap: 6 } }, opts.map(o => h("button", { key: o.key, "data-wk": "nrcharopt", "data-part": k,
-        onClick: () => k === "skill" ? (GSh.skill.save(cid, o.key), setGTick(n => n + 1)) : setCharOpt(cid, k, o.key === "casual"),
+        onClick: () => k === "skill" ? (GSh.skill.save(cid, o.key), setGTick(n => n + 1)) : k === "botSkill" ? setCharOpt(cid, k, o.key) : setCharOpt(cid, k, o.key === "casual"),
         style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (val === o.key ? t.ink : t.line), background: val === o.key ? t.ink : t.bg2, color: val === o.key ? t.bg : t.ink, fontFamily: F_BODY, fontSize: fs(12.5) } }, o.zh)));
       const optsOf = c => {
         if (!joinPick[c.id]) return null;
@@ -1300,6 +1302,8 @@
         if (kinds.indexOf("skill") >= 0 && GSh && GSh.skill) rows.push(h("div", { key: "s" }, h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, margin: "2px 0 4px" } }, "牌技：" + GSh.skill.NOTE),
           seg(c.id, "skill", GSh.skill.load()[c.id] || "", GSh.skill.PINS.map(x => ({ key: x.k, zh: x.zh })))));
         if (kinds.indexOf("casual") >= 0 && GSh) rows.push(h("div", { key: "c" }, seg(c.id, "casual", o.casual ? "casual" : "serious", GSh.GMK_CASUAL_OPTS)));
+        if (kinds.indexOf("botSkill") >= 0 && GSh && GSh.cards) rows.push(h("div", { key: "b" }, h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, margin: "2px 0 4px" } }, "牌手水平：你这台替 TA 出牌时照这一档（新手常出一张不那么好的，高手不失手）"),
+          seg(c.id, "botSkill", o.botSkill || "normal", Object.keys(GSh.cards.BOT_SKILL).map(k => ({ key: k, zh: GSh.cards.BOT_SKILL[k].zh })))));
         if (kinds.indexOf("recent") >= 0) rows.push(h("label", { key: "r", className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
           h("input", { type: "checkbox", "data-wk": "nrcharrecent", checked: o.recent, onChange: e => setCharOpt(c.id, "recent", e.target.checked) }), "带上 TA 最近单聊（TA 出题、提问、接句时记得你们最近聊了什么）"));
         return rows.length ? h("div", { "data-wk": "nrcharopts", style: { margin: "0 0 8px 42px", display: "flex", flexDirection: "column", gap: 6 } }, rows) : null;
@@ -1330,7 +1334,7 @@
       const gid = (gameWin && gameWin.gid) || gameId; const sv = gid ? gs.seen(gid) : null;
       if (!sv || !sv.view || (sv.inv.status !== "playing" && sv.inv.status !== "done")) return "";
       const si = charId ? sv.inv.seats.findIndex(x => x.kind === "char" && x.peer === meId.current && x.charId === charId) : -1;
-      const mineP = si >= 0 && sv.view.setter === si ? sv.priv : null;
+      const mineP = si >= 0 ? gs.privOf(gid, si) : null;
       return GCo.stateText(sv.inv, sv.view, si, mineP);
     };
     const gameHalf = () => {
@@ -1677,9 +1681,17 @@
         xiangqi: "角色照 TA 估过的水平走（没估过按会下），NPC 由房主那台走；没有提示、悔棋和教学。", jungle: "角色照 TA 估过的水平走（没估过按会下），NPC 由房主那台走；没有提示、悔棋和教学。",
         go: "棋盘大小照下面挑的；双方连着停一手就由房主那台估死子、数子。没有提示、悔棋和教学。", haigui: "下一页选谁出题。", q25: "下一页选谁出题。",
         story: "三圈，每人每次抽一个要用上的词；角色用带 TA 来的那台、TA 自己的线路接。", tod: "每人约两轮，题由下一位出；角色出题、回答都用带 TA 来的那台的线路。",
-        monopoly: "钱和地都在房主那台结算；不买的地自动拍卖，讨价还价在房间里说。" };
+        monopoly: "钱和地都在房主那台结算；不买的地自动拍卖，讨价还价在房间里说。",
+        spy: "词由房主那台出、只发到各人自己的手机；描述、投票轮流来，角色用带 TA 来的那台、TA 自己的线路。",
+        uno: "每人的手牌只发到自己那台；角色、NPC 由手机替着出（不花调用）。没有「每人自己想」。",
+        oldmaid: "每人的手牌只发到自己那台，抽的时候只看得到下家牌背。", liar: "每人的骰子只发到自己那台，开了才一起亮。",
+        poker: "底牌只发到自己那台，摊牌才亮；角色、NPC 由手机替着下（不花调用）。没有「输的人答真心话」和「每人自己想」。",
+        blackjack: "庄家是手机；每人的牌只发到自己那台，一手结算时才一起亮。没有「TA 坐庄」和「每人自己想」。",
+        doudizhu: "正好 3 个座位，真人不够用角色和 NPC 补；手牌只发到自己那台，底牌定了地主才亮。",
+        mahjong: "正好 4 个座位，真人不够用角色和 NPC 补；手牌只发到自己那台。牌墙自动摸；四川的换三张、定缺由手机替每家挑。",
+        lingxi: "两个人各写各的，两边都交了才一起亮；角色用带 TA 来的那台、TA 自己的线路。房主随时能结束。" };
       return h(G, { characters: mine, profile: props.profile, only: root.NetGameCore.supported(), onConfigured,
-        setupHide: ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins"], setupNote: g => (NOTE[g.key] || "") + (GC() && GC().charOptKinds(g.key).length ? "你带的角色怎么玩（牌技、随手、带不带最近单聊）在邀请卡上点「换人／加入」那张单里调。" : ""),
+        setupHide: ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins", "cardBrain", "bjDealer", "pkTruth", "mjAutoDraw", "mjSwap"], setupNote: g => (NOTE[g.key] || "") + (GC() && GC().charOptKinds(g.key).length ? "你带的角色怎么玩（牌技、牌手水平、随手、带不带最近单聊）在邀请卡上点「换人／加入」那张单里调。" : ""),
         intro: "挑一盒、设好开局（开局页里勾的角色就是你这边上场的人），房里会出现一张邀请卡，大家在卡上报名，你点开始。", onBack: () => setPage("chat") });
     }
     if (page === "gameprep" && room && gamePend) {

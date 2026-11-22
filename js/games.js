@@ -899,8 +899,8 @@
           mjVariant === "guobiao" ? h(Segmented, { t: t, value: String([8, 4, 1].indexOf(mjMinFan) >= 0 && mjMinFan ? mjMinFan : 8), onChange: function (v) { setMjMinFan(+v); }, options: [{ key: "8", zh: "8 番（比赛）" }, { key: "4", zh: "4 番" }, { key: "1", zh: "1 番（随便和）" }] }) : null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, margin: "14px 0 8px" } }, "打几盘"),
           h(Segmented, { t: t, value: String(mjHands), onChange: function (v) { setMjHands(+v); }, options: [{ key: "4", zh: "四盘" }, { key: "8", zh: "八盘" }, { key: "16", zh: "一整局（16 盘）" }] }),
-          mjVariant === "sichuan" ? h("div", { style: { marginTop: 12 } }, h(ToggleRow, { t: t, label: "换三张", sub: "开着：每盘发完牌先挑同一门的三张，跟别家换（顺时针、逆时针或对家，每盘抽一个）。", on: mjSwap, onToggle: function () { setMjSwap(!mjSwap); } })) : null,
-          h("div", { style: { marginTop: 12 } }, h(ToggleRow, { t: t, label: "自动摸牌", sub: "关着：轮到你时点桌子正中的牌墙自己摸。开着：轮到你就直接摸好。", on: mjAutoDraw, onToggle: function () { setMjAutoDraw(!mjAutoDraw); } })),
+          mjVariant === "sichuan" && !hid("mjSwap") ? h("div", { style: { marginTop: 12 } }, h(ToggleRow, { t: t, label: "换三张", sub: "开着：每盘发完牌先挑同一门的三张，跟别家换（顺时针、逆时针或对家，每盘抽一个）。", on: mjSwap, onToggle: function () { setMjSwap(!mjSwap); } })) : null,
+          hid("mjAutoDraw") ? null : h("div", { style: { marginTop: 12 } }, h(ToggleRow, { t: t, label: "自动摸牌", sub: "关着：轮到你时点桌子正中的牌墙自己摸。开着：轮到你就直接摸好。", on: mjAutoDraw, onToggle: function () { setMjAutoDraw(!mjAutoDraw); } })),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, (mjVariant === "riichi" ? "日麻：手里没有役（立直、门清自摸、断幺、役牌、平和……）就和不了，宝牌只加番不算役；听的牌自己打过就是振听，不能荣和、只能自摸；立直要门清、扣 1000 点，立直以后只能打摸到的那张。点数起手 25000。" : mjVariant === "taiwan" ? "台湾：每人 16 张，凑五组一对；算台（庄家 1、门清 1、自摸 1、门清自摸 3、正花、刻子、碰碰胡 4、混一色 4、清一色 8……），付「底 3 + 台数」。" : mjVariant === "guobiao" ? "国标：常见三十来种番（七对、清一色、碰碰和、全求人、平和、断幺、箭刻……），番不够不能和，花牌另算不进起和。点和的那家付「8 + 番」，另两家各付 8；自摸三家各付「8 + 番」。" : mjVariant === "canton" ? "起糊番数不够的牌不能食也不能自摸。" : mjVariant === "sichuan" ? "四川：开局换三张、定缺，缺的那门打完才能胡；七对也算；一炮可以几家一起胡；三家胡了或者摸完这一盘才散。杠了当场收钱（刮风下雨）；摸完时手里还有缺的那门是花猪、赔满番，没听牌的赔给听牌的（查叫）。" : "红中：红中顶任何牌（不能碰、不能杠）；七对也算；只能自摸，三家各付；一张红中都没用上的硬胡番数多一番。") + "别家都由本地牌手打，不花调用；角色在碰、杠、胡和一盘打完时开口。")) : null,
         game.key === "uno" ? h("div", { style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "+2 规则"),
@@ -935,15 +935,15 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, drawBrain === "step"
             ? "每画一段都重新想一次：看得到你猜过什么、说过什么，下一笔跟着变，画几段也是边画边定。每段一次调用，段与段之间要等几秒。"
             : "开画时一次想好整幅，再一段一段放给你看：省调用、不卡，但你中途说什么，后面的画不会跟着变。")) : null,
-        game.key === "blackjack" && picked.length ? h("div", { "data-wk": "gamebjdealer", style: { marginBottom: 20 } },
+        game.key === "blackjack" && picked.length && !hid("bjDealer") ? h("div", { "data-wk": "gamebjdealer", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "谁坐庄"),
           h(Segmented, { t: t, value: bjDealer, onChange: setBjDealer, options: [{ key: "house", zh: "手机发牌" }, { key: "ta", zh: ((chars.find(function (c) { return String(c.id) === String(picked[0]); }) || {}).name || "TA") + " 坐庄" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, bjDealer === "ta"
             ? "TA 当庄家：不下注，大家都跟 TA 比；你们赢的从 TA 的筹码里出，输的进 TA 口袋。庄家照规矩要到 17 点。"
             : "庄家是手机，谁也不偏；角色和你一样各自跟庄比。")) : null,
-        game.key === "poker" ? h("div", { "data-wk": "gamepktruth", style: { marginBottom: 20 } },
+        game.key === "poker" && !hid("pkTruth") ? h("div", { "data-wk": "gamepktruth", style: { marginBottom: 20 } },
           h(ToggleRow, { t: t, label: "输的人答一个真心话", sub: "每手打完，赢最多的问、输最多的答。轮到你问就写一句，轮到你答就照实回；角色之间的问答顺带在桌上话里说。每次问答花一次调用。", on: pkTruth, onToggle: function () { setPkTruth(!pkTruth); } })) : null,
-        ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? h("div", { "data-wk": "gamecardbrain", style: { marginBottom: 20 } },
+        ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 && !hid("cardBrain") ? h("div", { "data-wk": "gamecardbrain", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "谁来出牌"),
           h(Segmented, { t: t, value: cardBrain, onChange: setCardBrain, options: [{ key: "local", zh: "手机出牌" }, { key: "self", zh: "每人自己想" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, cardBrain === "self"
@@ -1193,7 +1193,7 @@
   }
   async function genVotesBatch(api, voters, allClues, aliveNames, mode, userName, preface) {
     const clues = allClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
-    const who = voters.map(function (v) { return "■ " + v.name + "（" + (v.role === "spy" ? "你其实是卧底：把票投给某个你觉得像平民的人来误导，别投出真正的少数派" : "你是平民：凭描述投你真心最怀疑的那个") + "）真实水平：" + (v.skill || "普通") + voiceBrief(v); }).join("\n");
+    const who = voters.map(function (v) { return "■ " + v.name + "（" + (v.role === "spy" ? "你其实是卧底：把票投给某个你觉得像平民的人来误导，别投出真正的少数派" : v.role === "unknown" ? "你只知道自己的词「" + (v.word || "") + "」，不知道自己是多数还是少数：凭描述投你真心最怀疑的那个" : "你是平民：凭描述投你真心最怀疑的那个") + "）真实水平：" + (v.skill || "普通") + voiceBrief(v); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别精准锁定真人「" + userName + "」，就算怀疑 TA 也可以手下留情、投别人或说再看看。" : "";
     const sys = gameVoiceRules() + "\n\n「谁是卧底」投票。根据目前【所有描述】，下面每人各投一个要投出局的人 + 一句短理由。按真实水平：推理强的投得准，弱的易被带偏。**实在没把握可以弃票**（target 填「弃票」），但别全场弃票。理由别露上帝视角（别说“我是卧底所以…”）。【公平】只按描述本身的合理性投票，别因为某人发言顺序靠前、说得少、或是生面孔就默认针对 TA——没有实据不要扎堆投同一个人。" + easy +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【目前所有描述】\n" + clues + "\n\n【要投票的人】\n" + who +
@@ -9242,7 +9242,21 @@
     story: { newGame: storyNewGame, act: storyAct, text: storyText, total: storyTotalTurns, isLast: storyIsLast, writeLine: storyWriteLine },
     tod: { plan: tdRoundPlan, pickTarget: tdPickFairTarget, pickAsker: tdPickNextAsker, ask: genTDPrompt, answer: genTDAnswerToUserPrompt, remember: rememberTDPrompt },
     mono: { BOARD: MONO_BOARD, roll: monoRoll, land: monoLand, buy: monoBuy, upgrade: monoUpgrade, decide: monoNpcDecision, auctionPlan: monoAuctionPlan, settleAuction: monoSettleAuction, ranking: monoRanking, advance: monoAdvance, netWorth: monoNetWorth, rent: monoRent, gridPos: monoGridPos, tokenColor: monoTokenColor, maxMoves: monoMaxMoves },
-    GomokuBoard: GomokuBoard, GmkStone: GmkStone, GameVsBar: GameVsBar, GameTalkLog: GameTalkLog
+    GomokuBoard: GomokuBoard, GmkStone: GmkStone, GameVsBar: GameVsBar, GameTalkLog: GameTalkLog,
+    // 手里藏着东西的那几盒（牌、骰子、词）：规则和本地牌手都是单机那一份；name 是一张牌的叫法，PlayCard／Die／MjTile 画牌
+    cards: {
+      name: cardName, PlayCard: PlayCard, Die: Die, MjTile: MjTile, BOT_SKILL: BOT_SKILL, botSlip: botSlip,
+      uno: { C: WIN.UnoCore, local: unoLocalMove },
+      liar: { newGame: liarNewGame, newRound: liarNewRound, act: liarAct, npc: liarNpcMove, total: liarTotal, legal: liarLegalBid, DICE: LIAR_DICE },
+      poker: { newGame: pkNewGame, newHand: pkNewHand, act: pkAct, npc: pkNpcMove, options: pkOptions, pot: pkPot, best: pkBest, CAT: PK_CAT, HANDS: PK_HANDS },
+      oldmaid: { newGame: omNewGame, act: omAct, target: omTarget },
+      bj: { newGame: bjNewGame, newHand: bjNewHand, act: bjAct, npc: bjNpcMove, value: bjValue, HANDS: BJ_HANDS },
+      ddz: { newGame: ddzNewGame, newRound: ddzNewRound, bid: ddzBid, play: ddzPlay, npcBid: ddzNpcBid, npcPlay: ddzNpcPlay, hint: ddzHint, analyze: ddzAnalyze, TYPE_ZH: DDZ_TYPE_ZH, ROUNDS: DDZ_ROUNDS },
+      style: cardStyle
+    },
+    // 谁是卧底：出词、一句描述、投票、出局卧底猜词，都是单机那几枪（一次只喂一个人也行）
+    spy: { setup: setupSpy, clues: genCluesBatch, votes: genVotesBatch, guess: genSpyGuess, hits: spyGuessHits },
+    voiceRules: gameVoiceRules, call: callRetry
   };
   if (typeof window !== "undefined") window.GameShared = GameShared;
 })();

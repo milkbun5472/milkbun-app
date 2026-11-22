@@ -11,11 +11,15 @@
 //   seatRange(cfg)                 → { min, max }   这桌几个座位
 //   init(inv, ctx)                 → 状态（可以是 Promise；ctx.hostApi 是庄的线路，ctx.prep 是房主开局前填的）
 //   view(st)                       → 发给所有人的那一份（不许带底牌）
-//   priv(st, seatIdx)              → 只给这个座位主人看的那一份，没有就 null（藏身份的游戏用）
+//   priv(st, seatIdx)              → 只给这个座位主人看的那一份，没有就 null（手牌、骰子、词、出题人的底牌）；
+//                                   每个座位单独一份、单独发到坐这个座位的那台（同一台带了自己和角色，就各收各的）
 //   turn(st)                       → 轮到第几个座位，不该有人动就 -1
 //   apply(st, seatIdx, move, ctx)  → { st } 或 { err }（可以是 Promise；庄这一台跑）
 //   npcMove(st, seatIdx, inv, ctx) → 一手（庄替 NPC 和托管座位出手）
-//   charMove(view, seatIdx, inv, ctx) → 一手（角色主人那台跑：ctx.api 是那个角色自己的线路，ctx.char 是本机的角色）
+//   charMove(view, seatIdx, inv, ctx) → 一手（角色主人那台跑：ctx.api 是那个角色自己的线路，ctx.char 是本机的角色，
+//                                   ctx.priv 是这个座位自己那份 priv——只有这一份，别人的手牌它拿不到）
+//   needPriv: true                 → 角色出手要先等到这一手的 priv（手牌类都要）
+//   mustFill: true                 → 人数是死的（斗地主 3、麻将 4）：开局时空位一律用 NPC 补，不看「NPC 凑数」开没开
 //   result(st, inv)                → null（没完）或 { winners:[seatIdx], text, replay }
 //   cleanReplay(r)                 → 战绩卡里回看那一份的白名单
 //   stateText(view, seatIdx, inv, priv) → 当前局面写成一段人话，给房里开口的角色当背景（单人开口、一起说都带）；
@@ -119,12 +123,13 @@
     const A = ADAPTERS[inv.key];
     const names = (A && A.npcNames) || NPC_NAMES;
     const nextName = () => { while (k < names.length && used.has(names[k])) k++; const n = names[k] || ("NPC" + (k + 1)); k++; used.add(n); return n; };
-    const seats = inv.npcFill ? inv.seats.map(s => s.kind === "open" ? { kind: "npc", name: nextName() } : s) : inv.seats.filter(s => s.kind !== "open");
+    const seats = inv.npcFill || (A && A.mustFill) ? inv.seats.map(s => s.kind === "open" ? { kind: "npc", name: nextName() } : s) : inv.seats.filter(s => s.kind !== "open");
     return Object.assign({}, inv, { seats });
   }
   function canStart(inv) {
     if (!inv || inv.status !== "open" || takenCount(inv) < 1) return false;
-    return (inv.npcFill ? inv.seats.length : takenCount(inv)) >= inv.min;
+    const A = ADAPTERS[inv.key];
+    return (inv.npcFill || (A && A.mustFill) ? inv.seats.length : takenCount(inv)) >= inv.min;
   }
   // 这个座位这一手归谁出：我自己点 / 我这台替我带来的角色出 / 庄替 NPC（和托管的座位）出 / 别人那台
   function actorOf(seat, me, host) {
@@ -199,6 +204,7 @@
   // 角色上桌时的那一份：人设；主人勾了「带上 TA 最近单聊」就把那一段接在后面
   const charWho = (c, opts) => ({ name: (c && (c.remark || c.name)) || "TA", persona: ((c && c.persona) || "") + (opts && opts.recent && opts.recentText ? "\n【和带你来的人最近在单聊里聊的】" + cut(opts.recentText, 600) : "") });
   // 报名那张单上，每个勾上的角色可以调哪几项（跟单机开局页按角色调的是同一批）
+  // 别的文件接进来的游戏（netroom-cards.js）往这张表里添自己那一行
   const CHAR_OPTS = { chess: ["skill"], xiangqi: ["skill"], jungle: ["skill"], go: ["skill"], gomoku: ["casual"], haigui: ["recent"], q25: ["recent"], story: ["recent"], tod: ["recent"], monopoly: [] };
   const charOptKinds = key => CHAR_OPTS[key] || [];
   const NPC_WHO = n => ({ name: n, persona: "来凑桌的路人，普通玩家。", isNpc: true });
@@ -701,7 +707,7 @@
   }
   const supported = () => Object.keys(ADAPTERS);
 
-  const Core = { charOptKinds, winOpen, winSet, winUnread, myTurn, stateText, SETTER_MODES, cleanSetter, setterSeat, nextSetter, setterLine, SEAT_KINDS, STATUS, AWAY_MS, ADAPTERS, supported, cleanSeat, cleanInvite, cleanRecord, inviteLine, recordLine, newInvite, joinSeats, leaveSeats, addSeat,
+  const Core = { CHAR_OPTS, charWho, NPC_WHO, nmOf, charOptKinds, winOpen, winSet, winUnread, myTurn, stateText, SETTER_MODES, cleanSetter, setterSeat, nextSetter, setterLine, SEAT_KINDS, STATUS, AWAY_MS, ADAPTERS, supported, cleanSeat, cleanInvite, cleanRecord, inviteLine, recordLine, newInvite, joinSeats, leaveSeats, addSeat,
     takenCount, fillNpc, canStart, actorOf, privateRoute, awayPlan, setAway };
   root.NetGameCore = Core;
 
@@ -711,7 +717,7 @@
   //    presence() 房里每个人此刻在不在；onChange() 界面重画；toast(s)
   function Session(o) {
     const host = {};     // 我开的那几局：gid → { inv, st, prep, seq, busy, gone:{peer:ts} }
-    const seen = {};     // 每一局我这台看到的：gid → { inv, view, seq, priv }
+    const seen = {};     // 每一局我这台看到的：gid → { inv, view, seq, priv, privs:{座位:{seq,data}} }（priv＝我自己那个真人座位的那份）
     const acting = new Set();
     const changed = () => { try { o.onChange && o.onChange(); } catch (e) {} };
     const wait = ms => new Promise(ok => setTimeout(ok, o.fast ? 0 : ms));   // 停一拍再下，像在想（测试里 fast 不停）
@@ -724,8 +730,20 @@
       local(g.inv, view, g.seq);
       o.send({ t: "game", op: "state", gid: g.inv.gid, inv: g.inv, view, seq: g.seq });
       // 只给座位主人看的那一份：一份一份单独发，不进广播
-      g.inv.seats.forEach((s, i) => { const p = ad.priv(g.st, i); if (p != null && s.peer) { if (s.peer === o.me()) (seen[g.inv.gid] || {}).priv = p; else o.send({ t: "game", op: "priv", gid: g.inv.gid, seat: i, data: p }, s.peer); } });
+      g.inv.seats.forEach((s, i) => { const p = ad.priv(g.st, i); if (p != null && s.peer) { if (s.peer === o.me()) gotPriv(g.inv.gid, i, g.seq, p); else o.send({ t: "game", op: "priv", gid: g.inv.gid, seat: i, seq: g.seq, data: p }, s.peer); } });
     };
+    // 收到只给我这台的那一份：按座位存（我自己一份、我带来的角色各一份）；角色那一手可能正等着它
+    function gotPriv(gid, seat, seq, data) {
+      const s = seen[gid]; if (!s) return;
+      const sv = (s.inv.seats || [])[seat]; if (!sv || sv.peer !== o.me()) return;
+      const privs = Object.assign({}, s.privs || {}), cur = privs[seat];
+      if (cur && cur.seq > seq) return;
+      privs[seat] = { seq, data };
+      s.privs = privs;
+      if (sv.kind === "user") s.priv = data;
+      changed();
+      actOwn(gid);
+    }
     function local(inv, view, seq) {
       const cur = seen[inv.gid];
       if (cur && cur.seq >= seq) return;
@@ -740,6 +758,9 @@
       const ti = ad.turn(ad.cleanView ? ad.cleanView(s.view) : s.view);
       const seat = s.inv.seats[ti];
       if (actorOf(seat, o.me(), s.inv.host) !== "mine-char") return;
+      // 手牌类：这一手的那份 priv 还没到，先不动（到了会再叫一次）
+      const pv = (s.privs || {})[ti];
+      if (ad.needPriv && !(pv && pv.seq >= s.seq)) return;
       const k = gid + ":" + s.seq + ":" + ti;
       if (acting.has(k)) return; acting.add(k);
       const char = o.charOf(seat.charId);
@@ -747,7 +768,7 @@
       let mv = null;
       // opts：主人在报名那张单上给 TA 调的（怎么下、带不带最近单聊），只存在这台
       const opts = (o.charOpts && o.charOpts(gid, seat.charId)) || {};
-      try { mv = await ad.charMove(s.view, ti, s.inv, { api: char ? o.apiFor(char.id) : null, char, opts }); } catch (e) { mv = null; }
+      try { mv = await ad.charMove(s.view, ti, s.inv, { api: char ? o.apiFor(char.id) : null, char, opts, priv: pv ? pv.data : null }); } catch (e) { mv = null; }
       if (!mv) mv = { pass: true };
       move(gid, ti, mv);
     }
@@ -803,6 +824,8 @@
     }
     return {
       seen: gid => seen[gid] || null,
+      // 我这台手里某个座位的那份（只有坐这个座位的是我、或者是我带来的角色才有）
+      privOf: (gid, seat) => { const s = seen[gid], p = s && s.privs && s.privs[seat]; return p ? p.data : null; },
       isHost: gid => !!host[gid],
       hosting: () => Object.keys(host),
       // 房主：开一张邀请卡（picks 是房主自己这边上谁，开局配置里勾的那几个）
@@ -872,7 +895,7 @@
           const was = seen[gid];
           local(inv, view, int(e.seq, 0, 1e9, 0));
           if (!was && o.onOpenGame && inv.seats.some(s => s.peer === o.me())) o.onOpenGame(gid);
-        } else if (e.op === "priv") { const s = seen[gid]; if (s && s.inv.host === origin) { s.priv = e.data; changed(); } }
+        } else if (e.op === "priv") { const s = seen[gid]; if (s && s.inv.host === origin) gotPriv(gid, int(e.seat, 0, 11, -1), int(e.seq, 0, 1e9, 0), e.data); }
         else if (e.op === "oops") { o.toast && o.toast(cut(e.text, 120)); }
       },
       // 有人（重新）进了房：把还在打的那几局再发一遍，TA 那边接得上
@@ -1186,5 +1209,5 @@
   ADAPTERS.story.Table = StoryTable; ADAPTERS.story.Replay = StoryReplay;
   ADAPTERS.tod.Table = TodTable; ADAPTERS.tod.Replay = TodReplay;
   ADAPTERS.monopoly.Table = MonoTable; ADAPTERS.monopoly.Replay = MonoReplay;
-  root.NetGameUI = { InviteCard, RecordCard };
+  root.NetGameUI = { InviteCard, RecordCard, kit: { pill, note, box, fs } };
 })(typeof window !== "undefined" ? window : globalThis);

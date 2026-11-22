@@ -455,9 +455,10 @@ test("新几盒的角色座位也由带 TA 来的那台出手、用 TA 自己的
 test("大厅：第一档这几盒都摆出来；联机接不住的开局选项收起来", () => {
   const { G } = load2();
   ["gomoku", "haigui", "q25", "chess", "xiangqi", "jungle", "go", "story", "tod", "monopoly"].forEach(k => assert.ok(G.supported().indexOf(k) >= 0, k));
-  assert.match(nsrc, /setupHide: \["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins"\]/);
+  const hideList = JSON.parse((nsrc.match(/setupHide: (\[[^\]]*\])/) || [])[1] || "[]");
+  ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins", "cardBrain", "bjDealer", "pkTruth", "mjAutoDraw", "mjSwap"].forEach(k => assert.ok(hideList.indexOf(k) >= 0, "联机收起 " + k));
   assert.match(games, /hide: props\.setupHide, note: props\.setupNote \? props\.setupNote\(game\) : "",/);
-  ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins"].forEach(k => assert.ok(games.indexOf('hid("' + k + '")') > 0, k));
+  hideList.forEach(k => assert.ok(games.indexOf('hid("' + k + '")') > 0, k));
 });
 
 test("半窗：展开时记下房里有几条，之后来的算新消息；收起不计数；再展开从头算", () => {
