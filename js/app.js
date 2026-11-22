@@ -12013,6 +12013,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const myRank = list.findIndex(x => x.c.id === viewerId);
       if (list.length) out.push("【她的消息列表（一打开「信息」就看得到，从上往下）】" + (myRank >= 0 ? "你自己排在第 " + (myRank + 1) + " 个。" : "") + "\n" + list.map(x => "· " + (x.c.id === viewerId ? "【你自己】" : "") + (x.c.remark && x.c.remark !== x.c.name ? "她给「" + x.c.name + "」的备注是「" + x.c.remark + "」" : "「" + x.c.name + "」") + (x.c.id === viewerId ? "" : tagOf(x.c))
         + "　" + hm(x.lm.ts) + "　最后一句：" + (x.lm.role === "user" ? (x.lm.peekBy ? (String(x.lm.peekBy) === String(viewerId) ? "你冒她名发的" : "别人冒她名发的") : "她说") : "对方说") + "「" + cut(x.lm.content, 30) + "」").join("\n"));
+      // 躺列的：在她通讯录里、一句没聊过（她 2026-11-22「有些躺列但是不说话的」）——点开就是空的，写明了TA才不会现编
+      const _quiet = (characters || []).filter(c => c.id !== viewerId && shownId(c.id) && !(chatsRef.current[c.id] || []).some(m => m && m.content && !m.recalled && !isOocMsg(m) && m.kind !== "system")).map(c => c.remark || c.name).slice(0, 12);
+      if (_quiet.length) out.push("【她通讯录里躺着、一句都没跟她聊过的】" + _quiet.join("、") + "（点开是空的，没有聊天记录）");
       const rowsAll = (characters || []).filter(c => c.id !== viewerId && shownId(c.id) && !settingsFor(c.id).engineerEyes).map(c => {
         // 动作描写（旁白）不是谁发的消息，是那个世界里发生的事——不给TA当聊天读（她 2026-10-02：「他怎么把动描也当成聊天了」）
         const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration" && contextAllowsMessage(m));
@@ -12141,6 +12144,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const pic = m => (m.images && m.images.length) || m.image ? "（配了图）" : "";
       const feed = (momentsRef.current || []).filter(m => m && !m.mine && m.characterId && m.characterId !== viewerId && shownId(m.characterId) && !maskTrace(m.content)).slice(0, 8);
       if (feed.length) out.push("【她朋友圈里刷得到的——她联系人发的，最近这几条】\n" + feed.map(m => "· 「" + (nameOf(m.characterId) || "某人") + "」" + md(m.ts) + "　" + cut(m.content, 80) + pic(m) + tail(m)).join("\n"));
+      if (!feed.length) out.push("【她的朋友圈】刷下来一条联系人的动态都没有（点开是空的）。");
       const mine = (momentsRef.current || []).filter(m => m && m.mine && String(m.mask || "") === vm && !maskTrace(m.content)).slice(0, 6);
       if (mine.length) out.push("【她自己发的朋友圈，最近这几条】\n" + mine.map(m => {
         const vis = Array.isArray(m.visibleTo) && m.visibleTo.length ? m.visibleTo : null;
@@ -12451,10 +12455,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const c = (characters || []).find(x => x.id === charId);
     if (!c) return;
     if (!sneak) pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把手机递给了 " + (c.remark || c.name) + (hidden.length ? "（藏起了：" + hidden.join("、") + "）" : ""), ts: Date.now() }]);
-    // 空的不给翻（群里 2026-11-22「看到对方对着没讲过话的 npc 和没发过朋友圈的界面一顿评价」）：
-    //   没人发过朋友圈就不列朋友圈；能点开的聊天只列真聊过的——给了空的，TA 只能照名字现编
-    const _momAny = (momentsRef.current || []).some(m => m && (m.mine || !hideSet.has(String(m.characterId))));
-    const apps = [...new Set((allow || []).flatMap(k => PEEK_APPS[k] || []))].filter(a => a !== "moments" || _momAny);
+    // 空的照样能翻（她 2026-11-22「有时候就是想看她们列表里有谁，有些躺列但是不说话的」），
+    //   但材料里写明是空的——没聊过的人、没人发的朋友圈，TA 知道是空的，就不会对着空页面现编内容（群里 2026-11-22）
+    const apps = [...new Set((allow || []).flatMap(k => PEEK_APPS[k] || []))];
     // 单独藏的人也算进「藏起了」，翻完开口那一轮TA照样知道
     // 只算她亲手藏的；面具不同的那些不是「藏」，TA根本不知道有
     const userHide = new Set((hideIds || []).map(String));
@@ -12471,7 +12474,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const gate = Object.keys(clues);
     try {
       const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))
-          && (chatsRef.current[x.id] || []).some(m => m && m.content && !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.role !== "narration"))
+          )
         .map(x => x.remark || x.name).slice(0, 12)
         .concat((groupsRef.current || []).filter(g => g && g.name && !hideSet.has(String(g.id)) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate) && !(g.spaceId && channelNoMem(g.id))).map(g => g.name).slice(0, 4));
       const ask = () => runProbe(apiFor(charId), ctxFor(c), {
