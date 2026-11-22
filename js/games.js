@@ -3346,6 +3346,8 @@
     const easy = mode === "easy" ? "\n【放水局】AI 玩家别问得太神，留点空间给真人；主持人答题该给的提示大方点给。" : "";
     const hist = history.length ? history.slice(-14).map(function (q) { return "· " + q; }).join("\n") : "（还没人问过）";
     // 每个 AI 玩家带整段人设（不是一行速写）：问题要问得像 TA
+    // withSay：这几位玩家问完还顺带一句台词（同一次调用里，不另花）；单机不带就是原来那一份
+    const talky = aiSpeakers.some(function (s) { return s && s.withSay; });
     const who = aiSpeakers.map(function (s) { const p = String((s && (s.persona || (s.char && s.char.persona))) || "").replace(/\s+/g, " ").trim(); return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）" + (p ? "\n   人设：" + p.slice(0, aiSpeakers.length > 2 ? 500 : 900) : ""); }).join("\n");
     const solveRule = kind === "haigui"
       ? "若某人的提问 / 陈述已经【实质还原了汤底核心真相】，把 solvedBy 填成 TA 的名字，并在 reveal 里一句话点出真相。否则 solvedBy 留空。"
@@ -3356,7 +3358,8 @@
       (userQ ? "\n\n【真人玩家" + (userName ? "「" + userName + "」" : "") + "刚问】" + userQ + " —— 在 userAnswer 里作答。" : "\n\n（这一轮真人没问，userAnswer 给 null）") +
       "\n\n【接着这些 AI 玩家各问一个「新的、不重复、有推理价值」的问题，并由你逐一作答】按真实水平：强的追问高效精准、直逼要害；弱的更发散或问偏。AI 玩家：" + GUESS_PLAY_FAIR.replace(/你/g, "TA") + "每个人的问题照 TA 自己的样子问：" + GUESS_ASK_VOICE.slice(GUESS_ASK_VOICE.indexOf("你的口吻")).replace(/你/g, "TA") + "\n" + who +
       "\n\n" + solveRule +
-      "\n\n【输出】只输出 JSON：{\"userAnswer\":{\"verdict\":\"\",\"note\":\"\"}或null,\"ai\":[{\"name\":\"\",\"question\":\"\",\"verdict\":\"\",\"note\":\"\"}],\"solvedBy\":\"\",\"reveal\":\"\"}";
+      (talky ? "\n\nsay 是这位 AI 玩家问完嘴上顺带的那句（冲谁说、嘀咕、得意都行），没想说就留空；TA 只知道桌上公开的这些，说不出谜底。" : "") +
+      "\n\n【输出】只输出 JSON：{\"userAnswer\":{\"verdict\":\"\",\"note\":\"\"}或null,\"ai\":[{\"name\":\"\",\"question\":\"\",\"verdict\":\"\",\"note\":\"\"" + (talky ? ",\"say\":\"可空\"" : "") + "}],\"solvedBy\":\"\",\"reveal\":\"\"}";
     // 言秋座位的问题TA自己问（只给公开信息，谜底绝不进票）；主持人照常作答（v54.43）
     const cc = await ccCarve(kind, aiSpeakers, {
       turnId: freshCCTurn("guess-ask:"),

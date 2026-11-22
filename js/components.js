@@ -15568,6 +15568,10 @@ function useLongPressMenu(onFire, opts) {
   const onSwipeLeft = opts && opts.onSwipeLeft;
   const swipeRef = useRef(onSwipeLeft);
   swipeRef.current = onSwipeLeft;
+  // 别的消息列表挂点名字不一样：rowSel 是「一行」的选择器、rowAttr 是行上记下标的属性（不给就是聊天气泡那一套）
+  const rowSel = (opts && opts.rowSel) || '[data-wk="msg"][data-i]';
+  const rowAttr = (opts && opts.rowAttr) || "data-i";
+  const rowEl = (opts && opts.rowSel) || '[data-wk="msg"]';
   // 双击气泡（群里 2026-10-31：像 QQ 那样往气泡上贴表情）：两下都落在同一条的气泡上、隔得够近才算
   const dblRef = useRef(opts && opts.onDoubleTap);
   dblRef.current = opts && opts.onDoubleTap;
@@ -15596,8 +15600,8 @@ function useLongPressMenu(onFire, opts) {
       // 左滑引用从整行起手都算（她 2026-10-19：美化把引用、译文、贴纸挪到气泡外面以后，
       //   手指常落在气泡外，原来只认气泡就很难滑出来）。气泡自己的 startPress 随后照样会再记一次。
       if (swipeRef.current && e.touches && e.target && e.target.closest) {
-        const row = e.target.closest('[data-wk="msg"][data-i]');
-        swipeIdx.current = row ? Number(row.getAttribute("data-i")) : null;
+        const row = e.target.closest(rowSel);
+        swipeIdx.current = row ? Number(row.getAttribute(rowAttr)) : null;
       }
     };
     const move = e => {
@@ -15618,7 +15622,7 @@ function useLongPressMenu(onFire, opts) {
       if (Math.abs(dy) > SWIPE_QUOTE_MAX_DY) { resetSwipe(); return; }
       if (dx >= 0) return;
       // 这一条跟着手指往左挪一点，让人看得见「在滑」；挪到头就停住，不会整条拖跑
-      if (!swipeEl.current && e.target && e.target.closest) swipeEl.current = e.target.closest('[data-wk="msg"]');
+      if (!swipeEl.current && e.target && e.target.closest) swipeEl.current = e.target.closest(rowEl);
       const el = swipeEl.current;
       if (el) { el.style.transition = "none"; el.style.transform = "translateX(" + Math.max(dx, -SWIPE_QUOTE_PX - 14) + "px)"; }
       if (dx <= -SWIPE_QUOTE_PX) {

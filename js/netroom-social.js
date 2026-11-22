@@ -480,6 +480,8 @@
     }
   };
   NC.CHAR_OPTS.avalon = ["recent"];
+  ADAPTERS.werewolf.roundLabel = v => v.day ? "第 " + v.day + " 天" : "第一夜";
+  ADAPTERS.avalon.roundLabel = v => "第 " + ((v.qn | 0) + 1) + " 个任务";
 
   // ───────────── 界面 ─────────────
   if (typeof React === "undefined" || !root.NetGameUI) return;
@@ -496,8 +498,9 @@
   const RoleCard = ({ t, title, lines }) => h("div", { "data-wk": "nrsocrole", style: { border: "1px solid " + t.line, borderRadius: 12, background: t.bg2, padding: "8px 12px", textAlign: "center" } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(17), color: t.ink } }, title), lines.filter(Boolean).map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.55, marginTop: 2 } }, x)));
   // 一排座位：谁出局了划掉，轮到谁描深，tag 是每个人旁边那几个字
-  const SeatRow = ({ t, inv, alive, on, tag }) => h("div", { "data-wk": "nrsocseats", className: "flex flex-wrap justify-center", style: { gap: 6 } }, inv.seats.map((s, i) => h("span", { key: i, "data-on": i === on ? "1" : "0",
-    style: { padding: "3px 9px", borderRadius: 10, border: "1px solid " + (i === on ? t.ink : t.line), fontFamily: F_BODY, fontSize: fs(12), color: !alive || alive[i] ? t.ink : t.fog, textDecoration: !alive || alive[i] ? "none" : "line-through" } }, (i + 1) + " " + s.name + (tag ? tag(i) : ""))));
+  //   座位圈是单机牌桌那一份 CardSeats（头像、轮到谁亮圈、出局的淡掉）；头像走 NetGameUI 的 faceChar（不带人设）
+  const SeatRow = ({ t, inv, alive, on, tag }) => h("div", { "data-wk": "nrsocseats" }, h(root.GameShared.cards.Seats, { t, log: [], seats: inv.seats.map((s, i) => ({ key: "s" + i, name: (i + 1) + " " + (s.name || "?"),
+    char: K.faceChar ? K.faceChar(s) : { name: s.name || "?" }, isUser: s.kind === "user", on: i === on, out: !!alive && !alive[i], sub: tag ? String(tag(i) || "").trim() : "" })) }));
   // 点一个人：一排人名钮（opts 是能点的座位）＋可选的「不选」
   const Picks = ({ t, inv, opts, onPick, none, sel }) => h("div", { "data-wk": "nrsocact", className: "flex flex-wrap justify-center", style: { gap: 6 } },
     opts.map(i => h("button", { key: i, onClick: () => onPick(i), style: small(t, sel ? sel.indexOf(i) >= 0 : false) }, inv.seats[i].name)).concat(none ? [h("button", { key: "x", onClick: () => onPick(-1), style: small(t, false) }, none)] : []));
@@ -505,7 +508,7 @@
   function WolfTable({ inv, view, priv, me, onMove, onReveal, isHost }) {
     const t = useTheme(), A = ADAPTERS.werewolf, mine = mySeatOf(inv, me), ti = A.turn(view);
     const myTurn = ti >= 0 && actorOf(inv.seats[ti], me, inv.host) === "mine-user";
-    const act = priv && priv.act && mine >= 0 && !(inv.seats[mine] || {}).away ? priv.act : null;
+    const act = priv && priv.act && mine >= 0 && !(inv.seats[mine] || {}).away && !(inv.seats[mine] || {}).held ? priv.act : null;
     const [d, setD] = useState(""), [save, setSave] = useState(null); useEffect(() => { setD(""); setSave(null); }, [view.log.length, view.phase, view.qi]);
     const alive = view.alive.map((a, i) => a ? i : -1).filter(i => i >= 0), others = alive.filter(i => i !== mine);
     const role = priv && priv.role, mates = (priv && priv.mates) || [];

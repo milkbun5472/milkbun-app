@@ -167,9 +167,17 @@
   // 这个座位这一手归谁出：我自己点 / 我这台替我带来的角色出 / 庄替 NPC（和托管的座位）出 / 别人那台
   function actorOf(seat, me, host) {
     if (!seat || seat.kind === "open") return "none";
+    if (seat.held) return "remote";   // 一轮完了停着（heldInv 给牌桌的那一份）：谁的座位都不出手
     if (seat.kind === "npc" || seat.away) return me === host ? "host-npc" : "remote";
     if (seat.peer !== me) return "remote";
     return seat.kind === "user" ? "mine-user" : "mine-char";
+  }
+  // 停着时交给牌桌的那份 inv：每个座位标 held，轮到谁都画成「别人在出」，输入框、出手按钮一律不出（只在本机界面用，不发出去）
+  const heldInv = inv => Object.assign({}, inv, { seats: (inv.seats || []).map(s => Object.assign({}, s, { held: true })) });
+  // 横幅上「第几轮」：有轮次的那几盒给 roundLabel(view)（「第 3 天」「第 2 个任务」…），没有就不写
+  function roundText(key, view) {
+    const A = ADAPTERS[key]; if (!A || !A.roundLabel || !view) return "";
+    try { return cut(A.roundLabel(view) || "", 20); } catch (e) { return ""; }
   }
   // 只发给某一个人的那条怎么走：直连着就只发给 TA；直连不上就交给一个跟 TA 通着的人转（只交一个人），谁都不通就不发
   function privateRoute(openIds, to, linkMap, cameFrom) {
@@ -366,7 +374,7 @@
         // NPC 那一手（只认庄自己替 NPC 出的）：这一位＋后面连着的 NPC，一次调用问完
         if (move && move.npcRound) {
           if (!isNpcSeat(inv.seats[seatIdx]) || !ctx.hostApi) return { st: next(Object.assign({}, st, { log: st.log.concat([{ seat: seatIdx, name, q: "", verdict: "跳过", note: "" }]) })) };
-          return { st: await this.roundApply(st, inv, ctx, -1, "", [seatIdx].concat(npcRun(st, inv, seatIdx, seatIdx))) };
+          return this.withTalk(await this.roundApply(st, inv, ctx, -1, "", [seatIdx].concat(npcRun(st, inv, seatIdx, seatIdx))));
         }
         const q = cut(move && (move.ask || move.guess), 300).trim();
         const tooMany = s => !isSoup && s.log.filter(l => l.q).length >= 25 ? Object.assign({}, s, { done: true, reveal: s.secret }) : s;
@@ -374,7 +382,7 @@
         if (!isSoup && GS().guess.hit(st.secret, q)) {
           return { st: Object.assign({}, st, { log: st.log.concat([{ seat: seatIdx, name, q, guess: !!move.guess, verdict: "是", note: "猜中了" }]), done: true, solvedBy: seatIdx, reveal: st.secret, busy: false }) };
         }
-        if (!ctx.hostApi) return { err: "庄（开局的人）这台没配线路，判不了。开局的人去 设置·API 配一条" };
+        if (!ctx.hostApi) return { err: "开局的人那台没配线路，判不了。要她去 设置·API 配一条" };
         const G = GS().guess;
         if (move.guess) {
           const j = await G.judge(ctx.hostApi, kind, secretOf(st), q);
@@ -384,7 +392,7 @@
         }
         // 后面紧跟着的 NPC：并进这一次（庄答这一问、再替 TA 们各问一个并作答），不再一个个单独调用
         const run = npcRun(st, inv, seatIdx, seatIdx);
-        if (run.length && G.round) return { st: await this.roundApply(st, inv, ctx, seatIdx, q, run) };
+        if (run.length && G.round) return this.withTalk(await this.roundApply(st, inv, ctx, seatIdx, q, run));
         const a = await G.answerOne(ctx.hostApi, kind, secretOf(st), q, this.hist(st.log), name, inv.mode);
         const row = { seat: seatIdx, name, q, verdict: a.verdict, note: a.note };
         if (a.solved && (isSoup || G.hit(st.secret, a.reveal || q))) return { st: Object.assign({}, st, { log: st.log.concat([row]), done: true, solvedBy: seatIdx, reveal: a.reveal || (isSoup ? st.truth : st.secret), busy: false }) };
@@ -393,7 +401,8 @@
       // 一次调用：asker 那一问（q 为空＝轮到的就是 NPC，没人先问）＋ run 里每个 NPC 各一问，庄逐条作答；回下一份局面
       async roundApply(st, inv, ctx, asker, q, run) {
         const G = GS().guess, verdicts = (G.KINDS[kind].verdicts || "").split(" / ");
-        const speakers = run.map(i => ({ name: nmOf(inv, i), skill: npcSkill(inv), persona: "来凑桌的路人，普通玩家。", isNpc: true }));
+        // withSay：并进来的 NPC 问完顺带一句牌桌台词，同一次调用里写，不另花
+        const speakers = run.map(i => ({ name: nmOf(inv, i), skill: npcSkill(inv), persona: "来凑桌的路人，普通玩家。", isNpc: true, withSay: true }));
         const humanName = asker >= 0 && q ? nmOf(inv, asker) : "";
         const out = await G.round(ctx.hostApi, kind, secretOf(st), q || null, speakers, this.hist(st.log), inv.mode, humanName) || {};
         const vOk = v => { const x = String(v || "").trim(); return verdicts.indexOf(x) >= 0 ? x : (isSoup ? "不重要" : "不好说"); };
@@ -409,9 +418,14 @@
         if (by) { const row = rows.find(r => r.name === by && r.q); if (row && (isSoup || G.hit(st.secret, out.reveal || row.q))) solved = row.seat; }
         if (!isSoup && solved < 0) { const row = rows.find(r => r.q && G.hit(st.secret, r.q)); if (row) { solved = row.seat; row.verdict = "是"; row.note = "猜中了"; } }
         const log = st.log.concat(rows);
-        if (solved >= 0) return Object.assign({}, st, { log, done: true, solvedBy: solved, reveal: cut(out.reveal, 400) || (isSoup ? st.truth : st.secret), busy: false });
+        const talk = run.map(i => { const r = ai.find(x => x && x.name === nmOf(inv, i)), say = cut(r && r.say, 160).trim(); return say ? { name: nmOf(inv, i), text: say, npc: true, seat: i } : null; }).filter(Boolean);
+        const done = (o2) => talk.length ? Object.assign(o2, { _talk: talk }) : o2;
+        if (solved >= 0) return done(Object.assign({}, st, { log, done: true, solvedBy: solved, reveal: cut(out.reveal, 400) || (isSoup ? st.truth : st.secret), busy: false }));
         const n = Object.assign({}, st, { log, busy: false, turn: nextAsker(st, inv, run[run.length - 1]) });
-        return !isSoup && n.log.filter(l => l.q).length >= 25 ? Object.assign(n, { done: true, reveal: n.secret }) : n;
+        return done(!isSoup && n.log.filter(l => l.q).length >= 25 ? Object.assign(n, { done: true, reveal: n.secret }) : n);
+      },
+      // 并进庄那次调用的 NPC 台词：从局面里摘出来，交给框架走桌边那一路（不进对局状态）
+      withTalk(n) { const talk = n._talk || []; if (n._talk) { n = Object.assign({}, n); delete n._talk; } return talk.length ? { st: n, talk } : { st: n };
       },
       async npcMove(st, seatIdx, inv, ctx) {
         if (st.phase === "set") return { pass: true };            // 托管的出题人：庄自己现出一道
@@ -575,6 +589,7 @@
   ADAPTERS.story = {
     zh: "故事接龙", slow: true, sayInMove: true,
     // 每接完一圈停一下
+    roundLabel: v => { const k = (v.players || []).length; return k ? "第 " + (Math.floor((v.lines || []).length / k) + 1) + " 圈" : ""; },
     roundEnd(p, n) { const k = (n.players || []).length, L = (n.lines || []).length; return k && L > ((p.lines || []).length) && L % k === 0 ? "第 " + (L / k) + " 圈接完了" : ""; },
     // 角色接完一句、下一位是 NPC：同一次调用顺带替 NPC 接一句（move.npc），庄照样校验了才收
     mergeNpc: "prev",
@@ -643,6 +658,7 @@
     mergeNpc: "prev",
     seatRange: () => ({ min: 2, max: 10 }),
     // 每答完一轮停一下，聊两句再转
+    roundLabel: v => "第 " + ((v.round | 0) + (v.done ? 0 : 1)) + " 轮",
     roundEnd(p, n) { if (!(n.round > p.round)) return ""; const x = n.log.filter(y => y.type === "td").slice(-1)[0]; return x ? x.name + " 的" + x.choice + "答完了" : "这一轮完了"; },
     spin(inv, log, last) { const p = GS().tod.pickTarget(tdPlayers(inv), log, last, "normal"); return p ? p.i : 0; },
     // 开局不自动开转：先停在「转一下」，等转的那位自己点（真人在她那台点；角色／NPC 由主人那台／庄自动转）。
@@ -650,7 +666,9 @@
     //   rounds：开局选的轮数，0＝不限，开局的人随时「收桌」。第一位转的是 0 号座；之后瓶子交给刚答完的那位。
     init(inv, ctx) {
       const rounds = int(ctx && ctx.cfg && ctx.cfg.todRounds, 0, 50, 0);
-      return { rounds, round: 0, phase: "spin", spinner: 0, spinN: 0, target: -1, asker: -1, choice: "", prompt: "", lastTarget: "", lastAsker: "", log: [], done: false };
+      // hot：开局页选的「尺度放开点」（单机那个开关），出题、回应都照它
+      const hot = !!(ctx && ctx.cfg && ctx.cfg.todHot === "hot");
+      return { rounds, hot, round: 0, phase: "spin", spinner: 0, spinN: 0, target: -1, asker: -1, choice: "", prompt: "", lastTarget: "", lastAsker: "", log: [], done: false };
     },
     view: st => Object.assign({}, st, { log: st.log.slice(-40) }),
     priv: () => null,
@@ -697,10 +715,10 @@
       if (st.phase === "ask") {
         const npcT = merge && (inv.seats[st.target] || {}).kind === "npc";
         const tg = npcT ? Object.assign(NPC_WHO(nmOf(inv, st.target)), { answerToo: true }) : { name: nmOf(inv, st.target) };
-        const o = await GS().tod.ask(api, st.choice, who, false, inv.mode, tdMem(st.log), plan, tg).catch(() => null);
+        const o = await GS().tod.ask(api, st.choice, who, !!st.hot, inv.mode, tdMem(st.log), plan, tg).catch(() => null);
         return Object.assign({ prompt: o && o.prompt || "" }, sayOf(o), npcT && o && String(o.response || "").trim() ? { npc: { seat: st.target, response: String(o.response).trim() } } : {});
       }
-      const r = await GS().tod.answer(api, who, st.choice, st.prompt, false, tdMem(st.log), nmOf(inv, st.asker)).catch(() => "");
+      const r = await GS().tod.answer(api, who, st.choice, st.prompt, !!st.hot, tdMem(st.log), nmOf(inv, st.asker)).catch(() => "");
       return typeof r === "string" ? { response: r || "" } : Object.assign({ response: (r && r.response) || "" }, sayOf(r));
     },
     npcMove(st, i, inv, ctx) { return this.think(st, i, inv, ctx.hostApi, NPC_WHO(nmOf(inv, i))); },
@@ -713,7 +731,7 @@
     cleanReplay(r) { return { log: (Array.isArray(r.log) ? r.log : []).slice(-40).filter(x => x && x.type === "td").map(x => ({ type: "td", name: cut(x.name, 40), asker: cut(x.asker, 40), choice: TD_CHOICES.indexOf(x.choice) >= 0 ? x.choice : "真心话", prompt: cut(x.prompt, 300), response: cut(x.response, 600) })) }; },
     cleanView(v) {
       const log = (Array.isArray(v.log) ? v.log : []).slice(-40).map(x => x && x.type === "spin" ? { type: "spin", name: cut(x.name, 40), by: cut(x.by, 40) } : this.cleanReplay({ log: [x] }).log[0]).filter(Boolean);
-      return { rounds: int(v.rounds, 0, 50, 0), round: int(v.round, 0, 9999, 0), phase: ["spin", "choose", "ask", "answer"].indexOf(v.phase) >= 0 ? v.phase : "spin", spinner: int(v.spinner, 0, 11, 0), spinN: int(v.spinN, 0, 99999, 0),
+      return { rounds: int(v.rounds, 0, 50, 0), hot: !!v.hot, round: int(v.round, 0, 9999, 0), phase: ["spin", "choose", "ask", "answer"].indexOf(v.phase) >= 0 ? v.phase : "spin", spinner: int(v.spinner, 0, 11, 0), spinN: int(v.spinN, 0, 99999, 0),
         target: int(v.target, -1, 11, -1), asker: int(v.asker, -1, 11, -1),
         choice: TD_CHOICES.indexOf(v.choice) >= 0 ? v.choice : "", prompt: cut(v.prompt, 300), lastTarget: cut(v.lastTarget, 40), lastAsker: cut(v.lastAsker, 40), log, done: !!v.done };
     }
@@ -722,7 +740,8 @@
   // ── 大富翁：掷骰、落地结算、买地、升级、拍卖、破产、终局排名全走小游戏里那几条；钱只在庄那台动 ──
   //   拍卖：放弃买的那块地照各家现金和路数自动竞价走完（桌上不一格一格举牌）
   ADAPTERS.monopoly = {
-    zh: "大富翁", slow: false, localTalk: true, mergeNpc: null,
+    zh: "大富翁",
+    roundLabel: v => { const k = (v.players || []).filter(p => !p.bankrupt).length || 1; return "第 " + (Math.floor((v.moves | 0) / k) + 1) + " 回合"; }, slow: false, localTalk: true, mergeNpc: null,
     seatRange: () => ({ min: 2, max: 6 }),
     init(inv) {
       const players = inv.seats.map((s, i) => ({ key: "s" + i, name: s.name, cash: inv.mode === "easy" && s.kind === "user" ? 2450 : 2200, pos: 0, bankrupt: false, jailed: 0 }));
@@ -860,9 +879,9 @@
     return Object.keys(by).map(k => by[k]).filter(r => r.x.status === "open" || r.x.status === "playing").map(r => {
       const x = r.x, seats = x.seats || [], taken = seats.filter(s => s.kind !== "open").length;
       const mine = seats.some(s => s.peer === me && s.kind !== "npc");
-      const round = r.view && typeof r.view.round === "number" ? r.view.round + 1 : 0;
+      const round = roundText(x.key, r.view);
       const state = x.status === "open" ? "报名中" + (taken < x.min ? " · 差 " + (x.min - taken) + " 人" : "")
-        : r.pause ? "暂停聊天中" : "进行中" + (round ? " · 第 " + round + " 轮" : "");
+        : r.pause ? "暂停聊天中" : "进行中" + (round ? " · " + round : "");
       return { gid: x.gid, key: x.key, zh: x.zh, host: x.host, hostNick: r.hostNick || "", seated: taken, state, go: x.status === "open" ? "join" : mine ? "play" : "watch" };
     });
   }
@@ -896,7 +915,7 @@
   const supported = () => Object.keys(ADAPTERS);
 
   const Core = { seatName, cleanTalk, talkEvery, talkDue, CHAR_OPTS, charWho, NPC_WHO, nmOf, charOptKinds, winOpen, winSet, winUnread, myTurn, stateText, SETTER_MODES, byLine, cleanSetter, setterSeat, nextSetter, setterLine, SEAT_KINDS, STATUS, AWAY_MS, ADAPTERS, supported, cleanSeat, cleanInvite, cleanRecord, inviteLine, recordLine, newInvite, joinSeats, leaveSeats, addSeat,
-    takenCount, fillNpc, canStart, actorOf, privateRoute, awayPlan, setAway, secretSeat, pauseAfter, cleanPause, openTables };
+    takenCount, fillNpc, canStart, actorOf, heldInv, roundText, privateRoute, awayPlan, setAway, secretSeat, pauseAfter, cleanPause, openTables };
   root.NetGameCore = Core;
 
   // ───────────── 一局怎么转起来（庄那一半＋每台手机自己那一半） ─────────────
@@ -1061,17 +1080,40 @@
         await wait(700);
         let mv = null;
         try { mv = await ad.npcMove(g.st, ti, g.inv, ctxOf(g)); } catch (e) { mv = null; }
+        // NPC 那一手同一次调用里顺带的台词（心有灵犀……）：庄这台走桌边那一路，跟角色那一手一个样
+        if (mv && mv.say != null && !ad.sayInMove) {
+          const say = cut(mv.say, 160).trim(); mv = Object.assign({}, mv); delete mv.say;
+          if (say) side(gid, { kind: "talk", name: nmOf(g.inv, ti), text: say, npc: true, seat: ti });
+        }
         hostApply(gid, ti, mv || { pass: true }, null);
       }));
     }
-    function finish(g, res) {
+    // 一局打完：先亮「打完了」，等终局那几句台词（每台角色「这一局刚打完」那一句、辩论的赛后感言）到齐再发战绩卡，
+    //   不然最后一两句比战绩卡晚到、进不了回看。等法：桌边一阵子没新话（END_QUIET）就发，最多等 END_MAX；测试里 o.endWait 可改
+    const END_QUIET = 4000, END_MAX = 20000;
+    const sideCount = gid => ((seen[gid] && seen[gid].side) || []).length;
+    async function endSettle(gid) {
+      const max = o.endWait != null ? o.endWait : o.fast ? 0 : END_MAX;
+      if (max <= 0) return;
+      const quiet = Math.min(END_QUIET, max), t0 = Date.now();
+      let n = sideCount(gid), last = Date.now();
+      await new Promise(ok => { const tk = setInterval(() => {
+        const m = sideCount(gid); if (m !== n) { n = m; last = Date.now(); }
+        if (Date.now() - last >= quiet || Date.now() - t0 >= max) { clearInterval(tk); ok(); }
+      }, Math.min(250, quiet)); });
+    }
+    async function finish(g, res) {
       if (g.inv.status === "done") return;
       g.inv = Object.assign({}, g.inv, { status: "done" });
       shareCard(g); shareState(g);
-      const sv = seen[g.inv.gid];
+      await endSettle(g.inv.gid);
+      const sv = seen[g.inv.gid], ad = A(g.inv.key), sideAll = (sv && sv.side) || [];
+      // 桌边那一路里这一盒自己要留进回看的（辩论的弹幕、赛后感言）：交给它自己挑，再走它的 cleanReplay
+      let replay = res.replay;
+      if (ad.sideReplay && replay) { try { replay = Object.assign({}, replay, ad.sideReplay(sideAll)); } catch (e) {} }
       o.post("gamerec", { gid: g.inv.gid, key: g.inv.key, zh: g.inv.zh, text: res.text, winners: res.winners,
-        seats: g.inv.seats.map(s => ({ name: s.name, kind: s.kind })), replay: res.replay,
-        talk: ((sv && sv.side) || []).filter(x => x.kind === "talk").slice(-40).map(x => ({ name: x.name, text: x.text, npc: x.npc })) });
+        seats: g.inv.seats.map(s => ({ name: s.name, kind: s.kind })), replay,
+        talk: sideAll.filter(x => x.kind === "talk").slice(-40).map(x => ({ name: x.name, text: x.text, npc: x.npc })) });
     }
     async function hostApply(gid, seatIdx, mv, from) {
       const g = host[gid]; if (!g || g.inv.status !== "playing") return;
@@ -1107,6 +1149,8 @@
       }
       const prev = g.st;
       g.st = r.st;
+      // 庄那次调用里顺带写的 NPC 台词（海龟汤、心有灵犀）：走桌边那一路
+      (Array.isArray(r.talk) ? r.talk : []).forEach(x => side(gid, Object.assign({}, x, { kind: "talk", npc: true })));
       g.pause = pauseAfter(ad, prev, g.st, g.inv, g.cfg, g.pause0 || 0);
       if (g.pause) g.pause0 = g.pause.n;
       shareState(g); drive(gid);
@@ -1162,17 +1206,23 @@
         let inv = cleanInvite(Object.assign({}, g.inv, { gid: ngid, status: "open", seats }));
         // 轮流出题：换到下一个座位
         if (inv.setter && inv.setter.mode === "turns") { const nx = nextSetter(inv, setterSeat(g.inv)); if (nx) inv = Object.assign({}, inv, { setter: Object.assign({ mode: "turns" }, nx) }); }
-        host[ngid] = { inv, st: null, prep: null, seq: 0, busy: false, gone: {}, cfg: g.cfg };
+        // 开局前填的那些（辩题、几轮……）：这一盒说要带的才带过去（againPrep），出题类的底牌不带；卡上还能改（setPrep）
+        const ad = A(g.inv.key) || {};
+        let prep = null; try { prep = ad.againPrep ? ad.againPrep(g.prep) : null; } catch (e) { prep = null; }
+        host[ngid] = { inv, st: null, prep, seq: 0, busy: false, gone: {}, cfg: g.cfg };
         o.post("game", inv);
         return ngid;
       },
       move, side, resume,
+      // 开局前填的那一份：只在开局的人那台；还没开局时能改
+      prepOf: gid => (host[gid] && host[gid].prep) || null,
+      setPrep(gid, pz) { const g = host[gid]; if (!g || g.inv.status !== "open") return; const ad = A(g.inv.key) || {}; g.prep = ad.againPrep ? ad.againPrep(pz) : pz; shareCard(g); changed(); },
       reveal(gid) { if (host[gid]) hostApply(gid, -1, { reveal: true }, o.me()); },
       // 收到房里别人发来的 {t:"game"}：认不得的 op 不理（以后的新版本发来的）
       onMessage(e, origin) {
         const gid = cut(e.gid, 40); if (!gid) return;
         const g = host[gid];
-        if (e.op === "join" && !g) { o.send({ t: "game", op: "oops", gid, text: "开这一局的那台手机已经不记得这张邀请卡了（重新进过房间），请开局的人再发一张" }, origin); }
+        if (e.op === "join" && !g) { o.send({ t: "game", op: "oops", gid, text: "开这一局的那台手机已经不记得这张邀请卡了（重新进过房间），请她再发一张" }, origin); }
         else if (e.op === "join" && g.inv.status !== "open") { o.send({ t: "game", op: "oops", gid, text: "这一局已经开始或者结束了，坐不进去了" }, origin); }
         else if (e.op === "join") {
           const nick = o.nickOf(origin);
@@ -1217,12 +1267,27 @@
       }
     };
   }
-  root.NetGameSession = Session;
+  // 这台手机上开着的几份 Session：邀请卡上「改开局设置」要找到开这一局的那一份（卡片本身只拿到卡）
+  const LIVE = [];
+  function SessionLive(o) { const s = Session(o); LIVE.push(s); if (LIVE.length > 4) LIVE.shift(); return s; }
+  const hostSessionOf = gid => LIVE.slice().reverse().find(s => s.isHost(gid)) || null;
+  root.NetGameSession = SessionLive;
 
   // ───────────── 界面 ─────────────
   if (typeof React === "undefined") return;
   const h = React.createElement;
   const { useState, useEffect, useRef } = React;
+  // 牌桌上的头像：房间那台告诉我们每个座位长什么样（setFaces(seat → { name, avatarImage, avatarEmoji, color } | null)）。
+  //   自己的角色＝本机角色的头像；别人带来的角色＝进房名片上那张小图；真人＝她进房时的小头像；NPC 照单机那样只写名字首字。
+  //   只拿名字和头像这几样，人设一个字都不进牌桌。
+  let faceFn = null;
+  const setFaces = fn => { faceFn = typeof fn === "function" ? fn : null; };
+  function faceChar(s) {
+    if (!s || s.kind === "npc" || s.kind === "open") return null;
+    let f = null; try { f = faceFn ? faceFn(s) : null; } catch (e) { f = null; }
+    const name = (s && s.name) || "?";
+    return f ? { id: f.id || "", name, avatarImage: f.avatarImage || "", avatarEmoji: f.avatarEmoji || "", color: f.color || "" } : { name };
+  }
   const fs = px => "calc(" + px + "px * var(--app-fs, 1))";
   const pill = (t, on) => ({ minHeight: 40, padding: "0 16px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : t.bg2, color: on ? t.bg : t.ink, fontFamily: F_BODY, fontSize: fs(13) });
 
@@ -1243,6 +1308,7 @@
         (i + 1) + ". " + seatLabel(s) + (s.away ? " · 掉线了，NPC 先替着" : "")))),
       // 我开的卡，可这台手机重进过房间、已经不记得这一局了：按钮按了也没用，直说
       lost ? h("div", { "data-wk": "nrgamelost", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.5 } }, "这张卡是你重新进房间之前发的，这台手机已经接不上这一局了。要玩就从「＋ → 小游戏」再发一张。") : null,
+      isHost && !lost && h(PrepOnCard, { x, t }),
       !lost && x.status === "open" && h("div", { className: "flex flex-wrap", style: { gap: 6 } },
         (mine || open > 0 || seats.length < x.max) && h("button", { "data-wk": "nrgamejoin", onClick: onJoin, disabled: busy, style: pill(t, !mine) }, mine ? "换人" : "加入"),
         mine && !isHost && h("button", { "data-wk": "nrgameleave", onClick: onLeave, style: pill(t, false) }, "不玩了"),
@@ -1252,6 +1318,16 @@
       !lost && x.status === "open" && h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
         isHost ? (x.npcFill ? "点「开始」时空着的座位用 NPC 补上。" : "开局配置里没开 NPC 凑数：空着的座位开局时收掉，人够 " + x.min + " 个才能开。") : "点「加入」选你这边上谁：你自己，或者你带来的角色，每人占一个座位。"),
       !lost && x.status === "playing" && h("button", { "data-wk": "nrgameopen", onClick: onOpen, style: pill(t, true) }, mine ? "回到牌桌" : "去看看"));
+  }
+  // 开局的人那张卡上：这一局开局前填的那些（辩题……）写一行，没开局前能点「改」改了再开（「再来一局」带过来的也在这儿改）
+  function PrepOnCard({ x, t }) {
+    const ad = ADAPTERS[x.key] || {}, ses = hostSessionOf(x.gid), [ed, setEd] = useState(false);
+    if (!ad.prepLine || !ses) return null;
+    const pz = ses.prepOf(x.gid);
+    return h("div", { "data-wk": "nrgameprepline", style: { display: "flex", flexDirection: "column", gap: 6, fontFamily: F_BODY, fontSize: fs(12), color: t.ink } },
+      h("div", { className: "flex items-center", style: { gap: 8 } }, h("span", { style: { flex: 1, minWidth: 0 } }, ad.prepLine(pz)),
+        x.status === "open" && ad.PrepEdit ? h("button", { "data-wk": "nrgameprepedit", onClick: () => setEd(v => !v), style: Object.assign(pill(t, false), { minHeight: 30, padding: "0 10px", fontSize: fs(12) }) }, ed ? "收起" : "改") : null),
+      ed && x.status === "open" && ad.PrepEdit ? h(ad.PrepEdit, { pz, onSave: v => { ses.setPrep(x.gid, v); setEd(false); } }) : null);
   }
   function RecordCard({ x, onOpen }) {
     const t = useTheme();
@@ -1280,7 +1356,7 @@
       : myTurn ? (pend ? "再点一下同一格落子" : "轮到你（" + sideZh(view.turn) + "）") : (seat && seat.away ? nm(ti) + " 掉线了，NPC 先替着下…" : nm(ti) + "在想…");
     return h("div", { "data-wk": "nrgametable", "data-game": "gomoku", style: { padding: "4px 16px 10px" } },
       h(G.GameVsBar, { t, mid: view.moves.length ? view.moves.length + " 手" : "", seats: [0, 1].map(i => { const s = inv.seats[i] || {};
-        return { key: "s" + i, name: s.name || "空位", char: { name: s.name || "?" }, isUser: s.kind === "user", on: !view.winner && view.turn - 1 === i,
+        return { key: "s" + i, name: s.name || "空位", char: faceChar(s), isUser: s.kind === "user", on: !view.winner && view.turn - 1 === i,
           mark: h(G.GmkStone, { side: i + 1, size: 15 }), sub: view.winner ? (view.winner === i + 1 ? "赢了" : view.winner === 3 ? "和棋" : "") : (sideZh(i + 1) + "子" + (s.kind === "char" ? " · 角色" : s.kind === "npc" ? " · NPC" : "")), hot: view.winner === i + 1 }; }) }),
       h(G.GomokuBoard, { moves: view.moves, pend, pendSide: view.turn, onTap: myTurn ? tap : null }),
       h("div", { "data-wk": "nrgamestatus", style: { textAlign: "center", marginTop: 10, fontFamily: F_DISPLAY, fontSize: fs(14.5), color: t.ink } }, status));
@@ -1307,7 +1383,7 @@
   ADAPTERS.gomoku.Table = GomokuTable; ADAPTERS.gomoku.Replay = GomokuReplay;
   const note = (t, s) => h("div", { "data-wk": "nrgamestatus", style: { textAlign: "center", marginTop: 10, fontFamily: F_DISPLAY, fontSize: fs(14.5), color: t.ink } }, s);
   const box = t => ({ width: "100%", resize: "none", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "9px 12px", fontFamily: F_BODY, fontSize: fs(14) });
-  const vsSeats = (inv, view, on, markOf, subOf) => inv.seats.map((s, i) => ({ key: "s" + i, name: s.name || "空位", char: { name: s.name || "?" }, isUser: s.kind === "user", on: on === i, mark: markOf ? markOf(i) : null, sub: subOf(i, s), hot: false }));
+  const vsSeats = (inv, view, on, markOf, subOf) => inv.seats.map((s, i) => ({ key: "s" + i, name: s.name || "空位", char: faceChar(s), isUser: s.kind === "user", on: on === i, mark: markOf ? markOf(i) : null, sub: subOf(i, s), hot: false }));
   const kindTag = s => s.kind === "char" ? " · 角色" : s.kind === "npc" ? " · NPC" : "";
 
   // 海龟汤、25 问那张桌：出题那一步（出题人自己那台写，或者用自己的线路现出）→ 轮流问 → 揭晓
@@ -1442,7 +1518,7 @@
   function StoryReplay({ rec }) { const t = useTheme(), r = rec.replay || {}; return h("div", { style: { padding: "8px 16px" } }, h(StoryPaper, { t, opener: r.opener, lines: r.lines })); }
 
   // 真心话大冒险那张桌：单机那几块（转瓶子、二选一、一轮一张卡）。转的人点「转一下」，指到谁只由庄定，大家照 spinN 播同一段转瓶
-  const seatAv = (t, s, size) => GS().avatarFor(t)({ name: (s && s.name) || "?", char: { name: (s && s.name) || "?" }, isUser: !!(s && s.kind === "user") }, size);
+  const seatAv = (t, s, size) => GS().avatarFor(t)({ name: (s && s.name) || "?", char: faceChar(s), isUser: !!(s && s.kind === "user") }, size);
   function TodRounds({ t, log, inv, me }) {
     const T = GS().tod, seatBy = nm => (inv ? inv.seats : []).find(s => s.name === nm);
     return h("div", { "data-wk": "nrtodrounds" }, (log || []).map((x, i) => x.type === "spin"
@@ -1539,5 +1615,5 @@
       h(G.GameTalkLog, { t, lines: lines.map((l, i) => ({ name: l.name + (l.npc ? "（NPC）" : ""), text: l.text, at: i })), names: true, k: "nrt", maxHeight: maxHeight || 200,
         charOf: l => (charOf && charOf(lines[l.at])) || null }));
   }
-  root.NetGameUI = { InviteCard, RecordCard, TalkStrip, kit: { pill, note, box, fs } };
+  root.NetGameUI = { InviteCard, RecordCard, TalkStrip, setFaces, kit: { pill, note, box, fs, faceChar } };
 })(typeof window !== "undefined" ? window : globalThis);
