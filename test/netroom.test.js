@@ -128,7 +128,7 @@ test("角色一次能连发几条：say 数组拆成几个气泡，老的 text �
 test("带上最近单聊只在勾了的人身上；对面看得到正在输入", () => {
   assert.ok(/c\.recent \? ctx0 : Object\.assign\(\{\}, ctx0, \{ recentChat: "", pastOffline: "" \}\)/.test(src), "没勾的不带单聊");
   assert.ok(/recent: !!withChat\[c\.id\]/.test(src), "勾选记在 myChars 上");
-  assert.ok(/t: "typing"/.test(src) && /m\.t === "typing"/.test(src), "收发正在输入");
+  assert.ok(/t: "typing"/.test(src) && /e\.t === "typing"/.test(src), "收发正在输入");
   assert.ok(/finally \{ typing\(false\)/.test(src), "说完或失败都熄灭");
 });
 
@@ -138,9 +138,9 @@ test("重新连上：对面补发的话缺的补上、有的不重复、按时�
   r = C.mergeMsgs(r, [{ id: "b", ts: 2, side: "peer" }, { id: "c", ts: 3, side: "peer" }]);
   assert.deepStrictEqual(r.msgs.map(m => m.id), ["a", "b", "c"]);
   assert.strictEqual(C.loadRooms()[0].msgs.length, 3);
-  assert.ok(/if \(!o\.patient\) startClock\(\)/.test(src), "重新连上时先不计时");
-  assert.ok(/t: "sync"/.test(src) && /m\.t === "sync"/.test(src), "两边互补漏掉的话");
-  assert.ok(/if \(chan\.current === ch\) setGone\(true\)/.test(src), "旧线关掉不误报离开");
+  assert.ok(/if \(!o\.patient && !o\.host\) clock = setTimeout/.test(src), "重新连上时先不计时");
+  assert.ok(/t: "sync"/.test(src) && /e\.t === "sync"/.test(src), "互补漏掉的话");
+  assert.ok(/if \(mesh\.current !== m\) return;/.test(src), "旧那一场的回调不再动新房间");
 });
 
 test("以前的房间能删；往上翻不被拽回底部", () => {
@@ -150,4 +150,83 @@ test("以前的房间能删；往上翻不被拽回底部", () => {
   assert.deepStrictEqual(C.loadRooms().map(r => r.id), ["x2"]);
   assert.ok(!/\[n, tail\]\)/.test(src), "不再拿每次新建的 tail 当依赖");
   assert.ok(/stick\.current \|\|/.test(src), "只在本来就在底部时才跟到底");
+});
+
+// ───────────── 第二期：最多四个人 ─────────────
+test("旧存档（peerNick / peerChars）读成 peers 里一个人，老消息归 TA；昵称对上时换成真 id", () => {
+  const { C, store } = load();
+  store.x_netroom = JSON.stringify([{ id: "old", code: "111111", host: true, myNick: "我", peerNick: "她", peerChars: [{ id: "p1", name: "乙" }],
+    myChars: [{ id: "a", name: "甲" }], msgs: [{ id: "m1", side: "peer", kind: "user", name: "她", text: "在吗", ts: 1 }, { id: "m2", side: "me", kind: "user", name: "我", text: "在", ts: 2 }] }]);
+  const r = C.loadRooms()[0];
+  assert.ok(!("peerNick" in r) && !("peerChars" in r));
+  assert.deepStrictEqual(r.peers.map(p => [p.peerId, p.nick, p.chars[0].name]), [[C.LEGACY, "她", "乙"]]);
+  assert.strictEqual(r.msgs[0].peerId, C.LEGACY);
+  assert.strictEqual(C.transcript(r), "她：在吗\n我：在");
+  const r2 = C.upsertPeer(r, "realid", "她", []);
+  assert.deepStrictEqual(r2.peers.map(p => p.peerId), ["realid"]);
+  assert.strictEqual(r2.msgs[0].peerId, "realid");
+  // 昵称对不上的是新来的人，不顶替老那位
+  assert.strictEqual(C.upsertPeer(r, "x", "别人", []).peers.length, 2);
+});
+
+test("谁 offer：每一对只有 peerId 小的那边发；另一边敲门", () => {
+  const { C } = load();
+  assert.strictEqual(C.shouldOffer("a1", "b2"), true);
+  assert.strictEqual(C.shouldOffer("b2", "a1"), false);
+  ["k", "m", "z", "c"].forEach(x => ["k", "m", "z", "c"].forEach(y => { if (x !== y) assert.notStrictEqual(C.shouldOffer(x, y), C.shouldOffer(y, x)); }));
+  assert.match(src, /if \(shouldOffer\(o\.me, id\)\) offerTo\(id, peerSess\);/);
+  assert.match(src, /m\.t === "offer" && !shouldOffer\(o\.me, from\)/);
+});
+
+test("满员：算上自己四个人就不放新人，认识的人回来照放", () => {
+  const { C } = load();
+  assert.strictEqual(C.MAX_PEOPLE, 4);
+  assert.strictEqual(C.admit(["a", "b"], "c"), "ok");
+  assert.strictEqual(C.admit(["a", "b", "c"], "d"), "full");
+  assert.strictEqual(C.admit(["a", "b", "c"], "b"), "ok");
+  assert.match(src, /pub\(\{ t: "full", to: from \}\)/);
+  assert.match(src, /房间满了/);
+});
+
+test("提示词和记忆总结列出每一方和 TA 带来的人", () => {
+  const { C } = load();
+  const room = { myNick: "我", myChars: [{ id: "a", name: "甲" }], msgs: [{ id: "1", side: "peer", peerId: "p2", kind: "char", name: "丁", text: "好", ts: 1 }],
+    peers: [{ peerId: "p1", nick: "小红", chars: [{ id: "x", name: "乙" }] }, { peerId: "p2", nick: "小蓝", chars: [{ id: "y", name: "丁" }] }, { peerId: "p3", nick: "小绿", chars: [] }] };
+  const ins = C.lineInstruction(room, { id: "a", name: "甲" });
+  assert.match(ins, /一共 4 个人/);
+  assert.match(ins, /小红，TA 带来的是：乙/); assert.match(ins, /小蓝，TA 带来的是：丁/); assert.match(ins, /小绿，没带人/);
+  assert.match(ins, /丁（小蓝 带来的）：好/);
+  const mem = C.memoryInstruction(room, { id: "a", name: "甲" });
+  assert.match(mem, /小红、小蓝、小绿/);
+});
+
+test("谁离开只标 TA：其他人照样通着；直连不上的由别人转", () => {
+  const { C } = load();
+  // 我(m)直连 a、b；b 报自己连着 m、c → c 经 b 转得到
+  assert.deepStrictEqual(C.reachable("m", ["a", "b"], { b: ["m", "c"] }).sort(), ["a", "b", "c"]);
+  // a 走了：只少 a
+  assert.deepStrictEqual(C.reachable("m", ["b"], { b: ["m", "c"] }).sort(), ["b", "c"]);
+  // 转发：只转给跟说话人没直连的
+  assert.deepStrictEqual(C.forwardTargets(["a", "b", "c"], "a", "a", { b: ["a"], c: [] }), ["c"]);
+  assert.match(src, /e\.t === "bye"/);
+  assert.match(src, /和 TA 连不上/);
+});
+
+test("补发别人的话：by 认人，我自己说的回到我这边", () => {
+  const { C } = load();
+  assert.strictEqual(C.syncedMsg({ id: "1", text: "x", by: "me1" }, "me1", "p").side, "me");
+  const m = C.syncedMsg({ id: "2", text: "y", by: "p3" }, "me1", "p");
+  assert.strictEqual(m.side, "peer"); assert.strictEqual(m.peerId, "p3");
+  assert.strictEqual(C.syncedMsg({ id: "3", text: "z" }, "me1", "p").peerId, "p");
+});
+
+test("重新连上直接回到房间页（输入框在），不停在等人那页", () => {
+  const i = src.indexOf("const start = (host, resume) =>"), j = src.indexOf("const cancelWait", i);
+  assert.ok(i > 0 && j > i);
+  const body = src.slice(i, j);
+  assert.match(body, /if \(base\) \{ commit\(Core\.patchRoom\(base, \{ endedAt: 0 \}\)\); entered\.current = true; setPage\("chat"\); \}/);
+  // 外壳收任意几块：房间页传了顶栏/有谁/记录/重新连上/输入区五块，不许只收前三块把输入区丢掉
+  assert.match(src, /const shell = \(\.\.\.parts\) =>/);
+  // 房间页里输入框一直渲染着，没人在线只是灰掉
+  assert.match(src, /h\(Composer, \{ onSend: sayHuman, disabled: alone \}\)/);
 });
