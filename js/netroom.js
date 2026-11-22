@@ -322,14 +322,24 @@
     return arr.map(it => ({ char: it._c || members.find(c => c.name === it.name), text: String(it.text == null ? "" : it.text).trim(), emote: s(it.emote), pat: s(it.pat), vote: s(it.vote) }))
       .filter(x => x.char && (x.text || x.emote || x.pat)).slice(0, 24);
   }
-  function memoryInstruction(room, char) {
+  // 上次给这个人记到哪儿了：remembered[charId] 存的是记到的最后一条的时间。新的＝那以后的；before＝之前最后几条，只当上下文
+  function sinceRemembered(room, charId) {
+    const all = ((room && room.msgs) || []).filter(m => m && !m.recalled);
+    const last = Number(((room && room.remembered) || {})[charId]) || 0;
+    const fresh = all.filter(m => (Number(m.ts) || 0) > last);
+    const before = last ? all.filter(m => (Number(m.ts) || 0) <= last).slice(-4) : [];
+    const upTo = fresh.reduce((x, m) => Math.max(x, Number(m.ts) || 0), last);
+    return { fresh, before, upTo, last };
+  }
+  function memoryInstruction(room, char, before) {
     room = normalizeRoom(room);
+    const prev = before && before.length ? "\n\n【上次已经记过的部分，最后几句只当上下文，别再记一遍】\n" + transcript(Object.assign({}, room, { msgs: before })) : "";
     return (youAlias(room, char) ? "（" + youAlias(room, char) + "）\n" : "") + "把下面这次「" + (char.you || room.myNick) + " 带你进联机房间，跟 " + (peerNames(room).join("、") || "别人") + " 那边的人聊天」的经历，浓缩成 1~3 句会长期记住的事。"
       // 第三人称（她 2026-11-22）：跟记忆库里单聊、群聊、线下抽出来的那些一个口径，混着注入时不会分不清「我」是谁
       + "写成第三人称：用名字称呼「" + (char.name || "TA") + "」和「" + (char.you || room.myNick) + "」，不写「我」「你」。"
       + "见了谁、聊了什么、谁让 " + (char.name || "TA") + " 印象深、" + (char.name || "TA") + " 自己说过的要紧的话。只写沉淀下来的，不记流水账。别人带来的人你只知道名字和他们在这里说的话。"
       + "\n房间里的几方：" + sidesLines(room)
-      + "\n\n【这次房间里的全部聊天】\n" + transcript(room);
+      + prev + "\n\n" + (prev ? "【上次记过以后新聊的，只记这一段】" : "【这次房间里的全部聊天】") + "\n" + transcript(room);
   }
 
   // ───────────── 加号里那些消息（她 2026-11-22：「聊天能不能带上我们聊天加号里面那一堆功能」） ─────────────
@@ -711,7 +721,7 @@
   const Core = { BROKERS, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
     memoryTargets, transcript, lineInstruction, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
-    ownsMsg, editMsg, recallMsg, dropMsg, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom,
+    ownsMsg, editMsg, recallMsg, dropMsg, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom, sinceRemembered,
     normalizeRoom, upsertPeer, peerOf, ownerNick, peerNames, syncedMsg, shouldOffer, admit, forwardTargets, reachable, rid, Mesh };
   root.NetRoomCore = Core;
 
@@ -1352,13 +1362,19 @@
       if (!char) throw new Error("这个人已经不在你的角色里了");
       const p = props.apiFor ? props.apiFor(char.id) : null;
       if (!p) throw new Error("先去 设置·API 配一条线路");
-      const d = await runProbe(p, props.ctxFor(char), { voice: true, tag: "netroom",
-        instruction: Core.memoryInstruction(r, { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" }),
+      // 只记上次记过以后的新话（她 2026-11-22）：同一个房间重回来接着聊，再记就从上一次记到的那条往后
+      const live = Core.loadRooms().find(x => x.id === r.id) || r;
+      const part = Core.sinceRemembered(live, charId);
+      if (!part.fresh.length) throw new Error("上次记过以后没有新的话");
+      const ask = () => runProbe(p, props.ctxFor(char), { voice: true, tag: "netroom",
+        instruction: Core.memoryInstruction(Object.assign({}, live, { msgs: part.fresh }), { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" }, part.before),
         schemaHint: "{\"memory\":\"1~3 句，第三人称\"}", maxTokens: 12000 });
+      // 失败自动再试一次；还不行才报给她（她能在「以前的房间」里点重试）
+      let d; try { d = await ask(); if (!String((d && d.memory) || "").trim()) d = await ask(); } catch (e) { d = await ask(); }
       const text = String((d && d.memory) || "").trim();
       if (!text) throw new Error("没浓缩出什么");
       props.onAddMemory && props.onAddMemory(text, char.id);
-      const rem = Object.assign({}, (Core.loadRooms().find(x => x.id === r.id) || r).remembered || {}, { [charId]: Date.now() });
+      const rem = Object.assign({}, (Core.loadRooms().find(x => x.id === r.id) || r).remembered || {}, { [charId]: part.upTo });
       Core.patchRoom(Core.loadRooms().find(x => x.id === r.id) || r, { remembered: rem });
       return text;
     };
@@ -1370,10 +1386,13 @@
       // 给 bye 一点时间发出去再拆线
       await new Promise(ok => setTimeout(ok, 300));
       try { mesh.current && mesh.current.close(); } catch (e) {} mesh.current = null;
-      let ok = 0;
-      for (const id of ids) { try { await remember(r, id); ok++; } catch (e) { props.toast && props.toast("没记上：" + ((e && e.message) || e)); } }
+      let ok = 0; const bad = [];
+      for (const id of ids) { try { await remember(r, id); ok++; } catch (e) { bad.push(((charsById[id] || {}).name || "TA") + "（" + ((e && e.message) || e) + "）"); } }
+      setSaving(false); setRoom(null); setMemPick({}); entered.current = false; refresh();
+      // 有人没记上：直接停在这个房间的记录页，那儿每个人一颗「记进 TA 的记忆」就是重试
+      if (bad.length) { props.toast && props.toast((ok ? "记进了 " + ok + " 个人；" : "") + "没记上：" + bad.join("、") + "。在这页点那个人的按钮重试"); setViewId(r.id); setPage("view"); return; }
       if (ok) props.toast && props.toast("记进了 " + ok + " 个人的记忆");
-      setSaving(false); setRoom(null); setMemPick({}); entered.current = false; refresh(); setPage("home");
+      setPage("home");
     };
 
     // 外壳收任意几块（顶栏、正文、底下几条）：原来只收三块，房间页多了「重新连上」那条以后输入框被挤成第四块丢掉了
@@ -1470,7 +1489,7 @@
         h("div", { className: "flex-1 min-h-0 flex flex-col" },
           (r.myChars || []).length > 0 && h("div", { className: "shrink-0", style: { padding: "10px 14px", borderBottom: "1px solid " + t.line, display: "flex", flexWrap: "wrap", gap: 8 } },
             (r.myChars || []).map(c => h(Btn, { key: c.id, wk: "nrfill", disabled: saving || !charsById[c.id],
-              label: (r.remembered || {})[c.id] ? c.name + " 已记过 · 再记一次" : "记进 " + c.name + " 的记忆", onClick: () => fill(c.id) }))),
+              label: !(r.remembered || {})[c.id] ? "记进 " + c.name + " 的记忆" : Core.sinceRemembered(r, c.id).fresh.length ? "把新聊的记进 " + c.name + " 的记忆" : c.name + " 已经记到最新", onClick: () => fill(c.id) }))),
           h("div", { className: "shrink-0", style: { padding: "10px 14px", borderBottom: "1px solid " + t.line } },
             h(Btn, { label: "重新连上这个房间", primary: true, wide: true, onClick: () => { setNick(r.myNick || nick); rejoin(r); }, wk: "nrrejoin" }),
             h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "房里还有人开着就直接接上；都走了的话，要别人也在 TA 那边的「以前的房间」里点开这个房间、点「重新连上」。记录接在后面，断开那会儿的话会补齐。")),
