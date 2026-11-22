@@ -538,7 +538,7 @@
       return () => { live = false; };
     }, [usedIdx.join(","), list.length]);
     // 时间轴每格照片是哪天的、日历画哪个月（虚拟时间开着就按那只钟）
-    const metaOf = () => ({ dates: (layout.picks || []).map(p => (list[p] && list[p].ts) || 0), now: typeof vclockMap === "function" ? vclockMap(Date.now(), partner.id) : Date.now() });
+    const metaOf = () => ({ dates: (layout.picks || []).map(p => { const t0 = (list[p] && list[p].ts) || 0; return t0 && typeof vclockMap === "function" ? vclockMap(t0, partner.id) : t0; }), now: typeof vclockMap === "function" ? vclockMap(Date.now(), partner.id) : Date.now() });
     // 画完才知道每样东西在哪；刚加进来、刚选中的那一样，画完再刷一下，下面那排键才跟得上
     useEffect(() => {
       if (!cv.current) return;

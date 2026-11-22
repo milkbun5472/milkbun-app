@@ -3043,7 +3043,7 @@ function chfContextBlock(files, recentText, nameOf, herLast) {
   const list = (Array.isArray(files) ? files : []).filter(f => f && f.name);
   if (!list.length) return "";
   const who = id => id === "me" ? (nameOf ? nameOf("me") : "她") : (nameOf ? nameOf(id) : "") || "有人";
-  const md = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日" + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  const md = ts => { if (!ts) return ""; const d = typeof vDate === "function" ? vDate(ts) : new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日" + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
   const rt = String(recentText || "");
   const rows = list.slice().sort((a, b) => (b.updatedTs || 0) - (a.updatedTs || 0)).slice(0, 20).map(f =>
     "· 《" + f.name + "》" + (f.kind === "image" ? "（图片" + (f.desc ? "：" + String(f.desc).slice(0, 60) : "") + "）" : "（文档，" + String(f.text || "").length + " 字）")
@@ -3117,7 +3117,7 @@ function spaceChannelBlock(g, allGroups, chatsOf, uName, nameOf) {
 function groupNoticeBlock(notice) {
   const t = String((notice && notice.text) || "").trim();
   if (!t) return "";
-  const d = notice.ts ? new Date(notice.ts) : null;
+  const d = notice.ts ? (typeof vDate === "function" ? vDate(notice.ts) : new Date(notice.ts)) : null;   // 拼群提示词前已 vclockUse("g:"+群id)，不带 id 就是群那只钟
   return "\n\n【群公告】（钉在群聊顶上，群里每个人都看过" + (notice.by ? "，" + notice.by + " 发的" : "") + (d ? "，" + (d.getMonth() + 1) + "月" + d.getDate() + "日" : "") + "）\n" + t.slice(0, 2000);
 }
 function directivesBlock(dirs) {
@@ -5351,6 +5351,7 @@ function buildBundle(ctx, opts) {
   if (ctx.moneyWithHer && ctx.moneyWithHer.trim()) parts.push(ctx.moneyWithHer.trim());
   // 往期线下（她 2026-10-31：线下总结完，再进线下、群里都对上次见面没印象）：固定带最近几场的经过，不靠记忆库搜不搜得到
   if (ctx.pastOffline && String(ctx.pastOffline).trim()) parts.push("【你们前几次线下见面·真实发生过、你都记得】按时间从早到晚排，都已经结束了，发生在你们现在这一段之前\n" + String(ctx.pastOffline).trim());
+  if (ctx.roomEcho && String(ctx.roomEcho).trim()) parts.push(String(ctx.roomEcho).trim());
   if (recentChat && recentChat.trim()) parts.push("【最近对话】\n" + recentChat.trim());
   // 数字生命只需要最近对话作为事实，不再额外下达「不许否认/必须圆过去」的表演式行为命令。
   if (!(opts && opts.ooc) && !ctx.notRoleplay && recentChat && recentChat.trim()) parts.push("【对话连贯·别否认自己说过的话】" + userName(profile) + " 这一句多半是【顺着你自己上一句、或你俩最近聊的】接下来的。回应前先认清【你自己刚说过什么、提过什么要求或建议】——绝不许把你自己说过的话/提过的要求当成对方凭空冒出来的，更别反问『什么X？』『我什么时候说的』来装不知道（那多半是你自己刚说的）。真记不清就顺着圆过去，别当场否认、打自己脸。同时把 Ta 这句里的人称对准：中文接话常省略主语，省掉的部分必须从【你上一句的结构】里继承，不许悄悄换人——比如你刚说『我去哪你都得跟着』，Ta 接『去厕所也要吗』，问的是【你去厕所时 Ta 要不要跟】，不是 Ta 自己要去厕所。回应前先想清这句里『你』『我』各指谁、谁做动作谁承受，以 Ta 的原话和你上一句的框架为准；主客一旦弄反，整条回复都会答非所问。");

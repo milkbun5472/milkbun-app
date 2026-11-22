@@ -6,7 +6,7 @@ const cmp = require("node:fs").readFileSync(require.resolve("../js/components.js
 
 test("通话回执长按出删除，单聊群聊都接上了长按和多选", () => {
   assert.match(cmp, /if \(k === "callend"\) return \[\[\], \[\], \["multi", "del"\]\];/);
-  assert.match(cmp, /function CallEndPill\(\{ m, chars, onBg, i, selMode, selected, startPress, endPress, toggleSel \}\)/);
+  assert.match(cmp, /function CallEndPill\(\{ m, chars, clockId, onBg, i, selMode, selected, startPress, endPress, toggleSel \}\)/);
   const uses = cmp.match(/h\(CallEndPill, \{ key: i, i, m, chars: [^}]*selMode, selected: selIds\.includes\(i\), startPress, endPress, toggleSel \}\)/g) || [];
   assert.equal(uses.length, 2);
 });

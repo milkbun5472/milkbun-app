@@ -85,7 +85,7 @@ test("买之前能拿给他看，而且不是「被撞破」那套语境", () =>
 
 test("购物车、我的两页也换过来了，且都用紧凑标题栏", () => {
   assert.match(screens, /const shopHead = \(zh, right\) =>/);
-  assert.match(screens, /shopHead\("购物车"\)/);
+  assert.match(screens, /shopHead\("购物车"[,)]/);   // 右边后来挂了「自己加一件」，只钉标题
   assert.match(screens, /shopHead\("我的"\)/);
   // mobile-ui-layout.md §1：普通子页面不许用 30px 大标题
   // ⚠️原来这条禁的是 Head——那是 v57.x 的实情（那时 Head 自己是 30px 大标题）。
@@ -110,7 +110,7 @@ test("想要清单进四处的上下文，且不是「快去给她买」", () =>
   // 四处一样喂：单聊经 buildBundle、线上群聊、群线下
   assert.match(app, /wishLog: !isBody\(char\.id\) \? wishFor\(char\.id\) : ""/);
   assert.match(engine, /parts\.push\(wishLine\(ctx.wishLog, uName\)\)/);
-  assert.match(app, /const gWishHint = wishLine\(_gPar \? \"\" : wishFor\(\), userName\(profile\), \{ group: true, spectate: gs.spectate, gift: true \}\)/);
+  assert.match(app, /const gWishHint = wishLine\(_gPar \? \"\" : wishFor\(\), herNameIn\(groupId\), \{ group: true, spectate: gs.spectate, gift: true \}\)/);
   assert.match(engine, /opts.spectate \? "认识她的人都可能知道。" : "在场的人都可能知道。"/);
   assert.match(app, /wishLog: _par \? \"\" : wishFor\(\)/);
   assert.match(engine, /wishLine\(ctx.wishLog, userName, \{ group: true, gift: false \}\)/);

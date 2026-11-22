@@ -12,7 +12,8 @@ test("iconTint 进 normalize、compile、导出", () => {
 test("换图标那页有一排预设和一颗自己挑", () => {
   assert.match(ui, /"data-wk": "icontint"/);
   assert.match(ui, /studio\.ICON_TINTS\.map/);
-  assert.match(ui, /type: "color", onChange: e => \{ const tt = studio\.tintFromHex/);
+  // 「自己挑」走公共那颗 ColorDot（color-dot-one-public-72-05：原生取色器全库只许一个）
+  assert.match(ui, /h\(ColorDot, \{[^\n]*studio\.tintFromHex\(v\)/);
 });
 test("格子的淡彩底也认那两个变量", () => {
   const core = fs.readFileSync(path.join(__dirname, "..", "js", "core.js"), "utf8");

@@ -237,6 +237,40 @@
     return { byName: out, myOptions: myOpts.length ? myOpts : ["支持", "反对"], crowd: crowd };
   }
 
+  // ---- 擂台几处共用的三块：两种局的打法、说人话、台上一位辩手的那张卡 ----
+  //   genRound 一次写全场用它们；genTurn 一位辩手单独开口也用同一份，说法只有这一处。
+  function modeRules(casual) {
+      return casual
+        // 两种局原来只差这一句，吵出来一个样（她 2026-09-23：「看看认真吵和另一种有啥区别，差别再做大点」）。
+        //   现在从【段长、每段要交什么、台下怎么起哄、裁判看什么】四处一起拉开。
+        ? "\n【随便吵 · 这是一场吵架，不是辩论】\n"
+          + "· 短、快、冲：每人一段 1~4 句，可以只吼一句；抢话、插嘴、打断上一个人都行。\n"
+          + "· 不用讲理：跑题、抬杠、翻旧账、揭短、拿台下的人开涮、玩梗、突然委屈或耍赖，都是这一局的正经玩法——只要像这个人。\n"
+          + "· 比的是谁更出彩：更会损、更好笑、更有戏、更让台下想起哄。论证站不站得住，这一局没人在乎。\n"
+          + "· 别彻底离题：跑出去了，最后一句也要拐回来，扎一下对面。"
+        : "\n【讲道理 · 这是一场正经辩论】\n"
+          // ⚠️原来是「每段 3~6 句、都交三样：论点＋自己那个世界里的例子＋先复述对面原话再拆」——一枪写全场，
+          //   于是每个人都是同一个骨架：「你刚才说'……'，我上周在……」，台上像一个人分饰几角（她 2026-10-08：「擂台大家一个声音」）。
+          //   要的是每段都有真论点、都碰到对面，【怎么讲】归各人自己。
+          + "· 每人一段，长短各人自己定。每段都要有一个清楚的论点，并且真的碰到对面上一轮说的东西。\n"
+          + "· 怎么撑、怎么拆，各人一种路数，照这个人平时怎么吵架来：有人摆例子，有人算账，有人一句反问就戳穿，有人揪住对面一个词不放，有人干脆认下一半再翻盘。先复述对面原话只是其中一种，不是每段都要。\n"
+          + "· 台上几个人的开口方式、句子长短、用词、讲不讲自己的事，必须看得出是不同的人：遮掉名字也认得出谁是谁。同一轮里不许两个人用同一个骨架（比如都先引对面一句、再讲自己上周的一件事）。\n"
+          + "· 不许绕开对面的问题，也不许换个说法把自己上一轮再讲一遍；被问住了就承认那一处，再从别处扳回来。\n"
+          + "· 追问要问【对面答得出来的】具体问题，不问反问句式的空话。\n"
+          + "· 依然是这个人在说话：用TA的口气讲理，可以急、可以刻薄，但不许人身攻击、不许空喊口号。";
+  }
+  const PLAIN_TALK =
+      "【说人话 · 每一轮都落回地上】台上台下每一个人（发言、场边那一声、投票理由、裁判判语），连最后那句「还没吵拢的分歧」都照这条：\n" +
+      "· 这是几个认识的人在吵架，不是写论文：用TA平时说话的词。一句里堆了两个以上的抽象名词，就是飘了，换成TA自己会说的大白话。\n" +
+      "· 每一段至少落到一样【看得见摸得着】的东西上——一个具体的场面、身边的某个人、一件日常里的小事、一笔算得清的账——拿它来撑道理，而不是拿概念撑概念。不一定是自己的经历，别人人都讲一件「我上周……」。\n" +
+      "· 别去接对面的术语：对面说得玄，就把它拽回地面，问TA「那到底是什么意思、落到过日子上是什么样」，或者直接嫌TA说得绕。\n" +
+      "· 判据：把这句话念给在场一个没读过书的人听，TA听得懂、能接上话，才算数。\n";
+  function debaterCard(c, i, n, uName) {
+      return "【第" + (i + 1) + "位 · " + c.name + "】\n· 立场：" + (c.stance || "自行把握") + "\n· 人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), n) + (typeof charLangLine === "function" ? charLangLine(c) : "") +
+        (c.npcOf ? "\n· TA是" + (c.npcOf === "她" ? uName : "「" + c.npcOf + "」") + "身边的人" + (c.knowsUser === false ? "，本来不认识 " + uName + "，今天是头一回跟她打交道——别装熟" : "") : "") +
+        (c.injection ? "\n· （Ta 和 " + uName + " 最近的聊天，仅用来拿捏关系/近况/语气，别照搬别复述）\n" + c.injection : "");
+  }
+
   // ---- 模型：一轮一次调用 —— 同时生成【所有角色发言(按序)】+【未决争点】 ----
   //   我(用户)本轮已先发言，这里让台上角色依次接话、彼此对线；收尾只摘出争点，不再捏造观众评论。
   //   按次计费 → 一轮一发省钱；输出免费 + 思考型模型 → maxTokens 给足，避免长发言被截断。
@@ -262,11 +296,7 @@
     // 她自己当裁判（她 2026-10-09）：判语她自己写，模型不替她写；台上的人照样知道裁判是她
     const J = o.judge && !o.judge.me ? o.judge : null;
     const meJudge = !!(o.judge && o.judge.me);
-    const rosterBlocks = chars.map(function (c, i) {
-      return "【第" + (i + 1) + "位 · " + c.name + "】\n· 立场：" + (c.stance || "自行把握") + "\n· 人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), chars.length) + (typeof charLangLine === "function" ? charLangLine(c) : "") +
-        (c.npcOf ? "\n· TA是" + (c.npcOf === "她" ? uName : "「" + c.npcOf + "」") + "身边的人" + (c.knowsUser === false ? "，本来不认识 " + uName + "，今天是头一回跟她打交道——别装熟" : "") : "") +
-        (c.injection ? "\n· （Ta 和 " + uName + " 最近的聊天，仅用来拿捏关系/近况/语气，别照搬别复述）\n" + c.injection : "");
-    }).join("\n\n");
+    const rosterBlocks = chars.map(function (c, i) { return debaterCard(c, i, chars.length, uName); }).join("\n\n");
     // 场边（v60.41）：只有【她自己的、没上台的角色】，没有路人、没有昵称、不是弹幕。
     // 台下那一层原来的病是【借来的形状】（直播间弹幕＋网感路人），不是「有人在旁边看」这件事本身；
     // v60.26 把整层换成一张客观争点卡，等于把【活的】换成了【记账的】——方向反了。
@@ -313,24 +343,7 @@
       "这是一场辩论。你要在这一次里【同时扮演台上这几个角色，按给定顺序依次发言】" + (benchBlock ? "，再让场边看着的人里至多两位出一声" : "") + "，最后摘出这一轮还没吵拢的那个分歧。\n" +
       "⚠最重要：每个角色是不同的人，必须各自保持独立的立场、口吻、脾气、用词习惯——想象他们在抢麦互怼，别把他们写成一个腔调、别串味、别互相客气到失真。后发言的人要能接住前面的人和 " + uName + " 刚说的话。\n\n" +
       "【辩题】" + meta.topic +
-      (casual
-        // 两种局原来只差这一句，吵出来一个样（她 2026-09-23：「看看认真吵和另一种有啥区别，差别再做大点」）。
-        //   现在从【段长、每段要交什么、台下怎么起哄、裁判看什么】四处一起拉开。
-        ? "\n【随便吵 · 这是一场吵架，不是辩论】\n"
-          + "· 短、快、冲：每人一段 1~4 句，可以只吼一句；抢话、插嘴、打断上一个人都行。\n"
-          + "· 不用讲理：跑题、抬杠、翻旧账、揭短、拿台下的人开涮、玩梗、突然委屈或耍赖，都是这一局的正经玩法——只要像这个人。\n"
-          + "· 比的是谁更出彩：更会损、更好笑、更有戏、更让台下想起哄。论证站不站得住，这一局没人在乎。\n"
-          + "· 别彻底离题：跑出去了，最后一句也要拐回来，扎一下对面。"
-        : "\n【讲道理 · 这是一场正经辩论】\n"
-          // ⚠️原来是「每段 3~6 句、都交三样：论点＋自己那个世界里的例子＋先复述对面原话再拆」——一枪写全场，
-          //   于是每个人都是同一个骨架：「你刚才说'……'，我上周在……」，台上像一个人分饰几角（她 2026-10-08：「擂台大家一个声音」）。
-          //   要的是每段都有真论点、都碰到对面，【怎么讲】归各人自己。
-          + "· 每人一段，长短各人自己定。每段都要有一个清楚的论点，并且真的碰到对面上一轮说的东西。\n"
-          + "· 怎么撑、怎么拆，各人一种路数，照这个人平时怎么吵架来：有人摆例子，有人算账，有人一句反问就戳穿，有人揪住对面一个词不放，有人干脆认下一半再翻盘。先复述对面原话只是其中一种，不是每段都要。\n"
-          + "· 台上几个人的开口方式、句子长短、用词、讲不讲自己的事，必须看得出是不同的人：遮掉名字也认得出谁是谁。同一轮里不许两个人用同一个骨架（比如都先引对面一句、再讲自己上周的一件事）。\n"
-          + "· 不许绕开对面的问题，也不许换个说法把自己上一轮再讲一遍；被问住了就承认那一处，再从别处扳回来。\n"
-          + "· 追问要问【对面答得出来的】具体问题，不问反问句式的空话。\n"
-          + "· 依然是这个人在说话：用TA的口气讲理，可以急、可以刻薄，但不许人身攻击、不许空喊口号。") +
+      modeRules(casual) +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 6000) : "") +
       // 【和你们吵的这个人是谁】(v60.43 她 2026-09-02 抓到)
       // 原来整场只发了她一个名字：没有人设、也没有一句话说过「这些人都认识她」。
@@ -358,11 +371,7 @@
       (voteBlock ? "\n\n【台下投票】" + voteBlock : "") +
       // 越吵越飘（她 2026-09-23：「感觉越来越抽象了」）：每一轮都去接上一轮的词，「认知框架」接「维度跃迁」，
       //   几轮下来台上台下全在堆名词。只给判据、不给例句（prompt-no-content-samples）。
-      "\n\n【说人话 · 每一轮都落回地上】台上台下每一个人（发言、场边那一声、投票理由、裁判判语），连最后那句「还没吵拢的分歧」都照这条：\n" +
-      "· 这是几个认识的人在吵架，不是写论文：用TA平时说话的词。一句里堆了两个以上的抽象名词，就是飘了，换成TA自己会说的大白话。\n" +
-      "· 每一段至少落到一样【看得见摸得着】的东西上——一个具体的场面、身边的某个人、一件日常里的小事、一笔算得清的账——拿它来撑道理，而不是拿概念撑概念。不一定是自己的经历，别人人都讲一件「我上周……」。\n" +
-      "· 别去接对面的术语：对面说得玄，就把它拽回地面，问TA「那到底是什么意思、落到过日子上是什么样」，或者直接嫌TA说得绕。\n" +
-      "· 判据：把这句话念给在场一个没读过书的人听，TA听得懂、能接上话，才算数。\n" +
+      "\n\n" + PLAIN_TALK +
       "\n\n【本次任务】\n" +
       "1）让上面每个角色各发一段言（顺序同上，共 " + chars.length + " 段），" + (casual ? "照【随便吵】那几条：短、冲、有戏" : "照【讲道理】那几条：有论点、碰到对面，怎么讲各人一种路数") + "，口语带脾气，可点名回应某人。\n" +
       (benchBlock
@@ -545,6 +554,146 @@
       closings: closings
     };
   }
+
+  // ---- 一位辩手单独开口（台上几个人各在各的手机上、各用各的线路时用这一份）----
+  //   o：{ topic, mode:"free"|"serious", who:{name,persona,stance,injection}, others:[{name,stance,human}], transcript, crowd }
+  //   打法、说人话、那张卡都是上面 genRound 用的同一份；这里只是把「同时扮几个人」换成「只扮你一个」。
+  async function genTurn(active, o) {
+    const casual = o.mode === "free", who = o.who || {};
+    const others = (o.others || []).map(function (x) { return "· " + x.name + (x.human ? "（真人）" : "") + "：" + (x.stance || "自行把握"); }).join("\n");
+    const sys = AC() + CB() +
+      "这是一场辩论。你是台上的「" + who.name + "」，现在轮到你发言。只写你这一段，别替别人说话。\n\n" +
+      "【辩题】" + o.topic + modeRules(casual) +
+      "\n\n" + WORLD_WORDS +
+      "\n\n【你】\n" + debaterCard(who, 0, 1 + (o.others || []).length, o.uName || "对面") +
+      (others ? "\n\n【台上其他人和各自的立场】\n" + others : "") +
+      (o.transcript ? "\n\n【到现在的实录】\n" + String(o.transcript).slice(-12000) : "\n\n（你是第一个开口的，把这一场吵起来。）") +
+      (o.crowd ? "\n\n【台下刚才起的哄】\n" + String(o.crowd).slice(-1500) : "") +
+      "\n\n" + PLAIN_TALK +
+      "\n【输出】只输出 JSON：{\"say\":\"你这一段发言\",\"at\":\"主要回应谁（没有留空）\"}。别加旁白别 markdown。";
+    const raw = await callAI(active, sys, [{ role: "user", content: "轮到你了。" }], { maxTokens: 12000 });
+    const p = extractJSON(raw) || {};
+    return { say: String(p.say || p.text || "").trim(), at: String(p.at || "").trim() };
+  }
+  // ---- 按人设替一位辩手挑边：正方（认这句话）还是反方 ----
+  async function pickSide(active, topic, who, isFree) {
+    const sys = AC() + CB() +
+      "下面是一道辩题和一个人。【严格根据TA的人设】判断TA真心会站哪一边：正方＝认这句话，反方＝不认。性格、经历、价值观决定态度，别随便分。\n\n" +
+      "【辩题】" + topic + (isFree ? "（这一场是随便吵，不讲道理，比谁更出彩）" : "") +
+      "\n\n「" + who.name + "」的人设：" + personaFor(who.persona, 1) + (typeof charLangLine === "function" ? charLangLine(who) : "") +
+      "\n\n" + WORLD_WORDS + "\n⚠️写立场那一句也照这条来：用【这个人自己会说的话】写。" +
+      "\n\n【输出】只输出 JSON：{\"side\":\"pro|con\",\"stance\":\"一句话，TA自己的口气\"}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "挑边。" }], { maxTokens: 8000 });
+    const p = extractJSON(raw) || {};
+    return { side: p.side === "con" ? "con" : "pro", stance: String(p.stance || "").trim() };
+  }
+  // ---- 台下的人忍不住的一句（TA没上台，在观众席看着）----
+  //   o：{ topic, mode, who:{name,persona,injection}, last:{name,text}, transcript, crowd }
+  async function genSideLine(active, o) {
+    const who = o.who || {};
+    const sys = AC() + CB() +
+      "这是一场辩论，你是台下看着的「" + who.name + "」，没上台。台上刚有人说完一段。\n" +
+      "你这一声不是评论、不是打分，是【你这个人看着台上那个人，忍不住的一句】：只有你说才成立——你跟台上那位的交情、旧账、偏袒、看不惯，要在这一句里看得出来。没什么想说的就留空。\n\n" +
+      "【辩题】" + o.topic + (o.mode === "free" ? "（随便吵）" : "") +
+      "\n\n【你】" + who.name + "：" + personaFor(String(who.persona || "").replace(/\s+/g, " "), 2) +
+      (who.injection ? "\n（你平时这么说话，照这个口气来）" + String(who.injection).replace(/\s+/g, " ").slice(-300) : "") +
+      (o.transcript ? "\n\n【台上到现在】\n" + String(o.transcript).slice(-6000) : "") +
+      (o.last ? "\n\n【刚说完的】" + o.last.name + "：" + o.last.text : "") +
+      (o.crowd ? "\n\n【台下别人刚起的哄】\n" + String(o.crowd).slice(-800) : "") +
+      (o.passerby ? "\n\n台下还坐着一个来凑热闹的路人（普通人，说话直接），顺手替 TA 也写一声，写进 passerby，没话就空。" : "") +
+      "\n\n" + PLAIN_TALK +
+      "\n【输出】只输出 JSON：{\"at\":\"冲着台上谁（本名）\",\"text\":\"一句，没话就空\"" + (o.passerby ? ",\"passerby\":\"路人那一声，可空\"" : "") + "}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "台下。" }], { maxTokens: 8000 });
+    const p = extractJSON(raw) || {};
+    // passerby：同一次顺带的路人那一声（不另花调用）
+    return { at: String(p.at || "").trim(), text: String(p.text || "").trim().slice(0, 120), passerby: o.passerby ? String(p.passerby || "").trim().slice(0, 120) : "" };
+  }
+  // ---- 一位辩手听完判决的赛后感言 ----
+  async function genAfterword(active, o) {
+    const who = o.who || {}, v = o.verdict || {};
+    const sys = AC() + CB() +
+      "一场辩论刚判完。你是台上的「" + who.name + "」（立场：" + (who.stance || "—") + "）。照你的人设对这个结果说一句赛后感言——赢了输了各人一种反应，用你自己的嘴。\n\n" +
+      "【辩题】" + o.topic + "\n【判决】胜者「" + (v.winner || "") + "」" + (v.reason ? "。判词：" + v.reason : "") +
+      "\n\n【你】" + personaFor(String(who.persona || "").replace(/\s+/g, " "), 1) +
+      (o.transcript ? "\n\n【全场实录】\n" + String(o.transcript).slice(-8000) : "") +
+      "\n\n" + PLAIN_TALK +
+      "\n【输出】只输出 JSON：{\"text\":\"感言1~3句\"}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "说两句。" }], { maxTokens: 8000 });
+    const p = extractJSON(raw) || {};
+    return String(p.text || "").trim().slice(0, 300);
+  }
+
+  // ── 擂台上的几块（别处摆同一个擂台从 DebateShared 拿，单机这边自己也用这一份）──
+  // 台上一段话：本名那块小牌子（压一道立场色）＋一整段，被说动了挂在底下。tn：{ name, text, color, at, yield, newStance, skipped }；av：头像那个人；extra：名字后面多挂的小件（念出来）
+  //   不是聊天气泡，也不是左边一条色边的通用卡片。⚠️卡片里不许再套一层 maxHeight 滚动（mobile-ui-layout §3 只许一个主滚动容器）
+  function DebTurnCard(props) {
+    const t = props.t, tn = props.tn;
+    if (tn.skipped) return h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, padding: "5px 0 11px" }, "data-wk": "debarenaturncard" }, "—— " + tn.name + " 没接这一句 ——");
+    return h("div", { style: { marginBottom: 13 }, "data-wk": "debarena", "data-part": "r2" },
+      h("div", { className: "flex items-center", style: { gap: 6 } },
+        h("span", { className: "flex items-center", style: { gap: 5, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, padding: "5px 10px 4px", borderRadius: "5px 5px 0 0", borderBottom: "3px solid " + tn.color } },
+          h(Avatar, { character: props.av || { name: tn.name }, size: 15, radius: 999 }), tn.name),
+        tn.at ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "冲着 " + tn.at) : null,
+        props.extra || null),
+      h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, borderTop: "1px solid " + tn.color + "55", borderRadius: "0 11px 11px 11px", padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap" } }, tn.text),
+      // 被说动：松口认下一点／整个换了边——整场最值得看的那一下，挂在TA这段话下面
+      (tn.yield || tn.newStance) ? h("div", { "data-wk": "debyield", "data-on": tn.newStance ? "1" : "0", style: { marginTop: 5, paddingLeft: 10, borderLeft: "2px solid " + tn.color, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.65, color: t.sub } },
+        tn.newStance ? h("span", { style: { fontWeight: 700, color: tn.color } }, "换边了 → " + tn.newStance + (tn.yield ? "　" : "")) : h("span", { style: { color: t.fog } }, "松口："),
+        tn.yield || null) : null);
+  }
+  // 场边那一声：台子有个边，他们就贴在那条边外头。一条竖的台边线＋本名＋那句话，小字、靠左——它是配角，不许比台上响。list：[{ name, text, at, ally }]
+  function DebSideBlock(props) {
+    const t = props.t, list = (props.list || []).filter(function (x) { return x && x.text; });
+    if (!list.length) return null;
+    return h("div", { style: { margin: "2px 2px 14px", paddingLeft: 12, borderLeft: "2px solid " + t.line }, "data-wk": "debarena", "data-part": "r3" },
+      list.map(function (x, i2) {
+        return h("div", { key: i2, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub, marginTop: i2 ? 5 : 0 }, "data-wk": "debarena", "data-part": "r4" },
+          h("span", { style: { color: t.fog } }, props.label || "台边 · "),
+          h("span", { style: { fontWeight: 700, color: t.ink } }, x.name),
+          // 冲着谁（v63.61）：台上不止一个人，看不见这一条就分不清TA在接谁的话
+          x.at ? h("span", { style: { color: t.fog } }, x.ally ? " 帮腔 " + x.at : " → " + x.at) : null,
+          h("span", { style: { color: t.fog } }, "："),
+          x.text);
+      }));
+  }
+  // 记分牌：判了谁赢、判词、「他们其实在吵的是」、「最狠的那一句」。v：{ winner, reason, crux, best:{ quote, name, why } }
+  function DebVerdictBoard(props) {
+    const t = props.t, v = props.v || {};
+    return h("div", { "data-wk": "block", style: { background: "#1e1d1b", border: "1px solid rgba(255,255,255,.14)", borderRadius: 8, padding: "15px 17px 16px", marginBottom: 20, boxShadow: "0 12px 26px rgba(0,0,0,.3)" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 3, color: "#6f6a5f" } }, "判 了"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(25px * var(--app-fs, 1))", lineHeight: 1.25, color: "#f0c67a", margin: "6px 0 10px" } }, v.winner),
+            h("div", { style: { height: 1, background: "rgba(255,255,255,.13)", marginBottom: 10 } }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#d8d3c8", whiteSpace: "pre-wrap" } }, v.reason),
+            // 「他们其实在吵的是」：只写「谁赢了」的话，这一场吵完什么都没留下。
+            // 这一栏才是她看完会记住的东西——把两边话里那个没说破的分歧点点出来。
+            v.crux ? h("div", { style: { marginTop: 15, paddingTop: 13, borderTop: "1px dashed rgba(255,255,255,.16)" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 3, color: "#6f6a5f", marginBottom: 7 } }, "他们其实在吵的是"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#d8d3c8" } }, v.crux)) : null,
+            // 「最狠的那一句」：从实录里逐字挑出来的原句（对不上就整块不显示，见 genResult）。
+            // 引号压在左边，跟上面那两段一眼分得开——它是【谁说过的话】，不是裁判的话。
+            (v.best && v.best.quote) ? h("div", { style: { position: "relative", marginTop: 15, paddingTop: 13, borderTop: "1px dashed rgba(255,255,255,.16)" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 3, color: "#6f6a5f", marginBottom: 9 } }, "最狠的那一句"),
+              h("div", { style: { borderLeft: "2px solid #f0c67a", paddingLeft: 11, fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.9, color: "#f4f1e9" } }, v.best.quote),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#8d877a", marginTop: 8 } },
+                "—— " + (v.best.name || "台上") + (v.best.why ? "　" + v.best.why : ""))) : null);
+  }
+  // 下台之后：每位辩手的赛后感言。list：[{ name, text, color, av }]（av 没有就空一格，不画头像）
+  function DebClosings(props) {
+    const t = props.t, list = props.list || [];
+    if (!list.length) return null;
+    return h("div", { "data-wk": "debclosings" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 3, color: t.fog, marginBottom: 11 } }, "下 台 之 后"),
+      list.map(function (c, i) {
+        return h("div", { key: i, style: { display: "flex", gap: 8, marginBottom: 10 }, "data-wk": "debarena", "data-part": "r13" },
+          c.av ? h(Avatar, { character: c.av, size: 26, radius: 999 }) : h("div", { style: { width: 26 } }),
+          h("div", { style: { flex: 1 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: c.color || t.ink, marginBottom: 2 } }, c.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink } }, c.text)));
+      }));
+  }
+  // 别处（比如几个人各在各的手机上一起开一场）借用这几样：单机这边自己也用的同一份
+  window.DebateShared = { modeRules: modeRules, debaterCard: debaterCard, genTurn: genTurn, pickSide: pickSide, genSideLine: genSideLine, genAfterword: genAfterword, genResult: genResult, drawTopics: drawTopics, fullTranscript: fullTranscript,
+    TurnCard: DebTurnCard, SideBlock: DebSideBlock, VerdictBoard: DebVerdictBoard, Closings: DebClosings };
 
   // ============================================================
   // 顶层：落地页（存档列表 + 发起）
@@ -1077,19 +1226,8 @@
     // ⚠️卡片里【不许再套一层 maxHeight 滚动】：一页里嵌一个 300px 的小滚动区，
     //   在手机上会跟整页抢手势（mobile-ui-layout §3 只允许一个主滚动容器）。长就让它长。
     const turnCard = function (tn, k) {
-      if (tn.skipped) return h("div", { key: k, style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, padding: "5px 0 11px" }, "data-wk": "debarenaturncard" }, "—— " + tn.name + " 没接这一句 ——");
       const av = tn.who === "char" ? (props.characters.find(function (c) { return c.id === tn.id; }) || { name: tn.name }) : meAv;
-      return h("div", { key: k, style: { marginBottom: 13 }, "data-wk": "debarena", "data-part": "r2" },
-        h("div", { className: "flex items-center", style: { gap: 6 } },
-          h("span", { className: "flex items-center", style: { gap: 5, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, padding: "5px 10px 4px", borderRadius: "5px 5px 0 0", borderBottom: "3px solid " + tn.color } },
-            h(Avatar, { character: av, size: 15, radius: 999 }), tn.name),
-          tn.at ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "冲着 " + tn.at) : null,
-          (tn.who === "char" && dtp && typeof TtsDot === "function") ? h(TtsDot, { k: "dbt" + k, text: tn.text, spk: props.characters.find(function (c) { return c.id === tn.id; }), tp: dtp }) : null),
-        h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, borderTop: "1px solid " + tn.color + "55", borderRadius: "0 11px 11px 11px", padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap" } }, tn.text),
-        // 被说动：松口认下一点／整个换了边——整场最值得看的那一下，挂在TA这段话下面
-        (tn.yield || tn.newStance) ? h("div", { "data-wk": "debyield", "data-on": tn.newStance ? "1" : "0", style: { marginTop: 5, paddingLeft: 10, borderLeft: "2px solid " + tn.color, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.65, color: t.sub } },
-          tn.newStance ? h("span", { style: { fontWeight: 700, color: tn.color } }, "换边了 → " + tn.newStance + (tn.yield ? "　" : "")) : h("span", { style: { color: t.fog } }, "松口："),
-          tn.yield || null) : null);
+      return h(DebTurnCard, { key: k, t: t, tn: tn, av: av, extra: (tn.who === "char" && dtp && typeof TtsDot === "function") ? h(TtsDot, { k: "dbt" + k, text: tn.text, spk: props.characters.find(function (c) { return c.id === tn.id; }), tp: dtp }) : null });
     };
 
     // ── 回合落点：未决争点 ──────────────────────────────────
@@ -1098,20 +1236,7 @@
     // 场边那一声（v60.41）
     // 形状不是弹幕、不是气泡：台子有个边，他们就贴在那条边外头。
     // 一条竖的台边线 + 本名 + 那句话，小字、靠左——**它是配角，不许比台上响**。
-    const sideBlock = function (side, k) {
-      const list = (side || []).filter(function (x) { return x && x.text; });
-      if (!list.length) return null;
-      return h("div", { key: "side" + k, style: { margin: "2px 2px 14px", paddingLeft: 12, borderLeft: "2px solid " + t.line }, "data-wk": "debarena", "data-part": "r3" },
-        list.map(function (x, i2) {
-          return h("div", { key: i2, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub, marginTop: i2 ? 5 : 0 }, "data-wk": "debarena", "data-part": "r4" },
-            h("span", { style: { color: t.fog } }, "台边 · "),
-            h("span", { style: { fontWeight: 700, color: t.ink } }, x.name),
-            // 冲着谁（v63.61）：台上不止一个人，看不见这一条就分不清TA在接谁的话
-            x.at ? h("span", { style: { color: t.fog } }, x.ally ? " 帮腔 " + x.at : " → " + x.at) : null,
-            h("span", { style: { color: t.fog } }, "：" ),
-            x.text);
-        }));
-    };
+    const sideBlock = function (side, k) { return h(DebSideBlock, { key: "side" + k, t: t, list: side }); };
     // 台下这一轮的票（她 2026-09-23）。
     // 形状跟场边那一声同一条台边线——投票的就是那几位，别另起一块卡片抢台上的戏。
     // 先一行这一轮的票数（谁几票），下面每位一行：投给谁、什么来路、TA的理由。
@@ -1319,33 +1444,9 @@
           // 记分牌：吊在台子上方那块牌。两根吊绳往上接出去，牌子才是「吊着的」
           h("div", { "aria-hidden": "true", style: { position: "absolute", left: "26%", top: -18, width: 1, height: 18, background: t.line } }),
           h("div", { "aria-hidden": "true", style: { position: "absolute", right: "26%", top: -18, width: 1, height: 18, background: t.line } }),
-          h("div", { "data-wk": "block", style: { background: "#1e1d1b", border: "1px solid rgba(255,255,255,.14)", borderRadius: 8, padding: "15px 17px 16px", marginBottom: 20, boxShadow: "0 12px 26px rgba(0,0,0,.3)" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 3, color: "#6f6a5f" } }, "判 了"),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(25px * var(--app-fs, 1))", lineHeight: 1.25, color: "#f0c67a", margin: "6px 0 10px" } }, s.verdict.winner),
-            h("div", { style: { height: 1, background: "rgba(255,255,255,.13)", marginBottom: 10 } }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#d8d3c8", whiteSpace: "pre-wrap" } }, s.verdict.reason),
-            // 「他们其实在吵的是」：只写「谁赢了」的话，这一场吵完什么都没留下。
-            // 这一栏才是她看完会记住的东西——把两边话里那个没说破的分歧点点出来。
-            s.verdict.crux ? h("div", { style: { marginTop: 15, paddingTop: 13, borderTop: "1px dashed rgba(255,255,255,.16)" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 3, color: "#6f6a5f", marginBottom: 7 } }, "他们其实在吵的是"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#d8d3c8" } }, s.verdict.crux)) : null,
-            // 「最狠的那一句」：从实录里逐字挑出来的原句（对不上就整块不显示，见 genResult）。
-            // 引号压在左边，跟上面那两段一眼分得开——它是【谁说过的话】，不是裁判的话。
-            (s.verdict.best && s.verdict.best.quote) ? h("div", { style: { position: "relative", marginTop: 15, paddingTop: 13, borderTop: "1px dashed rgba(255,255,255,.16)" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 3, color: "#6f6a5f", marginBottom: 9 } }, "最狠的那一句"),
-              h("div", { style: { borderLeft: "2px solid #f0c67a", paddingLeft: 11, fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.9, color: "#f4f1e9" } }, s.verdict.best.quote),
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#8d877a", marginTop: 8 } },
-                "—— " + (s.verdict.best.name || "台上") + (s.verdict.best.why ? "　" + s.verdict.best.why : ""))) : null),
-          (s.closings && s.closings.some(c => c.name !== uName)) ? h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 3, color: t.fog, marginBottom: 11 } }, "下 台 之 后"),
-            s.closings.filter(c => c.name !== uName).map((c, i) => {
-              const cp = s.parts.find(p => p.name === c.name && p.kind === "char");
-              return h("div", { key: i, style: { display: "flex", gap: 8, marginBottom: 10 }, "data-wk": "debarena", "data-part": "r13" },
-                cp ? h(Avatar, { character: props.characters.find(x => x.id === cp.id) || { name: c.name }, size: 26, radius: 999 }) : h("div", { style: { width: 26 } }),
-                h("div", { style: { flex: 1 } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: cp ? cp.color : t.ink, marginBottom: 2 } }, c.name),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink } }, transShow(c.text))));
-            })) : null) : null),
+          h(DebVerdictBoard, { t: t, v: s.verdict }),
+          h(DebClosings, { t: t, list: (s.closings || []).filter(c => c.name !== uName).map(c => { const cp = s.parts.find(p => p.name === c.name && p.kind === "char");
+            return { name: c.name, text: transShow(c.text), color: cp ? cp.color : "", av: cp ? (props.characters.find(x => x.id === cp.id) || { name: c.name }) : null }; }) })) : null),
       // 底部操作
       ended ? (props.onCreate && (s.parts || []).length >= 2 ? h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 16px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
         h("button", { onClick: rematch, className: "w-full active:opacity-80", "data-wk": "debrematch",

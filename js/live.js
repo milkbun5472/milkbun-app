@@ -1095,7 +1095,7 @@
     // 错过的：今天已经播完的 + 昨天那场（昨天也先看昨天那张日程，没排日程才按日子算），她没进去过、也还没剪过高光的
     const missed = cfg.selfLive === false ? [] : slots.concat(slotsOf(selfOn.concat(followedSt), new Date(now - 86400000), c => followedSt.some(x => x.id === c.id) ? null : (props.liveSched ? props.liveSched(c, new Date(now - 86400000)) : null)))
       .filter(x => x.end <= now && now - x.end < 36 * 3600000 && whoOf(x.charId) && !list.some(s2 => s2.slotId === x.id));
-    const hm = ts => { const d = new Date(ts); return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); };
+    const hm = x => { const d = new Date(vt(x.start, x.charId)); return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); };
     // 点进 TA 正在播的那一场：中途进场，前面播了多久写进去；同一场进过就接着那一场
     const joinSlot = (x, as) => {
       const had = listRef.current.find(s2 => s2.slotId === x.id && !s2.endTs);
@@ -1140,7 +1140,7 @@
           h("div", { className: "flex items-center", style: { gap: 12, marginTop: 6 } }, stFace(st, 52),
             h("div", { className: "flex-1 min-w-0" },
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.55 } }, st.bio || "（没写简介）"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, "播" + kindZh(st.kind) + (onAirNow ? " · 正在播" : nextSlot ? " · 今晚 " + hm(nextSlot.start) + " 播" : ""))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, "播" + kindZh(st.kind) + (onAirNow ? " · 正在播" : nextSlot ? " · 今晚 " + hm(nextSlot) + " 播" : ""))),
             h("button", { "data-wk": "livestfollow", onClick: () => follow(st), className: "active:opacity-70 shrink-0", style: { minHeight: 34, padding: "0 14px", borderRadius: 10, border: "1px solid " + LIVE_RED, background: st.followed ? "transparent" : LIVE_RED, color: st.followed ? LIVE_RED : "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, st.followed ? "已关注" : "关注")),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, margin: "18px 0 6px" } }, "关于他"),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.75 } }, st.persona),
@@ -1152,7 +1152,7 @@
           onAirNow ? h("div", { className: "flex", style: { gap: 8, marginTop: 16 } },
             h("button", { onClick: () => enterSt(st, "me"), className: "active:opacity-70", style: { flex: 1, minHeight: 44, borderRadius: 12, background: LIVE_RED, color: "#fff", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "进直播间"),
             h("button", { onClick: () => enterSt(st, "mask"), className: "active:opacity-70", style: { minHeight: 44, padding: "0 14px", borderRadius: 12, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "挂马甲"))
-            : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 16 } }, st.followed ? (nextSlot ? "今晚 " + hm(nextSlot.start) + " 开播，到点会提醒你" : "今天不播；关注着，他开播会提醒你") : "这会儿没在播"),
+            : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 16 } }, st.followed ? (nextSlot ? "今晚 " + hm(nextSlot) + " 开播，到点会提醒你" : "今天不播；关注着，他开播会提醒你") : "这会儿没在播"),
           keys.map(row)));
     }
     // ── 跟路人主播的私信 ──
@@ -1177,7 +1177,7 @@
               h("button", { "data-wk": "livejoin", "data-part": "me", onClick: () => joinSlot(x, "me"), className: "active:opacity-70 shrink-0", style: { minHeight: 34, padding: "0 12px", borderRadius: 10, background: LIVE_RED, color: "#fff", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "进去"),
               h("button", { "data-wk": "livejoin", "data-part": "mask", onClick: () => joinSlot(x, "mask"), className: "active:opacity-70 shrink-0", style: { minHeight: 34, padding: "0 8px", color: t.sub, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "挂马甲")); })) : null,
         later.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 12, lineHeight: 1.7 } },
-          "今晚还会播：" + later.map(x => ((whoOf(x.charId) || {}).name || "") + " " + hm(x.start)).join("、")) : null,
+          "今晚还会播：" + later.map(x => ((whoOf(x.charId) || {}).name || "") + " " + hm(x)).join("、")) : null,
         weekRank.length ? h("div", { "data-wk": "liverank", style: { marginBottom: 14, padding: "10px 14px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "本周礼物榜"),
           weekRank.map((x, i) => { const c = whoOf(x.id) || {};

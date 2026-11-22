@@ -1,0 +1,631 @@
+// 联机房间第一期（2026-11-22）：MQTT 帧、只发名字头像、消息存取、退出时记忆勾选
+const test = require("node:test");
+const assert = require("node:assert");
+const fs = require("node:fs");
+const path = require("node:path");
+const read = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
+const src = read("js/netroom.js");
+
+// 存档桩：照写入方 saveJSON(STORE_KEY, …) 那一处（netroom.js 的 saveRooms）
+function load() {
+  const store = {};
+  const w = { loadJSON: (k, d) => (k in store ? JSON.parse(store[k]) : d), saveJSON: (k, v) => { store[k] = JSON.stringify(v); } };
+  new Function("window", "loadJSON", "saveJSON", src)(w, w.loadJSON, w.saveJSON);
+  return { C: w.NetRoomCore, store };
+}
+
+test("存档写的是 x_ 键（进 IDB 文字库），不直连 localStorage", () => {
+  const { C } = load();
+  assert.strictEqual(C.STORE_KEY, "x_netroom");
+  assert.match(src, /function saveRooms\(list\) \{ saveJSON\(STORE_KEY,/);
+  assert.ok(!/localStorage/.test(src.split("\n").map(l => l.split("//")[0]).join("\n")), "不许直连 localStorage");
+});
+
+test("MQTT：CONNECT / SUBSCRIBE / PUBLISH / PINGREQ 编码对得上 3.1.1", () => {
+  const { C } = load();
+  const c = C.mqtt.connect("ab", 30);
+  assert.deepStrictEqual(Array.from(c), [0x10, 14, 0, 4, 77, 81, 84, 84, 4, 2, 0, 30, 0, 2, 97, 98]);
+  const s = C.mqtt.subscribe(1, "t/1");
+  assert.deepStrictEqual(Array.from(s), [0x82, 8, 0, 1, 0, 3, 116, 47, 49, 0]);
+  assert.deepStrictEqual(Array.from(C.mqtt.ping()), [0xC0, 0]);
+  const p = C.mqtt.publish("t", "hi");
+  assert.deepStrictEqual(Array.from(p), [0x30, 5, 0, 1, 116, 104, 105]);
+});
+
+test("MQTT：长包的剩余长度走多字节，拆包能跨段拼回来", () => {
+  const { C } = load();
+  const big = "x".repeat(300);
+  const pk = C.mqtt.publish("room/1", big);
+  assert.strictEqual(pk[1] & 128, 128, "300 多字节要用两字节长度");
+  const feed = C.mqtt.decoder();
+  assert.deepStrictEqual(feed(pk.slice(0, 50)), []);
+  const out = feed(Uint8Array.from([...pk.slice(50), 0x20, 2, 0, 0, 0xD0, 0]));
+  assert.strictEqual(out.length, 3);
+  assert.strictEqual(out[0].type, 3);
+  assert.strictEqual(out[0].topic, "room/1");
+  assert.strictEqual(out[0].payload, big);
+  assert.strictEqual(out[1].type, 2); assert.strictEqual(out[1].code, 0);
+  assert.strictEqual(out[2].type, 13);
+});
+
+test("房间号 6 位数字；topic 带固定前缀", () => {
+  const { C } = load();
+  for (let i = 0; i < 50; i++) assert.ok(C.validCode(C.newCode()));
+  assert.ok(!C.validCode("12345")); assert.ok(!C.validCode("12a456"));
+  assert.strictEqual(C.topicOf("123456"), C.TOPIC_PREFIX + "/123456");
+  assert.ok(C.TOPIC_PREFIX.length >= 10);
+});
+
+test("发给对方的名片只有名字和小头像：人设、记忆、世界书一个字段都不带", () => {
+  const { C } = load();
+  const char = { id: "c1", name: "陆闻", persona: "人设全文", memory: "长期记忆", lore: "世界书", avatarImage: "iv_1", greeting: "开场白", avatarEmoji: "🐱", color: "#aabbcc" };
+  const card = C.cardOf(char, "data:image/jpeg;base64,AAAA");
+  assert.deepStrictEqual(Object.keys(card).sort(), ["avatar", "color", "emoji", "id", "name"]);
+  const s = JSON.stringify(card);
+  ["人设全文", "长期记忆", "世界书", "开场白", "iv_1"].forEach(x => assert.ok(s.indexOf(x) < 0, x));
+  // 不是 dataURL 的头像（原图地址/仓库键）一律不发
+  assert.strictEqual(C.cardOf(char, "https://x/y.png").avatar, "");
+  // 收到的名片多塞了东西，这边照样只收那几样
+  assert.deepStrictEqual(Object.keys(C.cleanCard(Object.assign({ persona: "x" }, card))).sort(), ["avatar", "color", "emoji", "id", "name"]);
+  // 进房那一下发出去的就是这份名片
+  assert.match(src, /cards\.push\(Core\.cardOf\(c, await smallAvatar\(c\)\)\)/);
+  assert.match(src, /send\(\{ t: "hi", nick: myNick\(\), chars: cards, me: await myFace\(myNick\(\)\) \}\)/);
+  assert.match(src, /const AVATAR_PX = 64;/);
+});
+
+test("消息存取：两边各存一份，同 id 不重复，对面的话标 peer", () => {
+  const { C, store } = load();
+  const r = C.upsertRoom({ id: "nr_1", code: "123456", myNick: "我", peerNick: "她", myChars: [{ id: "c1", name: "陆闻" }], peerChars: [], msgs: [], remembered: {} });
+  let cur = C.addMsg(r, Object.assign(C.wireMsg({ id: "m1", kind: "user", name: "我", text: "你好", ts: 1 }), { side: "me" }));
+  cur = C.addMsg(cur, Object.assign(C.wireMsg({ id: "m2", kind: "char", name: "乙", charId: "p1", text: "嗨", ts: 2, persona: "不该带" }), { side: "peer" }));
+  cur = C.addMsg(cur, Object.assign(C.wireMsg({ id: "m2", kind: "char", name: "乙", charId: "p1", text: "嗨", ts: 2 }), { side: "peer" }));
+  assert.strictEqual(cur.msgs.length, 2);
+  const back = C.loadRooms()[0];
+  assert.strictEqual(back.msgs.length, 2);
+  assert.ok(!("persona" in back.msgs[1]));
+  assert.ok(store.x_netroom);
+  const tx = C.transcript(Object.assign({}, back, { peerNick: "她" }));
+  assert.match(tx, /^我：你好\n乙（她 带来的）：嗨$/);
+});
+
+test("退出那张卡：只记勾上的、只记自己带来的", () => {
+  const { C } = load();
+  const mine = [{ id: "a", name: "甲" }, { id: "c", name: "丙" }];
+  assert.deepStrictEqual(C.memoryTargets(mine, {}), []);
+  assert.deepStrictEqual(C.memoryTargets(mine, { a: true, c: false }), ["a"]);
+  assert.deepStrictEqual(C.memoryTargets(mine, { a: true, c: true, p1: true }), ["a", "c"]);
+  // 记忆走宿主的公共那一处，不在模块里另写一份
+  const app = read("js/app.js");
+  assert.match(app, /screen === "netroom"\)[\s\S]{0,900}onAddMemory: \(text, charId\) => keepWhereItHappened\(/);
+  assert.match(src, /props\.onAddMemory && props\.onAddMemory\(text, char\.id\)/);
+});
+
+test("角色开口走 runProbe(voice)、料在 system、maxTokens 不低于 8000", () => {
+  assert.match(src, /runProbe\(p, props\.ctxFor\(char\), \{ voice: true, tag: "netroom",/);
+  const n = [...src.matchAll(/maxTokens: (\d+)/g)].map(m => +m[1]);
+  assert.ok(n.length >= 2 && n.every(x => x >= 8000), String(n));
+  // 单人开口不另起一条直发；callAI 只有「一起说」那一枪（几个人一次写，runProbe 只写一个人）和前情卡（只读房间记录，不带人设）
+  assert.strictEqual((src.match(/callAI\(/g) || []).length, 2, "只有一起说、前情卡两处直发");
+  assert.match(src, /maxTokens: Math\.min\(32000, 12000 \+ 4000 \* mine\.length\)/);
+  const { C } = load();
+  const ins = C.lineInstruction({ myNick: "我", peerNick: "她", myChars: [{ id: "a", name: "甲" }], peerChars: [{ id: "p", name: "乙" }], msgs: [] }, { id: "a", name: "甲" });
+  assert.match(ins, /乙/);
+});
+
+test("不引第三方库、不下载代码；入口挂在一起玩", () => {
+  assert.ok(!/import\s*\(|<script|unpkg|jsdelivr|cdnjs/.test(src));
+  const comp = read("js/components.js");
+  assert.match(comp, /netroom: \{ kind: "app", zh: "联机", G: FG\("netroom", GNetRoom\) \}/);
+  assert.match(comp, /\["NetRoomApp", "netroom", "联机"\]/);
+  assert.match(read("index.html"), /data-lazy="netroom" data-src="js\/netroom\.js\?v=/);
+});
+
+test("角色一次能连发几条：say 数组拆成几个气泡，老的 text 也认", () => {
+  const { C } = load();
+  assert.deepStrictEqual(C.sayLines({ say: ["嗯", " 你们好 ", ""] }), ["嗯", "你们好"]);
+  assert.deepStrictEqual(C.sayLines({ text: "第一句\n\n第二句" }), ["第一句", "第二句"]);
+  assert.deepStrictEqual(C.sayLines({}), []);
+});
+
+test("带上最近单聊只在勾了的人身上；对面看得到正在输入", () => {
+  assert.ok(/c\.recent \? ctx0 : Object\.assign\(\{\}, ctx0, \{ recentChat: "", pastOffline: "" \}\)/.test(src), "没勾的不带单聊");
+  assert.ok(/recent: !!withChat\[c\.id\]/.test(src), "勾选记在 myChars 上");
+  assert.ok(/t: "typing"/.test(src) && /e\.t === "typing"/.test(src), "收发正在输入");
+  assert.ok(/finally \{ typing\(false\)/.test(src), "说完或失败都熄灭");
+});
+
+test("重新连上：对面补发的话缺的补上、有的不重复、按时间排；等对方时不计时", () => {
+  const { C } = load();
+  let r = C.upsertRoom({ id: "r1", code: "123456", host: true, msgs: [{ id: "a", ts: 1, side: "me" }, { id: "c", ts: 3, side: "me" }] });
+  r = C.mergeMsgs(r, [{ id: "b", ts: 2, side: "peer" }, { id: "c", ts: 3, side: "peer" }]);
+  assert.deepStrictEqual(r.msgs.map(m => m.id), ["a", "b", "c"]);
+  assert.strictEqual(C.loadRooms()[0].msgs.length, 3);
+  assert.ok(/if \(!o\.patient && !o\.host\) clock = setTimeout/.test(src), "重新连上时先不计时");
+  assert.ok(/t: "sync"/.test(src) && /e\.t === "sync"/.test(src), "互补漏掉的话");
+  assert.ok(/if \(mesh\.current !== m\) return;/.test(src), "旧那一场的回调不再动新房间");
+});
+
+test("以前的房间能删；往上翻不被拽回底部", () => {
+  const { C } = load();
+  C.upsertRoom({ id: "x1", msgs: [] }); C.upsertRoom({ id: "x2", msgs: [] });
+  C.removeRoom("x1");
+  assert.deepStrictEqual(C.loadRooms().map(r => r.id), ["x2"]);
+  assert.ok(!/\[n, tail\]\)/.test(src), "不再拿每次新建的 tail 当依赖");
+  assert.ok(/stick\.current \|\|/.test(src), "只在本来就在底部时才跟到底");
+});
+
+// ───────────── 第二期：最多四个人 ─────────────
+test("旧存档（peerNick / peerChars）读成 peers 里一个人，老消息归 TA；昵称对上时换成真 id", () => {
+  const { C, store } = load();
+  store.x_netroom = JSON.stringify([{ id: "old", code: "111111", host: true, myNick: "我", peerNick: "她", peerChars: [{ id: "p1", name: "乙" }],
+    myChars: [{ id: "a", name: "甲" }], msgs: [{ id: "m1", side: "peer", kind: "user", name: "她", text: "在吗", ts: 1 }, { id: "m2", side: "me", kind: "user", name: "我", text: "在", ts: 2 }] }]);
+  const r = C.loadRooms()[0];
+  assert.ok(!("peerNick" in r) && !("peerChars" in r));
+  assert.deepStrictEqual(r.peers.map(p => [p.peerId, p.nick, p.chars[0].name]), [[C.LEGACY, "她", "乙"]]);
+  assert.strictEqual(r.msgs[0].peerId, C.LEGACY);
+  assert.strictEqual(C.transcript(r), "她：在吗\n我：在");
+  const r2 = C.upsertPeer(r, "realid", "她", []);
+  assert.deepStrictEqual(r2.peers.map(p => p.peerId), ["realid"]);
+  assert.strictEqual(r2.msgs[0].peerId, "realid");
+  // 昵称对不上的是新来的人，不顶替老那位
+  assert.strictEqual(C.upsertPeer(r, "x", "别人", []).peers.length, 2);
+});
+
+test("谁 offer：每一对只有 peerId 小的那边发；另一边敲门", () => {
+  const { C } = load();
+  assert.strictEqual(C.shouldOffer("a1", "b2"), true);
+  assert.strictEqual(C.shouldOffer("b2", "a1"), false);
+  ["k", "m", "z", "c"].forEach(x => ["k", "m", "z", "c"].forEach(y => { if (x !== y) assert.notStrictEqual(C.shouldOffer(x, y), C.shouldOffer(y, x)); }));
+  assert.match(src, /if \(shouldOffer\(o\.me, id\)\) offerTo\(id, peerSess\);/);
+  assert.match(src, /m\.t === "offer" && !shouldOffer\(o\.me, from\)/);
+});
+
+test("满员：算上自己四个人就不放新人，认识的人回来照放", () => {
+  const { C } = load();
+  assert.strictEqual(C.MAX_PEOPLE, 4);
+  assert.strictEqual(C.admit(["a", "b"], "c"), "ok");
+  assert.strictEqual(C.admit(["a", "b", "c"], "d"), "full");
+  assert.strictEqual(C.admit(["a", "b", "c"], "b"), "ok");
+  assert.match(src, /pub\(\{ t: "full", to: from \}\)/);
+  assert.match(src, /房间满了/);
+});
+
+test("提示词和记忆总结列出每一方和 TA 带来的人", () => {
+  const { C } = load();
+  const room = { myNick: "我", myChars: [{ id: "a", name: "甲" }], msgs: [{ id: "1", side: "peer", peerId: "p2", kind: "char", name: "丁", text: "好", ts: 1 }],
+    peers: [{ peerId: "p1", nick: "小红", chars: [{ id: "x", name: "乙" }] }, { peerId: "p2", nick: "小蓝", chars: [{ id: "y", name: "丁" }] }, { peerId: "p3", nick: "小绿", chars: [] }] };
+  const ins = C.lineInstruction(room, { id: "a", name: "甲" });
+  assert.match(ins, /一共 4 个人/);
+  assert.match(ins, /小红，TA 带来的是：乙/); assert.match(ins, /小蓝，TA 带来的是：丁/); assert.match(ins, /小绿，没带人/);
+  assert.match(ins, /丁（小蓝 带来的）：好/);
+  const mem = C.memoryInstruction(room, { id: "a", name: "甲" });
+  assert.match(mem, /小红、小蓝、小绿/);
+});
+
+test("谁离开只标 TA：其他人照样通着；直连不上的由别人转", () => {
+  const { C } = load();
+  // 我(m)直连 a、b；b 报自己连着 m、c → c 经 b 转得到
+  assert.deepStrictEqual(C.reachable("m", ["a", "b"], { b: ["m", "c"] }).sort(), ["a", "b", "c"]);
+  // a 走了：只少 a
+  assert.deepStrictEqual(C.reachable("m", ["b"], { b: ["m", "c"] }).sort(), ["b", "c"]);
+  // 转发：只转给跟说话人没直连的
+  assert.deepStrictEqual(C.forwardTargets(["a", "b", "c"], "a", "a", { b: ["a"], c: [] }), ["c"]);
+  assert.match(src, /e\.t === "bye"/);
+  assert.match(src, /和她连不上/);
+});
+
+test("补发别人的话：by 认人，我自己说的回到我这边", () => {
+  const { C } = load();
+  assert.strictEqual(C.syncedMsg({ id: "1", text: "x", by: "me1" }, "me1", "p").side, "me");
+  const m = C.syncedMsg({ id: "2", text: "y", by: "p3" }, "me1", "p");
+  assert.strictEqual(m.side, "peer"); assert.strictEqual(m.peerId, "p3");
+  assert.strictEqual(C.syncedMsg({ id: "3", text: "z" }, "me1", "p").peerId, "p");
+});
+
+test("重新连上直接回到房间页（输入框在），不停在等人那页", () => {
+  const i = src.indexOf("const start = (host, resume) =>"), j = src.indexOf("const cancelWait", i);
+  assert.ok(i > 0 && j > i);
+  const body = src.slice(i, j);
+  assert.match(body, /if \(base\) \{ commit\(Core\.patchRoom\(base, \{ endedAt: 0 \}\)\); entered\.current = true; setPage\("chat"\); \}/);
+  // 外壳收任意几块：房间页传了顶栏/有谁/记录/重新连上/输入区五块，不许只收前三块把输入区丢掉
+  assert.match(src, /const shell = \(\.\.\.parts\) =>/);
+  // 房间页里输入框一直渲染着，没人在线只是灰掉
+  assert.match(src, /h\(Composer, \{ onSend: sayHuman, disabled: alone,/);
+});
+
+test("面具跟着角色走：按 TA 认的那张面具名字称呼你，昵称不一样时说清是同一个人", () => {
+  const { C } = load();
+  const room = { id: "m1", myNick: "小雨", peers: [], myChars: [{ id: "a", name: "甲" }], msgs: [] };
+  const t1 = C.lineInstruction(room, { id: "a", name: "甲", you: "阿梨" });
+  assert.ok(t1.includes("带你来的是 阿梨（你认识的 阿梨 在这个房间里用的名字是「小雨」"));
+  const t2 = C.lineInstruction(room, { id: "a", name: "甲", you: "小雨" });
+  assert.ok(t2.includes("带你来的是 小雨") && !t2.includes("你认识的"));
+  assert.ok(C.memoryInstruction(room, { id: "a", name: "甲", you: "阿梨" }).includes("阿梨 带你进联机房间"));
+});
+
+// ── ＋ 面板那些消息（2026-11-22）──
+const IMG = "data:image/jpeg;base64," + "A".repeat(500);
+test("每种新消息上线只带该带的字段：人设、本机引用、多塞的字段都不出去", () => {
+  const { C } = load();
+  const w = (type, x) => C.wireMsg({ id: "1", kind: "user", name: "小雨", type, x, ts: 1 });
+  assert.deepStrictEqual(Object.keys(w("emote", { keyword: "哭", url: "iv_abc", img: IMG, persona: "x" }).x).sort(), ["img", "keyword"]);
+  assert.deepStrictEqual(w("photo", { desc: "猫", imageRef: "iv_1", img: IMG, memory: "x" }).x, { desc: "猫", pic: true, img: IMG });
+  assert.deepStrictEqual(w("geo", { name: "公园", lat: 1 }).x, { name: "公园" });
+  assert.deepStrictEqual(w("pat", { to: "阿梨", extra: 1 }).x, { to: "阿梨" });
+  assert.deepStrictEqual(Object.keys(w("voice", { content: "嗨", dur: 3, voiceId: "v" }).x).sort(), ["content", "dur"]);
+  assert.deepStrictEqual(Object.keys(w("namecard", { name: "甲", avatar: IMG, persona: "人设", memLib: [1], worldbook: "w" }).x).sort(), ["avatar", "color", "emoji", "name"]);
+  assert.deepStrictEqual(Object.keys(w("file", { name: "a.txt", text: "x".repeat(20000), chars: 20000, path: "/u" }).x).sort(), ["chars", "cut", "name", "size", "text"]);
+  assert.strictEqual(w("file", { name: "a.txt", text: "x".repeat(20000) }).x.text.length, C.FILE_TEXT_MAX || 12000);
+  assert.deepStrictEqual(Object.keys(w("rp", { rpId: "r", total: 5, count: 2, message: "", claims: [], splits: [1, 4] }).x).sort(), ["claims", "count", "message", "rpId", "total"]);
+  // 落存档那一份：不留整张图，只留本机引用
+  const loc = C.wireMsg({ id: "1", type: "photo", x: { desc: "猫", imageRef: "iv_1", img: IMG } }, true);
+  assert.deepStrictEqual(loc.x, { desc: "猫", pic: true, imageRef: "iv_1" });
+  // 红包怎么拆只在发的那台手机：splits 绝不上线，也不在消息里
+  assert.match(src, /rpSplits: Object\.assign\(\{\}, roomRef\.current\.rpSplits/);
+});
+
+test("transcript 里每种都有能读的一行；时间戳照单聊那种；撤回不给原文；进出房间一行", () => {
+  const { C } = load();
+  const m = (o) => Object.assign({ id: Math.random() + "", kind: "user", side: "me", ts: 1000 }, o);
+  const room = { myNick: "小雨", peers: [{ peerId: "p", nick: "阿梨", chars: [] }], msgs: [
+    m({ type: "photo", x: { desc: "一只猫" } }), m({ type: "emote", x: { keyword: "开心" } }), m({ type: "voice", x: { content: "到了" } }),
+    m({ type: "geo", x: { name: "西湖" } }), m({ type: "pat", name: "小雨", x: { to: "阿梨" } }),
+    m({ type: "rp", x: { rpId: "r", count: 2, message: "发财", claims: [{ key: "p|", name: "阿梨", amount: 1.2 }] } }),
+    m({ type: "poll", x: { title: "吃啥", options: [{ text: "面", voters: ["阿梨"] }, { text: "饭", voters: [] }] } }),
+    m({ type: "namecard", x: { name: "沈某" } }), m({ type: "file", x: { name: "a.txt", chars: 3, text: "abc" } }),
+    m({ text: "秘密原文", recalled: true }), C.sysMsg("阿梨 离开了房间", 1000) ] };
+  const tx = C.transcript(room, { stamp: ts => "今天10:00" });
+  ["[照片] 一只猫", "[表情] 开心", "[语音] 到了", "[位置] 西湖", "小雨 拍了拍 阿梨", "[红包] 发财", "阿梨 抢到 1.2", "[投票] 吃啥：面（阿梨）", "[名片] 沈某", "[文件] a.txt", "abc", "撤回了一条消息", "（阿梨 离开了房间）", "〔今天10:00〕"]
+    .forEach(s => assert.ok(tx.includes(s), "缺：" + s));
+  assert.ok(!tx.includes("秘密原文"));
+  assert.ok(C.transcript(room).indexOf("〔") < 0, "不给 stamp 就不标时间");
+});
+
+test("在线状态进提示词；离最后一条过去多久写上；能做的事（表情/拍/投票）按房里现有的写", () => {
+  const { C } = load();
+  const room = { myNick: "小雨", peers: [{ peerId: "p", nick: "阿梨", chars: [] }, { peerId: "q", nick: "老周", chars: [] }], myChars: [{ id: "a", name: "甲" }],
+    msgs: [{ id: "1", kind: "user", side: "peer", peerId: "p", type: "poll", x: { pollId: "pl", title: "吃啥", options: [{ text: "面", voters: [] }, { text: "饭", voters: [] }] }, ts: 1 }] };
+  const tx = C.lineInstruction(room, { id: "a", name: "甲" }, { presence: { p: "on", q: "off" }, now: 3 * 3600e3, emotes: ["哭哭"], targets: ["阿梨"] });
+  assert.ok(tx.includes("阿梨，没带人（此刻在房里）"));
+  assert.ok(tx.includes("老周，没带人（已经离开了房间，听不到房里说的话）"));
+  assert.ok(tx.includes("已经过去 3 小时"));
+  assert.ok(tx.includes("哭哭") && tx.includes("\"pat\"") && tx.includes("投票「吃啥」"));
+});
+
+test("大的一条拆片再拼回来；缺片不交；图超上限不上线", () => {
+  const { C } = load();
+  const raw = "字".repeat(C.CHUNK * 2 + 5);
+  const parts = C.splitRaw(raw, C.CHUNK);
+  assert.strictEqual(parts.length, 3);
+  assert.ok(parts.every(p => p.length <= C.CHUNK));
+  const J = C.Joiner(60000);
+  assert.strictEqual(J("o|1", 2, 3, parts[2], 1), null);
+  assert.strictEqual(J("o|1", 0, 3, parts[0], 1), null);
+  assert.strictEqual(J("o|1", 1, 3, parts[1], 1), raw);
+  assert.strictEqual(J("o|2", 5, 3, "x", 1), null, "序号越界不收");
+  const big = "data:image/jpeg;base64," + "A".repeat(C.IMG_MAX.photo + 1);
+  assert.ok(!C.wireMsg({ id: "1", type: "photo", x: { desc: "", img: big } }).x.img);
+  assert.ok(C.IMG_MAX.photo < 200000 && C.IMG_MAX.emote < C.IMG_MAX.photo);
+  // 发的那头超过一片就拆
+  assert.match(src, /raw\.length > Core\.CHUNK \? Core\.splitRaw\(raw, Core\.CHUNK\)/);
+});
+
+test("未知类型不崩：显示成那一行字；不认得的 t 不理", () => {
+  const { C } = load();
+  const w = C.wireMsg({ id: "1", kind: "user", text: "[新玩意] 一行字", type: "hologram", x: { a: 1 } });
+  assert.strictEqual(w.type, undefined); assert.strictEqual(w.text, "[新玩意] 一行字");
+  assert.strictEqual(C.wireMsg({ id: "2", type: "photo", x: null, text: "t" }).type, undefined);
+  assert.match(src, /别的 t（以后的新版本发来的）：不认得就不理/);
+});
+
+test("红包：按先后发下一份，同一人只能抢一次，领完就没了", () => {
+  const { C } = load();
+  let x = { rpId: "r", total: 3, count: 2, claims: [] };
+  const sp = [1, 2];
+  let g = C.grabRp(x, sp, { key: "p|", name: "阿梨" }); assert.strictEqual(g.amount, 1); x = g.x;
+  assert.strictEqual(C.grabRp(x, sp, { key: "p|", name: "阿梨" }).reason, "claimed");
+  g = C.grabRp(x, sp, { key: "p|c1", name: "甲" }); assert.strictEqual(g.amount, 2); x = g.x;
+  assert.strictEqual(C.grabRp(x, sp, { key: "q|", name: "老周" }).reason, "empty");
+  assert.strictEqual(C.grabRp(x, null, { key: "z", name: "z" }).reason, "gone", "不是发的那台手机没有 splits，算不了");
+  // 只有发红包那个人报的名单才认
+  assert.match(src, /x\.type === "rp" && x\.side === "peer" && x\.peerId === origin/);
+});
+
+test("投票改票、请示要除递的人都投完才结案", () => {
+  const { C } = load();
+  let x = { options: [{ text: "准", voters: [] }, { text: "驳", voters: [] }], ask: { what: "买猫" } };
+  x = C.votePoll(x, 0, "甲"); x = C.votePoll(x, 1, "甲");
+  assert.deepStrictEqual(x.options.map(o => o.voters), [[], ["甲"]]);
+  assert.strictEqual(C.votePoll(x, 9, "乙"), x);
+  assert.strictEqual(C.askResult(x, 2), null);
+  x = C.votePoll(x, 0, "乙"); x = C.votePoll(x, 0, "丙");
+  assert.strictEqual(C.askResult(x, 3).status, "approved");
+});
+
+test("改字、撤回只认发这条的那一端；删除只删本机不外发", () => {
+  const { C } = load();
+  const room = { msgs: [{ id: "a", side: "me", kind: "user", text: "打措了" }, { id: "b", side: "peer", peerId: "p", kind: "char", text: "TA 的话" }] };
+  assert.strictEqual(C.editMsg(room, "a", "打错了", "me").msgs[0].text, "打错了");
+  assert.ok(C.editMsg(room, "a", "打错了", "me").msgs[0].edited);
+  assert.strictEqual(C.editMsg(room, "a", "冒名", "p"), room, "别人不能改我的");
+  assert.strictEqual(C.editMsg(room, "b", "冒名", "q"), room, "第三个人不能改 p 的");
+  assert.strictEqual(C.editMsg(room, "b", "改", "p").msgs[1].text, "改");
+  const rc = C.recallMsg(room, "b", "p");
+  assert.ok(rc.msgs[1].recalled && !rc.msgs[1].text);
+  assert.strictEqual(C.recallMsg(room, "b", "me"), room);
+  assert.ok(!C.transcript(Object.assign({ peers: [{ peerId: "p", nick: "阿梨" }] }, rc)).includes("TA 的话"));
+  assert.strictEqual(C.wireMsg(rc.msgs[1]).text, "", "撤回的补发出去也不带原文");
+  assert.deepStrictEqual(C.dropMsg(room, "a").msgs.map(m => m.id), ["b"]);
+  const i = src.indexOf("const dropLocal = "), j = src.indexOf("\n", i);
+  assert.ok(i > 0 && !/send\(/.test(src.slice(i, j)), "删除不外发");
+  assert.match(src, /Core\.editMsg\(r, String\(e\.id\), e\.text, origin\)/);
+});
+
+test("重新说：同一轮整轮换掉放回原处；只认那一轮本来是 TA 那边角色说的", () => {
+  const { C } = load();
+  const room = { msgs: [{ id: "1", text: "前" }, { id: "2", turnId: "t", text: "旧1" }, { id: "3", turnId: "t", text: "旧2" }, { id: "4", text: "后" }] };
+  const r = C.replaceTurn(room, "t", [{ id: "5", text: "新" }]);
+  assert.deepStrictEqual(r.msgs.map(m => m.text), ["前", "新", "后"]);
+  assert.strictEqual(r.msgs[1].turnId, "t");
+  assert.match(src, /olds\.some\(x => !\(x\.side === "peer" && x\.peerId === origin && x\.kind === "char"\)\)/);
+});
+
+test("角色开口跟单聊同一份料：ctxFor(chat) + runProbe(voice) 的 buildBundle，带时间戳、在线状态、表情清单", () => {
+  const i = src.indexOf("const speak = async (c, rerollId) =>"), j = src.indexOf("const flipTurn", i);
+  assert.ok(i > 0 && j > i);
+  const body = src.slice(i, j);
+  assert.match(body, /props\.ctxFor\(char, \{ chat: true, roomText \}\)/);
+  assert.match(body, /runProbe\(p, ctx, \{ voice: true/);
+  assert.match(body, /stamp: props\.stampFor/);
+  assert.match(body, /presence: presence\(\)/);
+  assert.match(body, /emotes: emotes\.map/);
+  const app = read("js/app.js");
+  assert.match(app, /stampFor: \(charId, ts\) => aiStampFor\(charId, ts\)/);
+  assert.match(app, /emoteFor: \(charId, kw\) => emoteMatch\(emotesForChar\(charId\), kw\)/);
+});
+
+test("记进记忆用第三人称，点名角色和她", () => {
+  const { C } = load();
+  const t = C.memoryInstruction({ id: "m", myNick: "小雨", peers: [], myChars: [], msgs: [] }, { id: "a", name: "甲", you: "阿梨" });
+  assert.ok(t.includes("写成第三人称") && t.includes("「甲」和「阿梨」") && !t.includes("你的第一人称"));
+  assert.ok(src.includes('一小段，第三人称'));
+});
+
+// ── 一起说（她 2026-11-22「有俩角色带进来的时候能让他们同时一个调用都说吗，跟群里一样」）──
+test("一起说：只在自己带了两个以上的人时出现，一次 callAI", () => {
+  const i = src.indexOf("const speakTogether = async"), j = src.indexOf("const redo = ", i);
+  assert.ok(i > 0 && j > i, "抠不出 speakTogether");
+  const body = src.slice(i, j);
+  assert.strictEqual((body.match(/callAI\(/g) || []).length, 1, "整次只打一枪");
+  assert.ok(!/runProbe\(/.test(body), "不是一人一枪");
+  assert.match(body, /mine\.length < 2/);
+  assert.match(src, /myChars\.length > 1 && props\.castFor && h\("button", \{ "data-wk": "nrtogether"/);
+});
+
+test("一起说：输出里不在这次名单上的名字整条丢掉（别人带来的角色、真人都不行）", () => {
+  const { C } = load();
+  const chars = [{ id: "a", name: "甲" }, { id: "b", name: "乙", remark: "小乙" }];
+  const raw = JSON.stringify([{ name: "甲", text: "早" }, { name: "丙", text: "我是别人带来的" }, { name: "小乙", text: "嗯", emote: "开心" }, { name: "莉莎", text: "替真人说" }, { name: "甲", text: "" }]);
+  const got = C.jointLines(raw, chars, "莉莎");
+  assert.deepStrictEqual(got.map(x => [x.char.id, x.text, x.emote]), [["a", "早", ""], ["b", "嗯", "开心"]]);
+});
+
+test("一起说：认人和解析走群聊那套公共函数，成员那段由 app 用群聊拼法递进来", () => {
+  const i = src.indexOf("function jointLines("), j = src.indexOf("function memoryInstruction(", i);
+  assert.ok(i > 0 && j > i);
+  const jl = src.slice(i, j);
+  ["parseJSONLoose", "salvageGroupLines", "pickMember", "GroupIdentityGuard"].forEach(f => assert.ok(jl.includes(f), "没走 " + f));
+  const k = src.indexOf("function jointInstruction("), ji = src.slice(k, i);
+  ["groupBans", "GROUP_MULTI_BUBBLE", "sidesLines", "transcript"].forEach(f => assert.ok(ji.includes(f), "没走 " + f));
+  const app = read("js/app.js");
+  const a = app.indexOf('screen === "netroom"'), b = app.indexOf('screen === "zhaoying"', a);
+  assert.ok(a > 0 && b > a);
+  const pr = app.slice(a, b);
+  ["castFor:", "groupNowSegs(", "memberPrivateContextFor(", "groupMemSplit(", "groupRelLines(", "groupPersonaText(", "memberLabel("].forEach(f => assert.ok(pr.includes(f), "props 里没走 " + f));
+});
+
+test("一起说：房间那一层照单人那份（几方、面具、记录），料全在 system", () => {
+  const { C } = load();
+  const room = { id: "r", myNick: "莉莎", myChars: [{ id: "a", name: "甲" }, { id: "b", name: "乙" }], peers: [{ peerId: "p1", nick: "阿柚", chars: [{ name: "丙" }] }],
+    msgs: [{ id: "1", side: "peer", peerId: "p1", kind: "char", name: "丙", text: "你们好", ts: 1 }] };
+  const s = C.jointInstruction(room, [{ id: "a", name: "甲", you: "小莉", emotes: ["开心"] }, { id: "b", name: "乙" }], { cast: "【成员】CAST", targets: ["阿柚"] });
+  assert.match(s, /CAST/);
+  assert.match(s, /丙（阿柚 带来的）：你们好/);
+  assert.match(s, /只能是 甲 \/ 乙 之一/);
+  assert.match(s, /你认识的 小莉 在这个房间里用的名字是「莉莎」/);
+  assert.match(s, /甲：开心/);
+  assert.ok(src.includes('[{ role: "user", content: "接着房里的话往下说。" }]'));
+});
+
+test("一起说：整次一个 turnId，重新说整批重来", () => {
+  assert.match(src, /const redo = m => \{/);
+  const i = src.indexOf("const redo = m =>"), body = src.slice(i, i + 300);
+  assert.match(body, /speakTogether\(j, m\.turnId\)/);
+  assert.match(src, /else if \(act === "reroll"\) redo\(m\);/);
+});
+
+test("世界书拿房间里的话去触发；一起说也带世界书和线上预设", () => {
+  assert.ok(src.includes("props.ctxFor(char, { chat: true, roomText })"), "单人开口把房间里的话交去匹配世界书");
+  const app = read("js/app.js");
+  const i = app.indexOf('screen === "netroom"'), seg = app.slice(i, app.indexOf('screen === "zhaoying"', i));
+  assert.ok(/c\.worldbook = loreForContext\("chat", \[char\.id\], o\.roomText/.test(seg));
+  assert.ok(/lore = loreForContext\("chat", people\.map/.test(seg) && /onlinePresetBlock\(pr\)/.test(seg));
+});
+
+test("记进记忆：只记上次记到以后的新话，之前几句只当上下文；失败会自动再试、留在记录页能重试", () => {
+  const { C } = load();
+  const room = { id: "r9", myNick: "小雨", peers: [], myChars: [], remembered: { a: 20 },
+    msgs: [{ id: "1", ts: 10, text: "旧一" }, { id: "2", ts: 20, text: "旧二" }, { id: "3", ts: 30, text: "新三" }, { id: "4", ts: 40, text: "新四", recalled: true }] };
+  const p = C.sinceRemembered(room, "a");
+  assert.deepStrictEqual(p.fresh.map(m => m.id), ["3"]);
+  assert.deepStrictEqual(p.before.map(m => m.id), ["1", "2"]);
+  assert.strictEqual(p.upTo, 30);
+  assert.strictEqual(C.sinceRemembered(room, "b").fresh.length, 3);
+  const t = C.memoryInstruction(Object.assign({}, room, { msgs: p.fresh }), { id: "a", name: "甲", you: "小雨" }, p.before);
+  assert.ok(t.includes("上次已经记过的部分") && t.includes("只记这一段") && t.includes("新三"));
+  assert.ok(/catch \(e\) \{ d = await ask\(\); \}/.test(src), "失败自动再试一次");
+  assert.ok(/setViewId\(r\.id\); setPage\("view"\)/.test(src), "没记上就停在记录页");
+});
+
+test("记进记忆写成一小段；只给勾了的人存房间最后几句，单聊在「最近几天」里带上", () => {
+  const { C } = load();
+  const room = { id: "e1", myNick: "小雨", peers: [{ peerId: "p", nick: "阿杏", chars: [] }], myChars: [], msgs: [] };
+  const fresh = Array.from({ length: 20 }, (_, i) => ({ id: "m" + i, ts: 1000 + i, side: "me", kind: "user", name: "小雨", text: "第" + i + "句" }));
+  const t = C.echoText(room, fresh, "甲", "阿梨");
+  assert.ok(t.includes("阿梨 带 甲 去的") && t.includes("阿杏") && t.includes("第19句") && !t.includes("第5句"));
+  assert.strictEqual(C.echoText(room, [], "甲", "阿梨"), "");
+  assert.ok(src.includes('写成一小段会长期记住的事') && !src.includes("1~3 句"));
+  // 写 echo 只在 remember 里（勾了记忆才会走到）；房间里开口不带它
+  assert.ok(/echo\[charId\] = \{ ts: Date\.now\(\), text: Core\.echoText/.test(src));
+  assert.ok(src.includes('ctx.roomEcho = "";'));
+  const app = read("js/app.js"), eng = read("js/engine.js");
+  assert.ok(/roomEcho: settingsFor\(char\.id\)\.engineerEyes \? "" :/.test(app) && /recentDays/.test(app.slice(app.indexOf("roomEcho:"), app.indexOf("roomEcho:") + 600)));
+  assert.ok(/if \(ctx\.roomEcho && String\(ctx\.roomEcho\)\.trim\(\)\) parts\.push/.test(eng));
+});
+
+test("一轮几条不设上限：单人和一起说都照模型给的全发", () => {
+  const { C } = load();
+  const many = Array.from({ length: 15 }, (_, i) => "第" + i + "条");
+  assert.strictEqual(C.sayLines({ say: many }).length, 15);
+  assert.ok(!/filter\(Boolean\)\.slice\(0, 8\)/.test(src) && !/x\.pat\)\)\.slice\(0, 24\)/.test(src));
+});
+
+test("删除：自己（和自己带来的人）发的两边一起删、不留撤回那行；别人的只删我这边；冒名的 drop 不理；改字两边一样", () => {
+  const { C } = load();
+  // A 那台：a 是 A 自己的、c 是 A 带来的角色说的；B 那台同一份记录里这两条是对面 A 的
+  const mine = { msgs: [{ id: "a", side: "me", kind: "user", text: "说错了" }, { id: "c", side: "me", kind: "char", charId: "x", text: "角色的话" }, { id: "b", side: "peer", peerId: "B", kind: "user", text: "B 的话" }] };
+  const theirs = { msgs: [{ id: "a", side: "peer", peerId: "A", kind: "user", text: "说错了" }, { id: "c", side: "peer", peerId: "A", kind: "char", charId: "x", text: "角色的话" }, { id: "b", side: "me", kind: "user", text: "B 的话" }] };
+  assert.deepStrictEqual(C.dropOwnMsg(mine, "a", "me").msgs.map(m => m.id), ["c", "b"]);
+  assert.deepStrictEqual(C.dropOwnMsg(theirs, "a", "A").msgs.map(m => m.id), ["c", "b"], "对端照发的人那一端删掉，不留一行");
+  assert.deepStrictEqual(C.dropOwnMsg(theirs, "c", "A").msgs.map(m => m.id), ["a", "b"], "自己带来的角色说的也算自己的");
+  assert.strictEqual(C.dropOwnMsg(theirs, "b", "A"), theirs, "A 冒名删 B 的不理");
+  assert.strictEqual(C.dropOwnMsg(theirs, "a", "Z"), theirs, "第三个人冒名删 A 的不理");
+  assert.strictEqual(C.dropOwnMsg(mine, "b", "me"), mine, "别人的那条我这边不能当成自己的删");
+  // 外发只在「自己的」那一条路上；别人的那条走 dropLocal，不外发
+  const i = src.indexOf("const dropOwn = "), j = src.indexOf("\n", i);
+  assert.ok(i > 0 && /send\(\{ t: "drop", id \}\)/.test(src.slice(i, j)), "自己的删除要外发");
+  assert.match(src, /e\.t === "drop" && e\.id\) \{\n\s+commit\(Core\.upsertRoom\(Core\.applyDrops\(r, \[String\(e\.id\)\], origin\)\)\)/);
+  const mi = src.indexOf("const menuItems = m =>"), mj = src.indexOf("const onMenu = ", mi);
+  assert.ok(mi > 0 && mj > mi);
+  assert.match(src.slice(mi, mj), /if \(!own\) return \[first, \["delmine"\]\];/, "别人的那条菜单上写「只删我这边」");
+  assert.match(src.slice(mj, mj + 900), /act === "del" && m\.side === "me" && !m\.sys\) requestAppConfirm\([^)]*\(\) => dropOwn\(m\.id\)/);
+  // 改字：A 那台本机改、B 那台照 A 发来的改，两边是同一句、都标已编辑
+  const ea = C.editMsg(mine, "a", "说对了", "me").msgs[0], eb = C.editMsg(theirs, "a", "说对了", "A").msgs[0];
+  assert.deepStrictEqual([ea.text, ea.edited], [eb.text, eb.edited]);
+  assert.deepStrictEqual([eb.text, eb.edited], ["说对了", true]);
+});
+
+test("断线那会儿别人改了字／撤回了：连回来补发的那份带着改过的，照说这句的那个人那份换上；别人冒名的补发不改", () => {
+  const { C } = load();
+  const room = { id: "r", msgs: [{ id: "a", side: "peer", peerId: "A", kind: "user", text: "旧的", ts: 1 }, { id: "b", side: "peer", peerId: "A", kind: "user", text: "要撤回", ts: 2 }] };
+  const got = C.mergeMsgs(room, [C.syncedMsg({ id: "a", kind: "user", name: "甲", text: "新的", edited: true, ts: 1, by: "A" }, "B", "A"),
+    C.syncedMsg({ id: "b", kind: "user", name: "甲", recalled: true, ts: 2, by: "A" }, "B", "A")]);
+  assert.deepStrictEqual([got.msgs[0].text, got.msgs[0].edited], ["新的", true]);
+  assert.ok(got.msgs[1].recalled && !got.msgs[1].text);
+  const fake = C.mergeMsgs(room, [C.syncedMsg({ id: "a", kind: "user", name: "甲", text: "冒名", edited: true, ts: 1, by: "Z" }, "B", "Z")]);
+  assert.strictEqual(fake.msgs[0].text, "旧的");
+});
+
+test("回不去房间那个病：中转线和直连都有心跳，死了会被认出来；回到前台叫醒；没连上的人隔一会儿再喊一声", () => {
+  assert.ok(/Date\.now\(\) - lastRx > 40000\) \{ try \{ ws\.close\(\); \}/.test(src), "中转 40 秒没动静就关掉重接");
+  assert.ok(/if \(ev\.data === HB\) return;/.test(src), "直连心跳不当消息");
+  assert.ok(/Date\.now\(\) - \(L\.rx \|\| 0\) > 20000\) \{ drop\(id\); o\.onClose/.test(src), "直连 20 秒没动静当断开");
+  assert.ok(/missing\(\)\.length && \(\+\+slow % 2 === 0\)\) pub\(\{ t: "hello" \}\)/.test(src), "还有人没连上就隔一会儿再喊");
+  assert.ok(/,wake\(\) \{/.test(src) && /addEventListener\("visibilitychange", onVis\)/.test(src), "回到前台叫醒");
+  assert.ok(/if \(!first\) \{ if \(missing\(\)\.length\) pub\(\{ t: "hello" \}\); return; \}/.test(src), "中转重接后也喊一声");
+});
+
+test("回到聊天停在最新：游戏卡谁发的都跟到底；图片卡片晚撑开时停在底部就再跟一次", () => {
+  assert.ok(/last\.type === "gamerec" \|\| last\.type === "game"/.test(src));
+  assert.ok(/new ResizeObserver\(\(\) => \{ if \(stick\.current\) el\.scrollTop = el\.scrollHeight; \}\)/.test(src));
+});
+
+// ── 引用、墓碑、补图、红包排队、换人、多图（2026-11-22 第二批）──
+test("引用：线上只带 id/名字/前 80 字，撤回的不带；模型读到「回复 某某：…」", () => {
+  const { C } = load();
+  const room = { myNick: "我", peers: [{ peerId: "p1", nick: "阿梨", chars: [] }], msgs: [
+    { id: "a", side: "peer", peerId: "p1", kind: "user", name: "阿梨", text: "今晚吃火锅", ts: 1 },
+    { id: "b", side: "me", kind: "char", name: "小白", charId: "c1", text: "好呀", ts: 2 }] };
+  const q = C.quoteOf(room, room.msgs[0]);
+  assert.deepStrictEqual(q, { id: "a", name: "阿梨", text: "今晚吃火锅" });
+  assert.strictEqual(C.quoteOf(room, room.msgs[1]).name, "小白", "角色说的照角色名");
+  const w = C.wireMsg({ id: "m", text: "我也去", quote: Object.assign({ evil: 1 }, q, { text: "x".repeat(200) }) });
+  assert.deepStrictEqual(Object.keys(w.quote).sort(), ["id", "name", "text"]);
+  assert.strictEqual(w.quote.text.length, 80);
+  assert.ok(!C.wireMsg({ id: "m", recalled: true, quote: q }).quote, "撤回的不带引用");
+  const tr = C.transcript(Object.assign({}, room, { msgs: room.msgs.concat([Object.assign({ side: "me", kind: "user", name: "我", ts: 3 }, C.wireMsg({ id: "c", text: "我也去", quote: q }))]) }));
+  assert.match(tr, /我：（回复 阿梨：「今晚吃火锅」）我也去/);
+});
+test("引用：原消息撤回／删掉了，引用块照实说；模型填 Q 号能认回原来那条", () => {
+  const { C } = load();
+  const q = { id: "a", name: "阿梨", text: "x" };
+  assert.strictEqual(C.quoteState({ msgs: [{ id: "a" }] }, q), "ok");
+  assert.strictEqual(C.quoteState({ msgs: [{ id: "a", recalled: true }] }, q), "recalled");
+  assert.strictEqual(C.quoteState({ msgs: [] }, q), "gone");
+  const room = { myNick: "我", peers: [], msgs: [{ id: "s", sys: true, text: "进了房间" }, { id: "a", side: "me", kind: "user", text: "一", ts: 1 }, { id: "b", side: "me", kind: "user", text: "二", ts: 2 }] };
+  assert.strictEqual(C.resolveQuote(room, "Q2").id, "b");
+  assert.strictEqual(C.resolveQuote(room, "Q9"), null);
+  assert.match(C.transcript(room, { catalog: C.quoteCatalog(room, 30) }), /\[Q1\] 我：一/);
+  assert.match(C.lineInstruction(room, { id: "c1", name: "小白" }, {}), /"quote":"Q 编号"/);
+  assert.match(C.jointInstruction(room, [{ id: "c1", name: "小白" }, { id: "c2", name: "小黑" }], {}), /"quote"/);
+  assert.strictEqual(C.jointLines(JSON.stringify([{ name: "小白", text: "嗯", quote: "Q1" }]), [{ id: "c1", name: "小白" }], "我")[0].quote, "Q1");
+});
+test("引用界面：长按菜单有引用、左滑走单聊那只手势钩子、输入框上方用单聊那条、气泡带引用块能跳", () => {
+  assert.match(src, /first = \(m\.type \? \[\] : \["copy"\]\)\.concat\(m\.type === "pat" \? \[\] : \["quote"\]\)/);
+  assert.match(src, /useLongPressMenu\(\(\) => \{\}, \{ rowSel: '\[data-wk="nrmsg"\]\[data-nri\]', rowAttr: "data-nri", onSwipeLeft/);
+  assert.match(src, /h\(QuoteDraftBar, \{/);
+  assert.match(src, /m\.quote && h\(QuoteChip, \{/);
+  assert.match(src, /"原消息已撤回" : st === "gone" \? "原消息已删除"/);
+  assert.match(src, /Core\.resolveQuote\(cur, d\.quote\)/);
+  const comp = read("js/components.js");
+  assert.match(comp, /const rowSel = \(opts && opts\.rowSel\) \|\| '\[data-wk="msg"\]\[data-i\]'/, "单聊默认挂点不变");
+  const hook = comp.slice(comp.indexOf("function useLongPressMenu"), comp.indexOf("function TransTextState"));
+  assert.ok(!/联机|netroom/i.test(hook), "公共钩子里不提联机");
+});
+test("两边删的墓碑：只记自己删的、有上限；断线的人回来，补发里那条不再冒回来；冒名的墓碑不删别人的", () => {
+  const { C } = load();
+  let r = { msgs: [{ id: "a", side: "me", kind: "user", text: "1" }, { id: "b", side: "peer", peerId: "p1", text: "2" }] };
+  r = C.tombOwn(r, "a"); assert.deepStrictEqual(r.tombs, ["a"]); assert.strictEqual(r.msgs.length, 1);
+  assert.strictEqual(C.tombOwn(r, "b"), r, "别人的不能两边删");
+  r = C.mergeMsgs(r, [{ id: "a", side: "me", text: "1", ts: 1 }]);
+  assert.ok(!r.msgs.some(m => m.id === "a"), "自己删过的补发回来也不收");
+  let big = { msgs: [] }; for (let i = 0; i < 260; i++) big = C.tombOwn(Object.assign(big, { msgs: [{ id: "x" + i, side: "me" }] }), "x" + i);
+  assert.strictEqual(big.tombs.length, C.TOMB_MAX);
+  let o = { msgs: [{ id: "b", side: "peer", peerId: "p1" }, { id: "c", side: "peer", peerId: "p2" }] };
+  o = C.applyDrops(o, ["b", "c"], "p1");
+  assert.deepStrictEqual(o.msgs.map(m => m.id), ["c"], "p1 只删得掉 p1 自己的");
+  o = C.mergeMsgs(o, [{ id: "b", side: "peer", peerId: "p1", ts: 1 }]);
+  assert.ok(!o.msgs.some(m => m.id === "b"), "第三个人补发来的那条也不复活");
+  assert.match(src, /send\(\{ t: "sync", drops: \(r\.tombs \|\| \[\]\)/);
+  assert.match(src, /Core\.applyDrops\(r, e\.drops, origin\)/);
+});
+test("补图：补发的记录缺图的最近 20 张跟发来的人要，TA 一张张单发；只补本来缺图的", () => {
+  const { C } = load();
+  const msgs = [];
+  for (let i = 0; i < 25; i++) msgs.push({ id: "p" + i, type: "photo", x: { desc: "", pic: true } });
+  msgs.push({ id: "d", type: "photo", x: { desc: "只有字" } }, { id: "e", type: "emote", x: { keyword: "笑" } }, { id: "f", type: "photo", x: { pic: true, imageRef: "iv_1" } });
+  const want = C.missingImgs({ msgs }, 20);
+  assert.strictEqual(want.length, 20); assert.ok(want.indexOf("e") >= 0 && want.indexOf("d") < 0 && want.indexOf("f") < 0);
+  assert.match(src, /send\(\{ t: "needimg", ids: want \}, origin\)/);
+  assert.match(src, /if \(img\) send\(\{ t: "img", id, img \}, origin\)/);
+  assert.match(src, /Core\.missingImgs\(r, 600\)\.indexOf\(id\) < 0/);
+});
+test("照片一次能挑几张：逐张压小各发一条，说明只跟第一张", () => {
+  assert.match(src, /srcs = photoImgs\.slice\(0, typeof CHAT_PHOTO_MAX/);
+  assert.match(src, /for \(const src of srcs\)/);
+  assert.match(src, /desc: first \? cap : ""/);
+});
+test("红包：发的人不在线时不替 TA 分（只有 TA 手机上有分法），说清是谁不在线、排上，TA 回来就补抢", () => {
+  assert.match(src, /if \(!senderOn\(rp\)\)/);
+  assert.match(src, /"发红包的 " \+ nickOf\(rp0\.peerId\) \+ " 这会儿不在线/);
+  assert.match(src, /flushGrabs\(origin\);/);
+});
+test("换人：进房以后能回挑人那页，重发名片；对端照 hi 换名单；移出的人历史照旧", () => {
+  const { C } = load();
+  let r = C.upsertPeer({ peers: [], msgs: [{ id: "a", side: "peer", peerId: "p1", kind: "char", charId: "c9", name: "旧人" }] }, "p1", "阿梨", [{ id: "c9", name: "旧人" }]);
+  r = C.upsertPeer(r, "p1", "阿梨", [{ id: "c2", name: "新人" }]);
+  assert.deepStrictEqual(r.peers[0].chars.map(c => c.id), ["c2"]);
+  assert.strictEqual(r.msgs.length, 1, "移出的人说过的话还在");
+  assert.match(src, /data-wk": "nrrepick", onClick: openRepick/);
+  assert.match(src, /if \(repick\) \{/);
+});

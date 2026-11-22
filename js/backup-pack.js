@@ -16,11 +16,13 @@
     //   上云那一路（cloud.js 的 collect）早就排掉它了，导出这一路没跟上——
     //   又是「一层写在两处，第二处没跟上」。备份文件会被发给别人、放进云盘，
     //   网易云账号 cookie 一起出去。两处口径必须一样。
-    Object.keys(localStorage).filter(k => k.startsWith("x_") && k !== "x_neteaseCookie").forEach(k => {
+    //   联机小游戏我当庄的那几局（x_netGameHost）带着别人的底牌和身份，也只留在这台：上云那一路同样排掉它
+    const DEVICE_ONLY = { x_neteaseCookie: 1, x_netGameHost: 1 };
+    Object.keys(localStorage).filter(k => k.startsWith("x_") && !DEVICE_ONLY[k]).forEach(k => {
       dump[k] = localStorage.getItem(k);
     });
     // 已迁进 IDB 文字库的键(同人文)不在 localStorage，从内存镜像补进备份，否则导出会漏、换设备就丢。
-    try { if (window.__txtMirror) window.__txtMirror.forEach((v, k) => { if (v != null) dump[k] = v; }); } catch (e) {}
+    try { if (window.__txtMirror) window.__txtMirror.forEach((v, k) => { if (v != null && !DEVICE_ONLY[k]) dump[k] = v; }); } catch (e) {}
     // ⭐阶段4：图片仓库也打进备份——头像/壁纸迁进 IndexedDB 后，localStorage 只剩 iv_ 引用键，
     // 图本身在 vault 里、不随普通备份走；这里把 vault 里每张图 base64 化装进 JSON，换设备导入后图才不丢。
     let vault = {}, vaultCount = 0;

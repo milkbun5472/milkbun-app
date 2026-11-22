@@ -888,7 +888,7 @@
         const pages = [{ kind: "cover" }].concat(book.chapters.map((c, i) => ({ kind: "ch", c, i }))).concat(book.ending ? [{ kind: "end" }] : []);
         const at = Math.min(sbPage, pages.length - 1), pg = pages[at], go = k => { const n = at + k; if (n >= 0 && n < pages.length) { setSbFlip(k > 0 ? "older" : "newer"); setSbPage(n); } };
         const swipe = { onTouchStart: e => { sbX.current = e.touches[0].clientX; }, onTouchEnd: e => { const dx = e.changedTouches[0].clientX - (sbX.current || 0); if (Math.abs(dx) > 60) go(dx < 0 ? 1 : -1); } };
-        const who = nameOf(book.charId) || "TA", date = book.ts ? new Date(book.ts).toLocaleDateString() : "";
+        const who = nameOf(book.charId) || "TA", date = book.ts ? (typeof vDate === "function" ? vDate(book.ts, book.charId) : new Date(book.ts)).toLocaleDateString() : "";
         return shell([
           h(Head, { key: "hd", zh: (book.ending && book.ending.title) || "故事集", bg: "transparent", ink: INK, onBack: () => setSbOpen("") }),
           h("div", { key: "bd", "data-wk": "duelstorybookread", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 20 } },
@@ -943,7 +943,7 @@
               style: { position: "relative", aspectRatio: "3 / 4", padding: "10px 8px 8px 13px", borderRadius: "3px 8px 8px 3px", color: "#fff8ec", background: bookBg(x, k), textShadow: x.cover && x.cover.img ? "0 1px 3px rgba(0,0,0,.6)" : "none", boxShadow: "inset 6px 0 0 rgba(0,0,0,.18), 0 4px 10px rgba(47,42,34,.2)", display: "flex", flexDirection: "column" } },
             h("div", { style: { fontSize: fz(10), letterSpacing: ".2em", opacity: .8 } }, nameOf(x.charId) || "TA"),
             h("div", { className: "flex-1", style: { fontFamily: FD, fontSize: fz(13), lineHeight: 1.4, marginTop: 6, overflow: "hidden" } }, (x.ending && x.ending.title) || x.hook),
-            h("div", { style: { fontSize: fz(9.5), opacity: .75, lineHeight: 1.4 } }, (x.ending ? "有结局" : x.chapters.length + " 章") + (x.ts ? " · " + new Date(x.ts).toLocaleDateString() : ""))))))
+            h("div", { style: { fontSize: fz(9.5), opacity: .75, lineHeight: 1.4 } }, (x.ending ? "有结局" : x.chapters.length + " 章") + (x.ts ? " · " + (typeof vDate === "function" ? vDate(x.ts, x.charId) : new Date(x.ts)).toLocaleDateString() : ""))))))
       ]);
     }
     if (!st && mode === "story") {
@@ -1045,7 +1045,7 @@
               return h(Ticket, { key: c.id, u, card: c, owner: ownerOf(c.charId), useThumb, small: true, sel: on, wk: "dueldispatchcard", onTap: () => setDpPick(p => on ? p.filter(x => x !== c.id) : p.concat(c.id).slice(-3)) }); })),
             h("button", { "data-wk": "dueldispatchgo", onClick: send, disabled: !dpPick.length, className: "w-full disabled:opacity-40", style: Object.assign(btn(C, "#fff"), { padding: "11px 0", fontFamily: FD, fontSize: fz(14) }) }, "派去「" + dpPlace + "」· " + dpHours + " 小时")) : null,
           all.filter(t => t.report).length ? h("div", { style: secBox("#9a6a4a", { marginTop: 4 }) }, secTitle("#9a6a4a", "闻", "见闻集", all.filter(t => t.report).length + " 篇"),
-            all.filter(t => t.report).slice().reverse().map(t => h("button", { key: t.id, onClick: () => setDpShow(t.id), className: "w-full text-left", style: { display: "block", marginBottom: 6, padding: "7px 11px", borderRadius: 5, background: "#fffdf7", border: "1px solid rgba(63,122,138,.25)", fontSize: fz(12.5) } }, (t.report.title || "这一趟") + " · " + t.place + " · " + new Date(t.report.ts).toLocaleDateString()))) : null)]);
+            all.filter(t => t.report).slice().reverse().map(t => h("button", { key: t.id, onClick: () => setDpShow(t.id), className: "w-full text-left", style: { display: "block", marginBottom: 6, padding: "7px 11px", borderRadius: 5, background: "#fffdf7", border: "1px solid rgba(63,122,138,.25)", fontSize: fz(12.5) } }, (t.report.title || "这一趟") + " · " + t.place + " · " + (typeof vDate === "function" ? vDate(t.report.ts, t.report.who) : new Date(t.report.ts)).toLocaleDateString()))) : null)]);
     }
     if (!st && mode === "relay") {
       const rec = relayRec(), C = "#a0522d", sty = coachId ? (bondsOf()[coachId] || "默契") : "";
@@ -1219,7 +1219,7 @@
           mine.map(t => { const op = tkOpen === t.id;
             return h("div", { key: t.id, "data-wk": "dueltrinket", style: { marginBottom: 8, borderRadius: 5, background: "#fffdf7", border: "1px solid rgba(154,106,74,.3)", borderLeft: "3px solid #9a6a4a" } },
               h("button", { onClick: () => setTkOpen(op ? "" : t.id), className: "w-full text-left", style: { padding: "9px 12px" } },
-                h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, t.name), h("div", { style: { fontSize: fz(10.5), color: SUB } }, new Date(t.ts).toLocaleDateString())),
+                h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, t.name), h("div", { style: { fontSize: fz(10.5), color: SUB } }, (typeof vDate === "function" ? vDate(t.ts, t.charId) : new Date(t.ts)).toLocaleDateString())),
               op ? h("div", { style: { padding: "0 12px 11px", fontSize: fz(12.5), lineHeight: 1.75 } }, t.story ? h("div", null, BT(t.story)) : null,
                 t.say ? h("div", { style: { marginTop: 6, padding: "6px 10px", borderLeft: "3px solid #9a6a4a", background: "rgba(154,106,74,.07)", fontFamily: FD, color: "#5a4030", whiteSpace: "pre-wrap" } }, (nameOf(t.charId) || "TA") + "：", BT(t.say)) : null) : null); }))]);
     }

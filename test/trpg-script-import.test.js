@@ -42,7 +42,7 @@ test("主角由程序随机抽,写进守密人提示词", () => {
 });
 
 test("剧情骰先从事件池抽,抽过的记 used", () => {
-  assert.match(src, /const evLeft = dice \? \(camp\.eventPool \|\| \[\]\)\.filter\(e => !e\.used && \(!e\.stage \|\| e\.stage === camp\.stageIdx \+ 1\)\)/);
+  assert.match(src, /const scriptEventsLeft = \(camp, dice\) => dice \? \(camp\.eventPool \|\| \[\]\)\.filter\(e => !e\.used && \(!e\.stage \|\| e\.stage === camp\.stageIdx \+ 1\)\)/);
   assert.match(src, /scriptEv \? "\\n〔剧情骰·剧本事件〕/);
 });
 

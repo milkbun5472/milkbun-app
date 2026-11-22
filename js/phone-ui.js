@@ -1642,7 +1642,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     // 空间设了头像就用那张（她 2026-11-20「怎么设置频道头像」），跟消息列表那一行同一张
     sp.avatarImage ? h(Avatar, { character: { name: sp.name || "频", avatarImage: sp.avatarImage }, size: 47, radius: 10 }) : h("span", { style: { width: 47, height: 47, borderRadius: 10, background: strColor(sp.name), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", flexShrink: 0 } }, String(sp.name || "频").slice(0, 1)),
     h("div", { className: "flex-1 min-w-0" },
-      h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#191919" } }, PTX(sp.name) + "（频道 · " + sp.rows.length + "）"),
+      h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: "#191919" } }, h(React.Fragment, null, PTX(sp.name), "（频道 · " + sp.rows.length + "）")),
         h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, sp.rows[0] ? phoneChatWhen(sp.rows[0], phoneNow(char && char.id)) : "")),
       h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sp.rows[0] ? "#" + sp.rows[0].chName + " · " + (sp.rows[0].last || "") : "")));
   const spaceList = (() => { const m = new Map(); spaceChats.forEach(c => { const k = c.spaceId; if (!m.has(k)) m.set(k, { id: k, name: c.spaceName, avatarImage: c.spaceAvatar || "", rows: [] }); m.get(k).rows.push(c); }); m.forEach(v => v.rows.sort((a, b) => (b.ts || 0) - (a.ts || 0))); return [...m.values()]; })();
@@ -1655,7 +1655,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
           sp.rows.filter(c => !c.chArchived).map((c, i) => h("button", { key: c.id || i, "data-wk": "pitem", "data-kind": "channel", onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 60, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } },
             h("span", { style: { width: 36, height: 36, borderRadius: 8, background: "#e8e8e8", color: "#666", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", flexShrink: 0 } }, "#"),
             h("div", { className: "flex-1 min-w-0" },
-              h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#191919" } }, "#" + PTX(c.chName)), h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c, phoneNow(char && char.id)))),
+              h("div", { className: "flex justify-between gap-2" }, h("span", { "data-wk": "ptitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: "#191919" } }, h(React.Fragment, null, "#", PTX(c.chName))), h("span", { "data-wk": "ptime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c, phoneNow(char && char.id)))),
               h("div", { "data-wk": "ptext", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#999", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || "")))),
           files.length ? h("div", { style: { padding: "12px 14px 6px", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#888" } }, "频道文件 · " + files.length) : null,
           files.map((f, i) => h("div", { key: "f" + i, "data-wk": "pitem", "data-kind": "file", className: "flex items-center gap-3", style: { background: "#fff", padding: "10px 14px", borderBottom: "1px solid #eee" } },
@@ -4875,7 +4875,7 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
   const countOf = a => A(a && a.posts).length + A(a && a.comments).length;
   const fmtTs = ts => {
     if (!ts) return "";
-    const d2 = new Date(ts);
+    const d2 = new Date(typeof vclockMap === "function" && char ? vclockMap(ts, char.id) : ts);   // 他手机里的帖子：跟 phoneNow 同一只钟
     return (d2.getMonth() + 1) + "月" + d2.getDate() + "日 " + String(d2.getHours()).padStart(2, "0") + ":" + String(d2.getMinutes()).padStart(2, "0");
   };
   const goTab = key => {

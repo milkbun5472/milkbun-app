@@ -1240,7 +1240,7 @@
       week ? (() => { const ch = charOf(albumChar); const all = byChar.filter(c => c.rarity === "R" && c.text).sort((x, y) => (x.ts || 0) - (y.ts || 0));
         const ds = weekDays(st, albumChar), weeks = Math.ceil(ds.length / 7), wk = Math.min(weeks, Math.max(1, Number(week) || 1));
         const rs = ds.slice((wk - 1) * 7, wk * 7).map(d => Object.assign({}, d.card, { _day: d.day, _all: d.all })), full = rs.length === 7;
-        const WD = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"], md = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "." + d.getDate(); };
+        const WD = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"], md = ts => { const d = (typeof vDate === "function" ? vDate(ts, albumChar) : new Date(ts)); return (d.getMonth() + 1) + "." + d.getDate(); };   // 抽到TA的那几天：照TA那只钟
         const fz = n => "calc(" + n + "px * var(--app-fs, 1))", INK = "#39382F", SUB = "#827C6F", CU = "#B58C55", GR = "#285C4B";
         const tag = c => c.kind === "bday" ? "生日" : c.kind === "mybday" ? "你的生日" : c.kind === "anniv" ? "纪念日" : c.kind === "time" ? (c.timeText || TIME_ZH[c.timeAt] || "别的时间") : c.kind === "if" ? "IF「" + (c.theme || "") + "」" : "日常";
         const edge = c => c.kind === "bday" ? "#8a3a4a" : c.kind === "if" ? CU : GR;   // 有含义的颜色：日常墨绿、IF 铜金、生日酒红
@@ -1256,7 +1256,7 @@
             weeks > 1 ? h("div", { "data-wk": "stampweekpick", className: "flex justify-center flex-wrap", style: { gap: 6, padding: "10px 20px 0" } }, Array.from({ length: weeks }, (_, k) => chip(wk === k + 1, "第 " + (k + 1) + " 周", () => setWeek(k + 1), "w" + k))) : null,
             h("div", { style: { position: "relative", padding: "14px 16px 0 12px" } },
               h("div", { style: { position: "absolute", left: 32, top: 30, bottom: 30, borderLeft: "1px dashed rgba(181,140,85,.35)" } }),
-              rs.map((c, k) => { const d = new Date(c.ts), col = edge(c);
+              rs.map((c, k) => { const d = (typeof vDate === "function" ? vDate(c.ts, albumChar) : new Date(c.ts)), col = edge(c);
                 const others = (c._all || []).filter(x => x.id !== c.id), openD = wkOpen === c._day;
                 const pickIt = x => { const s2 = C().load(); const wp = Object.assign({}, (s2.opt || {}).weekPick); wp[x.charId] = Object.assign({}, wp[x.charId], { [c._day]: x.id }); s2.opt = Object.assign({}, s2.opt, { weekPick: wp }); C().save(s2); toast("换好了：这张就是那天的一刻"); };
                 return h(React.Fragment, { key: c.id }, h("button", { "data-wk": "stampweekday", "data-kind": c.kind || "", onClick: () => { setWeek(false); setOpen(c.id); }, className: "w-full text-left active:opacity-80", style: { position: "relative", display: "flex", alignItems: "flex-start", gap: 10, marginTop: k ? 10 : 0 } },

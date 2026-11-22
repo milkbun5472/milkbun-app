@@ -285,6 +285,7 @@
   //   拿 ink 当带子色的话，深盒底下会挂一条【浅色】带——整架就它俩反过来了。
   const LID = {
     spy:       { paper: "#efe7d8", ink: "#4a4438", hot: "#b0553f", band: "#4a4438", bandInk: "#efe7d8" },
+    debate:    { paper: "#ece3dc", ink: "#4a3f3a", hot: "#c25a4a", band: "#4a3f3a", bandInk: "#ece3dc" },
     haigui:    { paper: "#dde8e5", ink: "#364a46", hot: "#4f8378", band: "#364a46", bandInk: "#dde8e5" },
     q25:       { paper: "#eae5ef", ink: "#443c4d", hot: "#7a5f96", band: "#443c4d", bandInk: "#eae5ef" },
     tod:       { paper: "#f3e2db", ink: "#55403a", hot: "#c26a4e", band: "#55403a", bandInk: "#f3e2db" },
@@ -509,6 +510,14 @@
         h("rect", { key: "d", x: 65, y: 46.8, width: 13, height: 2.4, rx: 1.2, fill: c.hot }),
         h("path", { key: "e", d: "M80 50l16-16 4 4-16 16-6 2z", fill: c.hot, opacity: .9 })
       ],
+      // 辩论擂台（只在房间里有）：两张讲台，一红一蓝，中间一道台面
+      debate: [
+        h("rect", { key: "a", x: 16, y: 62, width: 88, height: 5, rx: 2, fill: c.ink, opacity: .35 }),
+        h("path", { key: "b", d: "M24 36h26l-4 26H28z", fill: c.hot, opacity: .85 }),
+        h("path", { key: "c", d: "M70 36h26l-4 26H74z", fill: "#3f6d8c", opacity: .85 }),
+        h("circle", { key: "d", cx: 37, cy: 26, r: 6, fill: c.ink, opacity: .5 }),
+        h("circle", { key: "e", cx: 83, cy: 26, r: 6, fill: c.ink, opacity: .5 })
+      ],
       uno: [0, 1, 2, 3].map(function (i) {
         const rot = -24 + i * 16, col = [c.hot, "#e8b53c", "#3f7fd0", "#4f9a58"][i];
         return h("g", { key: "u" + i, transform: "rotate(" + rot + " 60 76)" },
@@ -616,12 +625,15 @@
     // 各怀心思的约会也走公共开局页（她 2026-10-12：「格式跟其他的也不一样」）——原来那张自己画的 DateGameSetup 不再挂
     if (game) return h(GameSetup, {
       game: game, characters: props.characters, profile: props.profile, moods: props.moods, t: t,
+      hide: props.setupHide, extraOpts: props.setupExtra, note: props.setupNote ? props.setupNote(game) : "",
       initialPicked: entry && entryHandledRef.current === entry.key && entry.characterId ? [String(entry.characterId)] : [],
       onBack: function () { setGame(null); },
       // ⚠️那一戳也写进 config：存档存的是 config，从架上「继续上一局」回来时
       //   session 是新造的、fromRoom 早清了——不写进去的话，侧房里那一局一存一读
       //   就变成主线的了（正是这道闸要挡的）。
       onStart: function (config) {
+        // 别处借这个大厅挑游戏、设开局（props.onConfigured）：配好就交回去，这一桌不在这儿开
+        if (props.onConfigured) { props.onConfigured(game, config); return; }
         const cfg = Object.assign({}, config, { room: fromRoom.current || null });
         // 「上次那桌」：每个游戏记最后一次开局的配置（不记房间——那是那一次的事）
         try { const last = loadJSON(LAST_CFG_KEY, {}) || {}; last[game.key] = config; saveJSON(LAST_CFG_KEY, last); } catch (e) {}
@@ -666,6 +678,7 @@
         // 摊开的样子＝盒盖掀在左边（那张盒面缩略图斜着搭出来），右边写着打到哪儿了。
         (function () {
           const rows = [];
+          if (props.only) return null;   // 只挑游戏、不在这儿开桌的时候，没打完的那几局不摆出来
           if (wolfSave) rows.push({ k: "werewolf", def: wolfGameDef, sub: "第 " + (wolfSave.cycle || 1) + " 个昼夜 · " + ((wolfSave.players || []).filter(function (p) { return p.alive; }).length) + " 人存活",
             go: function () { setSession({ game: wolfGameDef, config: wolfSave.config, resume: true, saved: wolfSave }); },
             drop: function () { clearWolf(); setSaveTick(function (x) { return x + 1; }); } });
@@ -692,18 +705,20 @@
               h("button", { "data-wk": "gameopenbtn", "data-part": "drop", onClick: r.drop, className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, padding: "7px 2px" } }, "收了"));
           }));
         })(),
-        h(GameStatsBook, { t: t, characters: props.characters || [] }),
-        h("div", { "data-wk": "gameintro", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, margin: "2px 2px 16px" } }, "邀角色开一局派对游戏。派对游戏可选正常 / 放水 / 观战，人不够能拉 NPC 凑数；约会是你和 TA 的两人秘密任务局。（不写进聊天记忆）"),
+        props.only ? null : h(GameStatsBook, { t: t, characters: props.characters || [] }),
+        h("div", { "data-wk": "gameintro", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, margin: "2px 2px 16px" } }, props.intro || "邀角色开一局派对游戏。派对游戏可选正常 / 放水 / 观战，人不够能拉 NPC 凑数；约会是你和 TA 的两人秘密任务局。（不写进聊天记忆）"),
         // 一架游戏盒：两个一排，每排底下压一条木架线
         (function () {
           const rows = [];
-          for (let i = 0; i < GAMES.length; i += 2) rows.push(GAMES.slice(i, i + 2));
+          // props.only：只摆这几盒（别处借大厅挑游戏时，只给挑它接得住的那几个）
+          const shelf = (props.only ? GAMES.filter(function (g) { return props.only.indexOf(g.key) >= 0; }) : GAMES).concat(props.extra || []);   // extra：借大厅的那一处自己带的盒子（点了走它自己的 onPick）
+          for (let i = 0; i < shelf.length; i += 2) rows.push(shelf.slice(i, i + 2));
           return rows.map(function (row, ri) {
             return h("div", { "data-wk": "gameshelf", key: "row" + ri, style: { marginBottom: 20 } },
               h("div", { style: { display: "flex", gap: 12, alignItems: "flex-end" } },
                 row.map(function (g) {
                   const c = LID[g.key] || LID.spy;
-                  return h("button", { "data-wk": "gamelid", key: g.key, onClick: function () { fromRoom.current = null; setGame(g); }, className: "active:opacity-85",
+                  return h("button", { "data-wk": "gamelid", key: g.key, onClick: function () { if (g.onPick) return g.onPick(); fromRoom.current = null; setGame(g); }, className: "active:opacity-85",
                     style: { flex: "1 1 0", minWidth: 0, textAlign: "left", padding: 0, background: "transparent" } },
                     // 盒子：盒面 + 底下那道深边＝盒子的厚度，所以它是个盒子不是一张卡
                     h("div", { style: { borderRadius: 9, overflow: "hidden", boxShadow: "0 3px 0 " + c.band + ", 0 7px 14px rgba(0,0,0,.20)" } },
@@ -734,6 +749,11 @@
     { k: "pro", zh: "高手", text: "高手：这类桌游心里门儿清，记得住每个人说过什么，推理、读人、藏身份都很强，很少被带节奏。" },
     { k: "mid", zh: "普通", text: "普通玩家：规则都懂，会推理但偶尔漏看信息，有时会被别人说动。" },
     { k: "rookie", zh: "新手", text: "新手：常看漏信息、容易被带节奏，藏身份时容易露馅，但玩得很投入。" }];
+  const SKILL_PIN_NOTE = "默认按人设估 TA 玩得多好；你知道 TA 是高手还是新手，就直接钉一档。只管玩得多好，不改 TA 说话的样子。";
+  // 钉一档：全局记着（本机），下次也是这档
+  function saveSkillPin(id, v) { const n = Object.assign({}, loadSkillPins()); if (v) n[id] = v; else delete n[id]; try { saveJSON(SKILL_PIN_KEY, n); } catch (e) {} return n; }
+  // 五子棋各自怎么下（观战时按人挑）
+  const GMK_CASUAL_OPTS = [{ key: "serious", zh: "认真" }, { key: "casual", zh: "随手" }];
   function loadSkillPins() { try { return (typeof loadJSON === "function" ? loadJSON(SKILL_PIN_KEY, {}) : {}) || {}; } catch (e) { return {}; } }
   function pinnedSkill(charId, guessed) {
     const k = loadSkillPins()[charId], o = SKILL_PINS.find(function (x) { return x.k && x.k === k; });
@@ -743,9 +763,11 @@
   const LAST_CFG_KEY = "x_gameLastCfg";
   function GameSetup(props) {
     const t = props.t, game = props.game;
+    // props.hide：别处借这一页开局、某几项在那边不起作用时，按名字收起来（stake / injectChat / ccSeat / boardTeach / gmkBrain / q25Host；狼阵营某一种 wolf_<key>、阿瓦隆某个特殊角色 av_<key>）
+    const hid = function (k) { return (props.hide || []).indexOf(k) >= 0; };
     const [stake, setStake] = useState("");          // 彩头：输的人要做什么（可空）
     const [skillPins, setSkillPins] = useState(loadSkillPins);
-    const setSkillPin = function (id, v) { const n = Object.assign({}, skillPins); if (v) n[id] = v; else delete n[id]; setSkillPins(n); try { saveJSON(SKILL_PIN_KEY, n); } catch (e) {} };
+    const setSkillPin = function (id, v) { setSkillPins(saveSkillPin(id, v)); };
     const chars = props.characters || [];
     const [mode, setMode] = useState("normal");
     const [picked, setPicked] = useState((props.initialPicked || []).slice());  // 选中的角色 id（从邀请卡进来时先勾上TA）
@@ -771,6 +793,9 @@
     const [wolfRole, setWolfRole] = useState(null);  // 狼阵营特殊角色：null 普通狼 / wolfking / whitewolf
     const [winMode, setWinMode] = useState("side");  // 屠边 side / 屠城 all
     const [avOpts, setAvOpts] = useState({ percival: true, mordred: false, oberon: false }); // 阿瓦隆特殊角色
+    // props.extraOpts(game)：借这一页开局的那一处自己多要的几项（[{ key, label, hint, options:[{key,zh}], def }]），各项选的值原样并进 config
+    const extraSpecs = (props.extraOpts && props.extraOpts(game)) || [];
+    const [extraVal, setExtraVal] = useState(function () { const o = {}; extraSpecs.forEach(function (x) { o[x.key] = x.def; }); return o; });
     const lastCfg = (function () { try { return (loadJSON(LAST_CFG_KEY, {}) || {})[game.key] || null; } catch (e) { return null; } })();
     const useLast = function () {
       const c = lastCfg; if (!c) return;
@@ -836,10 +861,17 @@
         // 模式
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "模式"),
         // 约会是两个人的局：没有观战、彩头和 NPC（它自己有输赢账，也不进回忆和战报）
+        props.note ? h("div", { "data-wk": "gamesetupnote", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, props.note) : null,
         h(Segmented, { t: t, value: mode, options: game.key === "date" || game.key === "lingxi" ? MODES.filter(function (m) { return m.key !== "spectate"; }) : MODES, onChange: setMode }),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "8px 2px 20px" } }, modeHint),
+        extraSpecs.map(function (x) {
+          return h("div", { key: "x" + x.key, "data-wk": "gamesetupextra", "data-part": x.key, style: { marginBottom: 20 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, x.label),
+            h(Segmented, { t: t, value: extraVal[x.key], options: x.options, onChange: function (v) { setExtraVal(function (o) { const n = Object.assign({}, o); n[x.key] = v; return n; }); } }),
+            x.hint ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "8px 2px 0" } }, typeof x.hint === "function" ? x.hint(extraVal[x.key]) : x.hint) : null);
+        }),
         // 彩头：开局前说好，终局 app 替你记着谁该兑现；战报发过去 TA 也知道
-        game.key === "date" ? null : h("div", { "data-wk": "gamestake", style: { marginBottom: 20 } },
+        game.key === "date" || hid("stake") ? null : h("div", { "data-wk": "gamestake", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "彩头（可以不填）"),
           h("input", { "data-wk": "gameinput", "data-part": "stake", value: stake, maxLength: 40, onChange: function (e) { setStake(e.target.value); },
             placeholder: "输的人要做什么，写一句",
@@ -885,8 +917,8 @@
           mjVariant === "guobiao" ? h(Segmented, { t: t, value: String([8, 4, 1].indexOf(mjMinFan) >= 0 && mjMinFan ? mjMinFan : 8), onChange: function (v) { setMjMinFan(+v); }, options: [{ key: "8", zh: "8 番（比赛）" }, { key: "4", zh: "4 番" }, { key: "1", zh: "1 番（随便和）" }] }) : null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, margin: "14px 0 8px" } }, "打几盘"),
           h(Segmented, { t: t, value: String(mjHands), onChange: function (v) { setMjHands(+v); }, options: [{ key: "4", zh: "四盘" }, { key: "8", zh: "八盘" }, { key: "16", zh: "一整局（16 盘）" }] }),
-          mjVariant === "sichuan" ? h("div", { style: { marginTop: 12 } }, h(ToggleRow, { t: t, label: "换三张", sub: "开着：每盘发完牌先挑同一门的三张，跟别家换（顺时针、逆时针或对家，每盘抽一个）。", on: mjSwap, onToggle: function () { setMjSwap(!mjSwap); } })) : null,
-          h("div", { style: { marginTop: 12 } }, h(ToggleRow, { t: t, label: "自动摸牌", sub: "关着：轮到你时点桌子正中的牌墙自己摸。开着：轮到你就直接摸好。", on: mjAutoDraw, onToggle: function () { setMjAutoDraw(!mjAutoDraw); } })),
+          mjVariant === "sichuan" && !hid("mjSwap") ? h("div", { style: { marginTop: 12 } }, h(ToggleRow, { t: t, label: "换三张", sub: "开着：每盘发完牌先挑同一门的三张，跟别家换（顺时针、逆时针或对家，每盘抽一个）。", on: mjSwap, onToggle: function () { setMjSwap(!mjSwap); } })) : null,
+          hid("mjAutoDraw") ? null : h("div", { style: { marginTop: 12 } }, h(ToggleRow, { t: t, label: "自动摸牌", sub: "关着：轮到你时点桌子正中的牌墙自己摸。开着：轮到你就直接摸好。", on: mjAutoDraw, onToggle: function () { setMjAutoDraw(!mjAutoDraw); } })),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, (mjVariant === "riichi" ? "日麻：手里没有役（立直、门清自摸、断幺、役牌、平和……）就和不了，宝牌只加番不算役；听的牌自己打过就是振听，不能荣和、只能自摸；立直要门清、扣 1000 点，立直以后只能打摸到的那张。点数起手 25000。" : mjVariant === "taiwan" ? "台湾：每人 16 张，凑五组一对；算台（庄家 1、门清 1、自摸 1、门清自摸 3、正花、刻子、碰碰胡 4、混一色 4、清一色 8……），付「底 3 + 台数」。" : mjVariant === "guobiao" ? "国标：常见三十来种番（七对、清一色、碰碰和、全求人、平和、断幺、箭刻……），番不够不能和，花牌另算不进起和。点和的那家付「8 + 番」，另两家各付 8；自摸三家各付「8 + 番」。" : mjVariant === "canton" ? "起糊番数不够的牌不能食也不能自摸。" : mjVariant === "sichuan" ? "四川：开局换三张、定缺，缺的那门打完才能胡；七对也算；一炮可以几家一起胡；三家胡了或者摸完这一盘才散。杠了当场收钱（刮风下雨）；摸完时手里还有缺的那门是花猪、赔满番，没听牌的赔给听牌的（查叫）。" : "红中：红中顶任何牌（不能碰、不能杠）；七对也算；只能自摸，三家各付；一张红中都没用上的硬胡番数多一番。") + "别家都由本地牌手打，不花调用；角色在碰、杠、胡和一盘打完时开口。")) : null,
         game.key === "uno" ? h("div", { style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "+2 规则"),
@@ -910,7 +942,7 @@
             : tetrisMode === "versus"
             ? "一人一块板子，消两行以上往对面塞垃圾行，先堆到顶的输。TA 那块由本地棋手下（不花钱），只有说话才调用；模式选「放水」TA 会下得慢一点、多看走眼。"
             : "你自己玩，TA 坐旁边，一次消好几行、快堆到顶、破纪录的时候才开口。")) : null,
-        game.key === "q25" ? h("div", { "data-wk": "q25host", style: { marginBottom: 20 } },
+        game.key === "q25" && !hid("q25Host") ? h("div", { "data-wk": "q25host", style: { marginBottom: 20 } },
           h(Segmented, { t: t, value: q25Host, onChange: setQ25Host, options: [{ key: "system", zh: "系统出题" }, { key: "me", zh: "我出题" }, { key: "ta", zh: "TA 出题" }, { key: "turns", zh: "轮流" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, q25Host === "system" ? "系统心里想一个，大家一起猜。"
             : q25Host === "me" ? "你写下一个东西锁住（TA 看不到），TA 一问一问来猜，你点按钮答。只跟挑的第一个人玩。"
@@ -921,15 +953,15 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, drawBrain === "step"
             ? "每画一段都重新想一次：看得到你猜过什么、说过什么，下一笔跟着变，画几段也是边画边定。每段一次调用，段与段之间要等几秒。"
             : "开画时一次想好整幅，再一段一段放给你看：省调用、不卡，但你中途说什么，后面的画不会跟着变。")) : null,
-        game.key === "blackjack" && picked.length ? h("div", { "data-wk": "gamebjdealer", style: { marginBottom: 20 } },
+        game.key === "blackjack" && picked.length && !hid("bjDealer") ? h("div", { "data-wk": "gamebjdealer", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "谁坐庄"),
           h(Segmented, { t: t, value: bjDealer, onChange: setBjDealer, options: [{ key: "house", zh: "手机发牌" }, { key: "ta", zh: ((chars.find(function (c) { return String(c.id) === String(picked[0]); }) || {}).name || "TA") + " 坐庄" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, bjDealer === "ta"
             ? "TA 当庄家：不下注，大家都跟 TA 比；你们赢的从 TA 的筹码里出，输的进 TA 口袋。庄家照规矩要到 17 点。"
             : "庄家是手机，谁也不偏；角色和你一样各自跟庄比。")) : null,
-        game.key === "poker" ? h("div", { "data-wk": "gamepktruth", style: { marginBottom: 20 } },
+        game.key === "poker" && !hid("pkTruth") ? h("div", { "data-wk": "gamepktruth", style: { marginBottom: 20 } },
           h(ToggleRow, { t: t, label: "输的人答一个真心话", sub: "每手打完，赢最多的问、输最多的答。轮到你问就写一句，轮到你答就照实回；角色之间的问答顺带在桌上话里说。每次问答花一次调用。", on: pkTruth, onToggle: function () { setPkTruth(!pkTruth); } })) : null,
-        ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? h("div", { "data-wk": "gamecardbrain", style: { marginBottom: 20 } },
+        ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 && !hid("cardBrain") ? h("div", { "data-wk": "gamecardbrain", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "谁来出牌"),
           h(Segmented, { t: t, value: cardBrain, onChange: setCardBrain, options: [{ key: "local", zh: "手机出牌" }, { key: "self", zh: "每人自己想" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, cardBrain === "self"
@@ -939,21 +971,21 @@
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "棋盘"),
           h(Segmented, { t: t, value: String(goSize), onChange: function (v) { setGoSize(Number(v)); }, options: [{ key: "9", zh: "九路" }, { key: "13", zh: "十三路" }, { key: "17", zh: "十七路" }, { key: "19", zh: "十九路" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, goSize >= 17 ? (goSize === 19 ? "十九路" : "十七路") + "格子小、一盘下得久，电脑在这么大的盘上偏弱。" : goSize === 13 ? "十三路，一盘半小时上下。" : "九路一盘十来分钟，手机上看得最清楚，电脑也下得最像样。")) : null,
-        ["chess", "xiangqi", "go", "jungle"].indexOf(game.key) >= 0 && !spectate ? h("div", { "data-wk": "boardteach", style: { marginBottom: 20 } },
+        !hid("boardTeach") && ["chess", "xiangqi", "go", "jungle"].indexOf(game.key) >= 0 && !spectate ? h("div", { "data-wk": "boardteach", style: { marginBottom: 20 } },
           h(ToggleRow, { t: t, label: "教学", sub: "你说话或者按「让TA说」的时候，TA 照着引擎看出来的实情讲：你上一步怎么样、哪里有危险。按提示时 TA 也顺口讲为什么。怎么教、耐不耐心，照 TA 自己的性子。", on: boardTeach, onToggle: function () { setBoardTeach(!boardTeach); } })) : null,
-        game.key === "gomoku" ? h("div", { "data-wk": "gomokubrain", style: { marginBottom: 20 } },
+        game.key === "gomoku" && !hid("gmkBrain") ? h("div", { "data-wk": "gomokubrain", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "谁来想棋"),
           h(Segmented, { t: t, value: gmkBrain, onChange: setGmkBrain, options: [{ key: "local", zh: "本地棋手" }, { key: "model", zh: "TA 自己下" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, gmkBrain === "model"
             ? "每一步都用 TA 的模型想：落子和说话一起回来，像在聊天里下棋。每步一次调用、要等几秒，模型下得好不好看它自己。"
             : "落子归 app 里的棋手，不花调用、不卡；TA 只在你开口时说话。")) : null,
-        game.key === "gomoku" && spectate && picked.length ? h("div", { "data-wk": "gomokustrength", style: { marginBottom: 20 } },
+        game.key === "gomoku" && !hid("gmkBrain") && spectate && picked.length ? h("div", { "data-wk": "gomokustrength", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "各自怎么下"),
           picked.slice(0, 2).map(function (id) {
             const c = chars.find(function (x) { return x.id === id; });
             return h("div", { key: id, style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } },
               h("div", { style: { width: 72, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c ? (c.remark || c.name) : ""),
-              h("div", { style: { flex: 1 } }, h(Segmented, { t: t, value: gmkCasual[id] ? "casual" : "serious", options: [{ key: "serious", zh: "认真" }, { key: "casual", zh: "随手" }],
+              h("div", { style: { flex: 1 } }, h(Segmented, { t: t, value: gmkCasual[id] ? "casual" : "serious", options: GMK_CASUAL_OPTS,
                 onChange: function (v) { const n = Object.assign({}, gmkCasual); if (v === "casual") n[id] = true; else delete n[id]; setGmkCasual(n); } })));
           }),
           picked.length < 2 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "只选一个人就是 TA 跟电脑下；选两个就看他俩对下。") : null) : null,
@@ -980,9 +1012,9 @@
               })),
 
         // 牌技：给选上的人钉一档（全局记着，下次也是这档）
-        picked.length ? h("div", { "data-wk": "gameskillpin", style: { marginTop: 14 } },
+        picked.length && !hid("skillPins") ? h("div", { "data-wk": "gameskillpin", style: { marginTop: 14 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "牌技"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "3px 0 8px", lineHeight: 1.5 } }, "默认按人设估 TA 玩得多好；你知道 TA 是高手还是新手，就直接钉一档。只管玩得多好，不改 TA 说话的样子。"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "3px 0 8px", lineHeight: 1.5 } }, SKILL_PIN_NOTE),
           picked.map(function (id) {
             const c = chars.find(function (x) { return x.id === id; }); if (!c) return null;
             const cur = skillPins[id] || "";
@@ -1000,8 +1032,8 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "最少 " + minNpc + " 个补到 " + game.min + " 人，最多可加到 " + game.max + " 人（局更长、更看得出门道）。")),
             h(Stepper, { t: t, value: needNpc, min: minNpc, max: maxNpc, onChange: function (v) { setNpcWant(v); } })) : null,
           h("div", { style: { borderTop: "1px solid " + t.line } }),
-          h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }),
-          ccSeatSupported ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: pickedEngineer ? "已经认出言秋。轮到TA时只收 CC 本人的回答；没接上就跳过这一手，Gemini 不会冒充。" : "先把言秋选进本局；开关会保留，选中后由 CC 里的本人亲自玩。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
+          hid("injectChat") ? null : h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }),
+          !hid("ccSeat") && ccSeatSupported ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: pickedEngineer ? "已经认出言秋。轮到TA时只收 CC 本人的回答；没接上就跳过这一手，Gemini 不会冒充。" : "先把言秋选进本局；开关会保留，选中后由 CC 里的本人亲自玩。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
           // 狼人杀·神职配置（自选 + 随机 + 标准板）
           isWolfGame ? h("div", { style: { paddingTop: 12, marginTop: 6, borderTop: "1px solid " + t.line } },
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 6 } },
@@ -1018,7 +1050,7 @@
             // 狼阵营特殊角色（把一头狼换成狼王/白狼王）
             h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 12, flexWrap: "wrap" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "狼阵营"),
-              [{ key: null, zh: "普通狼" }, { key: "wolfking", zh: "狼王" }, { key: "whitewolf", zh: "白狼王" }].map(function (o) {
+              [{ key: null, zh: "普通狼" }, { key: "wolfking", zh: "狼王" }, { key: "whitewolf", zh: "白狼王" }].filter(function (o) { return !hid("wolf_" + o.key); }).map(function (o) {
                 const on = wolfRole === o.key;
                 return h("button", { "data-wk": "gamewolfrole", "data-on": on ? "1" : "0", key: o.key || "plain", onClick: function () { setWolfRole(o.key); }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, background: on ? "#c0553f" : t.bg2, border: "1px solid " + (on ? "#c0553f" : t.line), borderRadius: 999, padding: "5px 13px" } }, o.zh);
               })),
@@ -1035,14 +1067,14 @@
             [{ k: "lady", zh: "湖中仙女", d: "7 人起生效：第 2/3/4 个任务后，持牌人查验一人真实阵营并当众宣布（可以撒谎），牌传给被验的人" },
              { k: "percival", zh: "派西维尔 + 莫甘娜", d: "派西维尔认得梅林，但莫甘娜伪装成梅林混淆 TA（成对加入）" },
              { k: "mordred", zh: "莫德雷德", d: "坏人，且【梅林看不见 TA】——好人更难" },
-             { k: "oberon", zh: "奥伯伦", d: "坏人，但和其他坏人互不相识、不知彼此" }].map(function (o) {
+             { k: "oberon", zh: "奥伯伦", d: "坏人，但和其他坏人互不相识、不知彼此" }].filter(function (o) { return !hid("av_" + o.k); }).map(function (o) {
               return h(ToggleRow, { key: o.k, t: t, label: o.zh, sub: o.d, on: !!avOpts[o.k], onToggle: function () { setAvOpts(function (s) { const n = Object.assign({}, s); n[o.k] = !s[o.k]; return n; }); } });
             }),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "任务队伍规模按人数自动配，第 4 个任务在 7 人以上需 2 张失败票。3 个任务成功后刺客还有终局刺杀。")) : null)),
 
       // 底部开始
       h("div", { "data-wk": "gamestartbar", className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, mjVariant: game.key === "mahjong" ? mjVariant : undefined, mjSwap: game.key === "mahjong" ? mjSwap : undefined, mjMinFan: game.key === "mahjong" ? mjMinFan : undefined, mjHands: game.key === "mahjong" ? mjHands : undefined, mjAutoDraw: game.key === "mahjong" ? mjAutoDraw : undefined, dateTheme: game.key === "date" ? dateTheme : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, boardTeach: ["chess", "xiangqi", "go", "jungle"].indexOf(game.key) >= 0 && !spectate ? boardTeach : undefined, goSize: game.key === "go" ? goSize : undefined, cardBrain: ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? cardBrain : undefined, bjDealer: game.key === "blackjack" ? bjDealer : undefined, pkTruth: game.key === "poker" ? pkTruth : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, q25Host: game.key === "q25" ? q25Host : undefined, tetrisMode: game.key === "tetris" ? tetrisMode : undefined, tetrisSkill: game.key === "tetris" ? tetrisSkill : undefined, botSkill: BOT_SKILL_GAMES.indexOf(game.key) >= 0 ? tetrisSkill : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
+        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart(Object.assign({}, extraVal, { mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, mjVariant: game.key === "mahjong" ? mjVariant : undefined, mjSwap: game.key === "mahjong" ? mjSwap : undefined, mjMinFan: game.key === "mahjong" ? mjMinFan : undefined, mjHands: game.key === "mahjong" ? mjHands : undefined, mjAutoDraw: game.key === "mahjong" ? mjAutoDraw : undefined, dateTheme: game.key === "date" ? dateTheme : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, boardTeach: ["chess", "xiangqi", "go", "jungle"].indexOf(game.key) >= 0 && !spectate ? boardTeach : undefined, goSize: game.key === "go" ? goSize : undefined, cardBrain: ["uno", "poker", "blackjack"].indexOf(game.key) >= 0 ? cardBrain : undefined, bjDealer: game.key === "blackjack" ? bjDealer : undefined, pkTruth: game.key === "poker" ? pkTruth : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, q25Host: game.key === "q25" ? q25Host : undefined, tetrisMode: game.key === "tetris" ? tetrisMode : undefined, tetrisSkill: game.key === "tetris" ? tetrisSkill : undefined, botSkill: BOT_SKILL_GAMES.indexOf(game.key) >= 0 ? tetrisSkill : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined })); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -1179,7 +1211,7 @@
   }
   async function genVotesBatch(api, voters, allClues, aliveNames, mode, userName, preface) {
     const clues = allClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
-    const who = voters.map(function (v) { return "■ " + v.name + "（" + (v.role === "spy" ? "你其实是卧底：把票投给某个你觉得像平民的人来误导，别投出真正的少数派" : "你是平民：凭描述投你真心最怀疑的那个") + "）真实水平：" + (v.skill || "普通") + voiceBrief(v); }).join("\n");
+    const who = voters.map(function (v) { return "■ " + v.name + "（" + (v.role === "spy" ? "你其实是卧底：把票投给某个你觉得像平民的人来误导，别投出真正的少数派" : v.role === "unknown" ? "你只知道自己的词「" + (v.word || "") + "」，不知道自己是多数还是少数：凭描述投你真心最怀疑的那个" : "你是平民：凭描述投你真心最怀疑的那个") + "）真实水平：" + (v.skill || "普通") + voiceBrief(v); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别精准锁定真人「" + userName + "」，就算怀疑 TA 也可以手下留情、投别人或说再看看。" : "";
     const sys = gameVoiceRules() + "\n\n「谁是卧底」投票。根据目前【所有描述】，下面每人各投一个要投出局的人 + 一句短理由。按真实水平：推理强的投得准，弱的易被带偏。**实在没把握可以弃票**（target 填「弃票」），但别全场弃票。理由别露上帝视角（别说“我是卧底所以…”）。【公平】只按描述本身的合理性投票，别因为某人发言顺序靠前、说得少、或是生面孔就默认针对 TA——没有实据不要扎堆投同一个人。" + easy +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【目前所有描述】\n" + clues + "\n\n【要投票的人】\n" + who +
@@ -1229,6 +1261,26 @@
   }
 
   function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const x = r[i]; r[i] = r[j]; r[j] = x; } return r; }
+
+  // 谁是卧底桌上的两块（别处摆同一张桌从 GameShared.spy 拿）
+  //   SpyClue：一句描述（头像＋名字＋气泡）。mine 是不是自己说的、name、av（画好的头像）、text（念的那句，可以是画好的节点）、extra（气泡后面挂的小件）
+  function SpyClue(props) {
+    const t = props.t, mine = !!props.mine;
+    return h("div", { "data-wk": "gamemsg", "data-kind": "clue", "data-me": mine ? "1" : "0", style: { display: "flex", gap: 8, margin: "8px 0" } },
+      props.av || null,
+      h("div", { style: { flex: 1 } },
+        h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, props.name + (mine ? (props.youTag == null ? "(你)" : props.youTag) : "")),
+        h("div", { "data-wk": "gamebubble", "data-me": mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, props.text), props.extra || null));
+  }
+  //   SpyVotePick：投谁那一排（头像＋名字的圆钮，最后一颗「弃票」）。targets：[{ id, key, name, av }]；value 选中的 id（-1＝弃票）；onPick(id 或 -1)
+  function SpyVotePick(props) {
+    const t = props.t, v = props.value;
+    return h("div", { "data-wk": "gamespyvote", style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginBottom: 10 } },
+      (props.targets || []).map(function (p) {
+        const on = v === p.id;
+        return h("button", { key: p.key, onClick: function () { props.onPick(p.id); }, style: { display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, background: on ? t.tint : t.bg2, border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 12px 6px 6px" } }, p.av || null, p.name);
+      }).concat([h("button", { key: "abstain", onClick: function () { props.onPick(-1); }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: v === -1 ? "#fff" : t.sub, background: v === -1 ? t.fog : t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px" } }, "弃票")]));
+  }
 
   function SpyGame(props) {
     const t = props.t, cfg = props.config;
@@ -1568,11 +1620,7 @@
         if (it.type === "out") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", margin: "8px 0", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: it.role === "spy" ? "#3f6d5a" : "#c0553f" } }, "🗳 " + it.name + (it.isUser ? "(你)" : "") + " 被投出局 —— TA 是【" + (it.role === "spy" ? "卧底" : "平民") + "】");
         if (it.type === "clue") {
           const p = pByName(it.name);
-          return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 8, margin: "8px 0" } },
-            pAvatar(p, 30),
-            h("div", { style: { flex: 1 } },
-              h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-              h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.mine ? it.text : gameSaid(it.text, p && p.char).node), it.mine ? null : h(GameVoiceDot, { p: p, text: gameSaid(it.text, p && p.char).speak, k: "gv" + i })));
+          return h(SpyClue, { key: i, t: t, mine: !!it.mine, name: it.name, av: pAvatar(p, 30), text: it.mine ? it.text : gameSaid(it.text, p && p.char).node, extra: it.mine ? null : h(GameVoiceDot, { p: p, text: gameSaid(it.text, p && p.char).speak, k: "gv" + i }) });
         }
         if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票"), it.reason && it.target ? "：" : null, it.reason && it.target ? saidOf(it.reason, pByName(it.name)) : null);
         if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：", saidOf(it.text, pByName(it.name)));
@@ -1601,11 +1649,7 @@
         const targets = alive.filter(function (p) { return p.name !== me.name; });
         action = h("div", null,
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 8 } }, "投谁是卧底？"),
-          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginBottom: 10 } },
-            targets.map(function (p) {
-              const on = userVote === p.name;
-              return h("button", { key: p.key, onClick: function () { setUserVote(p.name); }, style: { display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: on ? "#fff" : t.ink, background: on ? t.tint : t.bg2, border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 12px 6px 6px" } }, pAvatar(p, 22), p.name);
-            }).concat([h("button", { key: "abstain", onClick: function () { setUserVote("__abstain__"); }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: userVote === "__abstain__" ? "#fff" : t.sub, background: userVote === "__abstain__" ? t.fog : t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px" } }, "弃票")])),
+          h(SpyVotePick, { t: t, value: userVote === "__abstain__" ? -1 : userVote, onPick: function (v) { setUserVote(v === -1 ? "__abstain__" : v); }, targets: targets.map(function (p) { return { id: p.name, key: p.key, name: p.name, av: pAvatar(p, 22) }; }) }),
           h("button", { onClick: function () { if (userVote) runVote(userVote); }, disabled: !userVote, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: userVote ? t.ink : t.line, borderRadius: 13, padding: "12px" } }, "投票"));
       } else {
         action = h("button", { onClick: function () { runVote(null); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "看他们投票");
@@ -1876,6 +1920,32 @@
     const raw = await callRetry(api, sys, [{ role: "user", content: "要自爆吗？" }], { maxTokens: 8600 });
     return extractJSON(raw) || {};
   }
+  // 胜负：好人=狼全灭胜。狼胜——屠城=剩余好人≤狼数(平局及以下)；屠边=神营 或 民营 被杀绝（该营原本存在才算）
+  function wolfWinner(list, winMode) {
+      const al = list.filter(function (p) { return p.alive; });
+      const wolfAlive = al.filter(function (p) { return isWolfRole(p.role); }).length;
+      if (wolfAlive === 0) return "good";
+      const goodAlive = al.length - wolfAlive;
+      if (winMode === "all") { return goodAlive <= wolfAlive ? "wolf" : null; }
+      const godsTotal = list.filter(function (p) { return isGodRole(p.role); }).length;
+      const villTotal = list.filter(function (p) { return p.role === "villager"; }).length;
+      const godsAlive = al.filter(function (p) { return isGodRole(p.role); }).length;
+      const villAlive = al.filter(function (p) { return p.role === "villager"; }).length;
+      if ((godsTotal > 0 && godsAlive === 0) || (villTotal > 0 && villAlive === 0)) return "wolf";
+      return null;
+    }
+  // 每个人自己知道的那一句（身份＋手里的私密信息）；info：{ seerKnown, pot:{heal,poison}, graveKnown }
+  function wolfPrivText(p, list, info) {
+    info = info || {};
+      if (isWolfRole(p.role)) { const team = list.filter(function (x) { return isWolfRole(x.role) && x.name !== p.name && x.alive; }).map(function (x) { return x.name; }); const sp = p.role === "wolfking" ? "你是【狼王】：被投票或被狼刀……其实狼刀不到你，主要是被投出局时，可以开枪带走【一个】人（被女巫毒死则开不了枪）——优先带走关键神或强好人。" : p.role === "whitewolf" ? "你是【白狼王】：只能在【白天自爆】时带走一个人（被投票/被毒/被刀出局都不能带人）。自爆＝亮身份、带一人、直接天黑，用来搅局止损或炸关键神。" : ""; return "你是狼人。" + (team.length ? "狼队友：" + team.join("、") + "。" : "只剩你一头狼。") + sp + "目标：伪装好人、必要时悍跳预言家、带偏好人。护队友——但当某个队友已经被架住、明显保不住时，**按你的水平决定要不要弃车保帅**：可以切割、甚至顺水推舟投掉这个队友，保住自己的身份和信任，别为一个救不回的同伙陪葬（水平越高越懂止损；讲义气或水平低的才死保到底）。"; }
+      if (p.role === "seer") { const k = info.seerKnown || []; return "你是预言家。查验记录：" + (k.length ? k.map(function (x) { return x.name + "=" + (x.isWolf ? "狼人" : "好人"); }).join("、") : "还没查过") + "。可跳预言家报验人建信任，或视情况隐藏。"; }
+      if (p.role === "witch") { const pot = info.pot || {}; return "你是女巫（神职）。解药" + (pot.heal ? "还在" : "已用掉") + "、毒药" + (pot.poison ? "还在" : "已用掉") + "。白天你知道自己是神，可以隐藏，也可在合适时机跳出来、用救人/毒人的信息建立信任或指认狼。"; }
+      if (p.role === "hunter") { return "你是猎人（神职）。被狼刀或被投票出局时能开枪带走一个人（被女巫毒死则开不了枪）。白天可以隐藏身份，也可在被怀疑/关键时刻亮猎人身份威慑狼、稳住场面。"; }
+      if (p.role === "guard") { return "你是守卫（神职）。每晚可守护一人挡掉当晚的狼刀，但【不能连续两晚守同一个人】，可以守自己。注意『同守同救』：你守的人若当晚又被女巫用解药救，会互相抵消致其死亡。白天可隐藏，也可在关键时亮守卫身份、用守人信息帮好人建信任。"; }
+      if (p.role === "idiot") { return "你是白痴（神职）。白天若被投票放逐，会当场翻牌亮明白痴身份、免于出局并留在场上，但从此【永久失去投票权】。夜里被狼刀或被女巫毒照常死。" + (p.idiotRevealed ? "（你已翻牌，全场都知道你是白痴，你不能再投票了。）" : "可以隐藏，也可赌一手故意被投来自证清白——但翻牌后就没票了，谨慎。"); }
+      if (p.role === "gravekeeper") { const k = info.graveKnown || []; return "你是守墓人（神职）。每次白天放逐后，你会私下得知【被放逐的那个人是狼还是好人】。已验尸：" + (k.length ? k.map(function (x) { return x.name + "=" + (x.isWolf ? "狼" : "好人"); }).join("、") : "还没有人被放逐过") + "。可用这些确定信息在白天带票、指认或洗清，也可视情况隐藏（一亮身份就容易被狼刀）。"; }
+      return "你是平民，没有夜晚技能，靠逻辑站边找狼。";
+    }
   function validWolfTarget(target, list) {
     if (!target || /空刀|不刀|不杀|弃刀|skip|pass|none|null/i.test(String(target))) return null;
     const tp = (list || []).find(function (p) { return p.alive && !isWolfRole(p.role) && (p.name === target || String(target).indexOf(p.name) >= 0); });
@@ -2197,29 +2267,8 @@
     useEffect(function () { setPickerOpen(true); }, [phase, nightStage, poisonPick, seerResult, hunterCtx, witchCtx, boomPick]);
 
     // 胜负：好人=狼全灭胜。狼胜——屠城=剩余好人≤狼数(平局及以下)；屠边=神营 或 民营 被杀绝（该营原本存在才算）
-    const computeWin = function (list) {
-      const al = list.filter(function (p) { return p.alive; });
-      const wolfAlive = al.filter(function (p) { return isWolfRole(p.role); }).length;
-      if (wolfAlive === 0) return "good";
-      const goodAlive = al.length - wolfAlive;
-      if (cfg.winMode === "all") { return goodAlive <= wolfAlive ? "wolf" : null; }
-      const godsTotal = list.filter(function (p) { return isGodRole(p.role); }).length;
-      const villTotal = list.filter(function (p) { return p.role === "villager"; }).length;
-      const godsAlive = al.filter(function (p) { return isGodRole(p.role); }).length;
-      const villAlive = al.filter(function (p) { return p.role === "villager"; }).length;
-      if ((godsTotal > 0 && godsAlive === 0) || (villTotal > 0 && villAlive === 0)) return "wolf";
-      return null;
-    };
-    const privateFor = function (p, list) {
-      if (isWolfRole(p.role)) { const team = list.filter(function (x) { return isWolfRole(x.role) && x.name !== p.name && x.alive; }).map(function (x) { return x.name; }); const sp = p.role === "wolfking" ? "你是【狼王】：被投票或被狼刀……其实狼刀不到你，主要是被投出局时，可以开枪带走【一个】人（被女巫毒死则开不了枪）——优先带走关键神或强好人。" : p.role === "whitewolf" ? "你是【白狼王】：只能在【白天自爆】时带走一个人（被投票/被毒/被刀出局都不能带人）。自爆＝亮身份、带一人、直接天黑，用来搅局止损或炸关键神。" : ""; return "你是狼人。" + (team.length ? "狼队友：" + team.join("、") + "。" : "只剩你一头狼。") + sp + "目标：伪装好人、必要时悍跳预言家、带偏好人。护队友——但当某个队友已经被架住、明显保不住时，**按你的水平决定要不要弃车保帅**：可以切割、甚至顺水推舟投掉这个队友，保住自己的身份和信任，别为一个救不回的同伙陪葬（水平越高越懂止损；讲义气或水平低的才死保到底）。"; }
-      if (p.role === "seer") { const k = seerKnowRef.current[p.name] || []; return "你是预言家。查验记录：" + (k.length ? k.map(function (x) { return x.name + "=" + (x.isWolf ? "狼人" : "好人"); }).join("、") : "还没查过") + "。可跳预言家报验人建信任，或视情况隐藏。"; }
-      if (p.role === "witch") { const pot = witchPotRef.current; return "你是女巫（神职）。解药" + (pot.heal ? "还在" : "已用掉") + "、毒药" + (pot.poison ? "还在" : "已用掉") + "。白天你知道自己是神，可以隐藏，也可在合适时机跳出来、用救人/毒人的信息建立信任或指认狼。"; }
-      if (p.role === "hunter") { return "你是猎人（神职）。被狼刀或被投票出局时能开枪带走一个人（被女巫毒死则开不了枪）。白天可以隐藏身份，也可在被怀疑/关键时刻亮猎人身份威慑狼、稳住场面。"; }
-      if (p.role === "guard") { return "你是守卫（神职）。每晚可守护一人挡掉当晚的狼刀，但【不能连续两晚守同一个人】，可以守自己。注意『同守同救』：你守的人若当晚又被女巫用解药救，会互相抵消致其死亡。白天可隐藏，也可在关键时亮守卫身份、用守人信息帮好人建信任。"; }
-      if (p.role === "idiot") { return "你是白痴（神职）。白天若被投票放逐，会当场翻牌亮明白痴身份、免于出局并留在场上，但从此【永久失去投票权】。夜里被狼刀或被女巫毒照常死。" + (p.idiotRevealed ? "（你已翻牌，全场都知道你是白痴，你不能再投票了。）" : "可以隐藏，也可赌一手故意被投来自证清白——但翻牌后就没票了，谨慎。"); }
-      if (p.role === "gravekeeper") { const k = graveKnowRef.current[p.name] || []; return "你是守墓人（神职）。每次白天放逐后，你会私下得知【被放逐的那个人是狼还是好人】。已验尸：" + (k.length ? k.map(function (x) { return x.name + "=" + (x.isWolf ? "狼" : "好人"); }).join("、") : "还没有人被放逐过") + "。可用这些确定信息在白天带票、指认或洗清，也可视情况隐藏（一亮身份就容易被狼刀）。"; }
-      return "你是平民，没有夜晚技能，靠逻辑站边找狼。";
-    };
+    const computeWin = function (list) { return wolfWinner(list, cfg.winMode); };
+    const privateFor = function (p, list) { return wolfPrivText(p, list, { seerKnown: seerKnowRef.current[p.name] || [], pot: witchPotRef.current, graveKnown: graveKnowRef.current[p.name] || [] }); };
     const shortLog = function () { return logDataRef.current.filter(function (it) { return it.type === "speech" || it.type === "vote" || it.type === "death" || it.type === "out"; }).slice(-32).map(function (it) { if (it.type === "speech") return it.name + "发言：" + it.text; if (it.type === "vote") return it.name + "投给" + (it.target || "弃票") + "（" + (it.reason || "") + "）"; return it.text; }).join("\n"); };
 
     // ---- 开局 ----
@@ -3233,27 +3282,85 @@
   }
 
   // 连坐的下一题：只出题，不重摆桌（NPC、能力小传都沿用）。把前几题的答案带上防出重复。
-  async function genGuessNext(api, kind, prevAnswers) {
+  //   who：{ name, persona } 由一个人照自己的性子出题时给上；不给就是主持人出
+  // 原创：流传很广的老题，玩的人（和模型）很可能早就知道答案，一问就破
+  const GUESS_ORIGINAL = "\n题要你自己现编：别用网上、书里流传过的经典题和它们的换皮版，在座的人可能早就听过答案；想一个这桌人没见过的。";
+  // 玩家怎么推：只凭桌上亮着的一步步来（给出口，不是禁令）
+  const GUESS_PLAY_FAIR = "你手里只有汤面／类别和桌上已经问出来的答案，顺着这些一步步推；就算觉得像听过的哪道题，也先用问题去验证，问答推到那一步了再猜。";
+  // 问题本身是这个人张嘴问的：TA 的口吻、TA 怎么称呼在场的人、TA 的性子决定 TA 怎么问（急的人直接猜、谨慎的人绕着问），但仍得是一句能用是／不是回答的问题
+  const GUESS_ASK_VOICE = "问题用你自己的嘴问出来：你的口吻、你平时的称呼和口头禅、你的性子决定你怎么问——性子急的可能直接猜，谨慎的会绕着问，爱闹的会顺手损别人一句；但它仍得是一句能用是／不是回答的问题。";
+  async function genGuessNext(api, kind, prevAnswers, who) {
     const avoid = (prevAnswers || []).filter(Boolean).length ? "\n【本场已出过的（别重复、也别出近似的）】\n" + prevAnswers.map(function (x) { return "· " + x; }).join("\n") : "";
     const sys = kind === "haigui"
-      ? AC + "你是「海龟汤」的主持人，出【一道新题】：surface 汤面（公开的诡异／反常情境，2~4 句，留足悬念但信息完整）、truth 汤底（完整真相，逻辑自洽、最好有反转、绝不靠超自然或做梦糊弄）。难度适中。" + avoid + "\n\n【输出】只输出 JSON：{\"surface\":\"\",\"truth\":\"\"}"
-      : AC + "你是「25 个问题」的主持人，心里想【一个新的东西】secret（具体名词，大众化、能靠是否问题逐步逼近），category 给大类提示。" + avoid + "\n\n【输出】只输出 JSON：{\"secret\":\"\",\"category\":\"\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "出下一题。" }], { maxTokens: 10000 });
+      ? AC + "你是「海龟汤」的主持人，出【一道新题】：surface 汤面（公开的诡异／反常情境，2~4 句，留足悬念但信息完整）、truth 汤底（完整真相，逻辑自洽、最好有反转、绝不靠超自然或做梦糊弄）。难度适中。" + GUESS_ORIGINAL + avoid + "\n\n【输出】只输出 JSON：{\"surface\":\"\",\"truth\":\"\"}"
+      : AC + "你是「25 个问题」的主持人，心里想【一个新的东西】secret（具体名词，大众化、能靠是否问题逐步逼近），category 给大类提示。" + GUESS_ORIGINAL.replace("答案；想一个这桌人没见过的", "答案；挑一个不那么一猜就中的") + avoid + "\n\n【输出】只输出 JSON：{\"secret\":\"\",\"category\":\"\"}";
+    const me = who && who.name ? "\n\n这一题由「" + who.name + "」来出，照 TA 这个人的性子、见识和口味出，题目像是 TA 会想出来的那种。\n【" + who.name + " 的人设】" + String(who.persona || "（没写）").slice(0, 1500) : "";
+    const raw = await callRetry(api, sys + me, [{ role: "user", content: "出下一题。" }], { maxTokens: 10000 });
     return extractJSON(raw) || {};
+  }
+
+  // 主持人手里那张底牌、怎么判一个问题：一轮连答（下面 runGuessRound）和一问一答（guessAnswerOne）说的是同一套
+  function guessSecretBlock(kind, ctx) {
+    return kind === "haigui"
+      ? "【汤面·已公开】" + ctx.surface + "\n【汤底·只有你知道】" + ctx.truth
+      : "【你想的东西·只有你知道】" + ctx.secret + "（类别：" + ctx.category + "）";
+  }
+  function guessVerdictRule(kind) {
+    return kind === "haigui"
+      ? "verdict 只能是：是 / 不是 / 不重要 / 接近了。含义：是=符合汤底；不是=不符；不重要=与真相无关；接近了=方向正确且触到关键点。"
+      : "verdict 只能是：是 / 不是 / 不好说。照实回答；实在无法用是否作答才用「不好说」。";
+  }
+  // 主持人答一个人的一个问题（大家轮流问、一次答一个的那种桌用）：回 { verdict, note, solved, reveal }
+  //   history：此前问过的，一行一条「谁：问了什么 → 答」。asker：问的人叫什么。
+  async function guessAnswerOne(api, kind, ctx, question, history, asker, mode) {
+    const K = GUESS_KINDS[kind];
+    const hist = (history || []).length ? history.slice(-20).map(function (q) { return "· " + q; }).join("\n") : "（还没人问过）";
+    const easy = mode === "easy" ? "\n【放水局】该给的提示大方点给。" : "";
+    const solveRule = kind === "haigui"
+      ? "这一问／这句陈述如果已经【实质还原了汤底核心真相】，solved 填 true，reveal 一句话点出真相；否则 solved 填 false。"
+      : "这一问如果就是【直接猜中了那个东西】，solved 填 true，reveal 填那个东西；否则 false。";
+    const sys = AC + "你是「" + K.zh + "」的主持人，掌握真相、只按规则回答是非类问题。\n" + guessSecretBlock(kind, ctx)
+      + "\n\n" + guessVerdictRule(kind) + " note 是≤14 字的补充或引导，可空。" + easy
+      + "\n\n【此前问过的】\n" + hist
+      + "\n\n【" + (asker || "玩家") + " 刚问】" + String(question || "").slice(0, 300)
+      + "\n\n" + solveRule
+      + "\n\n【输出】只输出 JSON：{\"verdict\":\"\",\"note\":\"\",\"solved\":false,\"reveal\":\"\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "答这一问。" }], { maxTokens: 10000 });
+    const out = extractJSON(raw) || {};
+    const v = String(out.verdict || "").trim();
+    const ok = (K.verdicts || "").split(" / ").indexOf(v) >= 0;
+    return { verdict: ok ? v : (kind === "haigui" ? "不重要" : "不好说"), note: String(out.note || "").slice(0, 40), solved: out.solved === true, reveal: String(out.reveal || "").slice(0, 400) };
+  }
+  // 一个玩家想一个问题（只给公开的那一半：汤面／类别和问过的，底牌一个字都不给）：回问题那一句
+  //   who：{ name, persona, skill }
+  async function guessAskOne(api, kind, pub, history, who) {
+    const K = GUESS_KINDS[kind];
+    const hist = (history || []).length ? history.slice(-20).map(function (q) { return "· " + q; }).join("\n") : "（还没人问过）";
+    const sys = gameVoiceRules() + "\n\n你在玩「" + K.zh + "」，你是玩家「" + (who && who.name || "玩家") + "」，不知道谜底，只能问是非类问题。"
+      + "\n【你的人设】" + String((who && who.persona) || "（没写）").slice(0, 1500)
+      + (who && who.skill ? "\n【你玩这种游戏的真实水平】" + who.skill : "")
+      + "\n\n" + (kind === "haigui" ? "【汤面】" + (pub && pub.surface || "") : "【类别】" + (pub && pub.category || ""))
+      + "\n【此前问过的（别重复）】\n" + hist
+      + "\n\n照你的性子和水平问一个新的、有推理价值的问题；有把握也可以直接猜（问「是不是……」）。" + GUESS_PLAY_FAIR + "\n" + GUESS_ASK_VOICE
+      + (who && who.withSay ? "\nsay 是你问完嘴上顺带的那句（冲谁说、得意、嘀咕都行），没想说就留空；你只知道桌上公开的这些，说不出谜底。" : "")
+      + "\n只输出 JSON：{\"question\":\"你的一个是非问题\"" + (who && who.withSay ? ",\"say\":\"可空\"" : "") + "}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "轮到你问了。" }], { maxTokens: 8000 });
+    const j = extractJSON(raw) || {}, q = String(j.question || "").trim().slice(0, 160);
+    // withSay：同一次顺带要一句台词，回 { question, say }；不带就照旧只回问题那一句
+    return who && who.withSay ? { question: q, say: String(j.say || "").trim().slice(0, 120) } : q;
   }
 
   // 一轮：先答用户的问题（若有），再让 AI 各问一个新问题并作答，判断是否有人破题
   async function runGuessRound(api, kind, ctx, userQ, aiSpeakers, history, mode, userName) {
     const K = GUESS_KINDS[kind];
-    const secretBlock = kind === "haigui"
-      ? "【汤面·已公开】" + ctx.surface + "\n【汤底·只有你知道】" + ctx.truth
-      : "【你想的东西·只有你知道】" + ctx.secret + "（类别：" + ctx.category + "）";
-    const verdictRule = kind === "haigui"
-      ? "verdict 只能是：是 / 不是 / 不重要 / 接近了。含义：是=符合汤底；不是=不符；不重要=与真相无关；接近了=方向正确且触到关键点。"
-      : "verdict 只能是：是 / 不是 / 不好说。照实回答；实在无法用是否作答才用「不好说」。";
+    const secretBlock = guessSecretBlock(kind, ctx);
+    const verdictRule = guessVerdictRule(kind);
     const easy = mode === "easy" ? "\n【放水局】AI 玩家别问得太神，留点空间给真人；主持人答题该给的提示大方点给。" : "";
     const hist = history.length ? history.slice(-14).map(function (q) { return "· " + q; }).join("\n") : "（还没人问过）";
-    const who = aiSpeakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）" + voiceBrief(s); }).join("\n");
+    // 每个 AI 玩家带整段人设（不是一行速写）：问题要问得像 TA
+    // withSay：这几位玩家问完还顺带一句台词（同一次调用里，不另花）；单机不带就是原来那一份
+    const talky = aiSpeakers.some(function (s) { return s && s.withSay; });
+    const who = aiSpeakers.map(function (s) { const p = String((s && (s.persona || (s.char && s.char.persona))) || "").replace(/\s+/g, " ").trim(); return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）" + (p ? "\n   人设：" + p.slice(0, aiSpeakers.length > 2 ? 500 : 900) : ""); }).join("\n");
     const solveRule = kind === "haigui"
       ? "若某人的提问 / 陈述已经【实质还原了汤底核心真相】，把 solvedBy 填成 TA 的名字，并在 reveal 里一句话点出真相。否则 solvedBy 留空。"
       : "若某人的问题其实就是【直接猜中了那个东西】（问「它是不是XX」且 XX 正是答案），把 solvedBy 填成 TA 的名字、reveal 填那个东西——【真人玩家" + (userName ? "「" + userName + "」" : "") + "刚问的那条也算】，别只盯着 AI。否则留空。AI 觉得有把握时可以直接猜（问「是不是XX」）。";
@@ -3261,9 +3368,10 @@
       "\n\n" + verdictRule + " note 是≤14 字的补充或引导，可空。" + easy +
       "\n\n【此前问过的（别让 AI 重复）】\n" + hist +
       (userQ ? "\n\n【真人玩家" + (userName ? "「" + userName + "」" : "") + "刚问】" + userQ + " —— 在 userAnswer 里作答。" : "\n\n（这一轮真人没问，userAnswer 给 null）") +
-      "\n\n【接着这些 AI 玩家各问一个「新的、不重复、有推理价值」的问题，并由你逐一作答】按真实水平：强的追问高效精准、直逼要害；弱的更发散或问偏。\n" + who +
+      "\n\n【接着这些 AI 玩家各问一个「新的、不重复、有推理价值」的问题，并由你逐一作答】按真实水平：强的追问高效精准、直逼要害；弱的更发散或问偏。AI 玩家：" + GUESS_PLAY_FAIR.replace(/你/g, "TA") + "每个人的问题照 TA 自己的样子问：" + GUESS_ASK_VOICE.slice(GUESS_ASK_VOICE.indexOf("你的口吻")).replace(/你/g, "TA") + "\n" + who +
       "\n\n" + solveRule +
-      "\n\n【输出】只输出 JSON：{\"userAnswer\":{\"verdict\":\"\",\"note\":\"\"}或null,\"ai\":[{\"name\":\"\",\"question\":\"\",\"verdict\":\"\",\"note\":\"\"}],\"solvedBy\":\"\",\"reveal\":\"\"}";
+      (talky ? "\n\nsay 是这位 AI 玩家问完嘴上顺带的那句（冲谁说、嘀咕、得意都行），没想说就留空；TA 只知道桌上公开的这些，说不出谜底。" : "") +
+      "\n\n【输出】只输出 JSON：{\"userAnswer\":{\"verdict\":\"\",\"note\":\"\"}或null,\"ai\":[{\"name\":\"\",\"question\":\"\",\"verdict\":\"\",\"note\":\"\"" + (talky ? ",\"say\":\"可空\"" : "") + "}],\"solvedBy\":\"\",\"reveal\":\"\"}";
     // 言秋座位的问题TA自己问（只给公开信息，谜底绝不进票）；主持人照常作答（v54.43）
     const cc = await ccCarve(kind, aiSpeakers, {
       turnId: freshCCTurn("guess-ask:"),
@@ -3296,6 +3404,40 @@
 
   // 猜的是不是就是答案：去掉「是不是／是／吗／它／这个」和标点空格再比
   function q25Norm(v) { return String(v == null ? "" : v).toLowerCase().replace(/[\s，。！？!?、,.~～…：:；;"'“”「」『』（）()]/g, "").replace(/^(它|这个|那个|答案)?(是不是|是|就是|会不会是|难道是)/, "").replace(/(吗|嘛|呢|吧|对吧|对不对|是吗)$/, ""); }
+  // 这一句是不是就说中了那个东西（「是不是X」「它是X吗」都算）
+  function q25Hit(secret, q) { const sec = q25Norm(secret), x = q25Norm(q); return !!sec && !!x && (x === sec || (sec.length >= 2 && x.length <= sec.length + 4 && x.indexOf(sec) >= 0)); }
+  // 海龟汤／25 问的桌面部件：谜面卡、一条提问、主持人判词色块、揭晓卡。别处摆同一张桌从 GameShared.guess 拿
+  function GuessPuzzleCard(props) {
+    const t = props.t, left = props.left;
+    return props.kind === "haigui"
+      ? h("div", { "data-wk": "block", style: { background: t.tint + "12", border: "1px solid " + t.tint, borderRadius: 13, padding: "12px 14px", margin: props.margin || "10px 16px 2px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.tint, letterSpacing: 1, marginBottom: 5 } }, "🐢 汤面" + (props.by ? " · " + props.by : "")),
+          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, props.surface || ""))
+      : h("div", { style: { display: "flex", alignItems: "center", gap: 8, margin: props.margin || "10px 16px 2px" } },
+          h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "类别提示：", h("b", { style: { color: t.ink } }, props.category || ""), props.by ? h("span", { style: { color: t.fog } }, " · " + props.by) : null),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: (left != null && left <= 5) ? "#c0553f" : t.tint } }, "剩 " + (left == null ? "∞" : left) + " 问"));
+  }
+  function GuessAskRow(props) {
+    const t = props.t;
+    return h("div", { "data-wk": "gamemsg", "data-kind": "q", "data-me": props.mine ? "1" : "0", style: { display: "flex", gap: 8, margin: "8px 0 2px" } }, props.avatar,
+      h("div", { style: { flex: 1 } },
+        h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, props.name + (props.mine ? "(你)" : "")),
+        props.text ? h("div", { "data-wk": "gamebubble", "data-me": props.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: props.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, props.text) : null, props.tail || null,
+        props.question ? h("div", { "data-wk": "gamebubble", "data-part": "question", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: t.bg2, borderRadius: 10, padding: "7px 11px" } }, props.question) : null));
+  }
+  function GuessVerdict(props) {
+    const t = props.t, c = VERDICT_COLOR[props.verdict] || t.tint;
+    return h("div", { "data-wk": "gameverdict", style: { display: "flex", alignItems: "center", gap: 6, margin: "0 0 6px 36px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
+      h("span", { style: { color: t.fog } }, props.who || "主持人"),
+      h("span", { style: { color: "#fff", background: c, borderRadius: 999, padding: "1px 9px", fontWeight: 700, fontSize: "calc(12px * var(--app-fs, 1))" } }, props.verdict || "…"),
+      props.note ? h("span", { style: { color: t.sub } }, props.note) : null);
+  }
+  function GuessRevealCard(props) {
+    const t = props.t;
+    return h("div", { "data-wk": "block", style: { background: t.bg2, borderRadius: 12, padding: "12px 14px", marginBottom: 12 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.tint, letterSpacing: 1, marginBottom: 4 } }, props.title || (props.kind === "haigui" ? "汤底" : "答案")),
+      h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, props.text || ""));
+  }
   function GuessGame(props) {
     const t = props.t, cfg = props.config, api = props.active, kind = props.kind;
     const K = GUESS_KINDS[kind];
@@ -3385,7 +3527,7 @@
         const r = await runGuessRound(api, kind, ctx, uq || "", speakers, history, cfg.mode, me ? me.name : "");
         // 25 问：猜的就是那个东西，代码自己认，不全听主持人的（群里 2026-11-01：她打「馒头」，主持人回「不是，馒头不是米饭」，答案正是馒头）
         if (kind === "q25" && ctx && ctx.secret) {
-          const hitQ25 = q => { const sec = q25Norm(ctx.secret), x = q25Norm(q); return !!sec && !!x && (x === sec || (sec.length >= 2 && x.length <= sec.length + 4 && x.indexOf(sec) >= 0)); };
+          const hitQ25 = q => q25Hit(ctx.secret, q);
           // 问字数的，代码自己数（2026-11-01：答案「篮球」，主持人说「是三个字」，还判她破题了）
           const ZH_N = { "一": 1, "两": 2, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10 };
           const lenAns = q => { const m = /([一两二三四五六七八九十]|\d+)\s*个字/.exec(String(q || "")); if (!m) return null; const n = ZH_N[m[1]] || Number(m[1]); const real = Array.from(String(ctx.secret).replace(/\s+/g, "")).length;
@@ -3483,13 +3625,7 @@
     }));
 
     // 谜面卡（海龟汤常驻；25问显类别 + 计数）
-    const puzzleCard = kind === "haigui"
-      ? h("div", { "data-wk": "block", style: { background: t.tint + "12", border: "1px solid " + t.tint, borderRadius: 13, padding: "12px 14px", margin: "10px 16px 2px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.tint, letterSpacing: 1, marginBottom: 5 } }, "🐢 汤面"),
-          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, ctx ? ctx.surface : ""))
-      : h("div", { style: { display: "flex", alignItems: "center", gap: 8, margin: "10px 16px 2px" } },
-          h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } }, "类别提示：", h("b", { style: { color: t.ink } }, ctx ? ctx.category : "")),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: (limitLeft != null && limitLeft <= 5) ? "#c0553f" : t.tint } }, "剩 " + (limitLeft == null ? "∞" : limitLeft) + " 问"));
+    const puzzleCard = h(GuessPuzzleCard, { t: t, kind: kind, surface: ctx ? ctx.surface : "", category: ctx ? ctx.category : "", left: limitLeft });
 
     const logView = h("div", { "data-wk": "gamelog", "data-part": "guess", ref: logRef, className: "flex-1 overflow-y-auto", style: { padding: "10px 16px 16px" } },
       log.map(function (it, i) {
@@ -3497,19 +3633,10 @@
         if (it.type === "solve") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", margin: "10px 0", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#3f6d5a" } }, "🎉 " + it.name + (it.isUser ? "(你)" : "") + " 破了题！" + (it.note ? "\n" + it.note : ""));
         if (it.type === "q") {
           const p = pByName(it.name);
-          return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 8, margin: "8px 0 2px" } }, pAvatar(p, 28),
-            h("div", { style: { flex: 1 } },
-              h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-              it.text ? h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.mine ? it.text : gameSaid(it.text, p && p.char).node) : null, it.text && !it.mine ? h(GameVoiceDot, { p: p, text: gameSaid(it.text, p && p.char).speak, k: "gv" + i }) : null,
-              it.question ? h("div", { "data-wk": "gamebubble", "data-part": "question", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, background: t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.question) : null));
+          return h(GuessAskRow, { key: i, t: t, avatar: pAvatar(p, 28), name: it.name, mine: it.mine, question: it.question,
+            text: it.text ? (it.mine ? it.text : gameSaid(it.text, p && p.char).node) : null, tail: it.text && !it.mine ? h(GameVoiceDot, { p: p, text: gameSaid(it.text, p && p.char).speak, k: "gv" + i }) : null });
         }
-        if (it.type === "a") {
-          const c = VERDICT_COLOR[it.verdict] || t.tint;
-          return h("div", { "data-wk": "gameverdict", key: i, style: { display: "flex", alignItems: "center", gap: 6, margin: "0 0 6px 36px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } },
-            h("span", { style: { color: t.fog } }, "主持人"),
-            h("span", { style: { color: "#fff", background: c, borderRadius: 999, padding: "1px 9px", fontWeight: 700, fontSize: "calc(12px * var(--app-fs, 1))" } }, it.verdict || "…"),
-            it.note ? h("span", { style: { color: t.sub } }, transShow(it.note)) : null);
-        }
+        if (it.type === "a") return h(GuessVerdict, { key: i, t: t, verdict: it.verdict, note: it.note ? transShow(it.note) : null });
         if (it.type === "chat") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：", saidOf(it.text, pByName(it.name)));
         return null;
       }));
@@ -3519,9 +3646,7 @@
     if (phase === "result") {
       action = h("div", null,
         h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", color: won ? "#3f6d5a" : t.sub, marginBottom: 6 } }, won ? "🎉 你破题了" : (log.some(function (x) { return x.type === "solve"; }) ? "这局被别人抢先破了" : "揭晓答案")),
-        h("div", { "data-wk": "block", style: { background: t.bg2, borderRadius: 12, padding: "12px 14px", marginBottom: 12 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.tint, letterSpacing: 1, marginBottom: 4 } }, kind === "haigui" ? "汤底" : "答案"),
-          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, reveal || "")),
+        h(GuessRevealCard, { t: t, kind: kind, text: reveal }),
         // 连坐比分：一场三题，谁破的记谁头上
         scores.length ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 10 } },
           scores.map(function (x, i) { return "第" + (i + 1) + "题 " + (x.solver ? (x.isUser ? "你" : x.solver) : "无人"); }).join(" · ")) : null,
@@ -3746,7 +3871,8 @@
     return out;
   }
   // 用户被指到并选了 真话/大冒险：出题人也由 JS 指定，只生成题目
-  async function genTDPrompt(api, choice, asker, hot, mode, memText, plan) {
+  //   target：被指到的不是真人玩家时给上 { name }（题照样只由出题人出）
+  async function genTDPrompt(api, choice, asker, hot, mode, memText, plan, target) {
     const askerName = asker ? asker.name : "大家";
     const spice = hot ? "尺度可暧昧 / 大胆些，什么都可以问，挖出角色最深的欲望。" : "轻松好玩的尺度。";
     if (asker && asker.engineer) {
@@ -3758,11 +3884,14 @@
       if (cc.done && String(cc.done.prompt || "").trim()) return { prompt: String(cc.done.prompt).trim() };
       throw new Error(cc.reason || "本人出题票未送达");
     }
-    const sys = gameVoiceRules() + TD_IC + "\n\n「真心话大冒险」轮到真人玩家了，TA 选了【" + choice + "】，由【" + askerName + "】给 TA 出题。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场）") +
+    const who = target && target.name ? "【" + target.name + "】" : "真人玩家";
+    const sys = gameVoiceRules() + TD_IC + "\n\n「真心话大冒险」轮到" + who + "了，TA 选了【" + choice + "】，由【" + askerName + "】给 TA 出题。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场）") +
       (memText ? "\n\n【之前发生过的】\n" + memText : "") +
       "\n\n【本轮题型主题】" + plan.theme + (plan.avoid ? "\n【跨局最近出过的题（禁止重复或近义改写）】\n" + plan.avoid : "") +
       "\n\n出一道" + (choice === "真心话" ? "真心话问题" : "具体可执行的大冒险动作") + "，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + (mode === "easy" ? "别太为难。" : "") +
-      "\n只输出 JSON：{\"prompt\":\"\"}";
+      (asker && asker.withSay ? "\nsay 是 " + askerName + " 出完题嘴上顺带的那句（起哄、使坏、给 TA 台阶都行），可空。" : "") +
+      (target && target.answerToo ? "\n\n出完题，紧接着由被点到的【" + target.name + "】来回应这一题：" + tdDesc(target, 300) + "\n替 TA 写回应／完成的样子，3~5 句、有现场感，写进 response。" : "") +
+      "\n只输出 JSON：{\"prompt\":\"\"" + (asker && asker.withSay ? ",\"say\":\"\"" : "") + (target && target.answerToo ? ",\"response\":\"\"" : "") + "}";
     let raw = await callRetry(api, sys, [{ role: "user", content: "出题。" }], { maxTokens: 12000 });
     let out = extractJSON(raw) || {};
     if (!tdPromptMatchesChoice(choice, out.prompt)) {
@@ -3774,7 +3903,8 @@
   }
 
   // Lisa 亲自出题后，只让被点到的人回答；主持模型不得改写她的原题。
-  async function genTDAnswerToUserPrompt(api, target, choice, prompt, hot, memText) {
+  //   askerName：出题的不是真人玩家时给上名字
+  async function genTDAnswerToUserPrompt(api, target, choice, prompt, hot, memText, askerName) {
     if (target && target.engineer) {
       const cc = await ccCarve("tod", [target], {
         turnId: freshCCTurn("tod-answer-user-question:"),
@@ -3784,10 +3914,12 @@
       if (cc.done && String(cc.done.response || "").trim()) return String(cc.done.response).trim();
       throw new Error(cc.reason || "本人回答票未送达");
     }
-    const sys = gameVoiceRules() + TD_IC + "\n\n「真心话大冒险」里，真人玩家亲自给【" + target.name + "】出了一道【" + choice + "】：『" + prompt + "』。\n被点到的人设：\n" + tdDesc(target) + (memText ? "\n【之前几轮】\n" + memText : "") + "\n只能演 " + target.name + " 的回应/完成，不许改题、不许替真人说话。写 3~5 句、有现场感。只输出 JSON：{\"response\":\"\"}";
+    const sys = gameVoiceRules() + TD_IC + "\n\n「真心话大冒险」里，" + (askerName ? "【" + askerName + "】" : "真人玩家亲自") + "给【" + target.name + "】出了一道【" + choice + "】：『" + prompt + "』。\n被点到的人设：\n" + tdDesc(target) + (memText ? "\n【之前几轮】\n" + memText : "") + "\n只能演 " + target.name + " 的回应/完成，不许改题、不许替真人说话。写 3~5 句、有现场感。"
+      + (target.withSay ? "say 是 TA 答完嘴上顺带的那句（可空）。只输出 JSON：{\"response\":\"\",\"say\":\"\"}" : "只输出 JSON：{\"response\":\"\"}");
     const raw = await callRetry(api, sys, [{ role: "user", content: "回应她亲自出的题。" }], { maxTokens: 12000 });
     const out = extractJSON(raw) || {};
-    return String(out.response || "").trim();
+    // withSay：顺带要一句台词时回 { response, say }，不带照旧回一串
+    return target.withSay ? { response: String(out.response || "").trim(), say: String(out.say || "").trim().slice(0, 120) } : String(out.response || "").trim();
   }
   // 从整局日志单独保留带时间锚点的原话。普通聊天窗口会滚动，但这些事实不能随轮数消失或被模型改写。
   function tdTemporalFacts(log) {
@@ -3867,6 +3999,38 @@
         h("path", { d: "M37 25.5 L47 29 L47 35 L37 38.5 Z", fill: "#7fa88f", opacity: 0.72 }),
         h("rect", { x: 47, y: 28.6, width: 6, height: 6.8, rx: 2, fill: "#5c8570" }),
         h("rect", { x: 14, y: 27.2, width: 15, height: 3, rx: 1.5, fill: "rgba(255,255,255,.5)" })));
+  }
+  // 真心话大冒险的几块桌面部件：一轮记录卡、转瓶子那一格、真心话／大冒险二选一。别处要摆同一张桌就从 GameShared 拿这几份
+  const TD_CHOICE_COLOR = { "真心话": "#3f6d5a", "大冒险": "#c0553f" };
+  function TDRoundCard(props) {
+    const t = props.t, it = props.it || {};
+    return h("div", { "data-wk": "block", style: { background: it.mine ? (t.tint + "10") : t.bg2, border: "1px solid " + (it.mine ? t.tint + "44" : t.line), borderRadius: 13, padding: "11px 13px", margin: "8px 0" } },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 7 } }, props.avatar || null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, it.name + (it.mine ? "(你)" : "")),
+        h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: TD_CHOICE_COLOR[it.choice] || TD_CHOICE_COLOR["真心话"], borderRadius: 999, padding: "2px 10px" } }, it.choice)),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.55, marginBottom: 6 } }, (it.asker ? it.asker + "：" : "题目："), it.prompt),
+      h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, it.response));
+  }
+  // 转瓶子：瓶子转着，底下跳着名字；name 空就是「…」
+  function TDSpinShow(props) {
+    const t = props.t;
+    return h("div", { "data-wk": "gametdspin", style: { textAlign: "center", padding: "12px 0" } },
+      h("style", null, "@keyframes tdspin{to{transform:rotate(360deg)}}"),
+      h("div", { style: { display: "flex", justifyContent: "center" } }, h(TDBottle, { size: 44, spin: props.spin !== false })),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.tint, marginTop: 6, minHeight: 26 } }, props.name || "…"));
+  }
+  // 日志里「瓶子指向了谁」那一行（by：谁转的，可不给）
+  function TDSpinLine(props) {
+    const t = props.t;
+    return h("div", { "data-wk": "gamelogline", "data-kind": "spin", style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.tint, margin: "12px 0 4px" } }, "— " + (props.by ? props.by + " 转的瓶子，" : "瓶子") + "指向了 " + props.name);
+  }
+  function TDChoose(props) {
+    const t = props.t;
+    return h("div", null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 10 } }, props.label || "轮到你了！选一个："),
+      h("div", { style: { display: "flex", gap: 12 } }, ["真心话", "大冒险"].map(function (c) {
+        return h("button", { key: c, "data-wk": props.wk || undefined, onClick: function () { props.onChoose(c); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: TD_CHOICE_COLOR[c], borderRadius: 13, padding: "13px" } }, c);
+      })));
   }
   function TruthDareGame(props) {
     const t = props.t, cfg = props.config, api = props.active;
@@ -4093,11 +4257,10 @@
       return h(Seat, { key: p.key, t: t, p: p, avatar: pAvatar(p, 36), ring: isTgt, onClick: function () { setDetail(p); } });
     }));
 
-    const choiceColor = function (c) { return c === "大冒险" ? "#c0553f" : "#3f6d5a"; };
     const logView = h("div", { "data-wk": "gamelog", "data-part": "td", ref: logRef, className: "flex-1 overflow-y-auto", style: { padding: "12px 16px 16px" } },
       log.map(function (it, i) {
         if (it.type === "info") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, margin: "6px 0", textAlign: "center" } }, it.text);
-        if (it.type === "spin") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.tint, margin: "12px 0 4px" } }, "— 瓶子指向了 " + it.name + (it.isUser ? "(你)" : ""));
+        if (it.type === "spin") return h(TDSpinLine, { key: i, t: t, name: it.name + (it.isUser ? "(你)" : "") });
         if (it.type === "react") { const p = pByName(it.name); return h("div", { "data-wk": "gamemsg", "data-kind": it.type, key: i, style: { display: "flex", gap: 7, margin: "4px 0 4px 14px", alignItems: "flex-start" } }, pAvatar(p, 22), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.5 } }, h("b", { style: { color: t.fog, fontWeight: 400 } }, it.name + "："), it.text)); }
         if (it.type === "chat") { const p = pByName(it.name); return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 7, margin: "5px 0", alignItems: "flex-start", flexDirection: it.mine ? "row-reverse" : "row" } }, pAvatar(p, 24),
           h("div", { style: { maxWidth: "78%" } },
@@ -4111,29 +4274,14 @@
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, it.name + (it.isUser ? "(你)" : ""))),
             it.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, textAlign: "center" } }, saidOf(it.reason, p)) : null);
         }
-        if (it.type === "td") {
-          const p = pByName(it.name);
-          return h("div", { "data-wk": "block", key: i, style: { background: it.mine ? (t.tint + "10") : t.bg2, border: "1px solid " + (it.mine ? t.tint + "44" : t.line), borderRadius: 13, padding: "11px 13px", margin: "8px 0" } },
-            h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 7 } }, pAvatar(p, 26),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, it.name + (it.mine ? "(你)" : "")),
-              h("div", { "data-wk": "block", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: choiceColor(it.choice), borderRadius: 999, padding: "2px 10px" } }, it.choice)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.55, marginBottom: 6 } }, (it.asker ? it.asker + "：" : "题目："), it.prompt),
-            h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.75, whiteSpace: "pre-line" } }, it.response));
-        }
+        if (it.type === "td") { const p = pByName(it.name); return h(TDRoundCard, { key: i, t: t, it: it, avatar: pAvatar(p, 26) }); }
         return null;
       }));
 
     let action;
-    if (phase === "spinning") action = h("div", { style: { textAlign: "center", padding: "12px 0" } },
-      h("style", null, "@keyframes tdspin{to{transform:rotate(360deg)}}"),
-      h("div", { style: { display: "flex", justifyContent: "center" } }, h(TDBottle, { size: 44, spin: true })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.tint, marginTop: 6, minHeight: 26 } }, spinName || "…"));
+    if (phase === "spinning") action = h(TDSpinShow, { t: t, name: spinName });
     else if (busy && phase !== "userAnswer" && phase !== "userAsk") action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, padding: "12px 0" } }, "…在起哄");
-    else if (phase === "userChoose") action = h("div", null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 10 } }, "轮到你了！选一个："),
-      h("div", { style: { display: "flex", gap: 12 } },
-        h("button", { onClick: function () { userChoose("真心话"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: "#3f6d5a", borderRadius: 13, padding: "13px" } }, "真心话"),
-        h("button", { onClick: function () { userChoose("大冒险"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 700, color: "#fff", background: "#c0553f", borderRadius: 13, padding: "13px" } }, "大冒险")));
+    else if (phase === "userChoose") action = h(TDChoose, { t: t, onChoose: userChoose });
     else if (phase === "userAsk") action = h("div", null,
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, textAlign: "center", marginBottom: 9 } }, "轮到你给 " + (pendingAsk && pendingAsk.target ? pendingAsk.target.name : "TA") + " 出一道【" + (pendingAsk && pendingAsk.plan ? pendingAsk.plan.choice : "题") + "】"),
       h("input", { "data-wk": "gameinput", "data-part": "ask", value: askInput, autoFocus: true, disabled: busy, onChange: function (e) { setAskInput(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserAsk(); }, placeholder: pendingAsk && pendingAsk.plan && pendingAsk.plan.choice === "真心话" ? "你想亲自问什么？" : "你想让 TA 当场做什么？", style: { width: "100%", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", padding: "11px 14px", marginBottom: 8, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
@@ -4259,6 +4407,28 @@
   function monoNpcDecision(p,tile,tileIndex,ps,os,ls,moves,kind){const st=monoStyle(p),cost=kind==="upgrade"?Math.floor(tile.price/2):tile.price,after=p.cash-cost,g=monoGroupProgress(p,tile,os),worths=(ps||[]).filter(function(x){return !x.bankrupt;}).map(function(x){return monoNetWorth(x,os,ls);}),avg=worths.length?worths.reduce(function(a,b){return a+b;},0)/worths.length:0;let score=st.risk*.9+(after-st.reserve)/360+(tile.rent/tile.price-.16)*5+(monoNetWorth(p,os,ls)<avg? .25:-.08);if(kind==="buy"){score+=g.own*.72+(g.completes?2.1:0);}else{score+=g.completes?1.2:.15;score-=(ls[tileIndex]||0)*.32;}score+=(monoHash(p.key+":"+tileIndex+":"+moves+":"+kind)-.5)*.7;return{yes:after>=Math.max(80,st.reserve*.55)&&score>0,score:score,reserve:st.reserve};}
   function monoAuctionCap(p,tile,tileIndex,os){const st=monoStyle(p),g=monoGroupProgress(p,tile,os),floor=Math.ceil(tile.price*.55/10)*10,premium=1+st.risk*.08+g.own*.09+(g.completes?.16:0),cap=Math.floor(Math.min(p.cash-Math.max(90,st.reserve*.7),tile.price*premium)/10)*10;return Math.max(0,cap>=floor?cap:0);}
   function monoAuctionPlan(ps,os,tileIndex,excludedKey){const tile=MONO_BOARD[tileIndex],floor=Math.ceil(tile.price*.55/10)*10,step=Math.max(20,Math.ceil(tile.price*.05/10)*10),bidders=(ps||[]).map(function(p,i){return(!p.bankrupt&&p.key!==excludedKey)?{p:p,cap:p.isUser?Math.floor((p.cash||0)/10)*10:monoAuctionCap(p,tile,tileIndex,os),seat:i}:null;}).filter(function(x){return x&&x.cap>=floor;}).sort(function(a,b){return b.cap-a.cap||a.seat-b.seat;});if(!bidders.length)return{floor:floor,step:step,bidders:[],winner:null,bid:0};const winner=bidders[0],second=bidders[1],bid=second?Math.min(winner.cap,Math.max(floor,second.cap+step)):floor;return{floor:floor,step:step,bidders:bidders,winner:winner.p,bid:bid};}
+  // 一手怎么走、落到格子上怎么结算：单机那一桌和别处摆同一张桌都走这几条，钱和产权只在这里动
+  function monoBankrupt(ps,idx,os,reason){if(ps[idx].cash>=0)return null;ps[idx].bankrupt=true;ps[idx].alive=false;Object.keys(os).forEach(function(k){if(os[k]===ps[idx].key)delete os[k];});return ps[idx].name+"付不起钱，宣布破产，名下土地回到银行"+(reason?"（"+reason+"）":"")+"。";}
+  // 掷两颗骰子往前走（过起点领 $200）：回 { d1, d2, roll, extra(双骰再走一手), say }
+  function monoRoll(p,rnd){const r=rnd||Math.random,d1=1+Math.floor(r()*6),d2=1+Math.floor(r()*6),roll=d1+d2,extra=d1===d2,mv=monoMove(p.pos,roll);p.pos=mv.pos;if(mv.passed)p.cash+=200*mv.passed;const tile=MONO_BOARD[p.pos];return{d1:d1,d2:d2,roll:roll,extra:extra,say:p.name+" 掷出 "+d1+" + "+d2+" = "+roll+(extra?"（双骰）":"")+"，走到【"+tile.name+"】"+(mv.passed?"，经过起点领 $"+(200*mv.passed):"")+"。"};}
+  // 落地结算：租金、机会、税、奖励、看守所、城际线、交易所。空地回 "buy"、自己成组能升级的地回 "upgrade"（由坐这个位子的人拿主意），别的回 null
+  function monoLand(ps,os,lv,turn,ls,eventParts,rnd){const r=rnd||Math.random,p=ps[turn],tile=MONO_BOARD[p.pos];
+      if(tile.type==="property") {const ownerKey=os[p.pos]; if(!ownerKey)return "buy";
+        if(ownerKey!==p.key){const oi=ps.findIndex(function(x){return x.key===ownerKey;}), owner=ps[oi],rent=monoRent(p.pos,ownerKey,os,lv);if(owner&&!owner.bankrupt){p.cash-=rent;owner.cash+=rent;ls.push({type:"event",say:p.name+" 向 "+owner.name+" 支付 "+tile.name+" 租金 $"+rent+"。"});eventParts.push(p.name+"踩进"+owner.name+"的"+tile.name+"并付租$"+rent);const bk=monoBankrupt(ps,turn,os,"欠 "+owner.name+" 租金");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}return null;}
+        if(monoOwnsGroup(p.key,tile.group,os)&&(lv[p.pos]||0)<3)return "upgrade";ls.push({type:"sys",say:"这里是 "+p.name+" 自己的地，巡视一圈。"});return null;}
+      else if(tile.type==="chance"){const c=MONO_CHANCE[Math.floor(r()*MONO_CHANCE.length)];p.cash+=c.amount;ls.push({type:"event",say:"🎴 "+c.text+"："+(c.amount>=0?"+":"")+"$"+c.amount+"。"});eventParts.push(p.name+"抽到机会："+c.text+(c.amount>=0?"赚":"花")+"$"+Math.abs(c.amount));const bk=monoBankrupt(ps,turn,os,"机会事件");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
+      else if(tile.type==="tax"){p.cash-=tile.amount;ls.push({type:"event",say:p.name+" 支付 "+tile.name+" $"+tile.amount+"。"});eventParts.push(p.name+"被收"+tile.name+"$"+tile.amount);const bk=monoBankrupt(ps,turn,os,tile.name);if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
+      else if(tile.type==="bonus"){p.cash+=tile.amount;ls.push({type:"event",say:p.name+" 在 "+tile.name+" 收到城市活动奖励 $"+tile.amount+"。"});eventParts.push(p.name+"在"+tile.name+"得到$"+tile.amount);}
+      else if(tile.type==="gotojail"){p.pos=10;p.jailed=1;ls.push({type:"bad",say:"🚓 "+p.name+" 被送去看守所，下一手暂停行动。"});eventParts.push(p.name+"被送进看守所");}
+      else if(tile.type==="station"){const from=p.pos,to=tile.pair,passed=to<from;p.pos=to;if(passed)p.cash+=200;ls.push({type:"event",say:"🚇 "+p.name+" 搭城际线直达 "+MONO_BOARD[to].name+(passed?"，途中经过起点领 $200":"")+"。"});eventParts.push(p.name+"从"+tile.name+"搭车到"+MONO_BOARD[to].name);}
+      else if(tile.type==="market"){const swing=r()<.5?-120:160;p.cash+=swing;ls.push({type:"event",say:"📈 "+p.name+" 在交易所"+(swing>0?"押对行情赚了":"追高被套亏了")+" $"+Math.abs(swing)+"。"});eventParts.push(p.name+"在交易所"+(swing>0?"赚":"亏")+"$"+Math.abs(swing));const bk=monoBankrupt(ps,turn,os,"交易所亏损");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
+      return null;}
+  function monoBuy(p,os,ls,eventParts){const tile=MONO_BOARD[p.pos];p.cash-=tile.price;os[p.pos]=p.key;ls.push({type:"event",say:p.name+" 用 $"+tile.price+" 买下了 "+tile.name+"。"});eventParts.push(p.name+"买下"+tile.name);}
+  function monoUpgrade(p,lv,ls,eventParts){const tile=MONO_BOARD[p.pos],cost=Math.floor(tile.price/2);p.cash-=cost;lv[p.pos]=(lv[p.pos]||0)+1;ls.push({type:"event",say:p.name+" 给 "+tile.name+" 升到 "+lv[p.pos]+" 级，花费 $"+cost+"。"});eventParts.push(p.name+"升级"+tile.name);}
+  // 竞价落槌：出价最高的那位照 plan.bid 付钱拿地
+  function monoSettleAuction(plan,os,tileIndex,ls,eventParts){const tile=MONO_BOARD[tileIndex],win=plan.winner;plan.bidders.slice().reverse().forEach(function(x){if(x.p.key!==win.key)ls.push({type:"sys",say:x.p.name+" 跟到 $"+Math.min(x.cap,plan.bid-plan.step)+" 后退出竞价。"});});win.cash-=plan.bid;os[tileIndex]=win.key;ls.push({type:"event",say:"🔨 "+win.name+" 最终以 $"+plan.bid+" 拍下 "+tile.name+"。"});eventParts.push(win.name+"经过多轮竞价拍下"+tile.name+"，成交$"+plan.bid);}
+  // 这一局完了没有：只剩一家没破产、或者走满了手数，就按总资产排名次；没完回 null
+  function monoRanking(ps,os,ls,moves){const alive=ps.filter(function(p){return !p.bankrupt;});if(alive.length<=1||moves>=monoMaxMoves(ps.length))return ps.slice().sort(function(a,b){return monoNetWorth(b,os,ls)-monoNetWorth(a,os,ls);});return null;}
   function hydMonoPlayers(saved, props, t) { return (saved || []).map(function (s) { let char = null; if (s.isUser) { const pf=props.profile||{}; char={name:pf.name||"你",avatarImage:pf.avatarImage,color:pf.color||t.tint}; } else if (!s.isNpc) char=(props.characters||[]).find(function(c){return c.id===s.key;})||null; const engineer=!s.isUser&&!s.isNpc&&!!(props.config&&props.config.ccSeat!==false&&props.isEngineer&&props.isEngineer(s.key)); return Object.assign({},s,{char:char,alive:!s.bankrupt,engineer:engineer||!!s.engineer}); }); }
   function monoCleanLogs(logs) { const oldRule=/每人带着 \$1200|45 回合|28 格城市棋盘/;const kept=(logs||[]).filter(function(x){return !oldRule.test(String(x&&x.say||""));});return kept.length===((logs||[]).length)?kept:[{type:"sys",say:"棋盘已升级为经典 40 格；每人约 22 手，旧局资金和产权均已保留。"}].concat(kept); }
   function monoMigrateSave(sv) { if(!sv)return sv;if(sv.boardVersion===3)return Object.assign({},sv,{logs:monoCleanLogs(sv.logs)});const names=sv.boardVersion===2?MONO_V2_NAMES:MONO_LEGACY_NAMES,out=Object.assign({},sv,{boardVersion:3,owners:{},levels:{}}),find=function(oldIndex){const nm=names[oldIndex]||"起点";if(nm==="休息站")return 20;if(nm==="交易所")return 28;const hits=[];MONO_BOARD.forEach(function(x,i){if(x.name===nm)hits.push(i);});return hits[0]!=null?hits[0]:Math.round((oldIndex||0)*39/(names.length-1));};Object.keys(sv.owners||{}).forEach(function(k){out.owners[find(+k)]=sv.owners[k];});Object.keys(sv.levels||{}).forEach(function(k){out.levels[find(+k)]=sv.levels[k];});out.players=(sv.players||[]).map(function(p){return Object.assign({},p,{pos:find(p.pos||0)});});out.logs=monoCleanLogs(sv.logs);return out; }
@@ -4282,6 +4452,18 @@
     if(cc.rest.length){const raw=await callRetry(api,sys+ccPreface(cc,"说过自己那句了（也可能选择沉默）"),[{role:"user",content:"让牌桌对这件事起反应。"}],{maxTokens:9800}); const p=extractJSON(raw); talks=p&&Array.isArray(p.talks)?p.talks:[];}
     if(cc.seat&&cc.done&&Array.isArray(cc.done.lines))cc.done.lines.slice(0,2).forEach(function(line){const say=String(line||"").trim();if(say)talks.push({name:cc.seat.name,say:say.slice(0,80)});});
     return talks;
+  }
+
+  // 大富翁那块棋盘和底下那排人（别处摆同一张桌从 GameShared.mono 拿）
+  //   MonoBoard：players、owners（格子→谁的 key）、levels、curPos（轮到的那位站在哪格，描深）、onTile(i)（点格子；不给就不能点）、center（中间那一块，各处自己画）、rowH（每格高，默认 30）
+  function MonoBoard(props) {
+    const t = props.t, pl = props.players || [];
+    return h("div",{ "data-wk": "gamemonoboard", style:{display:"grid",gridTemplateColumns:"repeat(11,minmax(0,1fr))",gridTemplateRows:"repeat(11,"+(props.rowH||30)+"px)",gap:2,padding:"4px 7px",flexShrink:0}},props.center||null,MONO_BOARD.map(function(tile,i){const here=pl.filter(function(p){return !p.bankrupt&&p.pos===i;}),own=props.owners[i],owner=pl.find(function(p){return p.key===own;}),lv=(props.levels||{})[i]||0,pos=monoGridPos(i);return h("button",{key:i,onClick:props.onTile?function(){props.onTile(i);}:undefined,title:tile.name+(tile.price?" $"+tile.price:""),style:Object.assign({},pos,{borderRadius:5,padding:"2px 1px",background:tile.type==="property"?(tile.color+"35"):t.bg2,border:"1px solid "+(i===props.curPos?t.tint:t.line),textAlign:"center",overflow:"hidden",minWidth:0})},h("div",{style:{fontFamily:F_BODY,fontSize:7.5,lineHeight:1.08,color:t.sub,whiteSpace:"normal",wordBreak:"break-all",height:17,overflow:"hidden"}},tile.icon||"▪",tile.name),h("div",{style:{fontSize:6.5,color:t.fog,whiteSpace:"nowrap",overflow:"hidden"}},tile.price?(owner?(owner.name.slice(0,2)+(lv?" L"+lv:"")):("$"+tile.price)):(tile.type==="station"?"直达":"")),h("div",{style:{height:9,display:"flex",alignItems:"center",justifyContent:"center",gap:1}},here.map(function(p){return h("span",{key:p.key,title:p.name,style:{display:"inline-block",width:7,height:7,borderRadius:"50%",background:monoTokenColor(p,pl),border:"1px solid rgba(255,255,255,.9)",boxShadow:"0 0 0 1px rgba(0,0,0,.18)"}});})));}));
+  }
+  //   MonoRoster：players、turn、owners、avatar(p, size)（画头像）、youTag（真人后面挂的那两个字，默认「(你)」）
+  function MonoRoster(props) {
+    const t = props.t, pl = props.players || [];
+    return h("div",{ "data-wk": "gameroster", "data-part": "monopoly", style:{display:"flex",gap:7,overflowX:"auto",padding:"4px 12px 8px",flexShrink:0,minHeight:55}},pl.map(function(p,i){const pc=monoTokenColor(p,pl);return h("div",{key:p.key,style:{minWidth:106,padding:"7px",borderRadius:10,background:i===props.turn&&!p.bankrupt?pc+"18":t.bg2,border:(i===props.turn?"2px solid "+pc:"1px solid "+t.line),boxShadow:i===props.turn&&!p.bankrupt?"0 4px 10px rgba(20,16,10,.16)":"0 1px 4px rgba(20,16,10,.07)",transform:i===props.turn&&!p.bankrupt?"translateY(-2px)":"none",opacity:p.bankrupt?.45:1}},h("div",{style:{display:"flex",alignItems:"center",gap:5}},h("span",{title:"棋子颜色",style:{width:9,height:9,borderRadius:"50%",background:pc,boxShadow:"0 0 0 1px rgba(0,0,0,.15)",flexShrink:0}}),(props.avatar?props.avatar(p,25):null),h("div",{style:{fontFamily:F_BODY,fontSize:11.5,color:t.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},p.name+(p.isUser?(props.youTag==null?"(你)":props.youTag):""))),h("div",{style:{fontFamily:"monospace",fontSize:10.5,color:t.sub,marginTop:4}},p.bankrupt?"已破产":"$"+p.cash+" · 地"+Object.keys(props.owners||{}).filter(function(k){return props.owners[k]===p.key;}).length+(p.jailed?" · 关押":"")));}));
   }
 
   // 收购谈判：模型只出【接受 / 拒绝 / 还一个价】和一句话，钱和地契的变动全在本地规则里走。
@@ -4334,19 +4516,13 @@
     function addLogs(xs){setLogs(function(old){return old.concat(xs).slice(-80);});}
     async function react(ps,os,event,force){if(event)interactionQueue.current.push(event);if(!force&&!monoShouldFlush(interactionQueue.current.length,event,false))return;const batch=interactionQueue.current.splice(0,4);if(!batch.length)return;try{const recent=logs.slice(-8).map(function(x){return (x.name?x.name+"：":"")+x.say;}).join("｜"),bundle=batch.map(function(x,i){return (i+1)+". "+x;}).join("\n"); const ts=await Promise.race([monoTalk(api,ps,"以下是连续发生的 "+batch.length+" 次行动，请让发言分别接住其中值得回应的节点：\n"+bundle,standings(ps,os),recent),new Promise(function(_,no){setTimeout(function(){no(new Error("接话超时"));},50000);})]); const valid={};ps.forEach(function(p){valid[p.name]=p;}); addLogs(ts.filter(function(x){return x&&valid[x.name]&&!valid[x.name].isUser;}).map(function(x){return {type:"talk",name:x.name,say:String(x.say||"").slice(0,200)};}));setTalkMiss(null);}catch(e){setTalkMiss({batch:batch});}
     }
-    function finishIfNeeded(ps,os,ls,nextMoves){const alive=ps.filter(function(p){return !p.bankrupt;}); if(alive.length<=1||nextMoves>=monoMaxMoves(ps.length)){const ranked=ps.slice().sort(function(a,b){return monoNetWorth(b,os,ls)-monoNetWorth(a,os,ls);}); setWinner(ranked[0]);setPhase("result");clearGameSave("monopoly");return true;} return false;}
+    function finishIfNeeded(ps,os,ls,nextMoves){const ranked=monoRanking(ps,os,ls,nextMoves); if(ranked){ setWinner(ranked[0]);setPhase("result");clearGameSave("monopoly");return true;} return false;}
     async function finalize(ps,os,ls,event,eventLogs,extra){setPlayers(ps);setOwners(os);setLevels(ls);const nm=moves+1;setMoves(nm);addLogs(eventLogs);if(finishIfNeeded(ps,os,ls,nm)){interactionQueue.current=[];setBusy(false);return;}const next=extra&&!ps[turn].bankrupt?turn:monoAdvance(ps,turn);setTurn(next);if(event){const beforeUser=ps[next]&&ps[next].isUser;await react(ps,os,event,monoShouldFlush(interactionQueue.current.length+1,event,beforeUser));}setBusy(false);}
-    function bankruptIfNeeded(ps,idx,os,reason){if(ps[idx].cash>=0)return null;ps[idx].bankrupt=true;ps[idx].alive=false;Object.keys(os).forEach(function(k){if(os[k]===ps[idx].key)delete os[k];});return ps[idx].name+"付不起钱，宣布破产，名下土地回到银行"+(reason?"（"+reason+"）":"")+"。";}
-    function runAuction(ps,os,tileIndex,excludedKey,ls,eventParts,lv,extra){const tile=MONO_BOARD[tileIndex],plan=monoAuctionPlan(ps,os,tileIndex,excludedKey);if(!plan.bidders.length){ls.push({type:"sys",say:tile.name+" 流拍，暂时留在银行。"});return null;}const userBid=plan.bidders.find(function(x){return x.p.isUser&&cfg.mode!=="spectate";});ls.push({type:"event",say:"🔨 "+tile.name+" 进入公开竞价，起拍价 $"+plan.floor+"；"+plan.bidders.map(function(x){return x.p.name;}).join("、")+" 举牌。"});if(userBid){return{kind:"auction",tile:tileIndex,ps:ps,os:os,lv:lv,extra:extra,ask:plan.floor,step:plan.step,activeKeys:plan.bidders.map(function(x){return x.p.key;}),caps:Object.fromEntries(plan.bidders.map(function(x){return[x.p.key,x.cap];})),auctionEvents:eventParts.slice()};}const win=plan.winner;plan.bidders.slice().reverse().forEach(function(x){if(x.p.key!==win.key)ls.push({type:"sys",say:x.p.name+" 跟到 $"+Math.min(x.cap,plan.bid-plan.step)+" 后退出竞价。"});});win.cash-=plan.bid;os[tileIndex]=win.key;ls.push({type:"event",say:"🔨 "+win.name+" 最终以 $"+plan.bid+" 拍下 "+tile.name+"。"});eventParts.push(win.name+"经过多轮竞价拍下"+tile.name+"，成交$"+plan.bid);return null;}
-    async function playTurn(){if(busy||phase!=="play"||pending)return;setBusy(true);const ps=players.map(function(p){return Object.assign({},p);}), os=Object.assign({},owners), lv=Object.assign({},levels), p=ps[turn];if(!p||p.bankrupt){setTurn(monoAdvance(ps,turn));setBusy(false);return;}if(p.jailed){p.jailed=0;await finalize(ps,os,lv,p.name+"在看守所里错过一手",[{type:"bad",say:"🔒 "+p.name+" 在看守所待了一手，今天不能掷骰子。"}],false);return;}const d1=1+Math.floor(Math.random()*6),d2=1+Math.floor(Math.random()*6),roll=d1+d2,extra=d1===d2,mv=monoMove(p.pos,roll);p.pos=mv.pos;if(mv.passed)p.cash+=200*mv.passed;const tile=MONO_BOARD[p.pos], base=p.name+" 掷出 "+d1+" + "+d2+" = "+roll+(extra?"（双骰）":"")+"，走到【"+tile.name+"】"+(mv.passed?"，经过起点领 $"+(200*mv.passed):"")+"。";const ls=[{type:"move",name:p.name,say:base}], eventParts=[];
-      if(tile.type==="property") {const ownerKey=os[p.pos]; if(!ownerKey){if(p.isUser&&cfg.mode!=="spectate"){setPlayers(ps);setOwners(os);setLevels(lv);addLogs(ls);setPending({kind:"buy",tile:p.pos,ps:ps,os:os,lv:lv,extra:extra});setBusy(false);return;}const choice=monoNpcDecision(p,tile,p.pos,ps,os,lv,moves,"buy");if(choice.yes){p.cash-=tile.price;os[p.pos]=p.key;ls.push({type:"event",say:p.name+" 用 $"+tile.price+" 买下了 "+tile.name+"。"});eventParts.push(p.name+"买下"+tile.name);}else{ls.push({type:"sys",say:p.name+" 衡量现金和地段后放弃 "+tile.name+"，银行随即开拍。"});const aq=runAuction(ps,os,p.pos,p.key,ls,eventParts,lv,extra);if(aq){setPlayers(ps);setOwners(os);setLevels(lv);addLogs(ls);setPending(aq);setBusy(false);return;}}}
-        else if(ownerKey!==p.key){const oi=ps.findIndex(function(x){return x.key===ownerKey;}), owner=ps[oi],rent=monoRent(p.pos,ownerKey,os,lv);if(owner&&!owner.bankrupt){p.cash-=rent;owner.cash+=rent;ls.push({type:"event",say:p.name+" 向 "+owner.name+" 支付 "+tile.name+" 租金 $"+rent+"。"});eventParts.push(p.name+"踩进"+owner.name+"的"+tile.name+"并付租$"+rent);const bk=bankruptIfNeeded(ps,turn,os,"欠 "+owner.name+" 租金");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}}else {const cost=Math.floor(tile.price/2),eligible=monoOwnsGroup(p.key,tile.group,os)&&(lv[p.pos]||0)<3,choice=eligible?monoNpcDecision(p,tile,p.pos,ps,os,lv,moves,"upgrade"):{yes:false};if(eligible&&p.isUser&&cfg.mode!=="spectate"){setPlayers(ps);setOwners(os);setLevels(lv);addLogs(ls);setPending({kind:"upgrade",tile:p.pos,ps:ps,os:os,lv:lv,extra:extra});setBusy(false);return;}if(eligible&&!p.isUser&&choice.yes){p.cash-=cost;lv[p.pos]=(lv[p.pos]||0)+1;ls.push({type:"event",say:p.name+" 给 "+tile.name+" 升到 "+lv[p.pos]+" 级，花费 $"+cost+"。"});eventParts.push(p.name+"升级"+tile.name);}else ls.push({type:"sys",say:"这里是 "+p.name+" 自己的地，巡视一圈。"});}}
-      else if(tile.type==="chance"){const c=MONO_CHANCE[Math.floor(Math.random()*MONO_CHANCE.length)];p.cash+=c.amount;ls.push({type:"event",say:"🎴 "+c.text+"："+(c.amount>=0?"+":"")+"$"+c.amount+"。"});eventParts.push(p.name+"抽到机会："+c.text+(c.amount>=0?"赚":"花")+"$"+Math.abs(c.amount));const bk=bankruptIfNeeded(ps,turn,os,"机会事件");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
-      else if(tile.type==="tax"){p.cash-=tile.amount;ls.push({type:"event",say:p.name+" 支付 "+tile.name+" $"+tile.amount+"。"});eventParts.push(p.name+"被收"+tile.name+"$"+tile.amount);const bk=bankruptIfNeeded(ps,turn,os,tile.name);if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
-      else if(tile.type==="bonus"){p.cash+=tile.amount;ls.push({type:"event",say:p.name+" 在 "+tile.name+" 收到城市活动奖励 $"+tile.amount+"。"});eventParts.push(p.name+"在"+tile.name+"得到$"+tile.amount);}
-      else if(tile.type==="gotojail"){p.pos=10;p.jailed=1;ls.push({type:"bad",say:"🚓 "+p.name+" 被送去看守所，下一手暂停行动。"});eventParts.push(p.name+"被送进看守所");}
-      else if(tile.type==="station"){const from=p.pos,to=tile.pair,passed=to<from;p.pos=to;if(passed)p.cash+=200;ls.push({type:"event",say:"🚇 "+p.name+" 搭城际线直达 "+MONO_BOARD[to].name+(passed?"，途中经过起点领 $200":"")+"。"});eventParts.push(p.name+"从"+tile.name+"搭车到"+MONO_BOARD[to].name);}
-      else if(tile.type==="market"){const swing=Math.random()<.5?-120:160;p.cash+=swing;ls.push({type:"event",say:"📈 "+p.name+" 在交易所"+(swing>0?"押对行情赚了":"追高被套亏了")+" $"+Math.abs(swing)+"。"});eventParts.push(p.name+"在交易所"+(swing>0?"赚":"亏")+"$"+Math.abs(swing));const bk=bankruptIfNeeded(ps,turn,os,"交易所亏损");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
+    const bankruptIfNeeded=monoBankrupt;
+    function runAuction(ps,os,tileIndex,excludedKey,ls,eventParts,lv,extra){const tile=MONO_BOARD[tileIndex],plan=monoAuctionPlan(ps,os,tileIndex,excludedKey);if(!plan.bidders.length){ls.push({type:"sys",say:tile.name+" 流拍，暂时留在银行。"});return null;}const userBid=plan.bidders.find(function(x){return x.p.isUser&&cfg.mode!=="spectate";});ls.push({type:"event",say:"🔨 "+tile.name+" 进入公开竞价，起拍价 $"+plan.floor+"；"+plan.bidders.map(function(x){return x.p.name;}).join("、")+" 举牌。"});if(userBid){return{kind:"auction",tile:tileIndex,ps:ps,os:os,lv:lv,extra:extra,ask:plan.floor,step:plan.step,activeKeys:plan.bidders.map(function(x){return x.p.key;}),caps:Object.fromEntries(plan.bidders.map(function(x){return[x.p.key,x.cap];})),auctionEvents:eventParts.slice()};}monoSettleAuction(plan,os,tileIndex,ls,eventParts);return null;}
+    async function playTurn(){if(busy||phase!=="play"||pending)return;setBusy(true);const ps=players.map(function(p){return Object.assign({},p);}), os=Object.assign({},owners), lv=Object.assign({},levels), p=ps[turn];if(!p||p.bankrupt){setTurn(monoAdvance(ps,turn));setBusy(false);return;}if(p.jailed){p.jailed=0;await finalize(ps,os,lv,p.name+"在看守所里错过一手",[{type:"bad",say:"🔒 "+p.name+" 在看守所待了一手，今天不能掷骰子。"}],false);return;}const rl=monoRoll(p),extra=rl.extra,tile=MONO_BOARD[p.pos];const ls=[{type:"move",name:p.name,say:rl.say}], eventParts=[];const need=monoLand(ps,os,lv,turn,ls,eventParts);
+      if(need==="buy"){if(p.isUser&&cfg.mode!=="spectate"){setPlayers(ps);setOwners(os);setLevels(lv);addLogs(ls);setPending({kind:"buy",tile:p.pos,ps:ps,os:os,lv:lv,extra:extra});setBusy(false);return;}const choice=monoNpcDecision(p,tile,p.pos,ps,os,lv,moves,"buy");if(choice.yes)monoBuy(p,os,ls,eventParts);else{ls.push({type:"sys",say:p.name+" 衡量现金和地段后放弃 "+tile.name+"，银行随即开拍。"});const aq=runAuction(ps,os,p.pos,p.key,ls,eventParts,lv,extra);if(aq){setPlayers(ps);setOwners(os);setLevels(lv);addLogs(ls);setPending(aq);setBusy(false);return;}}}
+      else if(need==="upgrade"){const choice=monoNpcDecision(p,tile,p.pos,ps,os,lv,moves,"upgrade");if(p.isUser&&cfg.mode!=="spectate"){setPlayers(ps);setOwners(os);setLevels(lv);addLogs(ls);setPending({kind:"upgrade",tile:p.pos,ps:ps,os:os,lv:lv,extra:extra});setBusy(false);return;}if(!p.isUser&&choice.yes)monoUpgrade(p,lv,ls,eventParts);else ls.push({type:"sys",say:"这里是 "+p.name+" 自己的地，巡视一圈。"});}
       if(extra&&!p.bankrupt)ls.push({type:"sys",say:p.name+" 掷出双骰，下一手仍由 TA 行动。"});await finalize(ps,os,lv,eventParts.join("；"),ls,extra);
     }
     // 竞拍点了没反应（她 2026-10-03 截图：举牌、退出两颗都灰着）——这两步里任何一处抛错，busy 就永远不放，
@@ -4392,10 +4568,10 @@
     if(phase==="error")return h("div",{ "data-wk": "gameplay", "data-part": "monopoly", "data-kind": "error", className:"h-full flex flex-col",style:gameTable("monopoly",t)},h(Head,{zh:"大富翁",en:"Monopoly",onBack:props.onBack,bg:"transparent"}),h("div",{className:"flex-1 flex flex-col items-center justify-center px-8",style:{fontFamily:F_BODY,color:t.sub}},error,h("button",{onClick:props.onBack,style:{marginTop:16,padding:"10px 22px",borderRadius:12,background:t.ink,color:"#fff"}},"返回")));
     const cur=players[turn], propertyCount=function(k){return Object.keys(owners).filter(function(i){return owners[i]===k;}).length;},focusTile=selectedTile==null?null:MONO_BOARD[selectedTile],focusOwner=selectedTile==null?null:players.find(function(p){return p.key===owners[selectedTile];});
     const header=h(Head,{zh:"大富翁",en:"Monopoly",onBack:props.onBack,bg:"transparent"});
-    const board=boardOpen?h("div",{style:{display:"grid",gridTemplateColumns:"repeat(11,minmax(0,1fr))",gridTemplateRows:"repeat(11,30px)",gap:2,padding:"4px 7px",flexShrink:0}},h("div",{style:{gridColumn:"2 / 11",gridRow:"2 / 11",borderRadius:13,background:t.bg2,border:"1px solid "+t.line,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:5}},h("div",{style:{fontSize:18}},focusTile?(focusTile.icon||"🏠"):"🏙️"),h("div",{style:{fontFamily:F_DISPLAY,fontSize:14,color:t.ink,marginTop:2}},focusTile?focusTile.name:(cur?(cur.name+(cur.isUser?"（你）":"")):"经典城市棋盘")),h("div",{style:{fontFamily:F_BODY,fontSize:10,color:t.sub,marginTop:3,lineHeight:1.4}},focusTile?(focusTile.type==="property"?("价格 $"+focusTile.price+" · "+(focusOwner?("归 "+focusOwner.name+" · Lv"+(levels[selectedTile]||0)+" · 租 $"+monoRent(selectedTile,focusOwner.key,owners,levels)):"银行持有")):(focusTile.type==="tax"?"支付 $"+focusTile.amount:(focusTile.type==="station"?"搭乘城市环线":focusTile.name))):("第 "+(moves+1)+" / "+maxMoves+" 手 · "+players.filter(function(p){return !p.bankrupt;}).length+" 人在场")),h("div",{style:{display:"flex",gap:6,marginTop:6}},
+    const board=boardOpen?h(MonoBoard,{t:t,players:players,owners:owners,levels:levels,curPos:cur&&cur.pos,onTile:setSelectedTile,center:h("div",{style:{gridColumn:"2 / 11",gridRow:"2 / 11",borderRadius:13,background:t.bg2,border:"1px solid "+t.line,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:5}},h("div",{style:{fontSize:18}},focusTile?(focusTile.icon||"🏠"):"🏙️"),h("div",{style:{fontFamily:F_DISPLAY,fontSize:14,color:t.ink,marginTop:2}},focusTile?focusTile.name:(cur?(cur.name+(cur.isUser?"（你）":"")):"经典城市棋盘")),h("div",{style:{fontFamily:F_BODY,fontSize:10,color:t.sub,marginTop:3,lineHeight:1.4}},focusTile?(focusTile.type==="property"?("价格 $"+focusTile.price+" · "+(focusOwner?("归 "+focusOwner.name+" · Lv"+(levels[selectedTile]||0)+" · 租 $"+monoRent(selectedTile,focusOwner.key,owners,levels)):"银行持有")):(focusTile.type==="tax"?"支付 $"+focusTile.amount:(focusTile.type==="station"?"搭乘城市环线":focusTile.name))):("第 "+(moves+1)+" / "+maxMoves+" 手 · "+players.filter(function(p){return !p.bankrupt;}).length+" 人在场")),h("div",{style:{display:"flex",gap:6,marginTop:6}},
         (focusTile&&focusTile.type==="property"&&focusOwner&&!focusOwner.isUser&&!focusOwner.bankrupt&&phase==="play"&&!pending&&!busy&&players.some(function(p){return p.isUser&&!p.bankrupt;}))?h("button",{onClick:function(){setPending({kind:"trade",tile:selectedTile,step:"offer"});setTradeOffer("");},style:{fontFamily:F_BODY,fontSize:9.5,fontWeight:700,color:t.bg2,background:t.tint,padding:"4px 10px",borderRadius:999}},"谈收购"):null,
-        h("button",{onClick:function(){if(selectedTile!=null)setSelectedTile(null);else setBoardOpen(false);},style:{fontFamily:F_BODY,fontSize:9.5,color:t.tint,padding:"4px 10px",border:"1px solid "+t.line,borderRadius:999}},selectedTile!=null?"返回回合信息":"收起棋盘 · 看对话"))),MONO_BOARD.map(function(tile,i){const here=players.filter(function(p){return !p.bankrupt&&p.pos===i;}),own=owners[i],owner=players.find(function(p){return p.key===own;}),lv=levels[i]||0,pos=monoGridPos(i);return h("button",{key:i,onClick:function(){setSelectedTile(i);},title:tile.name+(tile.price?" $"+tile.price:""),style:Object.assign({},pos,{borderRadius:5,padding:"2px 1px",background:tile.type==="property"?(tile.color+"35"):t.bg2,border:"1px solid "+(i===(cur&&cur.pos)?t.tint:t.line),textAlign:"center",overflow:"hidden",minWidth:0})},h("div",{style:{fontFamily:F_BODY,fontSize:7.5,lineHeight:1.08,color:t.sub,whiteSpace:"normal",wordBreak:"break-all",height:17,overflow:"hidden"}},tile.icon||"▪",tile.name),h("div",{style:{fontSize:6.5,color:t.fog,whiteSpace:"nowrap",overflow:"hidden"}},tile.price?(owner?(owner.name.slice(0,2)+(lv?" L"+lv:"")):("$"+tile.price)):(tile.type==="station"?"直达":"")),h("div",{style:{height:9,display:"flex",alignItems:"center",justifyContent:"center",gap:1}},here.map(function(p){return h("span",{key:p.key,title:p.name,style:{display:"inline-block",width:7,height:7,borderRadius:"50%",background:monoTokenColor(p,players),border:"1px solid rgba(255,255,255,.9)",boxShadow:"0 0 0 1px rgba(0,0,0,.18)"}});})));})):h("button",{onClick:function(){setBoardOpen(true);},style:{flexShrink:0,margin:"3px 12px 5px",padding:"8px 12px",borderRadius:11,background:t.bg2,border:"1px solid "+t.line,display:"flex",justifyContent:"space-between",fontFamily:F_BODY,fontSize:11.5,color:t.sub}},h("span",null,"🏙️ 棋盘已收起 · 第 "+(moves+1)+" / "+maxMoves+" 手"),h("span",{style:{color:t.tint}},"展开棋盘"));
-    const roster=h("div",{ "data-wk": "gameroster", "data-part": "monopoly", style:{display:"flex",gap:7,overflowX:"auto",padding:"4px 12px 8px",flexShrink:0,minHeight:55}},players.map(function(p,i){const pc=monoTokenColor(p,players);return h("div",{key:p.key,style:{minWidth:106,padding:"7px",borderRadius:10,background:i===turn&&!p.bankrupt?pc+"18":t.bg2,border:(i===turn?"2px solid "+pc:"1px solid "+t.line),boxShadow:i===turn&&!p.bankrupt?"0 4px 10px rgba(20,16,10,.16)":"0 1px 4px rgba(20,16,10,.07)",transform:i===turn&&!p.bankrupt?"translateY(-2px)":"none",opacity:p.bankrupt?.45:1}},h("div",{style:{display:"flex",alignItems:"center",gap:5}},h("span",{title:"棋子颜色",style:{width:9,height:9,borderRadius:"50%",background:pc,boxShadow:"0 0 0 1px rgba(0,0,0,.15)",flexShrink:0}}),pAvatar(p,25),h("div",{style:{fontFamily:F_BODY,fontSize:11.5,color:t.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},p.name+(p.isUser?"(你)":""))),h("div",{style:{fontFamily:"monospace",fontSize:10.5,color:t.sub,marginTop:4}},p.bankrupt?"已破产":"$"+p.cash+" · 地"+propertyCount(p.key)+(p.jailed?" · 关押":"")));}));
+        h("button",{onClick:function(){if(selectedTile!=null)setSelectedTile(null);else setBoardOpen(false);},style:{fontFamily:F_BODY,fontSize:9.5,color:t.tint,padding:"4px 10px",border:"1px solid "+t.line,borderRadius:999}},selectedTile!=null?"返回回合信息":"收起棋盘 · 看对话")))}):h("button",{onClick:function(){setBoardOpen(true);},style:{flexShrink:0,margin:"3px 12px 5px",padding:"8px 12px",borderRadius:11,background:t.bg2,border:"1px solid "+t.line,display:"flex",justifyContent:"space-between",fontFamily:F_BODY,fontSize:11.5,color:t.sub}},h("span",null,"🏙️ 棋盘已收起 · 第 "+(moves+1)+" / "+maxMoves+" 手"),h("span",{style:{color:t.tint}},"展开棋盘"));
+    const roster=h(MonoRoster,{t:t,players:players,turn:turn,owners:owners,avatar:pAvatar});
     // 接话没回来（超时或报错）时留着那一批事件，点一下再请一次（她 2026-10-03：「过一会就会说角色接话失败之类的能不能搞个重试」）。
     //   账面不动，只补台词；用的是【此刻】的账面，不是当时那份。
     async function retryTalk(){if(!talkMiss||busy)return;const m=talkMiss;setTalkMiss(null);interactionQueue.current=m.batch.concat(interactionQueue.current);setBusy(true);try{await react(players,owners,null,true);}finally{setBusy(false);}}
@@ -4455,6 +4631,7 @@
   }
   // 给「主持人视角」的一句身份+已知信息（用于喂 AI 让每人按自己掌握的信息行动）
   function avSecretFor(p, players) {
+    if (p.secret) return p.secret;   // 只知道自己那一份的人（不在同一台手机上的座位）：身份那一句由 TA 自己那份私密信息写好带进来
     const others = players.filter(function (x) { return x !== p; });
     if (p.role === "merlin") return "梅林——看得见坏人：" + (others.filter(function (x) { return x.side === "evil" && x.role !== "mordred"; }).map(function (x) { return x.name; }).join("、") || "（无）") + "（但不知谁是刺客，必须藏好自己别暴露）";
     if (p.role === "percival") { const s = others.filter(function (x) { return x.role === "merlin" || x.role === "morgana"; }).map(function (x) { return x.name; }); return "派西维尔——看到 " + (s.join("、") || "—") + (s.length >= 2 ? " 里一个是梅林、一个是莫甘娜（伪装梅林）但分不清，要护住真梅林" : " 是梅林"); }
@@ -5354,6 +5531,22 @@
     return "";
   }
   const gmkCoord = function (x, y) { return "ABCDEFGHJKLMNOP".charAt(x) + (GMK_N - y); };
+  // 落一子：落不下（有子、出界、已经分出胜负）回 null；落得下回新棋盘、新棋谱、谁赢了（0 未完 / 1 / 2 / 3 和棋）和下一手轮到谁。
+  //   纯函数，不碰界面：单机那一桌和多台手机一起下的那一桌都只认这一处的胜负（one-public-mechanism）。
+  function gmkPlace(b, moves, x, y, who, over) {
+    if (over || x < 0 || y < 0 || x >= GMK_N || y >= GMK_N || b[y * GMK_N + x]) return null;
+    const nb = b.slice(); nb[y * GMK_N + x] = who;
+    const nm = (moves || []).concat([{ x: x, y: y, who: who }]);
+    const won = gmkWins(nb, x, y, who);
+    const winner = won ? who : nm.length >= GMK_N * GMK_N ? 3 : 0;
+    return { board: nb, moves: nm, winner: winner, turn: winner ? 0 : (who === 1 ? 2 : 1) };
+  }
+  // 按棋谱摆回一张棋盘（回看某一手、悔棋都用它）
+  function gmkReplay(moves, upTo) {
+    const b = gmkEmpty();
+    (moves || []).slice(0, upTo == null ? undefined : upTo).forEach(function (m) { if (m && m.x >= 0 && m.y >= 0 && m.x < GMK_N && m.y < GMK_N) b[m.y * GMK_N + m.x] = m.who; });
+    return b;
+  }
 
   // ============================================================
   // 25 问 · 我出题 / TA 出题 / 轮流（群友 2026-10-14：「你可以问他，他也可以问你」）
@@ -5472,7 +5665,7 @@
     const btn = function (label, on, primary, key) { return h("button", { key: key || label, "data-wk": "mindbtn", disabled: busy, onClick: on, className: "active:opacity-70", style: { flex: 1, minHeight: 40, borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", border: "1px solid " + (primary ? t.tint : t.line), background: primary ? t.tint : t.bg2, color: primary ? "#fff" : t.ink, opacity: busy ? .5 : 1 } }, label); };
     const lastQ = r.qs[r.qs.length - 1];
     return h("div", { "data-wk": "gameplay", "data-part": "mind", className: "h-full flex flex-col", style: gameTable("q25", t) },
-      h(Head, { zh: "25 问", en: (r.host === "me" ? "你出题 · " + cName + " 猜" : cName + " 出题 · 你猜") + " · 第 " + r.round + " 局", onBack: props.onBack }),
+      h(Head, { zh: "25 问", en: (r.host === "me" ? "你出题 · " + cName + " 猜" : cName + " 出题 · 你猜") + " · 第 " + r.round + " 局", onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-3", style: { paddingTop: 12 } },
         h(GameVsBar, { t: t, evalOf: { host: props, key: "mind", zh: "25 问" }, seats: [
           { key: "me", name: uName, char: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, isUser: true, on: r.host === "ta" && r.status === "asking", sub: "赢 " + st.score.me },
@@ -5495,6 +5688,18 @@
               placeholder: r.host === "ta" ? "问一个是非题，或者写下你猜的" : "跟 " + cName + " 说句话", style: { flex: 1, minWidth: 0, padding: "9px 11px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } })),
           h("div", { className: "flex gap-2", style: { marginTop: 7 } },
             r.host === "ta" ? [btn("问", function () { meAsk(false); }, true, "q"), btn("我猜", function () { meAsk(true); }, false, "g"), btn("闲聊", chat, false, "c")] : [btn("说", chat, false, "c")]))));
+  }
+
+  // 心有灵犀桌上的几块：一个词那张纸片、亮词那张小卡（第几轮 · 两个词 → 两人各写的，对上没对上）。别处摆同一张桌从 GameShared.lingxi 拿
+  //   LingxiChip：w 词、mine 是不是自己这边（描边颜色不同）
+  function LingxiChip(props) { const t = props.t; return h("span", { style: { flex: 1, minWidth: 0, textAlign: "center", padding: "10px 8px", borderRadius: 10, background: "#fffdf6", color: "#2f2a24", border: "1px solid " + (props.mine ? t.tint : LID.lingxi.hot), fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", wordBreak: "break-all" } }, props.w); }
+  //   LingxiRevCard：r 这一轮（{ n, pair, hit, manual }，没有就是起始词）、a / b 两边写的、counted 算不算对上
+  function LingxiRevCard(props) {
+    const t = props.t, r = props.r, a = props.a, b = props.b, ok = !!props.counted;
+    return h("div", { "data-wk": "lingxirevcard", "data-hit": r && ok ? "1" : "0", style: { margin: "4px 0", padding: "9px 11px", borderRadius: 13, background: t.bg2, border: "1px solid " + (r && ok ? t.tint : t.line) } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, r ? "第 " + r.n + " 轮 · " + r.pair[0] + " ＋ " + r.pair[1] : "起始词"),
+      h("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, h(LingxiChip, { t: t, w: a, mine: true }), h("span", { style: { color: t.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, r ? (r.hit ? "＝" : "≠") : "·"), h(LingxiChip, { t: t, w: b, mine: false })),
+      r ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: ok ? t.tint : t.sub } }, r.hit ? "一模一样，+1" : r.manual ? "算你们一样，+1" : "没对上") : null);
   }
 
   // ============================================================
@@ -5569,7 +5774,7 @@
     const last = state.rounds[state.rounds.length - 1], sc = L.score(state.rounds);
     const thought = last ? last.thought : state.startThought;
     const btnAt = function (label, on, primary, dis) { return { disabled: busy || dis, onClick: on, className: "active:opacity-70", style: { minHeight: 42, padding: "0 16px", borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", border: "1px solid " + (primary ? t.tint : t.line), background: primary ? t.tint : t.bg2, color: primary ? "#fff" : t.ink, opacity: busy || dis ? .5 : 1, flexShrink: 0 } }; };
-    const chip = function (w, mine) { return h("span", { style: { flex: 1, minWidth: 0, textAlign: "center", padding: "10px 8px", borderRadius: 10, background: "#fffdf6", color: "#2f2a24", border: "1px solid " + (mine ? t.tint : LID.lingxi.hot), fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", wordBreak: "break-all" } }, w); };
+    const chip = function (w, mine) { return h(LingxiChip, { t: t, w: w, mine: mine }); };
     const sub = function (s) { return h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, s); };
     return h("div", { "data-wk": "gameplay", "data-part": "lingxi", className: "h-full flex flex-col", style: gameTable("lingxi", t) },
       h(Head, { zh: "心有灵犀", en: state.status === "open" ? "先各想一个词" : state.status === "done" ? "这一局 " + state.rounds.length + " 轮 · 对上 " + sc + " 次" : "第 " + (state.rounds.length + 1) + " 轮 · 对上 " + sc + " 次", onBack: props.onBack, bg: "transparent" }),
@@ -5593,10 +5798,7 @@
           const r = l.rn ? state.rounds.find(function (x) { return x.n === l.rn; }) : null;
           if (l.rn && !r) return null;
           const a = r ? r.mine : (state.start || [])[0], b = r ? r.yours : (state.start || [])[1];
-          return Object.assign({}, l, { node: h("div", { "data-wk": "lingxirevcard", "data-hit": r && L.counted(r) ? "1" : "0", style: { margin: "4px 0", padding: "9px 11px", borderRadius: 13, background: t.bg2, border: "1px solid " + (r && L.counted(r) ? t.tint : t.line) } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, r ? "第 " + r.n + " 轮 · " + r.pair[0] + " ＋ " + r.pair[1] : "起始词"),
-            h("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, chip(a, true), h("span", { style: { color: t.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, r ? (r.hit ? "＝" : "≠") : "·"), chip(b, false)),
-            r ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: L.counted(r) ? t.tint : t.sub } }, r.hit ? "一模一样，+1" : r.manual ? "算你们一样，+1" : "没对上") : null) });
+          return Object.assign({}, l, { node: h(LingxiRevCard, { t: t, r: r, a: a, b: b, counted: !!(r && L.counted(r)) }) });
         }).filter(Boolean), busy: busy, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, charOf: function () { return char; }, maxHeight: "none", empty: state.status === "open" ? "你先悄悄写一个起始词，" + cName + " 也在想自己的" : "" }),
         state.rounds.length > 1 ? h("div", { "data-wk": "lingxihist", style: { marginTop: 4 } }, sub("往期"), state.rounds.slice(0, -1).reverse().map(function (r) {
           return h("div", { key: r.n, style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, padding: "4px 0", borderBottom: "1px solid " + t.line } },
@@ -5807,7 +6009,7 @@
       className: "active:opacity-60", style: { flex: 1, minHeight: 48, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(18px * var(--app-fs, 1))", touchAction: "none", userSelect: "none" } }, label); };
     const sendChat = function () { const v = draft.trim(); if (!v) return; setDraft(""); push({ me: true, text: v }); say("她刚跟你说了句话，接一句。", true, v); };
     return h("div", { "data-wk": "gameplay", "data-part": "tetris", className: "h-full flex flex-col", style: gameTable("tetris", t) },
-      h(Head, { zh: "俄罗斯方块", en: coop ? "合作接力 · 和 " + cName + "（" + sk.zh + "）" : versus ? "对战 · " + cName + "（" + sk.zh + (easy ? "·让着你" : "") + "）" : cName + " 在旁边看", onBack: props.onBack }),
+      h(Head, { zh: "俄罗斯方块", en: coop ? "合作接力 · 和 " + cName + "（" + sk.zh + "）" : versus ? "对战 · " + cName + "（" + sk.zh + (easy ? "·让着你" : "") + "）" : cName + " 在旁边看", onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto px-4 pb-2", style: { paddingTop: 10 } },
         h("div", { style: { display: "flex", gap: 10, justifyContent: "center", alignItems: "flex-start" } },
           h("div", null,
@@ -5838,6 +6040,36 @@
           return { key: "tetris", zh: "俄罗斯方块", ids: [char.id], wins: versus && !meWin ? [char.id] : [], meWin: meWin,
             text: coop ? "和" + cName + "合作接力玩俄罗斯方块，一人一块轮着放，一起拿了 " + (me ? me.score : 0) + " 分" : versus ? "和" + cName + "对战俄罗斯方块，" + (meWin ? uName + "赢了" : cName + "赢了") + "（" + uName + " " + (me ? me.score : 0) + " 分，" + cName + " " + (ta ? ta.score : 0) + " 分）" : uName + "玩俄罗斯方块拿了 " + (me ? me.score : 0) + " 分，" + cName + "在旁边看" };
         } }) : null));
+  }
+
+  // 五子棋那块木棋盘（单机那一桌和多台手机一起下的那一桌画的是同一块）：
+  //   moves 棋谱 [{x,y,who}]；pend 点了一下还没落的那格（半透明）、pendSide 它是哪色；onTap(x,y) 点到哪一格，不给就只看不能点
+  function GomokuBoard(props) {
+    const moves = props.moves || [], pend = props.pend || null;
+    const cell = 22, pad = 16, size = pad * 2 + cell * (GMK_N - 1);
+    const last = moves[moves.length - 1];
+    const stars = [[3, 3], [11, 3], [7, 7], [3, 11], [11, 11]];
+    return h("svg", { "data-wk": "gomokuboard", viewBox: "0 0 " + size + " " + size, style: { width: "100%", maxWidth: 440, display: "block", margin: "0 auto", borderRadius: 12,
+        background: "linear-gradient(135deg, #e9cf98 0%, #ddb878 48%, #e6c88e 100%)", boxShadow: "inset 0 0 0 3px rgba(107,82,48,.25), 0 10px 24px rgba(60,40,15,.28), 0 2px 4px rgba(60,40,15,.2)", touchAction: "manipulation" },
+        onClick: function (e) {
+          const r = e.currentTarget.getBoundingClientRect();
+          const k = size / r.width;
+          const x = Math.round(((e.clientX - r.left) * k - pad) / cell), y = Math.round(((e.clientY - r.top) * k - pad) / cell);
+          if (props.onTap && x >= 0 && y >= 0 && x < GMK_N && y < GMK_N) props.onTap(x, y);
+        } },
+      h("defs", { key: "defs" },
+        h("radialGradient", { id: "gmkB", cx: ".35", cy: ".3", r: ".75" }, h("stop", { offset: "0", stopColor: "#77716a" }), h("stop", { offset: ".55", stopColor: "#1c1a18" })),
+        h("radialGradient", { id: "gmkW", cx: ".35", cy: ".3", r: ".8" }, h("stop", { offset: "0", stopColor: "#ffffff" }), h("stop", { offset: ".7", stopColor: "#e4ded1" }), h("stop", { offset: "1", stopColor: "#c9c0ae" })),
+        h("pattern", { id: "gmkGrain", width: 40, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(-8)" }, h("path", { d: "M0 3Q10 1 20 3T40 3", stroke: "#a87d43", strokeOpacity: .13, fill: "none", strokeWidth: 1.2 }))),
+      h("rect", { key: "grain", x: 0, y: 0, width: size, height: size, fill: "url(#gmkGrain)" }),
+      h("rect", { key: "frame", x: pad - 1.5, y: pad - 1.5, width: cell * (GMK_N - 1) + 3, height: cell * (GMK_N - 1) + 3, fill: "none", stroke: "#6b5230", strokeWidth: 1.6, strokeOpacity: .8 }),
+      Array.from({ length: GMK_N }).map(function (_, i) { return h("g", { key: "l" + i },
+        h("line", { x1: pad, y1: pad + i * cell, x2: pad + (GMK_N - 1) * cell, y2: pad + i * cell, stroke: "#6b5230", strokeWidth: .8 }),
+        h("line", { x1: pad + i * cell, y1: pad, x2: pad + i * cell, y2: pad + (GMK_N - 1) * cell, stroke: "#6b5230", strokeWidth: .8 })); }),
+      stars.map(function (s, i) { return h("circle", { key: "s" + i, cx: pad + s[0] * cell, cy: pad + s[1] * cell, r: 2.4, fill: "#6b5230" }); }),
+      moves.map(function (m, i) { return svgStone("m" + i, pad + m.x * cell, pad + m.y * cell, cell * 0.44, m.who); }),
+      last ? h("circle", { cx: pad + last.x * cell, cy: pad + last.y * cell, r: cell * 0.22, style: { fill: "none", stroke: "#d24b3a", strokeWidth: 1.6 } }) : null,
+      pend ? svgStone("pend", pad + pend.x * cell, pad + pend.y * cell, cell * 0.44, props.pendSide || 1, { opacity: .5 }) : null);
   }
 
   function GomokuGame(props) {
@@ -5950,13 +6182,10 @@
     };
 
     const place = function (x, y, who) {
-      if (winner || board[y * GMK_N + x]) return false;
-      const nb = board.slice(); nb[y * GMK_N + x] = who;
-      const nm = moves.concat([{ x: x, y: y, who: who }]);
-      setBoard(nb); setMoves(nm); setPend(null);
-      const won = gmkWins(nb, x, y, who);
-      const full = !won && nm.length >= GMK_N * GMK_N;
-      if (won) setWinner(who); else if (full) setWinner(3); else setTurn(who === 1 ? 2 : 1);
+      const r = gmkPlace(board, moves, x, y, who, winner);
+      if (!r) return false;
+      setBoard(r.board); setMoves(r.moves); setPend(null);
+      if (r.winner) setWinner(r.winner); else setTurn(r.turn);
       // ⚠️落子不触发说话：TA 什么时候开口由她定（她 2026-10-11：「不是应该我来决定他什么时候说话吗」）
       return true;
     };
@@ -6044,37 +6273,11 @@
     const undo = function () {
       // 悔一步＝退回她上一手之前（连同 TA 应的那一手）
       if (winner || spectate || moves.length < 2 || turn !== userSide) return;
-      const nm = moves.slice(0, -2), nb = gmkEmpty();
-      nm.forEach(function (m) { nb[m.y * GMK_N + m.x] = m.who; });
+      const nm = moves.slice(0, -2), nb = gmkReplay(nm);
       setBoard(nb); setMoves(nm); setPend(null); setTurn(userSide);
     };
 
-    // 棋盘：SVG 一张，跟屏宽走
-    const cell = 22, pad = 16, size = pad * 2 + cell * (GMK_N - 1);
-    const last = moves[moves.length - 1];
-    const stars = [[3, 3], [11, 3], [7, 7], [3, 11], [11, 11]];
-    // 棋盘：一块木板（两道木纹渐变＋一圈压边），子是有光泽的石头，最后一手套一个红圈
-    const boardSvg = h("svg", { "data-wk": "gomokuboard", viewBox: "0 0 " + size + " " + size, style: { width: "100%", maxWidth: 440, display: "block", margin: "0 auto", borderRadius: 12,
-        background: "linear-gradient(135deg, #e9cf98 0%, #ddb878 48%, #e6c88e 100%)", boxShadow: "inset 0 0 0 3px rgba(107,82,48,.25), 0 10px 24px rgba(60,40,15,.28), 0 2px 4px rgba(60,40,15,.2)", touchAction: "manipulation" },
-        onClick: function (e) {
-          const r = e.currentTarget.getBoundingClientRect();
-          const k = size / r.width;
-          const x = Math.round(((e.clientX - r.left) * k - pad) / cell), y = Math.round(((e.clientY - r.top) * k - pad) / cell);
-          if (x >= 0 && y >= 0 && x < GMK_N && y < GMK_N) tap(x, y);
-        } },
-      h("defs", { key: "defs" },
-        h("radialGradient", { id: "gmkB", cx: ".35", cy: ".3", r: ".75" }, h("stop", { offset: "0", stopColor: "#77716a" }), h("stop", { offset: ".55", stopColor: "#1c1a18" })),
-        h("radialGradient", { id: "gmkW", cx: ".35", cy: ".3", r: ".8" }, h("stop", { offset: "0", stopColor: "#ffffff" }), h("stop", { offset: ".7", stopColor: "#e4ded1" }), h("stop", { offset: "1", stopColor: "#c9c0ae" })),
-        h("pattern", { id: "gmkGrain", width: 40, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(-8)" }, h("path", { d: "M0 3Q10 1 20 3T40 3", stroke: "#a87d43", strokeOpacity: .13, fill: "none", strokeWidth: 1.2 }))),
-      h("rect", { key: "grain", x: 0, y: 0, width: size, height: size, fill: "url(#gmkGrain)" }),
-      h("rect", { key: "frame", x: pad - 1.5, y: pad - 1.5, width: cell * (GMK_N - 1) + 3, height: cell * (GMK_N - 1) + 3, fill: "none", stroke: "#6b5230", strokeWidth: 1.6, strokeOpacity: .8 }),
-      Array.from({ length: GMK_N }).map(function (_, i) { return h("g", { key: "l" + i },
-        h("line", { x1: pad, y1: pad + i * cell, x2: pad + (GMK_N - 1) * cell, y2: pad + i * cell, stroke: "#6b5230", strokeWidth: .8 }),
-        h("line", { x1: pad + i * cell, y1: pad, x2: pad + i * cell, y2: pad + (GMK_N - 1) * cell, stroke: "#6b5230", strokeWidth: .8 })); }),
-      stars.map(function (s, i) { return h("circle", { key: "s" + i, cx: pad + s[0] * cell, cy: pad + s[1] * cell, r: 2.4, fill: "#6b5230" }); }),
-      moves.map(function (m, i) { return svgStone("m" + i, pad + m.x * cell, pad + m.y * cell, cell * 0.44, m.who); }),
-      last ? h("circle", { cx: pad + last.x * cell, cy: pad + last.y * cell, r: cell * 0.22, style: { fill: "none", stroke: "#d24b3a", strokeWidth: 1.6 } }) : null,
-      pend ? svgStone("pend", pad + pend.x * cell, pad + pend.y * cell, cell * 0.44, userSide, { opacity: .5 }) : null);
+    const boardSvg = h(GomokuBoard, { moves: moves, pend: pend, pendSide: userSide, onTap: tap });
 
     const status = winner === 3 ? "和棋"
       : winner ? nameOfSide(winner) + "（" + sideZh(winner) + "）赢了"
@@ -6126,6 +6329,24 @@
   // 两个游戏各自一个界面（她：「不要 shared board，开俩小游戏界面」）；只有「TA 开口」这一段是公共的。
   // ============================================================
   // TA 开口：她说一句，或者空着按一下让 TA 说。两个棋共用这一段（one-public-mechanism）
+  // 坐在桌边的人随口说一句：talkers [{ name, persona, isNpc }]；scene＝TA 们看得见的局面（只放公开的，和说话那个人自己手里的）；why＝这会儿为什么开口
+  //   一次调用，回 [{ name, text }]；不是每个人都得开口
+  async function seatTalk(api, talkers, scene, why, said) {
+    const who = (talkers || []).map(function (c) { return "■ " + c.name + (c.isNpc ? "（来凑桌的路人）" : "") + "\n【人设】" + String(c.persona || "（没写）").slice(0, talkers.length > 1 ? 900 : 1600); }).join("\n\n");
+    const sys = gameVoiceRules() + "【场面】一桌人在玩，下面这几位坐在桌上。手是他们自己出的，你只写他们边玩边随口说的话，照各自平时的样子和彼此的关系。"
+      + "\n\n" + who + "\n\n【桌上看得见的】\n" + String(scene || "").slice(0, 2400)
+      + "\n\n每个人只知道桌上公开的事和自己手里的，说话也照这个来：可以猜、诈、嘴硬、起哄，但说不出别人手里有什么。"
+      + "\n【这会儿】" + (why || "接着玩。")
+      + ((said || []).length ? "\n【刚才桌上已经说过的】\n" + said.slice(-8).map(function (l) { return "· " + l.name + "：" + l.text; }).join("\n") + "\n说过的意思别换个说法再说一遍。" : "")
+      + "\n\n" + GAME_SAY_FREE
+      + "\n只输出 JSON：{\"talks\":[{\"name\":\"说话的人\",\"text\":\"一句话\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "说话。" }], { maxTokens: 8000, tag: "牌桌边" });
+    const p = extractJSON(raw) || {};
+    return (Array.isArray(p.talks) ? p.talks : []).map(function (x) {
+      const c = (talkers || []).find(function (q) { return x && x.name === q.name; }) || (talkers.length === 1 ? talkers[0] : null);
+      return c && String((x && x.text) || "").trim() ? { name: c.name, text: String(x.text).trim().slice(0, 160) } : null;
+    }).filter(Boolean);
+  }
   function useBoardTalk(o) {
     const props = o.props, cfg = props.config, api = props.active;
     const [lines, setLines] = useState(o.saved && o.saved.lines ? o.saved.lines : []);
@@ -6219,6 +6440,21 @@
   //   现在这些只在 useEngineBoard + EngineBoardPage 里；每个棋只交：规则引擎 C、两方是谁、怎么记一步、棋盘怎么画。
   //   围棋落子、数子都不一样，不走这一层。
   //   spec：{ C, key, zh, sides:[先手, 后手], sideZh(s), teachNote(state, mv), whereNote(prevState, mv), recent(state), check, overNote(st), record(mv), pick(goList) }
+  // 一盘走子棋下完没有、谁赢：引擎判的终局（将死、困毙、进兽穴、和棋……）加上认输。sides：[先手, 后手]
+  function boardOutcome(C, state, resigned, sides) {
+    const st = C.status(state);
+    return { st: st, over: st.over || !!resigned, winner: resigned ? (resigned === sides[0] ? sides[1] : sides[0]) : st.result };
+  }
+  // 存过的那一档（开局页钉的优先，再看估过的能力小传）：不花调用，没估过就 null
+  function boardSkillCached(key, c) {
+    if (!c) return null;
+    const pins = loadSkillPins(), pin = BOARD_TIER_LV[pins[c.id]] ? pins[c.id] : "";
+    const got = ((loadJSON(GAME_SKILL_KEY, {}) || {})[key] || {})[c.id];
+    const stamp = String(c.persona || "").trim().length + ":v2";
+    const fresh = got && got.n === stamp && BOARD_TIER_LV[got.tier] ? got : null;
+    if (!pin && !fresh) return null;
+    return { tier: pin || fresh.tier, style: fresh && BOARD_STYLES.indexOf(fresh.style) >= 0 ? fresh.style : "" };
+  }
   function useEngineBoard(props, spec) {
     const C = spec.C, KEY = spec.key, ZH = spec.zh, S0 = spec.sides[0], S1 = spec.sides[1];
     const t = props.t, cfg = props.config, sv = props.savedState;
@@ -6239,9 +6475,7 @@
     const [mvs, setMvs] = useState(sv && sv.mvs ? sv.mvs : []);
     const state = React.useMemo(function () { return boardReplay(C, mvs); }, [mvs]);
     const [resigned, setResigned] = useState(sv && sv.resigned ? sv.resigned : "");
-    const st = C.status(state);
-    const over = st.over || !!resigned;
-    const winner = resigned ? (resigned === S0 ? S1 : S0) : st.result;
+    const oc = boardOutcome(C, state, resigned, spec.sides), st = oc.st, over = oc.over, winner = oc.winner;
     const [sel, setSel] = useState(null);
     const [hint, setHint] = useState(null);
     const [why, setWhy] = useState("");
@@ -6346,24 +6580,19 @@
           } }) : null) : null));
   }
 
-  function ChessGame(props) {
-    const g = useEngineBoard(props, { C: window.ChessCore, key: "chess", zh: "国际象棋", sides: ["w", "b"], sideZh: function (s) { return s === "w" ? "白" : "黑"; }, check: true,
-      teachNote: function (s, m) { return window.ChessCore.zh(s, m); }, whereNote: function (s, m) { return window.ChessCore.zh(s, m); },
-      recent: function (s) { return s.history.slice(-8).map(function (x) { return x.san; }).join(" "); },
-      record: function (mv) { return { from: mv.from, to: mv.to, promo: mv.promo }; },
-      pick: function (go) { return go.find(function (m) { return !m.promo || m.promo === "q"; }) || go[0]; } });
-    const C = g.C, t = g.t, state = g.state, st = g.st, sel = g.sel, hint = g.hint, targets = g.targets, tap = g.tap, over = g.over, winner = g.winner, resigned = g.resigned, nameOf = g.nameOf, userSide = g.userSide;
-
+  // 棋子用实心那一套，白子象牙色描黑边、黑子乌木色（她 2026-10-23「页面能不能做好看点」）；︎ 让 iOS 别把兵画成 emoji
+  const CHESS_GLYPH = { K: "♚", Q: "♛", R: "♜", B: "♝", N: "♞", P: "♟" };
+  function chessPieceEl(p, size) { const w = p[0] === "w"; return h("span", { style: { fontFamily: "'Segoe UI Symbol','Apple Symbols','Noto Sans Symbols2',serif", fontSize: size, lineHeight: 1,
+      color: w ? "#fbf4e2" : "#2a2420", WebkitTextStroke: w ? "1.1px #3a2e24" : "0.6px #000", textShadow: w ? "0 2px 2px rgba(40,25,10,.35)" : "0 1px 0 rgba(255,255,255,.18), 0 2px 3px rgba(0,0,0,.35)" } }, CHESS_GLYPH[p[1]] + "︎"); }
+  // 国际象棋那块棋盘：单机那一桌和别处要摆同一张桌，都画这一块（选中、可走、上一步、提示、被将军的王）
+  function ChessBoardView(props) {
+    const state = props.state, st = props.st, sel = props.sel, hint = props.hint, targets = props.targets || [], tap = props.onTap || function () {};
     const last = state.history.length ? state.history[state.history.length - 1].mv : null;
     let kingAt = null;
     if (st.check) state.board.forEach(function (row, r) { row.forEach(function (p, c) { if (p === state.turn + "K") kingAt = [r, c]; }); });
     const same = function (a, r, c) { return a && a[0] === r && a[1] === c; };
-    // 棋子用实心那一套，白子象牙色描黑边、黑子乌木色（她 2026-10-23「页面能不能做好看点」）；︎ 让 iOS 别把兵画成 emoji
-    const GLYPH = { K: "♚", Q: "♛", R: "♜", B: "♝", N: "♞", P: "♟" };
-    const pieceEl = function (p, size) { const w = p[0] === "w"; return h("span", { style: { fontFamily: "'Segoe UI Symbol','Apple Symbols','Noto Sans Symbols2',serif", fontSize: size, lineHeight: 1,
-      color: w ? "#fbf4e2" : "#2a2420", WebkitTextStroke: w ? "1.1px #3a2e24" : "0.6px #000", textShadow: w ? "0 2px 2px rgba(40,25,10,.35)" : "0 1px 0 rgba(255,255,255,.18), 0 2px 3px rgba(0,0,0,.35)" } }, GLYPH[p[1]] + "︎"); };
     const coord = { fontFamily: F_BODY, fontSize: 10, color: "#e8d3ad", opacity: .85, textAlign: "center" };
-    const board = h("div", { "data-wk": "chessboard", style: { width: "100%", maxWidth: 440, margin: "0 auto", padding: "8px 8px 4px 18px", borderRadius: 14,
+    return h("div", { "data-wk": "chessboard", style: { width: "100%", maxWidth: 440, margin: "0 auto", padding: "8px 8px 4px 18px", borderRadius: 14,
         background: "linear-gradient(145deg, #6b4a2e, #4a3220)", boxShadow: "0 12px 26px rgba(40,25,10,.35), inset 0 1px 0 rgba(255,255,255,.12)" } },
       h("div", { style: { position: "relative" } },
         h("div", { style: { position: "absolute", left: -14, top: 0, bottom: 0, display: "grid", gridTemplateRows: "repeat(8, 1fr)", alignItems: "center" } }, [8, 7, 6, 5, 4, 3, 2, 1].map(function (n) { return h("div", { key: n, style: coord }, n); })),
@@ -6377,10 +6606,20 @@
                 background: (dark ? "#b88762" : "#efdcbc") + (lit ? "" : ""),
                 backgroundImage: lit ? "linear-gradient(rgba(214,180,60,.45), rgba(214,180,60,.45))" : same(kingAt, r, c) ? "radial-gradient(circle, rgba(226,72,50,.85) 20%, rgba(226,72,50,0) 72%)" : "none",
                 boxShadow: same(sel, r, c) ? "inset 0 0 0 3px #f2c94c" : hintOn ? "inset 0 0 0 3px #5aa0d8" : "none" } },
-              p ? pieceEl(p, "calc(34px * var(--app-fs, 1))") : null,
+              p ? chessPieceEl(p, "calc(34px * var(--app-fs, 1))") : null,
               isT ? h("span", { style: { position: "absolute", width: p ? "88%" : "26%", height: p ? "88%" : "26%", borderRadius: 999, background: p ? "transparent" : "rgba(52,38,24,.32)", border: p ? "3px solid rgba(52,38,24,.38)" : "none" } }) : null);
           }); })),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(8, 1fr)", marginTop: 3 } }, "abcdefgh".split("").map(function (x) { return h("div", { key: x, style: coord }, x); }))));
+  }
+  function ChessGame(props) {
+    const g = useEngineBoard(props, { C: window.ChessCore, key: "chess", zh: "国际象棋", sides: ["w", "b"], sideZh: function (s) { return s === "w" ? "白" : "黑"; }, check: true,
+      teachNote: function (s, m) { return window.ChessCore.zh(s, m); }, whereNote: function (s, m) { return window.ChessCore.zh(s, m); },
+      recent: function (s) { return s.history.slice(-8).map(function (x) { return x.san; }).join(" "); },
+      record: function (mv) { return { from: mv.from, to: mv.to, promo: mv.promo }; },
+      pick: function (go) { return go.find(function (m) { return !m.promo || m.promo === "q"; }) || go[0]; } });
+    const C = g.C, t = g.t, state = g.state, st = g.st, sel = g.sel, hint = g.hint, targets = g.targets, tap = g.tap, over = g.over, winner = g.winner, resigned = g.resigned, nameOf = g.nameOf, userSide = g.userSide;
+
+    const board = h(ChessBoardView, { state: state, st: st, sel: sel, hint: hint, targets: targets, onTap: tap });
     // 吃掉的子：各自那一排，多出来的子力写在后面
     const START_N = { P: 8, N: 2, B: 2, R: 2, Q: 1 }, VALS = { P: 1, N: 3, B: 3, R: 5, Q: 9 };
     const lost = function (side) { const n = {}; state.board.forEach(function (row) { row.forEach(function (p) { if (p && p[0] === side) n[p[1]] = (n[p[1]] || 0) + 1; }); }); const out = []; ["Q", "R", "B", "N", "P"].forEach(function (k) { for (let i = 0; i < Math.max(0, START_N[k] - (n[k] || 0)); i++) out.push(k); }); return out; };
@@ -6389,7 +6628,7 @@
       const got = lost(side === "w" ? "b" : "w"), diff = mat(got) - mat(lost(side));
       return h("div", { "data-wk": "chesscaps", style: { display: "flex", alignItems: "center", gap: 1, minHeight: 22, padding: "0 4px", flexWrap: "wrap" } },
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginRight: 6 } }, nameOf(side) + " 吃了"),
-        got.length ? got.map(function (k, i) { return h("span", { key: i }, pieceEl((side === "w" ? "b" : "w") + k, 15)); }) : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "—"),
+        got.length ? got.map(function (k, i) { return h("span", { key: i }, chessPieceEl((side === "w" ? "b" : "w") + k, 15)); }) : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "—"),
         diff > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginLeft: 6 } }, "+" + diff) : null);
     };
 
@@ -6401,12 +6640,9 @@
   }
 
   // ============================ 中国象棋 ============================
-  function XiangqiGame(props) {
-    const g = useEngineBoard(props, { C: window.XiangqiCore, key: "xiangqi", zh: "中国象棋", sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "黑"; }, check: true,
-      teachNote: function (s, m) { return window.XiangqiCore.zhPlain(s, m); }, whereNote: function (s, m) { return window.XiangqiCore.zhPlain(s, m); },
-      recent: function (s) { return s.history.slice(-8).map(function (x) { return x.zh; }).join(" "); } });
-    const C = g.C, t = g.t, state = g.state, st = g.st, sel = g.sel, hint = g.hint, targets = g.targets, tap = g.tap, over = g.over, winner = g.winner, resigned = g.resigned, nameOf = g.nameOf, userSide = g.userSide;
-
+  // 中国象棋那块棋盘：单机那一桌和别处要摆同一张桌，都画这一块
+  function XiangqiBoardView(props) {
+    const C = window.XiangqiCore, state = props.state, st = props.st, sel = props.sel, hint = props.hint, targets = props.targets || [], tap = props.onTap || function () {};
     // 棋盘：九路十行的线，楚河汉界，九宫斜线；子是木头圆片
     const cell = 36, pad = 26, W = pad * 2 + cell * 8, H = pad * 2 + cell * 9;
     const X = function (c) { return pad + c * cell; }, Y = function (r) { return pad + r * cell; };
@@ -6432,7 +6668,7 @@
     [[2, 1], [2, 7], [7, 1], [7, 7]].concat([0, 2, 4, 6, 8].map(function (c) { return [3, c]; }), [0, 2, 4, 6, 8].map(function (c) { return [6, c]; })).forEach(function (p) { star(p[0], p[1]).forEach(function (e) { lines.push(e); }); });
     lines.push(h("rect", { key: "outer", x: X(0) - 5, y: Y(0) - 5, width: cell * 8 + 10, height: cell * 9 + 10, fill: "none", stroke: ink, strokeWidth: 2.2 }));
     const mark = function (k, r, c, col) { return h("rect", { key: k, x: X(c) - cell / 2 + 2, y: Y(r) - cell / 2 + 2, width: cell - 4, height: cell - 4, rx: 6, fill: "none", stroke: col, strokeWidth: 2, strokeDasharray: "5 3" }); };
-    const boardSvg = h("svg", { "data-wk": "xiangqiboard", viewBox: "0 0 " + W + " " + H, style: { width: "100%", maxWidth: 420, display: "block", margin: "0 auto", borderRadius: 12,
+    return h("svg", { "data-wk": "xiangqiboard", viewBox: "0 0 " + W + " " + H, style: { width: "100%", maxWidth: 420, display: "block", margin: "0 auto", borderRadius: 12,
         background: "linear-gradient(135deg, #f0d49a 0%, #e3bd78 50%, #ecca8c 100%)", boxShadow: "inset 0 0 0 3px rgba(122,74,34,.3), 0 10px 24px rgba(60,40,15,.28)", touchAction: "manipulation" },
         onClick: function (e) {
           const b = e.currentTarget.getBoundingClientRect(), k = W / b.width;
@@ -6460,6 +6696,14 @@
       }); }),
       targets.map(function (m, i) { return h("circle", { key: "t" + i, cx: X(m.to[1]), cy: Y(m.to[0]), r: m.capture ? cell * 0.46 : 5, fill: m.capture ? "none" : "#2f6b45", stroke: m.capture ? "#2f6b45" : "none", strokeWidth: 2.5, opacity: .75 }); }));
 
+  }
+  function XiangqiGame(props) {
+    const g = useEngineBoard(props, { C: window.XiangqiCore, key: "xiangqi", zh: "中国象棋", sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "黑"; }, check: true,
+      teachNote: function (s, m) { return window.XiangqiCore.zhPlain(s, m); }, whereNote: function (s, m) { return window.XiangqiCore.zhPlain(s, m); },
+      recent: function (s) { return s.history.slice(-8).map(function (x) { return x.zh; }).join(" "); } });
+    const C = g.C, t = g.t, state = g.state, st = g.st, sel = g.sel, hint = g.hint, targets = g.targets, tap = g.tap, over = g.over, winner = g.winner, resigned = g.resigned, nameOf = g.nameOf, userSide = g.userSide;
+
+    const boardSvg = h(XiangqiBoardView, { state: state, st: st, sel: sel, hint: hint, targets: targets, onTap: tap });
     const status = over ? (winner === "draw" ? "和棋" : nameOf(winner) + "赢了" + (resigned ? "（认输）" : st.reason === "checkmate" ? "（将死）" : st.reason === "stalemate" ? "（困毙）" : ""))
       : state.turn === userSide ? (st.check ? "被将军了，轮到你" : sel ? "点绿点的位置走过去" : "轮到你（红）") : nameOf(state.turn) + "在想…";
     // 吃掉的子：各自那一排
@@ -6480,18 +6724,15 @@
 
   // ============================ 斗兽棋 ============================
   // 她 2026-10-27「小游戏能做个斗兽棋吗」：规则和走子都在 js/jungle-core.js，界面照象棋那一页（同一套说话、提示、悔棋、认输）。
-  function JungleGame(props) {
-    const g = useEngineBoard(props, { C: window.JungleCore, key: "jungle", zh: "斗兽棋", sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "蓝"; },
-      teachNote: function (s, m) { return window.JungleCore.zhPlain(s, m); }, whereNote: function (s, m) { return window.JungleCore.zhPlain(s, m); },
-      recent: function (s) { return s.history.slice(-8).map(function (x) { return x.zh; }).join(" "); },
-      overNote: function (st) { return st.reason === "den" ? "（进了兽穴）" : st.reason === "wiped" ? "（子被吃光了）" : ""; } });
-    const C = g.C, t = g.t, state = g.state, st = g.st, sel = g.sel, hint = g.hint, targets = g.targets, tap = g.tap, over = g.over, winner = g.winner, resigned = g.resigned, nameOf = g.nameOf, userSide = g.userSide;
-
+  const JUNGLE_SIDE_COL = { r: "#b8322a", b: "#2f5f9e" };
+  // 斗兽棋那块棋盘：单机那一桌和别处要摆同一张桌，都画这一块
+  function JungleBoardView(props) {
+    const C = window.JungleCore, state = props.state, sel = props.sel, hint = props.hint, targets = props.targets || [], tap = props.onTap || function () {};
     // 棋盘：七列九行的格子。河是两块蓝，陷阱画一圈虚线，兽穴是一座小洞口；子是圆片，红方暖红、蓝方靛蓝，右上角小字是大小
     const cell = 46, pad = 10, W = pad * 2 + cell * 7, H = pad * 2 + cell * 9;
     const X = function (c) { return pad + c * cell + cell / 2; }, Y = function (r) { return pad + r * cell + cell / 2; };
     const last = state.history.length ? state.history[state.history.length - 1].mv : null;
-    const sideCol = { r: "#b8322a", b: "#2f5f9e" };
+    const sideCol = JUNGLE_SIDE_COL;
     const tiles = [];
     for (let r = 0; r < 9; r++) for (let c = 0; c < 7; c++) {
       const wtr = C.isWater(r, c), den = C.denOf(r, c), trap = C.trapOf(r, c);
@@ -6501,7 +6742,7 @@
       if (den) tiles.push(h("g", { key: "dn" + r + c }, h("path", { d: "M" + (X(c) - 15) + " " + (Y(r) + 13) + "v-10a15 15 0 0 1 30 0v10z", fill: "#6b4a2b", opacity: .82 }), h("text", { x: X(c), y: Y(r) + 9, textAnchor: "middle", fontSize: 11, fill: "#f3e6c8" }, "穴")));
     }
     const mark = function (k, r, c, col) { return h("rect", { key: k, x: pad + c * cell + 3, y: pad + r * cell + 3, width: cell - 6, height: cell - 6, rx: 7, fill: "none", stroke: col, strokeWidth: 2, strokeDasharray: "5 3" }); };
-    const boardSvg = h("svg", { "data-wk": "jungleboard", viewBox: "0 0 " + W + " " + H, style: { width: "100%", maxWidth: 380, display: "block", margin: "0 auto", borderRadius: 12,
+    return h("svg", { "data-wk": "jungleboard", viewBox: "0 0 " + W + " " + H, style: { width: "100%", maxWidth: 380, display: "block", margin: "0 auto", borderRadius: 12,
         background: "#b9cf8c", boxShadow: "inset 0 0 0 3px rgba(63,90,58,.3), 0 10px 24px rgba(30,50,25,.25)", touchAction: "manipulation" },
         onClick: function (e) {
           const b = e.currentTarget.getBoundingClientRect(), k = W / b.width;
@@ -6522,6 +6763,16 @@
       }); }),
       targets.map(function (m, i) { return h("circle", { key: "t" + i, cx: X(m.to[1]), cy: Y(m.to[0]), r: m.capture ? cell * 0.46 : 6, fill: m.capture ? "none" : "#2f6b45", stroke: m.capture ? "#2f6b45" : "none", strokeWidth: 2.5, opacity: .78 }); }));
 
+  }
+  function JungleGame(props) {
+    const g = useEngineBoard(props, { C: window.JungleCore, key: "jungle", zh: "斗兽棋", sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "蓝"; },
+      teachNote: function (s, m) { return window.JungleCore.zhPlain(s, m); }, whereNote: function (s, m) { return window.JungleCore.zhPlain(s, m); },
+      recent: function (s) { return s.history.slice(-8).map(function (x) { return x.zh; }).join(" "); },
+      overNote: function (st) { return st.reason === "den" ? "（进了兽穴）" : st.reason === "wiped" ? "（子被吃光了）" : ""; } });
+    const C = g.C, t = g.t, state = g.state, st = g.st, sel = g.sel, hint = g.hint, targets = g.targets, tap = g.tap, over = g.over, winner = g.winner, resigned = g.resigned, nameOf = g.nameOf, userSide = g.userSide;
+
+    const sideCol = JUNGLE_SIDE_COL;
+    const boardSvg = h(JungleBoardView, { state: state, sel: sel, hint: hint, targets: targets, onTap: tap });
     const status = over ? (winner === "draw" ? "和棋" : nameOf(winner) + "赢了" + (resigned ? "（认输）" : st.reason === "den" ? "（进了兽穴）" : st.reason === "wiped" ? "（子被吃光了）" : st.reason === "stuck" ? "（对面没路可走）" : ""))
       : state.turn === userSide ? (sel ? "点绿点的位置走过去" : "轮到你（红）") : nameOf(state.turn) + "在想…";
     // 吃掉的子：各自那一排
@@ -6547,6 +6798,46 @@
     (mvs || []).forEach(function (m) { s = G.move(s, m.pass ? { pass: true } : { p: m.p }); });
     return s;
   }
+  // 围棋那块棋盘：单机那一桌和别处要摆同一张桌，都画这一块（数子时死子打叉、地盘小方块）
+  function GoBoardView(props) {
+    const G = window.GoCore, state = props.state, size = state.size, counting = !!props.counting, dead = props.dead || null, pend = props.pend == null ? -1 : props.pend, hint = props.hint == null ? -1 : props.hint, userSide = props.pendSide, tap = props.onTap || function () {};
+    // 棋盘：木板，有光泽的子，星位，最后一手一个红点；数子时死子半透明打叉，地盘上小方块
+    const n = size, cell = n === 19 ? 18 : n === 17 ? 20 : n === 13 ? 24 : 34, pad = cell * 0.9, W = pad * 2 + cell * (n - 1);
+    const X = function (p) { return pad + (p % n) * cell; }, Y = function (p) { return pad + ((p / n) | 0) * cell; };
+    const stars = n === 9 ? [[2, 2], [6, 2], [4, 4], [2, 6], [6, 6]] : n === 13 ? [[3, 3], [9, 3], [6, 6], [3, 9], [9, 9]] : n === 17 ? [[3, 3], [8, 3], [13, 3], [3, 8], [8, 8], [13, 8], [3, 13], [8, 13], [13, 13]] : [[3, 3], [9, 3], [15, 3], [3, 9], [9, 9], [15, 9], [3, 15], [9, 15], [15, 15]];
+    const lastMv = state.history.length ? state.history[state.history.length - 1].mv : null;
+    const own = counting && dead ? G.score(state, dead).owner : null;
+    const R = cell * 0.46;
+    return h("svg", { "data-wk": "goboard", viewBox: "0 0 " + W + " " + W, style: { width: "100%", maxWidth: 460, display: "block", margin: "0 auto", borderRadius: 12,
+        background: "linear-gradient(135deg, #e9c98c 0%, #dcb26c 50%, #e6c282 100%)", boxShadow: "inset 0 0 0 3px rgba(107,76,36,.3), 0 10px 24px rgba(60,40,15,.3)", touchAction: "manipulation" },
+        onClick: function (e) {
+          const b = e.currentTarget.getBoundingClientRect(), k = W / b.width;
+          const x = Math.round(((e.clientX - b.left) * k - pad) / cell), y = Math.round(((e.clientY - b.top) * k - pad) / cell);
+          if (x >= 0 && y >= 0 && x < n && y < n) tap(y * n + x);
+        } },
+      h("defs", { key: "d" },
+        h("radialGradient", { id: "goB", cx: ".35", cy: ".3", r: ".75" }, h("stop", { offset: "0", stopColor: "#6f6a64" }), h("stop", { offset: ".55", stopColor: "#1a1816" })),
+        h("radialGradient", { id: "goW", cx: ".35", cy: ".3", r: ".8" }, h("stop", { offset: "0", stopColor: "#ffffff" }), h("stop", { offset: ".7", stopColor: "#e6e0d3" }), h("stop", { offset: "1", stopColor: "#c9c0ae" }))),
+      Array.from({ length: n }).map(function (_, i) { return h("g", { key: "l" + i },
+        h("line", { x1: pad, y1: pad + i * cell, x2: pad + (n - 1) * cell, y2: pad + i * cell, stroke: "#5e4424", strokeWidth: i === 0 || i === n - 1 ? 1.4 : .7 }),
+        h("line", { x1: pad + i * cell, y1: pad, x2: pad + i * cell, y2: pad + (n - 1) * cell, stroke: "#5e4424", strokeWidth: i === 0 || i === n - 1 ? 1.4 : .7 })); }),
+      stars.map(function (s0, i) { return h("circle", { key: "s" + i, cx: pad + s0[0] * cell, cy: pad + s0[1] * cell, r: Math.max(2, cell * 0.09), fill: "#5e4424" }); }),
+      n <= 17 ? Array.from({ length: n }).map(function (_, i) { return h("text", { key: "cx" + i, x: pad + i * cell, y: pad * 0.45, textAnchor: "middle", fontSize: cell * 0.32, fill: "#5e4424", opacity: .6 }, G.COLS[i]); }) : null,
+      own ? own.map(function (o, p) { return o && !state.board[p] || (o && dead && dead.indexOf(p) >= 0) ? h("rect", { key: "o" + p, x: X(p) - cell * 0.15, y: Y(p) - cell * 0.15, width: cell * 0.3, height: cell * 0.3, fill: o === 1 ? "#1a1816" : "#fff", opacity: .7 }) : null; }) : null,
+      state.board.map(function (c, p) {
+        if (!c) return null;
+        const isDead = counting && dead && dead.indexOf(p) >= 0;
+        return h("g", { key: "p" + p, opacity: isDead ? .45 : 1 },
+          svgStone("s", X(p), Y(p), R, c),
+          isDead ? h("path", { d: "M" + (X(p) - R * .5) + " " + (Y(p) - R * .5) + "l" + R + " " + R + "M" + (X(p) + R * .5) + " " + (Y(p) - R * .5) + "l" + (-R) + " " + R, stroke: "#d24b3a", strokeWidth: 2 }) : null);
+      }),
+      lastMv && !lastMv.pass ? h("circle", { cx: X(lastMv.p), cy: Y(lastMv.p), r: R * 0.32, style: { fill: "#d24b3a" } }) : null,
+      hint >= 0 ? h("circle", { cx: X(hint), cy: Y(hint), r: R, style: { fill: "none", stroke: "#3a86c8", strokeWidth: 2.4, strokeDasharray: "4 3" } }) : null,
+      pend >= 0 ? svgStone("pend", X(pend), Y(pend), R, userSide, { opacity: .5 }) : null);
+
+  }
+  // 数完子谁赢、赢几目（中国规则，黑贴 7.5）：dead 是认定的死子
+  function goResult(G, state, dead) { const sc = G.score(state, dead || []); return { winner: sc.winner, black: sc.black, white: sc.white, margin: sc.margin }; }
   function GoGame(props) {
     const G = window.GoCore, KEY = "go", ZH = "围棋";
     const t = props.t, cfg = props.config, sv = props.savedState;
@@ -6653,42 +6944,10 @@
     const pass = function () { if (over || counting || spectate || state.turn !== userSide) return; play({ pass: true }); };
     const resign = function () { if (over || spectate) return; requestAppConfirm("认输？", "这一局算 " + nm(char) + " 赢。", function () { setResigned(userSide); }, "认输"); };
     const keepPlaying = function () { setDead(null); setMvs(mvs.slice(0, -2)); };   // 数子前反悔：退回停一手之前接着下
-    const confirmCount = function () { const sc = G.score(state, dead || []); setResult({ winner: sc.winner, black: sc.black, white: sc.white, margin: sc.margin }); };
+    const confirmCount = function () { setResult(goResult(G, state, dead || [])); };
 
-    // 棋盘：木板，有光泽的子，星位，最后一手一个红点；数子时死子半透明打叉，地盘上小方块
-    const n = size, cell = n === 19 ? 18 : n === 17 ? 20 : n === 13 ? 24 : 34, pad = cell * 0.9, W = pad * 2 + cell * (n - 1);
-    const X = function (p) { return pad + (p % n) * cell; }, Y = function (p) { return pad + ((p / n) | 0) * cell; };
-    const stars = n === 9 ? [[2, 2], [6, 2], [4, 4], [2, 6], [6, 6]] : n === 13 ? [[3, 3], [9, 3], [6, 6], [3, 9], [9, 9]] : n === 17 ? [[3, 3], [8, 3], [13, 3], [3, 8], [8, 8], [13, 8], [3, 13], [8, 13], [13, 13]] : [[3, 3], [9, 3], [15, 3], [3, 9], [9, 9], [15, 9], [3, 15], [9, 15], [15, 15]];
+    const boardSvg = h(GoBoardView, { state: state, counting: counting, dead: dead, pend: pend, hint: hint, pendSide: userSide, onTap: tap });
     const lastMv = state.history.length ? state.history[state.history.length - 1].mv : null;
-    const own = counting && dead ? G.score(state, dead).owner : null;
-    const R = cell * 0.46;
-    const boardSvg = h("svg", { "data-wk": "goboard", viewBox: "0 0 " + W + " " + W, style: { width: "100%", maxWidth: 460, display: "block", margin: "0 auto", borderRadius: 12,
-        background: "linear-gradient(135deg, #e9c98c 0%, #dcb26c 50%, #e6c282 100%)", boxShadow: "inset 0 0 0 3px rgba(107,76,36,.3), 0 10px 24px rgba(60,40,15,.3)", touchAction: "manipulation" },
-        onClick: function (e) {
-          const b = e.currentTarget.getBoundingClientRect(), k = W / b.width;
-          const x = Math.round(((e.clientX - b.left) * k - pad) / cell), y = Math.round(((e.clientY - b.top) * k - pad) / cell);
-          if (x >= 0 && y >= 0 && x < n && y < n) tap(y * n + x);
-        } },
-      h("defs", { key: "d" },
-        h("radialGradient", { id: "goB", cx: ".35", cy: ".3", r: ".75" }, h("stop", { offset: "0", stopColor: "#6f6a64" }), h("stop", { offset: ".55", stopColor: "#1a1816" })),
-        h("radialGradient", { id: "goW", cx: ".35", cy: ".3", r: ".8" }, h("stop", { offset: "0", stopColor: "#ffffff" }), h("stop", { offset: ".7", stopColor: "#e6e0d3" }), h("stop", { offset: "1", stopColor: "#c9c0ae" }))),
-      Array.from({ length: n }).map(function (_, i) { return h("g", { key: "l" + i },
-        h("line", { x1: pad, y1: pad + i * cell, x2: pad + (n - 1) * cell, y2: pad + i * cell, stroke: "#5e4424", strokeWidth: i === 0 || i === n - 1 ? 1.4 : .7 }),
-        h("line", { x1: pad + i * cell, y1: pad, x2: pad + i * cell, y2: pad + (n - 1) * cell, stroke: "#5e4424", strokeWidth: i === 0 || i === n - 1 ? 1.4 : .7 })); }),
-      stars.map(function (s0, i) { return h("circle", { key: "s" + i, cx: pad + s0[0] * cell, cy: pad + s0[1] * cell, r: Math.max(2, cell * 0.09), fill: "#5e4424" }); }),
-      n <= 17 ? Array.from({ length: n }).map(function (_, i) { return h("text", { key: "cx" + i, x: pad + i * cell, y: pad * 0.45, textAnchor: "middle", fontSize: cell * 0.32, fill: "#5e4424", opacity: .6 }, G.COLS[i]); }) : null,
-      own ? own.map(function (o, p) { return o && !state.board[p] || (o && dead && dead.indexOf(p) >= 0) ? h("rect", { key: "o" + p, x: X(p) - cell * 0.15, y: Y(p) - cell * 0.15, width: cell * 0.3, height: cell * 0.3, fill: o === 1 ? "#1a1816" : "#fff", opacity: .7 }) : null; }) : null,
-      state.board.map(function (c, p) {
-        if (!c) return null;
-        const isDead = counting && dead && dead.indexOf(p) >= 0;
-        return h("g", { key: "p" + p, opacity: isDead ? .45 : 1 },
-          svgStone("s", X(p), Y(p), R, c),
-          isDead ? h("path", { d: "M" + (X(p) - R * .5) + " " + (Y(p) - R * .5) + "l" + R + " " + R + "M" + (X(p) + R * .5) + " " + (Y(p) - R * .5) + "l" + (-R) + " " + R, stroke: "#d24b3a", strokeWidth: 2 }) : null);
-      }),
-      lastMv && !lastMv.pass ? h("circle", { cx: X(lastMv.p), cy: Y(lastMv.p), r: R * 0.32, style: { fill: "#d24b3a" } }) : null,
-      hint >= 0 ? h("circle", { cx: X(hint), cy: Y(hint), r: R, style: { fill: "none", stroke: "#3a86c8", strokeWidth: 2.4, strokeDasharray: "4 3" } }) : null,
-      pend >= 0 ? svgStone("pend", X(pend), Y(pend), R, userSide, { opacity: .5 }) : null);
-
     const status = over ? (resigned ? nameOf(winner) + "赢了（认输）" : nameOf(winner) + "赢了 " + result.margin + " 目（黑 " + result.black + " · 白 " + result.white + "）")
       : counting ? (dead ? "数子：点一块子改死／活，好了按「数子」" : "在估死子…")
       : state.turn === userSide ? (busy ? "在想提示…" : pend >= 0 ? "再点一下同一个点落子" : (lastMv && lastMv.pass ? nameOf(3 - userSide) + "停了一手，轮到你" : "轮到你（黑）")) : nameOf(state.turn) + "在想…";
@@ -7187,6 +7446,20 @@
           : null));
   }
 
+  // 一手／一轮打完停在桌上的那颗「接着来」（骗子骰、德州、21 点都是这一颗；label 走 children）
+  function GameNextBtn(props) {
+    const t = props.t;
+    return h("button", { "data-wk": props.wk, onClick: props.onClick, disabled: props.disabled, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", opacity: props.disabled ? .45 : 1 } }, props.children);
+  }
+  // 一张 UNO 牌（手里那张小一点；hand 且 !ok 时灰掉、点不动）
+  const UNO_COL = { R: "#d9584b", Y: "#e0b735", G: "#459464", B: "#4382bf", W: "#252525" };
+  function unoCardFace(c) { return c.value === "D2" ? ["+2", "摸二"] : c.value === "W4" ? ["+4", "万能"] : c.value === "W" ? ["四色", "变色"] : c.value === "V" ? ["↻", "反转"] : c.value === "S" ? ["⊘", "跳过"] : [c.value, ""]; }
+  function UnoCardFace(props) {
+    const c = props.c, hand = props.hand, ok = props.ok, col = UNO_COL, face = unoCardFace(c), wild = c.color === "W";
+    return h("button", { "data-wk": "gameunocard", "data-on": hand ? "1" : "0", "data-pick": props.picked ? "1" : undefined, onClick: props.onClick, disabled: hand && !ok, style: { animation: "gcardIn .3s ease-out both", width: hand ? 62 : 82, height: hand ? 92 : 116, flex: "0 0 auto", borderRadius: 14, border: "3px solid " + (props.picked ? "#2f2a24" : "#f6f1e7"), boxShadow: "0 3px 10px rgba(0,0,0,.18)", background: wild ? "conic-gradient(#d9584b 0 25%,#e0b735 0 50%,#459464 0 75%,#4382bf 0)" : col[c.color], color: "white", opacity: hand && !ok ? .42 : 1, padding: 5 } },
+      h("span", { style: { width: "100%", height: "100%", borderRadius: "50%", background: "rgba(255,255,255,.94)", color: wild ? "#252525" : col[c.color], display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", transform: "rotate(-11deg)", fontFamily: F_DISPLAY } },
+        h("b", { style: { fontSize: face[0].length > 2 ? 16 : 25, lineHeight: 1 } }, face[0]), face[1] ? h("small", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", marginTop: 5 } }, face[1]) : null));
+  }
   function UnoGame(props) {
     const t = props.t, api = props.active, cfg = props.config || {};
     const restored = props.savedState && props.savedState.state;
@@ -7295,14 +7568,10 @@
       if (c.color === "W") return setColorPick(c);
       userAct({ kind: "play", uid: c.uid, uno: saidUno });
     }
-    const col = { R: "#d9584b", Y: "#e0b735", G: "#459464", B: "#4382bf", W: "#252525" };
-    function cardFace(c) { return c.value === "D2" ? ["+2", "摸二"] : c.value === "W4" ? ["+4", "万能"] : c.value === "W" ? ["四色", "变色"] : c.value === "V" ? ["↻", "反转"] : c.value === "S" ? ["⊘", "跳过"] : [c.value, ""]; }
     const talking = useCardTableTalk(props, state, setState, { on: cardLocal(cfg), zh: "UNO", ready: !!me || state.status === "finished", every: state.players.length * 2, view: function () { return unoPublic(state); } });
     function cardView(c, hand) {
-      const ok = hand && me && UnoCore.playable(c, state, current.hand) && (!state.drawnUid || c.uid === state.drawnUid), face = cardFace(c), wild = c.color === "W";
-      return h("button", { "data-wk": "gameunocard", "data-on": hand ? "1" : "0", key: c.uid, onClick: function () { clickCard(c); }, disabled: hand && !ok, style: { animation: "gcardIn .3s ease-out both", width: hand ? 62 : 82, height: hand ? 92 : 116, flex: "0 0 auto", borderRadius: 14, border: "3px solid #f6f1e7", boxShadow: "0 3px 10px rgba(0,0,0,.18)", background: wild ? "conic-gradient(#d9584b 0 25%,#e0b735 0 50%,#459464 0 75%,#4382bf 0)" : col[c.color], color: "white", opacity: hand && !ok ? .42 : 1, padding: 5 } },
-        h("span", { style: { width: "100%", height: "100%", borderRadius: "50%", background: "rgba(255,255,255,.94)", color: wild ? "#252525" : col[c.color], display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", transform: "rotate(-11deg)", fontFamily: F_DISPLAY } },
-          h("b", { style: { fontSize: face[0].length > 2 ? 16 : 25, lineHeight: 1 } }, face[0]), face[1] ? h("small", { style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", marginTop: 5 } }, face[1]) : null));
+      const ok = hand && me && UnoCore.playable(c, state, current.hand) && (!state.drawnUid || c.uid === state.drawnUid);
+      return h(UnoCardFace, { key: c.uid, c: c, hand: hand, ok: ok, onClick: function () { clickCard(c); } });
     }
     return h("div", { "data-wk": "gameplay", "data-part": "uno", className: "h-full flex flex-col", style: gameTable("uno", t) },
       h(Head, { zh: "UNO", en: current ? ("轮到 " + current.name) : "", onBack: props.onBack, bg: "transparent" }),
@@ -7338,7 +7607,7 @@
           h("button", { onClick: function () { userAct({ kind: state.pendingDraw ? "draw" : (state.drawnUid ? "pass" : "draw") }); }, style: { border: "1px solid " + t.line, borderRadius: 999, padding: "9px 16px", color: t.ink, background: t.bg2 } }, state.pendingDraw ? ("接受 +" + state.pendingDraw) : state.drawnUid ? "不出" : "摸一张"),
           (state.pendingDraw && state.w4 && top && top.value === "W4") ? h("button", { onClick: function () { userAct({ kind: "challenge" }); }, style: { borderRadius: 999, padding: "9px 16px", color: "#fff", background: "#c0553f", border: "1px solid #c0553f" } }, "质疑这张 +4") : null,
           h("button", { onClick: function () { setSaidUno(!saidUno); }, style: { borderRadius: 999, padding: "9px 16px", color: saidUno ? "white" : t.sub, background: saidUno ? t.tint : t.bg2, border: "1px solid " + (saidUno ? t.tint : t.line) } }, saidUno ? "UNO ✓" : "不喊 UNO"))) : busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, current && current.engineer ? "等本人看牌…（票失败只按牌规行动，不代说话）" : "TA 在看牌…") : null,
-      colorPick ? h(PickerModal, { t: t, title: "万能牌改成什么颜色？", onClose: function () { setColorPick(null); } }, h("div", { style: { display: "flex", gap: 9, justifyContent: "center" } }, UnoCore.COLORS.map(function (c) { return h("button", { key: c, onClick: function () { userAct({ kind: "play", uid: colorPick.uid, color: c, uno: saidUno }); }, style: { width: 54, height: 54, borderRadius: 999, background: col[c], color: "white" } }, UnoCore.LABEL[c]); }))) : null);
+      colorPick ? h(PickerModal, { t: t, title: "万能牌改成什么颜色？", onClose: function () { setColorPick(null); } }, h("div", { style: { display: "flex", gap: 9, justifyContent: "center" } }, UnoCore.COLORS.map(function (c) { return h("button", { key: c, onClick: function () { userAct({ kind: "play", uid: colorPick.uid, color: c, uno: saidUno }); }, style: { width: 54, height: 54, borderRadius: 999, background: UNO_COL[c], color: "white" } }, UnoCore.LABEL[c]); }))) : null);
   }
 
   // ============================================================
@@ -7551,7 +7820,7 @@
               text: "一起玩了一局「骗子骰」，打了 " + state.round + " 轮，" + ((w && (w.isUser ? "她" : w.name)) || "没人") + " 撑到了最后。" + (state.log.filter(function (x) { return x.kind === "sys" && /输一条命/.test(x.text); }).slice(-1).map(function (x) { return "最后一开：" + x.text.replace(/^亮骰：/, ""); })[0] || "") };
           } })) : null),
       state.status === "playing" && state.reveal ? h("div", { "data-wk": "gameactions", "data-part": "liar", "data-kind": "reveal", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", textAlign: "center" } },
-        h("button", { "data-wk": "gameliarnext", onClick: nextRound, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "摇下一轮")) :
+        h(GameNextBtn, { t: t, wk: "gameliarnext", onClick: nextRound }, "摇下一轮")) :
       state.status === "playing" && me ? h("div", { "data-wk": "gameactions", "data-part": "liar", "data-kind": "bid", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 9 } },
           stepBtn("−", function () { setPick({ n: Math.max(1, pick.n - 1), f: pick.f }); }, pick.n <= 1),
@@ -7565,6 +7834,32 @@
           h("button", { "data-wk": "gameliarbidbtn", onClick: function () { userAct({ kind: "bid", n: pick.n, f: pick.f }); }, disabled: !pickOk, style: { border: 0, borderRadius: 999, padding: "11px 10px", color: "#fff", background: pickOk ? t.tint : t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "叫 " + pick.n + " 个 " + pick.f),
           state.bid ? h("button", { "data-wk": "gameliaropen", onClick: function () { userAct({ kind: "open" }); }, style: { border: 0, borderRadius: 999, padding: "11px 10px", color: "#fff", background: "#c0553f", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "开！") : null)) :
       busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, current && current.engineer ? "等本人掀杯看骰…" : (current ? current.name : "TA") + " 在看骰子…") : null);
+  }
+
+  // 故事接龙那页横格本：左边一道红边线，字压在格线上；第几圈贴在右上角；每句末尾挂小号，底下一排「几 · 谁」
+  //   props：t、opener、lines（[{ key, name, text, word, used }]）、laps、nPlayers、playing（贴第几圈）、title（写完了的书名）、meKey（哪一个 key 算「我」）
+  function StoryPaper(props) {
+    const t = props.t, lines = props.lines || [], meKey = props.meKey;
+    return h("div", { "data-wk": "gamestorypaper", style: { position: "relative", borderRadius: 6, padding: "18px 16px 16px 30px", background: "#fffdf6",
+            backgroundImage: "linear-gradient(90deg, transparent 21px, rgba(208,83,63,.35) 21px, rgba(208,83,63,.35) 22.5px, transparent 22.5px), repeating-linear-gradient(180deg, transparent 0 29px, rgba(93,111,163,.18) 29px 30px)",
+            backgroundPosition: "0 0, 0 19px",
+            boxShadow: "0 1px 0 #ece5d6, 0 3px 0 #f5f0e6, 0 4px 0 #e4dccd, 0 10px 22px rgba(40,30,20,.18)" } },
+          props.playing ? h("div", { "data-wk": "block", style: { position: "absolute", right: 10, top: -8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#fff", background: LID.story.hot, borderRadius: 4, padding: "3px 8px", boxShadow: "0 2px 4px rgba(0,0,0,.15)" } },
+            "第 " + (Math.floor(lines.length / Math.max(1, props.nPlayers || 1)) + 1) + " / " + props.laps + " 圈") : null,
+          props.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: "#2f2a24", lineHeight: "30px", marginBottom: 0, textAlign: "center" } }, "《" + props.title + "》") : null,
+          h("p", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: "30px", color: "#2f2a24", margin: 0 } },
+            h("span", { style: { color: "#8a8173" } }, props.opener),
+            lines.map(function (l, i) {
+              return h("span", { "data-wk": "gamestoryline", "data-part": l.key === meKey ? "me" : "ta", key: i, title: l.name },
+                (l.word ? l.text.split(l.word) : [l.text]).map(function (seg, j, arr) {
+                  return j < arr.length - 1 ? [seg, h("b", { key: "w" + j, style: { color: LID.story.hot, fontWeight: 700, background: "linear-gradient(180deg, transparent 60%, rgba(93,111,163,.18) 60%)" } }, l.word)] : seg;
+                }),
+                // 每人那一段末尾挂个小号，跟底下「1 · 某某」对得上（她 2026-10-22「每一段后面没有结尾，分不出哪里结束」）
+                h("sup", { "data-wk": "gamestorymark", style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: LID.story.hot, opacity: .75, margin: "0 3px 0 1px", fontWeight: 600 } }, String(i + 1)));
+            })),
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 } }, lines.map(function (l, i) {
+            return h("span", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line } }, (i + 1) + " · " + l.name + (l.used ? "" : " · 没用上「" + l.word + "」"));
+          })));
   }
 
   // ============================================================
@@ -7607,6 +7902,38 @@
     state.word = storyPick(STORY_WORDS, rnd);
     return state;
   }
+  // 轮到一个座位接一句时发给 TA 的那份：故事到哪了、要用上的词、是不是最后一句。p：{ name, persona | char, isNpc }
+  function storyLineAsk(state, p) {
+    const last = storyIsLast(state), word = state.word;
+    const sys = gameVoiceRules() + seatIdentity(p) + "你正在和大家玩「故事接龙」：每人轮流往下写一句，接在别人后面，合起来是一篇小故事。你写的就是你这一句，不是评论。保持你本人的性格和说话习惯——你会怎么接，就怎么接（爱搞怪的会拐个弯，细腻的会写细节）。"
+      // 流水账（她 2026-11-01 截图：一句一个新东西，拖鞋砸出信封、信封掉出照片，开头那个谜没人管）：
+      //   告诉他故事走到哪了、开头埋的是什么；抽到的词是道具，这一句的活是把那件事往前推一步
+      + "\n这篇故事从开头那一句埋下的事出发：「" + state.opener + "」。大家接的都是这一件事。"
+      + "\n" + storyStage(state)
+      + "\n这一句要用上「" + word + "」这个词，它是这一句里顺手出现的一样东西，一笔带过就够；这一句真正要做的是把故事往前推一步。只写一到两句、60 字以内，紧接上文。" + (last ? "\n这是全篇最后一句，由你来收尾：把开头那件事落下来，留一点余味。" : "")
+      + "\nsay 是你写完这句以后嘴上冒出来的那句话：可以是对上一个人那句的反应、冲某个人说、得意或心虚自己这一句、接桌上刚才谁的话——照你这个人。轮到谁接大家都知道，不用你来报幕；没想说的就留空。"
+      + "\n只输出 JSON：{\"line\":\"你接的这一句\",\"say\":\"可空：你嘴上那句\"}";
+    const ctx = "故事到目前为止：\n" + storyText(state)
+      + (state.lines.length ? "\n\n（每句是谁接的：" + state.lines.slice(-8).map(function (l) { return l.name + "「" + String(l.text).slice(0, 18) + (String(l.text).length > 18 ? "…" : "") + "」"; }).join("；") + "）" : "")
+      + "\n\n现在轮到你接。要用上的词：" + word;
+    return { sys: sys, user: ctx };
+  }
+  // 替一个座位接一句（直接走给的线路）：回 { line, say }
+  async function storyWriteLine(api, state, who) {
+    const ask = storyLineAsk(state, who);
+    const a = unoJson(await callRetry(api, ask.sys, [{ role: "user", content: ask.user }], { maxTokens: 8400, tag: "故事接龙" }));
+    return { line: String(a.line || "").trim(), say: String(a.say || "").trim() };
+  }
+  // 写这一句，顺带替紧跟着接的那一位（next：{ name, persona, isNpc }，nextWord＝TA 要用上的词）也写一句：一次调用两句
+  async function storyWriteLineNext(api, state, who, next, nextWord) {
+    const ask = storyLineAsk(state, who);
+    const sys = ask.sys.replace(/\n只输出 JSON：[^\n]*$/, "")
+      + "\n\n你写完以后，紧跟着接下一句的是「" + next.name + "」" + (next.persona ? "（" + String(next.persona).slice(0, 300) + "）" : "") + "。顺手替 TA 也写一句，接在你这句后面，照 TA 的样子接，要用上「" + nextWord + "」，同样一到两句、60 字以内；next.say 是 TA 嘴上那句，可空。"
+      + "\n只输出 JSON：{\"line\":\"你接的这一句\",\"say\":\"可空\",\"next\":{\"line\":\"" + next.name + " 接的一句\",\"say\":\"可空\"}}";
+    const a = unoJson(await callRetry(api, sys, [{ role: "user", content: ask.user }], { maxTokens: 12000, tag: "故事接龙" }));
+    const n = a && a.next && typeof a.next === "object" ? a.next : {};
+    return { line: String(a.line || "").trim(), say: String(a.say || "").trim(), next: { line: String(n.line || "").trim(), say: String(n.say || "").trim() } };
+  }
   function StoryChainGame(props) {
     const t = props.t, api = props.active, cfg = props.config || {};
     const restored = props.savedState && props.savedState.state;
@@ -7628,19 +7955,8 @@
       if (!current || current.isUser || state.status !== "playing" || busy) return;
       const turnId = state.id + "#" + state.lines.length + "#" + current.key;
       if (running.current === turnId) return; running.current = turnId; setBusy(true); setError("");
-      const last = storyIsLast(state), word = state.word;
-      const sys = gameVoiceRules() + seatIdentity(current) + "你正在和大家玩「故事接龙」：每人轮流往下写一句，接在别人后面，合起来是一篇小故事。你写的就是你这一句，不是评论。保持你本人的性格和说话习惯——你会怎么接，就怎么接（爱搞怪的会拐个弯，细腻的会写细节）。"
-        // 流水账（她 2026-11-01 截图：一句一个新东西，拖鞋砸出信封、信封掉出照片，开头那个谜没人管）：
-        //   告诉他故事走到哪了、开头埋的是什么；抽到的词是道具，这一句的活是把那件事往前推一步
-        + "\n这篇故事从开头那一句埋下的事出发：「" + state.opener + "」。大家接的都是这一件事。"
-        + "\n" + storyStage(state)
-        + "\n这一句要用上「" + word + "」这个词，它是这一句里顺手出现的一样东西，一笔带过就够；这一句真正要做的是把故事往前推一步。只写一到两句、60 字以内，紧接上文。" + (last ? "\n这是全篇最后一句，由你来收尾：把开头那件事落下来，留一点余味。" : "")
-        + "\nsay 是你写完这句以后嘴上冒出来的那句话：可以是对上一个人那句的反应、冲某个人说、得意或心虚自己这一句、接桌上刚才谁的话——照你这个人。轮到谁接大家都知道，不用你来报幕；没想说的就留空。"
-        + "\n只输出 JSON：{\"line\":\"你接的这一句\",\"say\":\"可空：你嘴上那句\"}";
-      const ctx = "故事到目前为止：\n" + storyText(state)
-        + (state.lines.length ? "\n\n（每句是谁接的：" + state.lines.slice(-8).map(function (l) { return l.name + "「" + String(l.text).slice(0, 18) + (String(l.text).length > 18 ? "…" : "") + "」"; }).join("；") + "）" : "")
-        + "\n\n现在轮到你接。要用上的词：" + word;
-      routeSeatCall(current, api, sys, [{ role: "user", content: ctx }], { game: "story", turnId: turnId, expect: "{\"line\":\"...\",\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8400 } })
+      const ask = storyLineAsk(state, current);
+      routeSeatCall(current, api, ask.sys, [{ role: "user", content: ask.user }], { game: "story", turnId: turnId, expect: "{\"line\":\"...\",\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8400 } })
         .then(function (r) {
           const a = unoJson(r.value), line = String(a.line || "").trim();
           if (!line) throw new Error("没写出来");
@@ -7667,27 +7983,8 @@
           return { key: p.key, name: p.name, char: p.isUser ? { name: p.name, avatarImage: (props.profile || {}).avatarImage, color: (props.profile || {}).color } : (props.characters || []).find(function (c) { return String(c.id) === String(p.key); }),
             isUser: p.isUser, on: state.status === "playing" && i === state.turn, sub: state.status === "playing" && i === state.turn ? "在写…" : "写了 " + n + " 句" };
         }) }),
-        // 一页横格本：左边一道红边线，字压在格线上；第几圈贴在右上角
-        h("div", { "data-wk": "gamestorypaper", style: { position: "relative", borderRadius: 6, padding: "18px 16px 16px 30px", background: "#fffdf6",
-            backgroundImage: "linear-gradient(90deg, transparent 21px, rgba(208,83,63,.35) 21px, rgba(208,83,63,.35) 22.5px, transparent 22.5px), repeating-linear-gradient(180deg, transparent 0 29px, rgba(93,111,163,.18) 29px 30px)",
-            backgroundPosition: "0 0, 0 19px",
-            boxShadow: "0 1px 0 #ece5d6, 0 3px 0 #f5f0e6, 0 4px 0 #e4dccd, 0 10px 22px rgba(40,30,20,.18)" } },
-          state.status === "playing" ? h("div", { "data-wk": "block", style: { position: "absolute", right: 10, top: -8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#fff", background: LID.story.hot, borderRadius: 4, padding: "3px 8px", boxShadow: "0 2px 4px rgba(0,0,0,.15)" } },
-            "第 " + (Math.floor(state.lines.length / state.players.length) + 1) + " / " + state.laps + " 圈") : null,
-          state.status === "finished" ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: "#2f2a24", lineHeight: "30px", marginBottom: 0, textAlign: "center" } }, "《" + name + "》") : null,
-          h("p", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: "30px", color: "#2f2a24", margin: 0 } },
-            h("span", { style: { color: "#8a8173" } }, state.opener),
-            state.lines.map(function (l, i) {
-              return h("span", { "data-wk": "gamestoryline", "data-part": l.key === "user" ? "me" : "ta", key: i, title: l.name },
-                l.text.split(l.word).map(function (seg, j, arr) {
-                  return j < arr.length - 1 ? [seg, h("b", { key: "w" + j, style: { color: LID.story.hot, fontWeight: 700, background: "linear-gradient(180deg, transparent 60%, rgba(93,111,163,.18) 60%)" } }, l.word)] : seg;
-                }),
-                // 每人那一段末尾挂个小号，跟底下「1 · 某某」对得上（她 2026-10-22「每一段后面没有结尾，分不出哪里结束」）
-                h("sup", { "data-wk": "gamestorymark", style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: LID.story.hot, opacity: .75, margin: "0 3px 0 1px", fontWeight: 600 } }, String(i + 1)));
-            })),
-          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 } }, state.lines.map(function (l, i) {
-            return h("span", { key: i, style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line } }, (i + 1) + " · " + l.name + (l.used ? "" : " · 没用上「" + l.word + "」"));
-          }))),
+        // 一页横格本：画法在 StoryPaper（别处摆同一页纸从 GameShared.story.Paper 拿）
+        h(StoryPaper, { t: t, opener: state.opener, lines: state.lines, laps: state.laps, nPlayers: state.players.length, playing: state.status === "playing", title: state.status === "finished" ? name : "", meKey: "user" }),
         state.log.length ? h("div", { "data-wk": "gamelog", "data-part": "story", style: { marginTop: 10, background: t.bg2, borderRadius: 13, padding: "9px 12px" } }, state.log.slice(-6).map(function (x, i) { return h("div", { "data-wk": "gamelogline", key: i, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65 } }, saidOf(x.text, (state.players || []).find(function (p) { return p.key === x.player; }))); })) : null,
         error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, error, " ",
           h("button", { onClick: retry, style: { color: t.tint, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", textDecoration: "underline", background: "transparent" } }, "再请一次")) : null,
@@ -8169,7 +8466,7 @@
               text: "一起打了一局德州扑克，" + state.hand + " 手收桌，" + ((w && (w.isUser ? "她" : w.name)) || "没人") + " 筹码最多。" + state.players.map(function (p) { return (p.isUser ? "她" : p.name) + " " + p.chips; }).join("，") + "。" };
           } })) : null),
       state.status === "playing" && state.street === "done" ? h("div", { "data-wk": "gameactions", "data-part": "poker", "data-kind": "next", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", textAlign: "center" } },
-        h("button", { "data-wk": "gamepokernext", onClick: nextHand, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, state.hand >= PK_HANDS ? "收桌算账" : "发下一手")) :
+        h(GameNextBtn, { t: t, wk: "gamepokernext", onClick: nextHand }, state.hand >= PK_HANDS ? "收桌算账" : "发下一手")) :
       state.status === "playing" && me && o ? h("div", { "data-wk": "gameactions", "data-part": "poker", "data-kind": "bet", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
         o.canRaise ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, flexShrink: 0 } }, "加到"),
@@ -8447,7 +8744,7 @@
               text: "一起玩了 " + state.hand + " 手 21 点，" + ((w && (w.isUser ? "她" : w.name)) || "没人") + " 筹码最多。" + state.players.map(function (p) { return (p.isUser ? "她" : p.name) + " " + p.chips; }).join("，") + "。" };
           } })) : null),
       state.status === "playing" && state.phase === "done" ? h("div", { "data-wk": "gameactions", "data-part": "blackjack", "data-kind": "next", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", textAlign: "center" } },
-        h("button", { "data-wk": "gamebjnext", onClick: nextHand, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, state.hand >= BJ_HANDS ? "散场算账" : "发下一手")) :
+        h(GameNextBtn, { t: t, wk: "gamebjnext", onClick: nextHand }, state.hand >= BJ_HANDS ? "散场算账" : "发下一手")) :
       me ? h("div", { "data-wk": "gameactions", "data-part": "blackjack", "data-kind": "play", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
         h(CardSay, { t: t, state: state, setState: setState, value: say, setValue: setSay, placeholder: "顺便说一句", talking: talking, style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 } },
@@ -8882,6 +9179,7 @@
         h(MjTable, { state: state, meI: meI, spectate: spectate, size: tableS, canDraw: canDraw, onDraw: function () { act(function (n) { M.drawTile(n, meI); }); } }),
         r ? feltBox([
 
+
           // 一盘的结果：一张米色纸条，右上角盖一枚红章
           // 一盘的结果：一张米色纸条，每个糊了的人一段，右上角盖一枚红章（血战到底一盘能有好几个人糊）
           h("div", { key: "res" + state.handNo, "data-wk": "gamemjresult", "data-mjanim": "1", style: { animation: "mjRise .4s ease-out both", position: "relative", marginTop: 4, background: "linear-gradient(180deg,#fbf4e2,#f1e4c4)", color: "#4a3a26", borderRadius: 10, padding: "12px 14px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.75, boxShadow: "0 6px 14px -8px rgba(0,0,0,.6)" } },
@@ -8969,6 +9267,21 @@
           }).concat([h("div", { key: "tip", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "rgba(255,240,215,.72)", alignSelf: "center" } }, sel != null ? "再点一下打出去" : "点一张牌，再点一下打出")])
           : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: "rgba(255,240,215,.72)", alignSelf: "center" } }, state.phase === "claim" ? "等别家要不要…" : canDraw ? "轮到你了：点桌子正中的牌墙摸一张" : ((state.players[state.turn] || {}).name || "") + " 在出牌…"))) : null);
   }
+  // 斗地主绒布中间那两块：底牌那一排（叫分时扣着）、桌上刚出的那手（谁出的 · 什么牌型）。别处摆同一张桌从 GameShared.cards.DdzMid 拿
+  //   bottom、hideBottom（扣着）、bidN、mult、phase、round、logN（换手时牌重新飞一下）、last：{ name, type, cards } 或 null、leader（该谁领出）
+  function DdzMid(props) {
+    const last = props.last;
+    return h(React.Fragment, null,
+      h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .75, marginRight: 4 } }, "底牌"),
+        (props.bottom || []).map(function (c, j) { return h(PlayCard, { key: j + (props.hideBottom ? "x" : "o") + props.round, c: c, back: !!props.hideBottom, flip: props.phase !== "bid", w: 30 }); }),
+        props.bidN ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .85, marginLeft: 8 } }, props.bidN + " 分" + (props.mult > 1 ? " × " + props.mult : "")) : null),
+      h("div", { "data-wk": "gameddzlast", style: { marginTop: 14, minHeight: 74, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 } },
+        last ? [
+          h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .8 } }, last.name + " · " + (last.type || "")),
+          h("div", { key: "c", style: { display: "flex", justifyContent: "center", flexWrap: "wrap" } }, last.cards.map(function (c, j) { return h("div", { key: (c.uid || j) + "-" + props.logN, style: { marginLeft: j ? -14 : 0 } }, h(PlayCard, { c: c, w: 38 })); }))
+        ] : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .7 } }, props.phase === "bid" ? "叫分中" : props.phase === "play" ? (props.leader ? props.leader + " 领出" : "") : "")));
+  }
   function DoudizhuGame(props) {
     const t = props.t, cfg = props.config || {};
     const restored = props.savedState && props.savedState.state;
@@ -9034,15 +9347,8 @@
             hot: state.result && (state.result.lordWin ? p.role === "lord" : p.role === "farmer"), sub: p.hand.length + "张 · " + p.pts + "分" };
         }) }),
         feltBox([
-          h("div", { key: "a", style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .75, marginRight: 4 } }, "底牌"),
-            (state.bottom || []).map(function (c, j) { return h(PlayCard, { key: j + (state.phase === "bid" ? "x" : "o") + state.round, c: c, back: state.phase === "bid" && !spectate, flip: state.phase !== "bid", w: 30 }); }),
-            state.bid && state.bid.n ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .85, marginLeft: 8 } }, state.bid.n + " 分" + (state.mult > 1 ? " × " + state.mult : "")) : null),
-          h("div", { key: "b", "data-wk": "gameddzlast", style: { marginTop: 14, minHeight: 74, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 } },
-            state.last && !state.last.cleared && state.phase !== "bid" ? [
-              h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", opacity: .8 } }, state.players[state.last.by].name + " · " + DDZ_TYPE_ZH[state.last.combo.type]),
-              h("div", { key: "c", style: { display: "flex", justifyContent: "center", flexWrap: "wrap" } }, state.last.cards.map(function (c, j) { return h("div", { key: c.uid + state.log.length, style: { marginLeft: j ? -14 : 0 } }, h(PlayCard, { c: c, w: 38 })); }))
-            ] : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: .7 } }, state.phase === "bid" ? "叫分中" : state.phase === "play" ? (actor ? actor.name + " 领出" : "") : "")),
+          h(DdzMid, { key: "a", bottom: state.bottom || [], hideBottom: state.phase === "bid" && !spectate, bidN: state.bid && state.bid.n, mult: state.mult, phase: state.phase, round: state.round, logN: state.log.length,
+            last: state.last && !state.last.cleared && state.phase !== "bid" ? { name: state.players[state.last.by].name, type: DDZ_TYPE_ZH[state.last.combo.type], cards: state.last.cards } : null, leader: actor ? actor.name : "" }),
           showAll ? h("div", { key: "h", style: { marginTop: 10, display: "flex", flexDirection: "column", gap: 6 } }, state.players.filter(function (p) { return !p.isUser && p.hand.length; }).map(function (p) {
             return h("div", { "data-wk": "block", key: p.key, style: { display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,.18)", borderRadius: 11, padding: "5px 9px" } },
               h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", width: 54, flexShrink: 0, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name),
@@ -9075,8 +9381,47 @@
       busy && actor ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, actor.name + (state.phase === "bid" ? " 在想叫不叫…" : " 在理牌…")) : null);
   }
 
-  if (typeof module === "object" && module.exports) module.exports = { cardDeck: cardDeck, pkEval5: pkEval5, pkCmp: pkCmp, pkBest: pkBest, pkNewGame: pkNewGame, pkNewHand: pkNewHand, pkAct: pkAct, pkOptions: pkOptions, pkNpcMove: pkNpcMove, omNewGame: omNewGame, omAct: omAct, omDiscardPairs: omDiscardPairs, bjValue: bjValue, bjNewGame: bjNewGame, bjNewHand: bjNewHand, bjAct: bjAct, bjNpcMove: bjNpcMove, ddzAnalyze: ddzAnalyze, ddzBeats: ddzBeats, ddzFind: ddzFind, ddzLead: ddzLead, ddzNewGame: ddzNewGame, ddzNewRound: ddzNewRound, ddzBid: ddzBid, ddzPlay: ddzPlay, ddzNpcBid: ddzNpcBid, ddzNpcPlay: ddzNpcPlay, ddzHint: ddzHint, unoLocalMove: unoLocalMove, cardLocal: cardLocal, cardMovesSince: cardMovesSince, cardSayOf: cardSayOf, spyGuessHits: spyGuessHits, seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, liarLegalBid: liarLegalBid, liarCount: liarCount, liarNewGame: liarNewGame, liarAct: liarAct, liarNpcMove: liarNpcMove, liarNewRound: liarNewRound, storyNewGame: storyNewGame, storyAct: storyAct, storyText: storyText, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
+  if (typeof module === "object" && module.exports) module.exports = { gmkPlace: gmkPlace, gmkReplay: gmkReplay, gmkEmpty: gmkEmpty, gmkWins: gmkWins, cardDeck: cardDeck, pkEval5: pkEval5, pkCmp: pkCmp, pkBest: pkBest, pkNewGame: pkNewGame, pkNewHand: pkNewHand, pkAct: pkAct, pkOptions: pkOptions, pkNpcMove: pkNpcMove, omNewGame: omNewGame, omAct: omAct, omDiscardPairs: omDiscardPairs, bjValue: bjValue, bjNewGame: bjNewGame, bjNewHand: bjNewHand, bjAct: bjAct, bjNpcMove: bjNpcMove, ddzAnalyze: ddzAnalyze, ddzBeats: ddzBeats, ddzFind: ddzFind, ddzLead: ddzLead, ddzNewGame: ddzNewGame, ddzNewRound: ddzNewRound, ddzBid: ddzBid, ddzPlay: ddzPlay, ddzNpcBid: ddzNpcBid, ddzNpcPlay: ddzNpcPlay, ddzHint: ddzHint, unoLocalMove: unoLocalMove, cardLocal: cardLocal, cardMovesSince: cardMovesSince, cardSayOf: cardSayOf, spyGuessHits: spyGuessHits, seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, liarLegalBid: liarLegalBid, liarCount: liarCount, liarNewGame: liarNewGame, liarAct: liarAct, liarNpcMove: liarNpcMove, liarNewRound: liarNewRound, storyNewGame: storyNewGame, storyAct: storyAct, storyText: storyText, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
   // 聊天那头要按 key 报菜名（房间里的「TA可以拉你玩点什么」），别在那边再抄一份清单。
   Games.LIST = (typeof window !== "undefined" && window.GamesList) || GAMES.map(function (g) { return { key: g.key, zh: g.zh, min: g.min, max: g.max, rule: g.rule }; });
   if (typeof window !== "undefined") window.Games = Games;
+  // 引擎里不带界面状态的那一半＋几块画桌子的部件：别处要摆同一张桌（同一套规则、同一块棋盘）时从这儿拿，不另抄一份
+  const WIN = typeof window !== "undefined" ? window : {};
+  const GameShared = {
+    gomoku: { N: GMK_N, empty: gmkEmpty, place: gmkPlace, replay: gmkReplay, wins: gmkWins, bestMove: gmkBestMove, threat: gmkThreat, coord: gmkCoord },
+    guess: { KINDS: GUESS_KINDS, VERDICT_COLOR: VERDICT_COLOR, PuzzleCard: GuessPuzzleCard, AskRow: GuessAskRow, Verdict: GuessVerdict, RevealCard: GuessRevealCard, newPuzzle: genGuessNext, answerOne: guessAnswerOne, askOne: guessAskOne, judge: judgeGuess, hit: q25Hit, round: runGuessRound },
+    board: {
+      chess: { C: WIN.ChessCore, sides: ["w", "b"], sideZh: function (s) { return s === "w" ? "白" : "黑"; }, View: ChessBoardView, record: function (mv) { return { from: mv.from, to: mv.to, promo: mv.promo }; }, pick: function (go) { return go.find(function (m) { return !m.promo || m.promo === "q"; }) || go[0]; } },
+      xiangqi: { C: WIN.XiangqiCore, sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "黑"; }, View: XiangqiBoardView },
+      jungle: { C: WIN.JungleCore, sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "蓝"; }, View: JungleBoardView }
+    },
+    skill: { PINS: SKILL_PINS, NOTE: SKILL_PIN_NOTE, load: loadSkillPins, save: saveSkillPin }, GMK_CASUAL_OPTS: GMK_CASUAL_OPTS,
+    boardReplay: boardReplay, boardOutcome: boardOutcome, boardSkillCached: boardSkillCached, BOARD_TIER_LV: BOARD_TIER_LV,
+    go: { C: WIN.GoCore, replay: goReplay, result: goResult, View: GoBoardView },
+    story: { Paper: StoryPaper, newGame: storyNewGame, act: storyAct, text: storyText, total: storyTotalTurns, isLast: storyIsLast, writeLine: storyWriteLine, writeLineNext: storyWriteLineNext },
+    tod: { RoundCard: TDRoundCard, SpinShow: TDSpinShow, SpinLine: TDSpinLine, Choose: TDChoose, Bottle: TDBottle, plan: tdRoundPlan, pickTarget: tdPickFairTarget, pickAsker: tdPickNextAsker, ask: genTDPrompt, answer: genTDAnswerToUserPrompt, remember: rememberTDPrompt },
+    mono: { Board: MonoBoard, Roster: MonoRoster, BOARD: MONO_BOARD, roll: monoRoll, land: monoLand, buy: monoBuy, upgrade: monoUpgrade, decide: monoNpcDecision, auctionPlan: monoAuctionPlan, settleAuction: monoSettleAuction, ranking: monoRanking, advance: monoAdvance, netWorth: monoNetWorth, rent: monoRent, gridPos: monoGridPos, tokenColor: monoTokenColor, maxMoves: monoMaxMoves },
+    GomokuBoard: GomokuBoard, GmkStone: GmkStone, GameVsBar: GameVsBar, GameTalkLog: GameTalkLog, GameNextBtn: GameNextBtn, avatarFor: avatarFor, tableBg: gameTable,
+    // 手里藏着东西的那几盒（牌、骰子、词）：规则和本地牌手都是单机那一份；name 是一张牌的叫法，PlayCard／Die／MjTile 画牌
+    cards: {
+      name: cardName, PlayCard: PlayCard, Die: Die, MjTile: MjTile, MjTable: MjTable, Seats: CardSeats, Log: CardLog, felt: feltBox, UnoCard: UnoCardFace, BOT_SKILL: BOT_SKILL, botSlip: botSlip,
+      uno: { C: WIN.UnoCore, local: unoLocalMove },
+      liar: { newGame: liarNewGame, newRound: liarNewRound, act: liarAct, npc: liarNpcMove, total: liarTotal, legal: liarLegalBid, DICE: LIAR_DICE },
+      poker: { newGame: pkNewGame, newHand: pkNewHand, act: pkAct, npc: pkNpcMove, options: pkOptions, pot: pkPot, best: pkBest, CAT: PK_CAT, HANDS: PK_HANDS },
+      oldmaid: { newGame: omNewGame, act: omAct, target: omTarget },
+      bj: { newGame: bjNewGame, newHand: bjNewHand, act: bjAct, npc: bjNpcMove, value: bjValue, HANDS: BJ_HANDS },
+      ddz: { Mid: DdzMid, newGame: ddzNewGame, newRound: ddzNewRound, bid: ddzBid, play: ddzPlay, npcBid: ddzNpcBid, npcPlay: ddzNpcPlay, hint: ddzHint, analyze: ddzAnalyze, TYPE_ZH: DDZ_TYPE_ZH, ROUNDS: DDZ_ROUNDS },
+      style: cardStyle
+    },
+    // 谁是卧底：出词、一句描述、投票、出局卧底猜词，都是单机那几枪（一次只喂一个人也行）
+    spy: { Clue: SpyClue, VotePick: SpyVotePick, setup: setupSpy, clues: genCluesBatch, votes: genVotesBatch, guess: genSpyGuess, hits: spyGuessHits },
+    // 狼人杀：板子、身份那一句、胜负、夜里各神职和白天发言投票，都是单机那几枪（一次只喂一个人也行；座位上不带 engineer 就不走言秋亲打）
+    wolf: { GODS: GODS, WOLF_SPECIALS: WOLF_SPECIALS, roleName: roleName, isWolfRole: isWolfRole, isGodRole: isGodRole, wolfCount: wolfCount, standardBoard: standardBoard, boardLine: boardLine, boardState: boardState,
+      winner: wolfWinner, privText: wolfPrivText, tallyKill: tallyKill, validTarget: validWolfTarget, night: genNight, witch: genWitch, hunter: genHunter, speeches: genSpeechesBatch, votes: genDayVotes },
+    // 阿瓦隆：配身份、任务人数、谁知道谁、组队／投票／出任务／刺杀（玩家对象带 secret 时就用这一句当 TA 知道的，不再从全桌身份推）
+    avalon: { QUEST: AV_QUEST, EVIL: AV_EVIL, ROLE_ZH: AV_ROLE_ZH, side: avSide, failsReq: avFailsReq, board: avalonBoard, secretFor: avSecretFor, revealFor: avRevealFor, propose: genProposal, votes: genAvVotes, quest: genQuest, assassin: genAssassin },
+    lingxi: { Chip: LingxiChip, RevCard: LingxiRevCard },
+    voiceRules: gameVoiceRules, call: callRetry, sayFree: GAME_SAY_FREE, sayList: sayList, seatTalk: seatTalk
+  };
+  if (typeof window !== "undefined") window.GameShared = GameShared;
 })();

@@ -228,7 +228,7 @@ test("normChoices:坏检定只丢检定不丢选项,who 校验进队伍", () => 
 
 test("场景桌:场景类型、行动路数与地点动作都做严格归一", () => {
   const meta = normSceneMeta({ sceneMeta: { type: "investigation", objective: "查清谁换了货单", stakes: "巡夜人会封仓" } }, camp0());
-  assert.deepEqual(meta, { type: "investigate", objective: "查清谁换了货单", stakes: "巡夜人会封仓" });
+  assert.deepEqual(meta, { type: "investigate", objective: "查清谁换了货单", stakes: "巡夜人会封仓", look: [] });
   assert.equal(normSceneMeta({ sceneMeta: { type: "nonsense" } }, Object.assign(camp0(), { sceneMeta: { type: "social", objective: "旧目标", stakes: "" } })).type, "social", "坏类型沿用旧场景,不把桌牌打空");
   assert.deepEqual(normSiteActions(["查值班册", "查值班册", { text: "敲空心墙" }, "摸排暗门", "第四条不要"]), ["查值班册", "敲空心墙", "摸排暗门"]);
   const choices = normChoices([{ text: "让裴照川拆锁", approach: "ally", risk: "会留下撬痕", payoff: "不惊动守卫" }], camp0().party);
@@ -505,9 +505,13 @@ test("命运点:跟气运走;只在失败后可花;重掷只许一次;花掉立�
   const { rollStats: rs } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
   const fate = src.match(/const fateOf = luck =>[^;]+;/);
   assert.ok(fate, "fateOf 存在");
-  assert.match(src, /offer = c\.fate > 0 && !c\.rerolled && \(grade\.tier === "fail" \|\| grade\.tier === "fumble"\)/, "成功不给花,重掷过不给再花");
+  const T = require("../js/trpg.js");
+  assert.equal(T.ceremonyOffer({ fate: 1, rerolled: false }, { tier: "ok" }), false, "成功不给花");
+  assert.equal(T.ceremonyOffer({ fate: 1, rerolled: true }, { tier: "fail" }), false, "重掷过不给再花");
+  assert.equal(T.ceremonyOffer({ fate: 0, rerolled: false }, { tier: "fumble" }), false, "没点数不给花");
+  assert.equal(T.ceremonyOffer({ fate: 2, rerolled: false }, { tier: "fumble" }), true);
   assert.match(src, /重掷\(花1枚,新结果必须认\)/);
-  assert.match(src, /ceremony\.grade\.tier === "fumble" \? btn\("✦ 以失败论/, "以失败论只对大失败开放");
+  assert.match(src, /c\.grade\.tier === "fumble" \? btn\("✦ 以失败论/, "以失败论只对大失败开放");
   assert.match(src, /spendFate\(c\.mKey\)/, "花掉立扣队伍账,不等回合结算");
   assert.match(src, /花" \+ res\.spent\.length \+ "枚命运点/, "花点记进检定行,守密人看得见");
 });

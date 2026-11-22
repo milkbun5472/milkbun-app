@@ -31,7 +31,7 @@
   //   所以下面那条断言把它钉死：两张表的 key 必须完全一致，少一个当场红。
   const ASK = Object.assign({}, KEYS, {
     "me.soft": "什么事会让她一下子不好受",
-    "me.like": "她哪些地方最打动我、哪些地方让我头疼",
+    "me.like": "她哪些时候让我心软",   // 她 2026-11-22：原来「最打动我、让我头疼」带着拿捏味，写出来发油
     "us.elephant": "有件事我一直没提"
   });
   // ⚠️真正的坑不是「漏了一块」——ASK 是从 KEYS 复制出来再覆盖的，永远不会缺 key
@@ -193,6 +193,13 @@
     + " 自己写下的自我介绍/人设，是她【给】你的，不是你看出来的——把它换个说法写进这张卡，等于一个字都没写。"
     + "这张卡只收【你从相处里真的注意到的】：每一句都得能落回某一次具体的对话、某件真发生过的事。"
     + "落不回去的那一块就是空的——**填 null 比编一句漂亮话强**。";
+  // 她 2026-11-22「TA 眼里容易重复而且油腻」：同一块被一遍遍重写，每次只换几个词
+  const NO_REPHRASE = "这一块原来写过的意思，别换个说法再写一遍；没有新的具体的事，就不动它。";
+  // 写卡、改卡、复看都挂长文那一份反八股（跟同人、梦境同一份公共的），不另写
+  const LONG_ANTI = () => (typeof NARRATIVE_ANTI_CLICHE === "string" ? "\n" + NARRATIVE_ANTI_CLICHE : "");
+  // 少改：上一次改过这张卡没多久，聊天这一路就先不给改的口子（她 2026-11-22）
+  const GAZE_UPDATE_GAP_MS = 3 * 3600000;
+  const recentlyTouched = charId => { const b = boxOf(load(), charId).blocks || {}; const last = Math.max(0, ...Object.values(b).map(x => Number(x && x.ts) || 0)); return last && Date.now() - last < GAZE_UPDATE_GAP_MS; };
   const checkedAt = (charId, k) => Number((boxOf(load(), charId).checks || {})[k]) || 0;
 
   // 常驻注入文本(空卡=零注入)
@@ -224,10 +231,11 @@
       + "新的细节、对旧判断的小补充或修正都可以写，不需要重大事件或关系变化。"
       + "空块可写相处中已经形成的认识；已有块保留仍成立的内容，再融入本轮有依据的新认识。"
       + "没有新增或修正就省略 impression，保留原文，不必提交看过的回执，也不必换词刷新日期。"
-      + "一轮每位角色至多更新一块，第一人称亲笔、text≤80字，锚在真实相处上，不为填字段编事或随情绪翻转。"
-      + VOICE + NOT_PROFILE(uName);
+      + "一轮每位角色至多更新一块，第一人称亲笔，锚在真实相处上，不为填字段编事或随情绪翻转。"
+      + NO_REPHRASE + VOICE + NOT_PROFILE(uName) + LONG_ANTI();
   }
   function spec(uName, charId, opts) {
+    if (charId && recentlyTouched(charId)) return "";
     const side = (arr, sd) => arr.map(([k]) => k + "(" + ASK[sd + "." + k] + (k === "elephant" ? ",至多两件" : "") + ")").join("/");
     return 'impression: {"side":"me|us","block":"块名","text":"补充或修正后的整块正文"}。'
       + "side=me 的块名:" + side(ME, "me") + ";side=us:" + side(US, "us") + "。"
@@ -365,10 +373,10 @@
     const days = Math.floor((Date.now() - newestTs(box)) / 86400000);
     return "下面是你之前写下的、你眼里的 " + uName + " 和你们关系——十块，最近一次改动已经是 " + days + " 天前。\n\n" + rows
       + "\n\n这段时间你们又相处了这么久。逐块过一遍：**哪几块已经跟你现在心里的不一样了？**"
-      + "\n· 变了的那几块 → 写成整块重写后的新内容(≤80字,第一人称亲笔,在旧的基础上小幅演进,锚在这段时间真发生过的事上,别整块翻转)。"
+      + "\n· 变了的那几块 → 写成整块重写后的新内容(第一人称亲笔,在旧的基础上小幅演进,锚在这段时间真发生过的事上,别整块翻转)。"
       + "\n· 还是那样的 → 填 null。**没变就是没变，不必为了交差改字**。"
       + "\n· 空着的那几块 → 如果这段时间你心里已经有了，就写下来。"
-      + "\n" + VOICE + NOT_PROFILE(uName)
+      + "\n" + NO_REPHRASE + VOICE + NOT_PROFILE(uName) + LONG_ANTI()
       + "\n只输出 JSON:{\"me\":{\"person\":null,\"soft\":null,\"like\":null,\"recent\":null,\"unread\":null},\"us\":{\"what\":null,\"how\":null,\"marks\":null,\"elephant\":null,\"want\":null}}——把真变了的那几块换成新内容，其余保持 null。"
       // ⚠️这一段是 v64.40 补的。这一问最可能的正确答案就是【什么都没变】，
       //   而「什么都没变」用一句话说出来比填一份全 null 的 JSON 自然得多——
@@ -411,12 +419,12 @@
 
   // 一次性建卡的生成指令(app 侧拼上下文调用后把 JSON 喂回 seed)
   function seedSpec(uName) {
-    return "以角色本人的第一人称,把你对 " + uName + " 和你们关系的长期认知写成印象卡 JSON。每块≤80字,亲笔口吻、锚在真实发生过的事上;不了解、没想过的块填 null,绝不编造。"
+    return "以角色本人的第一人称,把你对 " + uName + " 和你们关系的长期认知写成印象卡 JSON。每块亲笔口吻、锚在真实发生过的事上;不了解、没想过的块填 null,绝不编造。"
       // 她 2026-10-02 转群友：导入一张写好「早就在一起、对她很黏」的卡，刚聊两句就建卡，
       //   卡上只剩「她话少、一个嗯一个好吧」——读起来像刚认识，每轮又垫在底下，人就一直冷着。
       + "人设里写明的你们之间的关系和过往(已经是什么关系、在一起多久、怎么走到这一步)也是真实发生过的事,照着写;只是别编人设和聊天里都没有的具体事。"
       + "禁止分析报告腔(「综合来看」「是一个…的人」),要像你私下写给自己的碎句。"
-      + VOICE + NOT_PROFILE(uName)
+      + VOICE + NOT_PROFILE(uName) + LONG_ANTI()
       // ⚠️下面这份【每一栏写的是那一块的说明，不是样例内容】，也【没有示范谁填谁不填】。
       //   上一版示范的是「person 有字、其余九块全 null」，模型连这个填法一起照抄了：
       //   她 2026-09-04 报的「都是第一个填」就是这么来的（prompt-no-content-samples.md）。

@@ -14,7 +14,7 @@ test("限到这个人这一页、压在最上面", () => {
 });
 test("设置里能写、能导出导入，存档接住且挡掉不安全的", () => {
   // v74.332 那一块搬成公共的 ChatCssFields（单聊、群聊两处调）
-  assert.match(comp, /function ChatCssFields\(\{ css, setCSS, fileBase, seedName, seedCSS, onPeek, page, title \}\)/);
+  assert.match(comp, /function ChatCssFields\(\{ css: savedCSS, setCSS: saveCSS, fileBase, seedName, seedCSS, onPeek, page, title \}\)/);
   assert.match(comp, /h\(ChatCssFields, \{ css: customCSS, setCSS: setCustomCSS,[\s\S]*?title: "只给 TA 写 CSS" \}\)/);
   assert.match(comp, /saveTextFile\(\(fileBase \|\| "聊天"\) \+ "-聊天\.css", css, "text\/css"\)/);
   assert.match(comp, /accept: (ANY_FILE, onChange: importCSS|"\.css,\.txt,text\/css,text\/plain")/);
@@ -240,4 +240,13 @@ test("想念条那页：主动开关关着时直接说出来，还列出不发�
   const a = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
   assert.doesNotMatch(a, /if \(!activeOffScene && viewRef\.current\.charId === cid\) continue;/, "又变回「开着聊天就不发」——前台没有思念那一路");
   assert.match(a, /document\.activeElement === box \|\| String\(box\.value \|\| ""\)\.trim\(\)\.length > 0/);
+});
+
+// 群友 2026-11-22：十几万字的美化贴进聊天设置，一改就黑屏——打字不许每个字都整份存一遍
+test("聊天 CSS 框：打字先进框里，停手才存", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
+  const i = src.indexOf("function ChatCssFields("), body = src.slice(i, src.indexOf("\n}\n", i));
+  assert.match(body, /const typeCSS = v => \{ setDraft\(v\); clearTimeout\(pending\.current\); pending\.current = setTimeout\(\(\) => flush\(v\), 700\); \};/);
+  assert.match(body, /onChange: e => typeCSS\(e\.target\.value\)/);
+  assert.match(body, /saveRef\.current = saveCSS;/);
 });

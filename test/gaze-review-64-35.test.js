@@ -567,7 +567,7 @@ test("⑩ 两套名字：界面照旧，发出去的换了说法", () => {
     .forEach(([zh, t]) => bad.forEach(w =>
       assert.equal(String(t || "").includes(w), false, zh + "那份里还带着「" + w + "」")));
   assert.match(G.seedSpec("Lisa"), /什么事会让她一下子不好受/);
-  assert.match(G.seedSpec("Lisa"), /她哪些地方最打动我、哪些地方让我头疼/);
+  assert.match(G.seedSpec("Lisa"), /她哪些时候让我心软/);
   assert.match(G.seedSpec("Lisa"), /有件事我一直没提/);
 });
 

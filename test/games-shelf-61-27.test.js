@@ -58,7 +58,7 @@ test("架上不再摆 emoji——那是最省事也最不说明问题的图", ()
 test("它是一个盒子，坐在架子上——不是一张卡", () => {
   // 盒子有厚度（底下那道深边），一排两个，每排底下压一条木架线
   assert.match(shelf, /boxShadow: "0 3px 0 " \+ c\.band/, "盒子没有厚度，那就还是一张卡");
-  assert.match(shelf, /for \(let i = 0; i < GAMES\.length; i \+= 2\) rows\.push\(GAMES\.slice\(i, i \+ 2\)\);/, "不是一排两个");
+  assert.match(shelf, /i \+= 2\) rows\.push\(shelf\.slice\(i, i \+ 2\)\);/, "不是一排两个");
   assert.match(shelf, /木架线/);
   assert.match(shelf, /background: t\.line/, "架子线没跟着主题走");
   // 名字压在盒面下缘那条带上，跟真的桌游盒一样
@@ -143,7 +143,8 @@ test("柜子铺在外壳上、顶栏透明——不是铺在滚动区里", () =>
   // 顶上就横着一道没被盖住的带子。跟主屏壁纸同一条道理：
   // 底铺在外壳上，顶栏透明（home-screen-layout.md 里那句「这里透明让它透上来」）。
   assert.match(shelf, /h\("div", \{ (?:"data-[a-z]+": "[a-z]+", )*className: "h-full flex flex-col", style: cab \}/, "柜子没铺在外壳上");
-  assert.match(shelf, /h\(Head, \{ zh: "小游戏", en: "Games", onBack: props\.onBack, bg: "transparent" \}\)/, "顶栏没透明");
+  // 只钉「这一个 Head 带 bg transparent」，不钉整串参数（右边后来挂了 API 选择器，anchor-on-code）
+  assert.match(shelf, /h\(Head, \{ zh: "小游戏",[^\n]*?bg: "transparent"/, "顶栏没透明");
   assert.doesNotMatch(shelf, /overflow-y-auto px-5 pb-8", style: cab/, "柜子还铺在滚动区里");
   // 柜子本来就该不动：盒子在架子上滚，柜子不跟着滚
   assert.doesNotMatch(shelf, /backgroundAttachment/, "还挂着 local，柜子会跟着内容一起滚");

@@ -65,8 +65,8 @@ test("网易云 Cookie 不许进导出文件——上云那一路早排掉了", 
   const cloud = R("cloud.js");
   assert.match(cloud, /k\.startsWith\("x_"\) && k !== "x_neteaseCookie"/, "上云那一路的口径没了");
   const fn = bare(pack);
-  assert.match(fn, /k\.startsWith\("x_"\) && k !== "x_neteaseCookie"/,
-    "导出这一路又把账号 cookie 打进文件了——两处口径必须一样");
+  assert.match(fn, /const DEVICE_ONLY = \{ x_neteaseCookie: 1[,} ]/, "导出这一路又把账号 cookie 打进文件了——两处口径必须一样");
+  assert.match(fn, /k\.startsWith\("x_"\) && !DEVICE_ONLY\[k\]/, "导出这一路又把账号 cookie 打进文件了——两处口径必须一样");
 });
 
 // ── #9 密钥「重装必丢」要写在脸上 ────────────────────────────
