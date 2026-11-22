@@ -23796,7 +23796,7 @@ function PresenceDot({ p, size, ring }) {
   return h("span", { "data-wk": "presdot", "data-part": p.k, title: p.zh, style: { position: "absolute", right: -1, bottom: -1, width: z, height: z, borderRadius: 999, background: p.k === "sleep" ? "transparent" : PRESENCE_COLOR[p.k], boxShadow: "0 0 0 2px " + (ring || "#fff"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: z, lineHeight: 1, color: PRESENCE_COLOR.sleep } }, p.k === "sleep" ? "☾" : null);
 }
 // 成员页：一人一行，圆点、名字、挂着的状态、此刻在哪；最上面是她自己那一句（所有空间共用）
-function SpaceMembersPage({ space, people, presence, statuses, herName, onMyStatus, onClose }) {
+function SpaceMembersPage({ space, people, presence, statuses, herName, herFace, onMyStatus, onClose }) {
   const t = useTheme();
   const mine = (statuses || {}).me || {};
   const [emo, setEmo] = useState(mine.emoji || "");
@@ -23811,13 +23811,14 @@ function SpaceMembersPage({ space, people, presence, statuses, herName, onMyStat
         h("input", { "data-wk": "input", value: txt, onChange: e => setTxt(e.target.value.slice(0, 30)), placeholder: "挂一句", className: "flex-1 outline-none", style: { minWidth: 0, width: 0, minHeight: 40, borderRadius: 9, padding: "0 10px", background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 16, color: t.ink } }),
         h("button", { "data-wk": "mystatussave", onClick: () => onMyStatus && onMyStatus({ emoji: emo.trim(), text: txt.trim() }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 12px", borderRadius: 9, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", flexShrink: 0, whiteSpace: "nowrap" } }, "挂上"),
         (mine.text || mine.emoji) ? h("button", { "data-wk": "mystatusclear", onClick: () => { setEmo(""); setTxt(""); onMyStatus && onMyStatus(null); }, className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", flexShrink: 0, whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "摘掉") : null)),
-    (people || []).map(c => { const p = (presence || {})[c.id], st = lab((statuses || {})[c.id]);
-      return h("div", { key: c.id, "data-wk": "memberrow", "data-part": p ? p.k : "", className: "flex items-center gap-3", style: { padding: "10px 0", borderBottom: "1px solid " + t.line } },
+    // 她也是成员（她 2026-11-22「成员里面没把我算进去」）：排第一个，总是在线
+    [{ id: "me", _me: true, ...(herFace || { name: herName || "我" }) }].concat(people || []).map(c => { const p = c._me ? { k: "online" } : (presence || {})[c.id], st = lab((statuses || {})[c.id]);
+      return h("div", { key: c.id, "data-wk": "memberrow", "data-me": c._me ? "1" : "0", "data-part": p ? p.k : "", className: "flex items-center gap-3", style: { padding: "10px 0", borderBottom: "1px solid " + t.line } },
         h("span", { style: { position: "relative", display: "inline-flex", flexShrink: 0 } }, h(Avatar, { character: c, size: 38, radius: 999 }), h(PresenceDot, { p, size: 11, ring: t.bg2 })),
         h("div", { className: "flex-1 min-w-0" },
           // 名字一行、在哪／在干嘛另起一行截断（她 2026-11-20「这个又撑爆了」：日程那句很长，原来跟名字挤一行还不许缩，把名字挤没了、整页撑宽）
-          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name),
-          where(p) ? h("div", { "data-wk": "memberwhere", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: p ? PRESENCE_COLOR[p.k] : t.fog, marginTop: 1 } }, where(p)) : null,
+          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, (c.remark || c.name) + (c._me ? "（我）" : "")),
+          !c._me && where(p) ? h("div", { "data-wk": "memberwhere", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: p ? PRESENCE_COLOR[p.k] : t.fog, marginTop: 1 } }, where(p)) : null,
           st ? h("div", { "data-wk": "memberstatus", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 2 } }, st) : null)); }));
 }
 // 空间里直接出去见一面（她 2026-11-20「我是说这里可以直接线下」）：挑这回谁来，写一句在哪儿见，开始就进群线下
@@ -23899,7 +23900,7 @@ function SpacePlansPage({ space, plans, people, onSave, onClose }) {
     past.map(row));
 }
 // 空间首页：Teams 那一屏——顶上一块空间名片（方头像、名字、几个人），底下一行一个频道
-function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf, onSuggestTitles , presence, statuses, herName, onMyStatus, onMeet, meetLog, onOpenMeet, maskOwnOf, searchRun, onPickResult, plans, onSavePlans }) {
+function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf, onSuggestTitles , presence, statuses, herName, herFace, onMyStatus, onMeet, meetLog, onOpenMeet, maskOwnOf, searchRun, onPickResult, plans, onSavePlans }) {
   const t = useTheme();
   const [edit, setEdit] = useState(null);   // null | "new" | 频道那个群
   const [spEdit, setSpEdit] = useState(false);
@@ -23939,7 +23940,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
                 h("span", { "data-wk": "mllast", "data-part": "channel", className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, last ? (last.who ? last.who + "：" : "") + last.text : "还没人说话"))),
             h("button", { "data-wk": "chmore", "aria-label": "改这个频道", onClick: () => setEdit(g), className: "active:opacity-50 flex items-center justify-center", style: { width: 40, color: t.fog, fontSize: 18 } }, "⋯")); };
   return h("div", { "data-wk": "mlpage", "data-part": "space", className: "h-full flex flex-col", style: msgAppBg(t) },
-    h(Head, { zh: space.name, sub: "频道 · " + people.length + " 人", onBack, bg: wxGrey(t),
+    h(Head, { zh: space.name, sub: "频道 · " + (people.length + 1) + " 人", onBack, bg: wxGrey(t),
       right: h("span", { className: "flex items-center" },
         searchRun ? h("button", { "data-wk": "spacesearchbtn", "aria-label": "在这个空间里搜", onClick: () => setSearchOpen(true), className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 34 } }, h(ISearch, { size: 20, color: t.ink })) : null,
         h("button", { "data-wk": "chnew", "aria-label": "新频道", onClick: () => setEdit("new"), className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 34 } }, h(IPlus, { size: 20, color: t.ink }))) }),
@@ -23954,7 +23955,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
           num = { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.2 }, lab = { fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog }, sep = () => h("span", { "aria-hidden": "true", style: { width: 1, alignSelf: "stretch", margin: "10px 0", background: t.line } });
         const online = people.filter(c => ((presence || {})[c.id] || {}).k === "online").length;
         return h("div", { "data-wk": "spacestats", className: "flex", style: { width: "calc(100% - 28px)", margin: "8px 14px 0", background: momPaper(t), borderRadius: 12 } },
-          h("button", { "data-wk": "spacemembers", onClick: () => setMemOpen(true), className: "active:opacity-60", style: cell }, h("span", { style: num }, people.length), h("span", { className: "truncate", style: lab }, "成员 · " + online + " 在线")),
+          h("button", { "data-wk": "spacemembers", onClick: () => setMemOpen(true), className: "active:opacity-60", style: cell }, h("span", { style: num }, people.length + 1), h("span", { className: "truncate", style: lab }, "成员 · " + (online + 1) + " 在线")),
           onSavePlans ? sep() : null,
           onSavePlans ? h("button", { "data-wk": "spaceplans", onClick: () => setPlanOpen(true), className: "active:opacity-60", style: cell }, h("span", { style: num }, (plans || []).filter(p => p && !p.done).length), h("span", { className: "truncate", style: lab }, "约定")) : null,
           sep(),
@@ -24007,7 +24008,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
     adopt ? h(GroupAdoptPage, { space, groups: looseGroups || [], onPick: ids => { onAdopt(ids); setAdopt(false); }, onClose: () => setAdopt(false) }) : null,
     searchOpen ? h(SpaceSearchPage, { space, run: searchRun, onPick: r => { setSearchOpen(false); onPickResult && onPickResult(r); }, onClose: () => setSearchOpen(false) }) : null,
     planOpen ? h(SpacePlansPage, { space, plans: plans || [], people, onSave: onSavePlans, onClose: () => setPlanOpen(false) }) : null,
-    memOpen ? h(SpaceMembersPage, { space, people, presence: presence || {}, statuses: statuses || {}, herName, onMyStatus, onClose: () => setMemOpen(false) }) : null,
+    memOpen ? h(SpaceMembersPage, { space, people, presence: presence || {}, statuses: statuses || {}, herName, herFace, onMyStatus, onClose: () => setMemOpen(false) }) : null,
     meetOpen ? h(SpaceMeetPage, { space, pool: (space.memberIds || []).map(id => (allChars || []).concat(pickPool || []).find(c => c && c.id === id)).filter(Boolean), onClose: () => setMeetOpen(false), onStart: (ids, note) => { setMeetOpen(false); onMeet(ids, note); } }) : null,
     meetLogOpen ? h(PageSheet, { onClose: () => setMeetLogOpen(false), zh: "见面记录", sub: space.name },
       (meetLog || []).map(m => h("button", { key: m.id, "data-wk": "spacemeetrow", onClick: () => { setMeetLogOpen(false); onOpenMeet && onOpenMeet(m.id); }, className: "w-full text-left active:opacity-60", style: { display: "block", padding: "11px 0", borderBottom: "1px solid " + t.line } },

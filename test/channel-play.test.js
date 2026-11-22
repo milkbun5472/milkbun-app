@@ -285,3 +285,8 @@ test("状态像签名，不一定是在干嘛；一轮点最多三个人", () =>
   assert.match(ap, /像个签名/);
   assert.match(ap, /_stale\.slice\(\)\.sort\(\(\) => Math\.random\(\) - 0\.5\)\.slice\(0, 3\)/);
 });
+
+test("空间成员把她也算进去：成员页第一个、人数加一", () => {
+  assert.match(cs, /\[\{ id: "me", _me: true, \.\.\.\(herFace/);
+  assert.match(cs, /people\.length \+ 1\), h\("span", \{ className: "truncate", style: lab \}, "成员 · " \+ \(online \+ 1\)/);
+});
