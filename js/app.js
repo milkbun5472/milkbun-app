@@ -40487,6 +40487,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onChangeStyle: patch => offlineSetStyle(activeOfflineScopeKey, patch),
     onSaveExample: m => saveOfflineStyleExample(offlineChar.id, m && m.content),
     onPinShike: ms => pinToShike(offlineChar.id, ms, x => x.role === "user" ? (profile.name || "我") : x.role === "narration" ? "旁白" : offlineChar.name),
+    ...((() => { window.__offToChat = m => forwardEachTo([m], { type: "char", id: offlineChar.id }); return {}; })()),
     // 线下多选 → 转发（她 2026-11-22）：跟线上多选同一张 ForwardPickSheet、同一套逐条／合并；照片原图原样带过去，不重画
     fwdChars: [offlineChar].concat(characters.filter(c => c.id !== offlineChar.id)), fwdGroups: groups,
     onForward: (ms, d, mode) => forwardOfflineTo(ms, d, mode, { from: offlineChar.name + " · 线下", sourceId: offlineChar.id, nameOf: x => x.role === "user" ? (profileFor(offlineChar.id).name || "我") : x.role === "narration" ? "旁白" : (x.senderName || offlineChar.name) }),
@@ -40541,6 +40542,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     fwdChars: (offlineGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).concat(characters.filter(c => !(offlineGroup.memberIds || []).includes(c.id))),
     fwdGroups: [offlineGroup].concat(groups.filter(g => g.id !== offlineGroup.id)),
     onForward: (ms, d, mode) => forwardOfflineTo(ms, d, mode, { from: offlineGroup.name + " · 线下", sourceId: offlineGroup.id, nameOf: x => x.role === "user" ? (groupProfileFor(offlineGroup.id).name || profile.name || "我") : x.role === "narration" ? "旁白" : (x.senderName || "群成员") }),
+    ...((() => { window.__offToChat = m => forwardEachTo([m], { type: "group", id: offlineGroup.id }); return {}; })()),
     onEditMsg: (mid, txt) => reshootOffShot({ groupId: offlineGroup.id, mid, desc: txt }) || groupOfflineEditMsg(offlineGroup.id, mid, txt),
     onRerollMsg: mid => reshootOffShot({ groupId: offlineGroup.id, mid }) || groupOfflineRerollMsg(offlineGroup.id, mid),
     onRerollOne: mid => groupOfflineRerollOne(offlineGroup.id, mid),

@@ -20311,7 +20311,7 @@ function DoodleEditor({ src, charId, onClose }) {
 }
 // 这一趟打开 App 的时刻：拍照中卡着时，比它早开始的才是断了的（页面被杀过、重开过）
 const PHOTO_PAGE_BOOT = Date.now();
-function SelfieBubble({ m }) {
+function SelfieBubble({ m, inOff }) {
   const t = useTheme();
   const [url, setUrl] = useState(null);
   const [zoom, setZoom] = useState(false);
@@ -20391,6 +20391,8 @@ function SelfieBubble({ m }) {
           if (!window.saveImgOriginal) return window.__toast && window.__toast("这台设备存不了图");
           window.saveImgOriginal(m.imgKey, "照片").then(ok => { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); });
         } } : null,
+        // 线下的照片点开，一键发回聊天（她 2026-11-22「线下图片打开那里多弄一个转发回聊天，以图片形式」）：原图原样过去，不重画
+        inOff && typeof window.__offToChat === "function" ? { label: "↗ 发回聊天", wk: "offphototochat", onClick: () => { setZoom(false); window.__offToChat(m); } } : null,
         { label: "✎ 在上面画，发回去", wk: "doodlebtn", onClick: () => { setZoom(false); setDoodle(true); } }] }),
     doodle && h(DoodleEditor, { src: shown, charId: m.senderId || m.charId || (window.__activeCharId || ""), onClose: () => setDoodle(false) }));
   if (idbMiss) return note("图没能存进本机图库（存储被系统清了或 iOS 抽风）");
@@ -20579,7 +20581,7 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
         h("div", { className: "flex gap-4 mt-2 justify-end" },
           h("button", { onClick: () => setEditing(false), style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "取消"),
           h("button", { onClick: () => { const v = txt.trim(); setEditing(false); if (v) onEdit(m.id, v); }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, fontWeight: 600 } }, "照这个重拍"))) : null,
-      h(SelfieBubble, { m: m })));
+      h(SelfieBubble, { m: m, inOff: true })));
   const iconBtn = (Ic, fn, title, dis) => h("button", { onClick: fn, disabled: dis, className: "active:opacity-50 disabled:opacity-30", title: title }, h(Ic, { size: 15, color: t.fog }));
   // 复制这一轮（她 2026-10-03：「线下单轮可以复制」）。
   //   ⚠️复制只有 components.js 的 copyText 那一处（新接口 → execCommand 老路），
