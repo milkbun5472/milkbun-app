@@ -12451,7 +12451,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const c = (characters || []).find(x => x.id === charId);
     if (!c) return;
     if (!sneak) pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把手机递给了 " + (c.remark || c.name) + (hidden.length ? "（藏起了：" + hidden.join("、") + "）" : ""), ts: Date.now() }]);
-    const apps = [...new Set((allow || []).flatMap(k => PEEK_APPS[k] || []))];
+    // 空的不给翻（群里 2026-11-22「看到对方对着没讲过话的 npc 和没发过朋友圈的界面一顿评价」）：
+    //   没人发过朋友圈就不列朋友圈；能点开的聊天只列真聊过的——给了空的，TA 只能照名字现编
+    const _momAny = (momentsRef.current || []).some(m => m && (m.mine || !hideSet.has(String(m.characterId))));
+    const apps = [...new Set((allow || []).flatMap(k => PEEK_APPS[k] || []))].filter(a => a !== "moments" || _momAny);
     // 单独藏的人也算进「藏起了」，翻完开口那一轮TA照样知道
     // 只算她亲手藏的；面具不同的那些不是「藏」，TA根本不知道有
     const userHide = new Set((hideIds || []).map(String));
@@ -12467,7 +12470,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (app && apps.includes(app) && Date.now() - (m.ts || 0) < 3 * 86400000) (clues[app] = clues[app] || new Set()).add(x.remark || x.name); }); });
     const gate = Object.keys(clues);
     try {
-      const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))).map(x => x.remark || x.name).slice(0, 12)
+      const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))
+          && (chatsRef.current[x.id] || []).some(m => m && m.content && !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.role !== "narration"))
+        .map(x => x.remark || x.name).slice(0, 12)
         .concat((groupsRef.current || []).filter(g => g && g.name && !hideSet.has(String(g.id)) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate) && !(g.spaceId && channelNoMem(g.id))).map(g => g.name).slice(0, 4));
       const ask = () => runProbe(apiFor(charId), ctxFor(c), {
         // 调用记录里叫得出名字（她 2026-10-22 截图：原来只显示「其他·你就是某某…」，认不出是哪一样）
