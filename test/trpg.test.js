@@ -505,9 +505,13 @@ test("命运点:跟气运走;只在失败后可花;重掷只许一次;花掉立�
   const { rollStats: rs } = (require("../js/trpg-core.js"), require("../js/trpg.js"));
   const fate = src.match(/const fateOf = luck =>[^;]+;/);
   assert.ok(fate, "fateOf 存在");
-  assert.match(src, /offer = c\.fate > 0 && !c\.rerolled && \(grade\.tier === "fail" \|\| grade\.tier === "fumble"\)/, "成功不给花,重掷过不给再花");
+  const T = require("../js/trpg.js");
+  assert.equal(T.ceremonyOffer({ fate: 1, rerolled: false }, { tier: "ok" }), false, "成功不给花");
+  assert.equal(T.ceremonyOffer({ fate: 1, rerolled: true }, { tier: "fail" }), false, "重掷过不给再花");
+  assert.equal(T.ceremonyOffer({ fate: 0, rerolled: false }, { tier: "fumble" }), false, "没点数不给花");
+  assert.equal(T.ceremonyOffer({ fate: 2, rerolled: false }, { tier: "fumble" }), true);
   assert.match(src, /重掷\(花1枚,新结果必须认\)/);
-  assert.match(src, /ceremony\.grade\.tier === "fumble" \? btn\("✦ 以失败论/, "以失败论只对大失败开放");
+  assert.match(src, /c\.grade\.tier === "fumble" \? btn\("✦ 以失败论/, "以失败论只对大失败开放");
   assert.match(src, /spendFate\(c\.mKey\)/, "花掉立扣队伍账,不等回合结算");
   assert.match(src, /花" \+ res\.spent\.length \+ "枚命运点/, "花点记进检定行,守密人看得见");
 });

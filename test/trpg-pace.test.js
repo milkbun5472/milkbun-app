@@ -8,7 +8,7 @@ const path = require("node:path");
 const src = fs.readFileSync(path.join(__dirname, "../js/trpg.js"), "utf8");
 require("../js/trpg-core.js");
 const T = require("../js/trpg.js");
-const { applyTurnPayload, normPacePlan, paceTurnLines, paceView, paceNextStage, burstCost, sideActions, travelHops, PACE_IDLE_MAX } = T;
+const { applyTurnPayload, normPacePlan, paceTurnLines, paceView, paceNextStage, burstCost, sideActions, travelHops, PACE_IDLE_MAX, stageAdvance } = T;
 
 test("桩跟着写入方:开团那一处真的挂着「待排」的进度表", () => {
   assert.match(src, /clocks: \[\], pace: \{ stageIdx: 0, want: true \}/);
@@ -184,5 +184,6 @@ test("旧存档补排:没有进度表的团照旧跑,翻章那一刻挂上待排
   assert.deepEqual(nx.clocks, [{ name: "旧钟", filled: 2, max: 6 }], "上一场的钟跟着散,老钟留着");
   assert.match(paceTurnLines(Object.assign({}, old, { stageIdx: 1 }, nx), { hasMap: true }), /〔暗排这一场〕/);
   assert.equal(paceNextStage(Object.assign({}, old, { stageIdx: 1 })).pace, null, "最后一章翻完不再排");
-  assert.match(src, /stageAt: c\.msgs\.length \}, paceNextStage\(c\)\)/);
+  const adv = stageAdvance(Object.assign({}, old, { pendingStage: "到了", msgs: [], stages: old.stages || [{ goal: "一" }, { goal: "二" }] }));
+  assert.deepEqual(adv.pace, { stageIdx: 1, want: true }, "翻章走 stageAdvance,下一章挂待排");
 });
