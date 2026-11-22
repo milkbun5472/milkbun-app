@@ -220,8 +220,9 @@
     // x_neteaseCookie 是账号凭据：界面承诺「只存这台设备」，永不进云快照（2026-08-20 抓漏）
     // 只留在这台手机上、不往云上传的：撤销历史（秋秋改动的撤回、美化每一步的退回）。它们只是方便在这台手机上往回退，
     //   换设备用不着，却一份就几 MB——她 2026-11-13 的存档 52 MB 超了云端上限，这两样占了 6.5 MB
+    //   联机小游戏里我当庄的那几局（x_netGameHost）：带着别人的底牌和身份，只许留在这台（backup-pack.js 导出那一路同一条）
     collect() {
-      const LOCAL_ONLY = { x_neteaseCookie: 1, x_assistUndo: 1, x_look_hist: 1 };
+      const LOCAL_ONLY = { x_neteaseCookie: 1, x_assistUndo: 1, x_look_hist: 1, x_netGameHost: 1 };
       const dump = {};
       Object.keys(localStorage)
         .filter((k) => k.startsWith("x_") && !LOCAL_ONLY[k] && !(tableMemoryMode() && k === "x_memLib"))

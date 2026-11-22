@@ -209,7 +209,13 @@
   }
   function patchRoom(room, patch) { return upsertRoom(Object.assign({}, room, patch)); }
   // 删一个房间的记录（只删这台手机上这一份；对方那份、已经记进记忆的不动）
-  function removeRoom(id) { try { saveRooms(loadRooms().filter(r => r.id !== id)); } catch (e) {} }
+  //   这个房间里我当庄、还没打完的那几局存档（netroom-games.js 的 x_netGameHost）也一起删
+  const HOST_GAMES_KEY = "x_netGameHost";
+  const hostGamesIn = id => { try { const v = loadJSON(HOST_GAMES_KEY, {}); return Object.keys((v && v[id] && v[id].games) || {}).length; } catch (e) { return 0; } };
+  function removeRoom(id) {
+    try { saveRooms(loadRooms().filter(r => r.id !== id)); } catch (e) {}
+    try { const v = loadJSON(HOST_GAMES_KEY, {}); if (v && v[id]) { delete v[id]; saveJSON(HOST_GAMES_KEY, v); } } catch (e) {}
+  }
   // 重新连上以后，别人把 TA 手上的记录整份再发一遍：这边缺的补上、有的不重复，按时间排回去
   //   已经有的那条：补发来的那份是改过字／撤回过的（同一个人说的），照它换上——断线那会儿别人改的字，连回来也对得上
   function mergeMsgs(room, list) {
@@ -956,7 +962,7 @@
   const Core = { BROKERS, BROKER_FAIL_TEXT, SUPA_FAIL_TEXT, JOIN_PREFIX, MqttLink, openBroker, SupaLink, signalFor, packJoin, parseJoin, cleanSupa, supaCfg, secretKey, Mesh, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
     memoryTargets, transcript, lineInstruction, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
-    ownsMsg, editMsg, recallMsg, dropMsg, dropOwnMsg, tombOwn, applyDrops, isDropped, TOMB_MAX, missingImgs, cleanQuote, quoteOf, quoteState, quoteCatalog, resolveQuote, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom, sinceRemembered, echoText,
+    ownsMsg, editMsg, recallMsg, dropMsg, dropOwnMsg, tombOwn, applyDrops, isDropped, TOMB_MAX, missingImgs, cleanQuote, quoteOf, quoteState, quoteCatalog, resolveQuote, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom, hostGamesIn, HOST_GAMES_KEY, sinceRemembered, echoText,
     normalizeRoom, upsertPeer, peerOf, lastNick, ownerNick, peerNames, syncedMsg, shouldOffer, admit, forwardTargets, reachable, rid, Mesh };
   root.NetRoomCore = Core;
 
@@ -1416,7 +1422,9 @@
       setErr(""); setPeerTyping({}); setNet({ open: [], fail: [], reach: [] });
       try { mesh.current && mesh.current.close(); } catch (e) {}
       mesh.current = null; linkMap.current = {}; seen.current = new Set(); greeted.current = new Set();
-      games.current = newGames(); setGameId(null);
+      games.current = newGames(resume ? resume.id : ""); setGameId(null);
+      // 回原来的房间、我在这儿当过庄还没打完的局：把小游戏装上、从存档接回来（别人回来报到时 resend 再发给 TA 们）
+      if (resume && Core.hostGamesIn(resume.id)) ensureGames().then(() => { if (!games.current) games.current = newGames(resume.id); games.current && games.current.boot && games.current.boot(); }).catch(() => {});
       const got = !resume && !host ? Core.parseJoin(joinCode) : null;
       if (!resume && !host && !got) { setErr("没认出来：填 6 位房间号，或者把朋友发来的连接码整串粘进来"); return; }
       const c = resume ? resume.code : host ? Core.newCode() : got.code;
@@ -1568,7 +1576,9 @@
     const propsRef = useRef(props); propsRef.current = props;
     const pageRef = useRef(page); pageRef.current = page;
     const ensureGames = () => root.GameShared || !root.LazyMods ? Promise.resolve() : root.LazyMods.load("games");
-    const newGames = () => root.NetGameSession ? root.NetGameSession({
+    // rid：这一份管的是哪个房间（存档按房间存）；不给就跟着当前房间
+    const newGames = rid => root.NetGameSession ? root.NetGameSession({
+      roomId: () => rid || (roomRef.current && roomRef.current.id) || "",
       me: () => meId.current, nick: () => myNick(), nickOf: id => nickOf(id),
       send: (obj, to) => send(obj, to),
       post: (type, x) => sayRich(type, x),
@@ -1693,7 +1703,7 @@
         const pr = presence(), hostGone = !isHost && pr[inv.host] !== "on" && pr[inv.host] !== "relay";
         return h("div", { "data-wk": "nrgamearea", className: "h-full", style: { overflowY: "auto", paddingBottom: 12 } },
           h("div", { style: { padding: "6px 16px 0", fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, inv.zh, h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, done ? "这一局打完了" : inv.seats.some(x => x.peer === meId.current && x.kind !== "npc") ? "你在桌上" : "你在旁边看")),
-          hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "开这一局的人现在不在房里，牌桌停在这儿；她回来就接着打。")),
+          hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "开局的人不在，这一局等她回来接着打。")),
           sv.pause && !done && h(PauseBar, { pause: sv.pause, isHost, onGo: () => gs.resume(gid), hostName: (inv.seats.find(x => x.kind === "user" && x.peer === inv.host) || {}).name || "" }),
           h(A.Table, { inv: sv.pause && !done && GC().heldInv ? GC().heldInv(inv) : inv, view: sv.view, priv: sv.priv || null, myApi: props.gameApi ? props.gameApi() : null, me: meId.current, isHost, onMove: (seat, mv) => sv.pause ? (props.toast && props.toast("这一轮停着，等开局的人点「接着来」")) : gs.move(gid, seat, mv), onReveal: () => gs.reveal(gid), side: sv.side || [], onSide: x => gs.side(gid, x), nick: myNick() }),
           root.NetGameUI && h(root.NetGameUI.TalkStrip, { lines: (sv.side || []).filter(x => x.kind === "talk"), charOf: l => { const st = l && l.seat >= 0 ? inv.seats[l.seat] : null; return st && st.kind === "char" ? charsById[st.charId] || null : null; } }),
