@@ -5,6 +5,27 @@
 // 和擂台/梦境一样是独立娱乐场：不写回聊天记忆。
 // ============================================================
 (function () {
+  // 小游戏单独挑一条线路（她 2026-11-22「能不能在小游戏界面右上角单独设置一个 api 选项」）：没挑＝跟线下走（原来就是线下那一档）
+  function GameApiPick(props) {
+    const t = useTheme();
+    const [open, setOpen] = useState(false);
+    const list = props.profiles || [];
+    if (!props.onSet || !list.length) return null;
+    const cur = props.pickedId ? list.find(function (p) { return p.id === props.pickedId; }) : null;
+    const nm = function (p) { return (p && (p.name || p.model)) || "未命名"; };
+    const row = function (id, label, sub) { const on = (props.pickedId || null) === id;
+      return h("button", { key: id || "follow", "data-wk": "gameapirow", "data-on": on ? "1" : "0", onClick: function () { props.onSet(id); setOpen(false); }, className: "w-full flex items-center active:opacity-60", style: { minHeight: 44, gap: 10, padding: "6px 2px", borderBottom: "1px solid " + t.line, textAlign: "left" } },
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, label),
+          sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub) : null),
+        on ? h("span", { style: { color: t.ink, fontSize: "calc(13px * var(--app-fs, 1))" } }, "✓") : null); };
+    return h(React.Fragment, null,
+      h("button", { "data-wk": "gameapi", onClick: function () { setOpen(true); }, className: "active:opacity-60", style: { maxWidth: 120, minHeight: 32, padding: "4px 10px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, cur ? nm(cur) : "跟线下"),
+      open ? h(Sheet, { onClose: function () { setOpen(false); } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "小游戏用哪条线路"),
+        row(null, "跟线下走", "不单独挑，用设置里线下那一档"),
+        list.map(function (p) { return row(p.id, nm(p), p.model && p.name ? p.model : ""); })) : null);
+  }
   const MODES = [
     { key: "normal", zh: "正常", hint: "角色按各自人设发挥真实水平，该赢赢、该拆穿就拆穿。" },
     { key: "easy", zh: "放水", hint: "角色会让着你——关键时刻手下留情、看破也不点破，图个乐。" },
@@ -639,7 +660,7 @@
     //   顶上就横着一道没被盖住的带子（她 2026-09-03 报的就是这个）。
     //   而且柜子本来就该是【不动】的：盒子在架子上滚，柜子不跟着滚。
     return h("div", { "data-wk": "gamepage", className: "h-full flex flex-col", style: cab },
-      h(Head, { zh: "小游戏", en: "Games", onBack: props.onBack, bg: "transparent" }),
+      h(Head, { zh: "小游戏", en: "Games", onBack: props.onBack, bg: "transparent", right: h(GameApiPick, { profiles: props.apiProfiles, pickedId: props.gameApiId, onSet: props.onSetGameApi }) }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
         // 没打完的那几局：架子上那一盒【还摊在桌上】，不是一条通用的提示横幅。
         // 摊开的样子＝盒盖掀在左边（那张盒面缩略图斜着搭出来），右边写着打到哪儿了。
@@ -3038,8 +3059,8 @@
         + "写一段「牌桌能力小传」，第三人称，不写分数。只输出 JSON：{\"skill\":\"……\"}";
       callRetry(api, sys, [{ role: "user", content: "【这个人】" + s.name + "\n【人设】" + (persona || "（没写人设，照名字和一般人估）").slice(0, 1600) }], { maxTokens: 65000, tag: (ev.zh || "小游戏") + "·能力评估" })
         .then(function (raw) {
-          const d = extractJSON(raw) || {}; const text = String(d.skill || "").trim();
-          if (!text) throw new Error("没评出来，再点一次");
+          const d = (typeof salvageShape === "function" ? salvageShape(raw, { str: { skill: ["skill", "text", "content", "bio", "desc", "description"] }, prose: "skill", proseMin: 20, need: ["skill"] }) : extractJSON(raw)) || {}; const text = String(d.skill || "").trim();
+          if (!text) throw new Error("没评出来，再点一次" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
           const all = loadJSON(GAME_SKILL_KEY, {}) || {}; all[ev.key] = Object.assign({}, all[ev.key] || {}, { [id]: { text: text, n: stamp } }); saveJSON(GAME_SKILL_KEY, all);
           setSkill(text);
         }).catch(function (e) { setErr(String((e && e.message) || e)); }).finally(function () { setBusy(false); });
@@ -5878,7 +5899,9 @@
         const th = gmkThreat(b, lastM.x, lastM.y, side);
         if (th) bits.push(nameOfSide(side) + "上一手" + th);
       });
-      return winner ? (winner === 3 ? "棋已经下完，和棋。" : "棋已经下完，" + nameOfSide(winner) + "赢了。") : (bits.length ? bits.join("；") + "。" : "局面还平。");
+      // 对着 TA 直说（群里 2026-11-22：「模型经常以为自己是黑子，我赢了它说是它赢了」）：跟她对下时不让 TA 自己去对名字
+      const _youWin = !spectate && winner === charSide, _sheWin = !spectate && winner === userSide;
+      return winner ? (winner === 3 ? "棋已经下完，和棋。" : _youWin ? "棋已经下完，赢的是你，" + uName + "输了。" : _sheWin ? "棋已经下完，赢的是 " + uName + "，你输了。" : "棋已经下完，" + nameOfSide(winner) + "赢了。") : (bits.length ? bits.join("；") + "。" : "局面还平。");
     };
     const say = function (why, ms) {
       ms = ms || moves;
@@ -5896,6 +5919,7 @@
         : cName + " 在跟 " + uName + " 下五子棋（" + uName + "执黑先手，" + cName + "执白）" + (easy ? "，" + cName + "这局是让着 TA 的" : "");
       const sys = gameVoiceRules() + "【场面】" + scene + "。棋子不归你们管，你们只说话：像真坐在棋盘边那样随口说，照你们平时的关系和你自己的性子——下棋是一起玩，不是对峙。"
         + "\n\n" + who
+        + (spectate ? "" : "\n\n你执" + sideZh(charSide) + "，" + uName + "执" + sideZh(userSide) + "。")
         + "\n\n【现在】第 " + ms.length + " 手。" + boardWhy(ms) + (lastFew ? "\n最近几手：" + lastFew : "") + "\n" + why
         + (said.length ? "\n【你们刚才已经说过的】\n" + said.map(function (l) { return "· " + l.name + "：" + l.text; }).join("\n") + "\n这些话说过了：同一个意思别换个说法再说一遍，接着往下聊。" : "")
         + "\n\n" + GAME_SAY_FREE + (talkers.length > 1 ? "两个人可以一个人说，也可以一来一回；同一个人连着说几句就在 talks 里连着放几条。" : "")
@@ -6854,8 +6878,8 @@
           + "每个词两三个字到五六个字，能画出来、大多数人认得；难易混着来。不要和下面这些重复：" + pool.words.slice(-60).join("、")
           + "\n只输出 JSON：{\"words\":[\"词\"]}，二十个左右。";
         const raw = await callRetry(api, sys, [{ role: "user", content: "出一批。" }], { maxTokens: 8000, tag: "你画我猜·出词" });
-        const got = ((extractJSON(raw) || {}).words || []).map(function (w) { return String(w || "").trim().slice(0, 12); }).filter(Boolean);
-        if (!got.length) throw new Error("没生成出来");
+        const got = (((typeof salvageShape === "function" ? salvageShape(raw, { arr: { words: { from: ["words", "list", "items", "题目"], split: /[\n、，,；;／/|]+/ } }, root: "words", need: ["words"] }) : extractJSON(raw)) || {}).words || []).map(function (w) { return String(w || "").trim().slice(0, 12); }).filter(Boolean);
+        if (!got.length) throw new Error("没生成出来" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
         const n = { words: Array.from(new Set(pool.words.concat(got))).slice(-300), theme: theme.trim() };
         setPool(n); saveDrawPool(n);
         if (props.toast) props.toast("加了 " + got.length + " 个词");
@@ -6895,9 +6919,9 @@
           + STROKE_FMT
           + "\n只输出 JSON：{\"strokes\":[...],\"say\":\"一句\",\"done\":false}";
         const raw = await callRetry(api, sys, [{ role: "user", content: "画下一段。" }], { maxTokens: 9000, tag: "你画我猜·画" });
-        const p = extractJSON(raw) || {};
+        const p = (typeof salvageShape === "function" ? salvageShape(raw, { arr: { strokes: { from: ["strokes", "lines", "paths"], split: /$^/ } }, str: { say: ["say", "line", "comment"] }, root: "strokes" }) : extractJSON(raw)) || {};
         const strokes = parseStrokes(p.strokes);
-        if (!strokes.length) throw new Error("这一段没画出来");
+        if (!strokes.length) throw new Error("这一段没画出来" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
         const list = have.concat([{ strokes: strokes, say: String(p.say || "").trim().slice(0, 120) }]);
         const done = !!p.done || list.length >= STEP_MAX;
         setSegs(list); setStepDone(done);

@@ -1310,8 +1310,9 @@ function MsgStickOut({ isU, children }) {
     const ro = typeof ResizeObserver === "function" ? new ResizeObserver(place) : null;
     if (ro && b) { ro.observe(b); if (b.parentElement) ro.observe(b.parentElement); }
     return () => { if (ro) ro.disconnect(); };
+  // 贴的表情压在气泡装饰（主题里给气泡挂的贴纸、边框图）上面（群里 2026-11-22「总会被气泡装饰压在下层」）：原来 3/4，装饰常常更高
   }, [isU]);
-  return h("span", { ref: ref, "data-wk": "msgstickout", "aria-hidden": "true", style: { position: "absolute", top: 0, left: 0, width: 0, height: 0, overflow: "visible", pointerEvents: "none", zIndex: 4 } },
+  return h("span", { ref: ref, "data-wk": "msgstickout", "aria-hidden": "true", style: { position: "absolute", top: 0, left: 0, width: 0, height: 0, overflow: "visible", pointerEvents: "none", zIndex: 41 } },
     at ? h("span", { style: { position: "absolute", top: at.top, left: at.x, width: 0, height: 0 } }, children) : null);
 }
 function msgStickEl(m, isU, outside) {
@@ -1320,15 +1321,15 @@ function msgStickEl(m, isU, outside) {
   const gs = m && Array.isArray(m.gSticks) ? m.gSticks.filter(x => x && (x.emoji || x.url)) : [];
   if (gs.length) {
     const mine = !isU && m.stick ? [m.stick] : [];
-    return h("span", { "data-wk": "msgstick", "data-multi": "1", ref: msgStickFit, "data-out": outside ? "1" : undefined, style: { position: "absolute", top: -14, [isU ? "left" : "right"]: -10, height: 26, padding: "0 6px", borderRadius: 13, display: "flex", alignItems: "center", gap: 2, fontSize: 15, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3, whiteSpace: "nowrap" } },
+    return h("span", { "data-wk": "msgstick", "data-multi": "1", ref: msgStickFit, "data-out": outside ? "1" : undefined, style: { position: "absolute", top: -14, [isU ? "left" : "right"]: -10, height: 26, padding: "0 6px", borderRadius: 13, display: "flex", alignItems: "center", gap: 2, fontSize: 15, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 40, whiteSpace: "nowrap" } },
       gs.concat(mine).slice(-5).map((x, k) => x.emoji ? h("span", { key: k }, x.emoji) : h("img", { key: k, src: x.url, alt: "", style: { width: 18, height: 18, objectFit: "contain" } })));
   }
   // 她贴在TA气泡上的是 stick；TA贴在她气泡上的是 theirStick（同一个画法）
   const st = m && (isU ? m.theirStick : m.stick);
   if (!st || (!st.url && !st.emoji)) return null;
   // 小黄脸 emoji（她 2026-10-31：QQ 那种贴的其实是 emoji）：一个字，叠在角上
-  if (st.emoji) return h("span", { "data-wk": "msgstick", "data-emoji": "1", ref: msgStickFit, "data-out": outside ? "1" : undefined, style: { position: "absolute", top: -14, [isU ? "left" : "right"]: -10, minWidth: 26, height: 26, padding: "0 3px", borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3 } }, st.emoji);
-  return h("img", { "data-wk": "msgstick", ref: msgStickFit, "data-out": outside ? "1" : undefined, src: st.url, alt: st.keyword || "", style: { position: "absolute", top: -16, [isU ? "left" : "right"]: -12, width: 30, height: 30, objectFit: "contain", pointerEvents: "none", zIndex: 3, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.18))" } });
+  if (st.emoji) return h("span", { "data-wk": "msgstick", "data-emoji": "1", ref: msgStickFit, "data-out": outside ? "1" : undefined, style: { position: "absolute", top: -14, [isU ? "left" : "right"]: -10, minWidth: 26, height: 26, padding: "0 3px", borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 40 } }, st.emoji);
+  return h("img", { "data-wk": "msgstick", ref: msgStickFit, "data-out": outside ? "1" : undefined, src: st.url, alt: st.keyword || "", style: { position: "absolute", top: -16, [isU ? "left" : "right"]: -12, width: 30, height: 30, objectFit: "contain", pointerEvents: "none", zIndex: 40, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.18))" } });
 }
 function bubbleSticker(isU) {
   const S = bubbleSkinNow();
@@ -2175,7 +2176,8 @@ function LazyGate({ group, render, onBack, zh }) {
   const ready = !L || L.isLoaded(group);
   const [, bump] = useState(0);
   const [err, setErr] = useState("");
-  const go = () => { setErr(""); L.load(group).then(() => bump(n => n + 1), e => setErr((e && e.message) || String(e))); };
+  const [reload, setReload] = useState(false);
+  const go = () => { setErr(""); L.load(group).then(() => bump(n => n + 1), e => { setReload(!!(e && e.needReload)); setErr((e && e.message) || String(e)); }); };
   useEffect(() => { if (!ready) go(); }, [group]);
   if (ready) return render();
   // 不自己铺底：就是一层过渡页，透出 App 本来那层底（mobile-ui-layout §3.5 那套外壳归真页面）
@@ -2185,9 +2187,9 @@ function LazyGate({ group, render, onBack, zh }) {
       !err
         ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "在打开……")
         : h(React.Fragment, null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7 } }, "没打开：网好像断了。", h("br"), err),
-            h("button", { "data-wk": "lazyretry", onClick: go, className: "active:opacity-60",
-              style: { minHeight: 44, padding: "0 20px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "再试一次"))));
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7 } }, reload ? "没打开。" : "没打开：网好像断了。", h("br"), err),
+            h("button", { "data-wk": "lazyretry", onClick: reload ? () => { try { location.reload(); } catch (e) {} } : go, className: "active:opacity-60",
+              style: { minHeight: 44, padding: "0 20px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, reload ? "刷新" : "再试一次"))));
 }
 // 用到才加载的那几页：开机先放一个「替身」占住它的名字（app.js 里照旧写 h(Debate, {…})，一个字不用改）。
 //   点进去时替身给出 LazyGate 那一层、把这一组装上，装好了在同一个位置画真页面。
@@ -5111,7 +5113,7 @@ function Calendar({ schedKeepOf, onSchedKeep, characters, calendar, calEvents, s
     if (view === "mine") (worldStore[legacyKeyOf(dk)] || []).forEach(e => out.push({ text: "🌐 " + e.title, note: e.note, id: e.id, kind: "world" }));
     // 在一起那天落的「♥ 和 X 在一起」：在这个人的那页上，X 是你跟他用的那张面具（群友 2026-11-20「显示的是主面具」），按现在这一页取，不信存进去那一刻的名字
     const meHere = view !== "mine" ? ((maskList.find(m => m.key === (typeof maskKeyOf === "function" ? (maskKeyOf(view) || "") : "")) || maskList[0] || {}).name || "") : "";
-    (store[legacyKeyOf(dk)] || []).forEach(e => out.push({ text: meHere && e.note === "情侣纪念日" && /^♥ 和 .+ 在一起$/.test(String(e.title || "")) ? "♥ 和 " + meHere + " 在一起" : e.title, note: e.note, id: e.id, kind: "cal" }));
+    (store[legacyKeyOf(dk)] || []).forEach(e => out.push({ text: togetherTitleNow(e, meHere), note: e.note, id: e.id, kind: "cal" }));
     calEventsOnDay(calEvents, evOwner, dk).filter(e => e._allDay).forEach(e => out.push({ text: (e.icon ? e.icon + " " : "") + e.title, id: e.id, kind: "timed", ev: e }));
     return out;
   };
@@ -10039,6 +10041,7 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
     characters,
     zy: (cardDraft && cardDraft.zy) || null,
     tarot: (cardDraft && cardDraft.tarot) || null,
+    pics0: (cardDraft && cardDraft.pics) || null,
     onPost: onPostMoment,
     onClose: () => { setComposeOpen(false); if (cardDraft && onCardDraftDone) onCardDraftDone(); }
   }), groupList && h(PageSheet, { onClose: () => setGroupList(false), tall: true },
@@ -10309,6 +10312,7 @@ function NpcBrief({ npc, onSave, compact, defaultOpen }) {
 function MomentCompose({
   zy,
   tarot,
+  pics0,
   friendGroups,
   characters,
   onPost,
@@ -10316,10 +10320,11 @@ function MomentCompose({
 }) {
   const t = useTheme();
   const [text, setText] = useState("");
-  const [withImg, setWithImg] = useState(false);
+  // pics0：从聊天多选「发到朋友圈」带过来的那几张（已经是存好的图引用），一进来就配上
+  const [withImg, setWithImg] = useState(!!(pics0 && pics0.length));
   const [img, setImg] = useState("");
   // 从相册选的真图，一次最多 9 张；只有一张时照旧走 image 那一格
-  const [pics, setPics] = useState([]);
+  const [pics, setPics] = useState(() => (pics0 || []).slice(0, 9));
   const [vis, setVis] = useState("all");
   const [sel, setSel] = useState([]);
   // 提醒谁看（群里许咏安 2026-10-18：「朋友圈可不可以加一个提醒谁看」）：点名的人一定刷到、知道是她特意叫的
@@ -10439,7 +10444,7 @@ function MomentCompose({
     withImg && (pics.length
       ? h("div", { "data-wk": "mocomposepics", className: "mb-2 flex flex-wrap", style: { gap: 10, paddingTop: 8 } },
           pics.map((d, i) => h("div", { key: i, className: "relative", style: { width: 72, height: 72 } },
-            h("img", { src: d, style: { width: 72, height: 72, objectFit: "cover", borderRadius: 8, display: "block" } }),
+            h("img", { src: typeof resolveImg === "function" ? resolveImg(d) : d, style: { width: 72, height: 72, objectFit: "cover", borderRadius: 8, display: "block" } }),
             h("button", { "aria-label": "去掉这张", onClick: () => setPics(p => p.filter((_, j) => j !== i)), className: "absolute active:opacity-70", style: { top: -8, right: -8, width: 24, height: 24, borderRadius: 999, background: t.ink, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", display: "flex", alignItems: "center", justifyContent: "center" } }, "×"))))
       : h("input", {
     value: img,
@@ -11879,7 +11884,7 @@ function ChatThread({
   onRecall,
   onReroll,
   onReply,
-  onForward,
+  onForward, onToMoments,
   onDeleteMessages,
   onShootMe,
   onPinShike,
@@ -12244,6 +12249,7 @@ function ChatThread({
     for (const d of dests || []) { try { if (picked.length) await onForward(picked, d, fwdMode); } catch (e) {} }
     if ((dests || []).length > 1 && toast) toast("已转发给 " + dests.length + " 个");
   };
+  const fwdMoment = onToMoments && chatSelImgItems(messages, selIds).length ? () => { const picked = selIds.slice().sort((a, b) => a - b).map(i => messages[i]).filter(Boolean); exitSel(); onToMoments(picked); } : null;
   const { winStart, growMore, growing, reveal: revealMsg, startRef: winStartRef } = useChatWindow(ref, messages.length, (character && character.id) + "|" + (room && room.id || ""), recentLimit);
   useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, winStartRef, true);
   const nb = useNewBelow(ref, (character && character.id) + "|" + (room && room.id || ""));
@@ -13492,7 +13498,7 @@ function ChatThread({
       } else onLongPress(act, menu);
       setMenu(null);
     }
-  }), /* 本人也在名单最前（她 2026-11-19「转发的时候也能转进本人的聊天」）：在小房间里转给 TA＝转进你俩的主聊天 */ fwdPick && h(ForwardPickSheet, { chars: [character].concat((characters || []).filter(c => c.id !== character.id)).filter(Boolean), groups: groups || [], mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: doForwardMany }));
+  }), /* 本人也在名单最前（她 2026-11-19「转发的时候也能转进本人的聊天」）：在小房间里转给 TA＝转进你俩的主聊天 */ fwdPick && h(ForwardPickSheet, { chars: [character].concat((characters || []).filter(c => c.id !== character.id)).filter(Boolean), groups: groups || [], mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: doForwardMany, onMoment: fwdMoment }));
 }
 // 仿微信语音/视频通话：发一句自动回一句
 // 流式字幕（她 2026-09-12：「TA说的话一字一句显示出来在屏幕中间，换句就清掉上一句的显示，
@@ -16303,7 +16309,8 @@ function groupPickFace(g, size, t) {
   return h("div", { "data-wk": "block", style: { width: size || 34, height: size || 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: t.sub } }, g && g.spaceId ? "#" : "👥");
 }
 // 转发给谁（单聊、群聊共用一份）：点一行勾上／取消，可以勾好几个；底下「发送」一起发（她 2026-11-04）
-function ForwardPickSheet({ chars, groups: groups0, mode, setMode, onClose, onSend }) {
+// onMoment：选中的里有图才传进来——名单最前多一行「发到朋友圈」，点了直接把这几张图带进发朋友圈的框（她 2026-11-22），不用勾、不走底下「发送」
+function ForwardPickSheet({ chars, groups: groups0, mode, setMode, onClose, onSend, onMoment }) {
   const t = useTheme();
   // 频道也是去处（她 2026-11-20）：名单过公共那一份 groupPickList——归档的、没到点的不列，频道排在普通群后面、写成「#频道 · 空间名」
   const groups = typeof groupPickList === "function" ? groupPickList(groups0, (typeof window !== "undefined" && window.__spacesNow) || [], typeof vclockNow === "function" ? vclockNow() : new Date()) : groups0;
@@ -16319,6 +16326,10 @@ function ForwardPickSheet({ chars, groups: groups0, mode, setMode, onClose, onSe
     h("div", { "data-wk": "fwdmode", className: "flex", style: { gap: 8, marginBottom: 10 } }, [["merge", "合并转发"], ["each", "逐条转发"]].map(([k, zh]) => h("button", { key: k, "data-on": mode === k ? "1" : "0", onClick: () => setMode(k), className: "active:opacity-70",
       style: { minHeight: 34, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: mode === k ? t.bg2 : t.ink, background: mode === k ? t.ink : "transparent", border: "1px solid " + (mode === k ? t.ink : t.line) } }, zh))),
     h("div", { className: "space-y-1 max-h-72 overflow-y-auto" },
+      onMoment ? h("button", { key: "moment", "data-wk": "fwdmoment", onClick: onMoment, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+        h("span", { style: { width: 20, flexShrink: 0 } }),
+        h("div", { "data-wk": "block", style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: t.sub } }, h(Svg, { size: 18, color: t.sub }, h("path", { d: "M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" }), h("circle", { cx: 12, cy: 13, r: 4 }))),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } }, "发到朋友圈")) : null,
       (chars || []).map(c => row({ type: "chat", id: c.id }, h(Avatar, { character: c, size: 34, radius: 7 }), c.remark || c.name)),
       (groups || []).map(g => row({ type: "group", id: g.id }, groupPickFace(g, 34, t), g.name)),
       empty ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "12px 0" } }, "没有其他角色可转发") : null),
@@ -17713,7 +17724,8 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
 //   portal：弹在半窗／整页弹层里的输入框要挂到 body 上，不然被那一层的层级盖住
 function useAtPicker(text, setText, ref, items, opts) {
   const o = opts || {};
-  const open = !!(items && items.length) && /(^|\s)@$/.test(String(text || ""));
+  // 中文后面直接打 @ 也弹（她 2026-11-22「先说话或者@好几个人就不出现了」）；只有紧跟在英文字母数字后面（像邮箱）才不弹
+  const open = !!(items && items.length) && /(^|[^A-Za-z0-9_.])@$/.test(String(text || ""));
   const [at, setAt] = useState(0);
   useEffect(() => { if (!open) return; try { if (ref.current) setAt(Math.max(0, (window.innerHeight || 0) - ref.current.getBoundingClientRect().top + 8)); } catch (e) {} }, [open]);
   if (!open) return null;
@@ -19503,7 +19515,7 @@ function offRoundTag(sess) {
   return n ? " · 第 " + n + " 轮" : "";
 }
 function OfflineMode({
-  onStopGen,
+  onStopGen, onForward, fwdChars, fwdGroups,
   char,
   room,
   profile,
@@ -19944,7 +19956,7 @@ function OfflineMode({
             style: { minHeight: 40, padding: "8px 12px", borderRadius: 12, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.55, color: t.ink } }, o))) : null; })(),
       !sending && !pick && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip, pad: "2px 0 8px" }) : null,
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
-    pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
+    pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])), fwd: onForward ? { chars: fwdChars, groups: fwdGroups, onForward: (idx, d, mode) => onForward(idx.map(k => msgs[k]).filter(Boolean), d, mode) } : null }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // OOC 从输入栏搬进了顶栏那个「幕后」里（她 2026-09-03：「ooc 在这下面有点拥挤了，
       // 把它放到加号里吧，现在加号是写导演拍刚好 ooc 放那边」）——导演便签和出戏说本来就是
       // 同一类事：都是绕过戏、只有你和模型看得见。留在这儿的只有【正在出戏】时的退出口，
@@ -20299,7 +20311,7 @@ function DoodleEditor({ src, charId, onClose }) {
 }
 // 这一趟打开 App 的时刻：拍照中卡着时，比它早开始的才是断了的（页面被杀过、重开过）
 const PHOTO_PAGE_BOOT = Date.now();
-function SelfieBubble({ m }) {
+function SelfieBubble({ m, inOff }) {
   const t = useTheme();
   const [url, setUrl] = useState(null);
   const [zoom, setZoom] = useState(false);
@@ -20379,6 +20391,8 @@ function SelfieBubble({ m }) {
           if (!window.saveImgOriginal) return window.__toast && window.__toast("这台设备存不了图");
           window.saveImgOriginal(m.imgKey, "照片").then(ok => { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); });
         } } : null,
+        // 线下的照片点开，一键发回聊天（她 2026-11-22「线下图片打开那里多弄一个转发回聊天，以图片形式」）：原图原样过去，不重画
+        inOff && typeof window.__offToChat === "function" ? { label: "↗ 发回聊天", wk: "offphototochat", onClick: () => { setZoom(false); window.__offToChat(m); } } : null,
         { label: "✎ 在上面画，发回去", wk: "doodlebtn", onClick: () => { setZoom(false); setDoodle(true); } }] }),
     doodle && h(DoodleEditor, { src: shown, charId: m.senderId || m.charId || (window.__activeCharId || ""), onClose: () => setDoodle(false) }));
   if (idbMiss) return note("图没能存进本机图库（存储被系统清了或 iOS 抽风）");
@@ -20511,13 +20525,18 @@ function offPickCard(card, i, pick, setPick, t) {
     h("div", { style: { position: "absolute", top: 8, right: 8, width: 20, height: 20, borderRadius: 10, border: "1.5px solid " + t.ink, background: on ? t.ink : t.bg2,
       color: t.bg2, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: "17px", textAlign: "center" } }, on ? "✓" : ""));
 }
-function OffPickBar({ t, pick, setPick, onPin }) {
-  return h("div", { className: "flex items-center justify-between px-4 py-3 shrink-0", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingBottom: "calc(12px + env(safe-area-inset-bottom) * 0.4)" } },
+// 线下多选也能转发（她 2026-11-22）：fwd＝{ chars, groups, onForward }，挑去处用线上那张 ForwardPickSheet，不另做一张
+function OffPickBar({ t, pick, setPick, onPin, fwd }) {
+  const [fwdPick, setFwdPick] = useState(false), [fwdMode, setFwdMode] = useState("merge");
+  const sendTo = async dests => { const idx = pick.slice().sort((a, b) => a - b); setFwdPick(false); setPick(null);
+    for (const d of dests || []) { try { await fwd.onForward(idx, d, fwdMode); } catch (e) {} } };
+  return h(Fragment, null, fwdPick && fwd ? h(ForwardPickSheet, { chars: fwd.chars || [], groups: fwd.groups || [], mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: sendTo }) : null, h("div", { className: "flex items-center justify-between px-4 py-3 shrink-0", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingBottom: "calc(12px + env(safe-area-inset-bottom) * 0.4)" } },
     h("button", { onClick: () => setPick(null), style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "取消"),
     h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "已选 " + pick.length),
     h("div", { className: "flex gap-3 items-center" },
       pick.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, pick), hi = Math.max.apply(null, pick); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setPick(a); }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "补中间") : null,
-      h("button", { onClick: () => { if (pick.length) { onPin(pick.slice().sort((a, b) => a - b)); setPick(null); } }, disabled: !pick.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "收进时刻")));
+      h("button", { onClick: () => { if (pick.length) { onPin(pick.slice().sort((a, b) => a - b)); setPick(null); } }, disabled: !pick.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "收进时刻"),
+      fwd && fwd.onForward ? h("button", { "data-wk": "offselfwd", "aria-label": "转发", title: "转发", onClick: () => pick.length && setFwdPick(true), disabled: !pick.length, className: "disabled:opacity-40 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "转发") : null)));
 }
 function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenState, onEdit, onReroll, onRerollOne, onDelete, onSaveExample, onPinShike, editable, sending, onOpenState, showReason, hideThought }) {
   const [editing, setEditing] = useState(false);
@@ -20562,7 +20581,7 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
         h("div", { className: "flex gap-4 mt-2 justify-end" },
           h("button", { onClick: () => setEditing(false), style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog } }, "取消"),
           h("button", { onClick: () => { const v = txt.trim(); setEditing(false); if (v) onEdit(m.id, v); }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, fontWeight: 600 } }, "照这个重拍"))) : null,
-      h(SelfieBubble, { m: m })));
+      h(SelfieBubble, { m: m, inOff: true })));
   const iconBtn = (Ic, fn, title, dis) => h("button", { onClick: fn, disabled: dis, className: "active:opacity-50 disabled:opacity-30", title: title }, h(Ic, { size: 15, color: t.fog }));
   // 复制这一轮（她 2026-10-03：「线下单轮可以复制」）。
   //   ⚠️复制只有 components.js 的 copyText 那一处（新接口 → execCommand 老路），
@@ -20696,7 +20715,7 @@ function OfflineLengthModeSection({ value, onChange, loose, onLoose }) {
       h(Toggle, { on: loose !== false, onChange: () => onLoose(loose === false) })) : null);
 }
 function GroupOfflineMode({
-  onStopGen,
+  onStopGen, onForward, fwdChars, fwdGroups,
   group,
   profile,
   members,
@@ -21015,7 +21034,7 @@ function GroupOfflineMode({
       msgs.map((m, i) => i < offWin ? null : offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, clockId: group && group.id ? "g:" + group.id : undefined, hideThought: !!(settings && settings.hideThought), members: members, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onRerollOne: onRerollOne, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: offOpenState, canOpenState: offCanPeek }), i, pick, setPick, t)),
       !sending && !pick && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip, pad: "2px 0 8px" }) : null,
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
-    pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
+    pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])), fwd: onForward ? { chars: fwdChars, groups: fwdGroups, onForward: (idx, d, mode) => onForward(idx.map(k => msgs[k]).filter(Boolean), d, mode) } : null }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
       oocMode ? h("button", { onClick: () => setOocMode(false), title: "退出出戏说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "rgba(194,90,74,0.08)" } }, "出戏中 ✕") : null,
       narrMode && !oocMode ? h("button", { "data-wk": "offnarrpill", onClick: () => setNarrMode(false), title: "退出旁白", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: 0.5, padding: "8px 10px", borderRadius: 999, border: "1px solid " + t.ink, color: t.ink, background: "transparent" } }, "旁白 ✕") : null,
@@ -21129,7 +21148,7 @@ function GroupThread({
   onResummarizeOffline,
   onUndoResummarizeOffline,
   onRestoreOffline,
-  onForward,
+  onForward, onToMoments,
   onSaveSettings,
   onGroupDateInvite, onGroupDateGo, invitePlaces, onSetMyPlace,   // 群里的邀约（她 2026-10-02）：挑地方、挑请谁；人齐了点出发进群线下
   sameRoom,
@@ -21343,6 +21362,7 @@ function GroupThread({
     for (const d of dests || []) { try { if (picked.length && onForward) await onForward(picked, d, fwdMode); } catch (e) {} }
     if ((dests || []).length > 1 && toast) toast("已转发到 " + dests.length + " 处");
   };
+  const fwdMoment = onToMoments && chatSelImgItems(messages, selIds).length ? () => { const picked = selIds.slice().sort((a, b) => a - b).map(i => messages[i]).filter(Boolean); exitSel(); onToMoments(picked); } : null;
   // 群里也用TA单聊里那张头像（她 2026-10-02）：聊天头像 chatAvatar 只换脸，档案那张不动
   // 树洞代号（th:几）：每个号一张固定的匿名脸，文字、表情包、卡片都用这一张（她 2026-11-21「发表情包头像颜色不一样」）
   const TH_TONES = ["#c98b6b", "#7f9c8a", "#8a86b8", "#b88a9e", "#9aa36b", "#6b93b8", "#b8a06b", "#8f7b6b"];
@@ -21738,13 +21758,15 @@ function GroupThread({
         onResend: m.role === "user" && onStartAsk ? () => { setAskPrev({ ...m.ask, aid: m.pollId, note: "" }); setSheet("ask"); } : undefined }),
       m.role === "user" && gMeAvEl(40, 10));
     if (m.kind === "luck") return h(GroupLuckCard, { key: i, m });
-    if (m.kind === "poll") return h(PollCard, {
-      key: i,
-      poll: m,
-      meName: meName,
-      onGenVotes: onGenVotes ? () => onGenVotes(m.pollId) : undefined,
-      onVote: opt => onVote(i, opt)
-    });
+    // 他们发起的投票也跟红包、语音一个外壳：左边头像、上面名字（她 2026-11-22「发起投票的人投票没头像」）。
+    //   这一条算进同一人的连发里，下面紧跟的那句按美化不再挂头像，所以头像得挂在这张卡上
+    if (m.kind === "poll") { const card = h(PollCard, { poll: m, meName: meName, onGenVotes: onGenVotes ? () => onGenVotes(m.pollId) : undefined, onVote: opt => onVote(i, opt) });
+      if (m.role === "user" || !m.senderId) return h(React.Fragment, { key: i }, card);
+      return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": "poll", className: "py-1 flex items-start gap-2 justify-start" },
+        mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
+        h("div", { className: "flex flex-col items-start min-w-0", style: { flex: 1 } },
+          m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
+          h("div", { style: { width: "100%" } }, card))); }
     // 红包以前是整条裸着排的：没有头像、也没有发红包的人是谁（她 2026-08-20 报）。
     // 改成和语音/同人分享同一套外壳：左边头像、上面名字，卡片本身一个字不动。
     if (m.kind === "redpacket") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
@@ -22031,7 +22053,7 @@ function GroupThread({
       h("button", { onClick: doDelete, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.accent } }, "删除"),
       h("button", { "data-wk": "block", onClick: () => selIds.length && setFwdPick(true), disabled: !selIds.length, className: "disabled:opacity-40 px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 6 } }, "转发"))),
   gPhotoView && h(PhotoSheet, { m: gPhotoView, toast: toast, onClose: () => setGPhotoView(null) }),
-  fwdPick && h(ForwardPickSheet, { chars: characters || [], groups: (groups || []).filter(g => g.id !== group.id), mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: doForwardMany }),
+  fwdPick && h(ForwardPickSheet, { chars: characters || [], groups: (groups || []).filter(g => g.id !== group.id), mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: doForwardMany, onMoment: fwdMoment }),
   h(NewBelowPill, { n: nb.newBelow, onGo: nb.go, group: true }),
   !selMode && gNarrBar && h(NarrBar, { actKey: group && !gs.spectate ? "g:" + group.id : null, kinds: gNarrKinds, kind: gKind, setKind: setNarrKind, dirLong, setDirLong, dirNotes, onDelDirNote,
     faces: members, asId: asId || (members[0] && members[0].id), setAsId,
@@ -22290,7 +22312,7 @@ function GroupThread({
   }), reactAt != null && onReact && h(Sheet, { onClose: () => setReactAt(null) },
     h(Eyebrow, { style: { marginBottom: 10 } }, "点个表情"),
     h("div", { "data-wk": "reactpick", className: "flex flex-wrap", style: { gap: 10 } }, (typeof CHP_EMOJI !== "undefined" ? CHP_EMOJI : ["👍"]).map(e => h("button", { key: e, onClick: () => { onReact(reactAt, e); setReactAt(null); }, className: "active:opacity-60",
-      style: { width: 52, height: 52, borderRadius: 14, border: "1px solid " + t.line, background: (messages[reactAt] && messages[reactAt].reacts && messages[reactAt].reacts.me === e) ? t.bg2 : "transparent", fontSize: 26 } }, e))),
+      style: { width: 52, height: 52, borderRadius: 14, border: "1px solid " + t.line, background: (messages[reactAt] && messages[reactAt].reacts && messages[reactAt].reacts.me === e) ? t.bg2 : "transparent", fontSize: "calc(26px * var(--app-fs, 1))" } }, e))),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, "再点一次同一个就是收回。")));
 }
 function PollCard({
@@ -23563,7 +23585,7 @@ function ChfDocPage({ file, nameOf, onSave, onDelete, onRename, onClose }) {
               who.map(id => h("span", { key: id, style: { color: col(id) } }, "▍" + (nameOf ? nameOf(id) : id)))));
         })() : h("span", { style: { color: t.fog } }, "空的，点右上「改」写点什么")),
     !edit ? h("div", { className: "flex gap-2", style: { marginTop: 24 } },
-      h("button", { "data-wk": "chfhistbtn", onClick: () => setHist("list"), className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "改动历史 · " + (file.history || []).length),
+      h("button", { "data-wk": "chfhistbtn", onClick: () => setHist("list"), className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "历史 " + (file.history || []).length),   // 四个键并一排，「改动历史 · 5」会挤成两行（她 2026-11-22 截图）
       // 存成文件（她 2026-11-21）：存成一份 .txt，走存相册那条导出路
       h("button", { "data-wk": "chfexport", onClick: async () => { try { await saveTextFile(String(file.name || "文档").replace(/[\\/:*?"<>|]/g, "_") + ".txt", String(file.text || ""), "text/plain"); } catch (e) { if (typeof toast === "function") toast("没存成"); } }, className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "导出"),
       h("button", { "data-wk": "chfrename", onClick: () => requestAppPrompt("改名字", "", file.name, v => { const n = String(v || "").trim(); if (n) onRename(n); }, "好"), className: "active:opacity-60", style: { minHeight: 42, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "改名"),
@@ -23779,11 +23801,12 @@ function SubThreadPage({ group, messages, rootKey, userLabel, sending, onSend, o
 function LoungePanel({ people, onSit, sitting, spectate }) {
   const t = useTheme();
   return h("div", { "data-wk": "lounge", className: "shrink-0", style: { padding: "10px 14px 8px", background: t.bg2, borderBottom: "1px solid " + t.line } },
+    h("div", { "data-wk": "loungecount", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "在这儿 " + (people || []).filter(p => p.here).length + " · 不在 " + (people || []).filter(p => !p.here).length),
     h("div", { className: "flex gap-2", style: { overflowX: "auto", paddingBottom: 4 } },
-      (people || []).map(p => h("div", { key: p.id, "data-wk": "loungecard", style: { flexShrink: 0, width: 116, padding: "8px 9px", borderRadius: 12, background: t.bg, border: "1px solid " + t.line } },
+      (people || []).map(p => h("div", { key: p.id, "data-wk": "loungecard", "data-here": p.here ? "1" : "0", style: { flexShrink: 0, width: 116, padding: "8px 9px", borderRadius: 12, background: t.bg, border: "1px solid " + (p.here ? t.accent : t.line), opacity: p.here ? 1 : 0.55 } },
         h("div", { className: "flex items-center gap-1.5" }, h(Avatar, { character: p.c, size: 24, radius: 7 }),
           h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, p.c.remark || p.c.name)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 5, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.doing || "在这儿待着")))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 5, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.here ? (p.doing || "在这儿待着") : p.away + (p.doing ? " · " + p.doing : ""))))),
     spectate ? null : h("button", { "data-wk": "loungesit", disabled: sitting, onClick: onSit, className: "active:opacity-60", style: { marginTop: 6, minHeight: 34, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", opacity: sitting ? .5 : 1 } }, sitting ? "进去了…" : "进去坐坐"));
 }
 // 在线状态那颗小圆点：在线绿、离开黄、勿扰红、睡了月牙
@@ -23794,7 +23817,7 @@ function PresenceDot({ p, size, ring }) {
   return h("span", { "data-wk": "presdot", "data-part": p.k, title: p.zh, style: { position: "absolute", right: -1, bottom: -1, width: z, height: z, borderRadius: 999, background: p.k === "sleep" ? "transparent" : PRESENCE_COLOR[p.k], boxShadow: "0 0 0 2px " + (ring || "#fff"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: z, lineHeight: 1, color: PRESENCE_COLOR.sleep } }, p.k === "sleep" ? "☾" : null);
 }
 // 成员页：一人一行，圆点、名字、挂着的状态、此刻在哪；最上面是她自己那一句（所有空间共用）
-function SpaceMembersPage({ space, people, presence, statuses, herName, onMyStatus, onClose }) {
+function SpaceMembersPage({ space, people, presence, statuses, herName, herFace, onMyStatus, onClose }) {
   const t = useTheme();
   const mine = (statuses || {}).me || {};
   const [emo, setEmo] = useState(mine.emoji || "");
@@ -23809,13 +23832,14 @@ function SpaceMembersPage({ space, people, presence, statuses, herName, onMyStat
         h("input", { "data-wk": "input", value: txt, onChange: e => setTxt(e.target.value.slice(0, 30)), placeholder: "挂一句", className: "flex-1 outline-none", style: { minWidth: 0, width: 0, minHeight: 40, borderRadius: 9, padding: "0 10px", background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 16, color: t.ink } }),
         h("button", { "data-wk": "mystatussave", onClick: () => onMyStatus && onMyStatus({ emoji: emo.trim(), text: txt.trim() }), className: "active:opacity-60", style: { minHeight: 40, padding: "0 12px", borderRadius: 9, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", flexShrink: 0, whiteSpace: "nowrap" } }, "挂上"),
         (mine.text || mine.emoji) ? h("button", { "data-wk": "mystatusclear", onClick: () => { setEmo(""); setTxt(""); onMyStatus && onMyStatus(null); }, className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", flexShrink: 0, whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "摘掉") : null)),
-    (people || []).map(c => { const p = (presence || {})[c.id], st = lab((statuses || {})[c.id]);
-      return h("div", { key: c.id, "data-wk": "memberrow", "data-part": p ? p.k : "", className: "flex items-center gap-3", style: { padding: "10px 0", borderBottom: "1px solid " + t.line } },
+    // 她也是成员（她 2026-11-22「成员里面没把我算进去」）：排第一个，总是在线
+    [{ id: "me", _me: true, ...(herFace || { name: herName || "我" }) }].concat(people || []).map(c => { const p = c._me ? { k: "online" } : (presence || {})[c.id], st = lab((statuses || {})[c.id]);
+      return h("div", { key: c.id, "data-wk": "memberrow", "data-me": c._me ? "1" : "0", "data-part": p ? p.k : "", className: "flex items-center gap-3", style: { padding: "10px 0", borderBottom: "1px solid " + t.line } },
         h("span", { style: { position: "relative", display: "inline-flex", flexShrink: 0 } }, h(Avatar, { character: c, size: 38, radius: 999 }), h(PresenceDot, { p, size: 11, ring: t.bg2 })),
         h("div", { className: "flex-1 min-w-0" },
           // 名字一行、在哪／在干嘛另起一行截断（她 2026-11-20「这个又撑爆了」：日程那句很长，原来跟名字挤一行还不许缩，把名字挤没了、整页撑宽）
-          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name),
-          where(p) ? h("div", { "data-wk": "memberwhere", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: p ? PRESENCE_COLOR[p.k] : t.fog, marginTop: 1 } }, where(p)) : null,
+          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, (c.remark || c.name) + (c._me ? "（我）" : "")),
+          !c._me && where(p) ? h("div", { "data-wk": "memberwhere", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: p ? PRESENCE_COLOR[p.k] : t.fog, marginTop: 1 } }, where(p)) : null,
           st ? h("div", { "data-wk": "memberstatus", className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, marginTop: 2 } }, st) : null)); }));
 }
 // 空间里直接出去见一面（她 2026-11-20「我是说这里可以直接线下」）：挑这回谁来，写一句在哪儿见，开始就进群线下
@@ -23897,7 +23921,7 @@ function SpacePlansPage({ space, plans, people, onSave, onClose }) {
     past.map(row));
 }
 // 空间首页：Teams 那一屏——顶上一块空间名片（方头像、名字、几个人），底下一行一个频道
-function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf, onSuggestTitles , presence, statuses, herName, onMyStatus, onMeet, meetLog, onOpenMeet, maskOwnOf, searchRun, onPickResult, plans, onSavePlans }) {
+function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool, userLabel, onBack, onOpenChannel, onSaveChannel, onDeleteChannel, onDeleteSpace, onSaveSpace, noMemOf, looseGroups, onAdopt, onRelease, onMoveChannel, onToggleCat, spectateOf, onTalk, digest, onDismissDigest, gems, onDeleteGem, onOpenGem, hoursOf, onSuggestTitles , presence, statuses, herName, herFace, onMyStatus, onMeet, meetLog, onOpenMeet, maskOwnOf, searchRun, onPickResult, plans, onSavePlans }) {
   const t = useTheme();
   const [edit, setEdit] = useState(null);   // null | "new" | 频道那个群
   const [spEdit, setSpEdit] = useState(false);
@@ -23937,7 +23961,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
                 h("span", { "data-wk": "mllast", "data-part": "channel", className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, last ? (last.who ? last.who + "：" : "") + last.text : "还没人说话"))),
             h("button", { "data-wk": "chmore", "aria-label": "改这个频道", onClick: () => setEdit(g), className: "active:opacity-50 flex items-center justify-center", style: { width: 40, color: t.fog, fontSize: 18 } }, "⋯")); };
   return h("div", { "data-wk": "mlpage", "data-part": "space", className: "h-full flex flex-col", style: msgAppBg(t) },
-    h(Head, { zh: space.name, sub: "频道 · " + people.length + " 人", onBack, bg: wxGrey(t),
+    h(Head, { zh: space.name, sub: "频道 · " + (people.length + 1) + " 人", onBack, bg: wxGrey(t),
       right: h("span", { className: "flex items-center" },
         searchRun ? h("button", { "data-wk": "spacesearchbtn", "aria-label": "在这个空间里搜", onClick: () => setSearchOpen(true), className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 34 } }, h(ISearch, { size: 20, color: t.ink })) : null,
         h("button", { "data-wk": "chnew", "aria-label": "新频道", onClick: () => setEdit("new"), className: "active:opacity-50 flex items-center justify-center", style: { width: 44, height: 34 } }, h(IPlus, { size: 20, color: t.ink }))) }),
@@ -23952,7 +23976,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
           num = { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.2 }, lab = { fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog }, sep = () => h("span", { "aria-hidden": "true", style: { width: 1, alignSelf: "stretch", margin: "10px 0", background: t.line } });
         const online = people.filter(c => ((presence || {})[c.id] || {}).k === "online").length;
         return h("div", { "data-wk": "spacestats", className: "flex", style: { width: "calc(100% - 28px)", margin: "8px 14px 0", background: momPaper(t), borderRadius: 12 } },
-          h("button", { "data-wk": "spacemembers", onClick: () => setMemOpen(true), className: "active:opacity-60", style: cell }, h("span", { style: num }, people.length), h("span", { className: "truncate", style: lab }, "成员 · " + online + " 在线")),
+          h("button", { "data-wk": "spacemembers", onClick: () => setMemOpen(true), className: "active:opacity-60", style: cell }, h("span", { style: num }, people.length + 1), h("span", { className: "truncate", style: lab }, "成员 · " + (online + 1) + " 在线")),
           onSavePlans ? sep() : null,
           onSavePlans ? h("button", { "data-wk": "spaceplans", onClick: () => setPlanOpen(true), className: "active:opacity-60", style: cell }, h("span", { style: num }, (plans || []).filter(p => p && !p.done).length), h("span", { className: "truncate", style: lab }, "约定")) : null,
           sep(),
@@ -24005,7 +24029,7 @@ function SpaceView({ space, channels, groupChats, unreadMap, allChars, pickPool,
     adopt ? h(GroupAdoptPage, { space, groups: looseGroups || [], onPick: ids => { onAdopt(ids); setAdopt(false); }, onClose: () => setAdopt(false) }) : null,
     searchOpen ? h(SpaceSearchPage, { space, run: searchRun, onPick: r => { setSearchOpen(false); onPickResult && onPickResult(r); }, onClose: () => setSearchOpen(false) }) : null,
     planOpen ? h(SpacePlansPage, { space, plans: plans || [], people, onSave: onSavePlans, onClose: () => setPlanOpen(false) }) : null,
-    memOpen ? h(SpaceMembersPage, { space, people, presence: presence || {}, statuses: statuses || {}, herName, onMyStatus, onClose: () => setMemOpen(false) }) : null,
+    memOpen ? h(SpaceMembersPage, { space, people, presence: presence || {}, statuses: statuses || {}, herName, herFace, onMyStatus, onClose: () => setMemOpen(false) }) : null,
     meetOpen ? h(SpaceMeetPage, { space, pool: (space.memberIds || []).map(id => (allChars || []).concat(pickPool || []).find(c => c && c.id === id)).filter(Boolean), onClose: () => setMeetOpen(false), onStart: (ids, note) => { setMeetOpen(false); onMeet(ids, note); } }) : null,
     meetLogOpen ? h(PageSheet, { onClose: () => setMeetLogOpen(false), zh: "见面记录", sub: space.name },
       (meetLog || []).map(m => h("button", { key: m.id, "data-wk": "spacemeetrow", onClick: () => { setMeetLogOpen(false); onOpenMeet && onOpenMeet(m.id); }, className: "w-full text-left active:opacity-60", style: { display: "block", padding: "11px 0", borderBottom: "1px solid " + t.line } },

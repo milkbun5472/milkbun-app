@@ -4102,10 +4102,11 @@ location 写细的（具体哪间屋子、哪个铺子），place 写粗的—�
 ⚠️type 那几个词只是【给图标用的分类】，从里头挑最接近的一个就行；
   绝不许为了凑上某一类去改剧情——尤其 coffee 只是「一段用来醒神／提神的时间」，
   不代表TA真的喝咖啡。`;
+// 就寝几点由人设定（她 2026-11-22「为啥他们9点多十点就困了」）：原来那句「睡够七八小时」的硬要求跟 end=24:00 一起，把入睡全推到十点上下
 const SCHED_END_RULE = `【每段都要 end】time 是开始时刻、end 是结束时刻，都填 "HH:MM"（24 小时制，跨到午夜写 "24:00"）。
 end 必须晚于 time；相邻两段可以留空档（没排事就是没排事），不必首尾相接。
 时长要符合这件事本身：吃早饭二三十分钟、开组会一两小时、跑一下午实验就写到傍晚——别一律给一小时。
-【就寝那一段】人要睡七八个小时，不是三小时。type="sleep" 那一段的 end 一律写 "24:00"（表示一觉睡过午夜，第二天凌晨自然接上），别写成凌晨四点就结束。`;
+【就寝那一段】几点睡照这个人的作息和今天的事来：夜猫子、加班的、熬夜追东西的就晚睡，作息规律的就早点。午夜前睡的，type="sleep" 那一段的 end 写 "24:00"（表示一觉睡过午夜，第二天凌晨自然接上），别写成凌晨四点就结束。过了午夜才睡的，这一天最后一段照常写到 "24:00"，睡觉那段写在第二天最前面，从几点睡写到几点醒。`;
 // 群里一个人也可以连发好几条。（v56.27，她 2026-08-26 截图：顾朝在群里一口气发了整段
 // 「热奶和吐司我都弄好了，你先闭着眼出来把早餐塞进肚子里，开考了中途我再给你送温水和小零食
 // 当后勤」——同样一段话在单聊里会被拆成两三条。）
@@ -4179,6 +4180,12 @@ const FACING_BAN = "**绝不许说「怎么还不来」「还没到吗」「在�
 // 开关这一侧的在场声明（拼进 ctx.offlineNow，跟线下那段走同一个口子）。
 // group=true 是群里那一档（她 2026-09-10：「群里也接共处一室吧」）：一屋子人和她在一起，
 // 只是仍用气泡呈现。⚠️只此一份：两处各写一份的话，改一句「面对面」得改两遍，迟早对不上。
+// 「♥ 和 X 在一起」只此一份（她 2026-11-22「不能搞成公共的？」）：在一起那天落进日历的那一条，写进去时 X 是当时的名字；
+//   显示时一律交给这里，X 换成此刻该叫的名字（你跟他用的那张面具）。落进去、她的日历、他手机里的日历都走它，别处不许再自己拼「♥ 和」
+const TOGETHER_NOTE = "情侣纪念日";
+function togetherTitle(name) { return "♥ 和 " + String(name || "TA") + " 在一起"; }
+function isTogetherEvent(e) { return !!(e && e.note === TOGETHER_NOTE && /^♥ 和 .+ 在一起$/.test(String(e.title || "").trim())); }
+function togetherTitleNow(e, name) { return isTogetherEvent(e) && name ? togetherTitle(name) : String((e && e.title) || ""); }
 function samePlacePresence(uName, group) {
   return "【同处一室·此刻真的面对面】" + (group ? "此刻在场的各位和" + uName + "都" : "你和" + uName + "此刻")
     + "【就在同一个地方、面对面】——不是约好了还没见，是人已经在一起了。"
@@ -12594,6 +12601,73 @@ const DIARY_SKELETON = [
 "",
 "【位置 location】写这篇时你所在的地方，可以是城市（如 SHANGHAI, CN）也可以是具体场所。给了今天的行程，就按此刻你会在哪来判断。coords：写城市时给一串经纬度（如 31.230°N, 121.473°E），写具体场所时填 null。weather：一个简短的天气＋温度（如 OVERCAST 28°C）。"
 ].join("\n");
+// 模型回来的东西没认出来时，跟在报错后面那一句（她 2026-11-22「别的 app 有没有同样的问题」）：
+//   回空＝多半被拦截或超时；有东西＝把开头几个字带出来，看得出它到底回了什么。所有「没写出来」的报错都接这一份
+function rawWhy(raw) {
+  const t = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim();
+  return t ? "（模型回的开头是：「" + t.slice(0, 40) + "」）" : "（模型回空了，多半是被拦截或超时）";
+}
+if (typeof window !== "undefined") window.rawWhy = rawWhy;
+// 模型回来的东西差一点对不上时，照这一份重新认一遍（她 2026-11-22：日记那几层兜底，别的生成也要一样）。
+//   只改形状、不编内容：模型没写的字段照样空着。spec：
+//     str:   { 字段: [别名…] }          第一个非空的别名收进来（字符串数组拼成换行）
+//     arr:   { 字段: { from:[别名…], split:正则, wrap:"text" } }  字符串按 split 拆；wrap 把字符串项包成 {text}
+//     root:  "字段"                     模型直接回了一个数组 → 当成这个字段
+//     prose: "字段"  proseMin: 字数      没认出 JSON、给了一段正文 → 放进这个字段（数组字段就按 split 拆）
+//     need:  [字段…]                    这几样都有才算认出来；没有就回 null，由调用处带 rawWhy 报错
+function salvageShape(raw, spec) {
+  spec = spec || {};
+  const text = String(raw == null ? "" : raw).trim();
+  if (!text) return null;
+  const SPLIT = /\n\s*\n|\n/;
+  const has = v => Array.isArray(v) ? v.length > 0 : !!String(v == null ? "" : v).trim();
+  const arrSpec = k => Object.assign({ from: [k], split: SPLIT }, (spec.arr || {})[k]);
+  const toArr = (v, a) => (Array.isArray(v) ? v : (typeof v === "string" ? v.split(a.split) : []))
+    .map(x => typeof x === "string" ? x.trim() : x).filter(x => x != null && x !== "")
+    .map(x => a.wrap && typeof x === "string" ? { [a.wrap]: x } : x);
+  const parsed = extractJSON(text);
+  const obj = Array.isArray(parsed) ? (spec.root ? { [spec.root]: parsed } : {}) : (parsed && typeof parsed === "object" ? parsed : null);
+  const out = Object.assign({}, obj || {});
+  Object.keys(spec.str || {}).forEach(k => {
+    if (!obj) return;
+    for (const n of spec.str[k]) {
+      const v = obj[n];
+      const s = Array.isArray(v) ? v.filter(x => typeof x === "string").join("\n").trim() : (typeof v === "string" || typeof v === "number" ? String(v).trim() : "");
+      if (s) { out[k] = s; return; }
+    }
+  });
+  Object.keys(spec.arr || {}).forEach(k => {
+    if (!obj) return;
+    const a = arrSpec(k);
+    for (const n of a.from) { const xs = toArr(obj[n], a); if (xs.length) { out[k] = xs; return; } }
+  });
+  const need = spec.need || [];
+  if (spec.prose && !has(out[spec.prose])) {
+    const prose = text.replace(/^```[a-z]*\s*|```$/gi, "").replace(/^\s*[{[][\s\S]*$/, "").trim();
+    if (prose.length >= (spec.proseMin || 1)) {
+      const isArr = (spec.arr || {})[spec.prose];
+      const v = isArr ? toArr(prose, arrSpec(spec.prose)).filter(x => typeof x !== "string" || !/^["{}\[\],:]+$/.test(x)) : prose;
+      if (has(v) && (!isArr || v.map(x => typeof x === "string" ? x : "").join("").length >= (spec.proseMin || 1))) { out[spec.prose] = v; out._salvaged = true; }
+    }
+  }
+  return need.every(k => has(out[k])) && (obj || out._salvaged) ? out : null;
+}
+if (typeof window !== "undefined") window.salvageShape = salvageShape;
+// 日记回来的东西怎么认（她 2026-11-22「日记这种是不是容易解析失败然后啥都不返回也看不到原因，能不能加几层兜底」）：
+//   ① 正常 JSON 有 paras；② JSON 里正文换了个名字（content/body/text/diary，字符串或数组）也收；
+//   ③ 根本没给 JSON、给了一整段正文——按空行／换行拆成段落照样存成一篇；
+//   ④ 回空、或者只有几个字：说清是哪一种，并把开头原话带出来，别只说「解析失败」
+const DIARY_SHAPE = { arr: { paras: { from: ["paras", "paragraphs", "content", "body", "text", "diary", "entry"] } }, prose: "paras", proseMin: 40, need: ["paras"] };
+function diaryFromRaw(raw) {
+  const text = String(raw == null ? "" : raw).trim();
+  if (!text) throw new Error("日记没写成" + rawWhy(text) + "，换个模型或重试");
+  const d = salvageShape(text, DIARY_SHAPE);
+  if (!d) throw new Error("没认出日记" + rawWhy(text) + "，可重试或换模型");
+  d.paras = d.paras.map(x => typeof x === "string" ? x : String((x && (x.text || x.content)) || "").trim() ? x : "").filter(Boolean);
+  if (d._salvaged) return Object.assign({ titleZh: "", titleEn: "", signature: "" }, d);
+  return d;
+}
+if (typeof window !== "undefined") window.diaryFromRaw = diaryFromRaw;
 async function generateDiary(p, ctx, opts = {}) {
   const char = ctx.char;
   const uName = (ctx.profile && ctx.profile.name) || "她";
@@ -12682,9 +12756,7 @@ async function generateDiary(p, ctx, opts = {}) {
     + "只要已经沉淀进上文那段『你长出来的自我』，就照现在的你写，别退回原卡的旧样子。"
     + "分辨很简单：记进长出来的自我的是成长，只是最近几篇听起来那样的是惯性。";
   const raw = await callAI(p, system, [{ role: "user", content: (retro ? "现在是今晚睡前，把今天这一整天写成一篇日记。" : "开始写今天的日记。") + voiceTail }], { maxTokens: opts.maxTokens || 14000, ...LONG_WRITE });
-  const parsed = extractJSON(raw);
-  if (!parsed || !Array.isArray(parsed.paras)) throw new Error("解析失败，可重试或换模型");
-  return parsed;
+  return diaryFromRaw(raw);
 }
 // WMO 天气码 → 简短英文（配合日记元数据卡的编辑感）
 function wmoToText(code) {

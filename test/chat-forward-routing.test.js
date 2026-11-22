@@ -10,7 +10,7 @@ test("private and group threads both offer chat and group forwarding targets", (
   // 2026-11-04 起单聊、群聊共用 ForwardPickSheet，人和群都能勾，一次发给好几个
   assert.match(components, /row\(\{ type: "chat", id: c\.id \}/);
   assert.match(components, /row\(\{ type: "group", id: g\.id \}/);
-  assert.equal((components.match(/h\(ForwardPickSheet, \{/g) || []).length, 2);
+  assert.equal((components.match(/h\(ForwardPickSheet, \{/g) || []).length, 3);   // 单聊、群聊、线下多选底栏（2026-11-22）
   assert.match(components, /function GroupThread\([\s\S]*onForward/);
 });
 

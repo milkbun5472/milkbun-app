@@ -382,8 +382,10 @@
     const [tab, setTab] = useState(slots[0]);
     const [sel, setSel] = useState([]);   // 勾上的那几个；换标签就清空，免得人和群混着放
     useEffect(() => { setSel([]); }, [tab]);
-    const chars = (props.characters || []).filter(c => c && !c.npc);
-    const list = tab === "group" ? (props.groups || []).map(g => ({ id: g.id, name: g.name || "未命名的群" })) : chars.map(c => ({ id: c.id, name: c.name }));
+    // NPC 的单聊也是一个聊天窗，美化一样放得进去（她 2026-11-22）：排在角色后面，名字后标「NPC」
+    const all = (props.characters || []).filter(c => c && c.name);
+    const chars = all.filter(c => !c.npc).map(c => ({ id: c.id, name: c.name })).concat(tab === "chat" ? all.filter(c => c.npc).map(c => ({ id: c.id, name: c.name + " · NPC" })) : []);
+    const list = tab === "group" ? (props.groups || []).map(g => ({ id: g.id, name: g.name || "未命名的群" })) : chars;
     const zh = { chat: "聊天窗", group: "群聊", offline: "线下" };
     return h("div", { "data-wk": "nestplace", style: Object.assign({ marginTop: 16, padding: 14 }, card(t)) },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", fontWeight: 600, color: t.ink } }, "放哪儿"),

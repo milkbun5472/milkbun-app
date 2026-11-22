@@ -354,12 +354,15 @@
     // maxTokens 2000 真的被打穿过：quote 写到一半被截、宽松解析把半句话捞出来存成了卡
     // （她 2026-08-21「明明每次都被她搅得脑子发懵，但」戛然而止那张）。额度放大之外，
     // 还要用 silhouette 当截断哨兵——它是 JSON 最后一个字段，截断几乎必丢，丢了就报错重试。
+    // 字段换了名、tags 给成一串字也认（salvageShape）；silhouette 仍是截断哨兵，缺了照样报错
+    const IMPRESSION_SHAPE = { str: { quote: ["quote", "line", "sentence"], silhouette: ["silhouette", "image", "picture"], title: ["title"], moment: ["moment"], shift: ["shift"], him: ["him"] },
+      arr: { tags: { from: ["tags", "keywords", "words"], split: /[\n、，,；;／/|#\s]+/ } } };
     const raw = await callAI(active, sys, [{ role: "user", content: "开始写这个月的印象。" }], { maxTokens: 13000, ...(typeof LONG_WRITE === "object" ? LONG_WRITE : { timeout: 120000 }) });
-    const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
+    const d = (typeof salvageShape === "function" ? salvageShape(raw, IMPRESSION_SHAPE) : null) || (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
     const tags = (Array.isArray(d.tags) ? d.tags : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 3);
     const quote = String(d.quote || "").trim();
     const S30 = (v, n) => String(v || "").trim().slice(0, n);
-    if (!quote || !tags.length || !String(d.silhouette || "").trim()) throw new Error("这个月的印象没写全（可能被截断），再试一次");
+    if (!quote || !tags.length || !String(d.silhouette || "").trim()) throw new Error("这个月的印象没写全（可能被截断），再试一次" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
     // 新三格不参与"写全了没有"的判定：一格空着也还是一张能看的卡，
     // 为了它整张作废、连剪影那一枪都白跑，不划算（截断照旧由 silhouette 那个哨兵兜）。
     return { title: String(d.title || "").trim(), tags, quote, moment: S30(d.moment, 240), shift: S30(d.shift, 240),

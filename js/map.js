@@ -231,9 +231,17 @@ function mapSubSkin(t) {
       mapRef.current = map;
       lgRef.current = L.layerGroup().addTo(map);
       // 容器尺寸稳定后修正
-      setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 120);
+      const tSize = setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 120);
       if (o.onReady) o.onReady(map); // 把地图实例交出去，供外部飞到某点/看全部
-      return function () { try { map.remove(); } catch (e) {} mapRef.current = null; lgRef.current = null; fittedRef.current = false; };
+      // 平移/缩放动画放到一半就关页：先停动画、把动画收尾的回调换成空的，再拆地图，
+      //   不然动画回头去找已经拆掉的图层，报「_leaflet_pos」（2026-11-22 群友出错记录）。
+      return function () {
+        clearTimeout(tSize);
+        try { map.stop(); } catch (e) {}
+        try { map._onZoomTransitionEnd = function () {}; map._catchTransitionEnd = function () {}; map._onPanTransitionEnd = function () {}; } catch (e) {}
+        try { map.off(); map.remove(); } catch (e) {}
+        mapRef.current = null; lgRef.current = null; fittedRef.current = false;
+      };
     }, [leafOk]);
     useEffect(function () {
       const L = window.L, map = mapRef.current, lg = lgRef.current;
