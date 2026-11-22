@@ -1572,7 +1572,10 @@
       send: (obj, to) => send(obj, to),
       post: (type, x) => sayRich(type, x),
       // 邀请卡只认开这一局的那个人改：我开的改我那条；别人开的只改 TA 发的那条
-      patchCard: (gid, x, mine, origin) => updX(m => m.type === "game" && m.x && m.x.gid === gid && (mine ? m.side === "me" : m.side === "peer" && m.peerId === origin), () => x),
+      // x 也可以是函数：拿旧卡算新卡（开局的人说「这一局没了」时只改状态）
+      patchCard: (gid, x, mine, origin) => updX(m => m.type === "game" && m.x && m.x.gid === gid && (mine ? m.side === "me" : m.side === "peer" && m.peerId === origin), old => typeof x === "function" ? x(old) : x),
+      // 我自己发过的邀请卡（重进房间后，内存里已经没有的那几局要告诉大家作废）
+      myCards: () => ((roomRef.current && roomRef.current.msgs) || []).filter(m => m.type === "game" && m.side === "me" && m.x).map(m => m.x),
       hostApi: route => route === "offline" && propsRef.current.offlineApi ? propsRef.current.offlineApi() : propsRef.current.gameApi ? propsRef.current.gameApi() : null,
       apiFor: id => propsRef.current.apiFor ? propsRef.current.apiFor(id) : null,
       charOf: id => (propsRef.current.characters || []).find(c => c.id === id) || null,

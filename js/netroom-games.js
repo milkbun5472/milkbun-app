@@ -65,7 +65,7 @@
   const int = (v, lo, hi, d) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; };
   const GS = () => root.GameShared || null;
   const SEAT_KINDS = ["open", "user", "char", "npc"];
-  const STATUS = ["open", "playing", "done", "cancel"];
+  const STATUS = ["open", "playing", "done", "cancel", "lost"];   // lost：开局的人重进过房间，这一局接不上了
   const MODES = ["normal", "easy", "spectate"];
   const AWAY_MS = 20000;
   const NPC_NAMES = ["路人甲", "路人乙", "路人丙", "路人丁", "路人戊", "路人己", "路人庚", "路人辛"];
@@ -108,7 +108,7 @@
   const seatLabel = s => s.kind === "open" ? "空位" : s.name + (s.kind === "char" ? "（角色" + (s.tag ? " · " + s.tag : "") + "）" : s.kind === "npc" ? "（NPC）" : "");
   function inviteLine(x) {
     const seats = x.seats || [], open = seats.filter(s => s.kind === "open").length;
-    const st = x.status === "playing" ? "，已经开局" : x.status === "done" ? "，这一局打完了" : x.status === "cancel" ? "，取消了" : "";
+    const st = x.status === "playing" ? "，已经开局" : x.status === "done" ? "，这一局打完了" : x.status === "cancel" ? "，取消了" : x.status === "lost" ? "，接不上了" : "";
     return "[小游戏邀请] " + (x.zh || "") + (x.setter ? "（" + setterLine(x) + "题）" : "") + " · " + seats.length + " 个座位" + (x.status === "open" ? "，空 " + open + " 个" : "") + st
       + "：" + (seats.filter(s => s.kind !== "open").map(seatLabel).join("、") || "还没人坐");
   }
@@ -1158,6 +1158,12 @@
     }
     // 开局的人：停着的这一轮接着来
     function resume(gid) { const g = host[gid]; if (!g || !g.pause || g.inv.status !== "playing") return; g.pause = null; shareState(g); drive(gid); }
+    // 这一局作废：只有开局的人那台发（别人收到时只改开局的人发的那张卡）
+    function goneOne(gid) {
+      if (host[gid]) return;
+      o.patchCard(gid, old => old && (old.status === "open" || old.status === "playing") ? Object.assign({}, old, { status: "lost" }) : old, true);
+      o.send({ t: "game", op: "gone", gid });
+    }
     function move(gid, seatIdx, mv) {
       const s = seen[gid];
       if (host[gid]) return hostApply(gid, seatIdx, mv, o.me());
@@ -1222,7 +1228,7 @@
       onMessage(e, origin) {
         const gid = cut(e.gid, 40); if (!gid) return;
         const g = host[gid];
-        if (e.op === "join" && !g) { o.send({ t: "game", op: "oops", gid, text: "开这一局的那台手机已经不记得这张邀请卡了（重新进过房间），请她再发一张" }, origin); }
+        if (e.op === "join" && !g) { o.send({ t: "game", op: "oops", gid, text: "开这一局的那台手机已经不记得这张邀请卡了（重新进过房间），请她再发一张" }, origin); goneOne(gid); }
         else if (e.op === "join" && g.inv.status !== "open") { o.send({ t: "game", op: "oops", gid, text: "这一局已经开始或者结束了，坐不进去了" }, origin); }
         else if (e.op === "join") {
           const nick = o.nickOf(origin);
@@ -1244,10 +1250,18 @@
           if (!was && o.onOpenGame && inv.seats.some(s => s.peer === o.me())) o.onOpenGame(gid);
         } else if (e.op === "priv") { const s = seen[gid]; if (s && s.inv.host === origin) gotPriv(gid, int(e.seat, 0, 11, -1), int(e.seq, 0, 1e9, 0), e.data); }
         else if (e.op === "side") { const x = e.x && typeof e.x === "object" ? Object.assign({}, e.x, { peer: origin }) : null; if (x) sideAdd(gid, x); }
+        // 开局的人说这一局没了：patchCard 只改 origin 自己发的那张卡，所以只认开局的人
+        else if (e.op === "gone") { o.patchCard(gid, old => old && old.host === origin && (old.status === "open" || old.status === "playing") ? Object.assign({}, old, { status: "lost" }) : old, false, origin); if (seen[gid] && seen[gid].inv.host === origin) seen[gid].inv = Object.assign({}, seen[gid].inv, { status: "lost" }); changed(); }
         else if (e.op === "oops") { o.toast && o.toast(cut(e.text, 120)); }
       },
-      // 有人（重新）进了房：把还在打的那几局再发一遍，TA 那边接得上
-      resend() { Object.keys(host).forEach(gid => { const g = host[gid]; if (g.st && g.inv.status !== "open") { o.send({ t: "game", op: "card", gid, x: g.inv }); shareState(g); } else shareCard(g); }); },
+      // 我开过、可这台手机已经不记得的那几局（重进过房间）：告诉大家作废，我自己那张也标上
+      goneOld() {
+        const mine = (o.myCards && o.myCards()) || [];
+        mine.forEach(x => { if (x && x.host === o.me() && !host[x.gid] && (x.status === "open" || x.status === "playing")) goneOne(x.gid); });
+      },
+      // 有人（重新）进了房：把还在打的那几局再发一遍，TA 那边接得上；不记得的那几局说作废
+      resend() {
+        this.goneOld(); Object.keys(host).forEach(gid => { const g = host[gid]; if (g.st && g.inv.status !== "open") { o.send({ t: "game", op: "card", gid, x: g.inv }); shareState(g); } else shareCard(g); }); },
       // 每隔几秒看一眼：轮到的人掉线了没有
       tick(now) {
         const pres = o.presence ? o.presence() : {};
@@ -1296,7 +1310,7 @@
     const t = useTheme();
     const seats = x.seats || [], isHost = x.host === me, mine = seats.some(s => s.peer === me && s.kind !== "npc");
     const open = seats.filter(s => s.kind === "open").length;
-    const stZh = { open: "等人报名", playing: "正在打", done: "打完了", cancel: "取消了" }[x.status];
+    const stZh = { open: "等人报名", playing: "正在打", done: "打完了", cancel: "取消了", lost: "接不上了" }[x.status];
     return h("div", { "data-wk": "nrgamecard", "data-state": x.status, style: { width: 248, border: "1px solid " + t.line, borderRadius: 14, background: t.bg2, padding: 12, display: "flex", flexDirection: "column", gap: 8 } },
       h("div", { className: "flex items-center", style: { gap: 8 } },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: fs(16), color: t.ink, flex: 1 } }, x.zh),
@@ -1306,6 +1320,7 @@
         isHost && x.status === "open" && (x.setter.mode === "seat" || x.setter.mode === "turns") && onSetter ? h("button", { "data-wk": "nrgamesetterpick", onClick: onSetter, style: Object.assign(pill(t, false), { minHeight: 30, padding: "0 10px", fontSize: fs(12) }) }, "换一个") : null) : null,
       h("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, seats.map((s, i) => h("div", { key: i, "data-wk": "nrgameseat", "data-kind": s.kind, style: { fontFamily: F_BODY, fontSize: fs(13), color: s.kind === "open" ? t.fog : t.ink } },
         (i + 1) + ". " + seatLabel(s) + (s.away ? " · 掉线了，NPC 先替着" : "")))),
+      x.status === "lost" ? h("div", { "data-wk": "nrgamelost", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.5 } }, isHost ? "这张卡是你重新进房间之前发的，这一局接不上了。要玩就从「＋ → 小游戏」再发一张。" : "开这一局的人重新进过房间，这一局接不上了。") : null,
       // 我开的卡，可这台手机重进过房间、已经不记得这一局了：按钮按了也没用，直说
       lost ? h("div", { "data-wk": "nrgamelost", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.5 } }, "这张卡是你重新进房间之前发的，这台手机已经接不上这一局了。要玩就从「＋ → 小游戏」再发一张。") : null,
       isHost && !lost && h(PrepOnCard, { x, t }),
