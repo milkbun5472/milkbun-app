@@ -312,7 +312,7 @@ test("深夜频道：提示里说清这是留给夜里醒着的人的地方", ()
 test("从别的频道过来：提示里说、聊天里冒一行；挂机房分在这儿／不在", () => {
   assert.match(ap, /【刚才在别处的人】/);
   assert.match(ap, /content: spk\.name \+ " 从 #" \+ _from \+ " 过来了"/);
-  assert.match(ap, /gAtHint \+ gArriveHint \+/);
+  assert.match(ap, /const gAtHint = gArriveHint \+ \(/);
   assert.match(cs, /"data-wk": "loungecount"/);
   assert.match(cs, /"data-here": p\.here \? "1" : "0"/);
 });

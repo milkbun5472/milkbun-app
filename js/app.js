@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.028";
+const APP_VERSION = "v90.029";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17136,8 +17136,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             if (best && _now - best < 3600000 && best > here && bestCh) _arrive[c.id] = bestCh; });
         } } catch (e) {} }
       const gArriveHint = Object.keys(_arrive).length ? "\n\n【刚才在别处的人】" + members.filter(c => _arrive[c.id]).map(c => c.name + " 刚才在 #" + _arrive[c.id]).join("、") + "。他们这一轮要是开口，就是看到她在这边说话才转过来的：这边前面聊了什么不一定都知道，可以接着她的话说，也可以顺口带一句那边的事。" : "";
-      const gAtHint = _atFresh.all ? "\n\n【她 @ 了所有人】她刚才那句是冲着在场每个人说的：这一轮每个人都会冒个头回她，哪怕只是一句。"
-        : _atFresh.ids.length ? "\n\n【她 @ 了谁】她刚才那句点了 " + _atFresh.ids.map(id => (members.find(c => c.id === id) || {}).name).filter(Boolean).join("、") + " 的名：被点到的人这一轮都会出来回她。" : "";
+      const gAtHint = gArriveHint + (_atFresh.all ? "\n\n【她 @ 了所有人】她刚才那句是冲着在场每个人说的：这一轮每个人都会冒个头回她，哪怕只是一句。"
+        : _atFresh.ids.length ? "\n\n【她 @ 了谁】她刚才那句点了 " + _atFresh.ids.map(id => (members.find(c => c.id === id) || {}).name).filter(Boolean).join("、") + " 的名：被点到的人这一轮都会出来回她。" : "");
       const gWelcomeHint = rgOpts && Array.isArray(rgOpts.welcome) && rgOpts.welcome.length ? "\n\n【刚进来的人】" + rgOpts.welcome.join("、") + " 刚刚加入了这个地方，现在也在这个频道里。" : "";
       // 精华墙：最近几句名场面摆给他们；今天这个频道还没人提名过才提那一格
       const gGemHint = group && group.spaceId ? (() => {
@@ -17253,7 +17253,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 群里拍一拍（她 2026-10-25）：她在群里时能拍她或别的成员；旁观群里只能拍群里的人
       const gStickField = ",\"stick\":{\"quote\":\"（可选）群里某条消息里的原话，照抄几个字\",\"emoji\":\"一个 emoji\"}（想贴自己的表情包就把 emoji 换成 \"emote\":\"表情包关键词\"；往那条气泡上贴一个表情，像 QQ 的贴表情：群里谁的哪句话让你当下有了反应、这个反应一个表情就说得清的时候，就随手贴一个，贴了照样可以说话，也可以只贴不说；没有反应就整个省掉）";
       const gPatField = ",\"pat\":\"（可选）想用「拍一拍」戳谁一下就填那个人的名字（" + (imInGroup(group) ? gUName + " 或" : "") + "群里某位成员）；是一个动作，不是一句话，不用再在 text 里写「拍了拍」\"";
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gFileHint + gHopHint + gNewChHint + gGemHint + gTreeHint + gChainStartHint + gWelcomeHint + gAtHint + gArriveHint + gListenHint + gPlayHint + gStatusHint + gPlanHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gStoryHint + (() => { const _g0 = (groupsRef.current || []).find(x => x.id === groupId); const _n = groupNamedByNote(_g0, ""); return _n ? "\n【群名】" + _n + "（起名的那个人自己知道是自己起的）。" : ""; })() + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；定下的是以后的事，就加 " + SCHED_LATER_SPEC + "同样只填他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + (() => { // 最近那张投票就摆在最后（她 2026-11-22「想改票他们只会口头说，也不改上一轮的、也不重开」）：
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gFileHint + gHopHint + gNewChHint + gGemHint + gTreeHint + gChainStartHint + gWelcomeHint + gAtHint + gListenHint + gPlayHint + gStatusHint + gPlanHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gStoryHint + (() => { const _g0 = (groupsRef.current || []).find(x => x.id === groupId); const _n = groupNamedByNote(_g0, ""); return _n ? "\n【群名】" + _n + "（起名的那个人自己知道是自己起的）。" : ""; })() + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；定下的是以后的事，就加 " + SCHED_LATER_SPEC + "同样只填他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + (() => { // 最近那张投票就摆在最后（她 2026-11-22「想改票他们只会口头说，也不改上一轮的、也不重开」）：
         //   投票卡在上文里离得远，pollVote 那句又夹在一长串里，嘴上说改了、票数没动。一天之内有一张非审批的投票就把它连票数摆出来
         // 人多的频道一轮就二三十条（她 2026-11-22「12个人一轮就20几条」）：不按条数，按时间——一天之内开的最近那张都算
         const _pl = (groupChatsRef.current[groupId] || []).slice(-400).filter(m => m && m.kind === "poll" && !m.ask && m.pollId && Date.now() - (m.ts || 0) < 86400000).pop();
