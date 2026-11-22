@@ -379,6 +379,8 @@
     const [room, setRoom] = useState(null);
     const [picked, setPicked] = useState({});
     const [busy, setBusy] = useState({});
+    const [withChat, setWithChat] = useState({});   // 带上 TA 最近的单聊（只进自己这边的模型，不发给对方）
+    const [peerTyping, setPeerTyping] = useState({});   // 对面哪几个角色正在输入：{ id: 名字 }
     const [gone, setGone] = useState(false);
     const [memPick, setMemPick] = useState({});
     const [saving, setSaving] = useState(false);
@@ -399,7 +401,10 @@
         commit(Core.patchRoom(r, { peerNick: String(m.nick || "对方").slice(0, 20), peerChars: (m.chars || []).slice(0, 8).map(Core.cleanCard) }));
       } else if (m.t === "msg" && m.m) {
         commit(Core.addMsg(r, Object.assign(Core.wireMsg(m.m), { side: "peer" })));
-      } else if (m.t === "bye") setGone(true);
+      } else if (m.t === "typing" && m.id) {
+        const id = String(m.id).slice(0, 80), nm = String(m.name || "TA").slice(0, 20);
+        setPeerTyping(x => { const n = Object.assign({}, x); if (m.on) n[id] = nm; else delete n[id]; return n; });
+      } else if (m.t === "bye") { setGone(true); setPeerTyping({}); }
     };
     const start = host => {
       setErr(""); setGone(false);
@@ -424,7 +429,7 @@
       const list = chars.filter(c => picked[c.id]);
       const cards = [];
       for (const c of list) cards.push(Core.cardOf(c, await smallAvatar(c)));
-      commit(Core.patchRoom(roomRef.current, { myNick: myNick(), myChars: list.map(c => ({ id: c.id, name: c.remark || c.name })) }));
+      commit(Core.patchRoom(roomRef.current, { myNick: myNick(), myChars: list.map(c => ({ id: c.id, name: c.remark || c.name, recent: !!withChat[c.id] })) }));
       send({ t: "hi", nick: myNick(), chars: cards });
       entered.current = true; setPage("chat");
     };
@@ -440,9 +445,14 @@
       const p = props.apiFor ? props.apiFor(char.id) : null;
       if (!p) { props.toast && props.toast("先去 设置·API 配一条线路"); return; }
       setBusy(b => Object.assign({}, b, { [c.id]: true }));
+      // 对面看得到「X 正在输入…」：开始想就亮，说完或没说成就灭
+      const typing = on => send({ t: "typing", id: c.id, name: char.remark || char.name, on });
+      typing(true);
       try {
         const cur = roomRef.current;
-        const d = await runProbe(p, props.ctxFor(char), { voice: true, tag: "netroom",
+        // 没勾「带上最近单聊」的，单聊和线下那几段不进这次的料
+        const ctx0 = props.ctxFor(char), ctx = c.recent ? ctx0 : Object.assign({}, ctx0, { recentChat: "", pastOffline: "" });
+        const d = await runProbe(p, ctx, { voice: true, tag: "netroom",
           instruction: Core.lineInstruction(cur, { id: char.id, name: char.remark || char.name }),
           schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}", maxTokens: 12000 });
         // 一次连发几条（她 2026-11-22：「为啥角色一次只会说一句话」）；老格式 text 也认
@@ -453,7 +463,7 @@
           post({ id: "c" + Date.now() + Math.random().toString(36).slice(2, 6), kind: "char", name: char.remark || char.name, charId: char.id, text: lines[i], ts: Date.now() });
         }
       } catch (e) { props.toast && props.toast("没说出来：" + ((e && e.message) || e)); }
-      finally { setBusy(b => Object.assign({}, b, { [c.id]: false })); }
+      finally { typing(false); setBusy(b => Object.assign({}, b, { [c.id]: false })); }
     };
     // 把一个人这次的经历记进 TA 的记忆（退出卡和历史里补记都走这一处）
     const remember = async (r, charId) => {
@@ -498,18 +508,22 @@
     ]));
 
     if (page === "pick") return shell(h(Head, { zh: "带谁进来", onBack: () => setPage("leave") }), scroll([
-      h(Note, { key: "n" }, "勾上要带进房间的人。对方只看得到 TA 们的名字和头像，人设、记忆、世界书都留在你手机上。TA 们开口用的是你自己的线路。"),
+      h(Note, { key: "n" }, "勾上要带进房间的人。对方只看得到 TA 们的名字和头像，人设、记忆、世界书都留在你手机上。TA 们开口用的是你自己的线路。「带上最近单聊」：TA 开口时记得你们最近在单聊里说过什么，聊天原文不发给对方，但 TA 可能自己在房间里提起。"),
       chars.length ? chars.map(c => h("label", { key: c.id, className: "flex items-center", style: { gap: 12, minHeight: 48 } },
         h("input", { type: "checkbox", checked: !!picked[c.id], onChange: e => setPicked(p => Object.assign({}, p, { [c.id]: e.target.checked })) }),
         h(Avatar, { character: c, size: 36 }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: fs(14) } }, c.remark || c.name)))
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: fs(14) } }, c.remark || c.name),
+        picked[c.id] && h("button", { "data-wk": "nrwithchat", "data-on": withChat[c.id] ? "1" : "0", onClick: e => { e.preventDefault(); setWithChat(p => Object.assign({}, p, { [c.id]: !p[c.id] })); },
+          style: { flexShrink: 0, minHeight: 32, padding: "0 10px", borderRadius: 16, border: "1px solid " + (withChat[c.id] ? t.ink : t.line), background: withChat[c.id] ? t.ink : "transparent", color: withChat[c.id] ? t.bg : t.fog, fontFamily: F_BODY, fontSize: fs(12) } },
+          withChat[c.id] ? "✓ 带上最近单聊" : "带上最近单聊")))
         : h(Note, { key: "e" }, "你还没有角色，也可以只你自己进去聊。"),
       h(Btn, { key: "go", label: "进房间", primary: true, onClick: enter, wk: "nrenter" })
     ]));
 
     if (page === "chat" && room) {
       const myChars = (room.myChars || []);
-      const tail = Object.keys(busy).filter(k => busy[k]).map(k => h(Note, { key: "b" + k }, ((charsById[k] && (charsById[k].remark || charsById[k].name)) || "TA") + " 正在想…"));
+      const tail = Object.keys(busy).filter(k => busy[k]).map(k => h(Note, { key: "b" + k }, ((charsById[k] && (charsById[k].remark || charsById[k].name)) || "TA") + " 正在想…"))
+        .concat(Object.keys(peerTyping).map(k => h(Note, { key: "p" + k }, peerTyping[k] + " 正在输入…")));
       return shell(
         h(Head, { zh: "房间 " + room.code, sub: "和 " + room.peerNick + (gone ? " · 对方已离开" : ""), onBack: () => setPage("leave"),
           right: h("button", { "data-wk": "nrleave", onClick: () => setPage("leave"), style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(13), color: t.ink } }, "退出") }),

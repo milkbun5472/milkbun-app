@@ -124,3 +124,10 @@ test("角色一次能连发几条：say 数组拆成几个气泡，老的 text �
   assert.deepStrictEqual(C.sayLines({ text: "第一句\n\n第二句" }), ["第一句", "第二句"]);
   assert.deepStrictEqual(C.sayLines({}), []);
 });
+
+test("带上最近单聊只在勾了的人身上；对面看得到正在输入", () => {
+  assert.ok(/c\.recent \? ctx0 : Object\.assign\(\{\}, ctx0, \{ recentChat: "", pastOffline: "" \}\)/.test(src), "没勾的不带单聊");
+  assert.ok(/recent: !!withChat\[c\.id\]/.test(src), "勾选记在 myChars 上");
+  assert.ok(/t: "typing"/.test(src) && /m\.t === "typing"/.test(src), "收发正在输入");
+  assert.ok(/finally \{ typing\(false\)/.test(src), "说完或失败都熄灭");
+});
