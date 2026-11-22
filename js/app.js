@@ -17143,7 +17143,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const gNoticeHint = groupNoticeBlock(gsFor(groupId).notice)
         + spaceChannelBlock(spaceSibs(groupId).find(x => x && x.id === groupId), spaceSibs(groupId), id => groupChatsRef.current[id] || loadJSON("x_gchat:" + id, []), herNameIn(groupId), id => (((characters || []).find(c => c && String(c.id) === String(id)) || {}).name || ""))
         + (group && group.spaceId && group.chKind !== "meet" && !channelNoMem(groupId) && !groupSpectating(group) && spaceMeetMaskOk(group) ? spaceMeetLine(group.spaceId) : "")
-        + gSubHint + gLeaveHint + gLoungeHint;
+        + gSubHint + gLeaveHint + gLoungeHint
+        // 深夜频道是什么（她 2026-11-22「深夜频道就晚上开但是大家都在犯困」）：原来提示里一个字都没提，他们只看见钟点是半夜，就都犯困
+        + (group && group.chHours ? "\n\n【深夜频道】#" + (group.chName || "") + " 只在 " + group.chHours.from + ":00 到 " + group.chHours.to + ":00 开，是专门留给夜里的地方：这会儿进来说话的，是还醒着、想找人聊的人——睡不着的、熬夜的、到了夜里反而精神的；聊的是夜里才聊得起来的话。真困了的人就不在这儿开口。" : "");
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
       // ONLINE_CHAT_RULE_V2 开头那句「完全代入当前角色」是给单聊写的：群里有好几个人，
       // 「当前角色」没有指代对象，这句话就空转了，真正决定站位的反倒是下面的任务描述。
