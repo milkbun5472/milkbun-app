@@ -142,3 +142,12 @@ test("重新连上：对面补发的话缺的补上、有的不重复、按时�
   assert.ok(/t: "sync"/.test(src) && /m\.t === "sync"/.test(src), "两边互补漏掉的话");
   assert.ok(/if \(chan\.current === ch\) setGone\(true\)/.test(src), "旧线关掉不误报离开");
 });
+
+test("以前的房间能删；往上翻不被拽回底部", () => {
+  const { C } = load();
+  C.upsertRoom({ id: "x1", msgs: [] }); C.upsertRoom({ id: "x2", msgs: [] });
+  C.removeRoom("x1");
+  assert.deepStrictEqual(C.loadRooms().map(r => r.id), ["x2"]);
+  assert.ok(!/\[n, tail\]\)/.test(src), "不再拿每次新建的 tail 当依赖");
+  assert.ok(/stick\.current \|\|/.test(src), "只在本来就在底部时才跟到底");
+});

@@ -124,6 +124,8 @@
     return upsertRoom(Object.assign({}, room, { msgs: (room.msgs || []).concat([msg]) }));
   }
   function patchRoom(room, patch) { return upsertRoom(Object.assign({}, room, patch)); }
+  // 删一个房间的记录（只删这台手机上这一份；对方那份、已经记进记忆的不动）
+  function removeRoom(id) { try { saveRooms(loadRooms().filter(r => r.id !== id)); } catch (e) {} }
   // 重新连上以后，对面把 TA 那边说过的话整份再发一遍：这边缺的补上、有的不重复，按时间排回去
   function mergeMsgs(room, list) {
     const have = new Set((room.msgs || []).map(m => m.id));
@@ -314,7 +316,7 @@
 
   const Core = { BROKERS, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
-    memoryTargets, transcript, lineInstruction, memoryInstruction, sayLines, mergeMsgs };
+    memoryTargets, transcript, lineInstruction, memoryInstruction, sayLines, mergeMsgs, removeRoom };
   root.NetRoomCore = Core;
 
   // ───────────── 页面 ─────────────
@@ -370,8 +372,14 @@
   function MsgList({ room, myCharsById, tail }) {
     const ref = useRef(null);
     const n = (room.msgs || []).length;
-    useEffect(() => { const el = ref.current; if (el) el.scrollTop = el.scrollHeight; }, [n, tail]);
-    return h("div", { ref, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12 } },
+    // 往上翻的时候不许拽回来（她 2026-11-22）：只有人本来就在底部附近、或者是自己刚发的，才跟到底。
+    //   原来依赖里放的是 tail 这个每次渲染都新建的数组，等于每渲染一次就拽一次。
+    const stick = useRef(true);
+    const last = n ? room.msgs[n - 1] : null;
+    const tailKey = (tail || []).map(x => x && x.key).join("|");
+    useEffect(() => { const el = ref.current; if (el && (stick.current || (last && last.side === "me"))) { el.scrollTop = el.scrollHeight; stick.current = true; } }, [n, tailKey]);
+    const onScroll = e => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; };
+    return h("div", { ref, onScroll, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12 } },
       !n && h(Note, null, "房间里还没人说话。你直接发，或者点下面一个头像让 TA 先开口。"),
       (room.msgs || []).map(m => h(MsgRow, { key: m.id, m, room, myCharsById })),
       tail);
@@ -397,6 +405,8 @@
     const [saving, setSaving] = useState(false);
     const [rooms, setRooms] = useState(() => Core.loadRooms());
     const [viewId, setViewId] = useState(null);
+    const [delAsk, setDelAsk] = useState(false);   // 删房间记录要点两下
+    useEffect(() => { setDelAsk(false); }, [viewId, page]);
     const entered = useRef(false);
     const conn = useRef(null), chan = useRef(null), pcRef = useRef(null), roomRef = useRef(null);
     roomRef.current = room;
@@ -605,7 +615,12 @@
           h("div", { className: "shrink-0", style: { padding: "10px 14px", borderBottom: "1px solid " + t.line } },
             h(Btn, { label: "重新连上这个房间", primary: true, wide: true, onClick: () => { setNick(r.myNick || nick); rejoin(r); }, wk: "nrrejoin" }),
             h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "对方也要在 TA 那边的「以前的房间」里点开这个房间、点「重新连上」，两边碰上就接着聊，记录接在后面。")),
-          h(MsgList, { room: r, myCharsById: charsById })));
+          h(MsgList, { room: r, myCharsById: charsById }),
+          h("div", { className: "shrink-0", style: { padding: "10px 14px", paddingBottom: "calc(10px + env(safe-area-inset-bottom))", borderTop: "1px solid " + t.line } },
+            h(Btn, { label: delAsk ? "确定删掉这个房间的记录？" : "删除这个房间的记录", disabled: saving, wk: "nrdel", onClick: () => {
+              if (!delAsk) { setDelAsk(true); return; }
+              Core.removeRoom(r.id); setDelAsk(false); refresh(); setPage("home"); props.toast && props.toast("删掉了；已经记进角色记忆的那几句还在");
+            } }))));
     }
 
     // 首页
