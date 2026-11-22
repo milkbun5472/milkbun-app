@@ -69,7 +69,7 @@ function AskComposeDialog({ who, prev, onCancel, onSend }) {
 
 // 一张批条。m：单聊那条（kind:"ask"）或群里那张投票（kind:"poll" 带 ask）。
 //   onDecide(status)：这张该她批时才给；group：群里那张（显示两边各有谁）
-function AskSlipCard({ m, asker, money, onDecide, onVote, onResend, meName, allowPay }) {
+function AskSlipCard({ m, asker, clockId, money, onDecide, onVote, onResend, meName, allowPay }) {
   const t = useTheme();
   const group = m.kind === "poll";
   const a = group ? (m.ask || {}) : m;
@@ -83,7 +83,7 @@ function AskSlipCard({ m, asker, money, onDecide, onVote, onResend, meName, allo
   const fs = n => "calc(" + n + "px * var(--app-fs, 1))";
   const small = { fontFamily: F_BODY, fontSize: fs(11), color: t.fog };
   const no = AskSlip.no(m.aid || m.pollId || a.what);
-  const day = m.ts ? (d => (d.getMonth() + 1) + "月" + d.getDate() + "日")(new Date(m.ts)) : "";
+  const day = m.ts ? (d => (d.getMonth() + 1) + "月" + d.getDate() + "日")(clockId !== undefined && typeof vDate === "function" ? vDate(m.ts, clockId) : new Date(m.ts)) : "";   // 聊天里的批条照这段聊天那只钟；网聊室没给 clockId，是现实
   const row = (label, body, key, extra) => h("div", { key, className: "flex", style: Object.assign({ borderTop: "1px solid " + t.line, padding: "7px 0", gap: 10, alignItems: "baseline" }, extra || {}) },
     h("span", { style: Object.assign({}, small, { width: 34, flexShrink: 0, letterSpacing: "0.15em" }) }, label),
     h("div", { style: { flex: 1, minWidth: 0, wordBreak: "break-word" } }, body));

@@ -4,7 +4,7 @@
 // 只许变少不许变多。新加一处直接 new Date(x.ts)／toLocaleTimeString 的就红：
 //   该跟虚拟时间的 → 包一层 vclockMap；确实就是现实时间（日志、文件名）→ 调高这里的数，并在那一行写一句为什么。
 const test = require("node:test"); const assert = require("node:assert"); const fs = require("fs"); const path = require("path");
-const BASE = {"app.js":31,"ask-slip.js":1,"capsule.js":1,"char-day-thoughts.js":2,"chat-stamp.js":2,"collage.js":1,"components.js":16,"date-game.js":1,"dreamjournal.js":1,"dwell.js":1,"engine.js":4,"fairy-garden.js":3,"gaze.js":1,"heart.js":1,"impression-core.js":1,"ledger.js":2,"live.js":2,"nest.js":1,"phone-ui.js":7,"phone-watch.js":1,"phone.js":2,"pomodoro.js":2,"recent-widget.js":1,"screens-ui.js":34,"screens.js":6,"shike-core.js":2,"shike.js":4,"shua.js":2,"stamp-duel-ui.js":8,"stamp-run-ui.js":7,"stamps.js":3,"stories.js":2,"study.js":5,"tarot.js":1,"temporal-anchor.js":2,"theater.js":2,"trpg.js":3,"weekly.js":3};
+const BASE = {"app.js":20,"ask-slip.js":1,"capsule.js":1,"char-day-thoughts.js":2,"chat-stamp.js":2,"collage.js":1,"components.js":12,"date-game.js":1,"dreamjournal.js":1,"dwell.js":1,"engine.js":4,"fairy-garden.js":3,"gaze.js":1,"heart.js":1,"impression-core.js":1,"ledger.js":2,"live.js":2,"nest.js":1,"phone-ui.js":7,"phone-watch.js":1,"phone.js":2,"pomodoro.js":2,"screens-ui.js":27,"screens.js":6,"shike-core.js":2,"shike.js":1,"shua.js":2,"stamp-duel-ui.js":8,"stamp-run-ui.js":7,"stamps.js":3,"stories.js":2,"study.js":5,"tarot.js":1,"temporal-anchor.js":2,"theater.js":2,"trpg.js":3,"weekly.js":2};
 const RE = /new Date\(\s*(?:[A-Za-z_$][\w$.]*\.)?(?:ts|_ts|lastTs|savedTs|createdTs|updatedTs|endTs|startTs)\s*\)|toLocale(?:Time|Date)String\(/g;
 test("没有新的直接拿真实时间戳显示钟点/日期的地方", () => {
   const dir = path.join(__dirname, "..", "js"), over = [];
