@@ -12226,7 +12226,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 藏起来的、别的面具的那几个聊天：录像里就算点到名字也不打开，停在消息列表（那里本来就看不到他们）
       const hid = (() => { try { return window.__peekHide instanceof Set ? window.__peekHide : null; } catch (e) { return null; } })();
       const ok = id => !hid || !hid.has(String(id));
-      const c = (characters || []).find(x => x && (x.name === who || x.remark === who) && ok(x.id));
+      // 同名的好几个（克隆的、同名配角）：挑真聊过的那个，聊得最多的优先——TA想说的就是这一份（群里 2026-11-22：翻到一个空的「对话由此开始」，嘴上却在评聊天）
+      const _cands = (characters || []).filter(x => x && (x.name === who || x.remark === who) && ok(x.id));
+      const _nMsg = x => (chatsRef.current[x.id] || []).filter(m => m && m.content && !m.recalled).length;
+      const c = _cands.slice().sort((a, b) => _nMsg(b) - _nMsg(a))[0];
       // 有的人一点开就是线下（默认进线下／上次停在线下）——那一层盖在最上面，录像往别处翻时得一起收掉，
       //   不然就卡在那一屏出不来（她 2026-10-17）。所以点开聊天也记一笔，peekOffClose 会把线下收起
       if (c) { peekOffRef.current = true; openChatById(c.id); return; }
