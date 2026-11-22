@@ -273,3 +273,34 @@ test("频道首页成员／约定／精华并成一排三格", () => {
   assert.match(cs, /"data-wk": "spacestats"/);
   assert.doesNotMatch(cs, /borderRadius: 14, borderLeft: "4px solid " \+ tone/);
 });
+
+test("@ 名单：中文后面、已经 @ 过一个人后面都能弹", () => {
+  const re = /(^|[^A-Za-z0-9_.])@$/;
+  for (const x of ["@", "你好@", "@顾朝 @", "@顾朝@", "看这个，@"]) assert.ok(re.test(x), x);
+  assert.ok(!re.test("abc@"));
+  assert.match(cs, /\(\^\|\[\^A-Za-z0-9_\.\]\)@\$/);
+});
+
+test("状态像签名，不一定是在干嘛；一轮点最多三个人", () => {
+  assert.match(ap, /像个签名/);
+  assert.match(ap, /_stale\.slice\(\)\.sort\(\(\) => Math\.random\(\) - 0\.5\)\.slice\(0, 3\)/);
+});
+
+test("空间成员把她也算进去：成员页第一个、人数加一", () => {
+  assert.match(cs, /\[\{ id: "me", _me: true, \.\.\.\(herFace/);
+  assert.match(cs, /people\.length \+ 1\), h\("span", \{ className: "truncate", style: lab \}, "成员 · " \+ \(online \+ 1\)/);
+});
+
+test("他们发起的投票带头像和名字", () => {
+  assert.match(cs, /"data-kind": "poll", className: "py-1 flex items-start gap-2 justify-start" \},\n\s+mAvatar\(memberById\(m\.senderId\)/);
+});
+
+test("串门：三分之一的轮次点一个能去别的频道的人", () => {
+  assert.match(ap, /【串门】/);
+  assert.match(ap, /Math\.random\(\) > 0\.35\) return "";/);
+});
+
+test("最近那张投票连票数摆在最后，说清改票就是再投一次", () => {
+  assert.match(ap, /【还开着的投票】/);
+  assert.match(ap, /改票就是再投一次别的序号/);
+});
