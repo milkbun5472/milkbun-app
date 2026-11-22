@@ -179,7 +179,8 @@ test("日历真的把这一截画出来了", () => {
   assert.match(seg, /put\(base \+ carry\.from/, "接觉这一截也要走时差换算");
 });
 
-test("提示词也明说了就寝该多长", () => {
-  assert.match(engine, /人要睡七八个小时，不是三小时/);
+test("提示词说明就寝照人设作息、一觉睡过午夜", () => {
+  assert.match(engine, /几点睡照这个人的作息和今天的事来/);
+  assert.ok(!/人要睡七八个小时/.test(engine), "这句把入睡全推到十点上下（她 2026-11-22），别加回来");
   assert.match(engine, /type="sleep" 那一段的 end 一律写 "24:00"/);
 });
