@@ -1180,7 +1180,8 @@
         // 重新说时，模型看到的记录里不放被换掉的那一轮
         const cur = rerollId ? Object.assign({}, cur0, { msgs: (cur0.msgs || []).filter(x => x.turnId !== rerollId) }) : cur0;
         // 跟单聊同一个 ctxFor（chat:true 带上日记回忆）；没勾「带上最近单聊」的，单聊和线下那几段不进这次的料
-        const ctx0 = props.ctxFor(char, { chat: true }), ctx = c.recent ? ctx0 : Object.assign({}, ctx0, { recentChat: "", pastOffline: "" });
+        const roomText = (cur.msgs || []).filter(m => !m.sys && !m.recalled).slice(-8).map(m => String(m.text || "")).join("\n");
+        const ctx0 = props.ctxFor(char, { chat: true, roomText }), ctx = c.recent ? ctx0 : Object.assign({}, ctx0, { recentChat: "", pastOffline: "" });
         const emotes = props.emotesFor ? props.emotesFor(char.id) : [];
         const d = await runProbe(p, ctx, { voice: true, tag: "netroom",
           instruction: Core.lineInstruction(cur, { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" },

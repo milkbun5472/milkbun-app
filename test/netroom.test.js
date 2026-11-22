@@ -443,3 +443,11 @@ test("一起说：整次一个 turnId，重新说整批重来", () => {
   assert.match(body, /speakTogether\(j, m\.turnId\)/);
   assert.match(src, /else if \(act === "reroll"\) redo\(m\);/);
 });
+
+test("世界书拿房间里的话去触发；一起说也带世界书和线上预设", () => {
+  assert.ok(src.includes("props.ctxFor(char, { chat: true, roomText })"), "单人开口把房间里的话交去匹配世界书");
+  const app = read("js/app.js");
+  const i = app.indexOf('screen === "netroom"'), seg = app.slice(i, app.indexOf('screen === "zhaoying"', i));
+  assert.ok(/c\.worldbook = loreForContext\("chat", \[char\.id\], o\.roomText/.test(seg));
+  assert.ok(/lore = loreForContext\("chat", people\.map/.test(seg) && /onlinePresetBlock\(pr\)/.test(seg));
+});

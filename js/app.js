@@ -38639,7 +38639,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     profile: profile,
     apiFor: apiFor,
     // 开口走 runProbe(voice)：buildBundle 那一整份白得（four-surfaces-same-context）
-    ctxFor: ctxFor,
+    // 世界书按关键词触发：拿房间里刚说的话一起去匹配（不然只看单聊，房间里聊到的词条触发不了）
+    ctxFor: (char, o) => { const c = ctxFor(char, o); if (o && typeof o.roomText === "string") { try { c.worldbook = loreForContext("chat", [char.id], o.roomText + "\n" + recentChatText(char)); } catch (e) {} } return c; },
     toast: toast,
     // 记进记忆走公共那一处（同一起看/一起读）
     onAddMemory: (text, charId) => keepWhereItHappened({ text: text, charIds: [charId], entry: { source: "netroom", tags: ["联机"] } }),
@@ -38664,7 +38665,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const priv = people.map(c => { const seg = memberPrivateContextFor(c, split, { interop: on(c), privateCtxN: on(c) ? 6 : 0 });
         return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : ""; }).filter(Boolean).join("\n\n");
       const shared = formatMemLib(split.shared), rel = groupRelLines(null, people, profile);
-      return "【成员】\n" + desc + sameNameNote(people) + (rel ? "\n" + rel : "")
+      // 世界书（照群里：在场几个人绑的词条，拿房间刚说的话去触发）＋线上预设（照第一个人聊天设置里挑的那份，单人开口也是这一份）
+      let lore = "", preset = "";
+      try { lore = loreForContext("chat", people.map(c => c.id), recallText || ""); } catch (e) {}
+      try { const pr = people[0] ? ctxFor(people[0]).onlinePreset : ""; preset = pr && String(pr).trim() && typeof onlinePresetBlock === "function" ? onlinePresetBlock(pr) : ""; } catch (e) {}
+      return (preset ? preset + "\n\n" : "") + (lore && lore.trim() ? "【世界书】\n" + lore.trim() + "\n\n" : "") + "【成员】\n" + desc + sameNameNote(people) + (rel ? "\n" + rel : "")
         + (shared && shared.trim() ? "\n\n【记忆库里大家都知道的事】\n" + shared.trim() : "")
         + (priv ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。一个成员不知道、也不提另一个成员和用户之间私下说过什么、是什么关系，除非那位成员自己当众说出来。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + priv : "");
     },
