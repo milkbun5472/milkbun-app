@@ -1857,7 +1857,21 @@ function usePageZ(z) { return useContext(HalfWinLayer) ? 935 + Math.max(0, z - 2
 // 半窗外壳（单聊的半窗和别处要浮一扇小窗的都用这一份）：fixed 的兄弟节点、930 层，顶条挪位置、小横杠调大小，
 //   「收起」缩成一颗能拖的小条，位置和大小都记住（存比例，换机型也对得上）。win：{ min, box, pill }，setWin 照 setState 的样子给。
 //   pillLabel 小条上的字；pillHot 小条亮起来（比如轮到你了）；bigLabel+onBig 顶条左边那颗（放大成整页）；barNote 顶条中间的一行提醒（点它 onBarNote）。
-function halfWinPillPos() { try { const v = JSON.parse(localStorage.getItem("x_halfWinPill") || "null"); if (v && v.x >= 0 && v.x <= 1 && v.y >= 0 && v.y <= 1) return { x: Math.min(Math.round(v.x * window.innerWidth), window.innerWidth - 80), y: Math.min(Math.round(v.y * window.innerHeight), window.innerHeight - 44) }; } catch (e) {} return null; }
+//   小条位置按 forKey 各记各的：单聊（forKey "chat" 或没给）还是 x_halfWinPill 顶层那一对 x/y，别处记在同一个键的 by[forKey] 里（不另开键）；
+//   别处的小条不许停进顶栏那一截（PILL_TOP 以上），省得盖住顶栏的按钮
+const PILL_TOP = 96;
+const pillOwnKey = k => !k || k === "chat" ? "" : k;
+function halfWinPillRead() { try { return JSON.parse(localStorage.getItem("x_halfWinPill") || "null") || null; } catch (e) { return null; } }
+function halfWinPillPos(forKey) {
+  const k = pillOwnKey(forKey), all = halfWinPillRead(), v = all ? (k ? all.by && all.by[k] : all) : null;
+  if (v && v.x >= 0 && v.x <= 1 && v.y >= 0 && v.y <= 1) { const y = Math.min(Math.round(v.y * window.innerHeight), window.innerHeight - 44); return { x: Math.min(Math.round(v.x * window.innerWidth), window.innerWidth - 80), y: k ? Math.max(PILL_TOP, y) : y }; }
+  return null;
+}
+function halfWinPillSave(forKey, p) {
+  const k = pillOwnKey(forKey), all = halfWinPillRead() || {}, r = { x: p.x / window.innerWidth, y: p.y / window.innerHeight };
+  const out = k ? Object.assign({}, all, { by: Object.assign({}, all.by || {}, { [k]: r }) }) : Object.assign({}, all, r);
+  try { localStorage.setItem("x_halfWinPill", JSON.stringify(out)); } catch (e) {}
+}
 // 半窗摆在哪、多大：上次拖到哪儿就是哪儿；没拖过就是贴底的半屏多一点
 function halfWinBoxPos() {
   const vw = window.innerWidth, vh = window.innerHeight;
@@ -1871,10 +1885,27 @@ function halfWinBoxPos() {
 }
 function HalfWinFrame({ win, setWin, pillLabel, pillHot, onClose, onBig, bigLabel, barNote, onBarNote, forKey, children }) {
   const halfPillDragged = useRef(false);
+  // 半窗里有输入框时（联机房间的聊天半窗）：键盘升起，iOS 会把整页往上推、fixed 的半窗跟着跑出屏幕（她 2026-11-22 截图）。
+  //   键盘开着、焦点又在这个半窗里时，照 visualViewport 把半窗贴到键盘上沿、高度压进可见区；键盘收了回原位。
+  const frameRef = useRef(null);
+  const [kb, setKb] = useState(null);
+  useEffect(() => {
+    const vv = window.visualViewport; if (!vv) return;
+    const read = () => {
+      const el = frameRef.current, a = document.activeElement;
+      const inside = !!(el && a && el.contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName || "") || (a && a.isContentEditable && el && el.contains(a)));
+      const open = window.innerHeight - vv.height > 120;
+      setKb(inside && open ? { top: vv.offsetTop, h: vv.height } : null);
+    };
+    vv.addEventListener("resize", read); vv.addEventListener("scroll", read);
+    const later = () => setTimeout(read, 60);
+    document.addEventListener("focusin", read); document.addEventListener("focusout", later);
+    return () => { vv.removeEventListener("resize", read); vv.removeEventListener("scroll", read); document.removeEventListener("focusin", read); document.removeEventListener("focusout", later); };
+  }, []);
   // 收起＝缩成底下一颗小条：半窗会盖住页面自己的底栏，先收起来去翻页，翻到了再点开
   const pillBtn = { minHeight: 36, border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff" };
   // 小条也能拖（她 2026-10-06）：按住挪到哪儿就停哪儿，记住位置；挪过了那一下不算点
-  const pp = win.pill || halfWinPillPos();
+  const pp = win.pill || halfWinPillPos(forKey), topMin = pillOwnKey(forKey) ? PILL_TOP : 4;
   const pillPos = pp ? { left: pp.x, top: pp.y } : { left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)" };
   if (win.min) return h("div", { "data-halfwin": "1", "data-wk": "halfwinpill", "data-for": forKey || "", "data-hot": pillHot ? "1" : "0",
     onPointerDown: e => {
@@ -1883,12 +1914,12 @@ function HalfWinFrame({ win, setWin, pillLabel, pillHot, onClose, onBig, bigLabe
       const mv = ev => {
         if (!moved && Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 6) return;
         moved = true; halfPillDragged.current = true;
-        last = { x: Math.max(4, Math.min(window.innerWidth - r.width - 4, ev.clientX - dx)), y: Math.max(4, Math.min(window.innerHeight - r.height - 4, ev.clientY - dy)) };
+        last = { x: Math.max(4, Math.min(window.innerWidth - r.width - 4, ev.clientX - dx)), y: Math.max(topMin, Math.min(window.innerHeight - r.height - 4, ev.clientY - dy)) };
         setWin(w => w ? { ...w, pill: last } : w);
       };
       const up = () => {
         window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
-        if (last) try { localStorage.setItem("x_halfWinPill", JSON.stringify({ x: last.x / window.innerWidth, y: last.y / window.innerHeight })); } catch (er) {}
+        if (last) halfWinPillSave(forKey, last);
         setTimeout(() => { halfPillDragged.current = false; }, 0);
       };
       window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
@@ -1917,8 +1948,9 @@ function HalfWinFrame({ win, setWin, pillLabel, pillHot, onClose, onBig, bigLabe
     window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
   };
   const barBtn = { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#555" };
-  return h("div", { "data-halfwin": "1", "data-wk": "halfwin", "data-for": forKey || "",
-    style: { position: "fixed", left: bx.x, top: bx.y, width: bx.w, height: bx.h, zIndex: 930, display: "flex", flexDirection: "column",
+  const kh = kb ? Math.min(bx.h, kb.h - 8) : bx.h, ky = kb ? kb.top + Math.max(4, kb.h - kh - 4) : bx.y;
+  return h("div", { ref: frameRef, "data-halfwin": "1", "data-wk": "halfwin", "data-for": forKey || "", "data-kb": kb ? "1" : "0",
+    style: { position: "fixed", left: bx.x, top: ky, width: bx.w, height: kh, zIndex: 930, display: "flex", flexDirection: "column",
       borderRadius: 16, overflow: "hidden", boxShadow: "0 6px 24px rgba(0,0,0,.22)", background: "var(--bg, #fff)" } },
     h("div", { "data-wk": "halfwinbar", onPointerDown: e => dragOn(e, "move"),
       style: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 10px", background: "rgba(0,0,0,.04)", touchAction: "none", cursor: "move" } },
@@ -18330,6 +18362,8 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
   const kids = {
     // 只重写这一个人这一段：转圈的箭头里站着一个人（跟整段重写的 ↻ 分得开）
     rerollOne: [P("M19.2 12a7.2 7.2 0 11-2.1-5.1"), P("M19.4 4.6v3.6h-3.6"), C(12, 10.4, 1.7), P("M8.9 16c.7-1.5 1.8-2.3 3.1-2.3s2.4.8 3.1 2.3")],
+    // 擂台：两边各一个讲台，中间一道分隔
+    podium: [P("M3.5 20.5h17"), R(4.5, 12.5, 5, 8, .8), R(14.5, 12.5, 5, 8, .8), P("M12 4.5v15"), P("M7 9.5a2 2 0 100-4 2 2 0 000 4zM17 9.5a2 2 0 100-4 2 2 0 000 4z")],
     pin: [P("M12 21.5s-6.6-6.2-6.6-10.6a6.6 6.6 0 1113.2 0c0 4.4-6.6 10.6-6.6 10.6z"), C(12, 10.9, 2.3)],
     trash: [P("M4.5 6.5h15"), P("M9.5 6.5V4.5h5v2"), P("M6.5 6.5l1 13h9l1-13"), P("M10.5 10.5v6M13.5 10.5v6")],
     sticker: [P("M4.5 4.5h10.8L19.5 8.7v10.8h-15z"), P("M15.3 4.5v4.2h4.2"), P("M9 13c.9 1.4 4.1 1.4 5 0"), P("M9.3 9.6v.7M14.7 9.6v.7")],

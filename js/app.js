@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.059";
+const APP_VERSION = "v90.078";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -38640,6 +38640,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     apiFor: apiFor,
     // 房里一起玩小游戏时房主当庄：出题、判输赢、替 NPC 出手走小游戏那条线路（跟单机小游戏同一条）
     gameApi: () => gameActive,
+    // 跑团那一盒的守密人走线下线路，跟单机跑团同一条
+    offlineApi: () => offlineActive,
     // 开口走 runProbe(voice)：buildBundle 那一整份白得（four-surfaces-same-context）
     // 世界书按关键词触发：拿房间里刚说的话一起去匹配（不然只看单聊，房间里聊到的词条触发不了）
     ctxFor: (char, o) => { const c = ctxFor(char, o); if (o && typeof o.roomText === "string") { try { c.worldbook = loreForContext("chat", [char.id], o.roomText + "\n" + recentChatText(char)); } catch (e) {} } return c; },

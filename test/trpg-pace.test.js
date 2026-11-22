@@ -169,7 +169,7 @@ test("选项底下那一排由程序拼:在场的人、这一幕点到的东西�
   assert.ok(i > 0 && j > i, "抠不出 sideRow");
   const row = src.slice(i, j);
   assert.match(row, /setTalkNpc\(nm\)/);
-  assert.match(row, /explore: "site", siteAction: x/);
+  assert.match(row, /sideMove\(camp, \{ kind: "look", arg: x \}\)/);
   assert.match(row, /goTo\(g\.name\)/);
 });
 

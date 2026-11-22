@@ -237,6 +237,40 @@
     return { byName: out, myOptions: myOpts.length ? myOpts : ["支持", "反对"], crowd: crowd };
   }
 
+  // ---- 擂台几处共用的三块：两种局的打法、说人话、台上一位辩手的那张卡 ----
+  //   genRound 一次写全场用它们；genTurn 一位辩手单独开口也用同一份，说法只有这一处。
+  function modeRules(casual) {
+      return casual
+        // 两种局原来只差这一句，吵出来一个样（她 2026-09-23：「看看认真吵和另一种有啥区别，差别再做大点」）。
+        //   现在从【段长、每段要交什么、台下怎么起哄、裁判看什么】四处一起拉开。
+        ? "\n【随便吵 · 这是一场吵架，不是辩论】\n"
+          + "· 短、快、冲：每人一段 1~4 句，可以只吼一句；抢话、插嘴、打断上一个人都行。\n"
+          + "· 不用讲理：跑题、抬杠、翻旧账、揭短、拿台下的人开涮、玩梗、突然委屈或耍赖，都是这一局的正经玩法——只要像这个人。\n"
+          + "· 比的是谁更出彩：更会损、更好笑、更有戏、更让台下想起哄。论证站不站得住，这一局没人在乎。\n"
+          + "· 别彻底离题：跑出去了，最后一句也要拐回来，扎一下对面。"
+        : "\n【讲道理 · 这是一场正经辩论】\n"
+          // ⚠️原来是「每段 3~6 句、都交三样：论点＋自己那个世界里的例子＋先复述对面原话再拆」——一枪写全场，
+          //   于是每个人都是同一个骨架：「你刚才说'……'，我上周在……」，台上像一个人分饰几角（她 2026-10-08：「擂台大家一个声音」）。
+          //   要的是每段都有真论点、都碰到对面，【怎么讲】归各人自己。
+          + "· 每人一段，长短各人自己定。每段都要有一个清楚的论点，并且真的碰到对面上一轮说的东西。\n"
+          + "· 怎么撑、怎么拆，各人一种路数，照这个人平时怎么吵架来：有人摆例子，有人算账，有人一句反问就戳穿，有人揪住对面一个词不放，有人干脆认下一半再翻盘。先复述对面原话只是其中一种，不是每段都要。\n"
+          + "· 台上几个人的开口方式、句子长短、用词、讲不讲自己的事，必须看得出是不同的人：遮掉名字也认得出谁是谁。同一轮里不许两个人用同一个骨架（比如都先引对面一句、再讲自己上周的一件事）。\n"
+          + "· 不许绕开对面的问题，也不许换个说法把自己上一轮再讲一遍；被问住了就承认那一处，再从别处扳回来。\n"
+          + "· 追问要问【对面答得出来的】具体问题，不问反问句式的空话。\n"
+          + "· 依然是这个人在说话：用TA的口气讲理，可以急、可以刻薄，但不许人身攻击、不许空喊口号。";
+  }
+  const PLAIN_TALK =
+      "【说人话 · 每一轮都落回地上】台上台下每一个人（发言、场边那一声、投票理由、裁判判语），连最后那句「还没吵拢的分歧」都照这条：\n" +
+      "· 这是几个认识的人在吵架，不是写论文：用TA平时说话的词。一句里堆了两个以上的抽象名词，就是飘了，换成TA自己会说的大白话。\n" +
+      "· 每一段至少落到一样【看得见摸得着】的东西上——一个具体的场面、身边的某个人、一件日常里的小事、一笔算得清的账——拿它来撑道理，而不是拿概念撑概念。不一定是自己的经历，别人人都讲一件「我上周……」。\n" +
+      "· 别去接对面的术语：对面说得玄，就把它拽回地面，问TA「那到底是什么意思、落到过日子上是什么样」，或者直接嫌TA说得绕。\n" +
+      "· 判据：把这句话念给在场一个没读过书的人听，TA听得懂、能接上话，才算数。\n";
+  function debaterCard(c, i, n, uName) {
+      return "【第" + (i + 1) + "位 · " + c.name + "】\n· 立场：" + (c.stance || "自行把握") + "\n· 人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), n) + (typeof charLangLine === "function" ? charLangLine(c) : "") +
+        (c.npcOf ? "\n· TA是" + (c.npcOf === "她" ? uName : "「" + c.npcOf + "」") + "身边的人" + (c.knowsUser === false ? "，本来不认识 " + uName + "，今天是头一回跟她打交道——别装熟" : "") : "") +
+        (c.injection ? "\n· （Ta 和 " + uName + " 最近的聊天，仅用来拿捏关系/近况/语气，别照搬别复述）\n" + c.injection : "");
+  }
+
   // ---- 模型：一轮一次调用 —— 同时生成【所有角色发言(按序)】+【未决争点】 ----
   //   我(用户)本轮已先发言，这里让台上角色依次接话、彼此对线；收尾只摘出争点，不再捏造观众评论。
   //   按次计费 → 一轮一发省钱；输出免费 + 思考型模型 → maxTokens 给足，避免长发言被截断。
@@ -262,11 +296,7 @@
     // 她自己当裁判（她 2026-10-09）：判语她自己写，模型不替她写；台上的人照样知道裁判是她
     const J = o.judge && !o.judge.me ? o.judge : null;
     const meJudge = !!(o.judge && o.judge.me);
-    const rosterBlocks = chars.map(function (c, i) {
-      return "【第" + (i + 1) + "位 · " + c.name + "】\n· 立场：" + (c.stance || "自行把握") + "\n· 人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), chars.length) + (typeof charLangLine === "function" ? charLangLine(c) : "") +
-        (c.npcOf ? "\n· TA是" + (c.npcOf === "她" ? uName : "「" + c.npcOf + "」") + "身边的人" + (c.knowsUser === false ? "，本来不认识 " + uName + "，今天是头一回跟她打交道——别装熟" : "") : "") +
-        (c.injection ? "\n· （Ta 和 " + uName + " 最近的聊天，仅用来拿捏关系/近况/语气，别照搬别复述）\n" + c.injection : "");
-    }).join("\n\n");
+    const rosterBlocks = chars.map(function (c, i) { return debaterCard(c, i, chars.length, uName); }).join("\n\n");
     // 场边（v60.41）：只有【她自己的、没上台的角色】，没有路人、没有昵称、不是弹幕。
     // 台下那一层原来的病是【借来的形状】（直播间弹幕＋网感路人），不是「有人在旁边看」这件事本身；
     // v60.26 把整层换成一张客观争点卡，等于把【活的】换成了【记账的】——方向反了。
@@ -313,24 +343,7 @@
       "这是一场辩论。你要在这一次里【同时扮演台上这几个角色，按给定顺序依次发言】" + (benchBlock ? "，再让场边看着的人里至多两位出一声" : "") + "，最后摘出这一轮还没吵拢的那个分歧。\n" +
       "⚠最重要：每个角色是不同的人，必须各自保持独立的立场、口吻、脾气、用词习惯——想象他们在抢麦互怼，别把他们写成一个腔调、别串味、别互相客气到失真。后发言的人要能接住前面的人和 " + uName + " 刚说的话。\n\n" +
       "【辩题】" + meta.topic +
-      (casual
-        // 两种局原来只差这一句，吵出来一个样（她 2026-09-23：「看看认真吵和另一种有啥区别，差别再做大点」）。
-        //   现在从【段长、每段要交什么、台下怎么起哄、裁判看什么】四处一起拉开。
-        ? "\n【随便吵 · 这是一场吵架，不是辩论】\n"
-          + "· 短、快、冲：每人一段 1~4 句，可以只吼一句；抢话、插嘴、打断上一个人都行。\n"
-          + "· 不用讲理：跑题、抬杠、翻旧账、揭短、拿台下的人开涮、玩梗、突然委屈或耍赖，都是这一局的正经玩法——只要像这个人。\n"
-          + "· 比的是谁更出彩：更会损、更好笑、更有戏、更让台下想起哄。论证站不站得住，这一局没人在乎。\n"
-          + "· 别彻底离题：跑出去了，最后一句也要拐回来，扎一下对面。"
-        : "\n【讲道理 · 这是一场正经辩论】\n"
-          // ⚠️原来是「每段 3~6 句、都交三样：论点＋自己那个世界里的例子＋先复述对面原话再拆」——一枪写全场，
-          //   于是每个人都是同一个骨架：「你刚才说'……'，我上周在……」，台上像一个人分饰几角（她 2026-10-08：「擂台大家一个声音」）。
-          //   要的是每段都有真论点、都碰到对面，【怎么讲】归各人自己。
-          + "· 每人一段，长短各人自己定。每段都要有一个清楚的论点，并且真的碰到对面上一轮说的东西。\n"
-          + "· 怎么撑、怎么拆，各人一种路数，照这个人平时怎么吵架来：有人摆例子，有人算账，有人一句反问就戳穿，有人揪住对面一个词不放，有人干脆认下一半再翻盘。先复述对面原话只是其中一种，不是每段都要。\n"
-          + "· 台上几个人的开口方式、句子长短、用词、讲不讲自己的事，必须看得出是不同的人：遮掉名字也认得出谁是谁。同一轮里不许两个人用同一个骨架（比如都先引对面一句、再讲自己上周的一件事）。\n"
-          + "· 不许绕开对面的问题，也不许换个说法把自己上一轮再讲一遍；被问住了就承认那一处，再从别处扳回来。\n"
-          + "· 追问要问【对面答得出来的】具体问题，不问反问句式的空话。\n"
-          + "· 依然是这个人在说话：用TA的口气讲理，可以急、可以刻薄，但不许人身攻击、不许空喊口号。") +
+      modeRules(casual) +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 6000) : "") +
       // 【和你们吵的这个人是谁】(v60.43 她 2026-09-02 抓到)
       // 原来整场只发了她一个名字：没有人设、也没有一句话说过「这些人都认识她」。
@@ -358,11 +371,7 @@
       (voteBlock ? "\n\n【台下投票】" + voteBlock : "") +
       // 越吵越飘（她 2026-09-23：「感觉越来越抽象了」）：每一轮都去接上一轮的词，「认知框架」接「维度跃迁」，
       //   几轮下来台上台下全在堆名词。只给判据、不给例句（prompt-no-content-samples）。
-      "\n\n【说人话 · 每一轮都落回地上】台上台下每一个人（发言、场边那一声、投票理由、裁判判语），连最后那句「还没吵拢的分歧」都照这条：\n" +
-      "· 这是几个认识的人在吵架，不是写论文：用TA平时说话的词。一句里堆了两个以上的抽象名词，就是飘了，换成TA自己会说的大白话。\n" +
-      "· 每一段至少落到一样【看得见摸得着】的东西上——一个具体的场面、身边的某个人、一件日常里的小事、一笔算得清的账——拿它来撑道理，而不是拿概念撑概念。不一定是自己的经历，别人人都讲一件「我上周……」。\n" +
-      "· 别去接对面的术语：对面说得玄，就把它拽回地面，问TA「那到底是什么意思、落到过日子上是什么样」，或者直接嫌TA说得绕。\n" +
-      "· 判据：把这句话念给在场一个没读过书的人听，TA听得懂、能接上话，才算数。\n" +
+      "\n\n" + PLAIN_TALK +
       "\n\n【本次任务】\n" +
       "1）让上面每个角色各发一段言（顺序同上，共 " + chars.length + " 段），" + (casual ? "照【随便吵】那几条：短、冲、有戏" : "照【讲道理】那几条：有论点、碰到对面，怎么讲各人一种路数") + "，口语带脾气，可点名回应某人。\n" +
       (benchBlock
@@ -545,6 +554,76 @@
       closings: closings
     };
   }
+
+  // ---- 一位辩手单独开口（台上几个人各在各的手机上、各用各的线路时用这一份）----
+  //   o：{ topic, mode:"free"|"serious", who:{name,persona,stance,injection}, others:[{name,stance,human}], transcript, crowd }
+  //   打法、说人话、那张卡都是上面 genRound 用的同一份；这里只是把「同时扮几个人」换成「只扮你一个」。
+  async function genTurn(active, o) {
+    const casual = o.mode === "free", who = o.who || {};
+    const others = (o.others || []).map(function (x) { return "· " + x.name + (x.human ? "（真人）" : "") + "：" + (x.stance || "自行把握"); }).join("\n");
+    const sys = AC() + CB() +
+      "这是一场辩论。你是台上的「" + who.name + "」，现在轮到你发言。只写你这一段，别替别人说话。\n\n" +
+      "【辩题】" + o.topic + modeRules(casual) +
+      "\n\n" + WORLD_WORDS +
+      "\n\n【你】\n" + debaterCard(who, 0, 1 + (o.others || []).length, o.uName || "对面") +
+      (others ? "\n\n【台上其他人和各自的立场】\n" + others : "") +
+      (o.transcript ? "\n\n【到现在的实录】\n" + String(o.transcript).slice(-12000) : "\n\n（你是第一个开口的，把这一场吵起来。）") +
+      (o.crowd ? "\n\n【台下刚才起的哄】\n" + String(o.crowd).slice(-1500) : "") +
+      "\n\n" + PLAIN_TALK +
+      "\n【输出】只输出 JSON：{\"say\":\"你这一段发言\",\"at\":\"主要回应谁（没有留空）\"}。别加旁白别 markdown。";
+    const raw = await callAI(active, sys, [{ role: "user", content: "轮到你了。" }], { maxTokens: 12000 });
+    const p = extractJSON(raw) || {};
+    return { say: String(p.say || p.text || "").trim(), at: String(p.at || "").trim() };
+  }
+  // ---- 按人设替一位辩手挑边：正方（认这句话）还是反方 ----
+  async function pickSide(active, topic, who, isFree) {
+    const sys = AC() + CB() +
+      "下面是一道辩题和一个人。【严格根据TA的人设】判断TA真心会站哪一边：正方＝认这句话，反方＝不认。性格、经历、价值观决定态度，别随便分。\n\n" +
+      "【辩题】" + topic + (isFree ? "（这一场是随便吵，不讲道理，比谁更出彩）" : "") +
+      "\n\n「" + who.name + "」的人设：" + personaFor(who.persona, 1) + (typeof charLangLine === "function" ? charLangLine(who) : "") +
+      "\n\n" + WORLD_WORDS + "\n⚠️写立场那一句也照这条来：用【这个人自己会说的话】写。" +
+      "\n\n【输出】只输出 JSON：{\"side\":\"pro|con\",\"stance\":\"一句话，TA自己的口气\"}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "挑边。" }], { maxTokens: 8000 });
+    const p = extractJSON(raw) || {};
+    return { side: p.side === "con" ? "con" : "pro", stance: String(p.stance || "").trim() };
+  }
+  // ---- 台下的人忍不住的一句（TA没上台，在观众席看着）----
+  //   o：{ topic, mode, who:{name,persona,injection}, last:{name,text}, transcript, crowd }
+  async function genSideLine(active, o) {
+    const who = o.who || {};
+    const sys = AC() + CB() +
+      "这是一场辩论，你是台下看着的「" + who.name + "」，没上台。台上刚有人说完一段。\n" +
+      "你这一声不是评论、不是打分，是【你这个人看着台上那个人，忍不住的一句】：只有你说才成立——你跟台上那位的交情、旧账、偏袒、看不惯，要在这一句里看得出来。没什么想说的就留空。\n\n" +
+      "【辩题】" + o.topic + (o.mode === "free" ? "（随便吵）" : "") +
+      "\n\n【你】" + who.name + "：" + personaFor(String(who.persona || "").replace(/\s+/g, " "), 2) +
+      (who.injection ? "\n（你平时这么说话，照这个口气来）" + String(who.injection).replace(/\s+/g, " ").slice(-300) : "") +
+      (o.transcript ? "\n\n【台上到现在】\n" + String(o.transcript).slice(-6000) : "") +
+      (o.last ? "\n\n【刚说完的】" + o.last.name + "：" + o.last.text : "") +
+      (o.crowd ? "\n\n【台下别人刚起的哄】\n" + String(o.crowd).slice(-800) : "") +
+      (o.passerby ? "\n\n台下还坐着一个来凑热闹的路人（普通人，说话直接），顺手替 TA 也写一声，写进 passerby，没话就空。" : "") +
+      "\n\n" + PLAIN_TALK +
+      "\n【输出】只输出 JSON：{\"at\":\"冲着台上谁（本名）\",\"text\":\"一句，没话就空\"" + (o.passerby ? ",\"passerby\":\"路人那一声，可空\"" : "") + "}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "台下。" }], { maxTokens: 8000 });
+    const p = extractJSON(raw) || {};
+    // passerby：同一次顺带的路人那一声（不另花调用）
+    return { at: String(p.at || "").trim(), text: String(p.text || "").trim().slice(0, 120), passerby: o.passerby ? String(p.passerby || "").trim().slice(0, 120) : "" };
+  }
+  // ---- 一位辩手听完判决的赛后感言 ----
+  async function genAfterword(active, o) {
+    const who = o.who || {}, v = o.verdict || {};
+    const sys = AC() + CB() +
+      "一场辩论刚判完。你是台上的「" + who.name + "」（立场：" + (who.stance || "—") + "）。照你的人设对这个结果说一句赛后感言——赢了输了各人一种反应，用你自己的嘴。\n\n" +
+      "【辩题】" + o.topic + "\n【判决】胜者「" + (v.winner || "") + "」" + (v.reason ? "。判词：" + v.reason : "") +
+      "\n\n【你】" + personaFor(String(who.persona || "").replace(/\s+/g, " "), 1) +
+      (o.transcript ? "\n\n【全场实录】\n" + String(o.transcript).slice(-8000) : "") +
+      "\n\n" + PLAIN_TALK +
+      "\n【输出】只输出 JSON：{\"text\":\"感言1~3句\"}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "说两句。" }], { maxTokens: 8000 });
+    const p = extractJSON(raw) || {};
+    return String(p.text || "").trim().slice(0, 300);
+  }
+  // 别处（比如几个人各在各的手机上一起开一场）借用这几样：单机这边自己也用的同一份
+  window.DebateShared = { modeRules: modeRules, debaterCard: debaterCard, genTurn: genTurn, pickSide: pickSide, genSideLine: genSideLine, genAfterword: genAfterword, genResult: genResult, drawTopics: drawTopics, fullTranscript: fullTranscript };
 
   // ============================================================
   // 顶层：落地页（存档列表 + 发起）

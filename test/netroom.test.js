@@ -211,7 +211,7 @@ test("谁离开只标 TA：其他人照样通着；直连不上的由别人转",
   // 转发：只转给跟说话人没直连的
   assert.deepStrictEqual(C.forwardTargets(["a", "b", "c"], "a", "a", { b: ["a"], c: [] }), ["c"]);
   assert.match(src, /e\.t === "bye"/);
-  assert.match(src, /和 TA 连不上/);
+  assert.match(src, /和她连不上/);
 });
 
 test("补发别人的话：by 认人，我自己说的回到我这边", () => {
@@ -524,4 +524,18 @@ test("断线那会儿别人改了字／撤回了：连回来补发的那份带�
   assert.ok(got.msgs[1].recalled && !got.msgs[1].text);
   const fake = C.mergeMsgs(room, [C.syncedMsg({ id: "a", kind: "user", name: "甲", text: "冒名", edited: true, ts: 1, by: "Z" }, "B", "Z")]);
   assert.strictEqual(fake.msgs[0].text, "旧的");
+});
+
+test("回不去房间那个病：中转线和直连都有心跳，死了会被认出来；回到前台叫醒；没连上的人隔一会儿再喊一声", () => {
+  assert.ok(/Date\.now\(\) - lastRx > 40000\) \{ try \{ ws\.close\(\); \}/.test(src), "中转 40 秒没动静就关掉重接");
+  assert.ok(/if \(ev\.data === HB\) return;/.test(src), "直连心跳不当消息");
+  assert.ok(/Date\.now\(\) - \(L\.rx \|\| 0\) > 20000\) \{ drop\(id\); o\.onClose/.test(src), "直连 20 秒没动静当断开");
+  assert.ok(/missing\(\)\.length && \(\+\+slow % 2 === 0\)\) pub\(\{ t: "hello" \}\)/.test(src), "还有人没连上就隔一会儿再喊");
+  assert.ok(/,wake\(\) \{/.test(src) && /addEventListener\("visibilitychange", onVis\)/.test(src), "回到前台叫醒");
+  assert.ok(/if \(!first\) \{ if \(missing\(\)\.length\) pub\(\{ t: "hello" \}\); return; \}/.test(src), "中转重接后也喊一声");
+});
+
+test("回到聊天停在最新：游戏卡谁发的都跟到底；图片卡片晚撑开时停在底部就再跟一次", () => {
+  assert.ok(/last\.type === "gamerec" \|\| last\.type === "game"/.test(src));
+  assert.ok(/new ResizeObserver\(\(\) => \{ if \(stick\.current\) el\.scrollTop = el\.scrollHeight; \}\)/.test(src));
 });
