@@ -16086,6 +16086,40 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     return "";
   };
+  // 画一张角色的照片（单聊那张自拍的出图那一段，抽出来给别处也用）：参考照、连贯参考、世界风景参考、出图稿、保脸备用稿都在这一处。
+  //   prevShot＝这个人最近一张已生成的图（连贯参考；没有就 null）。返回 generateSelfieImage 的结果。
+  const shootCharPhoto = async ({ char, realChar, charId, photoKind, photoScene, meShot, mySelf, uName, askAngle, prevShot }) => {
+    const profile = profileFor(charId);
+    const st = (statesRef.current || {})[charId] || {};
+    const me = photoMe(uName, charId);
+    const freshPlace = freshLiveStateValue(st, "place");
+    const freshCond = freshLiveStateValue(st, "condition");
+    // 人物原始参考照永远比上一张生成图可信。上一张一旦画错脸，重 roll 若继续
+    // 把它塞回 edits，就会把错误当成新的身份锚并一代代繁殖。只有完全没有原始
+    // 人物参考照时，才允许生成图临时承担服装/场景连贯参考。
+    // view＝画面里没有人：走空景那条已经调好的路（buildScenePrompt），
+    // 一张参考照都不喂——喂了它就会想办法把那张脸画进去。
+    const isView = photoKind === "view", isPart = photoKind === "part";
+    const noFace = isView || isPart;   // 这两种都不喂参考照：参考照是一张脸
+    const refs = noFace ? [] : photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
+    const contBlobKey = !noFace && refs.length === 0 && prevShot ? prevShot.imgKey : null;
+    if (contBlobKey) refs.push(contBlobKey);
+    // 世界的风景参考只借环境：画人的、和纯风景都喂（她 2026-10-02：「世界生图应该用风景照吧」）——
+    //   它不是一张脸，空景喂它不会把人画进去；只露一截身体那档用不上街景，不喂。
+    const wRef = isPart ? null : worldRefFor(realChar, photoScene + " " + (freshPlace || ""));
+    if (wRef) refs.push(wRef.img);
+    const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
+    const photoOpts = { ...(askAngle ? { shotLine: "【这一张的机位·她点名要的】她说的是：「" + askAngle + "」。机位、脸的朝向、看不看镜头照她这句来，参考图里是什么角度都不算。" } : {}), pov: meShot && !mySelf ? povFor(realChar) : null, kind: photoKind, me, closet: meShot ? char._closet : closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" };
+    // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
+    const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" }) : isPart ? buildScenePrompt(char, photoScene, { body: true }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
+    // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
+    // 解剖锁、服装锁、随身物全塞进去的大家伙，出来一两千字，而上游拒绝的第一条
+    // 原因就写着 prompt is too long。这份只有一百来字：只留【这是谁】和【拍张人像】。
+    // 备用稿只对【画人】那条路有意义（它留的是「这是谁」）；view 被拦下时
+    // 拿人像备用稿重试等于把人画回来，所以不给，让它照旧用同一份空景稿。
+    const minimalPrompt = noFace ? null : buildMinimalPhotoPrompt(char, { kind: photoKind });
+    return await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
+  };
   const drawChatSelfie = async ({ chatKey, charId, sid, photoKind, photoScene, keySuffix, askAngle }) => {
     const realChar = characters.find(c => c.id === charId);
     if (!realChar) return;
@@ -16100,41 +16134,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (meShot) photoKind = photoKind === "myself" ? "self" : "other";
     const profile = profileFor(charId);
     try {
-      const st = (statesRef.current || {})[charId] || {};
-      const me = photoMe(uName, charId);
-      const freshPlace = freshLiveStateValue(st, "place");
-      const freshCond = freshLiveStateValue(st, "condition");
       // 连贯参考图:把这个角色最近一张已生成的自拍一并喂进去,治「十分钟前灰卫衣、
       // 现在突然黑衬衫」。只取 6 小时内的——更早的场景早换了,拿它当锚反而错。
       const prevShot = (chatsRef.current[chatKey] || []).slice().reverse()
         // 拍她的（他帮她拍／她自拍）和拍他的各认各的上一张，不然没参考照时会把对方那张脸当锚
         // 重拍的就是这一张：它画坏了才要重拍，不拿它自己当参考（她 2026-11-06）
         .find(m => m && m.kind === "selfie" && m.imgKey && m.sid !== sid && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000 && ((m.photoKind === "me" || m.photoKind === "myself" || m.photoKind === "myshot") === meShot));
-      // 人物原始参考照永远比上一张生成图可信。上一张一旦画错脸，重 roll 若继续
-      // 把它塞回 edits，就会把错误当成新的身份锚并一代代繁殖。只有完全没有原始
-      // 人物参考照时，才允许生成图临时承担服装/场景连贯参考。
-      // view＝画面里没有人：走空景那条已经调好的路（buildScenePrompt），
-      // 一张参考照都不喂——喂了它就会想办法把那张脸画进去。
-      const isView = photoKind === "view", isPart = photoKind === "part";
-      const noFace = isView || isPart;   // 这两种都不喂参考照：参考照是一张脸
-      const refs = noFace ? [] : photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
-      const contBlobKey = !noFace && refs.length === 0 && prevShot ? prevShot.imgKey : null;
-      if (contBlobKey) refs.push(contBlobKey);
-      // 世界的风景参考只借环境：画人的、和纯风景都喂（她 2026-10-02：「世界生图应该用风景照吧」）——
-      //   它不是一张脸，空景喂它不会把人画进去；只露一截身体那档用不上街景，不喂。
-      const wRef = isPart ? null : worldRefFor(realChar, photoScene + " " + (freshPlace || ""));
-      if (wRef) refs.push(wRef.img);
-      const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
-      const photoOpts = { ...(askAngle ? { shotLine: "【这一张的机位·她点名要的】她说的是：「" + askAngle + "」。机位、脸的朝向、看不看镜头照她这句来，参考图里是什么角度都不算。" } : {}), pov: meShot && !mySelf ? povFor(realChar) : null, kind: photoKind, me, closet: meShot ? char._closet : closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" };
-      // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
-      const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" }) : isPart ? buildScenePrompt(char, photoScene, { body: true }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
-      // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
-      // 解剖锁、服装锁、随身物全塞进去的大家伙，出来一两千字，而上游拒绝的第一条
-      // 原因就写着 prompt is too long。这份只有一百来字：只留【这是谁】和【拍张人像】。
-      // 备用稿只对【画人】那条路有意义（它留的是「这是谁」）；view 被拦下时
-      // 拿人像备用稿重试等于把人画回来，所以不给，让它照旧用同一份空景稿。
-      const minimalPrompt = noFace ? null : buildMinimalPhotoPrompt(char, { kind: photoKind });
-      const out = await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
+      const out = await shootCharPhoto({ char, realChar, charId, photoKind, photoScene, meShot, mySelf, uName, askAngle, prevShot });
       // 合照锁脸降级要说出来,别让「两个陌生人」看起来像生成成功
       if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
       if (out.blob) {
@@ -38654,6 +38660,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     emotePacks: emotePacksForGroup(liveChars.map(c => c.id)),
     emotesFor: charId => emotesForChar(charId),
     emoteFor: (charId, kw) => emoteMatch(emotesForChar(charId), kw),
+    // 房里角色自拍（默认照这个人能不能出图：接了图像通道、填了外貌或参考照）；出图走单聊那一套 shootCharPhoto，回一张 dataURL
+    selfieOk: charId => { const c = characters.find(x => x.id === charId); return !!(c && typeof imgApiReady === "function" && imgApiReady() && (c.appearance || c.refPhoto)); },
+    drawPhoto: async (charId, scene, kind) => {
+      const c = characters.find(x => x.id === charId); if (!c || !(typeof imgApiReady === "function" && imgApiReady())) return null;
+      const out = await shootCharPhoto({ char: c, realChar: c, charId, photoKind: kind || "self", photoScene: scene, meShot: false, mySelf: false, uName: userName(profileFor(charId) || profile), askAngle: null, prevShot: null });
+      return out && out.blob ? await blobToDataUrl(out.blob) : (out && out.url) || null;
+    },
+    // 一起听：曲库（只元数据）、此刻在放的、点卡放一首（三种情况照 NetRoom.Core.songPlan 判）、角色说的歌名去找一首
+    songLib: () => { const L = listenRef.current || {}; return (L.songs || []).concat(...(L.playlists || []).map(pl => pl.songs || [])).filter(s0 => s0 && s0.id !== KEEPALIVE_ID && s0.title); },
+    nowSong: () => { if (!player.songId || player.songId === KEEPALIVE_ID) return null; const s0 = resolveSong(player.songId); return s0 ? Object.assign({}, s0, { playing: !!player.playing }) : null; },
+    canNetease: () => !!musicReady,
+    playSong: s0 => playSong(s0),
+    findSong: async q => { const L = listenRef.current || {}, k = String(q || "").trim(); if (!k) return null;
+      const lib = (L.songs || []).concat(...(L.playlists || []).map(pl => pl.songs || []));
+      return lib.find(s0 => s0 && s0.title && k.indexOf(s0.title) >= 0) || await searchSong(k); },
     // 房间记录每条前面的时间：跟单聊给模型的记录同一种戳（时间感知关着的角色就不标）
     stampFor: (charId, ts) => aiStampFor(charId, ts),
     // 一起说：每人那一段跟群通话同一套拼法（groupNowSegs 此刻 + memberPrivateContextFor 私下往来 + groupMemSplit 记忆分流 + groupRelLines 关系）；
