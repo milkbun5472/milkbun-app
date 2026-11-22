@@ -316,3 +316,8 @@ test("从别的频道过来：提示里说、聊天里冒一行；挂机房分�
   assert.match(cs, /"data-wk": "loungecount"/);
   assert.match(cs, /"data-here": p\.here \? "1" : "0"/);
 });
+
+test("每日一问带上人设、关系、这两天聊的、前几天问过的", () => {
+  assert.match(ap, /荒唐但答起来很见性格的假设/);
+  assert.match(ap, /askHist: \(x\.askHist \|\| \[\]\)\.concat\(\[q\]\)/);
+});

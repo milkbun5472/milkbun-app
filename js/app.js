@@ -19793,14 +19793,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       try {
         const api = bgActiveRef.current || active;
         if (api && typeof runProbe === "function") {
-          const nm = (sp.memberIds || []).map(id => ((characters || []).find(c => c.id === id) || {}).name).filter(Boolean).join("、");
+          // 每日一问往人身上落（她 2026-11-22「跟人设和大家关系的，或者脑洞一点的，不要很人机」）：
+          //   给它这些人各是什么样、彼此什么关系、这两天聊了什么、前几天问过什么
+          const _cs = (sp.memberIds || []).map(id => (characters || []).find(c => c.id === id)).filter(Boolean);
+          const nm = _cs.map(c => c.name).join("、");
+          const _who = _cs.map(c => "· " + c.name + "：" + String(c.persona || c.desc || "").replace(/\s+/g, " ").slice(0, 90)).join("\n");
+          const _rel = []; _cs.forEach((a, i) => _cs.slice(i + 1).forEach(b => { const r = (rels[a.id + "->" + b.id] || rels[b.id + "->" + a.id] || {}).label; if (r) _rel.push(a.name + "和" + b.name + "：" + r); }));
+          const _chs = (groupsRef.current || []).filter(g => g && g.spaceId === spId && g.chKind !== "treehole" && !channelNoMem(g.id));
+          const _dig = typeof spaceWeekDigest === "function" ? spaceWeekDigest(_chs, id => groupChatsRef.current[id] || [], id => ((characters || []).find(c => c.id === id) || {}).name || "", Date.now(), 2, 1500) : "";
+          const _past = (sp.askHist || []).slice(-10);
           const d = await runProbe(api, { char: { id: "__spacebot", name: SPACE_BOT_NAME, persona: "" }, chars: characters, rels, profile, timeAware: false }, { tag: "频道每日一问", logFrom: "频道·每日一问", maxTokens: 8000, once: true,
-            instruction: "你是「" + sp.name + "」这个地方贴每日一问的小机器人，不是里面的哪个人。这里的人有：" + nm + "。出一个今天的问题，大家都能随口答上一句，跟这些人平时会聊的东西沾边。只出问题本身，一句。",
+            instruction: "你是「" + sp.name + "」这个地方贴每日一问的小机器人，不是里面的哪个人。\n这里的人：\n" + _who + (_rel.length ? "\n他们之间：" + _rel.slice(0, 12).join("；") : "") + (_dig ? "\n\n这两天大家聊过的：\n" + _dig : "") + (_past.length ? "\n\n前几天问过的（今天换个方向）：" + _past.join("／") : "")
+              + "\n\n出今天的一问。好的一问是这几个人一看就忍不住要接、会互相拆台起哄的那种：落在他们各自的人设、彼此的关系、最近真发生过的事上，或者是一个荒唐但答起来很见性格的假设。不是问卷题，不是人人都能用一句客套话答完的题。只出问题本身，一句。",
             schemaHint: "{\"q\":\"今天的问题\"}" });
           if (d && d.q && String(d.q).trim()) q = String(d.q).trim().slice(0, 60);
         }
       } catch (e) {}
       pGChat(home.id, p => [...p, { role: "system", kind: "spacebot", bot: "ask", q, content: SPACE_BOT_NAME + "·每日一问：" + q, ts: Date.now() }]);
+      saveSpaces(p => p.map(x => x.id === spId ? { ...x, askHist: (x.askHist || []).concat([q]).slice(-20) } : x));
     }
     // 称号满一周才评：从小频打开那天（botOnTs）、空间建好那天里晚的那个算起，满 7 天才评第一次
     const _tStart = Math.max(Number(sp.botOnTs) || 0, Number(sp.ts) || 0);
