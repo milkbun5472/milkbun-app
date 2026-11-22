@@ -299,3 +299,8 @@ test("串门：三分之一的轮次点一个能去别的频道的人", () => {
   assert.match(ap, /【串门】/);
   assert.match(ap, /Math\.random\(\) > 0\.35\) return "";/);
 });
+
+test("最近那张投票连票数摆在最后，说清改票就是再投一次", () => {
+  assert.match(ap, /【还开着的投票】/);
+  assert.match(ap, /改票就是再投一次别的序号/);
+});
