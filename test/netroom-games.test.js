@@ -532,6 +532,6 @@ test("角色怎么玩：报名只带座位旁那两个字，设置不进 join �
   assert.match(gsrc, /const lv = ctx && ctx\.opts && ctx\.opts\.casual \? 2 : this\.level\(inv, inv\.seats\[seatIdx\]\);/);
   assert.match(gsrc, /const opts = \(o\.charOpts && o\.charOpts\(gid, seat\.charId\)\) \|\| \{\};/);
   assert.match(nsrc, /charOpts: \(gid, cid\) => charOptsFor\(cid\),/);
-  assert.deepStrictEqual(G.charOptKinds("chess"), ["skill"]);
-  assert.deepStrictEqual(G.charOptKinds("gomoku"), ["casual"]);
+  assert.deepStrictEqual(G.charOptKinds("chess"), ["skill", "talk"]);
+  assert.deepStrictEqual(G.charOptKinds("gomoku"), ["casual", "talk"]);
 });

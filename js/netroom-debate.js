@@ -59,6 +59,8 @@
 
   const A = {
     zh: "辩论擂台", slow: true,
+    // 观众席：角色冒弹幕的那次调用顺带写一声路人观众（genSideLine 的 passerby），不另花调用；台上的 NPC 辩手照旧由庄出手
+    mergeNpc: "prev",
     charOpts: ["side", "recent"],
     seatRange: () => ({ min: 2, max: 6 }),
     npcNames: ["路人甲", "路人乙", "路人丙", "路人丁", "路人戊", "路人己"],
@@ -119,7 +121,7 @@
       const D = DS(); if (!D && !root.LazyMods) return [];
       const outs = [], me = ctx.me;
       if (view.phase === "done" && view.verdict) {
-        const mine = inv.seats.filter(s => s.kind === "char" && s.peer === me && !s.away);
+        const mine = inv.seats.filter(s => s.kind === "char" && s.peer === me && !s.away && ctx.charOpts(s.charId).talk !== false);
         for (const s of mine) {
           const k = me + ":" + inv.gid + ":aw:" + s.charId; if (said.has(k) || ctx.side.some(x => x.kind === "aw" && x.name === s.name)) continue; said.add(k);
           const c = ctx.charOf(s.charId), api = c && ctx.apiFor(c.id); if (!api) continue;
@@ -141,13 +143,13 @@
       await ensure(); if (!DS()) return [];
       const last = view.turns[view.turns.length - 1];
       const crowd = ctx.side.filter(x => x.kind === "dm").slice(-6).map(x => x.name + "：" + x.text).join("\n");
-      const r = await DS().genSideLine(api, { topic: view.topic, mode: view.mode, who: whoOf(c, ctx.charOpts(id)), last: { name: last.name, text: last.text }, transcript: transcript(view, 12), crowd }).catch(() => null);
-      return r && r.text ? [{ kind: "dm", name: (c.remark || c.name), text: r.text, at: r.at, char: true }] : [];
+      const r = await DS().genSideLine(api, { topic: view.topic, mode: view.mode, who: whoOf(c, ctx.charOpts(id)), last: { name: last.name, text: last.text }, transcript: transcript(view, 12), crowd, passerby: true }).catch(() => null);
+      return (r && r.text ? [{ kind: "dm", name: (c.remark || c.name), text: r.text, at: r.at, char: true }] : []).concat(r && r.passerby ? [{ kind: "dm", name: "路人观众", text: r.passerby, npc: true }] : []);
     },
     cleanSide(x) {
       if (!x || typeof x !== "object") return null;
       const text = cut(x.text, x.kind === "aw" ? 300 : 120).trim(); if (!text) return null;
-      return { kind: x.kind === "aw" ? "aw" : "dm", name: cut(x.name, 40) || "观众", text, at: cut(x.at, 40), char: !!x.char, peer: cut(x.peer, 40) };
+      return { kind: x.kind === "aw" ? "aw" : "dm", name: cut(x.name, 40) || "观众", text, at: cut(x.at, 40), char: !!x.char, npc: !!x.npc, peer: cut(x.peer, 40) };
     },
     result(st, inv) {
       if (st.phase !== "done") return null;

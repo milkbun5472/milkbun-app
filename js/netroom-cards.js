@@ -43,7 +43,8 @@
   //          after(st) 一手打完自动接下一手, npc(st,i,inv)→mv, local(view,i,priv)→给本地牌手看的那份 st, result, text, replay, cleanView, cleanReplay }
   function handAdapter(key, spec) {
     const A = {
-      zh: spec.zh, needPriv: true, mustFill: !!spec.mustFill,
+      // 本地牌手出牌不调模型：桌边台词由框架隔几手问一句（localTalk）；手里有牌，NPC 那一手不并进别人的调用
+      zh: spec.zh, needPriv: true, mustFill: !!spec.mustFill, localTalk: true, mergeNpc: null,
       seatRange: spec.seatRange,
       init(inv, ctx) { const st = spec.init(inv, ctx || {}); st.botSkill = ((ctx && ctx.cfg) || {}).botSkill || "normal"; return st; },
       view: st => spec.hide(st),
@@ -330,7 +331,8 @@
     return st;
   }
   ADAPTERS.spy = {
-    zh: "谁是卧底", needPriv: true,
+    // 描述本身就是桌上说的话；每人手里一个词，NPC 的描述不并进别人的调用
+    zh: "谁是卧底", needPriv: true, mergeNpc: null,
     seatRange: () => ({ min: 3, max: 12 }),
     async init(inv, ctx) {
       const S = GS().spy;
@@ -428,7 +430,7 @@
   //   两个人各写各的，庄那台攒着，两边都交了才一起亮；没亮之前公开那份只说「谁交了」
   const LX_MAX = 30;
   ADAPTERS.lingxi = {
-    zh: "心有灵犀", needPriv: true,
+    zh: "心有灵犀", needPriv: true, mergeNpc: null,
     seatRange: () => ({ min: 2, max: 2 }),
     init: () => ({ phase: "start", words: [null, null], start: null, pair: null, rounds: [], log: [{ text: "两个人先各自悄悄写一个起始词。" }] }),
     view: st => ({ phase: st.phase, sent: st.words.map(w => w != null), start: st.start, pair: st.pair, rounds: st.rounds.slice(-40), log: st.log.slice(-30) }),
@@ -458,19 +460,20 @@
       return { st: n };
     },
     // 从这个座位看过去：桌上「对面的词」在前、「我的」在后——单机那两段提示词就是这么摆的
+    //   who.withSay：同一次顺带要亮词前嘴上那句（提示词里写着不许透露自己的词）
     async think(v, i, inv, api, who) {
-      const L = root.LingxiCore, o = 1 - i, oName = nmOf(inv, o);
+      const L = root.LingxiCore, o = 1 - i, oName = nmOf(inv, o), sayFree = who.withSay ? GS().sayFree || "" : "";
       if (!api) return { pass: true };
       const st = { rounds: (v.rounds || []).map(r => ({ n: r.n, pair: [r.pair[o], r.pair[i]], mine: r.w[o], yours: r.w[i], hit: r.hit, manual: false })), pair: v.pair ? [v.pair[o], v.pair[i]] : null, talk: [] };
       const whoTxt = "\n\n【你是】" + who.name + (who.persona ? "\n" + cut(who.persona, 1800) : "");
-      const sys = GS().voiceRules() + (v.phase === "start" ? L.openPrompt({ uName: oName, who: whoTxt, sayFree: "" }) : L.roundPrompt({ uName: oName, who: whoTxt, state: st, easy: inv.mode === "easy", sayFree: "" }));
+      const sys = GS().voiceRules() + (v.phase === "start" ? L.openPrompt({ uName: oName, who: whoTxt, sayFree }) : L.roundPrompt({ uName: oName, who: whoTxt, state: st, easy: inv.mode === "easy", sayFree }));
       const raw = await GS().call(api, sys, [{ role: "user", content: "轮到你。" }], { maxTokens: 12000 });
       const p = (root.extractJSON ? root.extractJSON(String(raw || "")) : null) || {};
-      const w = L.cleanWord(p.word);
-      return w ? { word: w } : { pass: true };
+      const w = L.cleanWord(p.word), say = who.withSay && GS().sayList ? GS().sayList(p.say).join(" ") : "";
+      return w ? Object.assign({ word: w }, say ? { say } : {}) : { pass: true };
     },
     npcMove(st, i, inv, ctx) { return this.think(this.view(st), i, inv, ctx.hostApi, NPC_WHO(nmOf(inv, i))).catch(() => ({ pass: true })).then(m => m.pass ? { word: "随便" } : m); },
-    charMove(view, i, inv, ctx) { return this.think(view, i, inv, ctx.api, charWho(ctx.char, ctx.opts)).catch(() => ({ pass: true })); },
+    charMove(view, i, inv, ctx) { return this.think(view, i, inv, ctx.api, Object.assign(charWho(ctx.char, ctx.opts), ctx.opts && ctx.opts.talk === false ? {} : { withSay: true })).catch(() => ({ pass: true })); },
     result(st, inv) {
       if (st.phase !== "done") return null;
       const s = st.rounds.filter(r => r.hit).length;

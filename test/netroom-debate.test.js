@@ -41,7 +41,7 @@ test("登记进联机小游戏：在 netroom-games.js 之后加载、往 ADAPTER
   assert.ok(G.supported().indexOf("debate") >= 0);
   const A = G.ADAPTERS.debate;
   ["seatRange", "init", "view", "priv", "turn", "apply", "npcMove", "charMove", "result", "cleanView", "cleanReplay", "stateText", "cleanSide", "watch"].forEach(k => assert.strictEqual(typeof A[k], "function", k));
-  assert.deepStrictEqual(G.charOptKinds("debate"), ["side", "recent"]);
+  assert.deepStrictEqual(G.charOptKinds("debate"), ["side", "recent", "talk"]);
   assert.strictEqual(A.shelf.key, "debate");
   const html = read("index.html"), gi = html.indexOf("js/netroom-games.js"), di = html.indexOf("js/netroom-debate.js"), ni = html.indexOf("js/netroom.js");
   assert.ok(gi > 0 && di > gi && ni > di, "加载顺序：games → debate → netroom");

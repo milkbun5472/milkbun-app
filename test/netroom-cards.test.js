@@ -65,7 +65,7 @@ test("第二档九盒都登记了，大厅里摆得出来；斗地主、麻将�
   ["spy", "uno", "oldmaid", "blackjack", "liar", "poker", "doudizhu", "mahjong", "lingxi"].forEach(k => assert.ok(G.supported().indexOf(k) >= 0, k));
   assert.deepStrictEqual(G.ADAPTERS.doudizhu.seatRange(), { min: 3, max: 3 });
   assert.deepStrictEqual(G.ADAPTERS.mahjong.seatRange(), { min: 4, max: 4 });
-  ["uno", "oldmaid", "blackjack", "liar", "poker", "doudizhu", "mahjong"].forEach(k => assert.deepStrictEqual(G.charOptKinds(k), ["botSkill"], k + " 报名单上能调牌手水平"));
+  ["uno", "oldmaid", "blackjack", "liar", "poker", "doudizhu", "mahjong"].forEach(k => assert.deepStrictEqual(G.charOptKinds(k), ["botSkill", "talk"], k + " 报名单上能调牌手水平"));
   assert.ok(!/联机|netroom/.test(cutr("  const CARD_SUITS = ", "  function MjTile(props) {")), "公共规则函数里不许写「联机」");
 });
 
