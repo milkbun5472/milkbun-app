@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.023";
+const APP_VERSION = "v90.024";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17044,7 +17044,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             return _hit.length ? "\n她刚才那句说到的图：" + _hit.map(g => "「" + g.desc.slice(0, 80) + "」（" + (g.who && g.who.role === "user" ? "她" : (g.who && g.who.senderName) || "有人") + "发的）").join("；") + "。" : ""; })()
         // 往主动调（她 2026-11-20「往更主动调吧」）：聊出了值得留下的东西，有人顺手把它写进文件；新建一天最多两份，满了只说改
         + (() => { const _fs = loadJSON("x_chfiles:" + groupId, []), _canNew = chfCanCharCreate(_fs, ts => { const _d = new Date(typeof vclockMap === "function" ? vclockMap(ts) : ts); return _d.getFullYear() + "-" + _d.getMonth() + "-" + _d.getDate(); }, Date.now());
-            return "\n【频道文件怎么动】文件是这里大家一起放东西的地方，跟聊天并排的另一块地方：可以是定下来的事，也可以是随手记的一句、写着玩的东西、一个人自己想留的小纸条；不用正式，也不用长，几行就是一份。聊着聊着谁想往那儿放点什么、动一下别人放的，就去放、去动。"
+            return "\n【频道文件怎么动】文件是这里大家一起放东西的地方，跟聊天并排的另一块地方：可以是定下来的事，也可以是随手记的一句、写着玩的东西、一个人自己想留的小纸条；不用正式；长短照东西本身来——一句话的小纸条就几个字，清单、计划、故事、攻略这种要写全的，就一口气写全、写够。聊着聊着谁想往那儿放点什么、动一下别人放的，就去放、去动。"
               + (_canNew ? "写进一份已有的就是改那份，没有合适的就新开一份。" : "今天大家已经新开过好几份了，这会儿往已有的文件里写。")
               + "写法是在他自己那条发言里加 \"file\":{\"name\":\"文档名\",\"add\":[\"往末尾添的一行\"],\"remove\":[\"要删掉的那一行原文\"]}——add 是添、remove 是把逐字对上的那几行删掉，两样可以只写一样；想整份重写就写 {\"name\",\"text\":\"整份全文\"}。名字跟已有的一样就是改那一份" + (_canNew ? "，没有就是新开" : "") + "。同一轮好几个人都可以各在自己那条里动同一份，按先后一个接一个写进去，谁也不会盖掉谁。"; })() : "";
       // 换个频道接着说：每人能去哪几个频道，有地方可去才提这一格
