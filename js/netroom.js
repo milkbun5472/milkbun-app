@@ -573,7 +573,7 @@
 
   // ───────────── 中转（递「怎么连我」；房间开着时一直挂着，新人和回来的人靠它找到大家） ─────────────
   function MqttLink(onMessage, onDrop) {
-    let ws = null, ping = null, closed = false, pid = 1;
+    let ws = null, ping = null, closed = false, pid = 1, lastRx = 0;
     const feed = mqtt.decoder();
     const subWaits = [];
     const api = {
@@ -588,12 +588,18 @@
           ws.onerror = () => { clearTimeout(tm); fail(new Error("连不上")); };
           ws.onclose = () => { clearTimeout(tm); if (ping) clearInterval(ping); if (!settled) fail(new Error("断了")); else if (!closed && onDrop) onDrop(); };
           ws.onmessage = ev => {
+            lastRx = Date.now();
             feed(new Uint8Array(ev.data)).forEach(pk => {
               if (pk.type === 2) {
                 clearTimeout(tm);
                 if (pk.code !== 0) return fail(new Error("被拒绝了"));
                 settled = true; ok(api);
-                ping = setInterval(() => { try { ws.send(mqtt.ping()); } catch (e) {} }, 20000);
+                // 心跳：手机锁屏/切后台回来，这条线常常已经死了却不报 onclose——40 秒没收到任何东西就当断了，关掉重接
+                lastRx = Date.now();
+                ping = setInterval(() => {
+                  if (Date.now() - lastRx > 40000) { try { ws.close(); } catch (e) {} return; }
+                  try { ws.send(mqtt.ping()); } catch (e) {}
+                }, 15000);
               } else if (pk.type === 9) { const w = subWaits.shift(); w && w(); }
               else if (pk.type === 3 && !closed) { try { onMessage(pk.topic, pk.payload); } catch (e) {} }
             });
@@ -602,6 +608,7 @@
       },
       subscribe(topic) { return new Promise(ok => { subWaits.push(ok); ws.send(mqtt.subscribe(pid++, topic)); setTimeout(ok, 3000); }); },
       publish(topic, obj) { try { ws.send(mqtt.publish(topic, JSON.stringify(obj))); } catch (e) {} },
+      alive() { return !!ws && ws.readyState === 1 && Date.now() - lastRx < 40000; },
       close() {
         closed = true; if (ping) clearInterval(ping);
         try { ws && ws.readyState === 1 && ws.send(mqtt.disconnect()); } catch (e) {}
@@ -629,6 +636,7 @@
   // 一场联机：每两个人之间一条直连（四人六条）。中转节点在房间里一直开着：
   //   新来的人、断了回来的人都靠它找到大家。开房的人负责「介绍」：放不放新人、把房里有谁告诉 TA。
   // o: { code, me(我的 peerId), host, patient, knownIds(), onOpen(id,ch), onClose(id), onData(id,raw), onLinkFail(id), onStatus, onFail(文字) }
+  const HB = "\u0000hb";   // 直连心跳（不当消息处理）
   function Mesh(o) {
     const topic = topicOf(o.code), sess = rid();
     const links = {};    // peerId → { pc, dc, lid, state: pending/open/fail, sess, timer }
@@ -647,11 +655,11 @@
       L.dc = ch;
       ch.onopen = () => {
         if (links[id] !== L || dead) return;
-        L.state = "open"; clearTimeout(L.timer); anyOpen = true; stopHello();
+        L.state = "open"; L.rx = Date.now(); clearTimeout(L.timer); anyOpen = true; stopHello();
         o.onOpen && o.onOpen(id, ch);
       };
       ch.onclose = () => { if (links[id] !== L) return; const was = L.state === "open"; drop(id); if (was) o.onClose && o.onClose(id); };
-      ch.onmessage = ev => { if (links[id] === L) o.onData && o.onData(id, ev.data); };
+      ch.onmessage = ev => { if (links[id] !== L) return; L.rx = Date.now(); if (ev.data === HB) return; o.onData && o.onData(id, ev.data); };
     };
     const mkLink = (id, peerSess) => {
       drop(id);
@@ -727,13 +735,26 @@
       const say = () => pub({ t: "hello" });
       say(); hello = setInterval(say, 2500);
     };
+    // 房里还有认识的人没连上（对方锁屏、切后台、刚回来）：隔一会儿在中转上再喊一声「我在」，
+    //   不再是一连上一个人就永远闭嘴——原来那样，先连上的那一个之外，晚醒的人谁也找不到你（她 11-22：「有时候能重连回去有时候回不去」）
+    const missing = () => { const open = openIds(); return (o.knownIds ? o.knownIds() : []).filter(id => id && id !== o.me && open.indexOf(id) < 0); };
+    const beat = setInterval(() => {
+      if (dead) return;
+      // 直连心跳：每 5 秒互相点一下；20 秒没收到对方任何东西＝那条线其实已经死了（对方锁屏/断网不一定报 onclose），当断开处理，好让 TA 回来时能重新接上
+      Object.keys(links).forEach(id => { const L = links[id];
+        if (L.state !== "open") return;
+        try { L.dc && L.dc.readyState === "open" && L.dc.send(HB); } catch (e) {}
+        if (Date.now() - (L.rx || 0) > 20000) { drop(id); o.onClose && o.onClose(id); } });
+      if (!hello && link && missing().length && (++slow % 2 === 0)) pub({ t: "hello" });
+    }, 5000);
+    let slow = 0;
     // 中转那条线掉了：隔几秒自己再接上（房间里的直连不受影响，只是新人/回来的人暂时找不到）
     const openLink = async first => {
       try { link = await openBroker(onMessage, () => { link = null; if (!dead) setTimeout(() => openLink(false), 3000); }); }
       catch (e) { if (first) return fail("房间号这一步没走通：网络连不上，过一会儿再试"); if (!dead) setTimeout(() => openLink(false), 5000); return; }
       if (dead) { link.close(); return; }
       await link.subscribe(topic);
-      if (!first) return;
+      if (!first) { if (missing().length) pub({ t: "hello" }); return; }
       if (o.host && !o.patient) o.onStatus && o.onStatus("等别人输入房间号…");
       else { o.onStatus && o.onStatus(o.patient ? "等别人也点「重新连上」…" : "正在找房间…"); sayHello(); }
     };
@@ -741,7 +762,13 @@
       openIds,
       state: id => (links[id] ? links[id].state : ""),
       sendTo(id, raw) { const L = links[id]; try { L && L.state === "open" && L.dc && L.dc.readyState === "open" && L.dc.send(raw); } catch (e) {} },
-      close() { dead = true; stopHello(); try { link && link.close(); } catch (e) {} link = null; Object.keys(links).forEach(drop); }
+      close() { dead = true; clearInterval(beat); stopHello(); try { link && link.close(); } catch (e) {} link = null; Object.keys(links).forEach(drop); }
+      // 页面从后台回到前台：中转那条线多半已经死了，先换一条新的，再喊一声让还没连上的人来接
+      ,wake() {
+        if (dead) return;
+        if (!link || !link.alive()) { const old = link; link = null; try { old && old.close(); } catch (e) {} openLink(false); }
+        else if (missing().length) pub({ t: "hello" });
+      }
     };
     openLink(true);
     return api;
@@ -1150,6 +1177,12 @@
         onData });
       mesh.current = m;
     };
+    // 手机锁屏、切后台再回来：叫连线层醒一醒（换掉死掉的中转线、喊没连上的人）
+    useEffect(() => {
+      const onVis = () => { if (document.visibilityState === "visible" && mesh.current && mesh.current.wake) mesh.current.wake(); };
+      document.addEventListener("visibilitychange", onVis); window.addEventListener("pageshow", onVis); window.addEventListener("online", onVis);
+      return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("pageshow", onVis); window.removeEventListener("online", onVis); };
+    }, []);
     const cancelWait = () => { try { mesh.current && mesh.current.close(); } catch (e) {} mesh.current = null; commit(null); setPage("home"); };
     const enter = async () => {
       const list = chars.filter(c => picked[c.id]);
