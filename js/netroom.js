@@ -416,12 +416,12 @@
   }
   // 一条消息给人读、给模型读的那一行
   function richLine(m) {
-    const x = m.x || {}, who = m.name || "TA";
+    const x = m.x || {}, who = m.name || "有人";   // 名字缺了：发的人可能是真人也可能是角色，不用 TA
     if (m.type === "emote") return "[表情] " + (x.keyword || "");
     if (m.type === "photo") return x.desc ? "[照片] " + x.desc : "[照片]";
     if (m.type === "voice") return "[语音] " + (x.content || "");
     if (m.type === "geo") return "[位置] " + (x.name || "");
-    if (m.type === "pat") return who + " 拍了拍 " + (x.to || "TA");
+    if (m.type === "pat") return who + " 拍了拍 " + (x.to || "某人");
     if (m.type === "rp") {
       const cl = x.claims || [];
       return "[红包] " + (x.message || "恭喜发财，大吉大利") + "（" + x.count + " 个，只是玩法不动钱包）"
@@ -916,12 +916,21 @@
     const stick = useRef(true);
     const last = n ? room.msgs[n - 1] : null;
     const tailKey = (tail || []).map(x => x && x.key).join("|");
-    useEffect(() => { const el = ref.current; if (el && (stick.current || (last && last.side === "me"))) { el.scrollTop = el.scrollHeight; stick.current = true; } }, [n, tailKey]);
+    // 小游戏的邀请卡、战绩卡谁发的都跟到底（她 11-22：不是房主的人打完回到聊天也要停在最新那条）
+    const force = last && (last.side === "me" || last.type === "gamerec" || last.type === "game");
+    useEffect(() => { const el = ref.current; if (el && (stick.current || force)) { el.scrollTop = el.scrollHeight; stick.current = true; } }, [n, tailKey]);
+    // 图片、卡片晚一拍才撑开高度：刚才「到底了」又被顶回半截。停在底部时，里面长高了就再跟一次底
+    const inner = useRef(null);
+    useEffect(() => {
+      const el = ref.current, box = inner.current; if (!el || !box || typeof ResizeObserver === "undefined") return;
+      const ro = new ResizeObserver(() => { if (stick.current) el.scrollTop = el.scrollHeight; });
+      ro.observe(box); return () => ro.disconnect();
+    }, []);
     const onScroll = e => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; };
-    return h("div", { ref, onScroll, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12 } },
+    return h("div", { ref, onScroll, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 14px" } }, h("div", { ref: inner, style: { display: "flex", flexDirection: "column", gap: 12 } },
       !n && h(Note, null, "房间里还没人说话。你直接发，或者点下面一个头像让 TA 先开口。"),
       (room.msgs || []).map((m, i) => h(MsgRow, Object.assign({ key: m.id, m, room, myCharsById, idx: i }, rowProps ? rowProps(m, i) : {}))),
-      tail);
+      tail));
   }
 
   // ＋ 里的那些：跟单聊、群聊用的同一套键（ChatToolKey）。两个人之间、本机的那几样（通话、通话记录、朋友圈、转账、亲属卡、给TA看手机、邀约、半窗）不放

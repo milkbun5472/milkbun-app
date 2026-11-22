@@ -534,3 +534,8 @@ test("回不去房间那个病：中转线和直连都有心跳，死了会被�
   assert.ok(/,wake\(\) \{/.test(src) && /addEventListener\("visibilitychange", onVis\)/.test(src), "回到前台叫醒");
   assert.ok(/if \(!first\) \{ if \(missing\(\)\.length\) pub\(\{ t: "hello" \}\); return; \}/.test(src), "中转重接后也喊一声");
 });
+
+test("回到聊天停在最新：游戏卡谁发的都跟到底；图片卡片晚撑开时停在底部就再跟一次", () => {
+  assert.ok(/last\.type === "gamerec" \|\| last\.type === "game"/.test(src));
+  assert.ok(/new ResizeObserver\(\(\) => \{ if \(stick\.current\) el\.scrollTop = el\.scrollHeight; \}\)/.test(src));
+});
