@@ -1248,9 +1248,25 @@
       if (game.key === "haigui") { setGamePend({ game, cfg }); setPrep({ surface: "", truth: "" }); setPage("gameprep"); return; }
       sendInvite(game, cfg);
     };
+    // 报名：你自己、你带进房间的人，勾谁谁占一个座位。聊天页和牌桌页都挂这一张（牌桌页下面也有邀请卡，点「加入」得有反应）
+    const joinSheet = () => { const myChars = ((room && room.myChars) || []);
+      return joinAt && h(Sheet, { key: "gj", onClose: () => setJoinAt(null) },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(17), color: t.ink, marginBottom: 6 } }, "你这边上谁"),
+          h(Note, null, "每人占一个座位。你带来的角色轮到时由你这台手机用 TA 的线路替 TA 出手。座位不够的，勾了也坐不上。"),
+          h("div", { style: { display: "flex", flexDirection: "column", gap: 4, margin: "10px 0" } },
+            [{ id: "_me", label: myNick() + "（我自己）" }].concat(myChars.map(c => ({ id: c.id, label: c.name, c }))).map(r => h("label", { key: r.id, className: "flex items-center", style: { gap: 12, minHeight: 44 } },
+              h("input", { type: "checkbox", "data-wk": "nrgamepick", checked: !!joinPick[r.id], onChange: e => setJoinPick(p => Object.assign({}, p, { [r.id]: e.target.checked })) }),
+              r.c ? h(Avatar, { character: charsById[r.c.id] || { id: r.c.id, name: r.c.name }, size: 30 }) : null,
+              h("span", { style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink } }, r.label)))),
+          h(Btn, { label: "坐下", primary: true, wk: "nrgamejoinok", disabled: !Object.keys(joinPick).some(k => joinPick[k]), onClick: () => {
+            const picks = (joinPick._me ? [{ kind: "user" }] : []).concat(myChars.filter(c => joinPick[c.id]).map(c => ({ kind: "char", charId: c.id, name: c.name })));
+            const ja = joinAt; setJoinAt(null);
+            const left = games.current ? games.current.join(ja.gid, picks, ja.host) : [];
+            if (left.length) props.toast && props.toast("座位不够，" + left.length + " 个没坐上");
+          } })); };
     const gameHandlers = m => {
       const x = m.x || {}, gs = games.current;
-      return { me: meId.current, busy: gameBusy,
+      return { me: meId.current, busy: gameBusy, lost: x.host === meId.current && (x.status === "open" || x.status === "playing") && !(gs && gs.isHost(x.gid)),
         onJoin: () => { setJoinPick({}); setJoinAt({ gid: x.gid, host: x.host }); },
         onLeave: () => gs && gs.join(x.gid, [], x.host),
         onAdd: () => gs && gs.addSeat(x.gid),
@@ -1552,21 +1568,7 @@
           h(Composer, { onSend: sayHuman, disabled: alone, fillRef, plusOn: panel, onPlus: () => setPanel(v => !v) })),
         ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sayRich, sendRp,
           photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
-        // 报名：你自己、你带进房间的人，勾谁谁占一个座位
-        joinAt && h(Sheet, { key: "gj", onClose: () => setJoinAt(null) },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(17), color: t.ink, marginBottom: 6 } }, "你这边上谁"),
-          h(Note, null, "每人占一个座位。你带来的角色轮到时由你这台手机用 TA 的线路替 TA 出手。座位不够的，勾了也坐不上。"),
-          h("div", { style: { display: "flex", flexDirection: "column", gap: 4, margin: "10px 0" } },
-            [{ id: "_me", label: myNick() + "（我自己）" }].concat(myChars.map(c => ({ id: c.id, label: c.name, c }))).map(r => h("label", { key: r.id, className: "flex items-center", style: { gap: 12, minHeight: 44 } },
-              h("input", { type: "checkbox", "data-wk": "nrgamepick", checked: !!joinPick[r.id], onChange: e => setJoinPick(p => Object.assign({}, p, { [r.id]: e.target.checked })) }),
-              r.c ? h(Avatar, { character: charsById[r.c.id] || { id: r.c.id, name: r.c.name }, size: 30 }) : null,
-              h("span", { style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink } }, r.label)))),
-          h(Btn, { label: "坐下", primary: true, wk: "nrgamejoinok", disabled: !Object.keys(joinPick).some(k => joinPick[k]), onClick: () => {
-            const picks = (joinPick._me ? [{ kind: "user" }] : []).concat(myChars.filter(c => joinPick[c.id]).map(c => ({ kind: "char", charId: c.id, name: c.name })));
-            const ja = joinAt; setJoinAt(null);
-            const left = games.current ? games.current.join(ja.gid, picks, ja.host) : [];
-            if (left.length) props.toast && props.toast("座位不够，" + left.length + " 个没坐上");
-          } })));
+        joinSheet());
     }
 
     // ── 小游戏那几页 ──
@@ -1605,7 +1607,8 @@
             h(Btn, { label: "回聊天", wk: "nrgameback", onClick: () => setPage("chat") }))),
         h(MsgList, { room, myCharsById: charsById, rowProps: rowProps(room, true) }),
         h("div", { "data-wk": "nrcomposer", className: "shrink-0", style: { borderTop: "1px solid " + t.line, background: t.bg, padding: "8px 12px", paddingBottom: COMPOSER_PAD_BOTTOM } },
-          h(Composer, { onSend: sayHuman, disabled: !mesh.current || net.reach.length === 0 })));
+          h(Composer, { onSend: sayHuman, disabled: !mesh.current || net.reach.length === 0 })),
+        joinSheet());
     }
     if (page === "gamerec") {
       const r = (room && room.id === viewId ? room : null) || rooms.find(x => x.id === viewId) || room;

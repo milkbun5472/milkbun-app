@@ -81,8 +81,12 @@
   }
   // 报名：先把这个人原来坐的位子都腾出来，再按 TA 这次选的一个个坐进空位；坐不下的退回去
   //   picks：[{ kind:"user" } | { kind:"char", charId, name }]；同一个角色只坐一个位子
+  //   空位不够、这个游戏还能再多坐人：先把座位加到够（最多加到上限），别让人点了「加入」却什么都没发生
   function joinSeats(inv, peer, nick, picks) {
     const seats = (inv.seats || []).map(s => s.peer === peer && s.kind !== "npc" ? { kind: "open" } : Object.assign({}, s));
+    const want = new Set((picks || []).filter(p => p && (p.kind === "user" || p.kind === "char")).map(p => p.kind === "char" ? "c:" + p.charId : "u")).size;
+    const max = inv.max || seats.length;
+    while (seats.filter(s => s.kind === "open").length < want && seats.length < max) seats.push({ kind: "open" });
     const dropped = [], seen = new Set();
     (picks || []).forEach(p => {
       const key = p && p.kind === "char" ? "c:" + p.charId : "u";
@@ -397,10 +401,15 @@
       onMessage(e, origin) {
         const gid = cut(e.gid, 40); if (!gid) return;
         const g = host[gid];
-        if (e.op === "join" && g && g.inv.status === "open") {
+        if (e.op === "join" && !g) { o.send({ t: "game", op: "oops", gid, text: "开这一局的那台手机已经不记得这张邀请卡了（重新进过房间），请房主再发一张" }, origin); }
+        else if (e.op === "join" && g.inv.status !== "open") { o.send({ t: "game", op: "oops", gid, text: "这一局已经开始或者结束了，坐不进去了" }, origin); }
+        else if (e.op === "join") {
           const nick = o.nickOf(origin);
           const picks = (Array.isArray(e.picks) ? e.picks : []).slice(0, 12).map(p => p && p.kind === "char" ? { kind: "char", charId: cut(p.charId, 40), name: cut(p.name, 40) } : { kind: "user" });
-          g.inv = joinSeats(g.inv, origin, nick, picks).inv; shareCard(g);
+          const r = joinSeats(g.inv, origin, nick, picks);
+          g.inv = r.inv; shareCard(g);
+          // 坐不下的那几个告诉 TA，不让 TA 以为点了没反应
+          if (r.dropped.length) o.send({ t: "game", op: "oops", gid, text: "座位满了，" + r.dropped.map(p => p.kind === "char" ? p.name : "你自己").join("、") + " 没坐上" }, origin);
         } else if (e.op === "leave" && g && g.inv.status === "open") { g.inv = leaveSeats(g.inv, origin); shareCard(g); }
         else if (e.op === "move" && g) hostApply(gid, int(e.seat, -1, 11, -2), e.move && typeof e.move === "object" ? e.move : null, origin);
         else if (e.op === "card") { const x = cleanInvite(e.x); if (x && x.host === origin) { o.patchCard(gid, x, false, origin); const s = seen[gid]; if (s) s.inv = x; changed(); } }
@@ -443,7 +452,7 @@
   const pill = (t, on) => ({ minHeight: 40, padding: "0 16px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : t.bg2, color: on ? t.bg : t.ink, fontFamily: F_BODY, fontSize: fs(13) });
 
   // 房里那张邀请卡
-  function InviteCard({ x, me, onJoin, onLeave, onStart, onAdd, onCancel, onOpen, busy }) {
+  function InviteCard({ x, me, onJoin, onLeave, onStart, onAdd, onCancel, onOpen, busy, lost }) {
     const t = useTheme();
     const seats = x.seats || [], isHost = x.host === me, mine = seats.some(s => s.peer === me && s.kind !== "npc");
     const open = seats.filter(s => s.kind === "open").length;
@@ -455,15 +464,17 @@
       h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, seats.length + " 个座位" + (x.status === "open" ? " · 空 " + open + " 个" : "") + (x.mode === "easy" ? " · 放水局" : "")),
       h("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, seats.map((s, i) => h("div", { key: i, "data-wk": "nrgameseat", "data-kind": s.kind, style: { fontFamily: F_BODY, fontSize: fs(13), color: s.kind === "open" ? t.fog : t.ink } },
         (i + 1) + ". " + seatLabel(s) + (s.away ? " · 掉线了，NPC 先替着" : "")))),
-      x.status === "open" && h("div", { className: "flex flex-wrap", style: { gap: 6 } },
-        h("button", { "data-wk": "nrgamejoin", onClick: onJoin, disabled: busy, style: pill(t, !mine) }, mine ? "换人" : "加入"),
+      // 我开的卡，可这台手机重进过房间、已经不记得这一局了：按钮按了也没用，直说
+      lost ? h("div", { "data-wk": "nrgamelost", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.5 } }, "这张卡是你重新进房间之前发的，这台手机已经接不上这一局了。要玩就从「＋ → 小游戏」再发一张。") : null,
+      !lost && x.status === "open" && h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+        (mine || open > 0 || seats.length < x.max) && h("button", { "data-wk": "nrgamejoin", onClick: onJoin, disabled: busy, style: pill(t, !mine) }, mine ? "换人" : "加入"),
         mine && !isHost && h("button", { "data-wk": "nrgameleave", onClick: onLeave, style: pill(t, false) }, "不玩了"),
         isHost && seats.length < x.max && h("button", { "data-wk": "nrgameadd", onClick: onAdd, style: pill(t, false) }, "加一个座位"),
         isHost && h("button", { "data-wk": "nrgamestart", onClick: onStart, disabled: busy || !canStart(x), style: Object.assign(pill(t, true), { opacity: busy || !canStart(x) ? .45 : 1 }) }, busy ? "在开局…" : "开始"),
         isHost && h("button", { "data-wk": "nrgamecancel", onClick: onCancel, style: pill(t, false) }, "取消")),
-      x.status === "open" && h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
+      !lost && x.status === "open" && h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
         isHost ? (x.npcFill ? "点「开始」时空着的座位用 NPC 补上。" : "开局配置里没开 NPC 凑数：空着的座位开局时收掉，人够 " + x.min + " 个才能开。") : "点「加入」选你这边上谁：你自己，或者你带来的角色，每人占一个座位。"),
-      x.status === "playing" && h("button", { "data-wk": "nrgameopen", onClick: onOpen, style: pill(t, true) }, mine ? "回到牌桌" : "去看看"));
+      !lost && x.status === "playing" && h("button", { "data-wk": "nrgameopen", onClick: onOpen, style: pill(t, true) }, mine ? "回到牌桌" : "去看看"));
   }
   function RecordCard({ x, onOpen }) {
     const t = useTheme();

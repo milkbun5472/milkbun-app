@@ -60,8 +60,8 @@ test("报名：房主先坐，别人坐空位；换人先腾旧位；同一个�
   inv = r.inv;
   assert.deepStrictEqual(inv.seats.map(s => s.name), ["甲", "乙", "阿B"]);
   assert.strictEqual(r.dropped.length, 0, "重复的角色不算没坐上");
-  r = G.joinSeats(inv, "C", "丙", [{ kind: "user" }]);
-  assert.strictEqual(r.dropped.length, 1, "满了要退回");
+  r = G.joinSeats(Object.assign({}, inv, { max: 3 }), "C", "丙", [{ kind: "user" }]);
+  assert.strictEqual(r.dropped.length, 1, "到上限坐满了要退回");
   inv = G.joinSeats(inv, "B", "乙", [{ kind: "char", charId: "b1", name: "阿B" }]).inv;
   assert.deepStrictEqual(inv.seats.map(s => s.kind), ["user", "char", "open"], "换人先把原来的位子腾出来");
   inv = G.leaveSeats(inv, "B");
@@ -245,4 +245,34 @@ test("接线：＋ 面板有「小游戏」、大厅只摆接得住的那几盒�
   // 公共版要把联机整个摘掉：小游戏里抽出来的公共那份不许带联机字样
   assert.ok(!/联机|netroom|NetRoom/.test(games), "games.js 里不许出现联机字样");
   assert.match(read("js/app.js"), /gameApi: \(\) => gameActive,/);
+});
+
+test("加入：卡上空位不够时先加座位（到上限为止）；坐不下、庄那台忘了这一局，都回一句话，不让人以为点了没反应", async () => {
+  const { G, w } = load();
+  let inv = G.newInvite({ gid: "g", game: SOUP, cfg: { total: 2, npcFill: true }, host: "A", nick: "甲", picks: [{ kind: "user" }, { kind: "char", charId: "a1", name: "阿A" }] });
+  assert.strictEqual(inv.seats.filter(s => s.kind === "open").length, 0, "房主自己就把两个位子坐满了");
+  const r = G.joinSeats(inv, "B", "乙", [{ kind: "user" }, { kind: "char", charId: "b1", name: "阿B" }]);
+  assert.deepStrictEqual(r.inv.seats.map(s => s.name), ["甲", "阿A", "乙", "阿B"], "海龟汤上限 8 个：坐不下就加座位");
+  assert.strictEqual(r.dropped.length, 0);
+  const g2 = G.newInvite({ gid: "g2", game: GOMOKU, cfg: { total: 2 }, host: "A", nick: "甲", picks: [{ kind: "user" }, { kind: "char", charId: "a1", name: "阿A" }] });
+  assert.strictEqual(G.joinSeats(g2, "B", "乙", [{ kind: "user" }]).dropped.length, 1, "五子棋到上限 2 个就不加了");
+  // 两台真走一遍：B 点加入 → 庄改卡 → B 那边的卡上显示坐上了 → 能开局；满了的那台收到一句话
+  const toasts = [];
+  const { S, log } = bus(["A", "B"], null, (id, send) => w.NetGameSession({ me: () => id, nick: () => id, nickOf: x => x, send, fast: true,
+    post: () => {}, patchCard: () => {}, charOf: () => null, apiFor: () => null, toast: s => toasts.push(id + ":" + s), presence: () => ({ A: "on", B: "on" }) }));
+  const gid = S.A.invite(GOMOKU, { total: 2 }, [{ kind: "user" }]);
+  S.B.join(gid, [{ kind: "user" }], "A");
+  assert.ok(await until(() => log.some(l => l.from === "A" && l.obj.op === "card" && l.obj.x.seats[1].peer === "B")), "庄把 B 坐进卡里发出来了");
+  assert.ok(await S.A.start(gid));
+  S.B.join(gid, [{ kind: "user" }], "A");
+  assert.ok(await until(() => toasts.some(x => x.startsWith("B:这一局已经开始"))), "开局了再点加入要说一声");
+  S.B.join("没这局", [{ kind: "user" }], "A");
+  assert.ok(await until(() => toasts.some(x => x.startsWith("B:开这一局的那台手机"))), "庄那台不记得这张卡要说一声");
+});
+
+test("牌桌页下面也摆着邀请卡：在那一页点「加入」也要弹出选人那张（原来只挂在聊天页，点了没反应）", () => {
+  const a = nsrc.indexOf("const joinSheet = () =>"), gp = nsrc.indexOf('if (page === "game" && room)'), gr = nsrc.indexOf('if (page === "gamerec")', gp);
+  assert.ok(a > 0 && gp > a && gr > gp, "抠不出 joinSheet / 牌桌页");
+  assert.match(nsrc.slice(gp, gr), /joinSheet\(\)\);/, "牌桌页挂上选人那张");
+  assert.ok((nsrc.match(/joinSheet\(\)\)/g) || []).length >= 2, "聊天页、牌桌页各挂一次");
 });
