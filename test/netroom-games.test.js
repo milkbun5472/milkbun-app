@@ -151,7 +151,8 @@ test("角色座位由带 TA 来的那台出手、用 TA 自己的线路；NPC �
   assert.strictEqual(rec.by, "A"); assert.strictEqual(rec.type, "gamerec");
   assert.match(rec.x.text, /阿B（黑）对 电脑（白），\d+ 手，/);
   assert.strictEqual(S.A.seen(gid).inv.status, "done");
-  assert.ok(S.B.seen(gid).view.winner > 0, "B 那边也看到终局了");
+  // 终局那份 view 跟战绩卡是两条消息，B 那边可能晚一拍才到：等它到，不是一拍都不让
+  assert.ok(await until(() => S.B.seen(gid) && S.B.seen(gid).view.winner > 0), "B 那边也看到终局了");
 });
 
 test("庄只认座位真正的主人：别人冒名下一手不算", async () => {
