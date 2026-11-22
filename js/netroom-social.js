@@ -1,7 +1,7 @@
 // 联机房间第三期·第三档：藏着身份、夜里分头行动（狼人杀、阿瓦隆）（设计单第七节）
 //
 // 接在 netroom-games.js 那张 ADAPTERS 表上，接口一样（文件头那一段）。这一档多出来的：
-//   · 身份一律走 priv：庄（房主那台）手里有全桌身份，每个座位只收到自己那一份——
+//   · 身份一律走 priv：庄（开局的人那台）手里有全桌身份，每个座位只收到自己那一份——
 //       狼人杀：狼队友是谁只写进狼的那几份；预言家验出来的、女巫今晚看到谁倒下、守卫守了谁，只写进那一个座位那一份。
 //       阿瓦隆：梅林看到的坏人（不含莫德雷德）、派西维尔看到的两个人、坏人互相认得（不含奥伯伦），各写进各自那一份。
 //     公开的 view 里只有谁还活着、白天说了什么、票怎么投的；cleanView 一样一样挑字段。终局 reveal 才亮全桌身份，回看里连夜里的事一起亮。
@@ -32,6 +32,8 @@
     const inc = idx.find(i => s.indexOf(nmOf(inv, i)) >= 0); return inc != null ? inc : -1;
   };
   const pub = (st, text) => st.log.push({ text: cut(text, 300) });
+  // 一轮完了的那句：日志最后一行
+  const lastLine = st => { const L = (st && st.log) || []; const x = L[L.length - 1]; return x ? cut(x.text, 200) : ""; };
   const secret = (st, text) => st.log.push({ text: cut(text, 300), night: true });
   const pubLog = log => arr(log, 400).filter(x => x && !x.night).slice(-40).map(x => ({ text: cut(x.text, 300) }));
 
@@ -207,6 +209,8 @@
   }
   const OUT_HOW = ["wolf", "poison", "vote", "shot"];
   ADAPTERS.werewolf = {
+    // 天亮了（夜里结算完，进白天发言）、天黑了（白天投完）：各停一下
+    roundEnd: (p, n) => p.phase !== n.phase && ((n.phase === "speech" && p.phase === "night") || (n.phase === "night" && p.phase !== "night")) ? (lastLine(n) || (n.phase === "night" ? "白天结束了" : "天亮了")) : "",
     zh: "狼人杀", needPriv: true, mustFill: true,
     seatRange: () => ({ min: 5, max: 12 }),
     note: "身份只发到各人自己的手机，狼人之间互相认得；夜里轮到谁，谁那台弹出行动，别人看到「天黑请闭眼」。发言、投票轮流来，角色用带 TA 来的那台、TA 自己的线路。没有白狼王和遗言。",
@@ -241,7 +245,7 @@
     apply(st, i, mv, ctx) {
       const inv = ctx.inv;
       if (st.phase === "done") return { err: "这一局已经结束了" };
-      if (mv && (mv.reveal || mv.end)) { const n = clone(st); n.phase = "done"; n.win = n.win || "none"; pub(n, "房主收桌，亮身份。"); return { st: n }; }
+      if (mv && (mv.reveal || mv.end)) { const n = clone(st); n.phase = "done"; n.win = n.win || "none"; pub(n, "开局的人收桌，亮身份。"); return { st: n }; }
       if (i !== this.turn(st)) return { err: "还没轮到这一位" };
       const n = clone(st), m = wwLegal(n, i, mv && !mv.pass ? mv : {}), nm = nmOf(inv, i);
       if (n.phase === "night") {
@@ -378,6 +382,8 @@
     return {};
   }
   ADAPTERS.avalon = {
+    // 一个任务做完：停一下
+    roundEnd: (p, n) => (n.results || []).length > (p.results || []).length ? (lastLine(n) || "这个任务做完了") : "",
     zh: "阿瓦隆", needPriv: true, mustFill: true,
     seatRange: () => ({ min: 5, max: 10 }),
     note: "身份只发到各人自己的手机，谁认得谁照规则只写进那几台。组队投票公开，任务牌只亮几张失败、不亮是谁出的。角色用带 TA 来的那台、TA 自己的线路。没有湖中仙女。",
@@ -407,7 +413,7 @@
     apply(st, i, mv, ctx) {
       const inv = ctx.inv;
       if (st.phase === "done") return { err: "这一局已经结束了" };
-      if (mv && (mv.reveal || mv.end)) { const n = clone(st); n.phase = "done"; n.win = n.win || "none"; pub(n, "房主收桌，亮身份。"); return { st: n }; }
+      if (mv && (mv.reveal || mv.end)) { const n = clone(st); n.phase = "done"; n.win = n.win || "none"; pub(n, "开局的人收桌，亮身份。"); return { st: n }; }
       if (i !== this.turn(st)) return { err: "还没轮到这一位" };
       const n = clone(st), m = avLegal(n, i, mv && !mv.pass ? mv : {}), nm = nmOf(inv, i);
       if (n.phase === "team") {
@@ -474,6 +480,8 @@
     }
   };
   NC.CHAR_OPTS.avalon = ["recent"];
+  ADAPTERS.werewolf.roundLabel = v => v.day ? "第 " + v.day + " 天" : "第一夜";
+  ADAPTERS.avalon.roundLabel = v => "第 " + ((v.qn | 0) + 1) + " 个任务";
 
   // ───────────── 界面 ─────────────
   if (typeof React === "undefined" || !root.NetGameUI) return;
@@ -490,8 +498,9 @@
   const RoleCard = ({ t, title, lines }) => h("div", { "data-wk": "nrsocrole", style: { border: "1px solid " + t.line, borderRadius: 12, background: t.bg2, padding: "8px 12px", textAlign: "center" } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(17), color: t.ink } }, title), lines.filter(Boolean).map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.55, marginTop: 2 } }, x)));
   // 一排座位：谁出局了划掉，轮到谁描深，tag 是每个人旁边那几个字
-  const SeatRow = ({ t, inv, alive, on, tag }) => h("div", { "data-wk": "nrsocseats", className: "flex flex-wrap justify-center", style: { gap: 6 } }, inv.seats.map((s, i) => h("span", { key: i, "data-on": i === on ? "1" : "0",
-    style: { padding: "3px 9px", borderRadius: 10, border: "1px solid " + (i === on ? t.ink : t.line), fontFamily: F_BODY, fontSize: fs(12), color: !alive || alive[i] ? t.ink : t.fog, textDecoration: !alive || alive[i] ? "none" : "line-through" } }, (i + 1) + " " + s.name + (tag ? tag(i) : ""))));
+  //   座位圈是单机牌桌那一份 CardSeats（头像、轮到谁亮圈、出局的淡掉）；头像走 NetGameUI 的 faceChar（不带人设）
+  const SeatRow = ({ t, inv, alive, on, tag }) => h("div", { "data-wk": "nrsocseats" }, h(root.GameShared.cards.Seats, { t, log: [], seats: inv.seats.map((s, i) => ({ key: "s" + i, name: (i + 1) + " " + (s.name || "?"),
+    char: K.faceChar ? K.faceChar(s) : { name: s.name || "?" }, isUser: s.kind === "user", on: i === on, out: !!alive && !alive[i], sub: tag ? String(tag(i) || "").trim() : "" })) }));
   // 点一个人：一排人名钮（opts 是能点的座位）＋可选的「不选」
   const Picks = ({ t, inv, opts, onPick, none, sel }) => h("div", { "data-wk": "nrsocact", className: "flex flex-wrap justify-center", style: { gap: 6 } },
     opts.map(i => h("button", { key: i, onClick: () => onPick(i), style: small(t, sel ? sel.indexOf(i) >= 0 : false) }, inv.seats[i].name)).concat(none ? [h("button", { key: "x", onClick: () => onPick(-1), style: small(t, false) }, none)] : []));
@@ -499,7 +508,7 @@
   function WolfTable({ inv, view, priv, me, onMove, onReveal, isHost }) {
     const t = useTheme(), A = ADAPTERS.werewolf, mine = mySeatOf(inv, me), ti = A.turn(view);
     const myTurn = ti >= 0 && actorOf(inv.seats[ti], me, inv.host) === "mine-user";
-    const act = priv && priv.act && mine >= 0 && !(inv.seats[mine] || {}).away ? priv.act : null;
+    const act = priv && priv.act && mine >= 0 && !(inv.seats[mine] || {}).away && !(inv.seats[mine] || {}).held ? priv.act : null;
     const [d, setD] = useState(""), [save, setSave] = useState(null); useEffect(() => { setD(""); setSave(null); }, [view.log.length, view.phase, view.qi]);
     const alive = view.alive.map((a, i) => a ? i : -1).filter(i => i >= 0), others = alive.filter(i => i !== mine);
     const role = priv && priv.role, mates = (priv && priv.mates) || [];

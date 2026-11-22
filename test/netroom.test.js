@@ -69,7 +69,7 @@ test("发给对方的名片只有名字和小头像：人设、记忆、世界�
   assert.deepStrictEqual(Object.keys(C.cleanCard(Object.assign({ persona: "x" }, card))).sort(), ["avatar", "color", "emoji", "id", "name"]);
   // 进房那一下发出去的就是这份名片
   assert.match(src, /cards\.push\(Core\.cardOf\(c, await smallAvatar\(c\)\)\)/);
-  assert.match(src, /send\(\{ t: "hi", nick: myNick\(\), chars: cards \}\)/);
+  assert.match(src, /send\(\{ t: "hi", nick: myNick\(\), chars: cards, me: await myFace\(myNick\(\)\) \}\)/);
   assert.match(src, /const AVATAR_PX = 64;/);
 });
 
