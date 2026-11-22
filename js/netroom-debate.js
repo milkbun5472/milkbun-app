@@ -44,7 +44,7 @@
 
   async function judge(st, inv, ctx) {
     const base = Object.assign({}, st, { phase: "done", busy: false });
-    if (!ctx.hostApi) return Object.assign(base, { verdict: { winner: "", reason: "庄（开局的人）这台没配线路，这一场不判胜负。", crux: "" } });
+    if (!ctx.hostApi) return Object.assign(base, { verdict: { winner: "", reason: "开局的人那台没配线路，这一场不判胜负。", crux: "" } });
     await ensure();
     const D = DS(); if (!D) return Object.assign(base, { verdict: { winner: "", reason: "擂台没装上，这一场不判胜负。", crux: "" } });
     const humans = inv.seats.filter(s => s.kind === "user").map(s => s.name);
@@ -179,6 +179,7 @@
     }
   };
   const said = new Set(), lastAt = {};
+  A.roundLabel = v => v.phase === "side" ? "" : "第 " + ((v.round | 0) + 1) + (v.rounds ? " / " + v.rounds : "") + " 轮";
   C.ADAPTERS.debate = A;
   // 小游戏大厅那排盒子里多摆这一盒（它不在单机小游戏的目录里，单机擂台是自己那个 App）
   A.shelf = { key: "debate", zh: "辩论擂台", en: "Debate", min: 2, max: 6, rule: "2~6 人上台 · 其余在观众席" };

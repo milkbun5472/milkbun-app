@@ -139,7 +139,8 @@
     return out;
   }
   // 收到某人的名片：有就更新，没有就添；对得上昵称的 legacy 那一位换成真 id（消息跟着换）
-  function upsertPeer(room, peerId, nick, chars) {
+  // face：这个人自己的名片（名字＋进房时那张小头像，跟角色名片同一套 cleanCard）；旧版对端不发，就留着上次的
+  function upsertPeer(room, peerId, nick, chars, face) {
     const r = normalizeRoom(room);
     const peers = (r.peers || []).slice();
     let i = peers.findIndex(p => p.peerId === peerId);
@@ -148,10 +149,15 @@
       const j = peers.findIndex(p => p.peerId === LEGACY && p.nick === nick);
       if (j >= 0) { i = j; msgs = msgs.map(m => m.peerId === LEGACY ? Object.assign({}, m, { peerId }) : m); }
     }
+    const old = i >= 0 ? peers[i] : null;
     const rec = { peerId, nick: String(nick || "对方").slice(0, 20), chars: (chars || []).slice(0, 8) };
+    const fc = face && typeof face === "object" ? cleanCard(face) : (old && old.face) || null;
+    if (fc && (fc.avatar || fc.emoji || fc.color)) rec.face = fc;
     if (i >= 0) peers[i] = rec; else peers.push(rec);
     return Object.assign({}, r, { peers, msgs });
   }
+  // 最近一次进房用的昵称（「朋友」是没填时的兜底，不算她填的）
+  const lastNick = rooms => { const r = (rooms || []).slice().sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0)).find(x => x && String(x.myNick || "").trim() && x.myNick !== "朋友"); return r ? String(r.myNick).trim().slice(0, 20) : ""; };
   const peerOf = (room, id) => ((room && room.peers) || []).find(p => p.peerId === id) || null;
   // 这条话是谁那边的：自己 → 我的昵称；对面 → 按 peerId 找那个人（找不到就第一个人，再不行「对方」）
   function ownerNick(room, m) {
@@ -778,7 +784,7 @@
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
     memoryTargets, transcript, lineInstruction, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
     ownsMsg, editMsg, recallMsg, dropMsg, dropOwnMsg, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom, sinceRemembered, echoText,
-    normalizeRoom, upsertPeer, peerOf, ownerNick, peerNames, syncedMsg, shouldOffer, admit, forwardTargets, reachable, rid, Mesh };
+    normalizeRoom, upsertPeer, peerOf, lastNick, ownerNick, peerNames, syncedMsg, shouldOffer, admit, forwardTargets, reachable, rid, Mesh };
   root.NetRoomCore = Core;
 
   // ───────────── 页面 ─────────────
@@ -801,7 +807,7 @@
       h("div", { style: { fontFamily: F_BODY, fontSize: fs(10.5), letterSpacing: 1, color: t.tint, marginBottom: 4 } }, "这一轮完了"),
       h("div", { style: { fontFamily: F_BODY, fontSize: fs(13.5), color: t.ink, lineHeight: 1.6, marginBottom: 10 } }, pause.line),
       isHost && G && G.GameNextBtn ? h(G.GameNextBtn, { t, wk: "nrgameresume", onClick: onGo }, "接着来")
-        : h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: t.fog } }, "先在桌上、房间里聊几句；" + (hostName || "开局的人") + " 点「接着来」就开下一轮。"),
+        : h("div", { "data-wk": "nrgameheld", style: { fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } }, "这一轮停着，等 " + (hostName || "开局的人") + " 点「接着来」"),
       isHost ? h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, marginTop: 8 } }, "停着的时候谁都不出手，角色照样能开口；聊够了点「接着来」。") : null);
   }
   function Note({ children }) {
@@ -1004,7 +1010,8 @@
     const chars = props.characters || [];
     const charsById = {}; chars.forEach(c => { charsById[c.id] = c; });
     const [page, setPage] = useState("home");          // home / wait / pick / chat / leave / history / view
-    const [nick, setNick] = useState((props.profile && props.profile.name) || "");
+    // 昵称：她上一次进房填的那个优先（重进房间、开局的人回来都不退回「朋友」），没填过才用自己的名字
+    const [nick, setNick] = useState(() => Core.lastNick(Core.loadRooms()) || (props.profile && props.profile.name) || "");
     const [code, setCode] = useState("");
     const [joinCode, setJoinCode] = useState("");
     const [status, setStatus] = useState("");
@@ -1038,6 +1045,20 @@
     useEffect(() => () => { try { mesh.current && mesh.current.close(); } catch (e) {} }, []);
     const refresh = () => setRooms(Core.loadRooms());
     const myNick = () => String(nick || "").trim().slice(0, 20) || "朋友";
+    // 我自己的名片（hi 里的 me）：名字＋压到 64px 的头像，跟角色名片一样只这几样
+    const myFace = async nm => Core.cardOf({ id: "me", name: nm, avatarEmoji: props.profile && props.profile.avatarEmoji, color: props.profile && props.profile.color }, await smallAvatar(props.profile || null));
+    // 牌桌上每个座位的头像：自己的角色从本机取，别人带来的角色、别的真人用进房名片上那张小图
+    const faceOf = s => {
+      const r = roomRef.current; if (!s || !r) return null;
+      if (s.peer === meId.current) {
+        if (s.kind === "user") return props.profile ? { avatarImage: props.profile.avatarImage || "", avatarEmoji: props.profile.avatarEmoji || "", color: props.profile.color || "" } : null;
+        const ch = charsById[s.charId]; return ch ? { id: ch.id, avatarImage: ch.avatarImage || "", avatarEmoji: ch.avatarEmoji || "", color: ch.color || "" } : null;
+      }
+      const p = Core.peerOf(r, s.peer); if (!p) return null;
+      const c = s.kind === "user" ? p.face : (p.chars || []).find(x => x.id === s.charId);
+      return c ? { avatarImage: c.avatar || "", avatarEmoji: c.emoji || "", color: c.color || "" } : null;
+    };
+    if (root.NetGameUI && root.NetGameUI.setFaces) root.NetGameUI.setFaces(faceOf);
 
     const syncNet = () => {
       const m = mesh.current; if (!m) return;
@@ -1098,7 +1119,7 @@
       if (e.t === "links") { linkMap.current[origin] = (Array.isArray(e.ids) ? e.ids : []).map(String).slice(0, MAX_LINKS); syncNet(); }
       else if (e.t === "hi") {
         const known = !!Core.peerOf(r, origin), nick = String(e.nick || "对方").slice(0, 20);
-        commit(Core.upsertRoom(Core.upsertPeer(r, origin, nick, (e.chars || []).slice(0, 8).map(Core.cleanCard))));
+        commit(Core.upsertRoom(Core.upsertPeer(r, origin, nick, (e.chars || []).slice(0, 8).map(Core.cleanCard), e.me)));
         if (!greeted.current.has(origin)) {
           greeted.current.add(origin);
           if (entered.current) {
@@ -1161,7 +1182,7 @@
     const announce = async r => {
       const cards = [];
       for (const c of (r.myChars || [])) { const ch = charsById[c.id]; cards.push(ch ? Core.cardOf(ch, await smallAvatar(ch)) : Core.cleanCard({ id: c.id, name: c.name })); }
-      send({ t: "hi", nick: r.myNick || myNick(), chars: cards });
+      send({ t: "hi", nick: r.myNick || myNick(), chars: cards, me: await myFace(r.myNick || myNick()) });
       send({ t: "sync", msgs: (r.msgs || []).filter(m => !m.sys).slice(-600).map(m => Core.wireMsg(Object.assign({}, m, { by: m.side === "me" ? meId.current : (m.peerId || "") }))) });
     };
     // 断了以后连回原来那个房间：房间号、谁开的都照旧，聊天记录接着往下记（她 2026-11-22）
@@ -1176,6 +1197,7 @@
       let base = resume ? (Core.loadRooms().find(x => x.id === resume.id) || resume) : null;
       if (base && !base.myPeerId) base = Core.patchRoom(base, { myPeerId: Core.rid() });   // 老房间头一回连：补一个自己的 id
       meId.current = base ? base.myPeerId : Core.rid();
+      if (base && base.myNick && base.myNick !== "朋友") setNick(base.myNick);
       if (base) { commit(Core.patchRoom(base, { endedAt: 0 })); entered.current = true; setPage("chat"); }
       else { commit(null); entered.current = false; setPage("wait"); }
       setCode(c); setStatus("正在连…");
@@ -1209,7 +1231,7 @@
       const cards = [];
       for (const c of list) cards.push(Core.cardOf(c, await smallAvatar(c)));
       commit(Core.patchRoom(roomRef.current, { myNick: myNick(), myChars: list.map(c => ({ id: c.id, name: c.remark || c.name, recent: !!withChat[c.id] })) }));
-      send({ t: "hi", nick: myNick(), chars: cards });
+      send({ t: "hi", nick: myNick(), chars: cards, me: await myFace(myNick()) });
       entered.current = true; setPage("chat");
     };
     // 存档那一份（图换成本机引用）和发出去那一份（压小的图）各过一遍 wireMsg
@@ -1410,14 +1432,14 @@
       const gs = games.current, gid = gameWin.gid, sv = gs ? gs.seen(gid) : null;
       const A = sv && GC() ? GC().ADAPTERS[sv.inv.key] : null;
       const shut = () => setGameWinRaw(null);
-      const body = !sv || !A || !root.GameShared ? h("div", { style: { padding: 16 } }, h(Note, null, "在等开局的人那边把牌桌发过来…")) : (() => {
+      const body = !sv || !A || !root.GameShared ? h("div", { style: { padding: 16 } }, h(Note, null, "牌桌还没到，在等开局的那台手机发过来…")) : (() => {
         const inv = sv.inv, isHost = gs.isHost(gid), done = inv.status === "done";
         const pr = presence(), hostGone = !isHost && pr[inv.host] !== "on" && pr[inv.host] !== "relay";
         return h("div", { "data-wk": "nrgamearea", className: "h-full", style: { overflowY: "auto", paddingBottom: 12 } },
           h("div", { style: { padding: "6px 16px 0", fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, inv.zh, h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, done ? "这一局打完了" : inv.seats.some(x => x.peer === meId.current && x.kind !== "npc") ? "你在桌上" : "你在旁边看")),
-          hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "开局的人（这一局的庄）现在不在房里，这一局停在这儿；她回来就接着打。")),
+          hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "开这一局的人现在不在房里，牌桌停在这儿；她回来就接着打。")),
           sv.pause && !done && h(PauseBar, { pause: sv.pause, isHost, onGo: () => gs.resume(gid), hostName: (inv.seats.find(x => x.kind === "user" && x.peer === inv.host) || {}).name || "" }),
-          h(A.Table, { inv, view: sv.view, priv: sv.priv || null, myApi: props.gameApi ? props.gameApi() : null, me: meId.current, isHost, onMove: (seat, mv) => sv.pause ? (props.toast && props.toast("这一轮停着，等开局的人点「接着来」")) : gs.move(gid, seat, mv), onReveal: () => gs.reveal(gid), side: sv.side || [], onSide: x => gs.side(gid, x), nick: myNick() }),
+          h(A.Table, { inv: sv.pause && !done && GC().heldInv ? GC().heldInv(inv) : inv, view: sv.view, priv: sv.priv || null, myApi: props.gameApi ? props.gameApi() : null, me: meId.current, isHost, onMove: (seat, mv) => sv.pause ? (props.toast && props.toast("这一轮停着，等开局的人点「接着来」")) : gs.move(gid, seat, mv), onReveal: () => gs.reveal(gid), side: sv.side || [], onSide: x => gs.side(gid, x), nick: myNick() }),
           root.NetGameUI && h(root.NetGameUI.TalkStrip, { lines: (sv.side || []).filter(x => x.kind === "talk"), charOf: l => { const st = l && l.seat >= 0 ? inv.seats[l.seat] : null; return st && st.kind === "char" ? charsById[st.charId] || null : null; } }),
           done && h("div", { className: "flex", style: { gap: 8, padding: "0 16px 12px" } },
             isHost && h(Btn, { label: "再来一局", primary: true, wk: "nrgameagain", onClick: () => { gs.again(gid); shut(); } }),
