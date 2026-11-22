@@ -1,7 +1,7 @@
 // 联机房间第三期·第三档：藏着身份、夜里分头行动（狼人杀、阿瓦隆）（设计单第七节）
 //
 // 接在 netroom-games.js 那张 ADAPTERS 表上，接口一样（文件头那一段）。这一档多出来的：
-//   · 身份一律走 priv：庄（房主那台）手里有全桌身份，每个座位只收到自己那一份——
+//   · 身份一律走 priv：庄（开局的人那台）手里有全桌身份，每个座位只收到自己那一份——
 //       狼人杀：狼队友是谁只写进狼的那几份；预言家验出来的、女巫今晚看到谁倒下、守卫守了谁，只写进那一个座位那一份。
 //       阿瓦隆：梅林看到的坏人（不含莫德雷德）、派西维尔看到的两个人、坏人互相认得（不含奥伯伦），各写进各自那一份。
 //     公开的 view 里只有谁还活着、白天说了什么、票怎么投的；cleanView 一样一样挑字段。终局 reveal 才亮全桌身份，回看里连夜里的事一起亮。
@@ -32,6 +32,8 @@
     const inc = idx.find(i => s.indexOf(nmOf(inv, i)) >= 0); return inc != null ? inc : -1;
   };
   const pub = (st, text) => st.log.push({ text: cut(text, 300) });
+  // 一轮完了的那句：日志最后一行
+  const lastLine = st => { const L = (st && st.log) || []; const x = L[L.length - 1]; return x ? cut(x.text, 200) : ""; };
   const secret = (st, text) => st.log.push({ text: cut(text, 300), night: true });
   const pubLog = log => arr(log, 400).filter(x => x && !x.night).slice(-40).map(x => ({ text: cut(x.text, 300) }));
 
@@ -207,6 +209,8 @@
   }
   const OUT_HOW = ["wolf", "poison", "vote", "shot"];
   ADAPTERS.werewolf = {
+    // 天亮了（夜里结算完，进白天发言）、天黑了（白天投完）：各停一下
+    roundEnd: (p, n) => p.phase !== n.phase && ((n.phase === "speech" && p.phase === "night") || (n.phase === "night" && p.phase !== "night")) ? (lastLine(n) || (n.phase === "night" ? "白天结束了" : "天亮了")) : "",
     zh: "狼人杀", needPriv: true, mustFill: true,
     seatRange: () => ({ min: 5, max: 12 }),
     note: "身份只发到各人自己的手机，狼人之间互相认得；夜里轮到谁，谁那台弹出行动，别人看到「天黑请闭眼」。发言、投票轮流来，角色用带 TA 来的那台、TA 自己的线路。没有白狼王和遗言。",
@@ -241,7 +245,7 @@
     apply(st, i, mv, ctx) {
       const inv = ctx.inv;
       if (st.phase === "done") return { err: "这一局已经结束了" };
-      if (mv && (mv.reveal || mv.end)) { const n = clone(st); n.phase = "done"; n.win = n.win || "none"; pub(n, "房主收桌，亮身份。"); return { st: n }; }
+      if (mv && (mv.reveal || mv.end)) { const n = clone(st); n.phase = "done"; n.win = n.win || "none"; pub(n, "开局的人收桌，亮身份。"); return { st: n }; }
       if (i !== this.turn(st)) return { err: "还没轮到这一位" };
       const n = clone(st), m = wwLegal(n, i, mv && !mv.pass ? mv : {}), nm = nmOf(inv, i);
       if (n.phase === "night") {
@@ -378,6 +382,8 @@
     return {};
   }
   ADAPTERS.avalon = {
+    // 一个任务做完：停一下
+    roundEnd: (p, n) => (n.results || []).length > (p.results || []).length ? (lastLine(n) || "这个任务做完了") : "",
     zh: "阿瓦隆", needPriv: true, mustFill: true,
     seatRange: () => ({ min: 5, max: 10 }),
     note: "身份只发到各人自己的手机，谁认得谁照规则只写进那几台。组队投票公开，任务牌只亮几张失败、不亮是谁出的。角色用带 TA 来的那台、TA 自己的线路。没有湖中仙女。",
@@ -407,7 +413,7 @@
     apply(st, i, mv, ctx) {
       const inv = ctx.inv;
       if (st.phase === "done") return { err: "这一局已经结束了" };
-      if (mv && (mv.reveal || mv.end)) { const n = clone(st); n.phase = "done"; n.win = n.win || "none"; pub(n, "房主收桌，亮身份。"); return { st: n }; }
+      if (mv && (mv.reveal || mv.end)) { const n = clone(st); n.phase = "done"; n.win = n.win || "none"; pub(n, "开局的人收桌，亮身份。"); return { st: n }; }
       if (i !== this.turn(st)) return { err: "还没轮到这一位" };
       const n = clone(st), m = avLegal(n, i, mv && !mv.pass ? mv : {}), nm = nmOf(inv, i);
       if (n.phase === "team") {

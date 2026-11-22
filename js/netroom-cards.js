@@ -1,7 +1,7 @@
 // 联机房间第三期·第二档：手里的牌／词／骰子只给自己看（设计单第七节）
 //
 // 接在 netroom-games.js 那张 ADAPTERS 表上，接口一样（文件头那一段）。这一档多出来的只有两条：
-//   · 私密的那份一律走 priv：庄（房主那台）只把每个座位的手牌／词／骰子发到坐这个座位的那台；
+//   · 私密的那份一律走 priv：庄（开局的人那台）只把每个座位的手牌／词／骰子发到坐这个座位的那台；
 //     公开的 view 里只有张数、桌上打出来的牌和日志——cleanView 一样一样挑字段，别的一概不收。
 //   · 角色座位由带 TA 来的那台出手：手牌类用本地牌手（单机那一位，照主人在报名单上调的牌手水平），
 //     它手里只有这个座位自己那份 priv，别人的手牌是同样张数的空牌；卧底、心有灵犀用 TA 自己的线路和人设。
@@ -23,7 +23,7 @@
   const seatOfKey = k => { const m = /^s(\d+)$/.exec(String(k || "")); return m ? +m[1] : -1; };
   const logOf = (st, n) => arr(st.log, 400).slice(-(n || 40)).map(x => ({ text: cut(x && x.text, 300) }));
   const cleanLog = v => arr(v, 400).slice(-40).map(x => ({ text: cut(x && x.text, 300) }));
-  // 牌手水平：主人在报名单上给角色调的那一档；NPC 照房主开局页的那一档；放水局 NPC 再松一点
+  // 牌手水平：主人在报名单上给角色调的那一档；NPC 照开局的人开局页的那一档；放水局 NPC 再松一点
   const slipFor = (skill, easy) => { const B = CD().BOT_SKILL || {}; const s = (B[skill] || B.normal || { slip: .12 }).slip; return easy ? Math.max(s, .4) : s; };
   const npcSlip = (st, inv) => slipFor(st.botSkill, inv.mode === "easy");
   const charSlip = (ctx, inv) => slipFor(ctx && ctx.opts && ctx.opts.botSkill, false);
@@ -41,6 +41,8 @@
   // ── 一副通用的外壳：庄拿全局，公开那份只留 hide 挑出来的，priv 只给这个座位 ──
   //   spec：{ zh, seatRange, mustFill, init(inv,ctx)→st, hide(st)→view, privOf(st,i), turn(st|view), act(st,i,mv) 改 st 或抛错,
   //          after(st) 一手打完自动接下一手, npc(st,i,inv)→mv, local(view,i,priv)→给本地牌手看的那份 st, result, text, replay, cleanView, cleanReplay }
+  // 这一手打完了的那句：日志最后一行
+  const lastLine = st => { const L = (st && st.log) || []; const x = L[L.length - 1]; return x ? cut(x.text, 200) : ""; };
   function handAdapter(key, spec) {
     const A = {
       // 本地牌手出牌不调模型：桌边台词由框架隔几手问一句（localTalk）；手里有牌，NPC 那一手不并进别人的调用
@@ -75,7 +77,9 @@
       },
       cleanReplay: r => ({ rows: arr(r.rows, 12).map(x => cut(x, 120)), log: arr(r.log, 40).map(x => cut(x, 300)) }),
       cleanView: v => spec.cleanView(v || {}),
-      stateText: (v, i, inv, priv) => spec.text(v, i, inv, priv)
+      stateText: (v, i, inv, priv) => spec.text(v, i, inv, priv),
+      // 一手结算完（after 里留下了新的 lastShow）就算一轮完了，停下来让大家聊两句
+      roundEnd: (p, n) => n.lastShow && JSON.stringify(n.lastShow) !== JSON.stringify(p.lastShow) ? (lastLine(n) || "这一手打完了") : ""
     };
     ADAPTERS[key] = A;
     NC.CHAR_OPTS[key] = ["botSkill"];
@@ -336,10 +340,12 @@
   ADAPTERS.spy = {
     // 描述本身就是桌上说的话；每人手里一个词，NPC 的描述不并进别人的调用
     zh: "谁是卧底", needPriv: true, mergeNpc: null,
+    // 投完一轮（有人出局、或者出局的卧底猜完词）回到描述：停一下
+    roundEnd: (p, n) => (p.phase === "vote" || p.phase === "guess") && n.phase === "clue" ? (lastLine(n) || "这一轮投完了") : "",
     seatRange: () => ({ min: 3, max: 12 }),
     async init(inv, ctx) {
       const S = GS().spy;
-      if (!ctx.hostApi) throw new Error("出词要用房主（庄）的线路：先去 设置·API 配一条");
+      if (!ctx.hostApi) throw new Error("出词要用开局的人（庄）的线路：先去 设置·API 配一条");
       const out = await S.setup(ctx.hostApi, [], 0);
       const pair = out && out.pair;
       if (!pair || !pair.civ || !pair.spy) throw new Error("出词没出成，再点一次开始");
@@ -359,7 +365,7 @@
     apply(st, i, mv, ctx) {
       const inv = ctx.inv;
       if (st.phase === "done") return { err: "这一局已经结束了" };
-      if (mv && mv.end) return { st: Object.assign(clone(st), { phase: "done", win: st.win || "none" }) };
+      if (mv && (mv.end || mv.reveal)) return { st: Object.assign(clone(st), { phase: "done", win: st.win || "none" }) };
       if (i !== this.turn(st)) return { err: "还没轮到这一位" };
       const n = clone(st), nm = nmOf(inv, i);
       if (n.phase === "clue") {
@@ -436,6 +442,7 @@
   const LX_MAX = 30;
   ADAPTERS.lingxi = {
     zh: "心有灵犀", needPriv: true, mergeNpc: null,
+    roundEnd: (p, n) => (n.rounds || []).length > (p.rounds || []).length ? (lastLine(n) || "这一轮亮词了") : "",
     seatRange: () => ({ min: 2, max: 2 }),
     init: () => ({ phase: "start", words: [null, null], start: null, pair: null, rounds: [], log: [{ text: "两个人先各自悄悄写一个起始词。" }] }),
     view: st => ({ phase: st.phase, sent: st.words.map(w => w != null), start: st.start, pair: st.pair, rounds: st.rounds.slice(-40), log: st.log.slice(-30) }),
@@ -505,12 +512,14 @@
   const small = (t, on) => Object.assign(pill(t, on), { minHeight: 34, padding: "0 12px", fontSize: fs(12.5) });
   const sub = (t, s) => h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.55, textAlign: "center" } }, s);
   // 一排座位：名字＋公开的那一行（几张、几条命、几个筹码），轮到谁谁描深
-  function Seats({ t, inv, view, ti, subOf }) {
-    return h("div", { "data-wk": "nrcardseats", className: "flex flex-wrap justify-center", style: { gap: 6 } }, (view.players || inv.seats).map((p, i) => h("div", { key: i, "data-on": i === ti ? "1" : "0",
-      style: { minWidth: 70, padding: "5px 9px", borderRadius: 12, border: "1px solid " + (i === ti ? t.ink : t.line), background: t.bg2, textAlign: "center", fontFamily: F_BODY, fontSize: fs(12), color: t.ink } },
-      h("div", { style: { fontWeight: i === ti ? 700 : 400 } }, (inv.seats[i] || {}).name || p.name), h("div", { style: { fontSize: fs(10.5), color: t.fog } }, subOf(p, i)))));
+  // 围着桌子一圈头像、轮到谁亮圈：单机牌桌那一份 CardSeats；手里几张用牌背扇开（cardsOf 给张数）
+  function Seats({ t, inv, view, ti, subOf, outOf, cardsOf }) {
+    const list = view.players || inv.seats;
+    return h("div", { "data-wk": "nrcardseats" }, h(CD().Seats, { t, log: [], seats: list.map((p, i) => { const s = inv.seats[i] || {}, nm = s.name || p.name || "?";
+      return { key: "s" + i, name: nm, char: { name: nm }, isUser: s.kind === "user", on: i === ti, out: outOf ? !!outOf(p, i) : false, cards: cardsOf ? cardsOf(p, i) : null, sub: subOf(p, i) }; }) }));
   }
-  const Log = ({ t, log, n }) => h("div", { "data-wk": "nrcardlog", style: { fontFamily: F_BODY, fontSize: fs(12), color: t.sub, lineHeight: 1.6 } }, (log || []).slice(-(n || 6)).map((x, i) => h("div", { key: i }, x.text)));
+  // 牌桌记录：单机那一块 CardLog（最新一行贴底）
+  const Log = ({ t, log, n, part }) => h("div", { "data-wk": "nrcardlog" }, h(CD().Log, { t, part: part || "net", log: (log || []).slice(-(n || 12)).map(x => ({ kind: "act", text: x.text })), seats: [] }));
   const Row = ({ children, wk }) => h("div", { "data-wk": wk || "nrcardhand", className: "flex flex-wrap justify-center", style: { gap: 4 } }, children);
   function useMine(inv, view, me, turnOf) {
     const ti = view.status === "finished" ? -1 : turnOf(view), seat = inv.seats[ti];
@@ -522,8 +531,8 @@
   const wrap = (game, kids) => h("div", { "data-wk": "nrgametable", "data-game": game, style: { padding: "6px 14px 12px", display: "flex", flexDirection: "column", gap: 10 } }, kids);
 
   const UNO_BG = { R: "#d64541", Y: "#e0b13a", G: "#3f9a5a", B: "#3a6fc4", W: "#2f2a24" };
-  const UnoChip = ({ c, on, onClick, dim }) => h("button", { "data-wk": "nrunocard", onClick, disabled: !onClick, style: { width: 40, height: 56, borderRadius: 8, border: on ? "2px solid #fff" : "1px solid rgba(0,0,0,.2)", boxShadow: on ? "0 0 0 2px #2f2a24" : "none",
-    background: UNO_BG[c.color] || "#888", color: "#fff", fontFamily: F_BODY, fontSize: fs(c.value.length > 1 ? 11 : 15), fontWeight: 700, opacity: dim ? .45 : 1 } }, ({ S: "⊘", V: "⇄", D2: "+2", W: "变", W4: "+4" })[c.value] || c.value);
+  // UNO 牌面：单机那一张 UnoCard（手里那张小一点，出不了的灰掉）
+  const UnoChip = ({ c, on, onClick, dim, hand }) => h("span", { "data-wk": "nrunocard" }, h(CD().UnoCard, { c, hand: hand !== false, ok: !dim, picked: on, onClick }));
   function UnoTable({ inv, view, priv, me, onMove }) {
     const t = useTheme(), U = CD().uno.C, m = useMine(inv, view, me, v => v.turn);
     const [pick, setPick] = useState(null); useEffect(() => setPick(null), [view.log.length]);
@@ -531,11 +540,11 @@
     const ok = c => m.myTurn && U.playable(c, st, hand) && (!priv.drawnUid || c.uid === priv.drawnUid);
     const play = (c, color) => onMove(m.ti, { kind: "play", uid: c.uid, color });
     return wrap("uno", [
-      h(Seats, { key: "s", t, inv, view, ti: m.ti, subOf: p => p.n + " 张" }),
-      h("div", { key: "c", className: "flex items-center justify-center", style: { gap: 10 } }, view.top ? h(UnoChip, { c: view.top }) : null,
+      h(Seats, { key: "s", t, inv, view, ti: m.ti, subOf: p => p.n + " 张", cardsOf: p => p.n }),
+      h("div", { key: "c", className: "flex items-center justify-center", style: { gap: 10 } }, view.top ? h(UnoChip, { c: view.top, hand: false }) : null,
         sub(t, "当前 " + (U.LABEL[view.color] || "") + "色 · " + (view.direction > 0 ? "顺时针" : "逆时针") + " · 牌堆 " + view.deckN + (view.pendingDraw ? " · 罚 " + view.pendingDraw + " 张" : ""))),
       view.status === "finished" ? note(t, nmOf(inv, seatOf(view.winner)) + " 先出完了") : note(t, m.myTurn ? (view.pendingDraw ? "要摸 " + view.pendingDraw + " 张" + (view.rules.stackD2 ? "，或者叠一张 +2" : "") : priv && priv.drawnUid ? "刚摸的那张能出：出，或者不出" : "轮到你：出一张，或者摸一张") : waitLine(inv, m.ti, m.seat)),
-      m.mySeat >= 0 ? h(Row, { key: "h" }, hand.map(c => h(UnoChip, { key: c.uid, c, on: pick === c.uid, dim: m.myTurn && !ok(c), onClick: ok(c) ? () => c.color === "W" ? setPick(c.uid) : play(c) : null }))) : null,
+      m.mySeat >= 0 ? h("div", { key: "h", "data-wk": "nrcardhand", style: { display: "flex", overflowX: "auto", gap: 5, paddingBottom: 6 } }, hand.map(c => h(UnoChip, { key: c.uid, c, on: pick === c.uid, dim: m.myTurn && !ok(c), onClick: ok(c) ? () => c.color === "W" ? setPick(c.uid) : play(c) : null }))) : null,
       pick ? h("div", { key: "w", className: "flex justify-center", style: { gap: 6 } }, ["R", "Y", "G", "B"].map(col => h("button", { key: col, "data-wk": "nrunocolor", onClick: () => play(hand.find(c => c.uid === pick), col), style: Object.assign(small(t, false), { background: UNO_BG[col], color: "#fff", border: 0 }) }, U.LABEL[col]))) : null,
       m.myTurn ? h("div", { key: "a", "data-wk": "nrcardact", className: "flex flex-wrap justify-center", style: { gap: 6 } },
         view.pendingDraw ? h("button", { onClick: () => onMove(m.ti, { kind: "draw" }), style: small(t, true) }, "摸 " + view.pendingDraw + " 张") : priv && priv.drawnUid ? h("button", { onClick: () => onMove(m.ti, { kind: "pass" }), style: small(t, false) }, "不出") : h("button", { onClick: () => onMove(m.ti, { kind: "draw" }), style: small(t, false) }, "摸一张"),
@@ -654,8 +663,7 @@
     const mySeat = inv.seats.findIndex(s => s.kind === "user" && s.peer === me);
     return wrap("spy", [
       mySeat >= 0 && priv ? h("div", { key: "w", "data-wk": "nrspyword", style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(18), color: t.ink } }, "你的词：", priv.word) : sub(t, "你在旁边看，看不到任何人的词"),
-      h("div", { key: "s", className: "flex flex-wrap justify-center", style: { gap: 6 } }, inv.seats.map((s, i) => h("span", { key: i, style: { padding: "3px 9px", borderRadius: 10, border: "1px solid " + (i === ti ? t.ink : t.line), fontFamily: F_BODY, fontSize: fs(12), color: view.alive[i] ? t.ink : t.fog, textDecoration: view.alive[i] ? "none" : "line-through" } },
-        s.name + (view.outRoles[i] ? "（" + (view.outRoles[i] === "spy" ? "卧底" : "平民") + "）" : view.phase === "vote" && view.voted.indexOf(i) >= 0 ? " ✓" : "")))),
+      h(Seats, { key: "s", t, inv, view: {}, ti, outOf: (p, i) => !view.alive[i], subOf: (p, i) => view.outRoles[i] ? "出局 · " + (view.outRoles[i] === "spy" ? "卧底" : "平民") : view.phase === "vote" && view.voted.indexOf(i) >= 0 ? "投了 ✓" : "" }),
       view.phase === "done" ? note(t, (view.win === "spy" ? "卧底赢了" : view.win === "civ" ? "平民赢了" : "提前结束") + (view.reveal ? "：平民词「" + view.reveal.civ + "」，卧底词「" + view.reveal.spy + "」" : ""))
         : note(t, myTurn ? (view.phase === "clue" ? "轮到你描述（别说出词本身）" : view.phase === "vote" ? "投一个你最怀疑的人" : "你被投出来了，是卧底：猜一次平民的词") : waitLine(inv, ti, seat, view.phase === "clue" ? "在想怎么说…" : view.phase === "vote" ? "在投票…" : "在猜词…")),
       myTurn && view.phase !== "vote" ? h("input", { key: "i", "data-wk": "nrspyinput", value: d, onChange: e => setD(e.target.value.slice(0, view.phase === "clue" ? 60 : 30)), placeholder: view.phase === "clue" ? "一句话描述你的词" : "猜平民的词（空着就是不猜）", style: box(t) }) : null,

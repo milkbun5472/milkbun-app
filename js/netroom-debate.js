@@ -6,7 +6,7 @@
 //     真人没挑、NPC 由庄补到人少的那一边。两边都得有人。
 //   · 发言：按正反交替的顺序一人一段；真人在自己那台打字，角色由主人那台用 TA 的线路＋人设写（DebateShared.genTurn）。
 //   · 观众席弹幕：走桌边那一路（Session.side），直接广播，不经庄；自己带来的没上台的角色由主人那台偶尔冒一句。
-//   · 判定：说完最后一轮（或房主点「收台判胜负」），庄用自己的线路跑单机那一份 genResult；
+//   · 判定：说完最后一轮（或开局的人点「收台判胜负」），庄用自己的线路跑单机那一份 genResult；
 //     赛后感言由每位角色辩手的主人那台各自写（genAfterword），也走桌边那一路。
 //   · 提示词全在 js/debate.js 的 DebateShared 里，单机擂台用的同一份；这里只管座位、轮次和桌面。
 (function (root) {
@@ -44,7 +44,7 @@
 
   async function judge(st, inv, ctx) {
     const base = Object.assign({}, st, { phase: "done", busy: false });
-    if (!ctx.hostApi) return Object.assign(base, { verdict: { winner: "", reason: "庄（房主）这台没配线路，这一场不判胜负。", crux: "" } });
+    if (!ctx.hostApi) return Object.assign(base, { verdict: { winner: "", reason: "庄（开局的人）这台没配线路，这一场不判胜负。", crux: "" } });
     await ensure();
     const D = DS(); if (!D) return Object.assign(base, { verdict: { winner: "", reason: "擂台没装上，这一场不判胜负。", crux: "" } });
     const humans = inv.seats.filter(s => s.kind === "user").map(s => s.name);
@@ -68,7 +68,7 @@
       const pz = ctx.prep || {};
       let topic = cut(pz.topic, 120).trim();
       if (!topic && ctx.hostApi) { await ensure(); try { topic = ((await DS().drawTopics(ctx.hostApi, [], "大家")) || [])[0] || ""; } catch (e) { topic = ""; } }
-      if (!topic) throw new Error("还没有辩题：房主写一道，或者配好线路让模型出");
+      if (!topic) throw new Error("还没有辩题：开局的人写一道，或者配好线路让模型出");
       const sides = inv.seats.map(s => SIDES.indexOf(s.side) >= 0 ? s.side : "");
       const st = { topic: cut(topic, 120), mode: pz.mode === "free" ? "free" : "serious", rounds: int(pz.rounds, 0, 30, 3), round: 0, pos: 0, order: [],
         sides, picked: sides.map(Boolean), pickBy: inv.seats.map((s, i) => !sides[i] && s.kind === "char"), stances: inv.seats.map(() => ""), turns: [], verdict: null, busy: false, phase: "side" };
@@ -81,7 +81,7 @@
     async apply(st, seatIdx, mv, ctx) {
       const inv = ctx.inv;
       if (st.phase === "done") return { err: "这一场已经判完了" };
-      if (mv && mv.reveal) return { st: await judge(st, inv, ctx) };    // 房主点「收台判胜负」
+      if (mv && mv.reveal) return { st: await judge(st, inv, ctx) };    // 开局的人点「收台判胜负」
       if (seatIdx !== this.turn(Object.assign({}, st, { busy: false }))) return { err: "还没轮到这一位" };
       if (st.phase === "side") {
         const n = Object.assign({}, st, { sides: st.sides.slice(), stances: st.stances.slice(), pickBy: st.pickBy.slice(), busy: false });
@@ -94,7 +94,7 @@
       const turns = st.turns.concat([{ seat: seatIdx, name: nm(inv, seatIdx), side: st.sides[seatIdx], round: st.round, text }]);
       let n = Object.assign({}, st, { turns, pos: st.pos + 1, busy: false });
       if (n.pos >= n.order.length) { n.pos = 0; n.round = st.round + 1; }
-      if (n.rounds && n.round >= n.rounds) n = await judge(n, inv, ctx);   // rounds＝0：不限轮数，房主点「收台判胜负」才停
+      if (n.rounds && n.round >= n.rounds) n = await judge(n, inv, ctx);   // rounds＝0：不限轮数，开局的人点「收台判胜负」才停
       return { st: n };
     },
     // 角色挑边、发言：带 TA 来的那台，TA 自己的线路和人设
@@ -243,7 +243,7 @@
     return h("div", { style: { padding: "8px 16px", display: "flex", flexDirection: "column", gap: 10 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, "「" + (r.topic || "") + "」"), h(Speeches, { t, turns: r.turns }), h(Verdict, { t, v: r.verdict }));
   }
-  // 房主开局：辩题（自己写或让模型出）、几轮、讲道理／随便吵、自己上不上台、派谁上台
+  // 开局的人开局：辩题（自己写或让模型出）、几轮、讲道理／随便吵、自己上不上台、派谁上台
   //   单机擂台里接不住多台手机的那几样（裁判人选、纸条、临时规矩、台下投票、路人、注入最近聊天给全场）这里没有，页顶说明
   function DebatePrep({ myChars, myApi, nick, onSend }) {
     const t = useTheme();
@@ -267,7 +267,7 @@
       myApi && h("button", { "data-wk": "nrdebatedraw", disabled: busy, onClick: draw, style: Object.assign(pill(t, false), { alignSelf: "flex-start", minHeight: 34 }) }, busy ? "在想…" : "让模型出三道挑一道（花一次调用）"),
       opts.length ? seg(p.topic, opts.map(x => ({ k: x, zh: x })), k => set({ topic: k }), "nrdebatetopicopt") : null,
       label("几轮（每轮台上每人说一段）"), seg(p.rounds, [3, 5, 8, 12].map(n => ({ k: n, zh: n + " 轮" })).concat([{ k: 0, zh: "不限" }]), k => set({ rounds: k }), "nrdebaterounds"),
-      // 不限：一直轮着说，房主点「收台判胜负」才停（单机擂台也是这样，没有轮数上限）
+      // 不限：一直轮着说，开局的人点「收台判胜负」才停（单机擂台也是这样，没有轮数上限）
       label("怎么吵"), seg(p.mode, [{ k: "serious", zh: "讲道理" }, { k: "free", zh: "随便吵" }], k => set({ mode: k }), "nrdebatemode"),
       label("你自己"), seg(p.me, ME, k => set({ me: k }), "nrdebateme"),
       (myChars || []).length ? label("你带来的角色（随人设＝开讲前由你这台按 TA 的人设挑边）") : null,
