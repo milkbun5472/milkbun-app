@@ -740,6 +740,11 @@
     { k: "pro", zh: "高手", text: "高手：这类桌游心里门儿清，记得住每个人说过什么，推理、读人、藏身份都很强，很少被带节奏。" },
     { k: "mid", zh: "普通", text: "普通玩家：规则都懂，会推理但偶尔漏看信息，有时会被别人说动。" },
     { k: "rookie", zh: "新手", text: "新手：常看漏信息、容易被带节奏，藏身份时容易露馅，但玩得很投入。" }];
+  const SKILL_PIN_NOTE = "默认按人设估 TA 玩得多好；你知道 TA 是高手还是新手，就直接钉一档。只管玩得多好，不改 TA 说话的样子。";
+  // 钉一档：全局记着（本机），下次也是这档
+  function saveSkillPin(id, v) { const n = Object.assign({}, loadSkillPins()); if (v) n[id] = v; else delete n[id]; try { saveJSON(SKILL_PIN_KEY, n); } catch (e) {} return n; }
+  // 五子棋各自怎么下（观战时按人挑）
+  const GMK_CASUAL_OPTS = [{ key: "serious", zh: "认真" }, { key: "casual", zh: "随手" }];
   function loadSkillPins() { try { return (typeof loadJSON === "function" ? loadJSON(SKILL_PIN_KEY, {}) : {}) || {}; } catch (e) { return {}; } }
   function pinnedSkill(charId, guessed) {
     const k = loadSkillPins()[charId], o = SKILL_PINS.find(function (x) { return x.k && x.k === k; });
@@ -753,7 +758,7 @@
     const hid = function (k) { return (props.hide || []).indexOf(k) >= 0; };
     const [stake, setStake] = useState("");          // 彩头：输的人要做什么（可空）
     const [skillPins, setSkillPins] = useState(loadSkillPins);
-    const setSkillPin = function (id, v) { const n = Object.assign({}, skillPins); if (v) n[id] = v; else delete n[id]; setSkillPins(n); try { saveJSON(SKILL_PIN_KEY, n); } catch (e) {} };
+    const setSkillPin = function (id, v) { setSkillPins(saveSkillPin(id, v)); };
     const chars = props.characters || [];
     const [mode, setMode] = useState("normal");
     const [picked, setPicked] = useState((props.initialPicked || []).slice());  // 选中的角色 id（从邀请卡进来时先勾上TA）
@@ -962,7 +967,7 @@
             const c = chars.find(function (x) { return x.id === id; });
             return h("div", { key: id, style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } },
               h("div", { style: { width: 72, flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c ? (c.remark || c.name) : ""),
-              h("div", { style: { flex: 1 } }, h(Segmented, { t: t, value: gmkCasual[id] ? "casual" : "serious", options: [{ key: "serious", zh: "认真" }, { key: "casual", zh: "随手" }],
+              h("div", { style: { flex: 1 } }, h(Segmented, { t: t, value: gmkCasual[id] ? "casual" : "serious", options: GMK_CASUAL_OPTS,
                 onChange: function (v) { const n = Object.assign({}, gmkCasual); if (v === "casual") n[id] = true; else delete n[id]; setGmkCasual(n); } })));
           }),
           picked.length < 2 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "只选一个人就是 TA 跟电脑下；选两个就看他俩对下。") : null) : null,
@@ -989,9 +994,9 @@
               })),
 
         // 牌技：给选上的人钉一档（全局记着，下次也是这档）
-        picked.length ? h("div", { "data-wk": "gameskillpin", style: { marginTop: 14 } },
+        picked.length && !hid("skillPins") ? h("div", { "data-wk": "gameskillpin", style: { marginTop: 14 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "牌技"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "3px 0 8px", lineHeight: 1.5 } }, "默认按人设估 TA 玩得多好；你知道 TA 是高手还是新手，就直接钉一档。只管玩得多好，不改 TA 说话的样子。"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, margin: "3px 0 8px", lineHeight: 1.5 } }, SKILL_PIN_NOTE),
           picked.map(function (id) {
             const c = chars.find(function (x) { return x.id === id; }); if (!c) return null;
             const cur = skillPins[id] || "";
@@ -9231,6 +9236,7 @@
       xiangqi: { C: WIN.XiangqiCore, sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "黑"; }, View: XiangqiBoardView },
       jungle: { C: WIN.JungleCore, sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "蓝"; }, View: JungleBoardView }
     },
+    skill: { PINS: SKILL_PINS, NOTE: SKILL_PIN_NOTE, load: loadSkillPins, save: saveSkillPin }, GMK_CASUAL_OPTS: GMK_CASUAL_OPTS,
     boardReplay: boardReplay, boardOutcome: boardOutcome, boardSkillCached: boardSkillCached, BOARD_TIER_LV: BOARD_TIER_LV,
     go: { C: WIN.GoCore, replay: goReplay, result: goResult, View: GoBoardView },
     story: { newGame: storyNewGame, act: storyAct, text: storyText, total: storyTotalTurns, isLast: storyIsLast, writeLine: storyWriteLine },

@@ -1234,7 +1234,9 @@
     const [prep, setPrep] = useState({ surface: "", truth: "", mode: "host" });
     const [joinAt, setJoinAt] = useState(null), [joinPick, setJoinPick] = useState({});
     const [gameBusy, setGameBusy] = useState(false);
-    const [gameWin, setGameWinRaw] = useState(null);   // 牌桌那扇半窗：{ gid, min, box, pill, seen }
+    const [gameWin, setGameWinRaw] = useState(null);
+    // 自己带来的角色上桌怎么玩（随手、带不带最近单聊）：只在这台手机、只在替 TA 出手时用，不发给庄。牌技那一档走小游戏的「钉一档」（本机记着）
+    const [charOpts, setCharOpts] = useState({}); const charOptsRef = useRef(charOpts); charOptsRef.current = charOpts;   // 牌桌那扇半窗：{ gid, min, box, pill, seen }
     const propsRef = useRef(props); propsRef.current = props;
     const pageRef = useRef(page); pageRef.current = page;
     const ensureGames = () => root.GameShared || !root.LazyMods ? Promise.resolve() : root.LazyMods.load("games");
@@ -1247,6 +1249,7 @@
       hostApi: () => propsRef.current.gameApi ? propsRef.current.gameApi() : null,
       apiFor: id => propsRef.current.apiFor ? propsRef.current.apiFor(id) : null,
       charOf: id => (propsRef.current.characters || []).find(c => c.id === id) || null,
+      charOpts: (gid, cid) => charOptsFor(cid),
       presence: () => presence(),
       onChange: () => setGTick(n => n + 1),
       onOpenGame: gid => { if (pageRef.current === "chat") openGame(gid); },
@@ -1268,17 +1271,51 @@
       sendInvite(game, cfg);
     };
     // 报名：你自己、你带进房间的人，勾谁谁占一个座位。聊天页和牌桌页都挂这一张（牌桌页下面也有邀请卡，点「加入」得有反应）
+    // 这个角色这一局的设置：没调过的「带上最近单聊」跟 TA 在房间里那个勾一样
+    const charOptsFor = cid => {
+      const o = charOptsRef.current[cid] || {}, mc = ((roomRef.current && roomRef.current.myChars) || []).find(c => c.id === cid);
+      const recent = o.recent != null ? !!o.recent : !!(mc && mc.recent), ch = charsById[cid];
+      let recentText = "";
+      if (recent && ch && propsRef.current.ctxFor) { try { recentText = String((propsRef.current.ctxFor(ch, { chat: true }) || {}).recentChat || "").slice(-600); } catch (e) {} }
+      return { casual: !!o.casual, recent, recentText };
+    };
+    const setCharOpt = (cid, k, v) => setCharOpts(m => Object.assign({}, m, { [cid]: Object.assign({}, m[cid] || {}, { [k]: v }) }));
+    // 座位旁那两个字（大家都看得到）：钉的牌技档、随手
+    const charTag = (key, cid) => {
+      const GSh = root.GameShared, kinds = GC() ? GC().charOptKinds(key) : [], bits = [];
+      if (kinds.indexOf("skill") >= 0 && GSh && GSh.skill) { const pin = GSh.skill.load()[cid], o = GSh.skill.PINS.find(x => x.k && x.k === pin); if (o) bits.push(o.zh); }
+      if (kinds.indexOf("casual") >= 0 && (charOptsRef.current[cid] || {}).casual) bits.push("随手");
+      return bits.join("·");
+    };
+    // 报名：你自己、你带进房间的人，勾谁谁占一个座位；勾上的角色下面展开这一盒能按人调的那几项（跟单机开局页同一批）
     const joinSheet = () => { const myChars = ((room && room.myChars) || []);
-      return joinAt && h(Sheet, { key: "gj", onClose: () => setJoinAt(null) },
+      if (!joinAt) return null;
+      const kinds = GC() ? GC().charOptKinds(joinAt.key) : [], GSh = root.GameShared;
+      const seg = (cid, k, val, opts) => h("div", { className: "flex flex-wrap", style: { gap: 6 } }, opts.map(o => h("button", { key: o.key, "data-wk": "nrcharopt", "data-part": k,
+        onClick: () => k === "skill" ? (GSh.skill.save(cid, o.key), setGTick(n => n + 1)) : setCharOpt(cid, k, o.key === "casual"),
+        style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (val === o.key ? t.ink : t.line), background: val === o.key ? t.ink : t.bg2, color: val === o.key ? t.bg : t.ink, fontFamily: F_BODY, fontSize: fs(12.5) } }, o.zh)));
+      const optsOf = c => {
+        if (!joinPick[c.id]) return null;
+        const o = charOptsFor(c.id), rows = [];
+        if (kinds.indexOf("skill") >= 0 && GSh && GSh.skill) rows.push(h("div", { key: "s" }, h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, margin: "2px 0 4px" } }, "牌技：" + GSh.skill.NOTE),
+          seg(c.id, "skill", GSh.skill.load()[c.id] || "", GSh.skill.PINS.map(x => ({ key: x.k, zh: x.zh })))));
+        if (kinds.indexOf("casual") >= 0 && GSh) rows.push(h("div", { key: "c" }, seg(c.id, "casual", o.casual ? "casual" : "serious", GSh.GMK_CASUAL_OPTS)));
+        if (kinds.indexOf("recent") >= 0) rows.push(h("label", { key: "r", className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
+          h("input", { type: "checkbox", "data-wk": "nrcharrecent", checked: o.recent, onChange: e => setCharOpt(c.id, "recent", e.target.checked) }), "带上 TA 最近单聊（TA 出题、提问、接句时记得你们最近聊了什么）"));
+        return rows.length ? h("div", { "data-wk": "nrcharopts", style: { margin: "0 0 8px 42px", display: "flex", flexDirection: "column", gap: 6 } }, rows) : null;
+      };
+      return h(Sheet, { key: "gj", onClose: () => setJoinAt(null) },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(17), color: t.ink, marginBottom: 6 } }, "你这边上谁"),
-          h(Note, null, "每人占一个座位。你带来的角色轮到时由你这台手机用 TA 的线路替 TA 出手。座位不够的，勾了也坐不上。"),
+          h(Note, null, "每人占一个座位。你带来的角色轮到时由你这台手机用 TA 的线路替 TA 出手；下面给 TA 调的只存在你这台、只在替 TA 出手时用。座位不够的，勾了也坐不上。"),
           h("div", { style: { display: "flex", flexDirection: "column", gap: 4, margin: "10px 0" } },
-            [{ id: "_me", label: myNick() + "（我自己）" }].concat(myChars.map(c => ({ id: c.id, label: c.name, c }))).map(r => h("label", { key: r.id, className: "flex items-center", style: { gap: 12, minHeight: 44 } },
-              h("input", { type: "checkbox", "data-wk": "nrgamepick", checked: !!joinPick[r.id], onChange: e => setJoinPick(p => Object.assign({}, p, { [r.id]: e.target.checked })) }),
-              r.c ? h(Avatar, { character: charsById[r.c.id] || { id: r.c.id, name: r.c.name }, size: 30 }) : null,
-              h("span", { style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink } }, r.label)))),
+            [{ id: "_me", label: myNick() + "（我自己）" }].concat(myChars.map(c => ({ id: c.id, label: c.name, c }))).map(r => h(React.Fragment, { key: r.id },
+              h("label", { className: "flex items-center", style: { gap: 12, minHeight: 44 } },
+                h("input", { type: "checkbox", "data-wk": "nrgamepick", checked: !!joinPick[r.id], onChange: e => setJoinPick(p => Object.assign({}, p, { [r.id]: e.target.checked })) }),
+                r.c ? h(Avatar, { character: charsById[r.c.id] || { id: r.c.id, name: r.c.name }, size: 30 }) : null,
+                h("span", { style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink } }, r.label)),
+              r.c ? optsOf(r.c) : null))),
           h(Btn, { label: "坐下", primary: true, wk: "nrgamejoinok", disabled: !Object.keys(joinPick).some(k => joinPick[k]), onClick: () => {
-            const picks = (joinPick._me ? [{ kind: "user" }] : []).concat(myChars.filter(c => joinPick[c.id]).map(c => ({ kind: "char", charId: c.id, name: c.name })));
+            const picks = (joinPick._me ? [{ kind: "user" }] : []).concat(myChars.filter(c => joinPick[c.id]).map(c => ({ kind: "char", charId: c.id, name: c.name, tag: charTag(joinAt.key, c.id) })));
             const ja = joinAt; setJoinAt(null);
             const left = games.current ? games.current.join(ja.gid, picks, ja.host) : [];
             if (left.length) props.toast && props.toast("座位不够，" + left.length + " 个没坐上");
@@ -1322,7 +1359,7 @@
       const x = m.x || {}, gs = games.current;
       return { me: meId.current, busy: gameBusy, lost: x.host === meId.current && (x.status === "open" || x.status === "playing") && !(gs && gs.isHost(x.gid)),
         // 选人那张在半窗底下会被盖住：先把牌桌收起来
-        onJoin: () => { setJoinPick({}); setJoinAt({ gid: x.gid, host: x.host }); setGameWin(w => w && !w.min ? Object.assign({}, w, { min: true }) : w); },
+        onJoin: () => { setJoinPick({}); setJoinAt({ gid: x.gid, host: x.host, key: x.key }); setGameWin(w => w && !w.min ? Object.assign({}, w, { min: true }) : w); },
         onLeave: () => gs && gs.join(x.gid, [], x.host),
         onAdd: () => gs && gs.addSeat(x.gid),
         onCancel: () => gs && gs.cancel(x.gid),
@@ -1642,7 +1679,7 @@
         story: "三圈，每人每次抽一个要用上的词；角色用带 TA 来的那台、TA 自己的线路接。", tod: "每人约两轮，题由下一位出；角色出题、回答都用带 TA 来的那台的线路。",
         monopoly: "钱和地都在房主那台结算；不买的地自动拍卖，讨价还价在房间里说。" };
       return h(G, { characters: mine, profile: props.profile, only: root.NetGameCore.supported(), onConfigured,
-        setupHide: ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host"], setupNote: g => NOTE[g.key] || "",
+        setupHide: ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins"], setupNote: g => (NOTE[g.key] || "") + (GC() && GC().charOptKinds(g.key).length ? "你带的角色怎么玩（牌技、随手、带不带最近单聊）在邀请卡上点「换人／加入」那张单里调。" : ""),
         intro: "挑一盒、设好开局（开局页里勾的角色就是你这边上场的人），房里会出现一张邀请卡，大家在卡上报名，你点开始。", onBack: () => setPage("chat") });
     }
     if (page === "gameprep" && room && gamePend) {

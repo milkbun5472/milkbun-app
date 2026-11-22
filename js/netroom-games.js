@@ -44,7 +44,7 @@
     if (kind === "open") return o;
     o.name = cut(s.name, 40);
     if (kind !== "npc") o.peer = cut(s.peer, 40);
-    if (kind === "char") o.charId = cut(s.charId, 40);
+    if (kind === "char") { o.charId = cut(s.charId, 40); if (s.tag) o.tag = cut(s.tag, 8); }
     if (s.away) o.away = true;
     return o;
   }
@@ -68,7 +68,7 @@
     if (A && A.cleanReplay && x.replay && typeof x.replay === "object") { const r = A.cleanReplay(x.replay); if (r) o.replay = r; }
     return o;
   }
-  const seatLabel = s => s.kind === "open" ? "空位" : s.name + (s.kind === "char" ? "（角色）" : s.kind === "npc" ? "（NPC）" : "");
+  const seatLabel = s => s.kind === "open" ? "空位" : s.name + (s.kind === "char" ? "（角色" + (s.tag ? " · " + s.tag : "") + "）" : s.kind === "npc" ? "（NPC）" : "");
   function inviteLine(x) {
     const seats = x.seats || [], open = seats.filter(s => s.kind === "open").length;
     const st = x.status === "playing" ? "，已经开局" : x.status === "done" ? "，这一局打完了" : x.status === "cancel" ? "，取消了" : "";
@@ -105,7 +105,7 @@
       seen.add(key);
       const i = seats.findIndex(s => s.kind === "open");
       if (i < 0) { dropped.push(p); return; }
-      seats[i] = cleanSeat(p.kind === "user" ? { kind: "user", peer, name: nick } : { kind: "char", peer, charId: p.charId, name: p.name });
+      seats[i] = cleanSeat(p.kind === "user" ? { kind: "user", peer, name: nick } : { kind: "char", peer, charId: p.charId, name: p.name, tag: p.tag });
     });
     return { inv: Object.assign({}, inv, { seats }), dropped };
   }
@@ -179,7 +179,8 @@
     // 落子都走小游戏里那位本地棋手：放水局里角色和 NPC 让着下（跟单机放水局同一档）
     level: (inv, seat) => inv.mode === "easy" && seat && seat.kind !== "user" ? 2 : 0,
     npcMove(st, seatIdx, inv) { const G = GS().gomoku; const m = G.bestMove(G.replay(st.moves), seatIdx + 1, this.level(inv, inv.seats[seatIdx])); return m ? { x: m.x, y: m.y } : null; },
-    charMove(view, seatIdx, inv) { const G = GS().gomoku; const m = G.bestMove(G.replay(view.moves), seatIdx + 1, this.level(inv, inv.seats[seatIdx])); return m ? { x: m.x, y: m.y } : null; },
+    // 主人在报名单上把 TA 调成「随手」：跟放水局同一档
+    charMove(view, seatIdx, inv, ctx) { const G = GS().gomoku; const lv = ctx && ctx.opts && ctx.opts.casual ? 2 : this.level(inv, inv.seats[seatIdx]); const m = G.bestMove(G.replay(view.moves), seatIdx + 1, lv); return m ? { x: m.x, y: m.y } : null; },
     result(st, inv) {
       if (!st.winner) return null;
       const nm = i => (inv.seats[i] || {}).name || "TA";
@@ -195,7 +196,11 @@
   };
   const VERDICT_SET = ["是", "不是", "不重要", "接近了", "不好说", "不对", "跳过"];
   const nmOf = (inv, i) => ((inv.seats || [])[i] || {}).name || "TA";
-  const charWho = c => ({ name: (c && (c.remark || c.name)) || "TA", persona: (c && c.persona) || "" });
+  // 角色上桌时的那一份：人设；主人勾了「带上 TA 最近单聊」就把那一段接在后面
+  const charWho = (c, opts) => ({ name: (c && (c.remark || c.name)) || "TA", persona: ((c && c.persona) || "") + (opts && opts.recent && opts.recentText ? "\n【和带你来的人最近在单聊里聊的】" + cut(opts.recentText, 600) : "") });
+  // 报名那张单上，每个勾上的角色可以调哪几项（跟单机开局页按角色调的是同一批）
+  const CHAR_OPTS = { chess: ["skill"], xiangqi: ["skill"], jungle: ["skill"], go: ["skill"], gomoku: ["casual"], haigui: ["recent"], q25: ["recent"], story: ["recent"], tod: ["recent"], monopoly: [] };
+  const charOptKinds = key => CHAR_OPTS[key] || [];
   const NPC_WHO = n => ({ name: n, persona: "来凑桌的路人，普通玩家。", isNpc: true });
 
   // ── 谁出题（海龟汤、25 问）：房主 / 系统现出 / 指定某个座位 / 轮流（每局「再来一局」换下一个座位）──
@@ -316,10 +321,10 @@
       async charMove(view, seatIdx, inv, ctx) {
         if (!ctx.api || !ctx.char) return { pass: true };
         if (view.phase === "set") {
-          const p = await GS().guess.newPuzzle(ctx.api, kind, [], charWho(ctx.char)).catch(() => null);
+          const p = await GS().guess.newPuzzle(ctx.api, kind, [], charWho(ctx.char, ctx.opts)).catch(() => null);
           return p ? { puzzle: p } : { pass: true };
         }
-        const q = await GS().guess.askOne(ctx.api, kind, pub(view), this.hist(view.log), charWho(ctx.char)).catch(() => "");
+        const q = await GS().guess.askOne(ctx.api, kind, pub(view), this.hist(view.log), charWho(ctx.char, ctx.opts)).catch(() => "");
         return q ? { ask: q } : { pass: true };
       },
       result(st, inv) {
@@ -480,7 +485,7 @@
     },
     async charMove(view, i, inv, ctx) {
       if (!ctx.api || !ctx.char) return { line: "" };
-      const r = await GS().story.writeLine(ctx.api, Object.assign({}, view, { log: [] }), charWho(ctx.char)).catch(() => null);
+      const r = await GS().story.writeLine(ctx.api, Object.assign({}, view, { log: [] }), charWho(ctx.char, ctx.opts)).catch(() => null);
       return r && r.line ? r : { line: "" };
     },
     result(st) {
@@ -543,7 +548,7 @@
       return { response: r || "" };
     },
     npcMove(st, i, inv, ctx) { return this.think(st, i, inv, ctx.hostApi, NPC_WHO(nmOf(inv, i))); },
-    charMove(view, i, inv, ctx) { return this.think(view, i, inv, ctx.api, Object.assign({ char: ctx.char }, charWho(ctx.char))); },
+    charMove(view, i, inv, ctx) { return this.think(view, i, inv, ctx.api, Object.assign({ char: ctx.char }, charWho(ctx.char, ctx.opts))); },
     result(st) {
       if (!st.done) return null;
       const rs = st.log.filter(x => x.type === "td");
@@ -696,7 +701,7 @@
   }
   const supported = () => Object.keys(ADAPTERS);
 
-  const Core = { winOpen, winSet, winUnread, myTurn, stateText, SETTER_MODES, cleanSetter, setterSeat, nextSetter, setterLine, SEAT_KINDS, STATUS, AWAY_MS, ADAPTERS, supported, cleanSeat, cleanInvite, cleanRecord, inviteLine, recordLine, newInvite, joinSeats, leaveSeats, addSeat,
+  const Core = { charOptKinds, winOpen, winSet, winUnread, myTurn, stateText, SETTER_MODES, cleanSetter, setterSeat, nextSetter, setterLine, SEAT_KINDS, STATUS, AWAY_MS, ADAPTERS, supported, cleanSeat, cleanInvite, cleanRecord, inviteLine, recordLine, newInvite, joinSeats, leaveSeats, addSeat,
     takenCount, fillNpc, canStart, actorOf, privateRoute, awayPlan, setAway };
   root.NetGameCore = Core;
 
@@ -740,7 +745,9 @@
       const char = o.charOf(seat.charId);
       await wait(600);
       let mv = null;
-      try { mv = await ad.charMove(s.view, ti, s.inv, { api: char ? o.apiFor(char.id) : null, char }); } catch (e) { mv = null; }
+      // opts：主人在报名那张单上给 TA 调的（怎么下、带不带最近单聊），只存在这台
+      const opts = (o.charOpts && o.charOpts(gid, seat.charId)) || {};
+      try { mv = await ad.charMove(s.view, ti, s.inv, { api: char ? o.apiFor(char.id) : null, char, opts }); } catch (e) { mv = null; }
       if (!mv) mv = { pass: true };
       move(gid, ti, mv);
     }
@@ -849,7 +856,8 @@
         else if (e.op === "join" && g.inv.status !== "open") { o.send({ t: "game", op: "oops", gid, text: "这一局已经开始或者结束了，坐不进去了" }, origin); }
         else if (e.op === "join") {
           const nick = o.nickOf(origin);
-          const picks = (Array.isArray(e.picks) ? e.picks : []).slice(0, 12).map(p => p && p.kind === "char" ? { kind: "char", charId: cut(p.charId, 40), name: cut(p.name, 40) } : { kind: "user" });
+          // 报名只收这几样：角色怎么下、带不带最近单聊那些设置留在主人那台，不发过来（tag 只是座位旁那两个字）
+          const picks = (Array.isArray(e.picks) ? e.picks : []).slice(0, 12).map(p => p && p.kind === "char" ? { kind: "char", charId: cut(p.charId, 40), name: cut(p.name, 40), tag: cut(p.tag, 8) } : { kind: "user" });
           const r = joinSeats(g.inv, origin, nick, picks);
           g.inv = r.inv; shareCard(g);
           // 坐不下的那几个告诉 TA，不让 TA 以为点了没反应

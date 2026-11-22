@@ -455,9 +455,9 @@ test("新几盒的角色座位也由带 TA 来的那台出手、用 TA 自己的
 test("大厅：第一档这几盒都摆出来；联机接不住的开局选项收起来", () => {
   const { G } = load2();
   ["gomoku", "haigui", "q25", "chess", "xiangqi", "jungle", "go", "story", "tod", "monopoly"].forEach(k => assert.ok(G.supported().indexOf(k) >= 0, k));
-  assert.match(nsrc, /setupHide: \["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host"\]/);
+  assert.match(nsrc, /setupHide: \["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins"\]/);
   assert.match(games, /hide: props\.setupHide, note: props\.setupNote \? props\.setupNote\(game\) : "",/);
-  ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host"].forEach(k => assert.ok(games.indexOf('hid("' + k + '")') > 0, k));
+  ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins"].forEach(k => assert.ok(games.indexOf('hid("' + k + '")') > 0, k));
 });
 
 test("半窗：展开时记下房里有几条，之后来的算新消息；收起不计数；再展开从头算", () => {
@@ -502,4 +502,31 @@ test("当前对局写给开口的角色：只用公开那一份，别人的私�
   // 每盒都能写出一段
   const sts = { chess: G.ADAPTERS.chess.init(), go: G.ADAPTERS.go.init(inv, {}), story: G.ADAPTERS.story.init(inv), tod: G.ADAPTERS.tod.init(inv), monopoly: G.ADAPTERS.monopoly.init(inv) };
   Object.keys(sts).forEach(k => assert.ok(G.stateText(Object.assign({}, inv, { key: k, zh: k }), G.ADAPTERS[k].cleanView(G.ADAPTERS[k].view(sts[k])), 0).length > 20, k));
+});
+
+test("角色怎么玩：报名只带座位旁那两个字，设置不进 join 白名单；出手时用的是主人那台本地的设置", async () => {
+  const { G, w } = load2();
+  // 庄收到的 join：多塞的 casual / recent / recentText 一个不收，只留 tag
+  const sent = [];
+  const host = w.NetGameSession({ me: () => "A", nick: () => "甲", nickOf: x => x, send: (o, to) => sent.push({ o, to }), post: () => {}, patchCard: () => {}, charOf: () => null, apiFor: () => null });
+  const gid = host.invite(GOMOKU, { total: 2 }, [{ kind: "user" }]);
+  host.onMessage({ op: "join", gid, picks: [{ kind: "char", charId: "b1", name: "阿B", tag: "随手", casual: true, recent: true, recentText: "私房话" }] }, "B");
+  const card = sent.filter(x => x.o.op === "card").pop().o.x;
+  assert.deepStrictEqual(card.seats[1], { kind: "char", name: "阿B", peer: "B", charId: "b1", tag: "随手" });
+  assert.ok(!JSON.stringify(sent).includes("私房话"));
+  assert.match(G.inviteLine(card), /阿B（角色 · 随手）/);
+  // 出手：B 那台 charOpts 给的 casual → 五子棋走放水那一档；给的 recent → 人设后面接上最近单聊
+  const asked = [];
+  const guess = { askOne: async (api, k, pub, hist, who) => { asked.push(who.persona); return "是人吗"; } };
+  const r2 = load2({ guess });
+  const opts = { recent: true, recentText: "昨天说好去看海" };
+  await r2.G.ADAPTERS.haigui.charMove({ phase: "play", surface: "汤面", log: [] }, 1, {}, { api: {}, char: { name: "阿B", persona: "人设" }, opts });
+  assert.ok(asked[0].includes("人设") && asked[0].includes("昨天说好去看海"));
+  await r2.G.ADAPTERS.haigui.charMove({ phase: "play", surface: "汤面", log: [] }, 1, {}, { api: {}, char: { name: "阿B", persona: "人设" }, opts: {} });
+  assert.ok(!asked[1].includes("昨天说好去看海"), "没勾就不带");
+  assert.match(gsrc, /const lv = ctx && ctx\.opts && ctx\.opts\.casual \? 2 : this\.level\(inv, inv\.seats\[seatIdx\]\);/);
+  assert.match(gsrc, /const opts = \(o\.charOpts && o\.charOpts\(gid, seat\.charId\)\) \|\| \{\};/);
+  assert.match(nsrc, /charOpts: \(gid, cid\) => charOptsFor\(cid\),/);
+  assert.deepStrictEqual(G.charOptKinds("chess"), ["skill"]);
+  assert.deepStrictEqual(G.charOptKinds("gomoku"), ["casual"]);
 });
