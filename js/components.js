@@ -22558,7 +22558,8 @@ function PollComposeSheet({ onSubmit, onClose }) {
 // 专属红包（她 2026-09-19：「群聊能发专属红包」）：点名给一个人，别人碰不到。
 // ⚠️不做成第二个弹层：它跟拼手气红包是【同一件事的两种发法】，分成两个入口，
 //   她每次都得先想「我要发哪种」。所以就在这一张里多一排人头，谁都不选＝拼手气。
-function RedPacketComposeSheet({ memberCount, members, myBalance, onSubmit, onClose }) {
+// noWallet：只是玩法、不动钱包的那几处用（各人钱包互相看不见的地方）——不显示余额、不挑亲属卡、不查够不够
+function RedPacketComposeSheet({ memberCount, members, myBalance, onSubmit, onClose, noWallet }) {
   const t = useTheme();
   const [total, setTotal] = useState("");
   const [count, setCount] = useState(String(Math.max(1, memberCount || 1)));
@@ -22569,13 +22570,13 @@ function RedPacketComposeSheet({ memberCount, members, myBalance, onSubmit, onCl
   const a = Math.round(Number(total) * 100) / 100;
   const c = Math.max(1, parseInt(count, 10) || 1);
   const kinCard = kin && window.KinPay ? window.KinPay.cards().find(c => c.charId === kin) : null;
-  const insufficient = a > ((kinCard ? kinCard.remain : myBalance) || 0);
+  const insufficient = !noWallet && a > ((kinCard ? kinCard.remain : myBalance) || 0);
   const canSend = a > 0 && !insufficient;
   const lbl = { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, margin: "14px 0 5px" };
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 1.2, color: t.fog } }, "发红包"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "钱包余额 ¥" + (myBalance || 0))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, noWallet ? "只是玩法，不动钱包" : "钱包余额 ¥" + (myBalance || 0))),
     h("div", { style: lbl }, "总金额（¥）"),
     h("input", { "data-wk": "input", value: total, onChange: e => setTotal(e.target.value.replace(/[^0-9.]/g, "")), inputMode: "decimal", placeholder: "0.00", style: field }),
     h("div", { style: lbl }, "给谁"),
@@ -22594,7 +22595,7 @@ function RedPacketComposeSheet({ memberCount, members, myBalance, onSubmit, onCl
         h("input", { "data-wk": "input", value: count, onChange: e => setCount(e.target.value.replace(/[^0-9]/g, "")), inputMode: "numeric", placeholder: String(memberCount || 1), style: field })),
     h("div", { style: lbl }, "祝福语（可选）"),
     h("input", { "data-wk": "input", value: message, onChange: e => setMessage(e.target.value), placeholder: "恭喜发财，大吉大利", style: field }),
-    h(KinPayPick, { value: kin, onChange: setKin, exclude: toId, accent: "#c3372c" }),
+    noWallet ? null : h(KinPayPick, { value: kin, onChange: setKin, exclude: toId, accent: "#c3372c" }),
     kinCard ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 6 } }, "发出去就从 " + kinCard.name + " 的亲属卡刷，TA 下次说话会知道") : null,
     insufficient ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent, marginTop: 10 } }, kinCard ? "亲属卡额度不足" : "余额不足") : null,
     h("button", { onClick: () => { if (canSend) onSubmit(a, toId ? 1 : c, message.trim(), toId, kinCard ? kin : ""); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", background: "linear-gradient(160deg,#c3372c,#9d251c)", color: "#fff", borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "塞进红包 " + (a > 0 ? "¥" + a : "")));

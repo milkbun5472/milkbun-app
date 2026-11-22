@@ -612,7 +612,7 @@
     // 联机（2026-11-22）：首页、等人、带谁进来、房间、离开、历史
     Object.freeze({
       zh: "联机", pages: Object.freeze(["netroom"]),
-      hooks: Object.freeze([["nrpage", "联机整页最外层（data-part 区分首页／等人／带谁／房间／离开／历史）"], ["nrcode", "等人那页的大房间号"], ["nrnick", "首页「你在房间里叫」那一格"], ["nrjoincode", "首页填房间号那一格"], ["nrerr", "连不上时那行提示"], ["nrhist", "首页「以前的房间」每一行"], ["nrbtn", "联机里的按钮（开房间、加入、进房间、离开、补记）"], ["nrmsg", "房间里一条消息那一行（data-side 是 me / peer）"], ["nrbubble", "消息气泡"], ["nrowner", "角色消息底下「谁带来的」那行小字"], ["nrcomposer", "房间底部输入区"], ["nrspeaker", "输入框上面那排「点谁谁说」的头像"], ["nrinput", "房间输入框"], ["nrsend", "发送键"], ["nrhost", "首页「开房间」"], ["nrjoin", "首页「输入房间号加入」"], ["nrenter", "带谁进来那页的「进房间」"], ["nrleaveok", "离开那页的「离开」"], ["nrfill", "以前的房间里「记进 TA 的记忆」补记键"], ["nrleave", "顶栏「退出」"], ["nrmempick", "离开时「记进 TA 的记忆」那一格勾选"], ["nrrejoin", "「重新连上」按钮（房间里断开时、以前的房间里）"], ["nrrejoinbar", "房间里断开时输入框上面那一条"], ["nrdel", "以前的房间最底下「删除这个房间的记录」"], ["nrwithchat", "带谁进来那页每个人右边「带上最近单聊」（data-on=\"1\" 是带上）"], ["nrpeerbar", "房间顶栏下面那排「房里有谁」"], ["nrpeer", "那排里的一个人（data-state 是 on 在线 / relay 别人在转 / fail 连不上 / off 离开了）"]])
+      hooks: Object.freeze([["nrpage", "联机整页最外层（data-part 区分首页／等人／带谁／房间／离开／历史）"], ["nrcode", "等人那页的大房间号"], ["nrnick", "首页「你在房间里叫」那一格"], ["nrjoincode", "首页填房间号那一格"], ["nrerr", "连不上时那行提示"], ["nrhist", "首页「以前的房间」每一行"], ["nrbtn", "联机里的按钮（开房间、加入、进房间、离开、补记）"], ["nrmsg", "房间里一条消息那一行（data-side 是 me / peer）"], ["nrbubble", "消息气泡"], ["nrowner", "角色消息底下「谁带来的」那行小字"], ["nrcomposer", "房间底部输入区"], ["nrspeaker", "输入框上面那排「点谁谁说」的头像"], ["nrtogether", "那排头像后面的「一起说」（带了两个以上的人才有）"], ["nrinput", "房间输入框"], ["nrsend", "发送键"], ["nrhost", "首页「开房间」"], ["nrjoin", "首页「输入房间号加入」"], ["nrenter", "带谁进来那页的「进房间」"], ["nrleaveok", "离开那页的「离开」"], ["nrfill", "以前的房间里「记进 TA 的记忆」补记键"], ["nrleave", "顶栏「退出」"], ["nrmempick", "离开时「记进 TA 的记忆」那一格勾选"], ["nrrejoin", "「重新连上」按钮（房间里断开时、以前的房间里）"], ["nrrejoinbar", "房间里断开时输入框上面那一条"], ["nrdel", "以前的房间最底下「删除这个房间的记录」"], ["nrwithchat", "带谁进来那页每个人右边「带上最近单聊」（data-on=\"1\" 是带上）"], ["nrpeerbar", "房间顶栏下面那排「房里有谁」"], ["nrpeer", "那排里的一个人（data-state 是 on 在线 / relay 别人在转 / fail 连不上 / off 离开了）"], ["nrreroll", "自己带来的人那一轮最后一条底下「重新说 ‹ 1/2 ›」那一组"], ["nrrerollbtn", "「重新说」"], ["nrverprev", "翻到上一版"], ["nrvernext", "翻到下一版"], ["nredited", "改过的那条底下「已编辑」"], ["nrpick", "拍一拍／名片挑人那一行"], ["nrphotosend", "发照片那一格的发送键"]])
     }),
     // 照影（她 2026-10-22「这页的美化顺便做了」）：整页、分类圆镜、每套封面、答题卡、结果和评语
     Object.freeze({
@@ -1220,7 +1220,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v90.040",changed: "",none: "这一版没动美化挂点。"};
+                                                                                                                                                                                                                                                                    const BRIEF_STAMP = {v: "v90.044",changed: "新增 nrtogether 挂点（联机房间「一起说」）。",none: ""};
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
