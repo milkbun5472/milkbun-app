@@ -22,7 +22,7 @@
   const ensure = () => TS() || !root.LazyMods ? Promise.resolve() : root.LazyMods.load("trpg").catch(() => {});
   const STAT_KEYS = ["phy", "agi", "wit", "cha", "luck"];
   const STAT_ZH = { phy: "体魄", agi: "身手", wit: "头脑", cha: "谈吐", luck: "气运" };
-  const nm = (inv, i) => ((inv.seats || [])[i] || {}).name || "TA";
+  const nm = (inv, i) => root.NetGameCore.seatName((inv.seats || [])[i], i);
   const clone = x => JSON.parse(JSON.stringify(x));
   const cleanStats = s => s && typeof s === "object" && STAT_KEYS.every(k => Number.isFinite(Number(s[k]))) ? STAT_KEYS.reduce((o, k) => (o[k] = int(s[k], 15, 90, 50), o), {}) : null;
 

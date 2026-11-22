@@ -1857,7 +1857,21 @@ function usePageZ(z) { return useContext(HalfWinLayer) ? 935 + Math.max(0, z - 2
 // 半窗外壳（单聊的半窗和别处要浮一扇小窗的都用这一份）：fixed 的兄弟节点、930 层，顶条挪位置、小横杠调大小，
 //   「收起」缩成一颗能拖的小条，位置和大小都记住（存比例，换机型也对得上）。win：{ min, box, pill }，setWin 照 setState 的样子给。
 //   pillLabel 小条上的字；pillHot 小条亮起来（比如轮到你了）；bigLabel+onBig 顶条左边那颗（放大成整页）；barNote 顶条中间的一行提醒（点它 onBarNote）。
-function halfWinPillPos() { try { const v = JSON.parse(localStorage.getItem("x_halfWinPill") || "null"); if (v && v.x >= 0 && v.x <= 1 && v.y >= 0 && v.y <= 1) return { x: Math.min(Math.round(v.x * window.innerWidth), window.innerWidth - 80), y: Math.min(Math.round(v.y * window.innerHeight), window.innerHeight - 44) }; } catch (e) {} return null; }
+//   小条位置按 forKey 各记各的：单聊（forKey "chat" 或没给）还是 x_halfWinPill 顶层那一对 x/y，别处记在同一个键的 by[forKey] 里（不另开键）；
+//   别处的小条不许停进顶栏那一截（PILL_TOP 以上），省得盖住顶栏的按钮
+const PILL_TOP = 96;
+const pillOwnKey = k => !k || k === "chat" ? "" : k;
+function halfWinPillRead() { try { return JSON.parse(localStorage.getItem("x_halfWinPill") || "null") || null; } catch (e) { return null; } }
+function halfWinPillPos(forKey) {
+  const k = pillOwnKey(forKey), all = halfWinPillRead(), v = all ? (k ? all.by && all.by[k] : all) : null;
+  if (v && v.x >= 0 && v.x <= 1 && v.y >= 0 && v.y <= 1) { const y = Math.min(Math.round(v.y * window.innerHeight), window.innerHeight - 44); return { x: Math.min(Math.round(v.x * window.innerWidth), window.innerWidth - 80), y: k ? Math.max(PILL_TOP, y) : y }; }
+  return null;
+}
+function halfWinPillSave(forKey, p) {
+  const k = pillOwnKey(forKey), all = halfWinPillRead() || {}, r = { x: p.x / window.innerWidth, y: p.y / window.innerHeight };
+  const out = k ? Object.assign({}, all, { by: Object.assign({}, all.by || {}, { [k]: r }) }) : Object.assign({}, all, r);
+  try { localStorage.setItem("x_halfWinPill", JSON.stringify(out)); } catch (e) {}
+}
 // 半窗摆在哪、多大：上次拖到哪儿就是哪儿；没拖过就是贴底的半屏多一点
 function halfWinBoxPos() {
   const vw = window.innerWidth, vh = window.innerHeight;
@@ -1891,7 +1905,7 @@ function HalfWinFrame({ win, setWin, pillLabel, pillHot, onClose, onBig, bigLabe
   // 收起＝缩成底下一颗小条：半窗会盖住页面自己的底栏，先收起来去翻页，翻到了再点开
   const pillBtn = { minHeight: 36, border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff" };
   // 小条也能拖（她 2026-10-06）：按住挪到哪儿就停哪儿，记住位置；挪过了那一下不算点
-  const pp = win.pill || halfWinPillPos();
+  const pp = win.pill || halfWinPillPos(forKey), topMin = pillOwnKey(forKey) ? PILL_TOP : 4;
   const pillPos = pp ? { left: pp.x, top: pp.y } : { left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)" };
   if (win.min) return h("div", { "data-halfwin": "1", "data-wk": "halfwinpill", "data-for": forKey || "", "data-hot": pillHot ? "1" : "0",
     onPointerDown: e => {
@@ -1900,12 +1914,12 @@ function HalfWinFrame({ win, setWin, pillLabel, pillHot, onClose, onBig, bigLabe
       const mv = ev => {
         if (!moved && Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 6) return;
         moved = true; halfPillDragged.current = true;
-        last = { x: Math.max(4, Math.min(window.innerWidth - r.width - 4, ev.clientX - dx)), y: Math.max(4, Math.min(window.innerHeight - r.height - 4, ev.clientY - dy)) };
+        last = { x: Math.max(4, Math.min(window.innerWidth - r.width - 4, ev.clientX - dx)), y: Math.max(topMin, Math.min(window.innerHeight - r.height - 4, ev.clientY - dy)) };
         setWin(w => w ? { ...w, pill: last } : w);
       };
       const up = () => {
         window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
-        if (last) try { localStorage.setItem("x_halfWinPill", JSON.stringify({ x: last.x / window.innerWidth, y: last.y / window.innerHeight })); } catch (er) {}
+        if (last) halfWinPillSave(forKey, last);
         setTimeout(() => { halfPillDragged.current = false; }, 0);
       };
       window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
