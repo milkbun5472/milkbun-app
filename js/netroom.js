@@ -151,8 +151,13 @@
       + "\n- 对面是 " + room.peerNick + (peers.length ? "，TA 带来的是：" + peers.join("、") : "") + "。"
       + "对面这几位你只知道名字和他们在这里说过的话，其余的你不知道，也不用替他们补。"
       + "\n\n【房间里到现在的全部聊天】\n" + (transcript(room) || "（还没人说话）")
-      + "\n\n【这一次】轮到你在房间里开口，接着上面的话说一句（想说几句也行，像在群里发消息）。只写你说出口的话本身，不写旁白，不替别人说话。"
+      + "\n\n【这一次】轮到你在房间里开口，接着上面的话开口，照你平时发消息的习惯：一条一个气泡，想连发几条就几条，跟在群里聊天一样。只写你说出口的话本身，不写旁白，不替别人说话。"
       + bans();
+  }
+  // 模型交回来的几条气泡：say 数组为主；只给了一段 text 的，按空行/换行拆开
+  function sayLines(d) {
+    const arr = d && Array.isArray(d.say) ? d.say : d && typeof d.say === "string" ? [d.say] : d && d.text ? [d.text] : [];
+    return arr.map(x => String(x == null ? "" : x)).join("\n").split(/\n+/).map(x => x.trim()).filter(Boolean).slice(0, 8);
   }
   function memoryInstruction(room, char) {
     return "把下面这次「" + room.myNick + " 带你进联机房间，跟 " + room.peerNick + " 那边的人聊天」的经历，浓缩成 1~3 句会长期记住的事（你的第一人称）："
@@ -298,7 +303,7 @@
 
   const Core = { BROKERS, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
-    memoryTargets, transcript, lineInstruction, memoryInstruction };
+    memoryTargets, transcript, lineInstruction, memoryInstruction, sayLines };
   root.NetRoomCore = Core;
 
   // ───────────── 页面 ─────────────
@@ -439,10 +444,14 @@
         const cur = roomRef.current;
         const d = await runProbe(p, props.ctxFor(char), { voice: true, tag: "netroom",
           instruction: Core.lineInstruction(cur, { id: char.id, name: char.remark || char.name }),
-          schemaHint: "{\"text\":\"你在房间里说的话\"}", maxTokens: 12000 });
-        const text = String((d && d.text) || "").trim();
-        if (!text) throw new Error("TA 没想好说什么，再点一次");
-        post({ id: "c" + Date.now() + Math.random().toString(36).slice(2, 6), kind: "char", name: char.remark || char.name, charId: char.id, text, ts: Date.now() });
+          schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}", maxTokens: 12000 });
+        // 一次连发几条（她 2026-11-22：「为啥角色一次只会说一句话」）；老格式 text 也认
+        const lines = Core.sayLines(d);
+        if (!lines.length) throw new Error("TA 没想好说什么，再点一次");
+        for (let i = 0; i < lines.length; i++) {
+          if (i) await new Promise(r => setTimeout(r, Math.min(2200, 500 + lines[i].length * 60)));
+          post({ id: "c" + Date.now() + Math.random().toString(36).slice(2, 6), kind: "char", name: char.remark || char.name, charId: char.id, text: lines[i], ts: Date.now() });
+        }
       } catch (e) { props.toast && props.toast("没说出来：" + ((e && e.message) || e)); }
       finally { setBusy(b => Object.assign({}, b, { [c.id]: false })); }
     };

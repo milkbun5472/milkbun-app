@@ -117,3 +117,10 @@ test("不引第三方库、不下载代码；入口挂在一起玩", () => {
   assert.match(comp, /\["NetRoomApp", "netroom", "联机"\]/);
   assert.match(read("index.html"), /data-lazy="netroom" data-src="js\/netroom\.js\?v=/);
 });
+
+test("角色一次能连发几条：say 数组拆成几个气泡，老的 text 也认", () => {
+  const { C } = load();
+  assert.deepStrictEqual(C.sayLines({ say: ["嗯", " 你们好 ", ""] }), ["嗯", "你们好"]);
+  assert.deepStrictEqual(C.sayLines({ text: "第一句\n\n第二句" }), ["第一句", "第二句"]);
+  assert.deepStrictEqual(C.sayLines({}), []);
+});
