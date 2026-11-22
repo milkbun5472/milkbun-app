@@ -27634,7 +27634,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     Object.keys(box).forEach(dk => {
       (box[dk] || []).forEach(ev => {
         if (!ev || !S(ev.title)) return;
-        items.push({ title: S(ev.title).slice(0, 40), date: DK(dk), time: "", kind: "事件", done: false, postponed: 0, note: S(ev.note).slice(0, 120), who: "" });
+        // 在一起那天落的「♥ 和 X 在一起」：在他手机里，X 是你跟他用的那张面具（她 2026-11-22「这里查手机也写死主面具了」），按现在取，不信存进去那一刻的名字
+        const _t = ev.note === "情侣纪念日" && /^♥ 和 .+ 在一起$/.test(S(ev.title)) ? "♥ 和 " + userName(profileFor(char.id) || profile) + " 在一起" : S(ev.title);
+        items.push({ title: _t.slice(0, 40), date: DK(dk), time: "", kind: "事件", done: false, postponed: 0, note: S(ev.note).slice(0, 120), who: "" });
       });
     });
     // ② x_calEvents：TA名下带时刻的日程
@@ -27657,7 +27659,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         time: "", kind: "答应过", done: false,
         // 不许编「推迟 N 次」——没有任何地方真的数过。只说确实为真的那件事：
         // 日子过了，TA还没做。日历界面会因为 overdue 把这条染红。
-        postponed: 0, overdue: !!late, note: characterText(char, "他答应过的。"), who: profile.name || "我"
+        postponed: 0, overdue: !!late, note: characterText(char, "他答应过的。"), who: userName(profileFor(char.id) || profile) || "我"
       });
     });
     // ④ x_schedules[charId]：已经推演过的那几天，每一段行程占一条
