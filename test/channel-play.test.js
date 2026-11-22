@@ -321,3 +321,9 @@ test("每日一问带上人设、关系、这两天聊的、前几天问过的",
   assert.match(ap, /荒唐但答起来很见性格的假设/);
   assert.match(ap, /askHist: \(x\.askHist \|\| \[\]\)\.concat\(\[q\]\)/);
 });
+
+test("歌单「放这首」：歌库没有的去搜来放", () => {
+  assert.match(ap, /onPlaySong: async x => \{/);
+  assert.match(ap, /neteaseSearchOne\(\(x\.title \+ " " \+ \(x\.artist \|\| ""\)\)\.trim\(\)/);
+  assert.match(cs, /onPlaySong && \(canSearchSong \|\| chpSongMatch\(myLib, x\)\)/);
+});
