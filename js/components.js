@@ -19506,7 +19506,7 @@ function offRoundTag(sess) {
   return n ? " · 第 " + n + " 轮" : "";
 }
 function OfflineMode({
-  onStopGen,
+  onStopGen, onForward, fwdChars, fwdGroups,
   char,
   room,
   profile,
@@ -19947,7 +19947,7 @@ function OfflineMode({
             style: { minHeight: 40, padding: "8px 12px", borderRadius: 12, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.55, color: t.ink } }, o))) : null; })(),
       !sending && !pick && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip, pad: "2px 0 8px" }) : null,
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
-    pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
+    pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])), fwd: onForward ? { chars: fwdChars, groups: fwdGroups, onForward: (idx, d, mode) => onForward(idx.map(k => msgs[k]).filter(Boolean), d, mode) } : null }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // OOC 从输入栏搬进了顶栏那个「幕后」里（她 2026-09-03：「ooc 在这下面有点拥挤了，
       // 把它放到加号里吧，现在加号是写导演拍刚好 ooc 放那边」）——导演便签和出戏说本来就是
       // 同一类事：都是绕过戏、只有你和模型看得见。留在这儿的只有【正在出戏】时的退出口，
@@ -20514,13 +20514,18 @@ function offPickCard(card, i, pick, setPick, t) {
     h("div", { style: { position: "absolute", top: 8, right: 8, width: 20, height: 20, borderRadius: 10, border: "1.5px solid " + t.ink, background: on ? t.ink : t.bg2,
       color: t.bg2, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: "17px", textAlign: "center" } }, on ? "✓" : ""));
 }
-function OffPickBar({ t, pick, setPick, onPin }) {
-  return h("div", { className: "flex items-center justify-between px-4 py-3 shrink-0", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingBottom: "calc(12px + env(safe-area-inset-bottom) * 0.4)" } },
+// 线下多选也能转发（她 2026-11-22）：fwd＝{ chars, groups, onForward }，挑去处用线上那张 ForwardPickSheet，不另做一张
+function OffPickBar({ t, pick, setPick, onPin, fwd }) {
+  const [fwdPick, setFwdPick] = useState(false), [fwdMode, setFwdMode] = useState("merge");
+  const sendTo = async dests => { const idx = pick.slice().sort((a, b) => a - b); setFwdPick(false); setPick(null);
+    for (const d of dests || []) { try { await fwd.onForward(idx, d, fwdMode); } catch (e) {} } };
+  return h(Fragment, null, fwdPick && fwd ? h(ForwardPickSheet, { chars: fwd.chars || [], groups: fwd.groups || [], mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: sendTo }) : null, h("div", { className: "flex items-center justify-between px-4 py-3 shrink-0", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingBottom: "calc(12px + env(safe-area-inset-bottom) * 0.4)" } },
     h("button", { onClick: () => setPick(null), style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "取消"),
     h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "已选 " + pick.length),
     h("div", { className: "flex gap-3 items-center" },
       pick.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, pick), hi = Math.max.apply(null, pick); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setPick(a); }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "补中间") : null,
-      h("button", { onClick: () => { if (pick.length) { onPin(pick.slice().sort((a, b) => a - b)); setPick(null); } }, disabled: !pick.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "收进时刻")));
+      h("button", { onClick: () => { if (pick.length) { onPin(pick.slice().sort((a, b) => a - b)); setPick(null); } }, disabled: !pick.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "收进时刻"),
+      fwd && fwd.onForward ? h("button", { "data-wk": "offselfwd", onClick: () => pick.length && setFwdPick(true), disabled: !pick.length, className: "disabled:opacity-40 px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 6 } }, "转发") : null)));
 }
 function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenState, onEdit, onReroll, onRerollOne, onDelete, onSaveExample, onPinShike, editable, sending, onOpenState, showReason, hideThought }) {
   const [editing, setEditing] = useState(false);
@@ -20699,7 +20704,7 @@ function OfflineLengthModeSection({ value, onChange, loose, onLoose }) {
       h(Toggle, { on: loose !== false, onChange: () => onLoose(loose === false) })) : null);
 }
 function GroupOfflineMode({
-  onStopGen,
+  onStopGen, onForward, fwdChars, fwdGroups,
   group,
   profile,
   members,
@@ -21018,7 +21023,7 @@ function GroupOfflineMode({
       msgs.map((m, i) => i < offWin ? null : offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, clockId: group && group.id ? "g:" + group.id : undefined, hideThought: !!(settings && settings.hideThought), members: members, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onRerollOne: onRerollOne, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: offOpenState, canOpenState: offCanPeek }), i, pick, setPick, t)),
       !sending && !pick && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip, pad: "2px 0 8px" }) : null,
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
-    pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
+    pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])), fwd: onForward ? { chars: fwdChars, groups: fwdGroups, onForward: (idx, d, mode) => onForward(idx.map(k => msgs[k]).filter(Boolean), d, mode) } : null }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
       oocMode ? h("button", { onClick: () => setOocMode(false), title: "退出出戏说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "rgba(194,90,74,0.08)" } }, "出戏中 ✕") : null,
       narrMode && !oocMode ? h("button", { "data-wk": "offnarrpill", onClick: () => setNarrMode(false), title: "退出旁白", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", letterSpacing: 0.5, padding: "8px 10px", borderRadius: 999, border: "1px solid " + t.ink, color: t.ink, background: "transparent" } }, "旁白 ✕") : null,
