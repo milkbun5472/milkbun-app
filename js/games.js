@@ -616,6 +616,7 @@
     // 各怀心思的约会也走公共开局页（她 2026-10-12：「格式跟其他的也不一样」）——原来那张自己画的 DateGameSetup 不再挂
     if (game) return h(GameSetup, {
       game: game, characters: props.characters, profile: props.profile, moods: props.moods, t: t,
+      hide: props.setupHide, note: props.setupNote ? props.setupNote(game) : "",
       initialPicked: entry && entryHandledRef.current === entry.key && entry.characterId ? [String(entry.characterId)] : [],
       onBack: function () { setGame(null); },
       // ⚠️那一戳也写进 config：存档存的是 config，从架上「继续上一局」回来时
@@ -748,6 +749,8 @@
   const LAST_CFG_KEY = "x_gameLastCfg";
   function GameSetup(props) {
     const t = props.t, game = props.game;
+    // props.hide：别处借这一页开局、某几项在那边不起作用时，按名字收起来（stake / injectChat / ccSeat / boardTeach / gmkBrain / q25Host）
+    const hid = function (k) { return (props.hide || []).indexOf(k) >= 0; };
     const [stake, setStake] = useState("");          // 彩头：输的人要做什么（可空）
     const [skillPins, setSkillPins] = useState(loadSkillPins);
     const setSkillPin = function (id, v) { const n = Object.assign({}, skillPins); if (v) n[id] = v; else delete n[id]; setSkillPins(n); try { saveJSON(SKILL_PIN_KEY, n); } catch (e) {} };
@@ -841,10 +844,11 @@
         // 模式
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "模式"),
         // 约会是两个人的局：没有观战、彩头和 NPC（它自己有输赢账，也不进回忆和战报）
+        props.note ? h("div", { "data-wk": "gamesetupnote", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, props.note) : null,
         h(Segmented, { t: t, value: mode, options: game.key === "date" || game.key === "lingxi" ? MODES.filter(function (m) { return m.key !== "spectate"; }) : MODES, onChange: setMode }),
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, margin: "8px 2px 20px" } }, modeHint),
         // 彩头：开局前说好，终局 app 替你记着谁该兑现；战报发过去 TA 也知道
-        game.key === "date" ? null : h("div", { "data-wk": "gamestake", style: { marginBottom: 20 } },
+        game.key === "date" || hid("stake") ? null : h("div", { "data-wk": "gamestake", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "彩头（可以不填）"),
           h("input", { "data-wk": "gameinput", "data-part": "stake", value: stake, maxLength: 40, onChange: function (e) { setStake(e.target.value); },
             placeholder: "输的人要做什么，写一句",
@@ -915,7 +919,7 @@
             : tetrisMode === "versus"
             ? "一人一块板子，消两行以上往对面塞垃圾行，先堆到顶的输。TA 那块由本地棋手下（不花钱），只有说话才调用；模式选「放水」TA 会下得慢一点、多看走眼。"
             : "你自己玩，TA 坐旁边，一次消好几行、快堆到顶、破纪录的时候才开口。")) : null,
-        game.key === "q25" ? h("div", { "data-wk": "q25host", style: { marginBottom: 20 } },
+        game.key === "q25" && !hid("q25Host") ? h("div", { "data-wk": "q25host", style: { marginBottom: 20 } },
           h(Segmented, { t: t, value: q25Host, onChange: setQ25Host, options: [{ key: "system", zh: "系统出题" }, { key: "me", zh: "我出题" }, { key: "ta", zh: "TA 出题" }, { key: "turns", zh: "轮流" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, q25Host === "system" ? "系统心里想一个，大家一起猜。"
             : q25Host === "me" ? "你写下一个东西锁住（TA 看不到），TA 一问一问来猜，你点按钮答。只跟挑的第一个人玩。"
@@ -944,15 +948,15 @@
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "棋盘"),
           h(Segmented, { t: t, value: String(goSize), onChange: function (v) { setGoSize(Number(v)); }, options: [{ key: "9", zh: "九路" }, { key: "13", zh: "十三路" }, { key: "17", zh: "十七路" }, { key: "19", zh: "十九路" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, goSize >= 17 ? (goSize === 19 ? "十九路" : "十七路") + "格子小、一盘下得久，电脑在这么大的盘上偏弱。" : goSize === 13 ? "十三路，一盘半小时上下。" : "九路一盘十来分钟，手机上看得最清楚，电脑也下得最像样。")) : null,
-        ["chess", "xiangqi", "go", "jungle"].indexOf(game.key) >= 0 && !spectate ? h("div", { "data-wk": "boardteach", style: { marginBottom: 20 } },
+        !hid("boardTeach") && ["chess", "xiangqi", "go", "jungle"].indexOf(game.key) >= 0 && !spectate ? h("div", { "data-wk": "boardteach", style: { marginBottom: 20 } },
           h(ToggleRow, { t: t, label: "教学", sub: "你说话或者按「让TA说」的时候，TA 照着引擎看出来的实情讲：你上一步怎么样、哪里有危险。按提示时 TA 也顺口讲为什么。怎么教、耐不耐心，照 TA 自己的性子。", on: boardTeach, onToggle: function () { setBoardTeach(!boardTeach); } })) : null,
-        game.key === "gomoku" ? h("div", { "data-wk": "gomokubrain", style: { marginBottom: 20 } },
+        game.key === "gomoku" && !hid("gmkBrain") ? h("div", { "data-wk": "gomokubrain", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "谁来想棋"),
           h(Segmented, { t: t, value: gmkBrain, onChange: setGmkBrain, options: [{ key: "local", zh: "本地棋手" }, { key: "model", zh: "TA 自己下" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, gmkBrain === "model"
             ? "每一步都用 TA 的模型想：落子和说话一起回来，像在聊天里下棋。每步一次调用、要等几秒，模型下得好不好看它自己。"
             : "落子归 app 里的棋手，不花调用、不卡；TA 只在你开口时说话。")) : null,
-        game.key === "gomoku" && spectate && picked.length ? h("div", { "data-wk": "gomokustrength", style: { marginBottom: 20 } },
+        game.key === "gomoku" && !hid("gmkBrain") && spectate && picked.length ? h("div", { "data-wk": "gomokustrength", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "各自怎么下"),
           picked.slice(0, 2).map(function (id) {
             const c = chars.find(function (x) { return x.id === id; });
@@ -1005,8 +1009,8 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "最少 " + minNpc + " 个补到 " + game.min + " 人，最多可加到 " + game.max + " 人（局更长、更看得出门道）。")),
             h(Stepper, { t: t, value: needNpc, min: minNpc, max: maxNpc, onChange: function (v) { setNpcWant(v); } })) : null,
           h("div", { style: { borderTop: "1px solid " + t.line } }),
-          h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }),
-          ccSeatSupported ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: pickedEngineer ? "已经认出言秋。轮到TA时只收 CC 本人的回答；没接上就跳过这一手，Gemini 不会冒充。" : "先把言秋选进本局；开关会保留，选中后由 CC 里的本人亲自玩。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
+          hid("injectChat") ? null : h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }),
+          !hid("ccSeat") && ccSeatSupported ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: pickedEngineer ? "已经认出言秋。轮到TA时只收 CC 本人的回答；没接上就跳过这一手，Gemini 不会冒充。" : "先把言秋选进本局；开关会保留，选中后由 CC 里的本人亲自玩。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
           // 狼人杀·神职配置（自选 + 随机 + 标准板）
           isWolfGame ? h("div", { style: { paddingTop: 12, marginTop: 6, borderTop: "1px solid " + t.line } },
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 6 } },
@@ -3238,12 +3242,14 @@
   }
 
   // 连坐的下一题：只出题，不重摆桌（NPC、能力小传都沿用）。把前几题的答案带上防出重复。
-  async function genGuessNext(api, kind, prevAnswers) {
+  //   who：{ name, persona } 由一个人照自己的性子出题时给上；不给就是主持人出
+  async function genGuessNext(api, kind, prevAnswers, who) {
     const avoid = (prevAnswers || []).filter(Boolean).length ? "\n【本场已出过的（别重复、也别出近似的）】\n" + prevAnswers.map(function (x) { return "· " + x; }).join("\n") : "";
     const sys = kind === "haigui"
       ? AC + "你是「海龟汤」的主持人，出【一道新题】：surface 汤面（公开的诡异／反常情境，2~4 句，留足悬念但信息完整）、truth 汤底（完整真相，逻辑自洽、最好有反转、绝不靠超自然或做梦糊弄）。难度适中。" + avoid + "\n\n【输出】只输出 JSON：{\"surface\":\"\",\"truth\":\"\"}"
       : AC + "你是「25 个问题」的主持人，心里想【一个新的东西】secret（具体名词，大众化、能靠是否问题逐步逼近），category 给大类提示。" + avoid + "\n\n【输出】只输出 JSON：{\"secret\":\"\",\"category\":\"\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "出下一题。" }], { maxTokens: 10000 });
+    const me = who && who.name ? "\n\n这一题由「" + who.name + "」来出，照 TA 这个人的性子、见识和口味出，题目像是 TA 会想出来的那种。\n【" + who.name + " 的人设】" + String(who.persona || "（没写）").slice(0, 1500) : "";
+    const raw = await callRetry(api, sys + me, [{ role: "user", content: "出下一题。" }], { maxTokens: 10000 });
     return extractJSON(raw) || {};
   }
 
@@ -3345,6 +3351,8 @@
 
   // 猜的是不是就是答案：去掉「是不是／是／吗／它／这个」和标点空格再比
   function q25Norm(v) { return String(v == null ? "" : v).toLowerCase().replace(/[\s，。！？!?、,.~～…：:；;"'“”「」『』（）()]/g, "").replace(/^(它|这个|那个|答案)?(是不是|是|就是|会不会是|难道是)/, "").replace(/(吗|嘛|呢|吧|对吧|对不对|是吗)$/, ""); }
+  // 这一句是不是就说中了那个东西（「是不是X」「它是X吗」都算）
+  function q25Hit(secret, q) { const sec = q25Norm(secret), x = q25Norm(q); return !!sec && !!x && (x === sec || (sec.length >= 2 && x.length <= sec.length + 4 && x.indexOf(sec) >= 0)); }
   function GuessGame(props) {
     const t = props.t, cfg = props.config, api = props.active, kind = props.kind;
     const K = GUESS_KINDS[kind];
@@ -3434,7 +3442,7 @@
         const r = await runGuessRound(api, kind, ctx, uq || "", speakers, history, cfg.mode, me ? me.name : "");
         // 25 问：猜的就是那个东西，代码自己认，不全听主持人的（群里 2026-11-01：她打「馒头」，主持人回「不是，馒头不是米饭」，答案正是馒头）
         if (kind === "q25" && ctx && ctx.secret) {
-          const hitQ25 = q => { const sec = q25Norm(ctx.secret), x = q25Norm(q); return !!sec && !!x && (x === sec || (sec.length >= 2 && x.length <= sec.length + 4 && x.indexOf(sec) >= 0)); };
+          const hitQ25 = q => q25Hit(ctx.secret, q);
           // 问字数的，代码自己数（2026-11-01：答案「篮球」，主持人说「是三个字」，还判她破题了）
           const ZH_N = { "一": 1, "两": 2, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10 };
           const lenAns = q => { const m = /([一两二三四五六七八九十]|\d+)\s*个字/.exec(String(q || "")); if (!m) return null; const n = ZH_N[m[1]] || Number(m[1]); const real = Array.from(String(ctx.secret).replace(/\s+/g, "")).length;
@@ -3795,7 +3803,8 @@
     return out;
   }
   // 用户被指到并选了 真话/大冒险：出题人也由 JS 指定，只生成题目
-  async function genTDPrompt(api, choice, asker, hot, mode, memText, plan) {
+  //   target：被指到的不是真人玩家时给上 { name }（题照样只由出题人出）
+  async function genTDPrompt(api, choice, asker, hot, mode, memText, plan, target) {
     const askerName = asker ? asker.name : "大家";
     const spice = hot ? "尺度可暧昧 / 大胆些，什么都可以问，挖出角色最深的欲望。" : "轻松好玩的尺度。";
     if (asker && asker.engineer) {
@@ -3807,7 +3816,8 @@
       if (cc.done && String(cc.done.prompt || "").trim()) return { prompt: String(cc.done.prompt).trim() };
       throw new Error(cc.reason || "本人出题票未送达");
     }
-    const sys = gameVoiceRules() + TD_IC + "\n\n「真心话大冒险」轮到真人玩家了，TA 选了【" + choice + "】，由【" + askerName + "】给 TA 出题。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场）") +
+    const who = target && target.name ? "【" + target.name + "】" : "真人玩家";
+    const sys = gameVoiceRules() + TD_IC + "\n\n「真心话大冒险」轮到" + who + "了，TA 选了【" + choice + "】，由【" + askerName + "】给 TA 出题。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场）") +
       (memText ? "\n\n【之前发生过的】\n" + memText : "") +
       "\n\n【本轮题型主题】" + plan.theme + (plan.avoid ? "\n【跨局最近出过的题（禁止重复或近义改写）】\n" + plan.avoid : "") +
       "\n\n出一道" + (choice === "真心话" ? "真心话问题" : "具体可执行的大冒险动作") + "，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + (mode === "easy" ? "别太为难。" : "") +
@@ -3823,7 +3833,8 @@
   }
 
   // Lisa 亲自出题后，只让被点到的人回答；主持模型不得改写她的原题。
-  async function genTDAnswerToUserPrompt(api, target, choice, prompt, hot, memText) {
+  //   askerName：出题的不是真人玩家时给上名字
+  async function genTDAnswerToUserPrompt(api, target, choice, prompt, hot, memText, askerName) {
     if (target && target.engineer) {
       const cc = await ccCarve("tod", [target], {
         turnId: freshCCTurn("tod-answer-user-question:"),
@@ -3833,7 +3844,7 @@
       if (cc.done && String(cc.done.response || "").trim()) return String(cc.done.response).trim();
       throw new Error(cc.reason || "本人回答票未送达");
     }
-    const sys = gameVoiceRules() + TD_IC + "\n\n「真心话大冒险」里，真人玩家亲自给【" + target.name + "】出了一道【" + choice + "】：『" + prompt + "』。\n被点到的人设：\n" + tdDesc(target) + (memText ? "\n【之前几轮】\n" + memText : "") + "\n只能演 " + target.name + " 的回应/完成，不许改题、不许替真人说话。写 3~5 句、有现场感。只输出 JSON：{\"response\":\"\"}";
+    const sys = gameVoiceRules() + TD_IC + "\n\n「真心话大冒险」里，" + (askerName ? "【" + askerName + "】" : "真人玩家亲自") + "给【" + target.name + "】出了一道【" + choice + "】：『" + prompt + "』。\n被点到的人设：\n" + tdDesc(target) + (memText ? "\n【之前几轮】\n" + memText : "") + "\n只能演 " + target.name + " 的回应/完成，不许改题、不许替真人说话。写 3~5 句、有现场感。只输出 JSON：{\"response\":\"\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "回应她亲自出的题。" }], { maxTokens: 12000 });
     const out = extractJSON(raw) || {};
     return String(out.response || "").trim();
@@ -4308,6 +4319,28 @@
   function monoNpcDecision(p,tile,tileIndex,ps,os,ls,moves,kind){const st=monoStyle(p),cost=kind==="upgrade"?Math.floor(tile.price/2):tile.price,after=p.cash-cost,g=monoGroupProgress(p,tile,os),worths=(ps||[]).filter(function(x){return !x.bankrupt;}).map(function(x){return monoNetWorth(x,os,ls);}),avg=worths.length?worths.reduce(function(a,b){return a+b;},0)/worths.length:0;let score=st.risk*.9+(after-st.reserve)/360+(tile.rent/tile.price-.16)*5+(monoNetWorth(p,os,ls)<avg? .25:-.08);if(kind==="buy"){score+=g.own*.72+(g.completes?2.1:0);}else{score+=g.completes?1.2:.15;score-=(ls[tileIndex]||0)*.32;}score+=(monoHash(p.key+":"+tileIndex+":"+moves+":"+kind)-.5)*.7;return{yes:after>=Math.max(80,st.reserve*.55)&&score>0,score:score,reserve:st.reserve};}
   function monoAuctionCap(p,tile,tileIndex,os){const st=monoStyle(p),g=monoGroupProgress(p,tile,os),floor=Math.ceil(tile.price*.55/10)*10,premium=1+st.risk*.08+g.own*.09+(g.completes?.16:0),cap=Math.floor(Math.min(p.cash-Math.max(90,st.reserve*.7),tile.price*premium)/10)*10;return Math.max(0,cap>=floor?cap:0);}
   function monoAuctionPlan(ps,os,tileIndex,excludedKey){const tile=MONO_BOARD[tileIndex],floor=Math.ceil(tile.price*.55/10)*10,step=Math.max(20,Math.ceil(tile.price*.05/10)*10),bidders=(ps||[]).map(function(p,i){return(!p.bankrupt&&p.key!==excludedKey)?{p:p,cap:p.isUser?Math.floor((p.cash||0)/10)*10:monoAuctionCap(p,tile,tileIndex,os),seat:i}:null;}).filter(function(x){return x&&x.cap>=floor;}).sort(function(a,b){return b.cap-a.cap||a.seat-b.seat;});if(!bidders.length)return{floor:floor,step:step,bidders:[],winner:null,bid:0};const winner=bidders[0],second=bidders[1],bid=second?Math.min(winner.cap,Math.max(floor,second.cap+step)):floor;return{floor:floor,step:step,bidders:bidders,winner:winner.p,bid:bid};}
+  // 一手怎么走、落到格子上怎么结算：单机那一桌和别处摆同一张桌都走这几条，钱和产权只在这里动
+  function monoBankrupt(ps,idx,os,reason){if(ps[idx].cash>=0)return null;ps[idx].bankrupt=true;ps[idx].alive=false;Object.keys(os).forEach(function(k){if(os[k]===ps[idx].key)delete os[k];});return ps[idx].name+"付不起钱，宣布破产，名下土地回到银行"+(reason?"（"+reason+"）":"")+"。";}
+  // 掷两颗骰子往前走（过起点领 $200）：回 { d1, d2, roll, extra(双骰再走一手), say }
+  function monoRoll(p,rnd){const r=rnd||Math.random,d1=1+Math.floor(r()*6),d2=1+Math.floor(r()*6),roll=d1+d2,extra=d1===d2,mv=monoMove(p.pos,roll);p.pos=mv.pos;if(mv.passed)p.cash+=200*mv.passed;const tile=MONO_BOARD[p.pos];return{d1:d1,d2:d2,roll:roll,extra:extra,say:p.name+" 掷出 "+d1+" + "+d2+" = "+roll+(extra?"（双骰）":"")+"，走到【"+tile.name+"】"+(mv.passed?"，经过起点领 $"+(200*mv.passed):"")+"。"};}
+  // 落地结算：租金、机会、税、奖励、看守所、城际线、交易所。空地回 "buy"、自己成组能升级的地回 "upgrade"（由坐这个位子的人拿主意），别的回 null
+  function monoLand(ps,os,lv,turn,ls,eventParts,rnd){const r=rnd||Math.random,p=ps[turn],tile=MONO_BOARD[p.pos];
+      if(tile.type==="property") {const ownerKey=os[p.pos]; if(!ownerKey)return "buy";
+        if(ownerKey!==p.key){const oi=ps.findIndex(function(x){return x.key===ownerKey;}), owner=ps[oi],rent=monoRent(p.pos,ownerKey,os,lv);if(owner&&!owner.bankrupt){p.cash-=rent;owner.cash+=rent;ls.push({type:"event",say:p.name+" 向 "+owner.name+" 支付 "+tile.name+" 租金 $"+rent+"。"});eventParts.push(p.name+"踩进"+owner.name+"的"+tile.name+"并付租$"+rent);const bk=monoBankrupt(ps,turn,os,"欠 "+owner.name+" 租金");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}return null;}
+        if(monoOwnsGroup(p.key,tile.group,os)&&(lv[p.pos]||0)<3)return "upgrade";ls.push({type:"sys",say:"这里是 "+p.name+" 自己的地，巡视一圈。"});return null;}
+      else if(tile.type==="chance"){const c=MONO_CHANCE[Math.floor(r()*MONO_CHANCE.length)];p.cash+=c.amount;ls.push({type:"event",say:"🎴 "+c.text+"："+(c.amount>=0?"+":"")+"$"+c.amount+"。"});eventParts.push(p.name+"抽到机会："+c.text+(c.amount>=0?"赚":"花")+"$"+Math.abs(c.amount));const bk=monoBankrupt(ps,turn,os,"机会事件");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
+      else if(tile.type==="tax"){p.cash-=tile.amount;ls.push({type:"event",say:p.name+" 支付 "+tile.name+" $"+tile.amount+"。"});eventParts.push(p.name+"被收"+tile.name+"$"+tile.amount);const bk=monoBankrupt(ps,turn,os,tile.name);if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
+      else if(tile.type==="bonus"){p.cash+=tile.amount;ls.push({type:"event",say:p.name+" 在 "+tile.name+" 收到城市活动奖励 $"+tile.amount+"。"});eventParts.push(p.name+"在"+tile.name+"得到$"+tile.amount);}
+      else if(tile.type==="gotojail"){p.pos=10;p.jailed=1;ls.push({type:"bad",say:"🚓 "+p.name+" 被送去看守所，下一手暂停行动。"});eventParts.push(p.name+"被送进看守所");}
+      else if(tile.type==="station"){const from=p.pos,to=tile.pair,passed=to<from;p.pos=to;if(passed)p.cash+=200;ls.push({type:"event",say:"🚇 "+p.name+" 搭城际线直达 "+MONO_BOARD[to].name+(passed?"，途中经过起点领 $200":"")+"。"});eventParts.push(p.name+"从"+tile.name+"搭车到"+MONO_BOARD[to].name);}
+      else if(tile.type==="market"){const swing=r()<.5?-120:160;p.cash+=swing;ls.push({type:"event",say:"📈 "+p.name+" 在交易所"+(swing>0?"押对行情赚了":"追高被套亏了")+" $"+Math.abs(swing)+"。"});eventParts.push(p.name+"在交易所"+(swing>0?"赚":"亏")+"$"+Math.abs(swing));const bk=monoBankrupt(ps,turn,os,"交易所亏损");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
+      return null;}
+  function monoBuy(p,os,ls,eventParts){const tile=MONO_BOARD[p.pos];p.cash-=tile.price;os[p.pos]=p.key;ls.push({type:"event",say:p.name+" 用 $"+tile.price+" 买下了 "+tile.name+"。"});eventParts.push(p.name+"买下"+tile.name);}
+  function monoUpgrade(p,lv,ls,eventParts){const tile=MONO_BOARD[p.pos],cost=Math.floor(tile.price/2);p.cash-=cost;lv[p.pos]=(lv[p.pos]||0)+1;ls.push({type:"event",say:p.name+" 给 "+tile.name+" 升到 "+lv[p.pos]+" 级，花费 $"+cost+"。"});eventParts.push(p.name+"升级"+tile.name);}
+  // 竞价落槌：出价最高的那位照 plan.bid 付钱拿地
+  function monoSettleAuction(plan,os,tileIndex,ls,eventParts){const tile=MONO_BOARD[tileIndex],win=plan.winner;plan.bidders.slice().reverse().forEach(function(x){if(x.p.key!==win.key)ls.push({type:"sys",say:x.p.name+" 跟到 $"+Math.min(x.cap,plan.bid-plan.step)+" 后退出竞价。"});});win.cash-=plan.bid;os[tileIndex]=win.key;ls.push({type:"event",say:"🔨 "+win.name+" 最终以 $"+plan.bid+" 拍下 "+tile.name+"。"});eventParts.push(win.name+"经过多轮竞价拍下"+tile.name+"，成交$"+plan.bid);}
+  // 这一局完了没有：只剩一家没破产、或者走满了手数，就按总资产排名次；没完回 null
+  function monoRanking(ps,os,ls,moves){const alive=ps.filter(function(p){return !p.bankrupt;});if(alive.length<=1||moves>=monoMaxMoves(ps.length))return ps.slice().sort(function(a,b){return monoNetWorth(b,os,ls)-monoNetWorth(a,os,ls);});return null;}
   function hydMonoPlayers(saved, props, t) { return (saved || []).map(function (s) { let char = null; if (s.isUser) { const pf=props.profile||{}; char={name:pf.name||"你",avatarImage:pf.avatarImage,color:pf.color||t.tint}; } else if (!s.isNpc) char=(props.characters||[]).find(function(c){return c.id===s.key;})||null; const engineer=!s.isUser&&!s.isNpc&&!!(props.config&&props.config.ccSeat!==false&&props.isEngineer&&props.isEngineer(s.key)); return Object.assign({},s,{char:char,alive:!s.bankrupt,engineer:engineer||!!s.engineer}); }); }
   function monoCleanLogs(logs) { const oldRule=/每人带着 \$1200|45 回合|28 格城市棋盘/;const kept=(logs||[]).filter(function(x){return !oldRule.test(String(x&&x.say||""));});return kept.length===((logs||[]).length)?kept:[{type:"sys",say:"棋盘已升级为经典 40 格；每人约 22 手，旧局资金和产权均已保留。"}].concat(kept); }
   function monoMigrateSave(sv) { if(!sv)return sv;if(sv.boardVersion===3)return Object.assign({},sv,{logs:monoCleanLogs(sv.logs)});const names=sv.boardVersion===2?MONO_V2_NAMES:MONO_LEGACY_NAMES,out=Object.assign({},sv,{boardVersion:3,owners:{},levels:{}}),find=function(oldIndex){const nm=names[oldIndex]||"起点";if(nm==="休息站")return 20;if(nm==="交易所")return 28;const hits=[];MONO_BOARD.forEach(function(x,i){if(x.name===nm)hits.push(i);});return hits[0]!=null?hits[0]:Math.round((oldIndex||0)*39/(names.length-1));};Object.keys(sv.owners||{}).forEach(function(k){out.owners[find(+k)]=sv.owners[k];});Object.keys(sv.levels||{}).forEach(function(k){out.levels[find(+k)]=sv.levels[k];});out.players=(sv.players||[]).map(function(p){return Object.assign({},p,{pos:find(p.pos||0)});});out.logs=monoCleanLogs(sv.logs);return out; }
@@ -4383,19 +4416,13 @@
     function addLogs(xs){setLogs(function(old){return old.concat(xs).slice(-80);});}
     async function react(ps,os,event,force){if(event)interactionQueue.current.push(event);if(!force&&!monoShouldFlush(interactionQueue.current.length,event,false))return;const batch=interactionQueue.current.splice(0,4);if(!batch.length)return;try{const recent=logs.slice(-8).map(function(x){return (x.name?x.name+"：":"")+x.say;}).join("｜"),bundle=batch.map(function(x,i){return (i+1)+". "+x;}).join("\n"); const ts=await Promise.race([monoTalk(api,ps,"以下是连续发生的 "+batch.length+" 次行动，请让发言分别接住其中值得回应的节点：\n"+bundle,standings(ps,os),recent),new Promise(function(_,no){setTimeout(function(){no(new Error("接话超时"));},50000);})]); const valid={};ps.forEach(function(p){valid[p.name]=p;}); addLogs(ts.filter(function(x){return x&&valid[x.name]&&!valid[x.name].isUser;}).map(function(x){return {type:"talk",name:x.name,say:String(x.say||"").slice(0,200)};}));setTalkMiss(null);}catch(e){setTalkMiss({batch:batch});}
     }
-    function finishIfNeeded(ps,os,ls,nextMoves){const alive=ps.filter(function(p){return !p.bankrupt;}); if(alive.length<=1||nextMoves>=monoMaxMoves(ps.length)){const ranked=ps.slice().sort(function(a,b){return monoNetWorth(b,os,ls)-monoNetWorth(a,os,ls);}); setWinner(ranked[0]);setPhase("result");clearGameSave("monopoly");return true;} return false;}
+    function finishIfNeeded(ps,os,ls,nextMoves){const ranked=monoRanking(ps,os,ls,nextMoves); if(ranked){ setWinner(ranked[0]);setPhase("result");clearGameSave("monopoly");return true;} return false;}
     async function finalize(ps,os,ls,event,eventLogs,extra){setPlayers(ps);setOwners(os);setLevels(ls);const nm=moves+1;setMoves(nm);addLogs(eventLogs);if(finishIfNeeded(ps,os,ls,nm)){interactionQueue.current=[];setBusy(false);return;}const next=extra&&!ps[turn].bankrupt?turn:monoAdvance(ps,turn);setTurn(next);if(event){const beforeUser=ps[next]&&ps[next].isUser;await react(ps,os,event,monoShouldFlush(interactionQueue.current.length+1,event,beforeUser));}setBusy(false);}
-    function bankruptIfNeeded(ps,idx,os,reason){if(ps[idx].cash>=0)return null;ps[idx].bankrupt=true;ps[idx].alive=false;Object.keys(os).forEach(function(k){if(os[k]===ps[idx].key)delete os[k];});return ps[idx].name+"付不起钱，宣布破产，名下土地回到银行"+(reason?"（"+reason+"）":"")+"。";}
-    function runAuction(ps,os,tileIndex,excludedKey,ls,eventParts,lv,extra){const tile=MONO_BOARD[tileIndex],plan=monoAuctionPlan(ps,os,tileIndex,excludedKey);if(!plan.bidders.length){ls.push({type:"sys",say:tile.name+" 流拍，暂时留在银行。"});return null;}const userBid=plan.bidders.find(function(x){return x.p.isUser&&cfg.mode!=="spectate";});ls.push({type:"event",say:"🔨 "+tile.name+" 进入公开竞价，起拍价 $"+plan.floor+"；"+plan.bidders.map(function(x){return x.p.name;}).join("、")+" 举牌。"});if(userBid){return{kind:"auction",tile:tileIndex,ps:ps,os:os,lv:lv,extra:extra,ask:plan.floor,step:plan.step,activeKeys:plan.bidders.map(function(x){return x.p.key;}),caps:Object.fromEntries(plan.bidders.map(function(x){return[x.p.key,x.cap];})),auctionEvents:eventParts.slice()};}const win=plan.winner;plan.bidders.slice().reverse().forEach(function(x){if(x.p.key!==win.key)ls.push({type:"sys",say:x.p.name+" 跟到 $"+Math.min(x.cap,plan.bid-plan.step)+" 后退出竞价。"});});win.cash-=plan.bid;os[tileIndex]=win.key;ls.push({type:"event",say:"🔨 "+win.name+" 最终以 $"+plan.bid+" 拍下 "+tile.name+"。"});eventParts.push(win.name+"经过多轮竞价拍下"+tile.name+"，成交$"+plan.bid);return null;}
-    async function playTurn(){if(busy||phase!=="play"||pending)return;setBusy(true);const ps=players.map(function(p){return Object.assign({},p);}), os=Object.assign({},owners), lv=Object.assign({},levels), p=ps[turn];if(!p||p.bankrupt){setTurn(monoAdvance(ps,turn));setBusy(false);return;}if(p.jailed){p.jailed=0;await finalize(ps,os,lv,p.name+"在看守所里错过一手",[{type:"bad",say:"🔒 "+p.name+" 在看守所待了一手，今天不能掷骰子。"}],false);return;}const d1=1+Math.floor(Math.random()*6),d2=1+Math.floor(Math.random()*6),roll=d1+d2,extra=d1===d2,mv=monoMove(p.pos,roll);p.pos=mv.pos;if(mv.passed)p.cash+=200*mv.passed;const tile=MONO_BOARD[p.pos], base=p.name+" 掷出 "+d1+" + "+d2+" = "+roll+(extra?"（双骰）":"")+"，走到【"+tile.name+"】"+(mv.passed?"，经过起点领 $"+(200*mv.passed):"")+"。";const ls=[{type:"move",name:p.name,say:base}], eventParts=[];
-      if(tile.type==="property") {const ownerKey=os[p.pos]; if(!ownerKey){if(p.isUser&&cfg.mode!=="spectate"){setPlayers(ps);setOwners(os);setLevels(lv);addLogs(ls);setPending({kind:"buy",tile:p.pos,ps:ps,os:os,lv:lv,extra:extra});setBusy(false);return;}const choice=monoNpcDecision(p,tile,p.pos,ps,os,lv,moves,"buy");if(choice.yes){p.cash-=tile.price;os[p.pos]=p.key;ls.push({type:"event",say:p.name+" 用 $"+tile.price+" 买下了 "+tile.name+"。"});eventParts.push(p.name+"买下"+tile.name);}else{ls.push({type:"sys",say:p.name+" 衡量现金和地段后放弃 "+tile.name+"，银行随即开拍。"});const aq=runAuction(ps,os,p.pos,p.key,ls,eventParts,lv,extra);if(aq){setPlayers(ps);setOwners(os);setLevels(lv);addLogs(ls);setPending(aq);setBusy(false);return;}}}
-        else if(ownerKey!==p.key){const oi=ps.findIndex(function(x){return x.key===ownerKey;}), owner=ps[oi],rent=monoRent(p.pos,ownerKey,os,lv);if(owner&&!owner.bankrupt){p.cash-=rent;owner.cash+=rent;ls.push({type:"event",say:p.name+" 向 "+owner.name+" 支付 "+tile.name+" 租金 $"+rent+"。"});eventParts.push(p.name+"踩进"+owner.name+"的"+tile.name+"并付租$"+rent);const bk=bankruptIfNeeded(ps,turn,os,"欠 "+owner.name+" 租金");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}}else {const cost=Math.floor(tile.price/2),eligible=monoOwnsGroup(p.key,tile.group,os)&&(lv[p.pos]||0)<3,choice=eligible?monoNpcDecision(p,tile,p.pos,ps,os,lv,moves,"upgrade"):{yes:false};if(eligible&&p.isUser&&cfg.mode!=="spectate"){setPlayers(ps);setOwners(os);setLevels(lv);addLogs(ls);setPending({kind:"upgrade",tile:p.pos,ps:ps,os:os,lv:lv,extra:extra});setBusy(false);return;}if(eligible&&!p.isUser&&choice.yes){p.cash-=cost;lv[p.pos]=(lv[p.pos]||0)+1;ls.push({type:"event",say:p.name+" 给 "+tile.name+" 升到 "+lv[p.pos]+" 级，花费 $"+cost+"。"});eventParts.push(p.name+"升级"+tile.name);}else ls.push({type:"sys",say:"这里是 "+p.name+" 自己的地，巡视一圈。"});}}
-      else if(tile.type==="chance"){const c=MONO_CHANCE[Math.floor(Math.random()*MONO_CHANCE.length)];p.cash+=c.amount;ls.push({type:"event",say:"🎴 "+c.text+"："+(c.amount>=0?"+":"")+"$"+c.amount+"。"});eventParts.push(p.name+"抽到机会："+c.text+(c.amount>=0?"赚":"花")+"$"+Math.abs(c.amount));const bk=bankruptIfNeeded(ps,turn,os,"机会事件");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
-      else if(tile.type==="tax"){p.cash-=tile.amount;ls.push({type:"event",say:p.name+" 支付 "+tile.name+" $"+tile.amount+"。"});eventParts.push(p.name+"被收"+tile.name+"$"+tile.amount);const bk=bankruptIfNeeded(ps,turn,os,tile.name);if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
-      else if(tile.type==="bonus"){p.cash+=tile.amount;ls.push({type:"event",say:p.name+" 在 "+tile.name+" 收到城市活动奖励 $"+tile.amount+"。"});eventParts.push(p.name+"在"+tile.name+"得到$"+tile.amount);}
-      else if(tile.type==="gotojail"){p.pos=10;p.jailed=1;ls.push({type:"bad",say:"🚓 "+p.name+" 被送去看守所，下一手暂停行动。"});eventParts.push(p.name+"被送进看守所");}
-      else if(tile.type==="station"){const from=p.pos,to=tile.pair,passed=to<from;p.pos=to;if(passed)p.cash+=200;ls.push({type:"event",say:"🚇 "+p.name+" 搭城际线直达 "+MONO_BOARD[to].name+(passed?"，途中经过起点领 $200":"")+"。"});eventParts.push(p.name+"从"+tile.name+"搭车到"+MONO_BOARD[to].name);}
-      else if(tile.type==="market"){const swing=Math.random()<.5?-120:160;p.cash+=swing;ls.push({type:"event",say:"📈 "+p.name+" 在交易所"+(swing>0?"押对行情赚了":"追高被套亏了")+" $"+Math.abs(swing)+"。"});eventParts.push(p.name+"在交易所"+(swing>0?"赚":"亏")+"$"+Math.abs(swing));const bk=bankruptIfNeeded(ps,turn,os,"交易所亏损");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
+    const bankruptIfNeeded=monoBankrupt;
+    function runAuction(ps,os,tileIndex,excludedKey,ls,eventParts,lv,extra){const tile=MONO_BOARD[tileIndex],plan=monoAuctionPlan(ps,os,tileIndex,excludedKey);if(!plan.bidders.length){ls.push({type:"sys",say:tile.name+" 流拍，暂时留在银行。"});return null;}const userBid=plan.bidders.find(function(x){return x.p.isUser&&cfg.mode!=="spectate";});ls.push({type:"event",say:"🔨 "+tile.name+" 进入公开竞价，起拍价 $"+plan.floor+"；"+plan.bidders.map(function(x){return x.p.name;}).join("、")+" 举牌。"});if(userBid){return{kind:"auction",tile:tileIndex,ps:ps,os:os,lv:lv,extra:extra,ask:plan.floor,step:plan.step,activeKeys:plan.bidders.map(function(x){return x.p.key;}),caps:Object.fromEntries(plan.bidders.map(function(x){return[x.p.key,x.cap];})),auctionEvents:eventParts.slice()};}monoSettleAuction(plan,os,tileIndex,ls,eventParts);return null;}
+    async function playTurn(){if(busy||phase!=="play"||pending)return;setBusy(true);const ps=players.map(function(p){return Object.assign({},p);}), os=Object.assign({},owners), lv=Object.assign({},levels), p=ps[turn];if(!p||p.bankrupt){setTurn(monoAdvance(ps,turn));setBusy(false);return;}if(p.jailed){p.jailed=0;await finalize(ps,os,lv,p.name+"在看守所里错过一手",[{type:"bad",say:"🔒 "+p.name+" 在看守所待了一手，今天不能掷骰子。"}],false);return;}const rl=monoRoll(p),extra=rl.extra,tile=MONO_BOARD[p.pos];const ls=[{type:"move",name:p.name,say:rl.say}], eventParts=[];const need=monoLand(ps,os,lv,turn,ls,eventParts);
+      if(need==="buy"){if(p.isUser&&cfg.mode!=="spectate"){setPlayers(ps);setOwners(os);setLevels(lv);addLogs(ls);setPending({kind:"buy",tile:p.pos,ps:ps,os:os,lv:lv,extra:extra});setBusy(false);return;}const choice=monoNpcDecision(p,tile,p.pos,ps,os,lv,moves,"buy");if(choice.yes)monoBuy(p,os,ls,eventParts);else{ls.push({type:"sys",say:p.name+" 衡量现金和地段后放弃 "+tile.name+"，银行随即开拍。"});const aq=runAuction(ps,os,p.pos,p.key,ls,eventParts,lv,extra);if(aq){setPlayers(ps);setOwners(os);setLevels(lv);addLogs(ls);setPending(aq);setBusy(false);return;}}}
+      else if(need==="upgrade"){const choice=monoNpcDecision(p,tile,p.pos,ps,os,lv,moves,"upgrade");if(p.isUser&&cfg.mode!=="spectate"){setPlayers(ps);setOwners(os);setLevels(lv);addLogs(ls);setPending({kind:"upgrade",tile:p.pos,ps:ps,os:os,lv:lv,extra:extra});setBusy(false);return;}if(!p.isUser&&choice.yes)monoUpgrade(p,lv,ls,eventParts);else ls.push({type:"sys",say:"这里是 "+p.name+" 自己的地，巡视一圈。"});}
       if(extra&&!p.bankrupt)ls.push({type:"sys",say:p.name+" 掷出双骰，下一手仍由 TA 行动。"});await finalize(ps,os,lv,eventParts.join("；"),ls,extra);
     }
     // 竞拍点了没反应（她 2026-10-03 截图：举牌、退出两颗都灰着）——这两步里任何一处抛错，busy 就永远不放，
@@ -7711,6 +7738,28 @@
     state.word = storyPick(STORY_WORDS, rnd);
     return state;
   }
+  // 轮到一个座位接一句时发给 TA 的那份：故事到哪了、要用上的词、是不是最后一句。p：{ name, persona | char, isNpc }
+  function storyLineAsk(state, p) {
+    const last = storyIsLast(state), word = state.word;
+    const sys = gameVoiceRules() + seatIdentity(p) + "你正在和大家玩「故事接龙」：每人轮流往下写一句，接在别人后面，合起来是一篇小故事。你写的就是你这一句，不是评论。保持你本人的性格和说话习惯——你会怎么接，就怎么接（爱搞怪的会拐个弯，细腻的会写细节）。"
+      // 流水账（她 2026-11-01 截图：一句一个新东西，拖鞋砸出信封、信封掉出照片，开头那个谜没人管）：
+      //   告诉他故事走到哪了、开头埋的是什么；抽到的词是道具，这一句的活是把那件事往前推一步
+      + "\n这篇故事从开头那一句埋下的事出发：「" + state.opener + "」。大家接的都是这一件事。"
+      + "\n" + storyStage(state)
+      + "\n这一句要用上「" + word + "」这个词，它是这一句里顺手出现的一样东西，一笔带过就够；这一句真正要做的是把故事往前推一步。只写一到两句、60 字以内，紧接上文。" + (last ? "\n这是全篇最后一句，由你来收尾：把开头那件事落下来，留一点余味。" : "")
+      + "\nsay 是你写完这句以后嘴上冒出来的那句话：可以是对上一个人那句的反应、冲某个人说、得意或心虚自己这一句、接桌上刚才谁的话——照你这个人。轮到谁接大家都知道，不用你来报幕；没想说的就留空。"
+      + "\n只输出 JSON：{\"line\":\"你接的这一句\",\"say\":\"可空：你嘴上那句\"}";
+    const ctx = "故事到目前为止：\n" + storyText(state)
+      + (state.lines.length ? "\n\n（每句是谁接的：" + state.lines.slice(-8).map(function (l) { return l.name + "「" + String(l.text).slice(0, 18) + (String(l.text).length > 18 ? "…" : "") + "」"; }).join("；") + "）" : "")
+      + "\n\n现在轮到你接。要用上的词：" + word;
+    return { sys: sys, user: ctx };
+  }
+  // 替一个座位接一句（直接走给的线路）：回 { line, say }
+  async function storyWriteLine(api, state, who) {
+    const ask = storyLineAsk(state, who);
+    const a = unoJson(await callRetry(api, ask.sys, [{ role: "user", content: ask.user }], { maxTokens: 8400, tag: "故事接龙" }));
+    return { line: String(a.line || "").trim(), say: String(a.say || "").trim() };
+  }
   function StoryChainGame(props) {
     const t = props.t, api = props.active, cfg = props.config || {};
     const restored = props.savedState && props.savedState.state;
@@ -7732,19 +7781,8 @@
       if (!current || current.isUser || state.status !== "playing" || busy) return;
       const turnId = state.id + "#" + state.lines.length + "#" + current.key;
       if (running.current === turnId) return; running.current = turnId; setBusy(true); setError("");
-      const last = storyIsLast(state), word = state.word;
-      const sys = gameVoiceRules() + seatIdentity(current) + "你正在和大家玩「故事接龙」：每人轮流往下写一句，接在别人后面，合起来是一篇小故事。你写的就是你这一句，不是评论。保持你本人的性格和说话习惯——你会怎么接，就怎么接（爱搞怪的会拐个弯，细腻的会写细节）。"
-        // 流水账（她 2026-11-01 截图：一句一个新东西，拖鞋砸出信封、信封掉出照片，开头那个谜没人管）：
-        //   告诉他故事走到哪了、开头埋的是什么；抽到的词是道具，这一句的活是把那件事往前推一步
-        + "\n这篇故事从开头那一句埋下的事出发：「" + state.opener + "」。大家接的都是这一件事。"
-        + "\n" + storyStage(state)
-        + "\n这一句要用上「" + word + "」这个词，它是这一句里顺手出现的一样东西，一笔带过就够；这一句真正要做的是把故事往前推一步。只写一到两句、60 字以内，紧接上文。" + (last ? "\n这是全篇最后一句，由你来收尾：把开头那件事落下来，留一点余味。" : "")
-        + "\nsay 是你写完这句以后嘴上冒出来的那句话：可以是对上一个人那句的反应、冲某个人说、得意或心虚自己这一句、接桌上刚才谁的话——照你这个人。轮到谁接大家都知道，不用你来报幕；没想说的就留空。"
-        + "\n只输出 JSON：{\"line\":\"你接的这一句\",\"say\":\"可空：你嘴上那句\"}";
-      const ctx = "故事到目前为止：\n" + storyText(state)
-        + (state.lines.length ? "\n\n（每句是谁接的：" + state.lines.slice(-8).map(function (l) { return l.name + "「" + String(l.text).slice(0, 18) + (String(l.text).length > 18 ? "…" : "") + "」"; }).join("；") + "）" : "")
-        + "\n\n现在轮到你接。要用上的词：" + word;
-      routeSeatCall(current, api, sys, [{ role: "user", content: ctx }], { game: "story", turnId: turnId, expect: "{\"line\":\"...\",\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8400 } })
+      const ask = storyLineAsk(state, current);
+      routeSeatCall(current, api, ask.sys, [{ role: "user", content: ask.user }], { game: "story", turnId: turnId, expect: "{\"line\":\"...\",\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8400 } })
         .then(function (r) {
           const a = unoJson(r.value), line = String(a.line || "").trim();
           if (!line) throw new Error("没写出来");
@@ -9184,9 +9222,20 @@
   Games.LIST = (typeof window !== "undefined" && window.GamesList) || GAMES.map(function (g) { return { key: g.key, zh: g.zh, min: g.min, max: g.max, rule: g.rule }; });
   if (typeof window !== "undefined") window.Games = Games;
   // 引擎里不带界面状态的那一半＋几块画桌子的部件：别处要摆同一张桌（同一套规则、同一块棋盘）时从这儿拿，不另抄一份
+  const WIN = typeof window !== "undefined" ? window : {};
   const GameShared = {
     gomoku: { N: GMK_N, empty: gmkEmpty, place: gmkPlace, replay: gmkReplay, wins: gmkWins, bestMove: gmkBestMove, threat: gmkThreat, coord: gmkCoord },
-    guess: { KINDS: GUESS_KINDS, VERDICT_COLOR: VERDICT_COLOR, newPuzzle: genGuessNext, answerOne: guessAnswerOne, askOne: guessAskOne, judge: judgeGuess },
+    guess: { KINDS: GUESS_KINDS, VERDICT_COLOR: VERDICT_COLOR, newPuzzle: genGuessNext, answerOne: guessAnswerOne, askOne: guessAskOne, judge: judgeGuess, hit: q25Hit },
+    board: {
+      chess: { C: WIN.ChessCore, sides: ["w", "b"], sideZh: function (s) { return s === "w" ? "白" : "黑"; }, View: ChessBoardView, record: function (mv) { return { from: mv.from, to: mv.to, promo: mv.promo }; }, pick: function (go) { return go.find(function (m) { return !m.promo || m.promo === "q"; }) || go[0]; } },
+      xiangqi: { C: WIN.XiangqiCore, sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "黑"; }, View: XiangqiBoardView },
+      jungle: { C: WIN.JungleCore, sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "蓝"; }, View: JungleBoardView }
+    },
+    boardReplay: boardReplay, boardOutcome: boardOutcome, boardSkillCached: boardSkillCached, BOARD_TIER_LV: BOARD_TIER_LV,
+    go: { C: WIN.GoCore, replay: goReplay, result: goResult, View: GoBoardView },
+    story: { newGame: storyNewGame, act: storyAct, text: storyText, total: storyTotalTurns, isLast: storyIsLast, writeLine: storyWriteLine },
+    tod: { plan: tdRoundPlan, pickTarget: tdPickFairTarget, pickAsker: tdPickNextAsker, ask: genTDPrompt, answer: genTDAnswerToUserPrompt, remember: rememberTDPrompt },
+    mono: { BOARD: MONO_BOARD, roll: monoRoll, land: monoLand, buy: monoBuy, upgrade: monoUpgrade, decide: monoNpcDecision, auctionPlan: monoAuctionPlan, settleAuction: monoSettleAuction, ranking: monoRanking, advance: monoAdvance, netWorth: monoNetWorth, rent: monoRent, gridPos: monoGridPos, tokenColor: monoTokenColor, maxMoves: monoMaxMoves },
     GomokuBoard: GomokuBoard, GmkStone: GmkStone, GameVsBar: GameVsBar, GameTalkLog: GameTalkLog
   };
   if (typeof window !== "undefined") window.GameShared = GameShared;

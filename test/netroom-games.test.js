@@ -270,9 +270,236 @@ test("加入：卡上空位不够时先加座位（到上限为止）；坐不�
   assert.ok(await until(() => toasts.some(x => x.startsWith("B:开这一局的那台手机"))), "庄那台不记得这张卡要说一声");
 });
 
-test("牌桌页下面也摆着邀请卡：在那一页点「加入」也要弹出选人那张（原来只挂在聊天页，点了没反应）", () => {
-  const a = nsrc.indexOf("const joinSheet = () =>"), gp = nsrc.indexOf('if (page === "game" && room)'), gr = nsrc.indexOf('if (page === "gamerec")', gp);
-  assert.ok(a > 0 && gp > a && gr > gp, "抠不出 joinSheet / 牌桌页");
-  assert.match(nsrc.slice(gp, gr), /joinSheet\(\)\);/, "牌桌页挂上选人那张");
-  assert.ok((nsrc.match(/joinSheet\(\)\)/g) || []).length >= 2, "聊天页、牌桌页各挂一次");
+test("牌桌是浮在房间聊天上的半窗（单聊半窗那份 HalfWinFrame）；聊天页挂着选人那张，开着牌桌也点得动「加入」", () => {
+  assert.ok(nsrc.indexOf("const joinSheet = () =>") > 0);
+  assert.match(nsrc, /joinSheet\(\), gameHalf\(\)\);/, "聊天页同时挂选人那张和牌桌半窗");
+  assert.ok(!/page === "game" && room/.test(nsrc), "不再有整页盖住房间的牌桌页");
+  assert.match(nsrc, /return h\(HalfWinFrame, \{ win: gameWin, setWin: setGameWin, forKey: "netgame"/);
+  assert.match(read("js/components.js"), /function HalfWinFrame\(\{ win, setWin, pillLabel, pillHot, onClose, onBig, bigLabel, barNote, onBarNote, forKey, children \}\)/);
+});
+
+// ───────── 第一档剩下的几盒：规则都从小游戏那一份切出来（单机、联机同一个函数）─────────
+const cut2 = (a, b) => { const i = games.indexOf(a), j = games.indexOf(b, i); assert.ok(i > 0 && j > i, "抠不出 " + a); return games.slice(i, j); };
+const RULES = new Function("window", "Math0", [
+  cut2("  function boardReplay(", "  const BOARD_TIER_LV"),
+  cut2("  function boardOutcome(", "  function boardSkillCached("),
+  cut2("  function goReplay(", "  function GoGame("),
+  cut2("  const STORY_OPENERS", "  function storyLineAsk("),
+  cut2("  const MONO_BOARD = [", "  function hydMonoPlayers(")
+].join("\n") + "\nreturn { boardReplay, boardOutcome, goReplay, goResult, storyNewGame, storyAct, storyText, storyTotalTurns, storyIsLast, MONO_BOARD, monoRoll, monoLand, monoBuy, monoUpgrade, monoNpcDecision, monoAuctionPlan, monoSettleAuction, monoRanking, monoAdvance, monoNetWorth, monoRent, monoGridPos, monoTokenColor, monoMaxMoves };")({}, Math);
+const CORES = { chess: require("../js/chess-core.js"), xiangqi: require("../js/xiangqi-core.js"), jungle: require("../js/jungle-core.js"), go: require("../js/go-core.js") };
+function shared(extra) {
+  const R = RULES;
+  return Object.assign({ gomoku: GMK, guess: null,
+    board: { chess: { C: CORES.chess, sides: ["w", "b"], sideZh: s => s === "w" ? "白" : "黑", record: m => ({ from: m.from, to: m.to, promo: m.promo }), pick: go => go.find(m => !m.promo || m.promo === "q") || go[0] },
+      xiangqi: { C: CORES.xiangqi, sides: ["r", "b"], sideZh: s => s === "r" ? "红" : "黑" }, jungle: { C: CORES.jungle, sides: ["r", "b"], sideZh: s => s === "r" ? "红" : "蓝" } },
+    boardReplay: R.boardReplay, boardOutcome: R.boardOutcome, boardSkillCached: () => null, BOARD_TIER_LV: { rookie: "easy", mid: "normal", pro: "hard" },
+    go: { C: CORES.go, replay: R.goReplay, result: R.goResult },
+    story: { newGame: R.storyNewGame, act: R.storyAct, text: R.storyText, writeLine: async () => ({ line: "她推开门，钥匙掉在地上。", say: "" }) },
+    tod: { plan: () => ({ choice: "真心话" }), pickTarget: (ps, log, last) => ps.find(p => p.name !== last) || ps[0], pickAsker: (ps, tn) => ps.find(p => p.name !== tn), ask: async () => ({ prompt: "最近一次哭是为什么？" }), answer: async () => "上周看电影。" },
+    mono: { BOARD: R.MONO_BOARD, roll: R.monoRoll, land: R.monoLand, buy: R.monoBuy, upgrade: R.monoUpgrade, decide: R.monoNpcDecision, auctionPlan: R.monoAuctionPlan, settleAuction: R.monoSettleAuction, ranking: R.monoRanking, advance: R.monoAdvance, netWorth: R.monoNetWorth, rent: R.monoRent, gridPos: R.monoGridPos, tokenColor: R.monoTokenColor, maxMoves: R.monoMaxMoves }
+  }, extra || {});
+}
+function load2(extra) { const r = load(); r.w.GameShared = shared(extra); return r; }
+const seats2 = (a, b) => ({ mode: "normal", seats: [{ kind: "user", peer: "A", name: a || "甲" }, { kind: "user", peer: "B", name: b || "乙" }] });
+
+test("国际象棋：四步杀，终局走单机那份 boardOutcome；走不了的步、没轮到的那一边都退回", () => {
+  const { G } = load2(), A = G.ADAPTERS.chess, inv = seats2();
+  let st = A.init(inv);
+  assert.ok(A.apply(st, 1, { from: [1, 4], to: [3, 4] }).err, "白先走");
+  assert.ok(A.apply(st, 0, { from: [6, 4], to: [3, 4] }).err, "兵走不了三格");
+  [[[6, 5], [5, 5]], [[1, 4], [3, 4]], [[6, 6], [4, 6]], [[0, 3], [4, 7]]].forEach((m, i) => { const r = A.apply(st, i % 2, { from: m[0], to: m[1] }); assert.ok(r.st, r.err); st = r.st; });
+  assert.strictEqual(A.turn(st), -1);
+  const res = A.result(st, inv);
+  assert.deepStrictEqual(res.winners, [1]);
+  assert.match(res.text, /甲（白）对 乙（黑），2 回合，乙（黑）赢了。/);
+  assert.match(gsrc, /const outcome = st => GS\(\)\.boardOutcome\(B\(\)\.C, rep\(st\.mvs\), st\.resigned, B\(\)\.sides\);/);
+  assert.match(games, /const oc = boardOutcome\(C, state, resigned, spec\.sides\), st = oc\.st, over = oc\.over, winner = oc\.winner;/);
+});
+
+test("中国象棋、斗兽棋：认输就结束、赢家是对面；view 只认走法和认输那两样", () => {
+  const { G } = load2();
+  ["xiangqi", "jungle"].forEach(k => {
+    const A = G.ADAPTERS[k], inv = seats2();
+    let st = A.init(inv);
+    assert.strictEqual(A.turn(st), 0);
+    const m = CORES[k].bestMove(A.replay(st.mvs), "easy");
+    st = A.apply(st, 0, { from: m.from, to: m.to }).st;
+    assert.strictEqual(A.turn(st), 1);
+    st = A.apply(st, 1, { resign: true }).st;
+    assert.deepStrictEqual(A.result(st, inv).winners, [0]);
+    const v = A.cleanView(Object.assign(A.view(st), { hack: 1, board: "x" }));
+    assert.deepStrictEqual(Object.keys(v).sort(), ["mvs", "resigned"]);
+  });
+});
+
+test("围棋：两边连着停一手，庄那台估死子、照单机「数子」那一份 goResult 算", () => {
+  const { G } = load2(), A = G.ADAPTERS.go, inv = seats2();
+  let st = A.init(inv, { cfg: { goSize: 9 } });
+  st = A.apply(st, 0, { p: 40 }).st;
+  assert.ok(A.apply(st, 1, { p: 40 }).err, "有子的点下不了");
+  st = A.apply(st, 1, { pass: true }).st; st = A.apply(st, 0, { pass: true }).st;
+  assert.ok(st.result && A.turn(st) === -1);
+  assert.deepStrictEqual(A.result(st, inv).winners, [st.result.winner - 1]);
+  assert.match(gsrc, /n\.result = GS\(\)\.go\.result\(G, after, G\.estimateDead\(after, 600\)\);/);
+  assert.match(games, /const confirmCount = function \(\) \{ setResult\(goResult\(G, state, dead \|\| \[\]\)\); \};/);
+  assert.deepStrictEqual(Object.keys(A.cleanView(Object.assign(A.view(st), { x: 1 }))).sort(), ["mvs", "resigned", "result", "size"]);
+});
+
+test("25 问：答案不进公开那一份；直接说中走单机那份 q25Hit；问满 25 个就揭晓", async () => {
+  const guess = { hit: (s, q) => String(q).includes(s), answerOne: async () => ({ verdict: "不是", note: "" }), judge: async () => ({ correct: false }), newPuzzle: async () => ({ secret: "雨伞", category: "物品" }) };
+  const { G } = load2({ guess }), A = G.ADAPTERS.q25;
+  const inv = Object.assign(seats2(), { setter: { mode: "system" } });
+  let st = await A.init(inv, { hostApi: {} });
+  assert.ok(!JSON.stringify(A.view(st)).includes("雨伞"));
+  assert.ok(!JSON.stringify(A.cleanView(Object.assign({}, A.view(st), { secret: "" }))).includes("雨伞"));
+  st = (await A.apply(st, 0, { ask: "是吃的吗" }, { inv, hostApi: {} })).st;
+  assert.strictEqual(st.turn, 1);
+  const hit = (await A.apply(st, 1, { ask: "是不是雨伞" }, { inv, hostApi: {} })).st;
+  assert.ok(hit.done && hit.solvedBy === 1 && A.view(hit).secret === "雨伞");
+  let s2 = st; for (let i = 0; i < 30 && !s2.done; i++) s2 = (await A.apply(s2, s2.turn, { ask: "是动物吗" + i }, { inv, hostApi: {} })).st;
+  assert.ok(s2.done && s2.log.filter(l => l.q).length === 25);
+  assert.match(games, /const hitQ25 = q => q25Hit\(ctx\.secret, q\);/);
+});
+
+test("海龟汤谁出题：指定座位的那位不在答题座位里、汤底只给 TA 自己那份；轮流时「再来一局」换下一个", async () => {
+  const { G, w } = load2();
+  const C = G;
+  const inv0 = { key: "haigui", host: "A", mode: "normal", setter: { mode: "turns", peer: "B" }, seats: [{ kind: "user", peer: "A", name: "甲" }, { kind: "user", peer: "B", name: "乙" }, { kind: "char", peer: "B", charId: "b1", name: "阿B" }] };
+  assert.strictEqual(C.setterSeat(inv0), 1);
+  const A = G.ADAPTERS.haigui;
+  let st = await A.init(inv0, {});
+  assert.strictEqual(st.phase, "set"); assert.strictEqual(A.turn(st), 1, "先等出题人");
+  st = (await A.apply(st, 1, { puzzle: { surface: "汤面", truth: "真相" } }, { inv: inv0 })).st;
+  assert.strictEqual(st.phase, "play");
+  const order = []; let s = st;
+  for (let i = 0; i < 4; i++) { order.push(s.turn); s = (await A.apply(s, s.turn, { pass: true }, { inv: inv0 })).st; }
+  assert.ok(order.every(i => i !== 1), "出题人轮不到问：" + order);
+  assert.ok(!JSON.stringify(A.view(st)).includes("真相"));
+  assert.deepStrictEqual(A.priv(st, 1), { truth: "真相" });
+  assert.strictEqual(A.priv(st, 0), null);
+  assert.deepStrictEqual(C.nextSetter(inv0, 1), { peer: "B", charId: "b1" }, "轮流：下一个座位");
+  assert.deepStrictEqual(C.nextSetter(inv0, 2), { peer: "A" }, "转一圈回到头");
+  // Session 的「再来一局」真的换人
+  const s0 = w.NetGameSession({ me: () => "A", nick: () => "甲", nickOf: x => x, send: () => {}, post: () => {}, patchCard: () => {}, charOf: () => null, apiFor: () => null });
+  const gid = s0.invite({ key: "haigui", zh: "海龟汤", min: 2, max: 8 }, { total: 3 }, [{ kind: "user" }], null, { mode: "turns" });
+  assert.deepStrictEqual(s0.seen(gid), null);
+  const ng = s0.again(gid);
+  assert.ok(ng);
+  assert.match(gsrc, /if \(inv\.setter && inv\.setter\.mode === "turns"\) \{ const nx = nextSetter\(inv, setterSeat\(g\.inv\)\);/);
+});
+
+test("故事接龙：轮流接、写满三圈就收；接句子走单机那份提示词（storyLineAsk → storyWriteLine）", async () => {
+  const { G } = load2(), A = G.ADAPTERS.story, inv = seats2();
+  let st = A.init(inv);
+  assert.ok(A.apply(st, 1, { line: "抢着写" }).err);
+  while (A.turn(st) >= 0) st = A.apply(st, A.turn(st), { line: "接一句" + st.lines.length }).st;
+  assert.strictEqual(st.lines.length, 6);
+  assert.ok(A.result(st, inv).text.startsWith("一起写了 6 句"));
+  assert.deepStrictEqual(await A.npcMove(A.init(inv), 0, inv, { hostApi: {} }), { line: "她推开门，钥匙掉在地上。", say: "" });
+  assert.match(games, /routeSeatCall\(current, api, ask\.sys, \[\{ role: "user", content: ask\.user \}\], \{ game: "story"/);
+});
+
+test("真心话大冒险：指到谁 → 选 → 下一位出题 → 回应，一轮一轮记着；出题、回应走单机那两个函数", async () => {
+  const { G } = load2(), A = G.ADAPTERS.tod, inv = seats2();
+  let st = A.init(inv);
+  const tgt = st.target;
+  assert.ok(A.apply(st, 1 - tgt, { choice: "真心话" }, { inv }).err, "没指到的人不能选");
+  st = A.apply(st, tgt, { choice: "大冒险" }, { inv }).st;
+  assert.strictEqual(A.turn(st), 1 - tgt, "另一个人出题");
+  const mv = await A.npcMove(st, A.turn(st), inv, { hostApi: {} });
+  st = A.apply(st, A.turn(st), mv, { inv }).st;
+  st = A.apply(st, tgt, { response: "做了" }, { inv }).st;
+  assert.strictEqual(st.log.filter(x => x.type === "td").length, 1);
+  assert.strictEqual(st.phase, "choose");
+  assert.match(gsrc, /GS\(\)\.tod\.ask\(api, st\.choice, who,/);
+  assert.match(games, /async function genTDPrompt\(api, choice, asker, hot, mode, memText, plan, target\)/);
+});
+
+test("大富翁：掷骰、落地、空地等这位拿主意、结束照 monoRanking；钱只在庄那台动", () => {
+  const { G } = load2(), A = G.ADAPTERS.monopoly, inv = seats2();
+  let st = A.init(inv), guard = 0;
+  while (!st.done && guard++ < 2000) {
+    const i = A.turn(st);
+    const mv = st.pending ? { yes: guard % 3 === 0 } : { roll: true };
+    const r = A.apply(st, i, mv); assert.ok(r.st, r.err); st = r.st;
+  }
+  assert.ok(st.done, "走满手数或有人破产就结算");
+  const res = A.result(st, inv);
+  assert.strictEqual(res.winners.length, 1);
+  assert.match(gsrc, /const moves = st\.moves \+ 1, rank = M\.ranking\(ps, os, lv, moves\);/);
+  assert.match(games, /function finishIfNeeded\(ps,os,ls,nextMoves\)\{const ranked=monoRanking\(ps,os,ls,nextMoves\);/);
+  assert.match(games, /const need=monoLand\(ps,os,lv,turn,ls,eventParts\);/);
+  const v = A.cleanView(Object.assign(A.view(st), { secret: 1 }));
+  assert.ok(!("secret" in v));
+});
+
+test("新几盒的角色座位也由带 TA 来的那台出手、用 TA 自己的线路（国际象棋）", async () => {
+  const { G, w } = load2();
+  const apiAsked = [];
+  const { S, log } = bus(["A", "B"], null, (id, send) => w.NetGameSession({ me: () => id, nick: () => id, nickOf: x => x, send, fast: true,
+    post: () => {}, patchCard: () => {}, charOf: cid => id === "B" && cid === "b1" ? { id: "b1", name: "阿B", persona: "" } : null,
+    apiFor: cid => { apiAsked.push(id + ":" + cid); return {}; }, presence: () => ({ A: "on", B: "on" }) }));
+  const gid = S.A.invite({ key: "chess", zh: "国际象棋", min: 2, max: 2 }, { total: 2, npcFill: true }, [{ kind: "user" }]);
+  S.B.join(gid, [{ kind: "char", charId: "b1", name: "阿B" }], "A");
+  assert.ok(await until(() => log.some(l => l.obj.op === "card" && l.obj.x.seats[1].kind === "char")));
+  assert.ok(await S.A.start(gid));
+  S.A.move(gid, 0, { from: [6, 4], to: [4, 4] });
+  assert.ok(await until(() => log.some(l => l.obj.op === "move" && l.obj.seat === 1)), "黑方那一手");
+  const mv = log.filter(l => l.obj.op === "move" && l.obj.seat === 1);
+  assert.ok(mv.every(l => l.from === "B" && l.to === "A"), "角色那一手只由 B 那台发给庄");
+  assert.ok(apiAsked.every(x => x === "B:b1"));
+  assert.ok(await until(() => S.A.seen(gid).view.mvs.length === 2));
+});
+
+test("大厅：第一档这几盒都摆出来；联机接不住的开局选项收起来", () => {
+  const { G } = load2();
+  ["gomoku", "haigui", "q25", "chess", "xiangqi", "jungle", "go", "story", "tod", "monopoly"].forEach(k => assert.ok(G.supported().indexOf(k) >= 0, k));
+  assert.match(nsrc, /setupHide: \["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host"\]/);
+  assert.match(games, /hide: props\.setupHide, note: props\.setupNote \? props\.setupNote\(game\) : "",/);
+  ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host"].forEach(k => assert.ok(games.indexOf('hid("' + k + '")') > 0, k));
+});
+
+test("半窗：展开时记下房里有几条，之后来的算新消息；收起不计数；再展开从头算", () => {
+  const { G } = load();
+  let w = G.winOpen(null, "g1", 10);
+  assert.deepStrictEqual([w.gid, w.min, w.seen], ["g1", false, 10]);
+  assert.strictEqual(G.winUnread(w, 13), 3);
+  w = G.winSet(w, Object.assign({}, w, { min: true }), 13);
+  assert.ok(w.min); assert.strictEqual(G.winUnread(w, 20), 0, "收起了聊天就在底下，不提醒");
+  w = G.winSet(w, Object.assign({}, w, { min: false }), 20);
+  assert.strictEqual(G.winUnread(w, 21), 1, "再展开从那一刻算");
+  w = G.winSet(w, Object.assign({}, w, { box: { x: 1 } }), 30);
+  assert.strictEqual(w.seen, 20, "拖位置不重置");
+  assert.strictEqual(G.winSet(w, null, 30), null);
+  assert.strictEqual(G.winOpen({ gid: "g1", min: true, box: { x: 5 } }, "g1", 2).box.x, 5, "同一局再打开记得位置");
+});
+
+test("轮到我：收起的小条会亮（myTurn 只认我这台的真人座位）", () => {
+  const { G } = load();
+  const inv = { key: "gomoku", host: "A", status: "playing", seats: [{ kind: "user", peer: "A", name: "甲" }, { kind: "user", peer: "B", name: "乙" }] };
+  assert.ok(G.myTurn(inv, { moves: [], turn: 1, winner: 0 }, "A"));
+  assert.ok(!G.myTurn(inv, { moves: [], turn: 1, winner: 0 }, "B"));
+  assert.ok(!G.myTurn(Object.assign({}, inv, { status: "done" }), { moves: [], turn: 1, winner: 0 }, "A"));
+  assert.match(nsrc, /pillHot: turn,/);
+});
+
+test("当前对局写给开口的角色：只用公开那一份，别人的私密那份不进去；出题人自己那座才带汤底", async () => {
+  const { G } = load2();
+  const inv = { key: "haigui", zh: "海龟汤", host: "A", status: "playing", seats: [{ kind: "user", peer: "A", name: "甲" }, { kind: "char", peer: "B", charId: "b1", name: "阿B" }, { kind: "user", peer: "C", name: "丙" }] };
+  const A = G.ADAPTERS.haigui;
+  const st = { phase: "play", setter: 1, surface: "汤面X", truth: "真相Y", log: [{ seat: 0, name: "甲", q: "是人吗", verdict: "是", note: "" }], turn: 2, done: false, solvedBy: -1, reveal: "", busy: false };
+  const v = A.cleanView(A.view(st));
+  const other = G.stateText(inv, v, 2, { truth: "真相Y" });
+  assert.ok(other.includes("汤面X") && other.includes("是人吗"));
+  assert.ok(!other.includes("真相Y"), "不是出题人那座，就算手里有 priv 也不放");
+  assert.ok(G.stateText(inv, v, 1, A.priv(st, 1)).includes("真相Y"), "出题人自己那座带上自己的汤底");
+  ["gomoku", "haigui", "q25", "chess", "xiangqi", "jungle", "go", "story", "tod", "monopoly"].forEach(k => assert.strictEqual(typeof G.ADAPTERS[k].stateText, "function", k + " 要有 stateText"));
+  // 两条开口的路都带上
+  assert.match(nsrc, /now: Date\.now\(\), game: gameStateFor\(char\.id\), presence: presence\(\),/);
+  assert.match(nsrc, /targets, cast, game: gameStateFor\(null\) \}\);/);
+  assert.equal((nsrc.match(/\+ \(o\.game \? "\\n\\n" \+ o\.game : ""\)/g) || []).length, 2);
+  // 每盒都能写出一段
+  const sts = { chess: G.ADAPTERS.chess.init(), go: G.ADAPTERS.go.init(inv, {}), story: G.ADAPTERS.story.init(inv), tod: G.ADAPTERS.tod.init(inv), monopoly: G.ADAPTERS.monopoly.init(inv) };
+  Object.keys(sts).forEach(k => assert.ok(G.stateText(Object.assign({}, inv, { key: k, zh: k }), G.ADAPTERS[k].cleanView(G.ADAPTERS[k].view(sts[k])), 0).length > 20, k));
 });

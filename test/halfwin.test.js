@@ -17,13 +17,14 @@ test("半窗里聊天顶栏不留刘海安全区", () => {
   assert.match(cmp, /paddingTop: halfMode \? 6 : safeTop\(20\),/);
 });
 test("半窗像秋秋小屏一样整块拖：顶条挪位置，小横杠调大小，记住", () => {
-  assert.match(app, /"data-wk": "halfwinbar", onPointerDown: e => dragOn\(e, "move"\)/);
-  assert.match(app, /"data-wk": "halfwinsize", "aria-label": "按住拖调大小", onPointerDown: e => \{ e\.stopPropagation\(\); dragOn\(e, "size"\); \}/);
-  assert.match(app, /localStorage\.setItem\("x_halfWinBox"/);
+  assert.match(cmp, /"data-wk": "halfwinbar", onPointerDown: e => dragOn\(e, "move"\)/);
+  assert.match(cmp, /"data-wk": "halfwinsize", "aria-label": "按住拖调大小", onPointerDown: e => \{ e\.stopPropagation\(\); dragOn\(e, "size"\); \}/);
+  assert.match(cmp, /localStorage\.setItem\("x_halfWinBox"/);
+  assert.match(app, /return h\(HalfWinFrame, \{ win: halfWin, setWin: setHalfWin, forKey: "chat"/, "单聊半窗用公共外壳");
 });
 test("收起后的小条也能拖，拖过那一下不算点", () => {
-  assert.match(app, /localStorage\.setItem\("x_halfWinPill"/);
-  assert.match(app, /if \(!halfPillDragged\.current\) setHalfWin\(w => w \? \{ \.\.\.w, min: false \} : w\);/);
+  assert.match(cmp, /localStorage\.setItem\("x_halfWinPill"/);
+  assert.match(cmp, /if \(!halfPillDragged\.current\) setWin\(w => w \? \{ \.\.\.w, min: false \} : w\);/);
 });
 test("半窗读屏先读她正露着的那一截，被盖住的不算", () => {
   assert.match(app, /"（她屏幕上正露着的）" \+ seen/);

@@ -1250,19 +1250,6 @@ function App() {
   const halfWinRef = useRef(null); halfWinRef.current = halfWin;
   const screenRef = useRef(screen); screenRef.current = screen;
   // 半窗多高：上次拖到哪儿就是哪儿（存的是占屏幕的比例，换机型也对得上），没拖过就是半屏多一点
-  const halfPillDragged = useRef(false);
-  const halfWinPill = () => { try { const v = JSON.parse(localStorage.getItem("x_halfWinPill") || "null"); if (v && v.x >= 0 && v.x <= 1 && v.y >= 0 && v.y <= 1) return { x: Math.min(Math.round(v.x * window.innerWidth), window.innerWidth - 80), y: Math.min(Math.round(v.y * window.innerHeight), window.innerHeight - 50) }; } catch (e) {} return null; };
-  // 半窗摆在哪、多大：上次拖到哪儿就是哪儿（存比例，换机型也对得上）；没拖过就是贴底的半屏多一点
-  const halfWinBox = () => {
-    const vw = window.innerWidth, vh = window.innerHeight;
-    let r = null; try { r = JSON.parse(localStorage.getItem("x_halfWinBox") || "null"); } catch (e) {}
-    if (r && r.w > 0 && r.h > 0) {
-      const w = Math.min(vw, Math.max(Math.min(260, vw), Math.round(r.w * vw))), hh = Math.min(vh, Math.max(Math.round(vh * 0.28), Math.round(r.h * vh)));
-      return { w, h: hh, x: Math.max(0, Math.min(vw - w, Math.round(r.x * vw))), y: Math.max(0, Math.min(vh - 60, Math.round(r.y * vh))) };
-    }
-    const hh = Math.round(vh * 0.52);
-    return { x: 0, y: vh - hh, w: vw, h: hh };
-  };
   // 她此刻在看的那一页：页名 + 屏幕上实际显示的字（跳过半窗自己和秋秋那颗浮球），截到 1800 字
   const halfWinScreenText = () => {
     try {
@@ -39833,64 +39820,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 半窗聊天（她 2026-10-06）：跟秋秋那颗一样是个 fixed 的兄弟节点，不碰根节点和 safe-area 空带。
     // 回到整屏聊天、或者通话铺满时让开；里面就是整屏那一块 ChatThread（mkThread），不另写一份。
     if (!halfWin || !activeChar || activeChar.id !== halfWin.charId || screen === "thread" || call) return null;
-    // 收起＝缩成底下一颗小条：半窗会盖住页面自己的底栏，先收起来去翻页，翻到了再点开接着聊
-    const pillBtn = { minHeight: 36, border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff" };
-    // 小条也能拖（她 2026-10-06）：按住挪到哪儿就停哪儿，记住位置；挪过了那一下不算点
-    const pp = halfWin.pill || halfWinPill();
-    const pillPos = pp ? { left: pp.x, top: pp.y } : { left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)" };
-    if (halfWin.min) return h("div", { "data-halfwin": "1", "data-wk": "halfwinpill",
-      onPointerDown: e => {
-        const el = e.currentTarget, r = el.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top, x0 = e.clientX, y0 = e.clientY;
-        let moved = false, last = null;
-        const mv = ev => {
-          if (!moved && Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 6) return;
-          moved = true; halfPillDragged.current = true;
-          last = { x: Math.max(4, Math.min(window.innerWidth - r.width - 4, ev.clientX - dx)), y: Math.max(4, Math.min(window.innerHeight - r.height - 4, ev.clientY - dy)) };
-          setHalfWin(w => w ? { ...w, pill: last } : w);
-        };
-        const up = () => {
-          window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
-          if (last) try { localStorage.setItem("x_halfWinPill", JSON.stringify({ x: last.x / window.innerWidth, y: last.y / window.innerHeight })); } catch (er) {}
-          setTimeout(() => { halfPillDragged.current = false; }, 0);
-        };
-        window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
-      },
-      style: { position: "fixed", ...pillPos, zIndex: 930, display: "flex", alignItems: "center", touchAction: "none",
-        borderRadius: 999, background: "rgba(35,35,35,.82)", boxShadow: "0 3px 12px rgba(0,0,0,.25)", padding: "0 6px 0 14px" } },
-      h("button", { onClick: () => { if (!halfPillDragged.current) setHalfWin(w => w ? { ...w, min: false } : w); }, "aria-label": "展开半窗", style: pillBtn }, "和" + (activeChar.remark || activeChar.name) + "聊 ▴"),
-      h("button", { onClick: () => { if (!halfPillDragged.current) setHalfWin(null); }, "aria-label": "关掉半窗", style: { ...pillBtn, padding: "0 10px", opacity: .75 } }, "×"));
-    // 跟秋秋那块小屏一样能整块拖（她 2026-10-06「像秋秋那样任意拖」）：按住顶条挪位置，右下角那个角拖大小；松手都记住
-    const bx = halfWin.box || halfWinBox();
-    const dragOn = (e, kind) => {
-      if (e.target.closest("button")) return;
-      e.preventDefault();
-      const x0 = e.clientX, y0 = e.clientY, b0 = { ...bx }, vw = window.innerWidth, vh = window.innerHeight;
-      let last = b0;
-      const mv = ev => {
-        const dx = ev.clientX - x0, dy = ev.clientY - y0;
-        if (kind === "move") last = { ...b0, x: Math.max(0, Math.min(vw - b0.w, b0.x + dx)), y: Math.max(0, Math.min(vh - 60, b0.y + dy)) };
-        else last = { ...b0, w: Math.max(Math.min(260, vw), Math.min(vw - b0.x, b0.w + dx)), h: Math.max(Math.round(vh * 0.28), Math.min(vh - b0.y, b0.h + dy)) };
-        setHalfWin(w => w ? { ...w, box: last } : w);
-      };
-      const up = () => {
-        window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
-        try { localStorage.setItem("x_halfWinBox", JSON.stringify({ x: last.x / vw, y: last.y / vh, w: last.w / vw, h: last.h / vh })); } catch (er) {}
-      };
-      window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
-    };
-    return h("div", { "data-halfwin": "1", "data-wk": "halfwin",
-      style: { position: "fixed", left: bx.x, top: bx.y, width: bx.w, height: bx.h, zIndex: 930, display: "flex", flexDirection: "column",
-        borderRadius: 16, overflow: "hidden", boxShadow: "0 6px 24px rgba(0,0,0,.22)", background: "var(--bg, #fff)" } },
-      h("div", { "data-wk": "halfwinbar", onPointerDown: e => dragOn(e, "move"),
-        style: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 10px", background: "rgba(0,0,0,.04)", touchAction: "none", cursor: "move" } },
-        h("button", { onClick: () => { setHalfWin(null); setScreen("thread"); }, "aria-label": "放大成整屏聊天", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#555" } }, "放大"),
-        // 中间那根小横杠＝调大小（上下拖高矮、左右拖宽窄）；顶条别处＝挪位置
-        h("div", { "data-wk": "halfwinsize", "aria-label": "按住拖调大小", onPointerDown: e => { e.stopPropagation(); dragOn(e, "size"); },
-          style: { padding: "10px 18px", touchAction: "none", cursor: "nwse-resize" } },
-          h("div", { style: { width: 36, height: 4, borderRadius: 99, background: "rgba(0,0,0,.28)" } })),
-        h("button", { onClick: () => setHalfWin(w => w ? { ...w, min: true } : w), "aria-label": "收起半窗", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#555" } }, "收起")),
-      h("div", { style: { flex: 1, minHeight: 0, position: "relative" } },
-        h(HalfWinLayer.Provider, { value: true }, mkThread({ key: "half::" + activeChar.id, halfMode: true, onHalfWin: null, onBack: () => setHalfWin(null) }))));   // 里面打开的整页叠在半窗上面（usePageZ）
+    // 外壳（拖、收起小条、记位置）是公共的 HalfWinFrame；里面就是整屏那一块 ChatThread
+    return h(HalfWinFrame, { win: halfWin, setWin: setHalfWin, forKey: "chat", pillLabel: "和" + (activeChar.remark || activeChar.name) + "聊 ▴", onClose: () => setHalfWin(null),
+      onBig: () => { setHalfWin(null); setScreen("thread"); }, bigLabel: "放大" },
+      mkThread({ key: "half::" + activeChar.id, halfMode: true, onHalfWin: null, onBack: () => setHalfWin(null) }));   // 里面打开的整页叠在半窗上面（usePageZ）
   })(), (function () {
     // 浮窗歌词（群友 2026-10-26）：跟悬浮屏一样是 fixed 的兄弟节点、点得穿；通话和看TA玩时不出
     if (!window.FloatLyric || call || ringing || watching || !player.songId || !player.playing) return null;

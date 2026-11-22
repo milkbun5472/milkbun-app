@@ -1854,6 +1854,83 @@ function Sheet({
 //   半窗那棵树外面包一层 HalfWinLayer，里面的整页问 usePageZ 要层数；别处打开的照旧。
 const HalfWinLayer = React.createContext(false);
 function usePageZ(z) { return useContext(HalfWinLayer) ? 935 + Math.max(0, z - 240) : z; }
+// 半窗外壳（单聊的半窗和别处要浮一扇小窗的都用这一份）：fixed 的兄弟节点、930 层，顶条挪位置、小横杠调大小，
+//   「收起」缩成一颗能拖的小条，位置和大小都记住（存比例，换机型也对得上）。win：{ min, box, pill }，setWin 照 setState 的样子给。
+//   pillLabel 小条上的字；pillHot 小条亮起来（比如轮到你了）；bigLabel+onBig 顶条左边那颗（放大成整页）；barNote 顶条中间的一行提醒（点它 onBarNote）。
+function halfWinPillPos() { try { const v = JSON.parse(localStorage.getItem("x_halfWinPill") || "null"); if (v && v.x >= 0 && v.x <= 1 && v.y >= 0 && v.y <= 1) return { x: Math.min(Math.round(v.x * window.innerWidth), window.innerWidth - 80), y: Math.min(Math.round(v.y * window.innerHeight), window.innerHeight - 44) }; } catch (e) {} return null; }
+// 半窗摆在哪、多大：上次拖到哪儿就是哪儿；没拖过就是贴底的半屏多一点
+function halfWinBoxPos() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let r = null; try { r = JSON.parse(localStorage.getItem("x_halfWinBox") || "null"); } catch (e) {}
+  if (r && r.w > 0 && r.h > 0) {
+    const w = Math.min(vw, Math.max(Math.min(260, vw), Math.round(r.w * vw))), hh = Math.min(vh, Math.max(Math.round(vh * 0.28), Math.round(r.h * vh)));
+    return { w, h: hh, x: Math.max(0, Math.min(vw - w, Math.round(r.x * vw))), y: Math.max(0, Math.min(vh - 60, Math.round(r.y * vh))) };
+  }
+  const hh = Math.round(vh * 0.52);
+  return { x: 0, y: vh - hh, w: vw, h: hh };
+}
+function HalfWinFrame({ win, setWin, pillLabel, pillHot, onClose, onBig, bigLabel, barNote, onBarNote, forKey, children }) {
+  const halfPillDragged = useRef(false);
+  // 收起＝缩成底下一颗小条：半窗会盖住页面自己的底栏，先收起来去翻页，翻到了再点开
+  const pillBtn = { minHeight: 36, border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff" };
+  // 小条也能拖（她 2026-10-06）：按住挪到哪儿就停哪儿，记住位置；挪过了那一下不算点
+  const pp = win.pill || halfWinPillPos();
+  const pillPos = pp ? { left: pp.x, top: pp.y } : { left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)" };
+  if (win.min) return h("div", { "data-halfwin": "1", "data-wk": "halfwinpill", "data-for": forKey || "", "data-hot": pillHot ? "1" : "0",
+    onPointerDown: e => {
+      const el = e.currentTarget, r = el.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top, x0 = e.clientX, y0 = e.clientY;
+      let moved = false, last = null;
+      const mv = ev => {
+        if (!moved && Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 6) return;
+        moved = true; halfPillDragged.current = true;
+        last = { x: Math.max(4, Math.min(window.innerWidth - r.width - 4, ev.clientX - dx)), y: Math.max(4, Math.min(window.innerHeight - r.height - 4, ev.clientY - dy)) };
+        setWin(w => w ? { ...w, pill: last } : w);
+      };
+      const up = () => {
+        window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
+        if (last) try { localStorage.setItem("x_halfWinPill", JSON.stringify({ x: last.x / window.innerWidth, y: last.y / window.innerHeight })); } catch (er) {}
+        setTimeout(() => { halfPillDragged.current = false; }, 0);
+      };
+      window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+    },
+    style: { position: "fixed", ...pillPos, zIndex: 930, display: "flex", alignItems: "center", touchAction: "none",
+      borderRadius: 999, background: pillHot ? "rgba(192,85,63,.92)" : "rgba(35,35,35,.82)", boxShadow: pillHot ? "0 0 0 4px rgba(192,85,63,.25), 0 3px 12px rgba(0,0,0,.25)" : "0 3px 12px rgba(0,0,0,.25)", padding: "0 6px 0 14px" } },
+    h("button", { onClick: () => { if (!halfPillDragged.current) setWin(w => w ? { ...w, min: false } : w); }, "aria-label": "展开半窗", style: pillBtn }, pillLabel),
+    onClose ? h("button", { onClick: () => { if (!halfPillDragged.current) onClose(); }, "aria-label": "关掉半窗", style: { ...pillBtn, padding: "0 10px", opacity: .75 } }, "×") : null);
+  // 跟秋秋那块小屏一样能整块拖（她 2026-10-06「像秋秋那样任意拖」）：按住顶条挪位置，小横杠拖大小；松手都记住
+  const bx = win.box || halfWinBoxPos();
+  const dragOn = (e, kind) => {
+    if (e.target.closest("button")) return;
+    e.preventDefault();
+    const x0 = e.clientX, y0 = e.clientY, b0 = { ...bx }, vw = window.innerWidth, vh = window.innerHeight;
+    let last = b0;
+    const mv = ev => {
+      const dx = ev.clientX - x0, dy = ev.clientY - y0;
+      if (kind === "move") last = { ...b0, x: Math.max(0, Math.min(vw - b0.w, b0.x + dx)), y: Math.max(0, Math.min(vh - 60, b0.y + dy)) };
+      else last = { ...b0, w: Math.max(Math.min(260, vw), Math.min(vw - b0.x, b0.w + dx)), h: Math.max(Math.round(vh * 0.28), Math.min(vh - b0.y, b0.h + dy)) };
+      setWin(w => w ? { ...w, box: last } : w);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
+      try { localStorage.setItem("x_halfWinBox", JSON.stringify({ x: last.x / vw, y: last.y / vh, w: last.w / vw, h: last.h / vh })); } catch (er) {}
+    };
+    window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+  };
+  const barBtn = { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#555" };
+  return h("div", { "data-halfwin": "1", "data-wk": "halfwin", "data-for": forKey || "",
+    style: { position: "fixed", left: bx.x, top: bx.y, width: bx.w, height: bx.h, zIndex: 930, display: "flex", flexDirection: "column",
+      borderRadius: 16, overflow: "hidden", boxShadow: "0 6px 24px rgba(0,0,0,.22)", background: "var(--bg, #fff)" } },
+    h("div", { "data-wk": "halfwinbar", onPointerDown: e => dragOn(e, "move"),
+      style: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 10px", background: "rgba(0,0,0,.04)", touchAction: "none", cursor: "move" } },
+      onBig ? h("button", { onClick: onBig, "aria-label": "放大成整屏", style: barBtn }, bigLabel || "放大") : h("span", { style: { width: 44 } }),
+      barNote ? h("button", { "data-wk": "halfwinnote", onClick: onBarNote, style: { ...barBtn, color: "#c0553f", fontWeight: 700 } }, barNote) : null,
+      // 中间那根小横杠＝调大小（上下拖高矮、左右拖宽窄）；顶条别处＝挪位置
+      h("div", { "data-wk": "halfwinsize", "aria-label": "按住拖调大小", onPointerDown: e => { e.stopPropagation(); dragOn(e, "size"); },
+        style: { padding: "10px 18px", touchAction: "none", cursor: "nwse-resize" } },
+        h("div", { style: { width: 36, height: 4, borderRadius: 99, background: "rgba(0,0,0,.28)" } })),
+      h("button", { onClick: () => setWin(w => w ? { ...w, min: true } : w), "aria-label": "收起半窗", style: barBtn }, "收起")),
+    h("div", { style: { flex: 1, minHeight: 0, position: "relative" } }, h(HalfWinLayer.Provider, { value: true }, children)));
+}
 // 整页（铺满一屏的那一层）的外壳只此一份（她 2026-10-22「为什么不把这些页面收成公共的」）：
 //   原来七处各写 position/inset/zIndex、有的带进场动画有的不带，动画名还叫最常见的 fadeUp——
 //   美化 CSS 里自己也定义一个 fadeUp，就只有带这个动画的那几页被改成看不见（群里「查手机和查找记录点不动」）。

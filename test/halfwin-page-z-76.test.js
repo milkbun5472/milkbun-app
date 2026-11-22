@@ -7,8 +7,9 @@ test("整页问 usePageZ 要层数；半窗那棵树包着 HalfWinLayer", () => 
   assert.match(comp, /const HalfWinLayer = React\.createContext\(false\);/);
   assert.match(comp, /function usePageZ\(z\) \{ return useContext\(HalfWinLayer\) \? 935 \+ Math\.max\(0, z - 240\) : z; \}/);
   assert.match(comp, /"data-page": "1", ref: pageShellPin, style: pageShellStyle\(pageZ, /);
-  assert.match(app, /h\(HalfWinLayer\.Provider, \{ value: true \}, mkThread\(\{ key: "half::"/);
-  assert.ok(/data-halfwin[\s\S]{0,400}zIndex: 930/.test(app), "半窗还在 930，usePageZ 的 935 得比它高");
+  assert.match(comp, /h\(HalfWinLayer\.Provider, \{ value: true \}, children\)/);
+  assert.match(app, /mkThread\(\{ key: "half::" \+ activeChar\.id, halfMode: true/);
+  assert.ok(/data-halfwin[\s\S]{0,400}zIndex: 930/.test(comp), "半窗还在 930，usePageZ 的 935 得比它高");
 });
 
 // 她 2026-10-22「为什么不把这些页面收成公共的」：整页外壳只一份；app 自己的进场动画用专用名 qqIn

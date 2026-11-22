@@ -273,6 +273,7 @@
       + "\n另外几方：" + (sidesLines(room, o.presence) || "\n- （还没别人进来）")
       + "\n别人带来的这几位你只知道名字和他们在这里说过的话，其余的你不知道，也不用替他们补。"
       + "\n\n【房间里到现在的全部聊天】" + (o.stamp ? "（每行前面〔〕里是那句话说的时间，只是时间标记，不要写进你说的话）" : "") + "\n" + (transcript(room, o) || "（还没人说话）")
+      + (o.game ? "\n\n" + o.game : "")
       + (gap ? "\n（最后一条到现在已经过去 " + gap + " 了）" : "")
       + "\n\n【这一次】轮到你在房间里开口，接着上面的话开口，照你平时发消息的习惯：一条一个气泡，想连发几条就几条，跟在群里聊天一样。只写你说出口的话本身，不写旁白，不替别人说话。"
       + capLines(room, char, o)
@@ -306,6 +307,7 @@
       + "\n别人带来的人、房里的真人，你只知道名字和他们在这里说过的话，其余的不知道，也不替他们说话。"
       + (o.cast ? "\n\n" + o.cast : "")
       + "\n\n【房间里到现在的全部聊天】" + (o.stamp ? "（每行前面〔〕里是那句话说的时间，只是时间标记，不要写进说的话）" : "") + "\n" + (transcript(room, o) || "（还没人说话）")
+      + (o.game ? "\n\n" + o.game : "")
       + (o.stamp ? "\n（现在是〔" + o.stamp(o.now || Date.now()) + "〕）" : "")
       + (gap ? "\n（最后一条到现在已经过去 " + gap + " 了）" : "")
       + "\n\n【输出】只输出 JSON 数组，按说话先后排。每一条 {\"name\":\"说话的人，只能是 " + names.join(" / ") + " 之一\",\"text\":\"说出口的话本身，一条一个气泡\""
@@ -1229,9 +1231,10 @@
     const [gameId, setGameId] = useState(null);        // 正开着的那张牌桌
     const [recId, setRecId] = useState(null);          // 点开回看的那张战绩卡（消息 id）
     const [gamePend, setGamePend] = useState(null);    // 大厅里配好、还没发卡的那一局 { game, cfg }
-    const [prep, setPrep] = useState({ surface: "", truth: "" });
+    const [prep, setPrep] = useState({ surface: "", truth: "", mode: "host" });
     const [joinAt, setJoinAt] = useState(null), [joinPick, setJoinPick] = useState({});
     const [gameBusy, setGameBusy] = useState(false);
+    const [gameWin, setGameWinRaw] = useState(null);   // 牌桌那扇半窗：{ gid, min, box, pill, seen }
     const propsRef = useRef(props); propsRef.current = props;
     const pageRef = useRef(page); pageRef.current = page;
     const ensureGames = () => root.GameShared || !root.LazyMods ? Promise.resolve() : root.LazyMods.load("games");
@@ -1246,22 +1249,22 @@
       charOf: id => (propsRef.current.characters || []).find(c => c.id === id) || null,
       presence: () => presence(),
       onChange: () => setGTick(n => n + 1),
-      onOpenGame: gid => { if (pageRef.current === "chat") { setGameId(gid); setPage("game"); } },
+      onOpenGame: gid => { if (pageRef.current === "chat") openGame(gid); },
       toast: s => propsRef.current.toast && propsRef.current.toast(s)
     }) : null;
     // 掉线托管：每三秒看一眼轮到的人还在不在
     useEffect(() => { const id = setInterval(() => { try { games.current && games.current.tick(Date.now()); } catch (e) {} }, 3000); return () => clearInterval(id); }, []);
-    useEffect(() => { if ((page === "game" || page === "gamerec" || page === "gameprep") && !root.GameShared) ensureGames().then(() => setGTick(n => n + 1)).catch(() => {}); }, [page]);
+    useEffect(() => { if ((gameWin || page === "gamerec" || page === "gameprep") && !root.GameShared) ensureGames().then(() => setGTick(n => n + 1)).catch(() => {}); }, [page, !!gameWin]);
     // 大厅里配好了：房主自己这边上谁＝开局配置里勾的那几个（观战就不坐），发一张邀请卡
-    const sendInvite = (game, cfg, pz) => {
+    const sendInvite = (game, cfg, pz, setter) => {
       if (!games.current) games.current = newGames();
       if (!games.current) return;
       const picks = (cfg.mode === "spectate" ? [] : [{ kind: "user" }]).concat((cfg.charIds || []).map(id => { const c = (roomRef.current.myChars || []).find(x => x.id === id); return c ? { kind: "char", charId: c.id, name: c.name } : null; }).filter(Boolean));
-      games.current.invite({ key: game.key, zh: game.zh, min: game.min, max: game.max }, cfg, picks, pz || null);
+      games.current.invite({ key: game.key, zh: game.zh, min: game.min, max: game.max }, cfg, picks, pz || null, setter || null);
       setGamePend(null); setPage("chat");
     };
     const onConfigured = (game, cfg) => {
-      if (game.key === "haigui") { setGamePend({ game, cfg }); setPrep({ surface: "", truth: "" }); setPage("gameprep"); return; }
+      if (game.key === "haigui" || game.key === "q25") { setGamePend({ game, cfg }); setPrep({ surface: "", truth: "", mode: "host" }); setPage("gameprep"); return; }
       sendInvite(game, cfg);
     };
     // 报名：你自己、你带进房间的人，勾谁谁占一个座位。聊天页和牌桌页都挂这一张（牌桌页下面也有邀请卡，点「加入」得有反应）
@@ -1280,15 +1283,53 @@
             const left = games.current ? games.current.join(ja.gid, picks, ja.host) : [];
             if (left.length) props.toast && props.toast("座位不够，" + left.length + " 个没坐上");
           } })); };
+    // 牌桌是浮在房间聊天上面的半窗（单聊半窗那一份外壳 HalfWinFrame）：展开时房里来了新话在顶条提醒，收起时轮到你小条会亮
+    const msgCount = () => ((roomRef.current && roomRef.current.msgs) || []).filter(m => !m.sys).length;
+    const setGameWin = fn => setGameWinRaw(w => GC() ? GC().winSet(w, typeof fn === "function" ? fn(w) : fn, msgCount()) : (typeof fn === "function" ? fn(w) : fn));
+    const openGame = gid => { setGameId(gid); setPage("chat"); setGameWinRaw(w => GC() ? GC().winOpen(w, gid, msgCount()) : { gid, min: false, seen: msgCount() }); };
+    // 当前对局给开口的角色当背景：正开着的那一局（没开就最近一局还在打的）；TA 坐在桌上就从 TA 那个座位看，私密那份只给 TA 自己那一座
+    const gameStateFor = charId => {
+      const gs = games.current, GCo = GC(); if (!gs || !GCo) return "";
+      const gid = (gameWin && gameWin.gid) || gameId; const sv = gid ? gs.seen(gid) : null;
+      if (!sv || !sv.view || (sv.inv.status !== "playing" && sv.inv.status !== "done")) return "";
+      const si = charId ? sv.inv.seats.findIndex(x => x.kind === "char" && x.peer === meId.current && x.charId === charId) : -1;
+      const mineP = si >= 0 && sv.view.setter === si ? sv.priv : null;
+      return GCo.stateText(sv.inv, sv.view, si, mineP);
+    };
+    const gameHalf = () => {
+      if (!gameWin || !room) return null;
+      const gs = games.current, gid = gameWin.gid, sv = gs ? gs.seen(gid) : null;
+      const A = sv && GC() ? GC().ADAPTERS[sv.inv.key] : null;
+      const shut = () => setGameWinRaw(null);
+      const body = !sv || !A || !root.GameShared ? h("div", { style: { padding: 16 } }, h(Note, null, "在等房主那边把牌桌发过来…")) : (() => {
+        const inv = sv.inv, isHost = gs.isHost(gid), done = inv.status === "done";
+        const pr = presence(), hostGone = !isHost && pr[inv.host] !== "on" && pr[inv.host] !== "relay";
+        return h("div", { "data-wk": "nrgamearea", className: "h-full", style: { overflowY: "auto", paddingBottom: 12 } },
+          h("div", { style: { padding: "6px 16px 0", fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, inv.zh, h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, done ? "这一局打完了" : inv.seats.some(x => x.peer === meId.current && x.kind !== "npc") ? "你在桌上" : "你在旁边看")),
+          hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "房主（这一局的庄）现在不在房里，这一局停在这儿；TA 回来就接着打。")),
+          h(A.Table, { inv, view: sv.view, priv: sv.priv || null, myApi: props.gameApi ? props.gameApi() : null, me: meId.current, isHost, onMove: (seat, mv) => gs.move(gid, seat, mv), onReveal: () => gs.reveal(gid) }),
+          done && h("div", { className: "flex", style: { gap: 8, padding: "0 16px 12px" } },
+            isHost && h(Btn, { label: "再来一局", primary: true, wk: "nrgameagain", onClick: () => { gs.again(gid); shut(); } }),
+            h(Btn, { label: "收起牌桌", wk: "nrgameback", onClick: () => setGameWin(w => w ? Object.assign({}, w, { min: true }) : w) })));
+      })();
+      const turn = sv && A ? GC().myTurn(sv.inv, sv.view, meId.current) : false;
+      const n = GC() ? GC().winUnread(gameWin, msgCount()) : 0;
+      return h(HalfWinFrame, { win: gameWin, setWin: setGameWin, forKey: "netgame", onClose: shut,
+        pillLabel: (sv ? sv.inv.zh : "小游戏") + (turn ? " · 轮到你" : "") + " ▴", pillHot: turn,
+        barNote: n ? "有 " + n + " 条新消息" : "", onBarNote: () => setGameWin(w => w ? Object.assign({}, w, { min: true }) : w) }, body);
+    };
     const gameHandlers = m => {
       const x = m.x || {}, gs = games.current;
       return { me: meId.current, busy: gameBusy, lost: x.host === meId.current && (x.status === "open" || x.status === "playing") && !(gs && gs.isHost(x.gid)),
-        onJoin: () => { setJoinPick({}); setJoinAt({ gid: x.gid, host: x.host }); },
+        // 选人那张在半窗底下会被盖住：先把牌桌收起来
+        onJoin: () => { setJoinPick({}); setJoinAt({ gid: x.gid, host: x.host }); setGameWin(w => w && !w.min ? Object.assign({}, w, { min: true }) : w); },
         onLeave: () => gs && gs.join(x.gid, [], x.host),
         onAdd: () => gs && gs.addSeat(x.gid),
         onCancel: () => gs && gs.cancel(x.gid),
-        onStart: async () => { if (!gs) return; setGameBusy(true); try { if (await gs.start(x.gid)) { setGameId(x.gid); setPage("game"); } } finally { setGameBusy(false); } },
-        onOpen: () => { setGameId(x.gid); setPage("game"); } };
+        // 出题人：在能出题的座位里挨个换
+        onSetter: () => { if (!gs || !root.NetGameCore || !x.setter) return; const C = root.NetGameCore, nx = C.nextSetter(x, C.setterSeat(x)); if (nx) gs.setSetter(x.gid, Object.assign({ mode: x.setter.mode === "turns" ? "turns" : "seat" }, nx)); },
+        onStart: async () => { if (!gs) return; setGameBusy(true); try { if (await gs.start(x.gid)) openGame(x.gid); } finally { setGameBusy(false); } },
+        onOpen: () => openGame(x.gid) };
     };
     // ── 角色开口：一次连发的几条算一轮（turnId），能整轮重新说 ──
     const presence = () => { const o = {}; ((roomRef.current && roomRef.current.peers) || []).forEach(p => { o[p.peerId] = netRef.current.open.indexOf(p.peerId) >= 0 ? "on" : netRef.current.reach.indexOf(p.peerId) >= 0 ? "relay" : netRef.current.fail.indexOf(p.peerId) >= 0 ? "fail" : "off"; }); return o; };
@@ -1312,7 +1353,7 @@
         const emotes = props.emotesFor ? props.emotesFor(char.id) : [];
         const d = await runProbe(p, ctx, { voice: true, tag: "netroom",
           instruction: Core.lineInstruction(cur, { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" },
-            { stamp: props.stampFor ? ts => props.stampFor(char.id, ts) : null, now: Date.now(), presence: presence(), emotes: emotes.map(e => e.keyword), targets: patTargets(cur).concat([myNick()]) }),
+            { stamp: props.stampFor ? ts => props.stampFor(char.id, ts) : null, now: Date.now(), game: gameStateFor(char.id), presence: presence(), emotes: emotes.map(e => e.keyword), targets: patTargets(cur).concat([myNick()]) }),
           schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"],\"emote\":\"（可选）\",\"pat\":\"（可选）\",\"vote\":\"（可选）\"}", maxTokens: 12000 });
         // 一次连发几条（她 2026-11-22：「为啥角色一次只会说一句话」）；老格式 text 也认
         const lines = Core.sayLines(d);
@@ -1365,7 +1406,7 @@
         const targets = patTargets(cur).concat([myNick()]);
         const sys = Core.jointInstruction(cur, mine.map(c => ({ id: c.id, name: c.name, you: props.youFor ? props.youFor(c.id) : "",
           emotes: (props.emotesFor ? props.emotesFor(c.id) : []).map(e => e.keyword) })),
-          { stamp: props.stampFor ? ts => props.stampFor(lead.id, ts) : null, now: Date.now(), presence: presence(), targets, cast });
+          { stamp: props.stampFor ? ts => props.stampFor(lead.id, ts) : null, now: Date.now(), presence: presence(), targets, cast, game: gameStateFor(null) });
         // 料全在 system，user 只留一句触发（prompt-send-shape）；几个人各说几条，按人数给足
         const raw = await callAI(p, sys, [{ role: "user", content: "接着房里的话往下说。" }], { use: "chat", logLabel: "联机·一起说", maxTokens: Math.min(32000, 12000 + 4000 * mine.length) });
         const people = mine.map(c => charsById[c.id]);
@@ -1585,7 +1626,7 @@
           h(Composer, { onSend: sayHuman, disabled: alone, fillRef, plusOn: panel, onPlus: () => setPanel(v => !v) })),
         ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sayRich, sendRp,
           photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
-        joinSheet());
+        joinSheet(), gameHalf());
     }
 
     // ── 小游戏那几页 ──
@@ -1594,38 +1635,37 @@
       const G = root.Games;
       const mine = (room.myChars || []).map(c => charsById[c.id]).filter(Boolean);
       if (!G || !root.NetGameCore) return shell(h(Head, { zh: "小游戏", onBack: () => setPage("chat") }), scroll([h(Note, { key: "n" }, "小游戏没装上，回去再点一次试试。")]));
+      // 联机这一桌接不住的那几项收起来（彩头、注入最近聊天、言秋亲打、教学、谁来想棋、25 问谁出题——谁出题在下一页选），每盒写一句这边怎么玩
+      const NOTE = { gomoku: "落子归 app 里的棋手（角色、NPC 都是），不花调用。", chess: "角色照 TA 估过的水平走（没估过按会下），NPC 由房主那台走；没有提示、悔棋和教学。",
+        xiangqi: "角色照 TA 估过的水平走（没估过按会下），NPC 由房主那台走；没有提示、悔棋和教学。", jungle: "角色照 TA 估过的水平走（没估过按会下），NPC 由房主那台走；没有提示、悔棋和教学。",
+        go: "棋盘大小照下面挑的；双方连着停一手就由房主那台估死子、数子。没有提示、悔棋和教学。", haigui: "下一页选谁出题。", q25: "下一页选谁出题。",
+        story: "三圈，每人每次抽一个要用上的词；角色用带 TA 来的那台、TA 自己的线路接。", tod: "每人约两轮，题由下一位出；角色出题、回答都用带 TA 来的那台的线路。",
+        monopoly: "钱和地都在房主那台结算；不买的地自动拍卖，讨价还价在房间里说。" };
       return h(G, { characters: mine, profile: props.profile, only: root.NetGameCore.supported(), onConfigured,
+        setupHide: ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host"], setupNote: g => NOTE[g.key] || "",
         intro: "挑一盒、设好开局（开局页里勾的角色就是你这边上场的人），房里会出现一张邀请卡，大家在卡上报名，你点开始。", onBack: () => setPage("chat") });
     }
     if (page === "gameprep" && room && gamePend) {
-      return shell(h(Head, { zh: "出一锅汤", onBack: () => setPage("gamepick") }), scroll([
-        h(Note, { key: "n" }, "你是庄：汤底只在你这台手机上，别人只看得到汤面。自己写一道就填下面两格；空着就用你的线路现出一道（开局时出，花你一次调用）。判每个人的问题也走你的线路。"),
-        h("textarea", { key: "s", "data-wk": "nrsoupsurface", value: prep.surface, rows: 3, placeholder: "汤面：大家看得到的那段怪事", onChange: e => setPrep(p => Object.assign({}, p, { surface: e.target.value.slice(0, 600) })),
+      // 谁出题：房主（就是你，下面写或者现出）／系统现出／指定一个座位／轮流（每局「再来一局」换下一个座位）。出题的人这一局不参与问
+      const soup = gamePend.game.key === "haigui", md = prep.mode;
+      const MODES = [{ key: "host", zh: "我出" }, { key: "system", zh: "系统出" }, { key: "seat", zh: "指定一个人" }, { key: "turns", zh: "轮流" }];
+      const tip = { host: "你是庄也是出题人：" + (soup ? "汤底" : "答案") + "只在你这台手机上，别人看不到。自己写一道就填下面两格；空着就用你的线路现出一道（开局时出，花你一次调用）。你坐在桌上的话这一局不参与问。",
+        system: "开局时用你（庄）的线路现出一道，谁都不知道" + (soup ? "汤底" : "答案") + "，大家一起猜。判每个问题也走你的线路。",
+        seat: "大家坐好以后，在邀请卡上点「出题人」选是谁（真人或者谁带来的角色）。开局时 TA 在自己那台手机上出题（角色就用带 TA 来的那台、TA 自己的线路和人设），" + (soup ? "汤底" : "答案") + "只交给你这台判题，别人看不到；TA 这一局不参与问。",
+        turns: "跟「指定一个人」一样，先由第一个坐下的人出；每打完一局点「再来一局」，出题人按座位顺序换下一个。" }[md];
+      return shell(h(Head, { zh: soup ? "出一锅汤" : "出一道 25 问", onBack: () => setPage("gamepick") }), scroll([
+        h("div", { key: "m", "data-wk": "nrsettermode", className: "flex flex-wrap", style: { gap: 6 } }, MODES.map(o => h("button", { key: o.key, onClick: () => setPrep(p => Object.assign({}, p, { mode: o.key })),
+          style: { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "1px solid " + (md === o.key ? t.ink : t.line), background: md === o.key ? t.ink : t.bg2, color: md === o.key ? t.bg : t.ink, fontFamily: F_BODY, fontSize: fs(13) } }, o.zh))),
+        h(Note, { key: "n" }, tip),
+        md === "host" && h("textarea", { key: "s", "data-wk": "nrsoupsurface", value: prep.surface, rows: soup ? 3 : 1, placeholder: soup ? "汤面：大家看得到的那段怪事" : "答案：一个东西（比如：雨伞）", onChange: e => setPrep(p => Object.assign({}, p, { surface: e.target.value.slice(0, soup ? 600 : 40) })),
           style: { width: "100%", resize: "none", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "9px 12px", fontFamily: F_BODY, fontSize: fs(14) } }),
-        h("textarea", { key: "t", "data-wk": "nrsouptruth", value: prep.truth, rows: 4, placeholder: "汤底：真相（只你看得到）", onChange: e => setPrep(p => Object.assign({}, p, { truth: e.target.value.slice(0, 1200) })),
+        md === "host" && h("textarea", { key: "t", "data-wk": "nrsouptruth", value: prep.truth, rows: soup ? 4 : 1, placeholder: soup ? "汤底：真相（只你看得到）" : "类别（大家看得到）：比如 物品", onChange: e => setPrep(p => Object.assign({}, p, { truth: e.target.value.slice(0, soup ? 1200 : 20) })),
           style: { width: "100%", resize: "none", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "9px 12px", fontFamily: F_BODY, fontSize: fs(14) } }),
-        h(Btn, { key: "go", label: "发邀请卡", primary: true, wk: "nrsoupsend", onClick: () => sendInvite(gamePend.game, gamePend.cfg, prep.surface.trim() && prep.truth.trim() ? { surface: prep.surface, truth: prep.truth } : null) })
+        h(Btn, { key: "go", label: "发邀请卡", primary: true, wk: "nrsoupsend", onClick: () => {
+          const pz = md === "host" && prep.surface.trim() && (prep.truth.trim() || !soup) ? (soup ? { surface: prep.surface, truth: prep.truth } : { secret: prep.surface, category: prep.truth }) : null;
+          sendInvite(gamePend.game, gamePend.cfg, pz, { mode: md });
+        } })
       ]));
-    }
-    if (page === "game" && room) {
-      const gs = games.current, sv = gs && gameId ? gs.seen(gameId) : null;
-      const A = sv && root.NetGameCore ? root.NetGameCore.ADAPTERS[sv.inv.key] : null;
-      if (!sv || !A || !root.GameShared) return shell(h(Head, { zh: "小游戏", onBack: () => setPage("chat") }), scroll([h(Note, { key: "n" }, "在等房主那边把牌桌发过来…")]));
-      const inv = sv.inv, isHost = gs.isHost(gameId), done = inv.status === "done";
-      const pr = presence(), hostGone = !isHost && pr[inv.host] !== "on" && pr[inv.host] !== "relay";
-      const mySeat = inv.seats.some(x => x.peer === meId.current && x.kind !== "npc");
-      return shell(
-        h(Head, { zh: inv.zh, sub: done ? "这一局打完了" : mySeat ? "你在桌上" : "你在旁边看", onBack: () => setPage("chat") }),
-        h("div", { "data-wk": "nrgamearea", className: "shrink-0", style: { maxHeight: "62%", overflowY: "auto", borderBottom: "1px solid " + t.line } },
-          hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "房主（这一局的庄）现在不在房里，这一局停在这儿；TA 回来就接着打。")),
-          h(A.Table, { inv, view: sv.view, me: meId.current, isHost, onMove: (seat, mv) => gs.move(gameId, seat, mv), onReveal: () => gs.reveal(gameId) }),
-          done && h("div", { className: "flex", style: { gap: 8, padding: "0 16px 12px" } },
-            isHost && h(Btn, { label: "再来一局", primary: true, wk: "nrgameagain", onClick: () => { gs.again(gameId); setPage("chat"); } }),
-            h(Btn, { label: "回聊天", wk: "nrgameback", onClick: () => setPage("chat") }))),
-        h(MsgList, { room, myCharsById: charsById, rowProps: rowProps(room, true) }),
-        h("div", { "data-wk": "nrcomposer", className: "shrink-0", style: { borderTop: "1px solid " + t.line, background: t.bg, padding: "8px 12px", paddingBottom: COMPOSER_PAD_BOTTOM } },
-          h(Composer, { onSend: sayHuman, disabled: !mesh.current || net.reach.length === 0 })),
-        joinSheet());
     }
     if (page === "gamerec") {
       const r = (room && room.id === viewId ? room : null) || rooms.find(x => x.id === viewId) || room;
