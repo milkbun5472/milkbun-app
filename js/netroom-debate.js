@@ -19,7 +19,7 @@
   const ensure = () => DS() || !root.LazyMods ? Promise.resolve() : root.LazyMods.load("debate").catch(() => {});
   const SIDES = ["pro", "con"];
   const SIDE_ZH = { pro: "正方", con: "反方" };
-  const nm = (inv, i) => ((inv.seats || [])[i] || {}).name || "TA";
+  const nm = (inv, i) => C.seatName((inv.seats || [])[i], i);
   const whoOf = (c, opts, stance) => ({ name: (c && (c.remark || c.name)) || "TA", persona: (c && c.persona) || "", stance: stance || "", injection: opts && opts.recent ? cut(opts.recentText, 600) : "" });
   const NPC_PERSONA = "来凑场的路人，普通人，说话直接。";
 

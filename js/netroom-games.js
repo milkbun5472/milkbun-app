@@ -209,7 +209,7 @@
     charMove(view, seatIdx, inv, ctx) { const G = GS().gomoku; const lv = ctx && ctx.opts && ctx.opts.casual ? 2 : this.level(inv, inv.seats[seatIdx]); const m = G.bestMove(G.replay(view.moves), seatIdx + 1, lv); return m ? { x: m.x, y: m.y } : null; },
     result(st, inv) {
       if (!st.winner) return null;
-      const nm = i => (inv.seats[i] || {}).name || "TA";
+      const nm = i => seatName(inv.seats[i], i);
       const res = st.winner === 3 ? "和棋" : nm(st.winner - 1) + "（" + sideZh(st.winner) + "）赢了";
       return { winners: st.winner === 3 ? [] : [st.winner - 1], text: nm(0) + "（黑）对 " + nm(1) + "（白），" + st.moves.length + " 手，" + res + "。",
         replay: { moves: st.moves.map(m => [m.x, m.y, m.who]) } };
@@ -221,7 +221,9 @@
     }
   };
   const VERDICT_SET = ["是", "不是", "不重要", "接近了", "不好说", "不对", "跳过"];
-  const nmOf = (inv, i) => ((inv.seats || [])[i] || {}).name || "TA";
+  // 座位上的人没名字时：角色叫 TA，真人叫她，空着／NPC 叫第几座
+  const seatName = (seat, i) => (seat && seat.name) || (seat && seat.kind === "char" ? "TA" : seat && seat.kind === "user" ? "她" : "第 " + ((i | 0) + 1) + " 座");
+  const nmOf = (inv, i) => seatName((inv.seats || [])[i], i);
   // 角色上桌时的那一份：人设；主人勾了「带上 TA 最近单聊」就把那一段接在后面
   const charWho = (c, opts) => ({ name: (c && (c.remark || c.name)) || "TA", persona: ((c && c.persona) || "") + (opts && opts.recent && opts.recentText ? "\n【和带你来的人最近在单聊里聊的】" + cut(opts.recentText, 600) : "") });
   // 报名那张单上，每个勾上的角色可以调哪几项（跟单机开局页按角色调的是同一批）
@@ -233,7 +235,7 @@
   function cleanTalk(x) {
     if (!x || typeof x !== "object") return null;
     const text = cut(x.text, 160).trim(); if (!text) return null;
-    return { kind: "talk", name: cut(x.name, 40) || "TA", text, npc: !!x.npc, seat: int(x.seat, -1, 11, -1), peer: cut(x.peer, 40) };
+    return { kind: "talk", name: cut(x.name, 40) || (x.npc ? "NPC" : "TA"), text, npc: !!x.npc, seat: int(x.seat, -1, 11, -1), peer: cut(x.peer, 40) };
   }
   // 隔几手说一句：桌上每过 every 手（至少 6 手、人多就更久）才轮到同一个人再开口；关键时刻（moment）不用等，但一手里只说一次
   const talkEvery = inv => Math.max(6, ((inv && inv.seats) || []).length * 3);
@@ -271,6 +273,9 @@
     const s = seats[i];
     return s.kind === "char" ? { peer: s.peer, charId: s.charId } : { peer: s.peer };
   }
+  // 这道题是谁出的（汤面那块、局面说明、战绩卡都用这一句）：出题人自己写／角色照人设出 → 「X 出的题」；
+  //   出题人让模型现出的 → 「X 让系统现出的题」；系统出（没有出题人）→ 「系统出的题」
+  const byLine = (st, inv) => st.setter >= 0 ? nmOf(inv, st.setter) + (st.gen ? " 让系统现出的题" : " 出的题") : "系统出的题";
   const setterLine = (inv) => {
     const s = inv.setter; if (!s) return "";
     if (s.mode === "system") return "系统现出";
@@ -312,15 +317,17 @@
           return Object.assign(st, { phase: "set", turn: si });
         }
         st = take(st, p);
+        // gen：这道题是模型现出的（房主空着没写／选了系统出），署名照实写
         if (!hasPuzzle(st)) {
           if (!ctx || !ctx.hostApi) throw new Error("没写题，又没有能出题的线路：先去 设置·API 配一条，或者自己写一道");
           st = take(st, await GS().guess.newPuzzle(ctx.hostApi, kind, []));
           if (!hasPuzzle(st)) throw new Error("出题没出成，再点一次开始");
+          st.gen = true;
         }
         st.turn = nextAsker(st, inv, -1);
         return st;
       },
-      view: st => Object.assign({ phase: st.phase, setter: st.setter, log: st.log.slice(-60), turn: st.turn, done: st.done, solvedBy: st.solvedBy, busy: st.busy,
+      view: st => Object.assign({ phase: st.phase, setter: st.setter, gen: !!st.gen, log: st.log.slice(-60), turn: st.turn, done: st.done, solvedBy: st.solvedBy, busy: st.busy,
         reveal: st.done ? (st.reveal || (isSoup ? st.truth : st.secret)) : "" }, isSoup ? { surface: st.surface || "", truth: st.done ? st.truth : "" } : { category: st.category || "", secret: st.done ? st.secret : "" }),
       // 出题人自己那台：手里那份底牌
       priv: (st, i) => i === st.setter && st.phase === "play" ? (isSoup ? { truth: st.truth } : { secret: st.secret }) : null,
@@ -333,10 +340,13 @@
         if (seatIdx !== st.turn) return { err: "还没轮到这一位" };
         if (st.phase === "set") {
           let n = take(st, move && move.puzzle);
+          // 真人点了「用我的线路现出一道」交上来的，也算系统现出的（角色自己出的那道是 TA 照人设出的，算 TA 的）
+          n.gen = !!(move && move.puzzle && move.puzzle.gen) && (inv.seats[seatIdx] || {}).kind === "user";
           if (!hasPuzzle(n)) {
             if (!ctx.hostApi) return { err: "出题人那边没交上题" };
             n = take(st, await GS().guess.newPuzzle(ctx.hostApi, kind, []));
             if (!hasPuzzle(n)) return { err: "出题没出成" };
+            n.gen = true;
           }
           return { st: Object.assign(n, { phase: "play", busy: false, turn: nextAsker(n, inv, st.setter) }) };
         }
@@ -415,7 +425,7 @@
       result(st, inv) {
         if (!st.done) return null;
         const asked = st.log.filter(l => l.q).length;
-        const who = st.setter >= 0 ? "，" + nmOf(inv, st.setter) + " 出的题" : "";
+        const who = "，" + byLine(st, inv);
         const text = isSoup
           ? "汤面「" + cut(st.surface, 30) + (st.surface.length > 30 ? "…" : "") + "」" + who + "，" + (st.solvedBy >= 0 ? nmOf(inv, st.solvedBy) + " 破了题" : "没人破题，汤底揭晓了") + "，一共问了 " + asked + " 个问题。"
           : "答案是「" + st.secret + "」" + who + "，" + (st.solvedBy >= 0 ? nmOf(inv, st.solvedBy) + " 猜中了" : "没人猜中") + "，一共问了 " + asked + " 个问题。";
@@ -427,7 +437,7 @@
         return Object.assign({ log }, isSoup ? { surface: cut(r.surface, 600), truth: cut(r.truth, 1200) } : { secret: cut(r.secret, 40), category: cut(r.category, 20) });
       },
       cleanView(v) {
-        return Object.assign({ phase: v.phase === "set" ? "set" : "play", setter: int(v.setter, -1, 11, -1), turn: int(v.turn, 0, 11, 0), done: !!v.done, busy: !!v.busy, solvedBy: int(v.solvedBy, -1, 11, -1), reveal: cut(v.reveal, 1200),
+        return Object.assign({ phase: v.phase === "set" ? "set" : "play", setter: int(v.setter, -1, 11, -1), gen: !!v.gen, turn: int(v.turn, 0, 11, 0), done: !!v.done, busy: !!v.busy, solvedBy: int(v.solvedBy, -1, 11, -1), reveal: cut(v.reveal, 1200),
           log: (Array.isArray(v.log) ? v.log : []).slice(-60).map(l => ({ seat: int(l && l.seat, -1, 11, -1), name: cut(l && l.name, 40), q: cut(l && l.q, 300), verdict: VERDICT_SET.indexOf(l && l.verdict) >= 0 ? l.verdict : "不重要", note: cut(l && l.note, 60), guess: !!(l && l.guess) })) },
           isSoup ? { surface: cut(v.surface, 600), truth: cut(v.truth, 1200) } : { category: cut(v.category, 20), secret: cut(v.secret, 40) });
       }
@@ -767,7 +777,7 @@
       const soup = k === "haigui", lines = (v.log || []).filter(l => l.q).slice(-10).map(l => "· " + l.name + "：" + l.q + " → " + l.verdict + (l.note ? "（" + l.note + "）" : ""));
       const mine = i === v.setter && priv ? "\n这一题是你出的，" + (soup ? "汤底" : "答案") + "：" + (priv.truth || priv.secret || "") + "（别说漏嘴）" : "";
       if (v.phase === "set") return nmOf(inv, v.setter) + " 正在出题。";
-      return (soup ? "汤面：" + v.surface : "类别：" + v.category) + (v.setter >= 0 ? "（" + nmOf(inv, v.setter) + " 出的题）" : "") + "\n" + (lines.length ? "问过的：\n" + lines.join("\n") : "还没人问。")
+      return (soup ? "汤面：" + v.surface : "类别：" + v.category) + "（" + byLine(v, inv) + "）\n" + (lines.length ? "问过的：\n" + lines.join("\n") : "还没人问。")
         + (v.done ? "\n已揭晓：" + v.reveal + (v.solvedBy >= 0 ? "，" + nmOf(inv, v.solvedBy) + (soup ? " 破了题" : " 猜中了") : "") : "\n还没揭晓，轮到 " + nmOf(inv, v.turn) + " 问。") + mine;
     };
   });
@@ -825,7 +835,7 @@
   }
   const supported = () => Object.keys(ADAPTERS);
 
-  const Core = { cleanTalk, talkEvery, talkDue, CHAR_OPTS, charWho, NPC_WHO, nmOf, charOptKinds, winOpen, winSet, winUnread, myTurn, stateText, SETTER_MODES, cleanSetter, setterSeat, nextSetter, setterLine, SEAT_KINDS, STATUS, AWAY_MS, ADAPTERS, supported, cleanSeat, cleanInvite, cleanRecord, inviteLine, recordLine, newInvite, joinSeats, leaveSeats, addSeat,
+  const Core = { seatName, cleanTalk, talkEvery, talkDue, CHAR_OPTS, charWho, NPC_WHO, nmOf, charOptKinds, winOpen, winSet, winUnread, myTurn, stateText, SETTER_MODES, byLine, cleanSetter, setterSeat, nextSetter, setterLine, SEAT_KINDS, STATUS, AWAY_MS, ADAPTERS, supported, cleanSeat, cleanInvite, cleanRecord, inviteLine, recordLine, newInvite, joinSeats, leaveSeats, addSeat,
     takenCount, fillNpc, canStart, actorOf, privateRoute, awayPlan, setAway };
   root.NetGameCore = Core;
 
@@ -1171,7 +1181,7 @@
       if (!myTurn || view.moves.some(m => m.x === x && m.y === y)) return;
       if (pend && pend.x === x && pend.y === y) { setPend(null); onMove(ti, { x, y }); } else setPend({ x, y });
     };
-    const nm = i => (inv.seats[i] || {}).name || "TA";
+    const nm = i => seatName(inv.seats[i], i);
     const status = view.winner === 3 ? "和棋" : view.winner ? nm(view.winner - 1) + "（" + sideZh(view.winner) + "）赢了"
       : myTurn ? (pend ? "再点一下同一格落子" : "轮到你（" + sideZh(view.turn) + "）") : (seat && seat.away ? nm(ti) + " 掉线了，NPC 先替着下…" : nm(ti) + "在想…");
     return h("div", { "data-wk": "nrgametable", "data-game": "gomoku", style: { padding: "4px 16px 10px" } },
@@ -1214,7 +1224,7 @@
     const colors = G && G.guess.VERDICT_COLOR;
     if (view.phase === "set") {
       const send = p => onMove(view.turn, { puzzle: p });
-      const gen = async () => { if (!myApi) return; setBusy(true); try { send(await G.guess.newPuzzle(myApi, inv.key, [])); } catch (e) {} finally { setBusy(false); } };
+      const gen = async () => { if (!myApi) return; setBusy(true); try { send(Object.assign({}, await G.guess.newPuzzle(myApi, inv.key, []), { gen: true })); } catch (e) {} finally { setBusy(false); } };
       return h("div", { "data-wk": "nrgametable", "data-game": inv.key, "data-phase": "set", style: { padding: "8px 16px 10px", display: "flex", flexDirection: "column", gap: 10 } },
         !mine ? note(t, (seat ? seat.name : "出题人") + (seat && seat.kind === "char" ? " 在想一道题…" : " 在出题…")) : [
           h("div", { key: "n", style: { fontFamily: F_BODY, fontSize: fs(12.5), color: t.fog, lineHeight: 1.6 } }, "轮到你出题：" + (soup ? "汤底" : "答案") + "只交给房主那台判题，别人看不到；这一局你不参与问。"),
@@ -1229,7 +1239,7 @@
     const iSet = view.setter >= 0 && actorOf(inv.seats[view.setter], me, inv.host) === "mine-user";
     return h("div", { "data-wk": "nrgametable", "data-game": inv.key, style: { padding: "8px 16px 10px", display: "flex", flexDirection: "column", gap: 10 } },
       h("div", { style: { border: "1px solid " + t.line, borderRadius: 14, background: t.bg2, padding: 12 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, marginBottom: 4 } }, (soup ? "汤面" : "类别") + (view.setter >= 0 ? " · " + (inv.seats[view.setter] || {}).name + " 出的题" : "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, marginBottom: 4 } }, (soup ? "汤面" : "类别") + " · " + byLine(view, inv)),
         h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink, lineHeight: 1.7 } }, soup ? view.surface : view.category + (soup ? "" : " · 问了 " + view.log.filter(l => l.q).length + " / 25"))),
       iSet && priv && !view.done ? h(Note0, { t, text: "你出的题，" + (soup ? "汤底" : "答案") + "：" + (priv.truth || priv.secret || "") }) : null,
       h(SoupLog, { log: view.log, t, colors }),
