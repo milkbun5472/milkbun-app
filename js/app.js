@@ -35429,6 +35429,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return commitEmotePacks(all.map(x => x.id === fromId && !copy ? { ...x, emotes: (x.emotes || []).filter(e => !set.has(e.id)) }
       : x.id === toId ? { ...x, emotes: [...(x.emotes || []), ...(copy ? moving.map((e, k) => ({ ...e, id: "em_" + Date.now() + "_" + k + "_" + Math.floor(Math.random() * 1e6) })) : moving)] } : x));
   };
+  // 排顺序：套的先后、一套里张的先后都只是 x_emotePacks 这份数组的先后，照旧走 commitEmotePacks 存
+  const reorderEmotePacks = (id, how) => commitEmotePacks(idsReorder(emotePacksRef.current || [], [id], how));
+  const reorderEmotes = (packId, ids, how) => commitEmotePacks((emotePacksRef.current || []).map(x => x.id === packId ? { ...x, emotes: idsReorder(x.emotes || [], ids, how) } : x));
   const deleteEmotes = (packId, ids) => {
     const set = new Set(ids);
     return commitEmotePacks((emotePacksRef.current || []).map(x => x.id === packId ? { ...x, emotes: (x.emotes || []).filter(e => !set.has(e.id)) } : x));
@@ -35485,9 +35488,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     .map(pk => ({ id: pk.id, name: pk.name || "表情", cover: pk.cover || "", emotes: (pk.emotes || []).filter(e => e && e.url) }))
     .filter(pk => pk.emotes.length);
   const emotePacksForGroup = memberIds => {
-    const seen = new Set(), out = [];
-    (memberIds || []).forEach(id => emotePacksForChar(id).forEach(pk => { if (!seen.has(pk.id)) { seen.add(pk.id); out.push(pk); } }));
-    return out;
+    // 并集照【存的先后】摆，不照成员先后：她把哪套挪到最前，群里也是它在最前
+    const got = new Map();
+    (memberIds || []).forEach(id => emotePacksForChar(id).forEach(pk => { if (!got.has(pk.id)) got.set(pk.id, pk); }));
+    return (emotePacksRef.current || []).map(pk => pk && got.get(pk.id)).filter(Boolean);
   };
   const genCarrySection = async (char, key) => {
     if (!active) { toast("请先到设置配置 API"); return false; }
@@ -37590,7 +37594,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     myFaces: [{ id: "", name: (profile && (profile.label || profile.name)) || "我", ok: !!(profile && profile.refPhoto) }].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: m.label || m.name || "未命名", ok: !!m.refPhoto }))), onCaptionPack: captionEmotePack, onUncaptionPack: uncaptionEmotePack,
     onRenameEmote: renameEmote,
     onDeleteEmotes: deleteEmotes,
-    onMoveEmotes: moveEmotes
+    onMoveEmotes: moveEmotes,
+    onReorderPack: reorderEmotePacks,
+    onReorderEmotes: reorderEmotes
   });else if (screen === "favorites") body = h(Favorites, {
     favorites: favorites,
     characters: liveChars,

@@ -12683,7 +12683,7 @@ const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
 //   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
 const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
 
-function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes, onMoveEmotes, myFaces }) {
+function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes, onMoveEmotes, onReorderPack, onReorderEmotes, myFaces }) {
   const [setPick, setSetPick] = useState(false);
   const [setCaption, setSetCaption] = useState(true);   // 画出来的每张底下印上名字
   // 一张动图（她 2026-11-04：gpt-image-2.6 能出 GIF）：不锁脸，照外貌文字画一张会动的
@@ -12697,6 +12697,12 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
   const [selId, setSelId] = useState(list[0] && list[0].id);
   const [selMode, setSelMode] = useState(false);
   const [selEmotes, setSelEmotes] = useState([]);
+  // 长按一版／一张弹出来的「往前挪／往后挪／挪到最前」：{ kind: "pack"|"emote", id, label }。
+  //   跟话题卡长按是同一个手势（useLongPressMenu），主网格上不多摆按钮
+  const [orderMenu, setOrderMenu] = useState(null);
+  const { startPress: orderPress, endPress: orderEnd } = useLongPressMenu(x => { if (!selMode) setOrderMenu(x); });
+  const pressOn = x => ({ onTouchStart: () => orderPress(x), onTouchEnd: orderEnd, onTouchMove: orderEnd, onTouchCancel: orderEnd,
+    onMouseDown: () => orderPress(x), onMouseUp: orderEnd, onMouseLeave: orderEnd, onContextMenu: e => e.preventDefault() });
   const [importText, setImportText] = useState("");
   const fileRef = useRef(null);
   const pack = list.find(p => p.id === selId) || list[0] || null;
@@ -12740,6 +12746,15 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
 
   return h("div", { "data-wk": "emopage", className: "h-full flex flex-col", style: RELEASE_PAPER(t) },
     h(Head, { zh: "表情包", sub: list.length ? list.length + " 版 · 共 " + total + " 张" : null, bg: "transparent", onBack: onBack }),
+    orderMenu && h(Sheet, { onClose: () => setOrderMenu(null) },
+      h("div", { "data-wk": "emoordermenu", "data-part": orderMenu.kind, className: "px-5 pb-6 pt-1" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          (orderMenu.kind === "pack" ? "这一版：" : "这一张：") + (orderMenu.label || "未命名") + "　发表情那一格也照这个先后摆"),
+        [["往前挪", -1], ["往后挪", 1], ["挪到最前", "first"]].map(([zh, how], i) => h("button", {
+          key: zh, "data-wk": "emoordermenuitem", onClick: () => { const m = orderMenu; setOrderMenu(null);
+            if (m.kind === "pack") onReorderPack && onReorderPack(m.id, how); else onReorderEmotes && pack && onReorderEmotes(pack.id, [m.id], how); },
+          className: "w-full text-left py-3 active:opacity-60",
+          style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, borderTop: i ? "1px solid " + t.line : "none" } }, zh)))),
     h("div", { "data-wk": "emoscroll", className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
       h("div", { "data-wk": "emosuggestrow", className: "flex items-center justify-between", style: { marginTop: 14, gap: 12 } },
         h("div", { className: "min-w-0" },
@@ -12787,7 +12802,7 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
           //   v74.382 修好的裂图也只修在那一边，这边的裸 url 还留着。
           //   现在两处共用同一份，别再在这里另写。
           const first = packCoverOf(p);
-          return h("button", { "data-wk": "emopack", "data-on": on ? "1" : "0", key: p.id, onClick: () => { setSelId(p.id); setSelMode(false); setSelEmotes([]); },
+          return h("button", { "data-wk": "emopack", "data-on": on ? "1" : "0", key: p.id, onClick: () => { setSelId(p.id); setSelMode(false); setSelEmotes([]); }, ...(onReorderPack && list.length > 1 ? pressOn({ kind: "pack", id: p.id, label: p.name }) : {}),
             className: "shrink-0 active:opacity-80", style: { width: 76, paddingTop: on ? 0 : 10, paddingBottom: on ? 10 : 0 } },
             h("div", { "data-wk": "emopackcover", style: { width: 76, height: on ? 76 : 62, borderRadius: 10, overflow: "hidden", position: "relative",
               background: STICKER_PAPER, border: (on ? 3 : 1) + "px solid " + (on ? "#fff" : t.line),
@@ -12838,7 +12853,7 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
             ? h("div", { "data-wk": "emoempty", "data-part": "emotes", className: "text-center", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "38px 0", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.9 } }, "这一版还是空的\n在下面把新的贴上来")
             : h("div", { "data-wk": "emogrid", className: "grid grid-cols-3 gap-3" }, pack.emotes.map(em => {
               const on = selEmotes.includes(em.id);
-              return h("button", { "data-wk": "emotile", "data-on": on ? "1" : "0", key: em.id, onClick: () => { if (!selMode) { if (onRenameEmote) requestAppPrompt("改关键词", "角色靠它挑图，写「什么时候用」最好。", em.keyword || "", v => { const k = String(v || "").trim(); if (k) onRenameEmote(pack.id, em.id, k); }, "改好了"); return; } setSelEmotes(s => s.includes(em.id) ? s.filter(x => x !== em.id) : [...s, em.id]); }, className: "text-left active:opacity-80", style: { background: "transparent", padding: 1 } },
+              return h("button", { "data-wk": "emotile", "data-on": on ? "1" : "0", key: em.id, onClick: () => { if (!selMode) { if (onRenameEmote) requestAppPrompt("改关键词", "角色靠它挑图，写「什么时候用」最好。", em.keyword || "", v => { const k = String(v || "").trim(); if (k) onRenameEmote(pack.id, em.id, k); }, "改好了"); return; } setSelEmotes(s => s.includes(em.id) ? s.filter(x => x !== em.id) : [...s, em.id]); }, ...(onReorderEmotes && pack.emotes.length > 1 ? pressOn({ kind: "emote", id: em.id, label: em.keyword }) : {}), className: "text-left active:opacity-80", style: { background: "transparent", padding: 1 } },
                 h("div", { "data-wk": "emotilecard", style: { position: "relative", borderRadius: 11, overflow: "hidden", background: STICKER_PAPER,
                   // 贴纸的 die-cut 白边：挑中那张按平（不歪、不悬空），换成一圈醒目描边
                   border: "3px solid " + (on ? t.accent : "#fff"),
@@ -12862,6 +12877,8 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
             h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, list.filter(p => p.id !== pack.id).map(p => h("button", { "data-wk": "emomoveto", key: p.id,
               onClick: () => { if (onMoveEmotes(pack.id, selEmotes, p.id, moveCopy)) { setSelEmotes([]); setSelMode(false); } },
               className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, p.name || "未命名")))),
+          // 挑中的这几张按原来的先后一起挪到这一版最前面
+          selMode && selEmotes.length > 0 && onReorderEmotes && pack.emotes.length > selEmotes.length && h("button", { "data-wk": "emoselfirst", onClick: () => { onReorderEmotes(pack.id, selEmotes, "first"); setSelEmotes([]); setSelMode(false); }, className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, background: t.bg2, borderRadius: 12, padding: "12px 0" } }, "把选中的 " + selEmotes.length + " 张挪到最前"),
           selMode && selEmotes.length > 0 && h("button", { "data-wk": "emodelsel", onClick: () => { onDeleteEmotes(pack.id, selEmotes); setSelEmotes([]); setSelMode(false); }, className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fff", background: t.accent, borderRadius: 12, padding: "12px 0" } }, "撕掉选中的 " + selEmotes.length + " 张"),
           // ── 往这版上贴新的 ──
           note("往这版上贴新的"),

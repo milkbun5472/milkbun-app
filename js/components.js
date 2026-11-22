@@ -2505,6 +2505,19 @@ function packCoverOf(pk) {
   const list = (pk && pk.emotes) || [];
   return (pk && pk.cover && list.find(e => e && e.id === pk.cover)) || list[0] || null;
 }
+// 排顺序（她要能把一套挪到前面、一套里的一张挪到前面）：表情包存的那份数组的先后【就是】显示的先后，
+//   发表情那一格、表情包页、全部那一格都照它摆。套和张用的是同一个挪法，别各写一份。
+//   how：-1 往前一格 · 1 往后一格（只挪一个）· "first" 挑中的这几个按原来的先后一起挪到最前
+function idsReorder(list, ids, how) {
+  const arr = Array.isArray(list) ? list.slice() : [], set = new Set((ids || []).map(String));
+  if (how === "first") {
+    const picked = arr.filter(x => x && set.has(String(x.id)));
+    return picked.length ? picked.concat(arr.filter(x => !(x && set.has(String(x.id))))) : arr;
+  }
+  const i = arr.findIndex(x => x && set.has(String(x.id))), j = i + (how < 0 ? -1 : 1);
+  if (set.size !== 1 || i < 0 || j < 0 || j >= arr.length) return arr;
+  const a = arr[i]; arr[i] = arr[j]; arr[j] = a; return arr;
+}
 function StickerPanel({ packs, emotes, onPick, onManage, caption, onCaption }) {
   const t = useTheme();
   const list = Array.isArray(packs) ? packs.filter(p => p && (p.emotes || []).length) : [];
