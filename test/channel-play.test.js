@@ -280,3 +280,8 @@ test("@ 名单：中文后面、已经 @ 过一个人后面都能弹", () => {
   assert.ok(!re.test("abc@"));
   assert.match(cs, /\(\^\|\[\^A-Za-z0-9_\.\]\)@\$/);
 });
+
+test("状态像签名，不一定是在干嘛；一轮点最多三个人", () => {
+  assert.match(ap, /像个签名/);
+  assert.match(ap, /_stale\.slice\(\)\.sort\(\(\) => Math\.random\(\) - 0\.5\)\.slice\(0, 3\)/);
+});
