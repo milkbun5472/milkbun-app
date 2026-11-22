@@ -12601,6 +12601,28 @@ const DIARY_SKELETON = [
 "",
 "【位置 location】写这篇时你所在的地方，可以是城市（如 SHANGHAI, CN）也可以是具体场所。给了今天的行程，就按此刻你会在哪来判断。coords：写城市时给一串经纬度（如 31.230°N, 121.473°E），写具体场所时填 null。weather：一个简短的天气＋温度（如 OVERCAST 28°C）。"
 ].join("\n");
+// 日记回来的东西怎么认（她 2026-11-22「日记这种是不是容易解析失败然后啥都不返回也看不到原因，能不能加几层兜底」）：
+//   ① 正常 JSON 有 paras；② JSON 里正文换了个名字（content/body/text/diary，字符串或数组）也收；
+//   ③ 根本没给 JSON、给了一整段正文——按空行／换行拆成段落照样存成一篇；
+//   ④ 回空、或者只有几个字：说清是哪一种，并把开头原话带出来，别只说「解析失败」
+function diaryFromRaw(raw) {
+  const text = String(raw == null ? "" : raw).trim();
+  if (!text) throw new Error("模型回空了（多半是被拦截或超时），换个模型或重试");
+  const toParas = v => (Array.isArray(v) ? v.map(x => typeof x === "string" ? x : (x && (x.text || x.content)) || "") : String(v || "").split(/\n\s*\n|\n/))
+    .map(x => String(x || "").trim()).filter(Boolean);
+  const parsed = extractJSON(text);
+  if (parsed && typeof parsed === "object") {
+    if (Array.isArray(parsed.paras) && parsed.paras.length) return parsed;
+    const alt = parsed.paras || parsed.paragraphs || parsed.content || parsed.body || parsed.text || parsed.diary || parsed.entry;
+    const ps = alt ? toParas(alt) : [];
+    if (ps.length) return Object.assign({}, parsed, { paras: ps });
+  }
+  const prose = text.replace(/^```[a-z]*\s*|```$/gi, "").replace(/^\s*[{[][\s\S]*$/, "").trim();
+  const ps = toParas(prose).filter(x => !/^["{}\[\],:]+$/.test(x));
+  if (ps.join("").length >= 40) return { paras: ps, titleZh: "", titleEn: "", signature: "", _salvaged: true };
+  throw new Error("没认出日记（模型回的开头是：「" + text.replace(/\s+/g, " ").slice(0, 40) + "」），可重试或换模型");
+}
+if (typeof window !== "undefined") window.diaryFromRaw = diaryFromRaw;
 async function generateDiary(p, ctx, opts = {}) {
   const char = ctx.char;
   const uName = (ctx.profile && ctx.profile.name) || "她";
@@ -12689,9 +12711,7 @@ async function generateDiary(p, ctx, opts = {}) {
     + "只要已经沉淀进上文那段『你长出来的自我』，就照现在的你写，别退回原卡的旧样子。"
     + "分辨很简单：记进长出来的自我的是成长，只是最近几篇听起来那样的是惯性。";
   const raw = await callAI(p, system, [{ role: "user", content: (retro ? "现在是今晚睡前，把今天这一整天写成一篇日记。" : "开始写今天的日记。") + voiceTail }], { maxTokens: opts.maxTokens || 14000, ...LONG_WRITE });
-  const parsed = extractJSON(raw);
-  if (!parsed || !Array.isArray(parsed.paras)) throw new Error("解析失败，可重试或换模型");
-  return parsed;
+  return diaryFromRaw(raw);
 }
 // WMO 天气码 → 简短英文（配合日记元数据卡的编辑感）
 function wmoToText(code) {
