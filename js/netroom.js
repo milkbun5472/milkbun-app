@@ -1327,7 +1327,7 @@
             const left = games.current ? games.current.join(ja.gid, picks, ja.host) : [];
             if (left.length) props.toast && props.toast("座位不够，" + left.length + " 个没坐上");
           } })); };
-    // 牌桌是浮在房间聊天上面的半窗（单聊半窗那一份外壳 HalfWinFrame）：展开时房里来了新话在顶条提醒，收起时轮到你小条会亮
+    // 她 2026-11-22 改过来：牌桌开着是整页，房间聊天是浮在上面的半窗（单聊半窗那一份外壳 HalfWinFrame）；牌桌收起成小条，轮到你会亮
     const msgCount = () => ((roomRef.current && roomRef.current.msgs) || []).filter(m => !m.sys).length;
     const setGameWin = fn => setGameWinRaw(w => GC() ? GC().winSet(w, typeof fn === "function" ? fn(w) : fn, msgCount()) : (typeof fn === "function" ? fn(w) : fn));
     const openGame = gid => { setGameId(gid); setPage("chat"); setGameWinRaw(w => GC() ? GC().winOpen(w, gid, msgCount()) : { gid, min: false, seen: msgCount() }); };
@@ -1340,7 +1340,11 @@
       const mineP = si >= 0 && sv.view.setter === si ? sv.priv : null;
       return GCo.stateText(sv.inv, sv.view, si, mineP);
     };
-    const gameHalf = () => {
+    // 她 2026-11-22：「聊天是那个半窗，游戏类是全屏」——牌桌开着时整页是牌桌，房间聊天缩成浮在上面的半窗；
+    //   牌桌收起来就回到整页聊天，牌桌缩成一颗小条（轮到你会亮）。
+    const [chatWin, setChatWinRaw] = useState({ min: true });
+    const setChatWin = fn => { setChatWinRaw(w => typeof fn === "function" ? fn(w) : fn); setGameWinRaw(w => w ? Object.assign({}, w, { seen: msgCount() }) : w); };
+    const gameParts = () => {
       if (!gameWin || !room) return null;
       const gs = games.current, gid = gameWin.gid, sv = gs ? gs.seen(gid) : null;
       const A = sv && GC() ? GC().ADAPTERS[sv.inv.key] : null;
@@ -1357,10 +1361,12 @@
             h(Btn, { label: "收起牌桌", wk: "nrgameback", onClick: () => setGameWin(w => w ? Object.assign({}, w, { min: true }) : w) })));
       })();
       const turn = sv && A ? GC().myTurn(sv.inv, sv.view, meId.current) : false;
-      const n = GC() ? GC().winUnread(gameWin, msgCount()) : 0;
-      return h(HalfWinFrame, { win: gameWin, setWin: setGameWin, forKey: "netgame", onClose: shut,
-        pillLabel: (sv ? sv.inv.zh : "小游戏") + (turn ? " · 轮到你" : "") + " ▴", pillHot: turn,
-        barNote: n ? "有 " + n + " 条新消息" : "", onBarNote: () => setGameWin(w => w ? Object.assign({}, w, { min: true }) : w) }, body);
+      // 牌桌整页开着、聊天半窗收着时，这期间房里来的新话
+      const unread = chatWin.min && GC() ? GC().winUnread(gameWin, msgCount()) : 0;
+      // 收起后的那颗小条：还是单聊半窗那一份外壳的收起样子，点了回到整页牌桌
+      const pill = gameWin.min ? h(HalfWinFrame, { win: gameWin, setWin: setGameWin, forKey: "netgame", onClose: shut,
+        pillLabel: (sv ? sv.inv.zh : "小游戏") + (turn ? " · 轮到你" : "") + " ▴", pillHot: turn }) : null;
+      return { body, pill, unread, zh: sv ? sv.inv.zh : "小游戏", shut, full: !gameWin.min };
     };
     const gameHandlers = m => {
       const x = m.x || {}, gs = games.current;
@@ -1633,6 +1639,22 @@
       h(Btn, { key: "go", label: "进房间", primary: true, onClick: enter, wk: "nrenter" })
     ]));
 
+    const REJOIN_NOTE_PEERS = "房里暂时没有别人在线。谁回来点「重新连上」就会接上；你这边断了也点一下。刚才的记录都在。", REJOIN_NOTE_ALONE = "还没有别人进来。";
+    // 输入区（点谁谁说那排＋输入框）：整页聊天和半窗聊天用同一份
+    const composerEl = () => { const myChars = ((room && room.myChars) || []); const alone = !mesh.current || net.reach.length === 0;
+      return (
+h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { borderTop: "1px solid " + t.line, background: t.bg, padding: "8px 12px", paddingBottom: COMPOSER_PAD_BOTTOM } },
+          myChars.length > 0 && h("div", { className: "flex items-center", style: { gap: 10, paddingBottom: 8, overflowX: "auto" } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, flexShrink: 0 } }, "点谁谁说"),
+            myChars.map(c => h("button", { key: c.id, "data-wk": "nrspeaker", disabled: !!busy[c.id] || alone, onClick: () => speak(c),
+              className: "active:opacity-60 disabled:opacity-40", style: { flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 44 } },
+              h(Avatar, { character: charsById[c.id] || { id: c.id, name: c.name }, size: 32 }),
+              h("span", { style: { fontFamily: F_BODY, fontSize: fs(10), color: t.fog } }, busy[c.id] ? "在想…" : c.name))),
+            // 一起说：带了两个以上的人才有；一次调用让他们像群里那样轮流接话
+            myChars.length > 1 && props.castFor && h("button", { "data-wk": "nrtogether", disabled: myChars.some(c => busy[c.id]) || alone, onClick: () => speakTogether(myChars.map(c => c.id)),
+              className: "active:opacity-60 disabled:opacity-40", style: { flexShrink: 0, minHeight: 32, padding: "0 10px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.ink } },
+              myChars.some(c => busy[c.id]) ? "在想…" : "一起说")),
+          h(Composer, { onSend: sayHuman, disabled: alone, fillRef, plusOn: panel, onPlus: () => setPanel(v => !v) }))); };
     if (page === "chat" && room) {
       const myChars = (room.myChars || []);
       const alone = !mesh.current || net.reach.length === 0;
@@ -1644,6 +1666,23 @@
       const stateText = { on: "在线", relay: "直连不上，别人在帮你们转", fail: "和 TA 连不上", off: "离开了" };
       const peers = room.peers || [];
       const trouble = peers.filter(p => stateOf(p.peerId) === "fail" || stateOf(p.peerId) === "relay");
+      const gp = gameParts();
+      const chatCore = [
+        h(MsgList, { key: "ml", room, myCharsById: charsById, tail, rowProps: rowProps(room, true) }),
+        alone && h("div", { key: "rj", "data-wk": "nrrejoinbar", className: "shrink-0 flex items-center", style: { gap: 10, padding: "8px 14px", borderTop: "1px solid " + t.line, background: t.bg2 } },
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: fs(12.5), color: t.fog, lineHeight: 1.5 } }, peers.length ? REJOIN_NOTE_PEERS : REJOIN_NOTE_ALONE),
+          peers.length > 0 && h(Btn, { label: "重新连上", primary: true, onClick: () => rejoin(room), wk: "nrrejoin" })),
+        composerEl()];
+      if (gp && gp.full) return shell(
+        h(Head, { zh: gp.zh, sub: "房间 " + room.code + " · 在线 " + online + " 人", onBack: () => setGameWin(w => w ? Object.assign({}, w, { min: true }) : w),
+          right: h("button", { "data-wk": "nrgameback", onClick: () => setGameWin(w => w ? Object.assign({}, w, { min: true }) : w), style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(13), color: t.ink } }, "回到聊天") }),
+        h("div", { "data-wk": "nrgamefull", className: "flex-1 min-h-0" }, gp.body),
+        h(HalfWinFrame, { win: chatWin, setWin: setChatWin, forKey: "netchat",
+          pillLabel: "房间聊天" + (gp.unread ? " · " + gp.unread + " 条新消息" : "") + " ▴", pillHot: gp.unread > 0 },
+          h("div", { "data-wk": "nrchathalf", className: "h-full flex flex-col", style: { background: t.bg } }, chatCore)),
+        ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sayRich, sendRp,
+          photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
+        joinSheet());
       return shell(
         h(Head, { zh: "房间 " + room.code, sub: "在线 " + online + " 人", onBack: () => setPage("leave"),
           right: h("button", { "data-wk": "nrleave", onClick: () => setPage("leave"), style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(13), color: t.ink } }, "退出") }),
@@ -1652,25 +1691,10 @@
             (st === "on" ? "● " : "○ ") + p.nick + (st === "on" ? "" : " · " + stateText[st])); }),
           trouble.length > 0 && h("div", { style: { width: "100%", fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
             "和 " + trouble.map(p => p.nick).join("、") + " 直连不上：" + (trouble.some(p => stateOf(p.peerId) === "relay") ? "话由房里其他人转过去，可能慢一点。" : "TA 收不到你的话。两边都换成 Wi-Fi 再试。"))),
-        h(MsgList, { room, myCharsById: charsById, tail, rowProps: rowProps(room, true) }),
-        alone && h("div", { "data-wk": "nrrejoinbar", className: "shrink-0 flex items-center", style: { gap: 10, padding: "8px 14px", borderTop: "1px solid " + t.line, background: t.bg2 } },
-          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: fs(12.5), color: t.fog, lineHeight: 1.5 } }, peers.length ? "房里暂时没有别人在线。谁回来点「重新连上」就会接上；你这边断了也点一下。刚才的记录都在。" : "还没有别人进来。"),
-          peers.length > 0 && h(Btn, { label: "重新连上", primary: true, onClick: () => rejoin(room), wk: "nrrejoin" })),
-        h("div", { "data-wk": "nrcomposer", className: "shrink-0", style: { borderTop: "1px solid " + t.line, background: t.bg, padding: "8px 12px", paddingBottom: COMPOSER_PAD_BOTTOM } },
-          myChars.length > 0 && h("div", { className: "flex items-center", style: { gap: 10, paddingBottom: 8, overflowX: "auto" } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, flexShrink: 0 } }, "点谁谁说"),
-            myChars.map(c => h("button", { key: c.id, "data-wk": "nrspeaker", disabled: !!busy[c.id] || alone, onClick: () => speak(c),
-              className: "active:opacity-60 disabled:opacity-40", style: { flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 44 } },
-              h(Avatar, { character: charsById[c.id] || { id: c.id, name: c.name }, size: 32 }),
-              h("span", { style: { fontFamily: F_BODY, fontSize: fs(10), color: t.fog } }, busy[c.id] ? "在想…" : c.name))),
-            // 一起说：带了两个以上的人才有；一次调用让他们像群里那样轮流接话
-            myChars.length > 1 && props.castFor && h("button", { "data-wk": "nrtogether", disabled: myChars.some(c => busy[c.id]) || alone, onClick: () => speakTogether(myChars.map(c => c.id)),
-              className: "active:opacity-60 disabled:opacity-40", style: { flexShrink: 0, minHeight: 32, padding: "0 10px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.ink } },
-              myChars.some(c => busy[c.id]) ? "在想…" : "一起说")),
-          h(Composer, { onSend: sayHuman, disabled: alone, fillRef, plusOn: panel, onPlus: () => setPanel(v => !v) })),
+        ...chatCore,
         ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sayRich, sendRp,
           photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
-        joinSheet(), gameHalf());
+        joinSheet(), gp && gp.pill);
     }
 
     // ── 小游戏那几页 ──
