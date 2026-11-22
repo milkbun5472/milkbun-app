@@ -388,7 +388,7 @@ test("记进记忆用第三人称，点名角色和她", () => {
   const { C } = load();
   const t = C.memoryInstruction({ id: "m", myNick: "小雨", peers: [], myChars: [], msgs: [] }, { id: "a", name: "甲", you: "阿梨" });
   assert.ok(t.includes("写成第三人称") && t.includes("「甲」和「阿梨」") && !t.includes("你的第一人称"));
-  assert.ok(src.includes('1~3 句，第三人称'));
+  assert.ok(src.includes('一小段，第三人称'));
 });
 
 // ── 一起说（她 2026-11-22「有俩角色带进来的时候能让他们同时一个调用都说吗，跟群里一样」）──
@@ -465,4 +465,20 @@ test("记进记忆：只记上次记到以后的新话，之前几句只当上�
   assert.ok(t.includes("上次已经记过的部分") && t.includes("只记这一段") && t.includes("新三"));
   assert.ok(/catch \(e\) \{ d = await ask\(\); \}/.test(src), "失败自动再试一次");
   assert.ok(/setViewId\(r\.id\); setPage\("view"\)/.test(src), "没记上就停在记录页");
+});
+
+test("记进记忆写成一小段；只给勾了的人存房间最后几句，单聊在「最近几天」里带上", () => {
+  const { C } = load();
+  const room = { id: "e1", myNick: "小雨", peers: [{ peerId: "p", nick: "阿杏", chars: [] }], myChars: [], msgs: [] };
+  const fresh = Array.from({ length: 20 }, (_, i) => ({ id: "m" + i, ts: 1000 + i, side: "me", kind: "user", name: "小雨", text: "第" + i + "句" }));
+  const t = C.echoText(room, fresh, "甲", "阿梨");
+  assert.ok(t.includes("阿梨 带 甲 去的") && t.includes("阿杏") && t.includes("第19句") && !t.includes("第5句"));
+  assert.strictEqual(C.echoText(room, [], "甲", "阿梨"), "");
+  assert.ok(src.includes('写成一小段会长期记住的事') && !src.includes("1~3 句"));
+  // 写 echo 只在 remember 里（勾了记忆才会走到）；房间里开口不带它
+  assert.ok(/echo\[charId\] = \{ ts: Date\.now\(\), text: Core\.echoText/.test(src));
+  assert.ok(src.includes('ctx.roomEcho = "";'));
+  const app = read("js/app.js"), eng = read("js/engine.js");
+  assert.ok(/roomEcho: settingsFor\(char\.id\)\.engineerEyes \? "" :/.test(app) && /recentDays/.test(app.slice(app.indexOf("roomEcho:"), app.indexOf("roomEcho:") + 600)));
+  assert.ok(/if \(ctx\.roomEcho && String\(ctx\.roomEcho\)\.trim\(\)\) parts\.push/.test(eng));
 });

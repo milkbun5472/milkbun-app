@@ -7749,6 +7749,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   所以线上压成位置标记、线下原样留着（言秋 2026-09-02 拍的板）。
     //   ⚠️别的调用方（推演/朋友圈/论坛/日记…）不发 messages，它们照旧拿全文。
     // 往期线下：最新那场要是已经整场进了【最近对话】（结束得还近），这里就跳过它，不重复
+    // 别处写好的一段「最近一次在别的地方聊过的原话」（她 2026-11-22）：只有她勾了「记进 TA 的记忆」才写进来；
+    //   过了「最近几天」就不再带，之后只靠记忆库。正文和标题都是写的那一处拼好的，这儿原样带。
+    roomEcho: settingsFor(char.id).engineerEyes ? "" : (() => { try {
+      const e = (loadJSON("x_roomEcho", {}) || {})[char.id];
+      const floor = Math.max(0, Number(memCfgRef.current.recentDays ?? 3)) * 86400000;
+      return e && e.text && floor && Date.now() - (Number(e.ts) || 0) <= floor ? String(e.text) : "";
+    } catch (e) { return ""; } })(),
     pastOffline: settingsFor(char.id).engineerEyes ? "" : (() => {
       const list = offlinesRef.current[char.id] || loadJSON("x_offline:" + char.id, []);
       const newest = (list || []).find(s => s && (s.msgs || []).length > 0);

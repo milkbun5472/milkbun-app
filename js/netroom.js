@@ -331,13 +331,22 @@
     const upTo = fresh.reduce((x, m) => Math.max(x, Number(m.ts) || 0), last);
     return { fresh, before, upTo, last };
   }
+  // 单聊里带的那一段：标题说清是哪儿、跟谁，正文是这一段最后十几句（带时间）
+  function echoText(room, fresh, charName, you) {
+    room = normalizeRoom(room);
+    const tail = (fresh || []).filter(m => m && !m.recalled).slice(-14);
+    if (!tail.length) return "";
+    const who = peerNames(room);
+    return "【前几天在联机房间里（" + (you || room.myNick) + " 带 " + (charName || "你") + " 去的" + (who.length ? "，跟 " + who.join("、") + " 那边的人" : "") + "）·真实发生过、你都记得·最后几句原话】已经结束了，"
+      + (you || room.myNick) + " 在房间里叫「" + room.myNick + "」\n" + transcript(Object.assign({}, room, { msgs: tail }));
+  }
   function memoryInstruction(room, char, before) {
     room = normalizeRoom(room);
     const prev = before && before.length ? "\n\n【上次已经记过的部分，最后几句只当上下文，别再记一遍】\n" + transcript(Object.assign({}, room, { msgs: before })) : "";
-    return (youAlias(room, char) ? "（" + youAlias(room, char) + "）\n" : "") + "把下面这次「" + (char.you || room.myNick) + " 带你进联机房间，跟 " + (peerNames(room).join("、") || "别人") + " 那边的人聊天」的经历，浓缩成 1~3 句会长期记住的事。"
+    return (youAlias(room, char) ? "（" + youAlias(room, char) + "）\n" : "") + "把下面这次「" + (char.you || room.myNick) + " 带你进联机房间，跟 " + (peerNames(room).join("、") || "别人") + " 那边的人聊天」的经历，写成一小段会长期记住的事（几句到一段，照实际聊了多少来，别凑字数也别压成一两句）。"
       // 第三人称（她 2026-11-22）：跟记忆库里单聊、群聊、线下抽出来的那些一个口径，混着注入时不会分不清「我」是谁
       + "写成第三人称：用名字称呼「" + (char.name || "TA") + "」和「" + (char.you || room.myNick) + "」，不写「我」「你」。"
-      + "见了谁、聊了什么、谁让 " + (char.name || "TA") + " 印象深、" + (char.name || "TA") + " 自己说过的要紧的话。只写沉淀下来的，不记流水账。别人带来的人你只知道名字和他们在这里说的话。"
+      + "有则写、无则跳：见了谁、聊了什么话题、谁说了什么要紧的话或玩笑、气氛怎么样、有没有约好什么、跟谁更熟了一点、" + (char.name || "TA") + " 自己说过的要紧的话。不记流水账。别人带来的人你只知道名字和他们在这里说的话。"
       + "\n房间里的几方：" + sidesLines(room)
       + prev + "\n\n" + (prev ? "【上次记过以后新聊的，只记这一段】" : "【这次房间里的全部聊天】") + "\n" + transcript(room);
   }
@@ -727,7 +736,7 @@
   const Core = { BROKERS, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
     memoryTargets, transcript, lineInstruction, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
-    ownsMsg, editMsg, recallMsg, dropMsg, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom, sinceRemembered,
+    ownsMsg, editMsg, recallMsg, dropMsg, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom, sinceRemembered, echoText,
     normalizeRoom, upsertPeer, peerOf, ownerNick, peerNames, syncedMsg, shouldOffer, admit, forwardTargets, reachable, rid, Mesh };
   root.NetRoomCore = Core;
 
@@ -1267,6 +1276,7 @@
         // 跟单聊同一个 ctxFor（chat:true 带上日记回忆）；没勾「带上最近单聊」的，单聊和线下那几段不进这次的料
         const roomText = (cur.msgs || []).filter(m => !m.sys && !m.recalled).slice(-8).map(m => String(m.text || "")).join("\n");
         const ctx0 = props.ctxFor(char, { chat: true, roomText }), ctx = c.recent ? ctx0 : Object.assign({}, ctx0, { recentChat: "", pastOffline: "" });
+        ctx.roomEcho = "";   // 房间自己的记录已经整份在下面了，不再带一遍
         const emotes = props.emotesFor ? props.emotesFor(char.id) : [];
         const d = await runProbe(p, ctx, { voice: true, tag: "netroom",
           instruction: Core.lineInstruction(cur, { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" },
@@ -1445,12 +1455,16 @@
       if (!part.fresh.length) throw new Error("上次记过以后没有新的话");
       const ask = () => runProbe(p, props.ctxFor(char), { voice: true, tag: "netroom",
         instruction: Core.memoryInstruction(Object.assign({}, live, { msgs: part.fresh }), { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" }, part.before),
-        schemaHint: "{\"memory\":\"1~3 句，第三人称\"}", maxTokens: 12000 });
+        schemaHint: "{\"memory\":\"一小段，第三人称\"}", maxTokens: 12000 });
       // 失败自动再试一次；还不行才报给她（她能在「以前的房间」里点重试）
       let d; try { d = await ask(); if (!String((d && d.memory) || "").trim()) d = await ask(); } catch (e) { d = await ask(); }
       const text = String((d && d.memory) || "").trim();
       if (!text) throw new Error("没浓缩出什么");
       props.onAddMemory && props.onAddMemory(text, char.id);
+      // 刚聊完那几天，单聊里接得上原话：只给勾了记忆的这个人存一段房间最后几句（app 那边过了「最近几天」就不带）
+      try { const echo = loadJSON("x_roomEcho", {}) || {};
+        echo[charId] = { ts: Date.now(), text: Core.echoText(live, part.fresh, char.remark || char.name, props.youFor ? props.youFor(char.id) : "") };
+        saveJSON("x_roomEcho", echo); } catch (e) {}
       const rem = Object.assign({}, (Core.loadRooms().find(x => x.id === r.id) || r).remembered || {}, { [charId]: part.upTo });
       Core.patchRoom(Core.loadRooms().find(x => x.id === r.id) || r, { remembered: rem });
       return text;
