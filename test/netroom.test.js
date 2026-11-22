@@ -374,7 +374,7 @@ test("角色开口跟单聊同一份料：ctxFor(chat) + runProbe(voice) 的 bui
   const i = src.indexOf("const speak = async (c, rerollId) =>"), j = src.indexOf("const flipTurn", i);
   assert.ok(i > 0 && j > i);
   const body = src.slice(i, j);
-  assert.match(body, /props\.ctxFor\(char, \{ chat: true \}\)/);
+  assert.match(body, /props\.ctxFor\(char, \{ chat: true, roomText \}\)/);
   assert.match(body, /runProbe\(p, ctx, \{ voice: true/);
   assert.match(body, /stamp: props\.stampFor/);
   assert.match(body, /presence: presence\(\)/);
