@@ -40489,7 +40489,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onPinShike: ms => pinToShike(offlineChar.id, ms, x => x.role === "user" ? (profile.name || "我") : x.role === "narration" ? "旁白" : offlineChar.name),
     // 线下多选 → 转发（她 2026-11-22）：跟线上多选同一张 ForwardPickSheet、同一套逐条／合并；照片原图原样带过去，不重画
     fwdChars: [offlineChar].concat(characters.filter(c => c.id !== offlineChar.id)), fwdGroups: groups,
-    onForward: (ms, d, mode) => forwardOfflineTo(ms, d, mode, { from: offlineChar.name + " · 线下", sourceId: offlineChar.id, nameOf: x => x.role === "user" ? (profile.name || "我") : x.role === "narration" ? "旁白" : (x.senderName || offlineChar.name) }),
+    onForward: (ms, d, mode) => forwardOfflineTo(ms, d, mode, { from: offlineChar.name + " · 线下", sourceId: offlineChar.id, nameOf: x => x.role === "user" ? (profileFor(offlineChar.id).name || "我") : x.role === "narration" ? "旁白" : (x.senderName || offlineChar.name) }),
     onDeleteExample: id => deleteOfflineStyleExample(offlineChar.id, id),
     onEditMsg: (mid, txt) => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid, desc: txt }) || offlineEditMsg(activeOfflineScopeKey, mid, txt),
     onRerollMsg: mid => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid }) || offlineRerollMsg(activeOfflineScopeKey, mid),

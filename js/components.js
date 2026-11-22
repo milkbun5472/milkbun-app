@@ -10041,6 +10041,7 @@ tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, { onStoryRepl
     characters,
     zy: (cardDraft && cardDraft.zy) || null,
     tarot: (cardDraft && cardDraft.tarot) || null,
+    pics0: (cardDraft && cardDraft.pics) || null,
     onPost: onPostMoment,
     onClose: () => { setComposeOpen(false); if (cardDraft && onCardDraftDone) onCardDraftDone(); }
   }), groupList && h(PageSheet, { onClose: () => setGroupList(false), tall: true },
@@ -10311,6 +10312,7 @@ function NpcBrief({ npc, onSave, compact, defaultOpen }) {
 function MomentCompose({
   zy,
   tarot,
+  pics0,
   friendGroups,
   characters,
   onPost,
@@ -10318,10 +10320,11 @@ function MomentCompose({
 }) {
   const t = useTheme();
   const [text, setText] = useState("");
-  const [withImg, setWithImg] = useState(false);
+  // pics0：从聊天多选「发到朋友圈」带过来的那几张（已经是存好的图引用），一进来就配上
+  const [withImg, setWithImg] = useState(!!(pics0 && pics0.length));
   const [img, setImg] = useState("");
   // 从相册选的真图，一次最多 9 张；只有一张时照旧走 image 那一格
-  const [pics, setPics] = useState([]);
+  const [pics, setPics] = useState(() => (pics0 || []).slice(0, 9));
   const [vis, setVis] = useState("all");
   const [sel, setSel] = useState([]);
   // 提醒谁看（群里许咏安 2026-10-18：「朋友圈可不可以加一个提醒谁看」）：点名的人一定刷到、知道是她特意叫的
@@ -10441,7 +10444,7 @@ function MomentCompose({
     withImg && (pics.length
       ? h("div", { "data-wk": "mocomposepics", className: "mb-2 flex flex-wrap", style: { gap: 10, paddingTop: 8 } },
           pics.map((d, i) => h("div", { key: i, className: "relative", style: { width: 72, height: 72 } },
-            h("img", { src: d, style: { width: 72, height: 72, objectFit: "cover", borderRadius: 8, display: "block" } }),
+            h("img", { src: typeof resolveImg === "function" ? resolveImg(d) : d, style: { width: 72, height: 72, objectFit: "cover", borderRadius: 8, display: "block" } }),
             h("button", { "aria-label": "去掉这张", onClick: () => setPics(p => p.filter((_, j) => j !== i)), className: "absolute active:opacity-70", style: { top: -8, right: -8, width: 24, height: 24, borderRadius: 999, background: t.ink, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", display: "flex", alignItems: "center", justifyContent: "center" } }, "×"))))
       : h("input", {
     value: img,
@@ -11881,7 +11884,7 @@ function ChatThread({
   onRecall,
   onReroll,
   onReply,
-  onForward,
+  onForward, onToMoments,
   onDeleteMessages,
   onShootMe,
   onPinShike,
@@ -12246,6 +12249,7 @@ function ChatThread({
     for (const d of dests || []) { try { if (picked.length) await onForward(picked, d, fwdMode); } catch (e) {} }
     if ((dests || []).length > 1 && toast) toast("已转发给 " + dests.length + " 个");
   };
+  const fwdMoment = onToMoments && chatSelImgItems(messages, selIds).length ? () => { const picked = selIds.slice().sort((a, b) => a - b).map(i => messages[i]).filter(Boolean); exitSel(); onToMoments(picked); } : null;
   const { winStart, growMore, growing, reveal: revealMsg, startRef: winStartRef } = useChatWindow(ref, messages.length, (character && character.id) + "|" + (room && room.id || ""), recentLimit);
   useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, winStartRef, true);
   const nb = useNewBelow(ref, (character && character.id) + "|" + (room && room.id || ""));
@@ -13494,7 +13498,7 @@ function ChatThread({
       } else onLongPress(act, menu);
       setMenu(null);
     }
-  }), /* 本人也在名单最前（她 2026-11-19「转发的时候也能转进本人的聊天」）：在小房间里转给 TA＝转进你俩的主聊天 */ fwdPick && h(ForwardPickSheet, { chars: [character].concat((characters || []).filter(c => c.id !== character.id)).filter(Boolean), groups: groups || [], mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: doForwardMany }));
+  }), /* 本人也在名单最前（她 2026-11-19「转发的时候也能转进本人的聊天」）：在小房间里转给 TA＝转进你俩的主聊天 */ fwdPick && h(ForwardPickSheet, { chars: [character].concat((characters || []).filter(c => c.id !== character.id)).filter(Boolean), groups: groups || [], mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: doForwardMany, onMoment: fwdMoment }));
 }
 // 仿微信语音/视频通话：发一句自动回一句
 // 流式字幕（她 2026-09-12：「TA说的话一字一句显示出来在屏幕中间，换句就清掉上一句的显示，
@@ -16305,7 +16309,8 @@ function groupPickFace(g, size, t) {
   return h("div", { "data-wk": "block", style: { width: size || 34, height: size || 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: t.sub } }, g && g.spaceId ? "#" : "👥");
 }
 // 转发给谁（单聊、群聊共用一份）：点一行勾上／取消，可以勾好几个；底下「发送」一起发（她 2026-11-04）
-function ForwardPickSheet({ chars, groups: groups0, mode, setMode, onClose, onSend }) {
+// onMoment：选中的里有图才传进来——名单最前多一行「发到朋友圈」，点了直接把这几张图带进发朋友圈的框（她 2026-11-22），不用勾、不走底下「发送」
+function ForwardPickSheet({ chars, groups: groups0, mode, setMode, onClose, onSend, onMoment }) {
   const t = useTheme();
   // 频道也是去处（她 2026-11-20）：名单过公共那一份 groupPickList——归档的、没到点的不列，频道排在普通群后面、写成「#频道 · 空间名」
   const groups = typeof groupPickList === "function" ? groupPickList(groups0, (typeof window !== "undefined" && window.__spacesNow) || [], typeof vclockNow === "function" ? vclockNow() : new Date()) : groups0;
@@ -16321,6 +16326,10 @@ function ForwardPickSheet({ chars, groups: groups0, mode, setMode, onClose, onSe
     h("div", { "data-wk": "fwdmode", className: "flex", style: { gap: 8, marginBottom: 10 } }, [["merge", "合并转发"], ["each", "逐条转发"]].map(([k, zh]) => h("button", { key: k, "data-on": mode === k ? "1" : "0", onClick: () => setMode(k), className: "active:opacity-70",
       style: { minHeight: 34, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: mode === k ? t.bg2 : t.ink, background: mode === k ? t.ink : "transparent", border: "1px solid " + (mode === k ? t.ink : t.line) } }, zh))),
     h("div", { className: "space-y-1 max-h-72 overflow-y-auto" },
+      onMoment ? h("button", { key: "moment", "data-wk": "fwdmoment", onClick: onMoment, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+        h("span", { style: { width: 20, flexShrink: 0 } }),
+        h("div", { "data-wk": "block", style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: t.sub } }, h(Svg, { size: 18, color: t.sub }, h("path", { d: "M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" }), h("circle", { cx: 12, cy: 13, r: 4 }))),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } }, "发到朋友圈")) : null,
       (chars || []).map(c => row({ type: "chat", id: c.id }, h(Avatar, { character: c, size: 34, radius: 7 }), c.remark || c.name)),
       (groups || []).map(g => row({ type: "group", id: g.id }, groupPickFace(g, 34, t), g.name)),
       empty ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "12px 0" } }, "没有其他角色可转发") : null),
@@ -21137,7 +21146,7 @@ function GroupThread({
   onResummarizeOffline,
   onUndoResummarizeOffline,
   onRestoreOffline,
-  onForward,
+  onForward, onToMoments,
   onSaveSettings,
   onGroupDateInvite, onGroupDateGo, invitePlaces, onSetMyPlace,   // 群里的邀约（她 2026-10-02）：挑地方、挑请谁；人齐了点出发进群线下
   sameRoom,
@@ -21351,6 +21360,7 @@ function GroupThread({
     for (const d of dests || []) { try { if (picked.length && onForward) await onForward(picked, d, fwdMode); } catch (e) {} }
     if ((dests || []).length > 1 && toast) toast("已转发到 " + dests.length + " 处");
   };
+  const fwdMoment = onToMoments && chatSelImgItems(messages, selIds).length ? () => { const picked = selIds.slice().sort((a, b) => a - b).map(i => messages[i]).filter(Boolean); exitSel(); onToMoments(picked); } : null;
   // 群里也用TA单聊里那张头像（她 2026-10-02）：聊天头像 chatAvatar 只换脸，档案那张不动
   // 树洞代号（th:几）：每个号一张固定的匿名脸，文字、表情包、卡片都用这一张（她 2026-11-21「发表情包头像颜色不一样」）
   const TH_TONES = ["#c98b6b", "#7f9c8a", "#8a86b8", "#b88a9e", "#9aa36b", "#6b93b8", "#b8a06b", "#8f7b6b"];
@@ -22041,7 +22051,7 @@ function GroupThread({
       h("button", { onClick: doDelete, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.accent } }, "删除"),
       h("button", { "data-wk": "block", onClick: () => selIds.length && setFwdPick(true), disabled: !selIds.length, className: "disabled:opacity-40 px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 6 } }, "转发"))),
   gPhotoView && h(PhotoSheet, { m: gPhotoView, toast: toast, onClose: () => setGPhotoView(null) }),
-  fwdPick && h(ForwardPickSheet, { chars: characters || [], groups: (groups || []).filter(g => g.id !== group.id), mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: doForwardMany }),
+  fwdPick && h(ForwardPickSheet, { chars: characters || [], groups: (groups || []).filter(g => g.id !== group.id), mode: fwdMode, setMode: setFwdMode, onClose: () => setFwdPick(false), onSend: doForwardMany, onMoment: fwdMoment }),
   h(NewBelowPill, { n: nb.newBelow, onGo: nb.go, group: true }),
   !selMode && gNarrBar && h(NarrBar, { actKey: group && !gs.spectate ? "g:" + group.id : null, kinds: gNarrKinds, kind: gKind, setKind: setNarrKind, dirLong, setDirLong, dirNotes, onDelDirNote,
     faces: members, asId: asId || (members[0] && members[0].id), setAsId,
