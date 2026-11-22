@@ -228,7 +228,7 @@ test("normChoices:坏检定只丢检定不丢选项,who 校验进队伍", () => 
 
 test("场景桌:场景类型、行动路数与地点动作都做严格归一", () => {
   const meta = normSceneMeta({ sceneMeta: { type: "investigation", objective: "查清谁换了货单", stakes: "巡夜人会封仓" } }, camp0());
-  assert.deepEqual(meta, { type: "investigate", objective: "查清谁换了货单", stakes: "巡夜人会封仓" });
+  assert.deepEqual(meta, { type: "investigate", objective: "查清谁换了货单", stakes: "巡夜人会封仓", look: [] });
   assert.equal(normSceneMeta({ sceneMeta: { type: "nonsense" } }, Object.assign(camp0(), { sceneMeta: { type: "social", objective: "旧目标", stakes: "" } })).type, "social", "坏类型沿用旧场景,不把桌牌打空");
   assert.deepEqual(normSiteActions(["查值班册", "查值班册", { text: "敲空心墙" }, "摸排暗门", "第四条不要"]), ["查值班册", "敲空心墙", "摸排暗门"]);
   const choices = normChoices([{ text: "让裴照川拆锁", approach: "ally", risk: "会留下撬痕", payoff: "不惊动守卫" }], camp0().party);
