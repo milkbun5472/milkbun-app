@@ -5,6 +5,27 @@
 // 和擂台/梦境一样是独立娱乐场：不写回聊天记忆。
 // ============================================================
 (function () {
+  // 小游戏单独挑一条线路（她 2026-11-22「能不能在小游戏界面右上角单独设置一个 api 选项」）：没挑＝跟线下走（原来就是线下那一档）
+  function GameApiPick(props) {
+    const t = useTheme();
+    const [open, setOpen] = useState(false);
+    const list = props.profiles || [];
+    if (!props.onSet || !list.length) return null;
+    const cur = props.pickedId ? list.find(function (p) { return p.id === props.pickedId; }) : null;
+    const nm = function (p) { return (p && (p.name || p.model)) || "未命名"; };
+    const row = function (id, label, sub) { const on = (props.pickedId || null) === id;
+      return h("button", { key: id || "follow", "data-wk": "gameapirow", "data-on": on ? "1" : "0", onClick: function () { props.onSet(id); setOpen(false); }, className: "w-full flex items-center active:opacity-60", style: { minHeight: 44, gap: 10, padding: "6px 2px", borderBottom: "1px solid " + t.line, textAlign: "left" } },
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, label),
+          sub ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub) : null),
+        on ? h("span", { style: { color: t.ink, fontSize: "calc(13px * var(--app-fs, 1))" } }, "✓") : null); };
+    return h(React.Fragment, null,
+      h("button", { "data-wk": "gameapi", onClick: function () { setOpen(true); }, className: "active:opacity-60", style: { maxWidth: 120, minHeight: 32, padding: "4px 10px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, cur ? nm(cur) : "跟线下"),
+      open ? h(Sheet, { onClose: function () { setOpen(false); } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "小游戏用哪条线路"),
+        row(null, "跟线下走", "不单独挑，用设置里线下那一档"),
+        list.map(function (p) { return row(p.id, nm(p), p.model && p.name ? p.model : ""); })) : null);
+  }
   const MODES = [
     { key: "normal", zh: "正常", hint: "角色按各自人设发挥真实水平，该赢赢、该拆穿就拆穿。" },
     { key: "easy", zh: "放水", hint: "角色会让着你——关键时刻手下留情、看破也不点破，图个乐。" },
@@ -639,7 +660,7 @@
     //   顶上就横着一道没被盖住的带子（她 2026-09-03 报的就是这个）。
     //   而且柜子本来就该是【不动】的：盒子在架子上滚，柜子不跟着滚。
     return h("div", { "data-wk": "gamepage", className: "h-full flex flex-col", style: cab },
-      h(Head, { zh: "小游戏", en: "Games", onBack: props.onBack, bg: "transparent" }),
+      h(Head, { zh: "小游戏", en: "Games", onBack: props.onBack, bg: "transparent", right: h(GameApiPick, { profiles: props.apiProfiles, pickedId: props.gameApiId, onSet: props.onSetGameApi }) }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
         // 没打完的那几局：架子上那一盒【还摊在桌上】，不是一条通用的提示横幅。
         // 摊开的样子＝盒盖掀在左边（那张盒面缩略图斜着搭出来），右边写着打到哪儿了。

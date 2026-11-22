@@ -4179,6 +4179,12 @@ const FACING_BAN = "**绝不许说「怎么还不来」「还没到吗」「在�
 // 开关这一侧的在场声明（拼进 ctx.offlineNow，跟线下那段走同一个口子）。
 // group=true 是群里那一档（她 2026-09-10：「群里也接共处一室吧」）：一屋子人和她在一起，
 // 只是仍用气泡呈现。⚠️只此一份：两处各写一份的话，改一句「面对面」得改两遍，迟早对不上。
+// 「♥ 和 X 在一起」只此一份（她 2026-11-22「不能搞成公共的？」）：在一起那天落进日历的那一条，写进去时 X 是当时的名字；
+//   显示时一律交给这里，X 换成此刻该叫的名字（你跟他用的那张面具）。落进去、她的日历、他手机里的日历都走它，别处不许再自己拼「♥ 和」
+const TOGETHER_NOTE = "情侣纪念日";
+function togetherTitle(name) { return "♥ 和 " + String(name || "TA") + " 在一起"; }
+function isTogetherEvent(e) { return !!(e && e.note === TOGETHER_NOTE && /^♥ 和 .+ 在一起$/.test(String(e.title || "").trim())); }
+function togetherTitleNow(e, name) { return isTogetherEvent(e) && name ? togetherTitle(name) : String((e && e.title) || ""); }
 function samePlacePresence(uName, group) {
   return "【同处一室·此刻真的面对面】" + (group ? "此刻在场的各位和" + uName + "都" : "你和" + uName + "此刻")
     + "【就在同一个地方、面对面】——不是约好了还没见，是人已经在一起了。"

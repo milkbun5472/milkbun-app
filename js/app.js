@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v89.983";
+const APP_VERSION = "v89.998";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2597,6 +2597,9 @@ function App() {
   // 不参与选路：选路一律走 pickRoute。
   const routePicked = id => !!(id && apiProfiles.some(p => p.id === id));
   const offlineActive = pickRoute(offlineApiId, active);
+  // 小游戏单独那一档（她 2026-11-22）：没挑就跟线下走，跟原来一样
+  const [gameApiId, setGameApiId] = useState(() => loadJSON("x_gameApi", null));
+  const gameActive = pickRoute(gameApiId, offlineActive);
   // 和设置页同一契约：不选跟随主模型，选了走独立线路；失效的显式选择不偷偷换线路。
   const bgActive = pickRoute(bgApiId, active);
   const bgActiveRef = useRef(bgActive); bgActiveRef.current = bgActive;
@@ -13013,6 +13016,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
     if (laneBusy("c:" + chatKey)) return null;
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return null;
+    // 线下还开着、最后一拍在 6 小时内：天气卡、健康提醒都不发（她 2026-11-22「我在线下然后现实出门了他给我来了一句你就这样跑了」「或者设个隔6个小时后」）；
+    //   挂着超过 6 小时没动，就当这场散了，照常来
+    if (opts.proactive && (opts.wx || opts.health) && !opts.room && ((offlinesRef.current[charId] || loadJSON("x_offline:" + charId, [])) || []).some(s0 => s0 && !s0.endTs && (s0.msgs || []).length
+      && Date.now() - Math.max.apply(null, (s0.msgs || []).map(m => Number(m && m.ts) || 0)) < 6 * 3600000)) return null;
     if (opts.proactive) {
       const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.askFollow ? "ask_follow" : opts.remind ? "reminder" : opts.health ? "health_meal" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
@@ -16044,7 +16051,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // ---- long-press actions ----
   const addFavorite = (charId, m) => {
     // imgKey/desc/dur 也要带走：不然收藏的自拍打开是「无文本消息」、语音丢时长
-    const entry = { id: "fav_" + Date.now() + "_" + Math.floor(Math.random() * 1000), charId, role: m.role, content: m.content || "", kind: m.kind || null, url: m.url || null, imgKey: m.imgKey || null, desc: m.desc || null, dur: m.dur || null, keyword: m.keyword || null, ts: m.ts || Date.now(), savedTs: Date.now() };
+    const entry = { id: "fav_" + Date.now() + "_" + Math.floor(Math.random() * 1000), charId, role: m.role, content: m.content || "", kind: m.kind || null, url: m.url || null, imgKey: m.imgKey || null, desc: m.desc || null, dur: m.dur || null, keyword: m.keyword || null, ...(m.zh ? { zh: m.zh } : {}), ts: m.ts || Date.now(), savedTs: Date.now() };
     setFavorites(p => { const n = [entry, ...p]; saveJSON("x_favorites", n); return n; });
     toast("已收藏");
   };
@@ -27627,7 +27634,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     Object.keys(box).forEach(dk => {
       (box[dk] || []).forEach(ev => {
         if (!ev || !S(ev.title)) return;
-        items.push({ title: S(ev.title).slice(0, 40), date: DK(dk), time: "", kind: "事件", done: false, postponed: 0, note: S(ev.note).slice(0, 120), who: "" });
+        // 在一起那天落的「♥ 和 X 在一起」：在他手机里，X 是你跟他用的那张面具（她 2026-11-22「这里查手机也写死主面具了」），按现在取，不信存进去那一刻的名字
+        const _t = S(togetherTitleNow(ev, userName(profileFor(char.id) || profile)));
+        items.push({ title: _t.slice(0, 40), date: DK(dk), time: "", kind: "事件", done: false, postponed: 0, note: S(ev.note).slice(0, 120), who: "" });
       });
     });
     // ② x_calEvents：TA名下带时刻的日程
@@ -27650,7 +27659,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         time: "", kind: "答应过", done: false,
         // 不许编「推迟 N 次」——没有任何地方真的数过。只说确实为真的那件事：
         // 日子过了，TA还没做。日历界面会因为 overdue 把这条染红。
-        postponed: 0, overdue: !!late, note: characterText(char, "他答应过的。"), who: profile.name || "我"
+        postponed: 0, overdue: !!late, note: characterText(char, "他答应过的。"), who: userName(profileFor(char.id) || profile) || "我"
       });
     });
     // ④ x_schedules[charId]：已经推演过的那几天，每一段行程占一条
@@ -29869,7 +29878,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   v76.991 把它存成了虚拟钟上的时刻——钟往回拨就是在一起十万天，往前拨永远是第 1 天。日历那条照旧写 TA 那边的日子（now）。
     setCoupleFor(charId, { status: "together", since: Date.now(), rel: rk0, ...(role0 ? { role: role0 } : {}) });
     // 在一起纪念日写进日历（该角色视角）
-    if (rk0 === "lover") saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "♥ 和 " + (char ? char.name : "TA") + " 在一起", "情侣纪念日");
+    if (rk0 === "lover") saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), togetherTitle(char ? char.name : "TA"), "情侣纪念日");
     else saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "和 " + (char ? char.name : "TA") + " 开了" + spaceRel(rk0).space, spaceRel(rk0).space + "纪念日");
   };
   // 给模型的那句「你们是什么」：恋人照旧；别的关系说清不是恋人（各处 instruction 开头都问它，别再手写「你们是恋人」）
@@ -38766,8 +38775,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   });else if (screen === "games") body = h(Games, {
     entry: gameEntry,
     // 小游戏需要规则推演与长程角色演绎，统一走线下创作线路。
-    active: offlineActive,
-    bgActive: offlineActive,
+    active: gameActive,
+    bgActive: gameActive, apiProfiles, gameApiId, onSetGameApi: id => { setGameApiId(id); saveJSON("x_gameApi", id); },
     // 认识的配角也能上桌（群里 2026-10-03：「玩游戏这里能不能加入认识的 npc」）。小游戏是沙盒，只读不写主线，
     //   配角进来不会碰到好感/心情那些（配角本来就没有）；选人页把配角单列一组。
     characters: playChars,
