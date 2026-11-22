@@ -482,3 +482,10 @@ test("记进记忆写成一小段；只给勾了的人存房间最后几句，�
   assert.ok(/roomEcho: settingsFor\(char\.id\)\.engineerEyes \? "" :/.test(app) && /recentDays/.test(app.slice(app.indexOf("roomEcho:"), app.indexOf("roomEcho:") + 600)));
   assert.ok(/if \(ctx\.roomEcho && String\(ctx\.roomEcho\)\.trim\(\)\) parts\.push/.test(eng));
 });
+
+test("一轮几条不设上限：单人和一起说都照模型给的全发", () => {
+  const { C } = load();
+  const many = Array.from({ length: 15 }, (_, i) => "第" + i + "条");
+  assert.strictEqual(C.sayLines({ say: many }).length, 15);
+  assert.ok(!/filter\(Boolean\)\.slice\(0, 8\)/.test(src) && !/x\.pat\)\)\.slice\(0, 24\)/.test(src));
+});

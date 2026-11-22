@@ -271,7 +271,7 @@
   // 模型交回来的几条气泡：say 数组为主；只给了一段 text 的，按空行/换行拆开
   function sayLines(d) {
     const arr = d && Array.isArray(d.say) ? d.say : d && typeof d.say === "string" ? [d.say] : d && d.text ? [d.text] : [];
-    return arr.map(x => String(x == null ? "" : x)).join("\n").split(/\n+/).map(x => x.trim()).filter(Boolean).slice(0, 8);
+    return arr.map(x => String(x == null ? "" : x)).join("\n").split(/\n+/).map(x => x.trim()).filter(Boolean);   // 一轮几条不设上限（她 2026-11-22），照 TA 自己想说多少
   }
   // ── 一起说（她 2026-11-22「有俩角色带进来的时候能让他们同时一个调用都说吗，跟群里一样」）──
   //   一次调用写几个人，形状照群聊线上：每人那一段（人设、心情、记忆、关系）由调用方用群聊那套拼好递进来（cast），
@@ -320,7 +320,7 @@
     if (G && typeof G.sanitize === "function") arr = G.sanitize(arr, members, userName).items;
     const s = v => typeof v === "string" && v.trim() && v.trim() !== "null" ? v.trim() : "";
     return arr.map(it => ({ char: it._c || members.find(c => c.name === it.name), text: String(it.text == null ? "" : it.text).trim(), emote: s(it.emote), pat: s(it.pat), vote: s(it.vote) }))
-      .filter(x => x.char && (x.text || x.emote || x.pat)).slice(0, 24);
+      .filter(x => x.char && (x.text || x.emote || x.pat));   // 一起说也不设条数上限（她 2026-11-22）
   }
   // 上次给这个人记到哪儿了：remembered[charId] 存的是记到的最后一条的时间。新的＝那以后的；before＝之前最后几条，只当上下文
   function sinceRemembered(room, charId) {

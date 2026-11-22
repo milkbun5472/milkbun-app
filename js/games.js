@@ -6285,6 +6285,21 @@
   //   现在这些只在 useEngineBoard + EngineBoardPage 里；每个棋只交：规则引擎 C、两方是谁、怎么记一步、棋盘怎么画。
   //   围棋落子、数子都不一样，不走这一层。
   //   spec：{ C, key, zh, sides:[先手, 后手], sideZh(s), teachNote(state, mv), whereNote(prevState, mv), recent(state), check, overNote(st), record(mv), pick(goList) }
+  // 一盘走子棋下完没有、谁赢：引擎判的终局（将死、困毙、进兽穴、和棋……）加上认输。sides：[先手, 后手]
+  function boardOutcome(C, state, resigned, sides) {
+    const st = C.status(state);
+    return { st: st, over: st.over || !!resigned, winner: resigned ? (resigned === sides[0] ? sides[1] : sides[0]) : st.result };
+  }
+  // 存过的那一档（开局页钉的优先，再看估过的能力小传）：不花调用，没估过就 null
+  function boardSkillCached(key, c) {
+    if (!c) return null;
+    const pins = loadSkillPins(), pin = BOARD_TIER_LV[pins[c.id]] ? pins[c.id] : "";
+    const got = ((loadJSON(GAME_SKILL_KEY, {}) || {})[key] || {})[c.id];
+    const stamp = String(c.persona || "").trim().length + ":v2";
+    const fresh = got && got.n === stamp && BOARD_TIER_LV[got.tier] ? got : null;
+    if (!pin && !fresh) return null;
+    return { tier: pin || fresh.tier, style: fresh && BOARD_STYLES.indexOf(fresh.style) >= 0 ? fresh.style : "" };
+  }
   function useEngineBoard(props, spec) {
     const C = spec.C, KEY = spec.key, ZH = spec.zh, S0 = spec.sides[0], S1 = spec.sides[1];
     const t = props.t, cfg = props.config, sv = props.savedState;
@@ -6305,9 +6320,7 @@
     const [mvs, setMvs] = useState(sv && sv.mvs ? sv.mvs : []);
     const state = React.useMemo(function () { return boardReplay(C, mvs); }, [mvs]);
     const [resigned, setResigned] = useState(sv && sv.resigned ? sv.resigned : "");
-    const st = C.status(state);
-    const over = st.over || !!resigned;
-    const winner = resigned ? (resigned === S0 ? S1 : S0) : st.result;
+    const oc = boardOutcome(C, state, resigned, spec.sides), st = oc.st, over = oc.over, winner = oc.winner;
     const [sel, setSel] = useState(null);
     const [hint, setHint] = useState(null);
     const [why, setWhy] = useState("");
@@ -6412,24 +6425,19 @@
           } }) : null) : null));
   }
 
-  function ChessGame(props) {
-    const g = useEngineBoard(props, { C: window.ChessCore, key: "chess", zh: "国际象棋", sides: ["w", "b"], sideZh: function (s) { return s === "w" ? "白" : "黑"; }, check: true,
-      teachNote: function (s, m) { return window.ChessCore.zh(s, m); }, whereNote: function (s, m) { return window.ChessCore.zh(s, m); },
-      recent: function (s) { return s.history.slice(-8).map(function (x) { return x.san; }).join(" "); },
-      record: function (mv) { return { from: mv.from, to: mv.to, promo: mv.promo }; },
-      pick: function (go) { return go.find(function (m) { return !m.promo || m.promo === "q"; }) || go[0]; } });
-    const C = g.C, t = g.t, state = g.state, st = g.st, sel = g.sel, hint = g.hint, targets = g.targets, tap = g.tap, over = g.over, winner = g.winner, resigned = g.resigned, nameOf = g.nameOf, userSide = g.userSide;
-
+  // 棋子用实心那一套，白子象牙色描黑边、黑子乌木色（她 2026-10-23「页面能不能做好看点」）；︎ 让 iOS 别把兵画成 emoji
+  const CHESS_GLYPH = { K: "♚", Q: "♛", R: "♜", B: "♝", N: "♞", P: "♟" };
+  function chessPieceEl(p, size) { const w = p[0] === "w"; return h("span", { style: { fontFamily: "'Segoe UI Symbol','Apple Symbols','Noto Sans Symbols2',serif", fontSize: size, lineHeight: 1,
+      color: w ? "#fbf4e2" : "#2a2420", WebkitTextStroke: w ? "1.1px #3a2e24" : "0.6px #000", textShadow: w ? "0 2px 2px rgba(40,25,10,.35)" : "0 1px 0 rgba(255,255,255,.18), 0 2px 3px rgba(0,0,0,.35)" } }, CHESS_GLYPH[p[1]] + "︎"); }
+  // 国际象棋那块棋盘：单机那一桌和别处要摆同一张桌，都画这一块（选中、可走、上一步、提示、被将军的王）
+  function ChessBoardView(props) {
+    const state = props.state, st = props.st, sel = props.sel, hint = props.hint, targets = props.targets || [], tap = props.onTap || function () {};
     const last = state.history.length ? state.history[state.history.length - 1].mv : null;
     let kingAt = null;
     if (st.check) state.board.forEach(function (row, r) { row.forEach(function (p, c) { if (p === state.turn + "K") kingAt = [r, c]; }); });
     const same = function (a, r, c) { return a && a[0] === r && a[1] === c; };
-    // 棋子用实心那一套，白子象牙色描黑边、黑子乌木色（她 2026-10-23「页面能不能做好看点」）；︎ 让 iOS 别把兵画成 emoji
-    const GLYPH = { K: "♚", Q: "♛", R: "♜", B: "♝", N: "♞", P: "♟" };
-    const pieceEl = function (p, size) { const w = p[0] === "w"; return h("span", { style: { fontFamily: "'Segoe UI Symbol','Apple Symbols','Noto Sans Symbols2',serif", fontSize: size, lineHeight: 1,
-      color: w ? "#fbf4e2" : "#2a2420", WebkitTextStroke: w ? "1.1px #3a2e24" : "0.6px #000", textShadow: w ? "0 2px 2px rgba(40,25,10,.35)" : "0 1px 0 rgba(255,255,255,.18), 0 2px 3px rgba(0,0,0,.35)" } }, GLYPH[p[1]] + "︎"); };
     const coord = { fontFamily: F_BODY, fontSize: 10, color: "#e8d3ad", opacity: .85, textAlign: "center" };
-    const board = h("div", { "data-wk": "chessboard", style: { width: "100%", maxWidth: 440, margin: "0 auto", padding: "8px 8px 4px 18px", borderRadius: 14,
+    return h("div", { "data-wk": "chessboard", style: { width: "100%", maxWidth: 440, margin: "0 auto", padding: "8px 8px 4px 18px", borderRadius: 14,
         background: "linear-gradient(145deg, #6b4a2e, #4a3220)", boxShadow: "0 12px 26px rgba(40,25,10,.35), inset 0 1px 0 rgba(255,255,255,.12)" } },
       h("div", { style: { position: "relative" } },
         h("div", { style: { position: "absolute", left: -14, top: 0, bottom: 0, display: "grid", gridTemplateRows: "repeat(8, 1fr)", alignItems: "center" } }, [8, 7, 6, 5, 4, 3, 2, 1].map(function (n) { return h("div", { key: n, style: coord }, n); })),
@@ -6443,10 +6451,20 @@
                 background: (dark ? "#b88762" : "#efdcbc") + (lit ? "" : ""),
                 backgroundImage: lit ? "linear-gradient(rgba(214,180,60,.45), rgba(214,180,60,.45))" : same(kingAt, r, c) ? "radial-gradient(circle, rgba(226,72,50,.85) 20%, rgba(226,72,50,0) 72%)" : "none",
                 boxShadow: same(sel, r, c) ? "inset 0 0 0 3px #f2c94c" : hintOn ? "inset 0 0 0 3px #5aa0d8" : "none" } },
-              p ? pieceEl(p, "calc(34px * var(--app-fs, 1))") : null,
+              p ? chessPieceEl(p, "calc(34px * var(--app-fs, 1))") : null,
               isT ? h("span", { style: { position: "absolute", width: p ? "88%" : "26%", height: p ? "88%" : "26%", borderRadius: 999, background: p ? "transparent" : "rgba(52,38,24,.32)", border: p ? "3px solid rgba(52,38,24,.38)" : "none" } }) : null);
           }); })),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(8, 1fr)", marginTop: 3 } }, "abcdefgh".split("").map(function (x) { return h("div", { key: x, style: coord }, x); }))));
+  }
+  function ChessGame(props) {
+    const g = useEngineBoard(props, { C: window.ChessCore, key: "chess", zh: "国际象棋", sides: ["w", "b"], sideZh: function (s) { return s === "w" ? "白" : "黑"; }, check: true,
+      teachNote: function (s, m) { return window.ChessCore.zh(s, m); }, whereNote: function (s, m) { return window.ChessCore.zh(s, m); },
+      recent: function (s) { return s.history.slice(-8).map(function (x) { return x.san; }).join(" "); },
+      record: function (mv) { return { from: mv.from, to: mv.to, promo: mv.promo }; },
+      pick: function (go) { return go.find(function (m) { return !m.promo || m.promo === "q"; }) || go[0]; } });
+    const C = g.C, t = g.t, state = g.state, st = g.st, sel = g.sel, hint = g.hint, targets = g.targets, tap = g.tap, over = g.over, winner = g.winner, resigned = g.resigned, nameOf = g.nameOf, userSide = g.userSide;
+
+    const board = h(ChessBoardView, { state: state, st: st, sel: sel, hint: hint, targets: targets, onTap: tap });
     // 吃掉的子：各自那一排，多出来的子力写在后面
     const START_N = { P: 8, N: 2, B: 2, R: 2, Q: 1 }, VALS = { P: 1, N: 3, B: 3, R: 5, Q: 9 };
     const lost = function (side) { const n = {}; state.board.forEach(function (row) { row.forEach(function (p) { if (p && p[0] === side) n[p[1]] = (n[p[1]] || 0) + 1; }); }); const out = []; ["Q", "R", "B", "N", "P"].forEach(function (k) { for (let i = 0; i < Math.max(0, START_N[k] - (n[k] || 0)); i++) out.push(k); }); return out; };
@@ -6455,7 +6473,7 @@
       const got = lost(side === "w" ? "b" : "w"), diff = mat(got) - mat(lost(side));
       return h("div", { "data-wk": "chesscaps", style: { display: "flex", alignItems: "center", gap: 1, minHeight: 22, padding: "0 4px", flexWrap: "wrap" } },
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginRight: 6 } }, nameOf(side) + " 吃了"),
-        got.length ? got.map(function (k, i) { return h("span", { key: i }, pieceEl((side === "w" ? "b" : "w") + k, 15)); }) : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "—"),
+        got.length ? got.map(function (k, i) { return h("span", { key: i }, chessPieceEl((side === "w" ? "b" : "w") + k, 15)); }) : h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "—"),
         diff > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginLeft: 6 } }, "+" + diff) : null);
     };
 
@@ -6467,12 +6485,9 @@
   }
 
   // ============================ 中国象棋 ============================
-  function XiangqiGame(props) {
-    const g = useEngineBoard(props, { C: window.XiangqiCore, key: "xiangqi", zh: "中国象棋", sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "黑"; }, check: true,
-      teachNote: function (s, m) { return window.XiangqiCore.zhPlain(s, m); }, whereNote: function (s, m) { return window.XiangqiCore.zhPlain(s, m); },
-      recent: function (s) { return s.history.slice(-8).map(function (x) { return x.zh; }).join(" "); } });
-    const C = g.C, t = g.t, state = g.state, st = g.st, sel = g.sel, hint = g.hint, targets = g.targets, tap = g.tap, over = g.over, winner = g.winner, resigned = g.resigned, nameOf = g.nameOf, userSide = g.userSide;
-
+  // 中国象棋那块棋盘：单机那一桌和别处要摆同一张桌，都画这一块
+  function XiangqiBoardView(props) {
+    const C = window.XiangqiCore, state = props.state, st = props.st, sel = props.sel, hint = props.hint, targets = props.targets || [], tap = props.onTap || function () {};
     // 棋盘：九路十行的线，楚河汉界，九宫斜线；子是木头圆片
     const cell = 36, pad = 26, W = pad * 2 + cell * 8, H = pad * 2 + cell * 9;
     const X = function (c) { return pad + c * cell; }, Y = function (r) { return pad + r * cell; };
@@ -6498,7 +6513,7 @@
     [[2, 1], [2, 7], [7, 1], [7, 7]].concat([0, 2, 4, 6, 8].map(function (c) { return [3, c]; }), [0, 2, 4, 6, 8].map(function (c) { return [6, c]; })).forEach(function (p) { star(p[0], p[1]).forEach(function (e) { lines.push(e); }); });
     lines.push(h("rect", { key: "outer", x: X(0) - 5, y: Y(0) - 5, width: cell * 8 + 10, height: cell * 9 + 10, fill: "none", stroke: ink, strokeWidth: 2.2 }));
     const mark = function (k, r, c, col) { return h("rect", { key: k, x: X(c) - cell / 2 + 2, y: Y(r) - cell / 2 + 2, width: cell - 4, height: cell - 4, rx: 6, fill: "none", stroke: col, strokeWidth: 2, strokeDasharray: "5 3" }); };
-    const boardSvg = h("svg", { "data-wk": "xiangqiboard", viewBox: "0 0 " + W + " " + H, style: { width: "100%", maxWidth: 420, display: "block", margin: "0 auto", borderRadius: 12,
+    return h("svg", { "data-wk": "xiangqiboard", viewBox: "0 0 " + W + " " + H, style: { width: "100%", maxWidth: 420, display: "block", margin: "0 auto", borderRadius: 12,
         background: "linear-gradient(135deg, #f0d49a 0%, #e3bd78 50%, #ecca8c 100%)", boxShadow: "inset 0 0 0 3px rgba(122,74,34,.3), 0 10px 24px rgba(60,40,15,.28)", touchAction: "manipulation" },
         onClick: function (e) {
           const b = e.currentTarget.getBoundingClientRect(), k = W / b.width;
@@ -6526,6 +6541,14 @@
       }); }),
       targets.map(function (m, i) { return h("circle", { key: "t" + i, cx: X(m.to[1]), cy: Y(m.to[0]), r: m.capture ? cell * 0.46 : 5, fill: m.capture ? "none" : "#2f6b45", stroke: m.capture ? "#2f6b45" : "none", strokeWidth: 2.5, opacity: .75 }); }));
 
+  }
+  function XiangqiGame(props) {
+    const g = useEngineBoard(props, { C: window.XiangqiCore, key: "xiangqi", zh: "中国象棋", sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "黑"; }, check: true,
+      teachNote: function (s, m) { return window.XiangqiCore.zhPlain(s, m); }, whereNote: function (s, m) { return window.XiangqiCore.zhPlain(s, m); },
+      recent: function (s) { return s.history.slice(-8).map(function (x) { return x.zh; }).join(" "); } });
+    const C = g.C, t = g.t, state = g.state, st = g.st, sel = g.sel, hint = g.hint, targets = g.targets, tap = g.tap, over = g.over, winner = g.winner, resigned = g.resigned, nameOf = g.nameOf, userSide = g.userSide;
+
+    const boardSvg = h(XiangqiBoardView, { state: state, st: st, sel: sel, hint: hint, targets: targets, onTap: tap });
     const status = over ? (winner === "draw" ? "和棋" : nameOf(winner) + "赢了" + (resigned ? "（认输）" : st.reason === "checkmate" ? "（将死）" : st.reason === "stalemate" ? "（困毙）" : ""))
       : state.turn === userSide ? (st.check ? "被将军了，轮到你" : sel ? "点绿点的位置走过去" : "轮到你（红）") : nameOf(state.turn) + "在想…";
     // 吃掉的子：各自那一排
@@ -6546,18 +6569,15 @@
 
   // ============================ 斗兽棋 ============================
   // 她 2026-10-27「小游戏能做个斗兽棋吗」：规则和走子都在 js/jungle-core.js，界面照象棋那一页（同一套说话、提示、悔棋、认输）。
-  function JungleGame(props) {
-    const g = useEngineBoard(props, { C: window.JungleCore, key: "jungle", zh: "斗兽棋", sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "蓝"; },
-      teachNote: function (s, m) { return window.JungleCore.zhPlain(s, m); }, whereNote: function (s, m) { return window.JungleCore.zhPlain(s, m); },
-      recent: function (s) { return s.history.slice(-8).map(function (x) { return x.zh; }).join(" "); },
-      overNote: function (st) { return st.reason === "den" ? "（进了兽穴）" : st.reason === "wiped" ? "（子被吃光了）" : ""; } });
-    const C = g.C, t = g.t, state = g.state, st = g.st, sel = g.sel, hint = g.hint, targets = g.targets, tap = g.tap, over = g.over, winner = g.winner, resigned = g.resigned, nameOf = g.nameOf, userSide = g.userSide;
-
+  const JUNGLE_SIDE_COL = { r: "#b8322a", b: "#2f5f9e" };
+  // 斗兽棋那块棋盘：单机那一桌和别处要摆同一张桌，都画这一块
+  function JungleBoardView(props) {
+    const C = window.JungleCore, state = props.state, sel = props.sel, hint = props.hint, targets = props.targets || [], tap = props.onTap || function () {};
     // 棋盘：七列九行的格子。河是两块蓝，陷阱画一圈虚线，兽穴是一座小洞口；子是圆片，红方暖红、蓝方靛蓝，右上角小字是大小
     const cell = 46, pad = 10, W = pad * 2 + cell * 7, H = pad * 2 + cell * 9;
     const X = function (c) { return pad + c * cell + cell / 2; }, Y = function (r) { return pad + r * cell + cell / 2; };
     const last = state.history.length ? state.history[state.history.length - 1].mv : null;
-    const sideCol = { r: "#b8322a", b: "#2f5f9e" };
+    const sideCol = JUNGLE_SIDE_COL;
     const tiles = [];
     for (let r = 0; r < 9; r++) for (let c = 0; c < 7; c++) {
       const wtr = C.isWater(r, c), den = C.denOf(r, c), trap = C.trapOf(r, c);
@@ -6567,7 +6587,7 @@
       if (den) tiles.push(h("g", { key: "dn" + r + c }, h("path", { d: "M" + (X(c) - 15) + " " + (Y(r) + 13) + "v-10a15 15 0 0 1 30 0v10z", fill: "#6b4a2b", opacity: .82 }), h("text", { x: X(c), y: Y(r) + 9, textAnchor: "middle", fontSize: 11, fill: "#f3e6c8" }, "穴")));
     }
     const mark = function (k, r, c, col) { return h("rect", { key: k, x: pad + c * cell + 3, y: pad + r * cell + 3, width: cell - 6, height: cell - 6, rx: 7, fill: "none", stroke: col, strokeWidth: 2, strokeDasharray: "5 3" }); };
-    const boardSvg = h("svg", { "data-wk": "jungleboard", viewBox: "0 0 " + W + " " + H, style: { width: "100%", maxWidth: 380, display: "block", margin: "0 auto", borderRadius: 12,
+    return h("svg", { "data-wk": "jungleboard", viewBox: "0 0 " + W + " " + H, style: { width: "100%", maxWidth: 380, display: "block", margin: "0 auto", borderRadius: 12,
         background: "#b9cf8c", boxShadow: "inset 0 0 0 3px rgba(63,90,58,.3), 0 10px 24px rgba(30,50,25,.25)", touchAction: "manipulation" },
         onClick: function (e) {
           const b = e.currentTarget.getBoundingClientRect(), k = W / b.width;
@@ -6588,6 +6608,16 @@
       }); }),
       targets.map(function (m, i) { return h("circle", { key: "t" + i, cx: X(m.to[1]), cy: Y(m.to[0]), r: m.capture ? cell * 0.46 : 6, fill: m.capture ? "none" : "#2f6b45", stroke: m.capture ? "#2f6b45" : "none", strokeWidth: 2.5, opacity: .78 }); }));
 
+  }
+  function JungleGame(props) {
+    const g = useEngineBoard(props, { C: window.JungleCore, key: "jungle", zh: "斗兽棋", sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "蓝"; },
+      teachNote: function (s, m) { return window.JungleCore.zhPlain(s, m); }, whereNote: function (s, m) { return window.JungleCore.zhPlain(s, m); },
+      recent: function (s) { return s.history.slice(-8).map(function (x) { return x.zh; }).join(" "); },
+      overNote: function (st) { return st.reason === "den" ? "（进了兽穴）" : st.reason === "wiped" ? "（子被吃光了）" : ""; } });
+    const C = g.C, t = g.t, state = g.state, st = g.st, sel = g.sel, hint = g.hint, targets = g.targets, tap = g.tap, over = g.over, winner = g.winner, resigned = g.resigned, nameOf = g.nameOf, userSide = g.userSide;
+
+    const sideCol = JUNGLE_SIDE_COL;
+    const boardSvg = h(JungleBoardView, { state: state, sel: sel, hint: hint, targets: targets, onTap: tap });
     const status = over ? (winner === "draw" ? "和棋" : nameOf(winner) + "赢了" + (resigned ? "（认输）" : st.reason === "den" ? "（进了兽穴）" : st.reason === "wiped" ? "（子被吃光了）" : st.reason === "stuck" ? "（对面没路可走）" : ""))
       : state.turn === userSide ? (sel ? "点绿点的位置走过去" : "轮到你（红）") : nameOf(state.turn) + "在想…";
     // 吃掉的子：各自那一排
@@ -6613,6 +6643,46 @@
     (mvs || []).forEach(function (m) { s = G.move(s, m.pass ? { pass: true } : { p: m.p }); });
     return s;
   }
+  // 围棋那块棋盘：单机那一桌和别处要摆同一张桌，都画这一块（数子时死子打叉、地盘小方块）
+  function GoBoardView(props) {
+    const G = window.GoCore, state = props.state, size = state.size, counting = !!props.counting, dead = props.dead || null, pend = props.pend == null ? -1 : props.pend, hint = props.hint == null ? -1 : props.hint, userSide = props.pendSide, tap = props.onTap || function () {};
+    // 棋盘：木板，有光泽的子，星位，最后一手一个红点；数子时死子半透明打叉，地盘上小方块
+    const n = size, cell = n === 19 ? 18 : n === 17 ? 20 : n === 13 ? 24 : 34, pad = cell * 0.9, W = pad * 2 + cell * (n - 1);
+    const X = function (p) { return pad + (p % n) * cell; }, Y = function (p) { return pad + ((p / n) | 0) * cell; };
+    const stars = n === 9 ? [[2, 2], [6, 2], [4, 4], [2, 6], [6, 6]] : n === 13 ? [[3, 3], [9, 3], [6, 6], [3, 9], [9, 9]] : n === 17 ? [[3, 3], [8, 3], [13, 3], [3, 8], [8, 8], [13, 8], [3, 13], [8, 13], [13, 13]] : [[3, 3], [9, 3], [15, 3], [3, 9], [9, 9], [15, 9], [3, 15], [9, 15], [15, 15]];
+    const lastMv = state.history.length ? state.history[state.history.length - 1].mv : null;
+    const own = counting && dead ? G.score(state, dead).owner : null;
+    const R = cell * 0.46;
+    return h("svg", { "data-wk": "goboard", viewBox: "0 0 " + W + " " + W, style: { width: "100%", maxWidth: 460, display: "block", margin: "0 auto", borderRadius: 12,
+        background: "linear-gradient(135deg, #e9c98c 0%, #dcb26c 50%, #e6c282 100%)", boxShadow: "inset 0 0 0 3px rgba(107,76,36,.3), 0 10px 24px rgba(60,40,15,.3)", touchAction: "manipulation" },
+        onClick: function (e) {
+          const b = e.currentTarget.getBoundingClientRect(), k = W / b.width;
+          const x = Math.round(((e.clientX - b.left) * k - pad) / cell), y = Math.round(((e.clientY - b.top) * k - pad) / cell);
+          if (x >= 0 && y >= 0 && x < n && y < n) tap(y * n + x);
+        } },
+      h("defs", { key: "d" },
+        h("radialGradient", { id: "goB", cx: ".35", cy: ".3", r: ".75" }, h("stop", { offset: "0", stopColor: "#6f6a64" }), h("stop", { offset: ".55", stopColor: "#1a1816" })),
+        h("radialGradient", { id: "goW", cx: ".35", cy: ".3", r: ".8" }, h("stop", { offset: "0", stopColor: "#ffffff" }), h("stop", { offset: ".7", stopColor: "#e6e0d3" }), h("stop", { offset: "1", stopColor: "#c9c0ae" }))),
+      Array.from({ length: n }).map(function (_, i) { return h("g", { key: "l" + i },
+        h("line", { x1: pad, y1: pad + i * cell, x2: pad + (n - 1) * cell, y2: pad + i * cell, stroke: "#5e4424", strokeWidth: i === 0 || i === n - 1 ? 1.4 : .7 }),
+        h("line", { x1: pad + i * cell, y1: pad, x2: pad + i * cell, y2: pad + (n - 1) * cell, stroke: "#5e4424", strokeWidth: i === 0 || i === n - 1 ? 1.4 : .7 })); }),
+      stars.map(function (s0, i) { return h("circle", { key: "s" + i, cx: pad + s0[0] * cell, cy: pad + s0[1] * cell, r: Math.max(2, cell * 0.09), fill: "#5e4424" }); }),
+      n <= 17 ? Array.from({ length: n }).map(function (_, i) { return h("text", { key: "cx" + i, x: pad + i * cell, y: pad * 0.45, textAnchor: "middle", fontSize: cell * 0.32, fill: "#5e4424", opacity: .6 }, G.COLS[i]); }) : null,
+      own ? own.map(function (o, p) { return o && !state.board[p] || (o && dead && dead.indexOf(p) >= 0) ? h("rect", { key: "o" + p, x: X(p) - cell * 0.15, y: Y(p) - cell * 0.15, width: cell * 0.3, height: cell * 0.3, fill: o === 1 ? "#1a1816" : "#fff", opacity: .7 }) : null; }) : null,
+      state.board.map(function (c, p) {
+        if (!c) return null;
+        const isDead = counting && dead && dead.indexOf(p) >= 0;
+        return h("g", { key: "p" + p, opacity: isDead ? .45 : 1 },
+          svgStone("s", X(p), Y(p), R, c),
+          isDead ? h("path", { d: "M" + (X(p) - R * .5) + " " + (Y(p) - R * .5) + "l" + R + " " + R + "M" + (X(p) + R * .5) + " " + (Y(p) - R * .5) + "l" + (-R) + " " + R, stroke: "#d24b3a", strokeWidth: 2 }) : null);
+      }),
+      lastMv && !lastMv.pass ? h("circle", { cx: X(lastMv.p), cy: Y(lastMv.p), r: R * 0.32, style: { fill: "#d24b3a" } }) : null,
+      hint >= 0 ? h("circle", { cx: X(hint), cy: Y(hint), r: R, style: { fill: "none", stroke: "#3a86c8", strokeWidth: 2.4, strokeDasharray: "4 3" } }) : null,
+      pend >= 0 ? svgStone("pend", X(pend), Y(pend), R, userSide, { opacity: .5 }) : null);
+
+  }
+  // 数完子谁赢、赢几目（中国规则，黑贴 7.5）：dead 是认定的死子
+  function goResult(G, state, dead) { const sc = G.score(state, dead || []); return { winner: sc.winner, black: sc.black, white: sc.white, margin: sc.margin }; }
   function GoGame(props) {
     const G = window.GoCore, KEY = "go", ZH = "围棋";
     const t = props.t, cfg = props.config, sv = props.savedState;
@@ -6719,42 +6789,10 @@
     const pass = function () { if (over || counting || spectate || state.turn !== userSide) return; play({ pass: true }); };
     const resign = function () { if (over || spectate) return; requestAppConfirm("认输？", "这一局算 " + nm(char) + " 赢。", function () { setResigned(userSide); }, "认输"); };
     const keepPlaying = function () { setDead(null); setMvs(mvs.slice(0, -2)); };   // 数子前反悔：退回停一手之前接着下
-    const confirmCount = function () { const sc = G.score(state, dead || []); setResult({ winner: sc.winner, black: sc.black, white: sc.white, margin: sc.margin }); };
+    const confirmCount = function () { setResult(goResult(G, state, dead || [])); };
 
-    // 棋盘：木板，有光泽的子，星位，最后一手一个红点；数子时死子半透明打叉，地盘上小方块
-    const n = size, cell = n === 19 ? 18 : n === 17 ? 20 : n === 13 ? 24 : 34, pad = cell * 0.9, W = pad * 2 + cell * (n - 1);
-    const X = function (p) { return pad + (p % n) * cell; }, Y = function (p) { return pad + ((p / n) | 0) * cell; };
-    const stars = n === 9 ? [[2, 2], [6, 2], [4, 4], [2, 6], [6, 6]] : n === 13 ? [[3, 3], [9, 3], [6, 6], [3, 9], [9, 9]] : n === 17 ? [[3, 3], [8, 3], [13, 3], [3, 8], [8, 8], [13, 8], [3, 13], [8, 13], [13, 13]] : [[3, 3], [9, 3], [15, 3], [3, 9], [9, 9], [15, 9], [3, 15], [9, 15], [15, 15]];
+    const boardSvg = h(GoBoardView, { state: state, counting: counting, dead: dead, pend: pend, hint: hint, pendSide: userSide, onTap: tap });
     const lastMv = state.history.length ? state.history[state.history.length - 1].mv : null;
-    const own = counting && dead ? G.score(state, dead).owner : null;
-    const R = cell * 0.46;
-    const boardSvg = h("svg", { "data-wk": "goboard", viewBox: "0 0 " + W + " " + W, style: { width: "100%", maxWidth: 460, display: "block", margin: "0 auto", borderRadius: 12,
-        background: "linear-gradient(135deg, #e9c98c 0%, #dcb26c 50%, #e6c282 100%)", boxShadow: "inset 0 0 0 3px rgba(107,76,36,.3), 0 10px 24px rgba(60,40,15,.3)", touchAction: "manipulation" },
-        onClick: function (e) {
-          const b = e.currentTarget.getBoundingClientRect(), k = W / b.width;
-          const x = Math.round(((e.clientX - b.left) * k - pad) / cell), y = Math.round(((e.clientY - b.top) * k - pad) / cell);
-          if (x >= 0 && y >= 0 && x < n && y < n) tap(y * n + x);
-        } },
-      h("defs", { key: "d" },
-        h("radialGradient", { id: "goB", cx: ".35", cy: ".3", r: ".75" }, h("stop", { offset: "0", stopColor: "#6f6a64" }), h("stop", { offset: ".55", stopColor: "#1a1816" })),
-        h("radialGradient", { id: "goW", cx: ".35", cy: ".3", r: ".8" }, h("stop", { offset: "0", stopColor: "#ffffff" }), h("stop", { offset: ".7", stopColor: "#e6e0d3" }), h("stop", { offset: "1", stopColor: "#c9c0ae" }))),
-      Array.from({ length: n }).map(function (_, i) { return h("g", { key: "l" + i },
-        h("line", { x1: pad, y1: pad + i * cell, x2: pad + (n - 1) * cell, y2: pad + i * cell, stroke: "#5e4424", strokeWidth: i === 0 || i === n - 1 ? 1.4 : .7 }),
-        h("line", { x1: pad + i * cell, y1: pad, x2: pad + i * cell, y2: pad + (n - 1) * cell, stroke: "#5e4424", strokeWidth: i === 0 || i === n - 1 ? 1.4 : .7 })); }),
-      stars.map(function (s0, i) { return h("circle", { key: "s" + i, cx: pad + s0[0] * cell, cy: pad + s0[1] * cell, r: Math.max(2, cell * 0.09), fill: "#5e4424" }); }),
-      n <= 17 ? Array.from({ length: n }).map(function (_, i) { return h("text", { key: "cx" + i, x: pad + i * cell, y: pad * 0.45, textAnchor: "middle", fontSize: cell * 0.32, fill: "#5e4424", opacity: .6 }, G.COLS[i]); }) : null,
-      own ? own.map(function (o, p) { return o && !state.board[p] || (o && dead && dead.indexOf(p) >= 0) ? h("rect", { key: "o" + p, x: X(p) - cell * 0.15, y: Y(p) - cell * 0.15, width: cell * 0.3, height: cell * 0.3, fill: o === 1 ? "#1a1816" : "#fff", opacity: .7 }) : null; }) : null,
-      state.board.map(function (c, p) {
-        if (!c) return null;
-        const isDead = counting && dead && dead.indexOf(p) >= 0;
-        return h("g", { key: "p" + p, opacity: isDead ? .45 : 1 },
-          svgStone("s", X(p), Y(p), R, c),
-          isDead ? h("path", { d: "M" + (X(p) - R * .5) + " " + (Y(p) - R * .5) + "l" + R + " " + R + "M" + (X(p) + R * .5) + " " + (Y(p) - R * .5) + "l" + (-R) + " " + R, stroke: "#d24b3a", strokeWidth: 2 }) : null);
-      }),
-      lastMv && !lastMv.pass ? h("circle", { cx: X(lastMv.p), cy: Y(lastMv.p), r: R * 0.32, style: { fill: "#d24b3a" } }) : null,
-      hint >= 0 ? h("circle", { cx: X(hint), cy: Y(hint), r: R, style: { fill: "none", stroke: "#3a86c8", strokeWidth: 2.4, strokeDasharray: "4 3" } }) : null,
-      pend >= 0 ? svgStone("pend", X(pend), Y(pend), R, userSide, { opacity: .5 }) : null);
-
     const status = over ? (resigned ? nameOf(winner) + "赢了（认输）" : nameOf(winner) + "赢了 " + result.margin + " 目（黑 " + result.black + " · 白 " + result.white + "）")
       : counting ? (dead ? "数子：点一块子改死／活，好了按「数子」" : "在估死子…")
       : state.turn === userSide ? (busy ? "在想提示…" : pend >= 0 ? "再点一下同一个点落子" : (lastMv && lastMv.pass ? nameOf(3 - userSide) + "停了一手，轮到你" : "轮到你（黑）")) : nameOf(state.turn) + "在想…";
