@@ -310,6 +310,7 @@
       + "\n- 带你来的是 " + youLine(room, char) + (mine.length ? "，跟你一起来的还有：" + mine.join("、") : "") + "。"
       + "\n另外几方：" + (sidesLines(room, o.presence) || "\n- （还没别人进来）")
       + "\n别人带来的这几位你只知道名字和他们在这里说过的话，其余的你不知道，也不用替他们补。"
+      + (o.known || "")
       + recapBlock(room)
       + "\n\n【房间里到现在的聊天】" + (o.stamp ? "（每行前面〔〕里是那句话说的时间，只是时间标记，不要写进你说的话）" : "") + "\n" + (transcript(pr, Object.assign({}, o, { catalog: quoteCatalog(pr, 30) })) || "（还没人说话）")
       + (o.game ? "\n\n" + o.game : "")
@@ -344,6 +345,7 @@
       + you + (others.length ? "\n- 同一边带来、这一次不开口的还有：" + others.join("、") + "。" : "")
       + "\n另外几方：" + (sidesLines(room, o.presence) || "\n- （还没别人进来）")
       + "\n别人带来的人、房里的真人，你只知道名字和他们在这里说过的话，其余的不知道，也不替他们说话。"
+      + (o.known ? o.known : "")
       + (o.cast ? "\n\n" + o.cast : "")
       + recapBlock(room)
       + "\n\n【房间里到现在的聊天】" + (o.stamp ? "（每行前面〔〕里是那句话说的时间，只是时间标记，不要写进说的话）" : "") + "\n" + (transcript(pr, Object.assign({}, o, { catalog: quoteCatalog(pr, 30) })) || "（还没人说话）")
@@ -401,6 +403,7 @@
       + "写成第三人称：用名字称呼「" + (char.name || "TA") + "」和「" + (char.you || room.myNick) + "」，不写「我」「你」。"
       + "有则写、无则跳：见了谁、聊了什么话题、谁说了什么要紧的话或玩笑、气氛怎么样、有没有约好什么、跟谁更熟了一点、" + (char.name || "TA") + " 自己说过的要紧的话。不记流水账。别人带来的人你只知道名字和他们在这里说的话。"
       + "\n房间里的几方：" + sidesLines(room)
+      + (() => { const met = metIn(room); return met.length ? "\n另外在 people 里给别人带来的这几位各写一两句 " + (char.name || "TA") + " 对 TA 的印象（第三人称，只照这里看到的写）：" + met.map(w => "「" + w.name + "」").join("、") + "。" : ""; })()
       + prev + "\n\n" + (prev ? "【上次记过以后新聊的，只记这一段】" : "【这次房间里的全部聊天】") + "\n" + transcript(room);
   }
 
@@ -955,6 +958,57 @@
     return api;
   }
 
+  // ── 在联机里认识的人（她 2026-11-22）：退房勾了「记进记忆」的角色，另记一份见过的别人家的角色 ──
+  //   存 x_netroomKnown（进 IDB）：{ 我的角色 id: { "对方 peerId/对方角色 id": { peerId, charId, name, owner, note, times, lastTs, rooms:[房间 id] } } }
+  //   认人只认 peerId＋角色 id（名字会改，改了照样认得）；只存名字、谁带来的、一两句印象、几次、上次——对方的人设一个字都不存（本来也没收到）。
+  const KNOWN_KEY = "x_netroomKnown";
+  const loadKnown = () => { try { const o = loadJSON(KNOWN_KEY, {}); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
+  const saveKnown = k => { try { saveJSON(KNOWN_KEY, k); } catch (e) {} };
+  const knownKey = (peerId, charId) => String(peerId || "") + "/" + String(charId || "");
+  // 这一段里真开过口的别人家的角色：[{ peerId, charId, name, owner }]
+  function metIn(room, msgs) {
+    room = normalizeRoom(room);
+    const seen = {}, out = [];
+    (msgs || room.msgs || []).forEach(m => {
+      if (!m || m.sys || m.side !== "peer" || m.kind !== "char" || !m.charId || !m.peerId || m.peerId === LEGACY) return;
+      const k = knownKey(m.peerId, m.charId); if (seen[k]) return; seen[k] = 1;
+      const p = peerOf(room, m.peerId), card = p && (p.chars || []).find(c => c.id === m.charId);
+      out.push({ peerId: m.peerId, charId: m.charId, name: String((card && card.name) || m.name || "").slice(0, 40), owner: String((p && p.nick) || "").slice(0, 20) });
+    });
+    return out;
+  }
+  // 记一次：people 是模型交回来的 [{ name, note }]，按名字对上这次见到的人；一个房间只算一次「一起玩过」
+  function meetPeople(known, myCharId, room, people, ts) {
+    const all = Object.assign({}, known || {}), mine = Object.assign({}, all[myCharId] || {});
+    const notes = {}; (Array.isArray(people) ? people : []).forEach(x => { if (x && x.name && x.note) notes[String(x.name).trim()] = String(x.note).trim().slice(0, 160); });
+    metIn(room).forEach(w => {
+      const k = knownKey(w.peerId, w.charId), old = mine[k] || {};
+      const rooms = (old.rooms || []).slice(), fresh = rooms.indexOf(room.id) < 0;
+      if (fresh) rooms.push(room.id);
+      mine[k] = { peerId: w.peerId, charId: w.charId, name: w.name || old.name || "", owner: w.owner || old.owner || "",
+        note: notes[w.name] || old.note || "", times: (Number(old.times) || 0) + (fresh ? 1 : 0), lastTs: Math.max(Number(old.lastTs) || 0, Number(ts) || 0), rooms: rooms.slice(-30) };
+    });
+    all[myCharId] = mine;
+    return all;
+  }
+  function forgetKnown(known, myCharId, key) {
+    const all = Object.assign({}, known || {}), mine = Object.assign({}, all[myCharId] || {});
+    delete mine[key]; all[myCharId] = mine; return all;
+  }
+  const agoZh = (ts, now) => { const d = Math.floor(((now || Date.now()) - (Number(ts) || 0)) / 86400000); return d <= 0 ? "今天" : d === 1 ? "昨天" : d + " 天前"; };
+  // 开口时那一段：房里现在有 TA 认识的别人家的角色，才写「你们见过」
+  //   who：一起说时几个人各一段，写上是谁记得的
+  function knownLine(known, myCharId, room, now, who) {
+    room = normalizeRoom(room);
+    const mine = (known || {})[myCharId] || {}, rows = [];
+    (room.peers || []).forEach(p => (p.chars || []).forEach(c => {
+      const k = mine[knownKey(p.peerId, c.id)]; if (!k) return;
+      rows.push("\n- " + c.name + "（" + p.nick + " 带来的）" + (k.name && k.name !== c.name ? "，上次见时叫「" + k.name + "」" : "")
+        + "：" + (k.note ? k.note + "；" : "") + "之前在联机里一起玩过 " + (k.times || 1) + " 次，上次是" + agoZh(k.lastTs, now) + "。");
+    }));
+    return rows.length ? "\n\n" + (who ? "【" + who + " 以前在联机里见过的人】（" + who + " 自己记得的印象）：" : "【你们见过】房里有你以前在联机里见过的人（只是你记得的印象）：") + rows.join("") : "";
+  }
+
   // ── 前情小卡（她 2026-11-22）：隔一阵子再连回同一个房间，顶上一张「上次聊到哪」──
   //   只用房间记录（transcript）写，不读任何人的人设；写好存进这个房间的 recap，重进时没有新话就直接用这份，不再花调用。
   //   recap：{ talk, said:[…], plans:[…], game, upTo(总结到的最后一条 ts), at(写的时间) }
@@ -1009,6 +1063,7 @@
     memoryTargets, transcript, lineInstruction, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
     ownsMsg, editMsg, recallMsg, dropMsg, dropOwnMsg, tombOwn, applyDrops, isDropped, TOMB_MAX, missingImgs, cleanQuote, quoteOf, quoteState, quoteCatalog, resolveQuote, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom, sinceRemembered, echoText,
     RECAP_GAP, RECAP_LONG, RECAP_TAIL, recapDue, recapFresh, recapInstruction, cleanRecap, recapText, promptRoom, lastTalkTs,
+    KNOWN_KEY, loadKnown, saveKnown, knownKey, metIn, meetPeople, forgetKnown, knownLine,
     normalizeRoom, upsertPeer, peerOf, lastNick, ownerNick, peerNames, syncedMsg, shouldOffer, admit, forwardTargets, reachable, rid, Mesh };
   root.NetRoomCore = Core;
 
@@ -1269,6 +1324,7 @@
     const [picked, setPicked] = useState({});
     const [busy, setBusy] = useState({});
     // 前情小卡：show＝这次连回来要不要摆；fold＝收起成一条；busy＝正在写
+    const [knownTick, setKnownTick] = useState(0);   // 删了一条「认识的人」以后重画
     const [recapUi, setRecapUi] = useState({ show: false, fold: false, busy: false, err: "" });
     const [withChat, setWithChat] = useState({});   // 带上 TA 最近的单聊（只进自己这边的模型，不发给别人）
     const [peerTyping, setPeerTyping] = useState({});   // 别人哪几个角色正在输入：{ peerId|charId: 名字 }
@@ -1849,7 +1905,7 @@
         const emotes = props.emotesFor ? props.emotesFor(char.id) : [];
         const d = await runProbe(p, ctx, { voice: true, tag: "netroom",
           instruction: Core.lineInstruction(cur, { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" },
-            { stamp: props.stampFor ? ts => props.stampFor(char.id, ts) : null, now: Date.now(), game: gameStateFor(char.id), presence: presence(), emotes: emotes.map(e => e.keyword), targets: patTargets(cur).concat([myNick()]) }),
+            { stamp: props.stampFor ? ts => props.stampFor(char.id, ts) : null, now: Date.now(), game: gameStateFor(char.id), presence: presence(), known: Core.knownLine(Core.loadKnown(), char.id, cur, Date.now()), emotes: emotes.map(e => e.keyword), targets: patTargets(cur).concat([myNick()]) }),
           schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"],\"quote\":\"（可选）Q编号\",\"emote\":\"（可选）\",\"pat\":\"（可选）\",\"vote\":\"（可选）\"}", maxTokens: 12000 });
         // 一次连发几条（她 2026-11-22：「为啥角色一次只会说一句话」）；老格式 text 也认
         const lines = Core.sayLines(d);
@@ -1903,7 +1959,8 @@
         const targets = patTargets(cur).concat([myNick()]);
         const sys = Core.jointInstruction(cur, mine.map(c => ({ id: c.id, name: c.name, you: props.youFor ? props.youFor(c.id) : "",
           emotes: (props.emotesFor ? props.emotesFor(c.id) : []).map(e => e.keyword) })),
-          { stamp: props.stampFor ? ts => props.stampFor(lead.id, ts) : null, now: Date.now(), presence: presence(), targets, cast, game: gameStateFor(null) });
+          { stamp: props.stampFor ? ts => props.stampFor(lead.id, ts) : null, now: Date.now(), known: (K => mine.map(c => Core.knownLine(K, c.id, cur, Date.now(), c.name)).join(""))(Core.loadKnown()),
+            presence: presence(), targets, cast, game: gameStateFor(null) });
         // 料全在 system，user 只留一句触发（prompt-send-shape）；几个人各说几条，按人数给足
         const raw = await callAI(p, sys, [{ role: "user", content: "接着房里的话往下说。" }], { use: "chat", logLabel: "联机·一起说", maxTokens: Math.min(32000, 12000 + 4000 * mine.length) });
         const people = mine.map(c => charsById[c.id]);
@@ -2040,12 +2097,14 @@
       if (!part.fresh.length) throw new Error("上次记过以后没有新的话");
       const ask = () => runProbe(p, props.ctxFor(char), { voice: true, tag: "netroom",
         instruction: Core.memoryInstruction(Object.assign({}, live, { msgs: part.fresh }), { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" }, part.before),
-        schemaHint: "{\"memory\":\"一小段，第三人称\"}", maxTokens: 12000 });
+        schemaHint: "{\"memory\":\"一小段，第三人称\",\"people\":[{\"name\":\"别人带来的那位的名字\",\"note\":\"一两句印象，第三人称\"}]}", maxTokens: 12000 });
       // 失败自动再试一次；还不行才报给她（她能在「以前的房间」里点重试）
       let d; try { d = await ask(); if (!String((d && d.memory) || "").trim()) d = await ask(); } catch (e) { d = await ask(); }
       const text = String((d && d.memory) || "").trim();
       if (!text) throw new Error("没浓缩出什么");
       props.onAddMemory && props.onAddMemory(text, char.id);
+      // 在联机里认识的人：这一段里开过口的别人家的角色，各记名字＋印象＋几次＋上次（不存对方人设）
+      try { Core.saveKnown(Core.meetPeople(Core.loadKnown(), char.id, Object.assign({}, live, { msgs: part.fresh }), d && d.people, part.upTo)); } catch (e) {}
       // 刚聊完那几天，单聊里接得上原话：只给勾了记忆的这个人存一段房间最后几句（app 那边过了「最近几天」就不带）
       try { const echo = loadJSON("x_roomEcho", {}) || {};
         echo[charId] = { ts: Date.now(), text: Core.echoText(live, part.fresh, char.remark || char.name, props.youFor ? props.youFor(char.id) : "") };
@@ -2308,6 +2367,26 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
             } }))));
     }
 
+    // 在联机里认识的人：按我的角色分组，每条能删
+    if (page === "known") {
+      const K = Core.loadKnown(), ids = Object.keys(K).filter(id => Object.keys(K[id] || {}).length);
+      const del = (cid, key) => { Core.saveKnown(Core.forgetKnown(Core.loadKnown(), cid, key)); setKnownTick(n => n + 1); };
+      return shell(h(Head, { zh: "在联机里认识的人", onBack: () => setPage("home") }), scroll([
+        h(Note, { key: "n" }, "退出时勾了「记进记忆」的角色，会记下在房里见过的别人家的角色：名字、谁带来的、一两句印象、一起玩过几次。只记这些，对方的人设不在你手机上。下次房里又遇到，TA 开口时记得见过。删掉一条，TA 就当没见过这个人。"),
+        ids.length ? ids.map(cid => card([
+          label((charsById[cid] && (charsById[cid].remark || charsById[cid].name)) || "已经不在的角色"),
+          ...Object.keys(K[cid]).sort((a, b) => (K[cid][b].lastTs || 0) - (K[cid][a].lastTs || 0)).map(key => { const k = K[cid][key];
+            return h("div", { key, "data-wk": "nrknown", className: "flex items-start", style: { gap: 10 } },
+              h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: fs(13), color: t.ink, lineHeight: 1.6 } },
+                (k.name || "TA") + (k.owner ? "（" + k.owner + " 带来的）" : ""),
+                k.note && h("div", { style: { fontSize: fs(12), color: t.fog } }, k.note),
+                h("div", { style: { fontSize: fs(11), color: t.fog } }, "一起玩过 " + (k.times || 1) + " 次 · 上次 " + fmt(k.lastTs))),
+              h("button", { "data-wk": "nrknowndel", onClick: () => del(cid, key), style: { flexShrink: 0, minHeight: 36, padding: "0 8px", fontFamily: F_BODY, fontSize: fs(12), color: t.fog } }, "删掉"));
+          })
+        ]))
+        : h(Note, { key: "e" }, "还没有。退出房间时勾上「记进 TA 的记忆」，TA 见过的别人家的角色就会记在这儿。")
+      ]));
+    }
     // 首页
     const supaGuideText = () => {
       const m = root.AssistantManual && root.AssistantManual.byId ? root.AssistantManual.byId("netroom") : null;
@@ -2352,6 +2431,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         h(Note, { key: "priv" }, "别人只看得到你带的人的名字和头像，人设、记忆、世界书不出你的手机。聊天记录每人各存一份。")
       ]),
       supaBox,
+      h(Btn, { key: "kn", label: "在联机里认识的人", onClick: () => setPage("known"), wk: "nrknownopen" }),
       label("以前的房间"),
       rooms.length ? rooms.map(r => h("button", { key: r.id, "data-wk": "nrhist", onClick: () => { setViewId(r.id); setPage("view"); }, className: "active:opacity-70",
         style: { textAlign: "left", border: "1px solid " + t.line, borderRadius: 12, background: t.bg2, padding: "10px 14px", color: t.ink } },
