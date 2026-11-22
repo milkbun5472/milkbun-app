@@ -294,3 +294,8 @@ test("空间成员把她也算进去：成员页第一个、人数加一", () =>
 test("他们发起的投票带头像和名字", () => {
   assert.match(cs, /"data-kind": "poll", className: "py-1 flex items-start gap-2 justify-start" \},\n\s+mAvatar\(memberById\(m\.senderId\)/);
 });
+
+test("串门：三分之一的轮次点一个能去别的频道的人", () => {
+  assert.match(ap, /【串门】/);
+  assert.match(ap, /Math\.random\(\) > 0\.35\) return "";/);
+});
