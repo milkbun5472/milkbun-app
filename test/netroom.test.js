@@ -104,7 +104,9 @@ test("角色开口走 runProbe(voice)、料在 system、maxTokens 不低于 8000
   assert.match(src, /runProbe\(p, props\.ctxFor\(char\), \{ voice: true, tag: "netroom",/);
   const n = [...src.matchAll(/maxTokens: (\d+)/g)].map(m => +m[1]);
   assert.ok(n.length >= 2 && n.every(x => x >= 8000), String(n));
-  assert.ok(!/callAI\(/.test(src), "不另起一条直发");
+  // 单人开口不另起一条直发；唯一一处 callAI 是「一起说」那一枪（几个人一次写，runProbe 只写一个人）
+  assert.strictEqual((src.match(/callAI\(/g) || []).length, 1, "只有一起说那一处直发");
+  assert.match(src, /maxTokens: Math\.min\(32000, 12000 \+ 4000 \* mine\.length\)/);
   const { C } = load();
   const ins = C.lineInstruction({ myNick: "我", peerNick: "她", myChars: [{ id: "a", name: "甲" }], peerChars: [{ id: "p", name: "乙" }], msgs: [] }, { id: "a", name: "甲" });
   assert.match(ins, /乙/);
@@ -387,4 +389,57 @@ test("记进记忆用第三人称，点名角色和她", () => {
   const t = C.memoryInstruction({ id: "m", myNick: "小雨", peers: [], myChars: [], msgs: [] }, { id: "a", name: "甲", you: "阿梨" });
   assert.ok(t.includes("写成第三人称") && t.includes("「甲」和「阿梨」") && !t.includes("你的第一人称"));
   assert.ok(src.includes('1~3 句，第三人称'));
+});
+
+// ── 一起说（她 2026-11-22「有俩角色带进来的时候能让他们同时一个调用都说吗，跟群里一样」）──
+test("一起说：只在自己带了两个以上的人时出现，一次 callAI", () => {
+  const i = src.indexOf("const speakTogether = async"), j = src.indexOf("const redo = ", i);
+  assert.ok(i > 0 && j > i, "抠不出 speakTogether");
+  const body = src.slice(i, j);
+  assert.strictEqual((body.match(/callAI\(/g) || []).length, 1, "整次只打一枪");
+  assert.ok(!/runProbe\(/.test(body), "不是一人一枪");
+  assert.match(body, /mine\.length < 2/);
+  assert.match(src, /myChars\.length > 1 && props\.castFor && h\("button", \{ "data-wk": "nrtogether"/);
+});
+
+test("一起说：输出里不在这次名单上的名字整条丢掉（别人带来的角色、真人都不行）", () => {
+  const { C } = load();
+  const chars = [{ id: "a", name: "甲" }, { id: "b", name: "乙", remark: "小乙" }];
+  const raw = JSON.stringify([{ name: "甲", text: "早" }, { name: "丙", text: "我是别人带来的" }, { name: "小乙", text: "嗯", emote: "开心" }, { name: "莉莎", text: "替真人说" }, { name: "甲", text: "" }]);
+  const got = C.jointLines(raw, chars, "莉莎");
+  assert.deepStrictEqual(got.map(x => [x.char.id, x.text, x.emote]), [["a", "早", ""], ["b", "嗯", "开心"]]);
+});
+
+test("一起说：认人和解析走群聊那套公共函数，成员那段由 app 用群聊拼法递进来", () => {
+  const i = src.indexOf("function jointLines("), j = src.indexOf("function memoryInstruction(", i);
+  assert.ok(i > 0 && j > i);
+  const jl = src.slice(i, j);
+  ["parseJSONLoose", "salvageGroupLines", "pickMember", "GroupIdentityGuard"].forEach(f => assert.ok(jl.includes(f), "没走 " + f));
+  const k = src.indexOf("function jointInstruction("), ji = src.slice(k, i);
+  ["groupBans", "GROUP_MULTI_BUBBLE", "sidesLines", "transcript"].forEach(f => assert.ok(ji.includes(f), "没走 " + f));
+  const app = read("js/app.js");
+  const a = app.indexOf('screen === "netroom"'), b = app.indexOf('screen === "zhaoying"', a);
+  assert.ok(a > 0 && b > a);
+  const pr = app.slice(a, b);
+  ["castFor:", "groupNowSegs(", "memberPrivateContextFor(", "groupMemSplit(", "groupRelLines(", "groupPersonaText(", "memberLabel("].forEach(f => assert.ok(pr.includes(f), "props 里没走 " + f));
+});
+
+test("一起说：房间那一层照单人那份（几方、面具、记录），料全在 system", () => {
+  const { C } = load();
+  const room = { id: "r", myNick: "莉莎", myChars: [{ id: "a", name: "甲" }, { id: "b", name: "乙" }], peers: [{ peerId: "p1", nick: "阿柚", chars: [{ name: "丙" }] }],
+    msgs: [{ id: "1", side: "peer", peerId: "p1", kind: "char", name: "丙", text: "你们好", ts: 1 }] };
+  const s = C.jointInstruction(room, [{ id: "a", name: "甲", you: "小莉", emotes: ["开心"] }, { id: "b", name: "乙" }], { cast: "【成员】CAST", targets: ["阿柚"] });
+  assert.match(s, /CAST/);
+  assert.match(s, /丙（阿柚 带来的）：你们好/);
+  assert.match(s, /只能是 甲 \/ 乙 之一/);
+  assert.match(s, /你认识的 小莉 在这个房间里用的名字是「莉莎」/);
+  assert.match(s, /甲：开心/);
+  assert.ok(src.includes('[{ role: "user", content: "接着房里的话往下说。" }]'));
+});
+
+test("一起说：整次一个 turnId，重新说整批重来", () => {
+  assert.match(src, /const redo = m => \{/);
+  const i = src.indexOf("const redo = m =>"), body = src.slice(i, i + 300);
+  assert.match(body, /speakTogether\(j, m\.turnId\)/);
+  assert.match(src, /else if \(act === "reroll"\) redo\(m\);/);
 });

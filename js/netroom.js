@@ -273,6 +273,55 @@
     const arr = d && Array.isArray(d.say) ? d.say : d && typeof d.say === "string" ? [d.say] : d && d.text ? [d.text] : [];
     return arr.map(x => String(x == null ? "" : x)).join("\n").split(/\n+/).map(x => x.trim()).filter(Boolean).slice(0, 8);
   }
+  // ── 一起说（她 2026-11-22「有俩角色带进来的时候能让他们同时一个调用都说吗，跟群里一样」）──
+  //   一次调用写几个人，形状照群聊线上：每人那一段（人设、心情、记忆、关系）由调用方用群聊那套拼好递进来（cast），
+  //   这儿只摆房间这一层（几方、谁在线、带时间的记录）和群聊那份输出格式；输出用群聊同一套解析认人（jointLines）。
+  //   chars：[{ id, name, you, emotes:[关键词] }]；opts 同 lineInstruction，另加 cast（成员那一大段）
+  function jointInstruction(room, chars, opts) {
+    room = normalizeRoom(room);
+    const o = opts || {}, gap = sinceLast(room, o.now), list = (chars || []).filter(c => c && c.name);
+    const names = list.map(c => c.name), n = 1 + (room.peers || []).length;
+    const others = (room.myChars || []).filter(c => names.indexOf(c.name) < 0).map(c => c.name);
+    const you = list.map(c => "\n- 带「" + c.name + "」来的是 " + youLine(room, c) + "。").join("");
+    const emo = list.filter(c => (c.emotes || []).length).map(c => "\n  · " + c.name + "：" + c.emotes.slice(0, 80).join(" / ")).join("");
+    const tg = (o.targets || []).filter(Boolean);
+    const poll = (room.msgs || []).slice().reverse().find(m => m.type === "poll" && !m.recalled && m.x);
+    const pollLine = poll ? "\"vote\":\"选项原文\"——房里那张" + (poll.x.ask ? "请示「" + poll.x.ask.what + "」（选项：准 / 驳）" : "投票「" + poll.x.title + "」（选项：" + poll.x.options.map(op => op.text).join(" / ") + "）") + "，还没投的人想投就在自己那条里填" : "";
+    return (typeof groupBans === "function" ? groupBans({ echo: false }) + "\n\n" : "")
+      + (typeof GROUP_MULTI_BUBBLE === "string" ? GROUP_MULTI_BUBBLE + "\n\n" : "")
+      + "【这里是联机房间】" + room.myNick + " 用自己的手机和别人的手机连在了一起，房间里一共 " + n + " 个人，每人各带了自己的人进来，大家在同一个房间里说话。"
+      + "\n这一次由你写「" + names.join("」「") + "」这几位在房间里接着往下说：写谁那一条你就是谁，像群里那样你一言我一语，接彼此的话也行、接房里别人的话也行，不是每人都得开口，同一个人也可以连发几条。"
+      + you + (others.length ? "\n- 同一边带来、这一次不开口的还有：" + others.join("、") + "。" : "")
+      + "\n另外几方：" + (sidesLines(room, o.presence) || "\n- （还没别人进来）")
+      + "\n别人带来的人、房里的真人，你只知道名字和他们在这里说过的话，其余的不知道，也不替他们说话。"
+      + (o.cast ? "\n\n" + o.cast : "")
+      + "\n\n【房间里到现在的全部聊天】" + (o.stamp ? "（每行前面〔〕里是那句话说的时间，只是时间标记，不要写进说的话）" : "") + "\n" + (transcript(room, o) || "（还没人说话）")
+      + (o.stamp ? "\n（现在是〔" + o.stamp(o.now || Date.now()) + "〕）" : "")
+      + (gap ? "\n（最后一条到现在已经过去 " + gap + " 了）" : "")
+      + "\n\n【输出】只输出 JSON 数组，按说话先后排。每一条 {\"name\":\"说话的人，只能是 " + names.join(" / ") + " 之一\",\"text\":\"说出口的话本身，一条一个气泡\""
+      + (emo ? ",\"emote\":\"（可选）想甩表情包时填关键词，只能从这个人自己那几张里挑\"" : "")
+      + (tg.length ? ",\"pat\":\"（可选）想用「拍一拍」戳谁就填名字（" + tg.join("、") + "），是一个动作，不用再在 text 里写\"" : "")
+      + (pollLine ? ",\"vote\":\"（可选）" + pollLine + "\"" : "") + "}。"
+      + (emo ? "\n各人能用的表情：" + emo : "")
+      + "\n红包不用管：房里有红包时各人会自己去抢。"
+      + bans();
+  }
+  // 模型交回来的那份数组 → 一条条要发的：认人照群聊（pickMember + 身份闸），不在这次名单里的整条丢掉
+  //   chars：这次开口的那几位（真角色对象，带 id / name / remark）。返回 [{ char, text, emote, pat, vote }]
+  function jointLines(raw, chars, userName) {
+    const members = (chars || []).filter(c => c && c.name);
+    let arr = typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : (() => { try { return JSON.parse(raw); } catch (e) { return null; } })();
+    if (arr && !Array.isArray(arr) && typeof arr === "object") arr = ["items", "messages", "replies", "list"].map(k => arr[k]).find(Array.isArray) || (arr.name ? [arr] : null);
+    if (!Array.isArray(arr) && typeof salvageGroupLines === "function") { const sv = salvageGroupLines(raw); if (sv.length) arr = sv; }
+    if (!Array.isArray(arr)) return [];
+    const pick = (typeof pickMember === "function" ? n => pickMember(members, n) : n => members.find(c => c.name === n || c.remark === n) || null);
+    arr = arr.map(it => { if (!it || typeof it !== "object") return null; const c = pick(it.name); return c ? Object.assign({}, it, { name: c.name, _c: c }) : null; }).filter(Boolean);
+    const G = root.GroupIdentityGuard;
+    if (G && typeof G.sanitize === "function") arr = G.sanitize(arr, members, userName).items;
+    const s = v => typeof v === "string" && v.trim() && v.trim() !== "null" ? v.trim() : "";
+    return arr.map(it => ({ char: it._c || members.find(c => c.name === it.name), text: String(it.text == null ? "" : it.text).trim(), emote: s(it.emote), pat: s(it.pat), vote: s(it.vote) }))
+      .filter(x => x.char && (x.text || x.emote || x.pat)).slice(0, 24);
+  }
   function memoryInstruction(room, char) {
     room = normalizeRoom(room);
     return (youAlias(room, char) ? "（" + youAlias(room, char) + "）\n" : "") + "把下面这次「" + (char.you || room.myNick) + " 带你进联机房间，跟 " + (peerNames(room).join("、") || "别人") + " 那边的人聊天」的经历，浓缩成 1~3 句会长期记住的事。"
@@ -662,7 +711,7 @@
   const Core = { BROKERS, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
     memoryTargets, transcript, lineInstruction, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
-    ownsMsg, editMsg, recallMsg, dropMsg, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, mergeMsgs, removeRoom,
+    ownsMsg, editMsg, recallMsg, dropMsg, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom,
     normalizeRoom, upsertPeer, peerOf, ownerNick, peerNames, syncedMsg, shouldOffer, admit, forwardTargets, reachable, rid, Mesh };
   root.NetRoomCore = Core;
 
@@ -1168,6 +1217,66 @@
       } catch (e) { props.toast && props.toast("没说出来：" + ((e && e.message) || e)); }
       finally { typing(false); setBusy(b => Object.assign({}, b, { [c.id]: false })); }
     };
+    // ── 一起说：自己带来的几个人一次调用、照群聊那样轮流接话；整次一个 turnId，重新说整批重来 ──
+    //   线路用第一个人自己的 apiFor（没有群，就照「没有群就用第一个人的」），费用算这台手机。
+    //   每人那一段由 app 用群聊那套拼（castFor）；没递 castFor 的旧壳不给这个按钮。
+    const speakTogether = async (ids, rerollId) => {
+      const r0 = roomRef.current, mine = ((r0 && r0.myChars) || []).filter(c => ids.indexOf(c.id) >= 0 && charsById[c.id]);
+      if (mine.length < 2 || mine.some(c => busy[c.id]) || !props.castFor) return;
+      const lead = charsById[mine[0].id];
+      const p = props.apiFor ? props.apiFor(lead.id) : null;
+      if (!p) { props.toast && props.toast("先去 设置·API 配一条线路"); return; }
+      const setAll = v => setBusy(b => Object.assign({}, b, ...mine.map(c => ({ [c.id]: v }))));
+      setAll(true);
+      const typing = on => mine.forEach(c => send({ t: "typing", id: c.id, name: c.name, on }));
+      typing(true);
+      try {
+        const cur = rerollId ? Object.assign({}, r0, { msgs: (r0.msgs || []).filter(x => x.turnId !== rerollId) }) : r0;
+        const recall = (cur.msgs || []).filter(m => !m.sys && !m.recalled).slice(-8).map(m => String(m.text || "")).join("\n");
+        const cast = await props.castFor(mine.map(c => ({ id: c.id, recent: !!c.recent })), recall);
+        const targets = patTargets(cur).concat([myNick()]);
+        const sys = Core.jointInstruction(cur, mine.map(c => ({ id: c.id, name: c.name, you: props.youFor ? props.youFor(c.id) : "",
+          emotes: (props.emotesFor ? props.emotesFor(c.id) : []).map(e => e.keyword) })),
+          { stamp: props.stampFor ? ts => props.stampFor(lead.id, ts) : null, now: Date.now(), presence: presence(), targets, cast });
+        // 料全在 system，user 只留一句触发（prompt-send-shape）；几个人各说几条，按人数给足
+        const raw = await callAI(p, sys, [{ role: "user", content: "接着房里的话往下说。" }], { use: "chat", logLabel: "联机·一起说", maxTokens: Math.min(32000, 12000 + 4000 * mine.length) });
+        const people = mine.map(c => charsById[c.id]);
+        const got = Core.jointLines(raw, people, myNick());
+        const turnId = rerollId || mid("t"), list = [];
+        for (const it of got) {
+          const nm = (mine.find(c => c.id === it.char.id) || {}).name || it.char.remark || it.char.name;
+          const base = () => ({ id: mid("c"), kind: "char", name: nm, charId: it.char.id, ts: Date.now(), turnId, text: "" });
+          if (it.text) Core.sayLines({ text: it.text }).forEach(text => list.push(Object.assign(base(), { text })));
+          const em = it.emote && props.emoteFor ? props.emoteFor(it.char.id, it.emote) : null;
+          if (em) list.push(Object.assign(base(), { type: "emote", x: Object.assign({ keyword: em.keyword, url: em.url }, await emoteWire(em.url)) }));
+          if (it.pat && it.pat !== nm && targets.indexOf(it.pat) >= 0) list.push(Object.assign(base(), { type: "pat", x: { to: it.pat } }));
+          if (it.vote) { const pl = (cur.msgs || []).slice().reverse().find(x => x.type === "poll" && !x.recalled && x.x);
+            const oi = pl ? pl.x.options.findIndex(o => o.text === it.vote) : -1;
+            if (oi >= 0 && !(pl.x.options[oi].voters || []).some(v => v === nm)) vote(pl.x.pollId, oi, nm); }
+        }
+        if (!list.length) throw new Error("他们没想好说什么，再点一次");
+        const joints = Object.assign({}, (roomRef.current && roomRef.current.joints) || {}, { [turnId]: mine.map(c => c.id) });
+        if (rerollId) {
+          const r = roomRef.current, olds = (r.msgs || []).filter(x => x.turnId === rerollId);
+          const local = list.map(x => Object.assign(Core.wireMsg(x, true), { side: "me" }));
+          const v0 = (r.vers || {})[rerollId] || { list: [olds], cur: 0 };
+          const v = { list: v0.list.concat([local]).slice(-8), cur: 0 }; v.cur = v.list.length - 1;
+          commit(Core.upsertRoom(Object.assign(Core.replaceTurn(r, rerollId, local), { joints, vers: Object.assign({}, r.vers || {}, { [rerollId]: v }) })));
+          send({ t: "reroll", turnId: rerollId, msgs: list.map(x => Core.wireMsg(x)) });
+        } else {
+          commit(Core.patchRoom(roomRef.current, { joints }));
+          for (let i = 0; i < list.length; i++) {
+            if (i) await new Promise(r => setTimeout(r, Math.min(2200, 500 + String(list[i].text || "").length * 60)));
+            post(Object.assign({}, list[i], { ts: Date.now() }));
+          }
+        }
+      } catch (e) { props.toast && props.toast("没说出来：" + ((e && e.message) || e)); }
+      finally { typing(false); setAll(false); }
+    };
+    // 这一轮是谁说的：一起说那一轮整批重来，单人那一轮照旧只叫那一个人
+    const redo = m => { const r = roomRef.current || {}, j = (r.joints || {})[m.turnId];
+      if (j && j.length > 1) return speakTogether(j, m.turnId);
+      const c = (r.myChars || []).find(x => x.id === m.charId); if (c) speak(c, m.turnId); };
     // 左右翻这一轮的几个版本：翻到哪版就把哪版发给大家
     const flipTurn = (turnId, dir) => {
       const r = roomRef.current, v = (r.vers || {})[turnId]; if (!v) return;
@@ -1215,7 +1324,7 @@
       else if (act === "del") requestAppConfirm("删除这条消息？", "只从你这台手机上删掉，房里别人那边还在。删了不能恢复。", () => dropLocal(m.id), "删除");
       else if (act === "recall") recallOwn(m.id);
       else if (act === "edit") requestAppPrompt("编辑这条消息", "改好以后房里每个人那边都会换成新的，标「已编辑」。", m.text, v => { if (String(v || "").trim()) editOwn(m.id, v); }, "改好了");
-      else if (act === "reroll") { const c = ((roomRef.current && roomRef.current.myChars) || []).find(x => x.id === m.charId); if (c) speak(c, m.turnId); }
+      else if (act === "reroll") redo(m);
     };
     // 每一行：长按、卡片、这一轮最后一条底下的「重新说 ‹ 1/2 ›」
     const rowProps = (r, interactive) => (m, i) => {
@@ -1225,13 +1334,14 @@
       o.onPress = onPress; o.onRelease = onRelease;
       const next = r.msgs[i + 1];
       if (m.side === "me" && m.kind === "char" && m.turnId && !(next && next.turnId === m.turnId)) {
-        const v = (r.vers || {})[m.turnId], c = (r.myChars || []).find(x => x.id === m.charId);
+        const v = (r.vers || {})[m.turnId], jt = (r.joints || {})[m.turnId], c = (r.myChars || []).find(x => x.id === m.charId);
+        const rb = jt && jt.length > 1 ? jt.some(id => busy[id]) : !!(c && busy[c.id]);
         const sb = { fontFamily: F_BODY, fontSize: fs(10.5), color: t.fog, minHeight: 24, padding: "0 4px" };
         o.tools = h("span", { "data-wk": "nrreroll", style: { display: "inline-flex", alignItems: "center", gap: 2 } },
           v && v.list.length > 1 && h("button", { "data-wk": "nrverprev", onClick: () => flipTurn(m.turnId, -1), disabled: v.cur <= 0, style: sb, className: "disabled:opacity-30" }, "‹"),
           v && v.list.length > 1 && h("span", { style: sb }, (v.cur + 1) + "/" + v.list.length),
           v && v.list.length > 1 && h("button", { "data-wk": "nrvernext", onClick: () => flipTurn(m.turnId, 1), disabled: v.cur >= v.list.length - 1, style: sb, className: "disabled:opacity-30" }, "›"),
-          c && h("button", { "data-wk": "nrrerollbtn", onClick: () => speak(c, m.turnId), disabled: !!busy[c.id], style: sb, className: "active:opacity-60 disabled:opacity-40" }, busy[c.id] ? "在想…" : "重新说"));
+          (c || jt) && h("button", { "data-wk": "nrrerollbtn", onClick: () => redo(m), disabled: rb, style: sb, className: "active:opacity-60 disabled:opacity-40" }, rb ? "在想…" : "重新说"));
       }
       return o;
     };
@@ -1323,7 +1433,11 @@
             myChars.map(c => h("button", { key: c.id, "data-wk": "nrspeaker", disabled: !!busy[c.id] || alone, onClick: () => speak(c),
               className: "active:opacity-60 disabled:opacity-40", style: { flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 44 } },
               h(Avatar, { character: charsById[c.id] || { id: c.id, name: c.name }, size: 32 }),
-              h("span", { style: { fontFamily: F_BODY, fontSize: fs(10), color: t.fog } }, busy[c.id] ? "在想…" : c.name)))),
+              h("span", { style: { fontFamily: F_BODY, fontSize: fs(10), color: t.fog } }, busy[c.id] ? "在想…" : c.name))),
+            // 一起说：带了两个以上的人才有；一次调用让他们像群里那样轮流接话
+            myChars.length > 1 && props.castFor && h("button", { "data-wk": "nrtogether", disabled: myChars.some(c => busy[c.id]) || alone, onClick: () => speakTogether(myChars.map(c => c.id)),
+              className: "active:opacity-60 disabled:opacity-40", style: { flexShrink: 0, minHeight: 32, padding: "0 10px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.ink } },
+              myChars.some(c => busy[c.id]) ? "在想…" : "一起说")),
           h(Composer, { onSend: sayHuman, disabled: alone, fillRef, plusOn: panel, onPlus: () => setPanel(v => !v) })),
         ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sayRich, sendRp,
           photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }));

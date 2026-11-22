@@ -38651,6 +38651,23 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     emoteFor: (charId, kw) => emoteMatch(emotesForChar(charId), kw),
     // 房间记录每条前面的时间：跟单聊给模型的记录同一种戳（时间感知关着的角色就不标）
     stampFor: (charId, ts) => aiStampFor(charId, ts),
+    // 一起说：每人那一段跟群通话同一套拼法（groupNowSegs 此刻 + memberPrivateContextFor 私下往来 + groupMemSplit 记忆分流 + groupRelLines 关系）；
+    //   勾了「带上最近单聊」的人才带私聊近况，没勾的只给人设、心情、记忆这些「TA 是谁」的层
+    castFor: async (picks, recallText) => {
+      const people = (picks || []).map(x => characters.find(c => c.id === x.id)).filter(Boolean);
+      const on = c => !!((picks || []).find(x => x.id === c.id) || {}).recent;
+      if (typeof primeQueryVec === "function") await primeQueryVec(recallText || "");
+      const split = groupMemSplit(null, people.map(c => c.id), recallText || "", { limit: 5 + 2 * Math.max(0, people.length - 1) });
+      const cap = groupPersonaBudget(people.length || 1);
+      const desc = people.map(c => { const n = groupNowSegs(c, { interop: on(c) });
+        return "【" + memberLabel(people, c) + "】" + groupPersonaText(c.persona, cap) + charLangLine(c) + n.live + n.grownSeg + n.mdSeg + n.afSeg + n.aSeg + n.zSeg + n.hcSeg + n.ageSeg + n.sbSeg + n.cySeg + n.cpSeg + n.caSeg; }).join("\n\n");
+      const priv = people.map(c => { const seg = memberPrivateContextFor(c, split, { interop: on(c), privateCtxN: on(c) ? 6 : 0 });
+        return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : ""; }).filter(Boolean).join("\n\n");
+      const shared = formatMemLib(split.shared), rel = groupRelLines(null, people, profile);
+      return "【成员】\n" + desc + sameNameNote(people) + (rel ? "\n" + rel : "")
+        + (shared && shared.trim() ? "\n\n【记忆库里大家都知道的事】\n" + shared.trim() : "")
+        + (priv ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。一个成员不知道、也不提另一个成员和用户之间私下说过什么、是什么关系，除非那位成员自己当众说出来。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + priv : "");
+    },
     onBack: goHome
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
