@@ -1310,8 +1310,9 @@ function MsgStickOut({ isU, children }) {
     const ro = typeof ResizeObserver === "function" ? new ResizeObserver(place) : null;
     if (ro && b) { ro.observe(b); if (b.parentElement) ro.observe(b.parentElement); }
     return () => { if (ro) ro.disconnect(); };
+  // 贴的表情压在气泡装饰（主题里给气泡挂的贴纸、边框图）上面（群里 2026-11-22「总会被气泡装饰压在下层」）：原来 3/4，装饰常常更高
   }, [isU]);
-  return h("span", { ref: ref, "data-wk": "msgstickout", "aria-hidden": "true", style: { position: "absolute", top: 0, left: 0, width: 0, height: 0, overflow: "visible", pointerEvents: "none", zIndex: 4 } },
+  return h("span", { ref: ref, "data-wk": "msgstickout", "aria-hidden": "true", style: { position: "absolute", top: 0, left: 0, width: 0, height: 0, overflow: "visible", pointerEvents: "none", zIndex: 41 } },
     at ? h("span", { style: { position: "absolute", top: at.top, left: at.x, width: 0, height: 0 } }, children) : null);
 }
 function msgStickEl(m, isU, outside) {
@@ -1320,15 +1321,15 @@ function msgStickEl(m, isU, outside) {
   const gs = m && Array.isArray(m.gSticks) ? m.gSticks.filter(x => x && (x.emoji || x.url)) : [];
   if (gs.length) {
     const mine = !isU && m.stick ? [m.stick] : [];
-    return h("span", { "data-wk": "msgstick", "data-multi": "1", ref: msgStickFit, "data-out": outside ? "1" : undefined, style: { position: "absolute", top: -14, [isU ? "left" : "right"]: -10, height: 26, padding: "0 6px", borderRadius: 13, display: "flex", alignItems: "center", gap: 2, fontSize: 15, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3, whiteSpace: "nowrap" } },
+    return h("span", { "data-wk": "msgstick", "data-multi": "1", ref: msgStickFit, "data-out": outside ? "1" : undefined, style: { position: "absolute", top: -14, [isU ? "left" : "right"]: -10, height: 26, padding: "0 6px", borderRadius: 13, display: "flex", alignItems: "center", gap: 2, fontSize: 15, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 40, whiteSpace: "nowrap" } },
       gs.concat(mine).slice(-5).map((x, k) => x.emoji ? h("span", { key: k }, x.emoji) : h("img", { key: k, src: x.url, alt: "", style: { width: 18, height: 18, objectFit: "contain" } })));
   }
   // 她贴在TA气泡上的是 stick；TA贴在她气泡上的是 theirStick（同一个画法）
   const st = m && (isU ? m.theirStick : m.stick);
   if (!st || (!st.url && !st.emoji)) return null;
   // 小黄脸 emoji（她 2026-10-31：QQ 那种贴的其实是 emoji）：一个字，叠在角上
-  if (st.emoji) return h("span", { "data-wk": "msgstick", "data-emoji": "1", ref: msgStickFit, "data-out": outside ? "1" : undefined, style: { position: "absolute", top: -14, [isU ? "left" : "right"]: -10, minWidth: 26, height: 26, padding: "0 3px", borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 3 } }, st.emoji);
-  return h("img", { "data-wk": "msgstick", ref: msgStickFit, "data-out": outside ? "1" : undefined, src: st.url, alt: st.keyword || "", style: { position: "absolute", top: -16, [isU ? "left" : "right"]: -12, width: 30, height: 30, objectFit: "contain", pointerEvents: "none", zIndex: 3, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.18))" } });
+  if (st.emoji) return h("span", { "data-wk": "msgstick", "data-emoji": "1", ref: msgStickFit, "data-out": outside ? "1" : undefined, style: { position: "absolute", top: -14, [isU ? "left" : "right"]: -10, minWidth: 26, height: 26, padding: "0 3px", borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 40 } }, st.emoji);
+  return h("img", { "data-wk": "msgstick", ref: msgStickFit, "data-out": outside ? "1" : undefined, src: st.url, alt: st.keyword || "", style: { position: "absolute", top: -16, [isU ? "left" : "right"]: -12, width: 30, height: 30, objectFit: "contain", pointerEvents: "none", zIndex: 40, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.18))" } });
 }
 function bubbleSticker(isU) {
   const S = bubbleSkinNow();
