@@ -327,3 +327,11 @@ test("歌单「放这首」：歌库没有的去搜来放", () => {
   assert.match(ap, /neteaseSearchOne\(\(x\.title \+ " " \+ \(x\.artist \|\| ""\)\)\.trim\(\)/);
   assert.match(cs, /onPlaySong && \(canSearchSong \|\| chpSongMatch\(myLib, x\)\)/);
 });
+
+test("便利贴上不重复署名", () => {
+  const c = {}; vm.createContext(c);
+  vm.runInContext(en.slice(en.indexOf("function chpNoSelfName"), en.indexOf("function chpScribble")) + ";this.F=chpNoSelfName;", c);
+  assert.equal(c.F("周树生：祝发财", "周树生"), "祝发财");
+  assert.equal(c.F("到此一游", "周树生"), "到此一游");
+  assert.equal(c.F("周树生到此一游", "周树生"), "到此一游");
+});

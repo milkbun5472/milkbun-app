@@ -23508,7 +23508,7 @@ function StickyNote({ n, i, nameOf, mine, actions }) {
     h("span", { "data-wk": "chnotetape", "aria-hidden": "true", style: { position: "absolute", top: -6, left: "50%", width: 38, height: 13, marginLeft: -19, background: "rgba(255,255,255,.55)", boxShadow: "0 0 0 1px rgba(0,0,0,.04)", transform: "rotate(-2deg)" } }),
     h("div", { "data-wk": "chnotetext", style: { whiteSpace: "pre-wrap", wordBreak: "break-word" } }, n.text),
     (n.doodles || []).length ? h("div", { style: { marginTop: 7, paddingTop: 5, borderTop: "1px dashed rgba(58,50,38,.18)" } },
-      n.doodles.map((d, k) => h("div", { key: k, "data-wk": "chnotedoodle", style: { fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#6b5d48", marginTop: k ? 3 : 0 } }, h("span", { style: { opacity: 0.7 } }, nm(d.by) + "　"), d.text))) : null,
+      n.doodles.map((d, k) => h("div", { key: k, "data-wk": "chnotedoodle", style: { fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#6b5d48", marginTop: k ? 3 : 0 } }, h("span", { style: { opacity: 0.7 } }, nm(d.by) + "　"), typeof chpNoSelfName === "function" ? chpNoSelfName(d.text, nm(d.by)) : d.text))) : null,
     h("div", { "data-wk": "chnotemeta", className: "flex items-center justify-between", style: { marginTop: 8, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#8a7b63" } }, "— " + nm(n.by),
       h("span", { className: "flex gap-3" }, ...(actions || []))));
 }
