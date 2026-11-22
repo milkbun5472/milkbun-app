@@ -1835,6 +1835,9 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
           hint: v => v === "auto" ? "一轮接一轮不停，跟以前一样。" : "每一轮（一手、一夜一天、一个任务）结束停在桌上，大家和角色可以先聊几句；你点「接着来」才开下一轮。" });
         if (g.key === "tod") out.push({ key: "todRounds", label: "转几轮", def: "0", options: [{ key: "0", zh: "不限" }, { key: "6", zh: "6 轮" }, { key: "10", zh: "10 轮" }, { key: "20", zh: "20 轮" }],
           hint: v => v === "0" ? "一直转下去，你随时点「收桌」结束。" : "转满 " + v + " 轮自动收桌；中途也能点「收桌」。" });
+        // 尺度：单机真心话那个「尺度放开点」开关，同一句说明
+        if (g.key === "tod") out.push({ key: "todHot", label: "尺度", def: "mild", options: [{ key: "mild", zh: "轻松好玩" }, { key: "hot", zh: "尺度放开点" }],
+          hint: v => v === "hot" ? "真心话 / 大冒险 会更暧昧大胆。" : "朋友聚会的尺度，轻松好玩。" });
         return out; };
       return h(G, { characters: mine, profile: props.profile, only: root.NetGameCore.supported(), extra, onConfigured, setupExtra,
         setupHide: ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins", "cardBrain", "bjDealer", "pkTruth", "mjAutoDraw", "mjSwap", "wolf_whitewolf", "av_lady"], setupNote: g => (NOTE[g.key] || (root.NetGameCore.ADAPTERS[g.key] || {}).note || "") + (GC() && GC().charOptKinds(g.key).length ? "你带的角色怎么玩（牌技、牌手水平、随手、带不带最近单聊）在邀请卡上点「换人／加入」那张单里调。" : ""),

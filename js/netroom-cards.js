@@ -447,8 +447,12 @@
     init: () => ({ phase: "start", words: [null, null], start: null, pair: null, rounds: [], log: [{ text: "两个人先各自悄悄写一个起始词。" }] }),
     view: st => ({ phase: st.phase, sent: st.words.map(w => w != null), start: st.start, pair: st.pair, rounds: st.rounds.slice(-40), log: st.log.slice(-30) }),
     priv: (st, i) => ({ mine: st.words[i] }),
-    // 谁还没交就轮到谁（先轮第一个没交的；两边都能随时交）
+    // 大家同时写：两边都能随时交（角色在主人那台、NPC 在庄那台同时想），都交了才一起亮
+    //   turn 只给「第一个没交的」兜底；turns／waiting 才是此刻能动的那几座；roundOf 让同一轮同一座只想一次
     turn: v => v.phase === "done" ? -1 : v.sent ? v.sent.findIndex(x => !x) : v.words.findIndex(w => w == null),
+    turns: v => v.phase === "done" ? [] : [0, 1].filter(i => !(v.sent ? v.sent[i] : v.words[i] != null)),
+    waiting(v) { return this.turns(v); },
+    roundOf: v => v.phase + ":" + (v.rounds || []).length,
     apply(st, i, mv, ctx) {
       const L = root.LingxiCore;
       if (st.phase === "done") return { err: "这一局已经结束了" };
@@ -484,7 +488,8 @@
       const w = L.cleanWord(p.word), say = who.withSay && GS().sayList ? GS().sayList(p.say).join(" ") : "";
       return w ? Object.assign({ word: w }, say ? { say } : {}) : { pass: true };
     },
-    npcMove(st, i, inv, ctx) { return this.think(this.view(st), i, inv, ctx.hostApi, NPC_WHO(nmOf(inv, i))).catch(() => ({ pass: true })).then(m => m.pass ? { word: "随便" } : m); },
+    // NPC 也顺带一句亮词前的话（同一次调用，不另花）
+    npcMove(st, i, inv, ctx) { return this.think(this.view(st), i, inv, ctx.hostApi, Object.assign(NPC_WHO(nmOf(inv, i)), { withSay: true })).catch(() => ({ pass: true })).then(m => m.pass ? { word: "随便" } : m); },
     charMove(view, i, inv, ctx) { return this.think(view, i, inv, ctx.api, Object.assign(charWho(ctx.char, ctx.opts), ctx.opts && ctx.opts.talk === false ? {} : { withSay: true })).catch(() => ({ pass: true })); },
     result(st, inv) {
       if (st.phase !== "done") return null;
