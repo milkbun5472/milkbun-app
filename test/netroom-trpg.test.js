@@ -95,6 +95,19 @@ test("一整拍：客串先在自己那台掷数值；大家都交了才结算�
   assert.ok(!S.A.seen(gid).view.done[0], "庄只认座位主人");
   assert.ok(!calls.some(c => c.api === "api:offline"), "还有人没交，不结算");
   S.A.move(gid, 0, { say: "我守在门口" });
+  // 乙挑的那条要过检定：先开台面，「这一下要过什么检定」只发给乙那一座；乙在自己那台按「掷」，骰子在庄那台掷
+  assert.ok(await until(() => S.A.seen(gid).view.phase === "check"), "先过检定仪式");
+  assert.ok(!calls.some(c => c.api === "api:offline"), "检定没掷完，不请守密人");
+  const asks = log.filter(l => l.obj.op === "priv" && l.obj.data && l.obj.data.ckAsk);
+  assert.ok(asks.length && asks.every(l => l.to === "B" && l.obj.seat === 1), "台面只发给该掷的那一座");
+  assert.ok(await until(() => S.B.seen(gid).priv && S.B.seen(gid).priv.ckAsk && S.B.seen(gid).view.phase === "check"));
+  S.B.move(gid, 1, { ck: "roll", assist: -1, bargain: false });
+  // 失手了、手上有命运点：再问乙一句花不花（这里认了）
+  assert.ok(await until(() => { const k = S.B.seen(gid).view.ck; return k && (k.stage === "shown" || (k.stage === "fate" && S.B.seen(gid).priv && S.B.seen(gid).priv.ckAsk && S.B.seen(gid).priv.ckAsk.stage === "fate")); }));
+  if (S.B.seen(gid).view.ck.stage === "fate") S.B.move(gid, 1, { ck: "fate", use: "no" });
+  assert.ok(await until(() => S.B.seen(gid).view.ck && S.B.seen(gid).view.ck.stage === "shown"), "骰子落定，大家同时看到");
+  assert.ok(S.B.seen(gid).view.ck.c.roll >= 1 && S.B.seen(gid).view.ck.rolledAt > 0);
+  S.A.tick(Date.now() + 5000);   // 大家看过了，庄接着请守密人
   assert.ok(await until(() => S.A.seen(gid).view.beat === 1), "没结算");
   const gm = calls.filter(c => c.api === "api:offline");
   assert.strictEqual(gm.length, 1, "一拍一枪守密人，走庄的线下线路");
@@ -103,6 +116,7 @@ test("一整拍：客串先在自己那台掷数值；大家都交了才结算�
   assert.match(hist, /亲笔·阿B说:「我去看看」/); assert.match(hist, /咬耳朵·来自乙/); assert.match(hist, /分头行动/);
   assert.ok(!log.some(l => l.obj.op === "move" && /d100/.test(JSON.stringify(l.obj.move))), "骰子不从别的手机来");
   // 落账走单机那一份：线索进了团、写回房主的团（客串不进队伍，没来的那位原样在）
+  assert.ok(await until(() => S.B.seen(gid).view.beat === 1), "乙那台跟上这一拍");
   const v = S.B.seen(gid).view;
   assert.strictEqual(v.clues, 1);
   const last = saved[saved.length - 1][0];
@@ -259,4 +273,147 @@ test("客串这一晚做了什么写进战绩卡那段话（进房间记录）�
   assert.match(w2.G.recordLine(rec), /客串:乙/);
   assert.strictEqual(rec.replay.guests[0].name, "乙");
   assert.match(tsrc, /T\.epilogueAsk\(/); assert.match(tsrc, /T\.summaryJob/); assert.match(trpg, /const \{ sys, user \} = epilogueAsk\(camp, uName, forced, finalAct\);/);
+});
+
+// ── 第三版：检定仪式、落幕成长、翻章结算卡 ──
+// 三座：房主自己（团里的 user）、房主带来的裴照川（团里的 c1）、B 那台的乙（客串）
+const inv3 = { host: "A", seats: [{ kind: "user", peer: "A", name: "Lisa" }, { kind: "char", peer: "A", charId: "c1", name: "裴照川" }, { kind: "user", peer: "B", name: "乙" }] };
+async function seated3(A, choices) {
+  let st = await A.init(inv3, { prep: { campId: "rpg_1", timeout: 3 } });
+  st = (await A.apply(st, 2, { stats: { phy: 50, agi: 50, wit: 50, cha: 50, luck: 50 } }, { inv: inv3 })).st;
+  if (choices) st = Object.assign({}, st, { camp: Object.assign({}, st.camp, { choices }) });
+  return st;
+}
+const withRand = async (seq, fn) => { const r0 = Math.random; let i = 0; Math.random = () => seq[Math.min(i++, seq.length - 1)]; try { return await fn(); } finally { Math.random = r0; } };
+const CK = [{ text: "撬锁", check: { stat: "agi", who: null, bargain: "惊动巡夜的" }, approach: "bold" }, { text: "等着", check: null }];
+
+test("检定仪式：挑了带检定那条路就先开台面；选择只由该掷那一座的主人交；台面只进那一座的 priv", async () => {
+  const { G, calls } = load2({ scene: "锁开了。", choices: [] });
+  const A = G.ADAPTERS.trpg;
+  let st = await seated3(A, CK);
+  st = (await A.apply(st, 0, { pick: 1 }, { inv: inv3 })).st;
+  st = (await A.apply(st, 1, { decl: { say: "我放风", do: "", try: "" } }, { inv: inv3 })).st;
+  assert.strictEqual(A.slow(st, 2, { pick: 0 }), false, "要开台面，不先亮「守密人在写」");
+  st = (await A.apply(st, 2, { pick: 0 }, { inv: inv3, hostApi: { id: "gm" }, prep: {} })).st;
+  assert.strictEqual(st.phase, "check");
+  assert.ok(!calls.some(c => c.api === "gm"), "检定没掷完，不请守密人");
+  assert.deepStrictEqual(A.waiting(A.view(st)), [2]);
+  assert.ok(A.priv(st, 2).ckAsk && A.priv(st, 2).ckAsk.bargain === "惊动巡夜的");
+  assert.ok(!(A.priv(st, 0) || {}).ckAsk && !(A.priv(st, 1) || {}).ckAsk, "别的座位收不到台面");
+  assert.ok((await A.apply(st, 0, { ck: "roll" }, { inv: inv3 })).err, "别人替不了这一下");
+  assert.ok((await A.apply(st, 2, { pick: 0 }, { inv: inv3 })).err, "台面上只认台面上的那几下");
+});
+
+test("检定仪式：最终掷骰只在庄；交易与协力照单机加成；「自己掷」的数字从庄那台来，交上来的点数不认", async () => {
+  const { G, calls } = load2({ scene: "锁开了。", choices: [] });
+  const A = G.ADAPTERS.trpg;
+  let st = await seated3(A, CK);
+  st = (await A.apply(st, 0, { pick: 1 }, { inv: inv3 })).st;
+  st = (await A.apply(st, 1, { pass: true }, { inv: inv3 })).st;
+  st = (await A.apply(st, 2, { pick: 0 }, { inv: inv3 })).st;
+  // 乙请房主带来的裴照川协力：那是别人（房主）那台的座位，先问一句
+  st = (await A.apply(st, 2, { ck: "roll", assist: 1, bargain: true, roll: 1 }, { inv: inv3 })).st;
+  assert.strictEqual(st.ck.stage, "ask");
+  assert.deepStrictEqual(A.waiting(A.view(st)), [1]);
+  assert.ok(A.priv(st, 1).ckHelp && A.priv(st, 1).ckHelp.who === "乙");
+  assert.ok((await A.apply(st, 2, { ck: "assist", ok: true }, { inv: inv3 })).err, "同意得那一位自己来");
+  st = await withRand([0.5], async () => (await A.apply(st, 1, { ck: "assist", ok: true }, { inv: inv3 })).st);
+  assert.strictEqual(st.ck.stage, "shown");
+  assert.strictEqual(st.ck.c.roll, 51, "数字是庄这台掷的，不是交上来的 1");
+  assert.strictEqual(T.TrpgShared.ceremonyEff(st.ck.c), 50 + 10 + 15, "协力+10、交易+15");
+  assert.deepStrictEqual(A.onTick(st, st.ck.at + 100), [], "大家先看一会儿骰子");
+  assert.deepStrictEqual(A.onTick(st, st.ck.at + 5000), [{ seat: -1, mv: { op: "go" } }]);
+  st = (await A.apply(st, -1, { op: "go" }, { inv: inv3, hostApi: { id: "gm" }, prep: {} })).st;
+  const hist = JSON.stringify(calls.find(c => c.api === "gm").msgs);
+  assert.match(hist, /乙 的「身手」检定:d100=51 \/ 75\(裴照川协力\+10,魔鬼交易\+15\)/);
+  assert.match(hist, /魔鬼交易成立,代价必兑现:惊动巡夜的/);
+  assert.strictEqual(st.beat, 1);
+});
+
+test("检定仪式：协力被拒就不加；托管和超时按不花资源的默认（不请人、不接交易、不花命运点）", async () => {
+  const { G } = load2({ scene: "x", choices: [] });
+  const A = G.ADAPTERS.trpg;
+  let st = await seated3(A, CK);
+  st = (await A.apply(st, 0, { pick: 1 }, { inv: inv3 })).st;
+  st = (await A.apply(st, 1, { pass: true }, { inv: inv3 })).st;
+  st = (await A.apply(st, 2, { pick: 0 }, { inv: inv3 })).st;
+  const due = A.onTick(st, st.ck.at + 3 * 60000 + 1);
+  assert.deepStrictEqual(due, [{ seat: 2, mv: { ck: "roll", assist: -1, bargain: false, auto: true } }]);
+  assert.deepStrictEqual(await A.npcMove(st, 2), due[0].mv, "掉线托管同一份默认");
+  st = (await A.apply(st, 2, { ck: "roll", assist: 1 }, { inv: inv3 })).st;
+  st = await withRand([0.3], async () => (await A.apply(st, 1, { ck: "assist", ok: false }, { inv: inv3 })).st);
+  assert.strictEqual(st.ck.c.assist, null);
+  assert.strictEqual(st.ck.c.declined, "裴照川");
+});
+
+test("检定仪式：命运点按单机规则——失手后才可花、只一次、扣在掷骰那位身上；客串的记在这一晚的客串卡上，不进房主队伍", async () => {
+  const { G, saved } = load2({ scene: "x", choices: [] });
+  const A = G.ADAPTERS.trpg;
+  let st = await seated3(A, CK);
+  st = (await A.apply(st, 0, { pick: 1 }, { inv: inv3 })).st;
+  st = (await A.apply(st, 1, { pass: true }, { inv: inv3 })).st;
+  st = (await A.apply(st, 2, { pick: 0 }, { inv: inv3 })).st;
+  const fate0 = st.members[2].fate;
+  assert.ok(fate0 > 0);
+  st = await withRand([0.97], async () => (await A.apply(st, 2, { ck: "roll", assist: -1 }, { inv: inv3 })).st);
+  assert.strictEqual(st.ck.stage, "fate", "大失败、手上有点：问 Ta 花不花");
+  assert.strictEqual(A.priv(st, 2).ckAsk.stage, "fate");
+  st = await withRand([0.97], async () => (await A.apply(st, 2, { ck: "fate", use: "reroll" }, { inv: inv3 })).st);
+  assert.strictEqual(st.ck.stage, "shown", "重掷过不给再花");
+  assert.deepStrictEqual(st.ck.c.rolls, [98, 98]);
+  assert.strictEqual(st.members[2].fate, fate0 - 1, "花掉立扣");
+  assert.match(T.TrpgShared.rollLine("", st.members[2], CK[0].check, st.ckRes[2].res), /花1枚命运点:重掷/);
+  st = (await A.apply(st, -1, { op: "go" }, { inv: inv3, hostApi: { id: "gm" }, prep: {} })).st;
+  const last = saved[saved.length - 1][0];
+  assert.deepStrictEqual(last.party.map(m => m.key), ["user", "c1", "c9"], "客串不进房主的队伍");
+  assert.strictEqual(st.members[2].fate, fate0 - 1, "客串卡上留着这一晚花过的");
+});
+
+test("落幕成长：房主原队伍里上桌的照单机掷成长并写回房主那支小分队；客串的也掷，只写进战绩卡", async () => {
+  const L = load2({ paras: ["尘埃落定。"], closing: "完" });
+  const A = L.G.ADAPTERS.trpg, wrote = [];
+  L.w.TrpgShared.squadWriteBack = (camp, members, growth) => { wrote.push({ keys: members.map(m => m.key), growth }); return true; };
+  let st = await seated3(A);
+  const rolls = [{ role: "roll", who: "Lisa", statKey: "wit", tier: "ok", content: "x" }, { role: "roll", who: "乙", statKey: "cha", tier: "hard", content: "x" }];
+  st = Object.assign({}, st, { camp: Object.assign({}, st.camp, { msgs: st.camp.msgs.concat(rolls) }) });
+  const r = await withRand([0.99], async () => A.apply(st, -1, { op: "finale", finalAct: "" }, { inv: inv3, hostApi: { id: "gm" }, prep: {} }));
+  st = r.st;
+  assert.strictEqual(wrote.length, 1);
+  assert.deepStrictEqual(wrote[0].keys, ["user", "c1"], "只写房主原队伍里上了桌的");
+  assert.ok(wrote[0].growth.every(g => g.name !== "乙"), "客串的成长不进队伍");
+  assert.deepStrictEqual(st.camp.epilogue.growth.map(g => g.name), ["Lisa"]);
+  assert.deepStrictEqual(st.guestGrowth.map(g => [g.name, g.stat, g.to]), [["乙", "cha", 55]]);
+  const res = A.result(st, inv3);
+  assert.match(res.text, /成长\(写回房主的小分队\):Lisa的头脑50→55/);
+  assert.match(res.text, /客串这一晚的成长\(只记在这里,不进谁的队伍\):乙的谈吐50→55/);
+});
+
+test("翻章：房主点「翻过这一章」出结算卡（单机那一份 stageAdvance），写回房主的团", async () => {
+  const { G, saved } = load2();
+  const A = G.ADAPTERS.trpg;
+  let st = await seated3(A);
+  st = Object.assign({}, st, { camp: Object.assign({}, st.camp, { pendingStage: "这一场的3拍都走完了" }) });
+  assert.match(A.view(st).pendingStage, /3拍都走完了/);
+  assert.ok((await A.apply(st, 2, { op: "stage", ok: true }, { inv: inv3 })).err, "只有房主能翻章");
+  st = (await A.apply(st, -1, { op: "stage", ok: true }, { inv: inv3 })).st;
+  assert.strictEqual(st.camp.stageIdx, 1);
+  const card = st.camp.msgs[st.camp.msgs.length - 1];
+  assert.ok(card.card && /第1章结算/.test(card.content));
+  assert.ok(A.view(st).log.some(x => /第1章结算/.test(x.text)), "桌上看得到那张卡");
+  assert.strictEqual(saved[saved.length - 1][0].stageIdx, 1);
+});
+
+test("台面公开那一份白名单：view 里没有可请的人、没有被藏起来的东西；cleanView 认 check 那一相", async () => {
+  const { G } = load2({ scene: "x", choices: [] });
+  const A = G.ADAPTERS.trpg;
+  let st = await seated3(A, CK);
+  st = (await A.apply(st, 0, { pick: 1 }, { inv: inv3 })).st;
+  st = (await A.apply(st, 1, { pass: true }, { inv: inv3 })).st;
+  st = (await A.apply(st, 2, { pick: 0 }, { inv: inv3 })).st;
+  const v = A.cleanView(JSON.parse(JSON.stringify(A.view(st))));
+  assert.strictEqual(v.phase, "check");
+  assert.strictEqual(v.ck.stage, "pre");
+  assert.deepStrictEqual(v.ck.c.mates, []);
+  assert.ok(!("resolve" in v.ck.c));
+  assert.match(tsrc, /T\.ceremonyPanel\(c, \{/, "台面画法用单机那一份");
 });
