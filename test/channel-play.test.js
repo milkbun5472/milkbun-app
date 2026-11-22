@@ -290,3 +290,7 @@ test("空间成员把她也算进去：成员页第一个、人数加一", () =>
   assert.match(cs, /\[\{ id: "me", _me: true, \.\.\.\(herFace/);
   assert.match(cs, /people\.length \+ 1\), h\("span", \{ className: "truncate", style: lab \}, "成员 · " \+ \(online \+ 1\)/);
 });
+
+test("他们发起的投票带头像和名字", () => {
+  assert.match(cs, /"data-kind": "poll", className: "py-1 flex items-start gap-2 justify-start" \},\n\s+mAvatar\(memberById\(m\.senderId\)/);
+});

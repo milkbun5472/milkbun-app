@@ -21740,13 +21740,15 @@ function GroupThread({
         onResend: m.role === "user" && onStartAsk ? () => { setAskPrev({ ...m.ask, aid: m.pollId, note: "" }); setSheet("ask"); } : undefined }),
       m.role === "user" && gMeAvEl(40, 10));
     if (m.kind === "luck") return h(GroupLuckCard, { key: i, m });
-    if (m.kind === "poll") return h(PollCard, {
-      key: i,
-      poll: m,
-      meName: meName,
-      onGenVotes: onGenVotes ? () => onGenVotes(m.pollId) : undefined,
-      onVote: opt => onVote(i, opt)
-    });
+    // 他们发起的投票也跟红包、语音一个外壳：左边头像、上面名字（她 2026-11-22「发起投票的人投票没头像」）。
+    //   这一条算进同一人的连发里，下面紧跟的那句按美化不再挂头像，所以头像得挂在这张卡上
+    if (m.kind === "poll") { const card = h(PollCard, { poll: m, meName: meName, onGenVotes: onGenVotes ? () => onGenVotes(m.pollId) : undefined, onVote: opt => onVote(i, opt) });
+      if (m.role === "user" || !m.senderId) return h(React.Fragment, { key: i }, card);
+      return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": "poll", className: "py-1 flex items-start gap-2 justify-start" },
+        mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
+        h("div", { className: "flex flex-col items-start min-w-0", style: { flex: 1 } },
+          m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, m.senderName, gRoleTag(m)),
+          h("div", { style: { width: "100%" } }, card))); }
     // 红包以前是整条裸着排的：没有头像、也没有发红包的人是谁（她 2026-08-20 报）。
     // 改成和语音/同人分享同一套外壳：左边头像、上面名字，卡片本身一个字不动。
     if (m.kind === "redpacket") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
