@@ -946,7 +946,7 @@
     // 而不是先退到图库再点进角色再点缩略图。
     // 看大图走全库那一份 ImageViewer（2026-10-16 九处并一处）：存相册、删照旧
     const bigViewer = () => galView && h(ImageViewer, { onClose: () => setGalView(null),
-      items: [{ src: imgSrc(galView.img), caption: (galView.kind === "cover" ? "🎞 封面 · " : "") + galView.lineTitle + " · " + new Date(galView.ts).toLocaleDateString("zh-CN") }],
+      items: [{ src: imgSrc(galView.img), caption: (galView.kind === "cover" ? "🎞 封面 · " : "") + galView.lineTitle + " · " + (typeof vDate === "function" ? vDate(galView.ts, galView.charId) : new Date(galView.ts)).toLocaleDateString("zh-CN") }],
       actions: () => [{ label: "保存到手机相册", onClick: () => saveToAlbum(galView.img) },
         { label: "删除", danger: true, onClick: () => { const id = galView.id, item = galView; if (!gal.some(x => x.id === id)) return props.toast("这张还没归档进图库"); requestAppConfirm("从图库删掉这张？", "剧情里的那张不受影响；图库也不会再自动补回。", () => { if (!galTomb(item.img)) return props.toast("这次没删成功，原图还在"); const next = gal.filter(x => x.id !== id && x.img !== item.img); saveJSON("x_theaterGallery", next); setGal(next); setGalView(null); props.toast("已从小剧场图库删除"); }, "删除"); } }] });
     const deleteLineNow = (id, after) => {

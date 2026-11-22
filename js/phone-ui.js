@@ -4875,7 +4875,7 @@ function PhoneForumView({ accounts, char, onBack, onPeek, tab, onTab, drive }) {
   const countOf = a => A(a && a.posts).length + A(a && a.comments).length;
   const fmtTs = ts => {
     if (!ts) return "";
-    const d2 = new Date(ts);
+    const d2 = new Date(typeof vclockMap === "function" && char ? vclockMap(ts, char.id) : ts);   // 他手机里的帖子：跟 phoneNow 同一只钟
     return (d2.getMonth() + 1) + "月" + d2.getDate() + "日 " + String(d2.getHours()).padStart(2, "0") + ":" + String(d2.getMinutes()).padStart(2, "0");
   };
   const goTab = key => {

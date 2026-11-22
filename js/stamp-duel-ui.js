@@ -1045,7 +1045,7 @@
               return h(Ticket, { key: c.id, u, card: c, owner: ownerOf(c.charId), useThumb, small: true, sel: on, wk: "dueldispatchcard", onTap: () => setDpPick(p => on ? p.filter(x => x !== c.id) : p.concat(c.id).slice(-3)) }); })),
             h("button", { "data-wk": "dueldispatchgo", onClick: send, disabled: !dpPick.length, className: "w-full disabled:opacity-40", style: Object.assign(btn(C, "#fff"), { padding: "11px 0", fontFamily: FD, fontSize: fz(14) }) }, "派去「" + dpPlace + "」· " + dpHours + " 小时")) : null,
           all.filter(t => t.report).length ? h("div", { style: secBox("#9a6a4a", { marginTop: 4 }) }, secTitle("#9a6a4a", "闻", "见闻集", all.filter(t => t.report).length + " 篇"),
-            all.filter(t => t.report).slice().reverse().map(t => h("button", { key: t.id, onClick: () => setDpShow(t.id), className: "w-full text-left", style: { display: "block", marginBottom: 6, padding: "7px 11px", borderRadius: 5, background: "#fffdf7", border: "1px solid rgba(63,122,138,.25)", fontSize: fz(12.5) } }, (t.report.title || "这一趟") + " · " + t.place + " · " + new Date(t.report.ts).toLocaleDateString()))) : null)]);
+            all.filter(t => t.report).slice().reverse().map(t => h("button", { key: t.id, onClick: () => setDpShow(t.id), className: "w-full text-left", style: { display: "block", marginBottom: 6, padding: "7px 11px", borderRadius: 5, background: "#fffdf7", border: "1px solid rgba(63,122,138,.25)", fontSize: fz(12.5) } }, (t.report.title || "这一趟") + " · " + t.place + " · " + (typeof vDate === "function" ? vDate(t.report.ts, t.report.who) : new Date(t.report.ts)).toLocaleDateString()))) : null)]);
     }
     if (!st && mode === "relay") {
       const rec = relayRec(), C = "#a0522d", sty = coachId ? (bondsOf()[coachId] || "默契") : "";
@@ -1219,7 +1219,7 @@
           mine.map(t => { const op = tkOpen === t.id;
             return h("div", { key: t.id, "data-wk": "dueltrinket", style: { marginBottom: 8, borderRadius: 5, background: "#fffdf7", border: "1px solid rgba(154,106,74,.3)", borderLeft: "3px solid #9a6a4a" } },
               h("button", { onClick: () => setTkOpen(op ? "" : t.id), className: "w-full text-left", style: { padding: "9px 12px" } },
-                h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, t.name), h("div", { style: { fontSize: fz(10.5), color: SUB } }, new Date(t.ts).toLocaleDateString())),
+                h("div", { style: { fontFamily: FD, fontSize: fz(14) } }, t.name), h("div", { style: { fontSize: fz(10.5), color: SUB } }, (typeof vDate === "function" ? vDate(t.ts, t.charId) : new Date(t.ts)).toLocaleDateString())),
               op ? h("div", { style: { padding: "0 12px 11px", fontSize: fz(12.5), lineHeight: 1.75 } }, t.story ? h("div", null, BT(t.story)) : null,
                 t.say ? h("div", { style: { marginTop: 6, padding: "6px 10px", borderLeft: "3px solid #9a6a4a", background: "rgba(154,106,74,.07)", fontFamily: FD, color: "#5a4030", whiteSpace: "pre-wrap" } }, (nameOf(t.charId) || "TA") + "：", BT(t.say)) : null) : null); }))]);
     }

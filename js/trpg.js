@@ -2932,6 +2932,8 @@
     }
 
     // 上一次动这个团是多久以前
+    // 跑团里的日子照这一团头一位队友那只钟（没有队友＝她主面具那只）
+    const campDate = (ts, c) => { const id = c && (c.partyIds || [])[0]; return id && typeof vDate === "function" ? vDate(ts, id) : new Date(typeof vclockMainMap === "function" ? vclockMainMap(ts) : ts); };
     const campAgo = c => {
       const m = (c.msgs || [])[(c.msgs || []).length - 1];
       const ts = (m && m.ts) || c.createdAt || 0;
@@ -2944,7 +2946,7 @@
       if (ts >= midnight - 86400e3) return "昨天";
       const days = Math.floor((midnight - ts) / 86400e3) + 1;
       if (days <= 30) return days + "天前";
-      const dd = new Date(ts);
+      const dd = campDate(ts, c);
       return (dd.getMonth() + 1) + "月" + dd.getDate() + "日";
     };
     // 入口:战役列表
@@ -3099,7 +3101,7 @@
     if (view === "gallery") {
       const gal = loadGal();
       const viewer = galView && h(ImageViewer, { onClose: () => setGalView(null),
-        items: [{ src: imgSrc(galView.img), caption: (galView.kind === "cover" ? "🎞 封面 · " : "") + (galView.campTitle || "") + " · " + new Date(galView.ts).toLocaleDateString("zh-CN") }],
+        items: [{ src: imgSrc(galView.img), caption: (galView.kind === "cover" ? "🎞 封面 · " : "") + (galView.campTitle || "") + " · " + campDate(galView.ts, camps.find(x => x.id === galView.campId)).toLocaleDateString("zh-CN") }],
         actions: () => [{ label: "保存到手机相册", onClick: () => saveToAlbum(galView.img) }, { label: "删除", danger: true, onClick: () => { const id = galView.id, img = galView.img; askConfirm("从图库删掉这张?", () => { setGalView(null); galTomb(img); saveGalList(loadGal().filter(x => x.id !== id)); setSquadTick(x => x + 1); }); } }] });
       return h("div", { "data-wk": "trpggallery", style: S.wrap }, badges(), askSheet, header("跑团图库"), viewer,
         h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 30px" } },

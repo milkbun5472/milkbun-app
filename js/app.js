@@ -7601,7 +7601,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 「今天是不是」走 annivNext（core.js）：不重复的过了那一年，明年同一天不再算
       (coupleAnniv || []).forEach(a => {
         if (!a || a.characterId !== char.id) return;
-        const nx = annivNext(a);
+        const nx = annivNext(a, vclockMap(Date.now(), char.id));   // 跟上面 today 同一只钟
         if (nx.days === 0) lines.push("🎉 今天是你和 " + uName + " 的「" + (a.name || "纪念日") + "」。");
         else if (nx.days > 0 && nx.days <= ANNIV_HEADS_UP)
           lines.push("再过 " + nx.days + " 天就是你和 " + uName + " 的「" + (a.name || "纪念日") + "」，你心里记着这件事（要不要提前说看你自己）。");
@@ -8359,7 +8359,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           }
           (coupleAnnivRef.current || []).forEach(an => {
             // annivNext（core.js）：不重复的纪念日过了那一年，明年同一天不再主动发
-            if (an && an.characterId === c.id && annivNext(an).days === 0)
+            if (an && an.characterId === c.id && annivNext(an, vclockMap(Date.now(), c.id)).days === 0)
               aToday.push({ cid: c.id, name: String(an.name || "纪念日"), yrs: 0 });
           });
         }
@@ -32745,7 +32745,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // ⚠️日历那一份原来硬写今年：填了 2027 也会被记到今年的格子里。
     //   跟倒数用的必须是同一个算法，否则「情侣空间里写着明年、日历上却在今年」。
     if (linkCalendar) {
-      const nx = annivNext(rec);
+      const nx = annivNext(rec, vclockMap(Date.now(), char.id));   // 日历那一格照TA那只钟的今年
       saveCalEvent(char.id, new Date(nx.ts).getFullYear() + "-" + mo + "-" + dy, name.trim(), "情侣纪念日", anId);
       toast("已加进日历");
     }

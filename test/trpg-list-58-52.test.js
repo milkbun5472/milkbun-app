@@ -88,7 +88,7 @@ test("在演那格只有没落幕的团，落幕的只在自己那格", () => {
 test("按最近动过排序，卡上写清是哪支队、上次什么时候动的", () => {
   assert.match(listView, /\.sort\(byRecent\)/);
   assert.match(listView, /const byRecent = \(a, b\) => lastTs\(b\) - lastTs\(a\)/, "排序反了会把最老的顶到最上面");
-  const i = src.indexOf("    const campAgo = c => {");
+  const i = src.indexOf("    const campDate = (ts, c) => {");
   const j = src.indexOf("    // 入口:战役列表", i);
   assert.ok(i > 0 && j > i && j - i < 1200, "抠不出 campAgo");
   const campAgo = new Function(src.slice(i, j) + "\nreturn campAgo;")();
