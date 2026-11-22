@@ -303,14 +303,15 @@
   }
   function lineInstruction(room, char, opts) {
     room = normalizeRoom(room);
-    const o = opts || {}, gap = sinceLast(room, o.now);
+    const o = opts || {}, gap = sinceLast(room, o.now), pr = promptRoom(room).room;
     const mine = (room.myChars || []).filter(c => c.id !== char.id).map(c => c.name);
     const n = 1 + (room.peers || []).length;
     return "【这里是联机房间】" + room.myNick + " 用自己的手机和别人的手机连在了一起，房间里一共 " + n + " 个人，每人各带了自己的人进来，大家在同一个房间里说话。"
       + "\n- 带你来的是 " + youLine(room, char) + (mine.length ? "，跟你一起来的还有：" + mine.join("、") : "") + "。"
       + "\n另外几方：" + (sidesLines(room, o.presence) || "\n- （还没别人进来）")
       + "\n别人带来的这几位你只知道名字和他们在这里说过的话，其余的你不知道，也不用替他们补。"
-      + "\n\n【房间里到现在的全部聊天】" + (o.stamp ? "（每行前面〔〕里是那句话说的时间，只是时间标记，不要写进你说的话）" : "") + "\n" + (transcript(room, Object.assign({}, o, { catalog: quoteCatalog(room, 30) })) || "（还没人说话）")
+      + recapBlock(room)
+      + "\n\n【房间里到现在的聊天】" + (o.stamp ? "（每行前面〔〕里是那句话说的时间，只是时间标记，不要写进你说的话）" : "") + "\n" + (transcript(pr, Object.assign({}, o, { catalog: quoteCatalog(pr, 30) })) || "（还没人说话）")
       + (o.game ? "\n\n" + o.game : "")
       + (gap ? "\n（最后一条到现在已经过去 " + gap + " 了）" : "")
       + "\n\n【这一次】轮到你在房间里开口，接着上面的话开口，照你平时发消息的习惯：一条一个气泡，想连发几条就几条，跟在群里聊天一样。只写你说出口的话本身，不写旁白，不替别人说话。"
@@ -328,7 +329,7 @@
   //   chars：[{ id, name, you, emotes:[关键词] }]；opts 同 lineInstruction，另加 cast（成员那一大段）
   function jointInstruction(room, chars, opts) {
     room = normalizeRoom(room);
-    const o = opts || {}, gap = sinceLast(room, o.now), list = (chars || []).filter(c => c && c.name);
+    const o = opts || {}, gap = sinceLast(room, o.now), list = (chars || []).filter(c => c && c.name), pr = promptRoom(room).room;
     const names = list.map(c => c.name), n = 1 + (room.peers || []).length;
     const others = (room.myChars || []).filter(c => names.indexOf(c.name) < 0).map(c => c.name);
     const you = list.map(c => "\n- 带「" + c.name + "」来的是 " + youLine(room, c) + "。").join("");
@@ -344,7 +345,8 @@
       + "\n另外几方：" + (sidesLines(room, o.presence) || "\n- （还没别人进来）")
       + "\n别人带来的人、房里的真人，你只知道名字和他们在这里说过的话，其余的不知道，也不替他们说话。"
       + (o.cast ? "\n\n" + o.cast : "")
-      + "\n\n【房间里到现在的全部聊天】" + (o.stamp ? "（每行前面〔〕里是那句话说的时间，只是时间标记，不要写进说的话）" : "") + "\n" + (transcript(room, Object.assign({}, o, { catalog: quoteCatalog(room, 30) })) || "（还没人说话）")
+      + recapBlock(room)
+      + "\n\n【房间里到现在的聊天】" + (o.stamp ? "（每行前面〔〕里是那句话说的时间，只是时间标记，不要写进说的话）" : "") + "\n" + (transcript(pr, Object.assign({}, o, { catalog: quoteCatalog(pr, 30) })) || "（还没人说话）")
       + (o.game ? "\n\n" + o.game : "")
       + (o.stamp ? "\n（现在是〔" + o.stamp(o.now || Date.now()) + "〕）" : "")
       + (gap ? "\n（最后一条到现在已经过去 " + gap + " 了）" : "")
@@ -953,10 +955,60 @@
     return api;
   }
 
+  // ── 前情小卡（她 2026-11-22）：隔一阵子再连回同一个房间，顶上一张「上次聊到哪」──
+  //   只用房间记录（transcript）写，不读任何人的人设；写好存进这个房间的 recap，重进时没有新话就直接用这份，不再花调用。
+  //   recap：{ talk, said:[…], plans:[…], game, upTo(总结到的最后一条 ts), at(写的时间) }
+  const RECAP_GAP = 6 * 3600 * 1000, RECAP_MIN = 6, RECAP_LONG = 120, RECAP_TAIL = 60;
+  const lastTalkTs = room => ((room && room.msgs) || []).filter(m => m && !m.sys).reduce((x, m) => Math.max(x, Number(m.ts) || 0), 0);
+  // 这次连回来要不要出卡：上次已经离开过，或者最后一句隔了 6 小时以上；话太少（不到 6 句）不出
+  function recapDue(room, now) {
+    const ms = ((room && room.msgs) || []).filter(m => m && !m.sys && !m.recalled);
+    if (ms.length < RECAP_MIN) return false;
+    return !!(room.endedAt > 0) || ((now || Date.now()) - lastTalkTs(room)) >= RECAP_GAP;
+  }
+  // 存着的那份还能直接用吗：总结到的那条之后没有新话
+  const recapFresh = room => !!(room && room.recap && room.recap.upTo && room.recap.upTo >= lastTalkTs(room));
+  function recapInstruction(room, opts) {
+    room = normalizeRoom(room);
+    return "下面是一个多人聊天房间的完整记录：几个真人各用自己的手机进来，各带了自己的角色一起聊。有人隔了一阵子又回到这个房间，要在聊天最上面给她看一张「上次聊到哪」的小卡。"
+      + "\n只根据记录里真的出现过的话写，不猜、不补记录里没有的事，也不评价任何人。用名字称呼人。"
+      + "\n\n【房间记录】" + ((opts && opts.stamp) ? "（〔〕里是时间）" : "") + "\n" + (transcript(room, opts) || "（空）")
+      + "\n\n【输出】只输出一个 JSON：{\"talk\":\"上次主要聊了什么，一两句\",\"said\":[\"谁说了什么要紧的话，一条一句，最多三条\"],\"plans\":[\"约好了什么、说好下次干什么，没有就空数组\"],\"game\":\"最后一局小游戏的结果，一句；没玩就空字符串\"}";
+  }
+  function cleanRecap(d, upTo, now) {
+    if (!d || typeof d !== "object") return null;
+    const s = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
+    const arr = (v, k) => (Array.isArray(v) ? v : []).map(x => s(x, 120)).filter(Boolean).slice(0, k);
+    const r = { talk: s(d.talk, 240), said: arr(d.said, 3), plans: arr(d.plans, 3), game: s(d.game, 120), upTo: Number(upTo) || 0, at: now || Date.now() };
+    return r.talk || r.said.length || r.plans.length || r.game ? r : null;
+  }
+  // 给模型的那一段前情
+  function recapText(recap) {
+    if (!recap) return "";
+    return "【前情：这个房间之前聊到哪（由房间记录总结）】"
+      + (recap.talk ? "\n- 聊了：" + recap.talk : "")
+      + recap.said.map(x => "\n- 要紧的话：" + x).join("")
+      + recap.plans.map(x => "\n- 约好的：" + x).join("")
+      + (recap.game ? "\n- 上一局：" + recap.game : "");
+  }
+  // 开口时房间记录给到多少：有前情、记录又很长（超过 120 条），就只带前情没盖到的新话，至少最近 60 条
+  function promptRoom(room) {
+    const rc = room && room.recap, ms = (room && room.msgs) || [];
+    if (!rc || ms.length <= RECAP_LONG) return { room, cut: false };
+    let i = ms.findIndex(m => (Number(m.ts) || 0) > (rc.upTo || 0));
+    if (i < 0) i = ms.length;
+    let k = ms.length, n = 0;   // 往回数够 60 条真说的话（进出房那几行不算），引用编号跟整份记录对得上
+    while (k > 0 && n < RECAP_TAIL) { k--; if (ms[k] && !ms[k].sys) n++; }
+    const from = Math.max(0, Math.min(i, k));
+    return from > 0 ? { room: Object.assign({}, room, { msgs: ms.slice(from) }), cut: true } : { room, cut: false };
+  }
+  function recapBlock(room) { const t = recapText(room && room.recap); return t ? "\n\n" + t + (promptRoom(room).cut ? "\n（更早的记录太长，下面只给最近这一段）" : "") : ""; }
+
   const Core = { BROKERS, BROKER_FAIL_TEXT, SUPA_FAIL_TEXT, JOIN_PREFIX, MqttLink, openBroker, SupaLink, signalFor, packJoin, parseJoin, cleanSupa, supaCfg, secretKey, Mesh, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
     memoryTargets, transcript, lineInstruction, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
     ownsMsg, editMsg, recallMsg, dropMsg, dropOwnMsg, tombOwn, applyDrops, isDropped, TOMB_MAX, missingImgs, cleanQuote, quoteOf, quoteState, quoteCatalog, resolveQuote, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom, sinceRemembered, echoText,
+    RECAP_GAP, RECAP_LONG, RECAP_TAIL, recapDue, recapFresh, recapInstruction, cleanRecap, recapText, promptRoom, lastTalkTs,
     normalizeRoom, upsertPeer, peerOf, lastNick, ownerNick, peerNames, syncedMsg, shouldOffer, admit, forwardTargets, reachable, rid, Mesh };
   root.NetRoomCore = Core;
 
@@ -1216,6 +1268,8 @@
     const [room, setRoom] = useState(null);
     const [picked, setPicked] = useState({});
     const [busy, setBusy] = useState({});
+    // 前情小卡：show＝这次连回来要不要摆；fold＝收起成一条；busy＝正在写
+    const [recapUi, setRecapUi] = useState({ show: false, fold: false, busy: false, err: "" });
     const [withChat, setWithChat] = useState({});   // 带上 TA 最近的单聊（只进自己这边的模型，不发给别人）
     const [peerTyping, setPeerTyping] = useState({});   // 别人哪几个角色正在输入：{ peerId|charId: 名字 }
     const [net, setNet] = useState({ open: [], fail: [], reach: [] });   // 直连通着的 / 直连失败的 / 直接或经人转得到的
@@ -1411,7 +1465,34 @@
       send({ t: "sync", drops: (r.tombs || []).slice(-Core.TOMB_MAX), msgs: (r.msgs || []).filter(m => !m.sys).slice(-600).map(m => Core.wireMsg(Object.assign({}, m, { by: m.side === "me" ? meId.current : (m.peerId || "") }))) });
     };
     // 断了以后连回原来那个房间：房间号、谁开的都照旧，聊天记录接着往下记（她 2026-11-22）
-    const rejoin = r0 => { start(!!r0.host, r0); };
+    // 写一张前情卡：一次调用，走后台那条线路（她挑过后台线路就走那条，没挑就跟线上）；auto＝连回来时自己写的那次，后台线路选了「无」就不写
+    const makeRecap = async (roomId, auto) => {
+      const r = Core.loadRooms().find(x => x.id === roomId);
+      if (!r) return;
+      const p = props.recapApi ? props.recapApi(!!auto) : null;
+      if (!p) { if (!auto) props.toast && props.toast("先去 设置·API 配一条线路"); setRecapUi(u => Object.assign({}, u, { show: !!r.recap })); return; }
+      setRecapUi(u => Object.assign({}, u, { show: true, busy: true, err: "" }));
+      try {
+        // 只给房间记录，不给任何人设（料全放 system，user 一句触发）
+        const sys = Core.recapInstruction(r, { stamp: props.stampFor && (r.myChars || [])[0] ? ts => props.stampFor(r.myChars[0].id, ts) : null });
+        const raw = await callAI(p, sys, [{ role: "user", content: "开始。" }], { logLabel: "联机·前情", maxTokens: 12000 });
+        const d = typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : JSON.parse(raw);
+        const rc = Core.cleanRecap(d, Core.lastTalkTs(r), Date.now());
+        if (!rc) throw new Error("没总结出来");
+        const live = Core.loadRooms().find(x => x.id === roomId) || r;
+        const next = Core.patchRoom(live, { recap: rc });
+        if (roomRef.current && roomRef.current.id === roomId) commit(next);
+        setRecapUi(u => Object.assign({}, u, { busy: false }));
+      } catch (e) { setRecapUi(u => Object.assign({}, u, { busy: false, err: "没总结出来：" + ((e && e.message) || e) })); }
+    };
+    const rejoin = r0 => {
+      // 隔了 6 小时以上、或上次已经离开过：顶上出前情卡；没有新话就用存着的那份，不再调用
+      const r1 = Core.loadRooms().find(x => x.id === r0.id) || r0;
+      const due = Core.recapDue(r1, Date.now());
+      setRecapUi({ show: due, fold: false, busy: false, err: "" });
+      start(!!r0.host, r0);
+      if (due && !Core.recapFresh(r1)) makeRecap(r1.id, true);
+    };
     const start = (host, resume) => {
       setErr(""); setPeerTyping({}); setNet({ open: [], fail: [], reach: [] });
       try { mesh.current && mesh.current.close(); } catch (e) {}
@@ -2062,7 +2143,24 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
       const peers = room.peers || [];
       const trouble = peers.filter(p => stateOf(p.peerId) === "fail" || stateOf(p.peerId) === "relay");
       const gp = gameParts();
+      const rc = room.recap;
+      // 前情小卡：连回来时摆在聊天顶上；能收起成一条、能关掉、能「重新总结」（重新总结会再花一次调用）
+      const recapEl = recapUi.show && (rc || recapUi.busy || recapUi.err) && h("div", { key: "rc", "data-wk": "nrrecap", "data-fold": recapUi.fold ? "1" : "0", className: "shrink-0",
+        style: { margin: "8px 12px 0", padding: recapUi.fold ? "6px 12px" : "10px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
+        h("div", { className: "flex items-center", style: { gap: 8 } },
+          h("button", { "data-wk": "nrrecapfold", onClick: () => setRecapUi(u => Object.assign({}, u, { fold: !u.fold })), style: { flex: 1, minWidth: 0, minHeight: 32, textAlign: "left", fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
+            (recapUi.fold ? "▸ " : "▾ ") + "上次聊到哪" + (recapUi.busy ? " · 正在总结…" : "")),
+          !recapUi.fold && !recapUi.busy && h("button", { "data-wk": "nrrecapredo", onClick: () => makeRecap(room.id, false), style: { minHeight: 32, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, "重新总结"),
+          h("button", { "data-wk": "nrrecapclose", onClick: () => setRecapUi(u => Object.assign({}, u, { show: false })), style: { minHeight: 32, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(12), color: t.fog } }, "×")),
+        !recapUi.fold && recapUi.err && h(Note, null, recapUi.err),
+        !recapUi.fold && rc && h("div", { "data-wk": "nrrecapbody", style: { fontFamily: F_BODY, fontSize: fs(12.5), color: t.sub || t.ink, lineHeight: 1.7, marginTop: 4 } },
+          rc.talk && h("div", null, rc.talk),
+          rc.said.map((x, i) => h("div", { key: "s" + i }, "· " + x)),
+          rc.plans.map((x, i) => h("div", { key: "p" + i }, "· 约好：" + x)),
+          rc.game && h("div", null, "· 上一局：" + rc.game),
+          h("div", { style: { fontSize: fs(10.5), color: t.fog, marginTop: 4 } }, "照房间记录总结到 " + fmt(rc.upTo) + "；TA 们开口时也会带上这段。")));
       const chatCore = [
+        recapEl,
         h(MsgList, { key: "ml", room, myCharsById: charsById, tail, rowProps: rowProps(room, true) }),
         alone && h("div", { key: "rj", "data-wk": "nrrejoinbar", className: "shrink-0 flex items-center", style: { gap: 10, padding: "8px 14px", borderTop: "1px solid " + t.line, background: t.bg2 } },
           h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: fs(12.5), color: t.fog, lineHeight: 1.5 } }, peers.length ? REJOIN_NOTE_PEERS : REJOIN_NOTE_ALONE),

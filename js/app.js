@@ -38677,6 +38677,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + (shared && shared.trim() ? "\n\n【记忆库里大家都知道的事】\n" + shared.trim() : "")
         + (priv ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。一个成员不知道、也不提另一个成员和用户之间私下说过什么、是什么关系，除非那位成员自己当众说出来。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + priv : "");
     },
+    // 「上次聊到哪」前情卡：后台活，照记忆浓缩那几处走 sumRoute（挑过后台线路走后台，没挑跟线上）；自动那次遇上后台「无」/免打扰就不跑
+    recapApi: auto => (auto && bgOff()) ? null : sumRoute(active),
     onBack: goHome
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
