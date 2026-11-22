@@ -27635,7 +27635,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       (box[dk] || []).forEach(ev => {
         if (!ev || !S(ev.title)) return;
         // 在一起那天落的「♥ 和 X 在一起」：在他手机里，X 是你跟他用的那张面具（她 2026-11-22「这里查手机也写死主面具了」），按现在取，不信存进去那一刻的名字
-        const _t = ev.note === "情侣纪念日" && /^♥ 和 .+ 在一起$/.test(S(ev.title)) ? "♥ 和 " + userName(profileFor(char.id) || profile) + " 在一起" : S(ev.title);
+        const _t = S(togetherTitleNow(ev, userName(profileFor(char.id) || profile)));
         items.push({ title: _t.slice(0, 40), date: DK(dk), time: "", kind: "事件", done: false, postponed: 0, note: S(ev.note).slice(0, 120), who: "" });
       });
     });
@@ -29878,7 +29878,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   v76.991 把它存成了虚拟钟上的时刻——钟往回拨就是在一起十万天，往前拨永远是第 1 天。日历那条照旧写 TA 那边的日子（now）。
     setCoupleFor(charId, { status: "together", since: Date.now(), rel: rk0, ...(role0 ? { role: role0 } : {}) });
     // 在一起纪念日写进日历（该角色视角）
-    if (rk0 === "lover") saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "♥ 和 " + (char ? char.name : "TA") + " 在一起", "情侣纪念日");
+    if (rk0 === "lover") saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), togetherTitle(char ? char.name : "TA"), "情侣纪念日");
     else saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "和 " + (char ? char.name : "TA") + " 开了" + spaceRel(rk0).space, spaceRel(rk0).space + "纪念日");
   };
   // 给模型的那句「你们是什么」：恋人照旧；别的关系说清不是恋人（各处 instruction 开头都问它，别再手写「你们是恋人」）
