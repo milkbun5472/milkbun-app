@@ -154,3 +154,10 @@ test("界面：没配 Supabase 时开关灰着并说去哪配；加入框认房�
   assert.match(app, /sig: s0 \|\| null/, "房间记着走哪条路，重新连上照旧");
   assert.ok(!/service_role|serviceKey|access_token/.test(app.split("\n").filter(l => /packJoin/.test(l)).join("")));
 });
+
+test("递名片那一格有「怎么弄？一步一步看」：点开是攻略里那一节，教程只住攻略一份", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
+  assert.ok(src.includes('"怎么弄？一步一步看"') && src.includes('d.indexOf("### 连不上房间号时")'));
+  const man = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/assistant-manual.js"), "utf8");
+  assert.ok(man.includes("### 连不上房间号时"), "攻略里那一节标题还在（界面按它切）");
+});

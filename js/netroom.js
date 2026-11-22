@@ -1232,7 +1232,8 @@
     const [saving, setSaving] = useState(false);
     const [rooms, setRooms] = useState(() => Core.loadRooms());
     const [viewId, setViewId] = useState(null);
-    const [delAsk, setDelAsk] = useState(false);   // 删房间记录要点两下
+    const [delAsk, setDelAsk] = useState(false);
+    const [, setGuideTick] = useState(0);   // 教程那段懒加载回来以后重画一次   // 删房间记录要点两下
     useEffect(() => { setDelAsk(false); }, [viewId, page]);
     const entered = useRef(false);
     const mesh = useRef(null), roomRef = useRef(null), meId = useRef("");
@@ -2206,6 +2207,14 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
     }
 
     // 首页
+    const supaGuideText = () => {
+      const m = root.AssistantManual && root.AssistantManual.byId ? root.AssistantManual.byId("netroom") : null;
+      if (!m || !m.doc) return root.AssistantManual ? "教程没加载出来，去秋秋攻略里搜「联机」。" : "正在加载教程…";
+      const d = String(m.doc), i = d.indexOf("### 连不上房间号时"); if (i < 0) return "教程没找到，去秋秋攻略里搜「联机」。";
+      const j = d.indexOf("\n### ", i + 5);
+      return d.slice(i, j > 0 ? j : undefined).replace(/^### [^\n]*\n+/, "").replace(/\*\*/g, "").trim();
+    };
+    // 首页
     const supaBox = card([
       h("label", { key: "on", className: "flex items-center", style: { gap: 10, minHeight: 44, opacity: supa ? 1 : 0.45 } },
         h("input", { type: "checkbox", "data-wk": "nrsupaon", disabled: !supa, checked: useSupa, onChange: e => saveSupaOwn({ on: e.target.checked }) }),
@@ -2213,6 +2222,12 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
       h(Note, { key: "why" }, supa
         ? "房间号进不去（公共中转连不上）时用。只管你开的房：开房后会多一串连接码，整串发给要来的人；加入别人的房不用开它，把连接码粘进下面的框就行。"
         : "还没有可用的 Supabase：在下面填一个项目的地址和公开密钥（anon key）就能打开。不会配看秋秋攻略「联机」。"),
+      // 跟云同步那页同一个样子：点开就是攻略「联机」里那一节教程，边看边弄（她 11-22：「直接在递 supabase 那一层也写一份」）
+      //   教程只住攻略那一份（netroom 条目里「### 连不上房间号时」那一节），这儿切出来摆，不另抄
+      h("details", { key: "guide", "data-wk": "nrsupaguide", onToggle: e => { const d = e.currentTarget; if (d.open && !root.AssistantManual && root.LazyMods) root.LazyMods.load("manual").then(() => setGuideTick(n => n + 1)).catch(() => {}); },
+        style: { padding: "10px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
+        h("summary", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.ink, cursor: "pointer", minHeight: 28 } }, "怎么弄？一步一步看"),
+        h("div", { "data-wk": "nrsupaguidebody", style: { fontFamily: F_BODY, fontSize: fs(12), color: t.sub, lineHeight: 1.85, marginTop: 8, whiteSpace: "pre-wrap" } }, supaGuideText())),
       h("details", { key: "own", "data-wk": "nrsupaown" },
         h("summary", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.ink, minHeight: 36, cursor: "pointer" } }, "联机用的项目（可不填，" + (byoRaw ? "不填就用云同步那个" : "填了才能打开上面的开关") + "）"),
         ["url", "key"].map(k => h("input", { key: k, "data-wk": k === "url" ? "nrsupaurl" : "nrsupakey", defaultValue: supaOwn[k] || "", placeholder: k === "url" ? "https://xxxx.supabase.co" : "公开密钥（anon public key）",
