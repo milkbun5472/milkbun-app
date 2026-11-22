@@ -30,6 +30,9 @@
   ];
   const CONNECT_TIMEOUT = 20000;
   const FAIL_TEXT = "你们的网络直连不上，试试两边都换成 Wi-Fi 再开一次";
+  // 房间号这一步（递名片）没走通：公共中转那条提示里带上备用路；自己的 Supabase 那条指出该查什么
+  const BROKER_FAIL_TEXT = "房间号这一步没走通：公共中转这会儿连不上，过一会儿再试。也可以改用自己的 Supabase：开房的人在「联机」首页打开「用自己的 Supabase 递名片」再开房，把连接码整串发给要来的人（怎么配见秋秋攻略「联机」）。";
+  const SUPA_FAIL_TEXT = "连不上这个 Supabase：看项目地址和公开密钥对不对、项目有没有被暂停（Paused）。也可以关掉「用自己的 Supabase 递名片」改走公共中转。";
   const STORE_KEY = "x_netroom";
   const AVATAR_PX = 64;
 
@@ -691,6 +694,111 @@
     }
     throw last || new Error("连不上");
   }
+
+  // ───────────── 递名片的路是可以换的 ─────────────
+  // Mesh 只认这五样：open（连上，返回自己）/ subscribe(topic) / publish(topic, obj) / close() / alive()。
+  //   收到东西回调 onMessage(topic, 字符串)；连好以后断了回调 onDrop()。
+  //   默认是上面那条公共 MQTT 中转；开房的人选了「用自己的 Supabase 递名片」就换成下面这条。
+  // Supabase 这条只用 Realtime 的 broadcast：不建表、不读写数据库，跟云同步的存档没有任何来往。
+  //   而且只递 offer/answer 这些「怎么连我」，连上以后聊天照样是手机之间直连，不经过它。
+  const SUPA_EVENT = "m";
+  const supaChannelName = topic => String(topic).replace(/[^A-Za-z0-9_-]/g, "-");
+  function SupaLink(cfg, onMessage, onDrop, createClient) {
+    let sb = null, closed = false, dropped = false;
+    const chans = {};   // topic → { ch, ok }
+    const make = createClient || (typeof window !== "undefined" && window.supabase && window.supabase.createClient);
+    const lost = () => { if (closed || dropped) return; dropped = true; api.close(); onDrop && onDrop(); };
+    const api = {
+      async open() {
+        if (!make) throw new Error("没有 Supabase");
+        // 不存登录态、不刷新令牌：这个 client 只拿公开密钥递名片，跟云同步登录的那个互不相干
+        sb = make(cfg.url, cfg.key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: "qq-netroom-sig" } });
+        return api;
+      },
+      subscribe(topic) {
+        return new Promise((ok, no) => {
+          let settled = false;
+          const tm = setTimeout(() => { if (!settled) { settled = true; no(new Error("超时")); } }, 10000);
+          const ch = sb.channel(supaChannelName(topic), { config: { broadcast: { self: false, ack: false } } });
+          const rec = { ch, ok: false };
+          chans[topic] = rec;
+          ch.on("broadcast", { event: SUPA_EVENT }, msg => {
+            if (closed) return;
+            const d = msg && msg.payload && msg.payload.d;
+            if (typeof d === "string") { try { onMessage(topic, d); } catch (e) {} }
+          });
+          ch.subscribe(status => {
+            if (status === "SUBSCRIBED") { rec.ok = true; if (!settled) { settled = true; clearTimeout(tm); ok(); } return; }
+            if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+              rec.ok = false;
+              if (!settled) { settled = true; clearTimeout(tm); no(new Error("连不上")); }
+              else lost();
+            }
+          });
+        });
+      },
+      publish(topic, obj) {
+        const rec = chans[topic];
+        try { rec && rec.ok && rec.ch.send({ type: "broadcast", event: SUPA_EVENT, payload: { d: JSON.stringify(obj) } }); } catch (e) {}
+      },
+      alive() { return !closed && !dropped && Object.keys(chans).some(k => chans[k].ok); },
+      close() {
+        closed = true;
+        Object.keys(chans).forEach(k => { const rec = chans[k]; rec.ok = false; try { sb && sb.removeChannel(rec.ch); } catch (e) {} delete chans[k]; });
+        try { sb && sb.realtime && sb.realtime.disconnect && sb.realtime.disconnect(); } catch (e) {}
+      }
+    };
+    return api;
+  }
+  // 按房间记着的那份配置挑一条路：sig 为空走公共中转；有 {url,key} 走那个 Supabase
+  const signalFor = (sig, createClient) => (sig && sig.url && sig.key)
+    ? (onMessage, onDrop) => SupaLink(sig, onMessage, onDrop, createClient).open()
+    : openBroker;
+
+  // ───────────── 连接码：把 Supabase 地址 + 公开密钥 + 房间号打成一串 ─────────────
+  // 格式：「QQNR1.」+ base64url(JSON {u, k, c})。只放这三样，永远不放 service key、不放登录态。
+  const JOIN_PREFIX = "QQNR1.";
+  const b64u = {
+    enc(str) { const b = utf8(str); let bin = ""; b.forEach(x => { bin += String.fromCharCode(x); }); return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); },
+    dec(s) { const t = String(s).replace(/-/g, "+").replace(/_/g, "/"); const bin = atob(t + "===".slice((t.length + 3) % 4)); return new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0))); }
+  };
+  const cleanSupaUrl = u => String(u || "").trim().replace(/\/(rest|auth|storage|realtime|functions)\/v1.*$/i, "").replace(/\/+$/, "");
+  // 这把钥匙是不是只能给别人的那种：新式 sb_secret_ 和老式 JWT 里 role=service_role 的一律不收
+  function secretKey(k) {
+    k = String(k || "");
+    if (/^sb_secret_/i.test(k)) return true;
+    const parts = k.split(".");
+    if (parts.length === 3) { try { const p = JSON.parse(b64u.dec(parts[1])); if (p && p.role && p.role !== "anon") return true; } catch (e) {} }
+    return false;
+  }
+  function cleanSupa(cfg) {
+    if (!cfg || typeof cfg !== "object") return null;
+    const url = cleanSupaUrl(cfg.url), key = String(cfg.key || "").trim();
+    if (!/^https:\/\/[^\s/]+$/i.test(url) || !key || key.length > 2000 || /\s/.test(key) || secretKey(key)) return null;
+    return { url, key };
+  }
+  function packJoin(cfg, code) {
+    const c = cleanSupa(cfg);
+    if (!c || !validCode(code)) return "";
+    return JOIN_PREFIX + b64u.enc(JSON.stringify({ u: c.url, k: c.key, c: String(code).trim() }));
+  }
+  // 加入时输入框里的东西：6 位房间号 → 走公共中转；连接码 → 那个 Supabase + 房间号；别的都当坏串
+  function parseJoin(raw) {
+    const s = String(raw || "").replace(/\s+/g, "");
+    if (validCode(s)) return { code: s, sig: null };
+    if (s.indexOf(JOIN_PREFIX) !== 0) return null;
+    let o; try { o = JSON.parse(b64u.dec(s.slice(JOIN_PREFIX.length))); } catch (e) { return null; }
+    if (!o || !validCode(o.c)) return null;
+    const sig = cleanSupa({ url: o.u, key: o.k });
+    return sig ? { code: String(o.c), sig } : null;
+  }
+  // 这台手机能用的 Supabase：联机页里单独填的那份优先，没有就用云同步那份（公共版设置里填的 x_byoSupa）
+  function supaCfg(own, byoRaw) {
+    const a = cleanSupa(own);
+    if (a) return a;
+    let b = null; try { b = typeof byoRaw === "string" ? JSON.parse(byoRaw) : byoRaw; } catch (e) {}
+    return cleanSupa(b);
+  }
   function iceDone(pc) {
     return new Promise(ok => {
       if (pc.iceGatheringState === "complete") return ok();
@@ -816,10 +924,15 @@
     let slow = 0;
     // 中转那条线掉了：隔几秒自己再接上（房间里的直连不受影响，只是新人/回来的人暂时找不到）
     const openLink = async first => {
-      try { link = await openBroker(onMessage, () => { link = null; if (!dead) setTimeout(() => openLink(false), 3000); }); }
-      catch (e) { if (first) return fail("房间号这一步没走通：网络连不上，过一会儿再试"); if (!dead) setTimeout(() => openLink(false), 5000); return; }
-      if (dead) { link.close(); return; }
-      await link.subscribe(topic);
+      const openSig = o.signal || openBroker;
+      let L = null;
+      try {
+        L = await openSig(onMessage, () => { if (link === L) link = null; if (!dead) setTimeout(() => openLink(false), 3000); });
+        if (dead) { L.close(); return; }
+        await L.subscribe(topic);
+        link = L;
+      }
+      catch (e) { try { L && L.close(); } catch (_) {} if (first) return fail(o.signal ? SUPA_FAIL_TEXT : BROKER_FAIL_TEXT); if (!dead) setTimeout(() => openLink(false), 5000); return; }
       if (!first) { if (missing().length) pub({ t: "hello" }); return; }
       if (o.host && !o.patient) o.onStatus && o.onStatus("等别人输入房间号…");
       else { o.onStatus && o.onStatus(o.patient ? "等别人也点「重新连上」…" : "正在找房间…"); sayHello(); }
@@ -840,7 +953,7 @@
     return api;
   }
 
-  const Core = { BROKERS, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
+  const Core = { BROKERS, BROKER_FAIL_TEXT, SUPA_FAIL_TEXT, JOIN_PREFIX, MqttLink, openBroker, SupaLink, signalFor, packJoin, parseJoin, cleanSupa, supaCfg, secretKey, Mesh, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
     memoryTargets, transcript, lineInstruction, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
     ownsMsg, editMsg, recallMsg, dropMsg, dropOwnMsg, tombOwn, applyDrops, isDropped, TOMB_MAX, missingImgs, cleanQuote, quoteOf, quoteState, quoteCatalog, resolveQuote, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom, sinceRemembered, echoText,
@@ -1091,6 +1204,13 @@
     const [nick, setNick] = useState(() => Core.lastNick(Core.loadRooms()) || (props.profile && props.profile.name) || "");
     const [code, setCode] = useState("");
     const [joinCode, setJoinCode] = useState("");
+    // 用自己的 Supabase 递名片：联机页里单独填的那份（x_netroomSupa，可不填）优先，没有就用云同步那份（x_byoSupa）
+    const [supaOwn, setSupaOwn] = useState(() => { try { return loadJSON("x_netroomSupa", {}) || {}; } catch (e) { return {}; } });
+    const byoRaw = (() => { try { return loadJSON("x_byoSupa", null); } catch (e) { return null; } })();   // 公共版云同步填的那份；家里版没有
+    const supa = Core.supaCfg(supaOwn, byoRaw);
+    const useSupa = !!(supa && supaOwn.on);
+    const saveSupaOwn = patch => { const next = Object.assign({}, supaOwn, patch); setSupaOwn(next); try { saveJSON("x_netroomSupa", next); } catch (e) {} };
+    const [sig, setSig] = useState(null);   // 这一场递名片用的 Supabase（null＝公共中转）
     const [status, setStatus] = useState("");
     const [err, setErr] = useState("");
     const [room, setRoom] = useState(null);
@@ -1296,16 +1416,20 @@
       try { mesh.current && mesh.current.close(); } catch (e) {}
       mesh.current = null; linkMap.current = {}; seen.current = new Set(); greeted.current = new Set();
       games.current = newGames(); setGameId(null);
-      const c = resume ? resume.code : host ? Core.newCode() : String(joinCode).trim();
-      if (!host && !Core.validCode(c)) { setErr("房间号是 6 位数字"); return; }
+      const got = !resume && !host ? Core.parseJoin(joinCode) : null;
+      if (!resume && !host && !got) { setErr("没认出来：填 6 位房间号，或者把朋友发来的连接码整串粘进来"); return; }
+      const c = resume ? resume.code : host ? Core.newCode() : got.code;
       let base = resume ? (Core.loadRooms().find(x => x.id === resume.id) || resume) : null;
+      // 递名片走哪条路：回原来的房间照那个房间记着的；开房看开关；加入看粘进来的是不是连接码
+      const s0 = resume ? Core.cleanSupa(base && base.sig) : host ? (useSupa ? supa : null) : got.sig;
+      setSig(s0);
       if (base && !base.myPeerId) base = Core.patchRoom(base, { myPeerId: Core.rid() });   // 老房间头一回连：补一个自己的 id
       meId.current = base ? base.myPeerId : Core.rid();
       if (base && base.myNick && base.myNick !== "朋友") setNick(base.myNick);
       if (base) { commit(Core.patchRoom(base, { endedAt: 0 })); entered.current = true; setPage("chat"); }
       else { commit(null); entered.current = false; setPage("wait"); }
       setCode(c); setStatus("正在连…");
-      const m = Mesh({ code: c, host, patient: !!resume, me: meId.current,
+      const m = Mesh({ code: c, host, patient: !!resume, me: meId.current, signal: s0 ? Core.signalFor(s0) : null,
         knownIds: () => ((roomRef.current && roomRef.current.peers) || []).map(p => p.peerId).concat(mesh.current ? Object.keys(linkMap.current).concat(mesh.current.openIds()) : []),
         onStatus: setStatus,
         onFail: text => { if (mesh.current !== m) return; mesh.current = null; setErr(text); if (!entered.current) setPage("home"); syncNet(); },
@@ -1314,7 +1438,7 @@
           if (mesh.current !== m) return;
           if (!roomRef.current) {
             const r = { id: "nr_" + Date.now(), code: c, host, myPeerId: meId.current, startedAt: Date.now(), endedAt: 0, myNick: myNick(),
-              peers: [], myChars: [], msgs: [], remembered: {} };
+              peers: [], myChars: [], msgs: [], remembered: {}, sig: s0 || null };
             commit(Core.upsertRoom(r)); setPage("pick");
           } else if (entered.current) announce(roomRef.current);
           sendLinks(); syncNet();
@@ -1858,6 +1982,17 @@
       setPage("home");
     };
 
+    // 连接码：复制给要来的人。剪贴板不让写就弹一个能长按全选的框
+    const copySig = async (sg, cd) => {
+      const s1 = Core.packJoin(sg, cd); if (!s1) return;
+      try { await navigator.clipboard.writeText(s1); props.toast && props.toast("连接码复制好了：整串发给要来的人"); }
+      catch (e) { try { window.prompt("长按全选复制这串连接码", s1); } catch (_) {} }
+    };
+    const sigCard = (sg, cd, key) => h("div", { key, "data-wk": "nrsigcard", style: { border: "1px solid " + t.line, borderRadius: 14, background: t.bg2, padding: 14, display: "flex", flexDirection: "column", gap: 8 } },
+      h(Note, null, "这个房间用你自己的 Supabase 递名片：别人要用连接码进来，只有房间号进不来。"),
+      h("div", { "data-wk": "nrsigcode", style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, wordBreak: "break-all", lineHeight: 1.5, maxHeight: 64, overflow: "hidden" } }, Core.packJoin(sg, cd)),
+      h(Btn, { label: "复制连接码", primary: true, onClick: () => copySig(sg, cd), wk: "nrsigcopy" }),
+      h(Note, null, "连接码里有这个项目的公开密钥，只发给信得过的人。Supabase 只用来递名片，聊天内容不经过它；云同步的存档有行级安全挡着，拿着这串也读不到。"));
     // 外壳收任意几块（顶栏、正文、底下几条）：原来只收三块，房间页多了「重新连上」那条以后输入框被挤成第四块丢掉了
     const shell = (...parts) => shellOn(null, ...parts);
     const shellOn = (bg, ...parts) => h("div", { "data-wk": "nrpage", "data-part": page, className: "h-full flex flex-col", style: Object.assign({ background: t.bg }, bg || {}, { color: t.ink }) },
@@ -1871,6 +2006,7 @@
       code && h("div", { key: "c", style: { textAlign: "center", paddingTop: 30 } },
         h(Note, null, "房间号"),
         h("div", { "data-wk": "nrcode", style: { fontFamily: F_DISPLAY, fontSize: fs(40), letterSpacing: 8, margin: "6px 0 10px" } }, code)),
+      code && sig && sigCard(sig, code, "k"),
       h("div", { key: "s", style: { textAlign: "center" } }, h(Note, null, status)),
       h(Note, { key: "n" }, "把房间号发给要来的人（算上你最多四个人），让她们在「联机」里点「输入房间号加入」。第一个人连上你就能进房间，后来的人随时能进。要来的人得开着这一页；20 秒连不上会提示。")
     ]));
@@ -1938,6 +2074,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
       return shell(
         h(Head, { zh: "房间 " + room.code, sub: "在线 " + online + " 人", onBack: () => setPage("leave"),
           right: h("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
+            room.sig && h("button", { "data-wk": "nrsigcopy", onClick: () => copySig(room.sig, room.code), style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(13), color: t.ink } }, "连接码"),
             h("button", { "data-wk": "nrrepick", onClick: openRepick, style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(13), color: t.ink } }, "换人"),
             h("button", { "data-wk": "nrleave", onClick: () => setPage("leave"), style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(13), color: t.ink } }, "退出")) }),
         peers.length > 0 && h("div", { "data-wk": "nrpeerbar", className: "shrink-0", style: { padding: "6px 14px", borderBottom: "1px solid " + t.line, display: "flex", flexWrap: "wrap", gap: "4px 12px" } },
@@ -2066,6 +2203,20 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
     }
 
     // 首页
+    const supaBox = card([
+      h("label", { key: "on", className: "flex items-center", style: { gap: 10, minHeight: 44, opacity: supa ? 1 : 0.45 } },
+        h("input", { type: "checkbox", "data-wk": "nrsupaon", disabled: !supa, checked: useSupa, onChange: e => saveSupaOwn({ on: e.target.checked }) }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: fs(14) } }, "用自己的 Supabase 递名片")),
+      h(Note, { key: "why" }, supa
+        ? "房间号进不去（公共中转连不上）时用。只管你开的房：开房后会多一串连接码，整串发给要来的人；加入别人的房不用开它，把连接码粘进下面的框就行。"
+        : "还没有可用的 Supabase：在下面填一个项目的地址和公开密钥（anon key）就能打开。不会配看秋秋攻略「联机」。"),
+      h("details", { key: "own", "data-wk": "nrsupaown" },
+        h("summary", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.ink, minHeight: 36, cursor: "pointer" } }, "联机用的项目（可不填，" + (byoRaw ? "不填就用云同步那个" : "填了才能打开上面的开关") + "）"),
+        ["url", "key"].map(k => h("input", { key: k, "data-wk": k === "url" ? "nrsupaurl" : "nrsupakey", defaultValue: supaOwn[k] || "", placeholder: k === "url" ? "https://xxxx.supabase.co" : "公开密钥（anon public key）",
+          onBlur: e => saveSupaOwn({ [k]: e.target.value.trim() }),
+          style: { width: "100%", marginTop: 6, minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: fs(12.5) } })),
+        supaOwn.key && Core.secretKey(supaOwn.key) && h(Note, { key: "sec" }, "这把是 service key（只能你自己用的那把），不能拿来联机：换成 anon public 那把。"))
+    ]);
     return shell(h(Head, { zh: "联机", onBack: props.onBack }), scroll([
       h(Note, { key: "intro" }, "跟别的手机上的人开一个房间，各带自己的角色进来一起聊。算上你最多四个人；要连的人都得开着这一页。"),
       card([
@@ -2074,12 +2225,13 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
           style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: fs(14) } }),
         h(Btn, { key: "host", label: "开房间", primary: true, onClick: () => start(true), wk: "nrhost" }),
         h("div", { key: "j", className: "flex", style: { gap: 8 } },
-          h("input", { "data-wk": "nrjoincode", value: joinCode, onChange: e => setJoinCode(e.target.value.replace(/\D/g, "").slice(0, 6)), inputMode: "numeric", placeholder: "6 位房间号",
+          h("input", { "data-wk": "nrjoincode", value: joinCode, onChange: e => { const v = e.target.value.replace(/\s+/g, ""); setJoinCode(/^\d*$/.test(v) ? v.slice(0, 6) : v.slice(0, 3000)); }, placeholder: "6 位房间号，或整串连接码", autoCapitalize: "off", autoCorrect: "off", spellCheck: false,
             style: { flex: 1, minWidth: 0, minHeight: 44, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: fs(15), letterSpacing: 2 } }),
           h(Btn, { label: "输入房间号加入", onClick: () => start(false), wk: "nrjoin" })),
         err && h("div", { key: "err", "data-wk": "nrerr", style: { fontFamily: F_BODY, fontSize: fs(13), color: t.ink, lineHeight: 1.6 } }, err),
         h(Note, { key: "priv" }, "别人只看得到你带的人的名字和头像，人设、记忆、世界书不出你的手机。聊天记录每人各存一份。")
       ]),
+      supaBox,
       label("以前的房间"),
       rooms.length ? rooms.map(r => h("button", { key: r.id, "data-wk": "nrhist", onClick: () => { setViewId(r.id); setPage("view"); }, className: "active:opacity-70",
         style: { textAlign: "left", border: "1px solid " + t.line, borderRadius: 12, background: t.bg2, padding: "10px 14px", color: t.ink } },
