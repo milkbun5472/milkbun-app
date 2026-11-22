@@ -381,3 +381,10 @@ test("角色开口跟单聊同一份料：ctxFor(chat) + runProbe(voice) 的 bui
   assert.match(app, /stampFor: \(charId, ts\) => aiStampFor\(charId, ts\)/);
   assert.match(app, /emoteFor: \(charId, kw\) => emoteMatch\(emotesForChar\(charId\), kw\)/);
 });
+
+test("记进记忆用第三人称，点名角色和她", () => {
+  const { C } = load();
+  const t = C.memoryInstruction({ id: "m", myNick: "小雨", peers: [], myChars: [], msgs: [] }, { id: "a", name: "甲", you: "阿梨" });
+  assert.ok(t.includes("写成第三人称") && t.includes("「甲」和「阿梨」") && !t.includes("你的第一人称"));
+  assert.ok(src.includes('1~3 句，第三人称'));
+});

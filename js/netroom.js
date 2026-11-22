@@ -12,7 +12,7 @@
 // 角色开口用的是【自己手机】的线路：runProbe(apiFor(id), ctxFor(char), { voice: true })——
 //   buildBundle 那一整份（人设全文/心情/好感/记忆/反八股）白得，房间记录作为料放进 system。
 // 聊天记录两边各存一份：x_netroom（x_ 键自动进 IDB 文字库，见 no-small-warehouse.md）。
-// 记进记忆：退出时一人一格勾选；勾了的照「一起看」那条路——TA 用第一人称浓缩一两句，
+// 记进记忆：退出时一人一格勾选；勾了的照「一起看」那条路——用第三人称浓缩一两句（跟记忆库其余条目一个口径），
 //   交给宿主的 onAddMemory（app.js 的 keepWhereItHappened）落库。不勾什么都不留，历史里能补记。
 (function (root) {
   "use strict";
@@ -275,8 +275,10 @@
   }
   function memoryInstruction(room, char) {
     room = normalizeRoom(room);
-    return (youAlias(room, char) ? "（" + youAlias(room, char) + "）\n" : "") + "把下面这次「" + (char.you || room.myNick) + " 带你进联机房间，跟 " + (peerNames(room).join("、") || "别人") + " 那边的人聊天」的经历，浓缩成 1~3 句会长期记住的事（你的第一人称）："
-      + "见了谁、聊了什么、谁让你印象深、你自己说过的要紧的话。只写沉淀下来的，不记流水账。别人带来的人你只知道名字和他们在这里说的话。"
+    return (youAlias(room, char) ? "（" + youAlias(room, char) + "）\n" : "") + "把下面这次「" + (char.you || room.myNick) + " 带你进联机房间，跟 " + (peerNames(room).join("、") || "别人") + " 那边的人聊天」的经历，浓缩成 1~3 句会长期记住的事。"
+      // 第三人称（她 2026-11-22）：跟记忆库里单聊、群聊、线下抽出来的那些一个口径，混着注入时不会分不清「我」是谁
+      + "写成第三人称：用名字称呼「" + (char.name || "TA") + "」和「" + (char.you || room.myNick) + "」，不写「我」「你」。"
+      + "见了谁、聊了什么、谁让 " + (char.name || "TA") + " 印象深、" + (char.name || "TA") + " 自己说过的要紧的话。只写沉淀下来的，不记流水账。别人带来的人你只知道名字和他们在这里说的话。"
       + "\n房间里的几方：" + sidesLines(room)
       + "\n\n【这次房间里的全部聊天】\n" + transcript(room);
   }
@@ -1241,7 +1243,7 @@
       if (!p) throw new Error("先去 设置·API 配一条线路");
       const d = await runProbe(p, props.ctxFor(char), { voice: true, tag: "netroom",
         instruction: Core.memoryInstruction(r, { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" }),
-        schemaHint: "{\"memory\":\"1~3 句，第一人称\"}", maxTokens: 12000 });
+        schemaHint: "{\"memory\":\"1~3 句，第三人称\"}", maxTokens: 12000 });
       const text = String((d && d.memory) || "").trim();
       if (!text) throw new Error("没浓缩出什么");
       props.onAddMemory && props.onAddMemory(text, char.id);
