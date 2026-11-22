@@ -22294,7 +22294,7 @@ function GroupThread({
   }), reactAt != null && onReact && h(Sheet, { onClose: () => setReactAt(null) },
     h(Eyebrow, { style: { marginBottom: 10 } }, "点个表情"),
     h("div", { "data-wk": "reactpick", className: "flex flex-wrap", style: { gap: 10 } }, (typeof CHP_EMOJI !== "undefined" ? CHP_EMOJI : ["👍"]).map(e => h("button", { key: e, onClick: () => { onReact(reactAt, e); setReactAt(null); }, className: "active:opacity-60",
-      style: { width: 52, height: 52, borderRadius: 14, border: "1px solid " + t.line, background: (messages[reactAt] && messages[reactAt].reacts && messages[reactAt].reacts.me === e) ? t.bg2 : "transparent", fontSize: 26 } }, e))),
+      style: { width: 52, height: 52, borderRadius: 14, border: "1px solid " + t.line, background: (messages[reactAt] && messages[reactAt].reacts && messages[reactAt].reacts.me === e) ? t.bg2 : "transparent", fontSize: "calc(26px * var(--app-fs, 1))" } }, e))),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, "再点一次同一个就是收回。")));
 }
 function PollCard({

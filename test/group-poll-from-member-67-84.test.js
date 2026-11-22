@@ -19,9 +19,10 @@ const mk = () => {
   const src = app.slice(i, j)
     .replace(/toast\(/g, "noop(")
     .replace(/setTimeout\(/g, "noop(");
-  const fn = new Function("pushGroupRich", "gsFor", "profile", "noop", "genPollVotes",
+  // 她在这个群里叫什么走 herNameIn（面具会换名字）；测试里就是 profile.name
+  const fn = new Function("pushGroupRich", "gsFor", "profile", "noop", "genPollVotes", "herNameIn",
     src + "\nreturn { pushPoll, startPoll, postPoll };");
-  const K = fn((g, r) => rows.push(r), () => ({ spectate: false }), { name: "丽莎" }, () => {}, () => {});
+  const K = fn((g, r) => rows.push(r), () => ({ spectate: false }), { name: "丽莎" }, () => {}, () => {}, () => "丽莎");
   return { K, rows };
 };
 
