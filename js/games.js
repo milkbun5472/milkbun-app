@@ -3310,9 +3310,12 @@
       + "\n\n" + (kind === "haigui" ? "【汤面】" + (pub && pub.surface || "") : "【类别】" + (pub && pub.category || ""))
       + "\n【此前问过的（别重复）】\n" + hist
       + "\n\n照你的性子和水平问一个新的、有推理价值的问题；有把握也可以直接猜（问「是不是……」）。"
-      + "\n只输出 JSON：{\"question\":\"你的一个是非问题\"}";
+      + (who && who.withSay ? "\nsay 是你问完嘴上顺带的那句（冲谁说、得意、嘀咕都行），没想说就留空；你只知道桌上公开的这些，说不出谜底。" : "")
+      + "\n只输出 JSON：{\"question\":\"你的一个是非问题\"" + (who && who.withSay ? ",\"say\":\"可空\"" : "") + "}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "轮到你问了。" }], { maxTokens: 8000 });
-    return String(((extractJSON(raw) || {}).question) || "").trim().slice(0, 160);
+    const j = extractJSON(raw) || {}, q = String(j.question || "").trim().slice(0, 160);
+    // withSay：同一次顺带要一句台词，回 { question, say }；不带就照旧只回问题那一句
+    return who && who.withSay ? { question: q, say: String(j.say || "").trim().slice(0, 120) } : q;
   }
 
   // 一轮：先答用户的问题（若有），再让 AI 各问一个新问题并作答，判断是否有人破题
@@ -3835,7 +3838,9 @@
       (memText ? "\n\n【之前发生过的】\n" + memText : "") +
       "\n\n【本轮题型主题】" + plan.theme + (plan.avoid ? "\n【跨局最近出过的题（禁止重复或近义改写）】\n" + plan.avoid : "") +
       "\n\n出一道" + (choice === "真心话" ? "真心话问题" : "具体可执行的大冒险动作") + "，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + (mode === "easy" ? "别太为难。" : "") +
-      "\n只输出 JSON：{\"prompt\":\"\"}";
+      (asker && asker.withSay ? "\nsay 是 " + askerName + " 出完题嘴上顺带的那句（起哄、使坏、给 TA 台阶都行），可空。" : "") +
+      (target && target.answerToo ? "\n\n出完题，紧接着由被点到的【" + target.name + "】来回应这一题：" + tdDesc(target, 300) + "\n替 TA 写回应／完成的样子，3~5 句、有现场感，写进 response。" : "") +
+      "\n只输出 JSON：{\"prompt\":\"\"" + (asker && asker.withSay ? ",\"say\":\"\"" : "") + (target && target.answerToo ? ",\"response\":\"\"" : "") + "}";
     let raw = await callRetry(api, sys, [{ role: "user", content: "出题。" }], { maxTokens: 12000 });
     let out = extractJSON(raw) || {};
     if (!tdPromptMatchesChoice(choice, out.prompt)) {
@@ -3858,10 +3863,12 @@
       if (cc.done && String(cc.done.response || "").trim()) return String(cc.done.response).trim();
       throw new Error(cc.reason || "本人回答票未送达");
     }
-    const sys = gameVoiceRules() + TD_IC + "\n\n「真心话大冒险」里，" + (askerName ? "【" + askerName + "】" : "真人玩家亲自") + "给【" + target.name + "】出了一道【" + choice + "】：『" + prompt + "』。\n被点到的人设：\n" + tdDesc(target) + (memText ? "\n【之前几轮】\n" + memText : "") + "\n只能演 " + target.name + " 的回应/完成，不许改题、不许替真人说话。写 3~5 句、有现场感。只输出 JSON：{\"response\":\"\"}";
+    const sys = gameVoiceRules() + TD_IC + "\n\n「真心话大冒险」里，" + (askerName ? "【" + askerName + "】" : "真人玩家亲自") + "给【" + target.name + "】出了一道【" + choice + "】：『" + prompt + "』。\n被点到的人设：\n" + tdDesc(target) + (memText ? "\n【之前几轮】\n" + memText : "") + "\n只能演 " + target.name + " 的回应/完成，不许改题、不许替真人说话。写 3~5 句、有现场感。"
+      + (target.withSay ? "say 是 TA 答完嘴上顺带的那句（可空）。只输出 JSON：{\"response\":\"\",\"say\":\"\"}" : "只输出 JSON：{\"response\":\"\"}");
     const raw = await callRetry(api, sys, [{ role: "user", content: "回应她亲自出的题。" }], { maxTokens: 12000 });
     const out = extractJSON(raw) || {};
-    return String(out.response || "").trim();
+    // withSay：顺带要一句台词时回 { response, say }，不带照旧回一串
+    return target.withSay ? { response: String(out.response || "").trim(), say: String(out.say || "").trim().slice(0, 120) } : String(out.response || "").trim();
   }
   // 从整局日志单独保留带时间锚点的原话。普通聊天窗口会滚动，但这些事实不能随轮数消失或被模型改写。
   function tdTemporalFacts(log) {
@@ -6233,6 +6240,24 @@
   // 两个游戏各自一个界面（她：「不要 shared board，开俩小游戏界面」）；只有「TA 开口」这一段是公共的。
   // ============================================================
   // TA 开口：她说一句，或者空着按一下让 TA 说。两个棋共用这一段（one-public-mechanism）
+  // 坐在桌边的人随口说一句：talkers [{ name, persona, isNpc }]；scene＝TA 们看得见的局面（只放公开的，和说话那个人自己手里的）；why＝这会儿为什么开口
+  //   一次调用，回 [{ name, text }]；不是每个人都得开口
+  async function seatTalk(api, talkers, scene, why, said) {
+    const who = (talkers || []).map(function (c) { return "■ " + c.name + (c.isNpc ? "（来凑桌的路人）" : "") + "\n【人设】" + String(c.persona || "（没写）").slice(0, talkers.length > 1 ? 900 : 1600); }).join("\n\n");
+    const sys = gameVoiceRules() + "【场面】一桌人在玩，下面这几位坐在桌上。手是他们自己出的，你只写他们边玩边随口说的话，照各自平时的样子和彼此的关系。"
+      + "\n\n" + who + "\n\n【桌上看得见的】\n" + String(scene || "").slice(0, 2400)
+      + "\n\n每个人只知道桌上公开的事和自己手里的，说话也照这个来：可以猜、诈、嘴硬、起哄，但说不出别人手里有什么。"
+      + "\n【这会儿】" + (why || "接着玩。")
+      + ((said || []).length ? "\n【刚才桌上已经说过的】\n" + said.slice(-8).map(function (l) { return "· " + l.name + "：" + l.text; }).join("\n") + "\n说过的意思别换个说法再说一遍。" : "")
+      + "\n\n" + GAME_SAY_FREE
+      + "\n只输出 JSON：{\"talks\":[{\"name\":\"说话的人\",\"text\":\"一句话\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "说话。" }], { maxTokens: 8000, tag: "牌桌边" });
+    const p = extractJSON(raw) || {};
+    return (Array.isArray(p.talks) ? p.talks : []).map(function (x) {
+      const c = (talkers || []).find(function (q) { return x && x.name === q.name; }) || (talkers.length === 1 ? talkers[0] : null);
+      return c && String((x && x.text) || "").trim() ? { name: c.name, text: String(x.text).trim().slice(0, 160) } : null;
+    }).filter(Boolean);
+  }
   function useBoardTalk(o) {
     const props = o.props, cfg = props.config, api = props.active;
     const [lines, setLines] = useState(o.saved && o.saved.lines ? o.saved.lines : []);
@@ -7774,6 +7799,16 @@
     const a = unoJson(await callRetry(api, ask.sys, [{ role: "user", content: ask.user }], { maxTokens: 8400, tag: "故事接龙" }));
     return { line: String(a.line || "").trim(), say: String(a.say || "").trim() };
   }
+  // 写这一句，顺带替紧跟着接的那一位（next：{ name, persona, isNpc }，nextWord＝TA 要用上的词）也写一句：一次调用两句
+  async function storyWriteLineNext(api, state, who, next, nextWord) {
+    const ask = storyLineAsk(state, who);
+    const sys = ask.sys.replace(/\n只输出 JSON：[^\n]*$/, "")
+      + "\n\n你写完以后，紧跟着接下一句的是「" + next.name + "」" + (next.persona ? "（" + String(next.persona).slice(0, 300) + "）" : "") + "。顺手替 TA 也写一句，接在你这句后面，照 TA 的样子接，要用上「" + nextWord + "」，同样一到两句、60 字以内；next.say 是 TA 嘴上那句，可空。"
+      + "\n只输出 JSON：{\"line\":\"你接的这一句\",\"say\":\"可空\",\"next\":{\"line\":\"" + next.name + " 接的一句\",\"say\":\"可空\"}}";
+    const a = unoJson(await callRetry(api, sys, [{ role: "user", content: ask.user }], { maxTokens: 12000, tag: "故事接龙" }));
+    const n = a && a.next && typeof a.next === "object" ? a.next : {};
+    return { line: String(a.line || "").trim(), say: String(a.say || "").trim(), next: { line: String(n.line || "").trim(), say: String(n.say || "").trim() } };
+  }
   function StoryChainGame(props) {
     const t = props.t, api = props.active, cfg = props.config || {};
     const restored = props.savedState && props.savedState.state;
@@ -9239,7 +9274,7 @@
   const WIN = typeof window !== "undefined" ? window : {};
   const GameShared = {
     gomoku: { N: GMK_N, empty: gmkEmpty, place: gmkPlace, replay: gmkReplay, wins: gmkWins, bestMove: gmkBestMove, threat: gmkThreat, coord: gmkCoord },
-    guess: { KINDS: GUESS_KINDS, VERDICT_COLOR: VERDICT_COLOR, newPuzzle: genGuessNext, answerOne: guessAnswerOne, askOne: guessAskOne, judge: judgeGuess, hit: q25Hit },
+    guess: { KINDS: GUESS_KINDS, VERDICT_COLOR: VERDICT_COLOR, newPuzzle: genGuessNext, answerOne: guessAnswerOne, askOne: guessAskOne, judge: judgeGuess, hit: q25Hit, round: runGuessRound },
     board: {
       chess: { C: WIN.ChessCore, sides: ["w", "b"], sideZh: function (s) { return s === "w" ? "白" : "黑"; }, View: ChessBoardView, record: function (mv) { return { from: mv.from, to: mv.to, promo: mv.promo }; }, pick: function (go) { return go.find(function (m) { return !m.promo || m.promo === "q"; }) || go[0]; } },
       xiangqi: { C: WIN.XiangqiCore, sides: ["r", "b"], sideZh: function (s) { return s === "r" ? "红" : "黑"; }, View: XiangqiBoardView },
@@ -9248,7 +9283,7 @@
     skill: { PINS: SKILL_PINS, NOTE: SKILL_PIN_NOTE, load: loadSkillPins, save: saveSkillPin }, GMK_CASUAL_OPTS: GMK_CASUAL_OPTS,
     boardReplay: boardReplay, boardOutcome: boardOutcome, boardSkillCached: boardSkillCached, BOARD_TIER_LV: BOARD_TIER_LV,
     go: { C: WIN.GoCore, replay: goReplay, result: goResult, View: GoBoardView },
-    story: { newGame: storyNewGame, act: storyAct, text: storyText, total: storyTotalTurns, isLast: storyIsLast, writeLine: storyWriteLine },
+    story: { newGame: storyNewGame, act: storyAct, text: storyText, total: storyTotalTurns, isLast: storyIsLast, writeLine: storyWriteLine, writeLineNext: storyWriteLineNext },
     tod: { plan: tdRoundPlan, pickTarget: tdPickFairTarget, pickAsker: tdPickNextAsker, ask: genTDPrompt, answer: genTDAnswerToUserPrompt, remember: rememberTDPrompt },
     mono: { BOARD: MONO_BOARD, roll: monoRoll, land: monoLand, buy: monoBuy, upgrade: monoUpgrade, decide: monoNpcDecision, auctionPlan: monoAuctionPlan, settleAuction: monoSettleAuction, ranking: monoRanking, advance: monoAdvance, netWorth: monoNetWorth, rent: monoRent, gridPos: monoGridPos, tokenColor: monoTokenColor, maxMoves: monoMaxMoves },
     GomokuBoard: GomokuBoard, GmkStone: GmkStone, GameVsBar: GameVsBar, GameTalkLog: GameTalkLog,
@@ -9265,7 +9300,7 @@
     },
     // 谁是卧底：出词、一句描述、投票、出局卧底猜词，都是单机那几枪（一次只喂一个人也行）
     spy: { setup: setupSpy, clues: genCluesBatch, votes: genVotesBatch, guess: genSpyGuess, hits: spyGuessHits },
-    voiceRules: gameVoiceRules, call: callRetry
+    voiceRules: gameVoiceRules, call: callRetry, sayFree: GAME_SAY_FREE, sayList: sayList, seatTalk: seatTalk
   };
   if (typeof window !== "undefined") window.GameShared = GameShared;
 })();

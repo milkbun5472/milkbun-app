@@ -600,11 +600,13 @@
       (o.transcript ? "\n\n【台上到现在】\n" + String(o.transcript).slice(-6000) : "") +
       (o.last ? "\n\n【刚说完的】" + o.last.name + "：" + o.last.text : "") +
       (o.crowd ? "\n\n【台下别人刚起的哄】\n" + String(o.crowd).slice(-800) : "") +
+      (o.passerby ? "\n\n台下还坐着一个来凑热闹的路人（普通人，说话直接），顺手替 TA 也写一声，写进 passerby，没话就空。" : "") +
       "\n\n" + PLAIN_TALK +
-      "\n【输出】只输出 JSON：{\"at\":\"冲着台上谁（本名）\",\"text\":\"一句，没话就空\"}";
+      "\n【输出】只输出 JSON：{\"at\":\"冲着台上谁（本名）\",\"text\":\"一句，没话就空\"" + (o.passerby ? ",\"passerby\":\"路人那一声，可空\"" : "") + "}";
     const raw = await callAI(active, sys, [{ role: "user", content: "台下。" }], { maxTokens: 8000 });
     const p = extractJSON(raw) || {};
-    return { at: String(p.at || "").trim(), text: String(p.text || "").trim().slice(0, 120) };
+    // passerby：同一次顺带的路人那一声（不另花调用）
+    return { at: String(p.at || "").trim(), text: String(p.text || "").trim().slice(0, 120), passerby: o.passerby ? String(p.passerby || "").trim().slice(0, 120) : "" };
   }
   // ---- 一位辩手听完判决的赛后感言 ----
   async function genAfterword(active, o) {

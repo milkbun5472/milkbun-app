@@ -41,7 +41,7 @@ test("登记进联机小游戏：在 netroom-games.js 之后加载、往 ADAPTER
   assert.ok(G.supported().indexOf("debate") >= 0);
   const A = G.ADAPTERS.debate;
   ["seatRange", "init", "view", "priv", "turn", "apply", "npcMove", "charMove", "result", "cleanView", "cleanReplay", "stateText", "cleanSide", "watch"].forEach(k => assert.strictEqual(typeof A[k], "function", k));
-  assert.deepStrictEqual(G.charOptKinds("debate"), ["side", "recent"]);
+  assert.deepStrictEqual(G.charOptKinds("debate"), ["side", "recent", "talk"]);
   assert.strictEqual(A.shelf.key, "debate");
   const html = read("index.html"), gi = html.indexOf("js/netroom-games.js"), di = html.indexOf("js/netroom-debate.js"), ni = html.indexOf("js/netroom.js");
   assert.ok(gi > 0 && di > gi && ni > di, "加载顺序：games → debate → netroom");
@@ -155,4 +155,11 @@ test("轮数可以选「不限」：rounds=0 时说不完不自动判，房主�
   const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom-debate.js"), "utf8");
   assert.ok(/if \(n\.rounds && n\.round >= n\.rounds\)/.test(src));
   assert.ok(/int\(pz\.rounds, 0, 30, 3\)/.test(src) && /\{ k: 0, zh: "不限" \}/.test(src));
+});
+
+test("擂台从小游戏架子挪到房间 ＋ 里单独一格", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
+  assert.ok(src.includes('["debate", "擂台", "podium"]'));
+  assert.ok(/if \(k === "debate"\) \{/.test(src));
+  assert.ok(src.includes('supported().filter(k => k !== "debate")'), "小游戏架子上不再摆擂台");
 });
