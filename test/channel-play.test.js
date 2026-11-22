@@ -308,3 +308,11 @@ test("最近那张投票连票数摆在最后，说清改票就是再投一次",
 test("深夜频道：提示里说清这是留给夜里醒着的人的地方", () => {
   assert.match(ap, /【深夜频道】#/);
 });
+
+test("从别的频道过来：提示里说、聊天里冒一行；挂机房分在这儿／不在", () => {
+  assert.match(ap, /【刚才在别处的人】/);
+  assert.match(ap, /content: spk\.name \+ " 从 #" \+ _from \+ " 过来了"/);
+  assert.match(ap, /const gAtHint = gArriveHint \+ \(/);
+  assert.match(cs, /"data-wk": "loungecount"/);
+  assert.match(cs, /"data-here": p\.here \? "1" : "0"/);
+});

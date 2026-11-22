@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.027";
+const APP_VERSION = "v90.033";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17123,8 +17123,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 她 @ 了谁：点到的人这一轮各回她一句；@所有人＝在场每个人都冒个头（只看她这一轮最新那句）
       const _atLast = (((groupChatsRef.current[groupId] || []).filter(m => m && m.role === "user" && m.content && !m.whisper).slice(-1)[0]) || {});
       const _atFresh = _atLast.ts && Date.now() - _atLast.ts < 30 * 60000 ? atMentions(_atLast.content, group && group.chKind === "treehole" ? [] : members) : { all: false, ids: [] };
-      const gAtHint = _atFresh.all ? "\n\n【她 @ 了所有人】她刚才那句是冲着在场每个人说的：这一轮每个人都会冒个头回她，哪怕只是一句。"
-        : _atFresh.ids.length ? "\n\n【她 @ 了谁】她刚才那句点了 " + _atFresh.ids.map(id => (members.find(c => c.id === id) || {}).name).filter(Boolean).join("、") + " 的名：被点到的人这一轮都会出来回她。" : "";
+      // 从别的频道过来（她 2026-11-22「a在某个频道但是我在另一个频道说话，他转过来会有提醒吗」）：
+      //   她刚在这儿开口，成员里谁最近一小时是在别的频道说的话（比他在这儿最后一句还新），他这一轮要是开口，就是从那边过来的
+      const _arrive = {};
+      if (group && group.spaceId && group.chKind !== "treehole" && !groupSpectating(group)) { try {
+        const _lastU = (groupChatsRef.current[groupId] || []).filter(m => m && m.role !== "system").slice(-1)[0];
+        if (_lastU && _lastU.role === "user") {
+          const _sibs = spaceSibs(groupId).filter(x => x && x.id !== groupId && x.chKind !== "treehole"), _now = Date.now();
+          const _lastIn = (gid, id) => { const ms = groupChatsRef.current[gid] || []; for (let k = ms.length - 1; k >= 0; k--) { const m = ms[k]; if (m && m.role === "assistant" && m.senderId === id) return m.ts || 0; } return 0; };
+          members.forEach(c => { const here = _lastIn(groupId, c.id); let best = 0, bestCh = "";
+            _sibs.forEach(x => { const ts = _lastIn(x.id, c.id); if (ts > best) { best = ts; bestCh = x.chName || x.name || ""; } });
+            if (best && _now - best < 3600000 && best > here && bestCh) _arrive[c.id] = bestCh; });
+        } } catch (e) {} }
+      const gArriveHint = Object.keys(_arrive).length ? "\n\n【刚才在别处的人】" + members.filter(c => _arrive[c.id]).map(c => c.name + " 刚才在 #" + _arrive[c.id]).join("、") + "。他们这一轮要是开口，就是看到她在这边说话才转过来的：这边前面聊了什么不一定都知道，可以接着她的话说，也可以顺口带一句那边的事。" : "";
+      const gAtHint = gArriveHint + (_atFresh.all ? "\n\n【她 @ 了所有人】她刚才那句是冲着在场每个人说的：这一轮每个人都会冒个头回她，哪怕只是一句。"
+        : _atFresh.ids.length ? "\n\n【她 @ 了谁】她刚才那句点了 " + _atFresh.ids.map(id => (members.find(c => c.id === id) || {}).name).filter(Boolean).join("、") + " 的名：被点到的人这一轮都会出来回她。" : "");
       const gWelcomeHint = rgOpts && Array.isArray(rgOpts.welcome) && rgOpts.welcome.length ? "\n\n【刚进来的人】" + rgOpts.welcome.join("、") + " 刚刚加入了这个地方，现在也在这个频道里。" : "";
       // 精华墙：最近几句名场面摆给他们；今天这个频道还没人提名过才提那一格
       const gGemHint = group && group.spaceId ? (() => {
@@ -17732,6 +17745,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             // ⚠️跟单聊那一处同一个形状：闸在代码里，上一条就存在聊天记录里当游标。
             // 被救回来的那几行先摆，跟单聊同一个分寸：它们是这个人这一拍真写出来的正文，
             // 不看动描开关——不摆就等于把发言吞了。
+            if (spk && _arrive[spk.id]) { const _from = _arrive[spk.id]; delete _arrive[spk.id];
+              pGChat(groupId, p => [...p, { role: "system", kind: "chlink", toGid: groupId, senderId: spk.id, content: spk.name + " 从 #" + _from + " 过来了", ts: Date.now() }]); }
             if (gRescuedActs.length && spk) {
               gRescuedActs.forEach(line => pGChat(groupId, p => [...p, {
                 role: "narration", kind: "narration", who: "char",
@@ -35753,7 +35768,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 有自己整页的那几条，直接去那一页，不停在信息首页
       const BY_ENTRY = { emotes: "emotes", favorites: "favorites", closet: "mycloset" };
       const sc = BY_ENTRY[entryId] || ALIAS[app] || app;
-      const OK = ["anon", "astro", "zhaoying", "stamps", "calendar", "carry", "cast", "companion", "config", "debate", "diary", "dream", "dreamjournal", "dwell", "fairyGarden", "fanfic", "forum", "games", "health", "home", "impression", "ledger", "listen", "lore", "loungeapp", "map", "memlib", "memo", "messages", "nest", "phone", "pomodoro", "read", "rescue", "shike", "shop", "shua", "study", "stylelab", "takeout", "tarot", "theater", "ties", "trpg", "us", "vpscodex", "wallet", "watch", "weekly", "yanqiu", "emotes", "favorites", "mycloset"];
+      const OK = ["anon", "astro", "zhaoying", "netroom", "stamps", "calendar", "carry", "cast", "companion", "config", "debate", "diary", "dream", "dreamjournal", "dwell", "fairyGarden", "fanfic", "forum", "games", "health", "home", "impression", "ledger", "listen", "lore", "loungeapp", "map", "memlib", "memo", "messages", "nest", "phone", "pomodoro", "read", "rescue", "shike", "shop", "shua", "study", "stylelab", "takeout", "tarot", "theater", "ties", "trpg", "us", "vpscodex", "wallet", "watch", "weekly", "yanqiu", "emotes", "favorites", "mycloset"];
       if (OK.indexOf(sc) < 0) return false;
       setScreen(sc);
       return true;
@@ -37109,7 +37124,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     channelBar: activeGroup.spaceId ? h(React.Fragment, null,
       // 挂机房（她 2026-11-20）：顶上一排人各自在干嘛，照日程现算，不调模型
       ((groups || []).find(g => g.id === activeGroup.id) || activeGroup).chKind === "lounge" ? h(LoungePanel, { spectate: groupSpectating(activeGroup), sitting: loungeSitting,
-        people: (activeGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => { const b = typeof schedNowBriefFor === "function" ? schedNowBriefFor(c) : null; return { id: c.id, c, doing: b ? [b.title, b.location].filter(Boolean).join(" · ") : "" }; }),
+        // 谁在这屋里（她 2026-11-22「挂机房能不能显示清楚谁现在在这个房谁不在」）：最近一小时在这儿说过话的算在，排前面；别的人灰着，写他在哪儿
+        people: (() => { const _g = (groups || []).find(g => g.id === activeGroup.id) || activeGroup, _pr = _g.spaceId ? spacePresence(_g.spaceId) : {}, _me = _g.chName || _g.name;
+          return (activeGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => { const b = typeof schedNowBriefFor === "function" ? schedNowBriefFor(c) : null, p = _pr[c.id] || null, here = !!(p && p.k === "online" && p.where === _me);
+            return { id: c.id, c, here, away: here ? "" : (p && p.k === "online" && p.where ? "在 #" + p.where : (p && p.zh) || "不在"), doing: b ? [b.title, b.location].filter(Boolean).join(" · ") : "" }; }).sort((a, b) => (b.here ? 1 : 0) - (a.here ? 1 : 0)); })(),
         onSit: () => loungeSit(activeGroup.id) }) : null) : null,
     onSub: activeGroup.spaceId && !groupSpectating(activeGroup) ? key => setSubOpen({ gid: activeGroup.id, root: key }) : null,
     // 表情回应、置顶（她 2026-11-20）：旁观的频道里她不在场，这两样都不给
@@ -38614,6 +38632,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     myBdays: stampMyBdays(),
     annivs: stampAnnivs(),
     onBack: () => setScreen("home")
+  });else if (screen === "netroom") body = h(window.NetRoomApp, {
+    // 联机房间（2026-11-22）：配角和言秋不带进去（配角跟着主人走；言秋那一支不走这条线路）
+    characters: liveChars.filter(c => !c.npc && !settingsFor(c.id).engineerEyes),
+    profile: profile,
+    apiFor: apiFor,
+    // 开口走 runProbe(voice)：buildBundle 那一整份白得（four-surfaces-same-context）
+    ctxFor: ctxFor,
+    toast: toast,
+    // 记进记忆走公共那一处（同一起看/一起读）
+    onAddMemory: (text, charId) => keepWhereItHappened({ text: text, charIds: [charId], entry: { source: "netroom", tags: ["联机"] } }),
+    onBack: goHome
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
     onAsk: (charId, testId, scene, guess, lie) => zhaoyingAsk(charId, testId, scene, guess, lie),

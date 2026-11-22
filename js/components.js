@@ -277,9 +277,20 @@ function LookUndoRow({ count, step, onDone, toast }) {
     pill("↶ 回到上一版（存着 " + (c.back || 0) + " 版）", () => go("back"), !!c.back),
     c.fwd ? pill("↷ 换回来", () => go("fwd"), true) : null);
 }
-function ChatCssFields({ css, setCSS, fileBase, seedName, seedCSS, onPeek, page, title }) {
+function ChatCssFields({ css: savedCSS, setCSS: saveCSS, fileBase, seedName, seedCSS, onPeek, page, title }) {
   const t = useTheme();
   const fileRef = useRef(null), editRef = useRef(null);
+  // 打字先落在框里，停手 700ms 才真存（群友 2026-11-22：把十几万字的整套圣诞美化贴进聊天设置的 CSS，「只要我想调整 css 就会黑屏」）——
+  //   原来每敲一个字就把整份存一遍、整个聊天窗跟着重铺一遍，十几万字带着一串内嵌图片，iPhone 几下就撑爆、页面黑掉重来。
+  //   按钮（清空、导入、起稿、插图）照旧当场存。
+  const [css, setDraft] = useState(savedCSS || "");
+  const pending = useRef(null), lastSaved = useRef(savedCSS || ""), saveRef = useRef(saveCSS);
+  saveRef.current = saveCSS;   // 存的那个函数每次渲染都可能换（里面捏着最新的设置），定时器到点、关页面时都要用最新的那个
+  useEffect(() => { if ((savedCSS || "") !== lastSaved.current && !pending.current) { lastSaved.current = savedCSS || ""; setDraft(savedCSS || ""); } }, [savedCSS]);
+  const flush = v => { clearTimeout(pending.current); pending.current = null; lastSaved.current = v; saveRef.current(v); };
+  const setCSS = v => { setDraft(v); flush(v); };
+  const typeCSS = v => { setDraft(v); clearTimeout(pending.current); pending.current = setTimeout(() => flush(v), 700); };
+  useEffect(() => () => { if (pending.current) { clearTimeout(pending.current); saveRef.current(editRef.current ? editRef.current.value : lastSaved.current); } }, []);
   const TS = typeof window !== "undefined" && window.ThemeStudio;
   const bad = TS && css ? TS.unsafeReason(css) : "";
   const exportCSS = () => { if (css.trim() && typeof saveTextFile === "function") saveTextFile((fileBase || "聊天") + "-聊天.css", css, "text/css"); };
@@ -295,7 +306,7 @@ function ChatCssFields({ css, setCSS, fileBase, seedName, seedCSS, onPeek, page,
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.6 } },
       "压在上面所有层之上，只在这个聊天窗里生效。写法跟主题工作台「" + (page === "gthread" ? "群聊页" : "单聊页") + "」那格一样，不用自己加前缀。"
       + "图片可以用图库里的（下面「插入图库图片」），也可以直接写别处的地址 url(https://…)——那个网站删了图，这里也就没了。"),
-    h("textarea", { "data-wk": "textarea", ref: editRef, value: css, onChange: e => setCSS(e.target.value), rows: 8, spellCheck: false,
+    h("textarea", { "data-wk": "textarea", ref: editRef, value: css, onChange: e => typeCSS(e.target.value), onBlur: e => { if (pending.current) flush(e.target.value); }, rows: 8, spellCheck: false,
       placeholder: '[data-wk="chat"] { … }',
       style: { width: "100%", marginTop: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid " + (bad ? t.accent : t.line), background: t.bg2, color: t.ink,
         fontFamily: "ui-monospace, Menlo, monospace", fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.6, resize: "vertical" } }),
@@ -2226,7 +2237,7 @@ function lazyScreen(name, group, zh) {
  // 下面这一排都在 screens-ui.js（screens.js 的页面那一半，2026-10-18 拆出来）：点开其中哪一页，整组一起装上
  // 瘦身第八批：秋秋小窝整份；跑团、片刻、番茄钟的页面那半（开机那半在 trpg-core.js / shua-core.js / pomodoro-core.js）
  // 瘦身第九批：健康、星测、时刻、月度印象、同居、一起看的页面那半（开机那半在各自的 *-core.js）
- ["HealthApp", "health", "健康"], ["AstroApp", "astro", "星测"], ["ZhaoyingApp", "zhaoying", "照影"], ["StampBookApp", "stamps", "邮票册"], ["ShikeApp", "shike", "时刻"], ["ImpressionApp", "impression", "月度印象"], ["DwellApp", "dwell", "同居"], ["WatchTogether", "watch", "一起看"],
+ ["HealthApp", "health", "健康"], ["AstroApp", "astro", "星测"], ["ZhaoyingApp", "zhaoying", "照影"], ["NetRoomApp", "netroom", "联机"], ["StampBookApp", "stamps", "邮票册"], ["ShikeApp", "shike", "时刻"], ["ImpressionApp", "impression", "月度印象"], ["DwellApp", "dwell", "同居"], ["WatchTogether", "watch", "一起看"],
  ["Us", "screens", "情侣空间"], ["NestApp", "nest", "秋秋小窝"], ["StyleLabApp", "stylelab", "文风台"], ["TrpgApp", "trpg", "跑团"], ["ShuaApp", "shua", "片刻"], ["Pomodoro", "pomodoro", "番茄钟"],
  ["Cast", "screens", "人格档案馆"], ["CastForm", "screens", "角色档案"], ["Ties", "screens", "关系网"], ["WorldBook", "screens", "世界书"], ["ForumAnonWrap", "screens", "匿名"], ["Shop", "screens", "购物"], ["Takeout", "screens", "外卖"], ["MyKinPage", "screens", "亲属卡"], ["KinshipBill", "screens", "亲属卡账单"], ["ListenTogether", "screens", "一起听"], ["Config", "screens", "设置"], ["MemoryLib", "screens", "记忆库"], ["Diary", "screens", "日记"], ["MyWallet", "screens", "钱包"], ["CharWallet", "screens", "TA 的钱包"], ["EmoteMatrix", "screens", "表情包"], ["Favorites", "screens", "收藏"], ["Carry", "screens", "随身"], ["MyCloset", "screens", "衣柜"]].forEach(a => lazyScreen(a[0], a[1], a[2]));
 function ImageViewer({ items, at, onClose, actions, zoomable }) {
@@ -7088,7 +7099,7 @@ const DEFAULT_FOLDERS = {
   f_def_check: { name: "查一查", keys: ["phone", "carry", "dwell", "zhaoying"] },
   f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout", "astro", "health"] },
   f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
-  f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg", "shua"] },
+  f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg", "shua", "netroom"] },
   f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro"] },
   // ⚠️id 里带上「脑洞」的拼音不是随手起的：文件夹的颜色是【按 key 哈希】出来的，
   //   f_def_mind 那个名字算出来的色相和它左边的匿名问答只差 24，
@@ -7325,6 +7336,8 @@ function Home({
     // 邮票册（2026-10-26）：她要放「回头看」，挨着时刻。已经被放进「一起玩」的挪过去一次；她自己挪过的不动
     if (st && Object.keys(st).length) st = moveAppOnce(st, "stamps", "games", "shike", "x_stampsMoved");
     if (st && Object.keys(st).length) st = placeNewAppOnce(st, "stamps", "shike", "x_stampsPlaced");
+    // 联机（2026-11-22）：放「一起玩」，挨着小游戏
+    if (st && Object.keys(st).length) st = placeNewAppOnce(st, "netroom", "games", "x_netroomPlaced");
     if (st && Object.keys(st).length) return st;
     // 第一次装：连布局也没有时才铺默认文件夹。老用户（布局已存过）保持空，
     // 免得凭空冒出九个文件夹压在她自己摆的图标上。
@@ -7409,6 +7422,7 @@ function Home({
     pomodoro: { kind: "app", zh: "番茄钟", G: FG("pomodoro", GFocus) },
     companion: { kind: "app", zh: "陪伴", G: FG("companion", () => window.GCompanion || GFocus) },
     games: { kind: "app", zh: "小游戏", G: FG("games", GGame) },
+    netroom: { kind: "app", zh: "联机", G: FG("netroom", GNetRoom) },
     fairyGarden: { kind: "app", zh: "小世界", G: FG("fairyGarden", () => window.GFairyGarden || GGame) },
     dreamjournal: { kind: "app", zh: "解梦馆", G: FG("dreamjournal", () => window.GDreamBook || GDream) },
     yanqiu: { kind: "app", zh: "秋声", G: window.GYanqiuLeaf || GDiary },
@@ -23801,11 +23815,12 @@ function SubThreadPage({ group, messages, rootKey, userLabel, sending, onSend, o
 function LoungePanel({ people, onSit, sitting, spectate }) {
   const t = useTheme();
   return h("div", { "data-wk": "lounge", className: "shrink-0", style: { padding: "10px 14px 8px", background: t.bg2, borderBottom: "1px solid " + t.line } },
+    h("div", { "data-wk": "loungecount", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "在这儿 " + (people || []).filter(p => p.here).length + " · 不在 " + (people || []).filter(p => !p.here).length),
     h("div", { className: "flex gap-2", style: { overflowX: "auto", paddingBottom: 4 } },
-      (people || []).map(p => h("div", { key: p.id, "data-wk": "loungecard", style: { flexShrink: 0, width: 116, padding: "8px 9px", borderRadius: 12, background: t.bg, border: "1px solid " + t.line } },
+      (people || []).map(p => h("div", { key: p.id, "data-wk": "loungecard", "data-here": p.here ? "1" : "0", style: { flexShrink: 0, width: 116, padding: "8px 9px", borderRadius: 12, background: t.bg, border: "1px solid " + (p.here ? t.accent : t.line), opacity: p.here ? 1 : 0.55 } },
         h("div", { className: "flex items-center gap-1.5" }, h(Avatar, { character: p.c, size: 24, radius: 7 }),
           h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, p.c.remark || p.c.name)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 5, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.doing || "在这儿待着")))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 5, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.here ? (p.doing || "在这儿待着") : p.away + (p.doing ? " · " + p.doing : ""))))),
     spectate ? null : h("button", { "data-wk": "loungesit", disabled: sitting, onClick: onSit, className: "active:opacity-60", style: { marginTop: 6, minHeight: 34, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", opacity: sitting ? .5 : 1 } }, sitting ? "进去了…" : "进去坐坐"));
 }
 // 在线状态那颗小圆点：在线绿、离开黄、勿扰红、睡了月牙
