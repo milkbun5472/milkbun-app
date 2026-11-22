@@ -29,7 +29,11 @@
 //   （可选）charOpts               → 报名单上每个上台的人能调哪几项，盖过下面 CHAR_OPTS 那张表（"side"＝挑正方／反方）
 //   （可选）cleanSide(x) / watch(view, inv, ctx) → 桌边那一路（观众席弹幕、赛后感言）：谁都能发、直接广播、不经庄；
 //                                   watch 在每台手机看到新局面时问一句「我这台带来的角色要不要开口」，返回要广播的几条
-//   （可选）waiting(view)          → 大家同时交的那几盒：还没交的那几座（亮「轮到你」用）；turn 仍给一座，让角色、托管一位一位跟上
+//   （可选）waiting(view)          → 大家同时交的那几盒：还没交的那几座（亮「轮到你」用）
+//   （可选）turns(view) / roundOf(view) → 大家同时交的那几盒：此刻可以一起动的那几座（角色各在主人那台、NPC 在庄那台同时想，
+//                                   庄按到达先后一手一手收）；roundOf 给「这是哪一轮」，同一轮同一座只想一次。没有 turns 就照 turn 一位一位跟上
+//   （可选）onTick(st, now)        → 庄每隔几秒问一句：有没有到点要庄替谁交的（真人一直不交的超时托管），回 [{seat, mv}]
+//   （可选）recordMax              → 战绩卡那段话最多几个字（默认 300；跑团要写下每位客串做了什么）
 //   （可选）slow(st, seat, mv) / hostRoute → 哪一手要等庄的线路（亮「庄在判」）；庄用哪条线路（"offline"＝线下/跑团那条）
 //   （可选）shelf / Prep           → 不在单机小游戏目录里的那几盒：大厅架子上多摆一个盒子，点了进它自己的开局页
 //   （可选）localTalk: true        → 出手不调模型的那几盒（棋、牌、大富翁）：桌边台词由框架隔几手／关键时刻另问一次（见下面「牌桌上说话」）
@@ -91,7 +95,7 @@
   function cleanRecord(x) {
     if (!x || typeof x !== "object") return null;
     const key = cut(x.key, 20), A = ADAPTERS[key];
-    const o = { gid: cut(x.gid, 40), key, zh: cut(x.zh, 20), text: cut(x.text, 300),
+    const o = { gid: cut(x.gid, 40), key, zh: cut(x.zh, 20), text: cut(x.text, A && A.recordMax ? A.recordMax : 300),
       seats: (Array.isArray(x.seats) ? x.seats : []).slice(0, 12).map(s => ({ name: cut(s && s.name, 40), kind: SEAT_KINDS.indexOf(s && s.kind) >= 0 ? s.kind : "npc" })),
       winners: [] };
     o.winners = (Array.isArray(x.winners) ? x.winners : []).map(Number).filter(n => Number.isInteger(n) && n >= 0 && n < o.seats.length).slice(0, 12);
@@ -1004,17 +1008,27 @@
       outs.forEach(x => side(gid, x));
     }
     // 轮到我这台带来的角色：用 TA 自己的线路想一手，交给庄
+    // 大家同时交的那几盒（turns）：此刻能动的那几座一起想，同一轮同一座只想一次
+    const turnsOf = (ad, x) => { try { return (ad.turns(x) || []).filter(i => i >= 0); } catch (e) { return []; } };
+    const roundKey = (ad, x, seq) => ad.roundOf ? "r" + ad.roundOf(x) : "s" + seq;
     async function actOwn(gid) {
       const s = seen[gid]; if (!s || !s.view || s.pause) return;
       const ad = A(s.inv.key); if (!ad) return;
-      let ti = ad.turn(ad.cleanView ? ad.cleanView(s.view) : s.view);
+      const cv = ad.cleanView ? ad.cleanView(s.view) : s.view;
+      if (ad.turns) return Promise.all(turnsOf(ad, cv).map(ti => actSeat(gid, ti, roundKey(ad, cv, s.seq))));
+      let ti = ad.turn(cv);
       if (ti < 0) ti = secretSeat(ad, s, o.me());
+      return actSeat(gid, ti, "s" + s.seq);
+    }
+    async function actSeat(gid, ti, round) {
+      const s = seen[gid]; if (!s || !s.view) return;
+      const ad = A(s.inv.key); if (!ad) return;
       const seat = s.inv.seats[ti];
       if (actorOf(seat, o.me(), s.inv.host) !== "mine-char") return;
       // 手牌类：这一手的那份 priv 还没到，先不动（到了会再叫一次）
       const pv = (s.privs || {})[ti];
       if (ad.needPriv && !(pv && pv.seq >= s.seq)) return;
-      const k = gid + ":" + s.seq + ":" + ti;
+      const k = gid + ":" + round + ":" + ti;
       if (acting.has(k)) return; acting.add(k);
       const char = o.charOf(seat.charId);
       await wait(600);
@@ -1039,15 +1053,16 @@
       const res = ad.result(g.st, g.inv);
       if (res) return finish(g, res);
       if (g.pause) return;
-      const ti = ad.turn(g.st); if (ti < 0) return;
-      const seat = g.inv.seats[ti];
-      if (actorOf(seat, o.me(), o.me()) !== "host-npc") return;
-      const k = "npc:" + gid + ":" + g.seq;
-      if (acting.has(k)) return; acting.add(k);
-      await wait(700);
-      let mv = null;
-      try { mv = await ad.npcMove(g.st, ti, g.inv, ctxOf(g)); } catch (e) { mv = null; }
-      hostApply(gid, ti, mv || { pass: true }, null);
+      const seats = ad.turns ? turnsOf(ad, g.st) : [ad.turn(g.st)];
+      const round = ad.turns ? roundKey(ad, g.st, g.seq) : "s" + g.seq;
+      return Promise.all(seats.filter(ti => ti >= 0 && actorOf(g.inv.seats[ti], o.me(), o.me()) === "host-npc").map(async ti => {
+        const k = "npc:" + gid + ":" + round + ":" + ti;
+        if (acting.has(k)) return; acting.add(k);
+        await wait(700);
+        let mv = null;
+        try { mv = await ad.npcMove(g.st, ti, g.inv, ctxOf(g)); } catch (e) { mv = null; }
+        hostApply(gid, ti, mv || { pass: true }, null);
+      }));
     }
     function finish(g, res) {
       if (g.inv.status === "done") return;
@@ -1065,7 +1080,8 @@
         if (seatIdx >= 0) { const s = g.inv.seats[seatIdx]; if (!s || s.away || s.kind === "npc" || s.peer !== from) return; }
         else if (from !== o.me()) return;
       }
-      if (g.busy) return;
+      // 庄正在判上一手：同时交的那几盒（turns）排队，判完一手接着收下一手；别的盒照旧不收
+      if (g.busy) { if (A(g.inv.key).turns) (g.queue = g.queue || []).push([seatIdx, mv, from]); return; }
       const ad = A(g.inv.key);
       // 一轮完了停着：只有开局的人的「收桌／揭晓」（座位 -1）能过，别的一手都等「接着来」
       if (g.pause && !(seatIdx === -1 && mv && (mv.reveal || mv.end))) {
@@ -1085,13 +1101,16 @@
       if (r.err) {
         if (g.st.busy) g.st = Object.assign({}, g.st, { busy: false });
         if (from && from !== o.me()) o.send({ t: "game", op: "oops", gid, text: r.err }, from); else o.toast && o.toast(r.err);
-        shareState(g); return;
+        shareState(g);
+        const nx = (g.queue || []).shift(); if (nx) hostApply(gid, nx[0], nx[1], nx[2]);
+        return;
       }
       const prev = g.st;
       g.st = r.st;
       g.pause = pauseAfter(ad, prev, g.st, g.inv, g.cfg, g.pause0 || 0);
       if (g.pause) g.pause0 = g.pause.n;
       shareState(g); drive(gid);
+      const nx = (g.queue || []).shift(); if (nx) hostApply(gid, nx[0], nx[1], nx[2]);
     }
     // 开局的人：停着的这一轮接着来
     function resume(gid) { const g = host[gid]; if (!g || !g.pause || g.inv.status !== "playing") return; g.pause = null; shareState(g); drive(gid); }
@@ -1192,6 +1211,8 @@
           let plan = ti >= 0 ? awayPlan(g.inv, ti, pres, g.gone[(g.inv.seats[ti] || {}).peer], now) : null;
           if (plan === "away") g.inv = setAway(g.inv, g.inv.seats[ti].peer, true);
           if (back.length || plan === "away") { shareCard(g); shareState(g); drive(gid); }
+          // 到点要庄替谁交的（超时托管）：当庄自己的一手交，各盒自己在局面里写明
+          if (ad.onTick && !g.busy) { let due = []; try { due = ad.onTick(g.st, now) || []; } catch (e) { due = []; } due.forEach(d => hostApply(gid, d.seat, d.mv, null)); }
         });
       }
     };

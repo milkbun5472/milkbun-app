@@ -12,6 +12,13 @@
 //     全都交了（或房主点「不等了」）庄才掷骰、请守密人结算——单机「她一动整桌一起结算」那一拍，换成「大家都交了才结算」。
 //   · 进度表、钟、压力拍、爆发拍、落账全走单机那一份（js/trpg.js 的 TrpgShared），这里只管座位、收行动和桌面。
 //   · 私密：单独走开那一路的真相、守密人只回给某一位的悄悄话、角色的私念，都走 priv（只发给那一座的主人）。
+//   · 选项下那一排「别的能做的事」（跟谁说话／看看什么／地点动作／去「?」地点／歇一会／接队友的话头／换到某位队友的一拍）
+//     照单机那张单（TrpgShared.sideMenu）摆；整桌一起走的那一样按人头定：挑它的人比挑选项、自己写的人多，这一拍就是它
+//     （赶路花团内时辰、走钟，全照单机 beatGate／modeTail／landOpts）；没成整桌的那一样只算 Ta 自己的：
+//     找人说话就是私下攀谈，守密人只回给 Ta（走 priv）。
+//   · 真人一直不交：到点（房主开局定，默认 3 分钟，可关）庄按「稳妥」那条替她交，桌上写明；掉线照框架的托管。
+//   · 角色队友同时想（turns）：各主人那台一起想，庄按到达先后收齐。
+//   · 每位客串这一晚做了什么，记进战绩卡那段话（进房间记录，退房勾记忆时记得住）。
 (function (root) {
   "use strict";
   const C = root.NetGameCore;
@@ -24,6 +31,13 @@
   const STAT_ZH = { phy: "体魄", agi: "身手", wit: "头脑", cha: "谈吐", luck: "气运" };
   const nm = (inv, i) => root.NetGameCore.seatName((inv.seats || [])[i], i);
   const clone = x => JSON.parse(JSON.stringify(x));
+  const MIN = 60000, TIMEOUTS = [0, 2, 3, 5];
+  const playersOf = st => st.members.filter((m, i) => st.seatKinds[i] === "user").map(m => m.name);
+  const edgesOf = c => { const T = TS(); if (!T || !c.mapRegions || !T.mapBuild) return []; try { const b = T.mapBuild(c.id, c.mapRegions); return b ? b.edges : []; } catch (e) { return []; } };
+  const menuOf = st => { const T = TS(); return T && T.sideMenu ? T.sideMenu(Object.assign({}, st.camp, { party: st.members }), edgesOf(st.camp), playersOf(st)) : []; };
+  const sideKey = o => o ? o.kind + ":" + (o.arg || "") : "";
+  // 到点替交：「稳妥」那条（approach safe），没有就挑不用过检定的，再没有就第一条；一条路都没有就跟着大家
+  const safePick = c => { const ch = c.choices || []; let k = ch.findIndex(x => x && x.approach === "safe"); if (k < 0) k = ch.findIndex(x => x && !x.check); return ch.length ? Math.max(0, k) : -1; };
   const cleanStats = s => s && typeof s === "object" && STAT_KEYS.every(k => Number.isFinite(Number(s[k]))) ? STAT_KEYS.reduce((o, k) => (o[k] = int(s[k], 15, 90, 50), o), {}) : null;
 
   // ── 座位 ↔ 队伍成员 ──
@@ -64,7 +78,11 @@
       objective: cut(c.sceneMeta && c.sceneMeta.objective, 120), stakes: cut(c.sceneMeta && c.sceneMeta.stakes, 120),
       pace: T && T.paceView ? T.paceView(c.pace) : null, clocks: (c.clocks || []).slice(0, 3).map(x => ({ name: cut(x.name, 16), filled: int(x.filled, 0, 12, 0), max: int(x.max, 1, 12, 4) })),
       clues: (c.clues || []).length, clueList: (c.clues || []).slice(-8).map(x => cut(x, 80)),
-      choices: (c.choices || []).slice(0, 4).map(x => ({ text: cut(x.text, 80), stat: x.check && STAT_ZH[x.check.stat] ? x.check.stat : "", who: cut(x.check && x.check.who, 16), risk: cut(x.risk, 36), payoff: cut(x.payoff, 36), cost: cut(x.cost, 36) })),
+      choices: (c.choices || []).slice(0, 4).map(x => ({ text: cut(x.text, 80), stat: x.check && STAT_ZH[x.check.stat] ? x.check.stat : "", who: cut(x.check && x.check.who, 16), risk: cut(x.risk, 36), payoff: cut(x.payoff, 36), cost: cut(x.cost, 36), safe: x.approach === "safe" })),
+      time: c.time ? "第" + int(c.time.day, 1, 999, 1) + "日·" + cut(c.time.part, 2) : "", pov: cut(c.pov, 16), canEnd: !c.ended && (!!c.pendingEnd || (c.stageIdx || 0) >= (c.stages || []).length),
+      side: c.ended ? [] : menuOf(st).slice(0, 14).map(x => ({ kind: x.kind, arg: cut(x.arg, 30), label: cut(x.label, 40) })),
+      epi: c.ended && c.epilogue ? { paras: (c.epilogue.paras || []).slice(0, 10).map(x => cut(x, 600)), closing: cut(c.epilogue.closing, 60), untold: (c.epilogue.untold || []).slice(0, 6).map(x => cut(x, 160)),
+        truth: cut(c.dossier && c.dossier.truth, 400), twist: cut(c.dossier && c.dossier.twist, 300), apart: Object.keys(st.truth || {}).map(k => ({ who: cut((st.members[k] || {}).name, 16), text: cut((st.truth[k] || []).slice(-1)[0], 400) })).filter(x => x.text) } : null,
       ended: !!c.ended };
   }
   function view(st) {
@@ -72,7 +90,8 @@
       phase: st.phase, beat: st.beat, seatKinds: st.seatKinds.slice(), busy: !!st.busy, err: cut(st.err, 200),
       party: st.members.map(m => ({ name: m.name, hp: int(m.hp, 0, 999, 100), maxHp: int(m.maxHp, 1, 999, 100), stats: m.stats ? Object.assign({}, m.stats) : null, guest: !!m.guest })),
       done: st.members.map((m, i) => st.phase === "roll" ? !!m.stats : !!st.acts[i]),
-      apart: st.apartWho.slice(), log: publicLog(st.camp, st.logFrom)
+      apart: st.apartWho.slice(), log: publicLog(st.camp, st.logFrom),
+      deadline: st.phase === "act" && st.timeout > 0 && st.actAt ? st.actAt + st.timeout : 0, timeoutMin: Math.round((st.timeout || 0) / MIN), autoed: (st.autoed || []).slice()
     });
   }
   // 只给这一座主人的：角色的私念（主人那台替 TA 想这一拍时用）、守密人只回给 TA 的悄悄话、单独走开那一路真正发生了什么
@@ -87,12 +106,40 @@
   }
 
   // ── 收行动 ──
-  function takeAct(st, i, mv) {
-    if (mv.pass) return { kind: "pass" };
+  function takeAct(st, i, mv, isHost) {
+    const dice = !!(isHost && mv.dice);
+    if (mv.pass) return { kind: "pass", dice };
+    // 选项下那一排里挑的那一样：只认这一刻那张单上真有的
+    if (mv.side && typeof mv.side === "object") {
+      const o = menuOf(st).find(x => sideKey(x) === sideKey({ kind: cut(mv.side.kind, 10), arg: cut(mv.side.arg, 30) }));
+      if (!o) return null;
+      const text = cut(mv.say, 400).trim();
+      if (o.kind === "talk" && !text) return null;
+      return { kind: "side", side: { kind: o.kind, arg: o.arg, label: o.label }, text, whisper: cut(mv.whisper, 200).trim(), dice };
+    }
     if (mv.decl && typeof mv.decl === "object") return { kind: "decl", decl: { say: cut(mv.decl.say, 300), do: cut(mv.decl.do, 200), try: cut(mv.decl.try, 120) } };
     const pick = int(mv.pick, -1, 3, -1), text = cut(mv.say, 400).trim();
     if (pick < 0 && !text) return null;
-    return { kind: pick >= 0 ? "pick" : "text", pick, text, whisper: cut(mv.whisper, 200).trim(), apart: !!mv.apart };
+    return { kind: pick >= 0 ? "pick" : "text", pick, text, whisper: cut(mv.whisper, 200).trim(), apart: !!mv.apart, auto: !!mv.auto, dice };
+  }
+  // 这一拍整桌一起走的那一样：选项下那一排里票最多的那一样（平票看座位先后），票数比挑选项／自己写的人多（或者没人挑选项）才算整桌的
+  function tableMode(st) {
+    const votes = {}, order = [];
+    let regular = 0;
+    st.members.forEach((m, i) => {
+      const a = st.acts[i]; if (!a) return;
+      if (a.kind === "side") { const k = sideKey(a.side); if (!votes[k]) { votes[k] = { side: a.side, n: 0, seats: [] }; order.push(k); } votes[k].n++; votes[k].seats.push(i); }
+      else if (a.kind === "pick" || a.kind === "text" || a.kind === "decl") regular++;
+    });
+    const top = order.map(k => votes[k]).sort((a, b) => b.n - a.n)[0];
+    return top && (top.n > regular || !regular) ? top : null;
+  }
+  // 每位客串这一拍做了什么（记进战绩卡）
+  function diaryLine(a, ch) {
+    if (!a || a.kind === "pass") return "跟着大家";
+    if (a.kind === "decl") return cut([a.decl.say ? "说「" + a.decl.say + "」" : "", a.decl.do, a.decl.try ? "想赌:" + a.decl.try : ""].filter(Boolean).join(","), 60) || "跟着大家";
+    if (a.kind === "side") return cut(a.side.label + (a.text ? ":" + a.text : ""), 60);
+    return cut((ch ? "选了「" + ch.text + "」" : a.text) + (a.auto ? "(到点替交)" : ""), 60);
   }
   // 写回房主那个团：客串的人不进队伍；没带进房间的队友原样留着；其余（史、钟、进度表、线索、位置）照这一拍
   function writeBack(st) {
@@ -104,15 +151,15 @@
     T.saveCamps(list);
   }
 
-  // 守密人这一拍要多知道的几件事：几位真人、谁交了什么、谁咬了耳朵、谁单独走开
-  function tableTail(st, inv, o) {
-    const T = TS(), players = st.members.filter((m, i) => st.seatKinds[i] === "user").map(m => m.name);
-    const lines = ["\n\n〔联桌〕这一桌有 " + (players.length || 0) + " 位真人玩家" + (players.length ? ":" + players.join("、") : "") + "。每位玩家的行动、台词和决定只由 Ta 本人交上来(见上一条〔这一拍大家的行动〕),你只写世界、NPC 和结果;队友的〔亲笔·〕行是那位队友本人交的,照亲笔纪律叙入。几个人同时在读:正文用名字称呼每位玩家;choices 是给全队的几条路,每位玩家会各挑各的。历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。"];
+  // 守密人这一拍要多知道的几件事：几位真人、谁咬了耳朵、谁私下找谁说话、谁单独走开；其余（这一拍的戏法、进度表）照单机那一份 modeTail
+  function tableTail(st, c, o) {
+    const T = TS(), players = playersOf(st);
+    const uName = players.join("、") || "各位玩家";
+    const lines = ["\n\n〔联桌〕这一桌有 " + (players.length || 0) + " 位真人玩家" + (players.length ? ":" + players.join("、") : "") + "。每位玩家的行动、台词和决定只由 Ta 本人交上来(见上一条〔这一拍大家的行动〕),你只写世界、NPC 和结果;队友的〔亲笔·〕行是那位队友本人交的,照亲笔纪律叙入。几个人同时在读:正文用名字称呼每位玩家;choices 是给全队的几条路,每位玩家会各挑各的。标着「到点替交」的那一位只是没来得及交,照那条路写、别替 Ta 加戏。"];
     (o.whispers || []).forEach(w => lines.push("〔咬耳朵·来自" + w.from + "〕" + w.text + "——只有你和 Ta 知道:正文里别点破;要只回 Ta 一句,写进 whisper:[{\"to\":\"" + w.from + "\",\"text\":\"一两句\"}]。"));
+    (o.talks || []).forEach(w => lines.push("〔私下攀谈·" + w.from + " 找 " + w.to + "〕" + w.from + " 走到一边对「" + w.to + "」说:「" + w.text + "」——" + w.to + " 照自己的身份与立场回 Ta(可以露口风、打太极,不知道的就是不知道)。这段对话只写进 whisper:[{\"to\":\"" + w.from + "\",\"text\":\"" + w.to + " 怎么回的(两三句)\"}],正文里至多一笔带过两人走到一边说话;真情报照常进 clue。"));
     if (o.split && o.split.length) lines.push("〔分头行动〕" + o.split.join("、") + " 这一拍单独走开去办自己交上来的那件事,其余人留在原地。scene 只写留下的那一路;走开那一路写进 apart 字段——truth 是 Ta 们那边真正发生了什么(3-5句),report 是 Ta 们回来以后对大家的说法(可以和 truth 不一样),who 写走开的人名。");
-    if (o.resolve) lines.push("〔续写检定结果〕上面最新的〔检定〕就是刚才那个动作的命运:按其等级把结果写完,接着往下走;这个动作不再需要检定,绝不再报 needCheck。");
-    const camp = st.camp;
-    lines.push(T.paceTurnLines(camp, { burst: o.burst, pressure: o.pressure, away: false, explore: false, hasMap: !!(camp.mapRegions && T.nodesOfCamp(camp).length) }));
+    lines.push(T.modeTail(c, o.mode, { uName, extra: o.extra, dice: o.dice, scriptEv: o.scriptEv, burst: o.burst, pressure: o.pressure }));
     return lines.join("\n");
   }
   function personasOf(st, prep) {
@@ -124,76 +171,129 @@
     }).filter(Boolean).join("\n\n");
   }
 
-  // 结算：掷骰（只在这台）→ 拼这一拍的史 → 守密人一枪 → 单机那一份落账（钟、进度表、压力拍、爆发拍都在里面）→ 写回房主的团
+  // 结算：掷骰（只在这台）→ 拼这一拍的史 → 定这一拍的戏法 → 守密人一枪 → 单机那一份落账（钟、进度表、时辰、压力拍、爆发拍都在里面）→ 写回房主的团
   async function resolve(st, inv, ctx) {
     const T = TS(); if (!T) return Object.assign({}, st, { busy: false, err: "跑团没装上,这一拍结算不了" });
     if (!ctx.hostApi) return Object.assign({}, st, { busy: false, phase: "stuck", err: "房主这台没配线下线路,守密人写不了这一拍" });
     let camp = Object.assign({}, st.camp, { party: st.members.map(m => Object.assign({}, m)), msgs: (st.camp.msgs || []).slice() });
-    const n = Object.assign({}, st, { whisper: Object.assign({}, st.whisper), truth: Object.assign({}, st.truth), err: "" });
-    let whispers = [], split = [], typed = false, tryers = [];
+    const n = Object.assign({}, st, { whisper: Object.assign({}, st.whisper), truth: Object.assign({}, st.truth), diary: Object.assign({}, st.diary || {}), err: "" });
+    let pend;
     if (st.phase !== "stuck") {
-      const add = [], rolls = [], says = [];
+      const add = [], rolls = [], says = [], whispers = [], talks = [], split = [], tryers = [], autoed = [];
+      let typed = false, dice = false, povPick = null;
+      const top = tableMode(st);
+      let mode = top ? T.sideMove(camp, top.side).mode : null;
+      // 行动表：表上的队友（不是真人玩家的那几位）各掷各的骰（单机同一条）
+      (camp.table || []).filter(r => r.stat).forEach(r => {
+        const k = st.members.findIndex(m => m.name === r.who), m = st.members[k];
+        if (!m || m.hp <= 0 || st.seatKinds[k] === "user") return;
+        const res = T.autoRoll(m, r.stat);
+        rolls.push(Object.assign({ id: T.rid("rm_"), role: "roll", content: (r.act ? "〔" + r.act + "〕" : "") + T.rollLine("", m, { stat: r.stat }, res), ts: Date.now() }, T.rollRec(m, { stat: r.stat }, res)));
+      });
       st.members.forEach((m, i) => {
         const a = st.acts[i] || { kind: "pass" };
-        if (a.kind === "decl") { const line = T.declareLineOf(m.name, a.decl); if (line) add.push({ id: T.rid("rm_"), role: "sys", content: "亲笔·" + line, ts: Date.now() }); else says.push(m.name + " 这一拍没出声,跟着大家"); if (a.decl.try) tryers.push(m); return; }
-        if (a.kind === "pass") { says.push(m.name + " 这一拍跟着大家"); return; }
+        if (a.dice) dice = true;
         const ch = a.kind === "pick" ? (camp.choices || [])[a.pick] : null;
+        if (m.guest) n.diary[i] = (n.diary[i] || []).concat(["第" + (st.beat + 1) + "拍:" + diaryLine(a, ch)]).slice(-12);
+        if (a.kind === "decl") { const line = T.declareLineOf(m.name, a.decl); if (line) add.push({ id: T.rid("rm_"), role: "sys", content: "亲笔·" + line, ts: Date.now() }); else says.push(m.name + " 这一拍没出声,跟着大家"); if (a.decl.try) tryers.push(m.name); return; }
+        if (a.kind === "pass") { says.push(m.name + " 这一拍跟着大家"); return; }
+        if (a.kind === "side") {
+          const mine = top && sideKey(top.side) === sideKey(a.side);
+          if (a.side.kind === "talk" && !mine) { talks.push({ from: m.name, to: a.side.arg, text: a.text }); says.push(m.name + " 走到一边找" + a.side.arg + "说话"); }
+          else says.push(m.name + ":" + a.side.label + (a.text ? "——「" + a.text + "」" : "") + (mine ? "" : "(大家没跟上,这一拍没成)"));
+          if (a.whisper) whispers.push({ from: m.name, text: a.whisper });
+          return;
+        }
         if (ch && ch.check && STAT_ZH[ch.check.stat]) {
           const res = T.autoRoll(m, ch.check.stat);
           rolls.push(Object.assign({ id: T.rid("rm_"), role: "roll", content: T.rollLine("", m, ch.check, res), ts: Date.now() }, T.rollRec(m, ch.check, res)));
         }
-        if (a.kind === "text") { typed = true; tryers.push(m); }
-        says.push(m.name + (ch ? " 选了「" + ch.text + "」" : ":" + a.text) + (a.text && ch ? "(" + a.text + ")" : "") + (a.apart ? "(单独走开去办)" : ""));
+        // 换视角那一拍：替那位队友拿主意（单机同一条：带上是不是违心）；那位自己那座挑的优先
+        if (ch && camp.pov && (!povPick || m.name === camp.pov)) povPick = { who: camp.pov, against: ch.willing === false, text: ch.text };
+        if (a.kind === "text") { typed = true; tryers.push(m.name); }
+        if (a.auto) autoed.push(m.name);
+        says.push(m.name + (ch ? " 选了「" + ch.text + "」" : ":" + a.text) + (a.text && ch ? "(" + a.text + ")" : "") + (a.apart ? "(单独走开去办)" : "") + (a.auto ? "(到点没交,庄按稳妥那条替她交的)" : ""));
         if (a.whisper) whispers.push({ from: m.name, text: a.whisper });
         if (a.apart) split.push(m.name);
       });
+      if (!mode && povPick) mode = { povPick };
+      if (typed && (!mode || typeof mode === "object")) mode = Object.assign({}, mode || {}, { typed: true });
       add.push({ id: T.rid("rm_"), role: "user", content: "〔这一拍大家的行动〕\n" + says.join("\n"), ts: Date.now() });
       camp.msgs = camp.msgs.concat(rolls, add);
-      n.pend = { whispers, split, typed, tryers: tryers.map(m => m.name) };
-    } else ({ whispers, split, typed } = n.pend || { whispers: [], split: [], typed: false }), tryers = ((n.pend || {}).tryers || []).map(x => T.findMember(camp.party, x)).filter(Boolean);
+      // 剧情骰（房主那座点的）：剧本事件池先抽，抽过的记下
+      let scriptEv = null;
+      if (dice) { const left = T.scriptEventsLeft(camp, true); scriptEv = left.length ? left[Math.floor(Math.random() * left.length)] : null; if (scriptEv) camp.eventPool = camp.eventPool.map(e => e.text === scriptEv.text ? Object.assign({}, e, { used: true }) : e); }
+      pend = { whispers, talks, split, tryers, mode, dice, scriptEv, rolls, autoed };
+      n.pend = pend; n.autoed = autoed;
+    } else pend = n.pend || { whispers: [], talks: [], split: [], tryers: [], mode: null, rolls: [] };
     // 骰子、宣言一落地就是铁案：先存，守密人失败了也不回滚（单机同一条）；重试只重跑叙事
     n.camp = camp; n.acts = {}; n.members = camp.party; writeBack(n);
-    const burst = camp.burst ? T.burstCost(camp, camp.burst.clock) : null;
-    const pressure = !burst && T.paceOn(camp) && (camp.pace.idle || 0) >= T.PACE_IDLE_MAX;
+    const gate = T.beatGate(camp, pend.mode, edgesOf(camp));
+    const mode = gate.mode, burst = gate.burst, pressure = gate.pressure;
+    const uName = playersOf(st).join("、") || "各位玩家";
     const call = async (c, o) => {
-      const sys = T.buildGmSys(c, { uName: st.members.filter((m, i) => st.seatKinds[i] === "user").map(m => m.name).join("、") || "各位玩家", personas: personasOf(st, ctx.prep) });
-      const hist = T.foldHist(c.msgs.slice(c.sumCount || 0)).slice(-40), tail = tableTail(Object.assign({}, st, { camp: c }), inv, o);
+      const sys = T.buildGmSys(c, { uName, personas: personasOf(st, ctx.prep) });
+      const hist = T.foldHist(c.msgs.slice(c.sumCount || 0)).slice(-40), tail = tableTail(st, c, o);
       if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + tail };
       else hist.push({ role: "user", content: "(继续)" + tail });
       const raw = await root.callAI(ctx.hostApi, sys, hist, { maxTokens: T.TOK_MAX, timeout: 300000 });
       return T.parseTurnPayload(raw);
     };
     const land = (c, p, o) => {
-      const lastRoll = c.msgs.filter(m => m.role === "roll").slice(-1)[0] || null;
-      const r = T.applyTurnPayload(c, p, { nodes: T.nodesOfCamp(c), roll: lastRoll, burst: o.burst, pressure: o.pressure, typed: o.typed, split: o.split && o.split.length ? { who: o.split, task: "" } : null, paceSkip: !!o.resolve });
-      return { r, c: Object.assign({}, r.camp, { msgs: c.msgs.concat(T.beatMsgsOf(r.camp, p, r)) }) };
+      const lo = Object.assign(T.landOpts(c, o.mode, { extra: o.extra, burst: o.burst, pressure: o.pressure, hops: o.hops }), { nodes: T.nodesOfCamp(c) });
+      if (o.split && o.split.length) lo.split = { who: o.split, task: "" };
+      const r = T.applyTurnPayload(c, p, lo);
+      const beat = T.beatMsgsOf(r.camp, p, r);
+      if (o.mode && o.mode.explore && !o.mode.seed && beat[0]) beat[0].lull = true;
+      return { r, c: Object.assign({}, r.camp, { msgs: c.msgs.concat(beat) }) };
     };
+    const o1 = { whispers: pend.whispers, talks: pend.talks, split: pend.split, mode, burst, pressure, hops: gate.hops, extra: pend.rolls, dice: pend.dice, scriptEv: pend.scriptEv };
     let p = null, why = "";
-    try { p = await call(camp, { whispers, split, burst, pressure }); if (!p) why = "回的不是一拍剧情"; } catch (e) { p = null; why = String((e && e.message) || e).slice(0, 80); }
+    try { p = await call(camp, o1); if (!p) why = "回的不是一拍剧情"; } catch (e) { p = null; why = String((e && e.message) || e).slice(0, 80); }
     if (!p) return Object.assign(n, { busy: false, phase: "stuck", err: "守密人这一拍没写出来(" + why + ");骰子和大家的行动都记下了,房主点「继续这一拍」重试" });
-    let out = land(camp, p, { burst, pressure, typed, split });
+    let out = land(camp, p, o1);
     // 自己写的那一下要碰运气：守密人停在悬点报 needCheck → 这台掷，再续写一枪（单机同一条：只认这一拍确有人自己写或想赌）
-    const nck = T.normCheckObj(p.needCheck);
+    const nck = T.normCheckObj(p.needCheck), tryers = (pend.tryers || []).map(x => T.findMember(out.c.party, x)).filter(Boolean);
     if (nck && tryers.length && !out.c.ended) {
-      const m = (nck.who ? T.findMember(out.c.party, nck.who) : null) || T.findMember(out.c.party, tryers[0].name) || out.c.party[0];
+      const m = (nck.who ? T.findMember(out.c.party, nck.who) : null) || tryers[0] || out.c.party[0];
       const res = T.autoRoll(m, nck.stat);
-      const c2 = Object.assign({}, out.c, { msgs: out.c.msgs.concat([Object.assign({ id: T.rid("rm_"), role: "roll", content: T.rollLine("", m, nck, res), ts: Date.now() }, T.rollRec(m, nck, res))]) });
-      let p2 = null; try { p2 = await call(c2, { resolve: true }); } catch (e) { p2 = null; }
-      out = p2 ? land(c2, p2, { resolve: true }) : { r: out.r, c: c2 };
+      const roll = Object.assign({ id: T.rid("rm_"), role: "roll", content: T.rollLine("", m, nck, res), ts: Date.now() }, T.rollRec(m, nck, res));
+      const c2 = Object.assign({}, out.c, { msgs: out.c.msgs.concat([roll]) });
+      const o2 = { mode: "resolve", extra: [roll] };
+      let p2 = null; try { p2 = await call(c2, o2); } catch (e) { p2 = null; }
+      out = p2 ? land(c2, p2, o2) : { r: out.r, c: c2 };
     }
-    // 守密人只回给某一位的话、另一路的真相：进 priv
-    (Array.isArray(p.whisper) ? p.whisper : []).slice(0, 4).forEach(w => {
+    // 守密人只回给某一位的话（咬耳朵、私下攀谈）、另一路的真相：进 priv
+    (Array.isArray(p.whisper) ? p.whisper : []).slice(0, 6).forEach(w => {
       const k = st.members.findIndex(m => w && m.name === cut(w.to, 16)); if (k < 0 || !cut(w.text, 300).trim()) return;
       n.whisper[k] = (n.whisper[k] || []).concat([cut(w.text, 300)]);
     });
-    if (out.r.apart) (out.r.apart.who || split).forEach(nmx => { const k = st.members.findIndex(m => m.name === nmx || String(out.r.apart.who || "").indexOf(m.name) >= 0); if (k >= 0 && out.r.apart.truth) n.truth[k] = (n.truth[k] || []).concat([cut(out.r.apart.truth, 800)]); });
-    n.apartWho = split.slice();
+    if (out.r.apart) (out.r.apart.who || pend.split).forEach(nmx => { const k = st.members.findIndex(m => m.name === nmx || String(out.r.apart.who || "").indexOf(m.name) >= 0); if (k >= 0 && out.r.apart.truth) n.truth[k] = (n.truth[k] || []).concat([cut(out.r.apart.truth, 800)]); });
+    // 前情账本：超过 48 条把最老的压进账本（单机那一份），失败就下回再试
+    const job = T.summaryJob ? T.summaryJob(out.c, uName) : null;
+    if (job) { try { const raw = await root.callAI(ctx.hostApi, T.SUMMARY_SYS, [{ role: "user", content: T.summaryUser(job) }], { maxTokens: T.TOK_MAX, timeout: 120000 }); const patch = T.summaryPatch(job, raw); if (patch) out.c = Object.assign({}, out.c, patch); } catch (e) { /* 下回再试 */ } }
+    n.apartWho = (pend.split || []).slice();
     n.camp = out.c; n.members = out.c.party; n.beat = st.beat + 1; n.pend = null; n.busy = false;
-    n.phase = out.c.ended ? "done" : "act";
+    n.phase = out.c.ended ? "done" : "act"; n.actAt = Date.now();
     writeBack(n);
     return n;
   }
+  // 落幕：终章那一枪（单机那一份 epilogueAsk），秘典跟着揭开；客串的成长不进房主的小队卡
+  async function finale(st, inv, ctx, mv) {
+    const T = TS(); if (!T || !T.epilogueAsk) return { err: "跑团没装上" };
+    if (!ctx.hostApi) return { err: "房主这台没配线下线路,写不了终章" };
+    const c = Object.assign({ dossier: { truth: "", twist: "" } }, st.camp, { party: st.members.map(m => Object.assign({}, m)) });
+    const { sys, user } = T.epilogueAsk(c, playersOf(st).join("、") || "各位玩家", !c.pendingEnd && (c.stageIdx || 0) < (c.stages || []).length, cut(mv.finalAct, 400));
+    let p = null;
+    try { p = T.parseObj(await root.callAI(ctx.hostApi, sys, [{ role: "user", content: user }], { maxTokens: T.TOK_MAX, timeout: 300000 })); } catch (e) { p = null; }
+    if (!p || !Array.isArray(p.paras) || !p.paras.length) return { st: Object.assign({}, st, { busy: false, err: "终章没写出来,再点一次" }) };
+    const n = Object.assign({}, st, { camp: Object.assign({}, c, { ended: true, pendingEnd: false, epilogue: T.epilogueRec(p, []) }), phase: "done", busy: false, err: "" });
+    writeBack(n);
+    return { st: n };
+  }
 
+  // 这一晚的客串（别人自己上桌、别人带来的角色、房主带来的临时队员）各做了什么
+  const guestsOf = st => st.members.map((m, i) => m.guest ? { name: cut(m.name, 16), kind: st.seatKinds[i], did: ((st.diary || {})[i] || []).map(x => cut(x, 70)) } : null).filter(Boolean);
   const A = {
     zh: "跑团", hostRoute: "offline",
     charOpts: ["recent"],
@@ -201,7 +301,7 @@
     // 最后一个人交完、房主点「不等了」或「继续这一拍」：那一下要等守密人，先亮「守密人在写」
     slow(st, seat, mv) {
       if (!st || st.busy) return false;
-      if (seat < 0) return !!(mv && (mv.op === "resolve" || mv.op === "retry"));
+      if (seat < 0) return !!(mv && (mv.op === "resolve" || mv.op === "retry" || mv.op === "finale"));
       if (st.phase !== "act" || st.acts[seat]) return false;
       return pendingOf(st).filter(i => i !== seat).length === 0;
     },
@@ -212,8 +312,10 @@
       if (!camp) throw new Error("房主这台找不到要开的那个团了（删掉了？）");
       if (camp.ended) throw new Error("这个团已经落幕了，换一个还在演的");
       const members = seatParty(camp, inv);
+      const tm = TIMEOUTS.indexOf(Number(pz.timeout)) >= 0 ? Number(pz.timeout) : 3;
       return { camp: clone(camp), members, seatKinds: inv.seats.map(s => s.kind), phase: members.some(m => !m.stats) ? "roll" : "act",
-        acts: {}, beat: 0, busy: false, err: "", whisper: {}, truth: {}, apartWho: [], logFrom: Math.max(0, (camp.msgs || []).length - 6), pend: null };
+        acts: {}, beat: 0, busy: false, err: "", whisper: {}, truth: {}, diary: {}, autoed: [], apartWho: [], logFrom: Math.max(0, (camp.msgs || []).length - 6), pend: null,
+        timeout: tm * MIN, actAt: Date.now() };
     },
     view, priv,
     // 庄那份和各台收到的 view 都认：view 里带着 done（谁交了）和 seatKinds
@@ -225,6 +327,16 @@
       return p.length ? p.sort((a, b) => rank(a) - rank(b))[0] : -1;
     },
     waiting: v => v.phase === "roll" || v.phase === "act" ? (v.done || []).map((d, i) => d ? -1 : i).filter(i => i >= 0) : [],
+    // 角色队友、托管座位同时想：这一刻还没交的都给（真人那几座框架不替她们动）；同一拍同一座只想一次
+    turns: x => x.busy || (x.phase !== "roll" && x.phase !== "act") ? [] : (x.members ? pendingOf(x) : (x.done || []).map((d, i) => d ? -1 : i).filter(i => i >= 0)),
+    roundOf: x => x.phase + ":" + x.beat,
+    // 真人一直不交：到点庄按「稳妥」那条替她交（掷数值那一步就替她掷），桌上写明是到点替交的
+    onTick(st, now) {
+      if (!st || st.busy || !(st.timeout > 0) || !st.actAt || now - st.actAt < st.timeout || (st.phase !== "act" && st.phase !== "roll")) return [];
+      const T = TS(); if (!T) return [];
+      return pendingOf(st).filter(i => st.seatKinds[i] === "user").map(i => ({ seat: i, mv: st.phase === "roll" ? { stats: T.rollStats(), auto: true } : (k => k >= 0 ? { pick: k, auto: true } : { pass: true, auto: true })(safePick(st.camp)) }));
+    },
+    recordMax: 900,
     async apply(st, seatIdx, mv, ctx) {
       const inv = ctx.inv;
       if (st.phase === "done") return { err: "这一团今晚已经收桌了" };
@@ -233,17 +345,20 @@
         if (mv.op === "stop") { writeBack(st); return { st: Object.assign({}, st, { phase: "done", stopped: true, busy: false }) }; }
         if (mv.op === "retry" && st.phase === "stuck") return { st: await resolve(st, inv, ctx) };
         if (mv.op === "resolve" && st.phase === "act") return { st: await resolve(st, inv, ctx) };   // 不等了：没交的人这一拍跟着大家
+        if (mv.op === "finale" && st.phase === "act") return await finale(st, inv, ctx, mv);
         return { err: "现在不用这一下" };
       }
       if (st.phase === "roll") {
         if (st.members[seatIdx].stats) return { err: "这一位的数值已经掷过了" };
         const s = cleanStats(mv.stats); if (!s) return { err: "数值不对" };
         const members = st.members.map((m, i) => i === seatIdx ? Object.assign({}, m, { stats: s, fate: TS().fateOf(s.luck) }) : m);
-        return { st: Object.assign({}, st, { members, phase: members.some(m => !m.stats) ? "roll" : "act", busy: false }) };
+        const go = !members.some(m => !m.stats);
+        return { st: Object.assign({}, st, { members, phase: go ? "act" : "roll", busy: false, actAt: go ? Date.now() : st.actAt }) };
       }
       if (st.phase !== "act") return { err: "守密人还在写，等这一拍写完" };
-      if (st.acts[seatIdx]) return { err: "这一拍你已经交过了" };
-      const a = takeAct(st, seatIdx, mv); if (!a) return { err: "挑一条路，或者写一句你做什么" };
+      if (st.acts[seatIdx]) return mv.auto ? { st } : { err: "这一拍你已经交过了" };
+      const isHost = !!(inv && inv.seats[seatIdx] && inv.seats[seatIdx].peer === inv.host);
+      const a = takeAct(st, seatIdx, mv, isHost); if (!a) return { err: "挑一条路，或者写一句你做什么（找人说话要写上说什么）" };
       const n = Object.assign({}, st, { acts: Object.assign({}, st.acts, { [seatIdx]: a }), busy: false });
       return { st: pendingOf(n).length ? n : await resolve(n, inv, ctx) };
     },
@@ -271,11 +386,18 @@
     result(st, inv) {
       if (st.phase !== "done") return null;
       const c = st.camp, last = (c.msgs || []).filter(m => m.role === "gm").slice(-1)[0];
-      return { winners: [], text: "「" + cut(c.title, 20) + "」这一晚跑了 " + st.beat + " 拍" + (c.ended ? ",落幕了。" : ",团还没完,存在房主那里,下次接着跑。") + (last ? "停在:" + cut(last.content, 60) : ""),
-        replay: { title: cut(c.title, 30), log: publicLog(c, st.logFrom).slice(-40) } };
+      const guests = guestsOf(st);
+      return { winners: [], text: "「" + cut(c.title, 20) + "」这一晚跑了 " + st.beat + " 拍" + (c.ended ? ",落幕了。" : ",团还没完,存在房主那里,下次接着跑。") + (last ? "停在:" + cut(last.content, 60) : "")
+          + (guests.length ? "\n客串:" + guests.map(g => g.name + "——" + g.did.slice(-5).join(";")).join("\n") : ""),
+        replay: { title: cut(c.title, 30), log: publicLog(c, st.logFrom).slice(-40), guests, epi: c.epilogue ? { paras: (c.epilogue.paras || []).slice(0, 10), closing: c.epilogue.closing || "" } : null } };
     },
     cleanLog: a => (Array.isArray(a) ? a : []).slice(-40).map(x => ({ role: ["gm", "roll", "user", "sys", "apart", "letter"].indexOf(x && x.role) >= 0 ? x.role : "sys", text: cut(x && x.text, 3000), who: cut(x && x.who, 16) })),
-    cleanReplay(r) { return { title: cut(r.title, 30), log: this.cleanLog(r.log) }; },
+    cleanReplay(r) {
+      const arr = (a, n) => (Array.isArray(a) ? a : []).slice(0, n);
+      return { title: cut(r.title, 30), log: this.cleanLog(r.log),
+        guests: arr(r.guests, 5).map(g => ({ name: cut(g && g.name, 16), kind: ["user", "char", "npc"].indexOf(g && g.kind) >= 0 ? g.kind : "user", did: arr(g && g.did, 12).map(x => cut(x, 70)) })),
+        epi: r.epi && typeof r.epi === "object" ? { paras: arr(r.epi.paras, 10).map(x => cut(x, 600)), closing: cut(r.epi.closing, 60) } : null };
+    },
     cleanView(v) {
       const arr = (a, n) => (Array.isArray(a) ? a : []).slice(0, n);
       return { title: cut(v.title, 30), world: cut(v.world, 300), place: cut(v.place, 30), goal: cut(v.goal, 120), objective: cut(v.objective, 120), stakes: cut(v.stakes, 120),
@@ -285,14 +407,19 @@
         choices: arr(v.choices, 4).map(x => ({ text: cut(x && x.text, 80), stat: x && STAT_ZH[x.stat] ? x.stat : "", who: cut(x && x.who, 16), risk: cut(x && x.risk, 36), payoff: cut(x && x.payoff, 36), cost: cut(x && x.cost, 36) })),
         ended: !!v.ended, phase: ["roll", "act", "stuck", "done"].indexOf(v.phase) >= 0 ? v.phase : "act", beat: int(v.beat, 0, 9999, 0), busy: !!v.busy, err: cut(v.err, 200),
         party: arr(v.party, 5).map(m => ({ name: cut(m && m.name, 16), hp: int(m && m.hp, 0, 999, 100), maxHp: int(m && m.maxHp, 1, 999, 100), stats: cleanStats(m && m.stats), guest: !!(m && m.guest) })),
-        done: arr(v.done, 5).map(Boolean), seatKinds: arr(v.seatKinds, 5).map(k => ["user", "char", "npc"].indexOf(k) >= 0 ? k : "user"), apart: arr(v.apart, 5).map(x => cut(x, 16)), log: this.cleanLog(v.log) };
+        done: arr(v.done, 5).map(Boolean), seatKinds: arr(v.seatKinds, 5).map(k => ["user", "char", "npc"].indexOf(k) >= 0 ? k : "user"), apart: arr(v.apart, 5).map(x => cut(x, 16)), log: this.cleanLog(v.log),
+        time: cut(v.time, 12), pov: cut(v.pov, 16), canEnd: !!v.canEnd,
+        side: arr(v.side, 14).map(x => ({ kind: ["talk", "look", "site", "search", "go", "rest", "pov", "night"].indexOf(x && x.kind) >= 0 ? x.kind : "rest", arg: cut(x && x.arg, 30), label: cut(x && x.label, 40) })),
+        epi: v.epi && typeof v.epi === "object" ? { paras: arr(v.epi.paras, 10).map(x => cut(x, 600)), closing: cut(v.epi.closing, 60), untold: arr(v.epi.untold, 6).map(x => cut(x, 160)), truth: cut(v.epi.truth, 400), twist: cut(v.epi.twist, 300),
+          apart: arr(v.epi.apart, 5).map(x => ({ who: cut(x && x.who, 16), text: cut(x && x.text, 400) })) } : null,
+        deadline: int(v.deadline, 0, 9e15, 0), timeoutMin: int(v.timeoutMin, 0, 60, 0), autoed: arr(v.autoed, 5).map(x => cut(x, 16)) };
     },
     stateText(v, i, inv, pv) {
       const who = (v.party || []).map((m, k) => m.name + "(HP" + m.hp + "/" + m.maxHp + ((v.apart || []).indexOf(m.name) >= 0 ? ",单独走开了" : "") + ")").join("、");
       const clocks = (v.clocks || []).map(x => "「" + x.name + "」" + x.filled + "/" + x.max).join(" ");
       const wait = (v.done || []).map((d, k) => d ? "" : nm(inv, k)).filter(Boolean);
       const last = (v.log || []).filter(x => x.role === "gm").slice(-1)[0];
-      return "跑团「" + v.title + "」第 " + (v.beat + 1) + " 拍,在「" + v.place + "」。" + (v.goal ? "这一章要办成:" + v.goal + "。" : "") + (v.objective ? "眼下:" + v.objective + "。" : "")
+      return "跑团「" + v.title + "」第 " + (v.beat + 1) + " 拍,在「" + v.place + "」" + (v.time ? "(" + v.time + ")" : "") + "。" + (v.goal ? "这一章要办成:" + v.goal + "。" : "") + (v.objective ? "眼下:" + v.objective + "。" : "")
         + "\n队伍:" + who + "。线索 " + v.clues + " 条" + (v.pace ? ",这一场第 " + v.pace.beat + "/" + v.pace.total + " 拍" : "") + (clocks ? ",钟:" + clocks : "") + "。"
         + (last ? "\n守密人刚写到:" + cut(last.text, 200) : "")
         + (v.phase === "act" && wait.length ? "\n还没交这一拍的:" + wait.join("、") + "。" : v.phase === "done" ? "\n今晚收桌了。" : "")
@@ -323,7 +450,8 @@
   function Board({ t, v, inv, mine }) {
     const p = v.pace;
     return h("div", { "data-wk": "nrtrpgboard", style: { display: "flex", flexDirection: "column", gap: 6 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, "「" + v.title + "」", h("span", { style: Object.assign(small(t), { marginLeft: 6 }) }, v.place + " · 第 " + (v.beat + 1) + " 拍")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, "「" + v.title + "」", h("span", { style: Object.assign(small(t), { marginLeft: 6 }) }, v.place + (v.time ? " · " + v.time : "") + " · 第 " + (v.beat + 1) + " 拍")),
+      v.pov ? h("div", { style: small(t) }, "这一拍镜头在 " + v.pov + " 身上：下面几条是 TA 的选择，你们替 TA 拿主意") : null,
       v.goal ? h("div", { style: small(t) }, "这一章：" + v.goal + (p ? "　这一场 " + p.beat + "/" + p.total + " 拍 · 线索 " + p.got + "/" + p.clues : "")) : null,
       v.objective ? h("div", { style: small(t) }, "眼下：" + v.objective + (v.stakes ? "　代价：" + v.stakes : "")) : null,
       (v.clocks || []).length ? h("div", { "data-wk": "nrtrpgclocks", className: "flex flex-wrap", style: { gap: 6 } }, v.clocks.map((x, i) => h("span", { key: i, style: Object.assign(small(t), { border: "1px solid " + t.line, borderRadius: 999, padding: "0 8px" }) }, "⏰ " + x.name + " " + x.filled + "/" + x.max))) : null,
@@ -332,20 +460,52 @@
         m.name + (inv.seats[i] && inv.seats[i].kind === "char" ? "（角色）" : "") + " HP" + m.hp + ((v.phase === "act" || v.phase === "roll") ? (v.done[i] ? " ✓" : " …") : "")))),
       v.clues ? h("div", { style: small(t) }, "线索 " + v.clues + " 条：" + (v.clueList || []).join("；")) : null);
   }
-  function Act({ t, v, seat, onMove }) {
-    const [pick, setPick] = useState(-1), [say, setSay] = useState(""), [wh, setWh] = useState(""), [whOn, setWhOn] = useState(false), [apart, setApart] = useState(false);
-    const go = () => { onMove(seat, { pick, say: say.trim(), whisper: whOn ? wh.trim() : "", apart }); setPick(-1); setSay(""); setWh(""); setWhOn(false); setApart(false); };
+  const SIDE_ICON = { talk: "💬 ", look: "🔍 ", site: "◇ ", search: "🔍 ", go: "? ", rest: "🏕 ", pov: "👁 ", night: "🌙 " };
+  function Act({ t, v, seat, isHost, onMove }) {
+    const [pick, setPick] = useState(-1), [side, setSide] = useState(null), [say, setSay] = useState(""), [wh, setWh] = useState(""), [whOn, setWhOn] = useState(false), [apart, setApart] = useState(false), [dice, setDice] = useState(false);
+    const reset = () => { setPick(-1); setSide(null); setSay(""); setWh(""); setWhOn(false); setApart(false); setDice(false); };
+    const go = () => { onMove(seat, side ? { side: { kind: side.kind, arg: side.arg }, say: say.trim(), whisper: whOn ? wh.trim() : "", dice } : { pick, say: say.trim(), whisper: whOn ? wh.trim() : "", apart, dice }); reset(); };
+    const ready = side ? (side.kind !== "talk" || !!say.trim()) : (pick >= 0 || !!say.trim());
+    const sideOn = x => side && side.kind === x.kind && side.arg === x.arg;
     return h("div", { "data-wk": "nrtrpgact", style: { display: "flex", flexDirection: "column", gap: 8 } },
-      v.choices.map((c, k) => h("button", { key: k, "data-wk": "nrtrpgchoice", onClick: () => setPick(pick === k ? -1 : k),
+      v.choices.map((c, k) => h("button", { key: k, "data-wk": "nrtrpgchoice", onClick: () => { setSide(null); setPick(pick === k ? -1 : k); },
         style: { textAlign: "left", borderRadius: 12, border: "1px solid " + (pick === k ? t.ink : t.line), background: pick === k ? t.bg : t.bg2, color: t.ink, padding: "8px 12px", fontFamily: F_BODY, fontSize: fs(13.5) } },
-        c.text, h("div", { style: small(t) }, [c.stat ? "要过「" + STAT_ZH[c.stat] + "」检定" + (c.who ? "（" + c.who + "）" : "") : "", c.payoff ? "换来：" + c.payoff : "", c.risk ? "风险：" + c.risk : "", c.cost ? "代价：" + c.cost : ""].filter(Boolean).join("　")))),
-      h("textarea", { "data-wk": "nrtrpginput", value: say, rows: 2, onChange: e => { setSay(e.target.value.slice(0, 400)); fit(e); }, placeholder: pick >= 0 ? "补一句怎么做（可空）" : "或者自己写：你做什么、说什么", style: box(t) }),
+        c.text, h("div", { style: small(t) }, [c.safe ? "稳妥" : "", c.stat ? "要过「" + STAT_ZH[c.stat] + "」检定" + (c.who ? "（" + c.who + "）" : "") : "", c.payoff ? "换来：" + c.payoff : "", c.risk ? "风险：" + c.risk : "", c.cost ? "代价：" + c.cost : ""].filter(Boolean).join("　")))),
+      (v.side || []).length ? h("div", { style: small(t) }, "别的能做的事（挑的人比挑上面那几条的多，这一拍就整桌一起做它；不然只算你自己的——找人说话就是私下说，回话只有你看得到）") : null,
+      (v.side || []).length ? h("div", { "data-wk": "nrtrpgside", className: "flex flex-wrap", style: { gap: 6 } }, v.side.map((x, k) => h("button", { key: k, "data-wk": "nrtrpgsidebtn", "data-kind": x.kind, onClick: () => { setPick(-1); setApart(false); setSide(sideOn(x) ? null : x); },
+        style: Object.assign(pill(t, sideOn(x)), { minHeight: 32, padding: "0 12px" }) }, (SIDE_ICON[x.kind] || "") + x.label))) : null,
+      h("textarea", { "data-wk": "nrtrpginput", value: say, rows: 2, onChange: e => { setSay(e.target.value.slice(0, 400)); fit(e); }, placeholder: side ? (side.kind === "talk" ? "对 " + side.arg + " 说什么" : "补一句（可空）") : pick >= 0 ? "补一句怎么做（可空）" : "或者自己写：你做什么、说什么", style: box(t) }),
       h("div", { className: "flex flex-wrap", style: { gap: 6 } },
         h("button", { "data-wk": "nrtrpgwhisper", onClick: () => setWhOn(!whOn), style: Object.assign(pill(t, whOn), { minHeight: 32, padding: "0 12px" }) }, "咬耳朵"),
-        h("button", { "data-wk": "nrtrpgapart", onClick: () => setApart(!apart), style: Object.assign(pill(t, apart), { minHeight: 32, padding: "0 12px" }) }, "单独走开")),
+        !side && h("button", { "data-wk": "nrtrpgapart", onClick: () => setApart(!apart), style: Object.assign(pill(t, apart), { minHeight: 32, padding: "0 12px" }) }, "单独走开"),
+        isHost && h("button", { "data-wk": "nrtrpgdice", onClick: () => setDice(!dice), style: Object.assign(pill(t, dice), { minHeight: 32, padding: "0 12px" }) }, "剧情骰")),
       whOn && h("textarea", { "data-wk": "nrtrpgwhisperin", value: wh, rows: 2, onChange: e => { setWh(e.target.value.slice(0, 200)); fit(e); }, placeholder: "只有守密人看得到；TA 要回也只回你", style: box(t) }),
       apart && h("div", { style: small(t) }, "这一拍你离开大家去办你写的那件事；那边真正发生了什么只有你看得到，大家只听到你回来怎么说。"),
-      h("button", { "data-wk": "nrtrpgsend", disabled: pick < 0 && !say.trim(), onClick: go, style: pill(t, true) }, "交这一拍"));
+      dice && h("div", { style: small(t) }, "这一拍守密人要放进一件意外（剧本里写了事件的先从那里抽）。"),
+      h("button", { "data-wk": "nrtrpgsend", disabled: !ready, onClick: go, style: pill(t, true) }, "交这一拍"));
+  }
+  // 落幕那一页：终章、秘典揭开、各路真相
+  function Epi({ t, e }) {
+    return h("div", { "data-wk": "nrtrpgepi", style: { display: "flex", flexDirection: "column", gap: 8 } },
+      (e.paras || []).map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink, lineHeight: 1.75 } }, x)),
+      e.closing ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14.5), color: t.ink, textAlign: "center" } }, e.closing) : null,
+      e.truth || e.twist || (e.untold || []).length || (e.apart || []).length ? h("div", { "data-wk": "nrtrpgsecret", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13.5), color: t.ink } }, "秘典揭开"),
+        e.truth ? h("div", { style: small(t) }, "真相：" + e.truth) : null,
+        e.twist ? h("div", { style: small(t) }, "翻转：" + e.twist) : null,
+        (e.untold || []).length ? h("div", { style: small(t) }, "到最后也没揭开的：" + e.untold.join("；")) : null,
+        (e.apart || []).map((x, i) => h("div", { key: i, style: small(t) }, x.who + " 那一路其实是：" + x.text))) : null);
+  }
+  // 房主的「写终章」：章都走完了（或守密人说到了能落幕的地方）才亮在明处；别的时候收在「提前收团」里
+  function EndBtn({ t, v, onMove }) {
+    const [open, setOpen] = useState(false), [fa, setFa] = useState("");
+    if (!open) return h("button", { "data-wk": "nrtrpgend", onClick: () => setOpen(true), style: Object.assign(pill(t, v.canEnd), { alignSelf: "flex-start" }) }, v.canEnd ? "写终章落幕" : "提前收团（写终章）");
+    return h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+      h("div", { style: small(t) }, "守密人会就此写终章，秘典跟着揭开，这个团就落幕了（单机里也是落幕的）。"),
+      h("textarea", { "data-wk": "nrtrpgfinal", value: fa, rows: 2, onChange: e => { setFa(e.target.value.slice(0, 400)); fit(e); }, placeholder: "最后，你们做什么（可空；空着就只写画面，不替谁做决定）", style: box(t) }),
+      h("div", { className: "flex", style: { gap: 6 } },
+        h("button", { "data-wk": "nrtrpgendok", onClick: () => { onMove(-1, { op: "finale", finalAct: fa.trim() }); setOpen(false); }, style: pill(t, true) }, "写终章"),
+        h("button", { onClick: () => setOpen(false), style: pill(t, false) }, "先不")));
   }
   function TrpgTable({ inv, view: v, priv: pv, me, isHost, onMove }) {
     const t = useTheme();
@@ -367,7 +527,11 @@
         h("span", { style: small(t) }, (v.party[i] || {}).name + "：" + (rolled && rolled.i === i ? Object.keys(STAT_ZH).map(k => STAT_ZH[k] + rolled.s[k]).join(" ") : "单机组队那一套，3d6×5")),
         rolled && rolled.i === i ? h("button", { "data-wk": "nrtrpgstatsend", onClick: () => { onMove(i, { stats: rolled.s }); setRolled(null); }, style: pill(t, true) }, "就这样上桌")
           : h("button", { "data-wk": "nrtrpgroll", disabled: !T, onClick: () => setRolled({ i, s: T.rollStats() }), style: pill(t, false) }, "掷五项"))),
-      v.phase === "act" && !v.busy && myPend.slice(0, 1).map(i => h(Act, { key: i, t, v, seat: i, onMove })),
+      v.phase === "act" && !v.busy && v.deadline && wait.length ? h("div", { "data-wk": "nrtrpgdeadline", style: Object.assign(small(t), { textAlign: "center" }) }, "这一拍 " + v.timeoutMin + " 分钟内没交的，庄按「稳妥」那条替她交（桌上会写明）") : null,
+      (v.autoed || []).length ? h("div", { style: Object.assign(small(t), { textAlign: "center" }) }, "上一拍到点替交的：" + v.autoed.join("、")) : null,
+      v.phase === "act" && !v.busy && myPend.slice(0, 1).map(i => h(Act, { key: i, t, v, seat: i, isHost, onMove })),
+      v.epi ? h(Epi, { t, e: v.epi }) : null,
+      isHost && v.phase === "act" && !v.busy && h(EndBtn, { t, v, onMove }),
       isHost && v.phase === "act" && !v.busy && wait.length && h("button", { "data-wk": "nrtrpgnowait", onClick: () => onMove(-1, { op: "resolve" }), style: Object.assign(pill(t, false), { alignSelf: "flex-start" }) }, "不等了，先结算（没交的这一拍跟着大家）"),
       isHost && v.phase === "stuck" && !v.busy && h("button", { "data-wk": "nrtrpgretry", onClick: () => onMove(-1, { op: "retry" }), style: Object.assign(pill(t, true), { alignSelf: "flex-start" }) }, "继续这一拍"),
       isHost && v.phase !== "done" && !v.busy && h("button", { "data-wk": "nrtrpgstop", onClick: () => onMove(-1, { op: "stop" }), style: Object.assign(pill(t, false), { alignSelf: "flex-start" }) }, "今晚先到这儿（进度存在你的团里）"));
@@ -375,13 +539,17 @@
   function TrpgReplay({ rec }) {
     const t = useTheme(), r = rec.replay || {};
     return h("div", { style: { padding: "8px 16px", display: "flex", flexDirection: "column", gap: 10 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, "「" + (r.title || "") + "」"), h(Log, { t, log: r.log }));
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, "「" + (r.title || "") + "」"), h(Log, { t, log: r.log }),
+      r.epi ? h(Epi, { t, e: r.epi }) : null,
+      (r.guests || []).length ? h("div", { "data-wk": "nrtrpgguests", style: { display: "flex", flexDirection: "column", gap: 4 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13.5), color: t.ink } }, "这一晚的客串"),
+        r.guests.map((g, i) => h("div", { key: i, style: small(t) }, g.name + (g.kind === "char" ? "（角色）" : "") + "：" + (g.did.join("；") || "一直跟着大家")))) : null);
   }
   // 房主开局：挑自己的一个团（在单机跑团里开好的），自己上不上桌、带哪几位角色、给别人留几个座位
   function TrpgPrep({ myChars, nick, onSend }) {
     const t = useTheme();
     const [camps, setCamps] = useState(null);
-    const [p, setP] = useState({ campId: "", me: true, chars: {}, open: 2 });
+    const [p, setP] = useState({ campId: "", me: true, chars: {}, open: 2, timeout: 3 });
     useEffect(() => { ensure().then(() => setCamps(TS() ? (TS().loadCamps() || []).filter(c => !c.ended) : [])); }, []);
     const set = o => setP(x => Object.assign({}, x, o));
     const camp = (camps || []).find(c => c.id === p.campId);
@@ -405,7 +573,9 @@
         (c.remark || c.name) + (camp ? (inParty(c.id) ? " · 队里的" : " · 临时入队") : ""))),
       label("给别人留几个座位（整桌最多 5 人）"),
       h("div", { className: "flex", style: { gap: 6 } }, [0, 1, 2, 3, 4].map(n => h("button", { key: n, onClick: () => set({ open: n }), style: Object.assign(pill(t, p.open === n), { minHeight: 34, padding: "0 12px" }) }, String(n)))),
-      h("button", { "data-wk": "nrtrpggo", disabled: !camp || total < 1, onClick: () => onSend({ total: Math.max(1, total), mode: "normal", npcFill: false, picks }, { campId: p.campId, personas }), style: Object.assign(pill(t, true), { marginTop: 8 }) }, "发邀请卡"));
+      label("这一拍几分钟没交，庄按「稳妥」那条替她交（掉线的照常由庄托管）"),
+      h("div", { "data-wk": "nrtrpgtimeout", className: "flex", style: { gap: 6 } }, TIMEOUTS.map(n => h("button", { key: n, onClick: () => set({ timeout: n }), style: Object.assign(pill(t, p.timeout === n), { minHeight: 34, padding: "0 12px" }) }, n ? n + " 分钟" : "不替交"))),
+      h("button", { "data-wk": "nrtrpggo", disabled: !camp || total < 1, onClick: () => onSend({ total: Math.max(1, total), mode: "normal", npcFill: false, picks }, { campId: p.campId, personas, timeout: p.timeout }), style: Object.assign(pill(t, true), { marginTop: 8 }) }, "发邀请卡"));
   }
   A.Table = TrpgTable; A.Replay = TrpgReplay; A.Prep = TrpgPrep;
 })(typeof window !== "undefined" ? window : globalThis);

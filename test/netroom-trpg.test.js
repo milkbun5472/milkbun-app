@@ -153,3 +153,110 @@ test("单机跑团抽出来的共用函数：单机整页改用它们；里面�
   assert.ok(i > 0 && j > i);
   assert.ok(!/联机|netroom|NetRoom/.test(trpg), "公共版摘掉联机后，跑团里不该留着联机的字");
 });
+
+// ── 第二版接上的那几样 ──
+const inv2 = { host: "A", seats: [{ kind: "user", peer: "A", name: "Lisa" }, { kind: "user", peer: "B", name: "乙" }] };
+const camp2 = () => { const c = camp0(); c.choices = []; c.mapRegions = [{ name: "北镇", terrain: "城郭", adj: ["南野"], nodes: [{ name: "驿站", kind: "城镇" }, { name: "钟楼", kind: "地标" }] }, { name: "南野", terrain: "平原", adj: ["北镇"], nodes: [{ name: "猎屋", kind: "野外" }] }]; c.npcs = [{ name: "守夜人", alive: true, met: "驿站", stance: "未明" }]; return c; };
+function load2(reply) {
+  const L = load(reply);
+  L.w.TrpgShared.loadCamps = () => [camp2()];
+  return L;
+}
+async function seated(A) {
+  let st = await A.init(inv2, { prep: { campId: "rpg_1", timeout: 3 } });
+  st = (await A.apply(st, 1, { stats: { phy: 50, agi: 50, wit: 50, cha: 50, luck: 50 } }, { inv: inv2 })).st;
+  return st;
+}
+
+test("选项下那一排走单机那张单：整桌都挑「去钟楼」就是一拍赶路——花团内时辰、守密人拿到单机那段〔赶路〕守则", async () => {
+  const { G, calls } = load2({ scene: "到了钟楼。", place: "钟楼", choices: [] });
+  const A = G.ADAPTERS.trpg;
+  let st = await seated(A);
+  const v = A.view(st);
+  const go = v.side.find(x => x.kind === "go" && x.arg === "钟楼");
+  assert.ok(go, "地图上挨着的地点在单上");
+  assert.ok(v.side.some(x => x.kind === "talk" && x.arg === "守夜人") && !v.side.some(x => x.arg === "乙"), "真人不是攀谈对象");
+  assert.ok((await A.apply(st, 0, { side: { kind: "go", arg: "没这地方" } }, { inv: inv2 })).err, "单上没有的不收");
+  st = (await A.apply(st, 0, { side: { kind: "go", arg: "钟楼" } }, { inv: inv2 })).st;
+  st = (await A.apply(st, 1, { side: { kind: "go", arg: "钟楼" } }, { inv: inv2, hostApi: { id: "gm" }, prep: {} })).st;
+  assert.strictEqual(st.camp.pos, "钟楼");
+  assert.notDeepStrictEqual(st.camp.time, { day: 1, part: "晨" }, "赶路花了时辰");
+  const tail = JSON.stringify(calls.find(c => c.api === "gm").msgs);
+  assert.match(tail, /〔赶路〕sceneMeta\.type 固定 travel/);
+  assert.match(tsrc, /T\.sideMenu\(/); assert.match(tsrc, /T\.sideMove\(/); assert.match(tsrc, /T\.beatGate\(/); assert.match(tsrc, /T\.modeTail\(/); assert.match(tsrc, /T\.landOpts\(/);
+  assert.match(trpg, /const tail = modeTail\(camp, mode, \{/); assert.match(trpg, /landOpts\(c, mode, \{/); assert.match(trpg, /const gate = beatGate\(camp, mode,/);
+});
+
+test("没成整桌的「跟谁说话」是私下攀谈：守密人只回给 Ta，走 priv", async () => {
+  const { G, calls } = load2({ scene: "大家在驿站里。", whisper: [{ to: "乙", text: "守夜人压低声音说钥匙在井里" }], choices: [{ text: "接着查" }] });
+  const A = G.ADAPTERS.trpg;
+  let st = await seated(A);
+  st = (await A.apply(st, 0, { say: "我翻账本" }, { inv: inv2 })).st;
+  assert.ok((await A.apply(st, 1, { side: { kind: "talk", arg: "守夜人" } }, { inv: inv2 })).err, "找人说话要写说什么");
+  st = (await A.apply(st, 1, { side: { kind: "talk", arg: "守夜人" }, say: "钥匙呢" }, { inv: inv2, hostApi: { id: "gm" }, prep: {} })).st;
+  const hist = JSON.stringify(calls.find(c => c.api === "gm").msgs);
+  assert.match(hist, /私下攀谈·乙 找 守夜人/);
+  assert.doesNotMatch(hist, /〔攀谈拍·对象/, "一个人私下说，不是整桌攀谈拍");
+  assert.deepStrictEqual(A.priv(st, 1).whisper, ["守夜人压低声音说钥匙在井里"]);
+  assert.ok(!A.priv(st, 0) || !A.priv(st, 0).whisper);
+  assert.ok(!JSON.stringify(A.view(st)).includes("钥匙在井里"));
+});
+
+test("真人一直不交：到点庄按「稳妥」那条替她交，桌上写明；没到点、关掉了都不动", async () => {
+  const { G, calls } = load2({ scene: "x", choices: [] });
+  const A = G.ADAPTERS.trpg;
+  let st = await seated(A);
+  st = Object.assign({}, st, { camp: Object.assign({}, st.camp, { choices: [{ text: "硬闯", approach: "bold", check: { stat: "phy" } }, { text: "绕后门", approach: "safe", check: null }] }) });
+  st = (await A.apply(st, 0, { say: "我守门" }, { inv: inv2 })).st;
+  assert.deepStrictEqual(A.onTick(st, st.actAt + 60000), [], "没到点");
+  assert.deepStrictEqual(A.onTick(Object.assign({}, st, { timeout: 0 }), st.actAt + 9e6), [], "开局关掉了");
+  const due = A.onTick(st, st.actAt + 3 * 60000 + 1);
+  assert.deepStrictEqual(due, [{ seat: 1, mv: { pick: 1, auto: true } }]);
+  st = (await A.apply(st, 1, due[0].mv, { inv: inv2, hostApi: { id: "gm" }, prep: {} })).st;
+  assert.match(JSON.stringify(calls.find(c => c.api === "gm").msgs), /乙 选了「绕后门」\(到点没交,庄按稳妥那条替她交的\)/);
+  assert.deepStrictEqual(A.view(st).autoed, ["乙"]);
+  assert.match(gsrc, /ad\.onTick\(g\.st, now\)/);
+});
+
+test("角色队友同时想：两位角色在主人那台一起出手，庄收齐才结算", async () => {
+  const { w, calls } = load();
+  let live = 0, peak = 0;
+  const base = w.callAI;
+  w.callAI = async (api, sys, msgs, o) => { if (/轮到你了/.test(sys)) { live++; peak = Math.max(peak, live); await new Promise(ok => setTimeout(ok, 30)); live--; } return base(api, sys, msgs, o); };
+  const mk = (id, send) => w.NetGameSession({ me: () => id, nick: () => id, nickOf: x => x, send, fast: true, post: () => {}, patchCard: () => {},
+    hostApi: route => id === "A" ? { id: "api:" + (route || "game") } : null,
+    charOf: cid => id === "B" ? { id: cid, name: cid, persona: "人设" + cid } : null, apiFor: cid => ({ id: id + ":" + cid }), myChars: () => id === "B" ? ["b1", "b2"] : [], presence: () => ({ A: "on", B: "on" }) });
+  const { S } = bus(["A", "B"], mk);
+  const gid = S.A.invite(TRPG, { total: 3, npcFill: false }, [{ kind: "user" }], { campId: "rpg_1", personas: {} });
+  S.B.join(gid, [{ kind: "char", charId: "b1", name: "阿B" }, { kind: "char", charId: "b2", name: "阿C" }], "A");
+  await until(() => false, 20);
+  assert.ok(await S.A.start(gid));
+  assert.ok(await until(() => S.A.seen(gid) && S.A.seen(gid).view.phase === "act" && S.A.seen(gid).view.done[1] && S.A.seen(gid).view.done[2]));
+  assert.ok(peak >= 2, "两位一起想，不是一位一位跟");
+  S.A.move(gid, 0, { pick: 1 });
+  assert.ok(await until(() => S.A.seen(gid).view.beat === 1));
+  const hist = JSON.stringify(calls.find(c => c.api === "api:offline").msgs);
+  assert.match(hist, /亲笔·阿B/); assert.match(hist, /亲笔·阿C/);
+  assert.match(gsrc, /turns\(view\) \/ roundOf\(view\)/);
+});
+
+test("客串这一晚做了什么写进战绩卡那段话（进房间记录）；落幕写终章、秘典揭开", async () => {
+  const { G } = load2({ scene: "x", choices: [{ text: "接着查" }] });
+  const A = G.ADAPTERS.trpg;
+  let st = await seated(A);
+  st = (await A.apply(st, 0, { pass: true }, { inv: inv2 })).st;
+  st = (await A.apply(st, 1, { say: "我去翻井口" }, { inv: inv2, hostApi: { id: "gm" }, prep: {} })).st;
+  assert.ok(!("epi" in A.view(st)) || A.view(st).epi === null, "没落幕前秘典不露");
+  const w2 = load2({ paras: ["钟楼重建了。"], closing: "雾散了", untold: ["井底的信"] });
+  const A2 = w2.G.ADAPTERS.trpg;
+  const r = await A2.apply(st, -1, { op: "finale", finalAct: "我们把钥匙还了" }, { inv: inv2, hostApi: { id: "gm" }, prep: {} });
+  assert.strictEqual(r.st.phase, "done");
+  const v = A2.view(r.st);
+  assert.strictEqual(v.epi.truth, "秘典真相"); assert.deepStrictEqual(v.epi.untold, ["井底的信"]);
+  const res = A2.result(r.st, inv2);
+  assert.match(res.text, /客串:乙——第1拍:我去翻井口/);
+  const rec = w2.G.cleanRecord({ key: "trpg", zh: "跑团", text: res.text, replay: res.replay, seats: [] });
+  assert.match(w2.G.recordLine(rec), /客串:乙/);
+  assert.strictEqual(rec.replay.guests[0].name, "乙");
+  assert.match(tsrc, /T\.epilogueAsk\(/); assert.match(tsrc, /T\.summaryJob/); assert.match(trpg, /const \{ sys, user \} = epilogueAsk\(camp, uName, forced, finalAct\);/);
+});

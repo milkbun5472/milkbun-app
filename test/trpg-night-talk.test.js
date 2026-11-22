@@ -68,7 +68,8 @@ test("提示词:休整拍要每位队友开一个话头(不是对下一步的看
 test("界面:话头是几张纸条,点谁接谁;composer 进夜谈模式,「睡了」退出;队伍动身自动退出", () => {
   assert.match(src, /const \[nightWith, setNightWith\] = useState\(null\)/);
   assert.match(src, /"—— 夜谈 · 有人开了口 ——"/);
-  assert.match(src, /turn\("\(转过去,接" \+ th\.who \+ "的话\)", null, \{ night: nw \}\)/);
+  assert.match(src, /const sm = sideMove\(camp, \{ kind: "night", arg: th\.who \}\)/);
+  assert.match(src, /text: "\(转过去,接" \+ th\.who \+ "的话\)", mode: \{ night: \{ who: th\.who, open: th\.open \} \}/);
   assert.match(src, /if \(nightWith\) return turn\(ready, null, \{ night: nightWith \}\)/);
   assert.match(src, /setNightWith\(null\), style: S\.btn\(false\) \}, "睡了"\)/);
   assert.match(src, /if \(nightWith && !\(camp && camp\.night\)\) setNightWith\(null\)/);
