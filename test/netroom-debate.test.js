@@ -150,3 +150,9 @@ test("单机擂台：辩手提示词抽成共用函数，genRound 照旧用同�
   (shared.match(/maxTokens: (\d+)/g) || []).forEach(m => assert.ok(Number(m.split(": ")[1]) >= 8000, m));
   assert.strictEqual((shared.match(/callAI\(/g) || []).length, 4);
 });
+
+test("轮数可以选「不限」：rounds=0 时说不完不自动判，房主收台才停", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom-debate.js"), "utf8");
+  assert.ok(/if \(n\.rounds && n\.round >= n\.rounds\)/.test(src));
+  assert.ok(/int\(pz\.rounds, 0, 30, 3\)/.test(src) && /\{ k: 0, zh: "不限" \}/.test(src));
+});

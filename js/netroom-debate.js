@@ -51,7 +51,7 @@
     // 单机那一份要的形状：台上的人＋每一轮说了什么；真人当「玩家」，不给 TA 们写感言（感言各自主人那台写）
     const session = { topic: st.topic, mode: st.mode, spectate: !humans.length,
       parts: inv.seats.map((s, i) => ({ name: s.name, kind: s.kind === "user" ? "me" : "char", stance: SIDE_ZH[st.sides[i]] + (st.stances[i] ? "：" + st.stances[i] : ""), persona: s.kind === "npc" ? NPC_PERSONA : "" })),
-      rounds: Array.from({ length: st.rounds }, (_, r) => ({ turns: st.turns.filter(x => x.round === r).map(x => ({ name: x.name, stance: SIDE_ZH[x.side], text: x.text })) })).filter(r => r.turns.length) };
+      rounds: Array.from({ length: (st.rounds || st.round + 1) }, (_, r) => ({ turns: st.turns.filter(x => x.round === r).map(x => ({ name: x.name, stance: SIDE_ZH[x.side], text: x.text })) })).filter(r => r.turns.length) };
     let v = null;
     try { v = await D.genResult(ctx.hostApi, session, humans.join("、") || "观众席", null); } catch (e) { v = null; }
     return Object.assign(base, { verdict: v ? { winner: cut(v.winner, 40), reason: cut(v.reason, 800), crux: cut(v.crux, 300) } : { winner: "", reason: "庄那边没判出来，这一场不判胜负。", crux: "" } });
@@ -68,7 +68,7 @@
       if (!topic && ctx.hostApi) { await ensure(); try { topic = ((await DS().drawTopics(ctx.hostApi, [], "大家")) || [])[0] || ""; } catch (e) { topic = ""; } }
       if (!topic) throw new Error("还没有辩题：房主写一道，或者配好线路让模型出");
       const sides = inv.seats.map(s => SIDES.indexOf(s.side) >= 0 ? s.side : "");
-      const st = { topic: cut(topic, 120), mode: pz.mode === "free" ? "free" : "serious", rounds: int(pz.rounds, 1, 5, 3), round: 0, pos: 0, order: [],
+      const st = { topic: cut(topic, 120), mode: pz.mode === "free" ? "free" : "serious", rounds: int(pz.rounds, 0, 30, 3), round: 0, pos: 0, order: [],
         sides, picked: sides.map(Boolean), pickBy: inv.seats.map((s, i) => !sides[i] && s.kind === "char"), stances: inv.seats.map(() => ""), turns: [], verdict: null, busy: false, phase: "side" };
       return firstBlank(st) >= 0 ? st : settle(st);
     },
@@ -92,7 +92,7 @@
       const turns = st.turns.concat([{ seat: seatIdx, name: nm(inv, seatIdx), side: st.sides[seatIdx], round: st.round, text }]);
       let n = Object.assign({}, st, { turns, pos: st.pos + 1, busy: false });
       if (n.pos >= n.order.length) { n.pos = 0; n.round = st.round + 1; }
-      if (n.round >= n.rounds) n = await judge(n, inv, ctx);
+      if (n.rounds && n.round >= n.rounds) n = await judge(n, inv, ctx);   // rounds＝0：不限轮数，房主点「收台判胜负」才停
       return { st: n };
     },
     // 角色挑边、发言：带 TA 来的那台，TA 自己的线路和人设
@@ -157,12 +157,12 @@
         text: "「" + cut(st.topic, 30) + "」" + st.turns.length + " 段发言，" + (v.winner ? v.winner + "（" + SIDE_ZH[side] + "）胜" : "没判胜负") + (v.reason ? "：" + cut(v.reason, 80) : "。"),
         replay: { topic: st.topic, mode: st.mode, turns: st.turns.map(x => ({ name: x.name, side: x.side, round: x.round, text: x.text })), verdict: v } };
     },
-    cleanTurns: a => (Array.isArray(a) ? a : []).slice(-60).map(x => ({ seat: int(x && x.seat, -1, 11, -1), name: cut(x && x.name, 40), side: x && x.side === "con" ? "con" : "pro", round: int(x && x.round, 0, 4, 0), text: cut(x && x.text, 800) })),
+    cleanTurns: a => (Array.isArray(a) ? a : []).slice(-240).map(x => ({ seat: int(x && x.seat, -1, 11, -1), name: cut(x && x.name, 40), side: x && x.side === "con" ? "con" : "pro", round: int(x && x.round, 0, 4, 0), text: cut(x && x.text, 800) })),
     cleanVerdict: v => v && typeof v === "object" ? { winner: cut(v.winner, 40), reason: cut(v.reason, 800), crux: cut(v.crux, 300) } : null,
     cleanReplay(r) { return { topic: cut(r.topic, 120), mode: r.mode === "free" ? "free" : "serious", turns: this.cleanTurns(r.turns), verdict: this.cleanVerdict(r.verdict) }; },
     cleanView(v) {
       const arr = (a, f) => (Array.isArray(a) ? a : []).slice(0, 12).map(f);
-      return { topic: cut(v.topic, 120), mode: v.mode === "free" ? "free" : "serious", rounds: int(v.rounds, 1, 5, 3), round: int(v.round, 0, 5, 0), pos: int(v.pos, 0, 11, 0),
+      return { topic: cut(v.topic, 120), mode: v.mode === "free" ? "free" : "serious", rounds: int(v.rounds, 0, 30, 3), round: int(v.round, 0, 999, 0), pos: int(v.pos, 0, 11, 0),
         order: arr(v.order, x => int(x, 0, 11, 0)), sides: arr(v.sides, x => SIDES.indexOf(x) >= 0 ? x : ""), pickBy: arr(v.pickBy, x => !!x), stances: arr(v.stances, x => cut(x, 120)),
         turns: this.cleanTurns(v.turns), verdict: this.cleanVerdict(v.verdict), busy: !!v.busy, phase: ["side", "talk", "done"].indexOf(v.phase) >= 0 ? v.phase : "side" };
     },
@@ -172,7 +172,7 @@
         + (i >= 0 && v.sides[i] ? "你在" + SIDE_ZH[v.sides[i]] + "。" : "");
       const said = (v.turns || []).slice(-6).map(x => x.name + "（" + SIDE_ZH[x.side] + "）：" + cut(x.text, 80)).join("\n");
       const tail = v.phase === "done" ? (v.verdict && v.verdict.winner ? "判完了：" + v.verdict.winner + " 那边赢。" : "这一场没判胜负。")
-        : v.phase === "side" ? "还在站队。" : "第 " + (v.round + 1) + " / " + v.rounds + " 轮，轮到 " + nm(inv, v.order[v.pos]) + " 说。";
+        : v.phase === "side" ? "还在站队。" : "第 " + (v.round + 1) + (v.rounds ? " / " + v.rounds : "") + " 轮，轮到 " + nm(inv, v.order[v.pos]) + " 说。";
       return head + (said ? "\n最近几段：\n" + said : "") + "\n" + tail;
     }
   };
@@ -212,7 +212,7 @@
     const team = s => inv.seats.map((x, k) => view.sides[k] === s ? x.name + (x.kind === "char" ? "（角色）" : x.kind === "npc" ? "（NPC）" : "") : "").filter(Boolean);
     const dms = (side || []).filter(x => x.kind === "dm").slice(-8), aws = (side || []).filter(x => x.kind === "aw");
     const status = view.phase === "done" ? "判完了" : view.busy ? "庄在判…" : view.phase === "side" ? (mineTurn ? "挑你这一边" : (seat ? seat.name + " 在按人设挑边…" : "在站队…"))
-      : mineTurn ? "轮到你（第 " + (view.round + 1) + " / " + view.rounds + " 轮）" : (seat && seat.away ? seat.name + " 掉线了，NPC 先替着说…" : (seat ? seat.name : "TA") + " 在想…（第 " + (view.round + 1) + " / " + view.rounds + " 轮）");
+      : mineTurn ? "轮到你（第 " + (view.round + 1) + (view.rounds ? " / " + view.rounds : "") + " 轮）" : (seat && seat.away ? seat.name + " 掉线了，NPC 先替着说…" : (seat ? seat.name : "TA") + " 在想…（第 " + (view.round + 1) + " / " + view.rounds + " 轮）");
     return h("div", { "data-wk": "nrgametable", "data-game": "debate", style: { padding: "8px 16px 10px", display: "flex", flexDirection: "column", gap: 10 } },
       h("div", { "data-wk": "nrdebatetopic", style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink, lineHeight: 1.5 } }, "「" + view.topic + "」", h("span", { style: { marginLeft: 6, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, view.mode === "free" ? "随便吵" : "讲道理")),
       view.phase !== "side" && h("div", { className: "flex", style: { gap: 8 } }, SIDES.map(s => h("div", { key: s, "data-wk": "nrdebateteam", "data-side": s, style: { flex: 1, minWidth: 0, borderRadius: 12, border: "1px solid " + SIDE_COLOR[s], padding: "6px 10px", fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
@@ -264,7 +264,8 @@
       h("textarea", { "data-wk": "nrdebatetopicin", value: p.topic, rows: 2, onChange: e => { set({ topic: e.target.value.slice(0, 120) }); fit(e); }, placeholder: "写一句两边都站得住的话；空着就开局时用你的线路现出一道", style: box(t) }),
       myApi && h("button", { "data-wk": "nrdebatedraw", disabled: busy, onClick: draw, style: Object.assign(pill(t, false), { alignSelf: "flex-start", minHeight: 34 }) }, busy ? "在想…" : "让模型出三道挑一道（花一次调用）"),
       opts.length ? seg(p.topic, opts.map(x => ({ k: x, zh: x })), k => set({ topic: k }), "nrdebatetopicopt") : null,
-      label("几轮（每轮台上每人说一段）"), seg(p.rounds, [1, 2, 3, 4, 5].map(n => ({ k: n, zh: n + " 轮" })), k => set({ rounds: k }), "nrdebaterounds"),
+      label("几轮（每轮台上每人说一段）"), seg(p.rounds, [3, 5, 8, 12].map(n => ({ k: n, zh: n + " 轮" })).concat([{ k: 0, zh: "不限" }]), k => set({ rounds: k }), "nrdebaterounds"),
+      // 不限：一直轮着说，房主点「收台判胜负」才停（单机擂台也是这样，没有轮数上限）
       label("怎么吵"), seg(p.mode, [{ k: "serious", zh: "讲道理" }, { k: "free", zh: "随便吵" }], k => set({ mode: k }), "nrdebatemode"),
       label("你自己"), seg(p.me, ME, k => set({ me: k }), "nrdebateme"),
       (myChars || []).length ? label("你带来的角色（随人设＝开讲前由你这台按 TA 的人设挑边）") : null,
