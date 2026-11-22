@@ -17714,7 +17714,8 @@ function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after, keep
 //   portal：弹在半窗／整页弹层里的输入框要挂到 body 上，不然被那一层的层级盖住
 function useAtPicker(text, setText, ref, items, opts) {
   const o = opts || {};
-  const open = !!(items && items.length) && /(^|\s)@$/.test(String(text || ""));
+  // 中文后面直接打 @ 也弹（她 2026-11-22「先说话或者@好几个人就不出现了」）；只有紧跟在英文字母数字后面（像邮箱）才不弹
+  const open = !!(items && items.length) && /(^|[^A-Za-z0-9_.])@$/.test(String(text || ""));
   const [at, setAt] = useState(0);
   useEffect(() => { if (!open) return; try { if (ref.current) setAt(Math.max(0, (window.innerHeight || 0) - ref.current.getBoundingClientRect().top + 8)); } catch (e) {} }, [open]);
   if (!open) return null;

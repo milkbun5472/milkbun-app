@@ -273,3 +273,10 @@ test("频道首页成员／约定／精华并成一排三格", () => {
   assert.match(cs, /"data-wk": "spacestats"/);
   assert.doesNotMatch(cs, /borderRadius: 14, borderLeft: "4px solid " \+ tone/);
 });
+
+test("@ 名单：中文后面、已经 @ 过一个人后面都能弹", () => {
+  const re = /(^|[^A-Za-z0-9_.])@$/;
+  for (const x of ["@", "你好@", "@顾朝 @", "@顾朝@", "看这个，@"]) assert.ok(re.test(x), x);
+  assert.ok(!re.test("abc@"));
+  assert.match(cs, /\(\^\|\[\^A-Za-z0-9_\.\]\)@\$/);
+});
