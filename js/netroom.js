@@ -926,7 +926,8 @@
 
   // ＋ 里的那些：跟单聊、群聊用的同一套键（ChatToolKey）。两个人之间、本机的那几样（通话、通话记录、朋友圈、转账、亲属卡、给TA看手机、邀约、半窗）不放
   const NR_PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["chatsearch", "查找记录", "magnifier"],
-    ["poll", "投票", "bars"], ["rp", "红包", "packet"], ["ask", "请示", "checklist"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["file", "文件", "file"], ["topics", "话题卡", "quote"], ["game", "小游戏", "dice"]];
+    ["poll", "投票", "bars"], ["rp", "红包", "packet"], ["ask", "请示", "checklist"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["file", "文件", "file"], ["topics", "话题卡", "quote"], ["game", "小游戏", "dice"], ["debate", "擂台", "podium"]];
+  // 擂台单独一格（她 11-22：「擂台从小游戏里面移出来放聊天加号里面」），不再摆在小游戏架子最后
   // 房间页 ＋ 面板、各个小窗、长按菜单（拆在外面，免得 NetRoomApp 一大坨）
   function roomExtras(A) {
     const { t, room, sheet, setSheet, props, myNick, charsById } = A;
@@ -1393,7 +1394,7 @@
         const pr = presence(), hostGone = !isHost && pr[inv.host] !== "on" && pr[inv.host] !== "relay";
         return h("div", { "data-wk": "nrgamearea", className: "h-full", style: { overflowY: "auto", paddingBottom: 12 } },
           h("div", { style: { padding: "6px 16px 0", fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, inv.zh, h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, done ? "这一局打完了" : inv.seats.some(x => x.peer === meId.current && x.kind !== "npc") ? "你在桌上" : "你在旁边看")),
-          hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "房主（这一局的庄）现在不在房里，这一局停在这儿；TA 回来就接着打。")),
+          hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "房主（这一局的庄）现在不在房里，这一局停在这儿；她回来就接着打。")),
           h(A.Table, { inv, view: sv.view, priv: sv.priv || null, myApi: props.gameApi ? props.gameApi() : null, me: meId.current, isHost, onMove: (seat, mv) => gs.move(gid, seat, mv), onReveal: () => gs.reveal(gid), side: sv.side || [], onSide: x => gs.side(gid, x), nick: myNick() }),
           root.NetGameUI && h(root.NetGameUI.TalkStrip, { lines: (sv.side || []).filter(x => x.kind === "talk"), charOf: l => { const st = l && l.seat >= 0 ? inv.seats[l.seat] : null; return st && st.kind === "char" ? charsById[st.charId] || null : null; } }),
           done && h("div", { className: "flex", style: { gap: 8, padding: "0 16px 12px" } },
@@ -1548,6 +1549,7 @@
     const onTap = k => {
       setPanel(false);
       if (k === "game") { setPage("gamepick"); return; }
+      if (k === "debate") { const D = GC() && GC().ADAPTERS.debate; if (D && D.shelf) { setGamePend({ game: D.shelf, cfg: {} }); setPage("gameprep"); } else props.toast && props.toast("擂台还没装上，再点一次试试"); return; }
       if (k === "location") setSheet("geo");
       else if (k === "photo") { setPhotoImgs([]); setPhotoText(""); setSheet("photo"); }
       else if (k === "file") pickTextFile(msg => sayRich("file", msg));
@@ -1663,7 +1665,7 @@
         h(Note, null, "房间号"),
         h("div", { "data-wk": "nrcode", style: { fontFamily: F_DISPLAY, fontSize: fs(40), letterSpacing: 8, margin: "6px 0 10px" } }, code)),
       h("div", { key: "s", style: { textAlign: "center" } }, h(Note, null, status)),
-      h(Note, { key: "n" }, "把房间号发给要来的人（算上你最多四个人），让 TA 们在「联机」里点「输入房间号加入」。第一个人连上你就能进房间，后来的人随时能进。要来的人得开着这一页；20 秒连不上会提示。")
+      h(Note, { key: "n" }, "把房间号发给要来的人（算上你最多四个人），让她们在「联机」里点「输入房间号加入」。第一个人连上你就能进房间，后来的人随时能进。要来的人得开着这一页；20 秒连不上会提示。")
     ]));
 
     if (page === "pick") return shell(h(Head, { zh: "带谁进来", onBack: () => setPage("leave") }), scroll([
@@ -1703,7 +1705,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         .concat(Object.keys(peerTyping).map(k => h(Note, { key: "p" + k }, peerTyping[k] + " 正在输入…")));
       // 房里每个人一格：在线 / 直连不上（别人在转）/ 连不上 / 离开了
       const stateOf = id => net.open.indexOf(id) >= 0 ? "on" : net.reach.indexOf(id) >= 0 ? "relay" : net.fail.indexOf(id) >= 0 ? "fail" : "off";
-      const stateText = { on: "在线", relay: "直连不上，别人在帮你们转", fail: "和 TA 连不上", off: "离开了" };
+      const stateText = { on: "在线", relay: "直连不上，别人在帮你们转", fail: "和她连不上", off: "离开了" };
       const peers = room.peers || [];
       const trouble = peers.filter(p => stateOf(p.peerId) === "fail" || stateOf(p.peerId) === "relay");
       const gp = gameParts();
@@ -1730,7 +1732,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
           peers.map(p => { const st = stateOf(p.peerId); return h("span", { key: p.peerId, "data-wk": "nrpeer", "data-state": st, style: { fontFamily: F_BODY, fontSize: fs(11.5), color: st === "on" ? t.ink : t.fog } },
             (st === "on" ? "● " : "○ ") + p.nick + (st === "on" ? "" : " · " + stateText[st])); }),
           trouble.length > 0 && h("div", { style: { width: "100%", fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
-            "和 " + trouble.map(p => p.nick).join("、") + " 直连不上：" + (trouble.some(p => stateOf(p.peerId) === "relay") ? "话由房里其他人转过去，可能慢一点。" : "TA 收不到你的话。两边都换成 Wi-Fi 再试。"))),
+            "和 " + trouble.map(p => p.nick).join("、") + " 直连不上：" + (trouble.some(p => stateOf(p.peerId) === "relay") ? "话由房里其他人转过去，可能慢一点。" : "她收不到你的话。两边都换成 Wi-Fi 再试。"))),
         ...chatCore,
         ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sayRich, sendRp,
           photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
@@ -1758,7 +1760,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         mahjong: "正好 4 个座位，真人不够用角色和 NPC 补；手牌只发到自己那台。牌墙自动摸；四川的换三张、定缺由手机替每家挑。",
         lingxi: "两个人各写各的，两边都交了才一起亮；角色用带 TA 来的那台、TA 自己的线路。房主随时能结束。" };
       // 不在单机小游戏目录里、只在房间里有的那几盒（辩论擂台）：摆在架子最后，点了去它自己的开局页
-      const extra = root.NetGameCore.supported().map(k => root.NetGameCore.ADAPTERS[k].shelf).filter(Boolean)
+      const extra = root.NetGameCore.supported().filter(k => k !== "debate").map(k => root.NetGameCore.ADAPTERS[k].shelf).filter(Boolean)
         .map(g => Object.assign({}, g, { onPick: () => { setGamePend({ game: g, cfg: {} }); setPage("gameprep"); } }));
       return h(G, { characters: mine, profile: props.profile, only: root.NetGameCore.supported(), extra, onConfigured,
         setupHide: ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins", "cardBrain", "bjDealer", "pkTruth", "mjAutoDraw", "mjSwap"], setupNote: g => (NOTE[g.key] || "") + (GC() && GC().charOptKinds(g.key).length ? "你带的角色怎么玩（牌技、牌手水平、随手、带不带最近单聊）在邀请卡上点「换人／加入」那张单里调。" : ""),
@@ -1774,7 +1776,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
       const MODES = [{ key: "host", zh: "我出" }, { key: "system", zh: "系统出" }, { key: "seat", zh: "指定一个人" }, { key: "turns", zh: "轮流" }];
       const tip = { host: "你是庄也是出题人：" + (soup ? "汤底" : "答案") + "只在你这台手机上，别人看不到。自己写一道就填下面两格；空着就用你的线路现出一道（开局时出，花你一次调用）。你坐在桌上的话这一局不参与问。",
         system: "开局时用你（庄）的线路现出一道，谁都不知道" + (soup ? "汤底" : "答案") + "，大家一起猜。判每个问题也走你的线路。",
-        seat: "大家坐好以后，在邀请卡上点「出题人」选是谁（真人或者谁带来的角色）。开局时 TA 在自己那台手机上出题（角色就用带 TA 来的那台、TA 自己的线路和人设），" + (soup ? "汤底" : "答案") + "只交给你这台判题，别人看不到；TA 这一局不参与问。",
+        seat: "大家坐好以后，在邀请卡上点「出题人」选是谁（真人或者谁带来的角色）。开局时出题的人在她自己那台手机上出题（选的是角色，就由带 TA 来的那台用 TA 的线路和人设出），" + (soup ? "汤底" : "答案") + "只交给你这台判题，别人看不到；出题的这一局不参与问。",
         turns: "跟「指定一个人」一样，先由第一个坐下的人出；每打完一局点「再来一局」，出题人按座位顺序换下一个。" }[md];
       return shell(h(Head, { zh: soup ? "出一锅汤" : "出一道 25 问", onBack: () => setPage("gamepick") }), scroll([
         h("div", { key: "m", "data-wk": "nrsettermode", className: "flex flex-wrap", style: { gap: 6 } }, MODES.map(o => h("button", { key: o.key, onClick: () => setPrep(p => Object.assign({}, p, { mode: o.key })),
@@ -1831,7 +1833,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
               label: !(r.remembered || {})[c.id] ? "记进 " + c.name + " 的记忆" : Core.sinceRemembered(r, c.id).fresh.length ? "把新聊的记进 " + c.name + " 的记忆" : c.name + " 已经记到最新", onClick: () => fill(c.id) }))),
           h("div", { className: "shrink-0", style: { padding: "10px 14px", borderBottom: "1px solid " + t.line } },
             h(Btn, { label: "重新连上这个房间", primary: true, wide: true, onClick: () => { setNick(r.myNick || nick); rejoin(r); }, wk: "nrrejoin" }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "房里还有人开着就直接接上；都走了的话，要别人也在 TA 那边的「以前的房间」里点开这个房间、点「重新连上」。记录接在后面，断开那会儿的话会补齐。")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "房里还有人开着就直接接上；都走了的话，要别人也在她那边的「以前的房间」里点开这个房间、点「重新连上」。记录接在后面，断开那会儿的话会补齐。")),
           h(MsgList, { room: r, myCharsById: charsById, rowProps: rowProps(r, false) }),
           h("div", { className: "shrink-0", style: { padding: "10px 14px", paddingBottom: "calc(10px + env(safe-area-inset-bottom))", borderTop: "1px solid " + t.line } },
             h(Btn, { label: delAsk ? "确定删掉这个房间的记录？" : "删除这个房间的记录", disabled: saving, wk: "nrdel", onClick: () => {

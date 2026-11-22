@@ -211,7 +211,7 @@ test("谁离开只标 TA：其他人照样通着；直连不上的由别人转",
   // 转发：只转给跟说话人没直连的
   assert.deepStrictEqual(C.forwardTargets(["a", "b", "c"], "a", "a", { b: ["a"], c: [] }), ["c"]);
   assert.match(src, /e\.t === "bye"/);
-  assert.match(src, /和 TA 连不上/);
+  assert.match(src, /和她连不上/);
 });
 
 test("补发别人的话：by 认人，我自己说的回到我这边", () => {

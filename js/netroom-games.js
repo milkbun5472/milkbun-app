@@ -728,7 +728,7 @@
       ls.push({ type: "move", say: rl.say });
       const need = M.land(ps, os, lv, seatIdx, ls, ev);
       if (need && !p.bankrupt) return { st: Object.assign({}, st, { players: ps, owners: os, levels: lv, pending: { kind: need, tile: p.pos }, extra, log: st.log.concat(ls.map(x => ({ t: x.type, say: x.say }))).slice(-80) }) };
-      if (extra && !p.bankrupt) ls.push({ type: "sys", say: p.name + " 掷出双骰，下一手仍由 TA 行动。" });
+      if (extra && !p.bankrupt) ls.push({ type: "sys", say: p.name + " 掷出双骰，下一手还是 " + p.name + " 行动。" });
       return finish();
     },
     decide(st, i, persona) {
@@ -787,7 +787,7 @@
   ADAPTERS.story.stateText = v => "故事到现在：" + cut([v.opener].concat(v.lines.map(l => l.text)).join(""), 900) + (v.status === "finished" ? "\n写完了。" : "\n轮到 " + (v.players[v.turn] || {}).name + " 接，要用上「" + v.word + "」。");
   ADAPTERS.tod.stateText = (v, i, inv) => {
     const rs = (v.log || []).filter(x => x.type === "td").slice(-4).map(x => "· " + x.name + " 选" + x.choice + "，" + x.asker + "问「" + cut(x.prompt, 60) + "」，答：" + cut(x.response, 80));
-    const now = v.done ? "这一局结束了。" : v.phase === "choose" ? "瓶子指到了 " + nmOf(inv, v.target) + "，在选真心话还是大冒险。" : v.phase === "ask" ? nmOf(inv, v.target) + " 选了" + v.choice + "，" + nmOf(inv, v.asker) + " 在出题。" : nmOf(inv, v.asker) + " 给 " + nmOf(inv, v.target) + " 出了" + v.choice + "「" + v.prompt + "」，等 TA 回应。";
+    const now = v.done ? "这一局结束了。" : v.phase === "choose" ? "瓶子指到了 " + nmOf(inv, v.target) + "，在选真心话还是大冒险。" : v.phase === "ask" ? nmOf(inv, v.target) + " 选了" + v.choice + "，" + nmOf(inv, v.asker) + " 在出题。" : nmOf(inv, v.asker) + " 给 " + nmOf(inv, v.target) + " 出了" + v.choice + "「" + v.prompt + "」，等 " + nmOf(inv, v.target) + " 回应。";
     return (rs.length ? "前几轮：\n" + rs.join("\n") + "\n" : "") + now;
   };
   ADAPTERS.monopoly.stateText = v => {
