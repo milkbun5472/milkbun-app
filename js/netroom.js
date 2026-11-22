@@ -324,10 +324,11 @@
         : "\"voice\":[\"说成语音的那句\"]——这几句用语音发（显示成语音气泡+转文字，不用再写进 say）：手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来",
       "\"namecard\":\"名字\"——想把一个人介绍给房里认识，就推 TA 的名片（只带名字和头像）" + ((o.cards || []).length ? "，能推的：" + o.cards.slice(0, 30).join("、") : ""),
       "\"topic\":\"一句话题\"——冷场了、或者想换个话头，就抛一张话题卡给大家接",
-      o.songOn ? "\"song\":\"歌名 歌手\"——想给房里放一首歌时发，成一张歌曲卡，大家都能点开听" + ((o.songs || []).length ? "；你手边那些歌里有：" + o.songs.slice(0, 30).join(" / ") + "，也可以是别的歌" : "") : ""
+      o.songOn ? "\"song\":\"歌名 歌手\"——想给房里放一首歌时发，成一张歌曲卡，大家都能点开听" + ((o.songs || []).length ? "；你手边那些歌里有：" + o.songs.slice(0, 30).join(" / ") + "，也可以是别的歌" : "") + ((o.playlist || []).length ? "；想点房间歌单里的哪首就写那首（歌单里有：" + o.playlist.slice(-12).join(" / ") + "）" : "") : ""
     ].filter(Boolean);
     const ph = joint ? (o.photo || []).filter(Boolean) : o.photo ? ["你"] : [];
     if (ph.length) bits.push("\"photo\":{\"kind\":\"self（自拍）/ part（只露一截身体）/ view（画面里没有人）\",\"scene\":\"画面里是什么\"}——想让房里看看你此刻的样子、或者眼前的东西时拍一张，手机会真画出来" + (joint ? "（能拍的：" + ph.join("、") + "）" : ""));
+    boardBits(o.board).forEach(b => bits.push(b));   // 墙和文档（房间里摆着的东西，见 boardBits）
     return bits;
   }
   // 房里此刻谁在听什么（正在听那份在线状态），开口时带上
@@ -355,7 +356,7 @@
       + (o.known || "")
       + recapBlock(room)
       + "\n\n【房间里到现在的聊天】" + (o.stamp ? "（每行前面〔〕里是那句话说的时间，只是时间标记，不要写进你说的话）" : "") + "\n" + (transcript(pr, Object.assign({}, o, { catalog: quoteCatalog(pr, 30) })) || "（还没人说话）")
-      + (o.game ? "\n\n" + o.game : "") + listenBlock(o)
+      + (o.game ? "\n\n" + o.game : "") + listenBlock(o) + (o.boardText || "")
       + (gap ? "\n（最后一条到现在已经过去 " + gap + " 了）" : "")
       + "\n\n【这一次】轮到你在房间里开口，接着上面的话开口，照你平时发消息的习惯：一条一个气泡，想连发几条就几条，跟在群里聊天一样。只写你说出口的话本身，不写旁白，不替别人说话。"
       + capLines(room, char, o)
@@ -397,7 +398,7 @@
       + (o.cast ? "\n\n" + o.cast : "")
       + recapBlock(room)
       + "\n\n【房间里到现在的聊天】" + (o.stamp ? "（每行前面〔〕里是那句话说的时间，只是时间标记，不要写进说的话）" : "") + "\n" + (transcript(pr, Object.assign({}, o, { catalog: quoteCatalog(pr, 30) })) || "（还没人说话）")
-      + (o.game ? "\n\n" + o.game : "") + listenBlock(o)
+      + (o.game ? "\n\n" + o.game : "") + listenBlock(o) + (o.boardText || "")
       + (o.stamp ? "\n（现在是〔" + o.stamp(o.now || Date.now()) + "〕）" : "")
       + (gap ? "\n（最后一条到现在已经过去 " + gap + " 了）" : "")
       + "\n\n【输出】只输出 JSON 数组，按说话先后排。每一条 {\"name\":\"说话的人，只能是 " + names.join(" / ") + " 之一\",\"text\":\"说出口的话本身，一条一个气泡\""
@@ -431,7 +432,7 @@
   //   rich：直接能发的 [{type,x}]（投票、请示、位置、话题卡）；rp：红包；photo：要拍的那张（{kind,scene}，旧版 selfie 字符串＝自拍）；
   //   song：歌名（交给调用方去找）；card：要推名片的那个名字；voice：单人＝要说成语音的那几句，一起说＝true（这条整条用语音）
   function actsOf(d, o) {
-    const out = { rich: [], rp: null, photo: null, song: "", card: "", voice: null, any: false };
+    const out = { rich: [], rp: null, photo: null, song: "", card: "", note: "", file: null, voice: null, any: false };
     if (!d || typeof d !== "object") return out;
     const s = v => typeof v === "string" && v.trim() && v.trim().toLowerCase() !== "null" ? v.trim() : "";
     const pn = d.pollNew;
@@ -454,10 +455,17 @@
     const sg = d.song && typeof d.song === "object" ? s([d.song.title, d.song.artist].filter(Boolean).join(" ")) : s(d.song);
     if (sg) out.song = sg.slice(0, 80);
     if (s(d.namecard)) out.card = s(d.namecard).slice(0, 40);
+    // 墙上贴一张、往共用文档里写（形状照频道那份：note.text；file 的 name + add/remove 或 text）
+    const nt = d.note && typeof d.note === "object" ? s(d.note.text) : s(d.note);
+    if (nt) out.note = nt.slice(0, NOTE_MAX);
+    const fl = d.file && typeof d.file === "object" ? d.file : null, lines = v => (Array.isArray(v) ? v : v ? [v] : []).map(x => String(x == null ? "" : x)).filter(x => x.trim()).slice(0, 60).map(x => x.slice(0, 400));
+    if (fl && s(fl.name)) { const f = { name: s(fl.name).slice(0, 40), add: lines(fl.add), remove: lines(fl.remove) };
+      if (typeof fl.text === "string" && fl.text.trim()) f.text = fl.text.slice(0, DOC_TEXT_MAX);
+      if (f.text || f.add.length || f.remove.length) out.file = f; }
     if (o && o.joint) { if (d.voice === true || d.voice === "true") out.voice = true; }
     else if (Array.isArray(d.voice)) { const v = d.voice.map(x => typeof x === "object" && x ? s(x.t || x.text) : s(x)).filter(Boolean).map(x => x.slice(0, 2000)); if (v.length) out.voice = v; }
     else if (d.voice === true) out.voice = true;
-    out.any = !!(out.rich.length || out.rp || out.photo || out.song || out.card || (Array.isArray(out.voice) && out.voice.length));
+    out.any = !!(out.rich.length || out.rp || out.photo || out.song || out.card || out.note || out.file || (Array.isArray(out.voice) && out.voice.length));
     return out;
   }
   // 上次给这个人记到哪儿了：remembered[charId] 存的是记到的最后一条的时间。新的＝那以后的；before＝之前最后几条，只当上下文
@@ -487,6 +495,7 @@
       + "有则写、无则跳：见了谁、聊了什么话题、谁说了什么要紧的话或玩笑、气氛怎么样、有没有约好什么、跟谁更熟了一点、" + (char.name || "TA") + " 自己说过的要紧的话。不记流水账。别人带来的人你只知道名字和他们在这里说的话。"
       + "\n房间里的几方：" + sidesLines(room)
       + (() => { const met = metIn(room); return met.length ? "\n另外在 people 里给别人带来的这几位各写一两句 " + (char.name || "TA") + " 对 TA 的印象（第三人称，只照这里看到的写）：" + met.map(w => "「" + w.name + "」").join("、") + "。" : ""; })()
+      + boardMemo(room)
       + prev + "\n\n" + (prev ? "【上次记过以后新聊的，只记这一段】" : "【这次房间里的全部聊天】") + "\n" + transcript(room);
   }
 
@@ -596,6 +605,185 @@
     if (m.type === "song") return "[分享了一首歌] " + songLine(x);
     if (m.type === "file") return "[文件] " + (x.name || "文件") + "（" + (x.chars || 0) + " 字" + (x.cut ? "，只给了前面一段" : "") + "）\n" + String(x.text || "").slice(0, 4000);
     return String(m.text || "");
+  }
+  // ───────────── 房间里的墙、歌单、文档（她 2026-11-22「把频道里的三样搬进联机房间」） ─────────────
+  // 都挂在房间上：room.board = { notes, songs, docs, tombs }，跟聊天记录一起进存档、报到时整份补给别人。
+  //   便签 { id, by, name, charId?, text, ts }：by＝贴的那台手机的 peerId（角色贴的也记在带 TA 来的那台上），name＝署名
+  //   歌单 { id, by, name, song, ts }：手动加进来的那几首；房里发过的歌卡不另存，现算进来（id＝"sm_"+消息 id，归发卡的那个人）
+  //   文档：跟频道文件同一个形状（engine.js 的 chfApplyDoc），多两样：ver＝第几版（只增不减，旧版本盖不了新版本）、
+  //     names＝写过的人 key → 名字。key：真人＝peerId，角色＝peerId|charId（每人一种颜色就照 key 分）
+  //   tombs [{ id, by }]：删掉的东西。只认作者本人删：by 对不上作者的那条墓碑不算数
+  const NOTE_MAX = 140, BOARD_NOTES = 60, BOARD_SONGS = 60, BOARD_DOCS = 12, DOC_TEXT_MAX = 20000, DOC_HIST_WIRE = 8, BOARD_TOMBS = 300;
+  const CHAR_NOTES_PER_DAY = 4, CHAR_DOCS_PER_DAY = 3;   // 角色一天在一个房间里最多贴几张、新开几份（照频道那份分寸）
+  const LOCK_TTL = 60000, LOCK_BEAT = 20000;           // 锁：拿着的人每 20 秒报一次还在，60 秒没音信就当放了
+  const listOf = v => Array.isArray(v) ? v : [];
+  const ownerOf = key => String(key || "").split("|")[0];
+  function boardOf(room) { const b = (room && room.board) || {}; return { notes: listOf(b.notes), songs: listOf(b.songs), docs: listOf(b.docs), tombs: listOf(b.tombs) }; }
+  const withBoard = (room, b) => Object.assign({}, room, { board: b });
+  const tombed = (b, id, by) => b.tombs.some(x => x && x.id === id && x.by === ownerOf(by));
+  function cleanNote(n) {
+    if (!n || typeof n !== "object") return null;
+    const o = { id: cut(n.id, 60), by: cut(n.by, 40), name: cut(n.name, 40), text: cut(n.text, NOTE_MAX).trim(), ts: Number(n.ts) || 0 };
+    if (!o.id || !o.by || !o.text) return null;
+    if (n.charId) o.charId = cut(n.charId, 40);
+    return o;
+  }
+  function cleanPick(x) {
+    if (!x || typeof x !== "object") return null;
+    const song = cleanSong(x.song); if (!song || !x.id || !x.by) return null;
+    return { id: cut(x.id, 60), by: cut(x.by, 40), name: cut(x.name, 40), song, ts: Number(x.ts) || 0 };
+  }
+  function cleanDoc(d, wire) {
+    if (!d || typeof d !== "object" || !d.id) return null;
+    const name = cut(d.name, 40).trim(); if (!name) return null;
+    const names = {}; Object.keys(d.names && typeof d.names === "object" ? d.names : {}).slice(0, 30).forEach(k => { names[cut(k, 90)] = cut(d.names[k], 40); });
+    const H = listOf(d.history).slice(wire ? -DOC_HIST_WIRE : -(typeof CHF_HIST_CAP === "number" ? CHF_HIST_CAP : 30))
+      .filter(x => x && typeof x === "object").map(x => ({ by: cut(x.by, 90), ts: Number(x.ts) || 0, before: cut(x.before, DOC_TEXT_MAX), after: cut(x.after, DOC_TEXT_MAX) }));
+    return { id: cut(d.id, 60), kind: "doc", name, text: cut(d.text, DOC_TEXT_MAX), ver: Math.max(1, Math.round(Number(d.ver) || 1)),
+      createdBy: cut(d.createdBy, 90), createdTs: Number(d.createdTs) || 0, updatedBy: cut(d.updatedBy || d.createdBy, 90), updatedTs: Number(d.updatedTs || d.createdTs) || 0, names, history: H };
+  }
+  // 贴一张：同一个 id 不重复，删过的不再贴回来
+  function noteAdd(room, n) {
+    const b = boardOf(room), x = cleanNote(n);
+    if (!x || b.notes.some(y => y.id === x.id) || tombed(b, x.id, x.by)) return room;
+    return withBoard(room, Object.assign(b, { notes: b.notes.concat([x]).slice(-BOARD_NOTES) }));
+  }
+  // 歌名对得上就算同一首（频道歌单那套认法：大小写、标点、括号里的版本都不算）
+  const songKey = s0 => (typeof chpSongNorm === "function" ? chpSongNorm : (v => String(v || "").replace(/\s+/g, "").toLowerCase()))(s0 && s0.title);
+  function songAdd(room, x) {
+    const b = boardOf(room), p = cleanPick(x);
+    if (!p || b.songs.some(y => y.id === p.id) || tombed(b, p.id, p.by) || playlist(room).some(y => songKey(y.song) === songKey(p.song))) return room;
+    return withBoard(room, Object.assign(b, { songs: b.songs.concat([p]).slice(-BOARD_SONGS) }));
+  }
+  // 这条消息是哪台手机的
+  const msgOwner = (room, m) => m.side === "me" ? String((room && room.myPeerId) || "") : String(m.peerId || "");
+  // 房间歌单：房里发过的歌卡（自动收进来）＋手动加的，删掉的不算，同一首只留最早那次；新的在后
+  function playlist(room) {
+    const b = boardOf(room), seen = new Set(), out = [];
+    const auto = ((room && room.msgs) || []).filter(m => m && m.type === "song" && !m.recalled && m.x && m.x.title)
+      .map(m => ({ id: "sm_" + m.id, by: msgOwner(room, m), name: m.name || "", song: cleanSong(m.x), ts: Number(m.ts) || 0, card: true }));
+    auto.concat(b.songs).filter(x => x.song && !tombed(b, x.id, x.by)).sort((a, c) => a.ts - c.ts).forEach(x => { const k = songKey(x.song); if (!k || seen.has(k)) return; seen.add(k); out.push(x); });
+    return out;
+  }
+  // 作者删自己的那一样（便签、歌单里那首、文档）：by 对不上作者就什么都不动；对上了留一块墓碑，补记录时也不会再冒回来
+  function boardDrop(room, id, by) {
+    const b = boardOf(room), k = String(id || ""), who = ownerOf(by);
+    const item = b.notes.find(x => x.id === k) || b.songs.find(x => x.id === k) || playlist(room).find(x => x.id === k);
+    const doc = b.docs.find(x => x.id === k);
+    const owner = item ? ownerOf(item.by) : doc ? ownerOf(doc.createdBy) : "";
+    if (!k || !who || owner !== who || tombed(b, k, who)) return room;
+    return withBoard(room, { notes: b.notes.filter(x => x.id !== k), songs: b.songs.filter(x => x.id !== k), docs: b.docs.filter(x => x.id !== k),
+      tombs: b.tombs.concat([{ id: k, by: who }]).slice(-BOARD_TOMBS) });
+  }
+  // 收一份文档：比手上这份新（ver 大）才换；同一版两边内容不一样（锁没拦住的极少数）按最后写的那个人 peerId 小的算；删过的不收
+  function docPut(room, d) {
+    const b = boardOf(room), x = cleanDoc(d, false);
+    if (!x || tombed(b, x.id, x.createdBy)) return { room, ok: false };
+    const i = b.docs.findIndex(y => y.id === x.id), old = i >= 0 ? b.docs[i] : null;
+    if (old && (x.ver < old.ver || (x.ver === old.ver && (x.text === old.text || !(ownerOf(x.updatedBy) < ownerOf(old.updatedBy)))))) return { room, ok: false };
+    if (old && x.history.length < old.history.length) x.history = old.history.filter(h0 => !x.history.some(y => y.ts === h0.ts && y.by === h0.by)).concat(x.history).slice(-(typeof CHF_HIST_CAP === "number" ? CHF_HIST_CAP : 30));
+    const docs = b.docs.slice(); if (i >= 0) docs[i] = x; else docs.push(x);
+    return { room: withBoard(room, Object.assign(b, { docs: docs.slice(-BOARD_DOCS) })), ok: true };
+  }
+  // 写一份（新建或改）：形状和改法照频道文件（chfApplyDoc），这边多记版本号和名字。op：create / edit / ""（没改字）
+  function docWrite(room, name, text, key, who, now) {
+    const b = boardOf(room);
+    if (typeof chfApplyDoc !== "function") return { room, doc: null, op: "" };
+    const r = chfApplyDoc(b.docs, name, text, key, now);
+    if (!r.op || !r.file) return { room, doc: r.file, op: "" };
+    const old = b.docs.find(x => x.id === r.file.id);
+    const doc = cleanDoc(Object.assign({}, r.file, { ver: ((old && old.ver) || 0) + 1, names: Object.assign({}, (old && old.names) || {}, { [key]: who }) }), false);
+    return { room: withBoard(room, Object.assign(b, { docs: r.files.map(x => x.id === doc.id ? doc : x).slice(-BOARD_DOCS) })), doc, op: r.op };
+  }
+  function docRename(room, id, name, key, who, now) {
+    const b = boardOf(room), old = b.docs.find(x => x.id === id), nm = cut(name, 40).trim();
+    if (!old || !nm || nm === old.name) return { room, doc: null };
+    const doc = Object.assign({}, old, { name: nm, ver: old.ver + 1, updatedBy: key, updatedTs: now || Date.now(), names: Object.assign({}, old.names, { [key]: who }) });
+    return { room: withBoard(room, Object.assign(b, { docs: b.docs.map(x => x.id === id ? doc : x) })), doc };
+  }
+  // 报到时补给别人的那份（文档历史只带最近几次，免得一份就拆几十片）
+  function boardWire(room) {
+    const b = boardOf(room);
+    return { notes: b.notes, songs: b.songs, docs: b.docs.map(d => cleanDoc(d, true)).filter(Boolean), tombs: b.tombs.slice(-BOARD_TOMBS) };
+  }
+  // 收到别人的那份：先认 TA 自己的墓碑（只认 TA 删 TA 自己的），再把缺的补上，文档按版本号
+  function mergeBoard(room, inc, origin) {
+    if (!inc || typeof inc !== "object") return room;
+    let r = room;
+    listOf(inc.tombs).filter(x => x && x.by === origin && x.id).slice(-BOARD_TOMBS).forEach(x => { r = boardDrop(r, cut(x.id, 60), origin); const b = boardOf(r);
+      if (!tombed(b, cut(x.id, 60), origin)) r = withBoard(r, Object.assign(b, { tombs: b.tombs.concat([{ id: cut(x.id, 60), by: origin }]).slice(-BOARD_TOMBS) })); });
+    listOf(inc.notes).slice(-BOARD_NOTES).forEach(n => { r = noteAdd(r, n); });
+    listOf(inc.songs).slice(-BOARD_SONGS).forEach(x => { r = songAdd(r, x); });
+    listOf(inc.docs).slice(-BOARD_DOCS).forEach(d => { r = docPut(r, d).room; });
+    return r;
+  }
+  // ── 文档的锁：谁在写、什么时候拿的。只在线上广播、不进存档 ──
+  //   locks：{ docId: { peer, name, at, since } }；at＝最近一次听到 TA 还拿着（收到的那一刻，用本机钟，不怕两台钟不准）
+  //   拿：别人拿着、没过期就拿不到；两个人同时拿（都以为空着）按 peerId 小的算，大的那个被挤掉
+  function lockLive(locks, docId, now) { const x = (locks || {})[docId]; return x && (now || Date.now()) - x.at < LOCK_TTL ? x : null; }
+  function lockTake(locks, docId, peer, name, now) {
+    const t = now || Date.now(), cur = lockLive(locks, docId, t);
+    if (cur && cur.peer !== peer) return { locks, ok: false, holder: cur };
+    return { locks: Object.assign({}, locks, { [docId]: { peer, name: cut(name, 40), at: t, since: cur ? cur.since : t } }), ok: true };
+  }
+  function lockFree(locks, docId, peer) { const cur = (locks || {})[docId]; if (!cur || cur.peer !== peer) return locks; const n = Object.assign({}, locks); delete n[docId]; return n; }
+  // 听到一条锁的消息 ev：{ doc, on, name }，from＝发的那台。lost＝因为这条被挤掉的那个人（多半就是自己）
+  function lockHear(locks, ev, from, now) {
+    const t = now || Date.now(), id = cut(ev && ev.doc, 60); if (!id || !from) return { locks, lost: "" };
+    if (!ev.on) return { locks: lockFree(locks, id, from), lost: "" };
+    const cur = lockLive(locks, id, t);
+    if (cur && cur.peer !== from && !(String(from) < String(cur.peer))) return { locks, lost: "" };
+    return { locks: Object.assign({}, locks, { [id]: { peer: from, name: cut(ev.name, 40), at: t, since: cur && cur.peer === from ? cur.since : t } }), lost: cur && cur.peer !== from ? cur.peer : "" };
+  }
+  function lockDropPeer(locks, peer) { const n = {}; Object.keys(locks || {}).forEach(k => { if (locks[k].peer !== peer) n[k] = locks[k]; }); return n; }
+  function lockPrune(locks, now) { const n = {}; Object.keys(locks || {}).forEach(k => { if (lockLive(locks, k, now)) n[k] = locks[k]; }); return n; }
+  // 这份此刻为什么不能动：别人在写 → 「某某正在写」；有人的角色正在开口 → 「某某正在说话」；能动 → ""
+  //   speaking：此刻在生成的角色名字（自己这台的和别人报来的「正在输入」）
+  function lockReason(locks, docId, me, speaking, now) {
+    const cur = lockLive(locks, docId, now);
+    if (cur && cur.peer === me) return "";
+    if (cur) return (cur.name || "有人") + " 正在写";
+    const sp = listOf(speaking).filter(Boolean);
+    return sp.length ? sp[0] + " 正在说话，等说完再写" : "";
+  }
+  // 角色今天在这个房间里贴了几张、新开了几份（只算这台手机带来的人）
+  const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+  function charNotesToday(room, me, now) { return boardOf(room).notes.filter(n => n.by === me && n.charId && sameDay(n.ts, now || Date.now())).length; }
+  function charDocsToday(room, me, now) { return boardOf(room).docs.filter(d => ownerOf(d.createdBy) === me && String(d.createdBy).indexOf("|") > 0 && sameDay(d.createdTs, now || Date.now())).length; }
+  // ── 给角色开口带上的那一块：墙上贴着什么、歌单里最近几首、有哪些文档（正文只带聊天里提到的、或刚改过的，截一截）──
+  //   o：{ locks, me, nameOf(key), recent(最近几句聊天), now }
+  const DOC_BODY_MAX = 1600;
+  function boardBlock(room, o) {
+    o = o || {};
+    const b = boardOf(room), out = [], now = o.now || Date.now();
+    const nm = k => (o.nameOf && o.nameOf(k)) || "有人";
+    if (b.notes.length) out.push("墙上的便签：" + b.notes.slice(-8).map(n => "「" + n.text.slice(0, 50) + "」（" + (n.name || "有人") + "）").join(" "));
+    const pl = playlist(room);
+    if (pl.length) out.push("房间歌单（最近几首）：" + pl.slice(-8).map(x => songLine(x.song) + (x.name ? "，" + x.name + (x.card ? "发的" : "加的") : "")).join("；"));
+    if (b.docs.length) {
+      const rt = String(o.recent || ""), hit = d => typeof chfMentioned === "function" ? chfMentioned(d.name, rt) : rt.indexOf(d.name) >= 0;
+      const docs = b.docs.slice().sort((x, y) => (y.updatedTs || 0) - (x.updatedTs || 0));
+      out.push("共用文档（谁都能打开看、改，也能新开一份）：\n" + docs.map(d => { const lk = lockLive(o.locks, d.id, now);
+        return "· 《" + d.name + "》" + String(d.text || "").length + " 字，最后是 " + nm(d.updatedBy) + " 动的" + (lk ? "；此刻 " + (lk.name || "有人") + " 正在写，这份这一轮动不了" : ""); }).join("\n"));
+      docs.filter(d => hit(d) || now - (d.updatedTs || 0) < 30 * 60000).slice(0, 2).forEach(d => { const tx = String(d.text || "");
+        out.push("《" + d.name + "》" + (tx.length > DOC_BODY_MAX ? "（太长，只给开头和最后一截）" : "全文") + "：\n" + (tx.length > DOC_BODY_MAX ? tx.slice(0, 1000) + "\n……\n" + tx.slice(-500) : tx || "（还是空的）")); });
+    }
+    return out.length ? "\n\n【房间里摆着的东西】\n" + out.join("\n") : "";
+  }
+  // 能做的那几样（接在 actBits 里）：o.noteOk＝今天还能贴；o.docOk＝能往文档里写（有文档被锁着的那份照样写不进）；o.docNew＝今天还能新开
+  function boardBits(o) {
+    o = o || {}; const bits = [];
+    if (o.noteOk) bits.push("\"note\":{\"text\":\"往墙上贴一张便签\"}——房间顶上那面墙，谁都看得到；想记一句、留个话、起个哄就贴，几个字也行");
+    if (o.docOk) bits.push("\"file\":{\"name\":\"文档名\",\"add\":[\"往末尾添的一行\"],\"remove\":[\"要删掉的那一行原文\"]}——聊出了计划、清单、结论，或者想留下点什么，就顺手写进共用文档：add 是添、remove 是把逐字对上的那几行删掉，两样可以只写一样；想整份重写就写 {\"name\",\"text\":\"整份全文\"}。名字跟已有的一样就是改那一份"
+      + (o.docNew ? "，没有就新开一份" : "；今天新开得够多了，这会儿往已有的里写") + "。此刻有人正在写的那份动不了");
+    return bits;
+  }
+  // 退房记忆时带上的那几行：墙上贴着什么、文档叫什么、开头写了什么（短，别撑爆）
+  function boardMemo(room) {
+    const b = boardOf(room), out = [];
+    if (b.notes.length) out.push("墙上的便签：" + b.notes.slice(-6).map(n => "「" + n.text.slice(0, 40) + "」（" + (n.name || "有人") + "）").join(" "));
+    b.docs.slice(-3).forEach(d => out.push("共用文档《" + d.name + "》：" + String(d.text || "").replace(/\s+/g, " ").slice(0, 200)));
+    return out.length ? "\n\n【房间里留下的东西】\n" + out.join("\n") : "";
   }
   // 大的一条拆成几片发；收的那头按 来源|编号 拼回来，拼齐了才交出去
   function splitRaw(raw, size) {
@@ -1178,7 +1366,9 @@
     ownsMsg, editMsg, recallMsg, dropMsg, dropOwnMsg, tombOwn, applyDrops, isDropped, TOMB_MAX, missingImgs, cleanQuote, quoteOf, quoteState, quoteCatalog, resolveQuote, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, humansHere, watchTargets, jointInstruction, jointLines, mergeMsgs, removeRoom, hostGamesIn, HOST_GAMES_KEY, sinceRemembered, echoText,
     RECAP_GAP, RECAP_LONG, RECAP_TAIL, recapDue, recapFresh, recapInstruction, cleanRecap, recapText, promptRoom, lastTalkTs,
     KNOWN_KEY, loadKnown, saveKnown, knownKey, metIn, meetPeople, forgetKnown, knownLine,
-    normalizeRoom, upsertPeer, peerOf, lastNick, ownerNick, peerNames, syncedMsg, shouldOffer, admit, forwardTargets, reachable, rid, Mesh };
+    normalizeRoom, upsertPeer, peerOf, lastNick,
+    NOTE_MAX, LOCK_TTL, LOCK_BEAT, CHAR_NOTES_PER_DAY, CHAR_DOCS_PER_DAY, boardOf, cleanNote, cleanDoc, noteAdd, songAdd, playlist, boardDrop, docPut, docWrite, docRename, boardWire, mergeBoard,
+    lockLive, lockTake, lockFree, lockHear, lockDropPeer, lockPrune, lockReason, charNotesToday, charDocsToday, boardBlock, boardBits, boardMemo, ownerNick, peerNames, syncedMsg, shouldOffer, admit, forwardTargets, reachable, rid, Mesh };
   root.NetRoomCore = Core;
 
   // ───────────── 页面 ─────────────
@@ -1457,6 +1647,7 @@
     const [room, setRoom] = useState(null);
     const [picked, setPicked] = useState({});
     const [busy, setBusy] = useState({});
+    const busyRef = useRef({}); busyRef.current = busy;
     // 前情小卡：show＝这次连回来要不要摆；fold＝收起成一条；busy＝正在写
     const [knownTick, setKnownTick] = useState(0);   // 删了一条「认识的人」以后重画
     const [recapUi, setRecapUi] = useState({ show: false, fold: false, busy: false, err: "" });
@@ -1464,13 +1655,20 @@
     // 允许自拍：没动过的照 TA 能不能出图（接了图像通道、填了外貌或参考照）
     const [selfieSet, setSelfieSet] = useState({});
     const selfieOn = id => selfieSet[id] !== undefined ? !!selfieSet[id] : !!(props.selfieOk && props.selfieOk(id));
-    const [peerTyping, setPeerTyping] = useState({});   // 别人哪几个角色正在输入：{ peerId|charId: 名字 }
+    const [peerTyping, setPeerTyping] = useState({}); const peerTypingRef = useRef({}); peerTypingRef.current = peerTyping;   // 别人哪几个角色正在输入：{ peerId|charId: 名字 }
     // 别人谁开着「旁观」：{ peerId: true }。她们的角色照旧能开口，只是角色当她们本人不在
     const [peerWatch, setPeerWatchS] = useState({}); const peerWatchRef = useRef({});
     const setPeerWatch = fn => { const n = fn(peerWatchRef.current); peerWatchRef.current = n; setPeerWatchS(n); };
     // 正在听：别人报来的（peerId → { who, title, artist }）和我这台此刻在放的。像在线状态，不进聊天记录、不存档
     const npRef = useRef({}), myNp = useRef(null);
     const [np, setNp] = useState({});
+    // 房间里的墙、歌单、文档（存在 room.board；锁只在线上，不进存档）
+    const [boardTab, setBoardTab] = useState("");    // 顶上那一条开着哪一格：""＝收起 / wall / songs / docs
+    const [docId, setDocId] = useState(null);         // 正打开的那份文档
+    const [libOpen, setLibOpen] = useState(false);    // 歌单里「从我的歌里挑」
+    const locksRef = useRef({}), [locks, setLocksRaw] = useState({});
+    const setLocks = l => { locksRef.current = l; setLocksRaw(l); };
+    const myLocks = useRef(new Set());               // 我此刻拿着的那几份：心跳只报这几份
     const [net, setNet] = useState({ open: [], fail: [], reach: [] });   // 直连通着的 / 直连失败的 / 直接或经人转得到的
     const netRef = useRef({ open: [], fail: [], reach: [] }); netRef.current = net;
     const [panel, setPanel] = useState(false);       // ＋ 面板开着没
@@ -1495,7 +1693,7 @@
     const greeted = useRef(new Set());   // 这一场已经见过名片的人：头一回见到就再报一次自己的到
     roomRef.current = room;
     const commit = r => { roomRef.current = r; setRoom(r); };
-    useEffect(() => () => { try { mesh.current && mesh.current.close(); } catch (e) {} }, []);
+    useEffect(() => () => { try { myLocks.current.forEach(id => send({ t: "dlock", doc: id, on: false })); mesh.current && mesh.current.close(); } catch (e) {} }, []);
     const refresh = () => setRooms(Core.loadRooms());
     const myNick = () => String(nick || "").trim().slice(0, 20) || "朋友";
     // 我自己的名片（hi 里的 me）：名字＋压到 64px 的头像，跟角色名片一样只这几样
@@ -1616,6 +1814,24 @@
           const ref = w.x && (m.type === "photo" ? w.x.imageRef : w.x.url); if (!ref) return;
           updX(x => x.id === id, x => Object.assign({}, x, m.type === "photo" ? { imageRef: ref } : { url: ref }));
         });
+      } else if (e.t === "board") {
+        commit(Core.upsertRoom(Core.mergeBoard(r, e, origin)));
+      } else if (e.t === "bnote" && e.note) {
+        const n = Core.cleanNote(Object.assign({}, e.note, { by: origin })), r2 = n ? Core.noteAdd(r, n) : r;   // 只能替自己那台贴
+        if (r2 !== r) { commit(Core.upsertRoom(r2)); sysLine((n.name || nickOf(origin)) + " 往墙上贴了张便签：「" + n.text.slice(0, 40) + "」"); }
+      } else if (e.t === "bsong" && e.song) {
+        const x = Object.assign({}, e.song, { by: origin }), r2 = Core.songAdd(r, x);
+        if (r2 !== r) { commit(Core.upsertRoom(r2)); sysLine((x.name || nickOf(origin)) + " 把《" + ((x.song && x.song.title) || "") + "》加进了歌单"); }
+      } else if (e.t === "bdrop" && e.id) {
+        const r2 = Core.boardDrop(r, String(e.id).slice(0, 60), origin); if (r2 !== r) commit(Core.upsertRoom(r2));
+      } else if (e.t === "bdoc" && e.doc) {
+        // 只认最后写的那个人自己发来的那一版；版本号比我手上的旧就不收
+        if (String((e.doc && e.doc.updatedBy) || "").split("|")[0] !== origin) return;
+        const res = Core.docPut(r, e.doc); if (!res.ok) return;
+        commit(Core.upsertRoom(res.room)); docLine(Core.boardOf(res.room).docs.find(d => d.id === String(e.doc.id)));
+      } else if (e.t === "dlock" && e.doc) {
+        const res = Core.lockHear(locksRef.current, e, origin, Date.now()); setLocks(res.locks);
+        if (res.lost === meId.current && myLocks.current.has(String(e.doc))) { myLocks.current.delete(String(e.doc)); props.toast && props.toast(nickOf(origin) + " 同时也打开写了这份，先归 TA；你刚才写的没存上"); }
       } else if (e.t === "watch") {
         setPeerWatch(x => { const n = Object.assign({}, x); if (e.on) n[origin] = true; else delete n[origin]; return n; });
       } else if (e.t === "np") {
@@ -1656,6 +1872,7 @@
         const gs = games.current; if (!gs) return;
         ensureGames().then(() => gs.onMessage(e, origin)).catch(() => {});
       } else if (e.t === "bye") {
+        setLocks(Core.lockDropPeer(locksRef.current, origin));
         setPeerWatch(x => { const n = Object.assign({}, x); delete n[origin]; return n; });
         delete linkMap.current[origin];
         Object.keys(linkMap.current).forEach(k => { linkMap.current[k] = linkMap.current[k].filter(x => x !== origin); });
@@ -1670,6 +1887,8 @@
       for (const c of (r.myChars || [])) { const ch = charsById[c.id]; cards.push(ch ? Core.cardOf(ch, await smallAvatar(ch)) : Core.cleanCard({ id: c.id, name: c.name })); }
       send({ t: "hi", nick: r.myNick || myNick(), chars: cards, me: await myFace(r.myNick || myNick()) });
       send({ t: "watch", on: !!r.watch });
+      send(Object.assign({ t: "board" }, Core.boardWire(r)));
+      myLocks.current.forEach(id => { const x = locksRef.current[id]; send({ t: "dlock", doc: id, on: true, name: (x && x.name) || myNick() }); });
       send({ t: "sync", drops: (r.tombs || []).slice(-Core.TOMB_MAX), msgs: (r.msgs || []).filter(m => !m.sys).slice(-600).map(m => Core.wireMsg(Object.assign({}, m, { by: m.side === "me" ? meId.current : (m.peerId || "") }))) });
     };
     // 断了以后连回原来那个房间：房间号、谁开的都照旧，聊天记录接着往下记（她 2026-11-22）
@@ -1779,6 +1998,74 @@
     const unwatch = () => setWatch(false);
     const sayHuman = text => { unwatch(); const q = quoted; setQuoted(null); post(Object.assign({ id: mid("m"), kind: "user", name: myNick(), text, ts: Date.now() }, q ? { quote: q } : {})); };
     const sayRich = (type, x) => (unwatch(), post({ id: mid("m"), kind: "user", name: myNick(), type, x, text: "", ts: Date.now() }));
+    // ── 墙、歌单、文档：改了先落自己这份，再广播给房里；作者只认发的那台（收的那头把 by 换成发来的人） ──
+    const boardKey = charId => meId.current + (charId ? "|" + charId : "");
+    // 文档里写过的人叫什么：自己＝「我」，其余照文档里记的名字
+    const docName = (d, k) => k === meId.current ? "我" : ((d && d.names && d.names[k]) || nickOf(String(k || "").split("|")[0]));
+    const docLine = d => { if (!d) return; const h0 = (d.history || [])[d.history.length - 1];
+      sysLine(docName(d, d.updatedBy).replace(/^我$/, "你") + (h0 && !h0.before ? " 新开了一份《" + d.name + "》" : " 改了《" + d.name + "》" + (h0 && typeof chfDiffSummary === "function" ? "：" + chfDiffSummary(h0.before, h0.after) : ""))); };
+    const addNote = (text, ch) => {
+      const r = roomRef.current; if (!r) return;
+      const n = Core.cleanNote({ id: mid("n"), by: meId.current, name: ch ? ch.name : myNick(), charId: ch ? ch.id : "", text, ts: Date.now() });
+      const r2 = n ? Core.noteAdd(r, n) : r; if (r2 === r) return;
+      commit(Core.upsertRoom(r2)); send({ t: "bnote", note: n });
+      if (ch) sysLine(ch.name + " 往墙上贴了张便签：「" + n.text.slice(0, 40) + "」");
+    };
+    const dropBoard = id => { const r = roomRef.current; if (!r) return; const r2 = Core.boardDrop(r, id, meId.current); if (r2 === r) return; commit(Core.upsertRoom(r2)); send({ t: "bdrop", id }); };
+    const addPick = s0 => {
+      const r = roomRef.current, song = songX(s0); if (!r || !song) return;
+      const x = { id: mid("sp"), by: meId.current, name: myNick(), song, ts: Date.now() }, r2 = Core.songAdd(r, x);
+      if (r2 === r) { props.toast && props.toast("歌单里已经有这首了"); return; }
+      commit(Core.upsertRoom(r2)); send({ t: "bsong", song: x });
+    };
+    // 锁：拿到了就广播「我在写」，之后每 20 秒报一次；放了就广播一句。别人 60 秒没音信就当 TA 放了
+    const takeLock = (id, name) => { const res = Core.lockTake(locksRef.current, id, meId.current, name, Date.now()); if (!res.ok) return false;
+      setLocks(res.locks); myLocks.current.add(id); send({ t: "dlock", doc: id, on: true, name }); return true; };
+    const freeLock = id => { if (!myLocks.current.has(id)) return; myLocks.current.delete(id); setLocks(Core.lockFree(locksRef.current, id, meId.current)); send({ t: "dlock", doc: id, on: false }); };
+    useEffect(() => {
+      const iv = setInterval(() => {
+        const now = Date.now(); let l = Core.lockPrune(locksRef.current, now);
+        myLocks.current.forEach(id => { const x = l[id] || { peer: meId.current, name: myNick(), since: now }; l = Object.assign({}, l, { [id]: Object.assign({}, x, { at: now }) }); send({ t: "dlock", doc: id, on: true, name: x.name }); });
+        setLocks(l);
+      }, Core.LOCK_BEAT);
+      return () => clearInterval(iv);
+    }, []);
+    // 此刻正在开口的角色（自己这台在想的、别人报来的「正在输入」）：有人在说，文档就先锁着
+    const speakingNames = () => Object.keys(busyRef.current).filter(k => busyRef.current[k]).map(k => (charsById[k] && (charsById[k].remark || charsById[k].name)) || "TA")
+      .concat(Object.keys(peerTypingRef.current).map(k => peerTypingRef.current[k]));
+    const docWhy = id => Core.lockReason(locksRef.current, id, meId.current, speakingNames(), Date.now());
+    const startEdit = d => { const why = docWhy(d.id); if (why) { props.toast && props.toast(why); return false; }
+      if (!takeLock(d.id, myNick())) { props.toast && props.toast(docWhy(d.id) || "有人正在写"); return false; } return true; };
+    const writeDoc = (name, text, key, who) => {
+      const r = roomRef.current; if (!r) return null;
+      const res = Core.docWrite(r, name, text, key, who, Date.now()); if (!res.op) return res.doc;
+      commit(Core.upsertRoom(res.room)); send({ t: "bdoc", doc: Core.cleanDoc(res.doc, true) }); docLine(res.doc);
+      return res.doc;
+    };
+    // 她存下（或者从历史里恢复）：手上没锁就先拿，拿不到就不写
+    const saveDoc = (d, txt) => {
+      const held = myLocks.current.has(d.id);
+      if (!held && !startEdit(d)) return;
+      writeDoc(d.name, txt, meId.current, myNick());
+      if (!held) freeLock(d.id);
+    };
+    const newDoc = () => requestAppPrompt("新开一份文档", "起个名字，房里每个人都能打开看、改。", "", v => { const n = String(v || "").trim(); if (!n) return;
+      const d = writeDoc(n, "", meId.current, myNick()); if (d) setDocId(d.id); }, "开");
+    const renameDoc = (d, n) => { if (docWhy(d.id)) { props.toast && props.toast(docWhy(d.id)); return; }
+      const res = Core.docRename(roomRef.current, d.id, n, meId.current, myNick(), Date.now()); if (!res.doc) return;
+      commit(Core.upsertRoom(res.room)); send({ t: "bdoc", doc: Core.cleanDoc(res.doc, true) }); };
+    // 角色往文档里写：照频道那套（add/remove 按行改，text 整份重写），写之前也要拿锁；别人正在写、或者今天新开够了就不写
+    const charWrite = (charId, nm, f) => {
+      const r = roomRef.current; if (!r || !f) return;
+      const nk = x => typeof chfNameKey === "function" ? chfNameKey(x) : String(x || "");
+      const old = Core.boardOf(r).docs.find(d => nk(d.name) === nk(f.name));
+      if (!old && Core.charDocsToday(r, meId.current, Date.now()) >= Core.CHAR_DOCS_PER_DAY) return;
+      if (old && (myLocks.current.has(old.id) || Core.lockLive(locksRef.current, old.id, Date.now()))) { sysLine(nm + " 想改《" + old.name + "》，有人正在写，没动"); return; }
+      const lockId = old ? old.id : "new:" + nk(f.name);
+      if (!takeLock(lockId, nm)) return;
+      try { writeDoc(old ? old.name : f.name, typeof chfPatchText === "function" ? chfPatchText(old ? old.text : "", f) : (f.text || f.add.join("\n")), boardKey(charId), nm); }
+      finally { freeLock(lockId); }
+    };
     // ── 红包：只是玩法，不动钱包 ──
     const myKey = charId => meId.current + "|" + (charId || "");
     const grabMine = (rpId, who) => {
@@ -2069,7 +2356,13 @@
     const actPrompt = (ids) => ({
       photo: ids.filter(id => ((roomRef.current && roomRef.current.myChars) || []).some(c => c.id === id && c.selfie)).map(id => (((roomRef.current.myChars || []).find(c => c.id === id)) || {}).name),
       songs: props.songLib ? props.songLib().slice(0, 30).map(s0 => s0.title + (s0.artist ? " " + s0.artist : "")) : [],
-      cards: chars.map(c => c.remark || c.name), songOn: !!props.findSong });
+      cards: chars.map(c => c.remark || c.name), songOn: !!props.findSong,
+      playlist: Core.playlist(roomRef.current).map(x => x.song.title + (x.song.artist ? " " + x.song.artist : "")),
+      board: { noteOk: Core.charNotesToday(roomRef.current, meId.current, Date.now()) < Core.CHAR_NOTES_PER_DAY, docOk: true, docNew: Core.charDocsToday(roomRef.current, meId.current, Date.now()) < Core.CHAR_DOCS_PER_DAY } });
+    // 墙、歌单、文档那一块（给角色开口用）
+    const boardText = cur => Core.boardBlock(cur, { locks: locksRef.current, me: meId.current, now: Date.now(),
+      nameOf: k => k === meId.current ? myNick() : ((Core.boardOf(cur).docs.find(d => d.names && d.names[k]) || { names: {} }).names[k] || nickOf(String(k || "").split("|")[0])),
+      recent: (cur.msgs || []).filter(m => !m.sys && !m.recalled).slice(-12).map(m => String(m.text || "")).join("\n") });
     // 房里此刻谁在听什么（给角色开口用）：我这台 + 别人报来的「正在听」
     const listenNow = () => Core.listenLines(Object.assign({}, npRef.current, myNp.current ? { me: Object.assign({ who: myNick() }, myNp.current) } : {}));
     const actsInto = async (charId, nm, acts, base, list) => {
@@ -2089,6 +2382,9 @@
         list.push(Object.assign(base(), { type: "rp", x: { rpId, total: acts.rp.total, count: splits.length, message: acts.rp.message, claims: [] } }));
         later.push(() => grabForMine(rpId, charId));
       }
+      // 墙和文档：等这一轮的话发完再贴、再写（今天贴满了就不贴）
+      if (acts.note) later.push(() => { if (Core.charNotesToday(roomRef.current, meId.current, Date.now()) < Core.CHAR_NOTES_PER_DAY) addNote(acts.note, { id: charId, name: nm }); });
+      if (acts.file) later.push(() => charWrite(charId, nm, acts.file));
       const me = ((roomRef.current && roomRef.current.myChars) || []).find(c => c.id === charId);
       if (acts.photo && me && me.selfie) later.push(() => shootFor(charId, nm, acts.photo, base));
       return later;
@@ -2124,7 +2420,7 @@
         const emotes = props.emotesFor ? props.emotesFor(char.id) : [];
         const d = await runProbe(p, ctx, { voice: true, tag: "netroom",
           instruction: Core.lineInstruction(cur, { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" },
-            { stamp: props.stampFor ? ts => props.stampFor(char.id, ts) : null, now: Date.now(), game: gameStateFor(char.id), presence: presence(), watch: watchNow(), known: Core.knownLine(Core.loadKnown(), char.id, cur, Date.now()), emotes: emotes.map(e => e.keyword), targets: talkTargets(cur), acts: Object.assign(actPrompt([char.id]), { photo: actPrompt([char.id]).photo.length > 0 }), listen: listenNow() }),
+            { stamp: props.stampFor ? ts => props.stampFor(char.id, ts) : null, now: Date.now(), game: gameStateFor(char.id), presence: presence(), watch: watchNow(), known: Core.knownLine(Core.loadKnown(), char.id, cur, Date.now()), emotes: emotes.map(e => e.keyword), targets: talkTargets(cur), acts: Object.assign(actPrompt([char.id]), { photo: actPrompt([char.id]).photo.length > 0 }), listen: listenNow(), boardText: boardText(cur) }),
           schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"],\"quote\":\"（可选）Q编号\",\"emote\":\"（可选）\",\"pat\":\"（可选）\",\"vote\":\"（可选）\",\"pollNew\":\"（可选）\",\"askNew\":\"（可选）\",\"redpacket\":\"（可选）\",\"location\":\"（可选）\",\"voice\":\"（可选）\",\"namecard\":\"（可选）\",\"topic\":\"（可选）\",\"song\":\"（可选）\",\"photo\":\"（可选）\"}", maxTokens: 12000 });
         // 一次连发几条（她 2026-11-22：「为啥角色一次只会说一句话」）；老格式 text 也认
         const lines = Core.sayLines(d);
@@ -2185,7 +2481,7 @@
         const sys = Core.jointInstruction(cur, mine.map(c => ({ id: c.id, name: c.name, you: props.youFor ? props.youFor(c.id) : "",
           emotes: (props.emotesFor ? props.emotesFor(c.id) : []).map(e => e.keyword) })),
           { stamp: props.stampFor ? ts => props.stampFor(lead.id, ts) : null, now: Date.now(), known: (K => mine.map(c => Core.knownLine(K, c.id, cur, Date.now(), c.name)).join(""))(Core.loadKnown()),
-            presence: presence(), watch: watchNow(), targets, cast, game: gameStateFor(null), acts: actPrompt(mine.map(c => c.id)), listen: listenNow() });
+            presence: presence(), watch: watchNow(), targets, cast, game: gameStateFor(null), acts: actPrompt(mine.map(c => c.id)), listen: listenNow(), boardText: boardText(cur) });
         // 料全在 system，user 只留一句触发（prompt-send-shape）；几个人各说几条，按人数给足
         const raw = await callAI(p, sys, [{ role: "user", content: "接着房里的话往下说。" }], { use: "chat", logLabel: "联机·一起说", maxTokens: Math.min(32000, 12000 + 4000 * mine.length) });
         const people = mine.map(c => charsById[c.id]);
@@ -2427,6 +2723,66 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
           room && room.watch && h("div", { "data-wk": "nrwatchnote", style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, paddingBottom: 6, lineHeight: 1.5 } },
             "旁观中：角色当你不在房里，照样点头像让 TA 说。你一发消息就自动退出旁观。"),
           h(Composer, { onSend: sayHuman, disabled: alone, fillRef, plusOn: panel, onPlus: () => setPanel(v => !v) }))); };
+    // ── 房间顶上那一条：墙 / 歌单 / 文档，点哪格展开哪格，再点收起（她 2026-11-22） ──
+    const boardEl = () => {
+      const r = roomRef.current; if (!r) return null;
+      const b = Core.boardOf(r), pl = Core.playlist(r), me = meId.current;
+      const tabs = [["wall", "墙", b.notes.length], ["songs", "歌单", pl.length], ["docs", "文档", b.docs.length]];
+      const small = { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.6 };
+      const pill = { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(12), color: t.sub, background: t.bg };
+      const tap = (txt, on, wk) => h("button", { "data-wk": wk, onClick: on, className: "active:opacity-60", style: { color: t.accent, fontFamily: F_BODY, fontSize: fs(12) } }, txt);
+      const panel = boardTab === "wall" ? [
+          h("div", { key: "a", className: "flex items-center", style: { gap: 10, marginBottom: 10 } },
+            h("button", { "data-wk": "nrnoteadd", onClick: () => requestAppPrompt("贴一张便签", "房里每个人都看得到，几个字也算。", "", v => { const x = String(v || "").trim(); if (x) addNote(x); }, "贴上"), className: "active:opacity-60", style: pill }, "贴一张"),
+            h("span", { style: small }, "谁都能贴；自己贴的（和自己带来的人贴的）自己能撕。")),
+          b.notes.length ? h("div", { key: "g", "data-wk": "nrnotes", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "14px 10px", paddingTop: 6 } },
+            b.notes.slice().reverse().map((n, i) => h(StickyNote, { key: n.id, n, i, mine: n.by === me, nameOf: () => n.by === me && !n.charId ? "我" : (n.name || "有人"),
+              actions: [n.by === me ? tap("撕掉", () => dropBoard(n.id), "nrnotetear") : null] })))
+            : h("div", { key: "e", style: small }, "墙上还空着。")]
+        : boardTab === "songs" ? (() => { const lib = props.songLib ? props.songLib() : [], cur = props.nowSong ? props.nowSong() : null;
+          return [
+            h("div", { key: "a", className: "flex flex-wrap", style: { gap: 8, marginBottom: 8 } },
+              cur && cur.title ? h("button", { "data-wk": "nrplnow", onClick: () => addPick(cur), className: "active:opacity-60", style: pill }, "♪ 把正在听的《" + String(cur.title).slice(0, 12) + "》加进来") : null,
+              lib.length ? h("button", { "data-wk": "nrpllib", onClick: () => setLibOpen(v => !v), className: "active:opacity-60", style: pill }, libOpen ? "收起我的歌" : "从我的歌里挑") : null),
+            libOpen ? h("div", { key: "l", "data-wk": "nrpllist", style: { maxHeight: 200, overflowY: "auto", marginBottom: 8, borderTop: "1px solid " + t.line } }, lib.slice(0, 300).map((x, i) =>
+              h("button", { key: (x.id || "") + i, onClick: () => addPick(x), className: "w-full text-left active:opacity-60", style: { display: "block", padding: "7px 0", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(13), color: t.ink } },
+                "《" + x.title + "》" + (x.artist ? " - " + x.artist : "")))) : null,
+            h("div", { key: "n", style: Object.assign({}, small, { marginBottom: 6 }) }, "房里发过的歌卡会自己收进来。点「放这首」在你这台放，各放各的；自己加的自己能拿掉。"),
+            pl.length ? pl.slice().reverse().map(x => h("div", { key: x.id, "data-wk": "nrplsong", className: "flex items-center", style: { gap: 10, padding: "8px 0", borderBottom: "1px solid " + t.line } },
+              h("div", { className: "flex-1 min-w-0" },
+                h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: t.ink } }, "《" + x.song.title + "》" + (x.song.artist ? " - " + x.song.artist : "")),
+                h("div", { style: small }, (x.by === me ? "我" : x.name || nickOf(x.by)) + (x.card ? " 发的歌卡" : " 加的"))),
+              tap("放这首", () => playCard(x.song), "nrplplay"),
+              x.by === me ? tap("拿掉", () => dropBoard(x.id), "nrpldrop") : null))
+              : h("div", { key: "e", style: small }, "歌单还是空的。")]; })()
+        : boardTab === "docs" ? [
+          h("div", { key: "a", className: "flex items-center", style: { gap: 10, marginBottom: 8 } },
+            h("button", { "data-wk": "nrdocnew", onClick: newDoc, className: "active:opacity-60", style: pill }, "新开一份"),
+            h("span", { style: small }, "一份同时只能一个人写：有人在写、或者有人的角色正在说话时，别人只能看。")),
+          b.docs.length ? b.docs.slice().sort((x, y) => (y.updatedTs || 0) - (x.updatedTs || 0)).map(d => { const why = docWhy(d.id);
+            return h("button", { key: d.id, "data-wk": "nrdocrow", "data-locked": why ? "1" : "0", onClick: () => setDocId(d.id), className: "w-full text-left active:opacity-70", style: { display: "block", padding: "9px 0", borderBottom: "1px solid " + t.line } },
+              h("span", { className: "block truncate", style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: t.ink } }, "《" + d.name + "》"),
+              h("span", { className: "block truncate", style: small }, docName(d, d.updatedBy) + " · " + String(d.text || "").length + " 字" + (why ? " · " + why : ""))); })
+            : h("div", { key: "e", style: small }, "还没有文档。聊出了计划、清单，可以放进来，TA 们也会顺手往里写。")]
+        : null;
+      return h("div", { key: "bd", "data-wk": "nrboard", "data-open": boardTab || "", className: "shrink-0", style: { borderBottom: "1px solid " + t.line } },
+        h("div", { className: "flex items-center", style: { gap: 6, padding: "5px 12px" } },
+          tabs.map(([k, zh, n]) => h("button", { key: k, "data-wk": "nrboardtab", "data-part": k, "data-on": boardTab === k ? "1" : "0", onClick: () => setBoardTab(v => v === k ? "" : k), className: "active:opacity-60",
+            style: { minHeight: 30, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: fs(12), color: boardTab === k ? t.bg : t.sub, background: boardTab === k ? t.ink : "transparent", border: "1px solid " + (boardTab === k ? t.ink : t.line) } },
+            zh + (n ? " " + n : ""))),
+          boardTab ? h("button", { "data-wk": "nrboardfold", onClick: () => setBoardTab(""), className: "active:opacity-60", style: { marginLeft: "auto", minHeight: 30, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(12), color: t.fog } }, "收起") : null),
+        panel && h("div", { "data-wk": "nrboardpanel", "data-part": boardTab, style: { maxHeight: "42vh", overflowY: "auto", padding: "4px 14px 12px" } }, panel));
+    };
+    // 打开的那份文档：频道文件同一页（ChfDocPage），多了锁——别人在写、角色在说话时只能看
+    const docEl = () => {
+      const r = roomRef.current, d = r && docId ? Core.boardOf(r).docs.find(x => x.id === docId) : null;
+      if (!d || typeof ChfDocPage !== "function") return null;
+      const mineDoc = String(d.createdBy || "").split("|")[0] === meId.current;
+      return h(ChfDocPage, { key: "doc" + d.id, file: d, nameOf: k => docName(d, k), lockNote: docWhy(d.id),
+        onEditStart: () => startEdit(d), onEditEnd: () => freeLock(d.id), onSave: txt => saveDoc(d, txt),
+        onRename: n => renameDoc(d, n), onDelete: mineDoc ? () => { dropBoard(d.id); setDocId(null); } : null,
+        onClose: () => { freeLock(d.id); setDocId(null); } });
+    };
     if (page === "chat" && room) {
       const myChars = (room.myChars || []);
       const alone = !mesh.current || net.reach.length === 0;
@@ -2487,8 +2843,9 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         (() => { const L = Core.listenLines(Object.assign({}, np, myNp.current ? { me: Object.assign({ who: "你" }, myNp.current) } : {}));
           return L.length > 0 && h("div", { key: "np", "data-wk": "nrlisten", className: "shrink-0", style: { padding: "5px 14px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.5 } },
             L.map((x, i) => h("div", { key: i, style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "♪ " + x))); })(),
+        boardEl(),
         tablesBar(),
-        ...chatCore,
+        ...chatCore, docEl(),
         ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sendSong, sayRich, sendRp,
           photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
         joinSheet(), gp && gp.pill);
