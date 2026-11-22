@@ -386,12 +386,12 @@
     var snow = null;
     if (WINTER) {
       var defs = document.createElementNS(NS, "defs");
-      defs.innerHTML = '<filter id="qsp-snowf" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".05" numOctaves="2" seed="7"/><feDisplacementMap in="SourceGraphic" scale="9"/><feGaussianBlur stdDeviation="1.6"/></filter>' +
-        '<filter id="qsp-snowsh"><feDropShadow dx="0" dy="-3" stdDeviation="3" flood-color="rgba(90,115,150,.35)"/></filter>';
+      defs.innerHTML = '<filter id="qsp-snowf" x="-10%" y="-10%" width="120%" height="120%"><feMorphology in="SourceGraphic" operator="dilate" radius="3" result="d"/><feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="2" seed="7" result="n"/><feDisplacementMap in="d" in2="n" scale="12" xChannelSelector="R" yChannelSelector="G"/><feGaussianBlur stdDeviation="1.4"/></filter>' +
+        '<filter id="qsp-snowsh" x="-10%" y="-10%" width="120%" height="120%"><feMorphology in="SourceAlpha" operator="dilate" radius="2.5" result="o"/><feFlood flood-color="rgba(96,122,160,.55)"/><feComposite in2="o" operator="in" result="edge"/><feGaussianBlur in="edge" stdDeviation="1.2" result="eb"/><feDropShadow in="SourceGraphic" dx="0" dy="-5" stdDeviation="4" flood-color="rgba(80,105,145,.45)" result="sh"/><feMerge><feMergeNode in="eb"/><feMergeNode in="sh"/></feMerge></filter>';
       svg.appendChild(defs);
       var mk = document.createElementNS(NS, "mask"); mk.setAttribute("id", "qsp-snowm"); mk.setAttribute("maskUnits", "userSpaceOnUse");
       mk.setAttribute("x", "-200"); mk.setAttribute("y", "-200"); mk.setAttribute("width", "1424"); mk.setAttribute("height", "1424");
-      var up = document.createElementNS(NS, "g"); var dn = document.createElementNS(NS, "g"); dn.setAttribute("transform", "translate(0,-58)");
+      var up = document.createElementNS(NS, "g"); var dn = document.createElementNS(NS, "g"); dn.setAttribute("transform", "translate(0,-46)");
       DATA.strokes.forEach(function (d) {
         var a = document.createElementNS(NS, "path"); a.setAttribute("d", d); a.setAttribute("fill", "#fff"); up.appendChild(a);
         var b = document.createElementNS(NS, "path"); b.setAttribute("d", d); b.setAttribute("fill", "#000"); dn.appendChild(b);
@@ -402,7 +402,7 @@
       snow.style.opacity = 0; snow.style.transition = "opacity 1.1s ease";
       var sr = document.createElementNS(NS, "rect"); sr.setAttribute("x", "-200"); sr.setAttribute("y", "-200"); sr.setAttribute("width", "1424"); sr.setAttribute("height", "1424");
       sr.setAttribute("fill", "#fdfeff"); sr.setAttribute("mask", "url(#qsp-snowm)");
-      var sf = document.createElementNS(NS, "g"); sf.setAttribute("filter", "url(#qsp-snowf)"); sf.setAttribute("transform", "translate(0,14)"); sf.appendChild(sr);
+      var sf = document.createElementNS(NS, "g"); sf.setAttribute("filter", "url(#qsp-snowf)"); sf.setAttribute("transform", "translate(0,16)"); sf.appendChild(sr);
       snow.appendChild(sf); g.appendChild(snow);
     }
     var GINKGO = function (fill, veins) {
