@@ -20534,7 +20534,7 @@ function OffPickBar({ t, pick, setPick, onPin, fwd }) {
     h("div", { className: "flex gap-3 items-center" },
       pick.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, pick), hi = Math.max.apply(null, pick); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setPick(a); }, style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "补中间") : null,
       h("button", { onClick: () => { if (pick.length) { onPin(pick.slice().sort((a, b) => a - b)); setPick(null); } }, disabled: !pick.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "收进时刻"),
-      fwd && fwd.onForward ? h("button", { "data-wk": "offselfwd", onClick: () => pick.length && setFwdPick(true), disabled: !pick.length, className: "disabled:opacity-40 px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.bg2, background: t.ink, borderRadius: 6 } }, "转发") : null)));
+      fwd && fwd.onForward ? h("button", { "data-wk": "offselfwd", "aria-label": "转发", title: "转发", onClick: () => pick.length && setFwdPick(true), disabled: !pick.length, className: "disabled:opacity-40 active:opacity-60 flex items-center" }, h(ISend, { size: 17, color: t.ink })) : null)));
 }
 function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenState, onEdit, onReroll, onRerollOne, onDelete, onSaveExample, onPinShike, editable, sending, onOpenState, showReason, hideThought }) {
   const [editing, setEditing] = useState(false);
