@@ -213,7 +213,7 @@ test("真人一直不交：到点庄按「稳妥」那条替她交，桌上写�
   const due = A.onTick(st, st.actAt + 3 * 60000 + 1);
   assert.deepStrictEqual(due, [{ seat: 1, mv: { pick: 1, auto: true } }]);
   st = (await A.apply(st, 1, due[0].mv, { inv: inv2, hostApi: { id: "gm" }, prep: {} })).st;
-  assert.match(JSON.stringify(calls.find(c => c.api === "gm").msgs), /乙 选了「绕后门」\(到点没交,庄按稳妥那条替 Ta 交的\)/);
+  assert.match(JSON.stringify(calls.find(c => c.api === "gm").msgs), /乙 选了「绕后门」\(到点没交,庄按稳妥那条替她交的\)/);
   assert.deepStrictEqual(A.view(st).autoed, ["乙"]);
   assert.match(gsrc, /ad\.onTick\(g\.st, now\)/);
 });

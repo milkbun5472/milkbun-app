@@ -16,7 +16,7 @@
 //     照单机那张单（TrpgShared.sideMenu）摆；整桌一起走的那一样按人头定：挑它的人比挑选项、自己写的人多，这一拍就是它
 //     （赶路花团内时辰、走钟，全照单机 beatGate／modeTail／landOpts）；没成整桌的那一样只算 Ta 自己的：
 //     找人说话就是私下攀谈，守密人只回给 Ta（走 priv）。
-//   · 真人一直不交：到点（房主开局定，默认 3 分钟，可关）庄按「稳妥」那条替 Ta 交，桌上写明；掉线照框架的托管。
+//   · 真人一直不交：到点（房主开局定，默认 3 分钟，可关）庄按「稳妥」那条替她交，桌上写明；掉线照框架的托管。
 //   · 角色队友同时想（turns）：各主人那台一起想，庄按到达先后收齐。
 //   · 每位客串这一晚做了什么，记进战绩卡那段话（进房间记录，退房勾记忆时记得住）。
 (function (root) {
@@ -212,7 +212,7 @@
         if (ch && camp.pov && (!povPick || m.name === camp.pov)) povPick = { who: camp.pov, against: ch.willing === false, text: ch.text };
         if (a.kind === "text") { typed = true; tryers.push(m.name); }
         if (a.auto) autoed.push(m.name);
-        says.push(m.name + (ch ? " 选了「" + ch.text + "」" : ":" + a.text) + (a.text && ch ? "(" + a.text + ")" : "") + (a.apart ? "(单独走开去办)" : "") + (a.auto ? "(到点没交,庄按稳妥那条替 Ta 交的)" : ""));
+        says.push(m.name + (ch ? " 选了「" + ch.text + "」" : ":" + a.text) + (a.text && ch ? "(" + a.text + ")" : "") + (a.apart ? "(单独走开去办)" : "") + (a.auto ? "(到点没交,庄按稳妥那条替她交的)" : ""));
         if (a.whisper) whispers.push({ from: m.name, text: a.whisper });
         if (a.apart) split.push(m.name);
       });
