@@ -1250,6 +1250,7 @@
       apiFor: id => propsRef.current.apiFor ? propsRef.current.apiFor(id) : null,
       charOf: id => (propsRef.current.characters || []).find(c => c.id === id) || null,
       charOpts: (gid, cid) => charOptsFor(cid),
+      myChars: () => ((roomRef.current && roomRef.current.myChars) || []).map(c => c.id),
       presence: () => presence(),
       onChange: () => setGTick(n => n + 1),
       onOpenGame: gid => { if (pageRef.current === "chat") openGame(gid); },
@@ -1262,7 +1263,8 @@
     const sendInvite = (game, cfg, pz, setter) => {
       if (!games.current) games.current = newGames();
       if (!games.current) return;
-      const picks = (cfg.mode === "spectate" ? [] : [{ kind: "user" }]).concat((cfg.charIds || []).map(id => { const c = (roomRef.current.myChars || []).find(x => x.id === id); return c ? { kind: "char", charId: c.id, name: c.name } : null; }).filter(Boolean));
+      // 开局页自己定好了上谁（辩论：每个人挑哪一边）就照它的
+      const picks = cfg.picks || (cfg.mode === "spectate" ? [] : [{ kind: "user" }]).concat((cfg.charIds || []).map(id => { const c = (roomRef.current.myChars || []).find(x => x.id === id); return c ? { kind: "char", charId: c.id, name: c.name } : null; }).filter(Boolean));
       games.current.invite({ key: game.key, zh: game.zh, min: game.min, max: game.max }, cfg, picks, pz || null, setter || null);
       setGamePend(null); setPage("chat");
     };
@@ -1287,6 +1289,7 @@
       if (kinds.indexOf("casual") >= 0 && (charOptsRef.current[cid] || {}).casual) bits.push("随手");
       const bs = (charOptsRef.current[cid] || {}).botSkill, BS = GSh && GSh.cards && GSh.cards.BOT_SKILL;
       if (kinds.indexOf("botSkill") >= 0 && BS && BS[bs]) bits.push(BS[bs].zh);
+      if (kinds.indexOf("side") >= 0) { const sd = (charOptsRef.current[cid] || {}).side; if (sd) bits.push(sd === "pro" ? "正方" : "反方"); }
       return bits.join("·");
     };
     // 报名：你自己、你带进房间的人，勾谁谁占一个座位；勾上的角色下面展开这一盒能按人调的那几项（跟单机开局页同一批）
@@ -1294,8 +1297,10 @@
       if (!joinAt) return null;
       const kinds = GC() ? GC().charOptKinds(joinAt.key) : [], GSh = root.GameShared;
       const seg = (cid, k, val, opts) => h("div", { className: "flex flex-wrap", style: { gap: 6 } }, opts.map(o => h("button", { key: o.key, "data-wk": "nrcharopt", "data-part": k,
-        onClick: () => k === "skill" ? (GSh.skill.save(cid, o.key), setGTick(n => n + 1)) : k === "botSkill" ? setCharOpt(cid, k, o.key) : setCharOpt(cid, k, o.key === "casual"),
+        onClick: () => k === "skill" ? (GSh.skill.save(cid, o.key), setGTick(n => n + 1)) : k === "side" ? setCharOpt(cid, "side", o.key) : k === "botSkill" ? setCharOpt(cid, k, o.key) : setCharOpt(cid, k, o.key === "casual"),
         style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (val === o.key ? t.ink : t.line), background: val === o.key ? t.ink : t.bg2, color: val === o.key ? t.bg : t.ink, fontFamily: F_BODY, fontSize: fs(12.5) } }, o.zh)));
+      // 辩论：上台的这一位站哪边（角色多一个「随人设」：开讲前由你这台按 TA 的人设挑）；大家都看得到
+      const sideSeg = (cid, isChar) => h("div", { key: "side" }, seg(cid, "side", (charOptsRef.current[cid] || {}).side || "", (isChar ? [{ key: "", zh: "随人设" }] : [{ key: "", zh: "都行" }]).concat([{ key: "pro", zh: "正方" }, { key: "con", zh: "反方" }])));
       const optsOf = c => {
         if (!joinPick[c.id]) return null;
         const o = charOptsFor(c.id), rows = [];
@@ -1304,6 +1309,7 @@
         if (kinds.indexOf("casual") >= 0 && GSh) rows.push(h("div", { key: "c" }, seg(c.id, "casual", o.casual ? "casual" : "serious", GSh.GMK_CASUAL_OPTS)));
         if (kinds.indexOf("botSkill") >= 0 && GSh && GSh.cards) rows.push(h("div", { key: "b" }, h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, margin: "2px 0 4px" } }, "牌手水平：你这台替 TA 出牌时照这一档（新手常出一张不那么好的，高手不失手）"),
           seg(c.id, "botSkill", o.botSkill || "normal", Object.keys(GSh.cards.BOT_SKILL).map(k => ({ key: k, zh: GSh.cards.BOT_SKILL[k].zh })))));
+        if (kinds.indexOf("side") >= 0) rows.push(sideSeg(c.id, true));
         if (kinds.indexOf("recent") >= 0) rows.push(h("label", { key: "r", className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
           h("input", { type: "checkbox", "data-wk": "nrcharrecent", checked: o.recent, onChange: e => setCharOpt(c.id, "recent", e.target.checked) }), "带上 TA 最近单聊（TA 出题、提问、接句时记得你们最近聊了什么）"));
         return rows.length ? h("div", { "data-wk": "nrcharopts", style: { margin: "0 0 8px 42px", display: "flex", flexDirection: "column", gap: 6 } }, rows) : null;
@@ -1317,14 +1323,15 @@
                 h("input", { type: "checkbox", "data-wk": "nrgamepick", checked: !!joinPick[r.id], onChange: e => setJoinPick(p => Object.assign({}, p, { [r.id]: e.target.checked })) }),
                 r.c ? h(Avatar, { character: charsById[r.c.id] || { id: r.c.id, name: r.c.name }, size: 30 }) : null,
                 h("span", { style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink } }, r.label)),
-              r.c ? optsOf(r.c) : null))),
+              r.c ? optsOf(r.c) : (joinPick._me && kinds.indexOf("side") >= 0 ? h("div", { style: { margin: "0 0 8px 42px" } }, sideSeg("_me", false)) : null)))),
           h(Btn, { label: "坐下", primary: true, wk: "nrgamejoinok", disabled: !Object.keys(joinPick).some(k => joinPick[k]), onClick: () => {
-            const picks = (joinPick._me ? [{ kind: "user" }] : []).concat(myChars.filter(c => joinPick[c.id]).map(c => ({ kind: "char", charId: c.id, name: c.name, tag: charTag(joinAt.key, c.id) })));
+            const sideOf = id => kinds.indexOf("side") >= 0 ? (charOptsRef.current[id] || {}).side || "" : "";
+            const picks = (joinPick._me ? [{ kind: "user", side: sideOf("_me") }] : []).concat(myChars.filter(c => joinPick[c.id]).map(c => ({ kind: "char", charId: c.id, name: c.name, side: sideOf(c.id), tag: charTag(joinAt.key, c.id) })));
             const ja = joinAt; setJoinAt(null);
             const left = games.current ? games.current.join(ja.gid, picks, ja.host) : [];
             if (left.length) props.toast && props.toast("座位不够，" + left.length + " 个没坐上");
           } })); };
-    // 牌桌是浮在房间聊天上面的半窗（单聊半窗那一份外壳 HalfWinFrame）：展开时房里来了新话在顶条提醒，收起时轮到你小条会亮
+    // 她 2026-11-22 改过来：牌桌开着是整页，房间聊天是浮在上面的半窗（单聊半窗那一份外壳 HalfWinFrame）；牌桌收起成小条，轮到你会亮
     const msgCount = () => ((roomRef.current && roomRef.current.msgs) || []).filter(m => !m.sys).length;
     const setGameWin = fn => setGameWinRaw(w => GC() ? GC().winSet(w, typeof fn === "function" ? fn(w) : fn, msgCount()) : (typeof fn === "function" ? fn(w) : fn));
     const openGame = gid => { setGameId(gid); setPage("chat"); setGameWinRaw(w => GC() ? GC().winOpen(w, gid, msgCount()) : { gid, min: false, seen: msgCount() }); };
@@ -1337,7 +1344,11 @@
       const mineP = si >= 0 ? gs.privOf(gid, si) : null;
       return GCo.stateText(sv.inv, sv.view, si, mineP);
     };
-    const gameHalf = () => {
+    // 她 2026-11-22：「聊天是那个半窗，游戏类是全屏」——牌桌开着时整页是牌桌，房间聊天缩成浮在上面的半窗；
+    //   牌桌收起来就回到整页聊天，牌桌缩成一颗小条（轮到你会亮）。
+    const [chatWin, setChatWinRaw] = useState({ min: true });
+    const setChatWin = fn => { setChatWinRaw(w => typeof fn === "function" ? fn(w) : fn); setGameWinRaw(w => w ? Object.assign({}, w, { seen: msgCount() }) : w); };
+    const gameParts = () => {
       if (!gameWin || !room) return null;
       const gs = games.current, gid = gameWin.gid, sv = gs ? gs.seen(gid) : null;
       const A = sv && GC() ? GC().ADAPTERS[sv.inv.key] : null;
@@ -1348,16 +1359,18 @@
         return h("div", { "data-wk": "nrgamearea", className: "h-full", style: { overflowY: "auto", paddingBottom: 12 } },
           h("div", { style: { padding: "6px 16px 0", fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, inv.zh, h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, done ? "这一局打完了" : inv.seats.some(x => x.peer === meId.current && x.kind !== "npc") ? "你在桌上" : "你在旁边看")),
           hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "房主（这一局的庄）现在不在房里，这一局停在这儿；TA 回来就接着打。")),
-          h(A.Table, { inv, view: sv.view, priv: sv.priv || null, myApi: props.gameApi ? props.gameApi() : null, me: meId.current, isHost, onMove: (seat, mv) => gs.move(gid, seat, mv), onReveal: () => gs.reveal(gid) }),
+          h(A.Table, { inv, view: sv.view, priv: sv.priv || null, myApi: props.gameApi ? props.gameApi() : null, me: meId.current, isHost, onMove: (seat, mv) => gs.move(gid, seat, mv), onReveal: () => gs.reveal(gid), side: sv.side || [], onSide: x => gs.side(gid, x), nick: myNick() }),
           done && h("div", { className: "flex", style: { gap: 8, padding: "0 16px 12px" } },
             isHost && h(Btn, { label: "再来一局", primary: true, wk: "nrgameagain", onClick: () => { gs.again(gid); shut(); } }),
             h(Btn, { label: "收起牌桌", wk: "nrgameback", onClick: () => setGameWin(w => w ? Object.assign({}, w, { min: true }) : w) })));
       })();
       const turn = sv && A ? GC().myTurn(sv.inv, sv.view, meId.current) : false;
-      const n = GC() ? GC().winUnread(gameWin, msgCount()) : 0;
-      return h(HalfWinFrame, { win: gameWin, setWin: setGameWin, forKey: "netgame", onClose: shut,
-        pillLabel: (sv ? sv.inv.zh : "小游戏") + (turn ? " · 轮到你" : "") + " ▴", pillHot: turn,
-        barNote: n ? "有 " + n + " 条新消息" : "", onBarNote: () => setGameWin(w => w ? Object.assign({}, w, { min: true }) : w) }, body);
+      // 牌桌整页开着、聊天半窗收着时，这期间房里来的新话
+      const unread = chatWin.min && GC() ? GC().winUnread(gameWin, msgCount()) : 0;
+      // 收起后的那颗小条：还是单聊半窗那一份外壳的收起样子，点了回到整页牌桌
+      const pill = gameWin.min ? h(HalfWinFrame, { win: gameWin, setWin: setGameWin, forKey: "netgame", onClose: shut,
+        pillLabel: (sv ? sv.inv.zh : "小游戏") + (turn ? " · 轮到你" : "") + " ▴", pillHot: turn }) : null;
+      return { body, pill, unread, zh: sv ? sv.inv.zh : "小游戏", shut, full: !gameWin.min };
     };
     const gameHandlers = m => {
       const x = m.x || {}, gs = games.current;
@@ -1630,6 +1643,22 @@
       h(Btn, { key: "go", label: "进房间", primary: true, onClick: enter, wk: "nrenter" })
     ]));
 
+    const REJOIN_NOTE_PEERS = "房里暂时没有别人在线。谁回来点「重新连上」就会接上；你这边断了也点一下。刚才的记录都在。", REJOIN_NOTE_ALONE = "还没有别人进来。";
+    // 输入区（点谁谁说那排＋输入框）：整页聊天和半窗聊天用同一份
+    const composerEl = () => { const myChars = ((room && room.myChars) || []); const alone = !mesh.current || net.reach.length === 0;
+      return (
+h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { borderTop: "1px solid " + t.line, background: t.bg, padding: "8px 12px", paddingBottom: COMPOSER_PAD_BOTTOM } },
+          myChars.length > 0 && h("div", { className: "flex items-center", style: { gap: 10, paddingBottom: 8, overflowX: "auto" } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, flexShrink: 0 } }, "点谁谁说"),
+            myChars.map(c => h("button", { key: c.id, "data-wk": "nrspeaker", disabled: !!busy[c.id] || alone, onClick: () => speak(c),
+              className: "active:opacity-60 disabled:opacity-40", style: { flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 44 } },
+              h(Avatar, { character: charsById[c.id] || { id: c.id, name: c.name }, size: 32 }),
+              h("span", { style: { fontFamily: F_BODY, fontSize: fs(10), color: t.fog } }, busy[c.id] ? "在想…" : c.name))),
+            // 一起说：带了两个以上的人才有；一次调用让他们像群里那样轮流接话
+            myChars.length > 1 && props.castFor && h("button", { "data-wk": "nrtogether", disabled: myChars.some(c => busy[c.id]) || alone, onClick: () => speakTogether(myChars.map(c => c.id)),
+              className: "active:opacity-60 disabled:opacity-40", style: { flexShrink: 0, minHeight: 32, padding: "0 10px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.ink } },
+              myChars.some(c => busy[c.id]) ? "在想…" : "一起说")),
+          h(Composer, { onSend: sayHuman, disabled: alone, fillRef, plusOn: panel, onPlus: () => setPanel(v => !v) }))); };
     if (page === "chat" && room) {
       const myChars = (room.myChars || []);
       const alone = !mesh.current || net.reach.length === 0;
@@ -1641,6 +1670,23 @@
       const stateText = { on: "在线", relay: "直连不上，别人在帮你们转", fail: "和 TA 连不上", off: "离开了" };
       const peers = room.peers || [];
       const trouble = peers.filter(p => stateOf(p.peerId) === "fail" || stateOf(p.peerId) === "relay");
+      const gp = gameParts();
+      const chatCore = [
+        h(MsgList, { key: "ml", room, myCharsById: charsById, tail, rowProps: rowProps(room, true) }),
+        alone && h("div", { key: "rj", "data-wk": "nrrejoinbar", className: "shrink-0 flex items-center", style: { gap: 10, padding: "8px 14px", borderTop: "1px solid " + t.line, background: t.bg2 } },
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: fs(12.5), color: t.fog, lineHeight: 1.5 } }, peers.length ? REJOIN_NOTE_PEERS : REJOIN_NOTE_ALONE),
+          peers.length > 0 && h(Btn, { label: "重新连上", primary: true, onClick: () => rejoin(room), wk: "nrrejoin" })),
+        composerEl()];
+      if (gp && gp.full) return shell(
+        h(Head, { zh: gp.zh, sub: "房间 " + room.code + " · 在线 " + online + " 人", onBack: () => setGameWin(w => w ? Object.assign({}, w, { min: true }) : w),
+          right: h("button", { "data-wk": "nrgameback", onClick: () => setGameWin(w => w ? Object.assign({}, w, { min: true }) : w), style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(13), color: t.ink } }, "回到聊天") }),
+        h("div", { "data-wk": "nrgamefull", className: "flex-1 min-h-0" }, gp.body),
+        h(HalfWinFrame, { win: chatWin, setWin: setChatWin, forKey: "netchat",
+          pillLabel: "房间聊天" + (gp.unread ? " · " + gp.unread + " 条新消息" : "") + " ▴", pillHot: gp.unread > 0 },
+          h("div", { "data-wk": "nrchathalf", className: "h-full flex flex-col", style: { background: t.bg } }, chatCore)),
+        ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sayRich, sendRp,
+          photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
+        joinSheet());
       return shell(
         h(Head, { zh: "房间 " + room.code, sub: "在线 " + online + " 人", onBack: () => setPage("leave"),
           right: h("button", { "data-wk": "nrleave", onClick: () => setPage("leave"), style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(13), color: t.ink } }, "退出") }),
@@ -1649,25 +1695,10 @@
             (st === "on" ? "● " : "○ ") + p.nick + (st === "on" ? "" : " · " + stateText[st])); }),
           trouble.length > 0 && h("div", { style: { width: "100%", fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
             "和 " + trouble.map(p => p.nick).join("、") + " 直连不上：" + (trouble.some(p => stateOf(p.peerId) === "relay") ? "话由房里其他人转过去，可能慢一点。" : "TA 收不到你的话。两边都换成 Wi-Fi 再试。"))),
-        h(MsgList, { room, myCharsById: charsById, tail, rowProps: rowProps(room, true) }),
-        alone && h("div", { "data-wk": "nrrejoinbar", className: "shrink-0 flex items-center", style: { gap: 10, padding: "8px 14px", borderTop: "1px solid " + t.line, background: t.bg2 } },
-          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: fs(12.5), color: t.fog, lineHeight: 1.5 } }, peers.length ? "房里暂时没有别人在线。谁回来点「重新连上」就会接上；你这边断了也点一下。刚才的记录都在。" : "还没有别人进来。"),
-          peers.length > 0 && h(Btn, { label: "重新连上", primary: true, onClick: () => rejoin(room), wk: "nrrejoin" })),
-        h("div", { "data-wk": "nrcomposer", className: "shrink-0", style: { borderTop: "1px solid " + t.line, background: t.bg, padding: "8px 12px", paddingBottom: COMPOSER_PAD_BOTTOM } },
-          myChars.length > 0 && h("div", { className: "flex items-center", style: { gap: 10, paddingBottom: 8, overflowX: "auto" } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, flexShrink: 0 } }, "点谁谁说"),
-            myChars.map(c => h("button", { key: c.id, "data-wk": "nrspeaker", disabled: !!busy[c.id] || alone, onClick: () => speak(c),
-              className: "active:opacity-60 disabled:opacity-40", style: { flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 44 } },
-              h(Avatar, { character: charsById[c.id] || { id: c.id, name: c.name }, size: 32 }),
-              h("span", { style: { fontFamily: F_BODY, fontSize: fs(10), color: t.fog } }, busy[c.id] ? "在想…" : c.name))),
-            // 一起说：带了两个以上的人才有；一次调用让他们像群里那样轮流接话
-            myChars.length > 1 && props.castFor && h("button", { "data-wk": "nrtogether", disabled: myChars.some(c => busy[c.id]) || alone, onClick: () => speakTogether(myChars.map(c => c.id)),
-              className: "active:opacity-60 disabled:opacity-40", style: { flexShrink: 0, minHeight: 32, padding: "0 10px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.ink } },
-              myChars.some(c => busy[c.id]) ? "在想…" : "一起说")),
-          h(Composer, { onSend: sayHuman, disabled: alone, fillRef, plusOn: panel, onPlus: () => setPanel(v => !v) })),
+        ...chatCore,
         ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sayRich, sendRp,
           photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
-        joinSheet(), gameHalf());
+        joinSheet(), gp && gp.pill);
     }
 
     // ── 小游戏那几页 ──
@@ -1690,10 +1721,17 @@
         doudizhu: "正好 3 个座位，真人不够用角色和 NPC 补；手牌只发到自己那台，底牌定了地主才亮。",
         mahjong: "正好 4 个座位，真人不够用角色和 NPC 补；手牌只发到自己那台。牌墙自动摸；四川的换三张、定缺由手机替每家挑。",
         lingxi: "两个人各写各的，两边都交了才一起亮；角色用带 TA 来的那台、TA 自己的线路。房主随时能结束。" };
-      return h(G, { characters: mine, profile: props.profile, only: root.NetGameCore.supported(), onConfigured,
+      // 不在单机小游戏目录里、只在房间里有的那几盒（辩论擂台）：摆在架子最后，点了去它自己的开局页
+      const extra = root.NetGameCore.supported().map(k => root.NetGameCore.ADAPTERS[k].shelf).filter(Boolean)
+        .map(g => Object.assign({}, g, { onPick: () => { setGamePend({ game: g, cfg: {} }); setPage("gameprep"); } }));
+      return h(G, { characters: mine, profile: props.profile, only: root.NetGameCore.supported(), extra, onConfigured,
         setupHide: ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins", "cardBrain", "bjDealer", "pkTruth", "mjAutoDraw", "mjSwap"], setupNote: g => (NOTE[g.key] || "") + (GC() && GC().charOptKinds(g.key).length ? "你带的角色怎么玩（牌技、牌手水平、随手、带不带最近单聊）在邀请卡上点「换人／加入」那张单里调。" : ""),
         intro: "挑一盒、设好开局（开局页里勾的角色就是你这边上场的人），房里会出现一张邀请卡，大家在卡上报名，你点开始。", onBack: () => setPage("chat") });
     }
+    // 自己带开局页的那几盒（辩论擂台）：页面在它自己的文件里，这儿只套顶栏
+    const prepA = page === "gameprep" && room && gamePend && GC() ? GC().ADAPTERS[gamePend.game.key] : null;
+    if (prepA && prepA.Prep) return shell(h(Head, { zh: gamePend.game.zh, onBack: () => setPage("gamepick") }), scroll([
+      h(prepA.Prep, { key: "p", myChars: (room.myChars || []).map(c => charsById[c.id]).filter(Boolean), myApi: props.gameApi ? props.gameApi() : null, nick: myNick(), onSend: (cfg, pz) => sendInvite(gamePend.game, cfg, pz) })]));
     if (page === "gameprep" && room && gamePend) {
       // 谁出题：房主（就是你，下面写或者现出）／系统现出／指定一个座位／轮流（每局「再来一局」换下一个座位）。出题的人这一局不参与问
       const soup = gamePend.game.key === "haigui", md = prep.mode;

@@ -240,7 +240,7 @@ test("接线：＋ 面板有「小游戏」、大厅只摆接得住的那几盒�
   assert.ok(a > 0 && b > a, "netroom-games.js 要在 netroom.js 前面加载");
   assert.match(idx, /data-lazy="netroom" data-src="js\/netroom-games\.js/);
   assert.match(nsrc, /\["game", "小游戏", "dice"\]/);
-  assert.match(nsrc, /only: root\.NetGameCore\.supported\(\), onConfigured/);
+  assert.match(nsrc, /only: root\.NetGameCore\.supported\(\), extra, onConfigured/);
   assert.match(games, /if \(props\.onConfigured\) \{ props\.onConfigured\(game, config\); return; \}/);
   // 公共版要把联机整个摘掉：小游戏里抽出来的公共那份不许带联机字样
   assert.ok(!/联机|netroom|NetRoom/.test(games), "games.js 里不许出现联机字样");
@@ -270,11 +270,14 @@ test("加入：卡上空位不够时先加座位（到上限为止）；坐不�
   assert.ok(await until(() => toasts.some(x => x.startsWith("B:开这一局的那台手机"))), "庄那台不记得这张卡要说一声");
 });
 
-test("牌桌是浮在房间聊天上的半窗（单聊半窗那份 HalfWinFrame）；聊天页挂着选人那张，开着牌桌也点得动「加入」", () => {
+test("她 11-22 改的：牌桌开着是整页，房间聊天是浮在上面的半窗（单聊半窗那份 HalfWinFrame）；牌桌收起成小条；两种样子都挂着选人那张", () => {
   assert.ok(nsrc.indexOf("const joinSheet = () =>") > 0);
-  assert.match(nsrc, /joinSheet\(\), gameHalf\(\)\);/, "聊天页同时挂选人那张和牌桌半窗");
-  assert.ok(!/page === "game" && room/.test(nsrc), "不再有整页盖住房间的牌桌页");
-  assert.match(nsrc, /return h\(HalfWinFrame, \{ win: gameWin, setWin: setGameWin, forKey: "netgame"/);
+  assert.match(nsrc, /if \(gp && gp\.full\) return shell\(/, "牌桌展开＝整页");
+  assert.match(nsrc, /h\(HalfWinFrame, \{ win: chatWin, setWin: setChatWin, forKey: "netchat"/, "聊天是半窗");
+  assert.match(nsrc, /const pill = gameWin\.min \? h\(HalfWinFrame, \{ win: gameWin, setWin: setGameWin, forKey: "netgame"/, "收起后牌桌是小条");
+  assert.match(nsrc, /joinSheet\(\), gp && gp\.pill\);/, "整页聊天挂着选人那张和牌桌小条");
+  assert.match(nsrc, /const unread = chatWin\.min && GC\(\) \? GC\(\)\.winUnread\(gameWin, msgCount\(\)\)/, "聊天半窗收着时数新消息");
+  assert.match(nsrc, /composerEl\(\)\]/, "整页聊天和半窗聊天同一份输入区");
   assert.match(read("js/components.js"), /function HalfWinFrame\(\{ win, setWin, pillLabel, pillHot, onClose, onBig, bigLabel, barNote, onBarNote, forKey, children \}\)/);
 });
 
@@ -482,7 +485,7 @@ test("轮到我：收起的小条会亮（myTurn 只认我这台的真人座位�
   assert.ok(G.myTurn(inv, { moves: [], turn: 1, winner: 0 }, "A"));
   assert.ok(!G.myTurn(inv, { moves: [], turn: 1, winner: 0 }, "B"));
   assert.ok(!G.myTurn(Object.assign({}, inv, { status: "done" }), { moves: [], turn: 1, winner: 0 }, "A"));
-  assert.match(nsrc, /pillHot: turn,/);
+  assert.match(nsrc, /pillHot: turn \}/);
 });
 
 test("当前对局写给开口的角色：只用公开那一份，别人的私密那份不进去；出题人自己那座才带汤底", async () => {
