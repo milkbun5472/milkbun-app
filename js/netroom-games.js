@@ -19,6 +19,8 @@
 //   charMove(view, seatIdx, inv, ctx) → 一手（角色主人那台跑：ctx.api 是那个角色自己的线路，ctx.char 是本机的角色，
 //                                   ctx.priv 是这个座位自己那份 priv——只有这一份，别人的手牌它拿不到）
 //   needPriv: true                 → 角色出手要先等到这一手的 priv（手牌类都要）
+//   （可选）secretTurn(priv)        → 暗着轮到：公开那份 turn 给 -1（夜里谁睁眼不能让大家知道），这份 priv 说轮到这个座位了就返回 true；
+//                                   庄那台的 turn(st) 照样给真座位（托管、NPC 照常跑）
 //   mustFill: true                 → 人数是死的（斗地主 3、麻将 4）：开局时空位一律用 NPC 补，不看「NPC 凑数」开没开
 //   result(st, inv)                → null（没完）或 { winners:[seatIdx], text, replay }
 //   cleanReplay(r)                 → 战绩卡里回看那一份的白名单
@@ -809,11 +811,23 @@
   }
   const winUnread = (w, count) => !w || w.min ? 0 : Math.max(0, count - (w.seen || 0));
   // 轮到我这台的真人了没有（收起时小条要亮）
-  function myTurn(inv, view, me) {
+  function myTurn(inv, view, me, priv) {
     const A = ADAPTERS[inv && inv.key]; if (!A || !view || inv.status !== "playing") return false;
+<<<<<<< HEAD
     // 大家同时交的那几盒（跑团）：waiting(view) 给出还没交的那几座，其中有我这台的真人就算轮到我
     let w = []; try { w = A.waiting ? A.waiting(view) || [] : [A.turn(view)]; } catch (e) { return false; }
     return w.some(i => i >= 0 && actorOf(inv.seats[i], me, inv.host) === "mine-user");
+=======
+    let i = -1; try { i = A.turn(view); } catch (e) { return false; }
+    if (i < 0 && priv && A.secretTurn && A.secretTurn(priv)) return inv.seats.some(s => s.kind === "user" && s.peer === me && !s.away);
+    return i >= 0 && actorOf(inv.seats[i], me, inv.host) === "mine-user";
+>>>>>>> origin/main
+  }
+  // 暗着轮到（夜里谁睁眼不能写进公开那份）：公开的 turn 是 -1，只有轮到的那个座位自己那份 priv 说「该你了」
+  //   找我这台手里哪个座位的那份（这一拍的，不是旧的）说轮到 TA；没有就 -1
+  function secretSeat(ad, s, me) {
+    if (!ad.secretTurn || !s || !s.privs) return -1;
+    return (s.inv.seats || []).findIndex((x, i) => x.peer === me && s.privs[i] && s.privs[i].seq >= s.seq && ad.secretTurn(s.privs[i].data));
   }
   // 当前对局写成一段人话，给房里开口的角色当背景：只用公开那一份 view；priv 只给这个座位自己那份
   //   side：这一局桌边那一路（给了就带上最近几句桌边台词）
@@ -829,7 +843,7 @@
   const supported = () => Object.keys(ADAPTERS);
 
   const Core = { cleanTalk, talkEvery, talkDue, CHAR_OPTS, charWho, NPC_WHO, nmOf, charOptKinds, winOpen, winSet, winUnread, myTurn, stateText, SETTER_MODES, cleanSetter, setterSeat, nextSetter, setterLine, SEAT_KINDS, STATUS, AWAY_MS, ADAPTERS, supported, cleanSeat, cleanInvite, cleanRecord, inviteLine, recordLine, newInvite, joinSeats, leaveSeats, addSeat,
-    takenCount, fillNpc, canStart, actorOf, privateRoute, awayPlan, setAway };
+    takenCount, fillNpc, canStart, actorOf, privateRoute, awayPlan, setAway, secretSeat };
   root.NetGameCore = Core;
 
   // ───────────── 一局怎么转起来（庄那一半＋每台手机自己那一半） ─────────────
@@ -944,7 +958,8 @@
     async function actOwn(gid) {
       const s = seen[gid]; if (!s || !s.view) return;
       const ad = A(s.inv.key); if (!ad) return;
-      const ti = ad.turn(ad.cleanView ? ad.cleanView(s.view) : s.view);
+      let ti = ad.turn(ad.cleanView ? ad.cleanView(s.view) : s.view);
+      if (ti < 0) ti = secretSeat(ad, s, o.me());
       const seat = s.inv.seats[ti];
       if (actorOf(seat, o.me(), s.inv.host) !== "mine-char") return;
       // 手牌类：这一手的那份 priv 还没到，先不动（到了会再叫一次）
