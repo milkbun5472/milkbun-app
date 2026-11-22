@@ -205,6 +205,12 @@
   [data-wk="bubble"][data-sel="1"] * { pointer-events: none; }
   /* 气泡里一长串没空格的（链接、房间号）照样折行，不撑出屏（她 2026-10-11：「气泡炸了」）。写在这里而不是内联：单聊、群聊、预览所有气泡一处管住，她自己的 CSS 想改照样盖得过 */
   [data-wk="bubble"] { overflow-wrap: anywhere; }
+  /* 页面外层那几块的 ::before／::after 只拿来铺装饰（底图、雪景、花边），永远不接手指。
+     美化删背景时常连 pointer-events:none 那一句一起删掉，剩一层透明的盖满整页，点哪儿都没反应，像卡死了
+     （群友 2026-11-22：「把圣诞主题 css 的背景删掉以后，整个界面就卡住了」）。 */
+  [data-wk="chat"]::before, [data-wk="chat"]::after, [data-wk="chathead"]::before, [data-wk="chathead"]::after,
+  [data-wk="composer"]::before, [data-wk="composer"]::after, [data-wk="offline"]::before, [data-wk="offline"]::after,
+  [data-wk="app"]::before, [data-wk="app"]::after { pointer-events: none !important; }
   input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
   /* 能长按选字拷走的正文（群里 2026-11-11：「想复制 TA 的日记和情书，不想加复制键」）：不加按钮，长按就是系统自己的选字、拷贝。要开的地方挂 data-copyable */
   [data-copyable], [data-copyable] * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
