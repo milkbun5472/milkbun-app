@@ -270,14 +270,28 @@
   }
   // 房间里每一方：「某某，TA 带来的是：甲、乙」一行一个
   //   presence：{ peerId: on / relay / fail / off }。给了就写上此刻在不在：离开的人听不见房里说话
-  const PRESENCE_ZH = { on: "此刻在房里", relay: "此刻在房里", fail: "此刻跟这边连不上，听不到房里说的话", off: "已经离开了房间，听不到房里说的话" };
+  //   watch＝她开着「旁观」：人在看，但角色当她不在——这一行只写她带来的人，不说她在场
+  const PRESENCE_ZH = { on: "此刻在房里", relay: "此刻在房里", fail: "此刻跟这边连不上，听不到房里说的话", off: "已经离开了房间，听不到房里说的话", watch: "本人此刻不在房里，听不到房里说的话" };
   function sidesLines(room, presence) {
     return (room.peers || []).map(p => {
       const names = (p.chars || []).map(c => c.name).filter(Boolean);
       const st = presence && PRESENCE_ZH[presence[p.peerId] || "off"];
+      if (presence && presence[p.peerId] === "watch") return names.length ? "\n- " + names.join("、") + "（是 " + p.nick + " 带来的，" + p.nick + " " + st + "）。" : "";
       return "\n- " + p.nick + (names.length ? "，TA 带来的是：" + names.join("、") : "，没带人") + (st ? "（" + st + "）" : "") + "。";
     }).join("");
   }
+  // 房里此刻在场的真人有几个（自己旁观不算、别人旁观/离开不算；不给 presence 就照人头算）
+  function humansHere(room, o) {
+    const ps = room.peers || [];
+    return (o.watch ? 0 : 1) + (o.presence ? ps.filter(p => o.presence[p.peerId] === "on" || o.presence[p.peerId] === "relay").length : ps.length);
+  }
+  // 房间开头那一句：自己旁观时不提她的名字、不说「带你来的人在房里」
+  function roomHead(room, o) {
+    return o.watch ? "【这里是联机房间】几台手机连在了一起，每人各带了自己的人进来，大家在同一个房间里说话。此刻房里在场的真人有 " + humansHere(room, o) + " 个。"
+      : "【这里是联机房间】" + room.myNick + " 用自己的手机和别人的手机连在了一起，房间里一共 " + (1 + (room.peers || []).length) + " 个人，每人各带了自己的人进来，大家在同一个房间里说话。";
+  }
+  // 「带你来的是谁」那一句：旁观时只说那个人此刻不在，面具名、房里用的名字一概不给
+  const bringLine = (room, char, o) => o.watch ? "带你来的人此刻不在房里，听不到房里说的话" : "带你来的是 " + youLine(room, char);
   // 面具跟着角色走（她 2026-11-22）：这个人认的是哪张面具，就按那张的名字认她；
   //   房间里大家看到的是她进房时填的昵称，两个不一样时说清「房间记录里的 X 就是她」。
   function youAlias(room, char) {
@@ -305,9 +319,8 @@
     room = normalizeRoom(room);
     const o = opts || {}, gap = sinceLast(room, o.now);
     const mine = (room.myChars || []).filter(c => c.id !== char.id).map(c => c.name);
-    const n = 1 + (room.peers || []).length;
-    return "【这里是联机房间】" + room.myNick + " 用自己的手机和别人的手机连在了一起，房间里一共 " + n + " 个人，每人各带了自己的人进来，大家在同一个房间里说话。"
-      + "\n- 带你来的是 " + youLine(room, char) + (mine.length ? "，跟你一起来的还有：" + mine.join("、") : "") + "。"
+    return roomHead(room, o)
+      + "\n- " + bringLine(room, char, o) + (mine.length ? "，跟你一起来的还有：" + mine.join("、") : "") + "。"
       + "\n另外几方：" + (sidesLines(room, o.presence) || "\n- （还没别人进来）")
       + "\n别人带来的这几位你只知道名字和他们在这里说过的话，其余的你不知道，也不用替他们补。"
       + "\n\n【房间里到现在的全部聊天】" + (o.stamp ? "（每行前面〔〕里是那句话说的时间，只是时间标记，不要写进你说的话）" : "") + "\n" + (transcript(room, Object.assign({}, o, { catalog: quoteCatalog(room, 30) })) || "（还没人说话）")
@@ -316,6 +329,12 @@
       + "\n\n【这一次】轮到你在房间里开口，接着上面的话开口，照你平时发消息的习惯：一条一个气泡，想连发几条就几条，跟在群里聊天一样。只写你说出口的话本身，不写旁白，不替别人说话。"
       + capLines(room, char, o)
       + bans();
+  }
+  // 能拍的名字：旁观的真人不在场，拍不到（自己旁观就不带自己的昵称）
+  function watchTargets(room, myNick, presence, watch) {
+    const pr = presence || {}, ps = (room && room.peers) || [];
+    return ps.filter(p => pr[p.peerId] !== "watch").map(p => p.nick)
+      .concat(((room && room.myChars) || []).map(c => c.name), ...ps.map(p => (p.chars || []).map(c => c.name)), watch ? [] : [myNick]).filter(Boolean);
   }
   // 模型交回来的几条气泡：say 数组为主；只给了一段 text 的，按空行/换行拆开
   function sayLines(d) {
@@ -329,16 +348,16 @@
   function jointInstruction(room, chars, opts) {
     room = normalizeRoom(room);
     const o = opts || {}, gap = sinceLast(room, o.now), list = (chars || []).filter(c => c && c.name);
-    const names = list.map(c => c.name), n = 1 + (room.peers || []).length;
+    const names = list.map(c => c.name);
     const others = (room.myChars || []).filter(c => names.indexOf(c.name) < 0).map(c => c.name);
-    const you = list.map(c => "\n- 带「" + c.name + "」来的是 " + youLine(room, c) + "。").join("");
+    const you = o.watch ? "\n- 带他们来的人此刻不在房里，听不到房里说的话。" : list.map(c => "\n- 带「" + c.name + "」来的是 " + youLine(room, c) + "。").join("");
     const emo = list.filter(c => (c.emotes || []).length).map(c => "\n  · " + c.name + "：" + c.emotes.slice(0, 80).join(" / ")).join("");
     const tg = (o.targets || []).filter(Boolean);
     const poll = (room.msgs || []).slice().reverse().find(m => m.type === "poll" && !m.recalled && m.x);
     const pollLine = poll ? "\"vote\":\"选项原文\"——房里那张" + (poll.x.ask ? "请示「" + poll.x.ask.what + "」（选项：准 / 驳）" : "投票「" + poll.x.title + "」（选项：" + poll.x.options.map(op => op.text).join(" / ") + "）") + "，还没投的人想投就在自己那条里填" : "";
     return (typeof groupBans === "function" ? groupBans({ echo: false }) + "\n\n" : "")
       + (typeof GROUP_MULTI_BUBBLE === "string" ? GROUP_MULTI_BUBBLE + "\n\n" : "")
-      + "【这里是联机房间】" + room.myNick + " 用自己的手机和别人的手机连在了一起，房间里一共 " + n + " 个人，每人各带了自己的人进来，大家在同一个房间里说话。"
+      + roomHead(room, o)
       + "\n这一次由你写「" + names.join("」「") + "」这几位在房间里接着往下说：写谁那一条你就是谁，像群里那样你一言我一语，接彼此的话也行、接房里别人的话也行，不是每人都得开口，同一个人也可以连发几条。"
       + you + (others.length ? "\n- 同一边带来、这一次不开口的还有：" + others.join("、") + "。" : "")
       + "\n另外几方：" + (sidesLines(room, o.presence) || "\n- （还没别人进来）")
@@ -956,7 +975,7 @@
   const Core = { BROKERS, BROKER_FAIL_TEXT, SUPA_FAIL_TEXT, JOIN_PREFIX, MqttLink, openBroker, SupaLink, signalFor, packJoin, parseJoin, cleanSupa, supaCfg, secretKey, Mesh, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
     memoryTargets, transcript, lineInstruction, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
-    ownsMsg, editMsg, recallMsg, dropMsg, dropOwnMsg, tombOwn, applyDrops, isDropped, TOMB_MAX, missingImgs, cleanQuote, quoteOf, quoteState, quoteCatalog, resolveQuote, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom, sinceRemembered, echoText,
+    ownsMsg, editMsg, recallMsg, dropMsg, dropOwnMsg, tombOwn, applyDrops, isDropped, TOMB_MAX, missingImgs, cleanQuote, quoteOf, quoteState, quoteCatalog, resolveQuote, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, humansHere, watchTargets, jointInstruction, jointLines, mergeMsgs, removeRoom, sinceRemembered, echoText,
     normalizeRoom, upsertPeer, peerOf, lastNick, ownerNick, peerNames, syncedMsg, shouldOffer, admit, forwardTargets, reachable, rid, Mesh };
   root.NetRoomCore = Core;
 
@@ -1217,7 +1236,10 @@
     const [picked, setPicked] = useState({});
     const [busy, setBusy] = useState({});
     const [withChat, setWithChat] = useState({});   // 带上 TA 最近的单聊（只进自己这边的模型，不发给别人）
-    const [peerTyping, setPeerTyping] = useState({});   // 别人哪几个角色正在输入：{ peerId|charId: 名字 }
+    const [peerTyping, setPeerTyping] = useState({});
+    // 别人谁开着「旁观」：{ peerId: true }。她们的角色照旧能开口，只是角色当她们本人不在
+    const [peerWatch, setPeerWatchS] = useState({}); const peerWatchRef = useRef({});
+    const setPeerWatch = fn => { const n = fn(peerWatchRef.current); peerWatchRef.current = n; setPeerWatchS(n); };   // 别人哪几个角色正在输入：{ peerId|charId: 名字 }
     const [net, setNet] = useState({ open: [], fail: [], reach: [] });   // 直连通着的 / 直连失败的 / 直接或经人转得到的
     const netRef = useRef({ open: [], fail: [], reach: [] }); netRef.current = net;
     const [panel, setPanel] = useState(false);       // ＋ 面板开着没
@@ -1362,6 +1384,8 @@
           const ref = w.x && (m.type === "photo" ? w.x.imageRef : w.x.url); if (!ref) return;
           updX(x => x.id === id, x => Object.assign({}, x, m.type === "photo" ? { imageRef: ref } : { url: ref }));
         });
+      } else if (e.t === "watch") {
+        setPeerWatch(x => { const n = Object.assign({}, x); if (e.on) n[origin] = true; else delete n[origin]; return n; });
       } else if (e.t === "typing" && e.id) {
         const k = origin + "|" + String(e.id).slice(0, 80), nm = String(e.name || "TA").slice(0, 20);
         setPeerTyping(x => { const n = Object.assign({}, x); if (e.on) n[k] = nm; else delete n[k]; return n; });
@@ -1396,6 +1420,7 @@
         const gs = games.current; if (!gs) return;
         ensureGames().then(() => gs.onMessage(e, origin)).catch(() => {});
       } else if (e.t === "bye") {
+        setPeerWatch(x => { const n = Object.assign({}, x); delete n[origin]; return n; });
         delete linkMap.current[origin];
         Object.keys(linkMap.current).forEach(k => { linkMap.current[k] = linkMap.current[k].filter(x => x !== origin); });
         if (!left.current.has(origin)) { left.current.add(origin); greeted.current.delete(origin); sysLine(nickOf(origin) + " 离开了房间"); }
@@ -1408,12 +1433,13 @@
       const cards = [];
       for (const c of (r.myChars || [])) { const ch = charsById[c.id]; cards.push(ch ? Core.cardOf(ch, await smallAvatar(ch)) : Core.cleanCard({ id: c.id, name: c.name })); }
       send({ t: "hi", nick: r.myNick || myNick(), chars: cards, me: await myFace(r.myNick || myNick()) });
+      send({ t: "watch", on: !!r.watch });
       send({ t: "sync", drops: (r.tombs || []).slice(-Core.TOMB_MAX), msgs: (r.msgs || []).filter(m => !m.sys).slice(-600).map(m => Core.wireMsg(Object.assign({}, m, { by: m.side === "me" ? meId.current : (m.peerId || "") }))) });
     };
     // 断了以后连回原来那个房间：房间号、谁开的都照旧，聊天记录接着往下记（她 2026-11-22）
     const rejoin = r0 => { start(!!r0.host, r0); };
     const start = (host, resume) => {
-      setErr(""); setPeerTyping({}); setNet({ open: [], fail: [], reach: [] });
+      setErr(""); setPeerTyping({}); setPeerWatch(() => ({})); setNet({ open: [], fail: [], reach: [] });
       try { mesh.current && mesh.current.close(); } catch (e) {}
       mesh.current = null; linkMap.current = {}; seen.current = new Set(); greeted.current = new Set();
       games.current = newGames(); setGameId(null);
@@ -1483,8 +1509,11 @@
       return full;
     };
     const mid = p => p + Date.now() + Math.random().toString(36).slice(2, 6);
-    const sayHuman = text => { const q = quoted; setQuoted(null); post(Object.assign({ id: mid("m"), kind: "user", name: myNick(), text, ts: Date.now() }, q ? { quote: q } : {})); };
-    const sayRich = (type, x) => post({ id: mid("m"), kind: "user", name: myNick(), type, x, text: "", ts: Date.now() });
+    // 旁观：角色当她不在场；只影响角色开口时的提示词，不会自己接话、不多花调用。她一开口就自动关掉
+    const setWatch = on => { const r = roomRef.current; if (!r || !!r.watch === !!on) return; commit(Core.patchRoom(r, { watch: !!on })); send({ t: "watch", on: !!on }); };
+    const unwatch = () => setWatch(false);
+    const sayHuman = text => { unwatch(); const q = quoted; setQuoted(null); post(Object.assign({ id: mid("m"), kind: "user", name: myNick(), text, ts: Date.now() }, q ? { quote: q } : {})); };
+    const sayRich = (type, x) => (unwatch(), post({ id: mid("m"), kind: "user", name: myNick(), type, x, text: "", ts: Date.now() }));
     // ── 红包：只是玩法，不动钱包 ──
     const myKey = charId => meId.current + "|" + (charId || "");
     const grabMine = (rpId, who) => {
@@ -1747,7 +1776,10 @@
         onOpen: () => openGame(x.gid) };
     };
     // ── 角色开口：一次连发的几条算一轮（turnId），能整轮重新说 ──
-    const presence = () => { const o = {}; ((roomRef.current && roomRef.current.peers) || []).forEach(p => { o[p.peerId] = netRef.current.open.indexOf(p.peerId) >= 0 ? "on" : netRef.current.reach.indexOf(p.peerId) >= 0 ? "relay" : netRef.current.fail.indexOf(p.peerId) >= 0 ? "fail" : "off"; }); return o; };
+    const presence = () => { const o = {}; ((roomRef.current && roomRef.current.peers) || []).forEach(p => { const st = netRef.current.open.indexOf(p.peerId) >= 0 ? "on" : netRef.current.reach.indexOf(p.peerId) >= 0 ? "relay" : netRef.current.fail.indexOf(p.peerId) >= 0 ? "fail" : "off";
+      o[p.peerId] = (st === "on" || st === "relay") && peerWatchRef.current[p.peerId] ? "watch" : st; }); return o; };
+    const watchNow = () => !!(roomRef.current && roomRef.current.watch);
+    const talkTargets = r => Core.watchTargets(r, myNick(), presence(), watchNow());
     const speak = async (c, rerollId) => {
       const char = charsById[c.id];
       if (!char || busy[c.id]) return;
@@ -1768,7 +1800,7 @@
         const emotes = props.emotesFor ? props.emotesFor(char.id) : [];
         const d = await runProbe(p, ctx, { voice: true, tag: "netroom",
           instruction: Core.lineInstruction(cur, { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" },
-            { stamp: props.stampFor ? ts => props.stampFor(char.id, ts) : null, now: Date.now(), game: gameStateFor(char.id), presence: presence(), emotes: emotes.map(e => e.keyword), targets: patTargets(cur).concat([myNick()]) }),
+            { stamp: props.stampFor ? ts => props.stampFor(char.id, ts) : null, now: Date.now(), game: gameStateFor(char.id), presence: presence(), watch: watchNow(), emotes: emotes.map(e => e.keyword), targets: talkTargets(cur) }),
           schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"],\"quote\":\"（可选）Q编号\",\"emote\":\"（可选）\",\"pat\":\"（可选）\",\"vote\":\"（可选）\"}", maxTokens: 12000 });
         // 一次连发几条（她 2026-11-22：「为啥角色一次只会说一句话」）；老格式 text 也认
         const lines = Core.sayLines(d);
@@ -1780,7 +1812,7 @@
         const em = ekw && props.emoteFor ? props.emoteFor(char.id, ekw) : null;
         if (em) list.push(Object.assign(base(), { type: "emote", x: Object.assign({ keyword: em.keyword, url: em.url }, await emoteWire(em.url)) }));
         const pt = d && typeof d.pat === "string" ? d.pat.trim() : "";
-        if (pt && pt !== nm && patTargets(cur).concat([myNick()]).indexOf(pt) >= 0) list.push(Object.assign(base(), { type: "pat", x: { to: pt } }));
+        if (pt && pt !== nm && talkTargets(cur).indexOf(pt) >= 0) list.push(Object.assign(base(), { type: "pat", x: { to: pt } }));
         if (!list.length) throw new Error("TA 没想好说什么，再点一次");
         const vt = d && typeof d.vote === "string" ? d.vote.trim() : "";
         if (vt) { const pl = (cur.msgs || []).slice().reverse().find(x => x.type === "poll" && !x.recalled && x.x);
@@ -1819,10 +1851,10 @@
         const cur = rerollId ? Object.assign({}, r0, { msgs: (r0.msgs || []).filter(x => x.turnId !== rerollId) }) : r0;
         const recall = (cur.msgs || []).filter(m => !m.sys && !m.recalled).slice(-8).map(m => String(m.text || "")).join("\n");
         const cast = await props.castFor(mine.map(c => ({ id: c.id, recent: !!c.recent })), recall);
-        const targets = patTargets(cur).concat([myNick()]);
+        const targets = talkTargets(cur);
         const sys = Core.jointInstruction(cur, mine.map(c => ({ id: c.id, name: c.name, you: props.youFor ? props.youFor(c.id) : "",
           emotes: (props.emotesFor ? props.emotesFor(c.id) : []).map(e => e.keyword) })),
-          { stamp: props.stampFor ? ts => props.stampFor(lead.id, ts) : null, now: Date.now(), presence: presence(), targets, cast, game: gameStateFor(null) });
+          { stamp: props.stampFor ? ts => props.stampFor(lead.id, ts) : null, now: Date.now(), presence: presence(), watch: watchNow(), targets, cast, game: gameStateFor(null) });
         // 料全在 system，user 只留一句触发（prompt-send-shape）；几个人各说几条，按人数给足
         const raw = await callAI(p, sys, [{ role: "user", content: "接着房里的话往下说。" }], { use: "chat", logLabel: "联机·一起说", maxTokens: Math.min(32000, 12000 + 4000 * mine.length) });
         const people = mine.map(c => charsById[c.id]);
@@ -2048,7 +2080,13 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
             // 一起说：带了两个以上的人才有；一次调用让他们像群里那样轮流接话
             myChars.length > 1 && props.castFor && h("button", { "data-wk": "nrtogether", disabled: myChars.some(c => busy[c.id]) || alone, onClick: () => speakTogether(myChars.map(c => c.id)),
               className: "active:opacity-60 disabled:opacity-40", style: { flexShrink: 0, minHeight: 32, padding: "0 10px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.ink } },
-              myChars.some(c => busy[c.id]) ? "在想…" : "一起说")),
+              myChars.some(c => busy[c.id]) ? "在想…" : "一起说"),
+            // 旁观：角色看不见我。还是点头像才开口，只是 TA 们当我不在房里
+            h("button", { "data-wk": "nrwatch", "data-on": room && room.watch ? "1" : "0", onClick: () => setWatch(!(room && room.watch)),
+              className: "active:opacity-60", style: { flexShrink: 0, minHeight: 32, padding: "0 10px", borderRadius: 16, border: "1px solid " + (room && room.watch ? t.ink : t.line), background: room && room.watch ? t.ink : "transparent", color: room && room.watch ? t.bg : t.ink, fontFamily: F_BODY, fontSize: fs(11.5) } },
+              room && room.watch ? "✓ 旁观中" : "旁观")),
+          room && room.watch && h("div", { "data-wk": "nrwatchnote", style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, paddingBottom: 6, lineHeight: 1.5 } },
+            "旁观中：角色当你不在房里，照样点头像让 TA 说。你一发消息就自动退出旁观。"),
           h(Composer, { onSend: sayHuman, disabled: alone, fillRef, plusOn: panel, onPlus: () => setPanel(v => !v) }))); };
     if (page === "chat" && room) {
       const myChars = (room.myChars || []);
@@ -2058,7 +2096,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         .concat(Object.keys(peerTyping).map(k => h(Note, { key: "p" + k }, peerTyping[k] + " 正在输入…")));
       // 房里每个人一格：在线 / 直连不上（别人在转）/ 连不上 / 离开了
       const stateOf = id => net.open.indexOf(id) >= 0 ? "on" : net.reach.indexOf(id) >= 0 ? "relay" : net.fail.indexOf(id) >= 0 ? "fail" : "off";
-      const stateText = { on: "在线", relay: "直连不上，别人在帮你们转", fail: "和她连不上", off: "离开了" };
+      const stateText = { on: "在线", relay: "直连不上，别人在帮你们转", fail: "和她连不上", off: "离开了", watch: "在旁观" };
       const peers = room.peers || [];
       const trouble = peers.filter(p => stateOf(p.peerId) === "fail" || stateOf(p.peerId) === "relay");
       const gp = gameParts();
@@ -2087,7 +2125,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
             h("button", { "data-wk": "nrleave", onClick: () => setPage("leave"), style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(13), color: t.ink } }, "退出")) }),
         peers.length > 0 && h("div", { "data-wk": "nrpeerbar", className: "shrink-0", style: { padding: "6px 14px", borderBottom: "1px solid " + t.line, display: "flex", flexWrap: "wrap", gap: "4px 12px" } },
           peers.map(p => { const st = stateOf(p.peerId); return h("span", { key: p.peerId, "data-wk": "nrpeer", "data-state": st, style: { fontFamily: F_BODY, fontSize: fs(11.5), color: st === "on" ? t.ink : t.fog } },
-            (st === "on" ? "● " : "○ ") + p.nick + (st === "on" ? "" : " · " + stateText[st])); }),
+            (st === "on" ? "● " : "○ ") + p.nick + (st === "on" ? (peerWatch[p.peerId] ? " · " + stateText.watch : "") : " · " + stateText[st])); }),
           trouble.length > 0 && h("div", { style: { width: "100%", fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
             "和 " + trouble.map(p => p.nick).join("、") + " 直连不上：" + (trouble.some(p => stateOf(p.peerId) === "relay") ? "话由房里其他人转过去，可能慢一点。" : "她收不到你的话。两边都换成 Wi-Fi 再试。"))),
         tablesBar(),
