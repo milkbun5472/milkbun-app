@@ -22601,7 +22601,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const meName = userName(profileFor(char.id));
     const stamp = ts => {
       if (!ts) return "";
-      const d = new Date(ts);
+      // 照他的钟显示（群里 2026-11-22「时间显示的好像是现实时间，正常应该显示 10 月 31 日晚上」）：开了虚拟时间就换成那边的钟点
+      const d = new Date(typeof vclockMap === "function" ? vclockMap(ts, char && char.id) : ts);
       return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
     };
     // 表情包那几栏要跟着过去（她 2026-09-15：「微信聊天里面的表情包能不能也渲染成
@@ -22655,7 +22656,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const last = messages[messages.length - 1];
       // 删着好友（她 2026-11-08）：他手机上跟她那段的最后一行灰字，跟真微信一样
       if (friendCut(char.id)) { const _b = blocksRef.current[char.id] || {}; messages.push({ kind: "sysline", from: "", text: _b.deleted ? "对方已将你删除" : "你已删除对方", ts: Date.now() }); }
-      sessions.push({ id: "actual:private:" + char.id, type: "private", name: meName, avatarImage: char.myChatAvatar || profile.avatarImage, time: stamp(last.ts), last: last.text, ts: last.ts, messages });   // 情头给你的那张跟着进他手机
+      sessions.push({ id: "actual:private:" + char.id, type: "private", name: meName, avatarImage: char.myChatAvatar || profile.avatarImage, time: stamp(last.ts), _ts: typeof vclockMap === "function" ? vclockMap(last.ts, char && char.id) : last.ts, last: last.text, ts: last.ts, messages });   // 情头给你的那张跟着进他手机
     }
     for (const group of groups) {
       const memberIds = group.memberIds || [];
@@ -22687,7 +22688,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       //（她 2026-09-03 报：「已有npc头像会变成TA自己的」）。
       // 微信的群头像是成员拼图，无论如何都不会只是「你」。
       const groupAvatar = group.avatarImage || group.avatar || (others.find(c => c.avatarImage) || {}).avatarImage;
-      const session = { id: "actual:group:" + group.id, type: spectatePrivate ? "private" : "group", name: spectatePrivate && other ? (other.remark || other.name) : (group.name || "群聊"), avatarImage: spectatePrivate && other ? other.avatarImage : groupAvatar, time: stamp(last.ts), last: last.text, ts: last.ts, messages,
+      const session = { id: "actual:group:" + group.id, type: spectatePrivate ? "private" : "group", name: spectatePrivate && other ? (other.remark || other.name) : (group.name || "群聊"), avatarImage: spectatePrivate && other ? other.avatarImage : groupAvatar, time: stamp(last.ts), _ts: typeof vclockMap === "function" ? vclockMap(last.ts, char && char.id) : last.ts, last: last.text, ts: last.ts, messages,
         // 群里这几个真人的所有叫法，带给避重名单用（群名本身不是人名，不带）
         memberNames: others.reduce((a, c) => a.concat([c.name, c.remark, netOf(c)]), []).filter(Boolean) };
       // 频道（她 2026-11-20「查手机里面频道也能显示到他手机里面吗」）：同一个空间的几个频道在他微信里收成一行，点进去才分频道；文件只给名字和谁动过
