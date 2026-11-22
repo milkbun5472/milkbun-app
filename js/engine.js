@@ -12601,13 +12601,20 @@ const DIARY_SKELETON = [
 "",
 "【位置 location】写这篇时你所在的地方，可以是城市（如 SHANGHAI, CN）也可以是具体场所。给了今天的行程，就按此刻你会在哪来判断。coords：写城市时给一串经纬度（如 31.230°N, 121.473°E），写具体场所时填 null。weather：一个简短的天气＋温度（如 OVERCAST 28°C）。"
 ].join("\n");
+// 模型回来的东西没认出来时，跟在报错后面那一句（她 2026-11-22「别的 app 有没有同样的问题」）：
+//   回空＝多半被拦截或超时；有东西＝把开头几个字带出来，看得出它到底回了什么。所有「没写出来」的报错都接这一份
+function rawWhy(raw) {
+  const t = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim();
+  return t ? "（模型回的开头是：「" + t.slice(0, 40) + "」）" : "（模型回空了，多半是被拦截或超时）";
+}
+if (typeof window !== "undefined") window.rawWhy = rawWhy;
 // 日记回来的东西怎么认（她 2026-11-22「日记这种是不是容易解析失败然后啥都不返回也看不到原因，能不能加几层兜底」）：
 //   ① 正常 JSON 有 paras；② JSON 里正文换了个名字（content/body/text/diary，字符串或数组）也收；
 //   ③ 根本没给 JSON、给了一整段正文——按空行／换行拆成段落照样存成一篇；
 //   ④ 回空、或者只有几个字：说清是哪一种，并把开头原话带出来，别只说「解析失败」
 function diaryFromRaw(raw) {
   const text = String(raw == null ? "" : raw).trim();
-  if (!text) throw new Error("模型回空了（多半是被拦截或超时），换个模型或重试");
+  if (!text) throw new Error("日记没写成" + rawWhy(text) + "，换个模型或重试");
   const toParas = v => (Array.isArray(v) ? v.map(x => typeof x === "string" ? x : (x && (x.text || x.content)) || "") : String(v || "").split(/\n\s*\n|\n/))
     .map(x => String(x || "").trim()).filter(Boolean);
   const parsed = extractJSON(text);
@@ -12620,7 +12627,7 @@ function diaryFromRaw(raw) {
   const prose = text.replace(/^```[a-z]*\s*|```$/gi, "").replace(/^\s*[{[][\s\S]*$/, "").trim();
   const ps = toParas(prose).filter(x => !/^["{}\[\],:]+$/.test(x));
   if (ps.join("").length >= 40) return { paras: ps, titleZh: "", titleEn: "", signature: "", _salvaged: true };
-  throw new Error("没认出日记（模型回的开头是：「" + text.replace(/\s+/g, " ").slice(0, 40) + "」），可重试或换模型");
+  throw new Error("没认出日记" + rawWhy(text) + "，可重试或换模型");
 }
 if (typeof window !== "undefined") window.diaryFromRaw = diaryFromRaw;
 async function generateDiary(p, ctx, opts = {}) {

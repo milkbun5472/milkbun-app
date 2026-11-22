@@ -292,7 +292,7 @@
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
     const opts = normOptions(p.options);
-    if (!p.scene || !opts) throw new Error("梦没成形，重试");
+    if (!p.scene || !opts) throw new Error("梦没成形，重试" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
     return { text: String(p.scene).trim(), options: opts, chosen: null, cot: sp.cot };
   }
 
@@ -315,7 +315,7 @@
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
     const opts = normOptions(p.options);
-    if (!p.scene || !opts) throw new Error("梦没接上，重试");
+    if (!p.scene || !opts) throw new Error("梦没接上，重试" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
     return { text: String(p.scene).trim(), options: opts, chosen: null, cot: sp.cot, final: forceFinal || !!p.final };
   }
 
@@ -381,7 +381,7 @@
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
     const opts = normStruggleOptions(p.options);
-    if (!p.scene || !opts) throw new Error("梦没撑住，重试");
+    if (!p.scene || !opts) throw new Error("梦没撑住，重试" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
     return { text: String(p.scene).trim(), options: opts, chosen: null, cot: sp.cot, struggle: true, resistText };
   }
   // ---- 模型：直面（第四种结局）——挣扎那一幕选对了，Ta 站在了那个东西面前 ----

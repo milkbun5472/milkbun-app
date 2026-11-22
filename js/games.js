@@ -3060,7 +3060,7 @@
       callRetry(api, sys, [{ role: "user", content: "【这个人】" + s.name + "\n【人设】" + (persona || "（没写人设，照名字和一般人估）").slice(0, 1600) }], { maxTokens: 65000, tag: (ev.zh || "小游戏") + "·能力评估" })
         .then(function (raw) {
           const d = extractJSON(raw) || {}; const text = String(d.skill || "").trim();
-          if (!text) throw new Error("没评出来，再点一次");
+          if (!text) throw new Error("没评出来，再点一次" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
           const all = loadJSON(GAME_SKILL_KEY, {}) || {}; all[ev.key] = Object.assign({}, all[ev.key] || {}, { [id]: { text: text, n: stamp } }); saveJSON(GAME_SKILL_KEY, all);
           setSkill(text);
         }).catch(function (e) { setErr(String((e && e.message) || e)); }).finally(function () { setBusy(false); });
@@ -6879,7 +6879,7 @@
           + "\n只输出 JSON：{\"words\":[\"词\"]}，二十个左右。";
         const raw = await callRetry(api, sys, [{ role: "user", content: "出一批。" }], { maxTokens: 8000, tag: "你画我猜·出词" });
         const got = ((extractJSON(raw) || {}).words || []).map(function (w) { return String(w || "").trim().slice(0, 12); }).filter(Boolean);
-        if (!got.length) throw new Error("没生成出来");
+        if (!got.length) throw new Error("没生成出来" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
         const n = { words: Array.from(new Set(pool.words.concat(got))).slice(-300), theme: theme.trim() };
         setPool(n); saveDrawPool(n);
         if (props.toast) props.toast("加了 " + got.length + " 个词");
@@ -6921,7 +6921,7 @@
         const raw = await callRetry(api, sys, [{ role: "user", content: "画下一段。" }], { maxTokens: 9000, tag: "你画我猜·画" });
         const p = extractJSON(raw) || {};
         const strokes = parseStrokes(p.strokes);
-        if (!strokes.length) throw new Error("这一段没画出来");
+        if (!strokes.length) throw new Error("这一段没画出来" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
         const list = have.concat([{ strokes: strokes, say: String(p.say || "").trim().slice(0, 120) }]);
         const done = !!p.done || list.length >= STEP_MAX;
         setSegs(list); setStepDone(done);

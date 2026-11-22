@@ -359,7 +359,7 @@
     const tags = (Array.isArray(d.tags) ? d.tags : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 3);
     const quote = String(d.quote || "").trim();
     const S30 = (v, n) => String(v || "").trim().slice(0, n);
-    if (!quote || !tags.length || !String(d.silhouette || "").trim()) throw new Error("这个月的印象没写全（可能被截断），再试一次");
+    if (!quote || !tags.length || !String(d.silhouette || "").trim()) throw new Error("这个月的印象没写全（可能被截断），再试一次" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
     // 新三格不参与"写全了没有"的判定：一格空着也还是一张能看的卡，
     // 为了它整张作废、连剪影那一枪都白跑，不划算（截断照旧由 silhouette 那个哨兵兜）。
     return { title: String(d.title || "").trim(), tags, quote, moment: S30(d.moment, 240), shift: S30(d.shift, 240),

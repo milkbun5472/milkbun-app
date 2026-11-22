@@ -2666,7 +2666,7 @@ function App() {
       const raw = await callAI(bgActive, sys, [{ role: "user", content: "【角色设定】\n" + String(activeChar.persona || activeChar.prompt || "") + (anchorsNow && anchorsNow.length ? "\n【" + userName(profile) + " 当前保留的词】\n" + anchorsNow.join("、") : "") }], { maxTokens: 14000 });
       const parsed = extractJSON(raw) || {}, words = Array.isArray(parsed.anchors) ? parsed.anchors : [];
       const next = window.DongnianEmotionA.temperamentFromAnchors(words, false);
-      if (!next.anchors.length) throw new Error("没有提取到可用的性情词");
+      if (!next.anchors.length) throw new Error("没有提取到可用的性情词" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
       setTemperamentDraft(next);
       toast("性情草稿已生成 · 还没有保存");
     } catch (e) { toast("性情草稿失败：" + (e.message || e)); }
@@ -5180,7 +5180,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const sys = "下面是一批记忆条目，给每条标注情绪与状态：v=愉悦度(整数-5~5，负=难过/生气/难堪，0=中性事实，正=开心/温暖/心动)；a=情绪强度(整数0~5，0=平淡事实，5=强烈动情/激烈冲突/刻骨)；open=是不是【还没了结且值得持续惦记的开环】。只有明确答应对方/共同约好尚未兑现、没和好的争执、悬着的关系心事、在等的重要结果才是 true；普通未来安排（吃饭、洗澡、上班、健身等）一律 false。\n【输出】只输出 JSON 数组，按序号每条一个对象：[{\"i\":1,\"v\":0,\"a\":1,\"open\":false}]，i 对应上面的序号。";
       const raw = await callAI(bgActive, sys, [{ role: "user", content: listText }], { maxTokens: Math.min(20000, 8500 + batch.length * 60) });
       const arr = extractJSON(raw);
-      if (!Array.isArray(arr)) throw new Error("解析失败，重试");
+      if (!Array.isArray(arr)) throw new Error("解析失败，重试" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
       const byIdx = {};
       arr.forEach(o => { if (o && typeof o.i === "number") byIdx[o.i] = o; });
       let n = 0;
@@ -38184,7 +38184,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!active) throw new Error("请先到设置配置 API");
       const raw = await callAI(apiFor(chars[0].id), instruction + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 12000, tag: "live" });
       const d = extractJSON(raw);
-      if (!d) throw new Error("这一拍没写出来，再发一次");
+      if (!d) throw new Error("这一拍没写出来，再发一次" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
       return d;
     },
     // 几个人一枪写完时每人那一段（直播间观众、片刻评论区）。
@@ -38291,7 +38291,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const route = (routePicked(bgApiId) && bgActive) ? bgActive : (charId ? apiFor(charId) : active);
         const raw = await callAI(route, system + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 12000, tag: "shua" });
         const d = extractJSON(raw);
-        if (!d) throw new Error("这一批没写出来，再点一次");
+        if (!d) throw new Error("这一批没写出来，再点一次" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
         return d;
       },
       canDraw: typeof imgApiReady === "function" && imgApiReady(),

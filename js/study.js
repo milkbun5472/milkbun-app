@@ -1729,7 +1729,7 @@
     const byDate = {}; (Array.isArray(d.days) ? d.days : []).forEach(function (x) { if (x && x.date && x.task) byDate[String(x.date)] = String(x.task).trim().slice(0, 80); });
     const keep = {}; prev.forEach(function (x) { if (x && x.date < todayK) keep[x.date] = x; });
     const days = Object.keys(keep).sort().map(function (k) { return keep[k]; }).concat(dates.map(function (k) { return { date: k, task: byDate[k] || "（这天没排上，跟老师说一声再排）" }; }));
-    if (!Object.keys(byDate).length) throw new Error("老师这回没排出来，再试一次");
+    if (!Object.keys(byDate).length) throw new Error("老师这回没排出来，再试一次" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
     return { amount: String(ask.amount || "").slice(0, 400), deadline: ask.deadline, offDays: (ask.offDays || []).map(Number), say: String(d.say || "").trim().slice(0, 300),
       days: days, remind: ask.prev ? ask.prev.remind !== false : true, ts: Date.now() };
   }

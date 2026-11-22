@@ -1,7 +1,7 @@
 // 日记回来的东西怎么认（她 2026-11-22「容易解析失败然后啥都不返回也看不到原因，能不能加几层兜底」）
 const test = require("node:test"); const assert = require("node:assert"); const fs = require("fs"); const path = require("path");
 const src = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
-const c = src.indexOf("function diaryFromRaw"), d = src.indexOf("if (typeof window", c);
+const c = src.indexOf("function rawWhy"), d = src.indexOf("if (typeof window", src.indexOf("function diaryFromRaw"));
 const f = new Function("extractJSON", src.slice(c, d) + ";return diaryFromRaw;")(t => { try { const m = t.match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : null; } catch (e) { return null; } });
 test("正常 JSON 原样", () => assert.deepStrictEqual(f('{"paras":["a"]}').paras, ["a"]));
 test("正文换了个字段名也收", () => assert.deepStrictEqual(f(JSON.stringify({ content: "第一段\n\n第二段写得长一点" })).paras, ["第一段", "第二段写得长一点"]));
