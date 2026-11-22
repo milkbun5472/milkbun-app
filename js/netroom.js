@@ -124,6 +124,14 @@
     return upsertRoom(Object.assign({}, room, { msgs: (room.msgs || []).concat([msg]) }));
   }
   function patchRoom(room, patch) { return upsertRoom(Object.assign({}, room, patch)); }
+  // 重新连上以后，对面把 TA 那边说过的话整份再发一遍：这边缺的补上、有的不重复，按时间排回去
+  function mergeMsgs(room, list) {
+    const have = new Set((room.msgs || []).map(m => m.id));
+    const add = (list || []).filter(m => m && m.id && !have.has(m.id));
+    if (!add.length) return room;
+    const msgs = (room.msgs || []).concat(add).sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
+    return upsertRoom(Object.assign({}, room, { msgs }));
+  }
   // 退出那张卡：勾了谁就只记谁；勾的必须是我自己带来的人（对面的人不归我记）
   function memoryTargets(myChars, picks) {
     const p = picks || {};
@@ -275,6 +283,7 @@
           link && link.publish(topic, { from: me, to: m.from, t: "offer", sdp: pc.localDescription.sdp });
         } else if (!o.host && m.t === "offer" && m.to === me && !pc) {
           if (hello) { clearInterval(hello); hello = null; }
+          startClock();
           o.onStatus && o.onStatus("找到房间了，正在接通…");
           mkPc(); pc.ondatachannel = ev => wire(ev.channel);
           await pc.setRemoteDescription({ type: "offer", sdp: m.sdp });
@@ -293,7 +302,9 @@
       await link.subscribe(topic);
       if (o.host) { o.onStatus && o.onStatus("等对方输入房间号…"); }
       else {
-        startClock(); o.onStatus && o.onStatus("正在找房间…");
+        // 重新连回原来的房间（patient）：对方可能还没点「重新连上」，先一直等，等到 TA 应了才开始计时
+        if (!o.patient) startClock();
+        o.onStatus && o.onStatus(o.patient ? "等对方也点「重新连上」…" : "正在找房间…");
         const say = () => link && link.publish(topic, { from: me, t: "hello" });
         say(); hello = setInterval(say, 2500);
       }
@@ -303,7 +314,7 @@
 
   const Core = { BROKERS, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
-    memoryTargets, transcript, lineInstruction, memoryInstruction, sayLines };
+    memoryTargets, transcript, lineInstruction, memoryInstruction, sayLines, mergeMsgs };
   root.NetRoomCore = Core;
 
   // ───────────── 页面 ─────────────
@@ -401,22 +412,45 @@
         commit(Core.patchRoom(r, { peerNick: String(m.nick || "对方").slice(0, 20), peerChars: (m.chars || []).slice(0, 8).map(Core.cleanCard) }));
       } else if (m.t === "msg" && m.m) {
         commit(Core.addMsg(r, Object.assign(Core.wireMsg(m.m), { side: "peer" })));
+      } else if (m.t === "sync" && Array.isArray(m.msgs)) {
+        commit(Core.mergeMsgs(r, m.msgs.slice(-300).map(x => Object.assign(Core.wireMsg(x), { side: "peer" }))));
       } else if (m.t === "typing" && m.id) {
         const id = String(m.id).slice(0, 80), nm = String(m.name || "TA").slice(0, 20);
         setPeerTyping(x => { const n = Object.assign({}, x); if (m.on) n[id] = nm; else delete n[id]; return n; });
       } else if (m.t === "bye") { setGone(true); setPeerTyping({}); }
     };
-    const start = host => {
-      setErr(""); setGone(false);
-      const c = host ? Core.newCode() : String(joinCode).trim();
+    // 进房（或重新进房）以后报一次到：名片 + 我这边说过的话（对面断线时漏掉的，靠这一份补上）
+    const checkIn = async r => {
+      const cards = [];
+      for (const c of (r.myChars || [])) { const ch = charsById[c.id]; cards.push(ch ? Core.cardOf(ch, await smallAvatar(ch)) : Core.cleanCard({ id: c.id, name: c.name })); }
+      send({ t: "hi", nick: r.myNick || myNick(), chars: cards });
+      send({ t: "sync", msgs: (r.msgs || []).filter(m => m.side === "me").slice(-300).map(Core.wireMsg) });
+    };
+    // 断了以后连回原来那个房间：房间号、谁开的都照旧，聊天记录接着往下记（她 2026-11-22）
+    const rejoin = r0 => {
+      try { chan.current && chan.current.close(); } catch (e) {} try { pcRef.current && pcRef.current.close(); } catch (e) {}
+      chan.current = null; pcRef.current = null;
+      start(!!r0.host, r0);
+    };
+    const start = (host, resume) => {
+      setErr(""); setGone(false); setPeerTyping({});
+      const c = resume ? resume.code : host ? Core.newCode() : String(joinCode).trim();
       if (!host && !Core.validCode(c)) { setErr("房间号是 6 位数字"); return; }
       setCode(c); setPage("wait"); setStatus("正在连…");
-      conn.current = connectRoom({ code: c, host,
+      conn.current = connectRoom({ code: c, host, patient: !!resume,
         onStatus: setStatus,
         onFail: text => { setErr(text); setPage("home"); conn.current = null; },
         onOpen: (ch, pc) => {
           chan.current = ch; pcRef.current = pc; conn.current = null;
           ch.onmessage = ev => onWire(ev.data);
+          // 只认眼下这条线断了：重新连上时手动关掉的旧线不该把新房间标成「对方已离开」
+          ch.onclose = () => { if (chan.current === ch) setGone(true); };
+          if (resume) {
+            const base = Core.loadRooms().find(x => x.id === resume.id) || resume;
+            const r = Core.patchRoom(base, { endedAt: 0 });
+            commit(r); entered.current = true; setPage("chat"); checkIn(r);
+            return;
+          }
           const r = { id: "nr_" + Date.now(), code: c, host, startedAt: Date.now(), endedAt: 0, myNick: myNick(), peerNick: "对方",
             myChars: [], peerChars: [], msgs: [], remembered: {} };
           commit(Core.upsertRoom(r)); setPage("pick");
@@ -528,6 +562,9 @@
         h(Head, { zh: "房间 " + room.code, sub: "和 " + room.peerNick + (gone ? " · 对方已离开" : ""), onBack: () => setPage("leave"),
           right: h("button", { "data-wk": "nrleave", onClick: () => setPage("leave"), style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(13), color: t.ink } }, "退出") }),
         h(MsgList, { room, myCharsById: charsById, tail }),
+        gone && h("div", { "data-wk": "nrrejoinbar", className: "shrink-0 flex items-center", style: { gap: 10, padding: "8px 14px", borderTop: "1px solid " + t.line, background: t.bg2 } },
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: fs(12.5), color: t.fog, lineHeight: 1.5 } }, "断开了。两边都点「重新连上」，就回到这个房间接着聊，刚才的记录都在。"),
+          h(Btn, { label: "重新连上", primary: true, onClick: () => rejoin(room), wk: "nrrejoin" })),
         h("div", { "data-wk": "nrcomposer", className: "shrink-0", style: { borderTop: "1px solid " + t.line, background: t.bg, padding: "8px 12px", paddingBottom: COMPOSER_PAD_BOTTOM } },
           myChars.length > 0 && h("div", { className: "flex items-center", style: { gap: 10, paddingBottom: 8, overflowX: "auto" } },
             h("span", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, flexShrink: 0 } }, "点谁谁说"),
@@ -565,6 +602,9 @@
           (r.myChars || []).length > 0 && h("div", { className: "shrink-0", style: { padding: "10px 14px", borderBottom: "1px solid " + t.line, display: "flex", flexWrap: "wrap", gap: 8 } },
             (r.myChars || []).map(c => h(Btn, { key: c.id, wk: "nrfill", disabled: saving || !charsById[c.id],
               label: (r.remembered || {})[c.id] ? c.name + " 已记过 · 再记一次" : "记进 " + c.name + " 的记忆", onClick: () => fill(c.id) }))),
+          h("div", { className: "shrink-0", style: { padding: "10px 14px", borderBottom: "1px solid " + t.line } },
+            h(Btn, { label: "重新连上这个房间", primary: true, wide: true, onClick: () => { setNick(r.myNick || nick); rejoin(r); }, wk: "nrrejoin" }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "对方也要在 TA 那边的「以前的房间」里点开这个房间、点「重新连上」，两边碰上就接着聊，记录接在后面。")),
           h(MsgList, { room: r, myCharsById: charsById })));
     }
 

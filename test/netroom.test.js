@@ -131,3 +131,14 @@ test("带上最近单聊只在勾了的人身上；对面看得到正在输入",
   assert.ok(/t: "typing"/.test(src) && /m\.t === "typing"/.test(src), "收发正在输入");
   assert.ok(/finally \{ typing\(false\)/.test(src), "说完或失败都熄灭");
 });
+
+test("重新连上：对面补发的话缺的补上、有的不重复、按时间排；等对方时不计时", () => {
+  const { C } = load();
+  let r = C.upsertRoom({ id: "r1", code: "123456", host: true, msgs: [{ id: "a", ts: 1, side: "me" }, { id: "c", ts: 3, side: "me" }] });
+  r = C.mergeMsgs(r, [{ id: "b", ts: 2, side: "peer" }, { id: "c", ts: 3, side: "peer" }]);
+  assert.deepStrictEqual(r.msgs.map(m => m.id), ["a", "b", "c"]);
+  assert.strictEqual(C.loadRooms()[0].msgs.length, 3);
+  assert.ok(/if \(!o\.patient\) startClock\(\)/.test(src), "重新连上时先不计时");
+  assert.ok(/t: "sync"/.test(src) && /m\.t === "sync"/.test(src), "两边互补漏掉的话");
+  assert.ok(/if \(chan\.current === ch\) setGone\(true\)/.test(src), "旧线关掉不误报离开");
+});
