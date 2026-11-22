@@ -4359,7 +4359,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 总结卡上记着那场散的时间；老卡没记，就按 ofs 去往期里找那一场
   const offEndOfCard = m => { if (!m) return 0; if (m.offEnd) return m.offEnd; try { const id = m.ofs; if (!id) return 0;
     for (const k of Object.keys(offlinesRef.current || {})) { const x = ((offlinesRef.current || {})[k] || []).find(s0 => s0 && s0.id === id); if (x) return offSessEnd(x); } } catch (e) {} return 0; };
-  const offEndWords = ts => { const d = new Date(ts), n = new Date(), hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  const offEndWords = (ts, id) => { const d = vDate(ts, id), n = vDate(Date.now(), id), hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
     const day = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(), y = new Date(n.getTime() - 86400000);
     return day(d, n) ? "今天 " + hm : day(d, y) ? (d.getHours() >= 18 ? "昨晚 " : "昨天 ") + hm : (d.getMonth() + 1) + "月" + d.getDate() + "日 " + hm; };
   const offAgoWords = ms => { const m0 = Math.round(ms / 60000); return m0 < 60 ? m0 + " 分钟" : m0 < 48 * 60 ? Math.round(m0 / 60) + " 个小时" : Math.round(m0 / 1440) + " 天"; };
@@ -7129,7 +7129,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!en) return;
         const txt = en.paras.filter(p => p && !p.secret).map(p => String(p.text || "").trim()).filter(Boolean).join(" ").replace(/\s+/g, " ").slice(0, 320);
         if (!txt) return;
-        const dt = new Date(en.ts);
+        const dt = vDate(en.ts, char.id);
         out.push("· " + (dt.getMonth() + 1) + "月" + dt.getDate() + "日的日记" + (en.mood ? "（那天心情：" + en.mood + "）" : "") + "：" + txt);
       });
       return out.length ? "\n【你自己日记里写过的·那几天】这是你当时在自己日记里对那天的看法，你记得自己写过。事实以记忆库和聊天记录为准，日记里写的跟它们对不上时以它们为准；"
@@ -11740,7 +11740,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             // 才跑一次，不是一天一次：聊得少的那几天不会单独出一段，它们会并进
             // 下一次跑出来的那一段里。原来只盖一个「今天」的戳，于是那几天看着像丢了
             // ——其实一条都没少，是戳写错了。改成写真实区间，断层就自己说清楚了。
-            const dz = ts => { const x = new Date(ts); return (x.getMonth() + 1) + "月" + x.getDate() + "日"; };
+            const dz = ts => { const x = vDate(ts, charId); return (x.getMonth() + 1) + "月" + x.getDate() + "日"; };
             const stamps = toSummarize.map(m => m && m.ts).filter(x => typeof x === "number" && x > 0);
             const from = stamps.length ? dz(Math.min.apply(null, stamps)) : "";
             const to = stamps.length ? dz(Math.max.apply(null, stamps)) : dz(Date.now());
@@ -11988,7 +11988,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const cut = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
     const uN = userName(profile);
     // 日子都写上（她 2026-10-01：「他好像不知道日记日期和现在日期」）
-    const md = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
+    const md = ts => { if (!ts) return ""; const d = vDate(ts, viewerId); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };   // 翻她手机的是 TA：日子照 TA 那只钟
     const last = peekLastOf(viewerId);
     const seenWho = new Set(last.who || []);
     const out = [];
@@ -12002,7 +12002,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("chats")) {
       // 消息列表那一屏本身（她 2026-10-01：「看到我对别人的备注、几点聊的、最后一句是啥」）
-      const hm = ts => { if (!ts) return ""; const d = new Date(ts), now = new Date(); return d.toDateString() === now.toDateString() ? d.toTimeString().slice(0, 5) : (d.getMonth() + 1) + "/" + d.getDate(); };
+      const hm = ts => { if (!ts) return ""; const d = vDate(ts, viewerId), now = vDate(Date.now(), viewerId); return d.toDateString() === now.toDateString() ? d.toTimeString().slice(0, 5) : (d.getMonth() + 1) + "/" + d.getDate(); };
       // 你自己那一行也在列表里（她 2026-10-02）：她给你的备注、你排第几，查岗的人第一眼就看这个
       const list = (characters || []).filter(c => c.id === viewerId || shownId(c.id)).map(c => {
         const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && !isOocMsg(m) && m.kind !== "system");
@@ -12117,7 +12117,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   藏起来的人、换面具聊的人，见面也一起不在
     if (on("offline")) {
       const dur = s => { const a = s.startTs || ((s.msgs || [])[0] || {}).ts, b = s.endTs || ((s.msgs || [])[(s.msgs || []).length - 1] || {}).ts; return a && b && b > a ? Math.round((b - a) / 60000) : 0; };
-      const hm = ts => ts ? new Date(ts).toTimeString().slice(0, 5) : "";
+      const hm = ts => ts ? fmtClock(vDate(ts, viewerId)) : "";
       const rows = (characters || []).filter(c => c.id !== viewerId && shownId(c.id) && !settingsFor(c.id).engineerEyes).flatMap(c =>
         (offlinesRef.current[c.id] || loadJSON("x_offline:" + c.id, []) || []).filter(s => s && (s.msgs || []).length).map(s => ({ c, s, ts: s.startTs || ((s.msgs || [])[0] || {}).ts || 0 })))
         .sort((a, b) => b.ts - a.ts).slice(0, 4);
@@ -14417,7 +14417,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           // 那场是什么时候散的（她 2026-11-04：昨晚的线下今天下午才总结，他以为是刚刚的事）：照那场最后一句的时间说，不一律说「刚刚」
           const _oe = offEndOfCard(m), _ago = _oe ? Date.now() - _oe : 0;
           g.push({ role: "user", content: stp + (_ago > 90 * 60000
-            ? "【你和" + uName + "线下见过一面，那场在" + offEndWords(_oe) + "就散了，离现在已经" + offAgoWords(_ago) + "——这一张是后来才补的总结，不是刚刚的事；接话照现在的时间、现在的状态来，那场是之前发生过的】\n归档摘要："
+            ? "【你和" + uName + "线下见过一面，那场在" + offEndWords(_oe, charId) + "就散了，离现在已经" + offAgoWords(_ago) + "——这一张是后来才补的总结，不是刚刚的事；接话照现在的时间、现在的状态来，那场是之前发生过的】\n归档摘要："
             : "【你和" + uName + "刚刚在线下见了一面——这发生在上面聊天之后、现在你们已结束线下回到线上，请据此接话，从线下之后的状态说起】\n归档摘要：") + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + fedTranscript(m.transcript) : "") });
           continue;
         }
@@ -19560,7 +19560,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!host) return [];
     const nm = id => { const c = (characters || []).find(x => x && x.id === id); return c ? (c.remark || c.name) : ""; };
     return (loadJSON("x_goffline:" + host.id, []) || []).filter(x => x && x.startTs).sort((a, b) => (b.startTs || 0) - (a.startTs || 0)).map(x => {
-      const d = new Date(x.startTs), first = ((x.msgs || []).find(m => m && m.content && m.role !== "user") || (x.msgs || [])[0] || {}).content || "";
+      const d = vDate(x.startTs, "g:" + host.id), first = ((x.msgs || []).find(m => m && m.content && m.role !== "user") || (x.msgs || [])[0] || {}).content || "";
       return { id: x.id, date: (d.getMonth() + 1) + "月" + d.getDate() + "日", who: (x.present || host.memberIds || []).map(nm).filter(Boolean).join("、"), line: String(x.summary || first).replace(/\s+/g, " ").slice(0, 60), open: !x.endTs };
     });
   };
@@ -21532,7 +21532,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         groupChats: diaryGroupChats,
         groupOfflines: diaryGroupOfflines
       }, { fromTs: ds, untilTs: de, limit: 0, userName: userName((profileFor(charId) || profile)), charName: char.name }) : [];
-      const clock = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+      const clock = ts => fmtClock(vDate(ts, charId));   // 那天聊天的钟点照 TA 那只钟
       // ⚠️「摆到TA面前」那张卡（phonepeek / 随身物转发）的正文是 App 拼出来的机器文案：
       //   〈想买清单〉《商品全名》｜TA自己写的那句 why。整段原样进素材，模型就会把商品名
       //   连括号里那句一起抄进日记——她 2026-08-30 报的「直接把查手机的东西原样照搬进来了」。
@@ -21663,7 +21663,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       .map(x => ({ ts: x && (x.wearingUpdatedAt || x.ts), w: String((x && x.wearing) || "").trim() }))
       .filter(x => x.w && x.ts >= a && x.ts < z).sort((p, q) => p.ts - q.ts);
     const out = [];
-    rows.forEach(x => { if (!out.length || out[out.length - 1].w !== x.w) out.push({ t: new Date(x.ts).toTimeString().slice(0, 5), w: x.w.slice(0, 80) }); });
+    rows.forEach(x => { if (!out.length || out[out.length - 1].w !== x.w) out.push({ t: fmtClock(vDate(x.ts, charId)), w: x.w.slice(0, 80) }); });
     return out.slice(0, 6);
   };
   // wish：她在「改画面描述再拍」里写的三格，有就照它拍
@@ -39122,7 +39122,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     memLib: memLibRef.current,
     // 发给 TA：卡片作为她发的一条消息进聊天，然后直接进那个聊天——她可以接着说一句再让 TA 回
     onSendMoment: (c, m) => {
-      const d0 = new Date(m.ts);
+      const d0 = vDate(m.ts, c && c.id);
       const body = "〔翻到一张时刻〕「" + m.title + "」 · " + d0.getFullYear() + "." + (d0.getMonth() + 1) + "." + d0.getDate()
         + ((m.what && m.what.lines && m.what.lines.length) ? "\n" + m.what.lines.slice(0, 3).join("\n").slice(0, 300) : "");
       // kind=shikeshare 画成一张小卡；content 照样留着整段字——模型读历史时读的是它
@@ -39151,7 +39151,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onRecall: async (c, m) => {
       const p = apiFor(c.id);
       if (!p || typeof runProbe !== "function") { toast("先到设置配置 API"); return null; }
-      const d0 = new Date(m.ts), when = d0.getFullYear() + " 年 " + (d0.getMonth() + 1) + " 月 " + d0.getDate() + " 日";
+      const d0 = vDate(m.ts, c && c.id), when = d0.getFullYear() + " 年 " + (d0.getMonth() + 1) + " 月 " + d0.getDate() + " 日";
       const rec = (m.what && m.what.lines && m.what.lines.length) ? m.what.lines.join("\n") : "（那天没留下记录）";
       try {
         const d = await runProbe(p, ctxFor(c), { voice: true, tag: "shike", maxTokens: 65000, schemaHint: "{\"text\":\"你想对她说的话\"}",

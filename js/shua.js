@@ -1165,7 +1165,7 @@
           // 是哪一条：标题／文案／画面的头几个字，点进去就是那条
           n.vid ? h("div", { "data-wk": "shuanotevid", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: P.dim, marginTop: 4, padding: "5px 8px", borderRadius: 6, background: P.line, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
             nv ? "▶ " + S(nv.title || nv.caption || nv.scene).slice(0, 40) + " ›" : "那条视频已经不在了") : null,
-          h("div", { "data-wk": "shuanotetime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: P.dim, marginTop: 3 } }, new Date(n.ts).toLocaleString())); }) :
+          h("div", { "data-wk": "shuanotetime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: P.dim, marginTop: 3 } }, (typeof vclockMainMap === "function" ? new Date(vclockMainMap(n.ts)) : new Date(n.ts)).toLocaleString())); }) :
           h("div", { "data-wk": "shuaempty", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: P.dim, textAlign: "center", padding: "50px 0" } }, "还没有人找你")));
     else body = h("div", { "data-wk": "shuamepage", className: "flex-1 min-h-0 flex flex-col", style: { background: skin === "b" ? "linear-gradient(180deg,#ffe4ec 0," + B.bg + " 220px)" : "linear-gradient(180deg,#2a1d33 0,#0b0b0e 260px)" } },
       h(Head, { zh: myName, bg: "transparent", ink: P.ink, right: h("button", { onClick: () => setTab("msg"), style: { position: "relative", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: P.ink, minHeight: 40, padding: "0 4px" } }, "消息",

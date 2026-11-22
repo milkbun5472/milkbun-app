@@ -37,9 +37,11 @@
     return "";
   }
 
-  function whenLabel(ts, now) {
+  // 照这一行那段聊天的钟（单聊＝那个人，群＝"g:"+群id）；虚拟时间关着就是原样
+  function whenLabel(ts, now, clockId) {
     if (!ts) return "";
-    const d = new Date(ts), n = new Date(now || Date.now());
+    const vm = x => typeof vclockMap === "function" ? vclockMap(x, clockId) : x;
+    const d = new Date(vm(ts)), n = new Date(vm(now || Date.now()));
     const two = x => (x < 10 ? "0" : "") + x;
     const clock = d.getHours() + ":" + two(d.getMinutes());
     const sameDay = d.toDateString() === n.toDateString();
@@ -167,7 +169,7 @@
           r.type === "group" ? h("span", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog } }, "群") : null,
           h("span", { style: { flex: 1 } }),
           // 时刻和条数都要：只剩条数的话，「这是刚来的还是昨天的」就看不出来了
-          h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginRight: 4, whiteSpace: "nowrap" } }, whenLabel(r.ts, props.now)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginRight: 4, whiteSpace: "nowrap" } }, whenLabel(r.ts, props.now, r.type === "group" ? "g:" + r.id : r.id)),
           h("span", {
             style: {
               fontFamily: F_BODY, fontSize: 9.5, color: inkOn(accent), background: accent,

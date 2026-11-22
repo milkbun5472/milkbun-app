@@ -13635,7 +13635,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     })();
   const giftNode = openGift && h(PageSheet, { onClose: () => setOpenGiftId(null), tall: true },
       h(Eyebrow, { style: { marginBottom: 8 } }, openGift.name),
-      h("div", { "data-wk": "carrygiftmeta", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 12 } }, "你送的 · 收到于 " + new Date(openGift.receivedTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })),
+      h("div", { "data-wk": "carrygiftmeta", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 12 } }, "你送的 · 收到于 " + vDate(openGift.receivedTs, char.id).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })),
       h("div", { "data-wk": "carrythinklabel", style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: "0.16em", color: t.accent, marginBottom: 6 } }, char.name + " 的想法"),
       giftBusy === openGift.id && !openGift.thought
         ? h(Spinner, { label: "让 " + char.name + " 说说…" })
@@ -14980,10 +14980,10 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
     if (days >= threshold) onGen(partner);
     // eslint-disable-next-line
   }, []);
-  const md = ts => { const d = new Date(ts); return d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(); };
+  const md = ts => { const d = vDate(ts, partner.id); return d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(); };   // 信上的日子照TA那只钟
   const threadText = l => ["【" + (l.title || "无题") + "】\n" + l.body].concat((l.replies || []).map(r => (r.authorId === "user" ? "她：" : partner.name + "：") + r.content)).join("\n");
   const doCompose = () => { if (cBody.trim()) { onAddMy(partner, cTitle, cBody, { paper: cPaper, font: cFont }); setCTitle(""); setCBody(""); setCompose(false); } };
-  const mdParts = ts => { const d = new Date(ts); return { md: (d.getMonth() + 1) + "." + d.getDate(), y: d.getFullYear() }; };
+  const mdParts = ts => { const d = vDate(ts, partner.id); return { md: (d.getMonth() + 1) + "." + d.getDate(), y: d.getFullYear() }; };
 
   // —— 阅读一封信（信纸样式 + 信下回复串）——
   if (open) {
@@ -15640,7 +15640,7 @@ function CoupleJar({ partner, data, wishes, myWallet, myName, onMove, onGoal, on
         byMonth.map(g => h("div", { key: g.k },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".12em", color: "#7c2f2f", padding: "8px 12px 2px" } }, g.k),
           g.list.map(r => h("div", { key: r.id, "data-wk": "jarrow", "data-who": r.who, style: { display: "grid", gridTemplateColumns: COLS, gap: 4, alignItems: "baseline", padding: "7px 12px", borderBottom: "1px dashed " + RULE, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: INK } },
-            h("div", { style: { color: FOG, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, (new Date(r.ts).getMonth() + 1) + "/" + new Date(r.ts).getDate()),
+            h("div", { style: { color: FOG, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, (vDate(r.ts, partner.id).getMonth() + 1) + "/" + vDate(r.ts, partner.id).getDate()),
             h("div", { style: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (r.who === "me" ? "我" : partner.name) + (r.auto ? " · 工资日" : "") + (r.note ? " · " + r.note : "")),
             h("div", { style: { textAlign: "right", color: GREEN } }, r.delta > 0 ? money(r.delta) : ""),
             h("div", { style: { textAlign: "right", color: RED } }, r.delta < 0 ? money(-r.delta) : ""),
@@ -18026,8 +18026,8 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
   const setDOf = (e, v) => setDraft(o => Object.assign({}, o, { [e.id]: Object.assign({}, dOf(e), v) }));
   const sendOf = e => { const d = dOf(e); if (!d.text.trim()) return; onReply(e.id, { kind: d.kind, text: d.text.trim() }); setDOf(e, { text: "" }); };
   const whoTxtOf = e => { const f = book.fields.find(x => x.pick); return f && e[f.k] ? (e[f.k] === "ta" ? nm : "我") : ""; };
-  const dateOf = ts => (dd => (dd.getMonth() + 1) + "." + dd.getDate())(new Date(ts));
-  const timeOf = ts => (dd => String(dd.getHours()).padStart(2, "0") + ":" + String(dd.getMinutes()).padStart(2, "0"))(new Date(ts));
+  const dateOf = ts => (dd => (dd.getMonth() + 1) + "." + dd.getDate())(vDate(ts, partner.id));   // 留言本照TA那只钟
+  const timeOf = ts => fmtClock(vDate(ts, partner.id));
   const noOf = e => String(list.length - list.indexOf(e)).padStart(3, "0");
   // 接话那一栏：卷宗是一排墨章，诉状是庭上的几个动作，车票和对照卡是一行小字
   const replyBar = (e, look) => {
@@ -18240,7 +18240,7 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
         const whoF = book.fields.find(f => f.pick), whoTxt = whoF && e[whoF.k] ? (e[whoF.k] === "ta" ? nm : "我") : "";
         const otherF = book.fields.filter(f => !f.pick && f.k !== "title" && f.k !== "body" && e[f.k]);
         const stamp = (txt, color) => h("div", { "data-wk": "spacebookstamp", style: { position: "absolute", right: 12, top: 10, transform: "rotate(-9deg)", border: "2px solid " + color, color: color, borderRadius: 6, padding: "1px 8px", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", letterSpacing: ".15em", opacity: .82 } }, txt);
-        const date = (dd => (dd.getMonth() + 1) + "." + dd.getDate())(new Date(e.ts));
+        const date = dateOf(e.ts);
         const lineOf = (x, i) => {
           const mine = x.by === "me", nmx = who(x.by);
           if (book.key === "safe") return h("div", { key: i, "data-wk": "spacebookline", "data-me": mine ? "1" : "0", style: { position: "relative", paddingLeft: 20, marginTop: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: ink } },

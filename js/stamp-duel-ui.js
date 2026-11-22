@@ -888,7 +888,7 @@
         const pages = [{ kind: "cover" }].concat(book.chapters.map((c, i) => ({ kind: "ch", c, i }))).concat(book.ending ? [{ kind: "end" }] : []);
         const at = Math.min(sbPage, pages.length - 1), pg = pages[at], go = k => { const n = at + k; if (n >= 0 && n < pages.length) { setSbFlip(k > 0 ? "older" : "newer"); setSbPage(n); } };
         const swipe = { onTouchStart: e => { sbX.current = e.touches[0].clientX; }, onTouchEnd: e => { const dx = e.changedTouches[0].clientX - (sbX.current || 0); if (Math.abs(dx) > 60) go(dx < 0 ? 1 : -1); } };
-        const who = nameOf(book.charId) || "TA", date = book.ts ? new Date(book.ts).toLocaleDateString() : "";
+        const who = nameOf(book.charId) || "TA", date = book.ts ? (typeof vDate === "function" ? vDate(book.ts, book.charId) : new Date(book.ts)).toLocaleDateString() : "";
         return shell([
           h(Head, { key: "hd", zh: (book.ending && book.ending.title) || "故事集", bg: "transparent", ink: INK, onBack: () => setSbOpen("") }),
           h("div", { key: "bd", "data-wk": "duelstorybookread", className: "flex-1 min-h-0 overflow-y-auto px-4", style: { fontFamily: F, color: INK, paddingTop: 6, paddingBottom: 20 } },
@@ -943,7 +943,7 @@
               style: { position: "relative", aspectRatio: "3 / 4", padding: "10px 8px 8px 13px", borderRadius: "3px 8px 8px 3px", color: "#fff8ec", background: bookBg(x, k), textShadow: x.cover && x.cover.img ? "0 1px 3px rgba(0,0,0,.6)" : "none", boxShadow: "inset 6px 0 0 rgba(0,0,0,.18), 0 4px 10px rgba(47,42,34,.2)", display: "flex", flexDirection: "column" } },
             h("div", { style: { fontSize: fz(10), letterSpacing: ".2em", opacity: .8 } }, nameOf(x.charId) || "TA"),
             h("div", { className: "flex-1", style: { fontFamily: FD, fontSize: fz(13), lineHeight: 1.4, marginTop: 6, overflow: "hidden" } }, (x.ending && x.ending.title) || x.hook),
-            h("div", { style: { fontSize: fz(9.5), opacity: .75, lineHeight: 1.4 } }, (x.ending ? "有结局" : x.chapters.length + " 章") + (x.ts ? " · " + new Date(x.ts).toLocaleDateString() : ""))))))
+            h("div", { style: { fontSize: fz(9.5), opacity: .75, lineHeight: 1.4 } }, (x.ending ? "有结局" : x.chapters.length + " 章") + (x.ts ? " · " + (typeof vDate === "function" ? vDate(x.ts, x.charId) : new Date(x.ts)).toLocaleDateString() : ""))))))
       ]);
     }
     if (!st && mode === "story") {

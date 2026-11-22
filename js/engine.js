@@ -3043,7 +3043,7 @@ function chfContextBlock(files, recentText, nameOf, herLast) {
   const list = (Array.isArray(files) ? files : []).filter(f => f && f.name);
   if (!list.length) return "";
   const who = id => id === "me" ? (nameOf ? nameOf("me") : "她") : (nameOf ? nameOf(id) : "") || "有人";
-  const md = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日" + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  const md = ts => { if (!ts) return ""; const d = typeof vDate === "function" ? vDate(ts) : new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日" + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
   const rt = String(recentText || "");
   const rows = list.slice().sort((a, b) => (b.updatedTs || 0) - (a.updatedTs || 0)).slice(0, 20).map(f =>
     "· 《" + f.name + "》" + (f.kind === "image" ? "（图片" + (f.desc ? "：" + String(f.desc).slice(0, 60) : "") + "）" : "（文档，" + String(f.text || "").length + " 字）")
@@ -3117,7 +3117,7 @@ function spaceChannelBlock(g, allGroups, chatsOf, uName, nameOf) {
 function groupNoticeBlock(notice) {
   const t = String((notice && notice.text) || "").trim();
   if (!t) return "";
-  const d = notice.ts ? new Date(notice.ts) : null;
+  const d = notice.ts ? (typeof vDate === "function" ? vDate(notice.ts) : new Date(notice.ts)) : null;   // 拼群提示词前已 vclockUse("g:"+群id)，不带 id 就是群那只钟
   return "\n\n【群公告】（钉在群聊顶上，群里每个人都看过" + (notice.by ? "，" + notice.by + " 发的" : "") + (d ? "，" + (d.getMonth() + 1) + "月" + d.getDate() + "日" : "") + "）\n" + t.slice(0, 2000);
 }
 function directivesBlock(dirs) {

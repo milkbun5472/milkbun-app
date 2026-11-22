@@ -274,7 +274,7 @@
         h("div", { className: "flex items-center", style: { gap: 8, marginTop: 8, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
           (avatarOf || window.__storyAvatar) ? (avatarOf || window.__storyAvatar)(s.by) : null,
           h("span", { className: "truncate", style: { fontWeight: 600, minWidth: 0, flexShrink: 1, whiteSpace: "nowrap" } }, nameOf(s.by)),   // 备注再长也只占一行（她 2026-11-14）
-          h("span", { style: { opacity: .7, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, archive ? new Date(s.ts).toLocaleDateString() : ago(s.ts)),
+          h("span", { style: { opacity: .7, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, archive ? (typeof vDate === "function" ? (s.by === "me" ? new Date(vclockMainMap(s.ts)) : vDate(s.ts, s.by)) : new Date(s.ts)).toLocaleDateString() : ago(s.ts)),
           audLabel(cur) ? h("span", { "data-wk": "storyaudtag", style: { padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", fontSize: "calc(10.5px * var(--app-fs, 1))" } }, audLabel(cur)) : null,
           h("span", { style: { flex: 1 } }),
           // 谁的都能删（她 2026-11-14「动态可以删除」）：先问一句，删了这张图一起清掉

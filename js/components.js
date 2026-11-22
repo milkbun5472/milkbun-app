@@ -12727,7 +12727,7 @@ function ChatThread({
     // 系统提示这一族全走 SysNote（v63.49）：单聊 / 群聊 / 线下同一个长相，右上角都能 ✕ 掉
     if (m.kind === "ooc") return h(SysNote, { key: i, label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content, copyable: m.role !== "user",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
-    if (m.kind === "callend") return h(CallEndPill, { key: i, i, m, chars: [character], onBg: !!dsp.chatBg, selMode, selected: selIds.includes(i), startPress, endPress, toggleSel });
+    if (m.kind === "callend") return h(CallEndPill, { key: i, i, m, chars: [character], clockId: character && character.id, onBg: !!dsp.chatBg, selMode, selected: selIds.includes(i), startPress, endPress, toggleSel });
     // 一起看回来的交接（她 2026-09-25）：一行小条，跟别的系统提示同一个长相，能 ✕ 掉
     if (m.kind === "listenlog") return h(SysNote, { key: i, label: "一起听",
       text: (m.content || "一起听了一会儿歌") + ((m.lines || []).length ? " · 边听边说了 " + m.lines.length + " 句" : ""),
@@ -12809,7 +12809,7 @@ function ChatThread({
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 8 } },
         !mineA && charAvEl(),
-        h(AskSlipCard, { m: m, asker: mineA ? (meAv && meAv.name) || "我" : cName, money: n => mTight(n, character && character.id), allowPay: true,
+        h(AskSlipCard, { m: m, asker: mineA ? (meAv && meAv.name) || "我" : cName, clockId: character && character.id, money: n => mTight(n, character && character.id), allowPay: true,
           onDecide: !mineA && onDecideAsk && !selMode ? (st, cond) => onDecideAsk(m.aid, st, cond) : undefined,
           onResend: mineA && onSendAsk && !selMode ? () => setAskOpen(m) : undefined }),
         mineA && meAvEl()); }
@@ -13477,7 +13477,7 @@ function ChatThread({
     // 先锁好、不递（群友 2026-11-20）：他自己偷偷翻也照这一份来
     h("button", { "data-wk": "peeklockonly", onClick: () => { try { const _a = loadJSON("x_peekAllow", {}) || {}, _h = loadJSON("x_peekHide", {}) || {}; saveJSON("x_peekAllow", Object.assign({}, _a, { [character.id]: peekAllow.map(String) })); saveJSON("x_peekHide", Object.assign({}, _h, { [character.id]: (peekHide || []).map(String) })); } catch (e) {} setPeekOpen(false); toast && toast("锁好了：他自己偷偷翻也只看得到勾着的"); },
       className: "w-full active:opacity-70", style: { marginTop: 8, minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, "只锁好，先不递")
-  ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current, single: true }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
+  ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], clockId: character && character.id, onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current, single: true }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), ownerKey: profile && (profile.id || profile.name), toast })
   ), modeOpen && h(Sheet, {
     onClose: () => setModeOpen(false)
@@ -15865,7 +15865,7 @@ function TtsDot({ k, text, spk, tp, dark }) {
 // 通话结束气泡：点开回看整通转录（log 由 endCall 存进消息；老消息没 log 就是纯提示条）；sum=挂断后生成的摘要
 // 长按跟旁白那一行同一个待遇（群友 2026-10-11：「群聊通话记录怎么删，记录那里删不掉」）：
 //   长按出菜单、多选里能勾，删掉的这一通不再带进以后的上下文
-function CallEndPill({ m, chars, onBg, i, selMode, selected, startPress, endPress, toggleSel }) {
+function CallEndPill({ m, chars, clockId, onBg, i, selMode, selected, startPress, endPress, toggleSel }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   const tp = useTtsPlayer();
@@ -15899,7 +15899,7 @@ function CallEndPill({ m, chars, onBg, i, selMode, selected, startPress, endPres
       log.map((l, j) => l.act
         ? h("div", { key: j, style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", margin: "5px 0" } }, (l.senderName ? l.senderName + " " : "") + "（" + l.content + "）")
         : h("div", { key: j, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink, margin: "3px 0" } },
-            l.ts ? h("span", { style: { fontFamily: "'Archivo','SF Mono',ui-monospace,monospace", fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog, marginRight: 6 } }, String(new Date(l.ts).getHours()).padStart(2, "0") + ":" + String(new Date(l.ts).getMinutes()).padStart(2, "0")) : null,
+            l.ts ? h("span", { style: { fontFamily: "'Archivo','SF Mono',ui-monospace,monospace", fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog, marginRight: 6 } }, fmtClock(vDate(l.ts, clockId))) : null,
             h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), h(TransText, { text: callShow(l.content), isU: l.role === "user", zhReady: l.zh, ink: t.ink, inline: true }),
             l.role !== "user" ? h(TtsDot, { k: "pill" + j, text: l.content, spk: spkOf(l), tp }) : null)),
       m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
@@ -15928,14 +15928,14 @@ function CallShotThumb({ imgKey }) {
       actions: () => [{ label: "保存照片", onClick: () => saveCallPhoto(imgKey) }] }));
 }
 // 通话记录中心（+面板入口）：这个聊天里所有语音/视频通话按时间列出，点一通回看整通转录——不用回聊天里翻楼
-function CallLogSheet({ calls, chars, onClose }) {
+function CallLogSheet({ calls, chars, clockId, onClose }) {
   const t = useTheme();
   const [openId, setOpenId] = useState(null);
   const tp = useTtsPlayer();
   const spkOf = l => l.senderId && chars ? (chars.find(c => c.id === l.senderId) || null) : null;
   const list = (calls || []).slice().reverse(); // 最新在前
-  const fmtFull = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
-  const fmtHM = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  const fmtFull = ts => { const d = vDate(ts, clockId); return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  const fmtHM = ts => fmtClock(vDate(ts, clockId));   // 通话是故事里的，照这段聊天那只钟
   return h(PageSheet, { onClose, tall: true },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", color: t.ink, marginBottom: 4 } }, "通话记录"),
     h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 14 } }, list.length ? "共 " + list.length + " 通 · 点一通回看当时说了什么" : ""),
@@ -21726,7 +21726,7 @@ function GroupThread({
       onBg: !!(gChatBg || _gWkBg), startPress, endPress, toggleSel,
       onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null,
       text: m.who === "char" || m.whisper ? groupActText(m) : m.content });
-    if (m.kind === "callend") return h(CallEndPill, { key: i, i, m, chars: characters, onBg: !!gChatBg, selMode, selected: selIds.includes(i), startPress, endPress, toggleSel });
+    if (m.kind === "callend") return h(CallEndPill, { key: i, i, m, chars: characters, clockId: group && group.id ? "g:" + group.id : null, onBg: !!gChatBg, selMode, selected: selIds.includes(i), startPress, endPress, toggleSel });
     // ⚠️判据跟单聊那一处同一条（kind 或 role）：失败提示是 UI 诊断，不是谁说的话，
     //   所以它该是一条能叉掉的系统提示，不是一个气泡（她 2026-09-14）。
     // ⚠️排在系统提示那条之前：它 role 也是 system，晚了就被当成一行系统字吞掉
@@ -21767,7 +21767,7 @@ function GroupThread({
       avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }) });
     if (m.kind === "poll" && m.ask) return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": "ask", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
-      h(AskSlipCard, { m: m, asker: m.by, meName: meName, money: n => mTight(n, m.senderId),
+      h(AskSlipCard, { m: m, asker: m.by, clockId: group && group.id ? "g:" + group.id : null, meName: meName, money: n => mTight(n, m.senderId),
         onVote: m.role !== "user" ? opt => onVote(i, opt) : undefined,
         onResend: m.role === "user" && onStartAsk ? () => { setAskPrev({ ...m.ask, aid: m.pollId, note: "" }); setSheet("ask"); } : undefined }),
       m.role === "user" && gMeAvEl(40, 10));
@@ -22242,7 +22242,7 @@ function GroupThread({
     groupPhotoMode === "describe" && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "群成员只会收到文字描述；不会读取或上传真实照片。"),
     groupPhotoMode === "selfme" && h(SelfMeAngle, { third: gSelfThird, onPick: setGSelfThird, t }),
     groupPhotoMode === "selfme" && h("div", { "data-wk": "selfmehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "照「我」那页（这个群用的那张面具）的外貌或参考照画你自己，花一次出图；画好了以你的名义发进群，大家看得到。")
-  ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: characters, onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: characters, archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder("g_" + group.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
+  ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: characters, clockId: group && group.id ? "g:" + group.id : null, onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: characters, archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder("g_" + group.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), senderName: meName, ownerKey: profile && (profile.id || profile.name), toast })
   ), callPick && h(Sheet, {
     onClose: () => setCallPick(null)
