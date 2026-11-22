@@ -1871,6 +1871,23 @@ function halfWinBoxPos() {
 }
 function HalfWinFrame({ win, setWin, pillLabel, pillHot, onClose, onBig, bigLabel, barNote, onBarNote, forKey, children }) {
   const halfPillDragged = useRef(false);
+  // 半窗里有输入框时（联机房间的聊天半窗）：键盘升起，iOS 会把整页往上推、fixed 的半窗跟着跑出屏幕（她 2026-11-22 截图）。
+  //   键盘开着、焦点又在这个半窗里时，照 visualViewport 把半窗贴到键盘上沿、高度压进可见区；键盘收了回原位。
+  const frameRef = useRef(null);
+  const [kb, setKb] = useState(null);
+  useEffect(() => {
+    const vv = window.visualViewport; if (!vv) return;
+    const read = () => {
+      const el = frameRef.current, a = document.activeElement;
+      const inside = !!(el && a && el.contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName || "") || (a && a.isContentEditable && el && el.contains(a)));
+      const open = window.innerHeight - vv.height > 120;
+      setKb(inside && open ? { top: vv.offsetTop, h: vv.height } : null);
+    };
+    vv.addEventListener("resize", read); vv.addEventListener("scroll", read);
+    const later = () => setTimeout(read, 60);
+    document.addEventListener("focusin", read); document.addEventListener("focusout", later);
+    return () => { vv.removeEventListener("resize", read); vv.removeEventListener("scroll", read); document.removeEventListener("focusin", read); document.removeEventListener("focusout", later); };
+  }, []);
   // 收起＝缩成底下一颗小条：半窗会盖住页面自己的底栏，先收起来去翻页，翻到了再点开
   const pillBtn = { minHeight: 36, border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#fff" };
   // 小条也能拖（她 2026-10-06）：按住挪到哪儿就停哪儿，记住位置；挪过了那一下不算点
@@ -1917,8 +1934,9 @@ function HalfWinFrame({ win, setWin, pillLabel, pillHot, onClose, onBig, bigLabe
     window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
   };
   const barBtn = { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#555" };
-  return h("div", { "data-halfwin": "1", "data-wk": "halfwin", "data-for": forKey || "",
-    style: { position: "fixed", left: bx.x, top: bx.y, width: bx.w, height: bx.h, zIndex: 930, display: "flex", flexDirection: "column",
+  const kh = kb ? Math.min(bx.h, kb.h - 8) : bx.h, ky = kb ? kb.top + Math.max(4, kb.h - kh - 4) : bx.y;
+  return h("div", { ref: frameRef, "data-halfwin": "1", "data-wk": "halfwin", "data-for": forKey || "", "data-kb": kb ? "1" : "0",
+    style: { position: "fixed", left: bx.x, top: ky, width: bx.w, height: kh, zIndex: 930, display: "flex", flexDirection: "column",
       borderRadius: 16, overflow: "hidden", boxShadow: "0 6px 24px rgba(0,0,0,.22)", background: "var(--bg, #fff)" } },
     h("div", { "data-wk": "halfwinbar", onPointerDown: e => dragOn(e, "move"),
       style: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 10px", background: "rgba(0,0,0,.04)", touchAction: "none", cursor: "move" } },

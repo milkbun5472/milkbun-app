@@ -535,3 +535,9 @@ test("角色怎么玩：报名只带座位旁那两个字，设置不进 join �
   assert.deepStrictEqual(G.charOptKinds("chess"), ["skill", "talk"]);
   assert.deepStrictEqual(G.charOptKinds("gomoku"), ["casual", "talk"]);
 });
+
+test("半窗里打字：键盘升起时半窗贴着键盘上沿、高度压进可见区（她 11-22 截图：输入框被顶出屏幕）", () => {
+  const c = read("js/components.js"); const i = c.indexOf("function HalfWinFrame("); const seg = c.slice(i, i + 6000);
+  assert.ok(/window\.visualViewport/.test(seg) && /el\.contains\(a\)/.test(seg), "只在焦点落在半窗里时才挪");
+  assert.ok(/top: ky, width: bx\.w, height: kh/.test(seg));
+});
