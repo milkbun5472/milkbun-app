@@ -108,10 +108,17 @@
   // 收到的名片也照这几样过一遍：对面多塞了什么，这边一样不收
   const cleanCard = c => cardOf({ id: c && c.id, name: c && c.name, avatarEmoji: c && c.emoji, color: c && c.color }, c && c.avatar);
   // 线上走的一条消息：也只这几样。by 是说这句话那个人的 peerId（补发别人的话时靠它认人）
-  function wireMsg(m) {
-    return { id: String(m.id), kind: m.kind === "char" ? "char" : "user", name: String(m.name || "").slice(0, 40),
+  //   local=true 是落存档那一份（图换成本机引用）；不写是发上线那一份（带压小的图，不带本机引用）
+  function wireMsg(m, local) {
+    const w = { id: String(m.id), kind: m.kind === "char" ? "char" : "user", name: String(m.name || "").slice(0, 40),
       charId: m.kind === "char" ? String(m.charId || "") : "", text: String(m.text || "").slice(0, 8000), ts: Number(m.ts) || Date.now(),
       by: String(m.by || "").slice(0, 40) };
+    if (m.turnId) w.turnId = String(m.turnId).slice(0, 60);
+    if (m.edited) w.edited = true;
+    if (m.recalled) { w.recalled = true; w.text = ""; return w; }
+    const x = m.type ? cleanRich(m.type, m.x, local) : null;
+    if (x) { w.type = m.type; w.x = x; w.text = richLine(w).slice(0, 8000); }
+    return w;
   }
   // 存档：[{ id, code, host, myPeerId, startedAt, endedAt, myNick, peers:[{peerId,nick,chars:[card]}], myChars:[{id,name,recent}],
   //   msgs:[{…wireMsg, side:"me"|"peer", peerId}], remembered:{charId:ts} }]
@@ -178,7 +185,7 @@
   }
   // 补发来的一条：by 是我自己 → 记成我说的；否则记在 by 那个人名下（没写 by 的算发来的那个人）
   function syncedMsg(x, myPeerId, sender) {
-    const w = wireMsg(x), by = w.by || sender;
+    const w = wireMsg(wireMsg(x), true), by = w.by || sender;   // 补发来的不收图（存档里不放整张图）
     return by === myPeerId ? Object.assign(w, { side: "me" }) : Object.assign(w, { side: "peer", peerId: by });
   }
   // 退出那张卡：勾了谁就只记谁；勾的必须是我自己带来的人（对面的人不归我记）
@@ -187,12 +194,27 @@
     return (myChars || []).filter(c => c && p[c.id] === true).map(c => c.id);
   }
   // 房间记录 → 给模型读的那一段：只有「谁：说了什么」，别人带来的人只是一个名字
-  function transcript(room) {
+  //   opts.stamp(ts)：跟单聊给模型的记录同一种时间戳（app.js 的 aiStampFor → fmtStampAI，「今天14:32」「昨天…」「11/18（周二，4天前）…」），
+  //   不给就不标。撤回的只留「撤回了一条消息」，原文不给模型；进出房间那几行照原样一行。
+  function transcript(room, opts) {
     room = normalizeRoom(room);
+    const stamp = opts && typeof opts.stamp === "function" ? opts.stamp : null;
     return (room.msgs || []).map(m => {
+      const st = stamp ? stamp(m.ts) : "", pre = st ? "〔" + st + "〕" : "";
+      if (m.sys) return pre + "（" + String(m.text || "").trim() + "）";
       const who = m.kind === "char" ? m.name + "（" + ownerNick(room, m) + " 带来的）" : ownerNick(room, m);
-      return who + "：" + String(m.text || "").trim();
+      if (m.recalled) return pre + who + " 撤回了一条消息";
+      const body = m.type ? richLine(m) : String(m.text || "").trim();
+      return pre + (m.type === "pat" ? "" : who + "：") + body + (m.edited ? "（改过）" : "");
     }).join("\n");
+  }
+  // 离最后一条过去多久：隔得久了模型才知道不是刚说完
+  function sinceLast(room, now) {
+    const ms = (room.msgs || []).filter(m => !m.sys), last = ms[ms.length - 1];
+    if (!last || !last.ts) return "";
+    const min = Math.round(((now || Date.now()) - Number(last.ts)) / 60000);
+    if (min < 3) return "";
+    return min < 60 ? min + " 分钟" : min < 60 * 24 ? Math.round(min / 60) + " 小时" : Math.round(min / 1440) + " 天";
   }
   function bans() {
     return (typeof ECHO_QUESTION_BAN !== "undefined" ? "\n\n" + ECHO_QUESTION_BAN : "")
@@ -200,10 +222,13 @@
       + (root.ReplyPacing && typeof root.ReplyPacing.reading === "function" ? "\n\n" + root.ReplyPacing.reading() : "");
   }
   // 房间里每一方：「某某，TA 带来的是：甲、乙」一行一个
-  function sidesLines(room) {
+  //   presence：{ peerId: on / relay / fail / off }。给了就写上此刻在不在：离开的人听不见房里说话
+  const PRESENCE_ZH = { on: "此刻在房里", relay: "此刻在房里", fail: "此刻跟这边连不上，听不到房里说的话", off: "已经离开了房间，听不到房里说的话" };
+  function sidesLines(room, presence) {
     return (room.peers || []).map(p => {
       const names = (p.chars || []).map(c => c.name).filter(Boolean);
-      return "\n- " + p.nick + (names.length ? "，TA 带来的是：" + names.join("、") : "，没带人") + "。";
+      const st = presence && PRESENCE_ZH[presence[p.peerId] || "off"];
+      return "\n- " + p.nick + (names.length ? "，TA 带来的是：" + names.join("、") : "，没带人") + (st ? "（" + st + "）" : "") + "。";
     }).join("");
   }
   // 面具跟着角色走（她 2026-11-22）：这个人认的是哪张面具，就按那张的名字认她；
@@ -217,16 +242,30 @@
     const a = youAlias(room, char);
     return you + (a ? "（" + a + "）" : "");
   }
-  function lineInstruction(room, char) {
+  // opts：{ stamp, now, presence, emotes:[关键词], targets:[能拍的名字] }——都是可选的
+  function capLines(room, char, opts) {
+    const o = opts || {}, bits = [];
+    const emotes = (o.emotes || []).filter(Boolean);
+    if (emotes.length) bits.push("\"emote\":\"表情关键词\"——想甩一张表情包时填，只能从这几张里挑：" + emotes.slice(0, 120).join(" / ") + "。发多发少看你这个人");
+    const tg = (o.targets || []).filter(x => x && x !== char.name);
+    if (tg.length) bits.push("\"pat\":\"名字\"——想用「拍一拍」戳房里谁一下就填 TA 的名字（" + tg.join("、") + "）；是一个动作，不用再在 say 里写「拍了拍」");
+    const poll = (room.msgs || []).slice().reverse().find(m => m.type === "poll" && !m.recalled && m.x && !(m.x.options || []).some(op => (op.voters || []).indexOf(char.name) >= 0));
+    if (poll) bits.push("\"vote\":\"选项原文\"——房里那张" + (poll.x.ask ? "请示「" + poll.x.ask.what + "」（选项：准 / 驳）" : "投票「" + poll.x.title + "」（选项：" + poll.x.options.map(op => op.text).join(" / ") + "）") + "你还没投，想投就填");
+    return bits.length ? "\n\n【顺手能做的】说话以外，这一次还可以在同一个 JSON 里加：\n- " + bits.join("\n- ") + "\n不想做就省略。红包不用你管：房里有红包时你会自己去抢。" : "";
+  }
+  function lineInstruction(room, char, opts) {
     room = normalizeRoom(room);
+    const o = opts || {}, gap = sinceLast(room, o.now);
     const mine = (room.myChars || []).filter(c => c.id !== char.id).map(c => c.name);
     const n = 1 + (room.peers || []).length;
     return "【这里是联机房间】" + room.myNick + " 用自己的手机和别人的手机连在了一起，房间里一共 " + n + " 个人，每人各带了自己的人进来，大家在同一个房间里说话。"
       + "\n- 带你来的是 " + youLine(room, char) + (mine.length ? "，跟你一起来的还有：" + mine.join("、") : "") + "。"
-      + "\n另外几方：" + (sidesLines(room) || "\n- （还没别人进来）")
+      + "\n另外几方：" + (sidesLines(room, o.presence) || "\n- （还没别人进来）")
       + "\n别人带来的这几位你只知道名字和他们在这里说过的话，其余的你不知道，也不用替他们补。"
-      + "\n\n【房间里到现在的全部聊天】\n" + (transcript(room) || "（还没人说话）")
+      + "\n\n【房间里到现在的全部聊天】" + (o.stamp ? "（每行前面〔〕里是那句话说的时间，只是时间标记，不要写进你说的话）" : "") + "\n" + (transcript(room, o) || "（还没人说话）")
+      + (gap ? "\n（最后一条到现在已经过去 " + gap + " 了）" : "")
       + "\n\n【这一次】轮到你在房间里开口，接着上面的话开口，照你平时发消息的习惯：一条一个气泡，想连发几条就几条，跟在群里聊天一样。只写你说出口的话本身，不写旁白，不替别人说话。"
+      + capLines(room, char, o)
       + bans();
   }
   // 模型交回来的几条气泡：say 数组为主；只给了一段 text 的，按空行/换行拆开
@@ -241,6 +280,153 @@
       + "\n房间里的几方：" + sidesLines(room)
       + "\n\n【这次房间里的全部聊天】\n" + transcript(room);
   }
+
+  // ───────────── 加号里那些消息（她 2026-11-22：「聊天能不能带上我们聊天加号里面那一堆功能」） ─────────────
+  // 一条消息多带两样：type（是哪一种）和 x（那一种自己的几样字段，cleanRich 一样一样挑）。text 永远是给人读、给模型读的那一行，
+  //   旧版对端不认得 type 就只拿到 text——显示成一行字，不会崩。
+  // 图片在线上是压小了的 dataURL（img），落到存档里换成本机图库的引用（imageRef / url 是 iv_…），存档里不放整张图。
+  //   补发记录（sync）不带图：断线时漏掉的那张，补回来只剩说明那一行。
+  const CHUNK = 12000;                                   // 一片多少字：DataChannel 跨浏览器能稳收的一条在 16KB 上下，留余量
+  const IMG_MAX = { photo: 160000, emote: 60000 };       // 线上那张图最长多少字（压不进去就再缩）
+  const FILE_TEXT_MAX = 12000;
+  const RICH_TYPES = ["emote", "photo", "voice", "geo", "pat", "rp", "poll", "namecard", "file"];
+  const cut = (v, n) => String(v == null ? "" : v).slice(0, n);
+  const isImg = (v, max) => typeof v === "string" && /^data:image\/(jpeg|png|webp|gif);base64,/.test(v) && v.length <= max;
+  const localRef = v => typeof v === "string" && /^(iv_|img_)[\w-]+$/.test(v) ? v.slice(0, 80) : "";
+  const money = v => Math.max(0, Math.round((Number(v) || 0) * 100) / 100);
+  const names = (a, n) => (Array.isArray(a) ? a : []).map(x => cut(x, 40)).filter((x, i, arr) => x && arr.indexOf(x) === i).slice(0, n);
+  function cleanRich(type, x, local) {
+    if (RICH_TYPES.indexOf(type) < 0 || !x || typeof x !== "object") return null;
+    if (type === "emote") {
+      const o = { keyword: cut(x.keyword, 40) };
+      if (/^https?:\/\//.test(String(x.url || ""))) o.url = cut(x.url, 600);
+      else if (local && localRef(x.url)) o.url = localRef(x.url);
+      if (!local && isImg(x.img, IMG_MAX.emote)) o.img = x.img;
+      return o;
+    }
+    if (type === "photo") {
+      const o = { desc: cut(x.desc, 300) };
+      if (local && localRef(x.imageRef)) o.imageRef = localRef(x.imageRef);
+      if (!local && isImg(x.img, IMG_MAX.photo)) o.img = x.img;
+      return o;
+    }
+    if (type === "voice") { const o = { content: cut(x.content, 2000) }; const d = Math.round(Number(x.dur) || 0); if (d > 0) o.dur = Math.min(600, d); return o; }
+    if (type === "geo") return { name: cut(x.name, 60) };
+    if (type === "pat") return { to: cut(x.to, 40) };
+    if (type === "rp") {
+      const count = Math.max(1, Math.min(50, Math.round(Number(x.count) || 1)));
+      return { rpId: cut(x.rpId, 60), total: money(x.total), count, message: cut(x.message, 40),
+        claims: (Array.isArray(x.claims) ? x.claims : []).slice(0, count).map(c => ({ key: cut(c && c.key, 90), name: cut(c && c.name, 40), amount: money(c && c.amount) })) };
+    }
+    if (type === "poll") {
+      const o = { pollId: cut(x.pollId, 60), title: cut(x.title, 60), anon: !!x.anon,
+        options: (Array.isArray(x.options) ? x.options : []).slice(0, 6).map(op => ({ text: cut(op && op.text, 40), voters: names(op && op.voters, 30) })) };
+      if (x.ask && typeof x.ask === "object") o.ask = { what: cut(x.ask.what, 40), reason: cut(x.ask.reason, 120), amount: money(x.ask.amount) };
+      return o;
+    }
+    if (type === "namecard") { const c = cardOf({ id: "card", name: x.name, avatarEmoji: x.emoji, color: x.color }, x.avatar); return { name: c.name, avatar: c.avatar, emoji: c.emoji, color: c.color }; }
+    if (type === "file") return { name: cut(x.name, 80), size: Math.max(0, Number(x.size) || 0), chars: Math.max(0, Number(x.chars) || 0), cut: !!x.cut, text: cut(x.text, FILE_TEXT_MAX) };
+    return null;
+  }
+  // 一条消息给人读、给模型读的那一行
+  function richLine(m) {
+    const x = m.x || {}, who = m.name || "TA";
+    if (m.type === "emote") return "[表情] " + (x.keyword || "");
+    if (m.type === "photo") return x.desc ? "[照片] " + x.desc : "[照片]";
+    if (m.type === "voice") return "[语音] " + (x.content || "");
+    if (m.type === "geo") return "[位置] " + (x.name || "");
+    if (m.type === "pat") return who + " 拍了拍 " + (x.to || "TA");
+    if (m.type === "rp") {
+      const cl = x.claims || [];
+      return "[红包] " + (x.message || "恭喜发财，大吉大利") + "（" + x.count + " 个，只是玩法不动钱包）"
+        + (cl.length ? "：" + cl.map(c => c.name + " 抢到 " + c.amount).join("、") + (cl.length >= x.count ? "，已被领完" : "") : "：还没人抢");
+    }
+    if (m.type === "poll") {
+      const ops = (x.options || []).map(o => o.text + (x.anon ? "（" + o.voters.length + " 票）" : "（" + (o.voters.length ? o.voters.join("、") : "没人") + "）")).join(" / ");
+      if (x.ask) return "[请示] " + who + "：" + x.ask.what + (x.ask.amount ? "（" + x.ask.amount + " 块）" : "") + (x.ask.reason ? "；理由：" + x.ask.reason : "") + "。大家投准或驳：" + ops;
+      return "[投票] " + x.title + "：" + ops;
+    }
+    if (m.type === "namecard") return "[名片] " + (x.name || "");
+    if (m.type === "file") return "[文件] " + (x.name || "文件") + "（" + (x.chars || 0) + " 字" + (x.cut ? "，只给了前面一段" : "") + "）\n" + String(x.text || "").slice(0, 4000);
+    return String(m.text || "");
+  }
+  // 大的一条拆成几片发；收的那头按 来源|编号 拼回来，拼齐了才交出去
+  function splitRaw(raw, size) {
+    const n = Math.max(1, Math.ceil(raw.length / (size || CHUNK))), out = [];
+    for (let i = 0; i < n; i++) out.push(raw.slice(i * (size || CHUNK), (i + 1) * (size || CHUNK)));
+    return out;
+  }
+  function Joiner(ttl) {
+    const box = {};
+    return function (key, i, n, d, now) {
+      const t = now || Date.now();
+      Object.keys(box).forEach(k => { if (t - box[k].at > (ttl || 60000)) delete box[k]; });
+      n = Math.round(Number(n)); i = Math.round(Number(i));
+      if (!(n >= 1 && n <= 400 && i >= 0 && i < n) || typeof d !== "string") return null;
+      const b = box[key] || (box[key] = { at: t, n, parts: {} });
+      if (b.n !== n) return null;
+      b.parts[i] = d;
+      if (Object.keys(b.parts).length < n) return null;
+      delete box[key];
+      let s = ""; for (let k = 0; k < n; k++) s += b.parts[k];
+      return s;
+    };
+  }
+  // 红包：钱只是玩法（联机房里各人的钱包谁也看不见谁的，就像群里没开记忆互通时那样不动钱）。
+  //   怎么拆只有发的那台手机知道（splits 不上线）；谁抢都要问发的那台，它按到达先后发下一份，再把领取名单广播给大家。
+  function grabRp(x, splits, who) {
+    if (!x || !Array.isArray(splits) || !splits.length || !who || !who.key) return { reason: "gone" };
+    const cl = x.claims || [];
+    if (cl.some(c => c.key === who.key)) return { reason: "claimed" };
+    if (cl.length >= x.count || cl.length >= splits.length) return { reason: "empty" };
+    const amount = money(splits[cl.length]);
+    return { amount, x: Object.assign({}, x, { claims: cl.concat([{ key: String(who.key).slice(0, 90), name: cut(who.name, 40), amount }]) }) };
+  }
+  // 投一票：先从别的选项里把这个名字拿掉，再放进选的那一项（改票就是再投一次）
+  function votePoll(x, opt, name) {
+    const i = Math.round(Number(opt)), nm = cut(name, 40);
+    if (!x || !nm || !(i >= 0 && i < (x.options || []).length)) return x;
+    return Object.assign({}, x, { options: x.options.map((o, k) => ({ text: o.text, voters: (o.voters || []).filter(v => v !== nm).concat(k === i ? [nm] : []) })) });
+  }
+  // 请示什么时候算结案：房里除了递的人，其余人（真人和带来的角色）都投过了；过半准，一样多算驳
+  function askResult(x, voterTotal) {
+    if (!x || !x.ask) return null;
+    const yes = ((x.options || [])[0] || {}).voters || [], no = ((x.options || [])[1] || {}).voters || [];
+    if (yes.length + no.length < Math.max(1, voterTotal)) return null;
+    return { status: yes.length > no.length ? "approved" : "rejected" };
+  }
+  // 重新说：把同一轮（turnId 一样的那几条）整个换成新的那几条，放回原来的位置
+  function replaceTurn(room, turnId, list) {
+    const msgs = (room.msgs || []);
+    let at = msgs.findIndex(m => m.turnId === turnId);
+    const rest = msgs.filter(m => m.turnId !== turnId);
+    if (at < 0) at = rest.length;
+    const add = (list || []).map(m => Object.assign({}, m, { turnId }));
+    return Object.assign({}, room, { msgs: rest.slice(0, at).concat(add, rest.slice(at)) });
+  }
+  // 改字、撤回：只认发这条的那一端。who 是 "me"（自己手机上改自己的）或对面某人的 peerId；
+  //   对面冒名改我的、改第三个人的，一律原样还回去。type 是卡片的（红包、投票……）不给改字，只能撤回。
+  function ownsMsg(m, who) { return !!m && !m.sys && (who === "me" ? m.side === "me" : m.side === "peer" && m.peerId === who); }
+  function editMsg(room, id, text, who) {
+    const t = cut(text, 8000).trim();
+    if (!t) return room;
+    let hit = false;
+    const msgs = (room.msgs || []).map(m => { if (m.id !== id || !ownsMsg(m, who) || m.recalled || m.type) return m; hit = true; return Object.assign({}, m, { text: t, edited: true }); });
+    return hit ? Object.assign({}, room, { msgs }) : room;
+  }
+  function recallMsg(room, id, who) {
+    let hit = false;
+    const msgs = (room.msgs || []).map(m => {
+      if (m.id !== id || !ownsMsg(m, who) || m.recalled) return m;
+      hit = true;
+      const o = Object.assign({}, m, { recalled: true, text: "" }); delete o.x; delete o.type; return o;
+    });
+    return hit ? Object.assign({}, room, { msgs }) : room;
+  }
+  // 只删我这边：不发给谁
+  const dropMsg = (room, id) => Object.assign({}, room, { msgs: (room.msgs || []).filter(m => m.id !== id) });
+  // 进出房间那一行（灰字）：每台手机自己看见了就自己记一笔，不发给别人
+  const sysMsg = (text, ts) => ({ id: "s" + (ts || Date.now()) + Math.random().toString(36).slice(2, 6), sys: true, side: "sys", kind: "user", name: "", text: cut(text, 200), ts: ts || Date.now() });
 
   // ───────────── 多人：谁跟谁连、谁 offer、满员、谁在线 ─────────────
   const MAX_PEOPLE = 4;
@@ -473,7 +659,8 @@
 
   const Core = { BROKERS, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
-    memoryTargets, transcript, lineInstruction, memoryInstruction, sayLines, mergeMsgs, removeRoom,
+    memoryTargets, transcript, lineInstruction, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
+    ownsMsg, editMsg, recallMsg, dropMsg, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, mergeMsgs, removeRoom,
     normalizeRoom, upsertPeer, peerOf, ownerNick, peerNames, syncedMsg, shouldOffer, admit, forwardTargets, reachable, rid, Mesh };
   root.NetRoomCore = Core;
 
@@ -495,12 +682,16 @@
     return h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: t.fog, lineHeight: 1.7 } }, children);
   }
   // 输入框自己管自己的草稿（typing-hot-path.md）：父组件只在发送那一下拿到字
-  function Composer({ onSend, disabled }) {
+  //   fillRef：话题卡那种「把一句话填进输入框」从这儿递进来；onPlus：输入框左边那颗 ＋（跟单聊、群聊同一颗）
+  function Composer({ onSend, disabled, onPlus, plusOn, fillRef }) {
     const t = useTheme();
     const [txt, setTxt] = useState("");
     const ref = useRef(null);
+    if (fillRef) fillRef.current = s => { setTxt(String(s || "")); setTimeout(() => { if (ref.current) { ref.current.focus(); fitTextarea(ref.current, 120); } }, 0); };
     const send = () => { const s = txt.trim(); if (!s || disabled) return; onSend(s); setTxt(""); setTimeout(() => fitTextarea(ref.current, 120), 0); };
     return h("div", { className: "flex items-end", style: { gap: 8 } },
+      onPlus && h("button", { "data-wk": "chatplus", onClick: onPlus, disabled, className: "active:opacity-60 shrink-0 flex items-center justify-center disabled:opacity-40",
+        style: { width: 32, height: 40, transform: plusOn ? "rotate(45deg)" : "none", transition: "transform .2s" } }, h(IPlus, { size: 22, color: t.fog })),
       h("textarea", { "data-wk": "nrinput", ref, rows: 1, value: txt, placeholder: disabled ? "房里暂时没有别人在线" : "说点什么…", disabled,
         onChange: e => { setTxt(e.target.value); fitTextarea(e.target, 120); },
         onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } },
@@ -508,27 +699,93 @@
           padding: "9px 12px", fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.45 } }),
       h(Btn, { label: "发送", primary: true, onClick: send, disabled: disabled || !txt.trim(), wk: "nrsend" }));
   }
-  function MsgRow({ m, room, myCharsById }) {
+  // 把一张图压到线上放得下的大小：先按边长缩，还大就降质量、再缩（src 可以是 dataURL、iv_ 引用、网址）
+  async function shrinkImg(src, maxDim, maxLen) {
+    if (!src || typeof document === "undefined") return "";
+    let url = typeof src === "string" && src.indexOf("iv_") === 0 && typeof imgVaultFetchBlob === "function"
+      ? await imgVaultFetchBlob(src).then(b => b ? URL.createObjectURL(b) : "").catch(() => "") : (typeof resolveImg === "function" ? resolveImg(src) : src);
+    if (!url) return "";
+    const img = await new Promise(ok => { const im = new Image(); if (/^https?:/.test(url)) im.crossOrigin = "anonymous"; im.onload = () => ok(im); im.onerror = () => ok(null); im.src = url; setTimeout(() => ok(null), 8000); });
+    if (!img) return "";
+    let dim = maxDim, q = 0.82;
+    for (let k = 0; k < 8; k++) {
+      try {
+        const sc = Math.min(1, dim / Math.max(img.width || 1, img.height || 1));
+        const c = document.createElement("canvas"); c.width = Math.max(1, Math.round((img.width || 1) * sc)); c.height = Math.max(1, Math.round((img.height || 1) * sc));
+        const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+        const d = c.toDataURL("image/jpeg", q);
+        if (d.length <= maxLen) return d;
+      } catch (e) { return ""; }
+      if (q > 0.55) q -= 0.12; else dim = Math.round(dim * 0.75);
+    }
+    return "";
+  }
+  // 收到一条带图的：图落进本机图库（iv_），存档里只留引用
+  async function landImages(w) {
+    if (!w || !w.x || !w.x.img) return w;
+    let ref = "";
+    try { ref = typeof imgToVault === "function" ? await imgToVault(w.x.img) : ""; } catch (e) {}
+    const x = Object.assign({}, w.x); delete x.img;
+    if (ref && ref.indexOf("iv_") === 0) { if (w.type === "photo") x.imageRef = ref; else x.url = ref; }
+    return Object.assign({}, w, { x });
+  }
+  // 表情包要发出去的那一份：网址照发；本机的（iv_／dataURL）压成小图带上
+  async function emoteWire(url) {
+    if (/^https?:\/\//.test(String(url || ""))) return { url };
+    const img = await shrinkImg(url, 240, Core.IMG_MAX.emote);
+    return img ? { img } : {};
+  }
+  // 一条消息里的那张卡／那颗气泡：跟单聊、群聊用的是同一批组件
+  function RichBody({ m, mine, meName, onRp, onVote, voters }) {
+    const t = useTheme();
+    const x = m.x || {};
+    if (m.type === "emote") return h(EmoteBubble, { url: x.url || "", keyword: x.keyword, max: 112 });
+    if (m.type === "photo") return h(PhotoCard, { m: { imageRef: x.imageRef || "", desc: x.desc }, mine, max: 220 });
+    if (m.type === "voice") return h("div", { "data-wk": "bubble", "data-me": mine ? "1" : "0", "data-kind": "voice", style: { padding: "8px 12px", borderRadius: 14, background: mine ? t.ink : t.bg2, color: mine ? t.bg : t.ink, border: "1px solid " + t.line } },
+      h(VoiceMsg, { m: { content: x.content, dur: x.dur }, isU: mine, speaker: null }));
+    if (m.type === "geo") return h(GeoCard, { m: { name: x.name, ts: m.ts }, isU: mine, who: m.name, avatar: null, myAvatar: null });
+    if (m.type === "rp") { const done = (x.claims || []).length >= x.count;
+      return h(RedPacketCard, { rp: { message: x.message, count: x.count, claims: x.claims || [] }, onClick: onRp, foot: done ? "已被领完" : "抢红包 · 只是玩法" }); }
+    if (m.type === "poll" && x.ask) return h(AskSlipCard, { m: { kind: "poll", ask: x.ask, options: x.options, pollId: x.pollId, ts: m.ts, askResult: Core.askResult(x, voters) }, asker: m.name, meName, money: n => "¥" + n,
+      onVote: !mine ? onVote : undefined });
+    if (m.type === "poll") return h(PollCard, { poll: Object.assign({ by: m.name }, x), meName, onVote });
+    if (m.type === "namecard") return h("div", { style: { width: 220 } }, h(NameCardMsg, { m: { cardId: "nrcard", cardName: x.name, cardTag: "" },
+      characters: [{ id: "nrcard", name: x.name, avatarImage: x.avatar || "", avatarEmoji: x.emoji || "", color: x.color || "" }] }));
+    if (m.type === "file") return h(FileCard, { m: x, actions: typeof fileCardActions === "function" ? fileCardActions(x) : null });
+    return null;
+  }
+  function MsgRow({ m, room, myCharsById, idx, onPress, onRelease, tools, rich }) {
     const t = useTheme();
     const mine = m.side === "me";
     const owner = Core.ownerNick(room, m);
+    const press = onPress ? { onTouchStart: () => onPress(idx), onTouchEnd: onRelease, onMouseDown: () => onPress(idx), onMouseUp: onRelease, onMouseLeave: onRelease,
+      onContextMenu: e => { e.preventDefault(); onPress(idx, true); } } : {};
+    const center = (part, text) => h("div", Object.assign({ "data-wk": "nrmsg", "data-side": m.side, "data-nri": idx, "data-part": part, style: { textAlign: "center" } }, press),
+      h("span", { "data-wk": "note", "data-part": part, style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, text));
+    if (m.sys) return center("sys", m.text);
+    const who = m.kind === "char" ? m.name : owner;
+    if (m.recalled) return center("recalled", (mine && m.kind !== "char" ? "你" : who) + " 撤回了一条消息");
+    if (m.type === "pat") return center("pat", Core.richLine(m));
     let face = null;
     if (m.kind === "char") {
       const local = mine ? myCharsById[m.charId] : null;
-      const who = !mine ? (Core.peerOf(room, m.peerId) || (room.peers || [])[0]) : null;
-      const card = who ? (who.chars || []).find(c => c.id === m.charId) : null;
+      const peer = !mine ? (Core.peerOf(room, m.peerId) || (room.peers || [])[0]) : null;
+      const card = peer ? (peer.chars || []).find(c => c.id === m.charId) : null;
       face = h(Avatar, { size: 34, character: local || { id: "nr_" + m.charId, name: m.name,
         avatarImage: card && card.avatar || "", avatarEmoji: card && card.emoji || "", color: card && card.color || "" } });
     }
-    return h("div", { "data-wk": "nrmsg", "data-side": m.side, className: "flex", style: { gap: 8, flexDirection: mine ? "row-reverse" : "row", alignItems: "flex-start" } },
+    const body = m.type && rich ? rich(m) : null;
+    return h("div", { "data-wk": "nrmsg", "data-side": m.side, "data-nri": idx, "data-kind": m.type || "text", className: "flex", style: { gap: 8, flexDirection: mine ? "row-reverse" : "row", alignItems: "flex-start" } },
       face,
       h("div", { style: { maxWidth: "76%", display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, marginBottom: 3 } }, m.kind === "char" ? m.name : owner),
-        h("div", { "data-wk": "nrbubble", style: { padding: "8px 12px", borderRadius: 14, background: mine ? t.ink : t.bg2, color: mine ? t.bg : t.ink,
-          border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text),
-        m.kind === "char" && h("div", { "data-wk": "nrowner", style: { fontFamily: F_BODY, fontSize: fs(10.5), color: t.fog, marginTop: 3 } }, owner + " 带来的")));
+        h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, marginBottom: 3 } }, who),
+        body ? h("div", press, body)
+          : h("div", Object.assign({ "data-wk": "nrbubble", style: { padding: "8px 12px", borderRadius: 14, background: mine ? t.ink : t.bg2, color: mine ? t.bg : t.ink,
+            border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(14), lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } }, press), m.text),
+        m.edited && h("div", { "data-wk": "nredited", style: { fontFamily: F_BODY, fontSize: fs(10), color: t.fog, marginTop: 2 } }, "已编辑"),
+        m.kind === "char" && h("div", { "data-wk": "nrowner", style: { fontFamily: F_BODY, fontSize: fs(10.5), color: t.fog, marginTop: 3, display: "flex", alignItems: "center", gap: 8 } }, owner + " 带来的", tools || null)));
   }
-  function MsgList({ room, myCharsById, tail }) {
+  function MsgList({ room, myCharsById, tail, rowProps }) {
     const ref = useRef(null);
     const n = (room.msgs || []).length;
     // 往上翻的时候不许拽回来（她 2026-11-22）：只有人本来就在底部附近、或者是自己刚发的，才跟到底。
@@ -540,8 +797,63 @@
     const onScroll = e => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; };
     return h("div", { ref, onScroll, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12 } },
       !n && h(Note, null, "房间里还没人说话。你直接发，或者点下面一个头像让 TA 先开口。"),
-      (room.msgs || []).map(m => h(MsgRow, { key: m.id, m, room, myCharsById })),
+      (room.msgs || []).map((m, i) => h(MsgRow, Object.assign({ key: m.id, m, room, myCharsById, idx: i }, rowProps ? rowProps(m, i) : {}))),
       tail);
+  }
+
+  // ＋ 里的那些：跟单聊、群聊用的同一套键（ChatToolKey）。两个人之间、本机的那几样（通话、通话记录、朋友圈、转账、亲属卡、给TA看手机、邀约、半窗）不放
+  const NR_PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["chatsearch", "查找记录", "magnifier"],
+    ["poll", "投票", "bars"], ["rp", "红包", "packet"], ["ask", "请示", "checklist"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["file", "文件", "file"], ["topics", "话题卡", "quote"]];
+  // 房间页 ＋ 面板、各个小窗、长按菜单（拆在外面，免得 NetRoomApp 一大坨）
+  function roomExtras(A) {
+    const { t, room, sheet, setSheet, props, myNick, charsById } = A;
+    const close = () => setSheet(null);
+    const people = (room.peers || []).map(p => p.nick).concat(A.patTargets(room)).filter((x, i, a) => x && a.indexOf(x) === i && x !== myNick());
+    const pickList = (title, rows, onPick) => h(Sheet, { onClose: close },
+      h("div", { style: { fontFamily: F_BODY, fontSize: fs(10.5), letterSpacing: 1.2, color: t.fog, marginBottom: 10 } }, title),
+      h("div", { className: "space-y-1", style: { maxHeight: "50vh", overflowY: "auto" } }, rows.map(r => h("button", { key: r.key, "data-wk": "nrpick", onClick: () => { close(); onPick(r); },
+        className: "w-full flex items-center gap-3 py-2.5 px-2 active:opacity-60" },
+        r.char ? h(Avatar, { character: r.char, size: 34, radius: 8 }) : null,
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, r.label)))));
+    const myRow = room.msgs[A.menuAt];
+    return [
+      A.panel && h("div", { key: "panel", "data-wk": "chatpanel", className: "shrink-0 grid grid-cols-4 gap-y-5 px-5 py-5", style: Object.assign({ background: t.bg2, borderTop: "1px solid " + t.line }, CHAT_PANEL_SCROLL) },
+        NR_PANEL.filter(([k]) => k !== "topics" || (room.myChars || []).length).map(([k, zh, glyph]) => h(ChatToolKey, { key: k, k, zh, glyph, onTap: A.onTap }))),
+      sheet === "sticker" && h(Sheet, { key: "st", onClose: close, tall: true },
+        h(StickerPanel, { packs: props.emotePacks || [], emotes: [], onPick: em => { close(); A.sendEmote(em); } })),
+      sheet === "photo" && h(Sheet, { key: "ph", onClose: close },
+        h("div", { className: "flex items-center justify-between mb-3" },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: fs(19), color: t.ink } }, "发送照片"),
+          h("button", { "data-wk": "nrphotosend", onClick: A.sendPhoto }, h(ISend, { size: 18, color: t.ink }))),
+        h(ChatPhotoPick, { imgs: A.photoImgs, setImgs: A.setPhotoImgs, toast: props.toast, t }),
+        h("input", { "data-wk": "input", value: A.photoText, onChange: e => A.setPhotoText(e.target.value), placeholder: A.photoImgs.length ? "可以顺手说一句（选填）" : "不选图就写一句照片里有什么",
+          className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink, background: t.bg, marginTop: 10 } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "图会压小了再发给房里的人（一次一张）；大家的角色看到的是你写的那句说明。")),
+      sheet === "voicemsg" && h(Sheet, { key: "vo", onClose: close },
+        h(VoiceEarComposer, { onSend: msg => { close(); A.sayRich("voice", { content: msg.content, dur: msg.dur }); }, onClose: close, senderName: myNick(), ownerKey: props.profile && (props.profile.id || props.profile.name), toast: props.toast })),
+      sheet === "geo" && h(GeoStampSheet, { key: "geo", recent: [], places: [], onMoveMe: null, onClose: close, onSend: name => { close(); A.sayRich("geo", { name }); } }),
+      sheet === "pat" && pickList("拍一拍 · 拍谁", people.map(n => ({ key: n, label: n })), r => A.sayRich("pat", { to: r.label })),
+      sheet === "namecard" && pickList("名片 · 发谁的（只带名字和头像）", [{ key: "_me", label: myNick() + "（我自己）", me: true }].concat((props.characters || []).map(c => ({ key: c.id, label: c.remark || c.name, char: c }))),
+        r => A.sendCard(r)),
+      sheet === "rp" && h(RedPacketComposeSheet, { key: "rp", noWallet: true, memberCount: Math.max(1, A.headCount(room) - 1), members: [], myBalance: 0, onClose: close,
+        onSubmit: (total, count, message) => { close(); A.sendRp(total, count, message); } }),
+      sheet === "poll" && h(PollComposeSheet, { key: "poll", onClose: close, onSubmit: (title, opts, anon) => { close(); A.sayRich("poll", { pollId: "pl" + Date.now(), title, anon, options: opts.map(text => ({ text, voters: [] })) }); } }),
+      sheet === "ask" && h(AskComposeDialog, { key: "ask", who: "", prev: null, onCancel: close,
+        onSend: a => { close(); A.sayRich("poll", { pollId: "pl" + Date.now(), title: "请示：" + a.what, anon: false, ask: { what: a.what, reason: a.reason, amount: a.amount }, options: [{ text: "准", voters: [] }, { text: "驳", voters: [] }] }); } }),
+      sheet === "chatsearch" && h(ChatSearchSheet, { key: "se", chars: [], meName: myNick(), onClose: close,
+        messages: room.msgs.map(m => ({ role: m.side === "me" && m.kind !== "char" ? "user" : "assistant", senderName: m.kind === "char" ? m.name : Core.ownerNick(room, m),
+          content: m.sys ? m.text : m.recalled ? "" : m.type ? Core.richLine(m) : m.text, ts: m.ts, recalled: !!m.recalled })),
+        onLocate: i => { close(); setTimeout(() => { const el = document.querySelector('[data-wk="nrmsg"][data-nri="' + i + '"]'); el && el.scrollIntoView({ block: "center" }); }, 60); } }),
+      sheet === "topics" && h(TopicCardsSheet, { key: "tp", charId: (room.myChars || [])[0].id, onClose: close, onUse: x => { close(); A.fillRef.current && A.fillRef.current(x.text); } }),
+      A.rpOpen && (() => { const rp = room.msgs.find(m => m.type === "rp" && m.x && m.x.rpId === A.rpOpen); if (!rp) return null;
+        const x = rp.x, mineC = (x.claims || []).find(c => c.key === A.myKey(""));
+        const canOpen = !mineC && (x.claims || []).length < x.count;
+        return h(RedPacketEnvelope, { key: "rpo" + A.rpOpen, who: rp.name, whoChar: rp.side === "me" ? null : null, message: x.message, canOpen, amountText: mineC ? "¥" + mineC.amount : "",
+          claims: (x.claims || []).map(c => ({ name: c.name, amount: c.amount, me: c.key === A.myKey("") })), total: x.total, count: x.count, meName: myNick(),
+          status: !mineC && !canOpen ? "手慢了，红包派完了" : "", onOpen: () => A.openRp(A.rpOpen), onClose: () => A.setRpOpen(null) }); })(),
+      myRow && h(MsgMenu, { key: "menu", message: { content: myRow.recalled || myRow.sys ? "" : myRow.type ? Core.richLine(myRow) : myRow.text }, idx: A.menuAt, isMine: myRow.side === "me",
+        items: A.menuItems(myRow), onClose: () => A.setMenuAt(null), onAction: act => { A.setMenuAt(null); A.onMenu(act, myRow); } })
+    ];
   }
 
   function NetRoomApp(props) {
@@ -560,6 +872,13 @@
     const [withChat, setWithChat] = useState({});   // 带上 TA 最近的单聊（只进自己这边的模型，不发给别人）
     const [peerTyping, setPeerTyping] = useState({});   // 别人哪几个角色正在输入：{ peerId|charId: 名字 }
     const [net, setNet] = useState({ open: [], fail: [], reach: [] });   // 直连通着的 / 直连失败的 / 直接或经人转得到的
+    const netRef = useRef({ open: [], fail: [], reach: [] }); netRef.current = net;
+    const [panel, setPanel] = useState(false);       // ＋ 面板开着没
+    const [sheet, setSheet] = useState(null);        // ＋ 里点开的那一样
+    const [photoImgs, setPhotoImgs] = useState([]), [photoText, setPhotoText] = useState("");
+    const [menuAt, setMenuAt] = useState(null);      // 长按的那一条（下标）
+    const [rpOpen, setRpOpen] = useState(null);      // 点开的那个红包（rpId）
+    const fillRef = useRef(null);
     const [memPick, setMemPick] = useState({});
     const [saving, setSaving] = useState(false);
     const [rooms, setRooms] = useState(() => Core.loadRooms());
@@ -586,15 +905,24 @@
       setNet({ open, fail, reach });
       setPeerTyping(x => { const n = {}; Object.keys(x).forEach(k => { if (reach.indexOf(k.split("|")[0]) >= 0) n[k] = x[k]; }); return n; });
     };
-    // 发给房里所有人：每条带编号和「谁说的」；直连不上的那几位由跟 TA 通着的人转过去
+    // 发给房里所有人：每条带编号和「谁说的」；直连不上的那几位由跟 TA 通着的人转过去。
+    //   太长的（带图的、补发整份记录的）拆成几片发，每片一个编号，收的那头拼齐了再认
     const send = obj => {
       const m = mesh.current; if (!m) return;
       const env = Object.assign({ nid: Core.rid(), o: meId.current }, obj);
       seen.current.add(env.nid);
       const raw = JSON.stringify(env);
-      m.openIds().forEach(id => m.sendTo(id, raw));
+      const out = raw.length > Core.CHUNK ? Core.splitRaw(raw, Core.CHUNK).map((d, i, a) => {
+        const p = { nid: Core.rid(), o: meId.current, t: "part", pid: env.nid, i, n: a.length, d };
+        seen.current.add(p.nid); return JSON.stringify(p);
+      }) : [raw];
+      const ids = m.openIds();
+      out.forEach(r => ids.forEach(id => m.sendTo(id, r)));
     };
     const sendLinks = () => { if (mesh.current) send({ t: "links", ids: mesh.current.openIds() }); };
+    const joiner = useRef(Core.Joiner(60000));
+    const left = useRef(new Set());       // 说过 bye 的人：TA 再报到时记一行「回来了」
+    const pending = useRef({});           // 我在等的红包结果：rpId → resolve
     const onData = (fromId, raw) => {
       let e; try { e = JSON.parse(raw); } catch (_) { return; }
       if (!e || !e.nid || seen.current.has(e.nid)) return;
@@ -602,31 +930,83 @@
       const origin = String(e.o || fromId).slice(0, 40);
       const m = mesh.current;
       if (m) Core.forwardTargets(m.openIds(), fromId, origin, linkMap.current).forEach(id => m.sendTo(id, raw));
+      if (e.t === "part") {
+        const full = joiner.current(origin + "|" + String(e.pid || ""), e.i, e.n, e.d);
+        if (!full) return;
+        let inner; try { inner = JSON.parse(full); } catch (_) { return; }
+        if (!inner || !inner.nid || seen.current.has(inner.nid)) return;
+        seen.current.add(inner.nid);
+        handle(inner, origin);
+      } else handle(e, origin);
+    };
+    const nickOf = id => { const p = Core.peerOf(roomRef.current, id); return (p && p.nick) || "有人"; };
+    const sysLine = text => { const r = roomRef.current; if (r) commit(Core.addMsg(r, Core.sysMsg(text))); };
+    const updX = (pred, fn) => { const r = roomRef.current; if (!r) return;
+      let hit = false; const msgs = (r.msgs || []).map(x => { if (!pred(x)) return x; hit = true; const nx = fn(x.x); return Object.assign({}, x, { x: nx, text: Core.richLine(Object.assign({}, x, { x: nx })) }); });
+      if (hit) commit(Core.upsertRoom(Object.assign({}, r, { msgs }))); };
+    const handle = (e, origin) => {
       const r = roomRef.current; if (!r) return;
       if (e.t === "links") { linkMap.current[origin] = (Array.isArray(e.ids) ? e.ids : []).map(String).slice(0, MAX_LINKS); syncNet(); }
       else if (e.t === "hi") {
-        commit(Core.upsertRoom(Core.upsertPeer(r, origin, String(e.nick || "对方").slice(0, 20), (e.chars || []).slice(0, 8).map(Core.cleanCard))));
-        if (!greeted.current.has(origin)) { greeted.current.add(origin); if (entered.current) announce(roomRef.current); }
+        const known = !!Core.peerOf(r, origin), nick = String(e.nick || "对方").slice(0, 20);
+        commit(Core.upsertRoom(Core.upsertPeer(r, origin, nick, (e.chars || []).slice(0, 8).map(Core.cleanCard))));
+        if (!greeted.current.has(origin)) {
+          greeted.current.add(origin);
+          if (entered.current) {
+            if (left.current.has(origin)) { left.current.delete(origin); sysLine(nick + " 回来了"); }
+            else if (!known) sysLine(nick + " 进了房间");
+            announce(roomRef.current);
+          }
+        }
         syncNet();
       } else if (e.t === "msg" && e.m) {
-        commit(Core.addMsg(r, Object.assign(Core.wireMsg(e.m), { side: "peer", peerId: origin, by: origin })));
+        landImages(Core.wireMsg(e.m)).then(w => {
+          commit(Core.addMsg(roomRef.current, Object.assign(Core.wireMsg(w, true), { side: "peer", peerId: origin, by: origin })));
+          if (w.type === "rp") grabForMine(w.x.rpId);
+        });
       } else if (e.t === "sync" && Array.isArray(e.msgs)) {
         commit(Core.mergeMsgs(r, e.msgs.slice(-600).map(x => Core.syncedMsg(x, meId.current, origin))));
       } else if (e.t === "typing" && e.id) {
         const k = origin + "|" + String(e.id).slice(0, 80), nm = String(e.name || "TA").slice(0, 20);
         setPeerTyping(x => { const n = Object.assign({}, x); if (e.on) n[k] = nm; else delete n[k]; return n; });
+      } else if (e.t === "grab" && e.rpId) {
+        // 别人来抢我发的红包：只有发的那台手机算数
+        grabMine(String(e.rpId), { key: origin + "|" + String(e.charId || "").slice(0, 40), name: String(e.name || "").slice(0, 40) });
+      } else if (e.t === "rp" && e.rpId && Array.isArray(e.claims)) {
+        // 领取名单只认发红包那个人报的
+        const id = String(e.rpId);
+        updX(x => x.type === "rp" && x.side === "peer" && x.peerId === origin && x.x && x.x.rpId === id, x => Core.cleanRich("rp", Object.assign({}, x, { claims: e.claims }), true));
+        const w = pending.current[id]; if (w) w();
+      } else if (e.t === "vote" && e.pollId) {
+        const id = String(e.pollId);
+        updX(x => x.type === "poll" && x.x && x.x.pollId === id, x => Core.votePoll(x, e.opt, e.name));
+      } else if (e.t === "edit" && e.id) {
+        commit(Core.upsertRoom(Core.editMsg(r, String(e.id), e.text, origin)));
+      } else if (e.t === "recall" && e.id) {
+        commit(Core.upsertRoom(Core.recallMsg(r, String(e.id), origin)));
+      } else if (e.t === "reroll" && e.turnId && Array.isArray(e.msgs)) {
+        // 重新说：只认那一轮本来就是 TA 那边的角色说的；换成 TA 新给的那几条
+        const tid = String(e.turnId).slice(0, 60);
+        const olds = (r.msgs || []).filter(x => x.turnId === tid);
+        if (olds.some(x => !(x.side === "peer" && x.peerId === origin && x.kind === "char"))) return;
+        Promise.all(e.msgs.slice(0, 12).map(x => landImages(Core.wireMsg(x)))).then(list => {
+          const fresh = list.filter(w => w.kind === "char").map(w => Object.assign(Core.wireMsg(w, true), { side: "peer", peerId: origin, by: origin }));
+          commit(Core.upsertRoom(Core.replaceTurn(roomRef.current, tid, fresh)));
+        });
       } else if (e.t === "bye") {
         delete linkMap.current[origin];
         Object.keys(linkMap.current).forEach(k => { linkMap.current[k] = linkMap.current[k].filter(x => x !== origin); });
+        if (!left.current.has(origin)) { left.current.add(origin); greeted.current.delete(origin); sysLine(nickOf(origin) + " 离开了房间"); }
         syncNet();
       }
+      // 别的 t（以后的新版本发来的）：不认得就不理
     };
     // 报到：名片 + 我手上的全部记录（谁断线时漏掉的，靠这一份补上；别人的话带着 by，收的人认得是谁说的）
     const announce = async r => {
       const cards = [];
       for (const c of (r.myChars || [])) { const ch = charsById[c.id]; cards.push(ch ? Core.cardOf(ch, await smallAvatar(ch)) : Core.cleanCard({ id: c.id, name: c.name })); }
       send({ t: "hi", nick: r.myNick || myNick(), chars: cards });
-      send({ t: "sync", msgs: (r.msgs || []).slice(-600).map(m => Core.wireMsg(Object.assign({}, m, { by: m.side === "me" ? meId.current : (m.peerId || "") }))) });
+      send({ t: "sync", msgs: (r.msgs || []).filter(m => !m.sys).slice(-600).map(m => Core.wireMsg(Object.assign({}, m, { by: m.side === "me" ? meId.current : (m.peerId || "") }))) });
     };
     // 断了以后连回原来那个房间：房间号、谁开的都照旧，聊天记录接着往下记（她 2026-11-22）
     const rejoin = r0 => { start(!!r0.host, r0); };
@@ -669,13 +1049,73 @@
       send({ t: "hi", nick: myNick(), chars: cards });
       entered.current = true; setPage("chat");
     };
+    // 存档那一份（图换成本机引用）和发出去那一份（压小的图）各过一遍 wireMsg
     const post = (msg) => {
-      const full = Object.assign(Core.wireMsg(msg), { side: "me" });
+      const full = Object.assign(Core.wireMsg(msg, true), { side: "me" });
       commit(Core.addMsg(roomRef.current, full));
-      send({ t: "msg", m: Core.wireMsg(full) });
+      send({ t: "msg", m: Core.wireMsg(msg) });
+      return full;
     };
-    const sayHuman = text => post({ id: "m" + Date.now() + Math.random().toString(36).slice(2, 6), kind: "user", name: myNick(), text, ts: Date.now() });
-    const speak = async c => {
+    const mid = p => p + Date.now() + Math.random().toString(36).slice(2, 6);
+    const sayHuman = text => post({ id: mid("m"), kind: "user", name: myNick(), text, ts: Date.now() });
+    const sayRich = (type, x) => post({ id: mid("m"), kind: "user", name: myNick(), type, x, text: "", ts: Date.now() });
+    // ── 红包：只是玩法，不动钱包 ──
+    const myKey = charId => meId.current + "|" + (charId || "");
+    const grabMine = (rpId, who) => {
+      const r = roomRef.current; if (!r) return;
+      const rp = (r.msgs || []).find(x => x.type === "rp" && x.side === "me" && x.x && x.x.rpId === rpId);
+      if (!rp) return;
+      const g = Core.grabRp(rp.x, (r.rpSplits || {})[rpId], who);
+      if (g.x) updX(x => x.id === rp.id, () => g.x);
+      const now = (roomRef.current.msgs || []).find(x => x.id === rp.id);
+      send({ t: "rp", rpId, claims: (now && now.x && now.x.claims) || [] });
+      const w = pending.current[rpId]; if (w) w();
+    };
+    const grab = (rpId, charId, name) => {
+      const r = roomRef.current; if (!r) return;
+      const rp = (r.msgs || []).find(x => x.type === "rp" && x.x && x.x.rpId === rpId);
+      if (!rp) return;
+      if (rp.side === "me") grabMine(rpId, { key: myKey(charId), name });
+      else send({ t: "grab", rpId, charId: charId || "", name });
+    };
+    // 我带来的人三秒后开抢（照群里的规矩：给真人留三秒先手），先后错开一点
+    const grabForMine = rpId => ((roomRef.current && roomRef.current.myChars) || []).forEach(c =>
+      setTimeout(() => grab(rpId, c.id, c.name), 3000 + Math.random() * 1500));
+    const sendRp = (total, count, message) => {
+      const a = Math.round(Number(total) * 100) / 100; if (!(a > 0)) return;
+      const splits = typeof splitRedPacket === "function" ? splitRedPacket(a, count) : [a];
+      const rpId = mid("rp");
+      commit(Core.patchRoom(roomRef.current, { rpSplits: Object.assign({}, roomRef.current.rpSplits || {}, { [rpId]: splits }) }));
+      sayRich("rp", { rpId, total: a, count: splits.length, message: message || "恭喜发财，大吉大利", claims: [] });
+      grabForMine(rpId);
+    };
+    // 我自己点开抢：等发红包那台手机报回结果（它不在线就抢不到）
+    const openRp = async rpId => {
+      const mine = () => { const rp = ((roomRef.current && roomRef.current.msgs) || []).find(x => x.type === "rp" && x.x && x.x.rpId === rpId);
+        return rp && (rp.x.claims || []).find(c => c.key === myKey("")); };
+      if (mine()) return "¥" + mine().amount;
+      const got = new Promise(ok => { pending.current[rpId] = ok; setTimeout(ok, 6000); });
+      grab(rpId, "", myNick());
+      await got; delete pending.current[rpId];
+      const c = mine();
+      if (!c) props.toast && props.toast("没抢到：领完了，或者发红包的人这会儿不在线");
+      return c ? "¥" + c.amount : null;
+    };
+    const vote = (pollId, opt, name) => {
+      updX(x => x.type === "poll" && x.x && x.x.pollId === pollId, x => Core.votePoll(x, opt, name));
+      send({ t: "vote", pollId, opt, name });
+    };
+    // 房里能投票的有几位（真人 + 各自带来的人）：请示要除了递的人都投过才结案
+    const headCount = r => 1 + (r.peers || []).length + (r.myChars || []).length + (r.peers || []).reduce((n, p) => n + (p.chars || []).length, 0);
+    // 能拍的人：房里的人（除了我）和所有角色
+    const patTargets = r => (r.peers || []).map(p => p.nick).concat((r.myChars || []).map(c => c.name), ...(r.peers || []).map(p => (p.chars || []).map(c => c.name))).filter(Boolean);
+    // 改字、撤回：本机先改，再告诉大家（别人那边只认我这一端发出的）；删除只删我这边
+    const editOwn = (id, text) => { commit(Core.upsertRoom(Core.editMsg(roomRef.current, id, text, "me"))); send({ t: "edit", id, text }); };
+    const recallOwn = id => { commit(Core.upsertRoom(Core.recallMsg(roomRef.current, id, "me"))); send({ t: "recall", id }); };
+    const dropLocal = id => commit(Core.upsertRoom(Core.dropMsg(roomRef.current, id)));
+    // ── 角色开口：一次连发的几条算一轮（turnId），能整轮重新说 ──
+    const presence = () => { const o = {}; ((roomRef.current && roomRef.current.peers) || []).forEach(p => { o[p.peerId] = netRef.current.open.indexOf(p.peerId) >= 0 ? "on" : netRef.current.reach.indexOf(p.peerId) >= 0 ? "relay" : netRef.current.fail.indexOf(p.peerId) >= 0 ? "fail" : "off"; }); return o; };
+    const speak = async (c, rerollId) => {
       const char = charsById[c.id];
       if (!char || busy[c.id]) return;
       const p = props.apiFor ? props.apiFor(char.id) : null;
@@ -685,21 +1125,113 @@
       const typing = on => send({ t: "typing", id: c.id, name: char.remark || char.name, on });
       typing(true);
       try {
-        const cur = roomRef.current;
-        // 没勾「带上最近单聊」的，单聊和线下那几段不进这次的料
-        const ctx0 = props.ctxFor(char), ctx = c.recent ? ctx0 : Object.assign({}, ctx0, { recentChat: "", pastOffline: "" });
+        const cur0 = roomRef.current;
+        // 重新说时，模型看到的记录里不放被换掉的那一轮
+        const cur = rerollId ? Object.assign({}, cur0, { msgs: (cur0.msgs || []).filter(x => x.turnId !== rerollId) }) : cur0;
+        // 跟单聊同一个 ctxFor（chat:true 带上日记回忆）；没勾「带上最近单聊」的，单聊和线下那几段不进这次的料
+        const ctx0 = props.ctxFor(char, { chat: true }), ctx = c.recent ? ctx0 : Object.assign({}, ctx0, { recentChat: "", pastOffline: "" });
+        const emotes = props.emotesFor ? props.emotesFor(char.id) : [];
         const d = await runProbe(p, ctx, { voice: true, tag: "netroom",
-          instruction: Core.lineInstruction(cur, { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" }),
-          schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}", maxTokens: 12000 });
+          instruction: Core.lineInstruction(cur, { id: char.id, name: char.remark || char.name, you: props.youFor ? props.youFor(char.id) : "" },
+            { stamp: props.stampFor ? ts => props.stampFor(char.id, ts) : null, now: Date.now(), presence: presence(), emotes: emotes.map(e => e.keyword), targets: patTargets(cur).concat([myNick()]) }),
+          schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"],\"emote\":\"（可选）\",\"pat\":\"（可选）\",\"vote\":\"（可选）\"}", maxTokens: 12000 });
         // 一次连发几条（她 2026-11-22：「为啥角色一次只会说一句话」）；老格式 text 也认
         const lines = Core.sayLines(d);
-        if (!lines.length) throw new Error("TA 没想好说什么，再点一次");
-        for (let i = 0; i < lines.length; i++) {
-          if (i) await new Promise(r => setTimeout(r, Math.min(2200, 500 + lines[i].length * 60)));
-          post({ id: "c" + Date.now() + Math.random().toString(36).slice(2, 6), kind: "char", name: char.remark || char.name, charId: char.id, text: lines[i], ts: Date.now() });
+        const turnId = rerollId || mid("t"), nm = char.remark || char.name;
+        const base = () => ({ id: mid("c"), kind: "char", name: nm, charId: char.id, ts: Date.now(), turnId, text: "" });
+        const list = lines.map(text => Object.assign(base(), { text }));
+        const ekw = d && typeof d.emote === "string" && d.emote.trim() && d.emote !== "null" ? d.emote.trim() : "";
+        const em = ekw && props.emoteFor ? props.emoteFor(char.id, ekw) : null;
+        if (em) list.push(Object.assign(base(), { type: "emote", x: Object.assign({ keyword: em.keyword, url: em.url }, await emoteWire(em.url)) }));
+        const pt = d && typeof d.pat === "string" ? d.pat.trim() : "";
+        if (pt && pt !== nm && patTargets(cur).concat([myNick()]).indexOf(pt) >= 0) list.push(Object.assign(base(), { type: "pat", x: { to: pt } }));
+        if (!list.length) throw new Error("TA 没想好说什么，再点一次");
+        const vt = d && typeof d.vote === "string" ? d.vote.trim() : "";
+        if (vt) { const pl = (cur.msgs || []).slice().reverse().find(x => x.type === "poll" && !x.recalled && x.x);
+          const oi = pl ? pl.x.options.findIndex(o => o.text === vt) : -1; if (oi >= 0) vote(pl.x.pollId, oi, nm); }
+        if (rerollId) {
+          // 换掉那一轮：旧的那份留在本机版本里，可以左右翻回去
+          const r = roomRef.current, olds = (r.msgs || []).filter(x => x.turnId === rerollId);
+          const local = list.map(x => Object.assign(Core.wireMsg(x, true), { side: "me" }));
+          const v0 = (r.vers || {})[rerollId] || { list: [olds], cur: 0 };
+          const v = { list: v0.list.concat([local]).slice(-8), cur: 0 }; v.cur = v.list.length - 1;
+          commit(Core.upsertRoom(Object.assign(Core.replaceTurn(r, rerollId, local), { vers: Object.assign({}, r.vers || {}, { [rerollId]: v }) })));
+          send({ t: "reroll", turnId: rerollId, msgs: list.map(x => Core.wireMsg(x)) });
+        } else {
+          for (let i = 0; i < list.length; i++) {
+            if (i) await new Promise(r => setTimeout(r, Math.min(2200, 500 + String(list[i].text || "").length * 60)));
+            post(Object.assign({}, list[i], { ts: Date.now() }));
+          }
         }
       } catch (e) { props.toast && props.toast("没说出来：" + ((e && e.message) || e)); }
       finally { typing(false); setBusy(b => Object.assign({}, b, { [c.id]: false })); }
+    };
+    // 左右翻这一轮的几个版本：翻到哪版就把哪版发给大家
+    const flipTurn = (turnId, dir) => {
+      const r = roomRef.current, v = (r.vers || {})[turnId]; if (!v) return;
+      const cur = Math.max(0, Math.min(v.list.length - 1, v.cur + dir)); if (cur === v.cur) return;
+      const pick = v.list[cur];
+      commit(Core.upsertRoom(Object.assign(Core.replaceTurn(r, turnId, pick), { vers: Object.assign({}, r.vers, { [turnId]: { list: v.list, cur } }) })));
+      send({ t: "reroll", turnId, msgs: pick.map(x => Core.wireMsg(x)) });
+    };
+    // ＋ 里点了哪一样
+    const onTap = k => {
+      setPanel(false);
+      if (k === "location") setSheet("geo");
+      else if (k === "photo") { setPhotoImgs([]); setPhotoText(""); setSheet("photo"); }
+      else if (k === "file") pickTextFile(msg => sayRich("file", msg));
+      else setSheet(k === "voicemsg" ? "voicemsg" : k);
+    };
+    const sendEmote = async em => sayRich("emote", Object.assign({ keyword: em.keyword || "表情", url: em.url }, await emoteWire(em.url)));
+    const sendPhoto = async () => {
+      const cap = photoText.trim(), src = photoImgs[0];
+      if (!src && !cap) { props.toast && props.toast("选一张图，或者写一句照片里有什么"); return; }
+      setSheet(null);
+      if (!src) { sayRich("photo", { desc: cap }); return; }
+      const img = await shrinkImg(src, 1024, Core.IMG_MAX.photo);
+      if (!img) { props.toast && props.toast("这张图没能压小，换一张试试"); return; }
+      let ref = ""; try { ref = await imgToVault(img); } catch (e) {}
+      sayRich("photo", { desc: cap, img, imageRef: ref });
+    };
+    const sendCard = async r => {
+      if (r.me) { sayRich("namecard", { name: myNick(), avatar: "" }); return; }
+      const c = r.char; sayRich("namecard", Object.assign({}, Core.cardOf(c, await smallAvatar(c))));
+    };
+    // 长按：按住半秒出菜单（右键直接出）
+    const pressT = useRef(null);
+    const onPress = (i, now) => { clearTimeout(pressT.current); if (now) setMenuAt(i); else pressT.current = setTimeout(() => setMenuAt(i), 480); };
+    const onRelease = () => clearTimeout(pressT.current);
+    // 自己发的能改字、撤回；自己带来的人说的也能；别人的只能删我这边。卡片（红包、投票……）不改字
+    const menuItems = m => {
+      if (m.sys || m.recalled) return [["del"]];
+      const own = m.side === "me";
+      if (!own) return [m.type ? [] : ["copy"], ["del"]];
+      return [m.type ? [] : ["copy"], [m.type ? null : "edit", m.kind === "char" && m.turnId ? "reroll" : null].filter(Boolean), ["recall", "del"]];
+    };
+    const onMenu = (act, m) => {
+      if (act === "copy") { typeof copyText === "function" && copyText(m.text); props.toast && props.toast("复制好了"); }
+      else if (act === "del") requestAppConfirm("删除这条消息？", "只从你这台手机上删掉，房里别人那边还在。删了不能恢复。", () => dropLocal(m.id), "删除");
+      else if (act === "recall") recallOwn(m.id);
+      else if (act === "edit") requestAppPrompt("编辑这条消息", "改好以后房里每个人那边都会换成新的，标「已编辑」。", m.text, v => { if (String(v || "").trim()) editOwn(m.id, v); }, "改好了");
+      else if (act === "reroll") { const c = ((roomRef.current && roomRef.current.myChars) || []).find(x => x.id === m.charId); if (c) speak(c, m.turnId); }
+    };
+    // 每一行：长按、卡片、这一轮最后一条底下的「重新说 ‹ 1/2 ›」
+    const rowProps = (r, interactive) => (m, i) => {
+      const o = { rich: x => h(RichBody, { m: x, mine: x.side === "me", meName: myNick(), voters: Math.max(1, headCount(r) - 1),
+        onRp: interactive ? () => setRpOpen(x.x.rpId) : undefined, onVote: interactive ? opt => vote(x.x.pollId, opt, myNick()) : undefined }) };
+      if (!interactive) return o;
+      o.onPress = onPress; o.onRelease = onRelease;
+      const next = r.msgs[i + 1];
+      if (m.side === "me" && m.kind === "char" && m.turnId && !(next && next.turnId === m.turnId)) {
+        const v = (r.vers || {})[m.turnId], c = (r.myChars || []).find(x => x.id === m.charId);
+        const sb = { fontFamily: F_BODY, fontSize: fs(10.5), color: t.fog, minHeight: 24, padding: "0 4px" };
+        o.tools = h("span", { "data-wk": "nrreroll", style: { display: "inline-flex", alignItems: "center", gap: 2 } },
+          v && v.list.length > 1 && h("button", { "data-wk": "nrverprev", onClick: () => flipTurn(m.turnId, -1), disabled: v.cur <= 0, style: sb, className: "disabled:opacity-30" }, "‹"),
+          v && v.list.length > 1 && h("span", { style: sb }, (v.cur + 1) + "/" + v.list.length),
+          v && v.list.length > 1 && h("button", { "data-wk": "nrvernext", onClick: () => flipTurn(m.turnId, 1), disabled: v.cur >= v.list.length - 1, style: sb, className: "disabled:opacity-30" }, "›"),
+          c && h("button", { "data-wk": "nrrerollbtn", onClick: () => speak(c, m.turnId), disabled: !!busy[c.id], style: sb, className: "active:opacity-60 disabled:opacity-40" }, busy[c.id] ? "在想…" : "重新说"));
+      }
+      return o;
     };
     // 把一个人这次的经历记进 TA 的记忆（退出卡和历史里补记都走这一处）
     const remember = async (r, charId) => {
@@ -779,7 +1311,7 @@
             (st === "on" ? "● " : "○ ") + p.nick + (st === "on" ? "" : " · " + stateText[st])); }),
           trouble.length > 0 && h("div", { style: { width: "100%", fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
             "和 " + trouble.map(p => p.nick).join("、") + " 直连不上：" + (trouble.some(p => stateOf(p.peerId) === "relay") ? "话由房里其他人转过去，可能慢一点。" : "TA 收不到你的话。两边都换成 Wi-Fi 再试。"))),
-        h(MsgList, { room, myCharsById: charsById, tail }),
+        h(MsgList, { room, myCharsById: charsById, tail, rowProps: rowProps(room, true) }),
         alone && h("div", { "data-wk": "nrrejoinbar", className: "shrink-0 flex items-center", style: { gap: 10, padding: "8px 14px", borderTop: "1px solid " + t.line, background: t.bg2 } },
           h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: fs(12.5), color: t.fog, lineHeight: 1.5 } }, peers.length ? "房里暂时没有别人在线。谁回来点「重新连上」就会接上；你这边断了也点一下。刚才的记录都在。" : "还没有别人进来。"),
           peers.length > 0 && h(Btn, { label: "重新连上", primary: true, onClick: () => rejoin(room), wk: "nrrejoin" })),
@@ -790,7 +1322,9 @@
               className: "active:opacity-60 disabled:opacity-40", style: { flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 44 } },
               h(Avatar, { character: charsById[c.id] || { id: c.id, name: c.name }, size: 32 }),
               h("span", { style: { fontFamily: F_BODY, fontSize: fs(10), color: t.fog } }, busy[c.id] ? "在想…" : c.name)))),
-          h(Composer, { onSend: sayHuman, disabled: alone })));
+          h(Composer, { onSend: sayHuman, disabled: alone, fillRef, plusOn: panel, onPlus: () => setPanel(v => !v) })),
+        ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sayRich, sendRp,
+          photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }));
     }
 
     if (page === "leave" && room) {
@@ -823,7 +1357,7 @@
           h("div", { className: "shrink-0", style: { padding: "10px 14px", borderBottom: "1px solid " + t.line } },
             h(Btn, { label: "重新连上这个房间", primary: true, wide: true, onClick: () => { setNick(r.myNick || nick); rejoin(r); }, wk: "nrrejoin" }),
             h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "房里还有人开着就直接接上；都走了的话，要别人也在 TA 那边的「以前的房间」里点开这个房间、点「重新连上」。记录接在后面，断开那会儿的话会补齐。")),
-          h(MsgList, { room: r, myCharsById: charsById }),
+          h(MsgList, { room: r, myCharsById: charsById, rowProps: rowProps(r, false) }),
           h("div", { className: "shrink-0", style: { padding: "10px 14px", paddingBottom: "calc(10px + env(safe-area-inset-bottom))", borderTop: "1px solid " + t.line } },
             h(Btn, { label: delAsk ? "确定删掉这个房间的记录？" : "删除这个房间的记录", disabled: saving, wk: "nrdel", onClick: () => {
               if (!delAsk) { setDelAsk(true); return; }

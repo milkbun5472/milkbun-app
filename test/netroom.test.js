@@ -228,7 +228,7 @@ test("重新连上直接回到房间页（输入框在），不停在等人那�
   // 外壳收任意几块：房间页传了顶栏/有谁/记录/重新连上/输入区五块，不许只收前三块把输入区丢掉
   assert.match(src, /const shell = \(\.\.\.parts\) =>/);
   // 房间页里输入框一直渲染着，没人在线只是灰掉
-  assert.match(src, /h\(Composer, \{ onSend: sayHuman, disabled: alone \}\)/);
+  assert.match(src, /h\(Composer, \{ onSend: sayHuman, disabled: alone,/);
 });
 
 test("面具跟着角色走：按 TA 认的那张面具名字称呼你，昵称不一样时说清是同一个人", () => {
@@ -239,4 +239,145 @@ test("面具跟着角色走：按 TA 认的那张面具名字称呼你，昵称�
   const t2 = C.lineInstruction(room, { id: "a", name: "甲", you: "小雨" });
   assert.ok(t2.includes("带你来的是 小雨") && !t2.includes("你认识的"));
   assert.ok(C.memoryInstruction(room, { id: "a", name: "甲", you: "阿梨" }).includes("阿梨 带你进联机房间"));
+});
+
+// ── ＋ 面板那些消息（2026-11-22）──
+const IMG = "data:image/jpeg;base64," + "A".repeat(500);
+test("每种新消息上线只带该带的字段：人设、本机引用、多塞的字段都不出去", () => {
+  const { C } = load();
+  const w = (type, x) => C.wireMsg({ id: "1", kind: "user", name: "小雨", type, x, ts: 1 });
+  assert.deepStrictEqual(Object.keys(w("emote", { keyword: "哭", url: "iv_abc", img: IMG, persona: "x" }).x).sort(), ["img", "keyword"]);
+  assert.deepStrictEqual(w("photo", { desc: "猫", imageRef: "iv_1", img: IMG, memory: "x" }).x, { desc: "猫", img: IMG });
+  assert.deepStrictEqual(w("geo", { name: "公园", lat: 1 }).x, { name: "公园" });
+  assert.deepStrictEqual(w("pat", { to: "阿梨", extra: 1 }).x, { to: "阿梨" });
+  assert.deepStrictEqual(Object.keys(w("voice", { content: "嗨", dur: 3, voiceId: "v" }).x).sort(), ["content", "dur"]);
+  assert.deepStrictEqual(Object.keys(w("namecard", { name: "甲", avatar: IMG, persona: "人设", memLib: [1], worldbook: "w" }).x).sort(), ["avatar", "color", "emoji", "name"]);
+  assert.deepStrictEqual(Object.keys(w("file", { name: "a.txt", text: "x".repeat(20000), chars: 20000, path: "/u" }).x).sort(), ["chars", "cut", "name", "size", "text"]);
+  assert.strictEqual(w("file", { name: "a.txt", text: "x".repeat(20000) }).x.text.length, C.FILE_TEXT_MAX || 12000);
+  assert.deepStrictEqual(Object.keys(w("rp", { rpId: "r", total: 5, count: 2, message: "", claims: [], splits: [1, 4] }).x).sort(), ["claims", "count", "message", "rpId", "total"]);
+  // 落存档那一份：不留整张图，只留本机引用
+  const loc = C.wireMsg({ id: "1", type: "photo", x: { desc: "猫", imageRef: "iv_1", img: IMG } }, true);
+  assert.deepStrictEqual(loc.x, { desc: "猫", imageRef: "iv_1" });
+  // 红包怎么拆只在发的那台手机：splits 绝不上线，也不在消息里
+  assert.match(src, /rpSplits: Object\.assign\(\{\}, roomRef\.current\.rpSplits/);
+});
+
+test("transcript 里每种都有能读的一行；时间戳照单聊那种；撤回不给原文；进出房间一行", () => {
+  const { C } = load();
+  const m = (o) => Object.assign({ id: Math.random() + "", kind: "user", side: "me", ts: 1000 }, o);
+  const room = { myNick: "小雨", peers: [{ peerId: "p", nick: "阿梨", chars: [] }], msgs: [
+    m({ type: "photo", x: { desc: "一只猫" } }), m({ type: "emote", x: { keyword: "开心" } }), m({ type: "voice", x: { content: "到了" } }),
+    m({ type: "geo", x: { name: "西湖" } }), m({ type: "pat", name: "小雨", x: { to: "阿梨" } }),
+    m({ type: "rp", x: { rpId: "r", count: 2, message: "发财", claims: [{ key: "p|", name: "阿梨", amount: 1.2 }] } }),
+    m({ type: "poll", x: { title: "吃啥", options: [{ text: "面", voters: ["阿梨"] }, { text: "饭", voters: [] }] } }),
+    m({ type: "namecard", x: { name: "沈某" } }), m({ type: "file", x: { name: "a.txt", chars: 3, text: "abc" } }),
+    m({ text: "秘密原文", recalled: true }), C.sysMsg("阿梨 离开了房间", 1000) ] };
+  const tx = C.transcript(room, { stamp: ts => "今天10:00" });
+  ["[照片] 一只猫", "[表情] 开心", "[语音] 到了", "[位置] 西湖", "小雨 拍了拍 阿梨", "[红包] 发财", "阿梨 抢到 1.2", "[投票] 吃啥：面（阿梨）", "[名片] 沈某", "[文件] a.txt", "abc", "撤回了一条消息", "（阿梨 离开了房间）", "〔今天10:00〕"]
+    .forEach(s => assert.ok(tx.includes(s), "缺：" + s));
+  assert.ok(!tx.includes("秘密原文"));
+  assert.ok(C.transcript(room).indexOf("〔") < 0, "不给 stamp 就不标时间");
+});
+
+test("在线状态进提示词；离最后一条过去多久写上；能做的事（表情/拍/投票）按房里现有的写", () => {
+  const { C } = load();
+  const room = { myNick: "小雨", peers: [{ peerId: "p", nick: "阿梨", chars: [] }, { peerId: "q", nick: "老周", chars: [] }], myChars: [{ id: "a", name: "甲" }],
+    msgs: [{ id: "1", kind: "user", side: "peer", peerId: "p", type: "poll", x: { pollId: "pl", title: "吃啥", options: [{ text: "面", voters: [] }, { text: "饭", voters: [] }] }, ts: 1 }] };
+  const tx = C.lineInstruction(room, { id: "a", name: "甲" }, { presence: { p: "on", q: "off" }, now: 3 * 3600e3, emotes: ["哭哭"], targets: ["阿梨"] });
+  assert.ok(tx.includes("阿梨，没带人（此刻在房里）"));
+  assert.ok(tx.includes("老周，没带人（已经离开了房间，听不到房里说的话）"));
+  assert.ok(tx.includes("已经过去 3 小时"));
+  assert.ok(tx.includes("哭哭") && tx.includes("\"pat\"") && tx.includes("投票「吃啥」"));
+});
+
+test("大的一条拆片再拼回来；缺片不交；图超上限不上线", () => {
+  const { C } = load();
+  const raw = "字".repeat(C.CHUNK * 2 + 5);
+  const parts = C.splitRaw(raw, C.CHUNK);
+  assert.strictEqual(parts.length, 3);
+  assert.ok(parts.every(p => p.length <= C.CHUNK));
+  const J = C.Joiner(60000);
+  assert.strictEqual(J("o|1", 2, 3, parts[2], 1), null);
+  assert.strictEqual(J("o|1", 0, 3, parts[0], 1), null);
+  assert.strictEqual(J("o|1", 1, 3, parts[1], 1), raw);
+  assert.strictEqual(J("o|2", 5, 3, "x", 1), null, "序号越界不收");
+  const big = "data:image/jpeg;base64," + "A".repeat(C.IMG_MAX.photo + 1);
+  assert.ok(!C.wireMsg({ id: "1", type: "photo", x: { desc: "", img: big } }).x.img);
+  assert.ok(C.IMG_MAX.photo < 200000 && C.IMG_MAX.emote < C.IMG_MAX.photo);
+  // 发的那头超过一片就拆
+  assert.match(src, /raw\.length > Core\.CHUNK \? Core\.splitRaw\(raw, Core\.CHUNK\)/);
+});
+
+test("未知类型不崩：显示成那一行字；不认得的 t 不理", () => {
+  const { C } = load();
+  const w = C.wireMsg({ id: "1", kind: "user", text: "[新玩意] 一行字", type: "hologram", x: { a: 1 } });
+  assert.strictEqual(w.type, undefined); assert.strictEqual(w.text, "[新玩意] 一行字");
+  assert.strictEqual(C.wireMsg({ id: "2", type: "photo", x: null, text: "t" }).type, undefined);
+  assert.match(src, /别的 t（以后的新版本发来的）：不认得就不理/);
+});
+
+test("红包：按先后发下一份，同一人只能抢一次，领完就没了", () => {
+  const { C } = load();
+  let x = { rpId: "r", total: 3, count: 2, claims: [] };
+  const sp = [1, 2];
+  let g = C.grabRp(x, sp, { key: "p|", name: "阿梨" }); assert.strictEqual(g.amount, 1); x = g.x;
+  assert.strictEqual(C.grabRp(x, sp, { key: "p|", name: "阿梨" }).reason, "claimed");
+  g = C.grabRp(x, sp, { key: "p|c1", name: "甲" }); assert.strictEqual(g.amount, 2); x = g.x;
+  assert.strictEqual(C.grabRp(x, sp, { key: "q|", name: "老周" }).reason, "empty");
+  assert.strictEqual(C.grabRp(x, null, { key: "z", name: "z" }).reason, "gone", "不是发的那台手机没有 splits，算不了");
+  // 只有发红包那个人报的名单才认
+  assert.match(src, /x\.type === "rp" && x\.side === "peer" && x\.peerId === origin/);
+});
+
+test("投票改票、请示要除递的人都投完才结案", () => {
+  const { C } = load();
+  let x = { options: [{ text: "准", voters: [] }, { text: "驳", voters: [] }], ask: { what: "买猫" } };
+  x = C.votePoll(x, 0, "甲"); x = C.votePoll(x, 1, "甲");
+  assert.deepStrictEqual(x.options.map(o => o.voters), [[], ["甲"]]);
+  assert.strictEqual(C.votePoll(x, 9, "乙"), x);
+  assert.strictEqual(C.askResult(x, 2), null);
+  x = C.votePoll(x, 0, "乙"); x = C.votePoll(x, 0, "丙");
+  assert.strictEqual(C.askResult(x, 3).status, "approved");
+});
+
+test("改字、撤回只认发这条的那一端；删除只删本机不外发", () => {
+  const { C } = load();
+  const room = { msgs: [{ id: "a", side: "me", kind: "user", text: "打措了" }, { id: "b", side: "peer", peerId: "p", kind: "char", text: "TA 的话" }] };
+  assert.strictEqual(C.editMsg(room, "a", "打错了", "me").msgs[0].text, "打错了");
+  assert.ok(C.editMsg(room, "a", "打错了", "me").msgs[0].edited);
+  assert.strictEqual(C.editMsg(room, "a", "冒名", "p"), room, "别人不能改我的");
+  assert.strictEqual(C.editMsg(room, "b", "冒名", "q"), room, "第三个人不能改 p 的");
+  assert.strictEqual(C.editMsg(room, "b", "改", "p").msgs[1].text, "改");
+  const rc = C.recallMsg(room, "b", "p");
+  assert.ok(rc.msgs[1].recalled && !rc.msgs[1].text);
+  assert.strictEqual(C.recallMsg(room, "b", "me"), room);
+  assert.ok(!C.transcript(Object.assign({ peers: [{ peerId: "p", nick: "阿梨" }] }, rc)).includes("TA 的话"));
+  assert.strictEqual(C.wireMsg(rc.msgs[1]).text, "", "撤回的补发出去也不带原文");
+  assert.deepStrictEqual(C.dropMsg(room, "a").msgs.map(m => m.id), ["b"]);
+  const i = src.indexOf("const dropLocal = "), j = src.indexOf("\n", i);
+  assert.ok(i > 0 && !/send\(/.test(src.slice(i, j)), "删除不外发");
+  assert.match(src, /Core\.editMsg\(r, String\(e\.id\), e\.text, origin\)/);
+});
+
+test("重新说：同一轮整轮换掉放回原处；只认那一轮本来是 TA 那边角色说的", () => {
+  const { C } = load();
+  const room = { msgs: [{ id: "1", text: "前" }, { id: "2", turnId: "t", text: "旧1" }, { id: "3", turnId: "t", text: "旧2" }, { id: "4", text: "后" }] };
+  const r = C.replaceTurn(room, "t", [{ id: "5", text: "新" }]);
+  assert.deepStrictEqual(r.msgs.map(m => m.text), ["前", "新", "后"]);
+  assert.strictEqual(r.msgs[1].turnId, "t");
+  assert.match(src, /olds\.some\(x => !\(x\.side === "peer" && x\.peerId === origin && x\.kind === "char"\)\)/);
+});
+
+test("角色开口跟单聊同一份料：ctxFor(chat) + runProbe(voice) 的 buildBundle，带时间戳、在线状态、表情清单", () => {
+  const i = src.indexOf("const speak = async (c, rerollId) =>"), j = src.indexOf("const flipTurn", i);
+  assert.ok(i > 0 && j > i);
+  const body = src.slice(i, j);
+  assert.match(body, /props\.ctxFor\(char, \{ chat: true \}\)/);
+  assert.match(body, /runProbe\(p, ctx, \{ voice: true/);
+  assert.match(body, /stamp: props\.stampFor/);
+  assert.match(body, /presence: presence\(\)/);
+  assert.match(body, /emotes: emotes\.map/);
+  const app = read("js/app.js");
+  assert.match(app, /stampFor: \(charId, ts\) => aiStampFor\(charId, ts\)/);
+  assert.match(app, /emoteFor: \(charId, kw\) => emoteMatch\(emotesForChar\(charId\), kw\)/);
 });

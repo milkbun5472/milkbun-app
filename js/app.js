@@ -38645,6 +38645,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onAddMemory: (text, charId) => keepWhereItHappened({ text: text, charIds: [charId], entry: { source: "netroom", tags: ["联机"] } }),
     // 面具跟着角色走：TA 认的是哪张面具，房间里就按那张的名字认你（人设那半 ctxFor 本来就照 profileFor 走）
     youFor: charId => { try { return userName(profileFor(charId) || profile); } catch (e) { return ""; } },
+    // ＋ 里的表情包：她自己能发的那几套；角色能甩的表情和单聊同一份（emotesForChar / emoteMatch）
+    emotePacks: emotePacksForGroup(liveChars.map(c => c.id)),
+    emotesFor: charId => emotesForChar(charId),
+    emoteFor: (charId, kw) => emoteMatch(emotesForChar(charId), kw),
+    // 房间记录每条前面的时间：跟单聊给模型的记录同一种戳（时间感知关着的角色就不标）
+    stampFor: (charId, ts) => aiStampFor(charId, ts),
     onBack: goHome
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
