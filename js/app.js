@@ -35768,7 +35768,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 有自己整页的那几条，直接去那一页，不停在信息首页
       const BY_ENTRY = { emotes: "emotes", favorites: "favorites", closet: "mycloset" };
       const sc = BY_ENTRY[entryId] || ALIAS[app] || app;
-      const OK = ["anon", "astro", "zhaoying", "stamps", "calendar", "carry", "cast", "companion", "config", "debate", "diary", "dream", "dreamjournal", "dwell", "fairyGarden", "fanfic", "forum", "games", "health", "home", "impression", "ledger", "listen", "lore", "loungeapp", "map", "memlib", "memo", "messages", "nest", "phone", "pomodoro", "read", "rescue", "shike", "shop", "shua", "study", "stylelab", "takeout", "tarot", "theater", "ties", "trpg", "us", "vpscodex", "wallet", "watch", "weekly", "yanqiu", "emotes", "favorites", "mycloset"];
+      const OK = ["anon", "astro", "zhaoying", "netroom", "stamps", "calendar", "carry", "cast", "companion", "config", "debate", "diary", "dream", "dreamjournal", "dwell", "fairyGarden", "fanfic", "forum", "games", "health", "home", "impression", "ledger", "listen", "lore", "loungeapp", "map", "memlib", "memo", "messages", "nest", "phone", "pomodoro", "read", "rescue", "shike", "shop", "shua", "study", "stylelab", "takeout", "tarot", "theater", "ties", "trpg", "us", "vpscodex", "wallet", "watch", "weekly", "yanqiu", "emotes", "favorites", "mycloset"];
       if (OK.indexOf(sc) < 0) return false;
       setScreen(sc);
       return true;
@@ -38632,6 +38632,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     myBdays: stampMyBdays(),
     annivs: stampAnnivs(),
     onBack: () => setScreen("home")
+  });else if (screen === "netroom") body = h(window.NetRoomApp, {
+    // 联机房间（2026-11-22）：配角和言秋不带进去（配角跟着主人走；言秋那一支不走这条线路）
+    characters: liveChars.filter(c => !c.npc && !settingsFor(c.id).engineerEyes),
+    profile: profile,
+    apiFor: apiFor,
+    // 开口走 runProbe(voice)：buildBundle 那一整份白得（four-surfaces-same-context）
+    ctxFor: ctxFor,
+    toast: toast,
+    // 记进记忆走公共那一处（同一起看/一起读）
+    onAddMemory: (text, charId) => keepWhereItHappened({ text: text, charIds: [charId], entry: { source: "netroom", tags: ["联机"] } }),
+    onBack: goHome
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
     onAsk: (charId, testId, scene, guess, lie) => zhaoyingAsk(charId, testId, scene, guess, lie),
