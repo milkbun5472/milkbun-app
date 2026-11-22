@@ -51,9 +51,12 @@ test("攒包只有一份：auto-backup 和设置页用的是同一个 BackupPack
   assert.match(app, /window\.BackupPack\.build\(opts\)/, "设置页那一路没改成调公共的");
   // 钉「整份存档的收集」这一句本身：app.js 里还有表情包/图片包/只带几个人那几种别的导出，
   //   它们各有各的 __archive，不归这一条管。
-  const COLLECT = /k\.startsWith\("x_"\) && k !== "x_neteaseCookie"/;
+  const COLLECT = /k\.startsWith\("x_"\) && (k !== "x_neteaseCookie"|!DEVICE_ONLY\[k\])/;
   assert.ok(!COLLECT.test(app), "app.js 里还留着第二套整份存档的收集逻辑");
   assert.match(read("backup-pack.js"), COLLECT, "公共那一份不见了");
+  // 只留在这台的：账号凭据、联机当庄的对局存档（带着别人的底牌）——localStorage 那一路和文字库镜像那一路都排掉
+  assert.match(read("backup-pack.js"), /const DEVICE_ONLY = \{ x_neteaseCookie: 1, x_netGameHost: 1 \}/);
+  assert.match(read("backup-pack.js"), /if \(v != null && !DEVICE_ONLY\[k\]\) dump\[k\] = v;/);
 });
 
 // 出货版有一刀：从「找回失联的角色」那段注释一路切到 function StorageMeter（公共版没有那条路）。

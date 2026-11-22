@@ -590,7 +590,7 @@ test("当前对局写给开口的角色：只用公开那一份，别人的私�
   ["gomoku", "haigui", "q25", "chess", "xiangqi", "jungle", "go", "story", "tod", "monopoly"].forEach(k => assert.strictEqual(typeof G.ADAPTERS[k].stateText, "function", k + " 要有 stateText"));
   // 两条开口的路都带上
   assert.match(nsrc, /now: Date\.now\(\), game: gameStateFor\(char\.id\), presence: presence\(\),/);
-  assert.match(nsrc, /targets, cast, game: gameStateFor\(null\) \}\);/);
+  assert.match(nsrc, /targets, cast, game: gameStateFor\(null\)/);
   assert.equal((nsrc.match(/\+ \(o\.game \? "\\n\\n" \+ o\.game : ""\)/g) || []).length, 2);
   // 每盒都能写出一段
   const sts = { chess: G.ADAPTERS.chess.init(), go: G.ADAPTERS.go.init(inv, {}), story: G.ADAPTERS.story.init(inv), tod: G.ADAPTERS.tod.init(inv), monopoly: G.ADAPTERS.monopoly.init(inv) };

@@ -421,9 +421,10 @@
     try { p = T.parseObj(await root.callAI(ctx.hostApi, sys, [{ role: "user", content: user }], { maxTokens: T.TOK_MAX, timeout: 300000 })); } catch (e) { p = null; }
     if (!p || !Array.isArray(p.paras) || !p.paras.length) return { st: Object.assign({}, st, { busy: false, err: "终章没写出来,再点一次" }) };
     const gr = growthOf(st, c);
-    if (T.squadWriteBack && gr.home.length) T.squadWriteBack(c, gr.home, gr.team);
     const n = Object.assign({}, st, { camp: Object.assign({}, c, { ended: true, pendingEnd: false, epilogue: T.epilogueRec(p, gr.team) }), guestGrowth: gr.guests, phase: "done", busy: false, err: "" });
+    // 先把团记成落幕、再写小分队：中途断了，接回来看见团已落幕就不再重写一遍终章，小分队的出团次数不会多记一次
     writeBack(n);
+    if (T.squadWriteBack && gr.home.length) T.squadWriteBack(c, gr.home, gr.team);
     return { st: n };
   }
 
@@ -504,6 +505,13 @@
       return pendingOf(st).filter(i => st.seatKinds[i] === "user").map(i => ({ seat: i, mv: st.phase === "roll" ? { stats: T.rollStats(), auto: true } : (k => k >= 0 ? { pick: k, auto: true } : { pass: true, auto: true })(safePick(st.camp)) }));
     },
     recordMax: 900,
+    // 开局的人重进房间、从存档接回这一团：团本来就一拍一拍写回房主的团（writeBack 是整份换上，不是追加），
+    //   断的那一刻正在等守密人的那一拍重新请一次，不会多落一份账；只有终章已经写进团里（落幕了）的，不再重写终章
+    async restore(st, inflight) {
+      await ensure(); const T = TS(), c = T && T.loadCamps ? (T.loadCamps() || []).find(x => x && st.camp && x.id === st.camp.id) : null;
+      if (c && c.ended && !st.camp.ended) return { st: Object.assign({}, st, { camp: c, phase: "done", busy: false, err: "" }), inflight: null };
+      return { st, inflight };
+    },
     async apply(st, seatIdx, mv, ctx) {
       const inv = ctx.inv;
       if (st.phase === "done") return { err: "这一团今晚已经收桌了" };

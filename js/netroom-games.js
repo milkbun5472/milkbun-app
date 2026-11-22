@@ -5,6 +5,8 @@
 //   · 每台手机只收公开的那一份（view）＋只发给自己的那一份（priv，走 {t:"game", to: peerId}，不广播）。
 //   · 轮到谁：真人座位等那台手机上的人点；角色座位由【带 TA 来的那台】用自己的线路替 TA 出手，结果交给庄；
 //     NPC 座位庄自己跑。掉线的座位：轮到 TA 时等 20 秒，还没回来就由庄转成 NPC 托管，人回来了自动交还。
+//   · 庄那台每推进一步就把整局（连各座位的私密那份）存进自己这台（x_netGameHost，不上云、不进导出）；
+//     开局的人重进房间或刷新后从存档接回来接着打，只有存档里也没有的那几局才广播 gone 作废。
 //   · 规则本身不在这儿：每一盒用的都是小游戏里那一份（window.GameShared，js/games.js 导出的纯函数和棋盘），单机、联机同一个函数。
 //
 // 下一个游戏接进来：在 ADAPTERS 里登记一份，写齐这几样（下面两个是现成的样子）——
@@ -53,6 +55,9 @@
 //   （可选）roundEnd(prev, next, inv) → 这一手打完是不是「一轮完了」（一手结算、一夜／一天、一个任务…）：是就回一句这一轮怎么了，不是回 ""。
 //   框架在庄那台收下这一手以后问它；回了话、这一局又没打完，就停在 pause（{ line, n }，跟着 state 一起发）：停着时谁都不出手、
 //   角色不替人出手、NPC 不动，桌边台词和房间聊天照常；只有开局的人点「接着来」（resume）才往下走。开局选「自动接着来」（cfg.autoNext="auto"）就不停。
+//   （可选）restore(st, inflight) → 开局的人重进房间、从存档接回这一局时：回 { st, inflight }（inflight＝断的那一刻正在判的那一手
+//                                   [座位, 那一手, 谁交的]，接回来会重新判一次；回 inflight:null 就不重判）。不写＝原样接上
+//   （可选）serialize(st)          → 存档前把 st 里存不进去的东西摘掉（默认整份 JSON 深拷贝；st 里本来就只放能存的东西）
 //   Table / Replay                 → 牌桌、回看的界面（复用小游戏原来的部件）。Table 拿到 { inv, view, priv, myApi, me, isHost, onMove, onReveal }
 //
 // 牌桌不占整页：开着时是浮在房间聊天上的半窗（components.js 的 HalfWinFrame，单聊半窗同一份外壳），能拖、能收起成小条。
@@ -924,8 +929,23 @@
   // o：me() 我的 peerId；nick()；send(obj, to?) 发给房里（给了 to 只发给 TA）；post(type, x) 往房里发一条卡；
   //    patchCard(gid, x, host) 改那张邀请卡；hostApi() 庄的线路；apiFor(charId)；charOf(charId) 本机的角色；
   //    presence() 房里每个人此刻在不在；onChange() 界面重画；toast(s)
-  function Session(o) {
-    const host = {};     // 我开的那几局：gid → { inv, st, prep, seq, busy, gone:{peer:ts} }
+  // 庄那台的对局存档（她 2026-11-22：开局的人重进房间，正在打的局接着打）：
+  //   一把键 x_netGameHost＝{ 房间 id: { ts, games: { gid: 那一局的整份状态 } } }，进大仓库；
+  //   里面有别人的底牌／身份，只留在开局的人这台——云端备份、导出文件都排掉它（cloud.js／backup-pack.js 那两张名单）
+  const HOST_SAVE_KEY = "x_netGameHost", HOST_KEEP_GAMES = 6, HOST_KEEP_ROOMS = 12;
+  const hostStoreDefault = {
+    load: () => { try { const v = typeof loadJSON === "function" ? loadJSON(HOST_SAVE_KEY, {}) : {}; return v && typeof v === "object" && !Array.isArray(v) ? v : {}; } catch (e) { return {}; } },
+    save: v => { try { if (typeof saveJSON === "function") saveJSON(HOST_SAVE_KEY, v); } catch (e) {} }
+  };
+  function Session(o0) {
+    // 同一个房间又开了一份（重连进同一个房间）：旧的这份退下——不再往房里发、不再写存档，免得旧的把新的那份盖掉
+    let dead = false, booted = false;
+    const o = Object.assign({}, o0, {
+      send: (a, b) => dead ? undefined : o0.send(a, b),
+      post: (a, b) => dead || !o0.post ? undefined : o0.post(a, b),
+      patchCard: (a, b, c, d) => dead || !o0.patchCard ? undefined : o0.patchCard(a, b, c, d) });
+    const store = o0.store || hostStoreDefault;
+    const host = {};     // 我开的那几局：gid → { inv, st, prep, seq, busy, gone:{peer:ts}, inflight:正在判的那一手 }
     const seen = {};     // 每一局我这台看到的：gid → { inv, view, seq, priv, privs:{座位:{seq,data}} }（priv＝我自己那个真人座位的那份）
     const acting = new Set();
     const changed = () => { try { o.onChange && o.onChange(); } catch (e) {} };
@@ -934,15 +954,66 @@
     // hostRoute：这一盒的庄用哪条线路（不写＝小游戏那条；"offline"＝线下/跑团那条，跟单机跑团同一条）
     const apiOfHost = key => o.hostApi ? o.hostApi((A(key) || {}).hostRoute || "") : null;
     const ctxOf = g => ({ hostApi: apiOfHost(g.inv.key), inv: g.inv, prep: g.prep });
-    const shareCard = g => { o.patchCard(g.inv.gid, g.inv, true); o.send({ t: "game", op: "card", gid: g.inv.gid, x: g.inv }); };
+    const shareCard = g => { persist(g); o.patchCard(g.inv.gid, g.inv, true); o.send({ t: "game", op: "card", gid: g.inv.gid, x: g.inv }); };
     const shareState = g => {
       const ad = A(g.inv.key), view = ad.view(g.st), pause = g.pause || null;
       g.seq++;
+      persist(g);
       local(g.inv, view, g.seq, pause);
       o.send({ t: "game", op: "state", gid: g.inv.gid, inv: g.inv, view, seq: g.seq, pause });
       // 只给座位主人看的那一份：一份一份单独发，不进广播
       g.inv.seats.forEach((s, i) => { const p = ad.priv(g.st, i); if (p != null && s.peer) { if (s.peer === o.me()) gotPriv(g.inv.gid, i, g.seq, p); else o.send({ t: "game", op: "priv", gid: g.inv.gid, seat: i, seq: g.seq, data: p }, s.peer); } });
     };
+    // ── 存档：每推进一步写一次；打完、取消的局只留房里那张战绩卡，状态不留 ──
+    const roomOf = () => { try { return String((o0.roomId && o0.roomId()) || ""); } catch (e) { return ""; } };
+    function snapOf(g) {
+      const ad = A(g.inv.key) || {};
+      let st = g.st; try { if (st && ad.serialize) st = ad.serialize(st); } catch (e) {}
+      return JSON.parse(JSON.stringify({ inv: g.inv, st, prep: g.prep, seq: g.seq, cfg: g.cfg || {}, pause: g.pause || null, pause0: g.pause0 || 0,
+        queue: g.queue || [], inflight: g.inflight || null, ts: Date.now() }));
+    }
+    function persist(g) {
+      const r = roomOf(); if (dead || !r) return;
+      const all = Object.assign({}, store.load() || {}), games = Object.assign({}, (all[r] && all[r].games) || {});
+      if (g.inv.status === "open" || g.inv.status === "playing") { try { games[g.inv.gid] = snapOf(g); } catch (e) { return; } }
+      else delete games[g.inv.gid];
+      const keep = Object.keys(games).sort((a, b) => (games[b].ts || 0) - (games[a].ts || 0)).slice(0, HOST_KEEP_GAMES), gs = {};
+      keep.forEach(k => { gs[k] = games[k]; });
+      if (keep.length) all[r] = { ts: Date.now(), games: gs }; else delete all[r];
+      const out = {}; Object.keys(all).sort((a, b) => ((all[b] || {}).ts || 0) - ((all[a] || {}).ts || 0)).slice(0, HOST_KEEP_ROOMS).forEach(k => { out[k] = all[k]; });
+      store.save(out);
+    }
+    // 开局的人重进房间／刷新以后：把存着的那几局接回来。正在判的那一手（等模型回话）重新发起；轮到 NPC 的接着下；计时照局面里记的时刻续
+    function boot() {
+      if (booted || dead) return; const r = roomOf(); if (!r) return;
+      booted = true;
+      LIVE.forEach(x => { if (x !== api && x._room && x._room() === r && x._me() === o.me()) x._retire(); });
+      let saved = {}; try { saved = ((store.load() || {})[r] || {}).games || {}; } catch (e) { saved = {}; }
+      const kick = [];
+      Object.keys(saved).forEach(gid => {
+        if (host[gid]) return;
+        const sn = saved[gid] || {}, inv = cleanInvite(sn.inv), ad = inv && A(inv.key);
+        if (!ad || inv.host !== o.me() || (inv.status !== "open" && inv.status !== "playing")) return;
+        const st = sn.st || null, inflight = Array.isArray(sn.inflight) ? sn.inflight : null, playing = inv.status === "playing" && !!st;
+        // 接回来之前（下面那一步）先挡着：这时候来的一手跟平常庄正在判时一样排队
+        host[gid] = { inv, st, prep: sn.prep || null, seq: int(sn.seq, 0, 1e9, 0), busy: playing, gone: {}, cfg: sn.cfg || {},
+          pause: cleanPause(sn.pause), pause0: int(sn.pause0, 0, 1e6, 0), queue: Array.isArray(sn.queue) ? sn.queue.slice(0, 40) : [], inflight: null };
+        if (playing) kick.push([gid, inflight]);
+      });
+      kick.forEach(([gid, inf]) => (async () => {
+        const g = host[gid], ad = A(g.inv.key);
+        let st = g.st, inflight = inf;
+        if (ad.restore) { try { const x = (await ad.restore(st, inflight)) || {}; st = x.st || st; inflight = x.inflight === undefined ? inflight : x.inflight; } catch (e) {} }
+        // 「庄在判…」那一下没判完就断了：先摘掉，下面重新发起那一手时再亮
+        if (st && st.busy) st = Object.assign({}, st, { busy: false });
+        g.st = st; g.busy = false;
+        if (dead) return;
+        shareState(g);
+        const nx = inflight || g.queue.shift();
+        if (nx) hostApply(gid, nx[0], nx[1], nx[2]); else drive(gid);
+        changed();
+      })());
+    }
     // 收到只给我这台的那一份：按座位存（我自己一份、我带来的角色各一份）；角色那一手可能正等着它
     function gotPriv(gid, seat, seq, data) {
       const s = seen[gid]; if (!s) return;
@@ -1069,7 +1140,7 @@
     }
     // 庄：轮到 NPC 或托管的座位就自己下；一局完了就发战绩卡
     async function drive(gid) {
-      const g = host[gid]; if (!g || g.inv.status !== "playing" || g.busy) return;
+      const g = host[gid]; if (!g || dead || g.inv.status !== "playing" || g.busy) return;
       const ad = A(g.inv.key);
       const res = ad.result(g.st, g.inv);
       if (res) return finish(g, res);
@@ -1118,7 +1189,7 @@
         talk: sideAll.filter(x => x.kind === "talk").slice(-40).map(x => ({ name: x.name, text: x.text, npc: x.npc })) });
     }
     async function hostApply(gid, seatIdx, mv, from) {
-      const g = host[gid]; if (!g || g.inv.status !== "playing") return;
+      const g = host[gid]; if (!g || dead || g.inv.status !== "playing") return;
       // 只认这个座位真正的主人（托管、NPC 的那一手只认庄自己）
       if (from != null) {
         if (seatIdx >= 0) { const s = g.inv.seats[seatIdx]; if (!s || s.away || s.kind === "npc" || s.peer !== from) return; }
@@ -1135,13 +1206,14 @@
       if (g.pause) g.pause = null;
       // 并进来的 NPC 那一手只认声明了 mergeNpc:"prev" 的那几盒；收下之前 apply 还要再校验一遍
       if (mv && mv.npc && ad.mergeNpc !== "prev") { mv = Object.assign({}, mv); delete mv.npc; }
-      g.busy = true;
+      g.busy = true; g.inflight = [seatIdx, mv, from]; persist(g);
       // 要等庄的线路判的那几种（海龟汤）：先让大家看到「庄在判…」
       //   slow 也可以是函数：只有这一手真要等庄的线路时才亮（跑团：最后一个人交完那一下）
       if (typeof ad.slow === "function" ? ad.slow(g.st, seatIdx, mv) : ad.slow && mv && !mv.pass && !mv.reveal) { g.st = Object.assign({}, g.st, { busy: true }); shareState(g); }
       let r;
       try { r = await ad.apply(g.st, seatIdx, mv, ctxOf(g)); } catch (e) { r = { err: "庄那边没判出来：" + ((e && e.message) || e) }; }
-      g.busy = false;
+      g.busy = false; g.inflight = null;
+      if (dead) return;
       if (r.err) {
         if (g.st.busy) g.st = Object.assign({}, g.st, { busy: false });
         if (from && from !== o.me()) o.send({ t: "game", op: "oops", gid, text: r.err }, from); else o.toast && o.toast(r.err);
@@ -1171,17 +1243,20 @@
       if (host[gid]) return hostApply(gid, seatIdx, mv, o.me());
       if (s) o.send({ t: "game", op: "move", gid, seat: seatIdx, move: mv }, s.inv.host);
     }
-    return {
-      seen: gid => seen[gid] || null,
+    const api = {
+      _room: roomOf, _me: () => o.me(), _retire: () => { dead = true; },
+      boot,
+      seen: gid => { boot(); return seen[gid] || null; },
       // 我这台手里某个座位的那份（只有坐这个座位的是我、或者是我带来的角色才有）
       privOf: (gid, seat) => { const s = seen[gid], p = s && s.privs && s.privs[seat]; return p ? p.data : null; },
-      isHost: gid => !!host[gid],
-      hosting: () => Object.keys(host),
+      isHost: gid => { boot(); return !!host[gid]; },
+      hosting: () => { boot(); return Object.keys(host); },
       // 开局的人：开一张邀请卡（picks 是开局的人自己这边上谁，开局配置里勾的那几个）
       invite(game, cfg, picks, prep, setter) {
         const gid = "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
         const inv = newInvite({ gid, game, cfg, host: o.me(), nick: o.nick(), picks, setter });
         host[gid] = { inv, st: null, prep: prep || null, seq: 0, busy: false, gone: {}, cfg };
+        persist(host[gid]);
         o.post("game", inv);
         return gid;
       },
@@ -1218,6 +1293,7 @@
         const ad = A(g.inv.key) || {};
         let prep = null; try { prep = ad.againPrep ? ad.againPrep(g.prep) : null; } catch (e) { prep = null; }
         host[ngid] = { inv, st: null, prep, seq: 0, busy: false, gone: {}, cfg: g.cfg };
+        persist(host[ngid]);
         o.post("game", inv);
         return ngid;
       },
@@ -1228,6 +1304,7 @@
       reveal(gid) { if (host[gid]) hostApply(gid, -1, { reveal: true }, o.me()); },
       // 收到房里别人发来的 {t:"game"}：认不得的 op 不理（以后的新版本发来的）
       onMessage(e, origin) {
+        boot(); if (dead) return;
         const gid = cut(e.gid, 40); if (!gid) return;
         const g = host[gid];
         if (e.op === "join" && !g) { o.send({ t: "game", op: "oops", gid, text: "开这一局的那台手机已经不记得这张邀请卡了（重新进过房间），请她再发一张" }, origin); goneOne(gid); }
@@ -1258,14 +1335,17 @@
       },
       // 我开过、可这台手机已经不记得的那几局（重进过房间）：告诉大家作废，我自己那张也标上
       goneOld() {
+        boot();
         const mine = (o.myCards && o.myCards()) || [];
         mine.forEach(x => { if (x && x.host === o.me() && !host[x.gid] && (x.status === "open" || x.status === "playing")) goneOne(x.gid); });
       },
-      // 有人（重新）进了房：把还在打的那几局再发一遍，TA 那边接得上；不记得的那几局说作废
+      // 有人（重新）进了房：把还在打的那几局再发一遍（公开那份广播、各座位那份只给座位主人），TA 那边接得上；
+      //   存档里接得回来的那几局照常接着打，只有这台真不记得的那几局才说作废
       resend() {
         this.goneOld(); Object.keys(host).forEach(gid => { const g = host[gid]; if (g.st && g.inv.status !== "open") { o.send({ t: "game", op: "card", gid, x: g.inv }); shareState(g); } else shareCard(g); }); },
       // 每隔几秒看一眼：轮到的人掉线了没有
       tick(now) {
+        boot(); if (dead) return;
         const pres = o.presence ? o.presence() : {};
         Object.keys(host).forEach(gid => {
           const g = host[gid]; if (g.inv.status !== "playing" || !g.st) return;
@@ -1282,6 +1362,7 @@
         });
       }
     };
+    return api;
   }
   // 这台手机上开着的几份 Session：邀请卡上「改开局设置」要找到开这一局的那一份（卡片本身只拿到卡）
   const LIVE = [];
