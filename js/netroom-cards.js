@@ -345,7 +345,7 @@
     seatRange: () => ({ min: 3, max: 12 }),
     async init(inv, ctx) {
       const S = GS().spy;
-      if (!ctx.hostApi) throw new Error("出词要用开局的人（庄）的线路：先去 设置·API 配一条");
+      if (!ctx.hostApi) throw new Error("出词用的是开局的人那台的线路：先去 设置·API 配一条");
       const out = await S.setup(ctx.hostApi, [], 0);
       const pair = out && out.pair;
       if (!pair || !pair.civ || !pair.spy) throw new Error("出词没出成，再点一次开始");
@@ -503,6 +503,15 @@
       + (pv && pv.mine ? "\n你这一轮已经写了「" + pv.mine + "」（还没亮）" : "")
   };
   NC.CHAR_OPTS.lingxi = ["recent"];
+  // 横幅上「第几轮／第几手」（框架 roundText 来问）：有轮次的才给
+  const nth = (n, unit) => "第 " + Math.max(1, n | 0) + " " + unit;
+  ADAPTERS.liar.roundLabel = v => nth(v.round, "轮");
+  ADAPTERS.poker.roundLabel = v => nth(v.hand, "手");
+  ADAPTERS.blackjack.roundLabel = v => nth(v.hand, "手");
+  ADAPTERS.doudizhu.roundLabel = v => nth(v.round, "手");
+  ADAPTERS.mahjong.roundLabel = v => nth(v.handNo, "盘");
+  ADAPTERS.spy.roundLabel = v => nth(v.round, "轮");
+  ADAPTERS.lingxi.roundLabel = v => nth(((v.rounds || []).length) + (v.phase === "done" ? 0 : 1), "轮");
 
   // ───────────── 界面 ─────────────
   if (typeof React === "undefined" || !root.NetGameUI) return;
@@ -516,7 +525,7 @@
   function Seats({ t, inv, view, ti, subOf, outOf, cardsOf }) {
     const list = view.players || inv.seats;
     return h("div", { "data-wk": "nrcardseats" }, h(CD().Seats, { t, log: [], seats: list.map((p, i) => { const s = inv.seats[i] || {}, nm = s.name || p.name || "?";
-      return { key: "s" + i, name: nm, char: { name: nm }, isUser: s.kind === "user", on: i === ti, out: outOf ? !!outOf(p, i) : false, cards: cardsOf ? cardsOf(p, i) : null, sub: subOf(p, i) }; }) }));
+      return { key: "s" + i, name: nm, char: K.faceChar ? K.faceChar(Object.assign({ kind: "user" }, s, { name: nm })) : { name: nm }, isUser: s.kind === "user", on: i === ti, out: outOf ? !!outOf(p, i) : false, cards: cardsOf ? cardsOf(p, i) : null, sub: subOf(p, i) }; }) }));
   }
   // 牌桌记录：单机那一块 CardLog（最新一行贴底）
   const Log = ({ t, log, n, part }) => h("div", { "data-wk": "nrcardlog" }, h(CD().Log, { t, part: part || "net", log: (log || []).slice(-(n || 12)).map(x => ({ kind: "act", text: x.text })), seats: [] }));
@@ -676,7 +685,7 @@
   function LingxiTable({ inv, view, priv, me, onMove, onReveal, isHost }) {
     const t = useTheme(), mySeat = inv.seats.findIndex(s => s.kind === "user" && s.peer === me), [d, setD] = useState("");
     useEffect(() => setD(""), [view.rounds.length, view.phase]);
-    const mine = mySeat >= 0 && view.phase !== "done" && !view.sent[mySeat];
+    const mine = mySeat >= 0 && view.phase !== "done" && !view.sent[mySeat] && !(inv.seats[mySeat] || {}).held;
     return wrap("lingxi", [
       view.pair ? h("div", { key: "p", "data-wk": "nrlxpair", style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(18), color: t.ink } }, "「" + view.pair[0] + "」＋「" + view.pair[1] + "」") : note(t, "先各写一个起始词"),
       sub(t, inv.seats.map((s, i) => s.name + (view.sent[i] ? " 交了" : " 还在想")).join(" · ") + " · 对上 " + view.rounds.filter(r => r.hit).length + " 次"),
