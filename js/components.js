@@ -18541,7 +18541,9 @@ const MSG_MENU = {
   multi: ["多选", "checklist"], recall: ["撤回", "undo"],
   // 单独删一条（群里读者 2026-10-02：「有时候不需要多选，只需要删除这条就行」）。
   // 跟撤回不一样：撤回是TA看得见的「撤回了一条消息」，删除只是从你这边的记录里抹掉。
-  del: ["删除", "trash"]
+  del: ["删除", "trash"],
+  // 房里别人发的那条：删只删自己这边（自己发的「删除」是两边一起删）
+  delmine: ["只删我这边", "trash"]
 };
 // 一组一个数组；空组会被丢掉，所以不用担心某一档一条都不剩时留下一道空隔断
 function menuItemsForKind(m, canSpeak) {
@@ -18656,7 +18658,7 @@ function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
   const row = (k, gi, ri, last) => {
     const d = MSG_MENU[k];
     if (!d) return null;
-    const kill = k === "recall" || k === "del";
+    const kill = k === "recall" || k === "del" || k === "delmine";
     return h("button", Object.assign({
       key: k,
       onClick: () => onAction(k),

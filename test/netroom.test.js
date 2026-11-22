@@ -489,3 +489,39 @@ test("一轮几条不设上限：单人和一起说都照模型给的全发", ()
   assert.strictEqual(C.sayLines({ say: many }).length, 15);
   assert.ok(!/filter\(Boolean\)\.slice\(0, 8\)/.test(src) && !/x\.pat\)\)\.slice\(0, 24\)/.test(src));
 });
+
+test("删除：自己（和自己带来的人）发的两边一起删、不留撤回那行；别人的只删我这边；冒名的 drop 不理；改字两边一样", () => {
+  const { C } = load();
+  // A 那台：a 是 A 自己的、c 是 A 带来的角色说的；B 那台同一份记录里这两条是对面 A 的
+  const mine = { msgs: [{ id: "a", side: "me", kind: "user", text: "说错了" }, { id: "c", side: "me", kind: "char", charId: "x", text: "角色的话" }, { id: "b", side: "peer", peerId: "B", kind: "user", text: "B 的话" }] };
+  const theirs = { msgs: [{ id: "a", side: "peer", peerId: "A", kind: "user", text: "说错了" }, { id: "c", side: "peer", peerId: "A", kind: "char", charId: "x", text: "角色的话" }, { id: "b", side: "me", kind: "user", text: "B 的话" }] };
+  assert.deepStrictEqual(C.dropOwnMsg(mine, "a", "me").msgs.map(m => m.id), ["c", "b"]);
+  assert.deepStrictEqual(C.dropOwnMsg(theirs, "a", "A").msgs.map(m => m.id), ["c", "b"], "对端照发的人那一端删掉，不留一行");
+  assert.deepStrictEqual(C.dropOwnMsg(theirs, "c", "A").msgs.map(m => m.id), ["a", "b"], "自己带来的角色说的也算自己的");
+  assert.strictEqual(C.dropOwnMsg(theirs, "b", "A"), theirs, "A 冒名删 B 的不理");
+  assert.strictEqual(C.dropOwnMsg(theirs, "a", "Z"), theirs, "第三个人冒名删 A 的不理");
+  assert.strictEqual(C.dropOwnMsg(mine, "b", "me"), mine, "别人的那条我这边不能当成自己的删");
+  // 外发只在「自己的」那一条路上；别人的那条走 dropLocal，不外发
+  const i = src.indexOf("const dropOwn = "), j = src.indexOf("\n", i);
+  assert.ok(i > 0 && /send\(\{ t: "drop", id \}\)/.test(src.slice(i, j)), "自己的删除要外发");
+  assert.match(src, /e\.t === "drop" && e\.id\) \{\n\s+commit\(Core\.upsertRoom\(Core\.dropOwnMsg\(r, String\(e\.id\), origin\)\)\)/);
+  const mi = src.indexOf("const menuItems = m =>"), mj = src.indexOf("const onMenu = ", mi);
+  assert.ok(mi > 0 && mj > mi);
+  assert.match(src.slice(mi, mj), /if \(!own\) return \[m\.type \? \[\] : \["copy"\], \["delmine"\]\];/, "别人的那条菜单上写「只删我这边」");
+  assert.match(src.slice(mj, mj + 900), /act === "del" && m\.side === "me" && !m\.sys\) requestAppConfirm\([^)]*\(\) => dropOwn\(m\.id\)/);
+  // 改字：A 那台本机改、B 那台照 A 发来的改，两边是同一句、都标已编辑
+  const ea = C.editMsg(mine, "a", "说对了", "me").msgs[0], eb = C.editMsg(theirs, "a", "说对了", "A").msgs[0];
+  assert.deepStrictEqual([ea.text, ea.edited], [eb.text, eb.edited]);
+  assert.deepStrictEqual([eb.text, eb.edited], ["说对了", true]);
+});
+
+test("断线那会儿别人改了字／撤回了：连回来补发的那份带着改过的，照说这句的那个人那份换上；别人冒名的补发不改", () => {
+  const { C } = load();
+  const room = { id: "r", msgs: [{ id: "a", side: "peer", peerId: "A", kind: "user", text: "旧的", ts: 1 }, { id: "b", side: "peer", peerId: "A", kind: "user", text: "要撤回", ts: 2 }] };
+  const got = C.mergeMsgs(room, [C.syncedMsg({ id: "a", kind: "user", name: "甲", text: "新的", edited: true, ts: 1, by: "A" }, "B", "A"),
+    C.syncedMsg({ id: "b", kind: "user", name: "甲", recalled: true, ts: 2, by: "A" }, "B", "A")]);
+  assert.deepStrictEqual([got.msgs[0].text, got.msgs[0].edited], ["新的", true]);
+  assert.ok(got.msgs[1].recalled && !got.msgs[1].text);
+  const fake = C.mergeMsgs(room, [C.syncedMsg({ id: "a", kind: "user", name: "甲", text: "冒名", edited: true, ts: 1, by: "Z" }, "B", "Z")]);
+  assert.strictEqual(fake.msgs[0].text, "旧的");
+});

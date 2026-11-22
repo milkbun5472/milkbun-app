@@ -176,11 +176,21 @@
   // 删一个房间的记录（只删这台手机上这一份；对方那份、已经记进记忆的不动）
   function removeRoom(id) { try { saveRooms(loadRooms().filter(r => r.id !== id)); } catch (e) {} }
   // 重新连上以后，别人把 TA 手上的记录整份再发一遍：这边缺的补上、有的不重复，按时间排回去
+  //   已经有的那条：补发来的那份是改过字／撤回过的（同一个人说的），照它换上——断线那会儿别人改的字，连回来也对得上
   function mergeMsgs(room, list) {
-    const have = new Set((room.msgs || []).map(m => m.id));
+    const byId = {}; (list || []).forEach(m => { if (m && m.id) byId[m.id] = m; });
+    let changed = false;
+    const cur = (room.msgs || []).map(m => {
+      const x = byId[m.id];
+      if (!x || m.sys || x.side !== m.side || (m.side === "peer" && x.peerId !== m.peerId)) return m;
+      if (x.recalled && !m.recalled) { changed = true; const o = Object.assign({}, m, { recalled: true, text: "" }); delete o.x; delete o.type; return o; }
+      if (x.edited && !m.recalled && x.text && x.text !== m.text) { changed = true; return Object.assign({}, m, { text: x.text, edited: true }); }
+      return m;
+    });
+    const have = new Set(cur.map(m => m.id));
     const add = (list || []).filter(m => m && m.id && !have.has(m.id));
-    if (!add.length) return room;
-    const msgs = (room.msgs || []).concat(add).sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
+    if (!add.length && !changed) return room;
+    const msgs = cur.concat(add).sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
     return upsertRoom(Object.assign({}, room, { msgs }));
   }
   // 补发来的一条：by 是我自己 → 记成我说的；否则记在 by 那个人名下（没写 by 的算发来的那个人）
@@ -501,6 +511,8 @@
   }
   // 只删我这边：不发给谁
   const dropMsg = (room, id) => Object.assign({}, room, { msgs: (room.msgs || []).filter(m => m.id !== id) });
+  // 发的人删掉自己那条（两边一起删、不留「撤回了」那行）：跟改字一样只认发这条的那一端，冒名的原样还回去
+  function dropOwnMsg(room, id, who) { const m = (room.msgs || []).find(x => x.id === id); return m && ownsMsg(m, who) ? dropMsg(room, id) : room; }
   // 进出房间那一行（灰字）：每台手机自己看见了就自己记一笔，不发给别人
   const sysMsg = (text, ts) => ({ id: "s" + (ts || Date.now()) + Math.random().toString(36).slice(2, 6), sys: true, side: "sys", kind: "user", name: "", text: cut(text, 200), ts: ts || Date.now() });
 
@@ -736,7 +748,7 @@
   const Core = { BROKERS, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
     memoryTargets, transcript, lineInstruction, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
-    ownsMsg, editMsg, recallMsg, dropMsg, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom, sinceRemembered, echoText,
+    ownsMsg, editMsg, recallMsg, dropMsg, dropOwnMsg, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, jointInstruction, jointLines, mergeMsgs, removeRoom, sinceRemembered, echoText,
     normalizeRoom, upsertPeer, peerOf, ownerNick, peerNames, syncedMsg, shouldOffer, admit, forwardTargets, reachable, rid, Mesh };
   root.NetRoomCore = Core;
 
@@ -1073,6 +1085,8 @@
         commit(Core.upsertRoom(Core.editMsg(r, String(e.id), e.text, origin)));
       } else if (e.t === "recall" && e.id) {
         commit(Core.upsertRoom(Core.recallMsg(r, String(e.id), origin)));
+      } else if (e.t === "drop" && e.id) {
+        commit(Core.upsertRoom(Core.dropOwnMsg(r, String(e.id), origin)));
       } else if (e.t === "reroll" && e.turnId && Array.isArray(e.msgs)) {
         // 重新说：只认那一轮本来就是 TA 那边的角色说的；换成 TA 新给的那几条
         const tid = String(e.turnId).slice(0, 60);
@@ -1206,6 +1220,8 @@
     // 改字、撤回：本机先改，再告诉大家（别人那边只认我这一端发出的）；删除只删我这边
     const editOwn = (id, text) => { commit(Core.upsertRoom(Core.editMsg(roomRef.current, id, text, "me"))); send({ t: "edit", id, text }); };
     const recallOwn = id => { commit(Core.upsertRoom(Core.recallMsg(roomRef.current, id, "me"))); send({ t: "recall", id }); };
+    // 删掉自己（和自己带来的人）发的那条：两边一起删
+    const dropOwn = id => { commit(Core.upsertRoom(Core.dropOwnMsg(roomRef.current, id, "me"))); send({ t: "drop", id }); };
     const dropLocal = id => commit(Core.upsertRoom(Core.dropMsg(roomRef.current, id)));
     // ── 小游戏（js/netroom-games.js）：房主那台当庄，其余每台只管自己的座位 ──
     const games = useRef(null);
@@ -1427,14 +1443,15 @@
     const onRelease = () => clearTimeout(pressT.current);
     // 自己发的能改字、撤回；自己带来的人说的也能；别人的只能删我这边。卡片（红包、投票……）不改字
     const menuItems = m => {
-      if (m.sys || m.recalled) return [["del"]];
+      if (m.sys || m.recalled) return [[m.side === "me" && !m.sys ? "del" : "delmine"]];
       const own = m.side === "me";
-      if (!own) return [m.type ? [] : ["copy"], ["del"]];
+      if (!own) return [m.type ? [] : ["copy"], ["delmine"]];
       return [m.type ? [] : ["copy"], [m.type ? null : "edit", m.kind === "char" && m.turnId ? "reroll" : null].filter(Boolean), ["recall", "del"]];
     };
     const onMenu = (act, m) => {
       if (act === "copy") { typeof copyText === "function" && copyText(m.text); props.toast && props.toast("复制好了"); }
-      else if (act === "del") requestAppConfirm("删除这条消息？", "只从你这台手机上删掉，房里别人那边还在。删了不能恢复。", () => dropLocal(m.id), "删除");
+      else if (act === "del" && m.side === "me" && !m.sys) requestAppConfirm("删除这条消息？", "房里每个人那边都一起删掉，不留「撤回了」那一行。删了不能恢复。", () => dropOwn(m.id), "删除");
+      else if (act === "del" || act === "delmine") requestAppConfirm("删除这条消息？", "只从你这台手机上删掉，房里别人那边还在。删了不能恢复。", () => dropLocal(m.id), "删除");
       else if (act === "recall") recallOwn(m.id);
       else if (act === "edit") requestAppPrompt("编辑这条消息", "改好以后房里每个人那边都会换成新的，标「已编辑」。", m.text, v => { if (String(v || "").trim()) editOwn(m.id, v); }, "改好了");
       else if (act === "reroll") redo(m);
