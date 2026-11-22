@@ -354,8 +354,11 @@
     // maxTokens 2000 真的被打穿过：quote 写到一半被截、宽松解析把半句话捞出来存成了卡
     // （她 2026-08-21「明明每次都被她搅得脑子发懵，但」戛然而止那张）。额度放大之外，
     // 还要用 silhouette 当截断哨兵——它是 JSON 最后一个字段，截断几乎必丢，丢了就报错重试。
+    // 字段换了名、tags 给成一串字也认（salvageShape）；silhouette 仍是截断哨兵，缺了照样报错
+    const IMPRESSION_SHAPE = { str: { quote: ["quote", "line", "sentence"], silhouette: ["silhouette", "image", "picture"], title: ["title"], moment: ["moment"], shift: ["shift"], him: ["him"] },
+      arr: { tags: { from: ["tags", "keywords", "words"], split: /[\n、，,；;／/|#\s]+/ } } };
     const raw = await callAI(active, sys, [{ role: "user", content: "开始写这个月的印象。" }], { maxTokens: 13000, ...(typeof LONG_WRITE === "object" ? LONG_WRITE : { timeout: 120000 }) });
-    const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
+    const d = (typeof salvageShape === "function" ? salvageShape(raw, IMPRESSION_SHAPE) : null) || (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
     const tags = (Array.isArray(d.tags) ? d.tags : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 3);
     const quote = String(d.quote || "").trim();
     const S30 = (v, n) => String(v || "").trim().slice(0, n);

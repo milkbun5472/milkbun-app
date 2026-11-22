@@ -2664,7 +2664,7 @@ function App() {
       const sys = `你只做角色性情词提取，不评价、不续写、不扮演。根据角色设定提炼 3~6 个短性情锚点，每个 2~6 个汉字。只返回 JSON：{"anchors":["词1","词2"]}。不要输出数字，不要把外貌、职业、技能、经历当性情。`
         + (knownWords ? characterText(activeChar, "\n下面这些说法本地认得，认得的词才会真的改变他的脾气。贴切就优先从里面挑（同一族里挑一个就够，也可以在它前后加字）：") + knownWords + characterText(activeChar, "。这个人身上最要紧的那一面这里找不到，就照你自己的话写，别为了凑进表里写一个不像他的词。") : "");
       const raw = await callAI(bgActive, sys, [{ role: "user", content: "【角色设定】\n" + String(activeChar.persona || activeChar.prompt || "") + (anchorsNow && anchorsNow.length ? "\n【" + userName(profile) + " 当前保留的词】\n" + anchorsNow.join("、") : "") }], { maxTokens: 14000 });
-      const parsed = extractJSON(raw) || {}, words = Array.isArray(parsed.anchors) ? parsed.anchors : [];
+      const parsed = (typeof salvageShape === "function" ? salvageShape(raw, { arr: { anchors: { from: ["anchors", "words", "temperament", "traits", "tags"], split: /[\n、，,；;／/|]+/ } }, root: "anchors", need: ["anchors"] }) : extractJSON(raw)) || {}, words = Array.isArray(parsed.anchors) ? parsed.anchors : [];
       const next = window.DongnianEmotionA.temperamentFromAnchors(words, false);
       if (!next.anchors.length) throw new Error("没有提取到可用的性情词" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
       setTemperamentDraft(next);
@@ -5179,7 +5179,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const listText = batch.map((e, i) => (i + 1) + ". " + String(e.text || "").replace(/\s+/g, " ").slice(0, 90)).join("\n");
       const sys = "下面是一批记忆条目，给每条标注情绪与状态：v=愉悦度(整数-5~5，负=难过/生气/难堪，0=中性事实，正=开心/温暖/心动)；a=情绪强度(整数0~5，0=平淡事实，5=强烈动情/激烈冲突/刻骨)；open=是不是【还没了结且值得持续惦记的开环】。只有明确答应对方/共同约好尚未兑现、没和好的争执、悬着的关系心事、在等的重要结果才是 true；普通未来安排（吃饭、洗澡、上班、健身等）一律 false。\n【输出】只输出 JSON 数组，按序号每条一个对象：[{\"i\":1,\"v\":0,\"a\":1,\"open\":false}]，i 对应上面的序号。";
       const raw = await callAI(bgActive, sys, [{ role: "user", content: listText }], { maxTokens: Math.min(20000, 8500 + batch.length * 60) });
-      const arr = extractJSON(raw);
+      const arr = ((typeof salvageShape === "function" ? salvageShape(raw, { arr: { items: { from: ["items", "results", "list", "data", "memories"] } }, root: "items", need: ["items"] }) : extractJSON(raw)) || {}).items;
       if (!Array.isArray(arr)) throw new Error("解析失败，重试" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
       const byIdx = {};
       arr.forEach(o => { if (o && typeof o.i === "number") byIdx[o.i] = o; });
@@ -37091,7 +37091,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onDeleteChannel: g => { chfPurge(g.id); deleteGroup(g.id); },
       looseGroups: (groups || []).filter(g => g && !g.spaceId && !g.roomOf), onAdopt: ids => adoptGroups(sp, ids), onRelease: releaseChannel, spectateOf: groupSpectating, maskOwnOf: g => { const r = (gsFor(g.id) || {}).maskId; return r == null ? null : String(r || ""); }, onTalk: () => talkSpace(sp), gems: (spaceGemRev, loadJSON(gemKey(sp.id), [])), onDeleteGem: id => { saveJSON(gemKey(sp.id), (loadJSON(gemKey(sp.id), []) || []).filter(x => x && x.id !== id)); setSpaceGemRev(v => v + 1); },
       onOpenGem: gm => { window.__openChannel && window.__openChannel(gm.gid); if (gm.mts) setWalletTrace({ type: "group", id: gm.gid, ts: gm.mts, key: Date.now() }); }, digest: (spaceDigestRev, loadJSON("x_spaceDigest:" + sp.id, [])), onDismissDigest: () => { saveJSON("x_spaceDigest:" + sp.id, []); setSpaceDigestRev(x => x + 1); },
-      onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), presence: spacePresence(sp.id), statuses: loadJSON(CHAR_STATUS_KEY, {}) || {}, herName: userName(profile), herFace: { name: userName(profile) || "我", color: (profile || {}).color, avatarImage: (profile || {}).avatarImage },
+      onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), presence: spacePresence(sp.id), statuses: loadJSON(CHAR_STATUS_KEY, {}) || {}, herName: herNameIn(((groups || []).find(g => g && g.spaceId === sp.id) || {}).id), herFace: { name: userName(profile) || "我", color: (profile || {}).color, avatarImage: (profile || {}).avatarImage },
       onMyStatus: st => { const _a = loadJSON(CHAR_STATUS_KEY, {}) || {}; if (!st || (!st.text && !st.emoji)) { const n = { ..._a }; delete n.me; saveJSON(CHAR_STATUS_KEY, n); } else { const r = charStatusSet(_a, "me", st, dayKeyNow() + "_me" + Date.now(), Date.now()); if (r.changed) saveJSON(CHAR_STATUS_KEY, r.all); } setChFilesRev(v => v + 1); }, onSuggestTitles: () => suggestSpaceTitles(sp), onMoveChannel: (g, d) => moveChannel(sp, g, d), onToggleCat: id => toggleSpaceCat(sp, id), noMemOf: channelNoMem, pickPool: liveChars.concat((characters || []).filter(c => c && c.npc && !liveChars.some(x => x.id === c.id))) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     // 顶上一行（她 2026-11-20 截图「顶上太高把聊天挤没了」）：矮索引签＋右边小签（♪/在听的歌、置顶、公告、养的），点开才摊开
     channelTabs: activeGroup.spaceId ? (chPlayRev, (() => { const st = chpOf(activeGroup.id), spect = groupSpectating(activeGroup), pet0 = chpPetNow(st.pet, Date.now());

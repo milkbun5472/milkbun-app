@@ -290,7 +290,7 @@
       sceneRules(cotT, { stage: "open", charName: session.charName, familiarity: session.familiarity || 0 });
     const raw = await callAI(active, sys, [{ role: "user", content: "开始做梦。" }], { maxTokens: 12000 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
-    const p = extractJSON(sp.clean) || {};
+    const p = (typeof salvageShape === "function" ? salvageShape(sp.clean, { str: { scene: ["scene", "content", "text", "narration", "story", "body"] }, arr: { options: { from: ["options", "choices", "replies"], wrap: "text" } } }) : extractJSON(sp.clean)) || {};
     const opts = normOptions(p.options);
     if (!p.scene || !opts) throw new Error("梦没成形，重试" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
     return { text: String(p.scene).trim(), options: opts, chosen: null, cot: sp.cot };
@@ -313,7 +313,7 @@
       sceneRules(cotT, { stage: stage, canFinal: canFinal && !forceFinal, forceFinal: forceFinal, charName: session.charName, familiarity: session.familiarity || 0 });
     const raw = await callAI(active, sys, [{ role: "user", content: "继续做梦。" }], { maxTokens: 12000 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
-    const p = extractJSON(sp.clean) || {};
+    const p = (typeof salvageShape === "function" ? salvageShape(sp.clean, { str: { scene: ["scene", "content", "text", "narration", "story", "body"] }, arr: { options: { from: ["options", "choices", "replies"], wrap: "text" } } }) : extractJSON(sp.clean)) || {};
     const opts = normOptions(p.options);
     if (!p.scene || !opts) throw new Error("梦没接上，重试" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
     return { text: String(p.scene).trim(), options: opts, chosen: null, cot: sp.cot, final: forceFinal || !!p.final };
@@ -379,7 +379,7 @@
       "\n【输出】只输出 JSON：{\"scene\":\"梦挣扎的叙事\",\"options\":[{\"text\":\"…\",\"kind\":\"face\"},{\"text\":\"…\",\"kind\":\"shatter\"},{\"text\":\"…\",\"kind\":\"shatter\"}]}。别加别的。";
     const raw = await callAI(active, sys, [{ role: "user", content: "梦在挣扎。" }], { maxTokens: 12000 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
-    const p = extractJSON(sp.clean) || {};
+    const p = (typeof salvageShape === "function" ? salvageShape(sp.clean, { str: { scene: ["scene", "content", "text", "narration", "story", "body"] }, arr: { options: { from: ["options", "choices", "replies"], wrap: "text" } } }) : extractJSON(sp.clean)) || {};
     const opts = normStruggleOptions(p.options);
     if (!p.scene || !opts) throw new Error("梦没撑住，重试" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
     return { text: String(p.scene).trim(), options: opts, chosen: null, cot: sp.cot, struggle: true, resistText };

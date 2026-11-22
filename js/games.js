@@ -3059,7 +3059,7 @@
         + "写一段「牌桌能力小传」，第三人称，不写分数。只输出 JSON：{\"skill\":\"……\"}";
       callRetry(api, sys, [{ role: "user", content: "【这个人】" + s.name + "\n【人设】" + (persona || "（没写人设，照名字和一般人估）").slice(0, 1600) }], { maxTokens: 65000, tag: (ev.zh || "小游戏") + "·能力评估" })
         .then(function (raw) {
-          const d = extractJSON(raw) || {}; const text = String(d.skill || "").trim();
+          const d = (typeof salvageShape === "function" ? salvageShape(raw, { str: { skill: ["skill", "text", "content", "bio", "desc", "description"] }, prose: "skill", proseMin: 20, need: ["skill"] }) : extractJSON(raw)) || {}; const text = String(d.skill || "").trim();
           if (!text) throw new Error("没评出来，再点一次" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
           const all = loadJSON(GAME_SKILL_KEY, {}) || {}; all[ev.key] = Object.assign({}, all[ev.key] || {}, { [id]: { text: text, n: stamp } }); saveJSON(GAME_SKILL_KEY, all);
           setSkill(text);
@@ -6878,7 +6878,7 @@
           + "每个词两三个字到五六个字，能画出来、大多数人认得；难易混着来。不要和下面这些重复：" + pool.words.slice(-60).join("、")
           + "\n只输出 JSON：{\"words\":[\"词\"]}，二十个左右。";
         const raw = await callRetry(api, sys, [{ role: "user", content: "出一批。" }], { maxTokens: 8000, tag: "你画我猜·出词" });
-        const got = ((extractJSON(raw) || {}).words || []).map(function (w) { return String(w || "").trim().slice(0, 12); }).filter(Boolean);
+        const got = (((typeof salvageShape === "function" ? salvageShape(raw, { arr: { words: { from: ["words", "list", "items", "题目"], split: /[\n、，,；;／/|]+/ } }, root: "words", need: ["words"] }) : extractJSON(raw)) || {}).words || []).map(function (w) { return String(w || "").trim().slice(0, 12); }).filter(Boolean);
         if (!got.length) throw new Error("没生成出来" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
         const n = { words: Array.from(new Set(pool.words.concat(got))).slice(-300), theme: theme.trim() };
         setPool(n); saveDrawPool(n);
@@ -6919,7 +6919,7 @@
           + STROKE_FMT
           + "\n只输出 JSON：{\"strokes\":[...],\"say\":\"一句\",\"done\":false}";
         const raw = await callRetry(api, sys, [{ role: "user", content: "画下一段。" }], { maxTokens: 9000, tag: "你画我猜·画" });
-        const p = extractJSON(raw) || {};
+        const p = (typeof salvageShape === "function" ? salvageShape(raw, { arr: { strokes: { from: ["strokes", "lines", "paths"], split: /$^/ } }, str: { say: ["say", "line", "comment"] }, root: "strokes" }) : extractJSON(raw)) || {};
         const strokes = parseStrokes(p.strokes);
         if (!strokes.length) throw new Error("这一段没画出来" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
         const list = have.concat([{ strokes: strokes, say: String(p.say || "").trim().slice(0, 120) }]);

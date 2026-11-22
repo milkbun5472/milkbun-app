@@ -1725,7 +1725,7 @@
       "\n每一天都要有一项，那天就是休息也写「休息／复习前面的」。say 是你排完对她说的一两句话，用你自己说话的样子，说清这份计划紧不紧、哪几天最要命。" +
       "\n只输出 JSON：{\"say\":\"…\",\"days\":[{\"date\":\"上面那些日子之一\",\"task\":\"那天学什么\"}]}";
     const raw = await callAI(active, sys, [{ role: "user", content: "排吧。" }], { maxTokens: TOK.plan });
-    const d = extractJSON(raw) || {};
+    const d = (typeof salvageShape === "function" ? salvageShape(raw, { arr: { days: { from: ["days", "plan", "schedule", "items"], split: /$^/ } }, str: { say: ["say", "message", "comment", "note"] }, root: "days" }) : extractJSON(raw)) || {};
     const byDate = {}; (Array.isArray(d.days) ? d.days : []).forEach(function (x) { if (x && x.date && x.task) byDate[String(x.date)] = String(x.task).trim().slice(0, 80); });
     const keep = {}; prev.forEach(function (x) { if (x && x.date < todayK) keep[x.date] = x; });
     const days = Object.keys(keep).sort().map(function (k) { return keep[k]; }).concat(dates.map(function (k) { return { date: k, task: byDate[k] || "（这天没排上，跟老师说一声再排）" }; }));

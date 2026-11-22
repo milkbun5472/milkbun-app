@@ -12608,26 +12608,64 @@ function rawWhy(raw) {
   return t ? "（模型回的开头是：「" + t.slice(0, 40) + "」）" : "（模型回空了，多半是被拦截或超时）";
 }
 if (typeof window !== "undefined") window.rawWhy = rawWhy;
+// 模型回来的东西差一点对不上时，照这一份重新认一遍（她 2026-11-22：日记那几层兜底，别的生成也要一样）。
+//   只改形状、不编内容：模型没写的字段照样空着。spec：
+//     str:   { 字段: [别名…] }          第一个非空的别名收进来（字符串数组拼成换行）
+//     arr:   { 字段: { from:[别名…], split:正则, wrap:"text" } }  字符串按 split 拆；wrap 把字符串项包成 {text}
+//     root:  "字段"                     模型直接回了一个数组 → 当成这个字段
+//     prose: "字段"  proseMin: 字数      没认出 JSON、给了一段正文 → 放进这个字段（数组字段就按 split 拆）
+//     need:  [字段…]                    这几样都有才算认出来；没有就回 null，由调用处带 rawWhy 报错
+function salvageShape(raw, spec) {
+  spec = spec || {};
+  const text = String(raw == null ? "" : raw).trim();
+  if (!text) return null;
+  const SPLIT = /\n\s*\n|\n/;
+  const has = v => Array.isArray(v) ? v.length > 0 : !!String(v == null ? "" : v).trim();
+  const arrSpec = k => Object.assign({ from: [k], split: SPLIT }, (spec.arr || {})[k]);
+  const toArr = (v, a) => (Array.isArray(v) ? v : (typeof v === "string" ? v.split(a.split) : []))
+    .map(x => typeof x === "string" ? x.trim() : x).filter(x => x != null && x !== "")
+    .map(x => a.wrap && typeof x === "string" ? { [a.wrap]: x } : x);
+  const parsed = extractJSON(text);
+  const obj = Array.isArray(parsed) ? (spec.root ? { [spec.root]: parsed } : {}) : (parsed && typeof parsed === "object" ? parsed : null);
+  const out = Object.assign({}, obj || {});
+  Object.keys(spec.str || {}).forEach(k => {
+    if (!obj) return;
+    for (const n of spec.str[k]) {
+      const v = obj[n];
+      const s = Array.isArray(v) ? v.filter(x => typeof x === "string").join("\n").trim() : (typeof v === "string" || typeof v === "number" ? String(v).trim() : "");
+      if (s) { out[k] = s; return; }
+    }
+  });
+  Object.keys(spec.arr || {}).forEach(k => {
+    if (!obj) return;
+    const a = arrSpec(k);
+    for (const n of a.from) { const xs = toArr(obj[n], a); if (xs.length) { out[k] = xs; return; } }
+  });
+  const need = spec.need || [];
+  if (spec.prose && !has(out[spec.prose])) {
+    const prose = text.replace(/^```[a-z]*\s*|```$/gi, "").replace(/^\s*[{[][\s\S]*$/, "").trim();
+    if (prose.length >= (spec.proseMin || 1)) {
+      const isArr = (spec.arr || {})[spec.prose];
+      const v = isArr ? toArr(prose, arrSpec(spec.prose)).filter(x => typeof x !== "string" || !/^["{}\[\],:]+$/.test(x)) : prose;
+      if (has(v) && (!isArr || v.map(x => typeof x === "string" ? x : "").join("").length >= (spec.proseMin || 1))) { out[spec.prose] = v; out._salvaged = true; }
+    }
+  }
+  return need.every(k => has(out[k])) && (obj || out._salvaged) ? out : null;
+}
+if (typeof window !== "undefined") window.salvageShape = salvageShape;
 // 日记回来的东西怎么认（她 2026-11-22「日记这种是不是容易解析失败然后啥都不返回也看不到原因，能不能加几层兜底」）：
 //   ① 正常 JSON 有 paras；② JSON 里正文换了个名字（content/body/text/diary，字符串或数组）也收；
 //   ③ 根本没给 JSON、给了一整段正文——按空行／换行拆成段落照样存成一篇；
 //   ④ 回空、或者只有几个字：说清是哪一种，并把开头原话带出来，别只说「解析失败」
+const DIARY_SHAPE = { arr: { paras: { from: ["paras", "paragraphs", "content", "body", "text", "diary", "entry"] } }, prose: "paras", proseMin: 40, need: ["paras"] };
 function diaryFromRaw(raw) {
   const text = String(raw == null ? "" : raw).trim();
   if (!text) throw new Error("日记没写成" + rawWhy(text) + "，换个模型或重试");
-  const toParas = v => (Array.isArray(v) ? v.map(x => typeof x === "string" ? x : (x && (x.text || x.content)) || "") : String(v || "").split(/\n\s*\n|\n/))
-    .map(x => String(x || "").trim()).filter(Boolean);
-  const parsed = extractJSON(text);
-  if (parsed && typeof parsed === "object") {
-    if (Array.isArray(parsed.paras) && parsed.paras.length) return parsed;
-    const alt = parsed.paras || parsed.paragraphs || parsed.content || parsed.body || parsed.text || parsed.diary || parsed.entry;
-    const ps = alt ? toParas(alt) : [];
-    if (ps.length) return Object.assign({}, parsed, { paras: ps });
-  }
-  const prose = text.replace(/^```[a-z]*\s*|```$/gi, "").replace(/^\s*[{[][\s\S]*$/, "").trim();
-  const ps = toParas(prose).filter(x => !/^["{}\[\],:]+$/.test(x));
-  if (ps.join("").length >= 40) return { paras: ps, titleZh: "", titleEn: "", signature: "", _salvaged: true };
-  throw new Error("没认出日记" + rawWhy(text) + "，可重试或换模型");
+  const d = salvageShape(text, DIARY_SHAPE);
+  if (!d) throw new Error("没认出日记" + rawWhy(text) + "，可重试或换模型");
+  d.paras = d.paras.map(x => typeof x === "string" ? x : String((x && (x.text || x.content)) || "").trim() ? x : "").filter(Boolean);
+  if (d._salvaged) return Object.assign({ titleZh: "", titleEn: "", signature: "" }, d);
+  return d;
 }
 if (typeof window !== "undefined") window.diaryFromRaw = diaryFromRaw;
 async function generateDiary(p, ctx, opts = {}) {
