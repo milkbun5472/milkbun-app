@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.011";
+const APP_VERSION = "v90.023";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2664,9 +2664,9 @@ function App() {
       const sys = `你只做角色性情词提取，不评价、不续写、不扮演。根据角色设定提炼 3~6 个短性情锚点，每个 2~6 个汉字。只返回 JSON：{"anchors":["词1","词2"]}。不要输出数字，不要把外貌、职业、技能、经历当性情。`
         + (knownWords ? characterText(activeChar, "\n下面这些说法本地认得，认得的词才会真的改变他的脾气。贴切就优先从里面挑（同一族里挑一个就够，也可以在它前后加字）：") + knownWords + characterText(activeChar, "。这个人身上最要紧的那一面这里找不到，就照你自己的话写，别为了凑进表里写一个不像他的词。") : "");
       const raw = await callAI(bgActive, sys, [{ role: "user", content: "【角色设定】\n" + String(activeChar.persona || activeChar.prompt || "") + (anchorsNow && anchorsNow.length ? "\n【" + userName(profile) + " 当前保留的词】\n" + anchorsNow.join("、") : "") }], { maxTokens: 14000 });
-      const parsed = extractJSON(raw) || {}, words = Array.isArray(parsed.anchors) ? parsed.anchors : [];
+      const parsed = (typeof salvageShape === "function" ? salvageShape(raw, { arr: { anchors: { from: ["anchors", "words", "temperament", "traits", "tags"], split: /[\n、，,；;／/|]+/ } }, root: "anchors", need: ["anchors"] }) : extractJSON(raw)) || {}, words = Array.isArray(parsed.anchors) ? parsed.anchors : [];
       const next = window.DongnianEmotionA.temperamentFromAnchors(words, false);
-      if (!next.anchors.length) throw new Error("没有提取到可用的性情词");
+      if (!next.anchors.length) throw new Error("没有提取到可用的性情词" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
       setTemperamentDraft(next);
       toast("性情草稿已生成 · 还没有保存");
     } catch (e) { toast("性情草稿失败：" + (e.message || e)); }
@@ -5179,8 +5179,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const listText = batch.map((e, i) => (i + 1) + ". " + String(e.text || "").replace(/\s+/g, " ").slice(0, 90)).join("\n");
       const sys = "下面是一批记忆条目，给每条标注情绪与状态：v=愉悦度(整数-5~5，负=难过/生气/难堪，0=中性事实，正=开心/温暖/心动)；a=情绪强度(整数0~5，0=平淡事实，5=强烈动情/激烈冲突/刻骨)；open=是不是【还没了结且值得持续惦记的开环】。只有明确答应对方/共同约好尚未兑现、没和好的争执、悬着的关系心事、在等的重要结果才是 true；普通未来安排（吃饭、洗澡、上班、健身等）一律 false。\n【输出】只输出 JSON 数组，按序号每条一个对象：[{\"i\":1,\"v\":0,\"a\":1,\"open\":false}]，i 对应上面的序号。";
       const raw = await callAI(bgActive, sys, [{ role: "user", content: listText }], { maxTokens: Math.min(20000, 8500 + batch.length * 60) });
-      const arr = extractJSON(raw);
-      if (!Array.isArray(arr)) throw new Error("解析失败，重试");
+      const arr = ((typeof salvageShape === "function" ? salvageShape(raw, { arr: { items: { from: ["items", "results", "list", "data", "memories"] } }, root: "items", need: ["items"] }) : extractJSON(raw)) || {}).items;
+      if (!Array.isArray(arr)) throw new Error("解析失败，重试" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
       const byIdx = {};
       arr.forEach(o => { if (o && typeof o.i === "number") byIdx[o.i] = o; });
       let n = 0;
@@ -12013,6 +12013,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const myRank = list.findIndex(x => x.c.id === viewerId);
       if (list.length) out.push("【她的消息列表（一打开「信息」就看得到，从上往下）】" + (myRank >= 0 ? "你自己排在第 " + (myRank + 1) + " 个。" : "") + "\n" + list.map(x => "· " + (x.c.id === viewerId ? "【你自己】" : "") + (x.c.remark && x.c.remark !== x.c.name ? "她给「" + x.c.name + "」的备注是「" + x.c.remark + "」" : "「" + x.c.name + "」") + (x.c.id === viewerId ? "" : tagOf(x.c))
         + "　" + hm(x.lm.ts) + "　最后一句：" + (x.lm.role === "user" ? (x.lm.peekBy ? (String(x.lm.peekBy) === String(viewerId) ? "你冒她名发的" : "别人冒她名发的") : "她说") : "对方说") + "「" + cut(x.lm.content, 30) + "」").join("\n"));
+      // 躺列的：在她通讯录里、一句没聊过（她 2026-11-22「有些躺列但是不说话的」）——点开就是空的，写明了TA才不会现编
+      const _quiet = (characters || []).filter(c => c.id !== viewerId && shownId(c.id) && !(chatsRef.current[c.id] || []).some(m => m && m.content && !m.recalled && !isOocMsg(m) && m.kind !== "system")).map(c => c.remark || c.name).slice(0, 12);
+      if (_quiet.length) out.push("【她通讯录里躺着、一句都没跟她聊过的】" + _quiet.join("、") + "（点开是空的，没有聊天记录）");
       const rowsAll = (characters || []).filter(c => c.id !== viewerId && shownId(c.id) && !settingsFor(c.id).engineerEyes).map(c => {
         // 动作描写（旁白）不是谁发的消息，是那个世界里发生的事——不给TA当聊天读（她 2026-10-02：「他怎么把动描也当成聊天了」）
         const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && !isOocMsg(m) && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration" && contextAllowsMessage(m));
@@ -12141,6 +12144,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const pic = m => (m.images && m.images.length) || m.image ? "（配了图）" : "";
       const feed = (momentsRef.current || []).filter(m => m && !m.mine && m.characterId && m.characterId !== viewerId && shownId(m.characterId) && !maskTrace(m.content)).slice(0, 8);
       if (feed.length) out.push("【她朋友圈里刷得到的——她联系人发的，最近这几条】\n" + feed.map(m => "· 「" + (nameOf(m.characterId) || "某人") + "」" + md(m.ts) + "　" + cut(m.content, 80) + pic(m) + tail(m)).join("\n"));
+      if (!feed.length) out.push("【她的朋友圈】刷下来一条联系人的动态都没有（点开是空的）。");
       const mine = (momentsRef.current || []).filter(m => m && m.mine && String(m.mask || "") === vm && !maskTrace(m.content)).slice(0, 6);
       if (mine.length) out.push("【她自己发的朋友圈，最近这几条】\n" + mine.map(m => {
         const vis = Array.isArray(m.visibleTo) && m.visibleTo.length ? m.visibleTo : null;
@@ -12226,7 +12230,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 藏起来的、别的面具的那几个聊天：录像里就算点到名字也不打开，停在消息列表（那里本来就看不到他们）
       const hid = (() => { try { return window.__peekHide instanceof Set ? window.__peekHide : null; } catch (e) { return null; } })();
       const ok = id => !hid || !hid.has(String(id));
-      const c = (characters || []).find(x => x && (x.name === who || x.remark === who) && ok(x.id));
+      // 同名的好几个（克隆的、同名配角）：挑真聊过的那个，聊得最多的优先——TA想说的就是这一份（群里 2026-11-22：翻到一个空的「对话由此开始」，嘴上却在评聊天）
+      const _cands = (characters || []).filter(x => x && (x.name === who || x.remark === who) && ok(x.id));
+      const _nMsg = x => (chatsRef.current[x.id] || []).filter(m => m && m.content && !m.recalled).length;
+      const c = _cands.slice().sort((a, b) => _nMsg(b) - _nMsg(a))[0];
       // 有的人一点开就是线下（默认进线下／上次停在线下）——那一层盖在最上面，录像往别处翻时得一起收掉，
       //   不然就卡在那一屏出不来（她 2026-10-17）。所以点开聊天也记一笔，peekOffClose 会把线下收起
       if (c) { peekOffRef.current = true; openChatById(c.id); return; }
@@ -12448,6 +12455,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const c = (characters || []).find(x => x.id === charId);
     if (!c) return;
     if (!sneak) pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把手机递给了 " + (c.remark || c.name) + (hidden.length ? "（藏起了：" + hidden.join("、") + "）" : ""), ts: Date.now() }]);
+    // 空的照样能翻（她 2026-11-22「有时候就是想看她们列表里有谁，有些躺列但是不说话的」），
+    //   但材料里写明是空的——没聊过的人、没人发的朋友圈，TA 知道是空的，就不会对着空页面现编内容（群里 2026-11-22）
     const apps = [...new Set((allow || []).flatMap(k => PEEK_APPS[k] || []))];
     // 单独藏的人也算进「藏起了」，翻完开口那一轮TA照样知道
     // 只算她亲手藏的；面具不同的那些不是「藏」，TA根本不知道有
@@ -12464,7 +12473,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (app && apps.includes(app) && Date.now() - (m.ts || 0) < 3 * 86400000) (clues[app] = clues[app] || new Set()).add(x.remark || x.name); }); });
     const gate = Object.keys(clues);
     try {
-      const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))).map(x => x.remark || x.name).slice(0, 12)
+      const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))
+          )
+        .map(x => x.remark || x.name).slice(0, 12)
         .concat((groupsRef.current || []).filter(g => g && g.name && !hideSet.has(String(g.id)) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate) && !(g.spaceId && channelNoMem(g.id))).map(g => g.name).slice(0, 4));
       const ask = () => runProbe(apiFor(charId), ctxFor(c), {
         // 调用记录里叫得出名字（她 2026-10-22 截图：原来只显示「其他·你就是某某…」，认不出是哪一样）
@@ -30691,6 +30702,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const out0 = await generateSelfieImage(buildPhotoPrompt(sub, desc, st, { pov: povFor(char), kind: "other", me, closet: me.closet || "" }), [sub.refPhoto].filter(Boolean).length ? [sub.refPhoto] : null, { size: "1024x1536" });
       if (!out0 || !out0.blob) throw new Error("没画出来"); return out0.blob;
     }
+    // 只拍到手、背影这类局部，或者一个人都没有（她 2026-11-22：描述是「低头拍到两只交扣的手」，画出来却是一张带脸的自拍）：
+    //   跟聊天发照片同一把尺子（noFaceKindFor），局部不喂脸的参考照、照局部画
+    const _nf = kind !== "her" && typeof noFaceKindFor === "function" ? noFaceKindFor(desc, char.name || char.remark) : "";
+    if (_nf === "part") { const o = await generateSelfieImage(buildScenePrompt(char, desc, { body: true }), null, { size: "1024x1536" }); if (!o || !o.blob) throw new Error("没画出来"); return o.blob; }
+    if (_nf === "view") kind = "view";
     // 她 2026-11-21「为何不是合照」：photoKind 填了 self，画面里却写着她也在（「你坐在椅子上歪头凑近镜头」）——照画面来，拍成合照
     if ((kind === "self" || !kind) && duoFacesOk(char) && typeof photoDuoSaid === "function" && photoDuoSaid(desc, userName(meP0 || profile))) kind = "duo";
     if (kind === "duo" && duoFacesOk(char)) {
@@ -37078,7 +37094,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onDeleteChannel: g => { chfPurge(g.id); deleteGroup(g.id); },
       looseGroups: (groups || []).filter(g => g && !g.spaceId && !g.roomOf), onAdopt: ids => adoptGroups(sp, ids), onRelease: releaseChannel, spectateOf: groupSpectating, maskOwnOf: g => { const r = (gsFor(g.id) || {}).maskId; return r == null ? null : String(r || ""); }, onTalk: () => talkSpace(sp), gems: (spaceGemRev, loadJSON(gemKey(sp.id), [])), onDeleteGem: id => { saveJSON(gemKey(sp.id), (loadJSON(gemKey(sp.id), []) || []).filter(x => x && x.id !== id)); setSpaceGemRev(v => v + 1); },
       onOpenGem: gm => { window.__openChannel && window.__openChannel(gm.gid); if (gm.mts) setWalletTrace({ type: "group", id: gm.gid, ts: gm.mts, key: Date.now() }); }, digest: (spaceDigestRev, loadJSON("x_spaceDigest:" + sp.id, [])), onDismissDigest: () => { saveJSON("x_spaceDigest:" + sp.id, []); setSpaceDigestRev(x => x + 1); },
-      onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), presence: spacePresence(sp.id), statuses: loadJSON(CHAR_STATUS_KEY, {}) || {}, herName: userName(profile), herFace: { name: userName(profile) || "我", color: (profile || {}).color, avatarImage: (profile || {}).avatarImage },
+      onDeleteSpace: () => deleteSpace(sp.id), onSaveSpace: patch => saveSpace(sp, patch), presence: spacePresence(sp.id), statuses: loadJSON(CHAR_STATUS_KEY, {}) || {}, herName: herNameIn(((groups || []).find(g => g && g.spaceId === sp.id) || {}).id), herFace: { name: userName(profile) || "我", color: (profile || {}).color, avatarImage: (profile || {}).avatarImage },
       onMyStatus: st => { const _a = loadJSON(CHAR_STATUS_KEY, {}) || {}; if (!st || (!st.text && !st.emoji)) { const n = { ..._a }; delete n.me; saveJSON(CHAR_STATUS_KEY, n); } else { const r = charStatusSet(_a, "me", st, dayKeyNow() + "_me" + Date.now(), Date.now()); if (r.changed) saveJSON(CHAR_STATUS_KEY, r.all); } setChFilesRev(v => v + 1); }, onSuggestTitles: () => suggestSpaceTitles(sp), onMoveChannel: (g, d) => moveChannel(sp, g, d), onToggleCat: id => toggleSpaceCat(sp, id), noMemOf: channelNoMem, pickPool: liveChars.concat((characters || []).filter(c => c && c.npc && !liveChars.some(x => x.id === c.id))) }); })();else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     // 顶上一行（她 2026-11-20 截图「顶上太高把聊天挤没了」）：矮索引签＋右边小签（♪/在听的歌、置顶、公告、养的），点开才摊开
     channelTabs: activeGroup.spaceId ? (chPlayRev, (() => { const st = chpOf(activeGroup.id), spect = groupSpectating(activeGroup), pet0 = chpPetNow(st.pet, Date.now());
@@ -38171,7 +38187,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (!active) throw new Error("请先到设置配置 API");
       const raw = await callAI(apiFor(chars[0].id), instruction + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 12000, tag: "live" });
       const d = extractJSON(raw);
-      if (!d) throw new Error("这一拍没写出来，再发一次");
+      if (!d) throw new Error("这一拍没写出来，再发一次" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
       return d;
     },
     // 几个人一枪写完时每人那一段（直播间观众、片刻评论区）。
@@ -38278,7 +38294,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         const route = (routePicked(bgApiId) && bgActive) ? bgActive : (charId ? apiFor(charId) : active);
         const raw = await callAI(route, system + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 12000, tag: "shua" });
         const d = extractJSON(raw);
-        if (!d) throw new Error("这一批没写出来，再点一次");
+        if (!d) throw new Error("这一批没写出来，再点一次" + (typeof rawWhy === "function" ? rawWhy(raw) : ""));
         return d;
       },
       canDraw: typeof imgApiReady === "function" && imgApiReady(),

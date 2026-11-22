@@ -12601,6 +12601,73 @@ const DIARY_SKELETON = [
 "",
 "【位置 location】写这篇时你所在的地方，可以是城市（如 SHANGHAI, CN）也可以是具体场所。给了今天的行程，就按此刻你会在哪来判断。coords：写城市时给一串经纬度（如 31.230°N, 121.473°E），写具体场所时填 null。weather：一个简短的天气＋温度（如 OVERCAST 28°C）。"
 ].join("\n");
+// 模型回来的东西没认出来时，跟在报错后面那一句（她 2026-11-22「别的 app 有没有同样的问题」）：
+//   回空＝多半被拦截或超时；有东西＝把开头几个字带出来，看得出它到底回了什么。所有「没写出来」的报错都接这一份
+function rawWhy(raw) {
+  const t = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim();
+  return t ? "（模型回的开头是：「" + t.slice(0, 40) + "」）" : "（模型回空了，多半是被拦截或超时）";
+}
+if (typeof window !== "undefined") window.rawWhy = rawWhy;
+// 模型回来的东西差一点对不上时，照这一份重新认一遍（她 2026-11-22：日记那几层兜底，别的生成也要一样）。
+//   只改形状、不编内容：模型没写的字段照样空着。spec：
+//     str:   { 字段: [别名…] }          第一个非空的别名收进来（字符串数组拼成换行）
+//     arr:   { 字段: { from:[别名…], split:正则, wrap:"text" } }  字符串按 split 拆；wrap 把字符串项包成 {text}
+//     root:  "字段"                     模型直接回了一个数组 → 当成这个字段
+//     prose: "字段"  proseMin: 字数      没认出 JSON、给了一段正文 → 放进这个字段（数组字段就按 split 拆）
+//     need:  [字段…]                    这几样都有才算认出来；没有就回 null，由调用处带 rawWhy 报错
+function salvageShape(raw, spec) {
+  spec = spec || {};
+  const text = String(raw == null ? "" : raw).trim();
+  if (!text) return null;
+  const SPLIT = /\n\s*\n|\n/;
+  const has = v => Array.isArray(v) ? v.length > 0 : !!String(v == null ? "" : v).trim();
+  const arrSpec = k => Object.assign({ from: [k], split: SPLIT }, (spec.arr || {})[k]);
+  const toArr = (v, a) => (Array.isArray(v) ? v : (typeof v === "string" ? v.split(a.split) : []))
+    .map(x => typeof x === "string" ? x.trim() : x).filter(x => x != null && x !== "")
+    .map(x => a.wrap && typeof x === "string" ? { [a.wrap]: x } : x);
+  const parsed = extractJSON(text);
+  const obj = Array.isArray(parsed) ? (spec.root ? { [spec.root]: parsed } : {}) : (parsed && typeof parsed === "object" ? parsed : null);
+  const out = Object.assign({}, obj || {});
+  Object.keys(spec.str || {}).forEach(k => {
+    if (!obj) return;
+    for (const n of spec.str[k]) {
+      const v = obj[n];
+      const s = Array.isArray(v) ? v.filter(x => typeof x === "string").join("\n").trim() : (typeof v === "string" || typeof v === "number" ? String(v).trim() : "");
+      if (s) { out[k] = s; return; }
+    }
+  });
+  Object.keys(spec.arr || {}).forEach(k => {
+    if (!obj) return;
+    const a = arrSpec(k);
+    for (const n of a.from) { const xs = toArr(obj[n], a); if (xs.length) { out[k] = xs; return; } }
+  });
+  const need = spec.need || [];
+  if (spec.prose && !has(out[spec.prose])) {
+    const prose = text.replace(/^```[a-z]*\s*|```$/gi, "").replace(/^\s*[{[][\s\S]*$/, "").trim();
+    if (prose.length >= (spec.proseMin || 1)) {
+      const isArr = (spec.arr || {})[spec.prose];
+      const v = isArr ? toArr(prose, arrSpec(spec.prose)).filter(x => typeof x !== "string" || !/^["{}\[\],:]+$/.test(x)) : prose;
+      if (has(v) && (!isArr || v.map(x => typeof x === "string" ? x : "").join("").length >= (spec.proseMin || 1))) { out[spec.prose] = v; out._salvaged = true; }
+    }
+  }
+  return need.every(k => has(out[k])) && (obj || out._salvaged) ? out : null;
+}
+if (typeof window !== "undefined") window.salvageShape = salvageShape;
+// 日记回来的东西怎么认（她 2026-11-22「日记这种是不是容易解析失败然后啥都不返回也看不到原因，能不能加几层兜底」）：
+//   ① 正常 JSON 有 paras；② JSON 里正文换了个名字（content/body/text/diary，字符串或数组）也收；
+//   ③ 根本没给 JSON、给了一整段正文——按空行／换行拆成段落照样存成一篇；
+//   ④ 回空、或者只有几个字：说清是哪一种，并把开头原话带出来，别只说「解析失败」
+const DIARY_SHAPE = { arr: { paras: { from: ["paras", "paragraphs", "content", "body", "text", "diary", "entry"] } }, prose: "paras", proseMin: 40, need: ["paras"] };
+function diaryFromRaw(raw) {
+  const text = String(raw == null ? "" : raw).trim();
+  if (!text) throw new Error("日记没写成" + rawWhy(text) + "，换个模型或重试");
+  const d = salvageShape(text, DIARY_SHAPE);
+  if (!d) throw new Error("没认出日记" + rawWhy(text) + "，可重试或换模型");
+  d.paras = d.paras.map(x => typeof x === "string" ? x : String((x && (x.text || x.content)) || "").trim() ? x : "").filter(Boolean);
+  if (d._salvaged) return Object.assign({ titleZh: "", titleEn: "", signature: "" }, d);
+  return d;
+}
+if (typeof window !== "undefined") window.diaryFromRaw = diaryFromRaw;
 async function generateDiary(p, ctx, opts = {}) {
   const char = ctx.char;
   const uName = (ctx.profile && ctx.profile.name) || "她";
@@ -12689,9 +12756,7 @@ async function generateDiary(p, ctx, opts = {}) {
     + "只要已经沉淀进上文那段『你长出来的自我』，就照现在的你写，别退回原卡的旧样子。"
     + "分辨很简单：记进长出来的自我的是成长，只是最近几篇听起来那样的是惯性。";
   const raw = await callAI(p, system, [{ role: "user", content: (retro ? "现在是今晚睡前，把今天这一整天写成一篇日记。" : "开始写今天的日记。") + voiceTail }], { maxTokens: opts.maxTokens || 14000, ...LONG_WRITE });
-  const parsed = extractJSON(raw);
-  if (!parsed || !Array.isArray(parsed.paras)) throw new Error("解析失败，可重试或换模型");
-  return parsed;
+  return diaryFromRaw(raw);
 }
 // WMO 天气码 → 简短英文（配合日记元数据卡的编辑感）
 function wmoToText(code) {
