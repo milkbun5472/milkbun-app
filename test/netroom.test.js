@@ -374,7 +374,7 @@ test("角色开口跟单聊同一份料：ctxFor(chat) + runProbe(voice) 的 bui
   const i = src.indexOf("const speak = async (c, rerollId) =>"), j = src.indexOf("const flipTurn", i);
   assert.ok(i > 0 && j > i);
   const body = src.slice(i, j);
-  assert.match(body, /props\.ctxFor\(char, \{ chat: true \}\)/);
+  assert.match(body, /props\.ctxFor\(char, \{ chat: true, roomText \}\)/);
   assert.match(body, /runProbe\(p, ctx, \{ voice: true/);
   assert.match(body, /stamp: props\.stampFor/);
   assert.match(body, /presence: presence\(\)/);
@@ -442,4 +442,27 @@ test("一起说：整次一个 turnId，重新说整批重来", () => {
   const i = src.indexOf("const redo = m =>"), body = src.slice(i, i + 300);
   assert.match(body, /speakTogether\(j, m\.turnId\)/);
   assert.match(src, /else if \(act === "reroll"\) redo\(m\);/);
+});
+
+test("世界书拿房间里的话去触发；一起说也带世界书和线上预设", () => {
+  assert.ok(src.includes("props.ctxFor(char, { chat: true, roomText })"), "单人开口把房间里的话交去匹配世界书");
+  const app = read("js/app.js");
+  const i = app.indexOf('screen === "netroom"'), seg = app.slice(i, app.indexOf('screen === "zhaoying"', i));
+  assert.ok(/c\.worldbook = loreForContext\("chat", \[char\.id\], o\.roomText/.test(seg));
+  assert.ok(/lore = loreForContext\("chat", people\.map/.test(seg) && /onlinePresetBlock\(pr\)/.test(seg));
+});
+
+test("记进记忆：只记上次记到以后的新话，之前几句只当上下文；失败会自动再试、留在记录页能重试", () => {
+  const { C } = load();
+  const room = { id: "r9", myNick: "小雨", peers: [], myChars: [], remembered: { a: 20 },
+    msgs: [{ id: "1", ts: 10, text: "旧一" }, { id: "2", ts: 20, text: "旧二" }, { id: "3", ts: 30, text: "新三" }, { id: "4", ts: 40, text: "新四", recalled: true }] };
+  const p = C.sinceRemembered(room, "a");
+  assert.deepStrictEqual(p.fresh.map(m => m.id), ["3"]);
+  assert.deepStrictEqual(p.before.map(m => m.id), ["1", "2"]);
+  assert.strictEqual(p.upTo, 30);
+  assert.strictEqual(C.sinceRemembered(room, "b").fresh.length, 3);
+  const t = C.memoryInstruction(Object.assign({}, room, { msgs: p.fresh }), { id: "a", name: "甲", you: "小雨" }, p.before);
+  assert.ok(t.includes("上次已经记过的部分") && t.includes("只记这一段") && t.includes("新三"));
+  assert.ok(/catch \(e\) \{ d = await ask\(\); \}/.test(src), "失败自动再试一次");
+  assert.ok(/setViewId\(r\.id\); setPage\("view"\)/.test(src), "没记上就停在记录页");
 });
