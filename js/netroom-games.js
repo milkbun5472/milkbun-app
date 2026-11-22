@@ -908,7 +908,9 @@
     let s = ""; try { s = A.stateText(view, seatIdx, inv, priv || null) || ""; } catch (e) { s = ""; }
     if (!s) return "";
     const seat = (inv.seats || [])[seatIdx];
-    const talk = (side || []).filter(x => x && x.kind === "talk").slice(-6).map(x => "· " + x.name + "：" + x.text);
+    // 牌桌上说过的话多带一些（她 11-22：半窗里叫角色说话要接得上牌桌上聊的），自己那座说的标出来
+    const mine = seat && seat.kind === "char" ? seat.name : "";
+    const talk = (side || []).filter(x => x && x.kind === "talk").slice(-16).map(x => "· " + x.name + (mine && x.name === mine ? "（你自己）" : "") + "：" + x.text);
     return "【房里正在玩：" + inv.zh + "】" + (inv.status === "done" ? "（这一局刚打完）" : "") + (seat ? "你坐在第 " + (seatIdx + 1) + " 个座位。" : "你没上桌，在旁边看。") + "\n" + cut(s, 1500)
       + (talk.length ? "\n牌桌上刚才说的：\n" + talk.join("\n") : "");
   }

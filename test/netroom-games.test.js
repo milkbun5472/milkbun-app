@@ -642,3 +642,9 @@ test("联机牌桌摆的是单机那几块：海龟汤谜面卡／问答／判�
   // 抽出去的那几块在单机文件里：不许出现联机字样
   ["function TDRoundCard", "function GuessPuzzleCard", "function UnoCardFace", "function GameNextBtn"].forEach(k => { const i = games.indexOf(k), j = games.indexOf("\n  }\n", i); assert.ok(i > 0); assert.ok(!/联机|netroom/i.test(games.slice(i, j)), k); });
 });
+
+test("半窗里叫角色开口：带当前局面＋牌桌上最近十几句，自己说过的标出来", () => {
+  const g = read("js/netroom-games.js");
+  assert.ok(/kind === "talk"\)\.slice\(-16\)/.test(g) && /（你自己）/.test(g));
+  assert.ok(/game: gameStateFor\(char\.id\)/.test(nsrc) && /game: gameStateFor\(null\)/.test(nsrc), "单人开口和一起说都带");
+});
