@@ -104,8 +104,8 @@ test("角色开口走 runProbe(voice)、料在 system、maxTokens 不低于 8000
   assert.match(src, /runProbe\(p, props\.ctxFor\(char\), \{ voice: true, tag: "netroom",/);
   const n = [...src.matchAll(/maxTokens: (\d+)/g)].map(m => +m[1]);
   assert.ok(n.length >= 2 && n.every(x => x >= 8000), String(n));
-  // 单人开口不另起一条直发；唯一一处 callAI 是「一起说」那一枪（几个人一次写，runProbe 只写一个人）
-  assert.strictEqual((src.match(/callAI\(/g) || []).length, 1, "只有一起说那一处直发");
+  // 单人开口不另起一条直发；callAI 只有「一起说」那一枪（几个人一次写，runProbe 只写一个人）和前情卡（只读房间记录，不带人设）
+  assert.strictEqual((src.match(/callAI\(/g) || []).length, 2, "只有一起说、前情卡两处直发");
   assert.match(src, /maxTokens: Math\.min\(32000, 12000 \+ 4000 \* mine\.length\)/);
   const { C } = load();
   const ins = C.lineInstruction({ myNick: "我", peerNick: "她", myChars: [{ id: "a", name: "甲" }], peerChars: [{ id: "p", name: "乙" }], msgs: [] }, { id: "a", name: "甲" });
