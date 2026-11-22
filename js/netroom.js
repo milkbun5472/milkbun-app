@@ -1717,7 +1717,11 @@
       const gs = games.current;
       const rows = (room.msgs || []).filter(m => m.type === "game" && m.x).map(m => { const sv = gs ? gs.seen(m.x.gid) : null;
         return { x: sv && sv.inv && sv.inv.gid === m.x.gid ? Object.assign({}, m.x, { status: sv.inv.status, seats: sv.inv.seats }) : m.x, hostNick: ownerNick(room, m), pause: sv ? sv.pause : null, view: sv ? sv.view : null, m }; });
-      const list = GC().openTables(rows, meId.current);
+      // 接不上的局不挂横幅（她 11-22 截图：重进房间以后横幅里还是那几局、点进去玩不了）：
+      //   我开的、可这台已经不记得了（重进过）；别人开的、开局的人现在不在房里——都先不列，她回来报到时卡会重新挂上
+      const pr = presence();
+      const live = rows.filter(r => r.x.status !== "lost" && (r.x.host === meId.current ? !!(gs && gs.isHost(r.x.gid)) : (pr[r.x.host] === "on" || pr[r.x.host] === "relay")));
+      const list = GC().openTables(live, meId.current);
       if (!list.length) return null;
       const byGid = {}; rows.forEach(r => { byGid[r.x.gid] = r.m; });
       const cur = gameWin && !gameWin.min ? gameWin.gid : "";

@@ -49,3 +49,10 @@ test("失效卡：卡上不出加入／开始，写一句接不上了", () => {
   assert.match(nsrc, /myCards: \(\) =>/);
   assert.match(nsrc, /old => typeof x === "function" \? x\(old\) : x/);
 });
+
+test("横幅不列接不上的局：我开的但这台已经不记得、别人开的但开局的人不在房里", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
+  assert.ok(/r\.x\.host === meId\.current \? !!\(gs && gs\.isHost\(r\.x\.gid\)\)/.test(src));
+  assert.ok(/pr\[r\.x\.host\] === "on" \|\| pr\[r\.x\.host\] === "relay"/.test(src));
+  assert.ok(/GC\(\)\.openTables\(live, meId\.current\)/.test(src));
+});
