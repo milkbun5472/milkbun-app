@@ -5569,7 +5569,7 @@
     const btn = function (label, on, primary, key) { return h("button", { key: key || label, "data-wk": "mindbtn", disabled: busy, onClick: on, className: "active:opacity-70", style: { flex: 1, minHeight: 40, borderRadius: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", border: "1px solid " + (primary ? t.tint : t.line), background: primary ? t.tint : t.bg2, color: primary ? "#fff" : t.ink, opacity: busy ? .5 : 1 } }, label); };
     const lastQ = r.qs[r.qs.length - 1];
     return h("div", { "data-wk": "gameplay", "data-part": "mind", className: "h-full flex flex-col", style: gameTable("q25", t) },
-      h(Head, { zh: "25 问", en: (r.host === "me" ? "你出题 · " + cName + " 猜" : cName + " 出题 · 你猜") + " · 第 " + r.round + " 局", onBack: props.onBack }),
+      h(Head, { zh: "25 问", en: (r.host === "me" ? "你出题 · " + cName + " 猜" : cName + " 出题 · 你猜") + " · 第 " + r.round + " 局", onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-3", style: { paddingTop: 12 } },
         h(GameVsBar, { t: t, evalOf: { host: props, key: "mind", zh: "25 问" }, seats: [
           { key: "me", name: uName, char: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, isUser: true, on: r.host === "ta" && r.status === "asking", sub: "赢 " + st.score.me },
@@ -5904,7 +5904,7 @@
       className: "active:opacity-60", style: { flex: 1, minHeight: 48, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(18px * var(--app-fs, 1))", touchAction: "none", userSelect: "none" } }, label); };
     const sendChat = function () { const v = draft.trim(); if (!v) return; setDraft(""); push({ me: true, text: v }); say("她刚跟你说了句话，接一句。", true, v); };
     return h("div", { "data-wk": "gameplay", "data-part": "tetris", className: "h-full flex flex-col", style: gameTable("tetris", t) },
-      h(Head, { zh: "俄罗斯方块", en: coop ? "合作接力 · 和 " + cName + "（" + sk.zh + "）" : versus ? "对战 · " + cName + "（" + sk.zh + (easy ? "·让着你" : "") + "）" : cName + " 在旁边看", onBack: props.onBack }),
+      h(Head, { zh: "俄罗斯方块", en: coop ? "合作接力 · 和 " + cName + "（" + sk.zh + "）" : versus ? "对战 · " + cName + "（" + sk.zh + (easy ? "·让着你" : "") + "）" : cName + " 在旁边看", onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto px-4 pb-2", style: { paddingTop: 10 } },
         h("div", { style: { display: "flex", gap: 10, justifyContent: "center", alignItems: "flex-start" } },
           h("div", null,

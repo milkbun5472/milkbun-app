@@ -667,7 +667,7 @@ const SCREEN_NOTE = {
 };
 const SCREEN_ZH = {
   home: "主屏", messages: "消息",
-  thread: "单聊", gthread: "群聊",
+  thread: "单聊", gthread: "群聊", space: "频道空间",
   contact: "资料卡", cast: "人格档案馆", castForm: "编角色卡", ties: "关系",
   phone: "查手机", shop: "购物", takeout: "外卖", carry: "随身物", mycloset: "我的衣柜", dwell: "去处",
   cwallet: "钱包", wallet: "我的钱包", kincard: "亲属卡账单", mykin: "给TA的亲属卡", ledger: "记账",

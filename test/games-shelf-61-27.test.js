@@ -143,7 +143,8 @@ test("柜子铺在外壳上、顶栏透明——不是铺在滚动区里", () =>
   // 顶上就横着一道没被盖住的带子。跟主屏壁纸同一条道理：
   // 底铺在外壳上，顶栏透明（home-screen-layout.md 里那句「这里透明让它透上来」）。
   assert.match(shelf, /h\("div", \{ (?:"data-[a-z]+": "[a-z]+", )*className: "h-full flex flex-col", style: cab \}/, "柜子没铺在外壳上");
-  assert.match(shelf, /h\(Head, \{ zh: "小游戏", en: "Games", onBack: props\.onBack, bg: "transparent" \}\)/, "顶栏没透明");
+  // 只钉「这一个 Head 带 bg transparent」，不钉整串参数（右边后来挂了 API 选择器，anchor-on-code）
+  assert.match(shelf, /h\(Head, \{ zh: "小游戏",[^\n]*?bg: "transparent"/, "顶栏没透明");
   assert.doesNotMatch(shelf, /overflow-y-auto px-5 pb-8", style: cab/, "柜子还铺在滚动区里");
   // 柜子本来就该不动：盒子在架子上滚，柜子不跟着滚
   assert.doesNotMatch(shelf, /backgroundAttachment/, "还挂着 local，柜子会跟着内容一起滚");

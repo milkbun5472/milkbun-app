@@ -47,6 +47,8 @@ test("清单上的每个钩子，源码里都真的挂着", () => {
   const boardKeys = [...src.matchAll(/useEngineBoard\(props, \{ C: [^,]+, key: "([a-z]+)"/g)].map(m => m[1]);
   const boardSufs = [...src.matchAll(/"data-wk": K \+ "([a-z]+)"/g)].map(m => m[1]);
   const boardHooks = new Set(boardKeys.flatMap(k => [k, ...boardSufs.map(x => k + x)]));
+  // 第十三种：周刊的 h(PhotoActs, { …, wk: "wklycover" })——帮手自己拼出 wk+"acts" / wk+"save" / wk+"redraw"
+  const photoActHooks = new Set([...src.matchAll(/h\(PhotoActs, \{[^\n]*?wk: "([a-z]+)"/g)].flatMap(m => ["acts", "save", "redraw"].map(x => m[1] + x)));
   const hung = n => new RegExp('"data-wk":[^\n]*"' + n + '"').test(src) || new RegExp("'data-wk':\\s*'" + n + "'").test(src)
     || src.indexOf('wk: "' + n + '"') >= 0 || src.indexOf('wk="' + n + '"') >= 0
     // 第四种：当参数传给本页自己的小帮手，帮手里写着 "data-wk": wk（screens.js 的 actBtn("listensqreply", …)、row(…, "quietpro")）
@@ -67,6 +69,9 @@ test("清单上的每个钩子，源码里都真的挂着", () => {
     || new RegExp('rowOf\\(c, "[a-z]+", "[^"]*", "[^"]*", "' + n + '"\\)').test(src)
     // 第十一种：挂在根节点上的状态属性 setAttribute("data-lisa-moon", …)，CSS 写成 html[data-lisa-moon="3"]
     || src.indexOf('setAttribute("data-lisa-' + n + '"') >= 0
+    // 第十二种：关系页的 relSwitch("relseenow", on, 标题, 说明, flip)——第一个参数就是挂点，帮手里写着 "data-wk": wk
+    || new RegExp('relSwitch\\("' + n + '"').test(src)
+    || photoActHooks.has(n)
     || boardHooks.has(n);
   const missing = names.filter(n => !hung(n));
   assert.deepEqual(missing, [], "清单上有、源码里没挂：" + missing.join("、"));

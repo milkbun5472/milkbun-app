@@ -473,10 +473,10 @@
                 h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: on ? t.ink : t.fog } }, name));
             }),
             // 别的颜色：自己挑一个，只取它的色相和浓淡
-            h("label", { "data-wk": "icontintpick", "data-on": draft.iconTint && !draft.iconTint.raw && !studio.ICON_TINTS.some(([, tt]) => tt && tt.h === draft.iconTint.h && tt.s === draft.iconTint.s) ? "1" : "0", className: "active:opacity-80 flex flex-col items-center", style: { gap: 4, minWidth: 44, minHeight: 44, cursor: "pointer", position: "relative" } },
-              h("span", { style: { width: 28, height: 28, borderRadius: 999, border: "1.5px dashed " + t.fog, display: "grid", placeItems: "center", color: t.fog, fontSize: "calc(15px * var(--app-fs, 1))" } }, "+"),
-              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "自己挑"),
-              h("input", { type: "color", onChange: e => { const tt = studio.tintFromHex(e.target.value); if (tt) patchDraft({ iconTint: tt }); }, style: { position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" } })))),
+            h("div", { "data-wk": "icontintpick", "data-on": draft.iconTint && !draft.iconTint.raw && !studio.ICON_TINTS.some(([, tt]) => tt && tt.h === draft.iconTint.h && tt.s === draft.iconTint.s) ? "1" : "0", className: "active:opacity-80 flex flex-col items-center", style: { gap: 4, minWidth: 44, minHeight: 44 } },
+              // 取色走公共那颗 ColorDot（全 App 只许一个原生取色器，one-public-mechanism.md）；只取它的色相和浓淡
+              h("div", { style: { height: 28, display: "flex", alignItems: "center" } }, h(ColorDot, { value: "", label: "图标颜色", size: 28, onChange: v => { const tt = studio.tintFromHex(v); if (tt) patchDraft({ iconTint: tt }); } })),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "自己挑")))),
         // ── 图标自带底（她 2026-09-04 要的那个开关）：图里已经画了玻璃方块的，别再套一层 ──
         h("div", { "data-wk": "block", className: "flex items-center justify-between", style: { marginBottom: 14, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px" } },
           h("div", { style: { flex: 1, minWidth: 0 } },

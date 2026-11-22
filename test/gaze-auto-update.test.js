@@ -22,6 +22,10 @@ const G = (() => {
 test("每轮都可以写小认识：空卡、部分卡、满卡不等待轮数",()=>{
   G.apply("part","me","person","第一次认识");
   G.seed("full",{me:{person:"a",soft:"b",like:"c",recent:"d",unread:"e"},us:{what:"f",how:"g",marks:"h",elephant:"i",want:"j"}});
+  // 她 2026-11-22「少改」：刚改过三小时内 spec 返回空（GAZE_UPDATE_GAP_MS），这里先确认闸在，再把钟拨过去看文案
+  assert.equal(G.spec("阿棠","part"),"","刚改过的卡还在给改的口子");
+  const realNow=Date.now; Date.now=()=>realNow()+4*3600000;
+  try{
   for(const id of ["empty","part","full"]){
     const p=G.spec("阿棠",id);
     assert.match(p,/新的细节、对旧判断的小补充或修正都可以写/);
@@ -31,6 +35,7 @@ test("每轮都可以写小认识：空卡、部分卡、满卡不等待轮数",
     assert.doesNotMatch(p,/必须二选一|这一轮请复看这一块|极少发生|不许两个都省略/);
     assert.ok(G.nudge("阿棠",id));
   }
+  }finally{Date.now=realNow;}
 });
 test("更新仍要求真实依据，保留旧认识，不制造内容",()=>{
   const p=G.spec("阿棠");
@@ -44,7 +49,7 @@ test("四条写入路径共用轻量标准，保留隔离闸",()=>{
   assert.match(app,/window\.Gaze\.spec\("对方", charId, \{ tail: true \}\)/);
   assert.match(app,/oCtx\.gazeSpec = .*window\.Gaze\.spec\("对方", charId\)/);
   assert.match(app,/window\.Gaze && gs\.memoryInterop \?/);
-  assert.match(app,/window\.Gaze\.updateRule\(userName\(profile\)\)/);
+  assert.match(app,/window\.Gaze\.updateRule\(herNameIn\(groupId\)\)/);   // 群里按这个群她的名字叫（60e6033cd）
   assert.match(engine,/window\.Gaze\.updateRule\(userName\)/);
   assert.match(app,/if \(_roomCanWrite\("gaze"\) && window\.Gaze && !(_body|noGaze\(charId\))\)/);
   assert.match(app,/if \(!sideRoom && window\.Gaze && !isBody\(charId\)\)/);
@@ -54,8 +59,11 @@ test("四条写入路径共用轻量标准，保留隔离闸",()=>{
 test("可选提醒仍接在单聊任务尾部，字段说明不会丢",()=>{
   const task=app.slice(app.indexOf("const _normalTaskV2 = ("),app.indexOf("const _roomHint"));
   assert.ok(task.indexOf("_gazeNudgeHint")>task.indexOf("_turnClosing"));
+  const realNow=Date.now; Date.now=()=>realNow()+4*3600000;   // 过了「少改」那三小时
+  try{
   assert.match(G.spec("阿棠","part",{tail:true}),/impression:/);
   assert.doesNotMatch(G.spec("阿棠","part",{tail:true}),/【Ta 眼里】/);
+  }finally{Date.now=realNow;}
 });
 test("聊够了还一块都没有，代码自己替他建一次卡；一个角色一辈子只这一次", () => {
   assert.equal(G.autoSeedDue("never"), true, "全空的卡该自动建一次");

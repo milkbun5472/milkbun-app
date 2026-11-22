@@ -1465,7 +1465,7 @@
   // ⚠️原来这儿存的是「页名 + 手册 id」两样，跟工作台那份页名各写各的，
   //   于是一处五十页、一处十页，谁也不知道对方漏了什么。
   const SCREEN_MAN = {
-    home: "home", messages: "chat", thread: "chat", gthread: "group",
+    home: "home", messages: "chat", thread: "chat", gthread: "group", space: "group",
     contact: "cast", cast: "cast", castForm: "cast", ties: "ties",
     phone: "phone", shop: "shop", takeout: "takeout", carry: "carry", mycloset: "closet", dwell: "dwell",
     cwallet: "wallet", wallet: "wallet", kincard: "wallet", mykin: "wallet", ledger: "ledger",
