@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.024";
+const APP_VERSION = "v90.028";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -21238,6 +21238,38 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     pChat(toChar.id, p => [...p, ...rows]);
     toast("已逐条转发给 " + (toChar.remark || toChar.name)); return true;
   };
+  // 合并转发（一张聊天记录卡）：单聊、群聊、线下三处共用这一份；各处只交「标题、来源、谁说的、这条落成什么字」
+  //   照片带着图，跟逐条转发同一个取图法 fwdImageRef
+  const forwardMergeTo = async (msgs, destination, src) => {
+    const imgs = await Promise.all((msgs || []).map(m => (m && (m.kind === "photo" || m.kind === "selfie")) ? fwdImageRef(m) : Promise.resolve("")));
+    const items = (msgs || []).map((m, k) => ({
+      name: src.nameOf(m),
+      text: src.textOf ? src.textOf(m) : gameChatText(m),
+      ...(imgs[k] ? { img: imgs[k] } : {}),
+      ts: m.ts || null            // 微信的转发记录每条都带时刻，展开时显示
+    }));
+    const content = src.title + "\n" + items.map(it => it.name + "：" + it.text).join("\n");
+    const msg = { role: "user", kind: "chatforward", content, forward: { sourceType: src.sourceType, sourceId: src.sourceId, from: src.from, items }, ts: Date.now(), read: false };
+    if (destination && destination.type === "group") {
+      const g = groups.find(x => x.id === destination.id); if (!g) return false;
+      pGChat(g.id, p => [...p, { ...msg, senderName: groupProfileFor(g.id).name || profile.name || "我" }]);
+      toast("已转发到 " + g.name); return true;
+    }
+    const toChar = characters.find(c => c.id === (destination && destination.id)); if (!toChar) return false;
+    pChat(toChar.id, p => [...p, msg]);
+    toast("已转发给 " + (toChar.remark || toChar.name)); return true;
+  };
+  // 线下那几拍转出去：逐条＝照片成照片、字成字（forwardEachTo）；合并＝一张「线下记录」卡（forwardMergeTo）
+  const forwardOfflineTo = (msgs, destination, mode, src) => mode === "each" ? forwardEachTo(msgs, destination)
+    : forwardMergeTo(msgs, destination, { title: "【转发的线下记录 · " + src.from + "】", sourceType: "offline", sourceId: src.sourceId, from: src.from, nameOf: src.nameOf,
+      textOf: m => (m.kind === "photo" || m.kind === "selfie") ? "[照片]" + (m.desc ? " " + m.desc : "") : String(m.content || "") });
+  // 多选 → 发到朋友圈（她 2026-11-22）：已经有的图直接带进她自己发朋友圈那个框（同一个 MomentCompose → postUserMoment），不重画；
+  //   字不带——配什么话她自己写。最多 9 张，跟发朋友圈选图同一个上限
+  const momentDraftFromMsgs = async msgs => {
+    const refs = (await Promise.all((msgs || []).filter(m => m && !m.recalled && (m.kind === "photo" || m.kind === "selfie")).map(fwdImageRef))).filter(Boolean).slice(0, 9);
+    if (!refs.length) { toast("选中的里面没有能发的图"); return false; }
+    setMomCardDraft({ pics: refs }); setMsgTab("moments"); setScreen("messages"); return true;
+  };
   const genScheduleWeek = async (char, opts) => {
     if (noSchedFor(char)) return false;
     const force = !!(opts && opts.force);
@@ -36705,40 +36737,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     },
     onForward: async (msgs, destination, mode) => {
       if (mode === "each") { forwardEachTo(msgs, destination); return; }
-      // 合并转发里的照片带着图（她 2026-10-26「要」）：点开那张聊天记录看得见画面，跟逐条转发同一个取图法
-      const imgs = await Promise.all(msgs.map(m => (m && (m.kind === "photo" || m.kind === "selfie")) ? fwdImageRef(m) : Promise.resolve("")));
-      const items = msgs.map((m, k) => ({
-        name: m.role === "user" ? profile.name || "我" : activeChar.name,
-        text: gameChatText(m),
-        ...(imgs[k] ? { img: imgs[k] } : {}),
-        ts: m.ts || null            // 微信的转发记录每条都带时刻，展开时显示
-      }));
-      const content = "【转发的聊天记录】\n" + items.map(it => it.name + "：" + it.text).join("\n");
-      const msg = {
-        role: "user",
-        kind: "chatforward",
-        content,
-        forward: {
-          sourceType: "chat",
-          sourceId: activeChar.id,
-          from: activeChar.name,
-          items
-        },
-        ts: Date.now(),
-        read: false
-      };
-      if (destination && destination.type === "group") {
-        const g = groups.find(x => x.id === destination.id);
-        if (!g) return;
-        pGChat(g.id, p => [...p, { ...msg, senderName: profile.name || "我" }]);
-        toast("已转发到 " + g.name);
-      } else {
-        const toChar = characters.find(c => c.id === (destination && destination.id));
-        if (!toChar) return;
-        pChat(toChar.id, p => [...p, msg]);
-        toast("已转发给 " + (toChar.remark || toChar.name));
-      }
-    }
+      await forwardMergeTo(msgs, destination, { title: "【转发的聊天记录】", sourceType: "chat", sourceId: activeChar.id, from: activeChar.name, nameOf: m => m.role === "user" ? profile.name || "我" : activeChar.name });
+    },
+    onToMoments: momentDraftFromMsgs
   }, xtra || {}));
   let body = null;
   if (!loaded) body = /*#__PURE__*/React.createElement(Empty, {
@@ -37228,27 +37229,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onForward: async (msgs, destination, mode) => {
       if (mode === "each") { forwardEachTo(msgs, destination); return; }
       const sourceGroup = groups.find(g => g.id === activeGroup.id) || activeGroup;
-      const imgs = await Promise.all(msgs.map(m => (m && (m.kind === "photo" || m.kind === "selfie")) ? fwdImageRef(m) : Promise.resolve("")));
-      const items = msgs.map((m, k) => ({
-        ...(imgs[k] ? { img: imgs[k] } : {}),
-        name: m.role === "user" ? (groupProfileFor(activeGroup.id).name || profile.name || "我") : (m.senderName || "群成员"),
-        text: m.content || (m.kind === "poll" ? "[投票] " + (m.title || "") : m.kind === "redpacket" ? "[红包] " + (m.message || "") : ""),
-        ts: m.ts || null
-      }));
-      const content = "【转发的群聊记录 · " + sourceGroup.name + "】\n" + items.map(it => it.name + "：" + it.text).join("\n");
-      const msg = { role: "user", kind: "chatforward", content, forward: { sourceType: "group", sourceId: sourceGroup.id, from: sourceGroup.name, items }, ts: Date.now(), read: false };
-      if (destination && destination.type === "group") {
-        const g = groups.find(x => x.id === destination.id);
-        if (!g) return;
-        pGChat(g.id, p => [...p, { ...msg, senderName: groupProfileFor(g.id).name || profile.name || "我" }]);
-        toast("已转发到 " + g.name);
-      } else {
-        const toChar = characters.find(c => c.id === (destination && destination.id));
-        if (!toChar) return;
-        pChat(toChar.id, p => [...p, msg]);
-        toast("已转发给 " + (toChar.remark || toChar.name));
-      }
+      await forwardMergeTo(msgs, destination, { title: "【转发的群聊记录 · " + sourceGroup.name + "】", sourceType: "group", sourceId: sourceGroup.id, from: sourceGroup.name,
+        nameOf: m => m.role === "user" ? (groupProfileFor(activeGroup.id).name || profile.name || "我") : (m.senderName || "群成员"),
+        textOf: m => m.content || (m.kind === "poll" ? "[投票] " + (m.title || "") : m.kind === "redpacket" ? "[红包] " + (m.message || "") : "") });
     },
+    onToMoments: momentDraftFromMsgs,
     onSuggestName: (namerId, avoid) => suggestGroupName(namerId, activeGroup.memberIds || [], !imInGroup(activeGroup), avoid),
     onDrawTitles: () => drawGroupTitles(activeGroup.id),
     lucky: luckyOf(activeGroup.id), luckyTick: luckyTickN,
@@ -40520,6 +40505,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onChangeStyle: patch => offlineSetStyle(activeOfflineScopeKey, patch),
     onSaveExample: m => saveOfflineStyleExample(offlineChar.id, m && m.content),
     onPinShike: ms => pinToShike(offlineChar.id, ms, x => x.role === "user" ? (profile.name || "我") : x.role === "narration" ? "旁白" : offlineChar.name),
+    ...((() => { window.__offToChat = m => forwardEachTo([m], { type: "char", id: offlineChar.id }); return {}; })()),
+    // 线下多选 → 转发（她 2026-11-22）：跟线上多选同一张 ForwardPickSheet、同一套逐条／合并；照片原图原样带过去，不重画
+    fwdChars: [offlineChar].concat(characters.filter(c => c.id !== offlineChar.id)), fwdGroups: groups,
+    onForward: (ms, d, mode) => forwardOfflineTo(ms, d, mode, { from: offlineChar.name + " · 线下", sourceId: offlineChar.id, nameOf: x => x.role === "user" ? (profileFor(offlineChar.id).name || "我") : x.role === "narration" ? "旁白" : (x.senderName || offlineChar.name) }),
     onDeleteExample: id => deleteOfflineStyleExample(offlineChar.id, id),
     onEditMsg: (mid, txt) => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid, desc: txt }) || offlineEditMsg(activeOfflineScopeKey, mid, txt),
     onRerollMsg: mid => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid }) || offlineRerollMsg(activeOfflineScopeKey, mid),
@@ -40568,6 +40557,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onChangeStyle: patch => groupOfflineSetStyle(offlineGroup.id, patch),
     onSaveExample: (m, spk) => { const cid = (m && m.senderId) || (spk && spk.id); if (cid) saveOfflineStyleExample(cid, m && m.content); },
     onPinShike: ms => pinGroupToShike(offlineGroup, ms),
+    fwdChars: (offlineGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).concat(characters.filter(c => !(offlineGroup.memberIds || []).includes(c.id))),
+    fwdGroups: [offlineGroup].concat(groups.filter(g => g.id !== offlineGroup.id)),
+    onForward: (ms, d, mode) => forwardOfflineTo(ms, d, mode, { from: offlineGroup.name + " · 线下", sourceId: offlineGroup.id, nameOf: x => x.role === "user" ? (groupProfileFor(offlineGroup.id).name || profile.name || "我") : x.role === "narration" ? "旁白" : (x.senderName || "群成员") }),
+    ...((() => { window.__offToChat = m => forwardEachTo([m], { type: "group", id: offlineGroup.id }); return {}; })()),
     onEditMsg: (mid, txt) => reshootOffShot({ groupId: offlineGroup.id, mid, desc: txt }) || groupOfflineEditMsg(offlineGroup.id, mid, txt),
     onRerollMsg: mid => reshootOffShot({ groupId: offlineGroup.id, mid }) || groupOfflineRerollMsg(offlineGroup.id, mid),
     onRerollOne: mid => groupOfflineRerollOne(offlineGroup.id, mid),
