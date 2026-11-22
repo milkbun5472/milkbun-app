@@ -813,15 +813,11 @@
   // 轮到我这台的真人了没有（收起时小条要亮）
   function myTurn(inv, view, me, priv) {
     const A = ADAPTERS[inv && inv.key]; if (!A || !view || inv.status !== "playing") return false;
-<<<<<<< HEAD
     // 大家同时交的那几盒（跑团）：waiting(view) 给出还没交的那几座，其中有我这台的真人就算轮到我
-    let w = []; try { w = A.waiting ? A.waiting(view) || [] : [A.turn(view)]; } catch (e) { return false; }
-    return w.some(i => i >= 0 && actorOf(inv.seats[i], me, inv.host) === "mine-user");
-=======
+    if (A.waiting) { let w = []; try { w = A.waiting(view) || []; } catch (e) { return false; } return w.some(i => i >= 0 && actorOf(inv.seats[i], me, inv.host) === "mine-user"); }
     let i = -1; try { i = A.turn(view); } catch (e) { return false; }
     if (i < 0 && priv && A.secretTurn && A.secretTurn(priv)) return inv.seats.some(s => s.kind === "user" && s.peer === me && !s.away);
     return i >= 0 && actorOf(inv.seats[i], me, inv.host) === "mine-user";
->>>>>>> origin/main
   }
   // 暗着轮到（夜里谁睁眼不能写进公开那份）：公开的 turn 是 -1，只有轮到的那个座位自己那份 priv 说「该你了」
   //   找我这台手里哪个座位的那份（这一拍的，不是旧的）说轮到 TA；没有就 -1
