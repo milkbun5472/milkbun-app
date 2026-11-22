@@ -1279,7 +1279,7 @@
       const recent = o.recent != null ? !!o.recent : !!(mc && mc.recent), ch = charsById[cid];
       let recentText = "";
       if (recent && ch && propsRef.current.ctxFor) { try { recentText = String((propsRef.current.ctxFor(ch, { chat: true }) || {}).recentChat || "").slice(-600); } catch (e) {} }
-      return { casual: !!o.casual, recent, recentText, botSkill: o.botSkill || "" };
+      return { casual: !!o.casual, recent, recentText, botSkill: o.botSkill || "", talk: o.talk !== false };
     };
     const setCharOpt = (cid, k, v) => setCharOpts(m => Object.assign({}, m, { [cid]: Object.assign({}, m[cid] || {}, { [k]: v }) }));
     // 座位旁那两个字（大家都看得到）：钉的牌技档、随手
@@ -1312,6 +1312,8 @@
         if (kinds.indexOf("side") >= 0) rows.push(sideSeg(c.id, true));
         if (kinds.indexOf("recent") >= 0) rows.push(h("label", { key: "r", className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
           h("input", { type: "checkbox", "data-wk": "nrcharrecent", checked: o.recent, onChange: e => setCharOpt(c.id, "recent", e.target.checked) }), "带上 TA 最近单聊（TA 出题、提问、接句时记得你们最近聊了什么）"));
+        if (kinds.indexOf("talk") >= 0) rows.push(h("label", { key: "t", className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
+          h("input", { type: "checkbox", "data-wk": "nrchartalk", checked: o.talk, onChange: e => setCharOpt(c.id, "talk", e.target.checked) }), "牌桌上说话（TA 边玩边随口说几句，摆在牌桌底下，不进房间聊天；关了 TA 只出手不开口）"));
         return rows.length ? h("div", { "data-wk": "nrcharopts", style: { margin: "0 0 8px 42px", display: "flex", flexDirection: "column", gap: 6 } }, rows) : null;
       };
       return h(Sheet, { key: "gj", onClose: () => setJoinAt(null) },
@@ -1342,7 +1344,7 @@
       if (!sv || !sv.view || (sv.inv.status !== "playing" && sv.inv.status !== "done")) return "";
       const si = charId ? sv.inv.seats.findIndex(x => x.kind === "char" && x.peer === meId.current && x.charId === charId) : -1;
       const mineP = si >= 0 ? gs.privOf(gid, si) : null;
-      return GCo.stateText(sv.inv, sv.view, si, mineP);
+      return GCo.stateText(sv.inv, sv.view, si, mineP, sv.side);
     };
     // 她 2026-11-22：「聊天是那个半窗，游戏类是全屏」——牌桌开着时整页是牌桌，房间聊天缩成浮在上面的半窗；
     //   牌桌收起来就回到整页聊天，牌桌缩成一颗小条（轮到你会亮）。
@@ -1360,6 +1362,7 @@
           h("div", { style: { padding: "6px 16px 0", fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, inv.zh, h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, done ? "这一局打完了" : inv.seats.some(x => x.peer === meId.current && x.kind !== "npc") ? "你在桌上" : "你在旁边看")),
           hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "房主（这一局的庄）现在不在房里，这一局停在这儿；TA 回来就接着打。")),
           h(A.Table, { inv, view: sv.view, priv: sv.priv || null, myApi: props.gameApi ? props.gameApi() : null, me: meId.current, isHost, onMove: (seat, mv) => gs.move(gid, seat, mv), onReveal: () => gs.reveal(gid), side: sv.side || [], onSide: x => gs.side(gid, x), nick: myNick() }),
+          root.NetGameUI && h(root.NetGameUI.TalkStrip, { lines: (sv.side || []).filter(x => x.kind === "talk"), charOf: l => { const st = l && l.seat >= 0 ? inv.seats[l.seat] : null; return st && st.kind === "char" ? charsById[st.charId] || null : null; } }),
           done && h("div", { className: "flex", style: { gap: 8, padding: "0 16px 12px" } },
             isHost && h(Btn, { label: "再来一局", primary: true, wk: "nrgameagain", onClick: () => { gs.again(gid); shut(); } }),
             h(Btn, { label: "收起牌桌", wk: "nrgameback", onClick: () => setGameWin(w => w ? Object.assign({}, w, { min: true }) : w) })));
@@ -1762,7 +1765,8 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
       return shell(h(Head, { zh: m ? m.x.zh + " · 回看" : "回看", onBack: back }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 24 } },
           m && h("div", { style: { padding: "12px 16px 0" } }, h(Note, null, m.x.text)),
-          m && A && m.x.replay && root.GameShared ? h(A.Replay, { rec: m.x }) : h("div", { style: { padding: 16 } }, h(Note, null, m ? "这一局没有能回看的棋谱。" : "找不到这张战绩卡了。"))));
+          m && A && m.x.replay && root.GameShared ? h(A.Replay, { rec: m.x }) : h("div", { style: { padding: 16 } }, h(Note, null, m ? "这一局没有能回看的棋谱。" : "找不到这张战绩卡了。")),
+          m && m.x.talk && root.NetGameUI && root.GameShared ? h(root.NetGameUI.TalkStrip, { lines: m.x.talk, maxHeight: "none" }) : null));
     }
 
     if (page === "leave" && room) {
