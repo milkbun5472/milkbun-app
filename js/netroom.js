@@ -1183,7 +1183,7 @@
     return img ? { img } : {};
   }
   // 一条消息里的那张卡／那颗气泡：跟单聊、群聊用的是同一批组件
-  function RichBody({ m, mine, meName, onRp, onVote, voters, game, onRec }) {
+  function RichBody({ m, mine, meName, onRp, onVote, voters, game, onRec, onSong }) {
     const t = useTheme();
     const x = m.x || {};
     // 小游戏的两张卡：房间页里能点（报名、开始、回看）；以前的房间里只剩那一行字
@@ -1204,6 +1204,13 @@
     if (m.type === "poll") return h(PollCard, { poll: Object.assign({ by: m.name }, x), meName, onVote });
     if (m.type === "namecard") return h("div", { style: { width: 220 } }, h(NameCardMsg, { m: { cardId: "nrcard", cardName: x.name, cardTag: "" },
       characters: [{ id: "nrcard", name: x.name, avatarImage: x.avatar || "", avatarEmoji: x.emoji || "", color: x.color || "" }] }));
+    if (m.type === "song") return h("button", { "data-wk": "nrsong", onClick: onSong, className: "active:opacity-70 flex items-center text-left",
+      style: { gap: 10, padding: 10, borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, width: 240 } },
+      x.cover ? h("img", { src: x.cover, alt: "", style: { width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0 } })
+        : h("div", { style: { width: 44, height: 44, borderRadius: 8, background: t.bg, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, h(CGlyph, { k: "note", size: 22, color: t.sub })),
+      h("div", { style: { minWidth: 0, flex: 1 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (x.artist || "") + (x.artist ? " · " : "") + "点一下在你这台放")));
     if (m.type === "topic") return h("div", { "data-wk": "nrtopic", style: { padding: "10px 12px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line, maxWidth: 240 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: fs(10.5), letterSpacing: 1.2, color: t.fog, marginBottom: 4 } }, "话题卡"),
       h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink, lineHeight: 1.55 } }, x.text));
@@ -1285,7 +1292,7 @@
 
   // ＋ 里的那些：跟单聊、群聊用的同一套键（ChatToolKey）。两个人之间、本机的那几样（通话、通话记录、朋友圈、转账、亲属卡、给TA看手机、邀约、半窗）不放
   const NR_PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["chatsearch", "查找记录", "magnifier"],
-    ["poll", "投票", "bars"], ["rp", "红包", "packet"], ["ask", "请示", "checklist"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["file", "文件", "file"], ["topics", "话题卡", "quote"], ["game", "小游戏", "dice"], ["debate", "擂台", "podium"]];
+    ["poll", "投票", "bars"], ["rp", "红包", "packet"], ["ask", "请示", "checklist"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["file", "文件", "file"], ["topics", "话题卡", "quote"], ["listen", "一起听", "note"], ["game", "小游戏", "dice"], ["debate", "擂台", "podium"]];
   // 擂台单独一格（她 11-22：「擂台从小游戏里面移出来放聊天加号里面」），不再摆在小游戏架子最后
   // 房间页 ＋ 面板、各个小窗、长按菜单（拆在外面，免得 NetRoomApp 一大坨）
   function roomExtras(A) {
@@ -1327,6 +1334,16 @@
         messages: room.msgs.map(m => ({ role: m.side === "me" && m.kind !== "char" ? "user" : "assistant", senderName: m.kind === "char" ? m.name : Core.ownerNick(room, m),
           content: m.sys ? m.text : m.recalled ? "" : m.type ? Core.richLine(m) : m.text, ts: m.ts, recalled: !!m.recalled })),
         onLocate: i => { close(); setTimeout(() => { const el = document.querySelector('[data-wk="nrmsg"][data-nri="' + i + '"]'); el && el.scrollIntoView({ block: "center" }); }, 60); } }),
+      sheet === "listen" && (() => { const cur = props.nowSong ? props.nowSong() : null, lib = props.songLib ? props.songLib().slice(0, 200) : [];
+        return h(Sheet, { key: "li", onClose: close, tall: true },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(19), color: t.ink, marginBottom: 6 } }, "一起听 · 发一首歌"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5, marginBottom: 10 } }, "发出去的是一张歌曲卡（歌名、歌手、封面），不传歌本身。别人点卡在她自己那台放：能直接放的就放，她曲库里有同名的就放她那份，都没有会告诉她去搜。两台不同步，各放各的。"),
+          h("button", { "data-wk": "nrsongnow", disabled: !cur, onClick: () => { close(); A.sendSong(cur); }, className: "w-full text-left active:opacity-60 disabled:opacity-40",
+            style: { padding: "12px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: fs(14), color: t.ink, marginBottom: 10 } },
+            cur ? "发我正在听的《" + cur.title + "》" + (cur.artist ? " - " + cur.artist : "") : "现在没在放歌，从下面挑一首"),
+          lib.length ? h("div", { className: "space-y-1", style: { maxHeight: "50vh", overflowY: "auto" } }, lib.map((s0, i) => h("button", { key: (s0.id || "") + i, "data-wk": "nrpick", onClick: () => { close(); A.sendSong(s0); },
+            className: "w-full text-left py-2.5 px-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink } }, "《" + s0.title + "》" + (s0.artist ? " - " + s0.artist : ""))))
+            : h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: t.fog } }, "曲库里还没有歌：去「一起听」里加几首。")); })(),
       sheet === "topics" && h(TopicCardsSheet, { key: "tp", charId: (room.myChars || [])[0].id, onClose: close, onUse: x => { close(); A.fillRef.current && A.fillRef.current(x.text); } }),
       A.rpOpen && (() => { const rp = room.msgs.find(m => m.type === "rp" && m.x && m.x.rpId === A.rpOpen); if (!rp) return null;
         const x = rp.x, mineC = (x.claims || []).find(c => c.key === A.myKey(""));
@@ -1367,6 +1384,9 @@
     const [selfieSet, setSelfieSet] = useState({});
     const selfieOn = id => selfieSet[id] !== undefined ? !!selfieSet[id] : !!(props.selfieOk && props.selfieOk(id));
     const [peerTyping, setPeerTyping] = useState({});   // 别人哪几个角色正在输入：{ peerId|charId: 名字 }
+    // 正在听：别人报来的（peerId → { who, title, artist }）和我这台此刻在放的。像在线状态，不进聊天记录、不存档
+    const npRef = useRef({}), myNp = useRef(null);
+    const [np, setNp] = useState({});
     const [net, setNet] = useState({ open: [], fail: [], reach: [] });   // 直连通着的 / 直连失败的 / 直接或经人转得到的
     const netRef = useRef({ open: [], fail: [], reach: [] }); netRef.current = net;
     const [panel, setPanel] = useState(false);       // ＋ 面板开着没
@@ -1482,6 +1502,7 @@
         }
         syncNet();
         flushGrabs(origin);
+        if (myNp.current) send({ t: "np", song: myNp.current });
       } else if (e.t === "msg" && e.m) {
         landImages(Core.wireMsg(e.m)).then(w => {
           commit(Core.addMsg(roomRef.current, Object.assign(Core.wireMsg(w, true), { side: "peer", peerId: origin, by: origin })));
@@ -1511,6 +1532,10 @@
           const ref = w.x && (m.type === "photo" ? w.x.imageRef : w.x.url); if (!ref) return;
           updX(x => x.id === id, x => Object.assign({}, x, m.type === "photo" ? { imageRef: ref } : { url: ref }));
         });
+      } else if (e.t === "np") {
+        const sg = Core.cleanSong(e.song), n = Object.assign({}, npRef.current);
+        if (sg) n[origin] = { who: nickOf(origin), title: sg.title, artist: sg.artist }; else delete n[origin];
+        npRef.current = n; setNp(n);
       } else if (e.t === "typing" && e.id) {
         const k = origin + "|" + String(e.id).slice(0, 80), nm = String(e.name || "TA").slice(0, 20);
         setPeerTyping(x => { const n = Object.assign({}, x); if (e.on) n[k] = nm; else delete n[k]; return n; });
@@ -1924,12 +1949,31 @@
     };
     // ── 角色开口：一次连发的几条算一轮（turnId），能整轮重新说 ──
     const presence = () => { const o = {}; ((roomRef.current && roomRef.current.peers) || []).forEach(p => { o[p.peerId] = netRef.current.open.indexOf(p.peerId) >= 0 ? "on" : netRef.current.reach.indexOf(p.peerId) >= 0 ? "relay" : netRef.current.fail.indexOf(p.peerId) >= 0 ? "fail" : "off"; }); return o; };
+    // ── 一起听：歌曲卡只带元数据（Core.cleanSong），点开在自己这台放；不做两台同步 ──
+    const songX = s0 => s0 ? Core.cleanSong({ title: s0.title, artist: s0.artist, cover: s0.cover, nid: s0.source === "netease" ? s0.neteaseId : "" }) : null;
+    const sendSong = s0 => { const x = songX(s0); if (x) sayRich("song", x); };
+    const playCard = x => {
+      const plan = Core.songPlan(x, props.songLib ? props.songLib() : [], !!(props.canNetease && props.canNetease()));
+      if (plan.how !== "miss" && props.playSong) { props.playSong(plan.song); props.toast && props.toast("在你这台放《" + x.title + "》" + (plan.how === "local" ? "（你曲库里那份）" : "")); return; }
+      try { navigator.clipboard && navigator.clipboard.writeText(plan.query); } catch (e) {}
+      props.toast && props.toast("这首在发歌的人手机上，你这边没有。歌名「" + plan.query + "」已经复制好，可以去一起听里搜");
+    };
+    // 每隔几秒看一眼自己这台在放什么，变了才广播（暂停、没在放＝空）
+    useEffect(() => {
+      if (!props.nowSong) return;
+      const tick = () => { const s0 = props.nowSong(), x = s0 && s0.playing ? songX(s0) : null;
+        const v = x ? { title: x.title, artist: x.artist } : null;
+        if (JSON.stringify(v) === JSON.stringify(myNp.current)) return;
+        myNp.current = v; setNp(Object.assign({}, npRef.current)); send({ t: "np", song: v }); };
+      tick(); const iv = setInterval(tick, 4000); return () => clearInterval(iv);
+    }, []);
     // 角色顺手做的那几样（Core.actsOf 解出来的）落成要发的消息，接在这一轮后面；拍照、红包开抢这种要等的，交回 later 等这一轮发完再做
     const actPrompt = (ids) => ({
       photo: ids.filter(id => ((roomRef.current && roomRef.current.myChars) || []).some(c => c.id === id && c.selfie)).map(id => (((roomRef.current.myChars || []).find(c => c.id === id)) || {}).name),
       songs: props.songLib ? props.songLib().slice(0, 30).map(s0 => s0.title + (s0.artist ? " " + s0.artist : "")) : [],
-      cards: chars.map(c => c.remark || c.name), songOn: false });
-    const listenNow = () => [];
+      cards: chars.map(c => c.remark || c.name), songOn: !!props.findSong });
+    // 房里此刻谁在听什么（给角色开口用）：我这台 + 别人报来的「正在听」
+    const listenNow = () => Core.listenLines(Object.assign({}, npRef.current, myNp.current ? { me: Object.assign({ who: myNick() }, myNp.current) } : {}));
     const actsInto = async (charId, nm, acts, base, list) => {
       const later = [];
       if (!acts) return later;
@@ -2154,7 +2198,7 @@
     const rowProps = (r, interactive) => (m, i) => {
       const o = { rich: x => h(RichBody, { m: x, mine: x.side === "me", meName: myNick(), voters: Math.max(1, headCount(r) - 1),
         game: interactive && x.type === "game" ? gameHandlers(x) : null, onRec: () => { setRecId(x.id); setViewId(r.id); setPage("gamerec"); },
-        onRp: interactive ? () => setRpOpen(x.x.rpId) : undefined, onVote: interactive ? opt => vote(x.x.pollId, opt, myNick()) : undefined }) };
+        onRp: interactive ? () => setRpOpen(x.x.rpId) : undefined, onSong: () => playCard(x.x), onVote: interactive ? opt => vote(x.x.pollId, opt, myNick()) : undefined }) };
       if (!interactive) return o;
       o.onPress = onPress; o.onRelease = onRelease;
       const next = r.msgs[i + 1];
@@ -2319,7 +2363,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         h(HalfWinFrame, { win: chatWin, setWin: setChatWin, forKey: "netchat",
           pillLabel: "房间聊天" + (gp.unread ? " · " + gp.unread + " 条新消息" : "") + " ▴", pillHot: gp.unread > 0 },
           h("div", { "data-wk": "nrchathalf", className: "h-full flex flex-col", style: { background: t.bg } }, chatCore)),
-        ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sayRich, sendRp,
+        ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sendSong, sayRich, sendRp,
           photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
         joinSheet());
       return shell(
@@ -2333,9 +2377,12 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
             (st === "on" ? "● " : "○ ") + p.nick + (st === "on" ? "" : " · " + stateText[st])); }),
           trouble.length > 0 && h("div", { style: { width: "100%", fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
             "和 " + trouble.map(p => p.nick).join("、") + " 直连不上：" + (trouble.some(p => stateOf(p.peerId) === "relay") ? "话由房里其他人转过去，可能慢一点。" : "她收不到你的话。两边都换成 Wi-Fi 再试。"))),
+        (() => { const L = Core.listenLines(Object.assign({}, np, myNp.current ? { me: Object.assign({ who: "你" }, myNp.current) } : {}));
+          return L.length > 0 && h("div", { key: "np", "data-wk": "nrlisten", className: "shrink-0", style: { padding: "5px 14px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.5 } },
+            L.map((x, i) => h("div", { key: i, style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "♪ " + x))); })(),
         tablesBar(),
         ...chatCore,
-        ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sayRich, sendRp,
+        ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sendSong, sayRich, sendRp,
           photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
         joinSheet(), gp && gp.pill);
     }
