@@ -3262,11 +3262,17 @@
 
   // 连坐的下一题：只出题，不重摆桌（NPC、能力小传都沿用）。把前几题的答案带上防出重复。
   //   who：{ name, persona } 由一个人照自己的性子出题时给上；不给就是主持人出
+  // 原创：流传很广的老题，玩的人（和模型）很可能早就知道答案，一问就破
+  const GUESS_ORIGINAL = "\n题要你自己现编：别用网上、书里流传过的经典题和它们的换皮版，在座的人可能早就听过答案；想一个这桌人没见过的。";
+  // 玩家怎么推：只凭桌上亮着的一步步来（给出口，不是禁令）
+  const GUESS_PLAY_FAIR = "你手里只有汤面／类别和桌上已经问出来的答案，顺着这些一步步推；就算觉得像听过的哪道题，也先用问题去验证，问答推到那一步了再猜。";
+  // 问题本身是这个人张嘴问的：TA 的口吻、TA 怎么称呼在场的人、TA 的性子决定 TA 怎么问（急的人直接猜、谨慎的人绕着问），但仍得是一句能用是／不是回答的问题
+  const GUESS_ASK_VOICE = "问题用你自己的嘴问出来：你的口吻、你平时的称呼和口头禅、你的性子决定你怎么问——性子急的可能直接猜，谨慎的会绕着问，爱闹的会顺手损别人一句；但它仍得是一句能用是／不是回答的问题。";
   async function genGuessNext(api, kind, prevAnswers, who) {
     const avoid = (prevAnswers || []).filter(Boolean).length ? "\n【本场已出过的（别重复、也别出近似的）】\n" + prevAnswers.map(function (x) { return "· " + x; }).join("\n") : "";
     const sys = kind === "haigui"
-      ? AC + "你是「海龟汤」的主持人，出【一道新题】：surface 汤面（公开的诡异／反常情境，2~4 句，留足悬念但信息完整）、truth 汤底（完整真相，逻辑自洽、最好有反转、绝不靠超自然或做梦糊弄）。难度适中。" + avoid + "\n\n【输出】只输出 JSON：{\"surface\":\"\",\"truth\":\"\"}"
-      : AC + "你是「25 个问题」的主持人，心里想【一个新的东西】secret（具体名词，大众化、能靠是否问题逐步逼近），category 给大类提示。" + avoid + "\n\n【输出】只输出 JSON：{\"secret\":\"\",\"category\":\"\"}";
+      ? AC + "你是「海龟汤」的主持人，出【一道新题】：surface 汤面（公开的诡异／反常情境，2~4 句，留足悬念但信息完整）、truth 汤底（完整真相，逻辑自洽、最好有反转、绝不靠超自然或做梦糊弄）。难度适中。" + GUESS_ORIGINAL + avoid + "\n\n【输出】只输出 JSON：{\"surface\":\"\",\"truth\":\"\"}"
+      : AC + "你是「25 个问题」的主持人，心里想【一个新的东西】secret（具体名词，大众化、能靠是否问题逐步逼近），category 给大类提示。" + GUESS_ORIGINAL.replace("答案；想一个这桌人没见过的", "答案；挑一个不那么一猜就中的") + avoid + "\n\n【输出】只输出 JSON：{\"secret\":\"\",\"category\":\"\"}";
     const me = who && who.name ? "\n\n这一题由「" + who.name + "」来出，照 TA 这个人的性子、见识和口味出，题目像是 TA 会想出来的那种。\n【" + who.name + " 的人设】" + String(who.persona || "（没写）").slice(0, 1500) : "";
     const raw = await callRetry(api, sys + me, [{ role: "user", content: "出下一题。" }], { maxTokens: 10000 });
     return extractJSON(raw) || {};
@@ -3314,7 +3320,7 @@
       + (who && who.skill ? "\n【你玩这种游戏的真实水平】" + who.skill : "")
       + "\n\n" + (kind === "haigui" ? "【汤面】" + (pub && pub.surface || "") : "【类别】" + (pub && pub.category || ""))
       + "\n【此前问过的（别重复）】\n" + hist
-      + "\n\n照你的性子和水平问一个新的、有推理价值的问题；有把握也可以直接猜（问「是不是……」）。"
+      + "\n\n照你的性子和水平问一个新的、有推理价值的问题；有把握也可以直接猜（问「是不是……」）。" + GUESS_PLAY_FAIR + "\n" + GUESS_ASK_VOICE
       + (who && who.withSay ? "\nsay 是你问完嘴上顺带的那句（冲谁说、得意、嘀咕都行），没想说就留空；你只知道桌上公开的这些，说不出谜底。" : "")
       + "\n只输出 JSON：{\"question\":\"你的一个是非问题\"" + (who && who.withSay ? ",\"say\":\"可空\"" : "") + "}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "轮到你问了。" }], { maxTokens: 8000 });
@@ -3330,7 +3336,8 @@
     const verdictRule = guessVerdictRule(kind);
     const easy = mode === "easy" ? "\n【放水局】AI 玩家别问得太神，留点空间给真人；主持人答题该给的提示大方点给。" : "";
     const hist = history.length ? history.slice(-14).map(function (q) { return "· " + q; }).join("\n") : "（还没人问过）";
-    const who = aiSpeakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）" + voiceBrief(s); }).join("\n");
+    // 每个 AI 玩家带整段人设（不是一行速写）：问题要问得像 TA
+    const who = aiSpeakers.map(function (s) { const p = String((s && (s.persona || (s.char && s.char.persona))) || "").replace(/\s+/g, " ").trim(); return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）" + (p ? "\n   人设：" + p.slice(0, aiSpeakers.length > 2 ? 500 : 900) : ""); }).join("\n");
     const solveRule = kind === "haigui"
       ? "若某人的提问 / 陈述已经【实质还原了汤底核心真相】，把 solvedBy 填成 TA 的名字，并在 reveal 里一句话点出真相。否则 solvedBy 留空。"
       : "若某人的问题其实就是【直接猜中了那个东西】（问「它是不是XX」且 XX 正是答案），把 solvedBy 填成 TA 的名字、reveal 填那个东西——【真人玩家" + (userName ? "「" + userName + "」" : "") + "刚问的那条也算】，别只盯着 AI。否则留空。AI 觉得有把握时可以直接猜（问「是不是XX」）。";
@@ -3338,7 +3345,7 @@
       "\n\n" + verdictRule + " note 是≤14 字的补充或引导，可空。" + easy +
       "\n\n【此前问过的（别让 AI 重复）】\n" + hist +
       (userQ ? "\n\n【真人玩家" + (userName ? "「" + userName + "」" : "") + "刚问】" + userQ + " —— 在 userAnswer 里作答。" : "\n\n（这一轮真人没问，userAnswer 给 null）") +
-      "\n\n【接着这些 AI 玩家各问一个「新的、不重复、有推理价值」的问题，并由你逐一作答】按真实水平：强的追问高效精准、直逼要害；弱的更发散或问偏。\n" + who +
+      "\n\n【接着这些 AI 玩家各问一个「新的、不重复、有推理价值」的问题，并由你逐一作答】按真实水平：强的追问高效精准、直逼要害；弱的更发散或问偏。AI 玩家：" + GUESS_PLAY_FAIR.replace(/你/g, "TA") + "每个人的问题照 TA 自己的样子问：" + GUESS_ASK_VOICE.slice(GUESS_ASK_VOICE.indexOf("你的口吻")).replace(/你/g, "TA") + "\n" + who +
       "\n\n" + solveRule +
       "\n\n【输出】只输出 JSON：{\"userAnswer\":{\"verdict\":\"\",\"note\":\"\"}或null,\"ai\":[{\"name\":\"\",\"question\":\"\",\"verdict\":\"\",\"note\":\"\"}],\"solvedBy\":\"\",\"reveal\":\"\"}";
     // 言秋座位的问题TA自己问（只给公开信息，谜底绝不进票）；主持人照常作答（v54.43）

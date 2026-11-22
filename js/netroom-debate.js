@@ -19,7 +19,7 @@
   const ensure = () => DS() || !root.LazyMods ? Promise.resolve() : root.LazyMods.load("debate").catch(() => {});
   const SIDES = ["pro", "con"];
   const SIDE_ZH = { pro: "正方", con: "反方" };
-  const nm = (inv, i) => ((inv.seats || [])[i] || {}).name || "TA";
+  const nm = (inv, i) => C.seatName((inv.seats || [])[i], i);
   const whoOf = (c, opts, stance) => ({ name: (c && (c.remark || c.name)) || "TA", persona: (c && c.persona) || "", stance: stance || "", injection: opts && opts.recent ? cut(opts.recentText, 600) : "" });
   const NPC_PERSONA = "来凑场的路人，普通人，说话直接。";
 
@@ -214,7 +214,7 @@
     const team = s => inv.seats.map((x, k) => view.sides[k] === s ? x.name + (x.kind === "char" ? "（角色）" : x.kind === "npc" ? "（NPC）" : "") : "").filter(Boolean);
     const dms = (side || []).filter(x => x.kind === "dm").slice(-8), aws = (side || []).filter(x => x.kind === "aw");
     const status = view.phase === "done" ? "判完了" : view.busy ? "庄在判…" : view.phase === "side" ? (mineTurn ? "挑你这一边" : (seat ? seat.name + " 在按人设挑边…" : "在站队…"))
-      : mineTurn ? "轮到你（第 " + (view.round + 1) + (view.rounds ? " / " + view.rounds : "") + " 轮）" : (seat && seat.away ? seat.name + " 掉线了，NPC 先替着说…" : (seat ? seat.name : "TA") + " 在想…（第 " + (view.round + 1) + " / " + view.rounds + " 轮）");
+      : mineTurn ? "轮到你（第 " + (view.round + 1) + (view.rounds ? " / " + view.rounds : "") + " 轮）" : (seat && seat.away ? seat.name + " 掉线了，NPC 先替着说…" : C.seatName(seat, view.order[view.pos]) + " 在想…（第 " + (view.round + 1) + " / " + view.rounds + " 轮）");
     return h("div", { "data-wk": "nrgametable", "data-game": "debate", style: { padding: "8px 16px 10px", display: "flex", flexDirection: "column", gap: 10 } },
       h("div", { "data-wk": "nrdebatetopic", style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink, lineHeight: 1.5 } }, "「" + view.topic + "」", h("span", { style: { marginLeft: 6, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, view.mode === "free" ? "随便吵" : "讲道理")),
       view.phase !== "side" && h("div", { className: "flex", style: { gap: 8 } }, SIDES.map(s => h("div", { key: s, "data-wk": "nrdebateteam", "data-side": s, style: { flex: 1, minWidth: 0, borderRadius: 12, border: "1px solid " + SIDE_COLOR[s], padding: "6px 10px", fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
