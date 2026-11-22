@@ -79,5 +79,6 @@ test("UNO 和大富翁：轮到谁，谁的牌抬起来——不靠一个色差�
   assert.match(seats, /animation: s\.on \? "gcardPulse/, "轮到谁不闪了");
   assert.match(seats, /h\(CardBacks, \{/, "座位上那叠牌背没了");
   // 大富翁同款抬起
-  assert.match(src, /transform:i===turn&&!p\.bankrupt\?"translateY\(-2px\)":"none"/, "大富翁轮次牌不抬了");
+  // （v90 起那排人搬进公共的 MonoRoster，单机、联机同一份）
+  assert.match(src, /transform:i===props\.turn&&!p\.bankrupt\?"translateY\(-2px\)":"none"/, "大富翁轮次牌不抬了");
 });

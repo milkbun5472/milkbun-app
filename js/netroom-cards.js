@@ -639,8 +639,9 @@
     const combo = pick.length ? CD().ddz.analyze(hand.filter(c => pick.indexOf(c.uid) >= 0)) : null, L = view.last, lead = !L || L.by === m.ti || L.cleared;
     return wrap("doudizhu", [
       h(Seats, { key: "s", t, inv, view, ti: m.ti, subOf: p => (p.role === "lord" ? "地主 · " : p.role ? "农民 · " : "") + p.n + " 张 · " + p.pts + " 分" }),
-      h(Row, { key: "b", wk: "nrddzbottom" }, view.phase === "bid" ? [0, 1, 2].map(j => h("div", { key: j }, Back(26))) : view.bottom.map((c, j) => h("div", { key: j }, Card(c, 26)))),
-      L && !L.cleared && view.phase === "play" ? h("div", { key: "L", style: { textAlign: "center" } }, sub(t, nmOf(inv, L.by) + " · " + (T[L.combo && L.combo.type] || "")), h(Row, { wk: "nrddzlast" }, L.cards.map((c, j) => h("div", { key: j, style: { marginLeft: j ? -12 : 0 } }, Card(c, 32))))) : null,
+      // 出牌区：单机斗地主那块绒布（底牌一排＋桌上刚出的那手），GameShared.cards.ddz.Mid
+      h("div", { key: "b", "data-wk": "nrddzbottom" }, h("div", { "data-wk": "nrddzlast" }, CD().felt([h(CD().ddz.Mid, { key: "m", bottom: view.phase === "bid" ? [null, null, null] : view.bottom, hideBottom: view.phase === "bid", bidN: view.bid && view.bid.n, mult: view.mult, phase: view.phase, round: view.round, logN: view.log.length,
+        last: L && !L.cleared && view.phase === "play" ? { name: nmOf(inv, L.by), type: T[L.combo && L.combo.type] || "", cards: L.cards } : null, leader: m.ti >= 0 ? nmOf(inv, m.ti) : "" })], "doudizhu"))),
       view.status === "finished" ? note(t, "打完了：" + nmOf(inv, seatOf(view.winner)) + " 分最多") : note(t, view.phase === "bid" ? (m.myTurn ? "叫分：现在最高 " + view.bid.n + " 分" : waitLine(inv, m.ti, m.seat, "在想叫不叫…")) : m.myTurn ? (lead ? "你领出" : "压，还是不出") : waitLine(inv, m.ti, m.seat, "在理牌…")),
       m.mySeat >= 0 ? h(Row, { key: "h" }, hand.map((c, j) => h("div", { key: c.uid, style: { marginLeft: j ? -14 : 0, marginTop: pick.indexOf(c.uid) >= 0 ? -10 : 0 } }, Card(c, 36, { onClick: m.myTurn && view.phase === "play" ? () => setPick(p => p.indexOf(c.uid) >= 0 ? p.filter(x => x !== c.uid) : p.concat([c.uid])) : null })))) : null,
       m.myTurn && view.phase === "bid" ? h("div", { key: "a", "data-wk": "nrcardact", className: "flex justify-center", style: { gap: 6 } }, [0, 1, 2, 3].map(x => h("button", { key: x, disabled: x > 0 && x <= view.bid.n, onClick: () => onMove(m.ti, { n: x }), style: Object.assign(small(t, x > 0), { opacity: x > 0 && x <= view.bid.n ? .4 : 1 }) }, x ? x + " 分" : "不叫"))) : null,
@@ -659,8 +660,11 @@
     const tiles = (ks, w) => ks.map((k, j) => h("div", { key: j + k }, h(Tile, { k, w: w || 20 })));
     return wrap("mahjong", [
       h(Seats, { key: "s", t, inv, view, ti: m.ti, subOf: p => (p.out ? "糊了 · " : "") + p.n + " 张 · " + p.pts }),
-      h("div", { key: "r", "data-wk": "nrmjriver", style: { display: "flex", flexDirection: "column", gap: 4 } }, view.players.map((p, i) => h("div", { key: i, className: "flex flex-wrap items-center", style: { gap: 2, fontFamily: F_BODY, fontSize: fs(11), color: t.fog } },
-        h("span", { style: { width: 44, flexShrink: 0 } }, p.name), p.melds.map((md, j) => h("span", { key: "m" + j, className: "flex", style: { marginRight: 4 } }, md.tiles.length ? tiles(md.tiles, 16) : "暗杠")), tiles(p.river.slice(-12), 16)))),
+      // 牌河：单机那张方桌（GameShared.cards.MjTable）——四边各家打过的牌、亮出的碰杠、立着的牌背、中间牌墙；我坐的那边朝下
+      //   只喂公开那份：别家的手牌按张数画牌背，自己的手牌照旧在桌子下面那一排
+      h("div", { key: "r", "data-wk": "nrmjriver" }, h(CD().MjTable, { size: Math.min(400, Math.max(280, (typeof window !== "undefined" ? window.innerWidth : 390) - 32)), meI: m.mySeat >= 0 ? m.mySeat : 0, spectate: false, canDraw: false,
+        state: { status: view.status, phase: view.phase, turn: view.turn, claim: view.claim, last: view.last, dealer: view.dealer, variant: view.variant, doraInd: view.doraInd, pot: view.pot, log: view.log, wall: Array(view.wallN).fill(null),
+          players: view.players.map((p, i) => Object.assign({}, p, { isUser: i === m.mySeat, hand: Array(p.n).fill(null) })) } })),
       sub(t, (M.VARIANTS[view.variant] || {}).zh + " 第 " + view.handNo + " / " + view.hands + " 盘 · 牌墙 " + view.wallN + (view.claim ? " · " + nmOf(inv, view.claim.from) + " 打了 " + M.name(view.claim.k) : "")),
       view.lastShow && view.lastShow.winners.length ? sub(t, "上一盘：" + view.lastShow.winners.map(w => nmOf(inv, w.winner) + (w.zimo ? " 自摸 " : " 糊 ") + (w.k ? M.name(w.k) : "") + " · " + w.label).join("；")) : null,
       view.status === "finished" ? note(t, "打完了：" + nmOf(inv, seatOf(view.winner)) + " 分最多") : note(t, m.myTurn ? (view.phase === "claim" ? "要不要这张 " + M.name(view.claim.k) : pick ? "再点一下打出 " + M.name(pick) : "轮到你：点一张打出去") : waitLine(inv, m.ti, m.seat)),
@@ -671,34 +675,56 @@
       h(Log, { key: "l", t, log: view.log, n: 4 })]);
   }
 
+  // 谁是卧底那张桌：描述是单机那一溜头像＋气泡（GameShared.spy.Clue），投票是单机那排头像圆钮＋弃票（GameShared.spy.VotePick），选好了点「投票」
   function SpyTable({ inv, view, priv, me, onMove, onReveal, isHost }) {
-    const t = useTheme(), A = ADAPTERS.spy, ti = A.turn(view), seat = inv.seats[ti], myTurn = ti >= 0 && actorOf(seat, me, inv.host) === "mine-user";
-    const [d, setD] = useState(""); useEffect(() => setD(""), [view.log.length]);
+    const t = useTheme(), SP = GS().spy, A = ADAPTERS.spy, ti = A.turn(view), seat = inv.seats[ti], myTurn = ti >= 0 && actorOf(seat, me, inv.host) === "mine-user";
+    const [d, setD] = useState(""), [vote, setVote] = useState(null); useEffect(() => { setD(""); setVote(null); }, [view.log.length]);
     const mySeat = inv.seats.findIndex(s => s.kind === "user" && s.peer === me);
+    const av = (i, size) => GS().avatarFor(t)({ name: nmOf(inv, i), char: K.faceChar ? K.faceChar(inv.seats[i] || {}) : null, isUser: (inv.seats[i] || {}).kind === "user" }, size);
+    let lastRound = 0;
+    const clues = (view.clues || []).slice(-24).map((c, k) => { const head = c.round && c.round !== lastRound ? (lastRound = c.round, h("div", { key: "r" + k, "data-wk": "gamelogline", "data-kind": "round", style: { textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), color: t.fog, margin: "10px 0 4px", letterSpacing: 1 } }, "· 第 " + c.round + " 轮描述 ·")) : null;
+      return [head, h(SP.Clue, { key: "c" + k, t, mine: c.seat === mySeat, youTag: "", name: nmOf(inv, c.seat), av: av(c.seat, 30), text: c.text })]; });
     return wrap("spy", [
       mySeat >= 0 && priv ? h("div", { key: "w", "data-wk": "nrspyword", style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(18), color: t.ink } }, "你的词：", priv.word) : sub(t, "你在旁边看，看不到任何人的词"),
       h(Seats, { key: "s", t, inv, view: {}, ti, outOf: (p, i) => !view.alive[i], subOf: (p, i) => view.outRoles[i] ? "出局 · " + (view.outRoles[i] === "spy" ? "卧底" : "平民") : view.phase === "vote" && view.voted.indexOf(i) >= 0 ? "投了 ✓" : "" }),
+      clues.length ? h("div", { key: "cl", "data-wk": "nrspyclues", style: { display: "flex", flexDirection: "column" } }, clues) : null,
       view.phase === "done" ? note(t, (view.win === "spy" ? "卧底赢了" : view.win === "civ" ? "平民赢了" : "提前结束") + (view.reveal ? "：平民词「" + view.reveal.civ + "」，卧底词「" + view.reveal.spy + "」" : ""))
-        : note(t, myTurn ? (view.phase === "clue" ? "轮到你描述（别说出词本身）" : view.phase === "vote" ? "投一个你最怀疑的人" : "你被投出来了，是卧底：猜一次平民的词") : waitLine(inv, ti, seat, view.phase === "clue" ? "在想怎么说…" : view.phase === "vote" ? "在投票…" : "在猜词…")),
-      myTurn && view.phase !== "vote" ? h("input", { key: "i", "data-wk": "nrspyinput", value: d, onChange: e => setD(e.target.value.slice(0, view.phase === "clue" ? 60 : 30)), placeholder: view.phase === "clue" ? "一句话描述你的词" : "猜平民的词（空着就是不猜）", style: box(t) }) : null,
-      myTurn && view.phase !== "vote" ? h("button", { key: "b", "data-wk": "nrspysend", onClick: () => onMove(ti, view.phase === "clue" ? { text: d.trim() } : { guess: d.trim() }), disabled: view.phase === "clue" && !d.trim(), style: Object.assign(pill(t, true), { alignSelf: "center" }) }, view.phase === "clue" ? "说" : "猜") : null,
-      myTurn && view.phase === "vote" ? h("div", { key: "v", "data-wk": "nrspyvote", className: "flex flex-wrap justify-center", style: { gap: 6 } }, inv.seats.map((s, i) => view.alive[i] && i !== ti ? h("button", { key: i, onClick: () => onMove(ti, { target: i }), style: small(t, false) }, s.name) : null).concat([h("button", { key: "x", onClick: () => onMove(ti, { target: -1 }), style: small(t, false) }, "这轮弃票")])) : null,
+        : note(t, myTurn ? (view.phase === "clue" ? "轮到你描述（别说出词本身）" : view.phase === "vote" ? "投谁是卧底？" : "你被投出来了，是卧底：猜一次平民的词") : waitLine(inv, ti, seat, view.phase === "clue" ? "在想怎么说…" : view.phase === "vote" ? "在投票…" : "在猜词…")),
+      myTurn && view.phase !== "vote" ? h("div", { key: "i", className: "flex", style: { gap: 8 } },
+        h("input", { "data-wk": "nrspyinput", value: d, onChange: e => setD(e.target.value.slice(0, view.phase === "clue" ? 60 : 30)), onKeyDown: e => { if (e.key === "Enter" && (d.trim() || view.phase !== "clue")) onMove(ti, view.phase === "clue" ? { text: d.trim() } : { guess: d.trim() }); }, placeholder: view.phase === "clue" ? "用一句话描述你的词" : "猜平民的词（空着就是不猜）", style: Object.assign(box(t), { flex: 1, minWidth: 0 }) }),
+        h("button", { "data-wk": "nrspysend", onClick: () => onMove(ti, view.phase === "clue" ? { text: d.trim() } : { guess: d.trim() }), disabled: view.phase === "clue" && !d.trim(), style: pill(t, true) }, view.phase === "clue" ? "说" : "猜")) : null,
+      myTurn && view.phase === "vote" ? h("div", { key: "v", "data-wk": "nrspyvote" },
+        h(SP.VotePick, { t, value: vote, onPick: setVote, targets: inv.seats.map((s, i) => view.alive[i] && i !== ti ? { id: i, key: "s" + i, name: s.name, av: av(i, 22) } : null).filter(Boolean) }),
+        h("button", { "data-wk": "nrspyvotego", disabled: vote == null, onClick: () => onMove(ti, { target: vote }), style: Object.assign(pill(t, true), { width: "100%", opacity: vote == null ? .45 : 1 }) }, "投票")) : null,
       h(Log, { key: "l", t, log: view.log, n: 12 }),
       isHost && view.phase !== "done" ? h("button", { key: "e", onClick: onReveal, style: Object.assign(small(t, false), { alignSelf: "flex-start" }) }, "到这儿结束（亮词）") : null]);
   }
 
+  // 心有灵犀那张桌：对阵条、这一轮要连的两个词、刚亮出来那张亮词卡、往期——几块都是单机那一份（GameShared.lingxi）
+  //   两边同时写：我这边的框一直开着，交了就等对面；两边都交了才一起亮
   function LingxiTable({ inv, view, priv, me, onMove, onReveal, isHost }) {
-    const t = useTheme(), mySeat = inv.seats.findIndex(s => s.kind === "user" && s.peer === me), [d, setD] = useState("");
+    const t = useTheme(), G = GS(), LX = G.lingxi, mySeat = inv.seats.findIndex(s => s.kind === "user" && s.peer === me), [d, setD] = useState("");
     useEffect(() => setD(""), [view.rounds.length, view.phase]);
-    const mine = mySeat >= 0 && view.phase !== "done" && !view.sent[mySeat] && !(inv.seats[mySeat] || {}).held;
+    const done = view.phase === "done", mine = mySeat >= 0 && !done && !view.sent[mySeat] && !(inv.seats[mySeat] || {}).held;
+    // 从我这边看：我（或第一座）写的在左、描我的颜色
+    const me0 = mySeat === 1 ? 1 : 0, o0 = 1 - me0, last = view.rounds[view.rounds.length - 1];
+    const sc = view.rounds.filter(r => r.hit).length;
+    const label = s0 => h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, marginBottom: 6 } }, s0);
+    const vs = inv.seats.map((s, i) => ({ key: "s" + i, name: s.name || "空位", char: K.faceChar ? K.faceChar(s) : { name: s.name }, isUser: s.kind === "user", on: !done && !view.sent[i], sub: done ? "对上 " + sc : view.sent[i] ? "交了" : "在想…" }));
     return wrap("lingxi", [
-      view.pair ? h("div", { key: "p", "data-wk": "nrlxpair", style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(18), color: t.ink } }, "「" + view.pair[0] + "」＋「" + view.pair[1] + "」") : note(t, "先各写一个起始词"),
-      sub(t, inv.seats.map((s, i) => s.name + (view.sent[i] ? " 交了" : " 还在想")).join(" · ") + " · 对上 " + view.rounds.filter(r => r.hit).length + " 次"),
-      mySeat >= 0 && priv && priv.mine ? sub(t, "你这一轮写的：「" + priv.mine + "」（两边都交了才亮）") : null,
-      mine ? h("input", { key: "i", "data-wk": "nrlxinput", value: d, onChange: e => setD(e.target.value.slice(0, 20)), placeholder: view.pair ? "写一个能同时连上这两个词的词" : "你的起始词", style: box(t) }) : null,
-      mine ? h("button", { key: "b", "data-wk": "nrlxsend", disabled: !d.trim(), onClick: () => onMove(mySeat, { word: d.trim() }), style: Object.assign(pill(t, true), { alignSelf: "center" }) }, "写好了") : null,
-      h("div", { key: "r", "data-wk": "nrlxrounds", style: { display: "flex", flexDirection: "column", gap: 4, fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } }, view.rounds.slice().reverse().map(r => h("div", { key: r.n }, "第 " + r.n + " 轮：「" + r.w[0] + "」/「" + r.w[1] + "」" + (r.hit ? " ✓ 对上了" : "")))),
-      view.phase === "done" ? note(t, "结束了") : isHost ? h("button", { key: "e", onClick: onReveal, style: Object.assign(small(t, false), { alignSelf: "flex-start" }) }, "到这儿结束") : null]);
+      h(G.GameVsBar, { key: "vs", t, seats: [vs[me0], vs[o0]].filter(Boolean) }),
+      view.pair && !done ? h("div", { key: "p", "data-wk": "nrlxpair" }, h("div", { "data-wk": "lingxipair" }, label("这一轮要连的两个词"),
+        h("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, h(LX.Chip, { t, w: view.pair[me0], mine: true }), h("span", { style: { color: t.fog, fontFamily: F_BODY } }, "＋"), h(LX.Chip, { t, w: view.pair[o0], mine: false })))) : null,
+      last || view.start ? h(LX.RevCard, { key: "rv", t, r: last ? { n: last.n, pair: [last.pair[me0], last.pair[o0]], hit: last.hit } : null, a: last ? last.w[me0] : view.start[me0], b: last ? last.w[o0] : view.start[o0], counted: !!(last && last.hit) }) : view.phase === "start" ? note(t, "两个人先各自悄悄写一个起始词") : null,
+      mySeat >= 0 && priv && priv.mine && !done ? sub(t, "你这一轮写的：「" + priv.mine + "」（两边都交了才一起亮）") : null,
+      mine ? h("div", { key: "in", className: "flex", style: { gap: 8, alignItems: "center" } },
+        h("input", { "data-wk": "nrlxinput", value: d, onChange: e => setD(e.target.value.slice(0, 20)), onKeyDown: e => { if (e.key === "Enter" && d.trim()) onMove(mySeat, { word: d.trim() }); }, placeholder: view.pair ? "连上这两个词的新词（对面看不到）" : "你的起始词（对面看不到）", style: Object.assign(box(t), { flex: 1, minWidth: 0 }) }),
+        h("button", { "data-wk": "nrlxsend", disabled: !d.trim(), onClick: () => onMove(mySeat, { word: d.trim() }), style: pill(t, true) }, "亮词")) : null,
+      view.rounds.length > 1 ? h("div", { key: "r", "data-wk": "nrlxrounds" }, h("div", { "data-wk": "lingxihist" }, label("往期"), view.rounds.slice(0, -1).reverse().map(r => h("div", { key: r.n, style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: fs(12), color: t.sub, padding: "4px 0", borderBottom: "1px solid " + t.line } },
+        h("span", { style: { color: t.fog, width: 34, flexShrink: 0 } }, "第" + r.n), h("span", { style: { flex: 1, minWidth: 0 } }, r.pair[me0] + " + " + r.pair[o0] + " → 「" + r.w[me0] + "」/「" + r.w[o0] + "」"),
+        h("span", { style: { color: r.hit ? t.tint : t.fog, flexShrink: 0 } }, r.hit ? "+1" : "—"))))) : null,
+      done ? h("div", { key: "d", style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(20), color: t.tint } }, "连了 " + view.rounds.length + " 轮，对上 " + sc + " 次")
+        : isHost ? h("button", { key: "e", "data-wk": "lingxiend", onClick: onReveal, style: Object.assign(small(t, false), { alignSelf: "flex-start" }) }, "到这儿结束") : null]);
   }
 
   function CardReplay({ rec }) {

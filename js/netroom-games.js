@@ -1496,26 +1496,30 @@
   }
 
   // 故事接龙那张桌：一页纸、轮到你就写一句（要用上抽到的那个词）
+  // 故事接龙那张桌：对阵条、那页横格本（单机那一份 GameShared.story.Paper）、轮到你时要用上的那个词
   function StoryTable({ inv, view, me, onMove }) {
-    const t = useTheme();
+    const t = useTheme(), G = GS();
     const [d, setD] = useState("");
     const done = view.status === "finished", seat = inv.seats[view.turn];
     const myTurn = !done && actorOf(seat, me, inv.host) === "mine-user";
     const total = view.players.length * view.laps;
-    return h("div", { "data-wk": "nrgametable", "data-game": "story", style: { padding: "8px 16px 10px", display: "flex", flexDirection: "column", gap: 10 } },
-      h(StoryPaper, { t, opener: view.opener, lines: view.lines }),
+    const mine = inv.seats.findIndex(s => s.kind === "user" && s.peer === me);
+    return h("div", { "data-wk": "nrgametable", "data-game": "story", style: { padding: "4px 16px 10px", display: "flex", flexDirection: "column", gap: 10 } },
+      h(G.GameVsBar, { t, seats: vsSeats(inv, view, done ? -1 : view.turn, null, (i, s) => !done && i === view.turn ? "在写…" : "写了 " + view.lines.filter(l => l.key === "s" + i).length + " 句") }),
+      h(StoryPaper, { t, view, meKey: mine >= 0 ? "s" + mine : "" }),
       (view.say || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: t.fog, lineHeight: 1.6 } }, view.say.slice(-3).map((x, i) => h("div", { key: i }, x.name + "：“" + x.text + "”"))) : null,
       done ? note(t, "写完了，一共 " + view.lines.length + " 句")
-        : note(t, myTurn ? "轮到你接（第 " + (view.lines.length + 1) + " / " + total + " 句），要用上「" + view.word + "」" : (seat && seat.away ? seat.name + " 掉线了，NPC 先替着写…" : seat.name + " 在想怎么接…（要用上「" + view.word + "」）")),
+        : myTurn ? h("div", { "data-wk": "nrgamestatus", style: { fontFamily: F_BODY, fontSize: fs(12.5), color: t.sub } }, "轮到你接（第 " + (view.lines.length + 1) + " / " + total + " 句）" + (view.lines.length + 1 === total ? "，最后一句——帮它收个尾" : "") + "，要用上：", h("b", { "data-wk": "gamestoryword", style: { color: t.tint, fontSize: fs(14) } }, "「" + view.word + "」"))
+        : note(t, seat && seat.away ? seat.name + " 掉线了，NPC 先替着写…" : seat.name + " 在想怎么接…（要用上「" + view.word + "」）"),
       myTurn && h("textarea", { "data-wk": "nrstoryinput", value: d, rows: 2, onChange: e => setD(e.target.value.slice(0, 160)), placeholder: "接着往下写一句……", style: box(t) }),
       myTurn && h("button", { "data-wk": "nrstorysend", disabled: !d.trim(), onClick: () => { const v = d.trim(); setD(""); onMove(view.turn, { line: v }); }, style: Object.assign(pill(t, true), { alignSelf: "flex-start" }) }, "接上"));
   }
-  function StoryPaper({ t, opener, lines }) {
-    return h("div", { "data-wk": "nrstorypaper", style: { border: "1px solid " + t.line, borderRadius: 14, background: t.bg2, padding: 12, fontFamily: F_BODY, fontSize: fs(14), color: t.ink, lineHeight: 1.8 } },
-      h("span", { style: { color: t.fog } }, opener),
-      (lines || []).map((l, i) => h("span", { key: i, title: l.name }, l.text, h("sup", { style: { fontSize: fs(9.5), color: t.fog, margin: "0 3px 0 1px" } }, (i + 1) + l.name))));
+  // 纸是单机那一页（gamestorypaper）；外面包一层 nrstorypaper 留给联机那组挂点
+  function StoryPaper({ t, view, meKey }) {
+    const G = GS(), v = view || {};
+    return h("div", { "data-wk": "nrstorypaper" }, h(G.story.Paper, { t, opener: v.opener, lines: v.lines || [], laps: v.laps, nPlayers: (v.players || []).length, playing: v.status === "playing", meKey: meKey || "" }));
   }
-  function StoryReplay({ rec }) { const t = useTheme(), r = rec.replay || {}; return h("div", { style: { padding: "8px 16px" } }, h(StoryPaper, { t, opener: r.opener, lines: r.lines })); }
+  function StoryReplay({ rec }) { const t = useTheme(), r = rec.replay || {}; return h("div", { style: { padding: "8px 16px" } }, h(StoryPaper, { t, view: { opener: r.opener, lines: r.lines, status: "finished" } })); }
 
   // 真心话大冒险那张桌：单机那几块（转瓶子、二选一、一轮一张卡）。转的人点「转一下」，指到谁只由庄定，大家照 spinN 播同一段转瓶
   const seatAv = (t, s, size) => GS().avatarFor(t)({ name: (s && s.name) || "?", char: faceChar(s), isUser: !!(s && s.kind === "user") }, size);
@@ -1570,15 +1574,13 @@
     const ti = view.done ? -1 : view.turn, seat = inv.seats[ti], cur = view.players[ti];
     const myTurn = ti >= 0 && actorOf(seat, me, inv.host) === "mine-user";
     const pend = view.pending, tile = pend ? M.BOARD[pend.tile] : null;
-    const grid = h("div", { "data-wk": "nrmonoboard", style: { display: "grid", gridTemplateColumns: "repeat(11,minmax(0,1fr))", gridTemplateRows: "repeat(11,26px)", gap: 2 } },
-      h("div", { style: { gridColumn: "2 / 11", gridRow: "2 / 11", borderRadius: 13, background: t.bg2, border: "1px solid " + t.line, display: "flex", flexDirection: "column", justifyContent: "center", padding: 8, gap: 2, overflow: "hidden" } },
-        view.players.map((p, i) => h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: fs(11.5), color: t.ink, opacity: p.bankrupt ? .45 : 1, fontWeight: i === ti ? 700 : 400 } },
-          h("span", { style: { width: 8, height: 8, borderRadius: "50%", background: M.tokenColor(p, view.players) } }), p.name + " · " + (p.bankrupt ? "破产" : "$" + p.cash) + (p.jailed ? " · 关押" : "")))),
-      M.BOARD.map((x, i) => { const own = view.owners[i], o = view.players.find(p => p.key === own), here = view.players.filter(p => !p.bankrupt && p.pos === i);
-        return h("div", { key: i, title: x.name, style: Object.assign({}, M.gridPos(i), { borderRadius: 5, background: x.type === "property" ? x.color + "35" : t.bg2, border: "1px solid " + (cur && cur.pos === i ? t.ink : t.line), overflow: "hidden", textAlign: "center", minWidth: 0 }) },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 7, lineHeight: 1.1, color: t.sub, height: 15, overflow: "hidden" } }, (x.icon || "") + x.name),
-          h("div", { style: { height: 8, display: "flex", justifyContent: "center", gap: 1 } }, o ? h("span", { style: { width: 6, height: 3, marginTop: 2, background: M.tokenColor(o, view.players) } }) : null,
-            here.map(p => h("span", { key: p.key, style: { width: 6, height: 6, borderRadius: "50%", background: M.tokenColor(p, view.players), border: "1px solid #fff" } })))); }));
+    // 棋盘、底下那排人：单机大富翁那一份（GameShared.mono.Board / Roster）；中间那块写这一手、谁在场
+    const center = h("div", { style: { gridColumn: "2 / 11", gridRow: "2 / 11", borderRadius: 13, background: t.bg2, border: "1px solid " + t.line, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 5 } },
+      h("div", { style: { fontSize: 18 } }, "🏙️"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: t.ink, marginTop: 2 } }, cur ? cur.name : "经典城市棋盘"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: fs(10), color: t.sub, marginTop: 3, lineHeight: 1.4 } }, "第 " + Math.min(view.moves + 1, M.maxMoves(view.players.length)) + " / " + M.maxMoves(view.players.length) + " 手 · " + view.players.filter(p => !p.bankrupt).length + " 人在场"));
+    const grid = h("div", { "data-wk": "nrmonoboard" }, h(M.Board, { t, players: view.players, owners: view.owners, levels: view.levels || {}, curPos: cur ? cur.pos : -1, center }));
+    const roster = h(M.Roster, { t, players: view.players, turn: ti, owners: view.owners, youTag: "", avatar: (p, size) => GS().avatarFor(t)({ name: p.name, char: faceChar(inv.seats[view.players.indexOf(p)]), isUser: (inv.seats[view.players.indexOf(p)] || {}).kind === "user" }, size) });
     const act = view.done ? null : !myTurn ? note(t, seat && seat.away ? cur.name + " 掉线了，NPC 先替着走…" : (cur ? cur.name : "") + (pend ? " 在想要不要" + (pend.kind === "buy" ? "买" : "升级") + "…" : " 在掷骰子…"))
       : pend ? h("div", { style: { display: "flex", flexDirection: "column", gap: 8, alignItems: "center", marginTop: 8 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.ink } }, pend.kind === "buy" ? "买下【" + tile.name + "】？$" + tile.price + "（现金 $" + cur.cash + "）" : "升级【" + tile.name + "】？花 $" + Math.floor(tile.price / 2)),
@@ -1587,7 +1589,7 @@
             h("button", { "data-wk": "nrmonono", onClick: () => onMove(ti, { yes: false }), style: pill(t, false) }, pend.kind === "buy" ? "不买（银行拍卖）" : "不升")))
       : h("div", { style: { textAlign: "center", marginTop: 8 } }, h("button", { "data-wk": "nrmonoroll", onClick: () => onMove(ti, { roll: true }), style: pill(t, true) }, cur.jailed ? "在看守所，过这一手" : "掷骰子"));
     return h("div", { "data-wk": "nrgametable", "data-game": "monopoly", style: { padding: "6px 10px 10px" } },
-      grid,
+      grid, roster,
       view.done ? note(t, "第 " + view.moves + " 手结算：" + (view.rank || []).map(i => view.players[i].name).join(" > ")) : note(t, "第 " + (view.moves + 1) + " / " + M.maxMoves(view.players.length) + " 手"),
       act,
       h("div", { "data-wk": "nrmonolog", style: { marginTop: 10, fontFamily: F_BODY, fontSize: fs(12), color: t.sub, lineHeight: 1.6 } }, view.log.slice(-6).map((x, i) => h("div", { key: i }, x.say))),

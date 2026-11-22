@@ -203,36 +203,46 @@
   const fit = e => { if (typeof fitTextarea === "function") fitTextarea(e.target, 160); };
   const noteEl = (t, s) => h("div", { "data-wk": "nrgamestatus", style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: fs(14.5), color: t.ink } }, s);
 
-  function Speeches({ t, turns }) {
-    return h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, (turns || []).map((x, i) => h("div", { key: i, "data-wk": "nrdebateturn", "data-side": x.side,
-      style: { borderLeft: "3px solid " + SIDE_COLOR[x.side], padding: "2px 0 2px 10px", fontFamily: F_BODY, fontSize: fs(13.5), color: t.ink, lineHeight: 1.65 } },
-      h("div", { style: { fontSize: fs(11.5), color: t.fog } }, x.name + " · " + SIDE_ZH[x.side] + " · 第 " + (x.round + 1) + " 轮"), x.text)));
+  // 擂台上的几块都是单机擂台那一份（DebateShared.TurnCard / SideBlock / VerdictBoard / Closings）；擂台模块没装上时先装
+  const faceOf = s => root.NetGameUI && root.NetGameUI.kit.faceChar ? root.NetGameUI.kit.faceChar(s || {}) : { name: (s && s.name) || "" };
+  function useDS() { const [, setN] = useState(0); const D = DS(); React.useEffect(() => { if (!D) ensure().then(() => setN(n => n + 1)); }, [!!D]); return D; }
+  function Speeches({ t, turns, inv }) {
+    const D = DS(); if (!D) return null;
+    const seats = (inv && inv.seats) || [];
+    return h("div", { "data-wk": "nrdebatespeeches" }, (turns || []).map((x, i) => h("div", { key: i, "data-wk": "nrdebateturn", "data-side": x.side },
+      h(D.TurnCard, { t, av: faceOf(seats[x.seat] || seats.find(s => s.name === x.name) || { name: x.name }), tn: { name: x.name + " · " + SIDE_ZH[x.side] + " · 第 " + (x.round + 1) + " 轮", text: x.text, color: SIDE_COLOR[x.side] } }))));
   }
   function Verdict({ t, v }) {
-    if (!v) return null;
-    return h("div", { "data-wk": "nrdebateverdict", style: { border: "1px solid " + t.line, borderRadius: 14, background: t.bg2, padding: 12, fontFamily: F_BODY, fontSize: fs(13.5), color: t.ink, lineHeight: 1.65 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15) } }, v.winner ? "胜者：" + v.winner : "没判胜负"),
-      v.crux ? h("div", { style: { color: t.fog, fontSize: fs(12.5), marginTop: 4 } }, "其实在吵的是：" + v.crux) : null,
-      v.reason ? h("div", { style: { marginTop: 4 } }, v.reason) : null);
+    const D = DS(); if (!v || !D) return null;
+    return h("div", { "data-wk": "nrdebateverdict", style: { marginTop: 8 } }, h(D.VerdictBoard, { t, v: { winner: v.winner || "没判胜负", reason: v.reason, crux: v.crux } }));
   }
-  function AfterWords({ t, aws }) { return h("div", { "data-wk": "nrdebateafter", style: { fontFamily: F_BODY, fontSize: fs(13), color: t.ink, lineHeight: 1.6 } }, aws.map((x, i) => h("div", { key: i }, h("span", { style: { color: t.fog } }, x.name + " 赛后："), x.text))); }
-  function DmRow({ t, x }) { return h("div", { "data-wk": "nrdebatedm", style: { fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } }, h("span", { style: { color: t.fog } }, x.name + (x.char ? "（角色）" : "") + "："), x.text); }
+  function AfterWords({ t, aws, inv }) {
+    const D = DS(); if (!D) return null;
+    const seats = (inv && inv.seats) || [];
+    return h("div", { "data-wk": "nrdebateafter" }, h(D.Closings, { t, list: aws.map(x => { const k = seats.findIndex(s => s.name === x.name); return { name: x.name, text: x.text, av: faceOf(seats[k] || { name: x.name }) }; }) }));
+  }
+  // 观众席：单机擂台「台边」那一条竖线的样子，只是这里叫台下
+  function Crowd({ t, dms }) { const D = DS(); return D && dms.length ? h(D.SideBlock, { t, label: "台下 · ", list: dms.map(x => ({ name: x.name + (x.char ? "（角色）" : ""), text: x.text })) }) : null; }
   function DebateTable({ inv, view, me, isHost, onMove, onReveal, side, onSide, nick }) {
-    const t = useTheme();
+    const t = useTheme(), D = useDS();
     const [d, setD] = useState(""), [dm, setDm] = useState("");
     const ti = A.turn(view), seat = inv.seats[ti];
     const mineTurn = ti >= 0 && !view.busy && C.actorOf(seat, me, inv.host) === "mine-user";
-    const team = s => inv.seats.map((x, k) => view.sides[k] === s ? x.name + (x.kind === "char" ? "（角色）" : x.kind === "npc" ? "（NPC）" : "") : "").filter(Boolean);
     const dms = (side || []).filter(x => x.kind === "dm").slice(-8), aws = (side || []).filter(x => x.kind === "aw");
     const status = view.phase === "done" ? "判完了" : view.busy ? "庄在判…" : view.phase === "side" ? (mineTurn ? "挑你这一边" : (seat ? seat.name + " 在按人设挑边…" : "在站队…"))
-      : mineTurn ? "轮到你（第 " + (view.round + 1) + (view.rounds ? " / " + view.rounds : "") + " 轮）" : (seat && seat.away ? seat.name + " 掉线了，NPC 先替着说…" : C.seatName(seat, view.order[view.pos]) + " 在想…（第 " + (view.round + 1) + " / " + view.rounds + " 轮）");
+      : mineTurn ? "轮到你（第 " + (view.round + 1) + (view.rounds ? " / " + view.rounds : "") + " 轮）" : (seat && seat.away ? seat.name + " 掉线了，NPC 先替着说…" : C.seatName(seat, view.order[view.pos]) + " 在想…（第 " + (view.round + 1) + (view.rounds ? " / " + view.rounds : "") + " 轮）");
+    // 台上那一排：单机擂台顶上那排头像（正方、反方各一边，轮到的那位描深）
+    const team = s => inv.seats.map((x, k) => view.sides[k] === s ? h("div", { key: k, style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 0, maxWidth: 80, opacity: ti === k || view.phase !== "talk" ? 1 : .7 } },
+      h(Avatar, { character: faceOf(x), size: 30, radius: 999 }), h("span", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.ink, fontWeight: ti === k ? 700 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 80 } }, x.name + (x.kind === "npc" ? "（NPC）" : ""))) : null).filter(Boolean);
+    if (!D) return h("div", { "data-wk": "nrgametable", "data-game": "debate", style: { padding: 16 } }, noteEl(t, "擂台在装…"));
     return h("div", { "data-wk": "nrgametable", "data-game": "debate", style: { padding: "8px 16px 10px", display: "flex", flexDirection: "column", gap: 10 } },
-      h("div", { "data-wk": "nrdebatetopic", style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink, lineHeight: 1.5 } }, "「" + view.topic + "」", h("span", { style: { marginLeft: 6, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, view.mode === "free" ? "随便吵" : "讲道理")),
-      view.phase !== "side" && h("div", { className: "flex", style: { gap: 8 } }, SIDES.map(s => h("div", { key: s, "data-wk": "nrdebateteam", "data-side": s, style: { flex: 1, minWidth: 0, borderRadius: 12, border: "1px solid " + SIDE_COLOR[s], padding: "6px 10px", fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
-        h("div", { style: { color: SIDE_COLOR[s], fontSize: fs(11.5) } }, SIDE_ZH[s]), team(s).join("、") || "—"))),
-      h(Speeches, { t, turns: view.turns }),
+      h("div", { "data-wk": "nrdebatetopic", style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink, lineHeight: 1.5, textAlign: "center" } }, "「" + view.topic + "」", h("span", { style: { marginLeft: 6, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, view.mode === "free" ? "随便吵" : "讲道理")),
+      view.phase !== "side" && h("div", { className: "flex", style: { gap: 8, alignItems: "flex-start" } }, SIDES.map(s => h("div", { key: s, "data-wk": "nrdebateteam", "data-side": s, style: { flex: 1, minWidth: 0, borderTop: "3px solid " + SIDE_COLOR[s], paddingTop: 6 } },
+        h("div", { style: { color: SIDE_COLOR[s], fontFamily: F_BODY, fontSize: fs(11), letterSpacing: 2, textAlign: "center", marginBottom: 4 } }, SIDE_ZH[s]),
+        h("div", { className: "flex flex-wrap justify-center", style: { gap: 8 } }, team(s).length ? team(s) : "—")))),
+      h(Speeches, { t, turns: view.turns, inv }),
       view.phase === "done" && h(Verdict, { t, v: view.verdict }),
-      aws.length ? h(AfterWords, { t, aws }) : null,
+      aws.length ? h(AfterWords, { t, aws, inv }) : null,
       noteEl(t, status),
       mineTurn && view.phase === "side" && h("div", { className: "flex", style: { gap: 8, justifyContent: "center" } }, SIDES.map(s => h("button", { key: s, "data-wk": "nrdebateside", onClick: () => onMove(ti, { side: s }), style: pill(t, false) }, SIDE_ZH[s]))),
       mineTurn && view.phase === "talk" && h("textarea", { "data-wk": "nrdebateinput", value: d, rows: 3, onChange: e => { setD(e.target.value.slice(0, 800)); fit(e); }, placeholder: "你这一段（" + SIDE_ZH[view.sides[ti]] + "）", style: box(t) }),
@@ -243,21 +253,22 @@
       // 观众席：房里每个人都能发，没上台的也行；自己带来的没上台的角色偶尔也会冒一句（由你这台、用 TA 的线路）
       h("div", { "data-wk": "nrdebatecrowd", style: { borderTop: "1px solid " + t.line, paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, "观众席 · 弹幕只在这张桌边，不进房间聊天"),
-        dms.map((x, i) => h(DmRow, { key: i, t, x })),
+        h(Crowd, { t, dms }),
         onSide && h("div", { className: "flex", style: { gap: 6 } },
           h("input", { "data-wk": "nrdebatedminput", value: dm, onChange: e => setDm(e.target.value.slice(0, 120)), placeholder: "起个哄……", style: Object.assign(box(t), { flex: 1, minWidth: 0, padding: "7px 12px" }),
             onKeyDown: e => { if (e.key === "Enter" && dm.trim()) { onSide({ kind: "dm", name: nick, text: dm.trim() }); setDm(""); } } }),
           h("button", { "data-wk": "nrdebatedmsend", disabled: !dm.trim(), onClick: () => { onSide({ kind: "dm", name: nick, text: dm.trim() }); setDm(""); }, style: Object.assign(pill(t, false), { minHeight: 36 }) }, "发"))));
   }
   function DebateReplay({ rec }) {
-    const t = useTheme(), r = rec.replay || {}, sd = r.side || [];
+    const t = useTheme(), D = useDS(), r = rec.replay || {}, sd = r.side || [];
+    const inv = { seats: rec.seats || [] };
     const aws = sd.filter(x => x.kind === "aw"), dms = sd.filter(x => x.kind === "dm");
+    if (!D) return null;
     return h("div", { style: { padding: "8px 16px", display: "flex", flexDirection: "column", gap: 10 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, "「" + (r.topic || "") + "」"), h(Speeches, { t, turns: r.turns }), h(Verdict, { t, v: r.verdict }),
-      aws.length ? h(AfterWords, { t, aws }) : null,
-      dms.length ? h("div", { "data-wk": "nrdebatecrowd", style: { borderTop: "1px solid " + t.line, paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, "观众席"),
-        dms.map((x, i) => h(DmRow, { key: i, t, x }))) : null);
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink, textAlign: "center" } }, "「" + (r.topic || "") + "」"), h(Speeches, { t, turns: r.turns, inv }), h(Verdict, { t, v: r.verdict }),
+      aws.length ? h(AfterWords, { t, aws, inv }) : null,
+      dms.length ? h("div", { "data-wk": "nrdebatecrowd", style: { borderTop: "1px solid " + t.line, paddingTop: 8 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, marginBottom: 4 } }, "观众席"), h(Crowd, { t, dms })) : null);
   }
   // 开局的人开局：辩题（自己写或让模型出）、几轮、讲道理／随便吵、自己上不上台、派谁上台
   //   单机擂台里接不住多台手机的那几样（裁判人选、纸条、临时规矩、台下投票、路人、注入最近聊天给全场）这里没有，页顶说明

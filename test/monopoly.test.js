@@ -85,12 +85,13 @@ test("old rule banners are removed without deleting real table conversation", ()
 
 test("mobile monopoly layout reserves space for roster and dialogue", () => {
   const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/games.js"), "utf8");
-  assert.match(src, /gridTemplateRows:"repeat\(11,30px\)"/);
+  // 棋盘搬进公共的 MonoBoard（单机、联机同一份）：每格默认 30px
+  assert.match(src, /gridTemplateRows:"repeat\(11,"\+\(props\.rowH\|\|30\)\+"px\)"/);
   assert.match(src, /gridColumn:"2 \/ 11",gridRow:"2 \/ 11"/);
   assert.match(src, /MONO_TOKEN_COLORS/);
-  assert.match(src, /monoTokenColor\(p,players\)/);
+  assert.match(src, /monoTokenColor\(p,pl\)/);
   assert.match(src, /"收起棋盘 · 看对话"/);
-  assert.match(src, /setSelectedTile\(i\)/);
+  assert.match(src, /onTile:setSelectedTile/);
   assert.match(src, /minHeight:55/);
   assert.match(src, /minHeight:110/);
 });
