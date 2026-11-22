@@ -461,7 +461,8 @@ test("大厅：第一档这几盒都摆出来；联机接不住的开局选项�
   const hideList = JSON.parse((nsrc.match(/setupHide: (\[[^\]]*\])/) || [])[1] || "[]");
   ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins", "cardBrain", "bjDealer", "pkTruth", "mjAutoDraw", "mjSwap"].forEach(k => assert.ok(hideList.indexOf(k) >= 0, "联机收起 " + k));
   assert.match(games, /hide: props\.setupHide, note: props\.setupNote \? props\.setupNote\(game\) : "",/);
-  hideList.forEach(k => assert.ok(games.indexOf('hid("' + k + '")') > 0, k));
+  // 狼阵营某一种、阿瓦隆某个特殊角色按前缀收（wolf_<key>、av_<key>）
+  hideList.forEach(k => { const m = /^(wolf|av)_/.exec(k); assert.ok(m ? games.indexOf('hid("' + m[0] + '" + o.') > 0 : games.indexOf('hid("' + k + '")') > 0, k); });
 });
 
 test("半窗：展开时记下房里有几条，之后来的算新消息；收起不计数；再展开从头算", () => {
