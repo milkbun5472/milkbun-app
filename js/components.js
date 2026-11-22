@@ -23784,11 +23784,12 @@ function SubThreadPage({ group, messages, rootKey, userLabel, sending, onSend, o
 function LoungePanel({ people, onSit, sitting, spectate }) {
   const t = useTheme();
   return h("div", { "data-wk": "lounge", className: "shrink-0", style: { padding: "10px 14px 8px", background: t.bg2, borderBottom: "1px solid " + t.line } },
+    h("div", { "data-wk": "loungecount", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 6 } }, "在这儿 " + (people || []).filter(p => p.here).length + " · 不在 " + (people || []).filter(p => !p.here).length),
     h("div", { className: "flex gap-2", style: { overflowX: "auto", paddingBottom: 4 } },
-      (people || []).map(p => h("div", { key: p.id, "data-wk": "loungecard", style: { flexShrink: 0, width: 116, padding: "8px 9px", borderRadius: 12, background: t.bg, border: "1px solid " + t.line } },
+      (people || []).map(p => h("div", { key: p.id, "data-wk": "loungecard", "data-here": p.here ? "1" : "0", style: { flexShrink: 0, width: 116, padding: "8px 9px", borderRadius: 12, background: t.bg, border: "1px solid " + (p.here ? t.accent : t.line), opacity: p.here ? 1 : 0.55 } },
         h("div", { className: "flex items-center gap-1.5" }, h(Avatar, { character: p.c, size: 24, radius: 7 }),
           h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, p.c.remark || p.c.name)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 5, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.doing || "在这儿待着")))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub, marginTop: 5, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.here ? (p.doing || "在这儿待着") : p.away + (p.doing ? " · " + p.doing : ""))))),
     spectate ? null : h("button", { "data-wk": "loungesit", disabled: sitting, onClick: onSit, className: "active:opacity-60", style: { marginTop: 6, minHeight: 34, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "transparent", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", opacity: sitting ? .5 : 1 } }, sitting ? "进去了…" : "进去坐坐"));
 }
 // 在线状态那颗小圆点：在线绿、离开黄、勿扰红、睡了月牙

@@ -17123,6 +17123,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 她 @ 了谁：点到的人这一轮各回她一句；@所有人＝在场每个人都冒个头（只看她这一轮最新那句）
       const _atLast = (((groupChatsRef.current[groupId] || []).filter(m => m && m.role === "user" && m.content && !m.whisper).slice(-1)[0]) || {});
       const _atFresh = _atLast.ts && Date.now() - _atLast.ts < 30 * 60000 ? atMentions(_atLast.content, group && group.chKind === "treehole" ? [] : members) : { all: false, ids: [] };
+      // 从别的频道过来（她 2026-11-22「a在某个频道但是我在另一个频道说话，他转过来会有提醒吗」）：
+      //   她刚在这儿开口，成员里谁最近一小时是在别的频道说的话（比他在这儿最后一句还新），他这一轮要是开口，就是从那边过来的
+      const _arrive = {};
+      if (group && group.spaceId && group.chKind !== "treehole" && !groupSpectating(group)) { try {
+        const _lastU = (groupChatsRef.current[groupId] || []).filter(m => m && m.role !== "system").slice(-1)[0];
+        if (_lastU && _lastU.role === "user") {
+          const _sibs = spaceSibs(groupId).filter(x => x && x.id !== groupId && x.chKind !== "treehole"), _now = Date.now();
+          const _lastIn = (gid, id) => { const ms = groupChatsRef.current[gid] || []; for (let k = ms.length - 1; k >= 0; k--) { const m = ms[k]; if (m && m.role === "assistant" && m.senderId === id) return m.ts || 0; } return 0; };
+          members.forEach(c => { const here = _lastIn(groupId, c.id); let best = 0, bestCh = "";
+            _sibs.forEach(x => { const ts = _lastIn(x.id, c.id); if (ts > best) { best = ts; bestCh = x.chName || x.name || ""; } });
+            if (best && _now - best < 3600000 && best > here && bestCh) _arrive[c.id] = bestCh; });
+        } } catch (e) {} }
+      const gArriveHint = Object.keys(_arrive).length ? "\n\n【刚才在别处的人】" + members.filter(c => _arrive[c.id]).map(c => c.name + " 刚才在 #" + _arrive[c.id]).join("、") + "。他们这一轮要是开口，就是看到她在这边说话才转过来的：这边前面聊了什么不一定都知道，可以接着她的话说，也可以顺口带一句那边的事。" : "";
       const gAtHint = _atFresh.all ? "\n\n【她 @ 了所有人】她刚才那句是冲着在场每个人说的：这一轮每个人都会冒个头回她，哪怕只是一句。"
         : _atFresh.ids.length ? "\n\n【她 @ 了谁】她刚才那句点了 " + _atFresh.ids.map(id => (members.find(c => c.id === id) || {}).name).filter(Boolean).join("、") + " 的名：被点到的人这一轮都会出来回她。" : "";
       const gWelcomeHint = rgOpts && Array.isArray(rgOpts.welcome) && rgOpts.welcome.length ? "\n\n【刚进来的人】" + rgOpts.welcome.join("、") + " 刚刚加入了这个地方，现在也在这个频道里。" : "";
@@ -17240,7 +17253,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 群里拍一拍（她 2026-10-25）：她在群里时能拍她或别的成员；旁观群里只能拍群里的人
       const gStickField = ",\"stick\":{\"quote\":\"（可选）群里某条消息里的原话，照抄几个字\",\"emoji\":\"一个 emoji\"}（想贴自己的表情包就把 emoji 换成 \"emote\":\"表情包关键词\"；往那条气泡上贴一个表情，像 QQ 的贴表情：群里谁的哪句话让你当下有了反应、这个反应一个表情就说得清的时候，就随手贴一个，贴了照样可以说话，也可以只贴不说；没有反应就整个省掉）";
       const gPatField = ",\"pat\":\"（可选）想用「拍一拍」戳谁一下就填那个人的名字（" + (imInGroup(group) ? gUName + " 或" : "") + "群里某位成员）；是一个动作，不是一句话，不用再在 text 里写「拍了拍」\"";
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gFileHint + gHopHint + gNewChHint + gGemHint + gTreeHint + gChainStartHint + gWelcomeHint + gAtHint + gListenHint + gPlayHint + gStatusHint + gPlanHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gStoryHint + (() => { const _g0 = (groupsRef.current || []).find(x => x.id === groupId); const _n = groupNamedByNote(_g0, ""); return _n ? "\n【群名】" + _n + "（起名的那个人自己知道是自己起的）。" : ""; })() + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；定下的是以后的事，就加 " + SCHED_LATER_SPEC + "同样只填他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + (() => { // 最近那张投票就摆在最后（她 2026-11-22「想改票他们只会口头说，也不改上一轮的、也不重开」）：
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gTopicHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gNoticeHint + gFileHint + gHopHint + gNewChHint + gGemHint + gTreeHint + gChainStartHint + gWelcomeHint + gAtHint + gArriveHint + gListenHint + gPlayHint + gStatusHint + gPlanHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gRoleHint + gStoryHint + (() => { const _g0 = (groupsRef.current || []).find(x => x.id === groupId); const _n = groupNamedByNote(_g0, ""); return _n ? "\n【群名】" + _n + "（起名的那个人自己知道是自己起的）。" : ""; })() + gTitleHint + gLuckyHint + gWhisperHint + gKickInviteHint + (_gSchedNames.length ? "\n【改安排】" + _gSchedNames.map(n => "「" + n + "」").join("、") + "有今天的安排（写在各自那段里）。这一轮谁真的定下了从现在起要做的事跟自己的安排不一样，就在他自己那条发言对象里加 " + SCHED_NOW_SPEC + "只改他本人的；定下的是以后的事，就加 " + SCHED_LATER_SPEC + "同样只填他本人的；各人填各人的，没写安排的人不填。" : "") + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + gSayHint + (() => { // 最近那张投票就摆在最后（她 2026-11-22「想改票他们只会口头说，也不改上一轮的、也不重开」）：
         //   投票卡在上文里离得远，pollVote 那句又夹在一长串里，嘴上说改了、票数没动。一天之内有一张非审批的投票就把它连票数摆出来
         // 人多的频道一轮就二三十条（她 2026-11-22「12个人一轮就20几条」）：不按条数，按时间——一天之内开的最近那张都算
         const _pl = (groupChatsRef.current[groupId] || []).slice(-400).filter(m => m && m.kind === "poll" && !m.ask && m.pollId && Date.now() - (m.ts || 0) < 86400000).pop();
@@ -17732,6 +17745,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             // ⚠️跟单聊那一处同一个形状：闸在代码里，上一条就存在聊天记录里当游标。
             // 被救回来的那几行先摆，跟单聊同一个分寸：它们是这个人这一拍真写出来的正文，
             // 不看动描开关——不摆就等于把发言吞了。
+            if (spk && _arrive[spk.id]) { const _from = _arrive[spk.id]; delete _arrive[spk.id];
+              pGChat(groupId, p => [...p, { role: "system", kind: "chlink", toGid: groupId, senderId: spk.id, content: spk.name + " 从 #" + _from + " 过来了", ts: Date.now() }]); }
             if (gRescuedActs.length && spk) {
               gRescuedActs.forEach(line => pGChat(groupId, p => [...p, {
                 role: "narration", kind: "narration", who: "char",
@@ -37108,7 +37123,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     channelBar: activeGroup.spaceId ? h(React.Fragment, null,
       // 挂机房（她 2026-11-20）：顶上一排人各自在干嘛，照日程现算，不调模型
       ((groups || []).find(g => g.id === activeGroup.id) || activeGroup).chKind === "lounge" ? h(LoungePanel, { spectate: groupSpectating(activeGroup), sitting: loungeSitting,
-        people: (activeGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => { const b = typeof schedNowBriefFor === "function" ? schedNowBriefFor(c) : null; return { id: c.id, c, doing: b ? [b.title, b.location].filter(Boolean).join(" · ") : "" }; }),
+        // 谁在这屋里（她 2026-11-22「挂机房能不能显示清楚谁现在在这个房谁不在」）：最近一小时在这儿说过话的算在，排前面；别的人灰着，写他在哪儿
+        people: (() => { const _g = (groups || []).find(g => g.id === activeGroup.id) || activeGroup, _pr = _g.spaceId ? spacePresence(_g.spaceId) : {}, _me = _g.chName || _g.name;
+          return (activeGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean).map(c => { const b = typeof schedNowBriefFor === "function" ? schedNowBriefFor(c) : null, p = _pr[c.id] || null, here = !!(p && p.k === "online" && p.where === _me);
+            return { id: c.id, c, here, away: here ? "" : (p && p.k === "online" && p.where ? "在 #" + p.where : (p && p.zh) || "不在"), doing: b ? [b.title, b.location].filter(Boolean).join(" · ") : "" }; }).sort((a, b) => (b.here ? 1 : 0) - (a.here ? 1 : 0)); })(),
         onSit: () => loungeSit(activeGroup.id) }) : null) : null,
     onSub: activeGroup.spaceId && !groupSpectating(activeGroup) ? key => setSubOpen({ gid: activeGroup.id, root: key }) : null,
     // 表情回应、置顶（她 2026-11-20）：旁观的频道里她不在场，这两样都不给
