@@ -622,6 +622,8 @@
       //   session 是新造的、fromRoom 早清了——不写进去的话，侧房里那一局一存一读
       //   就变成主线的了（正是这道闸要挡的）。
       onStart: function (config) {
+        // 别处借这个大厅挑游戏、设开局（props.onConfigured）：配好就交回去，这一桌不在这儿开
+        if (props.onConfigured) { props.onConfigured(game, config); return; }
         const cfg = Object.assign({}, config, { room: fromRoom.current || null });
         // 「上次那桌」：每个游戏记最后一次开局的配置（不记房间——那是那一次的事）
         try { const last = loadJSON(LAST_CFG_KEY, {}) || {}; last[game.key] = config; saveJSON(LAST_CFG_KEY, last); } catch (e) {}
@@ -666,6 +668,7 @@
         // 摊开的样子＝盒盖掀在左边（那张盒面缩略图斜着搭出来），右边写着打到哪儿了。
         (function () {
           const rows = [];
+          if (props.only) return null;   // 只挑游戏、不在这儿开桌的时候，没打完的那几局不摆出来
           if (wolfSave) rows.push({ k: "werewolf", def: wolfGameDef, sub: "第 " + (wolfSave.cycle || 1) + " 个昼夜 · " + ((wolfSave.players || []).filter(function (p) { return p.alive; }).length) + " 人存活",
             go: function () { setSession({ game: wolfGameDef, config: wolfSave.config, resume: true, saved: wolfSave }); },
             drop: function () { clearWolf(); setSaveTick(function (x) { return x + 1; }); } });
@@ -692,12 +695,14 @@
               h("button", { "data-wk": "gameopenbtn", "data-part": "drop", onClick: r.drop, className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, padding: "7px 2px" } }, "收了"));
           }));
         })(),
-        h(GameStatsBook, { t: t, characters: props.characters || [] }),
-        h("div", { "data-wk": "gameintro", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, margin: "2px 2px 16px" } }, "邀角色开一局派对游戏。派对游戏可选正常 / 放水 / 观战，人不够能拉 NPC 凑数；约会是你和 TA 的两人秘密任务局。（不写进聊天记忆）"),
+        props.only ? null : h(GameStatsBook, { t: t, characters: props.characters || [] }),
+        h("div", { "data-wk": "gameintro", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, margin: "2px 2px 16px" } }, props.intro || "邀角色开一局派对游戏。派对游戏可选正常 / 放水 / 观战，人不够能拉 NPC 凑数；约会是你和 TA 的两人秘密任务局。（不写进聊天记忆）"),
         // 一架游戏盒：两个一排，每排底下压一条木架线
         (function () {
           const rows = [];
-          for (let i = 0; i < GAMES.length; i += 2) rows.push(GAMES.slice(i, i + 2));
+          // props.only：只摆这几盒（别处借大厅挑游戏时，只给挑它接得住的那几个）
+          const shelf = props.only ? GAMES.filter(function (g) { return props.only.indexOf(g.key) >= 0; }) : GAMES;
+          for (let i = 0; i < shelf.length; i += 2) rows.push(shelf.slice(i, i + 2));
           return rows.map(function (row, ri) {
             return h("div", { "data-wk": "gameshelf", key: "row" + ri, style: { marginBottom: 20 } },
               h("div", { style: { display: "flex", gap: 12, alignItems: "flex-end" } },
@@ -3242,15 +3247,59 @@
     return extractJSON(raw) || {};
   }
 
+  // 主持人手里那张底牌、怎么判一个问题：一轮连答（下面 runGuessRound）和一问一答（guessAnswerOne）说的是同一套
+  function guessSecretBlock(kind, ctx) {
+    return kind === "haigui"
+      ? "【汤面·已公开】" + ctx.surface + "\n【汤底·只有你知道】" + ctx.truth
+      : "【你想的东西·只有你知道】" + ctx.secret + "（类别：" + ctx.category + "）";
+  }
+  function guessVerdictRule(kind) {
+    return kind === "haigui"
+      ? "verdict 只能是：是 / 不是 / 不重要 / 接近了。含义：是=符合汤底；不是=不符；不重要=与真相无关；接近了=方向正确且触到关键点。"
+      : "verdict 只能是：是 / 不是 / 不好说。照实回答；实在无法用是否作答才用「不好说」。";
+  }
+  // 主持人答一个人的一个问题（大家轮流问、一次答一个的那种桌用）：回 { verdict, note, solved, reveal }
+  //   history：此前问过的，一行一条「谁：问了什么 → 答」。asker：问的人叫什么。
+  async function guessAnswerOne(api, kind, ctx, question, history, asker, mode) {
+    const K = GUESS_KINDS[kind];
+    const hist = (history || []).length ? history.slice(-20).map(function (q) { return "· " + q; }).join("\n") : "（还没人问过）";
+    const easy = mode === "easy" ? "\n【放水局】该给的提示大方点给。" : "";
+    const solveRule = kind === "haigui"
+      ? "这一问／这句陈述如果已经【实质还原了汤底核心真相】，solved 填 true，reveal 一句话点出真相；否则 solved 填 false。"
+      : "这一问如果就是【直接猜中了那个东西】，solved 填 true，reveal 填那个东西；否则 false。";
+    const sys = AC + "你是「" + K.zh + "」的主持人，掌握真相、只按规则回答是非类问题。\n" + guessSecretBlock(kind, ctx)
+      + "\n\n" + guessVerdictRule(kind) + " note 是≤14 字的补充或引导，可空。" + easy
+      + "\n\n【此前问过的】\n" + hist
+      + "\n\n【" + (asker || "玩家") + " 刚问】" + String(question || "").slice(0, 300)
+      + "\n\n" + solveRule
+      + "\n\n【输出】只输出 JSON：{\"verdict\":\"\",\"note\":\"\",\"solved\":false,\"reveal\":\"\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "答这一问。" }], { maxTokens: 10000 });
+    const out = extractJSON(raw) || {};
+    const v = String(out.verdict || "").trim();
+    const ok = (K.verdicts || "").split(" / ").indexOf(v) >= 0;
+    return { verdict: ok ? v : (kind === "haigui" ? "不重要" : "不好说"), note: String(out.note || "").slice(0, 40), solved: out.solved === true, reveal: String(out.reveal || "").slice(0, 400) };
+  }
+  // 一个玩家想一个问题（只给公开的那一半：汤面／类别和问过的，底牌一个字都不给）：回问题那一句
+  //   who：{ name, persona, skill }
+  async function guessAskOne(api, kind, pub, history, who) {
+    const K = GUESS_KINDS[kind];
+    const hist = (history || []).length ? history.slice(-20).map(function (q) { return "· " + q; }).join("\n") : "（还没人问过）";
+    const sys = gameVoiceRules() + "\n\n你在玩「" + K.zh + "」，你是玩家「" + (who && who.name || "玩家") + "」，不知道谜底，只能问是非类问题。"
+      + "\n【你的人设】" + String((who && who.persona) || "（没写）").slice(0, 1500)
+      + (who && who.skill ? "\n【你玩这种游戏的真实水平】" + who.skill : "")
+      + "\n\n" + (kind === "haigui" ? "【汤面】" + (pub && pub.surface || "") : "【类别】" + (pub && pub.category || ""))
+      + "\n【此前问过的（别重复）】\n" + hist
+      + "\n\n照你的性子和水平问一个新的、有推理价值的问题；有把握也可以直接猜（问「是不是……」）。"
+      + "\n只输出 JSON：{\"question\":\"你的一个是非问题\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "轮到你问了。" }], { maxTokens: 8000 });
+    return String(((extractJSON(raw) || {}).question) || "").trim().slice(0, 160);
+  }
+
   // 一轮：先答用户的问题（若有），再让 AI 各问一个新问题并作答，判断是否有人破题
   async function runGuessRound(api, kind, ctx, userQ, aiSpeakers, history, mode, userName) {
     const K = GUESS_KINDS[kind];
-    const secretBlock = kind === "haigui"
-      ? "【汤面·已公开】" + ctx.surface + "\n【汤底·只有你知道】" + ctx.truth
-      : "【你想的东西·只有你知道】" + ctx.secret + "（类别：" + ctx.category + "）";
-    const verdictRule = kind === "haigui"
-      ? "verdict 只能是：是 / 不是 / 不重要 / 接近了。含义：是=符合汤底；不是=不符；不重要=与真相无关；接近了=方向正确且触到关键点。"
-      : "verdict 只能是：是 / 不是 / 不好说。照实回答；实在无法用是否作答才用「不好说」。";
+    const secretBlock = guessSecretBlock(kind, ctx);
+    const verdictRule = guessVerdictRule(kind);
     const easy = mode === "easy" ? "\n【放水局】AI 玩家别问得太神，留点空间给真人；主持人答题该给的提示大方点给。" : "";
     const hist = history.length ? history.slice(-14).map(function (q) { return "· " + q; }).join("\n") : "（还没人问过）";
     const who = aiSpeakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）" + voiceBrief(s); }).join("\n");
@@ -5354,6 +5403,22 @@
     return "";
   }
   const gmkCoord = function (x, y) { return "ABCDEFGHJKLMNOP".charAt(x) + (GMK_N - y); };
+  // 落一子：落不下（有子、出界、已经分出胜负）回 null；落得下回新棋盘、新棋谱、谁赢了（0 未完 / 1 / 2 / 3 和棋）和下一手轮到谁。
+  //   纯函数，不碰界面：单机那一桌和多台手机一起下的那一桌都只认这一处的胜负（one-public-mechanism）。
+  function gmkPlace(b, moves, x, y, who, over) {
+    if (over || x < 0 || y < 0 || x >= GMK_N || y >= GMK_N || b[y * GMK_N + x]) return null;
+    const nb = b.slice(); nb[y * GMK_N + x] = who;
+    const nm = (moves || []).concat([{ x: x, y: y, who: who }]);
+    const won = gmkWins(nb, x, y, who);
+    const winner = won ? who : nm.length >= GMK_N * GMK_N ? 3 : 0;
+    return { board: nb, moves: nm, winner: winner, turn: winner ? 0 : (who === 1 ? 2 : 1) };
+  }
+  // 按棋谱摆回一张棋盘（回看某一手、悔棋都用它）
+  function gmkReplay(moves, upTo) {
+    const b = gmkEmpty();
+    (moves || []).slice(0, upTo == null ? undefined : upTo).forEach(function (m) { if (m && m.x >= 0 && m.y >= 0 && m.x < GMK_N && m.y < GMK_N) b[m.y * GMK_N + m.x] = m.who; });
+    return b;
+  }
 
   // ============================================================
   // 25 问 · 我出题 / TA 出题 / 轮流（群友 2026-10-14：「你可以问他，他也可以问你」）
@@ -5840,6 +5905,36 @@
         } }) : null));
   }
 
+  // 五子棋那块木棋盘（单机那一桌和多台手机一起下的那一桌画的是同一块）：
+  //   moves 棋谱 [{x,y,who}]；pend 点了一下还没落的那格（半透明）、pendSide 它是哪色；onTap(x,y) 点到哪一格，不给就只看不能点
+  function GomokuBoard(props) {
+    const moves = props.moves || [], pend = props.pend || null;
+    const cell = 22, pad = 16, size = pad * 2 + cell * (GMK_N - 1);
+    const last = moves[moves.length - 1];
+    const stars = [[3, 3], [11, 3], [7, 7], [3, 11], [11, 11]];
+    return h("svg", { "data-wk": "gomokuboard", viewBox: "0 0 " + size + " " + size, style: { width: "100%", maxWidth: 440, display: "block", margin: "0 auto", borderRadius: 12,
+        background: "linear-gradient(135deg, #e9cf98 0%, #ddb878 48%, #e6c88e 100%)", boxShadow: "inset 0 0 0 3px rgba(107,82,48,.25), 0 10px 24px rgba(60,40,15,.28), 0 2px 4px rgba(60,40,15,.2)", touchAction: "manipulation" },
+        onClick: function (e) {
+          const r = e.currentTarget.getBoundingClientRect();
+          const k = size / r.width;
+          const x = Math.round(((e.clientX - r.left) * k - pad) / cell), y = Math.round(((e.clientY - r.top) * k - pad) / cell);
+          if (props.onTap && x >= 0 && y >= 0 && x < GMK_N && y < GMK_N) props.onTap(x, y);
+        } },
+      h("defs", { key: "defs" },
+        h("radialGradient", { id: "gmkB", cx: ".35", cy: ".3", r: ".75" }, h("stop", { offset: "0", stopColor: "#77716a" }), h("stop", { offset: ".55", stopColor: "#1c1a18" })),
+        h("radialGradient", { id: "gmkW", cx: ".35", cy: ".3", r: ".8" }, h("stop", { offset: "0", stopColor: "#ffffff" }), h("stop", { offset: ".7", stopColor: "#e4ded1" }), h("stop", { offset: "1", stopColor: "#c9c0ae" })),
+        h("pattern", { id: "gmkGrain", width: 40, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(-8)" }, h("path", { d: "M0 3Q10 1 20 3T40 3", stroke: "#a87d43", strokeOpacity: .13, fill: "none", strokeWidth: 1.2 }))),
+      h("rect", { key: "grain", x: 0, y: 0, width: size, height: size, fill: "url(#gmkGrain)" }),
+      h("rect", { key: "frame", x: pad - 1.5, y: pad - 1.5, width: cell * (GMK_N - 1) + 3, height: cell * (GMK_N - 1) + 3, fill: "none", stroke: "#6b5230", strokeWidth: 1.6, strokeOpacity: .8 }),
+      Array.from({ length: GMK_N }).map(function (_, i) { return h("g", { key: "l" + i },
+        h("line", { x1: pad, y1: pad + i * cell, x2: pad + (GMK_N - 1) * cell, y2: pad + i * cell, stroke: "#6b5230", strokeWidth: .8 }),
+        h("line", { x1: pad + i * cell, y1: pad, x2: pad + i * cell, y2: pad + (GMK_N - 1) * cell, stroke: "#6b5230", strokeWidth: .8 })); }),
+      stars.map(function (s, i) { return h("circle", { key: "s" + i, cx: pad + s[0] * cell, cy: pad + s[1] * cell, r: 2.4, fill: "#6b5230" }); }),
+      moves.map(function (m, i) { return svgStone("m" + i, pad + m.x * cell, pad + m.y * cell, cell * 0.44, m.who); }),
+      last ? h("circle", { cx: pad + last.x * cell, cy: pad + last.y * cell, r: cell * 0.22, style: { fill: "none", stroke: "#d24b3a", strokeWidth: 1.6 } }) : null,
+      pend ? svgStone("pend", pad + pend.x * cell, pad + pend.y * cell, cell * 0.44, props.pendSide || 1, { opacity: .5 }) : null);
+  }
+
   function GomokuGame(props) {
     const t = props.t, cfg = props.config, api = props.active;
     const sv = props.savedState;
@@ -5950,13 +6045,10 @@
     };
 
     const place = function (x, y, who) {
-      if (winner || board[y * GMK_N + x]) return false;
-      const nb = board.slice(); nb[y * GMK_N + x] = who;
-      const nm = moves.concat([{ x: x, y: y, who: who }]);
-      setBoard(nb); setMoves(nm); setPend(null);
-      const won = gmkWins(nb, x, y, who);
-      const full = !won && nm.length >= GMK_N * GMK_N;
-      if (won) setWinner(who); else if (full) setWinner(3); else setTurn(who === 1 ? 2 : 1);
+      const r = gmkPlace(board, moves, x, y, who, winner);
+      if (!r) return false;
+      setBoard(r.board); setMoves(r.moves); setPend(null);
+      if (r.winner) setWinner(r.winner); else setTurn(r.turn);
       // ⚠️落子不触发说话：TA 什么时候开口由她定（她 2026-10-11：「不是应该我来决定他什么时候说话吗」）
       return true;
     };
@@ -6044,37 +6136,11 @@
     const undo = function () {
       // 悔一步＝退回她上一手之前（连同 TA 应的那一手）
       if (winner || spectate || moves.length < 2 || turn !== userSide) return;
-      const nm = moves.slice(0, -2), nb = gmkEmpty();
-      nm.forEach(function (m) { nb[m.y * GMK_N + m.x] = m.who; });
+      const nm = moves.slice(0, -2), nb = gmkReplay(nm);
       setBoard(nb); setMoves(nm); setPend(null); setTurn(userSide);
     };
 
-    // 棋盘：SVG 一张，跟屏宽走
-    const cell = 22, pad = 16, size = pad * 2 + cell * (GMK_N - 1);
-    const last = moves[moves.length - 1];
-    const stars = [[3, 3], [11, 3], [7, 7], [3, 11], [11, 11]];
-    // 棋盘：一块木板（两道木纹渐变＋一圈压边），子是有光泽的石头，最后一手套一个红圈
-    const boardSvg = h("svg", { "data-wk": "gomokuboard", viewBox: "0 0 " + size + " " + size, style: { width: "100%", maxWidth: 440, display: "block", margin: "0 auto", borderRadius: 12,
-        background: "linear-gradient(135deg, #e9cf98 0%, #ddb878 48%, #e6c88e 100%)", boxShadow: "inset 0 0 0 3px rgba(107,82,48,.25), 0 10px 24px rgba(60,40,15,.28), 0 2px 4px rgba(60,40,15,.2)", touchAction: "manipulation" },
-        onClick: function (e) {
-          const r = e.currentTarget.getBoundingClientRect();
-          const k = size / r.width;
-          const x = Math.round(((e.clientX - r.left) * k - pad) / cell), y = Math.round(((e.clientY - r.top) * k - pad) / cell);
-          if (x >= 0 && y >= 0 && x < GMK_N && y < GMK_N) tap(x, y);
-        } },
-      h("defs", { key: "defs" },
-        h("radialGradient", { id: "gmkB", cx: ".35", cy: ".3", r: ".75" }, h("stop", { offset: "0", stopColor: "#77716a" }), h("stop", { offset: ".55", stopColor: "#1c1a18" })),
-        h("radialGradient", { id: "gmkW", cx: ".35", cy: ".3", r: ".8" }, h("stop", { offset: "0", stopColor: "#ffffff" }), h("stop", { offset: ".7", stopColor: "#e4ded1" }), h("stop", { offset: "1", stopColor: "#c9c0ae" })),
-        h("pattern", { id: "gmkGrain", width: 40, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(-8)" }, h("path", { d: "M0 3Q10 1 20 3T40 3", stroke: "#a87d43", strokeOpacity: .13, fill: "none", strokeWidth: 1.2 }))),
-      h("rect", { key: "grain", x: 0, y: 0, width: size, height: size, fill: "url(#gmkGrain)" }),
-      h("rect", { key: "frame", x: pad - 1.5, y: pad - 1.5, width: cell * (GMK_N - 1) + 3, height: cell * (GMK_N - 1) + 3, fill: "none", stroke: "#6b5230", strokeWidth: 1.6, strokeOpacity: .8 }),
-      Array.from({ length: GMK_N }).map(function (_, i) { return h("g", { key: "l" + i },
-        h("line", { x1: pad, y1: pad + i * cell, x2: pad + (GMK_N - 1) * cell, y2: pad + i * cell, stroke: "#6b5230", strokeWidth: .8 }),
-        h("line", { x1: pad + i * cell, y1: pad, x2: pad + i * cell, y2: pad + (GMK_N - 1) * cell, stroke: "#6b5230", strokeWidth: .8 })); }),
-      stars.map(function (s, i) { return h("circle", { key: "s" + i, cx: pad + s[0] * cell, cy: pad + s[1] * cell, r: 2.4, fill: "#6b5230" }); }),
-      moves.map(function (m, i) { return svgStone("m" + i, pad + m.x * cell, pad + m.y * cell, cell * 0.44, m.who); }),
-      last ? h("circle", { cx: pad + last.x * cell, cy: pad + last.y * cell, r: cell * 0.22, style: { fill: "none", stroke: "#d24b3a", strokeWidth: 1.6 } }) : null,
-      pend ? svgStone("pend", pad + pend.x * cell, pad + pend.y * cell, cell * 0.44, userSide, { opacity: .5 }) : null);
+    const boardSvg = h(GomokuBoard, { moves: moves, pend: pend, pendSide: userSide, onTap: tap });
 
     const status = winner === 3 ? "和棋"
       : winner ? nameOfSide(winner) + "（" + sideZh(winner) + "）赢了"
@@ -9075,8 +9141,15 @@
       busy && actor ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, actor.name + (state.phase === "bid" ? " 在想叫不叫…" : " 在理牌…")) : null);
   }
 
-  if (typeof module === "object" && module.exports) module.exports = { cardDeck: cardDeck, pkEval5: pkEval5, pkCmp: pkCmp, pkBest: pkBest, pkNewGame: pkNewGame, pkNewHand: pkNewHand, pkAct: pkAct, pkOptions: pkOptions, pkNpcMove: pkNpcMove, omNewGame: omNewGame, omAct: omAct, omDiscardPairs: omDiscardPairs, bjValue: bjValue, bjNewGame: bjNewGame, bjNewHand: bjNewHand, bjAct: bjAct, bjNpcMove: bjNpcMove, ddzAnalyze: ddzAnalyze, ddzBeats: ddzBeats, ddzFind: ddzFind, ddzLead: ddzLead, ddzNewGame: ddzNewGame, ddzNewRound: ddzNewRound, ddzBid: ddzBid, ddzPlay: ddzPlay, ddzNpcBid: ddzNpcBid, ddzNpcPlay: ddzNpcPlay, ddzHint: ddzHint, unoLocalMove: unoLocalMove, cardLocal: cardLocal, cardMovesSince: cardMovesSince, cardSayOf: cardSayOf, spyGuessHits: spyGuessHits, seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, liarLegalBid: liarLegalBid, liarCount: liarCount, liarNewGame: liarNewGame, liarAct: liarAct, liarNpcMove: liarNpcMove, liarNewRound: liarNewRound, storyNewGame: storyNewGame, storyAct: storyAct, storyText: storyText, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
+  if (typeof module === "object" && module.exports) module.exports = { gmkPlace: gmkPlace, gmkReplay: gmkReplay, gmkEmpty: gmkEmpty, gmkWins: gmkWins, cardDeck: cardDeck, pkEval5: pkEval5, pkCmp: pkCmp, pkBest: pkBest, pkNewGame: pkNewGame, pkNewHand: pkNewHand, pkAct: pkAct, pkOptions: pkOptions, pkNpcMove: pkNpcMove, omNewGame: omNewGame, omAct: omAct, omDiscardPairs: omDiscardPairs, bjValue: bjValue, bjNewGame: bjNewGame, bjNewHand: bjNewHand, bjAct: bjAct, bjNpcMove: bjNpcMove, ddzAnalyze: ddzAnalyze, ddzBeats: ddzBeats, ddzFind: ddzFind, ddzLead: ddzLead, ddzNewGame: ddzNewGame, ddzNewRound: ddzNewRound, ddzBid: ddzBid, ddzPlay: ddzPlay, ddzNpcBid: ddzNpcBid, ddzNpcPlay: ddzNpcPlay, ddzHint: ddzHint, unoLocalMove: unoLocalMove, cardLocal: cardLocal, cardMovesSince: cardMovesSince, cardSayOf: cardSayOf, spyGuessHits: spyGuessHits, seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, liarLegalBid: liarLegalBid, liarCount: liarCount, liarNewGame: liarNewGame, liarAct: liarAct, liarNpcMove: liarNpcMove, liarNewRound: liarNewRound, storyNewGame: storyNewGame, storyAct: storyAct, storyText: storyText, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
   // 聊天那头要按 key 报菜名（房间里的「TA可以拉你玩点什么」），别在那边再抄一份清单。
   Games.LIST = (typeof window !== "undefined" && window.GamesList) || GAMES.map(function (g) { return { key: g.key, zh: g.zh, min: g.min, max: g.max, rule: g.rule }; });
   if (typeof window !== "undefined") window.Games = Games;
+  // 引擎里不带界面状态的那一半＋几块画桌子的部件：别处要摆同一张桌（同一套规则、同一块棋盘）时从这儿拿，不另抄一份
+  const GameShared = {
+    gomoku: { N: GMK_N, empty: gmkEmpty, place: gmkPlace, replay: gmkReplay, wins: gmkWins, bestMove: gmkBestMove, threat: gmkThreat, coord: gmkCoord },
+    guess: { KINDS: GUESS_KINDS, VERDICT_COLOR: VERDICT_COLOR, newPuzzle: genGuessNext, answerOne: guessAnswerOne, askOne: guessAskOne, judge: judgeGuess },
+    GomokuBoard: GomokuBoard, GmkStone: GmkStone, GameVsBar: GameVsBar, GameTalkLog: GameTalkLog
+  };
+  if (typeof window !== "undefined") window.GameShared = GameShared;
 })();

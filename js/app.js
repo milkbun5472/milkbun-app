@@ -38638,6 +38638,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     characters: liveChars.filter(c => !c.npc && !settingsFor(c.id).engineerEyes),
     profile: profile,
     apiFor: apiFor,
+    // 房里一起玩小游戏时房主当庄：出题、判输赢、替 NPC 出手走小游戏那条线路（跟单机小游戏同一条）
+    gameApi: () => gameActive,
     // 开口走 runProbe(voice)：buildBundle 那一整份白得（four-surfaces-same-context）
     // 世界书按关键词触发：拿房间里刚说的话一起去匹配（不然只看单聊，房间里聊到的词条触发不了）
     ctxFor: (char, o) => { const c = ctxFor(char, o); if (o && typeof o.roomText === "string") { try { c.worldbook = loreForContext("chat", [char.id], o.roomText + "\n" + recentChatText(char)); } catch (e) {} } return c; },

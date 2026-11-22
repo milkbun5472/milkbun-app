@@ -58,7 +58,7 @@ test("架上不再摆 emoji——那是最省事也最不说明问题的图", ()
 test("它是一个盒子，坐在架子上——不是一张卡", () => {
   // 盒子有厚度（底下那道深边），一排两个，每排底下压一条木架线
   assert.match(shelf, /boxShadow: "0 3px 0 " \+ c\.band/, "盒子没有厚度，那就还是一张卡");
-  assert.match(shelf, /for \(let i = 0; i < GAMES\.length; i \+= 2\) rows\.push\(GAMES\.slice\(i, i \+ 2\)\);/, "不是一排两个");
+  assert.match(shelf, /i \+= 2\) rows\.push\(shelf\.slice\(i, i \+ 2\)\);/, "不是一排两个");
   assert.match(shelf, /木架线/);
   assert.match(shelf, /background: t\.line/, "架子线没跟着主题走");
   // 名字压在盒面下缘那条带上，跟真的桌游盒一样
