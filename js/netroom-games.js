@@ -27,6 +27,8 @@
 //   （可选）charOpts               → 报名单上每个上台的人能调哪几项，盖过下面 CHAR_OPTS 那张表（"side"＝挑正方／反方）
 //   （可选）cleanSide(x) / watch(view, inv, ctx) → 桌边那一路（观众席弹幕、赛后感言）：谁都能发、直接广播、不经庄；
 //                                   watch 在每台手机看到新局面时问一句「我这台带来的角色要不要开口」，返回要广播的几条
+//   （可选）waiting(view)          → 大家同时交的那几盒：还没交的那几座（亮「轮到你」用）；turn 仍给一座，让角色、托管一位一位跟上
+//   （可选）slow(st, seat, mv) / hostRoute → 哪一手要等庄的线路（亮「庄在判」）；庄用哪条线路（"offline"＝线下/跑团那条）
 //   （可选）shelf / Prep           → 不在单机小游戏目录里的那几盒：大厅架子上多摆一个盒子，点了进它自己的开局页
 //   Table / Replay                 → 牌桌、回看的界面（复用小游戏原来的部件）。Table 拿到 { inv, view, priv, myApi, me, isHost, onMove, onReveal }
 //
@@ -699,8 +701,9 @@
   // 轮到我这台的真人了没有（收起时小条要亮）
   function myTurn(inv, view, me) {
     const A = ADAPTERS[inv && inv.key]; if (!A || !view || inv.status !== "playing") return false;
-    let i = -1; try { i = A.turn(view); } catch (e) { return false; }
-    return i >= 0 && actorOf(inv.seats[i], me, inv.host) === "mine-user";
+    // 大家同时交的那几盒（跑团）：waiting(view) 给出还没交的那几座，其中有我这台的真人就算轮到我
+    let w = []; try { w = A.waiting ? A.waiting(view) || [] : [A.turn(view)]; } catch (e) { return false; }
+    return w.some(i => i >= 0 && actorOf(inv.seats[i], me, inv.host) === "mine-user");
   }
   // 当前对局写成一段人话，给房里开口的角色当背景：只用公开那一份 view；priv 只给这个座位自己那份
   function stateText(inv, view, seatIdx, priv) {
@@ -727,7 +730,9 @@
     const changed = () => { try { o.onChange && o.onChange(); } catch (e) {} };
     const wait = ms => new Promise(ok => setTimeout(ok, o.fast ? 0 : ms));   // 停一拍再下，像在想（测试里 fast 不停）
     const A = key => ADAPTERS[key];
-    const ctxOf = g => ({ hostApi: o.hostApi ? o.hostApi() : null, inv: g.inv, prep: g.prep });
+    // hostRoute：这一盒的庄用哪条线路（不写＝小游戏那条；"offline"＝线下/跑团那条，跟单机跑团同一条）
+    const apiOfHost = key => o.hostApi ? o.hostApi((A(key) || {}).hostRoute || "") : null;
+    const ctxOf = g => ({ hostApi: apiOfHost(g.inv.key), inv: g.inv, prep: g.prep });
     const shareCard = g => { o.patchCard(g.inv.gid, g.inv, true); o.send({ t: "game", op: "card", gid: g.inv.gid, x: g.inv }); };
     const shareState = g => {
       const ad = A(g.inv.key), view = ad.view(g.st);
@@ -831,7 +836,8 @@
       const ad = A(g.inv.key);
       g.busy = true;
       // 要等庄的线路判的那几种（海龟汤）：先让大家看到「庄在判…」
-      if (ad.slow && mv && !mv.pass && !mv.reveal) { g.st = Object.assign({}, g.st, { busy: true }); shareState(g); }
+      //   slow 也可以是函数：只有这一手真要等庄的线路时才亮（跑团：最后一个人交完那一下）
+      if (typeof ad.slow === "function" ? ad.slow(g.st, seatIdx, mv) : ad.slow && mv && !mv.pass && !mv.reveal) { g.st = Object.assign({}, g.st, { busy: true }); shareState(g); }
       let r;
       try { r = await ad.apply(g.st, seatIdx, mv, ctxOf(g)); } catch (e) { r = { err: "庄那边没判出来：" + ((e && e.message) || e) }; }
       g.busy = false;
@@ -876,7 +882,7 @@
       async start(gid) {
         const g = host[gid]; if (!g || !canStart(g.inv)) return false;
         const inv = Object.assign(fillNpc(g.inv), { status: "playing" });
-        try { g.st = await A(inv.key).init(inv, { hostApi: o.hostApi ? o.hostApi() : null, prep: g.prep, cfg: g.cfg || {} }); }
+        try { g.st = await A(inv.key).init(inv, { hostApi: apiOfHost(inv.key), prep: g.prep, cfg: g.cfg || {} }); }
         catch (e) { o.toast && o.toast(String((e && e.message) || e)); return false; }
         g.inv = inv; g.seq = 0;
         shareCard(g); shareState(g); drive(gid);

@@ -1246,7 +1246,7 @@
       post: (type, x) => sayRich(type, x),
       // 邀请卡只认开这一局的那个人改：我开的改我那条；别人开的只改 TA 发的那条
       patchCard: (gid, x, mine, origin) => updX(m => m.type === "game" && m.x && m.x.gid === gid && (mine ? m.side === "me" : m.side === "peer" && m.peerId === origin), () => x),
-      hostApi: () => propsRef.current.gameApi ? propsRef.current.gameApi() : null,
+      hostApi: route => route === "offline" && propsRef.current.offlineApi ? propsRef.current.offlineApi() : propsRef.current.gameApi ? propsRef.current.gameApi() : null,
       apiFor: id => propsRef.current.apiFor ? propsRef.current.apiFor(id) : null,
       charOf: id => (propsRef.current.characters || []).find(c => c.id === id) || null,
       charOpts: (gid, cid) => charOptsFor(cid),

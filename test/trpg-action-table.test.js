@@ -40,7 +40,7 @@ test("pickChoice:表上有 stat 的队友各掷各的骰(倒下的不掷、玩�
   assert.match(src, /return turn\(txt, tableRolls\.length \? tableRolls : null, mixMode/, "没检定的选项也带队友的骰");
   assert.match(src, /turn\(txt, tableRolls\.concat\(\[Object\.assign\(\{ id: rid\("rm_"\), role: "roll", content: line/, "她的骰排在队友之后");
   // autoRoll 的形状要和仪式掷出来的一样(rollLine/rollRec 都照吃),并且吃羁绊加成
-  assert.match(src, /const autoRoll = \(m, stat\) => \{[\s\S]*?const bond = bondBoost\(m\);[\s\S]*?grade: gradeCheck\(roll, effVal\), effVal, feat: null, assist: null, bond/);
+  assert.match(src, /const autoRoll = \(m, stat, rand\) => \{[\s\S]*?const bond = bondBoost\(m\);[\s\S]*?grade: gradeCheck\(roll, effVal\), effVal, feat: null, assist: null, bond/);
 });
 
 test("提示词:行动表每行 who/act/stat,玩家那行留空;结算拍告诉守密人队友的骰已经掷过", () => {
