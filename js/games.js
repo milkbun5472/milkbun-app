@@ -5899,7 +5899,9 @@
         const th = gmkThreat(b, lastM.x, lastM.y, side);
         if (th) bits.push(nameOfSide(side) + "上一手" + th);
       });
-      return winner ? (winner === 3 ? "棋已经下完，和棋。" : "棋已经下完，" + nameOfSide(winner) + "赢了。") : (bits.length ? bits.join("；") + "。" : "局面还平。");
+      // 对着 TA 直说（群里 2026-11-22：「模型经常以为自己是黑子，我赢了它说是它赢了」）：跟她对下时不让 TA 自己去对名字
+      const _youWin = !spectate && winner === charSide, _sheWin = !spectate && winner === userSide;
+      return winner ? (winner === 3 ? "棋已经下完，和棋。" : _youWin ? "棋已经下完，赢的是你，" + uName + "输了。" : _sheWin ? "棋已经下完，赢的是 " + uName + "，你输了。" : "棋已经下完，" + nameOfSide(winner) + "赢了。") : (bits.length ? bits.join("；") + "。" : "局面还平。");
     };
     const say = function (why, ms) {
       ms = ms || moves;
@@ -5917,6 +5919,7 @@
         : cName + " 在跟 " + uName + " 下五子棋（" + uName + "执黑先手，" + cName + "执白）" + (easy ? "，" + cName + "这局是让着 TA 的" : "");
       const sys = gameVoiceRules() + "【场面】" + scene + "。棋子不归你们管，你们只说话：像真坐在棋盘边那样随口说，照你们平时的关系和你自己的性子——下棋是一起玩，不是对峙。"
         + "\n\n" + who
+        + (spectate ? "" : "\n\n你执" + sideZh(charSide) + "，" + uName + "执" + sideZh(userSide) + "。")
         + "\n\n【现在】第 " + ms.length + " 手。" + boardWhy(ms) + (lastFew ? "\n最近几手：" + lastFew : "") + "\n" + why
         + (said.length ? "\n【你们刚才已经说过的】\n" + said.map(function (l) { return "· " + l.name + "：" + l.text; }).join("\n") + "\n这些话说过了：同一个意思别换个说法再说一遍，接着往下聊。" : "")
         + "\n\n" + GAME_SAY_FREE + (talkers.length > 1 ? "两个人可以一个人说，也可以一来一回；同一个人连着说几句就在 talks 里连着放几条。" : "")
