@@ -254,8 +254,20 @@
     const holdStart = () => { holdLong.current = false; clearTimeout(holdT.current); holdT.current = setTimeout(() => { holdLong.current = true; setHeld(true); }, 220); };
     const holdEnd = () => { clearTimeout(holdT.current); if (held) setHeld(false); setTimeout(() => { holdLong.current = false; }, 0); };
     const send = () => { const tx = draft.trim(); if (!tx) return; onReply && onReply(s, tx); setDraft(""); onClose(); };
+    // 左右划（群里 2026-11-22 许愿「限时动态可以左右划」）：划一下跳到下一个人／上一个人的第一条，点左右照旧是一条一条
+    const swipe = React.useRef(null);
+    const jumpPerson = d => {
+      const by = String(s.by);
+      if (d > 0) { let n = i; while (n < list.length && String(list[n].by) === by) n++; if (n >= list.length) { onClose(); return; } setI(n); }
+      else { let n = i; while (n > 0 && String(list[n - 1].by) === by) n--; if (n === 0) { setI(0); return; } const pb = String(list[n - 1].by); let m = n - 1; while (m > 0 && String(list[m - 1].by) === pb) m--; setI(m); }
+      setSeenOpen(false);
+    };
+    const swOn = e => { const p = e.touches ? e.touches[0] : e; swipe.current = { x: p.clientX, y: p.clientY }; };
+    const swOff = e => { const st0 = swipe.current; swipe.current = null; if (!st0) return; const p = e.changedTouches ? e.changedTouches[0] : e;
+      const dx = p.clientX - st0.x, dy = p.clientY - st0.y;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { holdLong.current = true; setTimeout(() => { holdLong.current = false; }, 400); jumpPerson(dx < 0 ? 1 : -1); } };
     const bar = { position: "absolute", left: 0, right: 0, zIndex: 2 };
-    return h("div", { "data-wk": "storyview", style: { position: "fixed", inset: 0, zIndex: 120, background: "#000", display: "flex", flexDirection: "column" } },
+    return h("div", { "data-wk": "storyview", onTouchStart: swOn, onTouchEnd: swOff, style: { position: "fixed", inset: 0, zIndex: 120, background: "#000", display: "flex", flexDirection: "column" } },
       h("div", { style: Object.assign({}, bar, { top: 0, padding: "calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px", background: "linear-gradient(rgba(0,0,0,.45),transparent)", transition: "opacity .18s", opacity: held ? 0 : 1, pointerEvents: held ? "none" : undefined }) },   // 按住只看图：顶上、底下都藏起来（她 2026-11-14「跟 ins 一样」）
         h("div", { className: "flex", style: { gap: 4 } }, list.map((x, k) => h("div", { key: x.id, style: { flex: 1, height: 2.5, borderRadius: 2, overflow: "hidden", background: "rgba(255,255,255,.35)" } },
           h("div", { style: { height: "100%", background: "#fff", width: k < i ? "100%" : k > i ? "0%" : Math.min(100, el / DUR * 100) + "%" } })))),

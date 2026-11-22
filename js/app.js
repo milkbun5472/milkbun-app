@@ -30694,6 +30694,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const out0 = await generateSelfieImage(buildPhotoPrompt(sub, desc, st, { pov: povFor(char), kind: "other", me, closet: me.closet || "" }), [sub.refPhoto].filter(Boolean).length ? [sub.refPhoto] : null, { size: "1024x1536" });
       if (!out0 || !out0.blob) throw new Error("没画出来"); return out0.blob;
     }
+    // 只拍到手、背影这类局部，或者一个人都没有（她 2026-11-22：描述是「低头拍到两只交扣的手」，画出来却是一张带脸的自拍）：
+    //   跟聊天发照片同一把尺子（noFaceKindFor），局部不喂脸的参考照、照局部画
+    const _nf = kind !== "her" && typeof noFaceKindFor === "function" ? noFaceKindFor(desc, char.name || char.remark) : "";
+    if (_nf === "part") { const o = await generateSelfieImage(buildScenePrompt(char, desc, { body: true }), null, { size: "1024x1536" }); if (!o || !o.blob) throw new Error("没画出来"); return o.blob; }
+    if (_nf === "view") kind = "view";
     // 她 2026-11-21「为何不是合照」：photoKind 填了 self，画面里却写着她也在（「你坐在椅子上歪头凑近镜头」）——照画面来，拍成合照
     if ((kind === "self" || !kind) && duoFacesOk(char) && typeof photoDuoSaid === "function" && photoDuoSaid(desc, userName(meP0 || profile))) kind = "duo";
     if (kind === "duo" && duoFacesOk(char)) {
