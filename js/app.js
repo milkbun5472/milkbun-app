@@ -37800,6 +37800,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     payMasks: payMaskList(),
     walletOf: balanceOf,
     onEat: eatTakeout,
+    onDelOrder: id => saveOrders(p => p.filter(x => x.id !== id)),
+    onDelLog: id => setTakeoutLog(p => (p || []).filter(x => x.id !== id)),
     toast: toast,
     onBack: () => { if (asPhone) leaveAsPhone(); else if (takeoutBack) { const b = takeoutBack; setTakeoutBack(null); setTakeoutNav("near"); setScreen(b); } else goHome(); }
   });else if (screen === "us") body = /*#__PURE__*/React.createElement(window.TransWho || React.Fragment, window.TransWho ? { id: usPartnerId } : null, React.createElement(Us, {
