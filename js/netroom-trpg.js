@@ -800,7 +800,7 @@
   }
   // 房主开局：挑自己的一个团（在单机跑团里开好的），自己上不上桌、带哪几位角色、给别人留几个座位
   const seenCamps = new Set();   // 开局页见过哪些团（回来时认出新开的那个）
-  function TrpgPrep({ myChars, nick, onSend, onNewCamp }) {
+  function TrpgPrep({ myChars, nick, onSend, onNewCamp, allChars }) {
     const t = useTheme();
     const [camps, setCamps] = useState(null);
     const [p, setP] = useState({ campId: "", me: true, chars: {}, open: 2, timeout: 3 });
@@ -813,9 +813,15 @@
     const camp = (camps || []).find(c => c.id === p.campId);
     const inParty = id => !!(camp && (camp.party || []).some(m => m.key === id));
     const label = s => h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: t.fog, margin: "4px 0 2px" } }, s);
-    const picks = (p.me ? [{ kind: "user" }] : []).concat((myChars || []).filter(c => p.chars[c.id]).map(c => ({ kind: "char", charId: c.id, name: c.remark || c.name })));
+    // 这个团原来队里的角色（她 11-22：「我那个雪崩团角色都没拉进联机，怎么玩」）：不用先带进房间，你这台本来就有 TA 们，直接由你这台替 TA 们出手；
+    //   挑了团就默认全上（p.party 里没写的当勾上），想留谁在家就点掉
+    const partyChars = camp ? (camp.party || []).filter(m => m.key && m.key !== "user").map(m => (allChars || []).find(c => c.id === m.key)).filter(Boolean) : [];
+    const roomIds = new Set((myChars || []).map(c => c.id));
+    const partyOn = c => (p.party || {})[c.id] !== false;
+    const pool = (myChars || []).filter(c => p.chars[c.id]).concat(partyChars.filter(c => !roomIds.has(c.id) && partyOn(c)));
+    const picks = (p.me ? [{ kind: "user" }] : []).concat(pool.map(c => ({ kind: "char", charId: c.id, name: c.remark || c.name })));
     const total = Math.min(5, picks.length + p.open);
-    const personas = {}; (myChars || []).forEach(c => { if (p.chars[c.id] && inParty(c.id)) personas[c.id] = String(c.persona || c.name || "").slice(0, 6000); });
+    const personas = {}; pool.forEach(c => { if (inParty(c.id)) personas[c.id] = String(c.persona || c.name || "").slice(0, 6000); });
     return h("div", { "data-wk": "nrtrpgprep", style: { display: "flex", flexDirection: "column", gap: 8 } },
       h("div", { style: small(t) }, "你开团、你当庄：守密人用你的线下线路，骰子在你这台掷，每一拍都存回你挑的那个团——下次联机或者自己单机都能接着跑。别人在邀请卡上报名：自己上桌，和／或派带来的角色当队友（数值各自那台掷，人设留在各自手机）。"),
       label("开哪一个团"),
@@ -830,6 +836,10 @@
       (myChars || []).length ? label("你带来的角色（本来在这支队里的照队里的数值；不在队里的这一晚临时入队、开局现掷）") : null,
       (myChars || []).map(c => h("button", { key: c.id, "data-wk": "nrtrpgchar", onClick: () => set({ chars: Object.assign({}, p.chars, { [c.id]: !p.chars[c.id] }) }), style: Object.assign(pill(t, !!p.chars[c.id]), { alignSelf: "flex-start", minHeight: 34 }) },
         (c.remark || c.name) + (camp ? (inParty(c.id) ? " · 队里的" : " · 临时入队") : ""))),
+      partyChars.filter(c => !roomIds.has(c.id)).length ? label("这个团原来的队员（没带进房间也能上：由你这台替 TA 们出手，照队里的数值）") : null,
+      partyChars.filter(c => !roomIds.has(c.id)).map(c => h("button", { key: "pt" + c.id, "data-wk": "nrtrpgpartymate", onClick: () => set({ party: Object.assign({}, p.party, { [c.id]: !partyOn(c) }) }), style: Object.assign(pill(t, partyOn(c)), { alignSelf: "flex-start", minHeight: 34 }) },
+        (c.remark || c.name) + " · 队里的")),
+      picks.length > 5 ? h("div", { style: small(t) }, "上桌的已经 " + picks.length + " 位了，一桌最多 5 人：多出来的坐不上，先点掉几位。") : null,
       label("给别人留几个座位（整桌最多 5 人）"),
       h("div", { className: "flex", style: { gap: 6 } }, [0, 1, 2, 3, 4].map(n => h("button", { key: n, onClick: () => set({ open: n }), style: Object.assign(pill(t, p.open === n), { minHeight: 34, padding: "0 12px" }) }, String(n)))),
       label("这一拍几分钟没交，庄按「稳妥」那条替她交（掉线的照常由庄托管）"),

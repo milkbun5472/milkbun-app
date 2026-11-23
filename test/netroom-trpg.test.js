@@ -437,3 +437,9 @@ test("跑团开局页能当场开一个新团：盖上单机跑团那一页，�
   assert.ok(/"data-wk": "nrtrpgnewcamp"/.test(tr) && /seenCamps\.size && !seenCamps\.has\(c\.id\)/.test(tr));
   assert.ok(/trpgProps: trpgPropsOf/.test(app));
 });
+
+test("团里原来的队员不用先带进房间也能上桌：开局页列出来、默认全上，由开局那台替 TA 们出手", () => {
+  const tr = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom-trpg.js"), "utf8");
+  assert.ok(/const partyChars = camp \? \(camp\.party \|\| \[\]\)\.filter\(m => m\.key && m\.key !== "user"\)/.test(tr));
+  assert.ok(/"data-wk": "nrtrpgpartymate"/.test(tr) && /\(p\.party \|\| \{\}\)\[c\.id\] !== false/.test(tr));
+});
