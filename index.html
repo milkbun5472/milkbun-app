@@ -330,6 +330,7 @@
     var css = document.createElement("style");
     css.textContent =
       "@keyframes qsp-fall{0%{transform:translate(0,0) rotate(0)}18%{transform:translate(36px,90px) rotate(40deg)}40%{transform:translate(-24px,220px) rotate(-22deg)}62%{transform:translate(34px,360px) rotate(32deg)}84%{transform:translate(-14px,510px) rotate(-12deg);opacity:.9}100%{transform:translate(22px,650px) rotate(12deg);opacity:0}}" +
+      "@keyframes qsp-snow{0%{transform:translate(0,0)}50%{transform:translate(var(--sw),52vh)}100%{transform:translate(0,105vh)}}" +
       "@keyframes qsp-d1{0%{transform:translate(-12vw,0) rotate(-30deg);opacity:0}12%{opacity:.16}100%{transform:translate(115vw,26vh) rotate(150deg);opacity:0}}" +
       "@keyframes qsp-d2{0%{transform:translate(-10vw,0) rotate(20deg);opacity:0}16%{opacity:.09}100%{transform:translate(112vw,18vh) rotate(-120deg);opacity:0}}";
     host.appendChild(css);
@@ -404,6 +405,19 @@
       sr.setAttribute("fill", "#fdfeff"); sr.setAttribute("mask", "url(#qsp-snowm)");
       var sf = document.createElementNS(NS, "g"); sf.setAttribute("filter", "url(#qsp-snowf)"); sf.setAttribute("transform", "translate(0,16)"); sf.appendChild(sr);
       snow.appendChild(sf); g.appendChild(snow);
+    }
+    // 冬天飘雪（她 2026-11-23「开屏要不要再加点飘雪」）：二十来片小圆点，只动 transform，开屏一拆就跟着没了；
+    //   白底上纯白看不见，所以雪片带一点冷灰蓝、边上一圈淡影
+    if (WINTER) {
+      var sky = el("div", "position:absolute;inset:0;pointer-events:none;overflow:hidden");
+      var fl = "";
+      for (var si = 0; si < 26; si++) {
+        var sz = 2.5 + Math.random() * 4.5, lx = Math.random() * 100, du = 7 + Math.random() * 7, de = -Math.random() * du, sw = (Math.random() * 40 - 20).toFixed(0);
+        fl += '<i style="position:absolute;top:-12px;left:' + lx.toFixed(1) + '%;width:' + sz.toFixed(1) + 'px;height:' + sz.toFixed(1) + 'px;border-radius:50%;' +
+          'background:' + (dark ? "rgba(255,255,255,.85)" : "radial-gradient(circle,#fff 30%,rgba(214,224,238,.95) 70%,rgba(190,205,226,0) 100%)") + ';filter:blur(.4px);box-shadow:0 0 4px rgba(120,145,180,' + (dark ? ".15" : ".28") + ');' +
+          'opacity:' + (0.55 + Math.random() * 0.45).toFixed(2) + ';--sw:' + sw + 'px;animation:qsp-snow ' + du.toFixed(1) + 's linear ' + de.toFixed(1) + 's infinite"></i>';
+      }
+      sky.innerHTML = fl;
     }
     var GINKGO = function (fill, veins) {
       return '<g transform="scale(2.6) rotate(18)">' +
