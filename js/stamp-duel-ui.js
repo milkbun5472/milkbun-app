@@ -1846,4 +1846,6 @@ h("div", { style: { transform: "skewX(12deg)", display: "flex", alignItems: "cen
   }
   window.StampDuelPage = StampDuelPage;
   window.StampInfoCard = StampInfo; window.StampLongPress = useLongPress;
+  // 几台手机一起打时（她 2026-11-22）牌桌也画这几样：信封、票、看票那张卡，单机、联机同一份
+  window.StampDuelParts = { Envelope, Ticket, StampInfo, useLongPress, RC, ROLE_COLOR };
 })();
