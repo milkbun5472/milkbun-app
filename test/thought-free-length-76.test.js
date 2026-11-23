@@ -19,3 +19,9 @@ assert.ok(!/THOUGHT_MEANING \+ THOUGHT_VOICE|\$\{THOUGHT_MEANING\}\$\{THOUGHT_VO
 assert.equal(guard.accept("188……\n酸死我了  酸死我了\n\n反正是给她花的"), "188……\n酸死我了 酸死我了\n反正是给她花的");
 assert.equal(guard.turnPatch({}, "一行\n两行", 1).thought, "一行\n两行");
 console.log("ok");
+
+// 「一句」在 11-14 一次合并里又被带回来过（她 2026-11-23：「原来我都删掉了的 什么时候又加回来了」）
+require("node:test")("心声提示里不再说「一句」", () => {
+  const fs = require("fs"), assert = require("assert");
+  for (const f of ["js/app.js", "js/listen-talk.js"]) assert.ok(!/一句(你此刻)?没说出口的念头/.test(fs.readFileSync(f, "utf8")), f);
+});

@@ -9767,11 +9767,20 @@ function Messages({
   const [stView, setStView] = useState(null), [stMake, setStMake] = useState(false), [stAsk, setStAsk] = useState(false), [stPend, setStPend] = useState(null), [stMenu, setStMenu] = useState(false), [plusMenu, setPlusMenu] = useState(false), [stPast, setStPast] = useState(false), [, stTick] = useState(0);
   useEffect(() => { const f = () => stTick(x => x + 1); window.addEventListener("lisa-stories", f); return () => window.removeEventListener("lisa-stories", f); }, []);
   const SK = window.Stories;
+  // 点一个人的圈，把挂着动态的人按聊天列表的顺序串成一条，从这个人开始看——左右划才有下一个人、上一个人（她 2026-11-23「左右划换人没反应」）
+  const storyChain = id => {
+    const ids = [...new Set(["me"].concat((characters || []).map(c => c && c.id)).filter(Boolean))];
+    let list = [], k = 0;
+    ids.forEach(x => { const a = SK ? SK.activeOf(x) : []; if (!a.length) return;
+      if (String(x) === String(id)) { const u = x === "me" ? -1 : a.findIndex(st => !(st.seen || {}).me); k = list.length + (u >= 0 ? u : 0); }
+      list = list.concat(a); });
+    return list.length ? { list, k, fixed: true } : { list: SK ? SK.activeOf(id) : [] };
+  };
   const storyRing = (id, kid) => {
     const act = SK ? SK.activeOf(id) : [];
     if (!act.length) return kid;
     const unseen = id !== "me" && act.some(s => !(s.seen || {}).me);
-    return h("span", { "data-wk": "storyring", "data-on": unseen ? "1" : "0", role: "button", onClick: e => { e.stopPropagation(); setStView({ list: act }); },
+    return h("span", { "data-wk": "storyring", "data-on": unseen ? "1" : "0", role: "button", onClick: e => { e.stopPropagation(); setStView(storyChain(id)); },
       style: { display: "inline-block", padding: 2, borderRadius: 13, background: unseen || id === "me" ? "linear-gradient(45deg,#f2a65a,#e85d75,#b05cd6)" : t.line } },
       h("span", { "data-wk": "storyringgap", style: { display: "block", padding: 1.5, borderRadius: 11, background: t.bg2 } }, kid));
   };
@@ -9867,7 +9876,7 @@ function Messages({
         (characters || []).filter(c => c && !c.npc).map(c => h("button", { key: c.id, onClick: () => { setStAsk(false); onStoryNow(c.id); }, className: "active:opacity-60", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4 } },
           h(Avatar, { character: c, size: 46, radius: 10 }),
           h("span", { className: "truncate", style: { maxWidth: "100%", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.sub } }, c.remark || c.name))))) : null,
-    stView && SK ? h(SK.StoryViewer, { list: stView.list, start: stView.k || 0, archive: !!stView.archive, viewer: "me", nameOf: stName, onClose: () => setStView(null),
+    stView && SK ? h(SK.StoryViewer, { list: stView.list, start: stView.k || 0, fixed: !!stView.fixed, archive: !!stView.archive, viewer: "me", nameOf: stName, onClose: () => setStView(null),
       onDelete: st => SK.remove(st.id), onReply: (st, tx, kind) => onStoryReply && onStoryReply(st, tx, kind) }) : null,
     // 她自己发：拼壁纸那个编辑器，从「自己摆」那张空纸开始；存下来就是一条
     stMake && SK && window.Collage ? h("div", { style: { position: "fixed", inset: 0, zIndex: 115, background: t.bg, overflowY: "auto" } },
@@ -23802,8 +23811,9 @@ function ChfImagePage({ file, clockId, nameOf, onRename, onDesc, onDelete, onClo
   return h(PageSheet, { onClose, zh: file.name, sub: nameOf(file.createdBy) + " · " + chfWhen(file.createdTs, clockId),
     right: h("button", { "data-wk": "chfsaveimg", onClick: async () => { const ok = window.saveImgOriginal && await window.saveImgOriginal(file.imgKey, file.name); if (!ok && window.__toast) window.__toast("没存下来，再点一次"); }, className: "active:opacity-60", style: { minHeight: 40, padding: "0 6px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "存到相册") },
     h(ChfImg, { k: file.imgKey, style: { width: "100%", borderRadius: 12, display: "block", minHeight: 120, objectFit: "contain" } }),
+    !onDesc ? (file.desc ? h("div", { "data-wk": "chfdesc", style: { marginTop: 12, padding: "10px 12px", borderRadius: 10, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6 } }, file.desc) : null) :
     h("button", { "data-wk": "chfdesc", onClick: () => requestAppPrompt("这张图是什么", "写一句，频道里的人看得懂图里是什么就靠这句。", file.desc || "", v => onDesc(String(v || "").trim().slice(0, 200)), "好", { multiline: true }), className: "w-full text-left active:opacity-60", style: { marginTop: 12, padding: "10px 12px", borderRadius: 10, background: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: file.desc ? t.ink : t.fog } }, file.desc || "写一句图里是什么（大家靠这句知道）"),
-    h("div", { className: "flex gap-2", style: { marginTop: 18 } },
+    !onDelete ? null : h("div", { className: "flex gap-2", style: { marginTop: 18 } },
       h("button", { "data-wk": "chfrename", onClick: () => requestAppPrompt("改名字", "", file.name, v => { const n = String(v || "").trim(); if (n) onRename(n); }, "好"), className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "改名"),
       onRecall ? h("button", { "data-wk": "chfgalrecall", onClick: onRecall, className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, background: t.bg } }, "拿到聊天里") : null,
       h("button", { "data-wk": "chfdelete", onClick: () => requestAppConfirm("删掉「" + file.name + "」？", "这张图从频道文件里删掉，删了找不回来。", onDelete, "删掉"), className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: "#c0453a" } }, "删掉")));
