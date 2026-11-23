@@ -260,7 +260,7 @@
   function cleanTalk(x) {
     if (!x || typeof x !== "object") return null;
     const text = cut(x.text, 160).trim(); if (!text) return null;
-    return { kind: "talk", name: cut(x.name, 40) || (x.npc ? "NPC" : "TA"), text, npc: !!x.npc, seat: int(x.seat, -1, 11, -1), peer: cut(x.peer, 40) };
+    return { kind: "talk", name: cut(x.name, 40) || (x.npc ? "NPC" : x.human ? "她" : "TA"), text, npc: !!x.npc, human: !!x.human, seat: int(x.seat, -1, 11, -1), peer: cut(x.peer, 40) };
   }
   // 隔几手说一句：桌上每过 every 手（至少 6 手、人多就更久）才轮到同一个人再开口；关键时刻（moment）不用等，但一手里只说一次
   const talkEvery = inv => Math.max(6, ((inv && inv.seats) || []).length * 3);
@@ -1043,6 +1043,34 @@
       const s = seen[gid], ad = s && A(s.inv.key); if (!ad) return;
       const c = cleanSideOf(ad, x); if (!c) return;
       s.side = (s.side || []).concat([c]).slice(-80); changed();
+      if (c.kind === "talk" && c.human) replyHuman(gid, c);
+    }
+    // 桌上有真人说了一句（她自己或者别人）：桌上的人接一句（她 11-22：「小游戏好多都没接上游戏里面的聊天」）。
+    //   单机牌桌那句「点『说』就单独说出去，桌上的人马上接」（CardSay / useCardTableTalk）在联机里的样子：
+    //   我这台带来、坐在桌上、没关「牌桌上说话」的角色里挑一位接（点了名的优先）；庄另外偶尔替一位 NPC 接。
+    //   每台对同一句只接一次，几秒内连着说只接最后那句，免得刷屏。看到的只有公开的局面和 TA 自己那份。
+    const replyMemo = {};
+    function replyHuman(gid, line) {
+      const s = seen[gid], GSx = GS(); if (!s || !s.view || !GSx || !GSx.seatTalk) return;
+      const inv = s.inv; if (inv.status !== "playing" && inv.status !== "done") return;
+      const k = gid + ":" + line.peer + ":" + line.text; if (replyMemo[k]) return; replyMemo[k] = 1;
+      const mine = inv.seats.map((x, i) => ({ x, i })).filter(({ x }) => x.kind === "char" && x.peer === o.me() && !x.away && optsOf(gid, x.charId).talk !== false);
+      const named = mine.filter(({ x }) => x.name && line.text.indexOf(x.name) >= 0);
+      const pick = named.length ? named[0] : mine.length && line.peer !== o.me() ? mine[Math.floor(Math.random() * mine.length)] : mine.length && Math.random() < 0.7 ? mine[Math.floor(Math.random() * mine.length)] : null;
+      const npcs = host[gid] ? inv.seats.map((x, i) => x.kind === "npc" ? i : -1).filter(i => i >= 0) : [];
+      const npc = npcs.length && (!pick || Math.random() < 0.3) && o.hostApi ? npcs[Math.floor(Math.random() * npcs.length)] : -1;
+      const ad = A(inv.key), view = ad && ad.cleanView ? ad.cleanView(s.view) : s.view;
+      const why = line.name + " 刚在桌上说：「" + line.text + "」。接她这句，照你的性子回一句，别抢着替谁出手。";
+      setTimeout(async () => {
+        const jobs = [];
+        if (pick) { const c = o.charOf && o.charOf(pick.x.charId), api = c && o.apiFor ? o.apiFor(c.id) : null, pv = (s.privs || {})[pick.i];
+          if (api) jobs.push({ api, seat: pick.i, who: [{ name: pick.x.name, persona: (c && c.persona) || "" }], scene: stateText(inv, view, pick.i, pv ? pv.data : null, s.side) }); }
+        if (npc >= 0) { const api = o.hostApi(); if (api) jobs.push({ api, npc: true, seat: npc, who: [{ name: inv.seats[npc].name, persona: "来凑桌的路人，普通玩家。", isNpc: true }], scene: stateText(inv, view, -1, null, s.side) }); }
+        for (const j of jobs) {
+          let rows = []; try { rows = await GSx.seatTalk(j.api, j.who, j.scene, why, (s.side || []).filter(x => x.kind === "talk")) || []; } catch (e) { rows = []; }
+          rows.slice(0, 1).forEach(r => side(gid, { kind: "talk", name: j.who[0].name, text: r.text, npc: !!j.npc, seat: j.seat }));
+        }
+      }, 800 + Math.random() * 1600);
     }
     function side(gid, x) {
       const s = seen[gid], ad = s && A(s.inv.key); if (!ad) return;
@@ -1246,6 +1274,9 @@
     const api = {
       _room: roomOf, _me: () => o.me(), _retire: () => { dead = true; },
       boot,
+      // 真人在牌桌上说一句（玩的人、观战的人都能说）：走桌边那一路，大家牌桌底下都看得到，桌上的人会接
+      say: (gid, text) => { const s0 = seen[gid]; if (!s0) return; const seat = (s0.inv.seats || []).findIndex(x => x.kind === "user" && x.peer === o.me());
+        side(gid, { kind: "talk", human: true, name: o.nick(), text: String(text || "").slice(0, 160), seat }); },
       seen: gid => { boot(); return seen[gid] || null; },
       // 我这台手里某个座位的那份（只有坐这个座位的是我、或者是我带来的角色才有）
       privOf: (gid, seat) => { const s = seen[gid], p = s && s.privs && s.privs[seat]; return p ? p.data : null; },

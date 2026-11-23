@@ -161,5 +161,5 @@ test("擂台从小游戏架子挪到房间 ＋ 里单独一格", () => {
   const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
   assert.ok(src.includes('["debate", "擂台", "podium"]'));
   assert.ok(/if \(k === "debate"\) \{/.test(src));
-  assert.ok(src.includes('supported().filter(k => k !== "debate")'), "小游戏架子上不再摆擂台");
+  assert.ok(src.includes('k !== "debate" && k !== "trpg"'), "小游戏架子上不再摆擂台");
 });

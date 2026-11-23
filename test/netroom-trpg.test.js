@@ -417,3 +417,9 @@ test("台面公开那一份白名单：view 里没有可请的人、没有被藏
   assert.ok(!("resolve" in v.ck.c));
   assert.match(tsrc, /T\.ceremonyPanel\(c, \{/, "台面画法用单机那一份");
 });
+
+test("跑团从小游戏架子挪到房间 ＋ 里单独一格", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
+  assert.ok(src.includes('["trpg", "跑团", "d20"]') && /if \(k === "trpg"\) \{/.test(src));
+  assert.ok(src.includes('k !== "debate" && k !== "trpg"'));
+});
