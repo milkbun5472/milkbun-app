@@ -9,3 +9,7 @@ test("首页顺序：开房/加入 → 以前的房间 → 认识的人 → 折�
   assert.ok(at('"nrknownopen"') < at('"nrsupafold"'));
   assert.match(home, /"nrsupafold", open: useSupa/);
 });
+test("等人那页：按钮名对得上首页，自己 Supabase 开的房让发连接码", () => {
+  assert.doesNotMatch(src, /输入房间号加入/);
+  assert.match(src, /sig \? "把上面整串连接码发给要来的人" : "把房间号发给要来的人"/);
+});
