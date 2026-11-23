@@ -629,3 +629,9 @@ test("换人：进房以后能回挑人那页，重发名片；对端照 hi 换�
   assert.match(src, /data-wk": "nrrepick", onClick: openRepick/);
   assert.match(src, /if \(repick\) \{/);
 });
+
+test("带谁进来／换人：两颗开关在名字下面一行，名字不再被挤成一字一行", () => {
+  assert.ok(/"data-wk": "nrpickrow"/.test(src));
+  assert.ok(/h\("div", \{ className: "truncate", style: \{ flex: 1, minWidth: 0/.test(src));
+  assert.ok(/picked\[c\.id\] && h\("div", \{ className: "flex flex-wrap", style: \{ gap: 8, paddingLeft: 72 \} \}/.test(src));
+});
