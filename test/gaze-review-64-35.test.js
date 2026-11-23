@@ -627,7 +627,7 @@ test("⑪ 每一级自己带 sys：复看的第四级换成建卡那份问法", 
   const call = app.slice(app.indexOf("const gazeCall = async"), app.indexOf("const [gazeReviewBusy"));
   assert.match(call, /const gazeCall = async \(p, levels, onFallback\)/, "sys 还是整条阶梯共用一份");
   // v64.60：料全挪进 system 之后写法变成 levels[i].sys + "\n\n" + levels[i].text
-  assert.match(call, /await callAI\(p, levels\[i\]\.sys \+ /, "没按级取 sys，那 system 那半永远缩不掉");
+  assert.match(call, /await callAI\(p, (?:\(typeof CHARCARD_RULE[^\n]*?: ""\) \+ )?levels\[i\]\.sys \+ /, "没按级取 sys，那 system 那半永远缩不掉");
 
   const rev = app.slice(app.indexOf("const reviewGazeFor = async (char, manual)"), app.indexOf("const [editMsg"));
   const arr = rev.slice(rev.indexOf("const levels = ["), rev.indexOf("];", rev.indexOf("const levels = [")));
@@ -688,7 +688,7 @@ test("⑪ 四级都被拦时那句结论：只剩人设本身", () => {
 test("⑫ 料全放 system，user 只留一句「开始。」", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   const call = app.slice(app.indexOf("const gazeCall = async"), app.indexOf("const [gazeReviewBusy"));
-  assert.match(call, /await callAI\(p, levels\[i\]\.sys \+ "\\n\\n" \+ levels\[i\]\.text, \[\{ role: "user", content: "开始。" \}\]/,
+  assert.match(call, /await callAI\(p, (?:\(typeof CHARCARD_RULE[^\n]*?: ""\) \+ )?levels\[i\]\.sys \+ "\\n\\n" \+ levels\[i\]\.text, \[\{ role: "user", content: "开始。" \}\]/,
     "料还挂在 user 上");
   // 跟这个 app 自己那三处一次性生成写法一致（不是我新发明的形状）
   assert.ok((app.match(/\[\{ role: "user", content: "开始。" \}\]/g) || []).length >= 4);
