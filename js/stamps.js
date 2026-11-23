@@ -109,7 +109,7 @@
     })();
     THUMB_PENDING.set(ref, job); try { return await job; } finally { THUMB_PENDING.delete(ref); }
   }
-  window.StampThumbnails = { url: stampThumbUrl };
+  window.StampThumbnails = { url: stampThumbUrl, use: (...a) => useStampThumb(...a) };   // use：别处画自己卡面时也走这一份缩略图
   function useStampThumb(ref) {
     const [url, setUrl] = useState(() => (ref && THUMB_MEM.get(ref)) || null), [near, setNear] = useState(false), el = useRef(null);
     useEffect(() => { const n = el.current; if (!n || typeof IntersectionObserver !== "function") { setNear(true); return; }
