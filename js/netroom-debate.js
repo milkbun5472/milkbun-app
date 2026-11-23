@@ -58,7 +58,8 @@
   }
 
   const A = {
-    zh: "辩论擂台", slow: true,
+    // 出手里的 say 就是台上这一段发言本身，不是桌边台词：框架别拿走、也别因为没勾「自己边玩边说」就清掉（她 11-22 截图：一直「这一轮没开口」）
+    zh: "辩论擂台", slow: true, sayInMove: "move", ownTalk: true,   // 擂台自己有观众席（弹幕）：通用的「牌桌上说的」和那一格不摆，点头像说话也落进观众席
     // 观众席：角色冒弹幕的那次调用顺带写一声路人观众（genSideLine 的 passerby），不另花调用；台上的 NPC 辩手照旧由庄出手
     mergeNpc: "prev",
     charOpts: ["side", "recent"],
@@ -216,9 +217,14 @@
   function useDS() { const [, setN] = useState(0); const D = DS(); React.useEffect(() => { if (!D) ensure().then(() => setN(n => n + 1)); }, [!!D]); return D; }
   function Speeches({ t, turns, inv }) {
     const D = DS(); if (!D) return null;
-    const seats = (inv && inv.seats) || [];
-    return h("div", { "data-wk": "nrdebatespeeches" }, (turns || []).map((x, i) => h("div", { key: i, "data-wk": "nrdebateturn", "data-side": x.side },
-      h(D.TurnCard, { t, av: faceOf(seats[x.seat] || seats.find(s => s.name === x.name) || { name: x.name }), tn: { name: x.name + " · " + SIDE_ZH[x.side] + " · 第 " + (x.round + 1) + " 轮", text: x.text, color: SIDE_COLOR[x.side] } }))));
+    const seats = (inv && inv.seats) || [], list = turns || [];
+    // 跟单机擂台一样：每一轮挂一块回合牌，底下是台上那几段（名牌只写名字，立场色压在牌子底边）
+    const rounds = []; list.forEach(x => { const r = x.round | 0; (rounds[r] = rounds[r] || []).push(x); });
+    return h("div", { "data-wk": "nrdebatespeeches" }, rounds.map((rs, r) => rs && h("div", { key: r, "data-round": r },
+      D.RoundTag ? h(D.RoundTag, { t, label: "第 " + (r + 1) + " 回合" }) : null,
+      rs.map((x, i) => h("div", { key: i, "data-wk": "nrdebateturn", "data-side": x.side },
+        h(D.TurnCard, { t, av: faceOf(seats[x.seat] || seats.find(s => s.name === x.name) || { name: x.name }),
+          tn: x.text === "（这一轮没开口）" ? { name: x.name, skipped: true, color: SIDE_COLOR[x.side] } : { name: x.name, text: x.text, color: SIDE_COLOR[x.side] } }))))));
   }
   function Verdict({ t, v }) {
     const D = DS(); if (!v || !D) return null;
@@ -234,6 +240,7 @@
   function DebateTable({ inv, view, me, isHost, onMove, onReveal, side, onSide, nick }) {
     const t = useTheme(), D = useDS();
     const [d, setD] = useState(""), [dm, setDm] = useState("");
+    const [stageOpen, setStageOpen] = useState(() => !(view.turns || []).length);   // 跟单机一样：还没人开口时牌子放下，开讲了收起来
     const ti = A.turn(view), seat = inv.seats[ti];
     const mineTurn = ti >= 0 && !view.busy && C.actorOf(seat, me, inv.host) === "mine-user";
     const dms = (side || []).filter(x => x.kind === "dm").slice(-8), aws = (side || []).filter(x => x.kind === "aw");
@@ -244,10 +251,12 @@
       h(Avatar, { character: faceOf(x), size: 30, radius: 999 }), h("span", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.ink, fontWeight: ti === k ? 700 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 80 } }, x.name + (x.kind === "npc" ? "（NPC）" : ""))) : null).filter(Boolean);
     if (!D) return h("div", { "data-wk": "nrgametable", "data-game": "debate", style: { padding: 16 } }, noteEl(t, "擂台在装…"));
     return h("div", { "data-wk": "nrgametable", "data-game": "debate", style: { padding: "8px 16px 10px", display: "flex", flexDirection: "column", gap: 10 } },
-      h("div", { "data-wk": "nrdebatetopic", style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink, lineHeight: 1.5, textAlign: "center" } }, "「" + view.topic + "」", h("span", { style: { marginLeft: 6, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, view.mode === "free" ? "随便吵" : "讲道理")),
-      view.phase !== "side" && h("div", { className: "flex", style: { gap: 8, alignItems: "flex-start" } }, SIDES.map(s => h("div", { key: s, "data-wk": "nrdebateteam", "data-side": s, style: { flex: 1, minWidth: 0, borderTop: "3px solid " + SIDE_COLOR[s], paddingTop: 6 } },
-        h("div", { style: { color: SIDE_COLOR[s], fontFamily: F_BODY, fontSize: fs(11), letterSpacing: 2, textAlign: "center", marginBottom: 4 } }, SIDE_ZH[s]),
-        h("div", { className: "flex flex-wrap justify-center", style: { gap: 8 } }, team(s).length ? team(s) : "—")))),
+      // 台子：单机擂台那一份（顶上布幡写辩题，台上站人，立场牌挂在台前，能收起来）
+      h("div", { "data-wk": "nrdebatetopic", style: { margin: "0 -16px" } },
+        D.Stage ? h(D.Stage, { t, topic: view.topic, tally: {}, open: stageOpen, onToggle: () => setStageOpen(v => !v),
+          parts: inv.seats.map((x, k) => ({ key: k, name: C.seatName(x, k), av: faceOf(x), color: SIDE_COLOR[view.sides[k]] || t.fog,
+            stance: view.sides[k] ? SIDE_ZH[view.sides[k]] + (view.stances && view.stances[k] ? "：" + view.stances[k] : "") : "还没站队" })) }) : null),
+      h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: fs(11), color: t.sub } }, (view.mode === "free" ? "随便吵" : "讲道理") + " · " + (view.phase === "done" ? "已收台" : "第 " + (view.round + 1) + (view.rounds ? " / " + view.rounds : "") + " 回合")),
       h(Speeches, { t, turns: view.turns, inv }),
       view.phase === "done" && h(Verdict, { t, v: view.verdict }),
       aws.length ? h(AfterWords, { t, aws, inv }) : null,
@@ -273,7 +282,8 @@
     const aws = sd.filter(x => x.kind === "aw"), dms = sd.filter(x => x.kind === "dm");
     if (!D) return null;
     return h("div", { style: { padding: "8px 16px", display: "flex", flexDirection: "column", gap: 10 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink, textAlign: "center" } }, "「" + (r.topic || "") + "」"), h(Speeches, { t, turns: r.turns, inv }), h(Verdict, { t, v: r.verdict }),
+      D.Stage ? h("div", { style: { margin: "0 -16px" } }, h(D.Stage, { t, topic: r.topic || "", tally: {}, open: true, onToggle: () => {}, parts: (rec.seats || []).map((x, k) => ({ key: k, name: x.name || "", av: faceOf(x), color: SIDE_COLOR[(r.sides || [])[k]] || t.fog, stance: ((r.stances || [])[k]) || SIDE_ZH[(r.sides || [])[k]] || "" })) })) : null,
+      h(Speeches, { t, turns: r.turns, inv }), h(Verdict, { t, v: r.verdict }),
       aws.length ? h(AfterWords, { t, aws, inv }) : null,
       dms.length ? h("div", { "data-wk": "nrdebatecrowd", style: { borderTop: "1px solid " + t.line, paddingTop: 8 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, marginBottom: 4 } }, "观众席"), h(Crowd, { t, dms })) : null);

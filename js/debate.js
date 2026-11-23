@@ -623,6 +623,45 @@
     return String(p.text || "").trim().slice(0, 300);
   }
 
+  // 台子（她 2026-11-22：别处摆的擂台跟这里长得不一样——这一块搬成公共的，哪儿摆擂台都用这一个）
+  //   props：t、topic、judge（裁判名，可空）、parts:[{ key, name, av, color, stance }]、tally（名字→台下票数）、open、onToggle
+  function DebStage(props) {
+    const t = props.t, stageOpen = !!props.open, anyVotes = Object.keys(props.tally || {}).length > 0;
+    const HEAD_H = (stageOpen ? 50 : 42) + (anyVotes ? 13 : 0), AV = stageOpen ? 29 : 24;
+    return h("div", { style: { background: t.bg2, borderBottom: "1px solid " + t.line, paddingTop: 9 } },
+      // 台上方那条横幅：今天要吵的这件事。底边中间收一个尖口，是布幡不是标题栏
+      h("div", { style: { margin: "0 18px 9px", padding: "6px 12px 10px", background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.3, textAlign: "center", clipPath: "polygon(0 0,100% 0,100% 100%,50% calc(100% - 7px),0 100%)" } }, props.topic),
+      props.judge ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 1, color: t.sub, margin: "-3px 0 8px" } }, "裁判 · " + props.judge) : null,
+      h("div", { style: { position: "relative", padding: "0 10px 4px" } },
+        // 台裙：台面线以下这一片是台前，立场牌就挂在这上面
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: HEAD_H, bottom: 0, background: "linear-gradient(180deg,rgba(38,34,28,.13),rgba(38,34,28,.03))", borderTop: "3px solid " + t.ink, boxShadow: "0 5px 9px -6px rgba(38,34,28,.85)" } }),
+        h("div", { className: "flex justify-center items-start", style: { position: "relative", gap: 6 } },
+          (props.parts || []).map(function (p) {
+            return h("div", { key: p.key, style: { flex: "1 1 0", minWidth: 0, maxWidth: 104, display: "flex", flexDirection: "column", alignItems: "center" }, "data-wk": "debarena" },
+              h("div", { style: { height: HEAD_H, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" } },
+                h(Avatar, { character: p.av || { name: p.name }, size: AV, radius: 999 }),
+                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.ink, marginTop: 3, maxWidth: "100%" } }, p.name),
+                // 记分：整场台下累计几票（一票都还没投过的局不挂，免得一排 0）。
+                // ⚠️挂在台面线【上面】那一段里：挂在下面会被那道 3px 的台面线从中间横穿过去。
+                anyVotes ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: "13px", height: 13, color: p.color } }, (props.tally[p.name] || 0) + " 票") : null),
+              // 挂绳：牌子是【挂在台前】的，不是浮在那儿的
+              h("div", { "aria-hidden": "true", style: { width: 1, height: stageOpen ? 7 : 4, background: p.color, opacity: .7 } }),
+              // ⚠️放下来的时候不许锁行数：锁了就是「看不全」。收起来的时候只留一行。
+              h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", lineHeight: 1.35, color: "#fff", background: p.color, borderRadius: 3, padding: "4px 6px 5px", width: "100%", textAlign: "center", wordBreak: "break-word", boxShadow: "0 2px 5px rgba(38,34,28,.28)" },
+                stageOpen ? null : { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) },
+                p.stance || "—"));
+          }))),
+      // 台沿上那个把手：牌子放下来 / 收上去
+      h("button", { onClick: props.onToggle, className: "w-full active:opacity-60",
+        style: { minHeight: 26, padding: "5px 0 7px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog }, "data-wk": "debarenabtn", "data-part": "1" },
+        stageOpen ? "把牌子收上去 ▲" : "各人站哪边 ▼"));
+  }
+  // 回合牌：擂台边上挂的那块数字牌
+  function DebRoundTag(props) {
+    const t = props.t;
+    return h("div", { style: { display: "flex", justifyContent: "center", margin: "8px 0 12px" } },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(11.5px * var(--app-fs, 1))", letterSpacing: 2, color: t.sub, border: "1px solid " + t.line, borderTop: "3px solid " + t.ink, borderRadius: "0 0 4px 4px", padding: "4px 13px 5px", background: t.bg2 } }, props.label));
+  }
   // ── 擂台上的几块（别处摆同一个擂台从 DebateShared 拿，单机这边自己也用这一份）──
   // 台上一段话：本名那块小牌子（压一道立场色）＋一整段，被说动了挂在底下。tn：{ name, text, color, at, yield, newStance, skipped }；av：头像那个人；extra：名字后面多挂的小件（念出来）
   //   不是聊天气泡，也不是左边一条色边的通用卡片。⚠️卡片里不许再套一层 maxHeight 滚动（mobile-ui-layout §3 只许一个主滚动容器）
@@ -693,7 +732,7 @@
   }
   // 别处（比如几个人各在各的手机上一起开一场）借用这几样：单机这边自己也用的同一份
   window.DebateShared = { modeRules: modeRules, debaterCard: debaterCard, genTurn: genTurn, pickSide: pickSide, genSideLine: genSideLine, genAfterword: genAfterword, genResult: genResult, drawTopics: drawTopics, fullTranscript: fullTranscript,
-    TurnCard: DebTurnCard, SideBlock: DebSideBlock, VerdictBoard: DebVerdictBoard, Closings: DebClosings };
+    TurnCard: DebTurnCard, SideBlock: DebSideBlock, VerdictBoard: DebVerdictBoard, Closings: DebClosings, Stage: DebStage, RoundTag: DebRoundTag };
 
   // ============================================================
   // 顶层：落地页（存档列表 + 发起）
@@ -1189,37 +1228,10 @@
     //   台上一有人说话就收成一条；点一下再放下来，放下来的时候【不锁行数】，立场给全。
     const tally = voteTally(s);
     const anyVotes = Object.keys(tally).length > 0;
-    const HEAD_H = (stageOpen ? 50 : 42) + (anyVotes ? 13 : 0);   // 挂了票数就把台面线往下让一行   // 头像+名字这一段的高度：台面那条线正好从这里横过去
-    const AV = stageOpen ? 29 : 24;
-    const stage = h("div", { style: { background: t.bg2, borderBottom: "1px solid " + t.line, paddingTop: 9 } },
-      // 台上方那条横幅：今天要吵的这件事。底边中间收一个尖口，是布幡不是标题栏
-      h("div", { style: { margin: "0 18px 9px", padding: "6px 12px 10px", background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.3, textAlign: "center", clipPath: "polygon(0 0,100% 0,100% 100%,50% calc(100% - 7px),0 100%)" } }, s.topic),
-      s.judge ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: 1, color: t.sub, margin: "-3px 0 8px" } }, "裁判 · " + s.judge.name) : null,
-      h("div", { style: { position: "relative", padding: "0 10px 4px" } },
-        // 台裙：台面线以下这一片是台前，立场牌就挂在这上面
-        h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: HEAD_H, bottom: 0, background: "linear-gradient(180deg,rgba(38,34,28,.13),rgba(38,34,28,.03))", borderTop: "3px solid " + t.ink, boxShadow: "0 5px 9px -6px rgba(38,34,28,.85)" } }),
-        h("div", { className: "flex justify-center items-start", style: { position: "relative", gap: 6 } },
-          s.parts.map(function (p) {
-            return h("div", { key: p.kind === "me" ? "me" : p.id, style: { flex: "1 1 0", minWidth: 0, maxWidth: 104, display: "flex", flexDirection: "column", alignItems: "center" }, "data-wk": "debarena" },
-              h("div", { style: { height: HEAD_H, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" } },
-                p.kind === "char"
-                  ? h(Avatar, { character: props.characters.find(function (c) { return c.id === p.id; }) || { name: p.name }, size: AV, radius: 999 })
-                  : h(Avatar, { character: meAv, size: AV, radius: 999 }),
-                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.ink, marginTop: 3, maxWidth: "100%" } }, p.kind === "me" ? uName : p.name),
-                // 记分：整场台下累计几票（一票都还没投过的局不挂，免得一排 0）。
-                // ⚠️挂在台面线【上面】那一段里：挂在下面会被那道 3px 的台面线从中间横穿过去。
-                anyVotes ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(11px * var(--app-fs, 1))", lineHeight: "13px", height: 13, color: p.color } }, (tally[p.name] || 0) + " 票") : null),
-              // 挂绳：牌子是【挂在台前】的，不是浮在那儿的
-              h("div", { "aria-hidden": "true", style: { width: 1, height: stageOpen ? 7 : 4, background: p.color, opacity: .7 } }),
-              // ⚠️放下来的时候不许锁行数：锁了就是「看不全」。收起来的时候只留一行。
-              h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", lineHeight: 1.35, color: "#fff", background: p.color, borderRadius: 3, padding: "4px 6px 5px", width: "100%", textAlign: "center", wordBreak: "break-word", boxShadow: "0 2px 5px rgba(38,34,28,.28)" },
-                stageOpen ? null : { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) },
-                p.stance || (p.kind === "me" ? "还没选边" : "—")));
-          }))),
-      // 台沿上那个把手：牌子放下来 / 收上去
-      h("button", { onClick: function () { stageTouched.current = true; setStageOpen(function (v) { return !v; }); }, className: "w-full active:opacity-60",
-        style: { minHeight: 26, padding: "5px 0 7px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 1, color: t.fog }, "data-wk": "debarenabtn", "data-part": "1" },
-        stageOpen ? "把牌子收上去 ▲" : "各人站哪边 ▼"));
+    const stage = h(DebStage, { t: t, topic: s.topic, judge: s.judge ? s.judge.name : "", tally: tally, open: stageOpen,
+      onToggle: function () { stageTouched.current = true; setStageOpen(function (v) { return !v; }); },
+      parts: s.parts.map(function (p) { return { key: p.kind === "me" ? "me" : p.id, name: p.kind === "me" ? uName : p.name, color: p.color,
+        stance: p.stance || (p.kind === "me" ? "还没选边" : ""), av: p.kind === "char" ? (props.characters.find(function (c) { return c.id === p.id; }) || { name: p.name }) : meAv }; }) });
 
     // ── 发言：台上那个人面前那块名牌，话写在牌子后面 ──────────
     // 不是聊天气泡，也不是左边一条色边的通用卡片。

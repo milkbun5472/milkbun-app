@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.114";
+const APP_VERSION = "v90.129";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -36756,6 +36756,34 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     },
     onToMoments: momentDraftFromMsgs
   }, xtra || {}));
+  // 跑团那一页的料只拼这一处
+  const trpgPropsOf = onBack => ({
+    voiceOf: char => stampVoice(char),   // 他平时真说过的话（只借口气）：跟小剧场、邮票卡同一份
+    // 跑团:守密人叙事沙箱,走线下创作线路;同小剧场先例——不传世界书/记忆/好感,
+    // 平行时空天然隔离主线(四处一样喂·合法差异,理由见 trpg.js 头注)
+    active: offlineActive,
+    characters: playChars,
+    profile: profile,
+    // 言秋的座位:队友宣言走 CC 亲笔(同小游戏切座管道),超时才由模型顶
+    isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
+    toast: toast,
+    // 开团配乐(她 2026-08-30):守密人搭世界时顺手开出几条搜索词,这里逐条去网易云
+    // 搜成真曲、整批连播——复用云村「播放全部」的批次通道(nowBatch),不污染「全部」库
+    onBgm: async queries => {
+      if (!musicReady) { toast("先在一起听里选择音乐源"); return false; }
+      const found = [];
+      for (const q of (queries || []).slice(0, 6)) {
+        try {
+          const s = await neteaseSearchOne(q);
+          if (s) found.push(neteaseTrackInfo(s));
+        } catch (e) { }
+      }
+      if (!found.length) { toast("配乐一首都没搜到"); return false; }
+      playNeteaseList(found);
+      return true;
+    },
+    onBack: onBack
+  });
   let body = null;
   if (!loaded) body = /*#__PURE__*/React.createElement(Empty, {
     text: "加载中…"
@@ -39045,33 +39073,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, {
-    voiceOf: char => stampVoice(char),   // 他平时真说过的话（只借口气）：跟小剧场、邮票卡同一份
-    // 跑团:守密人叙事沙箱,走线下创作线路;同小剧场先例——不传世界书/记忆/好感,
-    // 平行时空天然隔离主线(四处一样喂·合法差异,理由见 trpg.js 头注)
-    active: offlineActive,
-    characters: playChars,
-    profile: profile,
-    // 言秋的座位:队友宣言走 CC 亲笔(同小游戏切座管道),超时才由模型顶
-    isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
-    toast: toast,
-    // 开团配乐(她 2026-08-30):守密人搭世界时顺手开出几条搜索词,这里逐条去网易云
-    // 搜成真曲、整批连播——复用云村「播放全部」的批次通道(nowBatch),不污染「全部」库
-    onBgm: async queries => {
-      if (!musicReady) { toast("先在一起听里选择音乐源"); return false; }
-      const found = [];
-      for (const q of (queries || []).slice(0, 6)) {
-        try {
-          const s = await neteaseSearchOne(q);
-          if (s) found.push(neteaseTrackInfo(s));
-        } catch (e) { }
-      }
-      if (!found.length) { toast("配乐一首都没搜到"); return false; }
-      playNeteaseList(found);
-      return true;
-    },
-    onBack: () => setScreen("home")
-  });else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,

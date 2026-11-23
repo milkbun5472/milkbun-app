@@ -9836,7 +9836,7 @@ function Messages({
   }),
   // ── 备份坏了要看得见：固定横幅读取 Cloud 的公共状态与标题。
   // ＋ 点开是一个小菜单：新建群聊／创建频道（她 2026-11-20「放聊天右上角＋里面」）
-  plusMenu ? h("div", { "data-wk": "mlplusmask", onClick: () => setPlusMenu(false), style: { position: "fixed", inset: 0, zIndex: 60 } },
+  plusMenu ? h("div", { "data-wk": "mlplusmask", onClick: () => setPlusMenu(false), style: { position: "fixed", inset: 0, zIndex: 900 } },   /* 不写死 60：那是全屏 app 壳的层级，会撞 */
     h("div", { "data-wk": "mlplusmenu", onClick: e => e.stopPropagation(), style: { position: "absolute", right: 10, top: "calc(env(safe-area-inset-top, 0px) + 52px)", background: momPaper(t), borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,.16)", overflow: "hidden", minWidth: 168 } },
       [["新建群聊", "一群人在一个群里聊", () => onNewGroup()], ["创建频道", "一个地方分好几个频道，各聊各的", () => onNewSpace && onNewSpace()]].map(([zh, sub, go], i) =>
         h("button", { key: zh, "data-wk": "mlplusitem", onClick: () => { setPlusMenu(false); go(); }, className: "w-full text-left active:bg-black/5", style: { display: "block", padding: "11px 16px", borderTop: i ? "1px solid " + t.line : "none" } },
@@ -11113,8 +11113,8 @@ function MomentsFeed({
     h("div", { "data-wk": "mocoverhead", style: { position: "relative", marginBottom: 46 } },
       h("div", { ...CA.boxProps, "data-wk": "mocover", style: { position: "relative", height: 270, background: cover ? "center/cover no-repeat url(" + resolveImg(cover) + ")" : "linear-gradient(160deg," + t.bg + "," + t.line + ")", backgroundPosition: cover ? CA.posNow : undefined, touchAction: CA.adj ? "none" : undefined } }, CA.overlay()),
       onSetCover ? h(MomentCoverPick, { onPicked: d => { onSetCover(d); CA.picked(); }, style: { position: "absolute", top: 12, right: 14 } }) : null,
-      camOpen ? h("div", { onClick: () => setCamOpen(false), style: { position: "fixed", inset: 0, zIndex: 59 } }) : null,
-      camOpen ? h("div", { "data-wk": "mocammenu", style: { position: "fixed", top: "calc(env(safe-area-inset-top, 0px) + 58px)", right: 14, zIndex: 60, width: 230, maxWidth: "calc(100vw - 28px)", maxHeight: "calc(100dvh - env(safe-area-inset-top, 0px) - 140px)", overflowY: "auto", overscrollBehavior: "contain", padding: "4px 0", borderRadius: 12, background: momPaper(t), border: "1px solid " + t.line, boxShadow: "0 8px 24px rgba(0,0,0,.18)" } },
+      camOpen ? h("div", { onClick: () => setCamOpen(false), style: { position: "fixed", inset: 0, zIndex: 899 } }) : null,
+      camOpen ? h("div", { "data-wk": "mocammenu", style: { position: "fixed", top: "calc(env(safe-area-inset-top, 0px) + 58px)", right: 14, zIndex: 900, width: 230, maxWidth: "calc(100vw - 28px)", maxHeight: "calc(100dvh - env(safe-area-inset-top, 0px) - 140px)", overflowY: "auto", overscrollBehavior: "contain", padding: "4px 0", borderRadius: 12, background: momPaper(t), border: "1px solid " + t.line, boxShadow: "0 8px 24px rgba(0,0,0,.18)" } },
         h("button", { "data-wk": "mocompose", onClick: () => { setCamOpen(false); onCompose(); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },
           h(PGlyph, { k: "album", size: 15, color: t.ink }), "发朋友圈"),
         h("button", { "data-wk": "mocharpost", onClick: () => { setCamOpen(false); setPick(true); }, className: "w-full flex items-center gap-2 active:opacity-70", style: { minHeight: 44, padding: "0 14px", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } },

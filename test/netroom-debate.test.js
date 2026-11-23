@@ -166,3 +166,29 @@ test("擂台从小游戏架子挪到房间 ＋ 里单独一格", () => {
   assert.ok(/if \(k === "debate"\) \{/.test(src));
   assert.ok(src.includes('k !== "debate" && k !== "trpg"'), "小游戏架子上不再摆擂台");
 });
+
+test("台上角色的发言是这一手本身：不被当成桌边台词拿走，没勾「自己边玩边说」也照样说", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const d = fs.readFileSync(path.join(__dirname, "..", "js/netroom-debate.js"), "utf8");
+  const g = fs.readFileSync(path.join(__dirname, "..", "js/netroom-games.js"), "utf8");
+  assert.ok(/sayInMove: "move"/.test(d));
+  assert.ok(/ad\.sayInMove !== "move" && opts\.talk !== true/.test(g));
+  assert.ok(/if \(mv\.say != null && !ad\.sayInMove\)/.test(g), "有 sayInMove 的不拿走 say");
+});
+
+test("联机擂台跟单机摆同一个台：台子、回合牌都是 DebateShared 那一份", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const d = fs.readFileSync(path.join(__dirname, "..", "js/debate.js"), "utf8");
+  const n = fs.readFileSync(path.join(__dirname, "..", "js/netroom-debate.js"), "utf8");
+  assert.ok(/function DebStage\(props\)/.test(d) && /const stage = h\(DebStage, \{/.test(d), "单机也改调这一份");
+  assert.ok(/Stage: DebStage, RoundTag: DebRoundTag/.test(d));
+  assert.ok(/h\(D\.Stage, \{ t, topic: view\.topic/.test(n) && /h\(D\.RoundTag, \{ t, label: "第 " \+ \(r \+ 1\) \+ " 回合" \}\)/.test(n));
+});
+
+test("擂台只有一个说话的地方：不摆通用的「牌桌上说的」和那一格，点头像（台上台下）都落进观众席", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const d = fs.readFileSync(path.join(__dirname, "..", "js/netroom-debate.js"), "utf8"), g = fs.readFileSync(path.join(__dirname, "..", "js/netroom-games.js"), "utf8"), n = fs.readFileSync(path.join(__dirname, "..", "js/netroom.js"), "utf8");
+  assert.ok(/ownTalk: true/.test(d));
+  assert.ok(/ad && ad\.ownTalk && ad\.cheer \? \(ids \|\| \[\]\)\.slice\(\)/.test(g));
+  assert.ok(/!\(A && A\.ownTalk\) && root\.NetGameUI && h\(root\.NetGameUI\.TalkStrip/.test(n) && /!done && !\(A && A\.ownTalk\) && h\("div", \{ "data-wk": "gamesay"/.test(n));
+});

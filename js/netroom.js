@@ -1566,6 +1566,8 @@
   }
 
   // ＋ 里的那些：跟单聊、群聊用的同一套键（ChatToolKey）。两个人之间、本机的那几样（通话、通话记录、朋友圈、转账、亲属卡、给TA看手机、邀约、半窗）不放
+  // ＋ 里单独一格进的那几盒（擂台、跑团）：开局页点返回回到房间聊天，不落到小游戏大厅（她 11-22）
+  const OWN_SLOT = { debate: true, trpg: true };
   const NR_PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["chatsearch", "查找记录", "magnifier"],
     ["poll", "投票", "bars"], ["rp", "红包", "packet"], ["ask", "请示", "checklist"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["file", "文件", "file"], ["topics", "话题卡", "quote"], ["listen", "一起听", "note"], ["game", "小游戏", "dice"], ["debate", "擂台", "podium"], ["trpg", "跑团", "d20"]];
   // 擂台单独一格（她 11-22：「擂台从小游戏里面移出来放聊天加号里面」），不再摆在小游戏架子最后
@@ -2204,7 +2206,7 @@
       const recent = o.recent != null ? !!o.recent : !!(mc && mc.recent), ch = charsById[cid];
       let recentText = "";
       if (recent && ch && propsRef.current.ctxFor) { try { recentText = String((propsRef.current.ctxFor(ch, { chat: true }) || {}).recentChat || "").slice(-600); } catch (e) {} }
-      return { casual: !!o.casual, recent, recentText, botSkill: o.botSkill || "", talk: o.talk !== false };
+      return { casual: !!o.casual, recent, recentText, botSkill: o.botSkill || "", talk: o.talk === true };   // 她 11-22：默认不自己开口，勾了才边玩边说
     };
     const setCharOpt = (cid, k, v) => setCharOpts(m => Object.assign({}, m, { [cid]: Object.assign({}, m[cid] || {}, { [k]: v }) }));
     // 座位旁那两个字（大家都看得到）：钉的牌技档、随手
@@ -2238,7 +2240,7 @@
         if (kinds.indexOf("recent") >= 0) rows.push(h("label", { key: "r", className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
           h("input", { type: "checkbox", "data-wk": "nrcharrecent", checked: o.recent, onChange: e => setCharOpt(c.id, "recent", e.target.checked) }), "带上 TA 最近单聊（TA 出题、提问、接句时记得你们最近聊了什么）"));
         if (kinds.indexOf("talk") >= 0) rows.push(h("label", { key: "t", className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
-          h("input", { type: "checkbox", "data-wk": "nrchartalk", checked: o.talk, onChange: e => setCharOpt(c.id, "talk", e.target.checked) }), "牌桌上说话（TA 边玩边随口说几句，摆在牌桌底下，不进房间聊天；关了 TA 只出手不开口）"));
+          h("input", { type: "checkbox", "data-wk": "nrchartalk", checked: o.talk, onChange: e => setCharOpt(c.id, "talk", e.target.checked) }), "自己边玩边说（勾了：TA 出手时顺带一句、隔几手随口说几句；不勾：只在你点 TA 头像时开口）"));
         return rows.length ? h("div", { "data-wk": "nrcharopts", style: { margin: "0 0 8px 42px", display: "flex", flexDirection: "column", gap: 6 } }, rows) : null;
       };
       return h(Sheet, { key: "gj", onClose: () => setJoinAt(null) },
@@ -2291,7 +2293,9 @@
           hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "开局的人不在，这一局等她回来接着打。")),
           sv.pause && !done && h(PauseBar, { pause: sv.pause, isHost, onGo: () => gs.resume(gid), hostName: (inv.seats.find(x => x.kind === "user" && x.peer === inv.host) || {}).name || "" }),
           h(A.Table, { inv: sv.pause && !done && GC().heldInv ? GC().heldInv(inv) : inv, view: sv.view, priv: sv.priv || null, myApi: props.gameApi ? props.gameApi() : null, me: meId.current, isHost, onMove: (seat, mv) => sv.pause ? (props.toast && props.toast("这一轮停着，等开局的人点「接着来」")) : gs.move(gid, seat, mv), onReveal: () => gs.reveal(gid), side: sv.side || [], onSide: x => gs.side(gid, x), nick: myNick() }),
-          root.NetGameUI && h(root.NetGameUI.TalkStrip, { lines: (sv.side || []).filter(x => x.kind === "talk"), charOf: l => { const st = l && l.seat >= 0 ? inv.seats[l.seat] : null; return st && st.kind === "char" ? charsById[st.charId] || null : null; } }),
+          // 桌上谁的角色正在想／在说（对方那边的也看得到）
+          (() => { const ty = [].concat(...Object.keys(sv.typing || {}).map(k => sv.typing[k] || [])); return ty.length ? h("div", { "data-wk": "nrgametyping", style: { padding: "6px 16px 0", fontFamily: F_BODY, fontSize: fs(12), color: t.fog } }, ty.join("、") + " 正在说…") : null; })(),
+          !(A && A.ownTalk) && root.NetGameUI && h(root.NetGameUI.TalkStrip, { lines: (sv.side || []).filter(x => x.kind === "talk"), charOf: l => { const st = l && l.seat >= 0 ? inv.seats[l.seat] : null; return st && st.kind === "char" ? charsById[st.charId] || null : null; } }),
           // 我带上这一桌的角色：点谁谁在牌桌上说一句，「一起说」让几位一次说（她 11-22：角色不自动接话，只有她点了才开口）
           !done && (() => { const seatedMine = inv.seats.filter(x => x.kind === "char" && x.peer === meId.current);
             // 有台下的游戏（擂台）：我带进房间、没上台的角色也在这一排，点了在台下发一条弹幕
@@ -2308,7 +2312,7 @@
               mineAt.length > 1 && h("button", { "data-wk": "nrtabletogether", disabled: tableBusy, onClick: () => go(mineAt.map(x => x.charId)), className: "active:opacity-60 disabled:opacity-40",
                 style: { flexShrink: 0, minHeight: 32, padding: "0 10px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.ink } }, "一起说")); })(),
           // 牌桌上「说一句」（单机牌桌 CardSay 那一格的样子和挂点）：玩的人、观战的人都能说；角色不自动接，要她点上面的头像
-          !done && h("div", { "data-wk": "gamesay", style: { display: "flex", gap: 6, padding: "8px 16px 0" } },
+          !done && !(A && A.ownTalk) && h("div", { "data-wk": "gamesay", style: { display: "flex", gap: 6, padding: "8px 16px 0" } },
             // 不受控：打字不重画整间房（typing-hot-path）
             h("input", { "data-wk": "gameinput", "data-part": "talk", ref: tableSayRef, defaultValue: "", maxLength: 160,
               onKeyDown: e => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); sayAtTable(gid); } }, placeholder: "在牌桌上说一句",
@@ -2381,7 +2385,8 @@
     // 每隔几秒看一眼自己这台在放什么，变了才广播（暂停、没在放＝空）
     useEffect(() => {
       if (!props.nowSong) return;
-      const tick = () => { const s0 = props.nowSong(), x = s0 && s0.playing ? songX(s0) : null;
+      // 每次都从 propsRef 现拿：这个 effect 只挂一次，直接用 props.nowSong 会一直拿着第一次那份（播放器状态是那一刻的，后来切歌、播放都看不见——她 11-22：横幅连自己的歌都不显示）
+      const tick = () => { const f = (propsRef.current || props).nowSong, s0 = f ? f() : null, x = s0 && s0.playing ? songX(s0) : null;
         const v = x ? { title: x.title, artist: x.artist } : null;
         // 没变也每 30 秒再报一次：刚进房（还在「带谁进来」那页）时报出去的那一声，房里的人可能还没在听（她 11-22：不是房主的人在听什么，房主那边横幅上看不到）
         const same = JSON.stringify(v) === JSON.stringify(myNp.current);
@@ -2871,7 +2876,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         h("div", { "data-wk": "nrgamefull", className: "flex-1 min-h-0" }, gp.body),
         h(HalfWinFrame, { win: chatWin, setWin: setChatWin, forKey: "netchat",
           pillLabel: "房间聊天" + (gp.unread ? " · " + gp.unread + " 条新消息" : "") + " ▴", pillHot: gp.unread > 0 },
-          h("div", { "data-wk": "nrchathalf", className: "h-full flex flex-col", style: { background: t.bg } }, chatCore)),
+          h("div", { "data-wk": "nrchathalf", className: "h-full flex flex-col", style: { background: t.bg2 } }, chatCore)),
         ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sendSong, sayRich, sendRp,
           photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
         joinSheet());
@@ -2936,8 +2941,8 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
     }
     // 自己带开局页的那几盒（辩论擂台）：页面在它自己的文件里，这儿只套顶栏
     const prepA = page === "gameprep" && room && gamePend && GC() ? GC().ADAPTERS[gamePend.game.key] : null;
-    if (prepA && prepA.Prep) return shell(h(Head, { zh: gamePend.game.zh, onBack: () => setPage("gamepick") }), scroll([
-      h(prepA.Prep, { key: "p", myChars: (room.myChars || []).map(c => charsById[c.id]).filter(Boolean), myApi: props.gameApi ? props.gameApi() : null, nick: myNick(), onSend: (cfg, pz) => sendInvite(gamePend.game, cfg, pz) })]));
+    if (prepA && prepA.Prep) return shell(h(Head, { zh: gamePend.game.zh, onBack: () => { setGamePend(null); setPage(OWN_SLOT[gamePend.game.key] ? "chat" : "gamepick"); } }), scroll([
+      h(prepA.Prep, { key: "p", allChars: props.characters || [], myChars: (room.myChars || []).map(c => charsById[c.id]).filter(Boolean), myApi: props.gameApi ? props.gameApi() : null, nick: myNick(), onSend: (cfg, pz) => sendInvite(gamePend.game, cfg, pz) })]));
     if (page === "gameprep" && room && gamePend) {
       // 谁出题：开局的人（就是你，下面写或者现出）／系统现出／指定一个座位／轮流（每局「再来一局」换下一个座位）。出题的人这一局不参与问
       const soup = gamePend.game.key === "haigui", md = prep.mode;
