@@ -33635,6 +33635,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     //   它本来就是「像歌一样播的一段静音」，playSong(KEEPALIVE_ID) 走的是同一条路。
     roomMusicRef.current = (prevId && resolveSong(prevId)) ? {
       id: prevId,
+      // 连歌本身一起记（她 2026-11-23「音乐这么容易断了整个悬浮就没了」）：搜来直接放的那首只挂在 nowSong 上，
+      //   借用的那首一放就把 nowSong 换掉，出门时按 id 再也找不着它，只好 stopPlayer，悬浮跟着没了
+      song: resolveSong(prevId),
       queue: (((listenRef.current || {}).nowQueue) || []).slice(),
       t: (el && el.currentTime) || 0,
       playing: !!(el && !el.paused)
@@ -33647,9 +33650,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     roomMusicRef.current = null;
     if (prev && prev.keep) return;   // 进门前就在放这一层的歌：原样接着放，不收针
     // 进来前本来就没在放 → 停干净（她说的「出来音乐会停，这个确实要这样」）
-    if (!prev || !resolveSong(prev.id)) { stopPlayer(); return; }
+    if (!prev || !(resolveSong(prev.id) || prev.song)) { stopPlayer(); return; }
     // 有得还就直接换回去，不先 stopPlayer——那会让播放器闪一下没影
-    await playSong(prev.id, prev.queue.length ? prev.queue : undefined);
+    await playSong(resolveSong(prev.id) ? prev.id : prev.song, prev.queue.length ? prev.queue : undefined);
     const el2 = audioElRef.current;
     if (!el2) return;
     if (prev.t > 1) { try { el2.currentTime = prev.t; } catch (e) {} }   // 还回原来那个位置
