@@ -165,10 +165,14 @@ test("编辑页：拿着锁的人以外只能看；收起编辑（存下／关�
 
 test("墙：频道和房间画的是同一张 StickyNote；公共那段里不提联机", () => {
   const k = cs.indexOf("function StickyNote("), e = cs.indexOf("function ChannelPlayView(", k);
+  // 墙、歌单、文件行、索引签都是公共那几份，频道和房间都调它们
+  for (const f of ["NoteWall", "SongShelf", "FileRow", "IndexTabs"]) { assert.ok(cs.indexOf("function " + f + "(") > k && cs.indexOf("function " + f + "(") < e, f); assert.match(src, new RegExp("h\\(" + f + ", \\{")); }
+  assert.doesNotMatch(src.slice(src.indexOf("const boardEl"), src.indexOf("const docEl")), /borderRadius: 999/);
   assert.ok(k > 0 && e > k);
   assert.ok(!/联机|netroom/i.test(cs.slice(cs.lastIndexOf("\n//", cs.indexOf("const STICKY_TINT")) - 400, e)));
-  assert.match(cs.slice(e, cs.indexOf("function ChannelTabs(")), /h\(StickyNote, \{ key: n\.id, n, i, nameOf: nm, mine: n\.by === "me"/);
-  assert.match(src, /h\(StickyNote, \{ key: n\.id, n, i, mine: n\.by === me/);
+  assert.match(cs.slice(k, e), /h\(StickyNote, \{ key: n\.id, n, i, nameOf/);
+  assert.match(cs.slice(e, cs.indexOf("function ChannelTabs(")), /h\(NoteWall, \{ notes: st\.notes, nameOf: nm, mineOf: n => n\.by === "me"/);
+  assert.match(src, /h\(NoteWall, \{ notes: b\.notes, nameOfNote:/);
 });
 
 test("角色能写：note、file 从 TA 那条里解出来；一起说那条照样有", () => {

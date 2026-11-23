@@ -1676,7 +1676,6 @@
     // 房间里的墙、歌单、文档（存在 room.board；锁只在线上，不进存档）
     const [boardTab, setBoardTab] = useState("");    // 顶上那一条开着哪一格：""＝收起 / wall / songs / docs
     const [docId, setDocId] = useState(null);         // 正打开的那份文档
-    const [libOpen, setLibOpen] = useState(false);    // 歌单里「从我的歌里挑」
     const locksRef = useRef({}), [locks, setLocksRaw] = useState({});
     const setLocks = l => { locksRef.current = l; setLocksRaw(l); };
     const myLocks = useRef(new Set());               // 我此刻拿着的那几份：心跳只报这几份
@@ -2775,52 +2774,35 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
       const b = Core.boardOf(r), pl = Core.playlist(r), me = meId.current;
       const tabs = [["wall", "墙", b.notes.length], ["songs", "歌单", pl.length], ["docs", "文档", b.docs.length]];
       const small = { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.6 };
-      const pill = { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(12), color: t.sub, background: t.bg };
       const tap = (txt, on, wk) => h("button", { "data-wk": wk, onClick: on, className: "active:opacity-60", style: { color: t.accent, fontFamily: F_BODY, fontSize: fs(12) } }, txt);
-      const panel = boardTab === "wall" ? [
-          h("div", { key: "a", className: "flex items-center", style: { gap: 10, marginBottom: 10 } },
-            h("button", { "data-wk": "nrnoteadd", onClick: () => requestAppPrompt("贴一张便签", "房里每个人都看得到，几个字也算。", "", v => { const x = String(v || "").trim(); if (x) addNote(x); }, "贴上"), className: "active:opacity-60", style: pill }, "贴一张"),
-            h("span", { style: small }, "谁都能贴；自己贴的（和自己带来的人贴的）自己能撕。")),
-          b.notes.length ? h("div", { key: "g", "data-wk": "nrnotes", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "14px 10px", paddingTop: 6 } },
-            b.notes.slice().reverse().map((n, i) => h(StickyNote, { key: n.id, n, i, mine: n.by === me, nameOf: () => n.by === me && !n.charId ? "我" : (n.name || "有人"),
-              actions: [n.by === me ? tap("撕掉", () => dropBoard(n.id), "nrnotetear") : null] })))
-            : h("div", { key: "e", style: small }, "墙上还空着。")]
+      // 墙／歌单／文档的画法都是频道那几份公共的（NoteWall / SongShelf / FileRow / IndexTabs，她 2026-11-22「胶囊好丑，参考频道，抽成公共的」）
+      const panel = boardTab === "wall" ? h(NoteWall, { notes: b.notes, nameOfNote: (n, by) => by === n.by ? (n.by === me && !n.charId ? "我" : (n.name || "有人")) : (by === me ? "我" : nickOf(by)),
+          mineOf: n => n.by === me, onAdd: addNote, note: "谁都能贴；自己贴的（和自己带来的人贴的）自己能撕。",
+          actionsOf: n => [n.by === me ? tap("撕掉", () => dropBoard(n.id), "nrnotetear") : null] })
         : boardTab === "songs" ? (() => { const lib = props.songLib ? props.songLib() : [], cur = props.nowSong ? props.nowSong() : null;
-          return [
-            h("div", { key: "a", className: "flex flex-wrap", style: { gap: 8, marginBottom: 8 } },
-              cur && cur.title ? h("button", { "data-wk": "nrplnow", onClick: () => addPick(cur), className: "active:opacity-60", style: pill }, "♪ 把正在听的《" + String(cur.title).slice(0, 12) + "》加进来") : null,
-              lib.length ? h("button", { "data-wk": "nrpllib", onClick: () => setLibOpen(v => !v), className: "active:opacity-60", style: pill }, libOpen ? "收起我的歌" : "从我的歌里挑") : null),
-            libOpen ? h("div", { key: "l", "data-wk": "nrpllist", style: { maxHeight: 200, overflowY: "auto", marginBottom: 8, borderTop: "1px solid " + t.line } }, lib.slice(0, 300).map((x, i) =>
-              h("button", { key: (x.id || "") + i, onClick: () => addPick(x), className: "w-full text-left active:opacity-60", style: { display: "block", padding: "7px 0", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(13), color: t.ink } },
-                "《" + x.title + "》" + (x.artist ? " - " + x.artist : "")))) : null,
-            h("div", { key: "n", style: Object.assign({}, small, { marginBottom: 6 }) }, "房里发过的歌卡会自己收进来。点「放这首」在你这台放，各放各的；自己加的自己能拿掉。"),
-            pl.length ? pl.slice().reverse().map(x => h("div", { key: x.id, "data-wk": "nrplsong", className: "flex items-center", style: { gap: 10, padding: "8px 0", borderBottom: "1px solid " + t.line } },
-              h("div", { className: "flex-1 min-w-0" },
-                h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: t.ink } }, "《" + x.song.title + "》" + (x.song.artist ? " - " + x.song.artist : "")),
-                h("div", { style: small }, (x.by === me ? "我" : x.name || nickOf(x.by)) + (x.card ? " 发的歌卡" : " 加的"))),
-              tap("放这首", () => playCard(x.song), "nrplplay"),
-              x.by === me ? tap("拿掉", () => dropBoard(x.id), "nrpldrop") : null))
-              : h("div", { key: "e", style: small }, "歌单还是空的。")]; })()
-        : boardTab === "docs" ? [
-          h("div", { key: "a", className: "flex items-center", style: { gap: 10, marginBottom: 8 } },
-            h("button", { "data-wk": "nrdocnew", onClick: newDoc, className: "active:opacity-60", style: pill }, "新开一份"),
-            h("span", { style: small }, "一份同时只能一个人写：有人在写、或者有人的角色正在说话时，别人只能看。")),
-          b.docs.length ? b.docs.slice().sort((x, y) => (y.updatedTs || 0) - (x.updatedTs || 0)).map(d => { const why = docWhy(d.id);
-            return h("button", { key: d.id, "data-wk": "nrdocrow", "data-locked": why ? "1" : "0", onClick: () => setDocId(d.id), className: "w-full text-left active:opacity-70", style: { display: "block", padding: "9px 0", borderBottom: "1px solid " + t.line } },
-              h("span", { className: "block truncate", style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: t.ink } }, "《" + d.name + "》"),
-              h("span", { className: "block truncate", style: small }, docName(d, d.updatedBy) + " · " + String(d.text || "").length + " 字" + (why ? " · " + why : ""))); })
-            : h("div", { key: "e", style: small }, "还没有文档。聊出了计划、清单，可以放进来，TA 们也会顺手往里写。")]
+          const has = x => pl.some(y => typeof chpSongMatch === "function" ? !!chpSongMatch([y.song], x) : y.song.title === x.title);
+          return h(SongShelf, { rows: pl.map(x => ({ key: x.id, title: x.song.title, artist: x.song.artist, by: (x.by === me ? "我" : x.name || nickOf(x.by)) + (x.card ? " 发的歌卡" : " 加的"),
+              actions: [["放这首", () => playCard(x.song)], x.by === me ? ["拿掉", () => dropBoard(x.id)] : null] })),
+            now: cur, nowIn: cur && cur.title && has(cur), lib, libIn: has, onAdd: x => { if (!has(x)) addPick(x); },
+            note: "房里发过的歌卡会自己收进来。点「放这首」在你这台放，各放各的；自己加的自己能拿掉。" }); })()
+        : boardTab === "docs" ? h(React.Fragment, null,
+          h("div", { style: { padding: "0 0 8px" } },
+            h("button", { "data-wk": "nrdocnew", onClick: newDoc, className: "active:opacity-60", style: shelfBtn(t) }, "新开一份")),
+          h("div", { style: Object.assign({}, small, { paddingBottom: 10 }) }, "一份同时只能一个人写：有人在写、或者有人的角色正在说话时，别人只能看。"),
+          b.docs.length ? h("div", { style: { margin: "0 -16px" } }, b.docs.slice().sort((x, y) => (y.updatedTs || 0) - (x.updatedTs || 0)).map(d => { const why = docWhy(d.id);
+            return h(FileRow, { key: d.id, wk: "nrdocrow", part: "doc", locked: !!why, onClick: () => setDocId(d.id), title: "《" + d.name + "》",
+              meta: docName(d, d.updatedBy) + " · " + String(d.text || "").length + " 字" + (why ? " · " + why : "") }); }))
+            : h("div", { style: small }, "还没有文档。聊出了计划、清单，可以放进来，TA 们也会顺手往里写。"))
         : null;
-      // 她 2026-11-22：不要下拉半屏，跟频道一样点进去是一整页（PageSheet，频道文件那一页同一个外壳），左上角返回回到房间
+      // 她 2026-11-22：不要下拉半屏，跟频道一样点进去是一整页；顶上那排是频道同款矮索引签，点「聊天」回到房间
       const ZH = { wall: "墙", songs: "房间歌单", docs: "文档" };
+      const items = [["chat", "聊天"], ["wall", "墙" + (b.notes.length ? " " + b.notes.length : "")], ["songs", "歌单" + (pl.length ? " " + pl.length : "")], ["docs", "文档" + (b.docs.length ? " " + b.docs.length : "")]];
+      const go = k => setBoardTab(k === "chat" ? "" : k);
       return [
-        h("div", { key: "bd", "data-wk": "nrboard", className: "shrink-0", style: { borderBottom: "1px solid " + t.line } },
-          h("div", { className: "flex items-center", style: { gap: 6, padding: "5px 12px" } },
-            tabs.map(([k, zh, n]) => h("button", { key: k, "data-wk": "nrboardtab", "data-part": k, onClick: () => setBoardTab(k), className: "active:opacity-60",
-              style: { minHeight: 30, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: fs(12), color: t.sub, background: "transparent", border: "1px solid " + t.line } },
-              zh + (n ? " " + n : ""))))),
+        h("div", { key: "bd", "data-wk": "nrboard", className: "shrink-0" }, h(IndexTabs, { items, tab: "chat", onTab: go })),
         panel && h(PageSheet, { key: "bdpage", onClose: () => setBoardTab(""), zh: ZH[boardTab], sub: "房间 " + r.code, scrollKey: "nrboard-" + boardTab },
-          h("div", { "data-wk": "nrboardpanel", "data-part": boardTab, style: { padding: "12px 16px 28px" } }, panel))];
+          h(IndexTabs, { items, tab: boardTab, onTab: go }),
+          h("div", { "data-wk": "nrboardpanel", "data-part": boardTab, style: { padding: "14px 16px 28px" } }, panel))];
     };
     // 打开的那份文档：频道文件同一页（ChfDocPage），多了锁——别人在写、角色在说话时只能看
     const docEl = () => {
