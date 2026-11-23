@@ -14794,6 +14794,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.action == null) { const v = salvageStr("action"); if (v) parsed.action = v; }
       if (parsed.wearing == null) { const v = salvageStr("wearing"); if (v) parsed.wearing = v; }
       if (parsed.thought == null) { const v = salvageStr("thought"); if (v) parsed.thought = v; }
+      // 心声里漏进了 JSON 的收尾和后面的正文（她 2026-11-23 截图：心声末尾一个「}」，下面接着整段回复）：
+      //   模型把 thought 的收尾引号写成了中文引号，解析一路吃到底。到那个单独成行的括号为止。
+      if (typeof parsed.thought === "string") { const _cut = parsed.thought.search(/\n\s*[}\]]\s*(\n|$)/); if (_cut > 0) parsed.thought = parsed.thought.slice(0, _cut).trim(); }
       // mood 兼容规范对象 {label,...}，也兼容模型偶发的简写字符串 "烦躁"。
       // 旧逻辑只认对象，字符串会整轮静默丢弃，状态卡看起来就像彻底冻住。
       if (typeof parsed.mood === "string" && parsed.mood.trim() && parsed.mood.toLowerCase() !== "null") parsed.mood = { label: parsed.mood.trim() };
