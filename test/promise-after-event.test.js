@@ -93,5 +93,5 @@ test("兜底：不乱补——没东西在路上、只说「到了」、只说�
 });
 
 test("兜底接在落账前、只在模型没填时补，隔离房不许从侧门补回来", () => {
-  assert.match(app, /if \(!parsed\.laterPromise && \(!room \|\| !!\(room\.writeback && room\.writeback\.sharedState\)\)\) parsed\.laterPromise = promiseFromWords\(charId, parsed\.word\);\n\s*const lp = parsed\.laterPromise;/);
+  assert.match(app, /if \((?:!_noChain && )?!parsed\.laterPromise && \(!room \|\| !!\(room\.writeback && room\.writeback\.sharedState\)\)\) parsed\.laterPromise = promiseFromWords\(charId, parsed\.word\);\n\s*const lp = parsed\.laterPromise;/);
 });
