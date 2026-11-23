@@ -61,3 +61,20 @@ test("接线：大厅架子上有这一盒；index 里在 netroom.js 前面；�
   assert.match(read("js/netroom.js"), /h\(A\.Table, \{ charsById, inv:/);
   assert.match(read("js/stamp-duel-ui.js"), /window\.StampDuelParts = \{ Envelope, Ticket/);
 });
+test("邮区巡查、邮局值班：同一张图／同一个柜台，各走各的，最后比分", async () => {
+  const w = load();
+  for (const m of ["patrol", "shift"]) {
+    const { st, res, A } = await run(w, m, 3);
+    assert.ok(res, m + " 没打完"); assert.equal(st.sheets.length, 3);
+    if (m === "patrol") { assert.ok(/一起巡查「/.test(res.text), res.text); assert.equal(st.sheets[1].p.cells.map(c => c.type).join(), st.sheets[2].p.cells.map(c => c.type).join()); }
+    else assert.ok(/一起值班：/.test(res.text), res.text);
+    const p0 = A.priv(st, 0); assert.ok(p0.sheet); const v = A.view(st); assert.equal(v.sheets[0].p, undefined);
+  }
+});
+test("值班：柜台照轮次和刷新次数摆，同一轮大家一样；没买票不能开打", async () => {
+  const w = load(), A = w.NetGameCore.ADAPTERS.stamps, iv = inv(2);
+  let st = await A.init(iv, { prep: { mode: "shift" } });
+  st = A.apply(st, 0, { deck: w.StampDuel.deckFrom(mk("a"), 1) }, { inv: iv }).st; st = A.apply(st, 1, { deck: w.StampDuel.deckFrom(mk("b"), 2) }, { inv: iv }).st;
+  assert.deepEqual(st.sheets[0].sh.shop.map(u => u.cardId), st.sheets[1].sh.shop.map(u => u.cardId));
+  assert.ok(A.apply(st, 0, { fight: true }, { inv: iv }).err);
+});

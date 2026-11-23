@@ -8,6 +8,8 @@
 // 规则全是邮票对局那一份（window.StampDuel：newDuel / applyOps / autoOps / flip / endTurn），单机、联机同一个函数；
 //   这里只管谁的回合、谁的那一副、那一串动作交给庄。不调模型：角色、NPC 都由手机照单机那位陪打的思路替着下（autoOps）。
 // 每个人的卡组在她自己那台从她的邮票册里抽（卡面只在自己那台看得到，别人那边只写卡名）。
+//   · 邮区巡查（patrol）：同一张 5×5 地图（同一个种子），每人带自己那副各走各的，路上的仗自己打，比巡查分。
+//   · 邮局值班（shift）：柜台从大家交的那几副里摆（同一轮大家柜台一样、对面审查局也一样），各自买票凑阵容，比撑到第几轮。
 // 不搬的那几样（远信、剧情闯关、邮局小店、派件、小物册、每周约定）是她跟角色两个人的事，留在单机。
 (function (root) {
   "use strict";
@@ -24,8 +26,12 @@
     raid: { zh: "积压件", desc: "一起打打不死的总局，比打出多少伤害", min: 2, max: 4 },
     siege: { zh: "护信", desc: "一起守住信封，一波一波扛过去", min: 2, max: 4 },
     edict: { zh: "封缄令", desc: "每人给这一把加一条难度，再一起打", min: 2, max: 4 },
-    puzzle: { zh: "死信", desc: "同一道题各解各的，看谁打得最多", min: 2, max: 4 }
+    puzzle: { zh: "死信", desc: "同一道题各解各的，看谁打得最多", min: 2, max: 4 },
+    patrol: { zh: "邮区巡查", desc: "同一张地图各走各的，比巡查分", min: 2, max: 4 },
+    shift: { zh: "邮局值班", desc: "柜台从大家的卡里摆，各自凑阵容打审查局，比撑到第几轮", min: 2, max: 4 }
   };
+  // 各玩各的、最后比分的那几样：每个座位一张自己的单子（sheets），只发到自己那台
+  const RACE = { puzzle: 1, patrol: 1, shift: 1 };
   const RULES = { "": "普通", quick: "快局（各 25 血、最多 7 回合）", reverse: "反着来（用对面的卡组）" };
   const COOP = { relay: 1, raid: 1, siege: 1, edict: 1 };
   const DECK_MAX = 12;
@@ -60,6 +66,8 @@
   function startGame(st, inv) {
     const S = D(), n = inv.seats.length, seed = st.seed;
     if (st.mode === "puzzle") { st.puz = S.puzzleOf(int(st.cfg.lv, 1, 40, 8), seed); st.sheets = Array.from({ length: n }, () => null); st.phase = "play"; return; }
+    if (st.mode === "patrol") { st.sheets = st.decks.map(d => { const p = S.patrolNew(d, new Date(), seed, false); p.deck = d; return { p, battle: null, btype: "", n: 0, done: false }; }); st.phase = "play"; return; }
+    if (st.mode === "shift") { st.pool = [].concat(...st.decks); st.sheets = st.decks.map(() => { const sh = S.shiftNew(seed); shiftRoll(sh, st.pool); return { sh, battle: null, n: 0, done: false }; }); st.phase = "play"; return; }
     if (st.mode === "duel") {
       let a = st.decks[0], b = st.decks[1];
       if (st.cfg.rule === "reverse") { const t = a; a = b; b = t; }
@@ -77,6 +85,55 @@
   }
   const scoreOf = st => st.mode === "raid" ? ((st.ds && st.ds.raid && st.ds.raid.dealt) || 0) : st.mode === "siege" ? ((st.ds && st.ds.siege && st.ds.siege.cleared) || 0) : st.mode === "edict" ? ((st.ds && st.ds.edictPts) || 0) : 0;
 
+  // 值班的柜台：从大家交的那几副里摆五张；同一轮、刷新同样次数的人看到的柜台一样（种子只跟轮次和刷新次数走）
+  function shiftRoll(sh, pool, paid) {
+    const S = D(); if (paid) { if (sh.coins < S.SHIFT.REROLL) return false; sh.coins -= S.SHIFT.REROLL; }
+    let a = ((sh.seed ^ (sh.round * 7349) ^ (++sh.rolls * 104723)) >>> 0) || 1; const R = () => { a = (Math.imul(a, 1103515245) + 12345) >>> 0; return a / 4294967296; };
+    const list = (pool || []).filter(Boolean); sh.shop = Array.from({ length: Math.min(S.SHIFT.SHOP, list.length) }, () => Object.assign({}, list[Math.floor(R() * list.length)]));
+    return true;
+  }
+  const slimSheet = x => x ? Object.assign({}, x, { battle: x.battle ? slim(x.battle) : null }) : x;
+  // 巡查、值班：一张单子往前走一步（庄这一台跑）
+  function raceStep(st, i, mv, ops) {
+    const S = D(), x = st.sheets[i];
+    if (x.battle) {
+      S.applyOps(x.battle, "me", ops); S.endTurn(x.battle); x.battle.undo = [];
+      if (x.battle.over) { const win = x.battle.over.winner === "me", hp = x.battle.me.hp;
+        if (st.mode === "patrol") S.patrolAfter(x.p, x.btype, win, hp);
+        else { S.shiftAfter(x.sh, win); if (!x.sh.done) shiftRoll(x.sh, st.pool); }
+        x.battle = null; }
+    } else if (st.mode === "patrol") {
+      const p = x.p;
+      if (mv && mv.end) p.done = { why: "steps" };
+      else { const g = Array.isArray(mv && mv.go) ? mv.go : [], res = S.patrolMove(p, int(g[0], 0, 4, -1), int(g[1], 0, 4, -1)); if (!res) return "那一格走不过去";
+        if (["fight", "elite", "boss"].indexOf(res.type) >= 0) { const b = S.patrolBattle(p, p.deck, res.type); x.battle = S.newDuel(p.deck.map(u => Object.assign({}, u)), b.foeDeck, b.seed, b.opts); x.btype = res.type; } }
+    } else {
+      const sh = x.sh;
+      if (mv && mv.buy != null) { const r = S.shiftBuy(sh, int(mv.buy, 0, 9, 0)); if (!r.ok) return r.why; }
+      else if (mv && mv.sell != null) { if (!S.shiftSell(sh, int(mv.sell, 0, 20, 0))) return "这一张不在卡组里"; }
+      else if (mv && mv.roll) { if (!shiftRoll(sh, st.pool, true)) return "邮花不够刷新"; }
+      else if (mv && mv.fight) { if (!sh.bench.length) return "先在柜台买几张票"; const s = ((st.seed ^ (sh.round * 7919)) >>> 0) || 1; x.battle = S.newDuel(S.shiftDeck(sh), S.edictDeck(s), s, { foeLv: S.shiftFoeLv(sh), cap: 8 }); }
+      else return "这一步看不懂";
+    }
+    x.n++; x.done = !!(x.p ? x.p.done : x.sh.done) && !x.battle;
+    if (st.sheets.every(y => y.done)) st.phase = "done";
+    return "";
+  }
+  // 角色、NPC 替着走：仗照陪打的思路下；巡查挑最值的一格走，值班买得起就买、买不动就开打
+  function raceAuto(x, mode, style) {
+    const S = D(); if (!x || x.done) return { pass: true };
+    if (x.battle) return { ops: S.autoOps(x.battle, style || "默契") };
+    if (mode === "patrol") {
+      const p = x.p, N = S.PATROL.N, low = p.hp < p.max * 0.5, best = { v: -99, go: null };
+      [[-1, 0], [0, -1], [0, 1], [1, 0]].forEach(([dr, dc]) => { const r = p.pos[0] + dr, c = p.pos[1] + dc; if (!S.patrolCan(p, r, c)) return; const cl = p.cells[r * N + c];
+        const v = cl.done ? 0 : !cl.open ? 6 : ({ boss: low ? -10 : 60, elite: low ? -5 : 25, chest: 15, fight: low ? 2 : 10, event: 8, rest: low ? 30 : 3 })[cl.type] || 1;
+        const w = v - dr * 2 + Math.random(); if (w > best.v) { best.v = w; best.go = [r, c]; } });
+      return best.go ? { go: best.go } : { end: true };
+    }
+    const sh = x.sh, k = sh.shop.map((u, i) => ({ u, i })).filter(o => S.shiftPrice(o.u) <= sh.coins).sort((a, b) => S.shiftPrice(b.u) - S.shiftPrice(a.u))[0];
+    return k && sh.bench.length < S.SHIFT.BENCH ? { buy: k.i } : { fight: true };
+  }
+
   const A = {
     zh: "集邮社", localTalk: true, mergeNpc: null, needPriv: true,
     seatRange: cfg => { const m = MODES[(cfg && cfg.smode) || "duel"] || MODES.duel; return { min: m.min, max: m.max }; },
@@ -89,7 +146,9 @@
       return st;
     },
     view(st) {
-      const v = { mode: st.mode, cfg: st.cfg, phase: st.phase, ready: st.decks.map(Boolean), edicts: st.edicts, pick: st.pick, active: st.active, sent: Object.keys(st.opsIn || {}).map(Number), sheets: st.sheets ? st.sheets.map(x => x ? { dealt: x.dealt, best: x.best } : null) : null };
+      const v = { mode: st.mode, cfg: st.cfg, phase: st.phase, ready: st.decks.map(Boolean), edicts: st.edicts, pick: st.pick, active: st.active, sent: Object.keys(st.opsIn || {}).map(Number), sheets: !st.sheets ? null : st.mode === "patrol" ? st.sheets.map(x => ({ score: x.p.score, steps: x.p.steps, hp: x.p.hp, fight: !!x.battle, done: x.done, n: x.n }))
+        : st.mode === "shift" ? st.sheets.map(x => ({ round: x.sh.round, lives: x.sh.lives, win: !!(x.sh.done && x.sh.done.win), fight: !!x.battle, done: x.done, n: x.n }))
+        : st.sheets.map(x => x ? { dealt: x.dealt, best: x.best } : null) };
       if (st.ds) v.ds = st.mode === "duel" ? strip(strip(st.ds, "me"), "foe") : slim(st.ds);
       if (st.puz) v.puzBest = st.puz.puzzle ? st.puz.puzzle.best : 0;
       return v;
@@ -99,6 +158,7 @@
       if (st.phase === "deck") return st.decks[i] ? { phase: "deck", done: true } : { phase: "deck" };
       if (st.mode === "duel" && st.ds) return { ds: strip(i === 0 ? st.ds : D().flip(st.ds), "foe"), sent: !!(st.opsIn || {})[i] };
       if (st.mode === "puzzle" && st.puz) return { ds: slim(st.puz), sent: !!(st.sheets || [])[i] };
+      if (RACE[st.mode] && st.sheets) return { sheet: slimSheet(st.sheets[i]) };
       return { phase: st.phase };
     },
     turns(v) {
@@ -107,11 +167,12 @@
       if (v.phase !== "play" || (v.ds && v.ds.over)) return [];
       if (v.mode === "duel") return [0, 1].filter(i => (v.sent || []).indexOf(i) < 0);
       if (v.mode === "puzzle") return (v.sheets || []).map((x, i) => x ? -1 : i).filter(i => i >= 0);
+      if (RACE[v.mode]) return (v.sheets || []).map((x, i) => x && !x.done ? i : -1).filter(i => i >= 0);
       return [v.active];
     },
     turn(v) { const a = A.turns(v); return a.length ? a[0] : -1; },
     waiting(v) { return A.turns(v); },
-    roundOf: v => v.phase + ":" + ((v.ds && v.ds.turn) || 0) + ":" + (v.pick || 0) + ":" + (v.active || 0),
+    roundOf: v => v.phase + ":" + ((v.ds && v.ds.turn) || 0) + ":" + (v.pick || 0) + ":" + (v.active || 0) + ":" + (v.sheets || []).map(x => (x && x.n) || 0).join(","),
     apply(st0, i, mv, ctx) {
       const st = clone(st0), inv = ctx.inv, S = D(); if (!S) return { err: "邮票册还没装上" };
       const n = inv.seats.length;
@@ -130,6 +191,10 @@
       }
       if (st.phase !== "play") return { err: "这一局还没开始" };
       const ops = cleanOps(mv && mv.ops);
+      if (st.mode === "patrol" || st.mode === "shift") {
+        if (!st.sheets[i] || st.sheets[i].done) return { err: "这一位已经走完了" };
+        const why = raceStep(st, i, mv || {}, ops); return why ? { err: why } : { st };
+      }
       if (st.mode === "puzzle") {
         if ((st.sheets || [])[i]) return { err: "这一位已经交过了" };
         const x = clone(st.puz); S.applyOps(x, "me", ops); S.endTurn(x);
@@ -154,6 +219,7 @@
     npcMove(st, i, inv) {
       if (st.phase === "deck") return { deck: npcDeck(st.seed + i * 977, nmOf(inv, i)) };
       if (st.phase === "edict") { const left = Object.keys(D().EDICTS).filter(k => st.edicts.indexOf(k) < 0); return { edict: left[(st.seed + i) % left.length] }; }
+      if (st.mode === "patrol" || st.mode === "shift") return raceAuto(st.sheets[i], st.mode, "默契");
       const ds = st.mode === "puzzle" ? st.puz : st.mode === "duel" && i === 1 ? D().flip(st.ds) : st.ds;
       return { ops: D().autoOps(ds, "默契") };
     },
@@ -163,6 +229,7 @@
       const c = ctx.char || {}, nm = c.remark || c.name || "TA";
       if (view.phase === "deck") return { deck: myDeck(c.id, nm, () => nm) };
       if (view.phase === "edict") { const left = Object.keys(D().EDICTS).filter(k => (view.edicts || []).indexOf(k) < 0); return { edict: left[Math.floor(Math.random() * left.length)] }; }
+      if (view.mode === "patrol" || view.mode === "shift") return raceAuto(ctx.priv && ctx.priv.sheet, view.mode, (ctx.opts && ctx.opts.style) || "默契");
       const ds = (ctx.priv && ctx.priv.ds) || view.ds; if (!ds) return { pass: true };
       return { ops: D().autoOps(ds, (ctx.opts && ctx.opts.style) || "默契") };
     },
@@ -171,6 +238,10 @@
       const nm = k => nmOf(inv, k), all = inv.seats.map((_, k) => k), M = MODES[st.mode].zh;
       if (st.mode === "puzzle") { const sc = st.sheets.map((x, k) => ({ k, d: (x && x.dealt) || 0 })), top = Math.max(...sc.map(x => x.d)), best = st.puz.puzzle.best;
         return { winners: sc.filter(x => x.d === top && top > 0).map(x => x.k), text: "死信第 " + st.cfg.lv + " 关（最多能打 " + best + "）：" + sc.slice().sort((a, b) => b.d - a.d).map(x => nm(x.k) + " " + x.d + (x.d >= best ? "（解开了）" : "")).join("，") + "。", replay: { mode: st.mode, lines: [] } }; }
+      if (st.mode === "patrol") { const sc = st.sheets.map((x, k) => ({ k, d: x.p.score })), top = Math.max(...sc.map(x => x.d));
+        return { winners: sc.filter(x => x.d === top).map(x => x.k), text: "一起巡查「" + st.sheets[0].p.theme + "」邮区：" + sc.slice().sort((a, b) => b.d - a.d).map(x => nm(x.k) + " " + x.d + " 分" + (st.sheets[x.k].p.done && st.sheets[x.k].p.done.why === "boss" ? "（打倒了巡查长）" : "")).join("，") + "。", replay: { mode: st.mode, lines: [] } }; }
+      if (st.mode === "shift") { const val = x => x.sh.done && x.sh.done.win ? 100 + x.sh.lives : x.sh.round, sc = st.sheets.map((x, k) => ({ k, v: val(x), x })), top = Math.max(...sc.map(y => y.v));
+        return { winners: sc.filter(y => y.v === top).map(y => y.k), text: "一起值班：" + sc.slice().sort((a, b) => b.v - a.v).map(y => nm(y.k) + (y.x.sh.done && y.x.sh.done.win ? " 值完 8 轮" : " 撑到第 " + y.x.sh.round + " 轮")).join("，") + "。", replay: { mode: st.mode, lines: [] } }; }
       const o = st.ds.over || {}, lines = (st.ds.log || []).slice(-12).map(l => cut(l.text, 80));
       if (st.mode === "duel") { const w = o.winner === "me" ? [0] : o.winner === "foe" ? [1] : [];
         return { winners: w, text: nm(0) + " 对 " + nm(1) + "，" + M + (st.cfg.rule ? "（" + RULES[st.cfg.rule].split("（")[0] + "）" : "") + "打了 " + o.turn + " 回合，" + (w.length ? nm(w[0]) + "赢了" : "打平了") + "（信封剩 " + o.me + " : " + o.foe + "）" + (st.cfg.wager && w.length ? "。彩头：" + st.cfg.wager : "") + "。", replay: { mode: st.mode, lines } }; }
@@ -183,6 +254,8 @@
       const M = (MODES[v.mode] || MODES.duel).zh;
       if (v.phase === "deck") return "在玩邮票册的" + M + "，大家正在从自己的邮票册里挑卡组。";
       if (v.phase === "edict") return "在玩邮票册的封缄令，正在轮流加难度：" + ((v.edicts || []).map(k => (D() && D().EDICTS[k] || {}).zh).filter(Boolean).join("、") || "还没加");
+      if (v.mode === "patrol") return "在玩邮票册的邮区巡查（同一张图各走各的，比分）：" + (v.sheets || []).map((x, k) => nmOf(inv, k) + " " + x.score + " 分、还剩 " + x.steps + " 步" + (x.fight ? "（在打仗）" : "") + (x.done ? "（走完了）" : "")).join("；");
+      if (v.mode === "shift") return "在玩邮票册的邮局值班（各自凑阵容打审查局，比撑到第几轮）：" + (v.sheets || []).map((x, k) => nmOf(inv, k) + " 第 " + x.round + " 轮、" + x.lives + " 条命" + (x.fight ? "（在打）" : "") + (x.done ? (x.win ? "（值完了）" : "（下班了）") : "")).join("；");
       if (v.mode === "puzzle") return "在解同一道死信（一回合打空，比谁打得最多）。" + (v.sheets || []).map((x, k) => x ? nmOf(inv, k) + " 打了 " + x.dealt : "").filter(Boolean).join("，");
       const ds = v.ds || {}, me = ds.me || {}, foe = ds.foe || {};
       const head = v.mode === "duel" ? nmOf(inv, 0) + " 的信封 " + me.hp + "，" + nmOf(inv, 1) + " 的信封 " + foe.hp : "大家的信封 " + me.hp + (v.mode === "raid" ? "，已经打出 " + ((ds.raid && ds.raid.dealt) || 0) + " 伤害" : "，对面信封 " + foe.hp);
@@ -195,7 +268,7 @@
   };
   ADAPTERS.stamps = A;
   NC.CHAR_OPTS.stamps = [];
-  A.shelf = { key: "stamps", zh: "集邮社", en: "Stamps", min: 2, max: 4, rule: "用邮票册的卡 · 对局、接力、积压件、护信、封缄令、死信" };
+  A.shelf = { key: "stamps", zh: "集邮社", en: "Stamps", min: 2, max: 4, rule: "用邮票册的卡 · 对局、接力、积压件、护信、封缄令、死信、巡查、值班" };
   A.MODES = MODES;
 
   // ───────────── 界面 ─────────────
@@ -291,6 +364,7 @@
         h("div", { style: small(t) }, "已经加了：" + ((v.edicts || []).map(k => E[k].zh + "（" + E[k].pt + " 分）").join("、") || "还没有") + "。轮到 " + nm(v.pick) + " 加。"),
         myTurn ? h("div", { className: "flex flex-wrap", style: { gap: 6 } }, left.map(k => h("button", { key: k, "data-wk": "nrstampsedictpick", onClick: () => onMove(my, { edict: k }), style: btn(t, false) }, E[k].zh + " +" + E[k].pt))) : null); }
     if (v.phase === "done" && v.mode === "puzzle") return h("div", { style: small(t) }, top, (v.sheets || []).map((x, k) => h("div", { key: k }, nm(k) + "：打了 " + ((x && x.dealt) || 0) + " / " + (v.puzBest || 0))));
+    if (v.mode === "patrol" || v.mode === "shift") return h(RaceView, { inv, v, sheet: priv && priv.sheet, my, top, onMove, nm });
     // 对局、死信：自己那份在 priv；接力那几样大家看同一张
     const own = (v.mode === "duel" || v.mode === "puzzle") && priv && priv.ds ? priv.ds : null, ds = own || v.ds;
     if (!ds) return h("div", { "data-wk": "nrgamestatus", style: small(t) }, top, v.mode === "puzzle" ? "你没有座位，等她们解完看结果。" : "等着开局…");
@@ -302,6 +376,39 @@
       v.mode === "siege" && ds.siege ? h("div", { style: Object.assign(small(t), { textAlign: "center" }) }, "扛过 " + ds.siege.cleared + " / " + ds.siege.waves + " 波") : null,
       v.mode === "puzzle" && ds.puzzle ? h("div", { style: Object.assign(small(t), { textAlign: "center" }) }, "一回合打空这几张，这道题最多能打 " + ds.puzzle.best) : null,
       h(Board, { ds, live, mine: v.mode, foeName, meName, waitLine, onSend: ops => onMove(my, { ops }) }));
+  }
+  // 巡查、值班：自己那张单子＋大家的分
+  const PICON = { fight: ["✉", "仗"], elite: ["✦", "硬仗"], boss: ["♛", "巡查长"], chest: ["宝", "宝箱"], event: ["?", "岔路"], rest: ["☕", "驿站"], empty: ["·", "空"], start: ["起", "起点"] };
+  function RaceView({ inv, v, sheet, my, top, onMove, nm }) {
+    const t = useTheme(), S = D(), P = root.StampDuelParts, x = sheet, mine = my != null && x && !x.done;
+    const cards = useMemo(() => { const m = {}; myCards().forEach(c => { if (c && c.id) m[c.id] = c; }); return m; }, []), thumb = root.StampThumbnails && root.StampThumbnails.use;
+    const [sel, setSel] = useState(-1);
+    const board = h("div", { "data-wk": "nrstampsrace", style: Object.assign(small(t), { borderTop: "1px solid " + t.line, paddingTop: 6 }) }, (v.sheets || []).map((y, k) => h("div", { key: k }, nm(k) + "　" + (v.mode === "patrol" ? y.score + " 分 · 还剩 " + y.steps + " 步" : "第 " + y.round + " 轮 · " + "♥".repeat(Math.max(0, y.lives))) + (y.fight ? " · 在打" : "") + (y.done ? (v.mode === "shift" && y.win ? " · 值完了" : " · 走完了") : ""))));
+    let body = null;
+    if (!x) body = h("div", { style: small(t) }, "你没有座位，在旁边看大家的分。");
+    else if (x.battle) body = h(Board, { ds: x.battle, live: mine, mine: v.mode, foeName: v.mode === "patrol" ? ({ boss: "巡查长", elite: "硬仗" })[x.btype] || "路上的麻烦" : "审查局", meName: "我", waitLine: "", onSend: ops => onMove(my, { ops }) });
+    else if (v.mode === "patrol") { const p = x.p, N = S.PATROL.N;
+      body = h("div", { style: { display: "flex", flexDirection: "column", gap: 8, maxWidth: 340, margin: "0 auto", width: "100%" } },
+        h("div", { style: Object.assign(small(t), { textAlign: "center", color: t.ink }) }, "「" + p.theme + "」邮区　步数 " + p.steps + "　信封 " + p.hp + "/" + p.max + "　巡查分 " + p.score),
+        h("div", { "data-wk": "nrstampspatrol", style: { display: "grid", gridTemplateColumns: "repeat(" + N + ", minmax(0, 1fr))", gap: 5 } }, p.cells.map((cl, i) => { const here = p.pos[0] === cl.r && p.pos[1] === cl.c, can = mine && S.patrolCan(p, cl.r, cl.c), ic = PICON[cl.type] || PICON.empty;
+          return h("button", { key: i, "data-wk": "nrstampscell", disabled: !can, onClick: () => onMove(my, { go: [cl.r, cl.c] }), style: { aspectRatio: "1 / 1", borderRadius: 6, border: here ? "2px solid " + t.ink : can ? "2px dashed " + t.accent : "1px solid " + t.line, background: cl.open ? (t.bg2 || t.bg) : "repeating-linear-gradient(45deg, " + t.line + " 0 4px, transparent 4px 9px)", opacity: cl.done && !here && cl.type !== "start" ? 0.5 : 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: fs(16), color: t.ink } },
+            cl.open ? ic[0] : "", cl.open ? h("span", { style: { fontFamily: F_BODY, fontSize: fs(9), color: t.fog } }, here ? "你在这" : ic[1]) : null); })),
+        (p.log || []).length ? h("div", { style: small(t) }, p.log.slice(-3).reverse().map((l, k) => h("div", { key: k }, l))) : null,
+        mine ? h("button", { "data-wk": "nrstampspatrolend", onClick: () => onMove(my, { end: true }), style: Object.assign(btn(t, false), { alignSelf: "center" }) }, "就走到这儿") : null); }
+    else { const sh = x.sh, selU = sh.bench[sel];
+      body = h("div", { style: { display: "flex", flexDirection: "column", gap: 8, maxWidth: 360, margin: "0 auto", width: "100%" } },
+        h("div", { style: Object.assign(small(t), { textAlign: "center", color: t.ink }) }, "第 " + sh.round + " / " + S.SHIFT.ROUNDS + " 轮　命 " + "♥".repeat(sh.lives) + "　邮花 " + sh.coins + "　卡组 " + sh.bench.length + " / " + S.SHIFT.BENCH),
+        h("div", { style: small(t) }, "柜台（点一张买；同一张再买会合成变强）"),
+        h("div", { "data-wk": "nrstampsshop", style: { display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 5 } }, sh.shop.map((u, i) => h("div", { key: i },
+          h(P.Ticket, { u, card: cards[u.cardId] || null, owner: u.owner || "", useThumb: thumb, small: true, onTap: () => mine && onMove(my, { buy: i }) }),
+          h("div", { style: Object.assign(small(t), { textAlign: "center", color: sh.coins >= S.shiftPrice(u) ? t.ink : t.fog }) }, S.shiftPrice(u) + " 枚")))),
+        h("div", { style: small(t) }, "值班卡组" + (selU ? "（点了「" + selU.name + "」）" : "（点一张能卖掉）")),
+        sh.bench.length ? h("div", { "data-wk": "nrstampsbench", style: { display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 5 } }, sh.bench.map((u, i) => h(P.Ticket, { key: i, u, card: cards[u.cardId] || null, owner: u.owner || "", useThumb: thumb, small: true, sel: sel === i, onTap: () => setSel(sel === i ? -1 : i) }))) : h("div", { style: small(t) }, "还没买票。"),
+        mine ? h("div", { className: "flex flex-wrap justify-center", style: { gap: 6 } },
+          selU ? h("button", { "data-wk": "nrstampssell", onClick: () => { onMove(my, { sell: sel }); setSel(-1); }, style: btn(t, false) }, "卖掉") : null,
+          h("button", { "data-wk": "nrstampsroll", onClick: () => onMove(my, { roll: true }), style: btn(t, false) }, "刷新柜台（" + S.SHIFT.REROLL + " 枚）"),
+          h("button", { "data-wk": "nrstampsfight", onClick: () => onMove(my, { fight: true }), style: btn(t, true) }, "就这些，开打")) : null); }
+    return h("div", { "data-wk": "nrstampstable", "data-mode": v.mode, style: { display: "flex", flexDirection: "column", gap: 8 } }, top, body, board);
   }
   function StampsReplay({ rec }) {
     const t = useTheme(), r = rec.replay || {};
