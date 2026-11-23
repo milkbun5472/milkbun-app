@@ -76,3 +76,9 @@ test("两条开口的路都带上这几样出口", () => {
   const got = C.jointLines(JSON.stringify([{ name: "A", text: "", pollNew: { title: "t", options: ["1", "2"] } }]), [{ id: "c1", name: "A" }], "我");
   assert.strictEqual(got.length, 1); assert.strictEqual(got[0].acts.rich[0].type, "poll");
 });
+
+test("语音条：自己带来的角色在自己这台能放出声；别人的角色只看文字", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/netroom.js"), "utf8");
+  assert.match(src, /speaker: x\.type === "voice" && x\.kind === "char" && x\.side === "me" && x\.charId \? charsById\[x\.charId\] \|\| null : null/);
+  assert.match(src, /h\(VoiceMsg, \{ m: \{ content: x\.content, dur: x\.dur, emo: x\.emo \}, isU: mine && !speaker, speaker: speaker \|\| null \}\)/);
+});

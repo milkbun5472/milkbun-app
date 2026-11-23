@@ -1453,7 +1453,7 @@
     return img ? { img } : {};
   }
   // 一条消息里的那张卡／那颗气泡：跟单聊、群聊用的是同一批组件
-  function RichBody({ m, mine, meName, onRp, onVote, voters, game, onRec, onSong }) {
+  function RichBody({ m, mine, meName, onRp, onVote, voters, game, onRec, onSong, speaker }) {
     const t = useTheme();
     const x = m.x || {};
     // 小游戏的两张卡：房间页里能点（报名、开始、回看）；以前的房间里只剩那一行字
@@ -1465,7 +1465,7 @@
     if (m.type === "emote") return h(EmoteBubble, { url: x.url || "", keyword: x.keyword, max: 112 });
     if (m.type === "photo") return h(PhotoCard, { m: { imageRef: x.imageRef || "", desc: x.desc }, mine, max: 220 });
     if (m.type === "voice") return h("div", { "data-wk": "bubble", "data-me": mine ? "1" : "0", "data-kind": "voice", style: { padding: "8px 12px", borderRadius: 14, background: mine ? t.ink : t.bg2, color: mine ? t.bg : t.ink, border: "1px solid " + t.line } },
-      h(VoiceMsg, { m: { content: x.content, dur: x.dur }, isU: mine, speaker: null }));
+      h(VoiceMsg, { m: { content: x.content, dur: x.dur, emo: x.emo }, isU: mine && !speaker, speaker: speaker || null }));
     if (m.type === "geo") return h(GeoCard, { m: { name: x.name, ts: m.ts }, isU: mine, who: m.name, avatar: null, myAvatar: null });
     if (m.type === "rp") { const done = (x.claims || []).length >= x.count;
       return h(RedPacketCard, { rp: { message: x.message, count: x.count, claims: x.claims || [] }, onClick: onRp, foot: done ? "已被领完" : "抢红包 · 只是玩法" }); }
@@ -2633,7 +2633,7 @@
     };
     // 每一行：长按、卡片、这一轮最后一条底下的「重新说 ‹ 1/2 ›」
     const rowProps = (r, interactive) => (m, i) => {
-      const o = { rich: x => h(RichBody, { m: x, mine: x.side === "me", meName: myNick(), voters: Math.max(1, headCount(r) - 1),
+      const o = { rich: x => h(RichBody, { m: x, mine: x.side === "me", meName: myNick(), speaker: x.type === "voice" && x.kind === "char" && x.side === "me" && x.charId ? charsById[x.charId] || null : null, voters: Math.max(1, headCount(r) - 1),
         game: interactive && x.type === "game" ? gameHandlers(x) : null, onRec: () => { setRecId(x.id); setViewId(r.id); setPage("gamerec"); },
         onRp: interactive ? () => setRpOpen(x.x.rpId) : undefined, onSong: () => playCard(x.x), onVote: interactive ? opt => vote(x.x.pollId, opt, myNick()) : undefined }) };
       if (!interactive) return o;
