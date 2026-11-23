@@ -29,7 +29,7 @@
     { urls: "stun:stun1.l.google.com:19302" }
   ];
   const CONNECT_TIMEOUT = 20000;
-  const FAIL_TEXT = "你们的网络直连不上，试试两边都换成 Wi-Fi 再开一次";
+  const FAIL_TEXT = "你们的网络直连不上：两边都连上 Wi-Fi（不是流量），开着梯子的先关掉，再开一次房间";
   // 房间号这一步（递名片）没走通：公共中转那条提示里带上备用路；自己的 Supabase 那条指出该查什么
   const BROKER_FAIL_TEXT = "房间号这一步没走通：公共中转这会儿连不上，过一会儿再试。也可以改用自己的 Supabase：开房的人在「联机」首页打开「用自己的 Supabase 递名片」再开房，把连接码整串发给要来的人（怎么配见秋秋攻略「联机」）。";
   const SUPA_FAIL_TEXT = "连不上这个 Supabase：看项目地址和公开密钥对不对、项目有没有被暂停（Paused）。也可以关掉「用自己的 Supabase 递名片」改走公共中转。";
@@ -2872,7 +2872,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
           peers.map(p => { const st = stateOf(p.peerId); return h("span", { key: p.peerId, "data-wk": "nrpeer", "data-state": st, style: { fontFamily: F_BODY, fontSize: fs(11.5), color: st === "on" ? t.ink : t.fog } },
             (st === "on" ? "● " : "○ ") + p.nick + (st === "on" ? (peerWatch[p.peerId] ? " · " + stateText.watch : "") : " · " + stateText[st])); }),
           trouble.length > 0 && h("div", { style: { width: "100%", fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
-            "和 " + trouble.map(p => p.nick).join("、") + " 直连不上：" + (trouble.some(p => stateOf(p.peerId) === "relay") ? "话由房里其他人转过去，可能慢一点。" : "她收不到你的话。两边都换成 Wi-Fi 再试。"))),
+            "和 " + trouble.map(p => p.nick).join("、") + " 直连不上：" + (trouble.some(p => stateOf(p.peerId) === "relay") ? "话由房里其他人转过去，可能慢一点。" : "她收不到你的话。两边都连上 Wi-Fi、关掉梯子再试。"))),
         (() => { const L = Core.listenLines(Object.assign({}, np, myNp.current ? { me: Object.assign({ who: "你" }, myNp.current) } : {}));
           return L.length > 0 && h("div", { key: "np", "data-wk": "nrlisten", className: "shrink-0", style: { padding: "5px 14px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.5 } },
             L.map((x, i) => h("div", { key: i, style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "♪ " + x))); })(),
