@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.147";
+const APP_VERSION = "v90.148";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -37803,6 +37803,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     payMasks: payMaskList(),
     walletOf: balanceOf,
     onEat: eatTakeout,
+    onDelOrder: id => saveOrders(p => p.filter(x => x.id !== id)),
+    onDelLog: id => setTakeoutLog(p => (p || []).filter(x => x.id !== id)),
     toast: toast,
     onBack: () => { if (asPhone) leaveAsPhone(); else if (takeoutBack) { const b = takeoutBack; setTakeoutBack(null); setTakeoutNav("near"); setScreen(b); } else goHome(); }
   });else if (screen === "us") body = /*#__PURE__*/React.createElement(window.TransWho || React.Fragment, window.TransWho ? { id: usPartnerId } : null, React.createElement(Us, {

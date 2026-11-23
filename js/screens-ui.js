@@ -4543,7 +4543,7 @@ function TakeoutSlotRuler({ slot, onPick, now }) {
           at != null ? h("span", { "data-wk": "tkoslotnow", "aria-label": "现在", style: { position: "absolute", left: at + "%", top: 0, width: 8, height: 8, marginLeft: -4, borderRadius: 999, background: MTAKE.deep, boxShadow: "0 0 0 2px " + MTAKE.card } }) : null));
     }));
 }
-function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, toast, initialNav, payMasks, walletOf }) {
+function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, onDelOrder, onDelLog, toast, initialNav, payMasks, walletOf }) {
   // 用哪张面具点（她 2026-10-29「来我们慢慢开始分吧」，跟购物结算那一排同一个规矩）：""＝主面具
   const [payMask, setPayMask] = useState("");
   const t = useTheme();
@@ -4781,7 +4781,9 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
         o.takeout && o.takeout.items ? h("div", { "data-wk": "tkoorderitems", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: MTAKE.sub, marginTop: 3, lineHeight: 1.6, wordBreak: "break-word" } }, o.takeout.items.join("、")) : null,
         o.payLabel ? h("div", { "data-wk": "tkoorderpay", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: MTAKE.dim, marginTop: 3 } }, o.payLabel) : null)),
     takeoutWords(o),
-    body);
+    body,
+    // 删掉这一单（群友 2026-11-23：他点错了城市，记录删不掉）：只拿掉记录，不动钱
+    onDelOrder ? h("button", { "data-wk": "tkodel", onClick: () => (typeof requestAppConfirm === "function" ? requestAppConfirm("删掉这一单？", "只是把这条记录拿掉，钱不会退回去。", () => onDelOrder(o.id), "删掉") : onDelOrder(o.id)), className: "active:opacity-60", style: { display: "block", marginLeft: "auto", marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.dim } }, "删掉这一单") : null);
   const ordersView = h("div", { "data-wk": "tkoorders", className: "flex-1 flex flex-col min-h-0" },
     head("订单", onBack),
     h("div", { "data-wk": "tkoorderlist", className: "flex-1 min-h-0 overflow-y-auto px-2.5 py-3", style: { background: MTAKE.bg } },
@@ -4817,7 +4819,8 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
             o.takeout && o.takeout.items ? h("div", { "data-wk": "tkologitems", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7, color: MTAKE.sub, wordBreak: "break-word" } }, o.takeout.items.join("、")) : null,
             h("div", { "data-wk": "tkologmeta", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.dim, marginTop: 3 } },
               [o.price ? "¥" + o.price : "", o.payLabel || "", String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") + " 吃完的"].filter(Boolean).join(" · ")),
-            takeoutWords(o)) : null);
+            takeoutWords(o),
+            onDelLog ? h("span", { "data-wk": "tkologdel", role: "button", onClick: e => { e.stopPropagation(); typeof requestAppConfirm === "function" ? requestAppConfirm("删掉这条？", "", () => onDelLog(o.id), "删掉") : onDelLog(o.id); }, style: { display: "inline-block", marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.dim, textDecoration: "underline" } }, "删掉这条") : null) : null);
       })) : h("div", { "data-wk": "tkoempty", "data-part": "log", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MTAKE.dim, margin: "0 2px" } }, "还没吃过"),
       h("div", { style: { height: 20 } })));
 
