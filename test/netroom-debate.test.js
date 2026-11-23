@@ -175,3 +175,12 @@ test("台上角色的发言是这一手本身：不被当成桌边台词拿走�
   assert.ok(/ad\.sayInMove !== "move" && opts\.talk !== true/.test(g));
   assert.ok(/if \(mv\.say != null && !ad\.sayInMove\)/.test(g), "有 sayInMove 的不拿走 say");
 });
+
+test("联机擂台跟单机摆同一个台：台子、回合牌都是 DebateShared 那一份", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const d = fs.readFileSync(path.join(__dirname, "..", "js/debate.js"), "utf8");
+  const n = fs.readFileSync(path.join(__dirname, "..", "js/netroom-debate.js"), "utf8");
+  assert.ok(/function DebStage\(props\)/.test(d) && /const stage = h\(DebStage, \{/.test(d), "单机也改调这一份");
+  assert.ok(/Stage: DebStage, RoundTag: DebRoundTag/.test(d));
+  assert.ok(/h\(D\.Stage, \{ t, topic: view\.topic/.test(n) && /h\(D\.RoundTag, \{ t, label: "第 " \+ \(r \+ 1\) \+ " 回合" \}\)/.test(n));
+});
