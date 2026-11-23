@@ -199,11 +199,11 @@
   }
   const ago = ts => { const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 60 ? (m || 1) + " 分钟前" : Math.round(m / 60) + " 小时前"; };
   const MI = { textAlign: "left", padding: "9px 14px", color: "#fff", whiteSpace: "nowrap" };   // 照片「··」里每一行
-  function StoryViewer({ list, start, viewer, nameOf, avatarOf, onReply, onDelete, onClose, archive }) {
+  function StoryViewer({ list, start, viewer, nameOf, avatarOf, onReply, onDelete, onClose, archive, fixed }) {
     const h = React.createElement;
     // 有没看过的就从第一条没看过的翻起，全看过了才从头（她 2026-11-15）；翻过往、点了某一格指定从哪条开始的照给的来
     const [i, setI] = React.useState(() => { const L = list || [];
-      if (start || archive) return Math.max(0, Math.min(L.length - 1, start || 0));
+      if (start || archive || fixed) return Math.max(0, Math.min(L.length - 1, start || 0));
       const k = L.findIndex(x => x && String(x.by) !== String(viewer) && !((all().find(y => y.id === x.id) || x).seen || {})[viewer]);
       return k >= 0 ? k : 0; });
     const [draft, setDraft] = React.useState(""), [seenOpen, setSeenOpen] = React.useState(false);

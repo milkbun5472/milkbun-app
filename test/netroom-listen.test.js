@@ -54,3 +54,15 @@ test("角色也能发歌；＋ 里一键发正在听的，没在放时那颗灰�
   assert.match(src, /\["listen", "一起听", "note"\]/);
   assert.match(app, /nowSong: \(\) =>/); assert.match(app, /findSong: async q =>/);
 });
+
+test("不是房主的人在听什么，房主也看得到：进房时报一次、在听就每 30 秒再报", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
+  assert.ok(/Date\.now\(\) - npSent\.current > 30000/.test(src));
+  assert.ok(/me: await myFace\(myNick\(\)\) \}\);\n\s+if \(myNp\.current\) send\(\{ t: "np", song: myNp\.current \}\);/.test(src));
+});
+
+test("「正在听」每次从 propsRef 现拿播放器状态，不拿着第一次挂上时那份", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
+  assert.ok(/const f = \(propsRef\.current \|\| props\)\.nowSong, s0 = f \? f\(\) : null/.test(src));
+  assert.ok(!/const s0 = props\.nowSong\(\)/.test(src));
+});

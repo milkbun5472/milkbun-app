@@ -417,3 +417,75 @@ test("台面公开那一份白名单：view 里没有可请的人、没有被藏
   assert.ok(!("resolve" in v.ck.c));
   assert.match(tsrc, /T\.ceremonyPanel\(c, \{/, "台面画法用单机那一份");
 });
+
+test("跑团从小游戏架子挪到房间 ＋ 里单独一格", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
+  assert.ok(src.includes('["trpg", "跑团", "d20"]') && /if \(k === "trpg"\) \{/.test(src));
+  assert.ok(src.includes('k !== "debate" && k !== "trpg"'));
+});
+
+
+
+
+
+test("团里原来的队员不用先带进房间也能上桌：开局页列出来、默认全上，由开局那台替 TA 们出手", () => {
+  const tr = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom-trpg.js"), "utf8");
+  assert.ok(/const partyChars = camp \? \(camp\.party \|\| \[\]\)\.filter\(m => m\.key && m\.key !== "user"\)/.test(tr));
+  assert.ok(/"data-wk": "nrtrpgpartymate"/.test(tr) && /\(p\.party \|\| \{\}\)\[c\.id\] !== false/.test(tr));
+});
+
+test("跑团、擂台的开局页点返回回到房间聊天，不落到小游戏大厅", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
+  assert.ok(/const OWN_SLOT = \{ debate: true, trpg: true \}/.test(src) && /setPage\(OWN_SLOT\[gamePend\.game\.key\] \? "chat" : "gamepick"\)/.test(src));
+});
+
+test("跑团开局页：默认「新开一团」，不挑团也能发卡；开始后掷齐数值，开团的人那台才照这一桌搭团（单机那一份）", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const tr = fs.readFileSync(path.join(__dirname, "..", "js/netroom-trpg.js"), "utf8"), tj = fs.readFileSync(path.join(__dirname, "..", "js/trpg.js"), "utf8");
+  assert.ok(/useState\(\{ how: "new",/.test(tr), "默认新开一团");
+  assert.ok(/fresh \? \{ mode: "new", kw: p\.kw\.trim\(\), style: p\.style, limits: p\.limits\.trim\(\)/.test(tr));
+  assert.ok(/if \(pz\.mode === "new"\) return \{ camp: EMPTY_CAMP\(\)/.test(tr), "开局时还没有团");
+  assert.ok(/phase: go \? \(st\.fresh \? "gen" : "act"\) : "roll"/.test(tr), "掷齐了才搭团");
+  assert.ok(/await T\.setupFront\(ctx\.hostApi/.test(tr) && /await T\.backstageGen\(ctx\.hostApi/.test(tr) && /T\.campFromDraft\(d,/.test(tr), "用单机开团那一份");
+  assert.ok(/T\.saveCamps\(\[c\]\.concat\(list\)\)/.test(tr), "团存进开团的人那台");
+  assert.ok(/别的玩家带来的角色，这里只知道名字/.test(tr), "别人角色的人设不出主人那台");
+  assert.ok(/async function setupFront\(api, o\)/.test(tj) && /const front = await setupFront\(props\.active,/.test(tj), "单机也改调同一份");
+  assert.ok(/async function backstageGen\(api, base, o\)/.test(tj) && /function campFromDraft\(draft, limits\)/.test(tj) && /const c = campFromDraft\(draft, limitsTxt\)/.test(tj));
+  assert.ok(!/联机|netroom/i.test(tj));
+});
+
+test("新开一团整条走一遍：发卡时没有团→报名→开始→各自掷数值→掷齐了庄照这一桌搭团、存进庄那台、开场落进团里", async () => {
+  const { w, saved, calls } = load();
+  const asked = [];
+  w.TrpgShared.setupFront = async (api, o) => { asked.push({ api: api.id, crew: o.crew.map(x => x.name + ":" + x.persona.slice(0, 6)), kw: o.kw });
+    return { title: "雪山旅馆", world: "暴雪封山的旅馆", hook: "门外有人敲门", stages: [{ goal: "查清谁在敲门", hint: "", place: "" }, { goal: "活过今晚", hint: "", place: "" }], mapRegions: null, pos: "", place: "大堂", opening: "你们被困在大堂。", sceneMeta: { type: "general", objective: "开门还是不开", stakes: "" }, siteActions: [], choices: [{ text: "开门", approach: "bold" }], bgm: [] }; };
+  w.TrpgShared.backstageGen = async () => ({ dossier: { truth: "敲门的是去年失踪的人", twist: "", secrets: "", endgame: "", mates: [] } });
+  const stats = { phy: 50, agi: 50, wit: 60, cha: 55, luck: 45 };
+  const mk = (id, send) => w.NetGameSession({ me: () => id, nick: () => id === "A" ? "Lisa" : "乙", nickOf: x => x === "A" ? "Lisa" : "乙", send, fast: true,
+    post: () => {}, patchCard: () => {}, hostApi: route => id === "A" ? { id: "api:" + (route || "game") } : null,
+    charOf: cid => cid === "a1" && id === "A" ? { id: "a1", name: "顾朝", persona: "A手机上顾朝的人设" } : cid === "b1" && id === "B" ? { id: "b1", name: "阿B", persona: "B手机上的人设" } : null,
+    apiFor: cid => ({ id: id + ":" + cid }), myChars: () => id === "A" ? ["a1"] : ["b1"], presence: () => ({ A: "on", B: "on" }) });
+  const { S, log } = bus(["A", "B"], mk);
+  const gid = S.A.invite(TRPG, { total: 4, npcFill: false }, [{ kind: "user" }, { kind: "char", charId: "a1", name: "顾朝" }], { mode: "new", kw: "雪山", style: "noir", limits: "", personas: { a1: "A手机上顾朝的人设" }, timeout: 0 });
+  S.B.join(gid, [{ kind: "user" }, { kind: "char", charId: "b1", name: "阿B" }], "A");
+  assert.ok(await until(() => log.some(l => l.obj.op === "card" && l.obj.x.seats.filter(s => s.kind !== "open").length === 4)));
+  assert.ok(await S.A.start(gid));
+  assert.ok(await until(() => S.A.seen(gid) && S.A.seen(gid).view && S.A.seen(gid).view.phase === "roll"), "先掷数值");
+  assert.strictEqual(asked.length, 0, "掷齐之前不搭团");
+  assert.ok(await until(() => S.B.seen(gid) && S.B.seen(gid).view && S.B.seen(gid).view.phase === "roll"));
+  S.A.move(gid, 0, { stats }); S.B.move(gid, 2, { stats });
+  const ok1 = await until(() => S.A.seen(gid).view.phase === "gen");
+  assert.ok(ok1, "掷齐了进「搭团」");
+  S.A.tick(Date.now());   // 庄每隔几秒那一下：看到在搭团就开始搭
+  assert.ok(await until(() => S.A.seen(gid).view.phase === "act", 4000), "搭好团进第一拍");
+  assert.strictEqual(asked.length, 1);
+  assert.strictEqual(asked[0].api, "api:offline", "用开团的人那台的线下线路");
+  assert.strictEqual(asked[0].kw, "雪山");
+  assert.ok(asked[0].crew.some(x => x.startsWith("顾朝:A手机上顾朝")), "自己的角色给人设");
+  assert.ok(asked[0].crew.some(x => x.startsWith("阿B:别的玩家")), "别人带来的角色只有名字");
+  assert.ok(!JSON.stringify(asked).includes("B手机上的人设"));
+  const last = saved[saved.length - 1];
+  assert.ok(last && last[0] && last[0].title === "雪山旅馆" && last[0].dossier.truth === "敲门的是去年失踪的人", "新团存进开团的人那台");
+  assert.ok(/你们被困在大堂/.test(JSON.stringify(S.B.seen(gid).view.log)), "开场大家都看得到");
+  assert.ok(!JSON.stringify(S.B.seen(gid).view).includes("去年失踪"), "秘典不进公开那一份");
+});

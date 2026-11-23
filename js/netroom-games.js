@@ -40,7 +40,9 @@
 //   （可选）shelf / Prep           → 不在单机小游戏目录里的那几盒：大厅架子上多摆一个盒子，点了进它自己的开局页
 //   （可选）localTalk: true        → 出手不调模型的那几盒（棋、牌、大富翁）：桌边台词由框架隔几手／关键时刻另问一次（见下面「牌桌上说话」）
 //   （可选）talkMoment(view, seatIdx, inv) → 这一刻对这个座位算不算关键时刻（被将军、刚吃了大牌…），是就回一句「这会儿怎么了」
+//   （可选）ownTalk: true          → 这一盒自己有说话的地方（擂台的观众席）：框架不摆通用的「牌桌上说的」和那一格输入，点头像开口交给它的 cheer
 //   （可选）sayInMove: true        → 这一盒自己把出手里的 say 收进局面（故事接龙），框架不另外拿去当桌边台词
+//                  sayInMove: "move"  → say 就是这一手本身（擂台的发言），永远不清掉
 //   mergeNpc: "host" | "prev" | null → NPC 那一手能不能并进别人的那次调用（省一次）：
 //        "host"＝问一句庄判一句的（海龟汤、25 问）：庄答真人／角色那一问的同一次，顺带替后面连着的 NPC 各问一个并作答；
 //        "prev"＝中间没有庄判定、NPC 也没有要瞒着出手人的东西（故事接龙、真心话 NPC 回应、辩论观众席）：前一位角色的主人那台
@@ -50,7 +52,7 @@
 // 牌桌上说话（所有游戏通用）：角色出手的那次调用里可以多带一个 say（不另花调用）；localTalk 的那几盒由主人那台隔几手、
 //   或者关键时刻（被将军、一局打完）用 TA 的线路问一句（GameShared.seatTalk）。台词走桌边那一路（kind:"talk"，cleanTalk 白名单），
 //   摆在牌桌底下、留进战绩卡回看，不进房间聊天；房里开口的角色从 stateText 里看得到最近几句。给模型的只有公开的 view 和
-//   这个座位自己那份 priv。报名单上每个角色能关掉「牌桌上说话」（charOpts.talk === false）。NPC 偶尔也说：由庄跑。
+//   这个座位自己那份 priv。报名单上每个角色有「自己边玩边说」（charOpts.talk，默认不勾＝只在她点头像时开口；她 11-22 定）。NPC 偶尔也说：由庄跑。
 // 一轮完了停一下（所有游戏通用，她 2026-11-22「一轮之后可以先在桌上聊天，然后好了再继续」）：
 //   （可选）roundEnd(prev, next, inv) → 这一手打完是不是「一轮完了」（一手结算、一夜／一天、一个任务…）：是就回一句这一轮怎么了，不是回 ""。
 //   框架在庄那台收下这一手以后问它；回了话、这一局又没打完，就停在 pause（{ line, n }，跟着 state 一起发）：停着时谁都不出手、
@@ -260,7 +262,7 @@
   function cleanTalk(x) {
     if (!x || typeof x !== "object") return null;
     const text = cut(x.text, 160).trim(); if (!text) return null;
-    return { kind: "talk", name: cut(x.name, 40) || (x.npc ? "NPC" : "TA"), text, npc: !!x.npc, seat: int(x.seat, -1, 11, -1), peer: cut(x.peer, 40) };
+    return { kind: "talk", name: cut(x.name, 40) || (x.npc ? "NPC" : x.human ? "她" : "TA"), text, npc: !!x.npc, human: !!x.human, seat: int(x.seat, -1, 11, -1), peer: cut(x.peer, 40) };
   }
   // 隔几手说一句：桌上每过 every 手（至少 6 手、人多就更久）才轮到同一个人再开口；关键时刻（moment）不用等，但一手里只说一次
   const talkEvery = inv => Math.max(6, ((inv && inv.seats) || []).length * 3);
@@ -1044,6 +1046,31 @@
       const c = cleanSideOf(ad, x); if (!c) return;
       s.side = (s.side || []).concat([c]).slice(-80); changed();
     }
+    // 她点了谁才让谁在牌桌上开口（她 11-22：「任何角色都不能自动接话，只有她按了让他们回复才可以；游戏桌也要能选一起说、也能选单人」）。
+    //   ids：我这台带来、坐在这一桌上的角色；一个人＝单人，好几个＝一起说（同一次调用，照桌边台词那一份 seatTalk）。
+    //   看到的只有公开的局面、这一桌说过的话，以及每位自己那个座位的那份。
+    async function talkNow(gid, ids) {
+      const s = seen[gid], GSx = GS(); if (!s || !s.view) return 0;
+      const inv = s.inv, ad = A(inv.key), view = ad && ad.cleanView ? ad.cleanView(s.view) : s.view;
+      const seats = inv.seats.map((x, i) => ({ x, i })).filter(({ x }) => x.kind === "char" && x.peer === o.me() && (ids || []).indexOf(x.charId) >= 0);
+      const tnames = (ids || []).map(id => { const c = o.charOf && o.charOf(id); return c ? (c.remark || c.name) : ""; }).filter(Boolean);
+      typing(gid, tnames);
+      try { return await talkNowInner(gid, ids, s, inv, ad, view, seats, GSx); } finally { typing(gid, []); }
+    }
+    async function talkNowInner(gid, ids, s, inv, ad, view, seats, GSx) {
+      // 台下的（没上台的我带来的角色）：交给这个游戏自己的 cheer（擂台：发弹幕）
+      const offs = ad && ad.ownTalk && ad.cheer ? (ids || []).slice() : (ids || []).filter(id => !seats.some(({ x }) => x.charId === id));
+      if (ad && ad.ownTalk && ad.cheer) seats.length = 0;   // 擂台：台上的人点了也是在观众席那条线上说一句
+      if (offs.length && ad && ad.cheer) { let outs = []; try { outs = await ad.cheer(s.view, inv, { me: o.me(), side: s.side || [], ids: offs, charOf: o.charOf, apiFor: o.apiFor, charOpts: cid => optsOf(gid, cid) }) || []; } catch (e) { outs = []; } outs.forEach(x => side(gid, x)); }
+      if (!seats.length || !GSx || !GSx.seatTalk) return offs.length;
+      const lead = o.charOf && o.charOf(seats[0].x.charId), api = lead && o.apiFor ? o.apiFor(lead.id) : null; if (!api) return 0;
+      const who = seats.map(({ x }) => { const c = o.charOf && o.charOf(x.charId); return { name: x.name, persona: (c && c.persona) || "" }; });
+      const pv = (s.privs || {})[seats[0].i];
+      const scene = seats.length === 1 ? stateText(inv, view, seats[0].i, pv ? pv.data : null, s.side) : stateText(inv, view, -1, null, s.side);
+      let rows = []; try { rows = await GSx.seatTalk(api, who, scene, "带你上桌的人点了你，接着桌上的话说一句。", (s.side || []).filter(x => x.kind === "talk")) || []; } catch (e) { rows = []; }
+      rows.forEach(r => { const w = seats.find(({ x }) => x.name === r.name) || seats[0]; side(gid, { kind: "talk", name: w.x.name, text: r.text, seat: w.i }); });
+      return rows.length;
+    }
     function side(gid, x) {
       const s = seen[gid], ad = s && A(s.inv.key); if (!ad) return;
       const c = cleanSideOf(ad, Object.assign({}, x, { peer: o.me() })); if (!c) return;
@@ -1085,7 +1112,9 @@
       }
       for (const j of jobs) {
         let rows = [];
+        typing(gid, j.who.map(x => x.name));
         try { rows = await GSx.seatTalk(j.api, j.who, j.scene, j.why, (s.side || []).filter(x => x.kind === "talk")) || []; } catch (e) { rows = []; }
+        typing(gid, []);
         rows.forEach(r => { const w = j.who.find(x => x.name === r.name) || j.who[0]; side(gid, { kind: "talk", name: w.name, text: r.text, npc: !!j.npc, seat: j.npc ? w.seat : j.seat }); });
       }
     }
@@ -1112,6 +1141,14 @@
       if (ti < 0) ti = secretSeat(ad, s, o.me());
       return actSeat(gid, ti, "s" + s.seq);
     }
+    // 「正在说…」：我这台带来的角色在想／在说时，告诉同桌每一台（她 11-22：对方的角色在说话也要看得到）。
+    //   只是一闪的状态，不进局面、不存档；names 空＝说完了
+    function typing(gid, names) {
+      const s = seen[gid]; if (!s) return;
+      const n = (names || []).map(x => cut(x, 16)).filter(Boolean).slice(0, 6);
+      s.typing = Object.assign({}, s.typing || {}); if (n.length) s.typing[o.me()] = n; else delete s.typing[o.me()];
+      changed(); o.send({ t: "game", op: "typing", gid, names: n });
+    }
     async function actSeat(gid, ti, round) {
       const s = seen[gid]; if (!s || !s.view) return;
       const ad = A(s.inv.key); if (!ad) return;
@@ -1123,6 +1160,7 @@
       const k = gid + ":" + round + ":" + ti;
       if (acting.has(k)) return; acting.add(k);
       const char = o.charOf(seat.charId);
+      typing(gid, [seat.name]);
       await wait(600);
       let mv = null;
       // opts：主人在报名那张单上给 TA 调的（怎么下、带不带最近单聊），只存在这台
@@ -1133,9 +1171,10 @@
       if (mv.say != null && !ad.sayInMove) {
         const say = cut(mv.say, 160).trim(); mv = Object.assign({}, mv); delete mv.say;
         if (say && opts.talk !== false) side(gid, { kind: "talk", name: seat.name, text: say, seat: ti });
-      } else if (ad.sayInMove && opts.talk === false && mv.say) { mv = Object.assign({}, mv, { say: "" }); }
+      } else if (ad.sayInMove && ad.sayInMove !== "move" && opts.talk !== true && mv.say) { mv = Object.assign({}, mv, { say: "" }); }
       // 并进这一手的 NPC 那一手（mergeNpc:"prev"）：只有这一盒声明了才往庄那边带
       if (mv.npc && ad.mergeNpc !== "prev") { mv = Object.assign({}, mv); delete mv.npc; }
+      typing(gid, []);
       move(gid, ti, mv);
     }
     // 庄：轮到 NPC 或托管的座位就自己下；一局完了就发战绩卡
@@ -1246,6 +1285,10 @@
     const api = {
       _room: roomOf, _me: () => o.me(), _retire: () => { dead = true; },
       boot,
+      // 真人在牌桌上说一句（玩的人、观战的人都能说）：走桌边那一路，大家牌桌底下都看得到，桌上的人会接
+      talkNow: (gid, ids) => talkNow(gid, ids),
+      say: (gid, text) => { const s0 = seen[gid]; if (!s0) return; const seat = (s0.inv.seats || []).findIndex(x => x.kind === "user" && x.peer === o.me());
+        side(gid, { kind: "talk", human: true, name: o.nick(), text: String(text || "").slice(0, 160), seat }); },
       seen: gid => { boot(); return seen[gid] || null; },
       // 我这台手里某个座位的那份（只有坐这个座位的是我、或者是我带来的角色才有）
       privOf: (gid, seat) => { const s = seen[gid], p = s && s.privs && s.privs[seat]; return p ? p.data : null; },
@@ -1328,6 +1371,7 @@
           local(inv, view, int(e.seq, 0, 1e9, 0), e.pause);
           if (!was && o.onOpenGame && inv.seats.some(s => s.peer === o.me())) o.onOpenGame(gid);
         } else if (e.op === "priv") { const s = seen[gid]; if (s && s.inv.host === origin) gotPriv(gid, int(e.seat, 0, 11, -1), int(e.seq, 0, 1e9, 0), e.data); }
+        else if (e.op === "typing") { const s0 = seen[gid]; if (s0) { s0.typing = Object.assign({}, s0.typing || {}); const n = (Array.isArray(e.names) ? e.names : []).map(x => cut(x, 16)).filter(Boolean).slice(0, 6); if (n.length) s0.typing[origin] = n; else delete s0.typing[origin]; changed(); } }
         else if (e.op === "side") { const x = e.x && typeof e.x === "object" ? Object.assign({}, e.x, { peer: origin }) : null; if (x) sideAdd(gid, x); }
         // 开局的人说这一局没了：patchCard 只改 origin 自己发的那张卡，所以只认开局的人
         else if (e.op === "gone") { o.patchCard(gid, old => old && old.host === origin && (old.status === "open" || old.status === "playing") ? Object.assign({}, old, { status: "lost" }) : old, false, origin); if (seen[gid] && seen[gid].inv.host === origin) seen[gid].inv = Object.assign({}, seen[gid].inv, { status: "lost" }); changed(); }

@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.102";
+const APP_VERSION = "v90.141";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -737,7 +737,35 @@ function App() {
   const kinshipCardsRef = useRef([]);
   const groupChatsRef = useRef(groupChats);
   groupChatsRef.current = groupChats; // 群聊最新记录（投票/红包就地改）
-  const [chatSettings, setChatSettings] = useState({});
+  const [chatSettings, _setChatSettingsRaw] = useState({});
+  // 换面具时记下「到这一刻为止用的是哪张」（群里 2026-11-23：用虚拟时钟的人，聊天记录全变成现实时间）：
+  //   钟跟着面具走，原来只看【现在】那张面具，一换面具，以前每条都改按新面具的钟算。
+  //   所有写聊天设置的地方都从这一处过，所以记在这儿；clockKeyOf 按消息时间去查 maskSpans。
+  const setChatSettings = upd => _setChatSettingsRaw(p => {
+    const n = typeof upd === "function" ? upd(p) : upd;
+    if (!n || n === p || typeof n !== "object") return n;
+    const prim = String(maskPrimary || ""), norm = m => { m = String(m || ""); return !m || m === prim ? "" : m; };
+    let out = n, now = Date.now();
+    Object.keys(n).forEach(id => {
+      const a = p && p[id], b = n[id];
+      if (!a || !b) return;
+      // 设置页存档是照白名单重拼的一整份，不带这一栏：别让它把记下的换面具记录冲掉
+      if (Array.isArray(a.maskSpans) && !Array.isArray(b.maskSpans)) { if (out === n) out = { ...n }; out[id] = { ...b, maskSpans: a.maskSpans }; }
+      if (norm(a.maskId) === norm(b.maskId)) return;
+      const b2 = out[id];
+      // 头一回换、而且换走的那张没开钟：多半是之前换错了、现在换回来救记录（这次修之前换的那些人）。
+      //   这时记一笔反倒把旧记录钉在没钟的那张上，所以不记，旧记录照换回来的这张算。
+      if (!Array.isArray(b2.maskSpans) || !b2.maskSpans.length) {
+        const ck = ((window.__vclock && window.__vclock.clocks) || {})[norm(a.maskId) || "main"];
+        if (!(ck && ck.on)) return;
+      }
+      const sp = Array.isArray(b2.maskSpans) ? b2.maskSpans : [];
+      if (out === n) out = { ...n };
+      out[id] = { ...b2, maskSpans: sp.concat([{ until: now, mask: norm(a.maskId) }]).slice(-200) };
+    });
+    if (out !== n) saveJSON("x_chatSettings", out);
+    return out;
+  });
   // 线上的导演便签（她 2026-10-10：线下那一套搬到线上，入口跟旁白放一起）：{ [chatKey]: [便签] }。
   //   新建、扣轮、提示语全走线下那几支（directorNoteNew / directorNotesConsume），不另写一份。
   const [chatDirNotes, setChatDirNotes] = useState({});
@@ -1574,7 +1602,8 @@ function App() {
         //   跟同一段作为【给你的设定】摆在 system 里，输入过滤器读起来完全是两件事。
         //   而这个 app 自己的一次性生成调用（周刊/朋友圈那几处）本来就是这么写的：
         //   料全在 system，user 只有一句「开始。」——只有这两枪没跟上。
-        const out = await callAI(p, levels[i].sys + "\n\n" + levels[i].text, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
+        // 声纹（她 2026-11-23「ta眼里我刚重写还是没有带角色声纹」）：单聊管「照这个人说话」的是 CHARCARD_RULE，这两枪从没接过
+        const out = await callAI(p, (typeof CHARCARD_RULE === "string" ? CHARCARD_RULE + "\n\n" : "") + levels[i].sys + "\n\n" + levels[i].text, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
         if (i && onFallback) onFallback(levels[i].zh);   // 不是第一级成的：得让她知道这份是凭什么写的
         return out;
       } catch (e) {
@@ -12266,6 +12295,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (sp.some(x => x && t >= Number(x.from) && (x.until == null || t < Number(x.until)))) return "c:" + sid;
       }
     }
+    // 这条消息那会儿用的是哪张面具（换过面具的人）
+    if (sid && sid.indexOf("g:") !== 0 && ts != null) {
+      const ms = (settingsFor(sid) || {}).maskSpans;
+      if (Array.isArray(ms)) { const t = Number(ts); const hit = ms.find(x => x && t < Number(x.until)); if (hit) return String(hit.mask || ""); }
+    }
     return maskKeyOf(id);
   };
   // 开关一拨：开＝新起一段，他那只钟从面具钟此刻的样子接着走（不跳）；关＝把这一段收口。钟本身留着，旧消息还要照它算。
@@ -14228,7 +14262,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 申请信本体模式也能写（她 2026-10-10）：判据跟普通角色那句同一个意思——算数的是 TA 自己想不想
       const _bodyLetterHint = (_bodyOnly && !_peekTurn && !(room && !room.main) && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId))
         ? "你们还不是恋人。如果你自己已经想跟 " + uName + " 在一起、而且这一刻就想说出口，可以加 \"loveLetter\":\"信的全文\"，用你自己的口吻和长短（想做闺蜜、挚友、家人那种而不是恋人，就写成 {\"rel\":\"bestie|friend|family\",\"text\":\"信的全文\"}）；她会先看到一个封着的信封，拆开才读到，再选答应或再想想。没到那一步就不写。" : "";
-      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes && _s.bodySplit !== true ? "你想说的整段话，一条" : _s.bodyMode && !_s.engineerEyes ? "你想说的话，一句一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyFill ? ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":\"一句没说出口的念头\",\"affinityDelta\":0" : _bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyFill ? "mood、thought、affinityDelta 每轮都写：mood 是你此刻的心情（中文短词）；thought 是一句你此刻没说出口的念头，第一人称；affinityDelta（" + AFFINITY_DELTA_SPEC + "）。想到了就写进这三格。" : _bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"一句没说出口的念头\"；这一轮你对对方的感觉动了，可以加 \"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。都不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + _bodyLetterHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + (_bodyOnly && window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
+      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes && _s.bodySplit !== true ? "你想说的整段话，一条" : _s.bodyMode && !_s.engineerEyes ? "你想说的话，一句一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyFill ? ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":\"没说出口的念头\",\"affinityDelta\":0" : _bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyFill ? "mood、thought、affinityDelta 每轮都写：mood 是你此刻的心情（中文短词）；thought 是你此刻没说出口的念头，第一人称；affinityDelta（" + AFFINITY_DELTA_SPEC + "）。想到了就写进这三格。" : _bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"没说出口的念头\"；这一轮你对对方的感觉动了，可以加 \"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。都不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + _bodyLetterHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + (_bodyOnly && window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
       // ⚠️这儿原来躺着 _normalTaskFull——「暂留作 A/B 回滚基线，但不再发送给普通角色」。
       //   它把 v66.03～66.10 四版发照片的改动整个吞掉了：我照着它改 photoHint，
       //   模型一个字都没收到（见 v66.11）。她 2026-09-09：「我们是不是可以把旧基线删了
@@ -14794,6 +14828,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.action == null) { const v = salvageStr("action"); if (v) parsed.action = v; }
       if (parsed.wearing == null) { const v = salvageStr("wearing"); if (v) parsed.wearing = v; }
       if (parsed.thought == null) { const v = salvageStr("thought"); if (v) parsed.thought = v; }
+      // 心声里漏进了 JSON 的收尾和后面的正文（她 2026-11-23 截图：心声末尾一个「}」，下面接着整段回复）：
+      //   模型把 thought 的收尾引号写成了中文引号，解析一路吃到底。到那个单独成行的括号为止。
+      if (typeof parsed.thought === "string") { const _cut = parsed.thought.search(/\n\s*[}\]]\s*(\n|$)/); if (_cut > 0) parsed.thought = parsed.thought.slice(0, _cut).trim(); }
       // mood 兼容规范对象 {label,...}，也兼容模型偶发的简写字符串 "烦躁"。
       // 旧逻辑只认对象，字符串会整轮静默丢弃，状态卡看起来就像彻底冻住。
       if (typeof parsed.mood === "string" && parsed.mood.trim() && parsed.mood.toLowerCase() !== "null") parsed.mood = { label: parsed.mood.trim() };
@@ -22705,7 +22742,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (group.spaceId) {
         const sp0 = (spaces || []).find(x => x && x.id === group.spaceId);
         Object.assign(session, { spaceId: group.spaceId, spaceName: (sp0 && sp0.name) || "频道", spaceAvatar: (sp0 && sp0.avatarImage) || "", chName: group.chName || group.name, chArchived: !!group.chArchived,
-          chFiles: (loadJSON("x_chfiles:" + group.id, []) || []).filter(f => f && f.name).map(f => ({ name: f.name, kind: f.kind, by: f.updatedBy || f.createdBy, ts: f.updatedTs || f.createdTs })) });
+          chFiles: (loadJSON("x_chfiles:" + group.id, []) || []).filter(f => f && f.name).map(f => ({ ...f, by: f.updatedBy || f.createdBy, ts: f.updatedTs || f.createdTs, clockId: "g:" + group.id,
+            // 查手机里也能点开看（她 2026-11-23）：谁建的、谁改的照频道文件页那样叫
+            names: [f.createdBy, f.updatedBy].concat((f.history || []).map(x => x && x.by)).filter(Boolean).reduce((a, id) => { a[id] = id === "me" ? herNameIn(group.id) || "你" : ((characters.find(c => c.id === id) || {}).name || "有人"); return a; }, {}) })) });
       }
       if (spectatePrivate) {
         const pairKey = memberIds.map(String).sort().join("|");
@@ -24549,7 +24588,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "\n【状态卡】跟平时聊天一样，每轮都要更新：mood 此刻中文心情词；thought " + (!isBody(char.id) && typeof THOUGHT_VOICE === "string" ? "＝" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE : "你心里那一句（第一人称，你自己的话）") + "；"
           + "place 人在哪一句短的；action 此刻正在做什么（每轮都更新，别照抄上一轮）；wearing 此刻穿着（跟场合时间对得上；没换就照旧）；condition 身体状态（只在确实不同于平常时才填，否则 null）。"
           + (callTfOk ? "\n【通话里也能转账】跟平时聊天是同一个钱包、同一张转账单：你真想在电话里给 " + uName + " 转钱（不是嘴上说说），填 transfer:{\"amount\":数字,\"note\":\"附言\"}，否则 null。" + (callTfPending ? "上面通话里 " + uName + " 刚给你转了一笔还没收：这一轮决定收不收，transferAccept 填 true（收下）或 false（退回）；还没想好就 null。" : "transferAccept 填 null。") : "")
-          + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"],\"action\":\"此刻动作神态一句\",\"mood\":\"心情词\",\"thought\":\"心里那句\",\"place\":\"在哪\",\"wearing\":\"穿着\",\"condition\":null,\"hangup\":null" + (callTfOk ? ",\"transfer\":null,\"transferAccept\":null" : "") + "}。**say 的每一条都必须是你【能原样念出口的话】**——写你在做什么、什么表情、脸红没红、手在干嘛的字，一个都不许出现在 say 里，那些只属于 action。判据：这一条念出来对方在电话里听得见吗？听不见就不是台词。也别加名字前缀。";
+          + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"],\"action\":\"此刻动作神态一句\",\"mood\":\"心情词\",\"thought\":\"心里没说出口的念头\",\"place\":\"在哪\",\"wearing\":\"穿着\",\"condition\":null,\"hangup\":null" + (callTfOk ? ",\"transfer\":null,\"transferAccept\":null" : "") + "}。**say 的每一条都必须是你【能原样念出口的话】**——写你在做什么、什么表情、脸红没红、手在干嘛的字，一个都不许出现在 say 里，那些只属于 action。判据：这一条念出来对方在电话里听得见吗？听不见就不是台词。也别加名字前缀。";
         // v56.26 GPT-Live 流式：语音通话轮开 stream，增量解析 say 数组——每凑齐一条完整台词
         // 就立刻落气泡（CallScreen 的逐气泡 TTS 流水线自然跟上=模型还在写后半句，前半句已经开口）。
         // 视频轮不流式（action 必须先于台词落地）；流式解析失败零损失——结尾按全文重新对账补齐。
@@ -24694,7 +24733,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (gcOnMe ? "\n\n" + onMeLine(gcOnMe, uName) : "")
           + gcGrowth
           + wishLine(gcPar ? "" : wishFor(), uName, { group: true, gift: false })
-          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (typeof THOUGHT_EACH_OWN === "string" ? "thought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + THOUGHT_EACH_OWN : "") + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cur.groupId ? groupNoticeBlock(gsFor(cur.groupId).notice) : "") + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
+          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (typeof THOUGHT_EACH_OWN === "string" ? "thought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + THOUGHT_EACH_OWN : "") + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cur.groupId ? groupNoticeBlock(gsFor(cur.groupId).notice) : "") + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里没说出口的念头，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里没说出口的念头\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
         const raw = await callAI(groupApiFor(groupId), sys + callBiHint + callVoiceHint + cameraHint, window.CallCamera.withFrame(hist, cameraFrame), { use: "call", logLabel: "群通话", maxTokens: 65000 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
@@ -34579,7 +34618,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           instruction: "她把一样东西留在了你这儿——" + (((place.zones || [])[zi] || {}).name || place.name)
             + "，那件东西是「" + it.name + "」。写一句你看见它时心里的话。\n"
             + "只写那一句：别复述它是什么、别道谢、别解释为什么它在这儿。",
-          schemaHint: "{\"thought\":\"心里那一句，第一人称\"}",
+          schemaHint: "{\"thought\":\"心里没说出口的念头，第一人称\"}",
           maxTokens: 8000
         });
         thought = String((d && d.thought) || "").trim().slice(0, 160);
@@ -36756,6 +36795,34 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     },
     onToMoments: momentDraftFromMsgs
   }, xtra || {}));
+  // 跑团那一页的料只拼这一处
+  const trpgPropsOf = onBack => ({
+    voiceOf: char => stampVoice(char),   // 他平时真说过的话（只借口气）：跟小剧场、邮票卡同一份
+    // 跑团:守密人叙事沙箱,走线下创作线路;同小剧场先例——不传世界书/记忆/好感,
+    // 平行时空天然隔离主线(四处一样喂·合法差异,理由见 trpg.js 头注)
+    active: offlineActive,
+    characters: playChars,
+    profile: profile,
+    // 言秋的座位:队友宣言走 CC 亲笔(同小游戏切座管道),超时才由模型顶
+    isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
+    toast: toast,
+    // 开团配乐(她 2026-08-30):守密人搭世界时顺手开出几条搜索词,这里逐条去网易云
+    // 搜成真曲、整批连播——复用云村「播放全部」的批次通道(nowBatch),不污染「全部」库
+    onBgm: async queries => {
+      if (!musicReady) { toast("先在一起听里选择音乐源"); return false; }
+      const found = [];
+      for (const q of (queries || []).slice(0, 6)) {
+        try {
+          const s = await neteaseSearchOne(q);
+          if (s) found.push(neteaseTrackInfo(s));
+        } catch (e) { }
+      }
+      if (!found.length) { toast("配乐一首都没搜到"); return false; }
+      playNeteaseList(found);
+      return true;
+    },
+    onBack: onBack
+  });
   let body = null;
   if (!loaded) body = /*#__PURE__*/React.createElement(Empty, {
     text: "加载中…"
@@ -38989,7 +39056,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const text=history.before.concat(history.during).map(m=>(m.role==='user'?userName(profileFor(c.id)):c.name)+'：'+m.content).join('\n');
           const ctx={...ctxFor(c,{chat:true,debug:true,queryText:text}),recentChat:text,schedNow:''};
           return runProbe(apiFor(c.id),ctx,{voice:true,voiceThought:true,once:true,maxTokens:65000,tag:'此刻的念头',
-            instruction:T.instruction(frame,history,thoughts,userName(profileFor(c.id))),schemaHint:'{"thought":"此刻未说出口的短念头"}'});
+            instruction:T.instruction(frame,history,thoughts,userName(profileFor(c.id))),schemaHint:'{"thought":"此刻未说出口的念头"}'});
         } finally {if(W)W.active=active;}
       },
       // 今天的小相册：一次调用给每张照片配念头；料与「此刻的念头」同一套 ctxFor，指令里只有照片的时间/安排/地点。
@@ -39045,33 +39112,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, {
-    voiceOf: char => stampVoice(char),   // 他平时真说过的话（只借口气）：跟小剧场、邮票卡同一份
-    // 跑团:守密人叙事沙箱,走线下创作线路;同小剧场先例——不传世界书/记忆/好感,
-    // 平行时空天然隔离主线(四处一样喂·合法差异,理由见 trpg.js 头注)
-    active: offlineActive,
-    characters: playChars,
-    profile: profile,
-    // 言秋的座位:队友宣言走 CC 亲笔(同小游戏切座管道),超时才由模型顶
-    isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
-    toast: toast,
-    // 开团配乐(她 2026-08-30):守密人搭世界时顺手开出几条搜索词,这里逐条去网易云
-    // 搜成真曲、整批连播——复用云村「播放全部」的批次通道(nowBatch),不污染「全部」库
-    onBgm: async queries => {
-      if (!musicReady) { toast("先在一起听里选择音乐源"); return false; }
-      const found = [];
-      for (const q of (queries || []).slice(0, 6)) {
-        try {
-          const s = await neteaseSearchOne(q);
-          if (s) found.push(neteaseTrackInfo(s));
-        } catch (e) { }
-      }
-      if (!found.length) { toast("配乐一首都没搜到"); return false; }
-      playNeteaseList(found);
-      return true;
-    },
-    onBack: () => setScreen("home")
-  });else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,

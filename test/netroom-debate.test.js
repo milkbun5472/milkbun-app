@@ -82,6 +82,9 @@ test("一整场：真人在自己那台说、角色由主人那台挑边和发�
     assert.deepStrictEqual(S.A.seen(gid).view.sides, ["pro", "con"]);
     // 真人甲在自己那台说
     assert.ok(G.myTurn(S.A.seen(gid).inv, S.A.seen(gid).view, "A"));
+    // 台下的小二不会自己冒弹幕：要 B 点了 TA 的头像（talkNow → cheer）才发一条
+    assert.ok(await until(() => S.B.seen(gid) && S.B.seen(gid).view && S.B.seen(gid).view.phase === "talk"));
+    await S.B.talkNow(gid, ["b2"]);
     S.A.move(gid, 0, { say: "早起的人一天多出两小时" });
     // 观众席：甲发一条弹幕
     S.A.side(gid, { kind: "dm", name: "甲", text: "加油" });
@@ -101,7 +104,7 @@ test("一整场：真人在自己那台说、角色由主人那台挑边和发�
     assert.ok(sides.length >= 3 && sides.every(l => !l.to), "弹幕不走点对点、不经庄");
     assert.ok(sides.some(l => l.from === "A" && l.obj.x.text === "加油"));
     const dmB = sides.find(l => l.obj.x.kind === "dm" && l.obj.x.char);
-    assert.ok(dmB && dmB.from === "B" && dmB.obj.x.name === "小二", "没上台的角色弹幕由主人那台写");
+    assert.ok(dmB && dmB.from === "B" && dmB.obj.x.name === "小二", "没上台的角色弹幕由主人那台写（点了才写）");
     assert.deepStrictEqual(calls.filter(c => c[0] === "dm").map(c => c[1]), ["B:b2"]);
     assert.deepStrictEqual(calls.filter(c => c[0] === "aw"), [["aw", "B:b1", "阿B"]], "感言由阿B 主人那台写");
     assert.ok(S.B.seen(gid).side.some(x => x.text === "加油"), "甲的弹幕 B 也看得到");
@@ -161,5 +164,31 @@ test("擂台从小游戏架子挪到房间 ＋ 里单独一格", () => {
   const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
   assert.ok(src.includes('["debate", "擂台", "podium"]'));
   assert.ok(/if \(k === "debate"\) \{/.test(src));
-  assert.ok(src.includes('supported().filter(k => k !== "debate")'), "小游戏架子上不再摆擂台");
+  assert.ok(src.includes('k !== "debate" && k !== "trpg"'), "小游戏架子上不再摆擂台");
+});
+
+test("台上角色的发言是这一手本身：不被当成桌边台词拿走，没勾「自己边玩边说」也照样说", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const d = fs.readFileSync(path.join(__dirname, "..", "js/netroom-debate.js"), "utf8");
+  const g = fs.readFileSync(path.join(__dirname, "..", "js/netroom-games.js"), "utf8");
+  assert.ok(/sayInMove: "move"/.test(d));
+  assert.ok(/ad\.sayInMove !== "move" && opts\.talk !== true/.test(g));
+  assert.ok(/if \(mv\.say != null && !ad\.sayInMove\)/.test(g), "有 sayInMove 的不拿走 say");
+});
+
+test("联机擂台跟单机摆同一个台：台子、回合牌都是 DebateShared 那一份", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const d = fs.readFileSync(path.join(__dirname, "..", "js/debate.js"), "utf8");
+  const n = fs.readFileSync(path.join(__dirname, "..", "js/netroom-debate.js"), "utf8");
+  assert.ok(/function DebStage\(props\)/.test(d) && /const stage = h\(DebStage, \{/.test(d), "单机也改调这一份");
+  assert.ok(/Stage: DebStage, RoundTag: DebRoundTag/.test(d));
+  assert.ok(/h\(D\.Stage, \{ t, topic: view\.topic/.test(n) && /h\(D\.RoundTag, \{ t, label: "第 " \+ \(r \+ 1\) \+ " 回合" \}\)/.test(n));
+});
+
+test("擂台只有一个说话的地方：不摆通用的「牌桌上说的」和那一格，点头像（台上台下）都落进观众席", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const d = fs.readFileSync(path.join(__dirname, "..", "js/netroom-debate.js"), "utf8"), g = fs.readFileSync(path.join(__dirname, "..", "js/netroom-games.js"), "utf8"), n = fs.readFileSync(path.join(__dirname, "..", "js/netroom.js"), "utf8");
+  assert.ok(/ownTalk: true/.test(d));
+  assert.ok(/ad && ad\.ownTalk && ad\.cheer \? \(ids \|\| \[\]\)\.slice\(\)/.test(g));
+  assert.ok(/!\(A && A\.ownTalk\) && root\.NetGameUI && h\(root\.NetGameUI\.TalkStrip/.test(n) && /!done && !\(A && A\.ownTalk\) && h\("div", \{ "data-wk": "gamesay"/.test(n));
 });

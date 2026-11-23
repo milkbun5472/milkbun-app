@@ -648,3 +648,25 @@ test("半窗里叫角色开口：带当前局面＋牌桌上最近十几句，�
   assert.ok(/kind === "talk"\)\.slice\(-16\)/.test(g) && /（你自己）/.test(g));
   assert.ok(/game: gameStateFor\(char\.id\)/.test(nsrc) && /game: gameStateFor\(null\)/.test(nsrc), "单人开口和一起说都带");
 });
+
+test("牌桌上：真人能说一句，角色不自动接；点头像单人说、「一起说」几位一起说", () => {
+  const g = read("js/netroom-games.js");
+  assert.ok(/say: \(gid, text\) => \{/.test(g) && /human: true/.test(g));
+  assert.ok(!/replyHuman/.test(g), "不再自动接话");
+  assert.ok(/async function talkNow\(gid, ids\)/.test(g) && /talkNow: \(gid, ids\) => talkNow\(gid, ids\)/.test(g));
+  assert.ok(/"data-wk": "nrtablespeaker"/.test(nsrc) && /"data-wk": "nrtabletogether"/.test(nsrc) && /gs\.talkNow\(gid, ids\)/.test(nsrc));
+});
+
+test("「自己边玩边说」默认不勾：不勾的角色只在她点头像时开口", () => {
+  assert.ok(/talk: o\.talk === true \}/.test(nsrc), "默认关");
+  assert.ok(/自己边玩边说/.test(nsrc));
+});
+
+test("对方的角色在想／在说，同桌每一台都看得到「正在说…」（不进局面、不存档）", () => {
+  const g = read("js/netroom-games.js");
+  assert.ok(/function typing\(gid, names\)/.test(g) && /o\.send\(\{ t: "game", op: "typing", gid, names: n \}\)/.test(g));
+  assert.ok(/else if \(e\.op === "typing"\)/.test(g));
+  assert.ok(/typing\(gid, \[seat\.name\]\)/.test(g), "角色出手时");
+  assert.ok(/typing\(gid, tnames\);\n\s+try \{ return await talkNowInner/.test(g), "点头像说话时，说完一定熄灭");
+  assert.ok(/"data-wk": "nrgametyping"/.test(nsrc));
+});

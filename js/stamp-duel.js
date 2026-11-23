@@ -232,6 +232,8 @@
     }
     if (st.raid) { st.foe.terrain = new Array(SLOTS).fill(""); st.foe.hp = st.foe.max = 99999; st.cap = st.raid.endless ? 99 : RAID_TURNS; st.raidLv = o.raidLv || Math.max(5, Math.round(st.meAvg || 10)); }
     if (st.siege) { st.foe.terrain = new Array(SLOTS).fill(""); st.foe.hp = st.foe.max = st.siege.endless ? 999999 : 999; st.cap = st.siege.endless ? 9999 : SIEGE_WAVES + 3; st.siege.minEnv = st.me.hp; }
+    // 两边都是真人（她 2026-11-22「邮票册的玩法搬上去」）：对面不再自己算下一步，两边各交这一回合的动作（applyOps）
+    if (o.pvp) st.pvp = true;
     startTurn(st);
     return st;
   }
@@ -590,7 +592,7 @@
       const s0 = k.s, score = i => (s0.role === "火漆" ? threat(col(i)) * 2 + (row(i) === 0 ? 6 : 0) : 0) + ((s0.role === "投递" || s0.role === "邮戳") ? (row(i) === SIZE - 1 ? 5 : 0) + (targetIn(foe, col(i)) < 0 ? 4 : 0) : 0)
         + adj(i).filter(j => sd.board[j] && sd.board[j].charId && sd.board[j].charId === s0.charId).length * 4 + (sd.terrain[i] === "邮筒" ? 2 : 0);
       const slot = free.sort((a, b) => score(b) - score(a))[0];
-      if (!placeRaw(st, "me", k.k, slot).ok) break; placed++; acts.push({ place: slot, name: s0.name });
+      if (!placeRaw(st, "me", k.k, slot).ok) break; placed++; acts.push({ place: slot, name: s0.name, cardId: s0.cardId });
     }
     return acts;
   }
@@ -825,7 +827,7 @@
     if (st.siege) siegeTurn(st);
     if (st.raid) raidTurn(st);
     if (eventNow(st)) say(st, "", "邮局公告：" + eventNow(st) + "——" + EVENTS[eventNow(st)], { kind: "event", ev: eventNow(st) });
-    st.intent = planFoe(st);
+    st.intent = st.pvp ? { place: [], stamp: [] } : planFoe(st);
   }
 
   // 放错了能退（她 2026-11-07：「回合结束前放错了可以取消不扣胶水」）：她每做一步之前存一份，
@@ -1219,11 +1221,37 @@
     return who + "和" + me + "用邮票册的卡连打了 " + games.length + " 局对局，" + me + " " + win + " 胜 " + lose + " 负" + (draw ? " " + draw + " 平" : "") + "，最后一局" + lastRes + "。";
   }
 
+  // 一回合的动作交成一串（她 2026-11-22：几台手机一起打）：[{op:"place",cardId,slot}|{op:"stamp",slot}|{op:"tear",slot}|{op:"move",from,to}|{op:"keep",cardId}]
+  //   照顺序在 who 那一边做一遍，做不成的那一步跳过；回做成了几步。手牌认卡不认位置（两台手机上手牌的顺序可能不一样）
+  function applyOps(st, who, ops) {
+    let n = 0;
+    for (const o of (Array.isArray(ops) ? ops : []).slice(0, 40)) {
+      if (st.over || !o) break; const sd = st[who], hk = id => sd.hand.findIndex(x => x && String(x.cardId) === String(id));
+      const r = o.op === "place" ? placeRaw(st, who, hk(o.cardId), o.slot | 0) : o.op === "stamp" ? stampRaw(st, who, o.slot | 0) : o.op === "tear" ? tearRaw(st, who, o.slot | 0)
+        : o.op === "move" ? moveRaw(st, who, o.from | 0, o.to | 0) : o.op === "keep" ? keepRaw(st, who, hk(o.cardId)) : null;
+      if (r && r.ok) n++;
+    }
+    return n;
+  }
+  // 角色、托管替这一边想这一回合：照 autoMe 想一遍，交成 applyOps 那一串
+  function autoOps(st0, style) {
+    const st = JSON.parse(JSON.stringify(st0)); st.undo = [];
+    return autoMe(st, style || "默契").map(a => a.stamp != null ? { op: "stamp", slot: a.stamp } : a.place != null && a.cardId != null ? { op: "place", cardId: a.cardId, slot: a.place } : null).filter(Boolean);
+  }
+  // 两边换个个儿：坐在对面的那个人看到的局面（她那边成了 me）
+  function flip(st0) {
+    const st = JSON.parse(JSON.stringify(st0)), t = st.me; st.me = st.foe; st.foe = t;
+    const sw = w => w === "me" ? "foe" : w === "foe" ? "me" : w;
+    (st.log || []).forEach(l => { l.who = sw(l.who); if (l.from) l.from.who = sw(l.from.who); if (l.side) l.side = sw(l.side); });
+    if (st.over) { st.over = Object.assign({}, st.over, { winner: sw(st.over.winner), me: st0.over.foe, foe: st0.over.me }); }
+    st.intent = { place: [], stamp: [] }; st.undo = [];
+    return st;
+  }
   // 她那边的动作先存一份再做；做不成就把那份扔掉（不留空撤回）
   const mine = raw => (st, who, a, b) => { if (who !== "me") return raw(st, who, a, b); snap(st); const r = raw(st, who, a, b); if (!r || !r.ok) st.undo.pop(); return r; };
   const place = mine(placeRaw), tear = mine(tearRaw), move = mine(moveRaw), keep = mine(keepRaw), stamp = mine(stampRaw);
   const API = { RELICS, STYLE_ZH, TRAIT_FIT, TRAITS, SKILLS, BONDS, bondOf, unitInfo, SIZE, SLOTS, ENVELOPE_HP, POSTAGE, DRAW, DECK_SIZE, TURN_CAP, KEEP_MAX, FACE, NEED, ROLES, MARKS, TERRAIN, EVENTS,
-    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, simSend, shopRepLv, shopRepLeft, shopRepBonus, shopSkillTitle, shopSkillOf, shopSkillBonus, shopOrders, shopOrderZh, shopRegStory, shopNewFace, shopPrice, shopHint, FACE_FEATURES,FACE_IDENTITIES,shopAppearance, RARE_GUESTS, faceAct, faceThanks, FACE_ADJ, FACE_WHO, faceFits, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, SIEGE_WEEK, siegeWeek, SIEGE_BOONS, siegeBoon, newDuel, envFor, avgLv, fairDeck, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
+    stampOf, deckFrom, foeDeckFrom, shopDecorOf, shopUpPrice, SHOP, SHOP_PERIODS, shopPeriod, SHOP_WIN, shopWinSlots, shopWinBonus, shopApt, shopMul, SHOP_BADGE, SHOP_BADGE_FIT, shopBadgeFit, shopBadgeBonus, shopNeedZh, shopCardFits, SHOP_THANKS, hitUnit, healUnits, simSend, shopRepLv, shopRepLeft, shopRepBonus, shopSkillTitle, shopSkillOf, shopSkillBonus, shopOrders, shopOrderZh, shopRegStory, shopNewFace, shopPrice, shopHint, FACE_FEATURES,FACE_IDENTITIES,shopAppearance, RARE_GUESTS, faceAct, faceThanks, FACE_ADJ, FACE_WHO, faceFits, shopCustomers, autoMe, PUZZLE_MAX, puzzleOf, pzSolve, PATROL, TA_CELLS, TA_PTS, patrolNew, patrolCan, patrolMove, patrolBattle, patrolAfter, weekNo, SHIFT, shiftNew, shiftRoll, shiftPrice, shiftBuy, shiftSell, shiftDeck, shiftBonds, shiftFoeLv, shiftAfter, EDICTS, EDICT_LV, edictDeck, RAID_TURNS, MATS, BASE_MATS, THEME_MAT, KEEP_FX, KEEP_MAX_SLOTS, keepFxOf, keepTier, matDrop, SIEGE_TIERS, SIEGE_WEEK, siegeWeek, SIEGE_BOONS, siegeBoon, newDuel, envFor, avgLv, fairDeck, applyOps, autoOps, flip, aims, actsOf, previewPlace, place, tear, move, keep, stamp, undo, canUndo, endTurn, planFoe, combos, newSeries, addGame, memoryLine, hashStr };
   g.StampDuel = API;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : globalThis);
