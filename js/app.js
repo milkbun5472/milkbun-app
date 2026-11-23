@@ -22705,7 +22705,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (group.spaceId) {
         const sp0 = (spaces || []).find(x => x && x.id === group.spaceId);
         Object.assign(session, { spaceId: group.spaceId, spaceName: (sp0 && sp0.name) || "频道", spaceAvatar: (sp0 && sp0.avatarImage) || "", chName: group.chName || group.name, chArchived: !!group.chArchived,
-          chFiles: (loadJSON("x_chfiles:" + group.id, []) || []).filter(f => f && f.name).map(f => ({ name: f.name, kind: f.kind, by: f.updatedBy || f.createdBy, ts: f.updatedTs || f.createdTs })) });
+          chFiles: (loadJSON("x_chfiles:" + group.id, []) || []).filter(f => f && f.name).map(f => ({ ...f, by: f.updatedBy || f.createdBy, ts: f.updatedTs || f.createdTs, clockId: "g:" + group.id,
+            // 查手机里也能点开看（她 2026-11-23）：谁建的、谁改的照频道文件页那样叫
+            names: [f.createdBy, f.updatedBy].concat((f.history || []).map(x => x && x.by)).filter(Boolean).reduce((a, id) => { a[id] = id === "me" ? (profile && profile.name) || "你" : ((characters.find(c => c.id === id) || {}).name || "有人"); return a; }, {}) })) });
       }
       if (spectatePrivate) {
         const pairKey = memberIds.map(String).sort().join("|");
