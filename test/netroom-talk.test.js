@@ -131,7 +131,7 @@ test("各盒声明的合并方式：有私密信息的、不调模型的不走 p
   assert.ok(gsrc.indexOf("mergeNpc: \"host\" | \"prev\" | null") > 0);
   assert.ok(G.charOptKinds("spy").indexOf("talk") >= 0);
   assert.strictEqual(G.cleanTalk({ text: " ", name: "x" }), null);
-  assert.deepStrictEqual(Object.keys(G.cleanTalk({ kind: "talk", name: "a", text: "b", hand: "底牌" })).sort(), ["kind", "name", "npc", "peer", "seat", "text"]);
+  assert.deepStrictEqual(Object.keys(G.cleanTalk({ kind: "talk", name: "a", text: "b", hand: "底牌" })).sort(), ["human", "kind", "name", "npc", "peer", "seat", "text"]);
 });
 
 test("单机那几份：顺带台词／合并都是可选参数，不带就照旧；公共函数里不提联机", () => {
