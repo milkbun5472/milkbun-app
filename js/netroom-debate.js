@@ -59,7 +59,7 @@
 
   const A = {
     // 出手里的 say 就是台上这一段发言本身，不是桌边台词：框架别拿走、也别因为没勾「自己边玩边说」就清掉（她 11-22 截图：一直「这一轮没开口」）
-    zh: "辩论擂台", slow: true, sayInMove: "move",
+    zh: "辩论擂台", slow: true, sayInMove: "move", ownTalk: true,   // 擂台自己有观众席（弹幕）：通用的「牌桌上说的」和那一格不摆，点头像说话也落进观众席
     // 观众席：角色冒弹幕的那次调用顺带写一声路人观众（genSideLine 的 passerby），不另花调用；台上的 NPC 辩手照旧由庄出手
     mergeNpc: "prev",
     charOpts: ["side", "recent"],

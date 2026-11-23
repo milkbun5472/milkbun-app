@@ -40,6 +40,7 @@
 //   （可选）shelf / Prep           → 不在单机小游戏目录里的那几盒：大厅架子上多摆一个盒子，点了进它自己的开局页
 //   （可选）localTalk: true        → 出手不调模型的那几盒（棋、牌、大富翁）：桌边台词由框架隔几手／关键时刻另问一次（见下面「牌桌上说话」）
 //   （可选）talkMoment(view, seatIdx, inv) → 这一刻对这个座位算不算关键时刻（被将军、刚吃了大牌…），是就回一句「这会儿怎么了」
+//   （可选）ownTalk: true          → 这一盒自己有说话的地方（擂台的观众席）：框架不摆通用的「牌桌上说的」和那一格输入，点头像开口交给它的 cheer
 //   （可选）sayInMove: true        → 这一盒自己把出手里的 say 收进局面（故事接龙），框架不另外拿去当桌边台词
 //                  sayInMove: "move"  → say 就是这一手本身（擂台的发言），永远不清掉
 //   mergeNpc: "host" | "prev" | null → NPC 那一手能不能并进别人的那次调用（省一次）：
@@ -1053,7 +1054,8 @@
       const inv = s.inv, ad = A(inv.key), view = ad && ad.cleanView ? ad.cleanView(s.view) : s.view;
       const seats = inv.seats.map((x, i) => ({ x, i })).filter(({ x }) => x.kind === "char" && x.peer === o.me() && (ids || []).indexOf(x.charId) >= 0);
       // 台下的（没上台的我带来的角色）：交给这个游戏自己的 cheer（擂台：发弹幕）
-      const offs = (ids || []).filter(id => !seats.some(({ x }) => x.charId === id));
+      const offs = ad && ad.ownTalk && ad.cheer ? (ids || []).slice() : (ids || []).filter(id => !seats.some(({ x }) => x.charId === id));
+      if (ad && ad.ownTalk && ad.cheer) seats.length = 0;   // 擂台：台上的人点了也是在观众席那条线上说一句
       if (offs.length && ad && ad.cheer) { let outs = []; try { outs = await ad.cheer(s.view, inv, { me: o.me(), side: s.side || [], ids: offs, charOf: o.charOf, apiFor: o.apiFor, charOpts: cid => optsOf(gid, cid) }) || []; } catch (e) { outs = []; } outs.forEach(x => side(gid, x)); }
       if (!seats.length || !GSx || !GSx.seatTalk) return offs.length;
       const lead = o.charOf && o.charOf(seats[0].x.charId), api = lead && o.apiFor ? o.apiFor(lead.id) : null; if (!api) return 0;

@@ -2293,7 +2293,7 @@
           hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "开局的人不在，这一局等她回来接着打。")),
           sv.pause && !done && h(PauseBar, { pause: sv.pause, isHost, onGo: () => gs.resume(gid), hostName: (inv.seats.find(x => x.kind === "user" && x.peer === inv.host) || {}).name || "" }),
           h(A.Table, { inv: sv.pause && !done && GC().heldInv ? GC().heldInv(inv) : inv, view: sv.view, priv: sv.priv || null, myApi: props.gameApi ? props.gameApi() : null, me: meId.current, isHost, onMove: (seat, mv) => sv.pause ? (props.toast && props.toast("这一轮停着，等开局的人点「接着来」")) : gs.move(gid, seat, mv), onReveal: () => gs.reveal(gid), side: sv.side || [], onSide: x => gs.side(gid, x), nick: myNick() }),
-          root.NetGameUI && h(root.NetGameUI.TalkStrip, { lines: (sv.side || []).filter(x => x.kind === "talk"), charOf: l => { const st = l && l.seat >= 0 ? inv.seats[l.seat] : null; return st && st.kind === "char" ? charsById[st.charId] || null : null; } }),
+          !(A && A.ownTalk) && root.NetGameUI && h(root.NetGameUI.TalkStrip, { lines: (sv.side || []).filter(x => x.kind === "talk"), charOf: l => { const st = l && l.seat >= 0 ? inv.seats[l.seat] : null; return st && st.kind === "char" ? charsById[st.charId] || null : null; } }),
           // 我带上这一桌的角色：点谁谁在牌桌上说一句，「一起说」让几位一次说（她 11-22：角色不自动接话，只有她点了才开口）
           !done && (() => { const seatedMine = inv.seats.filter(x => x.kind === "char" && x.peer === meId.current);
             // 有台下的游戏（擂台）：我带进房间、没上台的角色也在这一排，点了在台下发一条弹幕
@@ -2310,7 +2310,7 @@
               mineAt.length > 1 && h("button", { "data-wk": "nrtabletogether", disabled: tableBusy, onClick: () => go(mineAt.map(x => x.charId)), className: "active:opacity-60 disabled:opacity-40",
                 style: { flexShrink: 0, minHeight: 32, padding: "0 10px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.ink } }, "一起说")); })(),
           // 牌桌上「说一句」（单机牌桌 CardSay 那一格的样子和挂点）：玩的人、观战的人都能说；角色不自动接，要她点上面的头像
-          !done && h("div", { "data-wk": "gamesay", style: { display: "flex", gap: 6, padding: "8px 16px 0" } },
+          !done && !(A && A.ownTalk) && h("div", { "data-wk": "gamesay", style: { display: "flex", gap: 6, padding: "8px 16px 0" } },
             // 不受控：打字不重画整间房（typing-hot-path）
             h("input", { "data-wk": "gameinput", "data-part": "talk", ref: tableSayRef, defaultValue: "", maxLength: 160,
               onKeyDown: e => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); sayAtTable(gid); } }, placeholder: "在牌桌上说一句",
