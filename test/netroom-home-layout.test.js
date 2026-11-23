@@ -30,3 +30,16 @@ test("中转卡里点开就是攻略那一节，跟递名片共用一个折叠",
   const man = fs.readFileSync(path.join(__dirname, "..", "js", "assistant-manual.js"), "utf8");
   assert.ok(man.includes("### 直连不上时：自己的中转"));
 });
+
+test("连不上时说清是谁那边、为什么", () => {
+  const i = src.indexOf("function iceKinds"), j = src.indexOf("const diagOf");
+  const f = new Function(src.slice(i, j) + "; return { iceKinds, diagnose };")();
+  const S = k => k.map(x => "a=candidate:1 1 udp 1 1.2.3.4 9 typ " + x).join("\n");
+  assert.equal(f.diagnose({ mine: S(["host", "srflx"]), theirs: null }).who, "她");
+  assert.equal(f.diagnose({ mine: S(["host"]), theirs: S(["host", "srflx"]) }).who, "你");
+  assert.equal(f.diagnose({ mine: S(["host", "srflx"]), theirs: S(["host"]) }).who, "她");
+  assert.equal(f.diagnose({ mine: S(["host", "srflx"]), theirs: S(["srflx"]), turn: true }).why, "你填的中转没接通");
+  assert.equal(f.diagnose({ mine: S(["srflx"]), theirs: S(["prflx"]) }).who, "两边");
+  assert.match(src, /L\.diag = diagOf\(L\.pc, !!o\.ice\); try \{ L\.pc\.close/);
+  assert.match(src, /"data-wk": "nrdiag"/);
+});

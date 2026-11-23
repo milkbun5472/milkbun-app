@@ -1117,6 +1117,25 @@
     let b = null; try { b = typeof byoRaw === "string" ? JSON.parse(byoRaw) : byoRaw; } catch (e) {}
     return cleanSupa(b);
   }
+  // 连不上时看一眼两边递过来的地址单子，说出是谁那边、为什么（她 11-23：「能不能让她们看到是谁为什么连不上」）
+  //   地址单子里：srflx＝从外网看得到的地址（拿到了才能直连），relay＝中转给的地址。哪边一个都没有，就是哪边的网络挡住了
+  function iceKinds(sdp) {
+    const k = { host: 0, srflx: 0, relay: 0 };
+    (String(sdp || "").match(/ typ (host|srflx|prflx|relay)/g) || []).forEach(x => { const t = x.slice(5); k[t === "prflx" ? "srflx" : t]++; });
+    return k;
+  }
+  // d: { mine: 我递出去的 sdp, theirs: 她递来的 sdp（没收到＝null）, turn: 我填了中转没 }
+  function diagnose(d) {
+    if (!d || !d.mine) return { who: "你", why: "你这台还没准备好连接", fix: "退出房间再进一次" };
+    if (!d.theirs) return { who: "她", why: "她那台一直没回话", fix: "让她看看手机是不是锁屏了、还开着这个房间，然后点「重新连上」" };
+    const a = iceKinds(d.mine), b = iceKinds(d.theirs);
+    if (d.turn && !a.relay) return { who: "你", why: "你填的中转没接通", fix: "看看中转的地址、用户名、密码有没有抄错，或者中转的流量用完了" };
+    if (!a.srflx && !a.relay) return { who: "你", why: "你这边的网络把直连挡住了", fix: "关掉梯子再试；连着公司、学校的网就换成流量" };
+    if (!b.srflx && !b.relay) return { who: "她", why: "她那边的网络把直连挡住了", fix: "让她关掉梯子再试；连着公司、学校的网就换成流量" };
+    if (a.relay || b.relay) return { who: "中转", why: "走中转也没打通", fix: "中转可能流量用完了，或者地址不对，换一个试试" };
+    return { who: "两边", why: "两边的网络都不让对方直接连进来", fix: "一边换成流量试试；还不行就房里有人在联机首页「连不上的时候」填一个自己的中转" };
+  }
+  const diagOf = (pc, turn) => { try { return diagnose({ mine: pc.localDescription && pc.localDescription.sdp, theirs: pc.remoteDescription && pc.remoteDescription.sdp, turn }); } catch (e) { return null; } };
   function iceDone(pc, slow) {
     return new Promise(ok => {
       if (pc.iceGatheringState === "complete") return ok();
@@ -1135,12 +1154,15 @@
     let link = null, hello = null, clock = null, anyOpen = false, dead = false;
     const pub = obj => { try { link && link.publish(topic, Object.assign({ from: o.me, s: sess }, obj)); } catch (e) {} };
     const stopHello = () => { if (hello) clearInterval(hello); hello = null; if (clock) clearTimeout(clock); clock = null; };
-    const fail = text => { if (dead) return; api.close(); o.onFail && o.onFail(text); };
+    const fail = text => { if (dead) return;
+      if (text === FAIL_TEXT) { const L = Object.keys(links).map(id => links[id])[0]; const d = L && (L.diag || diagOf(L.pc, !!o.ice));
+        if (d) text = "看下来是" + d.why + "：" + d.fix + "。" + text; }
+      api.close(); o.onFail && o.onFail(text); };
     const drop = id => { const L = links[id]; if (!L) return; delete links[id]; clearTimeout(L.timer); try { L.pc.close(); } catch (e) {} };
     const openIds = () => Object.keys(links).filter(id => links[id].state === "open");
     const linkFail = (id, L) => {
       if (links[id] !== L || L.state === "open") return;
-      clearTimeout(L.timer); try { L.pc.close(); } catch (e) {}
+      clearTimeout(L.timer); L.diag = diagOf(L.pc, !!o.ice); try { L.pc.close(); } catch (e) {}
       L.state = "fail"; o.onLinkFail && o.onLinkFail(id);
     };
     const wire = (id, L, ch) => {
@@ -1258,6 +1280,7 @@
     const api = {
       openIds,
       state: id => (links[id] ? links[id].state : ""),
+      diag: id => (links[id] ? links[id].diag || null : null),
       sendTo(id, raw) { const L = links[id]; try { L && L.state === "open" && L.dc && L.dc.readyState === "open" && L.dc.send(raw); } catch (e) {} },
       close() { dead = true; clearInterval(beat); stopHello(); try { link && link.close(); } catch (e) {} link = null; Object.keys(links).forEach(drop); }
       // 页面从后台回到前台：中转那条线多半已经死了，先换一条新的，再喊一声让还没连上的人来接
@@ -1371,7 +1394,7 @@
   }
   function recapBlock(room) { const t = recapText(room && room.recap); return t ? "\n\n" + t + (promptRoom(room).cut ? "\n（更早的记录太长，下面只给最近这一段）" : "") : ""; }
 
-  const Core = { cleanTurn, iceFor, BROKERS, BROKER_FAIL_TEXT, SUPA_FAIL_TEXT, JOIN_PREFIX, MqttLink, openBroker, SupaLink, signalFor, packJoin, parseJoin, cleanSupa, supaCfg, secretKey, Mesh, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
+  const Core = { cleanTurn, iceFor, iceKinds, diagnose, BROKERS, BROKER_FAIL_TEXT, SUPA_FAIL_TEXT, JOIN_PREFIX, MqttLink, openBroker, SupaLink, signalFor, packJoin, parseJoin, cleanSupa, supaCfg, secretKey, Mesh, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
     memoryTargets, transcript, lineInstruction, actBits, actsOf, cleanSong, songPlan, listenLines, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
     ownsMsg, editMsg, recallMsg, dropMsg, dropOwnMsg, tombOwn, applyDrops, isDropped, TOMB_MAX, missingImgs, cleanQuote, quoteOf, quoteState, quoteCatalog, resolveQuote, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, humansHere, watchTargets, jointInstruction, jointLines, mergeMsgs, removeRoom, hostGamesIn, HOST_GAMES_KEY, sinceRemembered, echoText,
@@ -1739,7 +1762,8 @@
       const fail = Object.keys(linkMap.current).concat(((roomRef.current && roomRef.current.peers) || []).map(p => p.peerId))
         .filter((x, i, a) => a.indexOf(x) === i && m.state(x) === "fail");
       const reach = Core.reachable(meId.current, open, linkMap.current);
-      setNet({ open, fail, reach });
+      const diag = {}; fail.forEach(id => { const d = m.diag && m.diag(id); if (d) diag[id] = d; });
+      setNet({ open, fail, reach, diag });
       setPeerTyping(x => { const n = {}; Object.keys(x).forEach(k => { if (reach.indexOf(k.split("|")[0]) >= 0) n[k] = x[k]; }); return n; });
     };
     // 发给房里所有人：每条带编号和「谁说的」；直连不上的那几位由跟 TA 通着的人转过去。
@@ -2882,8 +2906,11 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         peers.length > 0 && h("div", { "data-wk": "nrpeerbar", className: "shrink-0", style: { padding: "6px 14px", borderBottom: "1px solid " + t.line, display: "flex", flexWrap: "wrap", gap: "4px 12px" } },
           peers.map(p => { const st = stateOf(p.peerId); return h("span", { key: p.peerId, "data-wk": "nrpeer", "data-state": st, style: { fontFamily: F_BODY, fontSize: fs(11.5), color: st === "on" ? t.ink : t.fog } },
             (st === "on" ? "● " : "○ ") + p.nick + (st === "on" ? (peerWatch[p.peerId] ? " · " + stateText.watch : "") : " · " + stateText[st])); }),
-          trouble.length > 0 && h("div", { style: { width: "100%", fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
-            "和 " + trouble.map(p => p.nick).join("、") + " 直连不上：" + (trouble.some(p => stateOf(p.peerId) === "relay") ? "话由房里其他人转过去，可能慢一点。" : "她收不到你的话。两边先关掉梯子再试；还不行就一边改用流量，或者填一个自己的中转（首页「连不上的时候」）。"))),
+          trouble.map(p => { const relay = stateOf(p.peerId) === "relay", d = !relay && net.diag && net.diag[p.peerId];
+            return h("div", { key: "d" + p.peerId, "data-wk": "nrdiag", style: { width: "100%", fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
+              "和 " + p.nick + " 直连不上：" + (relay ? "话由房里其他人转过去，可能慢一点。"
+                : d ? d.why + "。" + d.fix + "。"
+                : "她收不到你的话。两边先关掉梯子再试；还不行就一边改用流量，或者填一个自己的中转（首页「连不上的时候」）。")); })),
         (() => { const L = Core.listenLines(Object.assign({}, np, myNp.current ? { me: Object.assign({ who: "你" }, myNp.current) } : {}));
           return L.length > 0 && h("div", { key: "np", "data-wk": "nrlisten", className: "shrink-0", style: { padding: "5px 14px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.5 } },
             L.map((x, i) => h("div", { key: i, style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "♪ " + x))); })(),
