@@ -346,3 +346,7 @@ test("备注不进群里大家看得到的那几行：合照说明、抽签、�
   assert.match(ap, /who = cast\.map\(c => c\.id === "me" \? meName : c\.name\)/);
   assert.match(ap, /const pool0 = members\.map\(c => c\.name\)/);
 });
+
+test("频道改名走 chName，群名照拼，列表和聊天页一起变", () => {
+  assert.match(ap, /if \(g && g\.spaceId && name\) \{ const sp0 = /);
+});

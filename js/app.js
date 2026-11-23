@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.149";
+const APP_VERSION = "v90.162";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -214,7 +214,7 @@ function ScreenBoundaryClass() {
 //   论坛、一起听、备忘录、手记都拿掉了：主屏一路找过去最容易点错，也没翻出过一句戳人的心声。
 const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"], ["moments", "我的朋友圈"], ["daily", "日常联系人（照我的人设自动编几个：同事、家人、群）"]];
 if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
-function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock, vclock, onVClock, onOpenApi, onGo }) {
+function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, onSetModel, clock, vclock, onVClock, onOpenApi, onGo }) {
   const [scs, setScs] = useState(() => { const v = loadJSON("x_floatShortcuts", []); return Array.isArray(v) ? v.slice(0, 6) : []; }), [scEdit, setScEdit] = useState(false);
   const t = useTheme();
   const [open, setOpen] = useState(false);
@@ -224,6 +224,7 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   //   v69 那次「点开跳到屏幕下面然后关不掉」就是面板长出屏幕闹的。
   //   收着之后无论多少条线路，默认高度就是三行。
   const [tab, setTab] = useState("");
+  const [mdl, setMdl] = useState(null);   // 悬浮球里现拉模型（群友 2026-11-23「悬浮球可以快捷拉取 api 模型」）：{ pid, list, busy, err }
   // 生图那一档的站点：打开面板时现读（见下面 LANES 那段注释）。⚠️hook 必须在下面那个「没线路就 return」之前。
   const [imgStore, setImgStore] = useState(null);
   useEffect(() => { if (open && typeof loadImgApiProfiles === "function") { try { setImgStore(loadImgApiProfiles()); } catch (e) {} } }, [open]);
@@ -363,7 +364,16 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
             transform: tab === lane.key ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
         tab === lane.key
           ? h("div", { style: { marginTop: 4 } }, (lane.follow ? [choice(lane, null)] : []).concat(lane.key === "bg" ? [choice(lane, { id: "__off__", name: "无（记忆、日程这些后台活不跑）" })] : []).concat((lane.list || profiles || []).map(p => choice(lane, p))))
-          : null)), clockRow,
+          : null,
+        // 这一档用的那条线路：现拉它的模型清单，点一个就把这条线路的模型换掉（跟设置里「拉取模型」同一个 fetchModelList）
+        tab === lane.key && lane.key !== "img" && onSetModel && lane.cur && lane.cur.id && typeof fetchModelList === "function" ? h("div", { "data-wk": "modelfloatpull", style: { marginTop: 6, padding: "6px 8px", borderRadius: 10, border: "1px dashed " + t.line } },
+          h("div", { className: "flex items-center justify-between", style: { gap: 8 } },
+            h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, minWidth: 0 } }, "模型：" + (lane.cur.model || "没填")),
+            h("button", { onClick: async () => { const pid = lane.cur.id; setMdl({ pid, busy: true }); try { const ls = await fetchModelList(lane.cur); setMdl({ pid, list: (ls || []).map(x => typeof x === "string" ? x : (x && (x.id || x.name)) || "").filter(Boolean) }); } catch (e) { setMdl({ pid, err: String((e && e.message) || e).slice(0, 60) }); } },
+              className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, mdl && mdl.pid === lane.cur.id && mdl.busy ? "拉取中…" : "拉取换模型")),
+          mdl && mdl.pid === lane.cur.id && mdl.err ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#c0392b", marginTop: 4 } }, mdl.err) : null,
+          mdl && mdl.pid === lane.cur.id && mdl.list ? h("div", { style: { maxHeight: 160, overflowY: "auto", marginTop: 4 } }, mdl.list.map(m => h("button", { key: m, onClick: () => { onSetModel(lane.cur.id, m); setMdl(null); }, className: "w-full text-left active:opacity-60 truncate",
+            style: { display: "block", padding: "5px 2px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: m === lane.cur.model ? t.tint : t.ink } }, (m === lane.cur.model ? "✓ " : "") + m))) : null) : null)), clockRow,
       onOpenApi ? h("button", { "data-wk": "modelfloatapi", onClick: () => { setOpen(false); onOpenApi(); }, className: "w-full active:opacity-60",
         style: { marginTop: 8, minHeight: 38, padding: "7px 8px", borderRadius: 10, border: "1px dashed " + t.line, background: "transparent",
           fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, textAlign: "center" } }, "去模型设置改线路 ›") : null) : null,
@@ -13981,7 +13991,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️从被删的旧基线里救回来的（v2 迁移没跟过来）：协议里只有 gift 的字段形状，
       //   「这笔钱会真的从你钱包里扣掉」这半句一直没发出去，TA自然会乱送。
       // takeout 单独一条、以「takeout：」起头——旁观房按冒号前那个字段名把整条摘掉。
-      capState.push("takeout：你给 " + uName + " 点外卖时填它（不填 gift）。shop 是你下单的那家店，items 列你点的每一样；"
+      capState.push("takeout：你给 " + uName + " 点外卖时填它（不填 gift）。shop 是你下单的那家店——外卖是送到 " + uName + " 那儿的，店就开在 " + uName + " 此刻在的地方附近（看【" + uName + " 当前位置】那一条），不是你自己住的城市；items 列你点的每一样；"
         + "它由骑手十几分钟送到，没有盒子可拆。它和 gift 怎么分只看一句：**现在送过去、Ta 当下就吃掉喝掉的，填 takeout；会留在 Ta 身边的东西，填 gift。**"
         + "同一样吃的两边都说得通时，看你这句话是在说「现在给你叫一份」，还是「寄一份给你」。");
       capState.push("gift：只要你这轮【说了】要给 " + uName + " 买东西、点外卖、送花送礼物，就**必须**填 gift 或 takeout"
@@ -19958,8 +19968,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 旧记忆就变成孤儿：召不回来、清群时也删不掉。所以名字和 tag 一起改。
   // by：谁起的这个名字（角色 id；她自己改的不传，记成 "me"）——群里、单聊里提到这个群时说得出是谁起的
   const renameGroup = (groupId, rawName, by) => {
-    const name = String(rawName || "").trim().slice(0, 24);
+    let name = String(rawName || "").trim().slice(0, 24);
     const g = (groups || []).find(x => x.id === groupId);
+    // 频道的名字住在 chName 上，群名只是「空间 · #频道」拼出来的（群友 2026-11-23：让他起了名、点了确认，列表还是旧的，过一会儿聊天页也变回去了）：
+    //   改频道名就改 chName，群名照拼，两边才一起变
+    if (g && g.spaceId && name) { const sp0 = (spacesRef.current || []).find(x => x && x.id === g.spaceId); const ch = name.replace(/^.*·\s*#/, "").replace(/^#+/, "").trim().slice(0, 16);
+      if (ch && ch !== g.chName) updateGroup(groupId, { chName: ch }); name = channelGroupName(sp0, ch || g.chName); }
     if (!g || !name || name === g.name) return;
     const old = g.name;
     // 用过的名字记下来，以后起新名字时摆给TA看，免得每次都差不多
@@ -27020,7 +27034,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 在她朋友圈底下说「点给你了」就真点（群里 2026-10-22：评论里说给她点了奶茶，私聊和外卖订单里都没有，回私聊还不认）：
   //   跟私聊同一个下单口 postCharTakeout——卡落进私聊，那张卡本身就在聊天记录里，他回私聊自然知道，不另往上下文里塞朋友圈
-  const MOMENT_TAKEOUT_ASK = "\n【真给她点吃的喝的】只有正式角色能点，配角不行。看到她说想吃想喝、累了饿了，谁真打算给她点一份外卖，就在TA那一项里加 \"takeout\":{\"shop\":\"店名\",\"items\":[\"点的东西\"],\"note\":\"一句备注\"}，会从TA钱包扣钱、真送到她那儿；嘴上说点了就要填，没打算点就别说已经点了。";
+  const MOMENT_TAKEOUT_ASK = "\n【真给她点吃的喝的】只有正式角色能点，配角不行。看到她说想吃想喝、累了饿了，谁真打算给她点一份外卖，就在TA那一项里加 \"takeout\":{\"shop\":\"店名\",\"items\":[\"点的东西\"],\"note\":\"一句备注\"}，会从TA钱包扣钱、真送到她那儿，店就开在她此刻在的地方附近、不是TA自己住的城市；嘴上说点了就要填，没打算点就别说已经点了。";
   // 替她付购物车（翻她手机、朋友圈两处共用这一份）：items 是要付的那几件的名字，空着＝全付。
   //   从TA钱包扣；钱包没开通或者钱不够就一件都不动（原来翻手机那处不看扣没扣成，钱没扣东西照样从购物车里没了）
   const payHerCart = (charId, items, ledgerWhy, payLabel) => {
@@ -37724,6 +37738,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onToggleFollow: toggleForumFollow,
     onForwardToChat: forwardPostToChat,
     onForwardToGroup: forwardPostToGroup,
+    // 转发到朋友圈：走她自己发朋友圈那一条（postUserMoment），正文里带上转的是哪一帖、哪一楼，他们刷到能接
+    onForwardToMoment: f => requestAppPrompt("转发到朋友圈", "想说点什么可以写在这儿，不写也行。", "", v => {
+      const mine = String(v || "").trim(), body = String(f.body || f.content || f.text || "").replace(/\s+/g, " ").trim().slice(0, 120);
+      const who = f.anon ? "匿名" : (f.authorName || f.author || "");
+      postUserMoment({ content: (mine ? mine + "\n\n" : "") + "转发自论坛" + (f.board ? "「" + f.board + "」" : "") + "：" + (f.title || "") + (who ? "（" + who + "）" : "") + (body ? "\n「" + body + "」" : "") });
+      toast("转到朋友圈了"); }, "转发"),
     onRefreshPMs: refreshForumPMs,
     onDeletePost: deleteForumPost,
     onEditPost: editForumPost,
@@ -40380,6 +40400,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     activeId: activeId,
     offlineApiId: offlineApiId,
     onSetOnline: id => { setActiveId(id); saveJSON("x_activeApi", id); toast("线上已切换为 " + (((apiProfiles || []).find(p => p.id === id) || {}).name || ((apiProfiles || []).find(p => p.id === id) || {}).model || "该线路")); },
+    // 悬浮球里换某条线路的模型：跟设置页保存线路同一条路（保险仓 → 本机）
+    onSetModel: async (pid, model) => { const list = (apiProfiles || []).map(p => p.id === pid ? { ...p, model } : p);
+      try { const runtime = window.CredentialVault ? await window.CredentialVault.persistApiProfiles(list) : list; setApiProfiles(runtime); if (!window.CredentialVault) saveJSON("x_api", list); toast("模型换成 " + model); } catch (e) { toast("没换成：" + String((e && e.message) || e).slice(0, 40)); } },
     onSetOffline: id => { setOfflineApiId(id); saveJSON("x_offlineApi", id); const p = id && (apiProfiles || []).find(x => x.id === id); toast("线下已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); },
     bgApiId: bgApiId,
     // 后台那一档走 setBgApi（设置页用的同一处）——记忆整理、翻译、查手机那些活都读它

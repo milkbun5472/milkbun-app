@@ -2261,7 +2261,7 @@ function forumIpOf(x, ch, post) {
   const city = ch && ch.home && ch.home.city ? String(ch.home.city).trim() : "";
   if (city) return forumIpTrim(city);
   try {
-    const mine = !ch && x && (x.authorType === "me" || x.authorId === "me") && !x.anon;   // 她的小号也照她的定位（IP 跟人走，不跟号走）
+    const mine = !ch && x && (x.authorType === "me" || x.authorId === "me");   // 她的小号也照她的定位（IP 跟人走，不跟号走）
     if (mine && window.MapKit && window.MapKit.userRealm && typeof loadJSON === "function") {
       const rl = window.MapKit.userRealm(loadJSON("x_prefs", {}), loadJSON("x_geo", null), loadJSON("x_worlds", []));
       const v = rl && (rl.kind === "real" ? (rl.geo.city || rl.geo.label) : (rl.node || (rl.world && rl.world.name)));
@@ -2270,7 +2270,8 @@ function forumIpOf(x, ch, post) {
     if (ch && window.MapKit && window.MapKit.CITY_DB) { const txt = [ch.persona, ch.description, ch.desc].filter(Boolean).join(" ");
       const hit = Object.keys(window.MapKit.CITY_DB).map(k => [k, txt.indexOf(k)]).filter(z => z[1] >= 0).sort((a, b) => a[1] - b[1])[0]; if (hit) return hit[0]; }
   } catch (e) {}
-  const key = String((x && (x.authorName || x.authorId)) || "?");
+  // 路人匿名都叫「匿名用户」，按名字散就全落在同一个省（她 2026-11-23「匿名怎么都是陕西」）：匿名的按这一楼自己的 id 散
+  const key = String((x && (x.anon || /^匿名/.test(String(x.authorName || "")) ? (x.id || x.ts || x.authorName) : (x.authorName || x.authorId))) || "?");
   let hsh = 0; for (const ch2 of key) hsh = (hsh * 31 + ch2.charCodeAt(0)) >>> 0;
   const places = !ch && post ? forumWorldPlaces(post) : null;
   if (places) return forumIpTrim(places[hsh % places.length]);
@@ -2418,7 +2419,7 @@ function Forum({
   characters, profile, posts, comments, follows, followBack, followingOf, pms, groups, gen, forumMe, charMetaOf, forumOff, forumMasks, forumMaskNow,
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onRegenFloors, onReplyFloor, onReplySub,
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
-  onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
+  onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup, onForwardToMoment,
   onRefreshPMs, onSendPM, onDelPMMsg, onForwardToPM, onAskWechat, onOpenWechat, onMarkPMRead, onEditMe, onEditCharMeta, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
   onEditPost, onPinFloor, onDeletePost, onDeletePosts, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空；onDeletePosts 多选一起删
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
@@ -3000,7 +3001,8 @@ function Forum({
 
   // ---- 楼层（含楼中楼 + 回复按钮 + 赞）----
   // IP 跟人走（她 2026-11-16「小号没有跟着他地图的地点」）：小号背后是哪个角色就照他在地图上的地方；匿名的照旧不露
-  const ipCharOf = x => x && !x.anon && (x.authorType === "character" || x.authorType === "character_alt") && x.authorId ? charOf(x.authorId) : null;
+  // 匿名也是那个人发的，IP 跟人走（她 2026-11-23「是角色的号就按角色位置来」）
+  const ipCharOf = x => x && (x.authorType === "character" || x.authorType === "character_alt") && x.authorId ? charOf(x.authorId) : null;
   function floorRow(post, cm, i) {
     const c = cm.authorType === "character" ? charOf(cm.authorId) : null;
     const isL = liked.has(cm.id);
@@ -3729,6 +3731,10 @@ function Forum({
     // 转发 picker
     fwd && h(Sheet, { onClose: () => setFwd(null) },
       h(Eyebrow, { style: { marginBottom: 10 } }, "转发「" + (fwd.title || "").slice(0, 14) + "」到"),
+      // 转发到朋友圈（她 2026-11-23 许愿板「帖子和回复都想转发」）：跟私聊、群聊同一个面板，多一行
+      onForwardToMoment ? h("button", { "data-wk": "forumfwdmoment", onClick: () => { const f = fwd; setFwd(null); onForwardToMoment(f); }, className: "w-full flex items-center gap-3 py-2 mb-2 active:opacity-60" },
+        h("span", { style: { width: 32, height: 32, borderRadius: 999, background: FORUM_SKIN.line, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "calc(15px * var(--app-fs, 1))" } }, "◎"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "我的朋友圈")) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "私聊"),
       h("div", { className: "space-y-1 max-h-44 overflow-y-auto mb-3" }, (characters || []).map(c => h("button", { key: c.id, onClick: () => { onForwardToChat(fwd, c); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h(Avatar, { character: c, size: 32, radius: 8 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name)))),
       (groups || []).length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "群聊"),
@@ -7521,7 +7527,7 @@ function Config(props) {
   //   而且下一个人照着这份表继续往里加英文。撤掉东西要删干净，不是留在原地。
   const meta = {
     home: "设置", api: "接哪些模型", apiText: "文字模型",
-    apiImage: "图像 API", apiTts: "语音 API", apiVideo: "视频 API", apiEmbed: "向量记忆",
+    apiImage: "图像 API", apiMcp: "MCP 服务器", apiTts: "语音 API", apiVideo: "视频 API", apiEmbed: "向量记忆",
     apiStt: "语音识别", apiEars: "真声耳朵", apiMouth: "电台嗓子", apiCache: "额度与缓存", sense: "他们知道现在几点、我在哪",
     cot: "创作小稿", look: "这个 app 长什么样",
     theme: "外观与壁纸", themeStudio: "主题工作台", chatCss: "各聊天窗的 CSS",
@@ -7642,6 +7648,7 @@ function Config(props) {
       page === "api" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "文", tint: "#5c7fa3", title: "文字模型", sub: "聊天、线下、后台模型与多线路方案", onClick: () => setPage("apiText"), wide: true }),
         h(ConfigTile, { icon: "图", tint: "#7c8a52", title: "图像 API", sub: "自拍、合照与多个图像站点", onClick: () => setPage("apiImage") }),
+        h(ConfigTile, { icon: "具", tint: "#6a7f9a", title: "MCP 服务器", sub: "让他们会查、会用工具、接外面的记忆", onClick: () => setPage("apiMcp") }),
         h(ConfigTile, { icon: "影", tint: "#718567", title: "视频 API", sub: "MiniMax · 可灵 · 即梦，做动态形象", onClick: () => setPage("apiVideo") }),
         h(ConfigTile, { icon: "声", tint: "#a3714f", title: "语音 API", sub: "语音合成、克隆音色与指派", onClick: () => setPage("apiTts") }),
         h(ConfigTile, { icon: "索", tint: "#6f6f96", title: "向量记忆", sub: "独立 Embedding 接口与索引", onClick: () => setPage("apiEmbed") }),
@@ -7650,6 +7657,7 @@ function Config(props) {
         h(ConfigTile, { icon: "嗓", tint: "#8e6b4f", title: "电台嗓子", sub: "自己架的朗读服务，没配就用系统音色", onClick: () => setPage("apiMouth") }),
         h(ConfigTile, { icon: "量", tint: "#8a8378", title: "调用记录与缓存", sub: "每一次叫模型的记录、缓存命中", onClick: () => setPage("apiCache"), wide: true })),
       page === "apiText" && section(h(ApiConfig, { profiles: props.apiProfiles, activeId: props.activeId, offlineApiId: props.offlineApiId, onSetOfflineApi: props.onSetOfflineApi, modelFloatOn: props.modelFloatOn, onSetModelFloat: props.onSetModelFloat, bgApiId: props.bgApiId, onSetBgApi: props.onSetBgApi, onSave: props.onSaveApi, toast: props.toast })),
+      page === "apiMcp" && section(h(McpConfig, { toast: props.toast })),
       page === "apiImage" && section(h(React.Fragment, null, h(ImageApiConfig, { toast: props.toast }), h(AvatarPoolConfig, { toast: props.toast }))),
       page === "apiVideo" && section(h(VideoApiConfig, { toast: props.toast })),
       page === "apiTts" && section(h(TtsApiConfig, { toast: props.toast, characters: props.characters, onAssignVoice: props.onAssignVoice })),
@@ -8027,8 +8035,8 @@ function ApiConfig({
       // 「无」（她 2026-10-10：「后台 api 能不能选个无，这样可以强制不刷新」）：后台自己跑的那些一律不跑
       + "选「无」：「谁会自己动」里那些自己跑的（日程、日记、朋友圈、论坛、刷手机、群里自己聊、主动来找你……）和自动抽记忆一律停掉，只剩你点了才动的；聊天到一定长度的前情浓缩照旧走主模型，不然 TA 会忘。",
       bgApiId, onSetBgApi, "跟随主模型", "无（记忆、日程这些后台活不跑）"),
-    h(QuietHoursBox, { t: t, toast: toast }),
-    h(McpConfig, { toast: toast }));
+    h(QuietHoursBox, { t: t, toast: toast }));
+    // MCP 搬去「接哪些模型」里单独一格（她 2026-11-23「从文字api里面移出来做一个单独格子，这个不好找」）：搬＝这儿删掉
   return /*#__PURE__*/React.createElement("div", null,
   h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),
   false && onSetModelFloat && h("div", { style: { marginTop: 2, marginBottom: 18, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, background: t.bg2 } },
