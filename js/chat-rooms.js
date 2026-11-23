@@ -258,7 +258,8 @@
   // 头像（她 2026-10-24）：她给小号挑了图就用那张；没挑就按小号网名画一张——原来按角色 id 画，没传头像的角色小号和大号是同一张脸
   function altTaFace(room) { const a = altOf(room); if (!(altTa(a) && !a.youKnow)) return null; const name = a.ta.name || "陌生人";
     return { name, persona: a.ta.persona, avatar: a.ta.avatar || (typeof autoAvatarSrc === "function" ? autoAvatarSrc("altroom:" + name) : "") }; }
-  function altProfile(room) { const a = altOf(room); return a && a.mask && String(a.mask.name || a.mask.label || "").trim() ? a.mask : { name: "陌生网友", persona: a && a.mask && a.mask.persona || "" }; }
+  // 没起名字的小号：名字回落成「陌生网友」，但她挑的头像照样带着（群里 2026-11-23「小号房换不了头像，点了对勾聊天里也不变」）
+  function altProfile(room) { const a = altOf(room); return a && a.mask && String(a.mask.name || a.mask.label || "").trim() ? a.mask : { name: "陌生网友", persona: a && a.mask && a.mask.persona || "", ...(a && a.mask && a.mask.avatarImage ? { avatarImage: a.mask.avatarImage } : {}) }; }
   function altName(room) { const p = altProfile(room); return String(p.name || p.label || "陌生网友"); }
   // TA没认出来时，叫她用的名字（认出来了或不是小号房：空串，调用点回落到她本来的名字）
   function altCallName(room) { return altHidesMe(room) ? altName(room) : ""; }
