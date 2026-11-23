@@ -58,6 +58,41 @@
       return { key: "nr:" + i, name, hp: 100, maxHp: 100, stats: null, fate: 2, effects: [], feats: [], guest: true, player: s.kind === "user" };
     });
   }
+  // 新开一团（她 2026-11-22：「就在这页选人组团发邀请卡，等她们进好了再根据这桌上几个人开团」）：
+  //   开局时还没有团——桌上每一位先掷数值，掷齐了庄才照这一桌的人搭团（单机开团那一份 setupFront／backstageGen／campFromDraft），
+  //   建好的团存进开团的人那台的跑团存档，跟单机新开的团一样，之后单机里也能接着跑。
+  const EMPTY_CAMP = () => ({ id: "", title: "还没开团", world: "", hook: "", stages: [], stageIdx: 0, party: [], msgs: [], dossier: {}, mapRegions: null, place: "", pos: "", visited: [], clocks: [], quests: [], npcs: [], items: [], clues: [], time: { day: 1, part: "晨" }, ended: false });
+  function seatPartyNew(inv) {
+    const names = new Set();
+    return inv.seats.map((s, i) => {
+      const own = s.peer === inv.host && (s.kind === "user" || s.kind === "char");
+      let name = cut(s.name, 16) || "客人"; while (names.has(name)) name += "·"; names.add(name);
+      return { key: own ? (s.kind === "user" ? "user" : s.charId) : "nr:" + i, name, hp: 100, maxHp: 100, stats: null, fate: 2, effects: [], feats: [], guest: !own, player: s.kind === "user" && !own };
+    });
+  }
+  async function genCamp(st, inv, ctx) {
+    const T = TS(); if (!T || !T.setupFront) return Object.assign({}, st, { busy: false, genErr: "跑团没装上" });
+    if (!ctx.hostApi) return Object.assign({}, st, { busy: false, genErr: "开团的人那台没配线下线路，搭不了团" });
+    const f = st.fresh || {}, pz = ctx.prep || {}, personas = pz.personas || {};
+    const ui = st.members.findIndex(m => m.key === "user"), uName = ui >= 0 ? st.members[ui].name : (inv.seats[0] && inv.seats[0].name) || "你";
+    const party = st.members.map(m => ({ key: m.key, name: m.name, hp: 100, maxHp: 100, stats: Object.assign({}, m.stats), fate: T.fateOf ? T.fateOf(m.stats.luck) : m.fate, effects: [], feats: [], veteran: false, runs: 0, guest: !!m.guest, player: !!m.player }));
+    // 玩家本人排第一（单机里 party[0] 就是她）；其余是队友：自己的角色给人设，别人带来的只有名字（人设不出 TA 主人的手机），别的真人写明是真人
+    const ordered = ui >= 0 ? [party[ui]].concat(party.filter((_, i) => i !== ui)) : party;
+    const crew = ordered.filter(m => m.key !== "user").map(m => ({ name: m.name, persona: !m.guest && personas[m.key] ? personas[m.key]
+      : m.player ? "另一位真人玩家，跟你一起来玩的；她的话和动作都由她自己交上来，别替她决定。" : "别的玩家带来的角色，这里只知道名字；TA 的话和动作由 TA 的主人那台交上来。" }));
+    try {
+      const front = await T.setupFront(ctx.hostApi, { uName, crew, kw: f.kw || "", prior: "", party: ordered });
+      let d = Object.assign({ squadId: "", squadName: "", partyIds: ordered.filter(m => !m.guest && m.key !== "user").map(m => m.key), keywords: String(f.kw || "").trim(), difficulty: "normal", style: f.style || "classic",
+        dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "" }, front, { party: ordered });
+      const bs = await T.backstageGen(ctx.hostApi, d, { uName, crew }); if (bs) d = Object.assign({}, d, bs);
+      const c = T.campFromDraft(d, f.limits || "");
+      // 座位顺序不变：members 按座位排，团里的 party 按单机的规矩玩家在前
+      const members = st.members.map(m => Object.assign({}, c.party.find(x => x.key === m.key) || m));
+      c.party = members.slice();
+      const list = T.loadCamps() || []; T.saveCamps([c].concat(list));
+      return Object.assign({}, st, { camp: clone(c), members, phase: "act", busy: false, genErr: "", fresh: null, logFrom: 0, actAt: Date.now() });
+    } catch (e) { return Object.assign({}, st, { busy: false, genErr: "没搭成：" + ((e && e.message) || e) }); }
+  }
   const pendingOf = st => st.phase === "roll" ? st.members.map((m, i) => m.stats ? -1 : i).filter(i => i >= 0)
     : st.phase === "act" ? st.members.map((m, i) => st.acts[i] ? -1 : i).filter(i => i >= 0)
     : st.phase === "check" ? [ckWho(st)].filter(i => i >= 0) : [];
@@ -96,7 +131,7 @@
     harmRoll: c.harmRoll == null ? null : int(c.harmRoll, 1, 20, 1), offer: !!c.offer, spent: (c.spent || []).slice(0, 2).map(x => cut(x, 12)), mates: [] } : null;
   function view(st) {
     return Object.assign(tableOf(st), {
-      phase: st.phase, beat: st.beat, seatKinds: st.seatKinds.slice(), busy: !!st.busy, err: cut(st.err, 200),
+      phase: st.phase, beat: st.beat, seatKinds: st.seatKinds.slice(), busy: !!st.busy, err: cut(st.err, 200), genErr: cut(st.genErr, 200),
       party: st.members.map(m => ({ name: m.name, hp: int(m.hp, 0, 999, 100), maxHp: int(m.maxHp, 1, 999, 100), stats: m.stats ? Object.assign({}, m.stats) : null, guest: !!m.guest })),
       done: st.members.map((m, i) => st.phase === "roll" ? !!m.stats : !!st.acts[i]),
       apart: st.apartWho.slice(), log: publicLog(st.camp, st.logFrom),
@@ -459,7 +494,7 @@
     // 最后一个人交完、房主点「不等了」或「继续这一拍」：那一下要等守密人，先亮「守密人在写」
     slow(st, seat, mv) {
       if (!st || st.busy) return false;
-      if (seat < 0) return !!(mv && (mv.op === "resolve" || mv.op === "retry" || mv.op === "finale" || (mv.op === "go" && st.phase === "check" && !(st.cks || []).length)));
+      if (seat < 0) return !!(mv && (mv.op === "resolve" || mv.op === "retry" || (mv.op === "gen" && st.phase === "gen") || mv.op === "finale" || (mv.op === "go" && st.phase === "check" && !(st.cks || []).length)));
       if (st.phase !== "act" || st.acts[seat]) return false;
       // 这一拍有人挑了要过检定的路：先开台面，不先亮「守密人在写」
       const ckPick = a => { const ch = a && int(a.pick, -1, 3, -1) >= 0 ? (st.camp.choices || [])[int(a.pick, -1, 3, -1)] : null; return !!(ch && ch.check); };
@@ -469,7 +504,11 @@
     async init(inv, ctx) {
       await ensure(); const T = TS();
       if (!T) throw new Error("跑团没装上");
-      const pz = ctx.prep || {}, camp = (T.loadCamps() || []).find(c => c.id === pz.campId);
+      const pz = ctx.prep || {};
+      const tm0 = TIMEOUTS.indexOf(Number(pz.timeout)) >= 0 ? Number(pz.timeout) : 3;
+      if (pz.mode === "new") return { camp: EMPTY_CAMP(), fresh: { kw: cut(pz.kw, 200), style: T.STYLES && T.STYLES[pz.style] ? pz.style : "classic", limits: cut(pz.limits, 400) }, members: seatPartyNew(inv), seatKinds: inv.seats.map(s => s.kind), phase: "roll",
+        acts: {}, beat: 0, busy: false, err: "", genErr: "", whisper: {}, truth: {}, diary: {}, autoed: [], apartWho: [], logFrom: 0, pend: null, timeout: tm0 * MIN, actAt: Date.now() };
+      const camp = (T.loadCamps() || []).find(c => c.id === pz.campId);
       if (!camp) throw new Error("房主这台找不到要开的那个团了（删掉了？）");
       if (camp.ended) throw new Error("这个团已经落幕了，换一个还在演的");
       const members = seatParty(camp, inv);
@@ -494,6 +533,7 @@
     roundOf: x => x.phase + ":" + x.beat + (x.phase === "check" && x.ck ? ":" + (x.members ? x.ckN : x.ck.n) + ":" + x.ck.stage : ""),
     // 真人一直不交：到点庄按「稳妥」那条替她交（掷数值那一步就替她掷），桌上写明是到点替交的
     onTick(st, now) {
+      if (st && st.phase === "gen" && !st.busy && !st.genErr) return [{ seat: -1, mv: { op: "gen" } }];
       if (st && !st.busy && st.phase === "check" && st.ck) {
         // 最后一颗落定、大家看过了：接着请守密人（或开下一位的台面）
         if (st.ck.stage === "shown") return now - st.ck.at >= CK_SHOW ? [{ seat: -1, mv: { op: "go" } }] : [];
@@ -517,6 +557,7 @@
       if (st.phase === "done") return { err: "这一团今晚已经收桌了" };
       mv = mv || {};
       if (seatIdx < 0) {
+        if (mv.op === "gen" && st.phase === "gen") return { st: await genCamp(st, inv, ctx) };
         if (mv.op === "stop") { writeBack(st); return { st: Object.assign({}, st, { phase: "done", stopped: true, busy: false }) }; }
         if (mv.op === "retry" && st.phase === "stuck") return { st: await resolve(st, inv, ctx) };
         if (mv.op === "resolve" && st.phase === "act") { const q = ckQueue(st); return { st: q.length ? ckOpen(st, q) : await resolve(st, inv, ctx) }; }   // 不等了：没交的人这一拍跟着大家
@@ -542,7 +583,7 @@
         const s = cleanStats(mv.stats); if (!s) return { err: "数值不对" };
         const members = st.members.map((m, i) => i === seatIdx ? Object.assign({}, m, { stats: s, fate: TS().fateOf(s.luck) }) : m);
         const go = !members.some(m => !m.stats);
-        return { st: Object.assign({}, st, { members, phase: go ? "act" : "roll", busy: false, actAt: go ? Date.now() : st.actAt }) };
+        return { st: Object.assign({}, st, { members, phase: go ? (st.fresh ? "gen" : "act") : "roll", busy: false, actAt: go ? Date.now() : st.actAt }) };
       }
       if (st.phase === "check") return ckMove(st, seatIdx, mv, inv);
       if (st.phase !== "act") return { err: "守密人还在写，等这一拍写完" };
@@ -600,7 +641,7 @@
         clocks: arr(v.clocks, 3).map(x => ({ name: cut(x && x.name, 16), filled: int(x && x.filled, 0, 12, 0), max: int(x && x.max, 1, 12, 4) })),
         clues: int(v.clues, 0, 999, 0), clueList: arr(v.clueList, 8).map(x => cut(x, 80)),
         choices: arr(v.choices, 4).map(x => ({ text: cut(x && x.text, 80), stat: x && STAT_ZH[x.stat] ? x.stat : "", who: cut(x && x.who, 16), risk: cut(x && x.risk, 36), payoff: cut(x && x.payoff, 36), cost: cut(x && x.cost, 36) })),
-        ended: !!v.ended, phase: ["roll", "act", "check", "stuck", "done"].indexOf(v.phase) >= 0 ? v.phase : "act", beat: int(v.beat, 0, 9999, 0), busy: !!v.busy, err: cut(v.err, 200),
+        ended: !!v.ended, phase: ["roll", "gen", "act", "check", "stuck", "done"].indexOf(v.phase) >= 0 ? v.phase : "act", beat: int(v.beat, 0, 9999, 0), busy: !!v.busy, err: cut(v.err, 200), genErr: cut(v.genErr, 200),
         party: arr(v.party, 5).map(m => ({ name: cut(m && m.name, 16), hp: int(m && m.hp, 0, 999, 100), maxHp: int(m && m.maxHp, 1, 999, 100), stats: cleanStats(m && m.stats), guest: !!(m && m.guest) })),
         done: arr(v.done, 5).map(Boolean), seatKinds: arr(v.seatKinds, 5).map(k => ["user", "char", "npc"].indexOf(k) >= 0 ? k : "user"), apart: arr(v.apart, 5).map(x => cut(x, 16)), log: this.cleanLog(v.log),
         time: cut(v.time, 12), pov: cut(v.pov, 16), canEnd: !!v.canEnd,
@@ -758,7 +799,7 @@
     const myPend = mine.filter(i => !v.done[i]);
     const [rolled, setRolled] = useState(null);
     const wait = v.done.map((d, i) => d ? "" : (v.party[i] || {}).name).filter(Boolean);
-    const status = v.busy ? "守密人在写这一拍…" : v.phase === "done" ? "今晚收桌了" : v.phase === "check" && v.ck ? (v.party[v.ck.seat] || {}).name + " 在过「" + (v.ck.c ? v.ck.c.statZh : "") + "」检定" : v.phase === "stuck" ? (v.err || "这一拍卡住了") : v.phase === "roll" ? "上桌前先掷数值" + (wait.length ? "，还在等：" + wait.join("、") : "")
+    const status = v.busy ? "守密人在写这一拍…" : v.phase === "done" ? "今晚收桌了" : v.phase === "check" && v.ck ? (v.party[v.ck.seat] || {}).name + " 在过「" + (v.ck.c ? v.ck.c.statZh : "") + "」检定" : v.phase === "stuck" ? (v.err || "这一拍卡住了") : v.phase === "gen" ? (v.genErr || "数值掷齐了，开团的人那台正在照这一桌的人搭团（世界、地图、开场）…") : v.phase === "roll" ? "上桌前先掷数值" + (wait.length ? "，还在等：" + wait.join("、") : "")
       : myPend.length ? "轮到大家交这一拍" + (wait.length > myPend.length ? "（还在等：" + wait.join("、") + "）" : "") : wait.length ? "你交了，还在等：" + wait.join("、") : "";
     const T = TS();
     return h("div", { "data-wk": "nrgametable", "data-game": "trpg", style: { padding: "8px 16px 10px", display: "flex", flexDirection: "column", gap: 10 } },
@@ -786,6 +827,7 @@
       v.epi ? h(Epi, { t, e: v.epi, growth: v.growth }) : null,
       isHost && v.phase === "act" && !v.busy && h(EndBtn, { t, v, onMove }),
       isHost && v.phase === "act" && !v.busy && wait.length && h("button", { "data-wk": "nrtrpgnowait", onClick: () => onMove(-1, { op: "resolve" }), style: Object.assign(pill(t, false), { alignSelf: "flex-start" }) }, "不等了，先结算（没交的这一拍跟着大家）"),
+      isHost && v.phase === "gen" && v.genErr && h("button", { "data-wk": "nrtrpgretry", onClick: () => onMove(-1, { op: "gen" }), style: Object.assign(pill(t, true), { alignSelf: "flex-start" }) }, "再搭一次"),
       isHost && v.phase === "stuck" && !v.busy && h("button", { "data-wk": "nrtrpgretry", onClick: () => onMove(-1, { op: "retry" }), style: Object.assign(pill(t, true), { alignSelf: "flex-start" }) }, "继续这一拍"),
       isHost && v.phase !== "done" && !v.busy && h("button", { "data-wk": "nrtrpgstop", onClick: () => onMove(-1, { op: "stop" }), style: Object.assign(pill(t, false), { alignSelf: "flex-start" }) }, "今晚先到这儿（进度存在你的团里）"));
   }
@@ -799,41 +841,54 @@
         r.guests.map((g, i) => h("div", { key: i, style: small(t) }, g.name + (g.kind === "char" ? "（角色）" : "") + "：" + (g.did.join("；") || "一直跟着大家")))) : null);
   }
   // 房主开局：挑自己的一个团（在单机跑团里开好的），自己上不上桌、带哪几位角色、给别人留几个座位
-  const seenCamps = new Set();   // 开局页见过哪些团（回来时认出新开的那个）
-  function TrpgPrep({ myChars, nick, onSend, onNewCamp, allChars }) {
+  // 开局页（她 2026-11-22：「不要回去那页开，太复杂了；就在这页选人组团发邀请卡，等她们进好了再根据这桌上几个人开团」）：
+  //   默认「新开一团」：这一页只填想玩什么／守密风格／安全线，加上谁上桌；不挑团、不组小分队、不掷数值——
+  //   大家报完名、点开始以后各自掷数值，掷齐了开团的人那台才照这一桌的人把团搭出来（单机开团那一份）。
+  //   「接着跑我的一个团」：挑一个还在演的团，团里原来的队员不用先带进房间，默认都上。
+  function TrpgPrep({ myChars, nick, onSend, allChars }) {
     const t = useTheme();
     const [camps, setCamps] = useState(null);
-    const [p, setP] = useState({ campId: "", me: true, chars: {}, open: 2, timeout: 3 });
-    // 只有一个（或者还没挑）时默认挑最近那个团（她 11-22 截图：团摆着、没点它，「发邀请卡」按了没反应也看不出为什么）
-    // 从「当场开一个新团」回来时这一页会重新挂上：挑上次还没见过的那个新团（记在 seenCamps 里）
-    useEffect(() => { ensure().then(() => { const l = TS() ? (TS().loadCamps() || []).filter(c => !c.ended) : []; setCamps(l);
-      const fresh = l.find(c => seenCamps.size && !seenCamps.has(c.id)); l.forEach(c => seenCamps.add(c.id));
-      if (fresh) setP(x => Object.assign({}, x, { campId: fresh.id })); else if (l.length) setP(x => x.campId ? x : Object.assign({}, x, { campId: l[0].id })); }); }, []);
+    const [p, setP] = useState({ how: "new", kw: "", style: "classic", limits: "", campId: "", me: true, chars: {}, open: 2, timeout: 3 });
+    useEffect(() => { ensure().then(() => { const l = TS() ? (TS().loadCamps() || []).filter(c => !c.ended) : []; setCamps(l); if (l.length) setP(x => x.campId ? x : Object.assign({}, x, { campId: l[0].id })); }); }, []);
     const set = o => setP(x => Object.assign({}, x, o));
-    const camp = (camps || []).find(c => c.id === p.campId);
+    const fresh = p.how === "new";
+    const camp = fresh ? null : (camps || []).find(c => c.id === p.campId);
     const inParty = id => !!(camp && (camp.party || []).some(m => m.key === id));
     const label = s => h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: t.fog, margin: "4px 0 2px" } }, s);
-    // 这个团原来队里的角色（她 11-22：「我那个雪崩团角色都没拉进联机，怎么玩」）：不用先带进房间，你这台本来就有 TA 们，直接由你这台替 TA 们出手；
-    //   挑了团就默认全上（p.party 里没写的当勾上），想留谁在家就点掉
     const partyChars = camp ? (camp.party || []).filter(m => m.key && m.key !== "user").map(m => (allChars || []).find(c => c.id === m.key)).filter(Boolean) : [];
     const roomIds = new Set((myChars || []).map(c => c.id));
     const partyOn = c => (p.party || {})[c.id] !== false;
     const pool = (myChars || []).filter(c => p.chars[c.id]).concat(partyChars.filter(c => !roomIds.has(c.id) && partyOn(c)));
     const picks = (p.me ? [{ kind: "user" }] : []).concat(pool.map(c => ({ kind: "char", charId: c.id, name: c.remark || c.name })));
     const total = Math.min(5, picks.length + p.open);
-    const personas = {}; pool.forEach(c => { if (inParty(c.id)) personas[c.id] = String(c.persona || c.name || "").slice(0, 6000); });
+    // 自己带上桌的角色给守密人看人设（只在你这台）；接着跑的团只给队里的，新开的团全给
+    const personas = {}; pool.forEach(c => { if (fresh || inParty(c.id)) personas[c.id] = String(c.persona || c.name || "").slice(0, 6000); });
+    const styles = (TS() && TS().STYLES) || { classic: { name: "经典均衡" } };
+    const can = (fresh || !!camp) && total >= 1;
+    const go = () => onSend({ total: Math.max(1, total), mode: "normal", npcFill: false, picks },
+      fresh ? { mode: "new", kw: p.kw.trim(), style: p.style, limits: p.limits.trim(), personas, timeout: p.timeout } : { campId: p.campId, personas, timeout: p.timeout });
+    const input = (k, ph, rows) => h("textarea", { "data-wk": k === "kw" ? "nrtrpgkw" : "nrtrpglimits", value: p[k], rows: rows || 1, maxLength: k === "kw" ? 200 : 400, onChange: e => set({ [k]: e.target.value }), placeholder: ph,
+      style: { width: "100%", resize: "none", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "9px 12px", fontFamily: F_BODY, fontSize: fs(13.5) } });
     return h("div", { "data-wk": "nrtrpgprep", style: { display: "flex", flexDirection: "column", gap: 8 } },
-      h("div", { style: small(t) }, "你开团、你当庄：守密人用你的线下线路，骰子在你这台掷，每一拍都存回你挑的那个团——下次联机或者自己单机都能接着跑。别人在邀请卡上报名：自己上桌，和／或派带来的角色当队友（数值各自那台掷，人设留在各自手机）。"),
-      label("开哪一个团"),
-      camps == null ? h("div", { style: small(t) }, "在读你的团…")
-        : !camps.length ? h("div", { style: small(t) }, "你还没有在演的团。点下面「当场开一个新团」，开好了点返回回到这里就能挑它。")
-        : h("div", { "data-wk": "nrtrpgcamps", style: { display: "flex", flexDirection: "column", gap: 6 } }, camps.map(c => h("button", { key: c.id, onClick: () => set({ campId: c.id }),
-          style: { textAlign: "left", borderRadius: 12, border: "1px solid " + (p.campId === c.id ? t.ink : t.line), background: t.bg2, color: t.ink, padding: "8px 12px", fontFamily: F_BODY, fontSize: fs(13.5) } },
-          (p.campId === c.id ? "✓ " : "") + (c.title || "无题"), h("div", { style: small(t) }, (c.party || []).map(m => m.name).join("、") + " · " + (c.msgs || []).filter(m => m.role === "gm").length + " 拍")))),
-      onNewCamp ? h("button", { "data-wk": "nrtrpgnewcamp", onClick: onNewCamp, style: Object.assign(pill(t, false), { alignSelf: "flex-start", minHeight: 36 }) }, "＋ 当场开一个新团") : null,
+      h("div", { style: small(t) }, "你开团、你当庄：守密人用你的线下线路，骰子在你这台掷，团存在你这台的跑团里，之后单机也能接着跑。别人在邀请卡上报名：自己上桌，和／或派带来的角色当队友（人设留在各自手机）。"),
+      h("div", { "data-wk": "nrtrpghow", className: "flex flex-wrap", style: { gap: 6 } }, [["new", "新开一团"], ["old", "接着跑我的一个团"]].map(([k, zh]) =>
+        h("button", { key: k, onClick: () => set({ how: k }), style: Object.assign(pill(t, p.how === k), { minHeight: 36 }) }, zh))),
+      fresh ? h(React.Fragment, null,
+        h("div", { style: small(t) }, "大家坐好、你点开始以后，每个人先各自掷数值；掷齐了，守密人照这一桌的人搭世界、地图和开场（会花你一两次线下线路的调用，要等一会儿）。"),
+        label("想玩什么（一句话，空着就随机）"), input("kw", "比如：雪山里的旅馆、民国侦探、废土公路……", 2),
+        label("守密风格"),
+        h("div", { "data-wk": "nrtrpgstyle", className: "flex flex-wrap", style: { gap: 6 } }, Object.keys(styles).map(k => h("button", { key: k, onClick: () => set({ style: k }), style: Object.assign(pill(t, p.style === k), { minHeight: 34, padding: "0 12px" }) }, styles[k].name || k))),
+        label("安全线（不想碰到的，空着也行）"), input("limits", "比如：不要血腥细节、不要宠物死掉", 2))
+      : h(React.Fragment, null,
+        label("接着跑哪一个团"),
+        camps == null ? h("div", { style: small(t) }, "在读你的团…")
+          : !camps.length ? h("div", { style: small(t) }, "你还没有在演的团，选上面「新开一团」。")
+          : h("div", { "data-wk": "nrtrpgcamps", style: { display: "flex", flexDirection: "column", gap: 6 } }, camps.map(c => h("button", { key: c.id, onClick: () => set({ campId: c.id }),
+            style: { textAlign: "left", borderRadius: 12, border: "1px solid " + (p.campId === c.id ? t.ink : t.line), background: t.bg2, color: t.ink, padding: "8px 12px", fontFamily: F_BODY, fontSize: fs(13.5) } },
+            (p.campId === c.id ? "✓ " : "") + (c.title || "无题"), h("div", { style: small(t) }, (c.party || []).map(m => m.name).join("、") + " · " + (c.msgs || []).filter(m => m.role === "gm").length + " 拍"))))),
       label("你自己"),
-      h("div", { className: "flex", style: { gap: 6 } }, [[true, "我上桌"], [false, "我只当守密人那一边（不上桌）"]].map(([k, zh]) => h("button", { key: String(k), onClick: () => set({ me: k }), style: Object.assign(pill(t, p.me === k), { minHeight: 34, padding: "0 12px" }) }, zh))),
-      (myChars || []).length ? label("你带来的角色（本来在这支队里的照队里的数值；不在队里的这一晚临时入队、开局现掷）") : null,
+      h("div", { className: "flex", style: { gap: 6 } }, [[true, "我上桌"], [false, "我只当守密人那一边（不上桌）"]].map(([k, zh]) => h("button", { key: String(k), onClick: () => set({ me: k }), style: Object.assign(pill(t, p.me === k), { minHeight: 34 }) }, zh))),
+      (myChars || []).length ? label(fresh ? "你带来的角色（勾上的上桌，开团前各自掷数值）" : "你带来的角色（本来在这支队里的照队里的数值；不在队里的这一晚临时入队、开局现掷）") : null,
       (myChars || []).map(c => h("button", { key: c.id, "data-wk": "nrtrpgchar", onClick: () => set({ chars: Object.assign({}, p.chars, { [c.id]: !p.chars[c.id] }) }), style: Object.assign(pill(t, !!p.chars[c.id]), { alignSelf: "flex-start", minHeight: 34 }) },
         (c.remark || c.name) + (camp ? (inParty(c.id) ? " · 队里的" : " · 临时入队") : ""))),
       partyChars.filter(c => !roomIds.has(c.id)).length ? label("这个团原来的队员（没带进房间也能上：由你这台替 TA 们出手，照队里的数值）") : null,
@@ -844,8 +899,8 @@
       h("div", { className: "flex", style: { gap: 6 } }, [0, 1, 2, 3, 4].map(n => h("button", { key: n, onClick: () => set({ open: n }), style: Object.assign(pill(t, p.open === n), { minHeight: 34, padding: "0 12px" }) }, String(n)))),
       label("这一拍几分钟没交，庄按「稳妥」那条替她交（掉线的照常由庄托管）"),
       h("div", { "data-wk": "nrtrpgtimeout", className: "flex", style: { gap: 6 } }, TIMEOUTS.map(n => h("button", { key: n, onClick: () => set({ timeout: n }), style: Object.assign(pill(t, p.timeout === n), { minHeight: 34, padding: "0 12px" }) }, n ? n + " 分钟" : "不替交"))),
-      (!camp || total < 1) && (camps || []).length ? h("div", { style: small(t) }, !camp ? "先在上面点一个团。" : "至少要有一个人上桌：你自己上桌，或者带一位角色，或者给别人留座位。") : null,
-      h("button", { "data-wk": "nrtrpggo", disabled: !camp || total < 1, onClick: () => onSend({ total: Math.max(1, total), mode: "normal", npcFill: false, picks }, { campId: p.campId, personas, timeout: p.timeout }), style: Object.assign(pill(t, true), { opacity: !camp || total < 1 ? 0.4 : 1, marginTop: 8 }) }, "发邀请卡"));
+      !can ? h("div", { style: small(t) }, !fresh && !camp ? "先在上面点一个团。" : "至少要有一个人上桌：你自己上桌，或者带一位角色，或者给别人留座位。") : null,
+      h("button", { "data-wk": "nrtrpggo", disabled: !can, onClick: go, style: Object.assign(pill(t, true), { opacity: can ? 1 : 0.4, marginTop: 6 }) }, "发邀请卡"));
   }
   A.Table = TrpgTable; A.Replay = TrpgReplay; A.Prep = TrpgPrep;
 })(typeof window !== "undefined" ? window : globalThis);
