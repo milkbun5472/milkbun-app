@@ -41,6 +41,7 @@
 //   （可选）localTalk: true        → 出手不调模型的那几盒（棋、牌、大富翁）：桌边台词由框架隔几手／关键时刻另问一次（见下面「牌桌上说话」）
 //   （可选）talkMoment(view, seatIdx, inv) → 这一刻对这个座位算不算关键时刻（被将军、刚吃了大牌…），是就回一句「这会儿怎么了」
 //   （可选）sayInMove: true        → 这一盒自己把出手里的 say 收进局面（故事接龙），框架不另外拿去当桌边台词
+//                  sayInMove: "move"  → say 就是这一手本身（擂台的发言），永远不清掉
 //   mergeNpc: "host" | "prev" | null → NPC 那一手能不能并进别人的那次调用（省一次）：
 //        "host"＝问一句庄判一句的（海龟汤、25 问）：庄答真人／角色那一问的同一次，顺带替后面连着的 NPC 各问一个并作答；
 //        "prev"＝中间没有庄判定、NPC 也没有要瞒着出手人的东西（故事接龙、真心话 NPC 回应、辩论观众席）：前一位角色的主人那台
@@ -1152,7 +1153,7 @@
       if (mv.say != null && !ad.sayInMove) {
         const say = cut(mv.say, 160).trim(); mv = Object.assign({}, mv); delete mv.say;
         if (say && opts.talk !== false) side(gid, { kind: "talk", name: seat.name, text: say, seat: ti });
-      } else if (ad.sayInMove && opts.talk === false && mv.say) { mv = Object.assign({}, mv, { say: "" }); }
+      } else if (ad.sayInMove && ad.sayInMove !== "move" && opts.talk !== true && mv.say) { mv = Object.assign({}, mv, { say: "" }); }
       // 并进这一手的 NPC 那一手（mergeNpc:"prev"）：只有这一盒声明了才往庄那边带
       if (mv.npc && ad.mergeNpc !== "prev") { mv = Object.assign({}, mv); delete mv.npc; }
       move(gid, ti, mv);

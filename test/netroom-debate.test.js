@@ -166,3 +166,12 @@ test("擂台从小游戏架子挪到房间 ＋ 里单独一格", () => {
   assert.ok(/if \(k === "debate"\) \{/.test(src));
   assert.ok(src.includes('k !== "debate" && k !== "trpg"'), "小游戏架子上不再摆擂台");
 });
+
+test("台上角色的发言是这一手本身：不被当成桌边台词拿走，没勾「自己边玩边说」也照样说", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const d = fs.readFileSync(path.join(__dirname, "..", "js/netroom-debate.js"), "utf8");
+  const g = fs.readFileSync(path.join(__dirname, "..", "js/netroom-games.js"), "utf8");
+  assert.ok(/sayInMove: "move"/.test(d));
+  assert.ok(/ad\.sayInMove !== "move" && opts\.talk !== true/.test(g));
+  assert.ok(/if \(mv\.say != null && !ad\.sayInMove\)/.test(g), "有 sayInMove 的不拿走 say");
+});
