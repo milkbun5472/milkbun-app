@@ -1566,6 +1566,8 @@
   }
 
   // ＋ 里的那些：跟单聊、群聊用的同一套键（ChatToolKey）。两个人之间、本机的那几样（通话、通话记录、朋友圈、转账、亲属卡、给TA看手机、邀约、半窗）不放
+  // ＋ 里单独一格进的那几盒（擂台、跑团）：开局页点返回回到房间聊天，不落到小游戏大厅（她 11-22）
+  const OWN_SLOT = { debate: true, trpg: true };
   const NR_PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["chatsearch", "查找记录", "magnifier"],
     ["poll", "投票", "bars"], ["rp", "红包", "packet"], ["ask", "请示", "checklist"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["file", "文件", "file"], ["topics", "话题卡", "quote"], ["listen", "一起听", "note"], ["game", "小游戏", "dice"], ["debate", "擂台", "podium"], ["trpg", "跑团", "d20"]];
   // 擂台单独一格（她 11-22：「擂台从小游戏里面移出来放聊天加号里面」），不再摆在小游戏架子最后
@@ -2941,7 +2943,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
     // 跑团开局页上「当场开一个新团」：单机跑团那一整页盖在上面，开好了点返回回到这里，新团自动选上（她 11-22）
     if (prepA && prepA.Prep && trpgNew && props.trpgProps && root.TrpgApp) return h("div", { key: "trpgnew", "data-wk": "nrtrpgnew", className: "h-full" },
       h(root.TrpgApp, props.trpgProps(() => { setTrpgNew(false); setPrepKey(k => k + 1); })));
-    if (prepA && prepA.Prep) return shell(h(Head, { zh: gamePend.game.zh, onBack: () => setPage("gamepick") }), scroll([
+    if (prepA && prepA.Prep) return shell(h(Head, { zh: gamePend.game.zh, onBack: () => { setGamePend(null); setPage(OWN_SLOT[gamePend.game.key] ? "chat" : "gamepick"); } }), scroll([
       h(prepA.Prep, { key: "p" + prepKey, allChars: props.characters || [], onNewCamp: props.trpgProps ? () => { const go = () => setTrpgNew(true); if (root.TrpgApp || !root.LazyMods) go(); else root.LazyMods.load("trpg").then(go).catch(() => props.toast && props.toast("跑团没装上，再点一次试试")); } : null, myChars: (room.myChars || []).map(c => charsById[c.id]).filter(Boolean), myApi: props.gameApi ? props.gameApi() : null, nick: myNick(), onSend: (cfg, pz) => sendInvite(gamePend.game, cfg, pz) })]));
     if (page === "gameprep" && room && gamePend) {
       // 谁出题：开局的人（就是你，下面写或者现出）／系统现出／指定一个座位／轮流（每局「再来一局」换下一个座位）。出题的人这一局不参与问

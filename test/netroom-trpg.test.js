@@ -443,3 +443,8 @@ test("团里原来的队员不用先带进房间也能上桌：开局页列出�
   assert.ok(/const partyChars = camp \? \(camp\.party \|\| \[\]\)\.filter\(m => m\.key && m\.key !== "user"\)/.test(tr));
   assert.ok(/"data-wk": "nrtrpgpartymate"/.test(tr) && /\(p\.party \|\| \{\}\)\[c\.id\] !== false/.test(tr));
 });
+
+test("跑团、擂台的开局页点返回回到房间聊天，不落到小游戏大厅", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
+  assert.ok(/const OWN_SLOT = \{ debate: true, trpg: true \}/.test(src) && /setPage\(OWN_SLOT\[gamePend\.game\.key\] \? "chat" : "gamepick"\)/.test(src));
+});
