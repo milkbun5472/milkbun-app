@@ -341,3 +341,8 @@ test("歌单整张按顺序放：歌库里没有的搜来一起连播", () => {
   assert.match(ap, /nowBatch: out\.filter/);
   assert.match(cs, /"data-wk": "chsongplayall"/);
 });
+
+test("备注不进群里大家看得到的那几行：合照说明、抽签、见面", () => {
+  assert.match(ap, /who = cast\.map\(c => c\.id === "me" \? meName : c\.name\)/);
+  assert.match(ap, /const pool0 = members\.map\(c => c\.name\)/);
+});

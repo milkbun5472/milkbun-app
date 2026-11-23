@@ -17976,7 +17976,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               _gLuck.push({ role: "assistant", senderId: spk.id, senderName: spk.name, kind: "luck", luck: { type: "dice", vals, by: spk.name },
                 content: "[掷骰子] " + spk.name + " 掷了 " + n0 + " 颗骰子：" + vals.join("、") + (n0 > 1 ? "（共 " + vals.reduce((a, b) => a + b, 0) + " 点）" : " 点") });
             } else if (L0.type === "draw") {
-              const pool0 = members.map(c => c.remark || c.name).concat(imInGroup(group) ? [me0] : []);
+              const pool0 = members.map(c => c.name).concat(imInGroup(group) ? [me0] : []);
               const k0 = Math.max(1, Math.min(Number(L0.n) || 1, pool0.length)), names0 = pool0.slice().sort(() => Math.random() - 0.5).slice(0, k0), q0 = String(L0.what || "").trim().slice(0, 40);
               _gLuck.push({ role: "assistant", senderId: spk.id, senderName: spk.name, kind: "luck", luck: { type: "draw", what: q0, names: names0, by: spk.name },
                 content: "[抽签] " + spk.name + " 在群里抽签" + (q0 ? "「" + q0 + "」" : "") + "，抽中了：" + names0.join("、") + "（随机抽的，不是谁选的）" });
@@ -19551,7 +19551,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!host) return "";
     const s0 = (loadJSON("x_goffline:" + host.id, []) || []).filter(x => x && x.startTs && Date.now() - (x.endTs || x.startTs) < 2 * 86400000).sort((a, b) => (b.startTs || 0) - (a.startTs || 0))[0];
     if (!s0) return "";
-    const nm = id => { const c = (characters || []).find(x => x && x.id === id); return c ? (c.remark || c.name) : ""; };
+    const nm = id => { const c = (characters || []).find(x => x && x.id === id); return c ? c.name : ""; };
     const who = (s0.present || host.memberIds || []).map(nm).filter(Boolean);
     return who.length ? "\n【最近见过面】" + who.join("、") + " 和 " + userName(profile) + (s0.endTs ? " 前不久" : " 这会儿正") + "出去见了一面" + (s0.datePlace ? "（" + s0.datePlace + "）" : "") + "。" : "";
   };
@@ -19624,7 +19624,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const blob = await imgOutBlob(out); if (!blob) throw new Error((out && out.err) || "没出图");
       const key = "img_chf_petg_" + Date.now().toString(36);
       await idbImgPut(key, blob);
-      const now = Date.now(), who = cast.map(c => c.id === "me" ? meName : (c.remark || c.name)).join("、");
+      const now = Date.now(), who = cast.map(c => c.id === "me" ? meName : c.name).join("、");
       const desc = who + " 和「" + pet.name + "」（" + kind + "）的合照";
       const fk = "x_chfiles:" + g.id;
       saveJSON(fk, (loadJSON(fk, []) || []).concat([{ id: "chf_" + now + "_petg", kind: "image", name: pet.name + "的合照", imgKey: key, desc, createdBy: "me", createdTs: now, updatedTs: now }]));
