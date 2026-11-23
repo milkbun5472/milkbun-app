@@ -23861,7 +23861,7 @@ function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, op
         h("button", { "data-wk": "chfupimg", onClick: () => imgRef.current && imgRef.current.click(), className: "active:opacity-60", style: btn }, "上传图片"),
         h("button", { "data-wk": "chfuptxt", onClick: () => txtRef.current && txtRef.current.click(), className: "active:opacity-60", style: btn }, "导入文字文件"),
         h("input", { ref: imgRef, type: "file", accept: "image/*", onChange: upImg, style: { display: "none" } }),
-        h("input", { ref: txtRef, type: "file", accept: ".txt,.md,text/plain,text/markdown", onChange: upTxt, style: { display: "none" } })),
+        h("input", { ref: txtRef, type: "file", accept: typeof ANY_FILE !== "undefined" ? ANY_FILE : undefined, onChange: upTxt, style: { display: "none" } })),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, padding: "0 16px 10px", lineHeight: 1.6 } }, "这个频道大家共用的文件。频道里的人聊到哪份就看得到哪份，也会自己新建、改；谁改了什么，点开文档看「改动历史」。"),
       sub === "img" ? (gallery.length ? h("div", { "data-wk": "chfgallery", style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, padding: "4px 14px 14px" } },
         gallery.map(g => h("button", { key: g.ref, "data-wk": "chfgaltile", "data-part": g.from, onClick: () => g.from === "file" ? setOpen(g.fileId) : setGal(g), className: "active:opacity-70", style: { position: "relative", aspectRatio: "1 / 1", borderRadius: 8, overflow: "hidden", background: t.bg2 } },
