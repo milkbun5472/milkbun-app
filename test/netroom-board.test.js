@@ -217,3 +217,9 @@ test("退房记忆：带上墙上的便签和文档开头一截", () => {
   const m = C.memoryInstruction(r, { id: "c1", name: "沈屿" }, []);
   assert.match(m, /【房间里留下的东西】\n墙上的便签：「周六见」（阿星）\n共用文档《行程》：周六去海边/);
 });
+
+test("墙／歌单／文档点进去是整页（PageSheet），不是下拉半屏", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
+  assert.ok(/panel && h\(PageSheet, \{ key: "bdpage", onClose: \(\) => setBoardTab\(""\)/.test(src));
+  assert.ok(!/maxHeight: "42vh"/.test(src), "不再有那块下拉半屏");
+});

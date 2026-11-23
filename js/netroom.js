@@ -2765,13 +2765,16 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
               h("span", { className: "block truncate", style: small }, docName(d, d.updatedBy) + " · " + String(d.text || "").length + " 字" + (why ? " · " + why : ""))); })
             : h("div", { key: "e", style: small }, "还没有文档。聊出了计划、清单，可以放进来，TA 们也会顺手往里写。")]
         : null;
-      return h("div", { key: "bd", "data-wk": "nrboard", "data-open": boardTab || "", className: "shrink-0", style: { borderBottom: "1px solid " + t.line } },
-        h("div", { className: "flex items-center", style: { gap: 6, padding: "5px 12px" } },
-          tabs.map(([k, zh, n]) => h("button", { key: k, "data-wk": "nrboardtab", "data-part": k, "data-on": boardTab === k ? "1" : "0", onClick: () => setBoardTab(v => v === k ? "" : k), className: "active:opacity-60",
-            style: { minHeight: 30, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: fs(12), color: boardTab === k ? t.bg : t.sub, background: boardTab === k ? t.ink : "transparent", border: "1px solid " + (boardTab === k ? t.ink : t.line) } },
-            zh + (n ? " " + n : ""))),
-          boardTab ? h("button", { "data-wk": "nrboardfold", onClick: () => setBoardTab(""), className: "active:opacity-60", style: { marginLeft: "auto", minHeight: 30, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(12), color: t.fog } }, "收起") : null),
-        panel && h("div", { "data-wk": "nrboardpanel", "data-part": boardTab, style: { maxHeight: "42vh", overflowY: "auto", padding: "4px 14px 12px" } }, panel));
+      // 她 2026-11-22：不要下拉半屏，跟频道一样点进去是一整页（PageSheet，频道文件那一页同一个外壳），左上角返回回到房间
+      const ZH = { wall: "墙", songs: "房间歌单", docs: "文档" };
+      return [
+        h("div", { key: "bd", "data-wk": "nrboard", className: "shrink-0", style: { borderBottom: "1px solid " + t.line } },
+          h("div", { className: "flex items-center", style: { gap: 6, padding: "5px 12px" } },
+            tabs.map(([k, zh, n]) => h("button", { key: k, "data-wk": "nrboardtab", "data-part": k, onClick: () => setBoardTab(k), className: "active:opacity-60",
+              style: { minHeight: 30, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: fs(12), color: t.sub, background: "transparent", border: "1px solid " + t.line } },
+              zh + (n ? " " + n : ""))))),
+        panel && h(PageSheet, { key: "bdpage", onClose: () => setBoardTab(""), zh: ZH[boardTab], sub: "房间 " + r.code, scrollKey: "nrboard-" + boardTab },
+          h("div", { "data-wk": "nrboardpanel", "data-part": boardTab, style: { padding: "12px 16px 28px" } }, panel))];
     };
     // 打开的那份文档：频道文件同一页（ChfDocPage），多了锁——别人在写、角色在说话时只能看
     const docEl = () => {
@@ -2843,7 +2846,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         (() => { const L = Core.listenLines(Object.assign({}, np, myNp.current ? { me: Object.assign({ who: "你" }, myNp.current) } : {}));
           return L.length > 0 && h("div", { key: "np", "data-wk": "nrlisten", className: "shrink-0", style: { padding: "5px 14px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.5 } },
             L.map((x, i) => h("div", { key: i, style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "♪ " + x))); })(),
-        boardEl(),
+        ...boardEl() || [],
         tablesBar(),
         ...chatCore, docEl(),
         ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sendSong, sayRich, sendRp,
