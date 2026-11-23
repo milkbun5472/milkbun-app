@@ -33,7 +33,7 @@ test("缓存：总结到最后一条就直接用，有新话才再写；UI 那�
   const more = Object.assign({}, r, { recap: rc, msgs: r.msgs.concat([{ id: "x", side: "me", text: "又来了", ts: 999999 }]) });
   assert.strictEqual(C.recapFresh(more), false);
   const body = src.slice(src.indexOf("const rejoin = r0 =>"), src.indexOf("const start = (host, resume)"));
-  assert.match(body, /due && !Core\.recapFresh\(r1\)\) makeRecap/);
+  assert.ok(!/makeRecap\(r1\.id, true\)/.test(body), "进房不自动总结"); assert.match(src, /"data-wk": "nrrecapgo", onClick: \(\) => makeRecap\(room\.id, false\)/, "要按「总结一下」才总结");
 });
 
 test("只用房间记录：提示词里是 transcript，不碰人设；makeRecap 不走 ctxFor", () => {
