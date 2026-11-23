@@ -1,5 +1,5 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-29ad6c7f1af761d3';
-import {notebook,cabinet,board} from './work-room-kit.mjs?v=fg-29ad6c7f1af761d3';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-2d158c39249397f1';
+import {notebook,cabinet,board} from './work-room-kit.mjs?v=fg-2d158c39249397f1';
 const FLOOR=.08,SIZE={w:14,d:12};
 const furniture=[
  {id:'class-blackboard',kind:'panel',x:-3.45,z:-5.61,w:4.80,d:.15,work:{blackboard:{x:.08,y:1.07,z:.10}}},

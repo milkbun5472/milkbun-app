@@ -13623,7 +13623,8 @@ function vtsClockOf(k, item) {
   if (s.indexOf("x_offline:") === 0) return s.slice(10).split("::")[0];
   if (s.indexOf("x_gchat:") === 0) return "g:" + s.slice(8).split("::")[0];
   if (s.indexOf("x_goffline:") === 0) return "g:" + s.slice(11).split("::")[0];
-  if (s === "x_memLib") return item && Array.isArray(item.charIds) && item.charIds.length ? String(item.charIds[0]) : null;
+  // 群里提出来的记忆照群那只钟（她 2026-11-23 补）：原来只看第一个角色，群挑的面具跟他不同时日子就错
+  if (s === "x_memLib") return item && item.groupId ? "g:" + String(item.groupId) : item && Array.isArray(item.charIds) && item.charIds.length ? String(item.charIds[0]) : null;
   // 单独存的那几样（她 2026-11-19「单独的也一起接了吧」）：日记、朋友圈、限时动态、情侣空间、时光胶囊——
   //   这一条是谁的，照它身上记着的人认那只钟；认不出就照主面具那只
   if (VTS_EXTRA[s]) { const w = item && (item.characterId || item.charId || item.ownerId || (item.by && item.by !== "me" ? item.by : "")); return w ? String(w) : null; }
@@ -13644,14 +13645,16 @@ function vtsTouchList(k, v, stamp, who) {
     const now = Date.now();
     const one = it => {
       if (!it || typeof it !== "object") return;
-      const ts = Number(it.ts);
-      if (!isFinite(ts) || ts <= 0) return;
+      // 时间认 ts，没有就认 createdTs／createdAt（单独存的那几样有的不叫 ts）
+      const ts = [it.ts, it.createdTs, it.createdAt].map(Number).find(x => isFinite(x) && x > 0);
+      if (ts == null) return;
       // 「刚写下的」：聊天这些十分钟以内；单独存的那几样（日记写的是昨天、补写前几天）放到四天
       if (it.vts == null && stamp && now - ts < (VTS_EXTRA[String(k)] ? 4 * 864e5 : 600000) && ts <= now + 60000) {
         const cid = who != null ? String(who) : vtsClockOf(k, it);
         if (typeof vclockCfg === "function" && vclockCfg(cid, ts)) { const vv = vclockMap(ts, cid); if (isFinite(vv) && vv !== ts) it.vts = vv; }
       }
-      if (isFinite(Number(it.vts))) VTS_INDEX.set(ts, Number(it.vts));
+      // 连「是哪只钟上的」一起记：查的时候只认同一只钟（同一时刻的东西被搬到别人那儿用，不拿别人钟上的日子）
+      if (isFinite(Number(it.vts))) { const cid = who != null ? String(who) : vtsClockOf(k, it); VTS_INDEX.set(ts, { v: Number(it.vts), k: vtsKeyOf(cid, ts) }); }
     };
     const list = off ? v.reduce((a, sess) => a.concat(Array.isArray(sess && sess.msgs) ? sess.msgs : []), []) : v;
     // 落盘时只看最新那一截（记忆库新的在前、聊天新的在后）；开机读进来时整份登记
@@ -13660,8 +13663,13 @@ function vtsTouchList(k, v, stamp, who) {
     part.forEach(one);
   } catch (e) {}
 }
+// 这个人（或 "g:群id"、null＝当前那个）在这一刻认的是哪只钟
+function vtsKeyOf(id, ts) {
+  try { const W = vclockState(); if (!W || !W.clocks) return "main"; const who = id !== undefined ? id : W.active;
+    return (who != null && typeof W.maskOf === "function" ? String(W.maskOf(String(who), ts) || "") : "") || "main"; } catch (e) { return "main"; }
+}
 function vclockMap(ts, id) {
-  if (typeof VTS_INDEX !== "undefined" && VTS_INDEX.size) { const hit = VTS_INDEX.get(Number(ts)); if (hit != null) return hit; }
+  if (typeof VTS_INDEX !== "undefined" && VTS_INDEX.size) { const hit = VTS_INDEX.get(Number(ts)); if (hit != null && (typeof hit !== "object" ? true : hit.k === vtsKeyOf(id, ts))) return typeof hit === "object" ? hit.v : hit; }
   const c = vclockCfg(id, ts);
   if (c) return vclockMapBy(c, ts);
   // 钟现在关着，可以前开过：那几段照当时的钟算，之后的照现实

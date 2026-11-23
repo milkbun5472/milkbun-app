@@ -7704,9 +7704,13 @@ function McpConfig({ toast }) {
     } catch (e) { toast && toast("连不上这个转接：地址对不对？在浏览器里直接打开它，应该看得到「转接在线 ✓」"); }
     finally { setBusy(""); }
   };
+  // 先取好放着（她 2026-11-23 截图「没复制上」）：iOS 只认【点下去那一下】里的复制，
+  //   原来点了才去取，取回来已经不算那一下了，剪贴板不让写
+  const relayCodeRef = useRef("");
+  useEffect(() => { fetch("tools/mcp-relay-worker.js", { cache: "no-store" }).then(r => r.text()).then(c => { if (/export default/.test(c)) relayCodeRef.current = c; }).catch(() => {}); }, []);
   const copyRelayCode = async () => {
     try {
-      const code = await (await fetch("tools/mcp-relay-worker.js", { cache: "no-store" })).text();
+      const code = relayCodeRef.current || await (await fetch("tools/mcp-relay-worker.js", { cache: "no-store" })).text();
       if (!/export default/.test(code)) throw new Error("取回来的不是代码");
       const ok = typeof copyText === "function" && await copyText(code);
       toast && toast(ok ? "转接代码复制好了，去 Cloudflare 粘进去" : "没复制上");

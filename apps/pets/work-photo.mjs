@@ -1,4 +1,4 @@
-import {renderPhoto} from './photo-render.mjs?v=fg-29ad6c7f1af761d3';
+import {renderPhoto} from './photo-render.mjs?v=fg-2d158c39249397f1';
 // Preserve the live rig's world transform and isolate it for a keepsake.
 // The offscreen viewport must be square; never crop the main phone viewport.
 export function captureWorkPhoto(T,renderer,pet,scene){
