@@ -23523,53 +23523,105 @@ function StickyNote({ n, i, nameOf, mine, actions }) {
     h("div", { "data-wk": "chnotemeta", className: "flex items-center justify-between", style: { marginTop: 8, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#8a7b63" } }, "— " + nm(n.by),
       h("span", { className: "flex gap-3" }, ...(actions || []))));
 }
+// ── 公共的几样（她 2026-11-22「这几个能不能抽成公共的，下次优化频道这边一起改了」）──
+//   索引签那一排、一面墙、一张歌单、一行文件：频道和别处的房间都画这几份，改一份两边一起变；挂点（data-wk）照旧是 ch 开头那一套，美化写一份就够。
+// 一排矮索引签：items＝[[key, 中文]]，选中那张跟底下连成一页；right 是右边那串小签
+function IndexTabs({ items, tab, onTab, bg, right }) {
+  const t = useTheme(), paper = bg || t.bg;
+  const one = (k, zh) => { const on = tab === k;
+    return h("button", { key: k, "data-wk": "chtab", "data-part": k, "data-on": on ? "1" : "0", onClick: () => !on && onTab(k), className: "active:opacity-70",
+      style: { position: "relative", flex: "0 0 auto", minWidth: 44, height: on ? 30 : 26, marginTop: on ? 0 : 4, padding: "0 12px", borderRadius: "8px 8px 0 0",
+        background: on ? paper : "transparent", border: "1px solid " + (on ? t.line : "transparent"), borderBottom: "none",
+        fontFamily: F_DISPLAY, fontSize: "calc(" + (on ? 13 : 12.5) + "px * var(--app-fs, 1))", color: on ? t.ink : t.fog, marginBottom: -1, zIndex: on ? 2 : 1 } },
+      zh,
+      k === "files" ? h("span", { "aria-hidden": "true", style: { position: "absolute", top: -1, right: -1, width: 8, height: 8, background: "linear-gradient(225deg, " + (t.bg2 || t.bg) + " 50%, " + t.line + " 50%)", borderTopRightRadius: 8 } }) : null); };
+  return h("div", { "data-wk": "chtabs", className: "shrink-0 flex items-end", style: { gap: 2, height: 38, padding: "4px 10px 0", borderBottom: "1px solid " + t.line, position: "relative", zIndex: 2 } },
+    h("div", { className: "flex items-end overflow-x-auto", style: { gap: 2, minWidth: 0, flex: "0 1 auto", scrollbarWidth: "none" } }, ...items.map(([k, zh]) => one(k, zh))),
+    right ? h("div", { className: "min-w-0 flex items-center", style: { marginLeft: "auto", alignSelf: "center", gap: 6, paddingBottom: 3 } }, right) : null);
+}
+// 页里那几颗「贴一张」「从我的歌里挑」：方角浅底的小按钮（不是胶囊）
+function shelfBtn(t) { return { minHeight: 36, padding: "0 12px", borderRadius: 8, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, background: t.bg2 || t.bg }; }
+function shelfNote(t) { return { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 }; }
+// 一面墙：onAdd 不给＝只能看；actionsOf(n) 给每张右下角那几个字
+function NoteWall({ notes, nameOf, nameOfNote, mineOf, onAdd, actionsOf, note }) {
+  const t = useTheme(), small = shelfNote(t), list = notes || [];
+  return h(React.Fragment, null,
+    onAdd ? h("button", { "data-wk": "chnoteadd", onClick: () => requestAppPrompt("贴一张便利贴", "写什么都行，几个字也算。", "", v => { const x = String(v || "").trim(); if (x) onAdd(x); }, "贴上"), className: "active:opacity-60", style: { ...shelfBtn(t), marginBottom: 10 } }, "贴一张") : null,
+    note ? h("div", { style: { ...small, marginBottom: 10 } }, note) : null,
+    list.length ? h("div", { "data-wk": "chnotes", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "14px 10px", paddingTop: 6 } },
+      list.slice().reverse().map((n, i) => h(StickyNote, { key: n.id, n, i, nameOf: nameOfNote ? by => nameOfNote(n, by) : nameOf, mine: !!(mineOf && mineOf(n)), actions: actionsOf ? actionsOf(n) : [] })))
+      : h("div", { style: small }, "墙上还空着。"));
+}
+// 一张歌单：rows＝[{ key, title, artist, by, warn, actions:[[字, fn]] }]（新加的在最后，这里倒过来摆）；
+//   now＝正在听的那首、nowIn＝它已经在单子里；lib＝我的歌、libIn(x)＝已在单子里；onAdd(x) 把一首加进来；extra＝多出来的按钮；onPlayAll 整张放
+function SongShelf({ rows, now, nowIn, lib, libIn, onAdd, extra, onPlayAll, note }) {
+  const t = useTheme(), small = shelfNote(t), btn = shelfBtn(t), list = rows || [], mine = lib || [];
+  const [libOpen, setLibOpen] = useState(false), [libQ, setLibQ] = useState("");
+  const tap = (txt, on, k) => h("button", { key: k, onClick: on, className: "active:opacity-60", style: { color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, txt);
+  const norm = typeof chpSongNorm === "function" ? chpSongNorm : x => String(x || "").toLowerCase();
+  return h(React.Fragment, null,
+    onAdd ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 10 } },
+      now && now.title ? h("button", { "data-wk": "chsongnow", disabled: !!nowIn, onClick: () => onAdd(now), className: "active:opacity-60 disabled:opacity-40", style: btn },
+        nowIn ? "正在听的已在歌单" : "♪ 把正在听的《" + String(now.title).slice(0, 12) + "》加进来") : null,
+      mine.length ? h("button", { "data-wk": "chsonglib", onClick: () => setLibOpen(v => !v), className: "active:opacity-60", style: btn }, libOpen ? "收起我的歌" : "从我的歌里挑") : null,
+      ...(extra || [])) : null,
+    onPlayAll && list.length ? h("button", { "data-wk": "chsongplayall", onClick: onPlayAll, className: "active:opacity-60", style: { ...btn, marginBottom: 10 } }, "▶ 从上往下全部放") : null,
+    libOpen ? h("input", { "data-wk": "chsongq", value: libQ, onChange: e => setLibQ(e.target.value), placeholder: "搜歌名或歌手", style: { width: "100%", minWidth: 0, boxSizing: "border-box", padding: "8px 12px", marginBottom: 8, borderRadius: 8, border: "1px solid " + t.line, background: t.card || t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 16 } }) : null,
+    libOpen ? h("div", { "data-wk": "chsonglist", style: { maxHeight: 260, overflowY: "auto", marginBottom: 10, borderTop: "1px solid " + t.line } }, mine.filter(x => { const q = norm(libQ); return !q || norm(x.title + (x.artist || "")).includes(q); }).slice(0, 300).map((x, i) => {
+      const inList = !!(libIn && libIn(x));
+      return h("button", { key: (x.id || x.title) + "_" + i, disabled: inList, onClick: () => onAdd(x), className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { display: "block", padding: "8px 2px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } },
+        "《" + x.title + "》" + (x.artist ? " - " + x.artist : "") + (inList ? "　已在歌单" : "")); })) : null,
+    note ? h("div", { style: { ...small, marginBottom: 6 } }, note) : null,
+    list.length ? list.slice().reverse().map((x, i) => h("div", { key: x.key || i, "data-wk": "chsong", className: "flex items-center", style: { gap: 12, padding: "10px 2px", borderBottom: "1px solid " + t.line } },
+      h("span", { "aria-hidden": "true", style: { width: 22, flexShrink: 0, textAlign: "right", fontFamily: F_DISPLAY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, String(i + 1)),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "《" + x.title + "》" + (x.artist ? " - " + x.artist : "")),
+        h("div", { className: "truncate", style: { ...small, marginTop: 2 } }, x.by),
+        x.warn ? h("div", { style: { ...small, color: t.tint } }, x.warn) : null),
+      h("span", { className: "flex items-center", style: { gap: 12, flexShrink: 0 } }, ...(x.actions || []).filter(Boolean).map(([txt, on], k) => tap(txt, on, k)))))
+      : h("div", { style: small }, "歌单还是空的。"));
+}
+// 一行文件：方块图标（图片给缩略图）＋书名号标题＋一行小字；文件列表、房间里的文档都画这一行
+function FileRow({ title, meta, icon, thumb, onClick, wk, part, locked }) {
+  const t = useTheme();
+  return h("button", { "data-wk": wk || "chfrow", "data-part": part, "data-locked": locked ? "1" : "0", onClick, className: "w-full flex items-center gap-3 text-left active:bg-black/5", style: { padding: "11px 16px", borderTop: "1px solid " + t.line } },
+    thumb || h("span", { style: { width: 40, height: 40, borderRadius: 8, background: t.bg2, color: t.sub, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 15, flexShrink: 0, position: "relative" } }, icon || "文"),
+    h("span", { className: "flex-1 min-w-0" },
+      h("span", { "data-wk": "chfname", className: "block truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, title),
+      h("span", { className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: locked ? t.tint : t.fog, marginTop: 2 } }, meta)));
+}
 // 墙、歌单、账本、养的（她 2026-11-20「1-7都可以做」）：文件页里跟文档图片并排的四样；数据是这个频道那一份 x_chplay，
 //   onPlay(fn) 交回改好的那份。旁观的频道只能看，不能动（她不在场）
 function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, onPlaySong, canSearchSong, onPlayAll, onAskSongs, nowSong, onAskPetName, onLedgerAdd, onLedgerSettle, onPetPhoto, onPetGroupPhoto, onSendOff, petShooting, petHour }) {
   const [byeOpen, setByeOpen] = useState(false);   // 送走它那一格（她 2026-11-20）
   const [castSel, setCastSel] = useState(null);     // 和它合照：这张里有谁（null＝没打开）
-  const [libOpen, setLibOpen] = useState(false);   // 从我的歌里挑（她 2026-11-20「歌单怎么没有选播放器里面的」）
-  const [libQ, setLibQ] = useState("");
   const [petView, setPetView] = useState(null);   // 小家伙那张大图看的是哪一张
   const t = useTheme();
   const [form, setForm] = useState({});
   const st = play || {}, nm = id => id === "me" ? "我" : ((nameOf && nameOf(id)) || id || "有人");
-  const btn = { minHeight: 38, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, background: t.bg };
-  const small = { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 };
+  const btn = shelfBtn(t);
+  const small = shelfNote(t);
   const card = { background: t.bg2, borderRadius: 12, padding: "10px 12px", marginBottom: 8, border: "1px solid " + t.line };
   const tap = (txt, on) => spectate ? null : h("button", { onClick: on, className: "active:opacity-60", style: { color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, txt);
   const wrap = (...kids) => h("div", { "data-wk": "chplay", "data-part": sub, className: "flex-1 min-h-0 overflow-y-auto", style: { background: t.bg, padding: "14px 14px calc(env(safe-area-inset-bottom) + 24px)" } }, ...kids);
   if (sub === "wall") return wrap(
-    spectate ? null : h("button", { "data-wk": "chnoteadd", onClick: () => requestAppPrompt("贴一张便利贴", "写什么都行，几个字也算。", "", v => { const x = String(v || "").trim(); if (x) onPlay(s0 => chpNoteAdd(s0, x, "me")); }, "贴上"), className: "active:opacity-60", style: { ...btn, marginBottom: 10 } }, "贴一张"),
-    h("div", { style: { ...small, marginBottom: 10 } }, "大家都能往墙上贴、在别人的纸条上写一句、撕掉自己的或者贴了一天以上的。"),
-    // 墙：一张张纸条（画法在 StickyNote，别处的墙也画同一张）
-    (st.notes || []).length ? h("div", { "data-wk": "chnotes", style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "14px 10px", paddingTop: 6 } }, st.notes.slice().reverse().map((n, i) => h(StickyNote, { key: n.id, n, i, nameOf: nm, mine: n.by === "me",
-      actions: [tap("写一句", () => requestAppPrompt("在这张上写一句", "", "", v => { const x = String(v || "").trim(); if (x) onPlay(s0 => chpScribble(s0, n.text, x, "me")); }, "写上")),
-        n.by === "me" || Date.now() - (n.ts || 0) > 86400000 ? tap("撕掉", () => onPlay(s0 => { s0.notes = s0.notes.filter(x => x.id !== n.id); return s0; })) : null] }))) : h("div", { style: small }, "墙上还空着。"));
+    // 墙：画法在 NoteWall / StickyNote，别处的墙也画同一份
+    h(NoteWall, { notes: st.notes, nameOf: nm, mineOf: n => n.by === "me", onAdd: spectate ? null : x => onPlay(s0 => chpNoteAdd(s0, x, "me")),
+      note: "大家都能往墙上贴、在别人的纸条上写一句、撕掉自己的或者贴了一天以上的。",
+      actionsOf: n => [tap("写一句", () => requestAppPrompt("在这张上写一句", "", "", v => { const x = String(v || "").trim(); if (x) onPlay(s0 => chpScribble(s0, n.text, x, "me")); }, "写上")),
+        n.by === "me" || Date.now() - (n.ts || 0) > 86400000 ? tap("撕掉", () => onPlay(s0 => { s0.notes = s0.notes.filter(x => x.id !== n.id); return s0; })) : null] }));
   if (sub === "songs") { const present = Math.max(1, (people || []).length);
-    return wrap(
-      // 「加一首」手写的歌名播放器搜不到，拿掉了（她 2026-11-20）；只从我的歌里挑、正在听的、让他们挑
-
-      !spectate ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 10 } },
-        // 正在听的那首直接放进来（她 2026-11-20）
-        nowSong ? h("button", { "data-wk": "chsongnow", disabled: !!chpSongMatch(st.playlist, nowSong), onClick: () => onPlay(s0 => chpSongAdd(s0, nowSong.title, nowSong.artist || "", "me")), className: "active:opacity-60 disabled:opacity-40", style: btn },
-          !!chpSongMatch(st.playlist, nowSong) ? "正在听的已在歌单" : "♪ 把正在听的《" + String(nowSong.title).slice(0, 12) + "》加进来") : null,
-        (myLib || []).length ? h("button", { "data-wk": "chsonglib", onClick: () => setLibOpen(v => !v), className: "active:opacity-60", style: btn }, libOpen ? "收起我的歌" : "从我的歌里挑") : null,
-        onAskSongs ? h("button", { "data-wk": "chsongask", onClick: onAskSongs, className: "active:opacity-60", style: btn }, "让他们各挑一首") : null) : null,
-      onPlayAll && (st.playlist || []).length ? h("button", { "data-wk": "chsongplayall", onClick: () => onPlayAll(st.playlist.slice().reverse()), className: "active:opacity-60", style: { ...btn, marginBottom: 10 } }, "▶ 从上往下全部放") : null,
-      libOpen ? h("input", { "data-wk": "chsongq", value: libQ, onChange: e => setLibQ(e.target.value), placeholder: "搜歌名或歌手", style: { width: "100%", minWidth: 0, boxSizing: "border-box", padding: "8px 12px", marginBottom: 8, borderRadius: 12, border: "1px solid " + t.line, background: t.card, color: t.ink, fontFamily: F_BODY, fontSize: 16 } }) : null,
-      libOpen ? h("div", { "data-wk": "chsonglist", style: { ...card, maxHeight: 260, overflowY: "auto", marginBottom: 10 } }, (myLib || []).filter(x => { const q = chpSongNorm(libQ); return !q || chpSongNorm(x.title + x.artist).includes(q); }).slice(0, 300).map(x => {
-        const inList = !!chpSongMatch(st.playlist, x);
-        return h("button", { key: x.id || x.title, disabled: inList, onClick: () => onPlay(s0 => chpSongAdd(s0, x.title, x.artist || "", "me")), className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { display: "block", padding: "7px 0", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } },
-          "《" + x.title + "》" + (x.artist ? " - " + x.artist : "") + (inList ? "　已在歌单" : "")); })) : null,
-      h("div", { style: { ...small, marginBottom: 10 } }, "大家一起往里塞歌；开着一起听时，谁嫌难听会投票切歌，一半以上的人想切就会提醒你。点「放这首」就在播放器里放：你歌库里有的直接放，没有的去搜来放。"),
-      (st.playlist || []).length ? st.playlist.slice().reverse().map(x => h("div", { key: x.title, "data-wk": "chsong", style: card },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink } }, "《" + x.title + "》" + (x.artist ? " - " + x.artist : "")),
-        h("div", { className: "flex items-center justify-between", style: { ...small, marginTop: 3 } }, nm(x.by) + " 加的" + ((x.skip || []).length ? " · " + x.skip.map(nm).join("、") + " 想切" : ""),
-          h("span", { className: "flex items-center", style: { gap: 10 } },
-            onPlaySong && (canSearchSong || chpSongMatch(myLib, x)) ? tap("放这首", () => onPlaySong(x)) : null,
-            tap("拿掉", () => onPlay(s0 => { s0.playlist = s0.playlist.filter(y => y.title !== x.title); return s0; })))),
-        chpSkipDue(x, present) ? h("div", { style: { ...small, color: t.tint, marginTop: 3 } }, "大家投票切歌了") : null)) : h("div", { style: small }, "歌单还是空的。")); }
+    // 「加一首」手写的歌名播放器搜不到，拿掉了（她 2026-11-20）；只从我的歌里挑、正在听的、让他们挑。画法在 SongShelf，别处的歌单也画同一份
+    return wrap(h(SongShelf, {
+      rows: (st.playlist || []).map(x => ({ key: x.title, title: x.title, artist: x.artist, by: nm(x.by) + " 加的" + ((x.skip || []).length ? " · " + x.skip.map(nm).join("、") + " 想切" : ""),
+        warn: chpSkipDue(x, present) ? "大家投票切歌了" : "",
+        actions: spectate ? [] : [onPlaySong && (canSearchSong || chpSongMatch(myLib, x)) ? ["放这首", () => onPlaySong(x)] : null,
+          ["拿掉", () => onPlay(s0 => { s0.playlist = s0.playlist.filter(y => y.title !== x.title); return s0; })]] })),
+      now: nowSong, nowIn: nowSong && !!chpSongMatch(st.playlist, nowSong), lib: myLib, libIn: x => !!chpSongMatch(st.playlist, x),
+      onAdd: spectate ? null : x => onPlay(s0 => chpSongAdd(s0, x.title, x.artist || "", "me")),
+      extra: onAskSongs ? [h("button", { key: "ask", "data-wk": "chsongask", onClick: onAskSongs, className: "active:opacity-60", style: shelfBtn(t) }, "让他们各挑一首")] : [],
+      onPlayAll: onPlayAll ? () => onPlayAll(st.playlist.slice().reverse()) : null,
+      note: "大家一起往里塞歌；开着一起听时，谁嫌难听会投票切歌，一半以上的人想切就会提醒你。点「放这首」就在播放器里放：你歌库里有的直接放，没有的去搜来放。" })); }
   if (sub === "ledger") { const bal = chpBalances(st.ledger || []), who = [{ id: "me", name: "我" }].concat(people || []);
     const f = form, setF = p => setForm(x => ({ ...x, ...p }));
     return wrap(
@@ -23652,19 +23704,8 @@ function ChannelPlayView({ sub, play, onPlay, nameOf, spectate, people, myLib, o
 //   右边一串小签——♪（在听就直接写歌名）、置顶 N、公告、养的那个；点哪个就在这一行底下摊开那一样，再点收起。
 //   签还是索引签的样子（选中那张跟底下连成一页），只是压到 30px 上下，整行 ~38px。
 function ChannelTabs({ tab, onTab, bg, right }) {
-  const t = useTheme(), paper = bg || t.bg;
-  const one = (k, zh) => { const on = tab === k;
-    return h("button", { key: k, "data-wk": "chtab", "data-part": k, "data-on": on ? "1" : "0", onClick: () => !on && onTab(k), className: "active:opacity-70",
-      style: { position: "relative", flex: "0 0 auto", minWidth: 44, height: on ? 30 : 26, marginTop: on ? 0 : 4, padding: "0 12px", borderRadius: "8px 8px 0 0",
-        background: on ? paper : "transparent", border: "1px solid " + (on ? t.line : "transparent"), borderBottom: "none",
-        fontFamily: F_DISPLAY, fontSize: "calc(" + (on ? 13 : 12.5) + "px * var(--app-fs, 1))", color: on ? t.ink : t.fog, marginBottom: -1, zIndex: on ? 2 : 1 } },
-      zh,
-      k === "files" ? h("span", { "aria-hidden": "true", style: { position: "absolute", top: -1, right: -1, width: 8, height: 8, background: "linear-gradient(225deg, " + (t.bg2 || t.bg) + " 50%, " + t.line + " 50%)", borderTopRightRadius: 8 } }) : null); };
-  // 墙、歌单、账本、养的提到这一排（她 2026-11-20「除了文档和图片全部都放上面一级」）；签多了就横着滑，右边那串小签照旧
-  return h("div", { "data-wk": "chtabs", className: "shrink-0 flex items-end", style: { gap: 2, height: 38, padding: "4px 10px 0", borderBottom: "1px solid " + t.line, position: "relative", zIndex: 2 } },
-    h("div", { className: "flex items-end overflow-x-auto", style: { gap: 2, minWidth: 0, flex: "0 1 auto", scrollbarWidth: "none" } },
-      one("chat", "聊天"), one("files", "文件"), one("wall", "墙"), one("songs", "歌单"), one("ledger", "账本"), one("pet", "小家伙")),
-    right ? h("div", { className: "min-w-0 flex items-center", style: { marginLeft: "auto", alignSelf: "center", gap: 6, paddingBottom: 3 } }, right) : null);
+  // 墙、歌单、账本、养的提到这一排（她 2026-11-20「除了文档和图片全部都放上面一级」）；签多了就横着滑，右边那串小签照旧。画法在 IndexTabs
+  return h(IndexTabs, { items: [["chat", "聊天"], ["files", "文件"], ["wall", "墙"], ["songs", "歌单"], ["ledger", "账本"], ["pet", "小家伙"]], tab, onTab, bg, right });
 }
 // 聊天页那一行：矮索引签＋右边那串小签（给一个就摆一个），open 是当前摊开的那一样，摊开的盖在聊天上面、不往下挤
 function ChannelTopRow({ onTab, listen, pins, notice, pet, spectate, onJumpPin, onUnpin, onCare }) {
@@ -23800,7 +23841,7 @@ function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, op
     const txt = String(await f.text() || ""); const r = chfApplyDoc(files || [], String(f.name || "文档").replace(/\.(txt|md)$/i, ""), txt, "me");
     if (r.file) { onSaveFiles(r.files); setOpen(r.file.id); } };
   const patchCur = patch => put(l => l.map(f => f.id === cur.id ? { ...f, ...patch } : f));
-  const btn = { minHeight: 38, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, background: t.bg };
+  const btn = shelfBtn(t);
   // 墙、歌单、账本、养的（她 2026-11-20「1-7都可以做」）：跟文档图片并排的几样，内容在 ChannelPlayView
   const pageTop = [
     h(Head, { zh: group.chName ? "#" + group.chName : group.name, sub: "频道文件 · " + (list.length + gallery.length), onBack }),
@@ -23826,13 +23867,9 @@ function ChannelFilesPage({ group, files, nameOf, onSaveFiles, onBack, onTab, op
           h(ChfImg, { k: g.ref, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
           h("span", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 6px 4px", background: "linear-gradient(transparent, rgba(0,0,0,.45))", color: "#fff", fontFamily: F_BODY, fontSize: 10, textAlign: "left", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, (whoOf ? whoOf(g.who) : "") + " · " + chfWhen(g.ts, clockId)))))
         : h("div", { style: { textAlign: "center", padding: "40px 20px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "频道里还没发过图")) :
-      list.length ? list.map((f, i) => h("button", { key: f.id, "data-wk": "chfrow", "data-part": f.kind, onClick: () => setOpen(f.id), className: "w-full flex items-center gap-3 text-left active:bg-black/5", style: { padding: "11px 16px", borderTop: "1px solid " + t.line } },
-        f.kind === "image" ? h(ChfImg, { k: f.imgKey, style: { width: 40, height: 40, borderRadius: 8, objectFit: "cover", flexShrink: 0 } })
-          : h("span", { style: { width: 40, height: 40, borderRadius: 8, background: t.bg2, color: t.sub, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 15, flexShrink: 0, position: "relative" } }, "文"),
-        h("span", { className: "flex-1 min-w-0" },
-          h("span", { "data-wk": "chfname", className: "block truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, f.kind === "doc" ? "《" + f.name + "》" : f.name),
-          h("span", { className: "block truncate", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } },
-            nameOf(f.updatedBy || f.createdBy) + (f.updatedBy && f.updatedBy !== f.createdBy || (f.history || []).length > 1 ? " 改过" : " 建的") + " · " + chfWhen(f.updatedTs || f.createdTs, clockId) + (f.kind === "doc" ? " · " + String(f.text || "").length + " 字" : "")))))
+      list.length ? list.map(f => h(FileRow, { key: f.id, part: f.kind, onClick: () => setOpen(f.id), title: f.kind === "doc" ? "《" + f.name + "》" : f.name,
+        thumb: f.kind === "image" ? h(ChfImg, { k: f.imgKey, style: { width: 40, height: 40, borderRadius: 8, objectFit: "cover", flexShrink: 0 } }) : null,
+        meta: nameOf(f.updatedBy || f.createdBy) + (f.updatedBy && f.updatedBy !== f.createdBy || (f.history || []).length > 1 ? " 改过" : " 建的") + " · " + chfWhen(f.updatedTs || f.createdTs, clockId) + (f.kind === "doc" ? " · " + String(f.text || "").length + " 字" : "") }))
         : h("div", { style: { textAlign: "center", padding: "40px 20px", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "还没有文件")),
     cur && cur.kind === "doc" ? h(ChfDocPage, { key: cur.id, file: cur, clockId: chfClock, nameOf, onClose: () => setOpen(null),
       onSave: txt => { const r = chfApplyDoc(files || [], cur.name, txt, "me"); onSaveFiles(r.files); },
