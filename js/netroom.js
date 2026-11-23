@@ -1503,7 +1503,7 @@
       h("span", { "data-wk": "quoteicon" }, "❝ "),
       h("span", { "data-wk": "quotetext" }, st === "recalled" ? "原消息已撤回" : st === "gone" ? "原消息已删除" : (q.name ? q.name + "：" : "") + q.text));
   }
-  function MsgRow({ m, room, myCharsById, idx, onPress, onRelease, tools, rich }) {
+  function MsgRow({ m, room, myCharsById, idx, onPress, onRelease, tools, rich, selfFace }) {
     const t = useTheme();
     const mine = m.side === "me";
     const owner = Core.ownerNick(room, m);
@@ -1522,6 +1522,11 @@
       const card = peer ? (peer.chars || []).find(c => c.id === m.charId) : null;
       face = h(Avatar, { size: 34, character: local || { id: "nr_" + m.charId, name: m.name,
         avatarImage: card && card.avatar || "", avatarEmoji: card && card.emoji || "", color: card && card.color || "" } });
+    } else if (m.kind === "user") {
+      // 真人也有头像（她 11-22：真人的头像拿不到）：自己的用本机主页那张，别人的用她进房时发来的小头像（peer.face）
+      const peer = !mine ? Core.peerOf(room, m.peerId) : null, fc = peer && peer.face;
+      face = h(Avatar, { size: 34, character: mine ? Object.assign({ id: "nr_me", name: m.name }, selfFace || {})
+        : { id: "nr_u_" + (m.peerId || m.name), name: m.name, avatarImage: fc && fc.avatar || "", avatarEmoji: fc && fc.emoji || "", color: fc && fc.color || "" } });
     }
     const body = m.type && rich ? rich(m) : null;
     return h("div", { "data-wk": "nrmsg", "data-side": m.side, "data-nri": idx, "data-kind": m.type || "text", className: "flex", style: { gap: 8, flexDirection: mine ? "row-reverse" : "row", alignItems: "flex-start" } },
@@ -1535,7 +1540,7 @@
         m.edited && h("div", { "data-wk": "nredited", style: { fontFamily: F_BODY, fontSize: fs(10), color: t.fog, marginTop: 2 } }, "已编辑"),
         m.kind === "char" && h("div", { "data-wk": "nrowner", style: { fontFamily: F_BODY, fontSize: fs(10.5), color: t.fog, marginTop: 3, display: "flex", alignItems: "center", gap: 8 } }, owner + " 带来的", tools || null)));
   }
-  function MsgList({ room, myCharsById, tail, rowProps }) {
+  function MsgList({ room, myCharsById, tail, rowProps, selfFace }) {
     const ref = useRef(null);
     const n = (room.msgs || []).length;
     // 往上翻的时候不许拽回来（她 2026-11-22）：只有人本来就在底部附近、或者是自己刚发的，才跟到底。
@@ -1556,7 +1561,7 @@
     const onScroll = e => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; };
     return h("div", { ref, onScroll, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 14px" } }, h("div", { ref: inner, style: { display: "flex", flexDirection: "column", gap: 12 } },
       !n && h(Note, null, "房间里还没人说话。你直接发，或者点下面一个头像让 TA 先开口。"),
-      (room.msgs || []).map((m, i) => h(MsgRow, Object.assign({ key: m.id, m, room, myCharsById, idx: i }, rowProps ? rowProps(m, i) : {}))),
+      (room.msgs || []).map((m, i) => h(MsgRow, Object.assign({ key: m.id, m, room, myCharsById, idx: i, selfFace }, rowProps ? rowProps(m, i) : {}))),
       tail));
   }
 
@@ -1698,6 +1703,7 @@
     const refresh = () => setRooms(Core.loadRooms());
     const myNick = () => String(nick || "").trim().slice(0, 20) || "朋友";
     // 我自己的名片（hi 里的 me）：名字＋压到 64px 的头像，跟角色名片一样只这几样
+    const selfFaceOf = () => { const pf = props.profile || {}; return { avatarImage: pf.avatarImage || "", avatarEmoji: pf.avatarEmoji || "", color: pf.color || "" }; };
     const myFace = async nm => Core.cardOf({ id: "me", name: nm, avatarEmoji: props.profile && props.profile.avatarEmoji, color: props.profile && props.profile.color }, await smallAvatar(props.profile || null));
     // 牌桌上每个座位的头像：自己的角色从本机取，别人带来的角色、别的真人用进房名片上那张小图
     const faceOf = s => {
@@ -2823,7 +2829,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
           h("div", { style: { fontSize: fs(10.5), color: t.fog, marginTop: 4 } }, "照房间记录总结到 " + fmt(rc.upTo) + "；TA 们开口时也会带上这段。")));
       const chatCore = [
         recapEl,
-        h(MsgList, { key: "ml", room, myCharsById: charsById, tail, rowProps: rowProps(room, true) }),
+        h(MsgList, { key: "ml", room, myCharsById: charsById, tail, rowProps: rowProps(room, true), selfFace: selfFaceOf() }),
         alone && h("div", { key: "rj", "data-wk": "nrrejoinbar", className: "shrink-0 flex items-center", style: { gap: 10, padding: "8px 14px", borderTop: "1px solid " + t.line, background: t.bg2 } },
           h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: fs(12.5), color: t.fog, lineHeight: 1.5 } }, peers.length ? REJOIN_NOTE_PEERS : REJOIN_NOTE_ALONE),
           peers.length > 0 && h(Btn, { label: "重新连上", primary: true, onClick: () => rejoin(room), wk: "nrrejoin" })),
@@ -2966,7 +2972,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
           h("div", { className: "shrink-0", style: { padding: "10px 14px", borderBottom: "1px solid " + t.line } },
             h(Btn, { label: "重新连上这个房间", primary: true, wide: true, onClick: () => { setNick(r.myNick || nick); rejoin(r); }, wk: "nrrejoin" }),
             h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "房里还有人开着就直接接上；都走了的话，要别人也在她那边的「以前的房间」里点开这个房间、点「重新连上」。记录接在后面，断开那会儿的话会补齐。")),
-          h(MsgList, { room: r, myCharsById: charsById, rowProps: rowProps(r, false) }),
+          h(MsgList, { room: r, myCharsById: charsById, rowProps: rowProps(r, false), selfFace: selfFaceOf() }),
           h("div", { className: "shrink-0", style: { padding: "10px 14px", paddingBottom: "calc(10px + env(safe-area-inset-bottom))", borderTop: "1px solid " + t.line } },
             h(Btn, { label: delAsk ? "确定删掉这个房间的记录？" : "删除这个房间的记录", disabled: saving, wk: "nrdel", onClick: () => {
               if (!delAsk) { setDelAsk(true); return; }
