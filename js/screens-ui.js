@@ -2418,7 +2418,7 @@ function Forum({
   characters, profile, posts, comments, follows, followBack, followingOf, pms, groups, gen, forumMe, charMetaOf, forumOff, forumMasks, forumMaskNow,
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onRegenFloors, onReplyFloor, onReplySub,
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
-  onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
+  onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup, onForwardToMoment,
   onRefreshPMs, onSendPM, onDelPMMsg, onForwardToPM, onAskWechat, onOpenWechat, onMarkPMRead, onEditMe, onEditCharMeta, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
   onEditPost, onPinFloor, onDeletePost, onDeletePosts, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空；onDeletePosts 多选一起删
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
@@ -3729,6 +3729,10 @@ function Forum({
     // 转发 picker
     fwd && h(Sheet, { onClose: () => setFwd(null) },
       h(Eyebrow, { style: { marginBottom: 10 } }, "转发「" + (fwd.title || "").slice(0, 14) + "」到"),
+      // 转发到朋友圈（她 2026-11-23 许愿板「帖子和回复都想转发」）：跟私聊、群聊同一个面板，多一行
+      onForwardToMoment ? h("button", { "data-wk": "forumfwdmoment", onClick: () => { const f = fwd; setFwd(null); onForwardToMoment(f); }, className: "w-full flex items-center gap-3 py-2 mb-2 active:opacity-60" },
+        h("span", { style: { width: 32, height: 32, borderRadius: 999, background: FORUM_SKIN.line, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "calc(15px * var(--app-fs, 1))" } }, "◎"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "我的朋友圈")) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "私聊"),
       h("div", { className: "space-y-1 max-h-44 overflow-y-auto mb-3" }, (characters || []).map(c => h("button", { key: c.id, onClick: () => { onForwardToChat(fwd, c); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h(Avatar, { character: c, size: 32, radius: 8 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name)))),
       (groups || []).length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "群聊"),

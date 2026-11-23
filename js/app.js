@@ -37724,6 +37724,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onToggleFollow: toggleForumFollow,
     onForwardToChat: forwardPostToChat,
     onForwardToGroup: forwardPostToGroup,
+    // 转发到朋友圈：走她自己发朋友圈那一条（postUserMoment），正文里带上转的是哪一帖、哪一楼，他们刷到能接
+    onForwardToMoment: f => requestAppPrompt("转发到朋友圈", "想说点什么可以写在这儿，不写也行。", "", v => {
+      const mine = String(v || "").trim(), body = String(f.body || f.content || f.text || "").replace(/\s+/g, " ").trim().slice(0, 120);
+      const who = f.anon ? "匿名" : (f.authorName || f.author || "");
+      postUserMoment({ content: (mine ? mine + "\n\n" : "") + "转发自论坛" + (f.board ? "「" + f.board + "」" : "") + "：" + (f.title || "") + (who ? "（" + who + "）" : "") + (body ? "\n「" + body + "」" : "") });
+      toast("转到朋友圈了"); }, "转发"),
     onRefreshPMs: refreshForumPMs,
     onDeletePost: deleteForumPost,
     onEditPost: editForumPost,
