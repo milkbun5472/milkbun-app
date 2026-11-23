@@ -656,3 +656,8 @@ test("牌桌上：真人能说一句，角色不自动接；点头像单人说�
   assert.ok(/async function talkNow\(gid, ids\)/.test(g) && /talkNow: \(gid, ids\) => talkNow\(gid, ids\)/.test(g));
   assert.ok(/"data-wk": "nrtablespeaker"/.test(nsrc) && /"data-wk": "nrtabletogether"/.test(nsrc) && /gs\.talkNow\(gid, ids\)/.test(nsrc));
 });
+
+test("「自己边玩边说」默认不勾：不勾的角色只在她点头像时开口", () => {
+  assert.ok(/talk: o\.talk === true \}/.test(nsrc), "默认关");
+  assert.ok(/自己边玩边说/.test(nsrc));
+});

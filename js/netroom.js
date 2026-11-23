@@ -2204,7 +2204,7 @@
       const recent = o.recent != null ? !!o.recent : !!(mc && mc.recent), ch = charsById[cid];
       let recentText = "";
       if (recent && ch && propsRef.current.ctxFor) { try { recentText = String((propsRef.current.ctxFor(ch, { chat: true }) || {}).recentChat || "").slice(-600); } catch (e) {} }
-      return { casual: !!o.casual, recent, recentText, botSkill: o.botSkill || "", talk: o.talk !== false };
+      return { casual: !!o.casual, recent, recentText, botSkill: o.botSkill || "", talk: o.talk === true };   // 她 11-22：默认不自己开口，勾了才边玩边说
     };
     const setCharOpt = (cid, k, v) => setCharOpts(m => Object.assign({}, m, { [cid]: Object.assign({}, m[cid] || {}, { [k]: v }) }));
     // 座位旁那两个字（大家都看得到）：钉的牌技档、随手
@@ -2238,7 +2238,7 @@
         if (kinds.indexOf("recent") >= 0) rows.push(h("label", { key: "r", className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
           h("input", { type: "checkbox", "data-wk": "nrcharrecent", checked: o.recent, onChange: e => setCharOpt(c.id, "recent", e.target.checked) }), "带上 TA 最近单聊（TA 出题、提问、接句时记得你们最近聊了什么）"));
         if (kinds.indexOf("talk") >= 0) rows.push(h("label", { key: "t", className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
-          h("input", { type: "checkbox", "data-wk": "nrchartalk", checked: o.talk, onChange: e => setCharOpt(c.id, "talk", e.target.checked) }), "牌桌上说话（TA 边玩边随口说几句，摆在牌桌底下，不进房间聊天；关了 TA 只出手不开口）"));
+          h("input", { type: "checkbox", "data-wk": "nrchartalk", checked: o.talk, onChange: e => setCharOpt(c.id, "talk", e.target.checked) }), "自己边玩边说（勾了：TA 出手时顺带一句、隔几手随口说几句；不勾：只在你点 TA 头像时开口）"));
         return rows.length ? h("div", { "data-wk": "nrcharopts", style: { margin: "0 0 8px 42px", display: "flex", flexDirection: "column", gap: 6 } }, rows) : null;
       };
       return h(Sheet, { key: "gj", onClose: () => setJoinAt(null) },
