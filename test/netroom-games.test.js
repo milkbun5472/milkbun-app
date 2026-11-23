@@ -649,11 +649,10 @@ test("半窗里叫角色开口：带当前局面＋牌桌上最近十几句，�
   assert.ok(/game: gameStateFor\(char\.id\)/.test(nsrc) && /game: gameStateFor\(null\)/.test(nsrc), "单人开口和一起说都带");
 });
 
-test("牌桌上真人能说一句，桌上的角色会接（玩的人、观战的人都能说）", () => {
+test("牌桌上：真人能说一句，角色不自动接；点头像单人说、「一起说」几位一起说", () => {
   const g = read("js/netroom-games.js");
-  assert.ok(/say: \(gid, text\) => \{/.test(g) && /human: true/.test(g), "Session 有 say，台词带 human");
-  assert.ok(/if \(c\.kind === "talk" && c\.human\) replyHuman\(gid, c\)/.test(g), "收到真人那句就叫接话");
-  assert.ok(/function replyHuman\(gid, line\)/.test(g) && /optsOf\(gid, x\.charId\)\.talk !== false/.test(g), "只挑没关牌桌说话的、我这台带来的");
-  assert.ok(/human: !!x\.human/.test(g), "cleanTalk 留着 human");
-  assert.ok(/"data-wk": "gamesay"/.test(nsrc) && /sayAtTable\(gid\)/.test(nsrc), "牌桌上有那一格");
+  assert.ok(/say: \(gid, text\) => \{/.test(g) && /human: true/.test(g));
+  assert.ok(!/replyHuman/.test(g), "不再自动接话");
+  assert.ok(/async function talkNow\(gid, ids\)/.test(g) && /talkNow: \(gid, ids\) => talkNow\(gid, ids\)/.test(g));
+  assert.ok(/"data-wk": "nrtablespeaker"/.test(nsrc) && /"data-wk": "nrtabletogether"/.test(nsrc) && /gs\.talkNow\(gid, ids\)/.test(nsrc));
 });
