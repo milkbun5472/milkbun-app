@@ -2872,7 +2872,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         h("div", { "data-wk": "nrgamefull", className: "flex-1 min-h-0" }, gp.body),
         h(HalfWinFrame, { win: chatWin, setWin: setChatWin, forKey: "netchat",
           pillLabel: "房间聊天" + (gp.unread ? " · " + gp.unread + " 条新消息" : "") + " ▴", pillHot: gp.unread > 0 },
-          h("div", { "data-wk": "nrchathalf", className: "h-full flex flex-col", style: { background: t.bg } }, chatCore)),
+          h("div", { "data-wk": "nrchathalf", className: "h-full flex flex-col", style: { background: t.bg2 } }, chatCore)),
         ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sendSong, sayRich, sendRp,
           photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
         joinSheet());

@@ -46,6 +46,8 @@ const ALLOW = {
     "DTSTART", "DTEND", "VEVENT", "BEGIN", "END", "SUMMARY", "LOCATION", "RRULE", "UNTIL", "BYDAY"],
   // 抽卡的稀有度名，全app都这么叫（SSR/SR/R 本身就是三个字母的专名，中文没有对应说法）
   "js/stamps.js": ["R / SR / SSR", "R · "],
+  // 房间递名片走 Supabase 实时频道时，频道回报的状态值（SUBSCRIBED／CLOSED）——跟后台比对用，不是给人看的字
+  "js/netroom.js": ["SUBSCRIBED", "CLOSED"],
   // 测量字宽用的那串字母
   "js/weekly.js": ["ABCDEFGHIJKL"]
 };

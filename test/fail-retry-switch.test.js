@@ -17,7 +17,8 @@ test("每一处补打第二枪都先问开关", () => {
   assert.equal((eng.match(/if \(!failRetryOn\(\)\) throw e;/g) || []).length, 2, "单人线下、群线下空正文");
   assert.match(eng, /\(!beats \|\| !beats\.length\) && failRetryOn\(\)/);
   assert.match(app, /\|\| !failRetryOn\(\)\) throw firstErr;/);
-  assert.match(app, /catch \(e\) \{ if \(!failRetryOn\(\)\) throw e; return await runProbe\(p, ctx, probe\); \}/);
+  // 收成公共的 runProbeRetry（解析失败不重打）：补打前照样先问开关
+  assert.match(app, /function runProbeRetry\(p, ctx, probe\) \{ return runProbe\(p, ctx, probe\)\.catch\(e => \{ if \(!failRetryOn\(\)/);
   assert.match(app, /if \(!_hasAccept\(d\) && \(typeof failRetryOn !== "function" \|\| failRetryOn\(\)\)\) \{/);
   assert.match(th, /typeof failRetryOn === "function" && !failRetryOn\(\)\)\) return null;/);
   assert.match(rpg, /if \(!p && \(typeof failRetryOn !== "function" \|\| failRetryOn\(\)\)\) \{/);
