@@ -2722,7 +2722,7 @@
         h("div", { "data-wk": "nrcode", style: { fontFamily: F_DISPLAY, fontSize: fs(40), letterSpacing: 8, margin: "6px 0 10px" } }, code)),
       code && sig && sigCard(sig, code, "k"),
       h("div", { key: "s", style: { textAlign: "center" } }, h(Note, null, status)),
-      h(Note, { key: "n" }, "把房间号发给要来的人（算上你最多四个人），让她们在「联机」里点「输入房间号加入」。第一个人连上你就能进房间，后来的人随时能进。要来的人得开着这一页；20 秒连不上会提示。")
+      h(Note, { key: "n" }, (sig ? "把上面整串连接码发给要来的人" : "把房间号发给要来的人") + "（算上你最多四个人），让她们在「联机」首页粘进「房间号」那一格、点「加入」。第一个人连上你就能进房间，后来的人随时能进。要来的人得开着这一页；20 秒连不上会提示。")
     ]));
 
     if (page === "pick") return shell(h(Head, { zh: repick ? "换人" : "带谁进来", onBack: () => { if (repick) { setRepick(false); setPage("chat"); } else setPage("leave"); } }), scroll([
