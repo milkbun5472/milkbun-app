@@ -737,7 +737,25 @@ function App() {
   const kinshipCardsRef = useRef([]);
   const groupChatsRef = useRef(groupChats);
   groupChatsRef.current = groupChats; // 群聊最新记录（投票/红包就地改）
-  const [chatSettings, setChatSettings] = useState({});
+  const [chatSettings, _setChatSettingsRaw] = useState({});
+  // 换面具时记下「到这一刻为止用的是哪张」（群里 2026-11-23：用虚拟时钟的人，聊天记录全变成现实时间）：
+  //   钟跟着面具走，原来只看【现在】那张面具，一换面具，以前每条都改按新面具的钟算。
+  //   所有写聊天设置的地方都从这一处过，所以记在这儿；clockKeyOf 按消息时间去查 maskSpans。
+  const setChatSettings = upd => _setChatSettingsRaw(p => {
+    const n = typeof upd === "function" ? upd(p) : upd;
+    if (!n || n === p || typeof n !== "object") return n;
+    const prim = String(loadJSON("x_maskPrimary", "") || ""), norm = m => { m = String(m || ""); return !m || m === prim ? "" : m; };
+    let out = n, now = Date.now();
+    Object.keys(n).forEach(id => {
+      const a = p && p[id], b = n[id];
+      if (!a || !b || norm(a.maskId) === norm(b.maskId)) return;
+      const sp = Array.isArray(b.maskSpans) ? b.maskSpans : (Array.isArray(a.maskSpans) ? a.maskSpans : []);
+      if (out === n) out = { ...n };
+      out[id] = { ...b, maskSpans: sp.concat([{ until: now, mask: norm(a.maskId) }]).slice(-200) };
+    });
+    if (out !== n) saveJSON("x_chatSettings", out);
+    return out;
+  });
   // 线上的导演便签（她 2026-10-10：线下那一套搬到线上，入口跟旁白放一起）：{ [chatKey]: [便签] }。
   //   新建、扣轮、提示语全走线下那几支（directorNoteNew / directorNotesConsume），不另写一份。
   const [chatDirNotes, setChatDirNotes] = useState({});
@@ -12266,6 +12284,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const t = ts == null ? Date.now() : Number(ts);
         if (sp.some(x => x && t >= Number(x.from) && (x.until == null || t < Number(x.until)))) return "c:" + sid;
       }
+    }
+    // 这条消息那会儿用的是哪张面具（换过面具的人）
+    if (sid && sid.indexOf("g:") !== 0 && ts != null) {
+      const ms = (settingsFor(sid) || {}).maskSpans;
+      if (Array.isArray(ms)) { const t = Number(ts); const hit = ms.find(x => x && t < Number(x.until)); if (hit) return String(hit.mask || ""); }
     }
     return maskKeyOf(id);
   };
