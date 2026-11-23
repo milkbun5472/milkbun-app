@@ -1928,7 +1928,7 @@
       const due = Core.recapDue(r1, Date.now());
       setRecapUi({ show: due, fold: false, busy: false, err: "" });
       start(!!r0.host, r0);
-      if (due && !Core.recapFresh(r1)) makeRecap(r1.id, true);
+      // 不自动总结（她 11-22：「要大家各自按键才会总结，不要进来就自动」）：卡上只摆一颗「总结一下」，点了才花这一次调用
     };
     const start = (host, resume) => {
       setErr(""); setPeerTyping({}); setPeerWatch(() => ({})); setNet({ open: [], fail: [], reach: [] });
@@ -2841,12 +2841,14 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
       const gp = gameParts();
       const rc = room.recap;
       // 前情小卡：连回来时摆在聊天顶上；能收起成一条、能关掉、能「重新总结」（重新总结会再花一次调用）
-      const recapEl = recapUi.show && (rc || recapUi.busy || recapUi.err) && h("div", { key: "rc", "data-wk": "nrrecap", "data-fold": recapUi.fold ? "1" : "0", className: "shrink-0",
+      const recapEl = recapUi.show && h("div", { key: "rc", "data-wk": "nrrecap", "data-fold": recapUi.fold ? "1" : "0", className: "shrink-0",
         style: { margin: "8px 12px 0", padding: recapUi.fold ? "6px 12px" : "10px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
         h("div", { className: "flex items-center", style: { gap: 8 } },
           h("button", { "data-wk": "nrrecapfold", onClick: () => setRecapUi(u => Object.assign({}, u, { fold: !u.fold })), style: { flex: 1, minWidth: 0, minHeight: 32, textAlign: "left", fontFamily: F_BODY, fontSize: fs(12.5), color: t.ink } },
             (recapUi.fold ? "▸ " : "▾ ") + "上次聊到哪" + (recapUi.busy ? " · 正在总结…" : "")),
-          !recapUi.fold && !recapUi.busy && h("button", { "data-wk": "nrrecapredo", onClick: () => makeRecap(room.id, false), style: { minHeight: 32, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, "重新总结"),
+          // 还没总结过：一颗「总结一下」，点了才调用
+          !rc && !recapUi.busy && h("button", { "data-wk": "nrrecapgo", onClick: () => makeRecap(room.id, false), style: { minHeight: 32, padding: "0 10px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.ink } }, "总结一下"),
+          rc && !recapUi.fold && !recapUi.busy && h("button", { "data-wk": "nrrecapredo", onClick: () => makeRecap(room.id, false), style: { minHeight: 32, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, "重新总结"),
           h("button", { "data-wk": "nrrecapclose", onClick: () => setRecapUi(u => Object.assign({}, u, { show: false })), style: { minHeight: 32, padding: "0 6px", fontFamily: F_BODY, fontSize: fs(12), color: t.fog } }, "×")),
         !recapUi.fold && recapUi.err && h(Note, null, recapUi.err),
         !recapUi.fold && rc && h("div", { "data-wk": "nrrecapbody", style: { fontFamily: F_BODY, fontSize: fs(12.5), color: t.sub || t.ink, lineHeight: 1.7, marginTop: 4 } },
