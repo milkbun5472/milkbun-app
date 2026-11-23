@@ -1662,6 +1662,7 @@
     // 正在听：别人报来的（peerId → { who, title, artist }）和我这台此刻在放的。像在线状态，不进聊天记录、不存档
     const npRef = useRef({}), myNp = useRef(null);
     const [np, setNp] = useState({});
+    const npSent = useRef(0);   // 上一次报「正在听」的时刻
     // 房间里的墙、歌单、文档（存在 room.board；锁只在线上，不进存档）
     const [boardTab, setBoardTab] = useState("");    // 顶上那一条开着哪一格：""＝收起 / wall / songs / docs
     const [docId, setDocId] = useState(null);         // 正打开的那份文档
@@ -1972,6 +1973,7 @@
       for (const c of list) cards.push(Core.cardOf(c, await smallAvatar(c)));
       commit(Core.patchRoom(roomRef.current, { myNick: myNick(), myChars: list.map(c => ({ id: c.id, name: c.remark || c.name, recent: !!withChat[c.id], selfie: selfieOn(c.id) })) }));
       send({ t: "hi", nick: myNick(), chars: cards, me: await myFace(myNick()) });
+      if (myNp.current) send({ t: "np", song: myNp.current });   // 进房那一下把自己在听的也报上
       if (repick) {
         // 换人：名片重发一遍，别人那边跟着换；移出的人以前说的话照旧留着
         setRepick(false);
@@ -2348,8 +2350,10 @@
       if (!props.nowSong) return;
       const tick = () => { const s0 = props.nowSong(), x = s0 && s0.playing ? songX(s0) : null;
         const v = x ? { title: x.title, artist: x.artist } : null;
-        if (JSON.stringify(v) === JSON.stringify(myNp.current)) return;
-        myNp.current = v; setNp(Object.assign({}, npRef.current)); send({ t: "np", song: v }); };
+        // 没变也每 30 秒再报一次：刚进房（还在「带谁进来」那页）时报出去的那一声，房里的人可能还没在听（她 11-22：不是房主的人在听什么，房主那边横幅上看不到）
+        const same = JSON.stringify(v) === JSON.stringify(myNp.current);
+        if (same && !(v && Date.now() - npSent.current > 30000)) return;
+        myNp.current = v; npSent.current = Date.now(); if (!same) setNp(Object.assign({}, npRef.current)); send({ t: "np", song: v }); };
       tick(); const iv = setInterval(tick, 4000); return () => clearInterval(iv);
     }, []);
     // 角色顺手做的那几样（Core.actsOf 解出来的）落成要发的消息，接在这一轮后面；拍照、红包开抢这种要等的，交回 later 等这一轮发完再做
