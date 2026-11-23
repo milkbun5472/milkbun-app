@@ -2261,7 +2261,7 @@ function forumIpOf(x, ch, post) {
   const city = ch && ch.home && ch.home.city ? String(ch.home.city).trim() : "";
   if (city) return forumIpTrim(city);
   try {
-    const mine = !ch && x && (x.authorType === "me" || x.authorId === "me") && !x.anon;   // 她的小号也照她的定位（IP 跟人走，不跟号走）
+    const mine = !ch && x && (x.authorType === "me" || x.authorId === "me");   // 她的小号也照她的定位（IP 跟人走，不跟号走）
     if (mine && window.MapKit && window.MapKit.userRealm && typeof loadJSON === "function") {
       const rl = window.MapKit.userRealm(loadJSON("x_prefs", {}), loadJSON("x_geo", null), loadJSON("x_worlds", []));
       const v = rl && (rl.kind === "real" ? (rl.geo.city || rl.geo.label) : (rl.node || (rl.world && rl.world.name)));
@@ -2270,7 +2270,8 @@ function forumIpOf(x, ch, post) {
     if (ch && window.MapKit && window.MapKit.CITY_DB) { const txt = [ch.persona, ch.description, ch.desc].filter(Boolean).join(" ");
       const hit = Object.keys(window.MapKit.CITY_DB).map(k => [k, txt.indexOf(k)]).filter(z => z[1] >= 0).sort((a, b) => a[1] - b[1])[0]; if (hit) return hit[0]; }
   } catch (e) {}
-  const key = String((x && (x.authorName || x.authorId)) || "?");
+  // 路人匿名都叫「匿名用户」，按名字散就全落在同一个省（她 2026-11-23「匿名怎么都是陕西」）：匿名的按这一楼自己的 id 散
+  const key = String((x && (x.anon || /^匿名/.test(String(x.authorName || "")) ? (x.id || x.ts || x.authorName) : (x.authorName || x.authorId))) || "?");
   let hsh = 0; for (const ch2 of key) hsh = (hsh * 31 + ch2.charCodeAt(0)) >>> 0;
   const places = !ch && post ? forumWorldPlaces(post) : null;
   if (places) return forumIpTrim(places[hsh % places.length]);
@@ -3000,7 +3001,8 @@ function Forum({
 
   // ---- 楼层（含楼中楼 + 回复按钮 + 赞）----
   // IP 跟人走（她 2026-11-16「小号没有跟着他地图的地点」）：小号背后是哪个角色就照他在地图上的地方；匿名的照旧不露
-  const ipCharOf = x => x && !x.anon && (x.authorType === "character" || x.authorType === "character_alt") && x.authorId ? charOf(x.authorId) : null;
+  // 匿名也是那个人发的，IP 跟人走（她 2026-11-23「是角色的号就按角色位置来」）
+  const ipCharOf = x => x && (x.authorType === "character" || x.authorType === "character_alt") && x.authorId ? charOf(x.authorId) : null;
   function floorRow(post, cm, i) {
     const c = cm.authorType === "character" ? charOf(cm.authorId) : null;
     const isL = liked.has(cm.id);
