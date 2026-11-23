@@ -6,12 +6,13 @@ const path = require("node:path");
 const s = fs.readFileSync(path.resolve(__dirname, "..", "js/engine.js"), "utf8");
 const grab = name => { const i = s.indexOf("function " + name + "("); let d = 0, j = s.indexOf("{", i); for (; j < s.length; j++) { if (s[j] === "{") d++; else if (s[j] === "}" && --d === 0) break; } return s.slice(i, j + 1); };
 const cap = s.match(/const VCLOCK_HIST_CAP = \d+;/)[0];
-const F = new Function(cap + grab("vclockTrimHist") + grab("vclockSeg") + grab("vclockMapBy") + "return { vclockTrimHist, vclockMapBy };")();
+const F = new Function(cap + grab("vclockSameSeg") + grab("vclockTrimHist") + grab("vclockSeg") + grab("vclockMapBy") + "return { vclockTrimHist, vclockMapBy };")();
 test("历史段超了也留着最早那一段", () => {
-  const a = Array.from({ length: 2100 }, (_, i) => ({ until: i + 1, base: i, at: i, speed: 1 }));
+  // 每段都拨过（base−at 各不相同），没法合并，才真要丢
+  const a = Array.from({ length: 2100 }, (_, i) => ({ until: i + 1, base: i * 2, at: i, speed: 1 }));
   const t = F.vclockTrimHist(a);
   assert.equal(t.length, 2000);
-  assert.equal(t[0], a[0]);
+  assert.equal(t[0].until, a[0].until); assert.equal(t[0].base, a[0].base);
   assert.equal(t[t.length - 1], a[a.length - 1]);
   assert.doesNotMatch(s, /\]\.slice\(-300\) \}/);
 });
