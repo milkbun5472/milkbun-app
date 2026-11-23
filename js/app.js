@@ -14786,12 +14786,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       try {
         // 模型没填、可TA嘴上说了「拿到了跟你说」→ 照那句补上。
         //   隔离房（不许改共同状态）上面已经把这一栏封成 null——这儿不许从侧门补回来。
-        // 关着「允许 TA 主动发消息」时，TA自己开口（约回到点那一条）里再说「等会儿找你」不再落成新约（群里 2026-11-23：
-        //   关了还整晚一直发，只有一个人这样——爱说「待会儿再跟你说」的那位，每条都约下一条，约回又不看这个开关，一路接下去）。
-        //   她找TA时TA答应的照旧算：那是当着她的面说好的
-        const _noChain = opts && (opts.proactive || opts.promise) && !autoRefreshOn("proactive", charId);
-        if (_noChain) parsed.laterPromise = null;
-        if (!_noChain && !parsed.laterPromise && (!room || !!(room.writeback && room.writeback.sharedState))) parsed.laterPromise = promiseFromWords(charId, parsed.word);
+        if (!parsed.laterPromise && (!room || !!(room.writeback && room.writeback.sharedState))) parsed.laterPromise = promiseFromWords(charId, parsed.word);
         const lp = parsed.laterPromise;
         // ⭐TA说的「几分钟后／几点」是【TA那只钟】上的（群友 2026-10-21：说好五点半门口逮你，钟走到五点半了TA没动静）：
         //   钟拨快了、调过速，现实里要等的时间就不是同一个数。照这只钟的速度换算成现实毫秒；钟停住了就等不到，不落约。
