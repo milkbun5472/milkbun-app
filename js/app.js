@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.139";
+const APP_VERSION = "v90.140";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -744,14 +744,18 @@ function App() {
   const setChatSettings = upd => _setChatSettingsRaw(p => {
     const n = typeof upd === "function" ? upd(p) : upd;
     if (!n || n === p || typeof n !== "object") return n;
-    const prim = String(loadJSON("x_maskPrimary", "") || ""), norm = m => { m = String(m || ""); return !m || m === prim ? "" : m; };
+    const prim = String(maskPrimary || ""), norm = m => { m = String(m || ""); return !m || m === prim ? "" : m; };
     let out = n, now = Date.now();
     Object.keys(n).forEach(id => {
       const a = p && p[id], b = n[id];
-      if (!a || !b || norm(a.maskId) === norm(b.maskId)) return;
-      const sp = Array.isArray(b.maskSpans) ? b.maskSpans : (Array.isArray(a.maskSpans) ? a.maskSpans : []);
+      if (!a || !b) return;
+      // 设置页存档是照白名单重拼的一整份，不带这一栏：别让它把记下的换面具记录冲掉
+      if (Array.isArray(a.maskSpans) && !Array.isArray(b.maskSpans)) { if (out === n) out = { ...n }; out[id] = { ...b, maskSpans: a.maskSpans }; }
+      if (norm(a.maskId) === norm(b.maskId)) return;
+      const b2 = out[id];
+      const sp = Array.isArray(b2.maskSpans) ? b2.maskSpans : [];
       if (out === n) out = { ...n };
-      out[id] = { ...b, maskSpans: sp.concat([{ until: now, mask: norm(a.maskId) }]).slice(-200) };
+      out[id] = { ...b2, maskSpans: sp.concat([{ until: now, mask: norm(a.maskId) }]).slice(-200) };
     });
     if (out !== n) saveJSON("x_chatSettings", out);
     return out;
