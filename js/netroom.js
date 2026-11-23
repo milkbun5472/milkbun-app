@@ -28,8 +28,19 @@
     { urls: "stun:stun.miwifi.com:3478" },
     { urls: "stun:stun1.l.google.com:19302" }
   ];
+  // 自己的中转（TURN，她 11-23「教她们搭」）：两台手机怎么都直连不上时，话经它转过去。
+  //   只要房里有一个人填了，跟她相连的那几条一般就能通；内容照旧加密，中转看不到聊什么。
+  //   地址可填几条（逗号/空格/换行隔开），没写 turn:/turns: 的补成 turn:
+  function cleanTurn(o) {
+    if (!o || typeof o !== "object") return null;
+    const urls = String(o.url || "").split(/[\s,，]+/).map(u => u.trim()).filter(Boolean)
+      .map(u => /^turns?:/i.test(u) ? u : "turn:" + u.replace(/^[a-z]+:\/\//i, ""));
+    if (!urls.length) return null;
+    return { urls, username: String(o.user || "").trim(), credential: String(o.pass || "").trim() };
+  }
+  const iceFor = turn => { const c = cleanTurn(turn); return c ? ICE_SERVERS.concat([c]) : ICE_SERVERS; };
   const CONNECT_TIMEOUT = 20000;
-  const FAIL_TEXT = "你们的网络直连不上：两边开着梯子的先关掉，再开一次房间；还不行就换一种连法（比如一边改用流量）再试";
+  const FAIL_TEXT = "你们的网络直连不上：两边开着梯子的先关掉，再开一次房间；还不行就换一种连法（比如一边改用流量），或者在联机首页「连不上的时候」里填一个自己的中转";
   // 房间号这一步（递名片）没走通：公共中转那条提示里带上备用路；自己的 Supabase 那条指出该查什么
   const BROKER_FAIL_TEXT = "房间号这一步没走通：公共中转这会儿连不上，过一会儿再试。也可以改用自己的 Supabase：开房的人在「联机」首页打开「用自己的 Supabase 递名片」再开房，把连接码整串发给要来的人（怎么配见秋秋攻略「联机」）。";
   const SUPA_FAIL_TEXT = "连不上这个 Supabase：看项目地址和公开密钥对不对、项目有没有被暂停（Paused）。也可以关掉「用自己的 Supabase 递名片」改走公共中转。";
@@ -1106,10 +1117,10 @@
     let b = null; try { b = typeof byoRaw === "string" ? JSON.parse(byoRaw) : byoRaw; } catch (e) {}
     return cleanSupa(b);
   }
-  function iceDone(pc) {
+  function iceDone(pc, slow) {
     return new Promise(ok => {
       if (pc.iceGatheringState === "complete") return ok();
-      const tm = setTimeout(ok, 3500);   // 收不齐也别一直等：手上有的先发（有的公共 STUN 在某些网络里不回话）
+      const tm = setTimeout(ok, slow ? 6000 : 3500);   // 配了中转多等一会儿：中转那条地址要先跟它要   // 收不齐也别一直等：手上有的先发（有的公共 STUN 在某些网络里不回话）
       pc.addEventListener("icegatheringstatechange", () => { if (pc.iceGatheringState === "complete") { clearTimeout(tm); ok(); } });
     });
   }
@@ -1144,7 +1155,7 @@
     };
     const mkLink = (id, peerSess) => {
       drop(id);
-      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      const pc = new RTCPeerConnection({ iceServers: o.ice || ICE_SERVERS });
       const L = { pc, dc: null, lid: rid(), state: "pending", sess: peerSess || null };
       links[id] = L;
       pc.onconnectionstatechange = () => {
@@ -1159,7 +1170,7 @@
       try {
         wire(id, L, L.pc.createDataChannel("room", { ordered: true }));
         await L.pc.setLocalDescription(await L.pc.createOffer());
-        await iceDone(L.pc);
+        await iceDone(L.pc, !!o.ice);
         if (links[id] === L) pub({ t: "offer", to: id, lid: L.lid, sdp: L.pc.localDescription.sdp });
       } catch (e) { linkFail(id, L); }
     };
@@ -1200,7 +1211,7 @@
           L.pc.ondatachannel = ev => wire(from, L, ev.channel);
           await L.pc.setRemoteDescription({ type: "offer", sdp: m.sdp });
           await L.pc.setLocalDescription(await L.pc.createAnswer());
-          await iceDone(L.pc);
+          await iceDone(L.pc, !!o.ice);
           if (links[from] === L) pub({ t: "answer", to: from, lid: m.lid, sdp: L.pc.localDescription.sdp });
         } else if (m.t === "answer") {
           const L = links[from];
@@ -1360,7 +1371,7 @@
   }
   function recapBlock(room) { const t = recapText(room && room.recap); return t ? "\n\n" + t + (promptRoom(room).cut ? "\n（更早的记录太长，下面只给最近这一段）" : "") : ""; }
 
-  const Core = { BROKERS, BROKER_FAIL_TEXT, SUPA_FAIL_TEXT, JOIN_PREFIX, MqttLink, openBroker, SupaLink, signalFor, packJoin, parseJoin, cleanSupa, supaCfg, secretKey, Mesh, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
+  const Core = { cleanTurn, iceFor, BROKERS, BROKER_FAIL_TEXT, SUPA_FAIL_TEXT, JOIN_PREFIX, MqttLink, openBroker, SupaLink, signalFor, packJoin, parseJoin, cleanSupa, supaCfg, secretKey, Mesh, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
     memoryTargets, transcript, lineInstruction, actBits, actsOf, cleanSong, songPlan, listenLines, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
     ownsMsg, editMsg, recallMsg, dropMsg, dropOwnMsg, tombOwn, applyDrops, isDropped, TOMB_MAX, missingImgs, cleanQuote, quoteOf, quoteState, quoteCatalog, resolveQuote, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, humansHere, watchTargets, jointInstruction, jointLines, mergeMsgs, removeRoom, hostGamesIn, HOST_GAMES_KEY, sinceRemembered, echoText,
@@ -1951,7 +1962,7 @@
       if (base) { commit(Core.patchRoom(base, { endedAt: 0 })); entered.current = true; setPage("chat"); }
       else { commit(null); entered.current = false; setPage("wait"); }
       setCode(c); setStatus("正在连…");
-      const m = Mesh({ code: c, host, patient: !!resume, me: meId.current, signal: s0 ? Core.signalFor(s0) : null,
+      const m = Mesh({ code: c, host, patient: !!resume, me: meId.current, signal: s0 ? Core.signalFor(s0) : null, ice: Core.cleanTurn(supaOwn.turn) ? Core.iceFor(supaOwn.turn) : null,
         knownIds: () => ((roomRef.current && roomRef.current.peers) || []).map(p => p.peerId).concat(mesh.current ? Object.keys(linkMap.current).concat(mesh.current.openIds()) : []),
         onStatus: setStatus,
         onFail: text => { if (mesh.current !== m) return; mesh.current = null; setErr(text); if (!entered.current) setPage("home"); syncNet(); },
@@ -2872,7 +2883,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
           peers.map(p => { const st = stateOf(p.peerId); return h("span", { key: p.peerId, "data-wk": "nrpeer", "data-state": st, style: { fontFamily: F_BODY, fontSize: fs(11.5), color: st === "on" ? t.ink : t.fog } },
             (st === "on" ? "● " : "○ ") + p.nick + (st === "on" ? (peerWatch[p.peerId] ? " · " + stateText.watch : "") : " · " + stateText[st])); }),
           trouble.length > 0 && h("div", { style: { width: "100%", fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
-            "和 " + trouble.map(p => p.nick).join("、") + " 直连不上：" + (trouble.some(p => stateOf(p.peerId) === "relay") ? "话由房里其他人转过去，可能慢一点。" : "她收不到你的话。两边先关掉梯子再试，还不行就一边改用流量。"))),
+            "和 " + trouble.map(p => p.nick).join("、") + " 直连不上：" + (trouble.some(p => stateOf(p.peerId) === "relay") ? "话由房里其他人转过去，可能慢一点。" : "她收不到你的话。两边先关掉梯子再试；还不行就一边改用流量，或者填一个自己的中转（首页「连不上的时候」）。"))),
         (() => { const L = Core.listenLines(Object.assign({}, np, myNp.current ? { me: Object.assign({ who: "你" }, myNp.current) } : {}));
           return L.length > 0 && h("div", { key: "np", "data-wk": "nrlisten", className: "shrink-0", style: { padding: "5px 14px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.5 } },
             L.map((x, i) => h("div", { key: i, style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "♪ " + x))); })(),
@@ -3046,6 +3057,16 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
           style: { width: "100%", marginTop: 6, minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: fs(12.5) } })),
         supaOwn.key && Core.secretKey(supaOwn.key) && h(Note, { key: "sec" }, "这把是 service key（只能你自己用的那把），不能拿来联机：换成 anon public 那把。"))
     ]);
+    // 自己的中转：跟递名片那块同一个样子，填完离开那一格就存
+    const turn = supaOwn.turn || {};
+    const turnBox = card([
+      h("div", { key: "t", style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink } }, "自己的中转" + (Core.cleanTurn(turn) ? "（已填，开房、进房都会用上）" : "")),
+      h(Note, { key: "why" }, "进了房间却提示「直连不上」、换网络也不行时用：填好以后两台手机连不通，话就经这台中转转过去，内容照旧加密、中转看不到聊什么。房里有一个人填了就行。怎么申请看秋秋攻略「联机」。"),
+      ...[["url", "中转地址（turn: 开头，几条用逗号隔开）", "nrturnurl"], ["user", "用户名", "nrturnuser"], ["pass", "密码", "nrturnpass"]].map(([k, ph, wk]) =>
+        h("input", { key: k, "data-wk": wk, defaultValue: turn[k] || "", placeholder: ph, autoCapitalize: "off", autoCorrect: "off", spellCheck: false,
+          onBlur: e => saveSupaOwn({ turn: Object.assign({}, supaOwn.turn || {}, { [k]: e.target.value.trim() }) }),
+          style: { width: "100%", minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: fs(12.5) } }))
+    ]);
     // 首页排法（她 11-23「看起来好乱」）：进门的事在最上面；以前的房间、认识的人其次；
     //   递名片那块是房间号连不上才用的，收到最底下折起来（开着自己的 Supabase 时默认展开）
     const rowBtn = (key, wk, onClick, title, meta) => h("button", { key, "data-wk": wk, onClick, className: "active:opacity-70 flex items-center",
@@ -3075,9 +3096,9 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
       rooms.length ? rooms.map(r => rowBtn(r.id, "nrhist", () => { setViewId(r.id); setPage("view"); }, withWhom(r) + " · 房间 " + r.code, fmt(r.startedAt) + " · " + (r.msgs || []).length + " 条"))
         : h(Note, { key: "none" }, "还没开过房间。"),
       rowBtn("kn", "nrknownopen", () => setPage("known"), "在联机里认识的人", knownN ? knownN + " 位别人家的角色" : "退房时记进记忆的角色，会记下在房里见过谁"),
-      h("details", { key: "supa", "data-wk": "nrsupafold", open: useSupa || undefined, style: { marginTop: 6 } },
-        h("summary", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.sub, minHeight: 36, cursor: "pointer" } }, "房间号连不上时" + (useSupa ? "（正在用自己的 Supabase）" : "")),
-        h("div", { style: { marginTop: 6 } }, supaBox))
+      h("details", { key: "supa", "data-wk": "nrsupafold", open: (useSupa || !!Core.cleanTurn(supaOwn.turn)) || undefined, style: { marginTop: 6 } },
+        h("summary", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.sub, minHeight: 36, cursor: "pointer" } }, "连不上的时候" + ([Core.cleanTurn(supaOwn.turn) && "正在用自己的中转", useSupa && "正在用自己的 Supabase"].filter(Boolean).length ? "（" + [Core.cleanTurn(supaOwn.turn) && "正在用自己的中转", useSupa && "正在用自己的 Supabase"].filter(Boolean).join("、") + "）" : "")),
+        h("div", { style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } }, turnBox, supaBox))
     ]));
   }
   if (typeof window !== "undefined") window.NetRoomApp = NetRoomApp;
