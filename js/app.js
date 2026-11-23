@@ -214,7 +214,7 @@ function ScreenBoundaryClass() {
 //   论坛、一起听、备忘录、手记都拿掉了：主屏一路找过去最容易点错，也没翻出过一句戳人的心声。
 const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"], ["moments", "我的朋友圈"], ["daily", "日常联系人（照我的人设自动编几个：同事、家人、群）"]];
 if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
-function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock, vclock, onVClock, onOpenApi, onGo }) {
+function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, onSetModel, clock, vclock, onVClock, onOpenApi, onGo }) {
   const [scs, setScs] = useState(() => { const v = loadJSON("x_floatShortcuts", []); return Array.isArray(v) ? v.slice(0, 6) : []; }), [scEdit, setScEdit] = useState(false);
   const t = useTheme();
   const [open, setOpen] = useState(false);
@@ -224,6 +224,7 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   //   v69 那次「点开跳到屏幕下面然后关不掉」就是面板长出屏幕闹的。
   //   收着之后无论多少条线路，默认高度就是三行。
   const [tab, setTab] = useState("");
+  const [mdl, setMdl] = useState(null);   // 悬浮球里现拉模型（群友 2026-11-23「悬浮球可以快捷拉取 api 模型」）：{ pid, list, busy, err }
   // 生图那一档的站点：打开面板时现读（见下面 LANES 那段注释）。⚠️hook 必须在下面那个「没线路就 return」之前。
   const [imgStore, setImgStore] = useState(null);
   useEffect(() => { if (open && typeof loadImgApiProfiles === "function") { try { setImgStore(loadImgApiProfiles()); } catch (e) {} } }, [open]);
@@ -363,7 +364,16 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
             transform: tab === lane.key ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
         tab === lane.key
           ? h("div", { style: { marginTop: 4 } }, (lane.follow ? [choice(lane, null)] : []).concat(lane.key === "bg" ? [choice(lane, { id: "__off__", name: "无（记忆、日程这些后台活不跑）" })] : []).concat((lane.list || profiles || []).map(p => choice(lane, p))))
-          : null)), clockRow,
+          : null,
+        // 这一档用的那条线路：现拉它的模型清单，点一个就把这条线路的模型换掉（跟设置里「拉取模型」同一个 fetchModelList）
+        tab === lane.key && lane.key !== "img" && onSetModel && lane.cur && lane.cur.id && typeof fetchModelList === "function" ? h("div", { "data-wk": "modelfloatpull", style: { marginTop: 6, padding: "6px 8px", borderRadius: 10, border: "1px dashed " + t.line } },
+          h("div", { className: "flex items-center justify-between", style: { gap: 8 } },
+            h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, minWidth: 0 } }, "模型：" + (lane.cur.model || "没填")),
+            h("button", { onClick: async () => { const pid = lane.cur.id; setMdl({ pid, busy: true }); try { const ls = await fetchModelList(lane.cur); setMdl({ pid, list: (ls || []).map(x => typeof x === "string" ? x : (x && (x.id || x.name)) || "").filter(Boolean) }); } catch (e) { setMdl({ pid, err: String((e && e.message) || e).slice(0, 60) }); } },
+              className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.tint } }, mdl && mdl.pid === lane.cur.id && mdl.busy ? "拉取中…" : "拉取换模型")),
+          mdl && mdl.pid === lane.cur.id && mdl.err ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#c0392b", marginTop: 4 } }, mdl.err) : null,
+          mdl && mdl.pid === lane.cur.id && mdl.list ? h("div", { style: { maxHeight: 160, overflowY: "auto", marginTop: 4 } }, mdl.list.map(m => h("button", { key: m, onClick: () => { onSetModel(lane.cur.id, m); setMdl(null); }, className: "w-full text-left active:opacity-60 truncate",
+            style: { display: "block", padding: "5px 2px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: m === lane.cur.model ? t.tint : t.ink } }, (m === lane.cur.model ? "✓ " : "") + m))) : null) : null)), clockRow,
       onOpenApi ? h("button", { "data-wk": "modelfloatapi", onClick: () => { setOpen(false); onOpenApi(); }, className: "w-full active:opacity-60",
         style: { marginTop: 8, minHeight: 38, padding: "7px 8px", borderRadius: 10, border: "1px dashed " + t.line, background: "transparent",
           fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, textAlign: "center" } }, "去模型设置改线路 ›") : null) : null,
@@ -40390,6 +40400,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     activeId: activeId,
     offlineApiId: offlineApiId,
     onSetOnline: id => { setActiveId(id); saveJSON("x_activeApi", id); toast("线上已切换为 " + (((apiProfiles || []).find(p => p.id === id) || {}).name || ((apiProfiles || []).find(p => p.id === id) || {}).model || "该线路")); },
+    // 悬浮球里换某条线路的模型：跟设置页保存线路同一条路（保险仓 → 本机）
+    onSetModel: async (pid, model) => { const list = (apiProfiles || []).map(p => p.id === pid ? { ...p, model } : p);
+      try { const runtime = window.CredentialVault ? await window.CredentialVault.persistApiProfiles(list) : list; setApiProfiles(runtime); if (!window.CredentialVault) saveJSON("x_api", list); toast("模型换成 " + model); } catch (e) { toast("没换成：" + String((e && e.message) || e).slice(0, 40)); } },
     onSetOffline: id => { setOfflineApiId(id); saveJSON("x_offlineApi", id); const p = id && (apiProfiles || []).find(x => x.id === id); toast("线下已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); },
     bgApiId: bgApiId,
     // 后台那一档走 setBgApi（设置页用的同一处）——记忆整理、翻译、查手机那些活都读它
