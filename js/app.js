@@ -753,6 +753,12 @@ function App() {
       if (Array.isArray(a.maskSpans) && !Array.isArray(b.maskSpans)) { if (out === n) out = { ...n }; out[id] = { ...b, maskSpans: a.maskSpans }; }
       if (norm(a.maskId) === norm(b.maskId)) return;
       const b2 = out[id];
+      // 头一回换、而且换走的那张没开钟：多半是之前换错了、现在换回来救记录（这次修之前换的那些人）。
+      //   这时记一笔反倒把旧记录钉在没钟的那张上，所以不记，旧记录照换回来的这张算。
+      if (!Array.isArray(b2.maskSpans) || !b2.maskSpans.length) {
+        const ck = ((window.__vclock && window.__vclock.clocks) || {})[norm(a.maskId) || "main"];
+        if (!(ck && ck.on)) return;
+      }
       const sp = Array.isArray(b2.maskSpans) ? b2.maskSpans : [];
       if (out === n) out = { ...n };
       out[id] = { ...b2, maskSpans: sp.concat([{ until: now, mask: norm(a.maskId) }]).slice(-200) };
