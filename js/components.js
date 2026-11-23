@@ -23584,7 +23584,7 @@ function SongShelf({ rows, now, nowIn, lib, libIn, onAdd, extra, onPlayAll, note
 // 一行文件：方块图标（图片给缩略图）＋书名号标题＋一行小字；文件列表、房间里的文档都画这一行
 function FileRow({ title, meta, icon, thumb, onClick, wk, part, locked }) {
   const t = useTheme();
-  return h("button", { "data-wk": wk || "chfrow", "data-part": part, "data-locked": locked ? "1" : "0", onClick, className: "w-full flex items-center gap-3 text-left active:bg-black/5", style: { padding: "11px 16px", borderTop: "1px solid " + t.line } },
+  return h("button", { "data-wk": wk === "nrdocrow" ? "nrdocrow" : "chfrow", "data-part": part, "data-locked": locked ? "1" : "0", onClick, className: "w-full flex items-center gap-3 text-left active:bg-black/5", style: { padding: "11px 16px", borderTop: "1px solid " + t.line } },
     thumb || h("span", { style: { width: 40, height: 40, borderRadius: 8, background: t.bg2, color: t.sub, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 15, flexShrink: 0, position: "relative" } }, icon || "文"),
     h("span", { className: "flex-1 min-w-0" },
       h("span", { "data-wk": "chfname", className: "block truncate", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink } }, title),
