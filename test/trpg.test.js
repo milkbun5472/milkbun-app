@@ -37,8 +37,10 @@ test("接线齐全:script 标签在 app.js 之前、REG、默认布局、路由"
 });
 
 test("沙箱纪律:跑团和小剧场一样不接主线记忆/世界书/好感", () => {
-  const at = app.indexOf('screen === "trpg"');
-  const branch = app.slice(at, app.indexOf('screen === "theater"', at));
+  // 跑团那一页的料拼在 trpgPropsOf 一处（单机跑团、房间里当场开新团都用它）
+  assert.match(app, /screen === "trpg"\) body = h\(window\.TrpgApp, trpgPropsOf\(/);
+  const at = app.indexOf('const trpgPropsOf = onBack => ({');
+  const branch = app.slice(at, app.indexOf('    onBack: onBack', at));
   assert.ok(!/worldbook|moods|memor/i.test(branch), "路由分支不许传世界书/心情/记忆——平行时空沙箱");
   assert.match(branch, /offlineActive/, "走线下创作线路");
   assert.match(src, /x_trpg/, "存档走 x_ 前缀,跟随整包云同步");

@@ -1668,6 +1668,7 @@
     const npRef = useRef({}), myNp = useRef(null);
     const [np, setNp] = useState({});
     const npSent = useRef(0);
+    const [trpgNew, setTrpgNew] = useState(false), [prepKey, setPrepKey] = useState(0);   // 跑团开局页：当场开新团那一页开着没有
     const tableSayRef = useRef(null);
     const [tableBusy, setTableBusy] = useState(false);   // 牌桌上「说一句」那一格
     const sayAtTable = gid => { const el = tableSayRef.current, v = el ? String(el.value || "").trim() : ""; if (!v || !games.current || !games.current.say) return; games.current.say(gid, v); el.value = ""; };   // 上一次报「正在听」的时刻
@@ -2936,8 +2937,11 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
     }
     // 自己带开局页的那几盒（辩论擂台）：页面在它自己的文件里，这儿只套顶栏
     const prepA = page === "gameprep" && room && gamePend && GC() ? GC().ADAPTERS[gamePend.game.key] : null;
+    // 跑团开局页上「当场开一个新团」：单机跑团那一整页盖在上面，开好了点返回回到这里，新团自动选上（她 11-22）
+    if (prepA && prepA.Prep && trpgNew && props.trpgProps && root.TrpgApp) return h("div", { key: "trpgnew", "data-wk": "nrtrpgnew", className: "h-full" },
+      h(root.TrpgApp, props.trpgProps(() => { setTrpgNew(false); setPrepKey(k => k + 1); })));
     if (prepA && prepA.Prep) return shell(h(Head, { zh: gamePend.game.zh, onBack: () => setPage("gamepick") }), scroll([
-      h(prepA.Prep, { key: "p", myChars: (room.myChars || []).map(c => charsById[c.id]).filter(Boolean), myApi: props.gameApi ? props.gameApi() : null, nick: myNick(), onSend: (cfg, pz) => sendInvite(gamePend.game, cfg, pz) })]));
+      h(prepA.Prep, { key: "p" + prepKey, onNewCamp: props.trpgProps ? () => { const go = () => setTrpgNew(true); if (root.TrpgApp || !root.LazyMods) go(); else root.LazyMods.load("trpg").then(go).catch(() => props.toast && props.toast("跑团没装上，再点一次试试")); } : null, myChars: (room.myChars || []).map(c => charsById[c.id]).filter(Boolean), myApi: props.gameApi ? props.gameApi() : null, nick: myNick(), onSend: (cfg, pz) => sendInvite(gamePend.game, cfg, pz) })]));
     if (page === "gameprep" && room && gamePend) {
       // 谁出题：开局的人（就是你，下面写或者现出）／系统现出／指定一个座位／轮流（每局「再来一局」换下一个座位）。出题的人这一局不参与问
       const soup = gamePend.game.key === "haigui", md = prep.mode;

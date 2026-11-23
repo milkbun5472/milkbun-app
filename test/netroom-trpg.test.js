@@ -429,3 +429,11 @@ test("跑团开局页：默认挑最近那个团、挑中的打勾；发不了�
   assert.ok(/x\.campId \? x : Object\.assign\(\{\}, x, \{ campId: l\[0\]\.id \}\)/.test(src));
   assert.ok(/opacity: !camp \|\| total < 1 \? 0\.4 : 1/.test(src) && /先在上面点一个团/.test(src));
 });
+
+test("跑团开局页能当场开一个新团：盖上单机跑团那一页，回来自动挑新开的那个", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const n = fs.readFileSync(path.join(__dirname, "..", "js/netroom.js"), "utf8"), tr = fs.readFileSync(path.join(__dirname, "..", "js/netroom-trpg.js"), "utf8"), app = fs.readFileSync(path.join(__dirname, "..", "js/app.js"), "utf8");
+  assert.ok(/h\(root\.TrpgApp, props\.trpgProps\(\(\) => \{ setTrpgNew\(false\); setPrepKey/.test(n));
+  assert.ok(/"data-wk": "nrtrpgnewcamp"/.test(tr) && /seenCamps\.size && !seenCamps\.has\(c\.id\)/.test(tr));
+  assert.ok(/trpgProps: trpgPropsOf/.test(app));
+});

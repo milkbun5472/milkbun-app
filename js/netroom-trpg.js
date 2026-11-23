@@ -799,12 +799,16 @@
         r.guests.map((g, i) => h("div", { key: i, style: small(t) }, g.name + (g.kind === "char" ? "（角色）" : "") + "：" + (g.did.join("；") || "一直跟着大家")))) : null);
   }
   // 房主开局：挑自己的一个团（在单机跑团里开好的），自己上不上桌、带哪几位角色、给别人留几个座位
-  function TrpgPrep({ myChars, nick, onSend }) {
+  const seenCamps = new Set();   // 开局页见过哪些团（回来时认出新开的那个）
+  function TrpgPrep({ myChars, nick, onSend, onNewCamp }) {
     const t = useTheme();
     const [camps, setCamps] = useState(null);
     const [p, setP] = useState({ campId: "", me: true, chars: {}, open: 2, timeout: 3 });
     // 只有一个（或者还没挑）时默认挑最近那个团（她 11-22 截图：团摆着、没点它，「发邀请卡」按了没反应也看不出为什么）
-    useEffect(() => { ensure().then(() => { const l = TS() ? (TS().loadCamps() || []).filter(c => !c.ended) : []; setCamps(l); if (l.length) setP(x => x.campId ? x : Object.assign({}, x, { campId: l[0].id })); }); }, []);
+    // 从「当场开一个新团」回来时这一页会重新挂上：挑上次还没见过的那个新团（记在 seenCamps 里）
+    useEffect(() => { ensure().then(() => { const l = TS() ? (TS().loadCamps() || []).filter(c => !c.ended) : []; setCamps(l);
+      const fresh = l.find(c => seenCamps.size && !seenCamps.has(c.id)); l.forEach(c => seenCamps.add(c.id));
+      if (fresh) setP(x => Object.assign({}, x, { campId: fresh.id })); else if (l.length) setP(x => x.campId ? x : Object.assign({}, x, { campId: l[0].id })); }); }, []);
     const set = o => setP(x => Object.assign({}, x, o));
     const camp = (camps || []).find(c => c.id === p.campId);
     const inParty = id => !!(camp && (camp.party || []).some(m => m.key === id));
@@ -816,10 +820,11 @@
       h("div", { style: small(t) }, "你开团、你当庄：守密人用你的线下线路，骰子在你这台掷，每一拍都存回你挑的那个团——下次联机或者自己单机都能接着跑。别人在邀请卡上报名：自己上桌，和／或派带来的角色当队友（数值各自那台掷，人设留在各自手机）。"),
       label("开哪一个团"),
       camps == null ? h("div", { style: small(t) }, "在读你的团…")
-        : !camps.length ? h("div", { style: small(t) }, "你还没有在演的团。先去「跑团」开一个（生成设定、导入剧本、收藏的世界都在那儿），开好了回来挑它。")
+        : !camps.length ? h("div", { style: small(t) }, "你还没有在演的团。点下面「当场开一个新团」，开好了点返回回到这里就能挑它。")
         : h("div", { "data-wk": "nrtrpgcamps", style: { display: "flex", flexDirection: "column", gap: 6 } }, camps.map(c => h("button", { key: c.id, onClick: () => set({ campId: c.id }),
           style: { textAlign: "left", borderRadius: 12, border: "1px solid " + (p.campId === c.id ? t.ink : t.line), background: t.bg2, color: t.ink, padding: "8px 12px", fontFamily: F_BODY, fontSize: fs(13.5) } },
           (p.campId === c.id ? "✓ " : "") + (c.title || "无题"), h("div", { style: small(t) }, (c.party || []).map(m => m.name).join("、") + " · " + (c.msgs || []).filter(m => m.role === "gm").length + " 拍")))),
+      onNewCamp ? h("button", { "data-wk": "nrtrpgnewcamp", onClick: onNewCamp, style: Object.assign(pill(t, false), { alignSelf: "flex-start", minHeight: 36 }) }, "＋ 当场开一个新团") : null,
       label("你自己"),
       h("div", { className: "flex", style: { gap: 6 } }, [[true, "我上桌"], [false, "我只当守密人那一边（不上桌）"]].map(([k, zh]) => h("button", { key: String(k), onClick: () => set({ me: k }), style: Object.assign(pill(t, p.me === k), { minHeight: 34, padding: "0 12px" }) }, zh))),
       (myChars || []).length ? label("你带来的角色（本来在这支队里的照队里的数值；不在队里的这一晚临时入队、开局现掷）") : null,
