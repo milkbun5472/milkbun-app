@@ -661,3 +661,12 @@ test("「自己边玩边说」默认不勾：不勾的角色只在她点头像�
   assert.ok(/talk: o\.talk === true \}/.test(nsrc), "默认关");
   assert.ok(/自己边玩边说/.test(nsrc));
 });
+
+test("对方的角色在想／在说，同桌每一台都看得到「正在说…」（不进局面、不存档）", () => {
+  const g = read("js/netroom-games.js");
+  assert.ok(/function typing\(gid, names\)/.test(g) && /o\.send\(\{ t: "game", op: "typing", gid, names: n \}\)/.test(g));
+  assert.ok(/else if \(e\.op === "typing"\)/.test(g));
+  assert.ok(/typing\(gid, \[seat\.name\]\)/.test(g), "角色出手时");
+  assert.ok(/typing\(gid, tnames\);\n\s+try \{ return await talkNowInner/.test(g), "点头像说话时，说完一定熄灭");
+  assert.ok(/"data-wk": "nrgametyping"/.test(nsrc));
+});

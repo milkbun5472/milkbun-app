@@ -1053,6 +1053,11 @@
       const s = seen[gid], GSx = GS(); if (!s || !s.view) return 0;
       const inv = s.inv, ad = A(inv.key), view = ad && ad.cleanView ? ad.cleanView(s.view) : s.view;
       const seats = inv.seats.map((x, i) => ({ x, i })).filter(({ x }) => x.kind === "char" && x.peer === o.me() && (ids || []).indexOf(x.charId) >= 0);
+      const tnames = (ids || []).map(id => { const c = o.charOf && o.charOf(id); return c ? (c.remark || c.name) : ""; }).filter(Boolean);
+      typing(gid, tnames);
+      try { return await talkNowInner(gid, ids, s, inv, ad, view, seats, GSx); } finally { typing(gid, []); }
+    }
+    async function talkNowInner(gid, ids, s, inv, ad, view, seats, GSx) {
       // 台下的（没上台的我带来的角色）：交给这个游戏自己的 cheer（擂台：发弹幕）
       const offs = ad && ad.ownTalk && ad.cheer ? (ids || []).slice() : (ids || []).filter(id => !seats.some(({ x }) => x.charId === id));
       if (ad && ad.ownTalk && ad.cheer) seats.length = 0;   // 擂台：台上的人点了也是在观众席那条线上说一句
@@ -1107,7 +1112,9 @@
       }
       for (const j of jobs) {
         let rows = [];
+        typing(gid, j.who.map(x => x.name));
         try { rows = await GSx.seatTalk(j.api, j.who, j.scene, j.why, (s.side || []).filter(x => x.kind === "talk")) || []; } catch (e) { rows = []; }
+        typing(gid, []);
         rows.forEach(r => { const w = j.who.find(x => x.name === r.name) || j.who[0]; side(gid, { kind: "talk", name: w.name, text: r.text, npc: !!j.npc, seat: j.npc ? w.seat : j.seat }); });
       }
     }
@@ -1134,6 +1141,14 @@
       if (ti < 0) ti = secretSeat(ad, s, o.me());
       return actSeat(gid, ti, "s" + s.seq);
     }
+    // 「正在说…」：我这台带来的角色在想／在说时，告诉同桌每一台（她 11-22：对方的角色在说话也要看得到）。
+    //   只是一闪的状态，不进局面、不存档；names 空＝说完了
+    function typing(gid, names) {
+      const s = seen[gid]; if (!s) return;
+      const n = (names || []).map(x => cut(x, 16)).filter(Boolean).slice(0, 6);
+      s.typing = Object.assign({}, s.typing || {}); if (n.length) s.typing[o.me()] = n; else delete s.typing[o.me()];
+      changed(); o.send({ t: "game", op: "typing", gid, names: n });
+    }
     async function actSeat(gid, ti, round) {
       const s = seen[gid]; if (!s || !s.view) return;
       const ad = A(s.inv.key); if (!ad) return;
@@ -1145,6 +1160,7 @@
       const k = gid + ":" + round + ":" + ti;
       if (acting.has(k)) return; acting.add(k);
       const char = o.charOf(seat.charId);
+      typing(gid, [seat.name]);
       await wait(600);
       let mv = null;
       // opts：主人在报名那张单上给 TA 调的（怎么下、带不带最近单聊），只存在这台
@@ -1158,6 +1174,7 @@
       } else if (ad.sayInMove && ad.sayInMove !== "move" && opts.talk !== true && mv.say) { mv = Object.assign({}, mv, { say: "" }); }
       // 并进这一手的 NPC 那一手（mergeNpc:"prev"）：只有这一盒声明了才往庄那边带
       if (mv.npc && ad.mergeNpc !== "prev") { mv = Object.assign({}, mv); delete mv.npc; }
+      typing(gid, []);
       move(gid, ti, mv);
     }
     // 庄：轮到 NPC 或托管的座位就自己下；一局完了就发战绩卡
@@ -1354,6 +1371,7 @@
           local(inv, view, int(e.seq, 0, 1e9, 0), e.pause);
           if (!was && o.onOpenGame && inv.seats.some(s => s.peer === o.me())) o.onOpenGame(gid);
         } else if (e.op === "priv") { const s = seen[gid]; if (s && s.inv.host === origin) gotPriv(gid, int(e.seat, 0, 11, -1), int(e.seq, 0, 1e9, 0), e.data); }
+        else if (e.op === "typing") { const s0 = seen[gid]; if (s0) { s0.typing = Object.assign({}, s0.typing || {}); const n = (Array.isArray(e.names) ? e.names : []).map(x => cut(x, 16)).filter(Boolean).slice(0, 6); if (n.length) s0.typing[origin] = n; else delete s0.typing[origin]; changed(); } }
         else if (e.op === "side") { const x = e.x && typeof e.x === "object" ? Object.assign({}, e.x, { peer: origin }) : null; if (x) sideAdd(gid, x); }
         // 开局的人说这一局没了：patchCard 只改 origin 自己发的那张卡，所以只认开局的人
         else if (e.op === "gone") { o.patchCard(gid, old => old && old.host === origin && (old.status === "open" || old.status === "playing") ? Object.assign({}, old, { status: "lost" }) : old, false, origin); if (seen[gid] && seen[gid].inv.host === origin) seen[gid].inv = Object.assign({}, seen[gid].inv, { status: "lost" }); changed(); }
