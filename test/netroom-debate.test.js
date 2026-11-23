@@ -82,6 +82,9 @@ test("一整场：真人在自己那台说、角色由主人那台挑边和发�
     assert.deepStrictEqual(S.A.seen(gid).view.sides, ["pro", "con"]);
     // 真人甲在自己那台说
     assert.ok(G.myTurn(S.A.seen(gid).inv, S.A.seen(gid).view, "A"));
+    // 台下的小二不会自己冒弹幕：要 B 点了 TA 的头像（talkNow → cheer）才发一条
+    assert.ok(await until(() => S.B.seen(gid) && S.B.seen(gid).view && S.B.seen(gid).view.phase === "talk"));
+    await S.B.talkNow(gid, ["b2"]);
     S.A.move(gid, 0, { say: "早起的人一天多出两小时" });
     // 观众席：甲发一条弹幕
     S.A.side(gid, { kind: "dm", name: "甲", text: "加油" });
@@ -101,7 +104,7 @@ test("一整场：真人在自己那台说、角色由主人那台挑边和发�
     assert.ok(sides.length >= 3 && sides.every(l => !l.to), "弹幕不走点对点、不经庄");
     assert.ok(sides.some(l => l.from === "A" && l.obj.x.text === "加油"));
     const dmB = sides.find(l => l.obj.x.kind === "dm" && l.obj.x.char);
-    assert.ok(dmB && dmB.from === "B" && dmB.obj.x.name === "小二", "没上台的角色弹幕由主人那台写");
+    assert.ok(dmB && dmB.from === "B" && dmB.obj.x.name === "小二", "没上台的角色弹幕由主人那台写（点了才写）");
     assert.deepStrictEqual(calls.filter(c => c[0] === "dm").map(c => c[1]), ["B:b2"]);
     assert.deepStrictEqual(calls.filter(c => c[0] === "aw"), [["aw", "B:b1", "阿B"]], "感言由阿B 主人那台写");
     assert.ok(S.B.seen(gid).side.some(x => x.text === "加油"), "甲的弹幕 B 也看得到");

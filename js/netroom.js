@@ -2225,7 +2225,7 @@
         onClick: () => k === "skill" ? (GSh.skill.save(cid, o.key), setGTick(n => n + 1)) : k === "side" ? setCharOpt(cid, "side", o.key) : k === "botSkill" ? setCharOpt(cid, k, o.key) : setCharOpt(cid, k, o.key === "casual"),
         style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (val === o.key ? t.ink : t.line), background: val === o.key ? t.ink : t.bg2, color: val === o.key ? t.bg : t.ink, fontFamily: F_BODY, fontSize: fs(12.5) } }, o.zh)));
       // 辩论：上台的这一位站哪边（角色多一个「随人设」：开讲前由你这台按 TA 的人设挑）；大家都看得到
-      const sideSeg = (cid, isChar) => h("div", { key: "side" }, seg(cid, "side", (charOptsRef.current[cid] || {}).side || "", (isChar ? [{ key: "", zh: "随人设" }] : [{ key: "", zh: "都行" }]).concat([{ key: "pro", zh: "正方" }, { key: "con", zh: "反方" }])));
+      const sideSeg = (cid, isChar) => h("div", { key: "side" }, seg(cid, "side", (charOptsRef.current[cid] || {}).side || "", (isChar ? [{ key: "", zh: "随人设" }] : [{ key: "", zh: "都行" }]).concat([{ key: "pro", zh: "正方" }, { key: "con", zh: "反方" }], isChar ? [{ key: "aud", zh: "观众席" }] : [])));
       const optsOf = c => {
         if (!joinPick[c.id]) return null;
         const o = charOptsFor(c.id), rows = [];
@@ -2251,9 +2251,10 @@
                 r.c ? h(Avatar, { character: charsById[r.c.id] || { id: r.c.id, name: r.c.name }, size: 30 }) : null,
                 h("span", { style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink } }, r.label)),
               r.c ? optsOf(r.c) : (joinPick._me && kinds.indexOf("side") >= 0 ? h("div", { style: { margin: "0 0 8px 42px" } }, sideSeg("_me", false)) : null)))),
-          h(Btn, { label: "坐下", primary: true, wk: "nrgamejoinok", disabled: !Object.keys(joinPick).some(k => joinPick[k]), onClick: () => {
+          h(Btn, { label: "坐下", primary: true, wk: "nrgamejoinok", disabled: !Object.keys(joinPick).some(k => joinPick[k] && (kinds.indexOf("side") < 0 || (charOptsRef.current[k] || {}).side !== "aud")), onClick: () => {
             const sideOf = id => kinds.indexOf("side") >= 0 ? (charOptsRef.current[id] || {}).side || "" : "";
-            const picks = (joinPick._me ? [{ kind: "user", side: sideOf("_me") }] : []).concat(myChars.filter(c => joinPick[c.id]).map(c => ({ kind: "char", charId: c.id, name: c.name, side: sideOf(c.id), tag: charTag(joinAt.key, c.id) })));
+            const picks = (joinPick._me ? [{ kind: "user", side: sideOf("_me") }] : []).concat(myChars.filter(c => joinPick[c.id] && sideOf(c.id) !== "aud").map(c => ({ kind: "char", charId: c.id, name: c.name, side: sideOf(c.id), tag: charTag(joinAt.key, c.id) })));
+            // 挑了「观众席」的角色不上台：只在台下，点 TA 的头像才发一条弹幕（她 11-22）
             const ja = joinAt; setJoinAt(null);
             const left = games.current ? games.current.join(ja.gid, picks, ja.host) : [];
             if (left.length) props.toast && props.toast("座位不够，" + left.length + " 个没坐上");
@@ -2292,7 +2293,10 @@
           h(A.Table, { inv: sv.pause && !done && GC().heldInv ? GC().heldInv(inv) : inv, view: sv.view, priv: sv.priv || null, myApi: props.gameApi ? props.gameApi() : null, me: meId.current, isHost, onMove: (seat, mv) => sv.pause ? (props.toast && props.toast("这一轮停着，等开局的人点「接着来」")) : gs.move(gid, seat, mv), onReveal: () => gs.reveal(gid), side: sv.side || [], onSide: x => gs.side(gid, x), nick: myNick() }),
           root.NetGameUI && h(root.NetGameUI.TalkStrip, { lines: (sv.side || []).filter(x => x.kind === "talk"), charOf: l => { const st = l && l.seat >= 0 ? inv.seats[l.seat] : null; return st && st.kind === "char" ? charsById[st.charId] || null : null; } }),
           // 我带上这一桌的角色：点谁谁在牌桌上说一句，「一起说」让几位一次说（她 11-22：角色不自动接话，只有她点了才开口）
-          !done && (() => { const mineAt = inv.seats.filter(x => x.kind === "char" && x.peer === meId.current);
+          !done && (() => { const seatedMine = inv.seats.filter(x => x.kind === "char" && x.peer === meId.current);
+            // 有台下的游戏（擂台）：我带进房间、没上台的角色也在这一排，点了在台下发一条弹幕
+            const aud = A && A.cheer ? (room.myChars || []).filter(c => !seatedMine.some(x => x.charId === c.id)).map(c => ({ charId: c.id, name: c.name, aud: true })) : [];
+            const mineAt = seatedMine.concat(aud);
             if (!mineAt.length) return null;
             const go = ids => { if (tableBusy) return; setTableBusy(true); Promise.resolve(gs.talkNow ? gs.talkNow(gid, ids) : 0).catch(() => 0).then(() => setTableBusy(false)); };
             return h("div", { "data-wk": "nrtablespeak", className: "flex items-center", style: { gap: 10, padding: "8px 16px 0", overflowX: "auto" } },
@@ -2300,7 +2304,7 @@
               mineAt.map(x => h("button", { key: x.charId, "data-wk": "nrtablespeaker", disabled: tableBusy, onClick: () => go([x.charId]), className: "active:opacity-60 disabled:opacity-40",
                 style: { flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 44 } },
                 h(Avatar, { character: charsById[x.charId] || { id: x.charId, name: x.name }, size: 30 }),
-                h("span", { style: { fontFamily: F_BODY, fontSize: fs(10), color: t.fog } }, x.name))),
+                h("span", { style: { fontFamily: F_BODY, fontSize: fs(10), color: t.fog } }, x.aud ? x.name + "·台下" : x.name))),
               mineAt.length > 1 && h("button", { "data-wk": "nrtabletogether", disabled: tableBusy, onClick: () => go(mineAt.map(x => x.charId)), className: "active:opacity-60 disabled:opacity-40",
                 style: { flexShrink: 0, minHeight: 32, padding: "0 10px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.ink } }, "一起说")); })(),
           // 牌桌上「说一句」（单机牌桌 CardSay 那一格的样子和挂点）：玩的人、观战的人都能说；角色不自动接，要她点上面的头像

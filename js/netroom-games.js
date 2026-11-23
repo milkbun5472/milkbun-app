@@ -1048,10 +1048,13 @@
     //   ids：我这台带来、坐在这一桌上的角色；一个人＝单人，好几个＝一起说（同一次调用，照桌边台词那一份 seatTalk）。
     //   看到的只有公开的局面、这一桌说过的话，以及每位自己那个座位的那份。
     async function talkNow(gid, ids) {
-      const s = seen[gid], GSx = GS(); if (!s || !s.view || !GSx || !GSx.seatTalk) return 0;
+      const s = seen[gid], GSx = GS(); if (!s || !s.view) return 0;
       const inv = s.inv, ad = A(inv.key), view = ad && ad.cleanView ? ad.cleanView(s.view) : s.view;
       const seats = inv.seats.map((x, i) => ({ x, i })).filter(({ x }) => x.kind === "char" && x.peer === o.me() && (ids || []).indexOf(x.charId) >= 0);
-      if (!seats.length) return 0;
+      // 台下的（没上台的我带来的角色）：交给这个游戏自己的 cheer（擂台：发弹幕）
+      const offs = (ids || []).filter(id => !seats.some(({ x }) => x.charId === id));
+      if (offs.length && ad && ad.cheer) { let outs = []; try { outs = await ad.cheer(s.view, inv, { me: o.me(), side: s.side || [], ids: offs, charOf: o.charOf, apiFor: o.apiFor, charOpts: cid => optsOf(gid, cid) }) || []; } catch (e) { outs = []; } outs.forEach(x => side(gid, x)); }
+      if (!seats.length || !GSx || !GSx.seatTalk) return offs.length;
       const lead = o.charOf && o.charOf(seats[0].x.charId), api = lead && o.apiFor ? o.apiFor(lead.id) : null; if (!api) return 0;
       const who = seats.map(({ x }) => { const c = o.charOf && o.charOf(x.charId); return { name: x.name, persona: (c && c.persona) || "" }; });
       const pv = (s.privs || {})[seats[0].i];

@@ -132,18 +132,26 @@
         }
         return outs;
       }
-      if (view.phase !== "talk" || !view.turns.length) return [];
-      const k = me + ":" + inv.gid + ":t" + view.turns.length; if (said.has(k)) return []; said.add(k);
-      const seated = new Set(inv.seats.filter(s => s.kind === "char" && s.peer === me).map(s => s.charId));
-      const free = (ctx.myChars || []).filter(id => !seated.has(id)).filter(id => (lastAt[inv.gid + ":" + id] || -9) <= view.turns.length - 3);
-      if (!free.length || Math.random() > 0.34) return [];
-      const id = free[Math.floor(Math.random() * free.length)], c = ctx.charOf(id), api = c && ctx.apiFor(id);
-      if (!api) return [];
-      lastAt[inv.gid + ":" + id] = view.turns.length;
+      // 台下不再自己冒弹幕（她 11-22：角色不自动开口，点了才说）——要谁发一条，点牌桌底下 TA 的头像，走 cheer
+      return [];
+    },
+    // 她点了台下哪几位：每位照单机观众席那份写一条弹幕（顺带一声路人观众只跟第一位）
+    async cheer(view, inv, ctx) {
+      if (!view || view.phase !== "talk") return [];
       await ensure(); if (!DS()) return [];
-      const last = view.turns[view.turns.length - 1];
+      const outs = [];
+      for (const id of (ctx.ids || [])) {
+        const c = ctx.charOf(id), api = c && ctx.apiFor(id); if (!api) continue;
+        const r = await this.cheerOne(view, ctx, c, api, !outs.length);
+        outs.push(...r);
+      }
+      return outs;
+    },
+    async cheerOne(view, ctx, c, api, passerby) {
+      const id = c.id;
+      const last = view.turns[view.turns.length - 1] || { name: "", text: "还没人开口，台上刚站好" };
       const crowd = ctx.side.filter(x => x.kind === "dm").slice(-6).map(x => x.name + "：" + x.text).join("\n");
-      const r = await DS().genSideLine(api, { topic: view.topic, mode: view.mode, who: whoOf(c, ctx.charOpts(id)), last: { name: last.name, text: last.text }, transcript: transcript(view, 12), crowd, passerby: true }).catch(() => null);
+      const r = await DS().genSideLine(api, { topic: view.topic, mode: view.mode, who: whoOf(c, ctx.charOpts(id)), last: { name: last.name, text: last.text }, transcript: transcript(view, 12), crowd, passerby: !!passerby }).catch(() => null);
       return (r && r.text ? [{ kind: "dm", name: (c.remark || c.name), text: r.text, at: r.at, char: true }] : []).concat(r && r.passerby ? [{ kind: "dm", name: "路人观众", text: r.passerby, npc: true }] : []);
     },
     cleanSide(x) {
