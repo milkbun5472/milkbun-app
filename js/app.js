@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.081";
+const APP_VERSION = "v90.102";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16086,6 +16086,40 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }
     return "";
   };
+  // 画一张角色的照片（单聊那张自拍的出图那一段，抽出来给别处也用）：参考照、连贯参考、世界风景参考、出图稿、保脸备用稿都在这一处。
+  //   prevShot＝这个人最近一张已生成的图（连贯参考；没有就 null）。返回 generateSelfieImage 的结果。
+  const shootCharPhoto = async ({ char, realChar, charId, photoKind, photoScene, meShot, mySelf, uName, askAngle, prevShot }) => {
+    const profile = profileFor(charId);
+    const st = (statesRef.current || {})[charId] || {};
+    const me = photoMe(uName, charId);
+    const freshPlace = freshLiveStateValue(st, "place");
+    const freshCond = freshLiveStateValue(st, "condition");
+    // 人物原始参考照永远比上一张生成图可信。上一张一旦画错脸，重 roll 若继续
+    // 把它塞回 edits，就会把错误当成新的身份锚并一代代繁殖。只有完全没有原始
+    // 人物参考照时，才允许生成图临时承担服装/场景连贯参考。
+    // view＝画面里没有人：走空景那条已经调好的路（buildScenePrompt），
+    // 一张参考照都不喂——喂了它就会想办法把那张脸画进去。
+    const isView = photoKind === "view", isPart = photoKind === "part";
+    const noFace = isView || isPart;   // 这两种都不喂参考照：参考照是一张脸
+    const refs = noFace ? [] : photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
+    const contBlobKey = !noFace && refs.length === 0 && prevShot ? prevShot.imgKey : null;
+    if (contBlobKey) refs.push(contBlobKey);
+    // 世界的风景参考只借环境：画人的、和纯风景都喂（她 2026-10-02：「世界生图应该用风景照吧」）——
+    //   它不是一张脸，空景喂它不会把人画进去；只露一截身体那档用不上街景，不喂。
+    const wRef = isPart ? null : worldRefFor(realChar, photoScene + " " + (freshPlace || ""));
+    if (wRef) refs.push(wRef.img);
+    const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
+    const photoOpts = { ...(askAngle ? { shotLine: "【这一张的机位·她点名要的】她说的是：「" + askAngle + "」。机位、脸的朝向、看不看镜头照她这句来，参考图里是什么角度都不算。" } : {}), pov: meShot && !mySelf ? povFor(realChar) : null, kind: photoKind, me, closet: meShot ? char._closet : closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" };
+    // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
+    const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" }) : isPart ? buildScenePrompt(char, photoScene, { body: true }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
+    // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
+    // 解剖锁、服装锁、随身物全塞进去的大家伙，出来一两千字，而上游拒绝的第一条
+    // 原因就写着 prompt is too long。这份只有一百来字：只留【这是谁】和【拍张人像】。
+    // 备用稿只对【画人】那条路有意义（它留的是「这是谁」）；view 被拦下时
+    // 拿人像备用稿重试等于把人画回来，所以不给，让它照旧用同一份空景稿。
+    const minimalPrompt = noFace ? null : buildMinimalPhotoPrompt(char, { kind: photoKind });
+    return await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
+  };
   const drawChatSelfie = async ({ chatKey, charId, sid, photoKind, photoScene, keySuffix, askAngle }) => {
     const realChar = characters.find(c => c.id === charId);
     if (!realChar) return;
@@ -16100,41 +16134,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (meShot) photoKind = photoKind === "myself" ? "self" : "other";
     const profile = profileFor(charId);
     try {
-      const st = (statesRef.current || {})[charId] || {};
-      const me = photoMe(uName, charId);
-      const freshPlace = freshLiveStateValue(st, "place");
-      const freshCond = freshLiveStateValue(st, "condition");
       // 连贯参考图:把这个角色最近一张已生成的自拍一并喂进去,治「十分钟前灰卫衣、
       // 现在突然黑衬衫」。只取 6 小时内的——更早的场景早换了,拿它当锚反而错。
       const prevShot = (chatsRef.current[chatKey] || []).slice().reverse()
         // 拍她的（他帮她拍／她自拍）和拍他的各认各的上一张，不然没参考照时会把对方那张脸当锚
         // 重拍的就是这一张：它画坏了才要重拍，不拿它自己当参考（她 2026-11-06）
         .find(m => m && m.kind === "selfie" && m.imgKey && m.sid !== sid && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000 && ((m.photoKind === "me" || m.photoKind === "myself" || m.photoKind === "myshot") === meShot));
-      // 人物原始参考照永远比上一张生成图可信。上一张一旦画错脸，重 roll 若继续
-      // 把它塞回 edits，就会把错误当成新的身份锚并一代代繁殖。只有完全没有原始
-      // 人物参考照时，才允许生成图临时承担服装/场景连贯参考。
-      // view＝画面里没有人：走空景那条已经调好的路（buildScenePrompt），
-      // 一张参考照都不喂——喂了它就会想办法把那张脸画进去。
-      const isView = photoKind === "view", isPart = photoKind === "part";
-      const noFace = isView || isPart;   // 这两种都不喂参考照：参考照是一张脸
-      const refs = noFace ? [] : photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
-      const contBlobKey = !noFace && refs.length === 0 && prevShot ? prevShot.imgKey : null;
-      if (contBlobKey) refs.push(contBlobKey);
-      // 世界的风景参考只借环境：画人的、和纯风景都喂（她 2026-10-02：「世界生图应该用风景照吧」）——
-      //   它不是一张脸，空景喂它不会把人画进去；只露一截身体那档用不上街景，不喂。
-      const wRef = isPart ? null : worldRefFor(realChar, photoScene + " " + (freshPlace || ""));
-      if (wRef) refs.push(wRef.img);
-      const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
-      const photoOpts = { ...(askAngle ? { shotLine: "【这一张的机位·她点名要的】她说的是：「" + askAngle + "」。机位、脸的朝向、看不看镜头照她这句来，参考图里是什么角度都不算。" } : {}), pov: meShot && !mySelf ? povFor(realChar) : null, kind: photoKind, me, closet: meShot ? char._closet : closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" };
-      // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
-      const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" }) : isPart ? buildScenePrompt(char, photoScene, { body: true }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
-      // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
-      // 解剖锁、服装锁、随身物全塞进去的大家伙，出来一两千字，而上游拒绝的第一条
-      // 原因就写着 prompt is too long。这份只有一百来字：只留【这是谁】和【拍张人像】。
-      // 备用稿只对【画人】那条路有意义（它留的是「这是谁」）；view 被拦下时
-      // 拿人像备用稿重试等于把人画回来，所以不给，让它照旧用同一份空景稿。
-      const minimalPrompt = noFace ? null : buildMinimalPhotoPrompt(char, { kind: photoKind });
-      const out = await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
+      const out = await shootCharPhoto({ char, realChar, charId, photoKind, photoScene, meShot, mySelf, uName, askAngle, prevShot });
       // 合照锁脸降级要说出来,别让「两个陌生人」看起来像生成成功
       if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
       if (out.blob) {
@@ -17866,8 +17872,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               }
               if (item.pin && typeof item.pin === "object") { const k = chpFindMsg(_ms, item.pin.quote, 40); if (k >= 0) { chpPin(_st, _ms[k], spk.id); _say(spk.name + " 置顶了一句"); } }
               if (item.unpin && typeof item.unpin === "object") { const q = String(item.unpin.quote || "").trim(), pp = q && _st.pins.find(x => x.text.indexOf(q) >= 0); if (pp) { chpUnpin(_st, pp.key); _say(spk.name + " 取消了一条置顶"); } }
-              if (item.note && typeof item.note === "object" && chpCount(_st, "note") < CHP_CAP.note && String(item.note.text || "").trim()) { chpNoteAdd(_st, item.note.text, spk.id); chpBump(_st, "note"); _say(spk.name + " 往墙上贴了张便利贴"); }
-              if (item.scribble && typeof item.scribble === "object") { const _nb = JSON.stringify(_st.notes); chpScribble(_st, item.scribble.on, item.scribble.text, spk.id); if (JSON.stringify(_st.notes) !== _nb) _say(spk.name + " 在墙上一张便利贴上写了一句"); }
+              if (item.note && typeof item.note === "object" && chpCount(_st, "note") < CHP_CAP.note && String(item.note.text || "").trim()) { chpNoteAdd(_st, chpNoSelfName(item.note.text, spk.name), spk.id); chpBump(_st, "note"); _say(spk.name + " 往墙上贴了张便利贴"); }
+              if (item.scribble && typeof item.scribble === "object") { const _nb = JSON.stringify(_st.notes); chpScribble(_st, item.scribble.on, chpNoSelfName(item.scribble.text, spk.name), spk.id); if (JSON.stringify(_st.notes) !== _nb) _say(spk.name + " 在墙上一张便利贴上写了一句"); }
               if (item.tear && typeof item.tear === "object") { const n0 = _st.notes.length; chpTear(_st, item.tear.quote, spk.id, Date.now()); if (_st.notes.length < n0) _say(spk.name + " 撕掉了一张便利贴"); }
               if (item.song && typeof item.song === "object" && chpCount(_st, "song") < CHP_CAP.song) { const n0 = _st.playlist.length; chpSongAdd(_st, item.song.title, item.song.artist, spk.id); if (_st.playlist.length > n0) { chpBump(_st, "song"); _say(spk.name + " 往歌单里加了《" + String(item.song.title).slice(0, 30) + "》"); } }
               if (item.skip) { const tt = typeof item.skip === "object" ? item.skip.title : ""; chpSkipVote(_st, tt || (((chListenOf(groupId) || {}).song) || {}).title, spk.id); }
@@ -19787,14 +19793,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       try {
         const api = bgActiveRef.current || active;
         if (api && typeof runProbe === "function") {
-          const nm = (sp.memberIds || []).map(id => ((characters || []).find(c => c.id === id) || {}).name).filter(Boolean).join("、");
+          // 每日一问往人身上落（她 2026-11-22「跟人设和大家关系的，或者脑洞一点的，不要很人机」）：
+          //   给它这些人各是什么样、彼此什么关系、这两天聊了什么、前几天问过什么
+          const _cs = (sp.memberIds || []).map(id => (characters || []).find(c => c.id === id)).filter(Boolean);
+          const nm = _cs.map(c => c.name).join("、");
+          const _who = _cs.map(c => "· " + c.name + "：" + String(c.persona || c.desc || "").replace(/\s+/g, " ").slice(0, 90)).join("\n");
+          const _rel = []; _cs.forEach((a, i) => _cs.slice(i + 1).forEach(b => { const r = (rels[a.id + "->" + b.id] || rels[b.id + "->" + a.id] || {}).label; if (r) _rel.push(a.name + "和" + b.name + "：" + r); }));
+          const _chs = (groupsRef.current || []).filter(g => g && g.spaceId === spId && g.chKind !== "treehole" && !channelNoMem(g.id));
+          const _dig = typeof spaceWeekDigest === "function" ? spaceWeekDigest(_chs, id => groupChatsRef.current[id] || [], id => ((characters || []).find(c => c.id === id) || {}).name || "", Date.now(), 2, 1500) : "";
+          const _past = (sp.askHist || []).slice(-10);
           const d = await runProbe(api, { char: { id: "__spacebot", name: SPACE_BOT_NAME, persona: "" }, chars: characters, rels, profile, timeAware: false }, { tag: "频道每日一问", logFrom: "频道·每日一问", maxTokens: 8000, once: true,
-            instruction: "你是「" + sp.name + "」这个地方贴每日一问的小机器人，不是里面的哪个人。这里的人有：" + nm + "。出一个今天的问题，大家都能随口答上一句，跟这些人平时会聊的东西沾边。只出问题本身，一句。",
+            instruction: "你是「" + sp.name + "」这个地方贴每日一问的小机器人，不是里面的哪个人。\n这里的人：\n" + _who + (_rel.length ? "\n他们之间：" + _rel.slice(0, 12).join("；") : "") + (_dig ? "\n\n这两天大家聊过的：\n" + _dig : "") + (_past.length ? "\n\n前几天问过的（今天换个方向）：" + _past.join("／") : "")
+              + "\n\n出今天的一问。好的一问是这几个人一看就忍不住要接、会互相拆台起哄的那种：落在他们各自的人设、彼此的关系、最近真发生过的事上，或者是一个荒唐但答起来很见性格的假设。不是问卷题，不是人人都能用一句客套话答完的题。只出问题本身，一句。",
             schemaHint: "{\"q\":\"今天的问题\"}" });
           if (d && d.q && String(d.q).trim()) q = String(d.q).trim().slice(0, 60);
         }
       } catch (e) {}
       pGChat(home.id, p => [...p, { role: "system", kind: "spacebot", bot: "ask", q, content: SPACE_BOT_NAME + "·每日一问：" + q, ts: Date.now() }]);
+      saveSpaces(p => p.map(x => x.id === spId ? { ...x, askHist: (x.askHist || []).concat([q]).slice(-20) } : x));
     }
     // 称号满一周才评：从小频打开那天（botOnTs）、空间建好那天里晚的那个算起，满 7 天才评第一次
     const _tStart = Math.max(Number(sp.botOnTs) || 0, Number(sp.ts) || 0);
@@ -38654,6 +38670,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     emotePacks: emotePacksForGroup(liveChars.map(c => c.id)),
     emotesFor: charId => emotesForChar(charId),
     emoteFor: (charId, kw) => emoteMatch(emotesForChar(charId), kw),
+    // 房里角色自拍（默认照这个人能不能出图：接了图像通道、填了外貌或参考照）；出图走单聊那一套 shootCharPhoto，回一张 dataURL
+    selfieOk: charId => { const c = characters.find(x => x.id === charId); return !!(c && typeof imgApiReady === "function" && imgApiReady() && (c.appearance || c.refPhoto)); },
+    drawPhoto: async (charId, scene, kind) => {
+      const c = characters.find(x => x.id === charId); if (!c || !(typeof imgApiReady === "function" && imgApiReady())) return null;
+      const out = await shootCharPhoto({ char: c, realChar: c, charId, photoKind: kind || "self", photoScene: scene, meShot: false, mySelf: false, uName: userName(profileFor(charId) || profile), askAngle: null, prevShot: null });
+      return out && out.blob ? await blobToDataUrl(out.blob) : (out && out.url) || null;
+    },
+    // 一起听：曲库（只元数据）、此刻在放的、点卡放一首（三种情况照 NetRoom.Core.songPlan 判）、角色说的歌名去找一首
+    songLib: () => { const L = listenRef.current || {}; return (L.songs || []).concat(...(L.playlists || []).map(pl => pl.songs || [])).filter(s0 => s0 && s0.id !== KEEPALIVE_ID && s0.title); },
+    nowSong: () => { if (!player.songId || player.songId === KEEPALIVE_ID) return null; const s0 = resolveSong(player.songId); return s0 ? Object.assign({}, s0, { playing: !!player.playing }) : null; },
+    canNetease: () => !!musicReady,
+    playSong: s0 => playSong(s0),
+    findSong: async q => { const L = listenRef.current || {}, k = String(q || "").trim(); if (!k) return null;
+      const lib = (L.songs || []).concat(...(L.playlists || []).map(pl => pl.songs || []));
+      return lib.find(s0 => s0 && s0.title && k.indexOf(s0.title) >= 0) || await searchSong(k); },
     // 房间记录每条前面的时间：跟单聊给模型的记录同一种戳（时间感知关着的角色就不标）
     stampFor: (charId, ts) => aiStampFor(charId, ts),
     // 一起说：每人那一段跟群通话同一套拼法（groupNowSegs 此刻 + memberPrivateContextFor 私下往来 + groupMemSplit 记忆分流 + groupRelLines 关系）；
@@ -38677,6 +38708,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + (shared && shared.trim() ? "\n\n【记忆库里大家都知道的事】\n" + shared.trim() : "")
         + (priv ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。一个成员不知道、也不提另一个成员和用户之间私下说过什么、是什么关系，除非那位成员自己当众说出来。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + priv : "");
     },
+    // 「上次聊到哪」前情卡：后台活，照记忆浓缩那几处走 sumRoute（挑过后台线路走后台，没挑跟线上）；自动那次遇上后台「无」/免打扰就不跑
+    recapApi: auto => (auto && bgOff()) ? null : sumRoute(active),
     onBack: goHome
   });else if (screen === "zhaoying") body = h(window.ZhaoyingApp, {
     // 按头像发卡：卡落进跟他的聊天，他在后台做题，做完了点卡看他做（她 2026-10-22）
@@ -39699,7 +39732,24 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 歌单：从她的歌库挑、点「放这首」走播放器；「让他们各挑一首」＝回聊天跑一轮，提示里说她想让大家各放一首（她 2026-11-20）
       nowSong: (() => { const cur = player.songId && player.songId !== KEEPALIVE_ID ? resolveSong(player.songId) : null; return cur && cur.title ? { title: cur.title, artist: cur.artist || "" } : null; })(),
       myLib: ((listenRef.current || {}).songs || []).filter(x => x && x.title).map(x => ({ id: x.id, title: x.title, artist: x.artist || "" })),
-      onPlaySong: x => { const L = listenRef.current || {}; const song = chpSongMatch(L.songs, x); if (song) playSong(song); },
+      // 歌库里没有的去搜来放（她 2026-11-22「歌单点了听不了」）：他们塞进来的歌大多不在她歌库里，跟「让TA放歌」同一条路——先歌名加歌手搜，搜不到只用歌名
+      onPlaySong: async x => { const L = listenRef.current || {}; const lib = (L.songs || []).concat((L.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), []));
+        const song = chpSongMatch(lib, x); if (song) { playSong(song.id || song); return; }
+        if (!musicReady) { toast("你的歌库里没有《" + x.title + "》，先去 设置 → 音乐 接上搜歌"); return; }
+        try { let hit = await neteaseSearchOne((x.title + " " + (x.artist || "")).trim(), { throwOnError: true }); if (!hit) hit = await neteaseSearchOne(x.title);
+          if (hit) playSong(resultToSong(neteaseTrackInfo(hit))); else toast("没搜到《" + x.title + "》"); } catch (e) { toast("搜歌失败：" + String((e && e.message) || "").slice(0, 40)); } },
+      canSearchSong: !!musicReady,
+      // 整张歌单按顺序放（她 2026-11-23「就算没有在曲库里也可以按顺序播放」）：跟屏幕上一样从上往下；
+      //   歌库里有的直接用，没有的挨个搜来，搜到的一起当这一批连播（云村「播放全部」同一个 nowBatch），搜不到的跳过
+      onPlayAll: async list => { const L = listenRef.current || {}; const lib = (L.songs || []).concat((L.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), []));
+        const rows = (list || []).slice(0, 30); if (!rows.length) return;
+        toast("在找歌…"); const out = [];
+        for (const x of rows) { const hit = chpSongMatch(lib, x); if (hit) { out.push(hit); continue; } if (!musicReady) continue;
+          try { let r = await neteaseSearchOne((x.title + " " + (x.artist || "")).trim()); if (!r) r = await neteaseSearchOne(x.title); if (r) out.push({ ...resultToSong(neteaseTrackInfo(r)), id: "sgn_" + (r.id || Math.random().toString(36).slice(2)) }); } catch (e) {} }
+        if (!out.length) { toast(musicReady ? "一首都没搜到" : "歌库里都没有，先去 设置 → 音乐 接上搜歌"); return; }
+        saveListen(p => ({ ...p, nowBatch: out.filter(x => !lib.some(y => y.id === x.id)), playMode: "order" }));
+        playSong(out[0], out.map(x => x.id));
+        if (out.length < rows.length) toast("有 " + (rows.length - out.length) + " 首没找到，跳过了"); },
       onAskSongs: groupSpectating(_g) ? null : () => { window.__chAskSongs = _g.id; setChannelTab("chat"); replyGroup(_g.id); },
       onAskPetName: groupSpectating(_g) ? null : () => { window.__chAskPet = _g.id; setChannelTab("chat"); replyGroup(_g.id); },
       // 小家伙（她 2026-11-20「状态栏、生图、送走、大家决定养啥」）：精神照虚拟钟点；拍照只有她按，角色不会自己拍

@@ -622,8 +622,78 @@
     const p = extractJSON(raw) || {};
     return String(p.text || "").trim().slice(0, 300);
   }
+
+  // ── 擂台上的几块（别处摆同一个擂台从 DebateShared 拿，单机这边自己也用这一份）──
+  // 台上一段话：本名那块小牌子（压一道立场色）＋一整段，被说动了挂在底下。tn：{ name, text, color, at, yield, newStance, skipped }；av：头像那个人；extra：名字后面多挂的小件（念出来）
+  //   不是聊天气泡，也不是左边一条色边的通用卡片。⚠️卡片里不许再套一层 maxHeight 滚动（mobile-ui-layout §3 只许一个主滚动容器）
+  function DebTurnCard(props) {
+    const t = props.t, tn = props.tn;
+    if (tn.skipped) return h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, padding: "5px 0 11px" }, "data-wk": "debarenaturncard" }, "—— " + tn.name + " 没接这一句 ——");
+    return h("div", { style: { marginBottom: 13 }, "data-wk": "debarena", "data-part": "r2" },
+      h("div", { className: "flex items-center", style: { gap: 6 } },
+        h("span", { className: "flex items-center", style: { gap: 5, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, padding: "5px 10px 4px", borderRadius: "5px 5px 0 0", borderBottom: "3px solid " + tn.color } },
+          h(Avatar, { character: props.av || { name: tn.name }, size: 15, radius: 999 }), tn.name),
+        tn.at ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "冲着 " + tn.at) : null,
+        props.extra || null),
+      h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, borderTop: "1px solid " + tn.color + "55", borderRadius: "0 11px 11px 11px", padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap" } }, tn.text),
+      // 被说动：松口认下一点／整个换了边——整场最值得看的那一下，挂在TA这段话下面
+      (tn.yield || tn.newStance) ? h("div", { "data-wk": "debyield", "data-on": tn.newStance ? "1" : "0", style: { marginTop: 5, paddingLeft: 10, borderLeft: "2px solid " + tn.color, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.65, color: t.sub } },
+        tn.newStance ? h("span", { style: { fontWeight: 700, color: tn.color } }, "换边了 → " + tn.newStance + (tn.yield ? "　" : "")) : h("span", { style: { color: t.fog } }, "松口："),
+        tn.yield || null) : null);
+  }
+  // 场边那一声：台子有个边，他们就贴在那条边外头。一条竖的台边线＋本名＋那句话，小字、靠左——它是配角，不许比台上响。list：[{ name, text, at, ally }]
+  function DebSideBlock(props) {
+    const t = props.t, list = (props.list || []).filter(function (x) { return x && x.text; });
+    if (!list.length) return null;
+    return h("div", { style: { margin: "2px 2px 14px", paddingLeft: 12, borderLeft: "2px solid " + t.line }, "data-wk": "debarena", "data-part": "r3" },
+      list.map(function (x, i2) {
+        return h("div", { key: i2, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub, marginTop: i2 ? 5 : 0 }, "data-wk": "debarena", "data-part": "r4" },
+          h("span", { style: { color: t.fog } }, props.label || "台边 · "),
+          h("span", { style: { fontWeight: 700, color: t.ink } }, x.name),
+          // 冲着谁（v63.61）：台上不止一个人，看不见这一条就分不清TA在接谁的话
+          x.at ? h("span", { style: { color: t.fog } }, x.ally ? " 帮腔 " + x.at : " → " + x.at) : null,
+          h("span", { style: { color: t.fog } }, "："),
+          x.text);
+      }));
+  }
+  // 记分牌：判了谁赢、判词、「他们其实在吵的是」、「最狠的那一句」。v：{ winner, reason, crux, best:{ quote, name, why } }
+  function DebVerdictBoard(props) {
+    const t = props.t, v = props.v || {};
+    return h("div", { "data-wk": "block", style: { background: "#1e1d1b", border: "1px solid rgba(255,255,255,.14)", borderRadius: 8, padding: "15px 17px 16px", marginBottom: 20, boxShadow: "0 12px 26px rgba(0,0,0,.3)" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 3, color: "#6f6a5f" } }, "判 了"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(25px * var(--app-fs, 1))", lineHeight: 1.25, color: "#f0c67a", margin: "6px 0 10px" } }, v.winner),
+            h("div", { style: { height: 1, background: "rgba(255,255,255,.13)", marginBottom: 10 } }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#d8d3c8", whiteSpace: "pre-wrap" } }, v.reason),
+            // 「他们其实在吵的是」：只写「谁赢了」的话，这一场吵完什么都没留下。
+            // 这一栏才是她看完会记住的东西——把两边话里那个没说破的分歧点点出来。
+            v.crux ? h("div", { style: { marginTop: 15, paddingTop: 13, borderTop: "1px dashed rgba(255,255,255,.16)" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 3, color: "#6f6a5f", marginBottom: 7 } }, "他们其实在吵的是"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#d8d3c8" } }, v.crux)) : null,
+            // 「最狠的那一句」：从实录里逐字挑出来的原句（对不上就整块不显示，见 genResult）。
+            // 引号压在左边，跟上面那两段一眼分得开——它是【谁说过的话】，不是裁判的话。
+            (v.best && v.best.quote) ? h("div", { style: { position: "relative", marginTop: 15, paddingTop: 13, borderTop: "1px dashed rgba(255,255,255,.16)" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 3, color: "#6f6a5f", marginBottom: 9 } }, "最狠的那一句"),
+              h("div", { style: { borderLeft: "2px solid #f0c67a", paddingLeft: 11, fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.9, color: "#f4f1e9" } }, v.best.quote),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#8d877a", marginTop: 8 } },
+                "—— " + (v.best.name || "台上") + (v.best.why ? "　" + v.best.why : ""))) : null);
+  }
+  // 下台之后：每位辩手的赛后感言。list：[{ name, text, color, av }]（av 没有就空一格，不画头像）
+  function DebClosings(props) {
+    const t = props.t, list = props.list || [];
+    if (!list.length) return null;
+    return h("div", { "data-wk": "debclosings" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 3, color: t.fog, marginBottom: 11 } }, "下 台 之 后"),
+      list.map(function (c, i) {
+        return h("div", { key: i, style: { display: "flex", gap: 8, marginBottom: 10 }, "data-wk": "debarena", "data-part": "r13" },
+          c.av ? h(Avatar, { character: c.av, size: 26, radius: 999 }) : h("div", { style: { width: 26 } }),
+          h("div", { style: { flex: 1 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: c.color || t.ink, marginBottom: 2 } }, c.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink } }, c.text)));
+      }));
+  }
   // 别处（比如几个人各在各的手机上一起开一场）借用这几样：单机这边自己也用的同一份
-  window.DebateShared = { modeRules: modeRules, debaterCard: debaterCard, genTurn: genTurn, pickSide: pickSide, genSideLine: genSideLine, genAfterword: genAfterword, genResult: genResult, drawTopics: drawTopics, fullTranscript: fullTranscript };
+  window.DebateShared = { modeRules: modeRules, debaterCard: debaterCard, genTurn: genTurn, pickSide: pickSide, genSideLine: genSideLine, genAfterword: genAfterword, genResult: genResult, drawTopics: drawTopics, fullTranscript: fullTranscript,
+    TurnCard: DebTurnCard, SideBlock: DebSideBlock, VerdictBoard: DebVerdictBoard, Closings: DebClosings };
 
   // ============================================================
   // 顶层：落地页（存档列表 + 发起）
@@ -1156,19 +1226,8 @@
     // ⚠️卡片里【不许再套一层 maxHeight 滚动】：一页里嵌一个 300px 的小滚动区，
     //   在手机上会跟整页抢手势（mobile-ui-layout §3 只允许一个主滚动容器）。长就让它长。
     const turnCard = function (tn, k) {
-      if (tn.skipped) return h("div", { key: k, style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, padding: "5px 0 11px" }, "data-wk": "debarenaturncard" }, "—— " + tn.name + " 没接这一句 ——");
       const av = tn.who === "char" ? (props.characters.find(function (c) { return c.id === tn.id; }) || { name: tn.name }) : meAv;
-      return h("div", { key: k, style: { marginBottom: 13 }, "data-wk": "debarena", "data-part": "r2" },
-        h("div", { className: "flex items-center", style: { gap: 6 } },
-          h("span", { className: "flex items-center", style: { gap: 5, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, padding: "5px 10px 4px", borderRadius: "5px 5px 0 0", borderBottom: "3px solid " + tn.color } },
-            h(Avatar, { character: av, size: 15, radius: 999 }), tn.name),
-          tn.at ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog } }, "冲着 " + tn.at) : null,
-          (tn.who === "char" && dtp && typeof TtsDot === "function") ? h(TtsDot, { k: "dbt" + k, text: tn.text, spk: props.characters.find(function (c) { return c.id === tn.id; }), tp: dtp }) : null),
-        h("div", { "data-wk": "block", style: { background: t.bg2, border: "1px solid " + t.line, borderTop: "1px solid " + tn.color + "55", borderRadius: "0 11px 11px 11px", padding: "11px 13px", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap" } }, tn.text),
-        // 被说动：松口认下一点／整个换了边——整场最值得看的那一下，挂在TA这段话下面
-        (tn.yield || tn.newStance) ? h("div", { "data-wk": "debyield", "data-on": tn.newStance ? "1" : "0", style: { marginTop: 5, paddingLeft: 10, borderLeft: "2px solid " + tn.color, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.65, color: t.sub } },
-          tn.newStance ? h("span", { style: { fontWeight: 700, color: tn.color } }, "换边了 → " + tn.newStance + (tn.yield ? "　" : "")) : h("span", { style: { color: t.fog } }, "松口："),
-          tn.yield || null) : null);
+      return h(DebTurnCard, { key: k, t: t, tn: tn, av: av, extra: (tn.who === "char" && dtp && typeof TtsDot === "function") ? h(TtsDot, { k: "dbt" + k, text: tn.text, spk: props.characters.find(function (c) { return c.id === tn.id; }), tp: dtp }) : null });
     };
 
     // ── 回合落点：未决争点 ──────────────────────────────────
@@ -1177,20 +1236,7 @@
     // 场边那一声（v60.41）
     // 形状不是弹幕、不是气泡：台子有个边，他们就贴在那条边外头。
     // 一条竖的台边线 + 本名 + 那句话，小字、靠左——**它是配角，不许比台上响**。
-    const sideBlock = function (side, k) {
-      const list = (side || []).filter(function (x) { return x && x.text; });
-      if (!list.length) return null;
-      return h("div", { key: "side" + k, style: { margin: "2px 2px 14px", paddingLeft: 12, borderLeft: "2px solid " + t.line }, "data-wk": "debarena", "data-part": "r3" },
-        list.map(function (x, i2) {
-          return h("div", { key: i2, style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7, color: t.sub, marginTop: i2 ? 5 : 0 }, "data-wk": "debarena", "data-part": "r4" },
-            h("span", { style: { color: t.fog } }, "台边 · "),
-            h("span", { style: { fontWeight: 700, color: t.ink } }, x.name),
-            // 冲着谁（v63.61）：台上不止一个人，看不见这一条就分不清TA在接谁的话
-            x.at ? h("span", { style: { color: t.fog } }, x.ally ? " 帮腔 " + x.at : " → " + x.at) : null,
-            h("span", { style: { color: t.fog } }, "：" ),
-            x.text);
-        }));
-    };
+    const sideBlock = function (side, k) { return h(DebSideBlock, { key: "side" + k, t: t, list: side }); };
     // 台下这一轮的票（她 2026-09-23）。
     // 形状跟场边那一声同一条台边线——投票的就是那几位，别另起一块卡片抢台上的戏。
     // 先一行这一轮的票数（谁几票），下面每位一行：投给谁、什么来路、TA的理由。
@@ -1398,33 +1444,9 @@
           // 记分牌：吊在台子上方那块牌。两根吊绳往上接出去，牌子才是「吊着的」
           h("div", { "aria-hidden": "true", style: { position: "absolute", left: "26%", top: -18, width: 1, height: 18, background: t.line } }),
           h("div", { "aria-hidden": "true", style: { position: "absolute", right: "26%", top: -18, width: 1, height: 18, background: t.line } }),
-          h("div", { "data-wk": "block", style: { background: "#1e1d1b", border: "1px solid rgba(255,255,255,.14)", borderRadius: 8, padding: "15px 17px 16px", marginBottom: 20, boxShadow: "0 12px 26px rgba(0,0,0,.3)" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 3, color: "#6f6a5f" } }, "判 了"),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(25px * var(--app-fs, 1))", lineHeight: 1.25, color: "#f0c67a", margin: "6px 0 10px" } }, s.verdict.winner),
-            h("div", { style: { height: 1, background: "rgba(255,255,255,.13)", marginBottom: 10 } }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#d8d3c8", whiteSpace: "pre-wrap" } }, s.verdict.reason),
-            // 「他们其实在吵的是」：只写「谁赢了」的话，这一场吵完什么都没留下。
-            // 这一栏才是她看完会记住的东西——把两边话里那个没说破的分歧点点出来。
-            s.verdict.crux ? h("div", { style: { marginTop: 15, paddingTop: 13, borderTop: "1px dashed rgba(255,255,255,.16)" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 3, color: "#6f6a5f", marginBottom: 7 } }, "他们其实在吵的是"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.85, color: "#d8d3c8" } }, s.verdict.crux)) : null,
-            // 「最狠的那一句」：从实录里逐字挑出来的原句（对不上就整块不显示，见 genResult）。
-            // 引号压在左边，跟上面那两段一眼分得开——它是【谁说过的话】，不是裁判的话。
-            (s.verdict.best && s.verdict.best.quote) ? h("div", { style: { position: "relative", marginTop: 15, paddingTop: 13, borderTop: "1px dashed rgba(255,255,255,.16)" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: 3, color: "#6f6a5f", marginBottom: 9 } }, "最狠的那一句"),
-              h("div", { style: { borderLeft: "2px solid #f0c67a", paddingLeft: 11, fontFamily: "'Noto Serif SC',serif", fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.9, color: "#f4f1e9" } }, s.verdict.best.quote),
-              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: "#8d877a", marginTop: 8 } },
-                "—— " + (s.verdict.best.name || "台上") + (s.verdict.best.why ? "　" + s.verdict.best.why : ""))) : null),
-          (s.closings && s.closings.some(c => c.name !== uName)) ? h("div", null,
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: 3, color: t.fog, marginBottom: 11 } }, "下 台 之 后"),
-            s.closings.filter(c => c.name !== uName).map((c, i) => {
-              const cp = s.parts.find(p => p.name === c.name && p.kind === "char");
-              return h("div", { key: i, style: { display: "flex", gap: 8, marginBottom: 10 }, "data-wk": "debarena", "data-part": "r13" },
-                cp ? h(Avatar, { character: props.characters.find(x => x.id === cp.id) || { name: c.name }, size: 26, radius: 999 }) : h("div", { style: { width: 26 } }),
-                h("div", { style: { flex: 1 } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", fontWeight: 700, color: cp ? cp.color : t.ink, marginBottom: 2 } }, c.name),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: t.ink } }, transShow(c.text))));
-            })) : null) : null),
+          h(DebVerdictBoard, { t: t, v: s.verdict }),
+          h(DebClosings, { t: t, list: (s.closings || []).filter(c => c.name !== uName).map(c => { const cp = s.parts.find(p => p.name === c.name && p.kind === "char");
+            return { name: c.name, text: transShow(c.text), color: cp ? cp.color : "", av: cp ? (props.characters.find(x => x.id === cp.id) || { name: c.name }) : null }; }) })) : null),
       // 底部操作
       ended ? (props.onCreate && (s.parts || []).length >= 2 ? h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 16px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
         h("button", { onClick: rematch, className: "w-full active:opacity-80", "data-wk": "debrematch",

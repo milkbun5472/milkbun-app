@@ -2498,6 +2498,8 @@ function chpPin(s, m, by) {
 function chpUnpin(s, key) { s.pins = s.pins.filter(p => p.key !== String(key)); return s; }
 function chpNoteAdd(s, text, by) { const t = String(text || "").trim().slice(0, 140); if (!t) return s; s.notes = s.notes.concat([{ id: "n" + Date.now() + Math.floor(Math.random() * 1000), text: t, by, ts: Date.now(), color: s.notes.length % 5, doodles: [] }]).slice(-40); return s; }
 function chpNoteFind(s, quote) { const q = String(quote || "").trim(); return q ? s.notes.find(n => n.text.indexOf(q) >= 0 || q.indexOf(n.text) >= 0) || null : null; }
+// 纸条底下本来就写着是谁写的；他们有时还在字前面自己再署一遍「名字：」，屏幕上就成了「周树生 周树生：……」（她 2026-11-22）
+function chpNoSelfName(text, name) { const t = String(text || ""), n = String(name || "").trim(); if (!n) return t; return t.startsWith(n) ? t.slice(n.length).replace(/^\s*[:：]\s*/, "") || t : t; }
 function chpScribble(s, quote, text, by) { const n = chpNoteFind(s, quote), t = String(text || "").trim().slice(0, 80); if (!n || !t) return s; s.notes = s.notes.map(x => x.id === n.id ? Object.assign({}, x, { doodles: (x.doodles || []).concat([{ by, text: t, ts: Date.now() }]).slice(-8) }) : x); return s; }
 // 撕掉：自己贴的随时能撕；别人贴的放够一天才撕得动
 function chpTearOk(n, by, now) { return !!n && (n.by === by || (now || Date.now()) - (n.ts || 0) > 86400000); }

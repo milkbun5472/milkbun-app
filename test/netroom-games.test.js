@@ -590,7 +590,7 @@ test("当前对局写给开口的角色：只用公开那一份，别人的私�
   ["gomoku", "haigui", "q25", "chess", "xiangqi", "jungle", "go", "story", "tod", "monopoly"].forEach(k => assert.strictEqual(typeof G.ADAPTERS[k].stateText, "function", k + " 要有 stateText"));
   // 两条开口的路都带上
   assert.match(nsrc, /now: Date\.now\(\), game: gameStateFor\(char\.id\), presence: presence\(\),/);
-  assert.match(nsrc, /targets, cast, game: gameStateFor\(null\) \}\);/);
+  assert.match(nsrc, /targets, cast, game: gameStateFor\(null\)/);
   assert.equal((nsrc.match(/\+ \(o\.game \? "\\n\\n" \+ o\.game : ""\)/g) || []).length, 2);
   // 每盒都能写出一段
   const sts = { chess: G.ADAPTERS.chess.init(), go: G.ADAPTERS.go.init(inv, {}), story: G.ADAPTERS.story.init(inv), tod: G.ADAPTERS.tod.init(inv), monopoly: G.ADAPTERS.monopoly.init(inv) };
@@ -641,4 +641,10 @@ test("联机牌桌摆的是单机那几块：海龟汤谜面卡／问答／判�
   assert.match(nsrc, /h\(G\.GameNextBtn, \{ t, wk: "nrgameresume", onClick: onGo \}, "接着来"\)/);
   // 抽出去的那几块在单机文件里：不许出现联机字样
   ["function TDRoundCard", "function GuessPuzzleCard", "function UnoCardFace", "function GameNextBtn"].forEach(k => { const i = games.indexOf(k), j = games.indexOf("\n  }\n", i); assert.ok(i > 0); assert.ok(!/联机|netroom/i.test(games.slice(i, j)), k); });
+});
+
+test("半窗里叫角色开口：带当前局面＋牌桌上最近十几句，自己说过的标出来", () => {
+  const g = read("js/netroom-games.js");
+  assert.ok(/kind === "talk"\)\.slice\(-16\)/.test(g) && /（你自己）/.test(g));
+  assert.ok(/game: gameStateFor\(char\.id\)/.test(nsrc) && /game: gameStateFor\(null\)/.test(nsrc), "单人开口和一起说都带");
 });

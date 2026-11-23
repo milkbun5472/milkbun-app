@@ -104,8 +104,8 @@ test("角色开口走 runProbe(voice)、料在 system、maxTokens 不低于 8000
   assert.match(src, /runProbe\(p, props\.ctxFor\(char\), \{ voice: true, tag: "netroom",/);
   const n = [...src.matchAll(/maxTokens: (\d+)/g)].map(m => +m[1]);
   assert.ok(n.length >= 2 && n.every(x => x >= 8000), String(n));
-  // 单人开口不另起一条直发；唯一一处 callAI 是「一起说」那一枪（几个人一次写，runProbe 只写一个人）
-  assert.strictEqual((src.match(/callAI\(/g) || []).length, 1, "只有一起说那一处直发");
+  // 单人开口不另起一条直发；callAI 只有「一起说」那一枪（几个人一次写，runProbe 只写一个人）和前情卡（只读房间记录，不带人设）
+  assert.strictEqual((src.match(/callAI\(/g) || []).length, 2, "只有一起说、前情卡两处直发");
   assert.match(src, /maxTokens: Math\.min\(32000, 12000 \+ 4000 \* mine\.length\)/);
   const { C } = load();
   const ins = C.lineInstruction({ myNick: "我", peerNick: "她", myChars: [{ id: "a", name: "甲" }], peerChars: [{ id: "p", name: "乙" }], msgs: [] }, { id: "a", name: "甲" });
@@ -249,7 +249,7 @@ test("每种新消息上线只带该带的字段：人设、本机引用、多�
   const { C } = load();
   const w = (type, x) => C.wireMsg({ id: "1", kind: "user", name: "小雨", type, x, ts: 1 });
   assert.deepStrictEqual(Object.keys(w("emote", { keyword: "哭", url: "iv_abc", img: IMG, persona: "x" }).x).sort(), ["img", "keyword"]);
-  assert.deepStrictEqual(w("photo", { desc: "猫", imageRef: "iv_1", img: IMG, memory: "x" }).x, { desc: "猫", img: IMG });
+  assert.deepStrictEqual(w("photo", { desc: "猫", imageRef: "iv_1", img: IMG, memory: "x" }).x, { desc: "猫", pic: true, img: IMG });
   assert.deepStrictEqual(w("geo", { name: "公园", lat: 1 }).x, { name: "公园" });
   assert.deepStrictEqual(w("pat", { to: "阿梨", extra: 1 }).x, { to: "阿梨" });
   assert.deepStrictEqual(Object.keys(w("voice", { content: "嗨", dur: 3, voiceId: "v" }).x).sort(), ["content", "dur"]);
@@ -259,7 +259,7 @@ test("每种新消息上线只带该带的字段：人设、本机引用、多�
   assert.deepStrictEqual(Object.keys(w("rp", { rpId: "r", total: 5, count: 2, message: "", claims: [], splits: [1, 4] }).x).sort(), ["claims", "count", "message", "rpId", "total"]);
   // 落存档那一份：不留整张图，只留本机引用
   const loc = C.wireMsg({ id: "1", type: "photo", x: { desc: "猫", imageRef: "iv_1", img: IMG } }, true);
-  assert.deepStrictEqual(loc.x, { desc: "猫", imageRef: "iv_1" });
+  assert.deepStrictEqual(loc.x, { desc: "猫", pic: true, imageRef: "iv_1" });
   // 红包怎么拆只在发的那台手机：splits 绝不上线，也不在消息里
   assert.match(src, /rpSplits: Object\.assign\(\{\}, roomRef\.current\.rpSplits/);
 });
@@ -504,10 +504,10 @@ test("删除：自己（和自己带来的人）发的两边一起删、不留�
   // 外发只在「自己的」那一条路上；别人的那条走 dropLocal，不外发
   const i = src.indexOf("const dropOwn = "), j = src.indexOf("\n", i);
   assert.ok(i > 0 && /send\(\{ t: "drop", id \}\)/.test(src.slice(i, j)), "自己的删除要外发");
-  assert.match(src, /e\.t === "drop" && e\.id\) \{\n\s+commit\(Core\.upsertRoom\(Core\.dropOwnMsg\(r, String\(e\.id\), origin\)\)\)/);
+  assert.match(src, /e\.t === "drop" && e\.id\) \{\n\s+commit\(Core\.upsertRoom\(Core\.applyDrops\(r, \[String\(e\.id\)\], origin\)\)\)/);
   const mi = src.indexOf("const menuItems = m =>"), mj = src.indexOf("const onMenu = ", mi);
   assert.ok(mi > 0 && mj > mi);
-  assert.match(src.slice(mi, mj), /if \(!own\) return \[m\.type \? \[\] : \["copy"\], \["delmine"\]\];/, "别人的那条菜单上写「只删我这边」");
+  assert.match(src.slice(mi, mj), /if \(!own\) return \[first, \["delmine"\]\];/, "别人的那条菜单上写「只删我这边」");
   assert.match(src.slice(mj, mj + 900), /act === "del" && m\.side === "me" && !m\.sys\) requestAppConfirm\([^)]*\(\) => dropOwn\(m\.id\)/);
   // 改字：A 那台本机改、B 那台照 A 发来的改，两边是同一句、都标已编辑
   const ea = C.editMsg(mine, "a", "说对了", "me").msgs[0], eb = C.editMsg(theirs, "a", "说对了", "A").msgs[0];
@@ -538,4 +538,94 @@ test("回不去房间那个病：中转线和直连都有心跳，死了会被�
 test("回到聊天停在最新：游戏卡谁发的都跟到底；图片卡片晚撑开时停在底部就再跟一次", () => {
   assert.ok(/last\.type === "gamerec" \|\| last\.type === "game"/.test(src));
   assert.ok(/new ResizeObserver\(\(\) => \{ if \(stick\.current\) el\.scrollTop = el\.scrollHeight; \}\)/.test(src));
+});
+
+// ── 引用、墓碑、补图、红包排队、换人、多图（2026-11-22 第二批）──
+test("引用：线上只带 id/名字/前 80 字，撤回的不带；模型读到「回复 某某：…」", () => {
+  const { C } = load();
+  const room = { myNick: "我", peers: [{ peerId: "p1", nick: "阿梨", chars: [] }], msgs: [
+    { id: "a", side: "peer", peerId: "p1", kind: "user", name: "阿梨", text: "今晚吃火锅", ts: 1 },
+    { id: "b", side: "me", kind: "char", name: "小白", charId: "c1", text: "好呀", ts: 2 }] };
+  const q = C.quoteOf(room, room.msgs[0]);
+  assert.deepStrictEqual(q, { id: "a", name: "阿梨", text: "今晚吃火锅" });
+  assert.strictEqual(C.quoteOf(room, room.msgs[1]).name, "小白", "角色说的照角色名");
+  const w = C.wireMsg({ id: "m", text: "我也去", quote: Object.assign({ evil: 1 }, q, { text: "x".repeat(200) }) });
+  assert.deepStrictEqual(Object.keys(w.quote).sort(), ["id", "name", "text"]);
+  assert.strictEqual(w.quote.text.length, 80);
+  assert.ok(!C.wireMsg({ id: "m", recalled: true, quote: q }).quote, "撤回的不带引用");
+  const tr = C.transcript(Object.assign({}, room, { msgs: room.msgs.concat([Object.assign({ side: "me", kind: "user", name: "我", ts: 3 }, C.wireMsg({ id: "c", text: "我也去", quote: q }))]) }));
+  assert.match(tr, /我：（回复 阿梨：「今晚吃火锅」）我也去/);
+});
+test("引用：原消息撤回／删掉了，引用块照实说；模型填 Q 号能认回原来那条", () => {
+  const { C } = load();
+  const q = { id: "a", name: "阿梨", text: "x" };
+  assert.strictEqual(C.quoteState({ msgs: [{ id: "a" }] }, q), "ok");
+  assert.strictEqual(C.quoteState({ msgs: [{ id: "a", recalled: true }] }, q), "recalled");
+  assert.strictEqual(C.quoteState({ msgs: [] }, q), "gone");
+  const room = { myNick: "我", peers: [], msgs: [{ id: "s", sys: true, text: "进了房间" }, { id: "a", side: "me", kind: "user", text: "一", ts: 1 }, { id: "b", side: "me", kind: "user", text: "二", ts: 2 }] };
+  assert.strictEqual(C.resolveQuote(room, "Q2").id, "b");
+  assert.strictEqual(C.resolveQuote(room, "Q9"), null);
+  assert.match(C.transcript(room, { catalog: C.quoteCatalog(room, 30) }), /\[Q1\] 我：一/);
+  assert.match(C.lineInstruction(room, { id: "c1", name: "小白" }, {}), /"quote":"Q 编号"/);
+  assert.match(C.jointInstruction(room, [{ id: "c1", name: "小白" }, { id: "c2", name: "小黑" }], {}), /"quote"/);
+  assert.strictEqual(C.jointLines(JSON.stringify([{ name: "小白", text: "嗯", quote: "Q1" }]), [{ id: "c1", name: "小白" }], "我")[0].quote, "Q1");
+});
+test("引用界面：长按菜单有引用、左滑走单聊那只手势钩子、输入框上方用单聊那条、气泡带引用块能跳", () => {
+  assert.match(src, /first = \(m\.type \? \[\] : \["copy"\]\)\.concat\(m\.type === "pat" \? \[\] : \["quote"\]\)/);
+  assert.match(src, /useLongPressMenu\(\(\) => \{\}, \{ rowSel: '\[data-wk="nrmsg"\]\[data-nri\]', rowAttr: "data-nri", onSwipeLeft/);
+  assert.match(src, /h\(QuoteDraftBar, \{/);
+  assert.match(src, /m\.quote && h\(QuoteChip, \{/);
+  assert.match(src, /"原消息已撤回" : st === "gone" \? "原消息已删除"/);
+  assert.match(src, /Core\.resolveQuote\(cur, d\.quote\)/);
+  const comp = read("js/components.js");
+  assert.match(comp, /const rowSel = \(opts && opts\.rowSel\) \|\| '\[data-wk="msg"\]\[data-i\]'/, "单聊默认挂点不变");
+  const hook = comp.slice(comp.indexOf("function useLongPressMenu"), comp.indexOf("function TransTextState"));
+  assert.ok(!/联机|netroom/i.test(hook), "公共钩子里不提联机");
+});
+test("两边删的墓碑：只记自己删的、有上限；断线的人回来，补发里那条不再冒回来；冒名的墓碑不删别人的", () => {
+  const { C } = load();
+  let r = { msgs: [{ id: "a", side: "me", kind: "user", text: "1" }, { id: "b", side: "peer", peerId: "p1", text: "2" }] };
+  r = C.tombOwn(r, "a"); assert.deepStrictEqual(r.tombs, ["a"]); assert.strictEqual(r.msgs.length, 1);
+  assert.strictEqual(C.tombOwn(r, "b"), r, "别人的不能两边删");
+  r = C.mergeMsgs(r, [{ id: "a", side: "me", text: "1", ts: 1 }]);
+  assert.ok(!r.msgs.some(m => m.id === "a"), "自己删过的补发回来也不收");
+  let big = { msgs: [] }; for (let i = 0; i < 260; i++) big = C.tombOwn(Object.assign(big, { msgs: [{ id: "x" + i, side: "me" }] }), "x" + i);
+  assert.strictEqual(big.tombs.length, C.TOMB_MAX);
+  let o = { msgs: [{ id: "b", side: "peer", peerId: "p1" }, { id: "c", side: "peer", peerId: "p2" }] };
+  o = C.applyDrops(o, ["b", "c"], "p1");
+  assert.deepStrictEqual(o.msgs.map(m => m.id), ["c"], "p1 只删得掉 p1 自己的");
+  o = C.mergeMsgs(o, [{ id: "b", side: "peer", peerId: "p1", ts: 1 }]);
+  assert.ok(!o.msgs.some(m => m.id === "b"), "第三个人补发来的那条也不复活");
+  assert.match(src, /send\(\{ t: "sync", drops: \(r\.tombs \|\| \[\]\)/);
+  assert.match(src, /Core\.applyDrops\(r, e\.drops, origin\)/);
+});
+test("补图：补发的记录缺图的最近 20 张跟发来的人要，TA 一张张单发；只补本来缺图的", () => {
+  const { C } = load();
+  const msgs = [];
+  for (let i = 0; i < 25; i++) msgs.push({ id: "p" + i, type: "photo", x: { desc: "", pic: true } });
+  msgs.push({ id: "d", type: "photo", x: { desc: "只有字" } }, { id: "e", type: "emote", x: { keyword: "笑" } }, { id: "f", type: "photo", x: { pic: true, imageRef: "iv_1" } });
+  const want = C.missingImgs({ msgs }, 20);
+  assert.strictEqual(want.length, 20); assert.ok(want.indexOf("e") >= 0 && want.indexOf("d") < 0 && want.indexOf("f") < 0);
+  assert.match(src, /send\(\{ t: "needimg", ids: want \}, origin\)/);
+  assert.match(src, /if \(img\) send\(\{ t: "img", id, img \}, origin\)/);
+  assert.match(src, /Core\.missingImgs\(r, 600\)\.indexOf\(id\) < 0/);
+});
+test("照片一次能挑几张：逐张压小各发一条，说明只跟第一张", () => {
+  assert.match(src, /srcs = photoImgs\.slice\(0, typeof CHAT_PHOTO_MAX/);
+  assert.match(src, /for \(const src of srcs\)/);
+  assert.match(src, /desc: first \? cap : ""/);
+});
+test("红包：发的人不在线时不替 TA 分（只有 TA 手机上有分法），说清是谁不在线、排上，TA 回来就补抢", () => {
+  assert.match(src, /if \(!senderOn\(rp\)\)/);
+  assert.match(src, /"发红包的 " \+ nickOf\(rp0\.peerId\) \+ " 这会儿不在线/);
+  assert.match(src, /flushGrabs\(origin\);/);
+});
+test("换人：进房以后能回挑人那页，重发名片；对端照 hi 换名单；移出的人历史照旧", () => {
+  const { C } = load();
+  let r = C.upsertPeer({ peers: [], msgs: [{ id: "a", side: "peer", peerId: "p1", kind: "char", charId: "c9", name: "旧人" }] }, "p1", "阿梨", [{ id: "c9", name: "旧人" }]);
+  r = C.upsertPeer(r, "p1", "阿梨", [{ id: "c2", name: "新人" }]);
+  assert.deepStrictEqual(r.peers[0].chars.map(c => c.id), ["c2"]);
+  assert.strictEqual(r.msgs.length, 1, "移出的人说过的话还在");
+  assert.match(src, /data-wk": "nrrepick", onClick: openRepick/);
+  assert.match(src, /if \(repick\) \{/);
 });
