@@ -24,3 +24,9 @@ test("自己的中转：地址补成 turn:，接在公共 STUN 后面，没填�
   assert.match(src, /iceServers: o\.ice \|\| ICE_SERVERS/);
   assert.match(src, /ice: Core\.cleanTurn\(supaOwn\.turn\)/);
 });
+test("中转卡里点开就是攻略那一节，跟递名片共用一个折叠", () => {
+  assert.match(src, /guideFold\("guide", "nrturnguide", \(\) => guideText\("### 直连不上时：自己的中转"\)\)/);
+  assert.match(src, /guideFold\("guide", "nrsupaguide", supaGuideText\)/);
+  const man = fs.readFileSync(path.join(__dirname, "..", "js", "assistant-manual.js"), "utf8");
+  assert.ok(man.includes("### 直连不上时：自己的中转"));
+});

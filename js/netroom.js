@@ -3029,14 +3029,20 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
       ]));
     }
     // 首页
-    const supaGuideText = () => {
+    const supaGuideText = () => guideText("### 连不上房间号时");
+    const guideText = head => {
       const m = root.AssistantManual && root.AssistantManual.byId ? root.AssistantManual.byId("netroom") : null;
       if (!m || !m.doc) return root.AssistantManual ? "教程没加载出来，去秋秋攻略里搜「联机」。" : "正在加载教程…";
-      const d = String(m.doc), i = d.indexOf("### 连不上房间号时"); if (i < 0) return "教程没找到，去秋秋攻略里搜「联机」。";
+      const d = String(m.doc), i = d.indexOf(head); if (i < 0) return "教程没找到，去秋秋攻略里搜「联机」。";
       const j = d.indexOf("\n### ", i + 5);
       return d.slice(i, j > 0 ? j : undefined).replace(/^### [^\n]*\n+/, "").replace(/\*\*/g, "").trim();
     };
     // 首页
+    // 「怎么弄？一步一步看」：点开就是攻略「联机」里对应那一节（教程只住攻略那一份，这儿切出来摆）
+    const guideFold = (key, wk, text) => h("details", { key, "data-wk": wk, onToggle: e => { const d = e.currentTarget; if (d.open && !root.AssistantManual && root.LazyMods) root.LazyMods.load("manual").then(() => setGuideTick(n => n + 1)).catch(() => {}); },
+        style: { padding: "10px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
+        h("summary", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.ink, cursor: "pointer", minHeight: 28 } }, "怎么弄？一步一步看"),
+        h("div", { "data-wk": wk + "body", style: { fontFamily: F_BODY, fontSize: fs(12), color: t.sub, lineHeight: 1.85, marginTop: 8, whiteSpace: "pre-wrap" } }, text()));
     const supaBox = card([
       h("label", { key: "on", className: "flex items-center", style: { gap: 10, minHeight: 44, opacity: supa ? 1 : 0.45 } },
         h("input", { type: "checkbox", "data-wk": "nrsupaon", disabled: !supa, checked: useSupa, onChange: e => saveSupaOwn({ on: e.target.checked }) }),
@@ -3046,10 +3052,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         : "还没有可用的 Supabase：在下面填一个项目的地址和公开密钥（anon key）就能打开。不会配看秋秋攻略「联机」。"),
       // 跟云同步那页同一个样子：点开就是攻略「联机」里那一节教程，边看边弄（她 11-22：「直接在递 supabase 那一层也写一份」）
       //   教程只住攻略那一份（netroom 条目里「### 连不上房间号时」那一节），这儿切出来摆，不另抄
-      h("details", { key: "guide", "data-wk": "nrsupaguide", onToggle: e => { const d = e.currentTarget; if (d.open && !root.AssistantManual && root.LazyMods) root.LazyMods.load("manual").then(() => setGuideTick(n => n + 1)).catch(() => {}); },
-        style: { padding: "10px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
-        h("summary", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.ink, cursor: "pointer", minHeight: 28 } }, "怎么弄？一步一步看"),
-        h("div", { "data-wk": "nrsupaguidebody", style: { fontFamily: F_BODY, fontSize: fs(12), color: t.sub, lineHeight: 1.85, marginTop: 8, whiteSpace: "pre-wrap" } }, supaGuideText())),
+      guideFold("guide", "nrsupaguide", supaGuideText),
       h("details", { key: "own", "data-wk": "nrsupaown" },
         h("summary", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.ink, minHeight: 36, cursor: "pointer" } }, "联机用的项目（可不填，" + (byoRaw ? "不填就用云同步那个" : "填了才能打开上面的开关") + "）"),
         ["url", "key"].map(k => h("input", { key: k, "data-wk": k === "url" ? "nrsupaurl" : "nrsupakey", defaultValue: supaOwn[k] || "", placeholder: k === "url" ? "https://xxxx.supabase.co" : "公开密钥（anon public key）",
@@ -3061,7 +3064,8 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
     const turn = supaOwn.turn || {};
     const turnBox = card([
       h("div", { key: "t", style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink } }, "自己的中转" + (Core.cleanTurn(turn) ? "（已填，开房、进房都会用上）" : "")),
-      h(Note, { key: "why" }, "进了房间却提示「直连不上」、换网络也不行时用：填好以后两台手机连不通，话就经这台中转转过去，内容照旧加密、中转看不到聊什么。房里有一个人填了就行。怎么申请看秋秋攻略「联机」。"),
+      h(Note, { key: "why" }, "进了房间却提示「直连不上」、换网络也不行时用：填好以后两台手机连不通，话就经这台中转转过去，内容照旧加密、中转看不到聊什么。房里有一个人填了就行。"),
+      guideFold("guide", "nrturnguide", () => guideText("### 直连不上时：自己的中转")),
       ...[["url", "中转地址（turn: 开头，几条用逗号隔开）", "nrturnurl"], ["user", "用户名", "nrturnuser"], ["pass", "密码", "nrturnpass"]].map(([k, ph, wk]) =>
         h("input", { key: k, "data-wk": wk, defaultValue: turn[k] || "", placeholder: ph, autoCapitalize: "off", autoCorrect: "off", spellCheck: false,
           onBlur: e => saveSupaOwn({ turn: Object.assign({}, supaOwn.turn || {}, { [k]: e.target.value.trim() }) }),
