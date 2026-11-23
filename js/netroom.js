@@ -3031,7 +3031,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         h("input", { type: "checkbox", "data-wk": "nrsupaon", disabled: !supa, checked: useSupa, onChange: e => saveSupaOwn({ on: e.target.checked }) }),
         h("div", { style: { fontFamily: F_BODY, fontSize: fs(14) } }, "用自己的 Supabase 递名片")),
       h(Note, { key: "why" }, supa
-        ? "房间号进不去（公共中转连不上）时用。只管你开的房：开房后会多一串连接码，整串发给要来的人；加入别人的房不用开它，把连接码粘进下面的框就行。"
+        ? "房间号进不去（公共中转连不上）时用。只管你开的房：开房后会多一串连接码，整串发给要来的人；加入别人的房不用开它，把连接码整串粘进上面「房间号」那一格就行。"
         : "还没有可用的 Supabase：在下面填一个项目的地址和公开密钥（anon key）就能打开。不会配看秋秋攻略「联机」。"),
       // 跟云同步那页同一个样子：点开就是攻略「联机」里那一节教程，边看边弄（她 11-22：「直接在递 supabase 那一层也写一份」）
       //   教程只住攻略那一份（netroom 条目里「### 连不上房间号时」那一节），这儿切出来摆，不另抄
@@ -3046,28 +3046,38 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
           style: { width: "100%", marginTop: 6, minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: fs(12.5) } })),
         supaOwn.key && Core.secretKey(supaOwn.key) && h(Note, { key: "sec" }, "这把是 service key（只能你自己用的那把），不能拿来联机：换成 anon public 那把。"))
     ]);
+    // 首页排法（她 11-23「看起来好乱」）：进门的事在最上面；以前的房间、认识的人其次；
+    //   递名片那块是房间号连不上才用的，收到最底下折起来（开着自己的 Supabase 时默认展开）
+    const rowBtn = (key, wk, onClick, title, meta) => h("button", { key, "data-wk": wk, onClick, className: "active:opacity-70 flex items-center",
+      style: { textAlign: "left", border: "1px solid " + t.line, borderRadius: 12, background: t.bg2, padding: "10px 14px", color: t.ink, gap: 10, minHeight: 52 } },
+      h("div", { style: { flex: 1, minWidth: 0 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: fs(14), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title),
+        meta && h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, marginTop: 2 } }, meta)),
+      h("span", { style: { color: t.fog, fontSize: fs(16) } }, "›"));
+    const knownN = (() => { const K = loadKnown(), seen = {}; Object.keys(K).forEach(c => Object.keys(K[c] || {}).forEach(k => { seen[k] = 1; })); return Object.keys(seen).length; })();
     return shell(h(Head, { zh: "联机", onBack: props.onBack }), scroll([
-      h(Note, { key: "intro" }, "跟别的手机上的人开一个房间，各带自己的角色进来一起聊。算上你最多四个人；要连的人都得开着这一页。"),
+      h(Note, { key: "intro" }, "跟别的手机上的人开一个房间，各带自己的角色进来一起聊。算上你最多四个人，要连的人都得开着这一页。"),
       card([
-        label("你在房间里叫"),
-        h("input", { key: "nick", "data-wk": "nrnick", value: nick, onChange: e => setNick(e.target.value), maxLength: 20, placeholder: "昵称",
-          style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: fs(14) } }),
-        h(Btn, { key: "host", label: "开房间", primary: true, onClick: () => start(true), wk: "nrhost" }),
+        h("div", { key: "nk", className: "flex items-center", style: { gap: 10 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.sub, flexShrink: 0 } }, "你在房间里叫"),
+          h("input", { "data-wk": "nrnick", value: nick, onChange: e => setNick(e.target.value), maxLength: 20, placeholder: "昵称",
+            style: { flex: 1, minWidth: 0, minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: fs(14) } })),
+        h(Btn, { key: "host", label: "开一个房间", primary: true, onClick: () => start(true), wk: "nrhost" }),
+        h("div", { key: "or", style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, textAlign: "center" } }, "或者，进朋友开的房间"),
         h("div", { key: "j", className: "flex", style: { gap: 8 } },
-          h("input", { "data-wk": "nrjoincode", value: joinCode, onChange: e => { const v = e.target.value.replace(/\s+/g, ""); setJoinCode(/^\d*$/.test(v) ? v.slice(0, 6) : v.slice(0, 3000)); }, placeholder: "6 位房间号，或整串连接码", autoCapitalize: "off", autoCorrect: "off", spellCheck: false,
+          h("input", { "data-wk": "nrjoincode", value: joinCode, onChange: e => { const v = e.target.value.replace(/\s+/g, ""); setJoinCode(/^\d*$/.test(v) ? v.slice(0, 6) : v.slice(0, 3000)); }, placeholder: "房间号", inputMode: "numeric", autoCapitalize: "off", autoCorrect: "off", spellCheck: false,
             style: { flex: 1, minWidth: 0, minHeight: 44, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: fs(15), letterSpacing: 2 } }),
-          h(Btn, { label: "输入房间号加入", onClick: () => start(false), wk: "nrjoin" })),
+          h(Btn, { label: "加入", onClick: () => start(false), wk: "nrjoin" })),
         err && h("div", { key: "err", "data-wk": "nrerr", style: { fontFamily: F_BODY, fontSize: fs(13), color: t.ink, lineHeight: 1.6 } }, err),
-        h(Note, { key: "priv" }, "别人只看得到你带的人的名字和头像，人设、记忆、世界书不出你的手机。聊天记录每人各存一份。")
+        h(Note, { key: "priv" }, "别人只看得到你带的角色的名字和头像，人设、记忆、世界书不出你的手机；聊天记录每人各存一份。")
       ]),
-      supaBox,
-      h(Btn, { key: "kn", label: "在联机里认识的人", onClick: () => setPage("known"), wk: "nrknownopen" }),
       label("以前的房间"),
-      rooms.length ? rooms.map(r => h("button", { key: r.id, "data-wk": "nrhist", onClick: () => { setViewId(r.id); setPage("view"); }, className: "active:opacity-70",
-        style: { textAlign: "left", border: "1px solid " + t.line, borderRadius: 12, background: t.bg2, padding: "10px 14px", color: t.ink } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: fs(14) } }, withWhom(r) + " · 房间 " + r.code),
-        h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, marginTop: 2 } }, fmt(r.startedAt) + " · " + (r.msgs || []).length + " 条")))
-        : h(Note, { key: "none" }, "还没开过房间。")
+      rooms.length ? rooms.map(r => rowBtn(r.id, "nrhist", () => { setViewId(r.id); setPage("view"); }, withWhom(r) + " · 房间 " + r.code, fmt(r.startedAt) + " · " + (r.msgs || []).length + " 条"))
+        : h(Note, { key: "none" }, "还没开过房间。"),
+      rowBtn("kn", "nrknownopen", () => setPage("known"), "在联机里认识的人", knownN ? knownN + " 位别人家的角色" : "退房时记进记忆的角色，会记下在房里见过谁"),
+      h("details", { key: "supa", "data-wk": "nrsupafold", open: useSupa || undefined, style: { marginTop: 6 } },
+        h("summary", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.sub, minHeight: 36, cursor: "pointer" } }, "房间号连不上时" + (useSupa ? "（正在用自己的 Supabase）" : "")),
+        h("div", { style: { marginTop: 6 } }, supaBox))
     ]));
   }
   if (typeof window !== "undefined") window.NetRoomApp = NetRoomApp;
