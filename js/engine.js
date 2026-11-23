@@ -13580,8 +13580,26 @@ function vclockSeg(c, ts) {
 //   最早那一段一丢，vclockMapBy 就以为这只钟是「最近才拨的」，比它早的每条消息、每条记忆全按现实日子算。
 //   现在：最早那一段永远留着（它说明钟是哪一刻开的），超了只从第二段起往后丢；上限放到 2000 段
 const VCLOCK_HIST_CAP = 2000;
+// 前后两段算出来的时间一模一样，就只留后一段（她 2026-11-23 转群友：钟停着又开着「离开时停住」，一天进出上百次，每次记一段，
+//   几天就攒满。停住的钟只要 base 没变，哪一段算出来都是同一刻；跟现实一样走的钟，base−at×速度 没变也是同一条线）。
+//   第一段永远不动：它说明钟是哪一刻开的
+function vclockSameSeg(a, b) {
+  if (!a || !b) return false;
+  if (a.real || b.real) return !!(a.real && b.real);
+  const sa = isFinite(Number(a.speed)) && Number(a.speed) >= 0 ? Number(a.speed) : 1, sb = isFinite(Number(b.speed)) && Number(b.speed) >= 0 ? Number(b.speed) : 1;
+  if (sa !== sb) return false;
+  if (sa === 0) return Number(a.base) === Number(b.base);
+  if (a.awayAt || b.awayAt) return false;
+  return Math.abs((Number(a.base) - Number(a.at || 0) * sa) - (Number(b.base) - Number(b.at || 0) * sb)) < 1;
+}
 function vclockTrimHist(h) {
-  const a = Array.isArray(h) ? h : [];
+  let a = Array.isArray(h) ? h : [];
+  if (a.length > 2) {
+    // ⚠️下面 vclockMapBy 靠「攒到 300 段」认出旧版丢过最早几段的存档；合并以后段数会掉下去，先把这个记号钉在第一段上
+    const cut = a.length >= 300 && a[0] && !a[0].real && !a[0].cut;
+    a = a.filter((x, i) => i === 0 || i === a.length - 1 || !vclockSameSeg(x, a[i + 1]));
+    if (cut) a = [{ ...a[0], cut: true }].concat(a.slice(1));
+  }
   return a.length <= VCLOCK_HIST_CAP ? a : [a[0]].concat(a.slice(a.length - (VCLOCK_HIST_CAP - 1)));
 }
 function vclockKeepHist(oldClocks, newClocks, now) {
@@ -13703,7 +13721,7 @@ function vclockMapBy(c0, ts) {
   const h0 = Array.isArray(c0.hist) && c0.hist.length ? c0.hist[0] : c0;
   // ⚠️攒满过 300 段的旧存档（2026-11-19 前的版本会把最早几段丢掉）：h0 已经不是开钟那一刻，比它早的不能当现实，
   //   照 h0 那一版往前推（日子可能差几天，但留在她拨的那个年月里，不会整片跳回现实）
-  const _trimmedOld = Array.isArray(c0.hist) && c0.hist.length >= 300;
+  const _trimmedOld = Array.isArray(c0.hist) && (c0.hist.length >= 300 || !!(c0.hist[0] && c0.hist[0].cut));
   if (h0 && !h0.real && !_trimmedOld && Number(h0.at) > 0 && Number(ts) < Number(h0.at)) return Number(ts);
   if (h0 && !h0.real && _trimmedOld && Number(ts) < Number(h0.at)) { const sp0 = Number(h0.speed); return Number(h0.base) + (Number(ts) - Number(h0.at || 0)) * (isFinite(sp0) && sp0 >= 0 ? sp0 : 1); }
   const c = vclockSeg(c0, ts);
