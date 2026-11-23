@@ -1722,7 +1722,7 @@
   }
   // ---- 落幕:终章那一枪(这一屏、多人桌同一份) ----
   // forced=中途收束;finalAct=玩家写下的最后一笔(空=她那段只写画面不替她做主)
-  function epilogueAsk(camp, uName, forced, finalAct) {
+  function epilogueAsk(camp, uName, forced, finalAct, personas) {
     const fa = String(finalAct || "").trim();
     const recent = camp.msgs.slice(-14).map(m => (m.role === "user" ? uName : m.role === "gm" ? "守密人" : "·") + ":" + m.content).join("\n").slice(-3600);
     const sys = narrativeCore() + "\n\n【终章】为这场跑团写落幕:5-8 段,顺序是——世界因这场冒险变成了什么样;沿途关键 NPC 各自的下场;每位队友的归处(各一段,声口各是各的);最后是 " + uName + " 的那一段。每段 2-4 句,落在具体的画面上,不写总结陈词。"
@@ -1737,7 +1737,7 @@
       // 后日谈（群友 2026-11-23 许愿，她点头）：终章是守密人的旁白；这一块是队友自己开口回头看
       + (camp.party.filter(m => m.key !== "user").length ? "\n【后日谈】终章之后,每位队友各自开口说一两句(after):第一人称,用他自己平时说话的样子回头看这一场——可以是自己或别的同伴在团里的某一下遭遇、某个表现,也可以是对整件事的评价或吐槽。从这一场真发生过的事里挑,各挑各的,不复述终章里写过的归处。" : "")
       + "\n另外盘点:秘典里有哪些真相与伏笔到最后也没来得及揭开(untold,没有就空数组)。\n只输出 JSON:{\"paras\":[\"段落\"],\"closing\":\"最后一句(≤30字)\",\"untold\":[],\"myline\":\"暗线判词(没暗线就空)\"" + (camp.party.filter(m => m.key !== "user").length ? ",\"after\":[{\"name\":\"队友名\",\"say\":\"他说的话\"}]" : "") + "}";
-    const user = "【世界】" + camp.world + "\n【秘典】真相:" + camp.dossier.truth + "\n翻转:" + camp.dossier.twist + "\n【各章】" + camp.stages.map((s, i) => s.goal + (s.done ? "(✓)" : i === camp.stageIdx ? "(进行中)" : "(未到)")).join(";") + "\n【已揭示线索】" + (camp.clues.join(";") || "无") + (camp.summary ? "\n【前情】\n" + camp.summary : "") + "\n【最近剧情】\n" + recent;
+    const user = "【世界】" + camp.world + "\n【秘典】真相:" + camp.dossier.truth + "\n翻转:" + camp.dossier.twist + "\n【各章】" + camp.stages.map((s, i) => s.goal + (s.done ? "(✓)" : i === camp.stageIdx ? "(进行中)" : "(未到)")).join(";") + "\n【已揭示线索】" + (camp.clues.join(";") || "无") + (camp.summary ? "\n【前情】\n" + camp.summary : "") + "\n【最近剧情】\n" + recent + (personas ? "\n\n" + personas : "");
     return { sys, user };
   }
   const epilogueRec = (p, growth) => ({ paras: p.paras.map(x => String(x || "").trim()).filter(Boolean), closing: String(p.closing || "").trim(), untold: (Array.isArray(p.untold) ? p.untold : []).map(x => String(x || "").trim()).filter(Boolean), myline: String(p.myline || "").trim(), after: afterRec(p.after), growth: growth, revealed: 0 });
@@ -2571,7 +2571,7 @@
       if (!camp || busy) return;
       setBusy(true); setBusyWhat("守密人在写终章…");
       try {
-        const { sys, user } = epilogueAsk(camp, uName, forced, finalAct);
+        const { sys, user } = epilogueAsk(camp, uName, forced, finalAct, personaBlocks(camp));   // 后日谈要照各人的口气说，人设和平时说话的样子跟每一拍同一份
         const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: TOK_MAX, timeout: 300000 });
         const p = parseObj(raw);
         if (!p || !Array.isArray(p.paras) || !p.paras.length) throw new Error("终章没写出来" + rawHint(raw));
