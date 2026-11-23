@@ -19958,8 +19958,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 旧记忆就变成孤儿：召不回来、清群时也删不掉。所以名字和 tag 一起改。
   // by：谁起的这个名字（角色 id；她自己改的不传，记成 "me"）——群里、单聊里提到这个群时说得出是谁起的
   const renameGroup = (groupId, rawName, by) => {
-    const name = String(rawName || "").trim().slice(0, 24);
+    let name = String(rawName || "").trim().slice(0, 24);
     const g = (groups || []).find(x => x.id === groupId);
+    // 频道的名字住在 chName 上，群名只是「空间 · #频道」拼出来的（群友 2026-11-23：让他起了名、点了确认，列表还是旧的，过一会儿聊天页也变回去了）：
+    //   改频道名就改 chName，群名照拼，两边才一起变
+    if (g && g.spaceId && name) { const sp0 = (spacesRef.current || []).find(x => x && x.id === g.spaceId); const ch = name.replace(/^.*·\s*#/, "").replace(/^#+/, "").trim().slice(0, 16);
+      if (ch && ch !== g.chName) updateGroup(groupId, { chName: ch }); name = channelGroupName(sp0, ch || g.chName); }
     if (!g || !name || name === g.name) return;
     const old = g.name;
     // 用过的名字记下来，以后起新名字时摆给TA看，免得每次都差不多
