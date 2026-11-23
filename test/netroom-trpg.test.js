@@ -423,3 +423,9 @@ test("跑团从小游戏架子挪到房间 ＋ 里单独一格", () => {
   assert.ok(src.includes('["trpg", "跑团", "d20"]') && /if \(k === "trpg"\) \{/.test(src));
   assert.ok(src.includes('k !== "debate" && k !== "trpg"'));
 });
+
+test("跑团开局页：默认挑最近那个团、挑中的打勾；发不了时按钮变灰并说清为什么", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom-trpg.js"), "utf8");
+  assert.ok(/x\.campId \? x : Object\.assign\(\{\}, x, \{ campId: l\[0\]\.id \}\)/.test(src));
+  assert.ok(/opacity: !camp \|\| total < 1 \? 0\.4 : 1/.test(src) && /先在上面点一个团/.test(src));
+});
