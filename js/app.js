@@ -24554,7 +24554,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + "\n【状态卡】跟平时聊天一样，每轮都要更新：mood 此刻中文心情词；thought " + (!isBody(char.id) && typeof THOUGHT_VOICE === "string" ? "＝" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE : "你心里那一句（第一人称，你自己的话）") + "；"
           + "place 人在哪一句短的；action 此刻正在做什么（每轮都更新，别照抄上一轮）；wearing 此刻穿着（跟场合时间对得上；没换就照旧）；condition 身体状态（只在确实不同于平常时才填，否则 null）。"
           + (callTfOk ? "\n【通话里也能转账】跟平时聊天是同一个钱包、同一张转账单：你真想在电话里给 " + uName + " 转钱（不是嘴上说说），填 transfer:{\"amount\":数字,\"note\":\"附言\"}，否则 null。" + (callTfPending ? "上面通话里 " + uName + " 刚给你转了一笔还没收：这一轮决定收不收，transferAccept 填 true（收下）或 false（退回）；还没想好就 null。" : "transferAccept 填 null。") : "")
-          + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"],\"action\":\"此刻动作神态一句\",\"mood\":\"心情词\",\"thought\":\"心里那句\",\"place\":\"在哪\",\"wearing\":\"穿着\",\"condition\":null,\"hangup\":null" + (callTfOk ? ",\"transfer\":null,\"transferAccept\":null" : "") + "}。**say 的每一条都必须是你【能原样念出口的话】**——写你在做什么、什么表情、脸红没红、手在干嘛的字，一个都不许出现在 say 里，那些只属于 action。判据：这一条念出来对方在电话里听得见吗？听不见就不是台词。也别加名字前缀。";
+          + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"],\"action\":\"此刻动作神态一句\",\"mood\":\"心情词\",\"thought\":\"心里没说出口的念头\",\"place\":\"在哪\",\"wearing\":\"穿着\",\"condition\":null,\"hangup\":null" + (callTfOk ? ",\"transfer\":null,\"transferAccept\":null" : "") + "}。**say 的每一条都必须是你【能原样念出口的话】**——写你在做什么、什么表情、脸红没红、手在干嘛的字，一个都不许出现在 say 里，那些只属于 action。判据：这一条念出来对方在电话里听得见吗？听不见就不是台词。也别加名字前缀。";
         // v56.26 GPT-Live 流式：语音通话轮开 stream，增量解析 say 数组——每凑齐一条完整台词
         // 就立刻落气泡（CallScreen 的逐气泡 TTS 流水线自然跟上=模型还在写后半句，前半句已经开口）。
         // 视频轮不流式（action 必须先于台词落地）；流式解析失败零损失——结尾按全文重新对账补齐。
@@ -24699,7 +24699,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           + (gcOnMe ? "\n\n" + onMeLine(gcOnMe, uName) : "")
           + gcGrowth
           + wishLine(gcPar ? "" : wishFor(), uName, { group: true, gift: false })
-          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (typeof THOUGHT_EACH_OWN === "string" ? "thought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + THOUGHT_EACH_OWN : "") + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cur.groupId ? groupNoticeBlock(gsFor(cur.groupId).notice) : "") + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
+          + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (typeof THOUGHT_EACH_OWN === "string" ? "thought 的写法：" + THOUGHT_MEANING_CHAR + THOUGHT_VOICE + THOUGHT_EACH_OWN : "") + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cur.groupId ? groupNoticeBlock(gsFor(cur.groupId).notice) : "") + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里没说出口的念头，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里没说出口的念头\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
         const raw = await callAI(groupApiFor(groupId), sys + callBiHint + callVoiceHint + cameraHint, window.CallCamera.withFrame(hist, cameraFrame), { use: "call", logLabel: "群通话", maxTokens: 65000 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
@@ -34584,7 +34584,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           instruction: "她把一样东西留在了你这儿——" + (((place.zones || [])[zi] || {}).name || place.name)
             + "，那件东西是「" + it.name + "」。写一句你看见它时心里的话。\n"
             + "只写那一句：别复述它是什么、别道谢、别解释为什么它在这儿。",
-          schemaHint: "{\"thought\":\"心里那一句，第一人称\"}",
+          schemaHint: "{\"thought\":\"心里没说出口的念头，第一人称\"}",
           maxTokens: 8000
         });
         thought = String((d && d.thought) || "").trim().slice(0, 160);
@@ -39022,7 +39022,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const text=history.before.concat(history.during).map(m=>(m.role==='user'?userName(profileFor(c.id)):c.name)+'：'+m.content).join('\n');
           const ctx={...ctxFor(c,{chat:true,debug:true,queryText:text}),recentChat:text,schedNow:''};
           return runProbe(apiFor(c.id),ctx,{voice:true,voiceThought:true,once:true,maxTokens:65000,tag:'此刻的念头',
-            instruction:T.instruction(frame,history,thoughts,userName(profileFor(c.id))),schemaHint:'{"thought":"此刻未说出口的短念头"}'});
+            instruction:T.instruction(frame,history,thoughts,userName(profileFor(c.id))),schemaHint:'{"thought":"此刻未说出口的念头"}'});
         } finally {if(W)W.active=active;}
       },
       // 今天的小相册：一次调用给每张照片配念头；料与「此刻的念头」同一套 ctxFor，指令里只有照片的时间/安排/地点。
