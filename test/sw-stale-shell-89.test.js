@@ -20,3 +20,8 @@ console.log("sw-keep-prev ok");
 // 有缺口的旧 index 不许拿来开门
 assert.match(serve, /missingAssets\(cache, shellAssets\(await cached\.clone\(\)\.text\(\)\)\)\)\.length\) cached = null/, "旧 index 缺块也拿来开门");
 console.log("sw-no-holey-index ok");
+// 网慢超 4 秒：先回旧版，但那次请求不掐断，后台拿完接着下新版（2026-11-23 公共版有人一直刷不出新版）
+assert.doesNotMatch(serve, /abort\(\)/, "超时又把拿 index 的请求掐了");
+assert.match(serve, /event\.waitUntil\(netP\.then\(/, "超时后没在后台接着拿 index");
+assert.match(serve, /installShell\(html, new Headers\(late\.headers\)/, "迟到的 index 没接着下新版");
+console.log("sw-slow-net ok");
