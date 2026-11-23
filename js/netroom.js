@@ -2382,7 +2382,8 @@
     // 每隔几秒看一眼自己这台在放什么，变了才广播（暂停、没在放＝空）
     useEffect(() => {
       if (!props.nowSong) return;
-      const tick = () => { const s0 = props.nowSong(), x = s0 && s0.playing ? songX(s0) : null;
+      // 每次都从 propsRef 现拿：这个 effect 只挂一次，直接用 props.nowSong 会一直拿着第一次那份（播放器状态是那一刻的，后来切歌、播放都看不见——她 11-22：横幅连自己的歌都不显示）
+      const tick = () => { const f = (propsRef.current || props).nowSong, s0 = f ? f() : null, x = s0 && s0.playing ? songX(s0) : null;
         const v = x ? { title: x.title, artist: x.artist } : null;
         // 没变也每 30 秒再报一次：刚进房（还在「带谁进来」那页）时报出去的那一声，房里的人可能还没在听（她 11-22：不是房主的人在听什么，房主那边横幅上看不到）
         const same = JSON.stringify(v) === JSON.stringify(myNp.current);
