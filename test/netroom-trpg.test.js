@@ -272,7 +272,7 @@ test("客串这一晚做了什么写进战绩卡那段话（进房间记录）�
   const rec = w2.G.cleanRecord({ key: "trpg", zh: "跑团", text: res.text, replay: res.replay, seats: [] });
   assert.match(w2.G.recordLine(rec), /客串:乙/);
   assert.strictEqual(rec.replay.guests[0].name, "乙");
-  assert.match(tsrc, /T\.epilogueAsk\(/); assert.match(tsrc, /T\.summaryJob/); assert.match(trpg, /const \{ sys, user \} = epilogueAsk\(camp, uName, forced, finalAct\);/);
+  assert.match(tsrc, /T\.epilogueAsk\(/); assert.match(tsrc, /T\.summaryJob/); assert.match(trpg, /const \{ sys, user \} = epilogueAsk\(camp, uName, forced, finalAct(?:, personaBlocks\(camp\))?\);/);
 });
 
 // ── 第三版：检定仪式、落幕成长、翻章结算卡 ──

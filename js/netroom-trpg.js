@@ -450,8 +450,9 @@
   async function finale(st, inv, ctx, mv) {
     const T = TS(); if (!T || !T.epilogueAsk) return { err: "跑团没装上" };
     if (!ctx.hostApi) return { err: "房主这台没配线下线路,写不了终章" };
-    const c = Object.assign({ dossier: { truth: "", twist: "" } }, st.camp, { party: st.members.map(m => Object.assign({}, m)) });
-    const { sys, user } = T.epilogueAsk(c, playersOf(st).join("、") || "各位玩家", !c.pendingEnd && (c.stageIdx || 0) < (c.stages || []).length, cut(mv.finalAct, 400));
+    // 真人玩家那几座当成「玩家」（key:"user"）：终章和后日谈只替角色开口，不替坐在桌边的人说话
+    const c = Object.assign({ dossier: { truth: "", twist: "" } }, st.camp, { party: st.members.map((m, i) => Object.assign({}, m, st.seatKinds[i] !== "char" ? { key: "user" } : {})) });
+    const { sys, user } = T.epilogueAsk(c, playersOf(st).join("、") || "各位玩家", !c.pendingEnd && (c.stageIdx || 0) < (c.stages || []).length, cut(mv.finalAct, 400), personasOf(st, ctx.prep));
     let p = null;
     try { p = T.parseObj(await root.callAI(ctx.hostApi, sys, [{ role: "user", content: user }], { maxTokens: T.TOK_MAX, timeout: 300000 })); } catch (e) { p = null; }
     if (!p || !Array.isArray(p.paras) || !p.paras.length) return { st: Object.assign({}, st, { busy: false, err: "终章没写出来,再点一次" }) };
