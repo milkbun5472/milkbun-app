@@ -624,7 +624,7 @@
     }
   };
   C.ADAPTERS.trpg = A;
-  A.shelf = { key: "trpg", zh: "跑团", en: "TRPG", min: 1, max: 5, rule: "房主开团当庄 · 最多 5 人上桌" };
+  A.shelf = { key: "trpg", zh: "跑团", en: "TRPG", min: 1, max: 5, rule: "开团的人当庄 · 最多 5 人上桌" };
   A._test = { seatParty, pendingOf, turnOf, takeAct, publicLog };
 
   // ───────────── 界面 ─────────────
