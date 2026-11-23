@@ -39739,6 +39739,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         try { let hit = await neteaseSearchOne((x.title + " " + (x.artist || "")).trim(), { throwOnError: true }); if (!hit) hit = await neteaseSearchOne(x.title);
           if (hit) playSong(resultToSong(neteaseTrackInfo(hit))); else toast("没搜到《" + x.title + "》"); } catch (e) { toast("搜歌失败：" + String((e && e.message) || "").slice(0, 40)); } },
       canSearchSong: !!musicReady,
+      // 整张歌单按顺序放（她 2026-11-23「就算没有在曲库里也可以按顺序播放」）：跟屏幕上一样从上往下；
+      //   歌库里有的直接用，没有的挨个搜来，搜到的一起当这一批连播（云村「播放全部」同一个 nowBatch），搜不到的跳过
+      onPlayAll: async list => { const L = listenRef.current || {}; const lib = (L.songs || []).concat((L.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), []));
+        const rows = (list || []).slice(0, 30); if (!rows.length) return;
+        toast("在找歌…"); const out = [];
+        for (const x of rows) { const hit = chpSongMatch(lib, x); if (hit) { out.push(hit); continue; } if (!musicReady) continue;
+          try { let r = await neteaseSearchOne((x.title + " " + (x.artist || "")).trim()); if (!r) r = await neteaseSearchOne(x.title); if (r) out.push({ ...resultToSong(neteaseTrackInfo(r)), id: "sgn_" + (r.id || Math.random().toString(36).slice(2)) }); } catch (e) {} }
+        if (!out.length) { toast(musicReady ? "一首都没搜到" : "歌库里都没有，先去 设置 → 音乐 接上搜歌"); return; }
+        saveListen(p => ({ ...p, nowBatch: out.filter(x => !lib.some(y => y.id === x.id)), playMode: "order" }));
+        playSong(out[0], out.map(x => x.id));
+        if (out.length < rows.length) toast("有 " + (rows.length - out.length) + " 首没找到，跳过了"); },
       onAskSongs: groupSpectating(_g) ? null : () => { window.__chAskSongs = _g.id; setChannelTab("chat"); replyGroup(_g.id); },
       onAskPetName: groupSpectating(_g) ? null : () => { window.__chAskPet = _g.id; setChannelTab("chat"); replyGroup(_g.id); },
       // 小家伙（她 2026-11-20「状态栏、生图、送走、大家决定养啥」）：精神照虚拟钟点；拍照只有她按，角色不会自己拍

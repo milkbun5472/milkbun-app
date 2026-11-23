@@ -335,3 +335,9 @@ test("便利贴上不重复署名", () => {
   assert.equal(c.F("到此一游", "周树生"), "到此一游");
   assert.equal(c.F("周树生到此一游", "周树生"), "到此一游");
 });
+
+test("歌单整张按顺序放：歌库里没有的搜来一起连播", () => {
+  assert.match(ap, /onPlayAll: async list => \{/);
+  assert.match(ap, /nowBatch: out\.filter/);
+  assert.match(cs, /"data-wk": "chsongplayall"/);
+});
