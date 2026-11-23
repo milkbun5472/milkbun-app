@@ -1574,7 +1574,8 @@ function App() {
         //   跟同一段作为【给你的设定】摆在 system 里，输入过滤器读起来完全是两件事。
         //   而这个 app 自己的一次性生成调用（周刊/朋友圈那几处）本来就是这么写的：
         //   料全在 system，user 只有一句「开始。」——只有这两枪没跟上。
-        const out = await callAI(p, levels[i].sys + "\n\n" + levels[i].text, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
+        // 声纹（她 2026-11-23「ta眼里我刚重写还是没有带角色声纹」）：单聊管「照这个人说话」的是 CHARCARD_RULE，这两枪从没接过
+        const out = await callAI(p, (typeof CHARCARD_RULE === "string" ? CHARCARD_RULE + "\n\n" : "") + levels[i].sys + "\n\n" + levels[i].text, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
         if (i && onFallback) onFallback(levels[i].zh);   // 不是第一级成的：得让她知道这份是凭什么写的
         return out;
       } catch (e) {
