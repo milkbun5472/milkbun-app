@@ -648,3 +648,12 @@ test("半窗里叫角色开口：带当前局面＋牌桌上最近十几句，�
   assert.ok(/kind === "talk"\)\.slice\(-16\)/.test(g) && /（你自己）/.test(g));
   assert.ok(/game: gameStateFor\(char\.id\)/.test(nsrc) && /game: gameStateFor\(null\)/.test(nsrc), "单人开口和一起说都带");
 });
+
+test("牌桌上真人能说一句，桌上的角色会接（玩的人、观战的人都能说）", () => {
+  const g = read("js/netroom-games.js");
+  assert.ok(/say: \(gid, text\) => \{/.test(g) && /human: true/.test(g), "Session 有 say，台词带 human");
+  assert.ok(/if \(c\.kind === "talk" && c\.human\) replyHuman\(gid, c\)/.test(g), "收到真人那句就叫接话");
+  assert.ok(/function replyHuman\(gid, line\)/.test(g) && /optsOf\(gid, x\.charId\)\.talk !== false/.test(g), "只挑没关牌桌说话的、我这台带来的");
+  assert.ok(/human: !!x\.human/.test(g), "cleanTalk 留着 human");
+  assert.ok(/"data-wk": "gamesay"/.test(nsrc) && /sayAtTable\(gid\)/.test(nsrc), "牌桌上有那一格");
+});

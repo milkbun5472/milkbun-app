@@ -1667,7 +1667,9 @@
     // 正在听：别人报来的（peerId → { who, title, artist }）和我这台此刻在放的。像在线状态，不进聊天记录、不存档
     const npRef = useRef({}), myNp = useRef(null);
     const [np, setNp] = useState({});
-    const npSent = useRef(0);   // 上一次报「正在听」的时刻
+    const npSent = useRef(0);
+    const tableSayRef = useRef(null);   // 牌桌上「说一句」那一格
+    const sayAtTable = gid => { const el = tableSayRef.current, v = el ? String(el.value || "").trim() : ""; if (!v || !games.current || !games.current.say) return; games.current.say(gid, v); el.value = ""; };   // 上一次报「正在听」的时刻
     // 房间里的墙、歌单、文档（存在 room.board；锁只在线上，不进存档）
     const [boardTab, setBoardTab] = useState("");    // 顶上那一条开着哪一格：""＝收起 / wall / songs / docs
     const [docId, setDocId] = useState(null);         // 正打开的那份文档
@@ -2288,6 +2290,14 @@
           sv.pause && !done && h(PauseBar, { pause: sv.pause, isHost, onGo: () => gs.resume(gid), hostName: (inv.seats.find(x => x.kind === "user" && x.peer === inv.host) || {}).name || "" }),
           h(A.Table, { inv: sv.pause && !done && GC().heldInv ? GC().heldInv(inv) : inv, view: sv.view, priv: sv.priv || null, myApi: props.gameApi ? props.gameApi() : null, me: meId.current, isHost, onMove: (seat, mv) => sv.pause ? (props.toast && props.toast("这一轮停着，等开局的人点「接着来」")) : gs.move(gid, seat, mv), onReveal: () => gs.reveal(gid), side: sv.side || [], onSide: x => gs.side(gid, x), nick: myNick() }),
           root.NetGameUI && h(root.NetGameUI.TalkStrip, { lines: (sv.side || []).filter(x => x.kind === "talk"), charOf: l => { const st = l && l.seat >= 0 ? inv.seats[l.seat] : null; return st && st.kind === "char" ? charsById[st.charId] || null : null; } }),
+          // 牌桌上「说一句」（单机牌桌 CardSay 那一格的样子和挂点）：玩的人、观战的人都能说，桌上的角色会接
+          !done && h("div", { "data-wk": "gamesay", style: { display: "flex", gap: 6, padding: "8px 16px 0" } },
+            // 不受控：打字不重画整间房（typing-hot-path）
+            h("input", { "data-wk": "gameinput", "data-part": "talk", ref: tableSayRef, defaultValue: "", maxLength: 160,
+              onKeyDown: e => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); sayAtTable(gid); } }, placeholder: "在牌桌上说一句，桌上的人会接",
+              style: { flex: 1, minWidth: 0, boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: fs(13), outline: "none" } }),
+            h("button", { "data-wk": "gamesaybtn", onClick: () => sayAtTable(gid),
+              style: { flexShrink: 0, border: "1px solid " + t.ink, borderRadius: 999, padding: "0 15px", minHeight: 40, color: t.bg, background: t.ink, fontFamily: F_BODY, fontSize: fs(13) } }, "说")),
           done && h("div", { className: "flex", style: { gap: 8, padding: "0 16px 12px" } },
             isHost && h(Btn, { label: "再来一局", primary: true, wk: "nrgameagain", onClick: () => { gs.again(gid); shut(); } }),
             h(Btn, { label: "收起牌桌", wk: "nrgameback", onClick: () => setGameWin(w => w ? Object.assign({}, w, { min: true }) : w) })));
