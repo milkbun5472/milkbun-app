@@ -9260,7 +9260,9 @@ function pullPauseVoice(words) {
 // yueVoice：这把嗓子是不是给说粤语的人用的（档案里常用语言写着粤语）。
 //   ⚠️只写着繁体、没有粤语字的那句，只有这种人才按粤语念——群里 2026-10-18：「普通话 char 给我说的粤语」，
 //   人设写繁体的普通话角色（台湾腔、古风）被一刀切成了粤语。
-function ttsLangBoost(text, yueVoice) {
+// yueOnly：档案里常用语言只写了粤语（没另写普通话/国语）——这个人说的中文句句是粤语，
+//   简体写、又没有粤语专用字的那句也按粤语念（群里 2026-11-24「老师粤语语音有时候会说普通话」）
+function ttsLangBoost(text, yueVoice, yueOnly) {
   const s = String(text || "");
   if (/[぀-ヿ]/.test(s)) return "Japanese";
   if (/[가-힣]/.test(s)) return "Korean";
@@ -9271,7 +9273,8 @@ function ttsLangBoost(text, yueVoice) {
   //   普通话角色一句「唔……被姐姐握着」整条念成了粤语）
   if (/[嘅咗啲喺嗰冇佢嚟乜嘢噉哋㗎啱揾搵睇畀攰瞓諗谂嚿嗮嘥]/.test(s)
     || (yueVoice && /[唔咁囉嘞咩冚啩喎噃]/.test(s))
-    || (yueVoice && typeof toSimplified === "function" && toSimplified(s) !== s)) return "Chinese,Yue";
+    || (yueVoice && typeof toSimplified === "function" && toSimplified(s) !== s)
+    || (yueOnly && /[一-鿿]/.test(s))) return "Chinese,Yue";
   return "Chinese";
 }
 // 取后台便宜池给「日语汉字转假名」这类合成期机械小活用。
@@ -10099,9 +10102,10 @@ function ttsKeyFor(text, voiceId, opts) {
   }
   const pit = 0;
   // 这把嗓子挂在哪个说粤语的人身上（档案常用语言写着粤语），才让「只有繁体」的句子按粤语念
-  let yueVoice = false;
-  try { yueVoice = (loadJSON("x_characters", []) || []).some(c => c && String(c.voiceId || "").trim() === vid && /粤|粵|广东话|廣東話|cantonese/i.test(String(c.lang || ""))); } catch (e) {}
-  const boost = ttsLangBoost(txt, yueVoice);   // 按句子语言选发音矫正（日语句走 Japanese，别被中文带偏口音）
+  let yueVoice = false, yueOnly = false;
+  try { const _yc = (loadJSON("x_characters", []) || []).filter(c => c && String(c.voiceId || "").trim() === vid && /粤|粵|广东话|廣東話|cantonese/i.test(String(c.lang || "")));
+    yueVoice = _yc.length > 0; yueOnly = yueVoice && _yc.every(c => !/普通话|普通話|国语|國語|mandarin|中文/i.test(String(c.lang || ""))); } catch (e) {}
+  const boost = ttsLangBoost(txt, yueVoice, yueOnly);   // 按句子语言选发音矫正（日语句走 Japanese，别被中文带偏口音）
   // 日语汉字注音（v47.93）：音色开了 jpKana + 是日语句 + 含汉字 → 先转假名再合成，治「寝→中文qin」
   const wantKana = !!ve.jpKana && boost === "Japanese" && /[一-鿿]/.test(txt);
   // 缓存键带情绪(null=raw) + 语速档 + 语言矫正 + 注音标记 + hq44 音质版本：不同参数别互相命中，

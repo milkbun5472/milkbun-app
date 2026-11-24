@@ -18,7 +18,7 @@ test("粤语字走 Chinese,Yue；只有繁体的，嗓子是粤语角色的才�
   assert.equal(boost("hello there"), "English");
 });
 test("ttsKeyFor 按这把嗓子挂在谁身上判粤语", () => {
-  assert.match(engine, /const boost = ttsLangBoost\(txt, yueVoice\);/);
+  assert.match(engine, /const boost = ttsLangBoost\(txt, yueVoice, yueOnly\);/);
   assert.match(engine, /String\(c\.voiceId \|\| ""\)\.trim\(\) === vid && \/粤\|粵/);
 });
 
@@ -26,4 +26,11 @@ test("普通话也常用的唔／咁／咩，只在粤语角色身上算粤语�
   assert.equal(boost("唔……被姐姐握着能不大嘛"), "Chinese");
   assert.equal(boost("唔……被姐姐握着能不大嘛", true), "Chinese,Yue");
   assert.equal(boost("你喺边度"), "Chinese,Yue");
+});
+
+test("常用语言只写粤语的人：简体、没有粤语专用字的句子也按粤语念（群里 2026-11-24）", () => {
+  assert.equal(boost("好啊，我等你", true), "Chinese");
+  assert.equal(boost("好啊，我等你", true, true), "Chinese,Yue");
+  assert.equal(boost("hello there", true, true), "English");
+  assert.match(engine, /yueOnly = yueVoice && _yc\.every\(c => !\/普通话/);
 });
