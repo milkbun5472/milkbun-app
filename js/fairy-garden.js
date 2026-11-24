@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS, SHOP_WORLD } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-ad900744140b5c2c", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-1b632cf8aa8b2311", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -76,8 +76,16 @@
         else {if(type==='move')setPanel({type:'staff',post:args.to});else if(type==='assign'&&!args.charId&&panel?.post)setPanel(null);await node?.contentWindow.PostOfficeGame?.refresh();}
       }catch(e){setError(e.message);}finally{setBusy(false);}
     };
+    // 退出邮局（她 2026-11-24「从小世界邮局退出会卡死回到开屏」）：原来直接卸掉 iframe、下一屏的 3D 同一刻就开建，
+    //   邮局那份显存还没放，手机上两份叠在一起顶爆，整页崩掉重开。先让邮局自己拆干净（丢掉 WebGL 上下文）、iframe 换空页，
+    //   等两帧再走
+    const leaving=useRef(false);
+    const leave=go=>{if(leaving.current)return;leaving.current=true;const node=frame.current;
+      try{node?.contentWindow?.PostOfficeGame?.dispose?.();}catch{}
+      try{if(node)node.src="about:blank";}catch{}
+      setTimeout(()=>{try{go();}finally{leaving.current=false;}},250);};
     return h("section",{"data-wk":"fairypage","data-part":"shop",className:"h-full flex flex-col",style:{background:G.paper,color:G.ink,position:"relative"}},
-      h(Head,{zh:SHOP_WORLD.name,bg:"transparent",onBack:props.onBack,right:h("button",{onClick:()=>setPlaces(true),style:{minHeight:40,padding:"0 8px",fontSize:12}},"去别处")}),
+      h(Head,{zh:SHOP_WORLD.name,bg:"transparent",onBack:()=>leave(()=>props.onBack()),right:h("button",{onClick:()=>setPlaces(true),style:{minHeight:40,padding:"0 8px",fontSize:12}},"去别处")}),
       h("div",{className:"flex-1 min-h-0",style:{position:"relative"}},h("iframe",{ref:binder.current,title:SHOP_WORLD.name+"游戏",src:"apps/post-office/index.html?v="+BUILD,style:{width:"100%",height:"100%",border:0,display:"block"}}),
         (!loaded||error&&!panel)&&h("div",{role:error?"alert":"status",style:{position:"absolute",inset:"40% 20px auto",textAlign:"center",fontSize:12}},error||"正在打开邮局…",error&&h('button',{onClick:()=>frame.current?.contentWindow.PostOfficeGame?.refresh(),style:{...pickButtonStyle(),minHeight:40,display:'block',margin:'10px auto'}},'重试读取'))),
       h("div",{className:"shrink-0",style:{padding:"5px 12px",paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:"1px solid "+G.line,display:"flex",alignItems:"center",gap:8}},
@@ -86,7 +94,7 @@
         h("button",{disabled:!uiReady,onClick:()=>{setError("");setPanel({type:'menu'});},style:{...pickButtonStyle(),minHeight:40,padding:"5px 10px",fontSize:12}},"经营"),
         h("button",{onClick:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),style:{minHeight:40,padding:"5px",fontSize:12}},"去柜台")),
       panel&&uiReady&&h(root.StampShopPanel,{key:JSON.stringify(panel),target:panel,shop,characters:props.characters||[],cards:cards(),busy,error,onAction:act,onClose:()=>{if(root.StampShop.failed()){setError("请先重试刚才未保存的操作。");return;}setPanel(null);setError("");},onText:()=>latest.current.onOpenStamps?.({tab:"duel",mode:"shop",back:"fairy-shop"}),onReplay:id=>replayMeet(id),onReplayClosing:id=>{setPanel(null);const game=frame.current?.contentWindow.PostOfficeGame;game?.pause(false);game?.startClosing(id).catch(e=>setError(e.message));},soundEnabled,onToggleSound:()=>{const next=!soundEnabled;setSoundEnabled(next);audio.current?.enable(next);}}),
-      places&&h("section",{className:"absolute inset-0 flex flex-col",style:{background:G.paper,zIndex:40}},h(Head,{zh:"去别处",bg:"transparent",onBack:()=>setPlaces(false)}),h(RailwayChoices,{from:"shop",onChoose:to=>{setPlaces(false);props.onTravel(to);}})));
+      places&&h("section",{className:"absolute inset-0 flex flex-col",style:{background:G.paper,zIndex:40}},h(Head,{zh:"去别处",bg:"transparent",onBack:()=>setPlaces(false)}),h(RailwayChoices,{from:"shop",onChoose:to=>{setPlaces(false);leave(()=>props.onTravel(to));}})));
   }
   function WorldSession(props) {
     const [place,setPlace]=useState(()=>{try{return props.entryWorld||read(props.storeKey||KEY).activeWorld||"garden";}catch{return "garden";}});
