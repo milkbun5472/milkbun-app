@@ -16003,7 +16003,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } catch (e) {
       if (_abort.signal.aborted) return null;       // 她自己点叉断掉的：不留「发送失败」
       pChat(chatKey, p => [...p, window.ChatContextFilter.failureNotice(
-        "（发送失败：" + e.message + "）", { turnId: "e_" + Date.now() })]);
+        "（发送失败：" + (typeof aiErrHuman === "function" ? aiErrHuman(e.message) : e.message) + "）", { turnId: "e_" + Date.now() })]);
       return null;                                  // 报错是报错，不许当成「空轮」再烧一次钱
     } finally {
       laneAbortEnd("c:" + chatKey, _abort);

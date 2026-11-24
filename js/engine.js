@@ -899,6 +899,13 @@ function callerLabelOf(stack) {
 }
 // 中转站回了个空身子／一页网页（多半是它那头超时或网关报错），r.json() 只会甩一句
 //   「Unexpected end of JSON input」，谁也看不懂。三条主线路都走这一处，换成人话。
+// 中转站自己没读懂上游回来的东西、把那页网页原样塞进报错里（她 2026-11-24 截图：「Syntax error at index 1: invalid char … <html>」）：
+//   那一串谁也看不懂，换成人话；原文开头留一小截，排查时还认得出
+function aiErrHuman(msg) {
+  const m = String(msg || "");
+  if (!/<html|<!doctype|<meta\b|<head\b|<body\b/i.test(m)) return m;
+  return "中转站那头出错了：它从模型那边收到的是一页网页，不是回答（多半是上游网关报错、超时或被拦了）。过会儿再发；老这样就换条线路。〔原文开头：" + m.replace(/<[^>]*>?/g, " ").replace(/\\[ntr]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40) + "〕";
+}
 async function readAIJSON(r) {
   const raw = await r.text();
   if (!raw.trim()) throw new Error("线路回了个空回复（HTTP " + r.status + "）：多半是中转站那头等太久掐断了。再发一次；老这样就换条线路或换个模型");
