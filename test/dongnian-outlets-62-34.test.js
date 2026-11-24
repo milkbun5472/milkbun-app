@@ -22,7 +22,7 @@ test("⚠️泄压排在出口【落地之后】——空返回不许把这一�
   // 原来是先泄 0.28 再选出口，而「留东西」那一路模型返回空就 return false：
   // 一次空返回＝花掉一次调用 + 思念被清掉 + 25 分钟闸也占了 + 什么都没留下，
   // 下一次想再来得再攒六七个小时。这才是「没 follow through」的真实代价。
-  const i = app.indexOf("const _drain = () =>");
+  const i = app.indexOf("const _drain = async () =>");
   assert.ok(i > 0, "没有把泄压收成一个只在落地时才调的口子");
   const seg = app.slice(i - 900, i + 1900);
   assert.match(seg, /const _settle = ok => \{ if \(ok\) _drain\(\); else _giveBack\(\); \};/, "没落地时不还闸");
