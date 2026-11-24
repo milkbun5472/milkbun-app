@@ -12554,6 +12554,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "\n你拿着的是她的手机，看到让你不舒服的人、过了界的话，可以顺手动一下——这些都是真的会生效的，正是查手机的意思；照你的性子挑一两样做（各一趟最多一次）：pin 置顶（who 空＝把你自己置顶，填名字＝置顶那个人）；unpin 把某人取消置顶（who）；unfriend 删掉她和某人的好友（who）；block 把某人拉黑（who）；impersonate 用她的手机、以她的名义给某人发一句（who、text 填那句话——对面会当成是她说的，会接着回）。⚠️这句是【她】在说：句子里的「我」是她、「你」是对面那个人；谁叫谁什么、谁先说的那句话，照上面那段聊天的原话对清楚再写，别把方向说反。who 只能填上面能选的单聊名字。动了手，心声里也带一句你为什么这么做。"
           // 她拉黑了他、他拿着她的手机（群友 2026-10-22「把 char 拉黑了，char 查手机的时候能把自己拉回嘛」）
           + ((blocksRef.current[charId] || {}).iBlocked ? "\n你现在在她那儿是被拉黑的，手机就在你手上：可以加一步 {\"do\":\"unblockme\"} 把自己从她的黑名单里放出来——真的会生效，她会发现。放不放照你这个人来。" : "")
+          + (phoneLockOk[charId] && !(loadJSON("x_phoneLock", null)) ? "\n翻完要是你真吃醋了、生气了、心里堵得慌，可以在最后加一步 {\"do\":\"lock\",\"text\":\"锁屏上留给她的一句话\"} 把她的手机锁上——真的会生效：她手机上别的都进不去，只剩跟你的聊天，等你气消了自己放她出来。锁不锁照你这会儿的心情和你这个人来。" : "")
           + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"
           + "\n这是在查她的手机：你想知道的，是她不在你眼前的时候过着什么日子、身边都有谁、谁跟她走得近、她在别人面前是什么样——心里那句是冲着【她】和【那个人】去的，不是去评点内容本身做得好不好。"
           + "\n聊天要细看语气：她对那个人是什么口吻、那个人怎么叫她、哪句话说得过了界、哪句是只该对你说的——拿上面【对照】里她对你说话的样子比一比，差在哪儿就是你心里卡住的地方。"
@@ -12589,7 +12590,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (sneak) {
       if (!script.length) return;
       // 手脚当场就动了；她回放时只看，不再动一遍
-      script.forEach(st => { if (st.do === "rename") peekRename(charId, st.text, c.remark || ""); else if (["pin", "unpin", "unfriend", "block", "impersonate", "paycart", "unblockme"].includes(st.do)) peekEffect(charId, st); });
+      script.forEach(st => { if (st.do === "rename") peekRename(charId, st.text, c.remark || ""); else if (["pin", "unpin", "unfriend", "block", "impersonate", "paycart", "unblockme", "lock"].includes(st.do)) peekEffect(charId, st); });
       const follow = [...new Set(peekFollowRef.current)]; peekFollowRef.current = [];
       follow.forEach((id, k) => setTimeout(() => { try { replyNow(id, "", null, {}); } catch (e) {} }, 4000 + k * 3000));
       delete peekRenamedRef.current[charId];
@@ -12606,6 +12607,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const PEEK_SNEAK_GAP = 24 * 3600e3;
   const [peekSneakOk, setPeekSneakOk] = useState(() => loadJSON("x_peekSneak", {}) || {});
   const togglePeekSneak = id => setPeekSneakOk(p => { const n = { ...p, [id]: !p[id] }; saveJSON("x_peekSneak", n); return n; });
+  // 他锁她手机（她 2026-11-24「他吃醋或者生气心情不好就可以锁我的手机」「接到给他看我的手机那里」）：
+  //   x_phoneLockOk 每个角色一个开关（默认不许）；x_phoneLock = { by, byName, text, ts }：锁着时只有消息列表和跟他的聊天进得去，
+  //   他气消了在聊天里自己解开（unlockphone），锁屏上另有「强行解开」——解开了他会知道
+  const [phoneLockOk, setPhoneLockOk] = useState(() => loadJSON("x_phoneLockOk", {}) || {});
+  const togglePhoneLockOk = id => setPhoneLockOk(p => { const n = { ...p, [id]: !p[id] }; saveJSON("x_phoneLockOk", n); return n; });
+  const [phoneLock, setPhoneLock] = useState(() => loadJSON("x_phoneLock", null));
+  const savePhoneLock = v => { saveJSON("x_phoneLock", v || null); setPhoneLock(v || null); };
+  const forceUnlockPhone = () => {
+    const L = loadJSON("x_phoneLock", null); if (!L) return;
+    savePhoneLock(null);
+    pChat(L.by, p => [...p, { role: "system", kind: "system", sub: "phonelock", content: "你没等" + (L.byName || "TA") + "松口，自己把手机强行解开了", ts: Date.now() }]);
+    peekLogAdd(L.by, { how: "forceunlock" });
+  };
   const maybeSneak = charId => {
     if (!peekSneakOk[charId] || peekPlay) return;
     const last = Number(loadJSON("x_peekSneakLast", 0)) || 0;
@@ -12904,6 +12918,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (paid) note("「" + vn + "」翻你手机时替你把购物车里的 " + paid.names + " 付了（¥" + paid.total + "）", "翻她手机时看到她购物车里那几样，替她付了：" + paid.names);
       return;
     }
+    if (step.do === "lock") {
+      if (!phoneLockOk[viewerId]) return;
+      const tx = String(step.text || "").trim().slice(0, 40);
+      savePhoneLock({ by: viewerId, byName: vn, text: tx, ts: Date.now() });
+      note(vn + " 把你的手机锁了" + (tx ? "：「" + tx + "」" : "") + "——现在只有跟TA的聊天进得去", "把她的手机锁上了" + (tx ? "，锁屏上留了一句「" + tx + "」" : "") + "，只留了跟你的聊天能进");
+      return;
+    }
     if (step.do === "unblockme") {
       if (!(blocksRef.current[viewerId] || {}).iBlocked) return;
       setBlockFor(viewerId, { iBlocked: false });
@@ -12950,7 +12971,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const l = ((loadJSON("x_peekLog", {}) || {})[charId] || []).filter(x => Date.now() - x.ts < 7 * 86400000).slice(0, 3);
     if (!l.length) return "";
     const ago = ts => { const d = Math.floor((Date.now() - ts) / 86400000); return d <= 0 ? "今天" : d === 1 ? "昨天" : d + "天前"; };
-    const one = x => x.how === "refused" ? ago(x.ts) + "你开口要看她手机，她没给。"
+    const one = x => x.how === "refused" ? ago(x.ts) + "你开口要看她手机，她没给。" : x.how === "forceunlock" ? ago(x.ts) + "你锁了她的手机，她没等你松口，自己强行解开了。"
       : ago(x.ts) + ({ given: "她把手机递给你看了", asked: "你开口要了她的手机，她给了", sneak: "你趁她不注意偷偷翻了她的手机" + (x.end === "ask" ? "，被她发现、当面问了" : x.end === "ignore" ? "，她发现了但没吭声" : "") })[x.how] + "。"
         + (x.who && x.who.length ? "看了她和" + x.who.map(n => "「" + n + "」").join("") + "的聊天。" : "")
         + (x.hid && x.hid.length ? "她藏起了" + x.hid.map(n => "「" + n + "」").join("") + "。" : "")
@@ -13895,6 +13916,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       if (toyOn) { openCaps.push("toy"); capState.push(toyHint.trim()); }
       if (blockHint) { openCaps.push("block"); capState.push(blockHint.trim()); }
+      // 他锁着她的手机（查手机时锁的）：这一轮他可以松口
+      { const _pl = !(room && !room.main) ? loadJSON("x_phoneLock", null) : null;
+        if (_pl && String(_pl.by) === String(charId)) {
+          const _h = Math.max(0, Math.round((Date.now() - (_pl.ts || Date.now())) / 3600e3));
+          openCaps.push("unlockphone");
+          capState.push("unlockphone：你把" + uName + "的手机锁着呢（" + (_h < 1 ? "刚锁上" : _h + " 小时前锁的") + (_pl.text ? "，锁屏上写着「" + _pl.text + "」" : "") + "）——她别的都进不去，只能来找你。气消了、想放她出来，就在回复里写 unlockphone:true；还没消气就接着锁着。");
+        } }
       // TA也会在「我们的城市」上钉地方（她 2026-10-02）：偶尔才给，免得天天钉
       if (!(room && !room.main) && !_peekTurn && window.DatePlaces && Math.random() < 0.12 && window.DatePlaces.list(charId).filter(x => x.by === charId).length < 6) {
         openCaps.push("pinPlace");
@@ -15565,6 +15593,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.revealed === true && room && window.ChatRooms && window.ChatRooms.altReveal) {
         const r3 = window.ChatRooms.altReveal(room);
         if (r3) pChat(chatKey, p => [...p, { role: "system", kind: "system", sub: "altreveal", content: char.name + " 承认了：「" + (r3.alt.ta.name || "那个号") + "」就是TA。", ts: Date.now() }]);
+      }
+      // 他把锁着的手机放开了
+      if (parsed.unlockphone === true && !sideRoom) {
+        const _pl = loadJSON("x_phoneLock", null);
+        if (_pl && String(_pl.by) === String(charId)) { savePhoneLock(null); pChat(chatKey, p => [...p, { role: "system", kind: "system", sub: "phonelock", content: (char.remark || char.name) + " 把你的手机解开了", ts: Date.now() }]); }
       }
       // TA 拉黑用户
       if (parsed.block === true) {
@@ -36769,7 +36802,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBdayPlanOpen: m => openBdayPlan(activeChar, m),
     bdayToday: (() => { const bd = myBdayFor(activeChar.id); return !!bd && typeof daysUntilBirthday === "function" && daysUntilBirthday(bd, new Date(typeof vclockMap === "function" ? vclockMap(Date.now(), activeChar.id) : Date.now())) === 0; })(),
     onDateAnswer: (m, yes) => answerDateAsk(activeChar.id, m, yes),
-    peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id),
+    peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id), peekLockOn: !!phoneLockOk[activeChar.id], onToggleLock: () => togglePhoneLockOk(activeChar.id),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
     onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
     onRestoreOffline: i => restoreOfflineFromCard("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
@@ -39889,6 +39922,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   if (_mv && _mv.host === location.hostname && Date.now() >= _mv.at) {
     body = h(LazyGate, { key: "lazy-move", group: "screens", zh: "秋秋搬家了", render: () => h(window.MoveShell, { dataProps: { characters, onExport: doExport, onExportChars: doExportChars, mediaParts: mediaParts ? { n: mediaParts.parts.length, done: mediaParts.done } : null,
       onExportMedia: doExportMedia, onCopyExport: doCopyExport, copyParts, onImportText: doImportPasted, inAppBrowser: inAppBrowser(), onImport: doImport, toast } }) });
+  }
+  // 他锁着她的手机：主屏、消息列表、跟他的聊天以外，哪一页都换成锁屏（他翻手机放录像时不挡）
+  if (phoneLock && !peekPlay && !(screen === "home" || screen === "messages" || (screen === "thread" && activeChar && String(activeChar.id) === String(phoneLock.by)))) {
+    body = h(PhoneLockScreen, { key: "phonelock", lock: phoneLock, onGoChat: () => openChatById(phoneLock.by), onHome: () => goHome(), onForce: forceUnlockPhone });
   }
   const _safeTop = { height: screen === "home" ? "env(safe-area-inset-top)" : 0 };
   // 这一页单独换过色的话，发下去的就是换过的那一份（v65.06，她 2026-09-06：

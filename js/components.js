@@ -1486,6 +1486,23 @@ function Empty({
     }
   }, sub));
 }
+// 他锁了她的手机（她 2026-11-24）：锁着时点进别的页都落到这一页。只留两条路——去找他、回主屏；最底下一行小字能强行解开，他会知道
+function PhoneLockScreen({ lock, onGoChat, onHome, onForce }) {
+  const t = useTheme();
+  const [sure, setSure] = React.useState(false);
+  const nm = (lock && lock.byName) || "TA";
+  const h = React.createElement;
+  return h("div", { "data-wk": "phonelock", className: "flex flex-col items-center justify-center text-center", style: { minHeight: "100%", padding: "calc(env(safe-area-inset-top, 0px) + 48px) 32px calc(env(safe-area-inset-bottom, 0px) + 32px)", background: t.bg, color: t.ink, boxSizing: "border-box" } },
+    h("svg", { "data-wk": "phonelockicon", width: 44, height: 52, viewBox: "0 0 44 52", fill: "none", stroke: t.ink, strokeWidth: 2.4, strokeLinecap: "round", style: { marginBottom: 22 } },
+      h("path", { d: "M11 23V15a11 11 0 0 1 22 0v8" }), h("rect", { x: 4, y: 23, width: 36, height: 26, rx: 6 }), h("path", { d: "M22 33v6" })),
+    h("div", { "data-wk": "phonelocktitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", marginBottom: 10 } }, nm + " 把你的手机锁了"),
+    lock && lock.text ? h("div", { "data-wk": "phonelocktext", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink, marginBottom: 10 } }, "「" + lock.text + "」") : null,
+    h("div", { "data-wk": "phonelocksub", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 30 } }, "现在只有消息列表和跟" + nm + "的聊天进得去。哄好了TA会自己解开。"),
+    h("button", { "data-wk": "phonelockbtn", "data-part": "chat", onClick: onGoChat, className: "w-full active:opacity-80", style: { maxWidth: 320, minHeight: 48, borderRadius: 14, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", marginBottom: 10 } }, "去找" + nm),
+    h("button", { "data-wk": "phonelockbtn", "data-part": "home", onClick: onHome, className: "w-full active:opacity-70", style: { maxWidth: 320, minHeight: 44, borderRadius: 14, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "回主屏"),
+    h("button", { "data-wk": "phonelockforce", onClick: () => { if (sure) onForce(); else setSure(true); }, className: "active:opacity-60", style: { marginTop: 36, minHeight: 40, padding: "0 12px", background: "transparent", color: sure ? t.accent : t.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
+      sure ? "再点一下就解开（" + nm + "会知道）" : "强行解开"));
+}
 function Spinner({
   label
 }) {
@@ -12071,7 +12088,7 @@ function ChatThread({
   onSendAsk, onDecideAsk,   // 请示批条（2026-10-29）
   onMyKin,   // ＋面板「亲属卡」（她 2026-10-07）：给TA开一张，开过了就是那张卡的账单页
   onDateInvite, invitePlaces, onSetMyPlace,   // ＋面板「邀约」（她 2026-10-02 转群友）：挑地方、定时间，发一张约会卡
-  peekSneakOn, onToggleSneak,   // 递手机那张单子底下：允不允许TA偷偷翻
+  peekSneakOn, onToggleSneak, peekLockOn, onToggleLock,   // 递手机那张单子底下：允不允许TA偷偷翻
   peekPeople,    // 递手机前能一个个藏起来的聊天 [{id, name, group}]
   onOffline,
 
@@ -13597,7 +13614,7 @@ function ChatThread({
         return h("button", { key: p.id, onClick: () => setPeekHide(a => hid ? a.filter(x => x !== p.id) : a.concat(p.id)), className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 42, borderBottom: "1px solid " + t.line } },
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: hid ? t.fog : t.ink, textDecoration: hid ? "line-through" : "none" } }, (p.group ? "群 · " : "") + p.name),
           h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: hid ? t.fog : t.accent } }, hid ? "藏起来" : "给看")); })) : null,
-    h(FoldRow, { title: "更多", state: [peekAllMasks ? "别的面具也给看" : "", peekSneakOn ? "允许偷偷翻" : ""].filter(Boolean).join("、") || "—", ...pf("more") },
+    h(FoldRow, { title: "更多", state: [peekAllMasks ? "别的面具也给看" : "", peekSneakOn ? "允许偷偷翻" : "", peekLockOn ? "允许锁手机" : ""].filter(Boolean).join("、") || "—", ...pf("more") },
     (peekPeople || []).some(p => p.otherMask) ? h("button", { onClick: () => setPeekAllMasks(v => !v), className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46, borderBottom: "1px solid " + t.line } },
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } }, "别的面具聊的也给看",
           h("span", { style: { display: "block", fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "关着＝换了面具聊的那些人，TA 查不到")),
@@ -13605,7 +13622,12 @@ function ChatThread({
     onToggleSneak ? h("button", { onClick: onToggleSneak, className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } }, "允许" + (character.remark || character.name) + "偷偷翻",
         h("span", { style: { display: "block", fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "所有角色共用一个冷却，一天最多一回")),
-      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: peekSneakOn ? t.accent : t.fog } }, peekSneakOn ? "允许" : "不允许")) : null),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: peekSneakOn ? t.accent : t.fog } }, peekSneakOn ? "允许" : "不允许")) : null,
+    // 锁手机（她 2026-11-24）：翻完吃醋生气了，他可以把她手机锁上，只留跟他的聊天
+    onToggleLock ? h("button", { "data-wk": "peeklockok", onClick: onToggleLock, className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46, borderTop: "1px solid " + t.line } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } }, "允许" + (character.remark || character.name) + "锁我手机",
+        h("span", { style: { display: "block", fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "翻完吃醋或生气了，TA可能把手机锁上：只剩消息列表和跟TA的聊天进得去，哄好了TA自己解开；锁屏底下能强行解开，TA会知道")),
+      h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: peekLockOn ? t.accent : t.fog } }, peekLockOn ? "允许" : "不允许")) : null),
     h("button", { onClick: () => { setPeekOpen(false); onHandPhone(peekAllow, peekHide, peekAllMasks); }, disabled: !peekAllow.length, className: "w-full active:opacity-80", style: { marginTop: 16, minHeight: 48, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", opacity: peekAllow.length ? 1 : .4 } }, "递过去"),
     // 先锁好、不递（群友 2026-11-20）：他自己偷偷翻也照这一份来
     h("button", { "data-wk": "peeklockonly", onClick: () => { try { const _a = loadJSON("x_peekAllow", {}) || {}, _h = loadJSON("x_peekHide", {}) || {}; saveJSON("x_peekAllow", Object.assign({}, _a, { [character.id]: peekAllow.map(String) })); saveJSON("x_peekHide", Object.assign({}, _h, { [character.id]: (peekHide || []).map(String) })); } catch (e) {} setPeekOpen(false); toast && toast("锁好了：他自己偷偷翻也只看得到勾着的"); },
