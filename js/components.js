@@ -25132,6 +25132,17 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "尚未整理 " + unsummarized.length + " 条"),
         h("button", { disabled: summaryBusy || !unsummarized.length, onClick: async () => { if (!onSummarize || summaryBusy) return; setSummaryBusy(true); try { const saved = await onSummarize(draft, draft.summaryFrame || ""); if (saved) { setDraft(saved); setRooms(Kit.list(character.id)); } } finally { setSummaryBusy(false); } }, style: { padding: "8px 11px", borderRadius: 10, background: t.ink, color: t.bg2, opacity: summaryBusy || !unsummarized.length ? .45 : 1, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, summaryBusy ? "整理中…" : "摘要并带回")
       )),
+    // 这间房自己的长期准则（她 2026-11-24）：房里出戏立的只管这间房，原来立了就只剩聊天里那一行字，看不到也删不掉。跟资料页那一栏同一个样子
+    !draft.main && !creating && (() => { const k = Kit.chatKey ? Kit.chatKey(character.id, draft.id) : character.id + "::room::" + draft.id;
+      const list = typeof window.__directivesOf === "function" ? window.__directivesOf(k) : [];
+      return h("div", { "data-wk": "roomrules", style: { marginTop: 18, padding: "13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } },
+        h(Eyebrow, null, "这间房的长期准则"),
+        list.length ? h("div", { className: "space-y-2", style: { marginTop: 8 } }, list.map(d => h("div", { key: d.id, "data-wk": "cdrule", style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 11px", background: t.bg, border: "1px solid " + t.line, borderRadius: 10 } },
+          h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.55, color: t.ink } }, d.text),
+          h("button", { onClick: () => { if (typeof window.__removeDirective === "function") window.__removeDirective(k, d.id); }, style: { flexShrink: 0, minHeight: 32, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "0 2px" } }, "删除"))))
+          : null,
+        h("div", { style: { marginTop: list.length ? 8 : 6, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
+          list.length ? "在这间房里出戏立下的，只管这一间房；主聊天立的不带进来。" : "还没有。在这间房里点头像选「出戏」，说一条以后一直要这样的要求，就会记在这里；只管这一间房。")); })(),
     !draft.main && !creating && h("div", { style: { marginTop: 18, padding: "13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } },
       h(Eyebrow, null, "清除聊天记录"),
       h("div", { style: { margin: "6px 0 10px", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },

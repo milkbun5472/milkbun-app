@@ -4517,6 +4517,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     saveJSON("x_directives", n);
     return n;
   });
+  // 小房间设置页要看、要删这间房自己的长期准则（她 2026-11-24「房间那个加吧」）：房间那页不在这一层，借一个口子
+  if (typeof window !== "undefined") { window.__directivesOf = k => directives[k] || []; window.__removeDirective = removeDirective; }
   const setMemFor = (id, m) => setMemories(p => {
     const n = {
       ...p,
