@@ -8786,6 +8786,8 @@
     if (rel > LUDO_RING_END) return ludoRot(8.5, 1.5 + (rel - LUDO_RING_END), k);
     return ludoRingCell(ludoGlobal(color, rel)).at;
   }
+  // 一架小飞机（机头朝上，原点在机身中间，约 7×7）
+  const LUDO_PLANE_D = "M0 -3.4C.5 -3.4 .65 -2.8 .65 -2.2L.65 -.7 3.3 .7 3.3 1.35 .65 .6 .55 2.1 1.5 2.8 1.5 3.25 0 2.9 -1.5 3.25 -1.5 2.8 -.55 2.1 -.65 .6 -3.3 1.35 -3.3 .7 -.65 -.7 -.65 -2.2C-.65 -2.8 -.5 -3.4 0 -3.4Z";
   function LudoBoard(props) {
     const t = props.t, players = props.players || [], cur = props.cur, movable = props.movable || [], S = 10;
     const used = players.map(function (p) { return p.color; });
@@ -8833,8 +8835,12 @@
         const can = pi === cur && movable.indexOf(i) >= 0, x = xy[0] * S + off, y = xy[1] * S - off;
         els.push(h("g", { key: "pl" + pi + "_" + i, "data-wk": "ludoplane", "data-on": can ? "1" : "0", onClick: can && props.onPick ? function () { props.onPick(i); } : undefined, style: { cursor: can ? "pointer" : "default" } },
           can ? h("circle", { cx: x, cy: y, r: 7, fill: "none", stroke: "#f6d48a", strokeWidth: 2.2, className: "ludo-pulse" }) : null,
-          h("circle", { cx: x, cy: y, r: rel >= LUDO_HOME ? 2.8 : 4.3, fill: LUDO_COLORS[p.color].c, stroke: "#fbf8f1", strokeWidth: 1.2 }),
-          rel < LUDO_HOME ? h("text", { x: x, y: y + 1.7, textAnchor: "middle", fontSize: 4.8, fontWeight: 700, fill: "#fbf8f1", style: { pointerEvents: "none" } }, String(i + 1)) : null,
+          // 棋子画成一枚小飞机（她 2026-11-24「棋子能不能画好看点」）：白底圆片、一圈自家颜色，里面一架自家颜色的飞机，机头朝它出发的方向；右下角小标号认哪一架
+          h("circle", { cx: x + .5, cy: y + .7, r: rel >= LUDO_HOME ? 3.2 : 4.9, fill: "rgba(40,30,20,.22)" }),
+          h("circle", { cx: x, cy: y, r: rel >= LUDO_HOME ? 3.2 : 4.9, fill: "#fffdf7", stroke: LUDO_COLORS[p.color].c, strokeWidth: 1.4 }),
+          h("path", { d: LUDO_PLANE_D, fill: LUDO_COLORS[p.color].c, transform: "translate(" + x + " " + y + ") rotate(" + (((p.color + 3) % 4) * 90 + 180) + ") scale(" + (rel >= LUDO_HOME ? .62 : .95) + ")" }),
+          rel < LUDO_HOME ? h("circle", { cx: x + 3.6, cy: y + 3.6, r: 1.9, fill: LUDO_COLORS[p.color].c, stroke: "#fffdf7", strokeWidth: .6 }) : null,
+          rel < LUDO_HOME ? h("text", { x: x + 3.6, y: y + 4.45, textAnchor: "middle", fontSize: 2.5, fontWeight: 700, fill: "#fffdf7", style: { pointerEvents: "none" } }, String(i + 1)) : null,
           can ? h("circle", { cx: x, cy: y, r: 8, fill: "transparent" }) : null));
       });
     });
