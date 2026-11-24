@@ -19853,7 +19853,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             instruction: "你是「" + sp.name + "」这个地方贴每日一问的小机器人，不是里面的哪个人。\n这里的人：\n" + _who + (_rel.length ? "\n他们之间：" + _rel.slice(0, 12).join("；") : "") + (_dig ? "\n\n这两天大家聊过的：\n" + _dig : "") + (_past.length ? "\n\n前几天问过的（今天换个方向）：" + _past.join("／") : "")
               + "\n\n出今天的一问。好的一问是这几个人一看就忍不住要接、会互相拆台起哄的那种：落在他们各自的人设、彼此的关系、最近真发生过的事上，或者是一个荒唐但答起来很见性格的假设。不是问卷题，不是人人都能用一句客套话答完的题。只出问题本身，一句。",
             schemaHint: "{\"q\":\"今天的问题\"}" });
-          if (d && d.q && String(d.q).trim()) q = String(d.q).trim().slice(0, 60);
+          if (d && d.q && String(d.q).trim()) q = String(d.q).trim();   // 不截（她 2026-11-24 截图：问到一半「别都往掀」断了）
         }
       } catch (e) {}
       pGChat(home.id, p => [...p, { role: "system", kind: "spacebot", bot: "ask", q, content: SPACE_BOT_NAME + "·每日一问：" + q, ts: Date.now() }]);
