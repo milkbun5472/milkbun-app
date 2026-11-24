@@ -9814,14 +9814,25 @@ function Messages({
   const [stView, setStView] = useState(null), [stMake, setStMake] = useState(false), [stAsk, setStAsk] = useState(false), [stPend, setStPend] = useState(null), [stMenu, setStMenu] = useState(false), [plusMenu, setPlusMenu] = useState(false), [stPast, setStPast] = useState(false), [, stTick] = useState(0);
   useEffect(() => { const f = () => stTick(x => x + 1); window.addEventListener("lisa-stories", f); return () => window.removeEventListener("lisa-stories", f); }, []);
   const SK = window.Stories;
-  // 点一个人的圈，把挂着动态的人按聊天列表的顺序串成一条，从这个人开始看——左右划才有下一个人、上一个人（她 2026-11-23「左右划换人没反应」）
+  // 点一个人的圈，把挂着动态的人串成一条，左右划换人（她 2026-11-23「左右划换人没反应」）。照 ins 的规矩（她 2026-11-24）：
+  //   · 顺序跟聊天列表一样（置顶在前、最近聊的在前），不是档案里的顺序；
+  //   · 点的是粉圈（有没看过的）：只串还有粉圈的那几个人，每人从第一条没看过的看起，看过的不再翻到；
+  //   · 点的是灰圈（全看过了）或自己：所有挂着的都能翻。
   const storyChain = id => {
-    const ids = [...new Set(["me"].concat((characters || []).map(c => c && c.id)).filter(Boolean))];
+    const seenMe = st => !!(st.seen || {}).me;
+    const ids = [...new Set(["me"].concat(chatItems.filter(it => it.c).map(it => it.id)).concat((characters || []).map(c => c && c.id)).filter(Boolean).map(String))];
+    const act = x => SK ? SK.activeOf(x) : [];
+    const pink = x => x !== "me" && act(x).some(st => !seenMe(st));
     let list = [], k = 0;
-    ids.forEach(x => { const a = SK ? SK.activeOf(x) : []; if (!a.length) return;
-      if (String(x) === String(id)) { const u = x === "me" ? -1 : a.findIndex(st => !(st.seen || {}).me); k = list.length + (u >= 0 ? u : 0); }
+    if (pink(String(id))) {
+      const ps = ids.filter(pink), at = ps.indexOf(String(id));
+      ps.slice(at).concat(ps.slice(0, at)).forEach(x => { const a = act(x), u = a.findIndex(st => !seenMe(st)); list = list.concat(a.slice(u < 0 ? 0 : u)); });
+      return list.length ? { list, k: 0, fixed: true } : { list: act(id) };
+    }
+    ids.forEach(x => { const a = act(x); if (!a.length) return;
+      if (x === String(id)) k = list.length;
       list = list.concat(a); });
-    return list.length ? { list, k, fixed: true } : { list: SK ? SK.activeOf(id) : [] };
+    return list.length ? { list, k, fixed: true } : { list: act(id) };
   };
   const storyRing = (id, kid) => {
     const act = SK ? SK.activeOf(id) : [];
