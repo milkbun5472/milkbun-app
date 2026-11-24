@@ -4328,7 +4328,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   一格 null＝眼前这版，其余各存 {msgs, st}。翻版只换气泡和轻的那几样（心情、心声、动作、穿着、好感）；
   //   有转账、礼物、照片、记账这类真落了东西的那一版不留，照老样子整版换掉。
   const REROLL_KEEP = 5;
-  const REROLL_LIGHT_KIND = { text: 1, voice: 1, emote: 1, silence: 1, narration: 1 };
+  // 拍一拍、撤回也算轻的（她 2026-11-24 转群友：「就那一次不行」——那一版里他撤回过一句／拍了拍她，整版就不留）：这两样不落东西，翻回去原样就是
+  const REROLL_LIGHT_KIND = { text: 1, voice: 1, emote: 1, silence: 1, narration: 1, pat: 1, recalled: 1 };
   const rerollKeepable = rm => (rm || []).length > 0 && rm.every(x => x && (x.role === "assistant" || (x.role === "narration" && x.who === "char")) && (!x.kind || REROLL_LIGHT_KIND[x.kind]));
   const charStateSnap = cid => ({ state: statesRef.current[cid] || null, hist: stateHistRef.current[cid] || [], mood: moodsRef.current[cid] || null, aff: affOf(cid) });
   const charStateRestore = (cid, st) => {
