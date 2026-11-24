@@ -12614,11 +12614,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const togglePhoneLockOk = id => setPhoneLockOk(p => { const n = { ...p, [id]: !p[id] }; saveJSON("x_phoneLockOk", n); return n; });
   const [phoneLock, setPhoneLock] = useState(() => loadJSON("x_phoneLock", null));
   const savePhoneLock = v => { saveJSON("x_phoneLock", v || null); setPhoneLock(v || null); };
-  const forceUnlockPhone = () => {
+  const forceUnlockPhone = note => {
     const L = loadJSON("x_phoneLock", null); if (!L) return;
+    const nt = String(note || "").trim().slice(0, 80);
     savePhoneLock(null);
-    pChat(L.by, p => [...p, { role: "system", kind: "system", sub: "phonelock", content: "你没等" + (L.byName || "TA") + "松口，自己把手机强行解开了", ts: Date.now() }]);
-    peekLogAdd(L.by, { how: "forceunlock" });
+    pChat(L.by, p => [...p, { role: "system", kind: "system", sub: "phonelock", content: "你没等" + (L.byName || "TA") + "松口，自己把手机强行解开了" + (nt ? "，留给TA一句：「" + nt + "」" : ""), ts: Date.now() }]);
+    peekLogAdd(L.by, { how: "forceunlock", note: nt });
   };
   const maybeSneak = charId => {
     if (!peekSneakOk[charId] || peekPlay) return;
@@ -12971,7 +12972,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const l = ((loadJSON("x_peekLog", {}) || {})[charId] || []).filter(x => Date.now() - x.ts < 7 * 86400000).slice(0, 3);
     if (!l.length) return "";
     const ago = ts => { const d = Math.floor((Date.now() - ts) / 86400000); return d <= 0 ? "今天" : d === 1 ? "昨天" : d + "天前"; };
-    const one = x => x.how === "refused" ? ago(x.ts) + "你开口要看她手机，她没给。" : x.how === "forceunlock" ? ago(x.ts) + "你锁了她的手机，她没等你松口，自己强行解开了。"
+    const one = x => x.how === "refused" ? ago(x.ts) + "你开口要看她手机，她没给。" : x.how === "forceunlock" ? ago(x.ts) + "你锁了她的手机，她没等你松口，自己强行解开了" + (x.note ? "，给你留了一句：「" + x.note + "」" : "") + "。"
       : ago(x.ts) + ({ given: "她把手机递给你看了", asked: "你开口要了她的手机，她给了", sneak: "你趁她不注意偷偷翻了她的手机" + (x.end === "ask" ? "，被她发现、当面问了" : x.end === "ignore" ? "，她发现了但没吭声" : "") })[x.how] + "。"
         + (x.who && x.who.length ? "看了她和" + x.who.map(n => "「" + n + "」").join("") + "的聊天。" : "")
         + (x.hid && x.hid.length ? "她藏起了" + x.hid.map(n => "「" + n + "」").join("") + "。" : "")

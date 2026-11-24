@@ -33,12 +33,14 @@ test("锁着时：跟他的聊天以外都换成锁屏（主屏、重开 app 也
 test("他在聊天里自己解开；强行解开他会知道", () => {
   assert.match(a, /openCaps\.push\("unlockphone"\)/);
   assert.match(a, /if \(parsed\.unlockphone === true && !sideRoom\)/);
-  assert.match(a, /peekLogAdd\(L\.by, \{ how: "forceunlock" \}\)/);
+  assert.match(a, /peekLogAdd\(L\.by, \{ how: "forceunlock", note: nt \}\)/);
+  assert.match(a, /给你留了一句：「" \+ x\.note/);
+  assert.match(c, /disabled: !note\.trim\(\), onClick: \(\) => onForce\(note\.trim\(\)\)/, "不写一句解不开");
   assert.match(a, /x\.how === "forceunlock" \?/);
 });
 
 test("新挂点都登记了", () => {
-  for (const k of ["peeklockok", "phonelock", "phonelockicon", "phonelocktitle", "phonelocktext", "phonelocksub", "phonelockbtn", "phonelockforce"]) {
+  for (const k of ["peeklockok", "phonelock", "phonelockicon", "phonelocktitle", "phonelocktext", "phonelocksub", "phonelockbtn", "phonelockforce", "phonelockleave", "phonelockleaveinput", "phonelockleavebtn"]) {
     assert.ok(ts.includes('["' + k + '"'), k);
     assert.ok(c.includes('"data-wk": "' + k + '"'), k);
   }

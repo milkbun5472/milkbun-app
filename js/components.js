@@ -1490,6 +1490,7 @@ function Empty({
 function PhoneLockScreen({ lock, onGoChat, onForce }) {
   const t = useTheme();
   const [sure, setSure] = React.useState(false);
+  const [note, setNote] = React.useState("");
   const nm = (lock && lock.byName) || "TA";
   const h = React.createElement;
   return h("div", { "data-wk": "phonelock", className: "flex flex-col items-center justify-center text-center", style: { minHeight: "100%", padding: "calc(env(safe-area-inset-top, 0px) + 48px) 32px calc(env(safe-area-inset-bottom, 0px) + 32px)", background: t.bg, color: t.ink, boxSizing: "border-box" } },
@@ -1499,8 +1500,14 @@ function PhoneLockScreen({ lock, onGoChat, onForce }) {
     lock && lock.text ? h("div", { "data-wk": "phonelocktext", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink, marginBottom: 10 } }, "「" + lock.text + "」") : null,
     h("div", { "data-wk": "phonelocksub", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 30 } }, "现在只有跟" + nm + "的聊天进得去，退出来也会回到这里。哄好了TA会自己解开。"),
     h("button", { "data-wk": "phonelockbtn", "data-part": "chat", onClick: onGoChat, className: "w-full active:opacity-80", style: { maxWidth: 320, minHeight: 48, borderRadius: 14, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", marginBottom: 10 } }, "去找" + nm),
-    h("button", { "data-wk": "phonelockforce", onClick: () => { if (sure) onForce(); else setSure(true); }, className: "active:opacity-60", style: { marginTop: 36, minHeight: 40, padding: "0 12px", background: "transparent", color: sure ? t.accent : t.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
-      sure ? "再点一下就解开（" + nm + "会知道）" : "强行解开"));
+    // 强行解开要留一句给他（她 2026-11-24）：第一下摊开一个框，写了才解得开；他下次回你时知道你说了什么
+    sure ? h("div", { "data-wk": "phonelockleave", style: { width: "100%", maxWidth: 320, marginTop: 30 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "留一句给" + nm + "，TA下次会看到"),
+      h("input", { "data-wk": "phonelockleaveinput", value: note, onChange: e => setNote(e.target.value), maxLength: 80, placeholder: "想跟TA说的", className: "w-full outline-none", style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", boxSizing: "border-box" } }),
+      h("div", { className: "flex gap-3", style: { marginTop: 10 } },
+        h("button", { "data-wk": "phonelockleavebtn", "data-part": "cancel", onClick: () => { setSure(false); setNote(""); }, className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 12, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "算了"),
+        h("button", { "data-wk": "phonelockleavebtn", "data-part": "ok", disabled: !note.trim(), onClick: () => onForce(note.trim()), className: "flex-1 active:opacity-80", style: { minHeight: 42, borderRadius: 12, background: t.accent, color: "#fff", opacity: note.trim() ? 1 : 0.4, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "留下，解开")))
+    : h("button", { "data-wk": "phonelockforce", onClick: () => setSure(true), className: "active:opacity-60", style: { marginTop: 36, minHeight: 40, padding: "0 12px", background: "transparent", color: t.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "强行解开"));
 }
 function Spinner({
   label
