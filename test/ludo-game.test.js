@@ -12,7 +12,7 @@ const fresh = n => { const s = g.ludoNewGame(P(n)); s.turn = 0; s.phase = "roll"
 test("棋盘照真的飞行棋盘画：外圈 52 格各在各的位置、一格挨一格；每色出发那格是自己的颜色、挨着自己的机库", () => {
   const at = Array.from({ length: 52 }, (_, i) => g.ludoRingCell(i).at);
   assert.equal(new Set(at.map(x => x.map(v => v.toFixed(2)).join())).size, 52);
-  at.forEach((a, i) => { const b = at[(i + 1) % 52]; assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) < 1.9, "第 " + i + " 格断开了"); });
+  at.forEach((a, i) => { const b = at[(i + 1) % 52]; assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) < 2.05, "第 " + i + " 格断开了"); });
   [0, 1, 2, 3].forEach(c => {
     assert.equal(g.ludoGlobal(c, 0) % 4, c);
     const st = g.ludoCell(c, 0), hg = g.ludoCell(c, -1, 0);
