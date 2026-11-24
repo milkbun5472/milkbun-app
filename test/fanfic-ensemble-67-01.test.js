@@ -104,7 +104,7 @@ test("挑人那一格：点的先后就是顺序，三个以上才问向", () =>
   assert.equal(gs.split('setSel([]); setCast([]); setPick').length - 1, 2, "两个下拉没都清群像");
   // 群像时不给「带上我」：一群人里没有「他俩 × 我」这回事
   assert.match(gs, /\(!isGroup && !noCP && twoRealChars\(\)\) \? h\("button"/);
-  assert.match(gs, /props\.onConfirm\(n, chosenCP\(\), styleIds, !isGroup && twoRealChars\(\) && includeMe,/,
+  assert.match(gs, /props\.onConfirm\(n, chosenCP\(\), styleIds, !isGroup && twoRealChars\(\) && includeMe(?: \? \(meAll \? "all" : true\) : false)?,/,
     "群像还是把「带上我」递了出去——那一枪会按「他俩 × 我」写");
   // 三个人以上才问那一向
   assert.match(gs, /isGroup \? h\("div", \{ style: \{ marginTop: 12 \} \}/);
