@@ -57,3 +57,10 @@ test('店铺日记：打烊留底和来访对话按天并在一页，新的在�
  const days=g.StampShop.diary(raw);assert.equal(days.map(d=>d.date).join(','),'2026-11-9,2026-11-8');assert.equal(days[1].story.earned,120);assert.equal(days[1].visits.length,1);assert.equal(days[0].story,null);});
 test('小店一直玩下去：招待攒口碑和大单进度，路人招待过变熟客、交情满 3 回冒一件小事',async()=>{const cs=[0,1,2].map(i=>({id:'上午c'+i,name:'穿雨靴的花匠',fee:9,need:{post:'柜台'},regularId:'r_x'}));const r=rig({...plan(),phase:'open',period:'上午',customers:cs});
  for(const c of cs)await r.shop.run('serve',{...r.opts,id:c.id,staffId:'a'});const s=r.saved;assert.ok(s.rep>=45);assert.equal(s.regulars.r_x.bond,3);assert.ok(s.customers[2].story);assert.ok(s.orders&&s.orders.list.length===3);});
+test("打烊正文里有人开口的那几句加上「」，旁白不加、自带引号的不重复套", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "stamp-shop-ui.js"), "utf8");
+  const i = src.indexOf(" function StampShopSay("), j = src.indexOf(" g.StampShopSay=", i);
+  const f = new Function(src.slice(i, j) + "\nreturn StampShopSay;")();
+  const r = { turns: [{ text: "晚上九点过半。" }, { speakerId: "a", text: "别踢了，底板本来就松。" }, { speakerId: "b", text: "「早说过。」" }] };
+  assert.deepStrictEqual(f(r, id => id === "a" ? "陆衍" : "店员"), ["晚上九点过半。", "陆衍：「别踢了，底板本来就松。」", "「早说过。」"]);
+});
