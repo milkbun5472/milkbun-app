@@ -255,7 +255,7 @@
   const charWho = (c, opts) => ({ name: (c && (c.remark || c.name)) || "TA", persona: ((c && c.persona) || "") + (opts && opts.recent && opts.recentText ? "\n【和带你来的人最近在单聊里聊的】" + cut(opts.recentText, 600) : "") });
   // 报名那张单上，每个勾上的角色可以调哪几项（跟单机开局页按角色调的是同一批）
   // 别的文件接进来的游戏（netroom-cards.js）往这张表里添自己那一行
-  const CHAR_OPTS = { chess: ["skill"], xiangqi: ["skill"], jungle: ["skill"], go: ["skill"], gomoku: ["casual"], haigui: ["recent"], q25: ["recent"], story: ["recent"], tod: ["recent"], monopoly: [] };
+  const CHAR_OPTS = { chess: ["skill"], xiangqi: ["skill"], jungle: ["skill"], go: ["skill"], gomoku: ["casual"], haigui: ["recent"], q25: ["recent"], story: ["recent"], tod: ["recent"], monopoly: [], ludo: [] };
   // 每一盒都多一项「牌桌上说话」（talk），排在这一盒自己那几项后面
   const charOptKinds = key => ((ADAPTERS[key] && ADAPTERS[key].charOpts) || CHAR_OPTS[key] || []).filter(k => k !== "talk").concat(["talk"]);
   // 桌边台词那一条的白名单：谁说的、说了什么、是不是 NPC、坐哪个座位
@@ -815,6 +815,58 @@
       const pd = v.pending && typeof v.pending === "object" ? { kind: v.pending.kind === "upgrade" ? "upgrade" : "buy", tile: int(v.pending.tile, 0, 39, 0) } : null;
       return { players, owners, levels, moves: int(v.moves, 0, 999, 0), turn: int(v.turn, -1, 5, 0), pending: pd, extra: !!v.extra, done: !!v.done,
         rank: Array.isArray(v.rank) ? v.rank.map(Number).filter(n => n >= 0 && n < players.length) : null, log: (Array.isArray(v.log) ? v.log : []).slice(-30).map(x => ({ t: cut(x && x.t, 8), say: cut(x && x.say, 200) })) };
+    }
+  };
+  // ── 飞行棋：掷骰子、起飞、跳格、飞虚线、撞子、到家全走小游戏里那一份（GameShared.cards.ludo）；骰子只在庄那台掷 ──
+  //   一手分两步：{ roll:true } 掷骰子，掷出来有能走的再交 { plane:第几架 }。角色、NPC 都由手机按路数挑，不花调用
+  const ludoSoft = (inv, st) => inv && inv.mode === "easy" ? (inv.seats || []).map((s, i) => s.kind === "user" ? st.players[i] && st.players[i].key : null).filter(Boolean) : [];
+  ADAPTERS.ludo = {
+    zh: "飞行棋", slow: false, localTalk: true, mergeNpc: null,
+    seatRange: () => ({ min: 2, max: 4 }),
+    init(inv) {
+      return GS().cards.ludo.newGame(inv.seats.map((s, i) => ({ key: "s" + i, name: s.name })));
+    },
+    view: st => Object.assign({}, st, { log: st.log.slice(-30) }),
+    priv: () => null,
+    turn: st => st.status === "playing" ? st.turn : -1,
+    apply(st, seatIdx, mv) {
+      const L = GS().cards.ludo;
+      if (st.status !== "playing") return { err: "这一局已经结束了" };
+      if (seatIdx !== st.turn) return { err: "还没轮到这一位" };
+      const n = JSON.parse(JSON.stringify(st));
+      try {
+        if (n.phase === "roll") { if (!mv || !mv.roll) return { err: "先掷骰子" }; L.roll(n, L.die()); }
+        else L.act(n, int(mv && mv.plane, 0, 3, -1));
+      } catch (e) { return { err: e.message || "这一手走不了" }; }
+      n.log = n.log.slice(-80);
+      return { st: n };
+    },
+    decide(st, i, inv) { const L = GS().cards.ludo; return st.phase === "roll" ? { roll: true } : { plane: L.pick(st, ludoSoft(inv, st)) }; },
+    npcMove(st, i, inv) { return this.decide(st, i, inv); },
+    charMove(view, i, inv) { return this.decide(view, i, inv); },
+    talkMoment(v, i) {
+      const x = (v.log || []).slice(-3).reverse().find(y => y && y.kind === "hit"), me = v.players[i];
+      if (!x || !me) return "";
+      return x.player === me.key ? "你刚把对面一架撞回了机库。" : x.text.indexOf(" " + me.name + " 的") >= 0 ? "你有一架飞机刚被撞回机库。" : "";
+    },
+    result(st) {
+      if (st.status !== "finished") return null;
+      const L = GS().cards.ludo, wi = st.players.findIndex(p => p.key === st.winner);
+      const rows = st.players.map(p => L.COLORS[p.color].zh + "·" + p.name + " 到家 " + L.homeCount(p) + " 架");
+      return { winners: wi >= 0 ? [wi] : [], text: (wi >= 0 ? st.players[wi].name : "没人") + " 先把四架飞机都飞回了家。" + rows.join("，") + "。", replay: { rows, log: st.log.slice(-40) } };
+    },
+    cleanReplay(r) { return { rows: (Array.isArray(r.rows) ? r.rows : []).slice(0, 4).map(x => cut(x, 80)), log: (Array.isArray(r.log) ? r.log : []).slice(-40).map(x => ({ kind: cut(x && x.kind, 8), player: cut(x && x.player, 8), text: cut(x && x.text, 200) })) }; },
+    cleanView(v) {
+      const players = (Array.isArray(v.players) ? v.players : []).slice(0, 4).map((p, i) => ({ key: "s" + i, name: cut(p && p.name, 40), color: int(p && p.color, 0, 3, i),
+        planes: [0, 1, 2, 3].map(k => int(p && Array.isArray(p.planes) ? p.planes[k] : -1, -1, 56, -1)) }));
+      const keys = players.map(p => p.key);
+      return { id: cut(v.id, 40), players, turn: int(v.turn, 0, Math.max(0, players.length - 1), 0), phase: ["roll", "move", "done"].indexOf(v.phase) >= 0 ? v.phase : "roll", dice: int(v.dice, 0, 6, 0),
+        status: v.status === "finished" ? "finished" : "playing", winner: keys.indexOf(v.winner) >= 0 ? v.winner : null, hitAt: int(v.hitAt, 0, 1e6, 0),
+        log: (Array.isArray(v.log) ? v.log : []).slice(-30).map(x => ({ kind: cut(x && x.kind, 8), player: cut(x && x.player, 8), text: cut(x && x.text, 200) })) };
+    },
+    stateText(v) {
+      const L = GS().cards.ludo;
+      return "飞行棋（掷到 6 起飞，四架先到家的赢）。\n" + L.text(v) + (v.status === "finished" ? "\n这一局结束了。" : "\n轮到 " + ((v.players[v.turn] || {}).name || "") + (v.phase === "roll" ? " 掷骰子。" : " 挑走哪一架（掷出 " + v.dice + "）。"));
     }
   };
   ADAPTERS.gomoku.cleanView = v => ({ moves: (Array.isArray(v.moves) ? v.moves : []).slice(0, 225).map(m => ({ x: int(m && m.x, 0, 14, 0), y: int(m && m.y, 0, 14, 0), who: int(m && m.who, 1, 2, 1) })), turn: int(v.turn, 1, 2, 1), winner: int(v.winner, 0, 3, 0) });
@@ -1743,6 +1795,33 @@
       (r.rows || []).map((x, i) => h("div", { key: "r" + i }, (i + 1) + ". " + x)),
       h("div", { style: { borderTop: "1px solid " + t.line, marginTop: 8, paddingTop: 8, color: t.sub, fontSize: fs(12) } }, (r.log || []).map((x, i) => h("div", { key: i }, x.say))));
   }
+  // 飞行棋那张桌：棋盘是单机那一块（GameShared.cards.ludo.Board），轮到我这台的真人就掷骰子、点一架飞机
+  function LudoTable({ inv, view, me, onMove }) {
+    const t = useTheme(), G = GS(), L = G.cards.ludo;
+    const ti = view.status === "playing" ? view.turn : -1, seat = inv.seats[ti], cur = view.players[ti];
+    const myTurn = ti >= 0 && actorOf(seat, me, inv.host) === "mine-user";
+    const opts = myTurn && view.phase === "move" ? L.moves(view) : [];
+    const win = view.players.find(p => p.key === view.winner);
+    const act = view.status !== "playing" ? note(t, (win ? win.name : "没人") + " 先把四架飞机都飞回了家")
+      : !myTurn ? note(t, seat && seat.away ? cur.name + " 掉线了，NPC 先替着走…" : (cur ? cur.name : "") + (view.phase === "roll" ? " 在掷骰子…" : " 在挑飞机…"))
+      : view.phase === "roll" ? h("div", { style: { textAlign: "center", marginTop: 8 } }, h("button", { "data-wk": "nrludoroll", onClick: () => onMove(ti, { roll: true }), style: pill(t, true) }, "掷骰子"))
+      : h("div", { "data-wk": "nrludopick", style: { display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginTop: 8 } },
+          opts.map(m => h("button", { key: m.plane, onClick: () => onMove(ti, { plane: m.plane }), style: pill(t, false) }, m.takeoff ? "起飞一架" : (m.plane + 1) + " 号机 → " + L.where(m.to))));
+    return h("div", { "data-wk": "nrgametable", "data-game": "ludo", style: { padding: "6px 12px 10px" } },
+      h(L.Board, { t, players: view.players, cur: ti, movable: opts.map(m => m.plane), onPick: myTurn ? (k => onMove(ti, { plane: k })) : null }),
+      h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 10, fontFamily: F_BODY, fontSize: fs(12.5), color: t.sub } },
+        view.dice ? h(G.cards.Die, { v: view.dice, size: 28, hot: view.dice === 6 }) : null,
+        view.players.map(p => L.COLORS[p.color].zh + "·" + p.name + " " + L.homeCount(p) + "/4").join("　")),
+      act,
+      h("div", { "data-wk": "nrludolog", style: { marginTop: 10, fontFamily: F_BODY, fontSize: fs(12), color: t.sub, lineHeight: 1.6 } }, view.log.slice(-6).map((x, i) => h("div", { key: i }, x.text))));
+  }
+  function LudoReplay({ rec }) {
+    const t = useTheme(), r = rec.replay || {};
+    return h("div", { style: { padding: "8px 16px", fontFamily: F_BODY, fontSize: fs(13), color: t.ink, lineHeight: 1.7 } },
+      (r.rows || []).map((x, i) => h("div", { key: "r" + i }, x)),
+      h("div", { style: { borderTop: "1px solid " + t.line, marginTop: 8, paddingTop: 8, color: t.sub, fontSize: fs(12) } }, (r.log || []).map((x, i) => h("div", { key: i }, x.text))));
+  }
+  ADAPTERS.ludo.Table = LudoTable; ADAPTERS.ludo.Replay = LudoReplay;
   ADAPTERS.haigui.Table = ADAPTERS.q25.Table = GuessTable; ADAPTERS.haigui.Replay = ADAPTERS.q25.Replay = GuessReplay;
   ["chess", "xiangqi", "jungle"].forEach(k => { ADAPTERS[k].Table = EngineTable; ADAPTERS[k].Replay = EngineReplay; });
   ADAPTERS.go.Table = GoTable; ADAPTERS.go.Replay = GoReplay;
