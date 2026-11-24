@@ -8756,20 +8756,22 @@
   const LUDO_N = 19;
   function ludoRot(x, y, k) { let a = x, b = y; for (let i = 0; i < ((k % 4) + 4) % 4; i++) { const nx = LUDO_N - b; b = a; a = nx; } return [a, b]; }
   // 底稿那一象限的 13 格：右沿往下 4 格、拐角两个三角、右臂上沿往外 4 格、右臂尽头 3 格
-  const LUDO_QUAD = [[12.5, 2.5], [12.5, 3.5], [12.5, 4.5], [12.5, 5.5],
-    { tri: [[13, 5], [14, 5], [13, 6]] }, { tri: [[14, 5], [14, 6], [13, 6]] },
-    [13.5, 6.5], [14.5, 6.5], [15.5, 6.5], [16.5, 6.5], [17.5, 7.6], [17.5, 9.5], [17.5, 11.4]];
+  // 十字每条臂三格宽：两边是外圈、正中是回家那条；格子一格挨一格排满（她 2026-11-24 照实物图：原来臂太宽、格子稀稀拉拉，臂尽头还拉成了长条）
+  const LUDO_QUAD = [[10.5, 4.5], [10.5, 5.5], [10.5, 6.5], [10.5, 7.5],
+    { tri: [[11, 7], [12, 7], [11, 8]] }, { tri: [[12, 7], [12, 8], [11, 8]] },
+    [11.5, 8.5], [12.5, 8.5], [13.5, 8.5], [14.5, 8.5], [15.5, 8.5], [15.5, 9.5], [15.5, 10.5]];
   function ludoRingCell(g) {
     const q = Math.floor(g / 13), c = LUDO_QUAD[g % 13], k = (q + 3) % 4;
     if (c.tri) { const pts = c.tri.map(function (p) { return ludoRot(p[0], p[1], k); }); return { pts: pts, at: [(pts[0][0] + pts[1][0] + pts[2][0]) / 3, (pts[0][1] + pts[1][1] + pts[2][1]) / 3] }; }
-    const end = g % 13 >= 10;
-    return { at: ludoRot(c[0], c[1], k), w: end ? 1.7 : 1, end: end, k: k };
+    return { at: ludoRot(c[0], c[1], k), k: k };
   }
+  // 机库（右上那一家的底稿）：外圈拐角外面那块空地，四个圆机位
+  const LUDO_BASE = [12.1, 2.3, 16.7, 6.9], LUDO_SLOTS = [[13.3, 3.5], [15.5, 3.5], [13.3, 5.7], [15.5, 5.7]], LUDO_TAKEOFF = [11.5, 3.2];
   function ludoCell(color, rel, slot) {
     const k = (color + 3) % 4;
-    if (rel < 0) { const s = [[15.3, 1.5], [17.5, 1.5], [15.3, 3.7], [17.5, 3.7]][slot % 4]; return ludoRot(s[0], s[1], k); }
-    if (rel >= LUDO_HOME) return ludoRot(9.5, 8.2, k);
-    if (rel > LUDO_RING_END) return ludoRot(9.5, 1.7 + (rel - LUDO_RING_END), k);
+    if (rel < 0) { const s = LUDO_SLOTS[slot % 4]; return ludoRot(s[0], s[1], k); }
+    if (rel >= LUDO_HOME) return ludoRot(9.5, 8.6, k);
+    if (rel > LUDO_RING_END) return ludoRot(9.5, 3.6 + 0.8 * (rel - LUDO_RING_END), k);
     return ludoRingCell(ludoGlobal(color, rel)).at;
   }
   function LudoBoard(props) {
@@ -8783,17 +8785,17 @@
     // 中间：四色三角拼成的终点，和每色那条直插中心的跑道（格子里一个箭头朝里）
     [0, 1, 2, 3].forEach(function (c) {
       const k = (c + 3) % 4, col = LUDO_COLORS[c].c;
-      els.push(h("path", { key: "ctr" + c, d: "M" + P(ludoRot(7.5, 7.5, k)) + "L" + P(ludoRot(11.5, 7.5, k)) + "L" + P(ludoRot(9.5, 9.5, k)) + "Z", fill: col, stroke: "#fbf8f1", strokeWidth: .8 }));
+      els.push(h("path", { key: "ctr" + c, d: "M" + P(ludoRot(8, 8, k)) + "L" + P(ludoRot(11, 8, k)) + "L" + P(ludoRot(9.5, 9.5, k)) + "Z", fill: col, stroke: "#fbf8f1", strokeWidth: .8 }));
       for (let j = 1; j <= 5; j++) {
-        const m = ludoRot(9.5, 1.7 + j, k), b = ludoRot(9.5, 1.7 + j + .25, k), l = ludoRot(9.2, 1.7 + j - .1, k), r = ludoRot(9.8, 1.7 + j - .1, k);
-        els.push(h("rect", { key: "h" + c + j, x: (m[0] - .46) * S, y: (m[1] - .46) * S, width: .92 * S, height: .92 * S, rx: 2, fill: col, opacity: .9 }));
+        const yy = 3.6 + 0.8 * j, m = ludoRot(9.5, yy, k), b = ludoRot(9.5, yy + .2, k), l = ludoRot(9.25, yy - .08, k), r = ludoRot(9.75, yy - .08, k);
+        els.push(h("rect", { key: "h" + c + j, x: (m[0] - .36) * S, y: (m[1] - .36) * S, width: .72 * S, height: .72 * S, rx: 1.6, fill: col, opacity: .9 }));
         els.push(h("path", { key: "ha" + c + j, d: "M" + P(l) + "L" + P(b) + "L" + P(r), stroke: "#fbf8f1", strokeWidth: .9, fill: "none", strokeLinecap: "round", opacity: .9 }));
       }
       // 机库：四角大方块，四个圆机位；门口一颗起飞点，指向出发那格
-      const a0 = ludoRot(14.2, .4, k), a1 = ludoRot(18.6, 4.8, k), on = used.indexOf(c) >= 0;
-      els.push(h("rect", { key: "base" + c, x: Math.min(a0[0], a1[0]) * S, y: Math.min(a0[1], a1[1]) * S, width: 4.4 * S, height: 4.4 * S, rx: 6, fill: col, opacity: on ? .95 : .3 }));
-      [[15.3, 1.5], [17.5, 1.5], [15.3, 3.7], [17.5, 3.7]].forEach(function (s, i) { const q = ludoRot(s[0], s[1], k); els.push(h("circle", { key: "slot" + c + i, cx: q[0] * S, cy: q[1] * S, r: 7, fill: "#fbf8f1", opacity: .9 })); });
-      const tk = ludoRot(13.4, 1.3, k), st = ludoRingCell(ludoGlobal(c, 0)).at;
+      const a0 = ludoRot(LUDO_BASE[0], LUDO_BASE[1], k), a1 = ludoRot(LUDO_BASE[2], LUDO_BASE[3], k), on = used.indexOf(c) >= 0;
+      els.push(h("rect", { key: "base" + c, x: Math.min(a0[0], a1[0]) * S, y: Math.min(a0[1], a1[1]) * S, width: (LUDO_BASE[2] - LUDO_BASE[0]) * S, height: (LUDO_BASE[3] - LUDO_BASE[1]) * S, rx: 5, fill: col, opacity: on ? .95 : .3 }));
+      LUDO_SLOTS.forEach(function (s, i) { const q = ludoRot(s[0], s[1], k); els.push(h("circle", { key: "slot" + c + i, cx: q[0] * S, cy: q[1] * S, r: 7.5, fill: "#fbf8f1", opacity: .9 })); });
+      const tk = ludoRot(LUDO_TAKEOFF[0], LUDO_TAKEOFF[1], k), st = ludoRingCell(ludoGlobal(c, 0)).at;
       els.push(h("circle", { key: "tk" + c, cx: tk[0] * S, cy: tk[1] * S, r: 3.6, fill: "#fbf8f1", stroke: col, strokeWidth: 1.4, opacity: on ? 1 : .4 }));
       els.push(h("path", { key: "tka" + c, d: "M" + P(tk) + "L" + P([st[0], st[1] - (st[1] > tk[1] ? .45 : -.45)]), stroke: col, strokeWidth: 1, markerEnd: "url(#ludoArr" + c + ")", opacity: on ? .9 : .35 }));
     });
@@ -8802,8 +8804,7 @@
       const c = ludoRingCell(g), col = LUDO_COLORS[g % 4].c;
       if (c.pts) els.push(h("path", { key: "r" + g, d: "M" + c.pts.map(P).join("L") + "Z", fill: col, stroke: "#fbf8f1", strokeWidth: .9 }));
       else {
-        const horiz = c.end && (c.k % 2 === 1), w = horiz ? c.w : 1, hh = c.end && !horiz ? c.w : 1;
-        els.push(h("rect", { key: "r" + g, x: (c.at[0] - w / 2) * S + .5, y: (c.at[1] - hh / 2) * S + .5, width: w * S - 1, height: hh * S - 1, rx: 2.4, fill: col }));
+        els.push(h("rect", { key: "r" + g, x: (c.at[0] - .5) * S + .5, y: (c.at[1] - .5) * S + .5, width: S - 1, height: S - 1, rx: 1.8, fill: col }));
       }
     }
     // 虚线捷径：从第 21 格那块同色格飞到第 33 格，带箭头
@@ -8830,7 +8831,7 @@
       st.textContent = "@keyframes ludoPulse{0%,100%{opacity:1}50%{opacity:.25}}.ludo-pulse{animation:ludoPulse 1.1s ease-in-out infinite}";
       document.head.appendChild(st);
     }
-    return h("svg", { "data-wk": "ludoboard", viewBox: "0 0 190 190", style: { width: "100%", maxWidth: 440, display: "block", margin: "0 auto", borderRadius: 14, background: "#f4efe4", border: "1px solid " + t.line, boxShadow: "0 6px 16px rgba(20,16,10,.14)" } }, els);
+    return h("svg", { "data-wk": "ludoboard", viewBox: "18 18 154 154", style: { width: "100%", maxWidth: 440, display: "block", margin: "0 auto", borderRadius: 14, background: "#f4efe4", border: "1px solid " + t.line, boxShadow: "0 6px 16px rgba(20,16,10,.14)" } }, els);
   }
   function LudoGame(props) {
     const t = props.t, cfg = props.config || {};
