@@ -10145,7 +10145,34 @@ function ttsWarm(text, voiceId, opts) {
   try { const t = ttsSpeak(text, voiceId, opts); t.catch(() => {}); return t; }
   catch (e) { return Promise.resolve(null); }
 }
+// 长语音分段合成（她 2026-11-24 转群友「语音最长一分钟吗」→「第二种吧」）：原来一条只念前 800 字、后面截掉。
+//   现在超过的照句号切成几段，各自合成（各自进缓存，重听不花钱），再首尾接成一条——四家语音都回 mp3，接起来照常播。
+//   切点只落在句末标点后面；一句本身就很长的，才按字数硬切
+const TTS_PIECE = 600;
+function ttsSplitLong(text) {
+  const s = String(text || ""), out = [];
+  const parts = s.match(/[^。！？!?…\n]+[。！？!?…]*[」』"”’）)]*\s*|\n+/g) || [s];
+  let cur = "";
+  parts.forEach(p => {
+    if ((cur + p).length > TTS_PIECE && cur.trim()) { out.push(cur); cur = ""; }
+    while (p.length > TTS_PIECE) { out.push(p.slice(0, TTS_PIECE)); p = p.slice(TTS_PIECE); }
+    cur += p;
+  });
+  if (cur.trim()) out.push(cur);
+  return out.filter(x => x.trim());
+}
 async function ttsSynth(text, voiceId, opts) {
+  if (ttsMarkForSynth(String(text || "")).length > 800) {
+    const pieces = ttsSplitLong(text);
+    if (pieces.length > 1) {
+      const blobs = [];
+      for (const piece of pieces) blobs.push(await ttsSynthOne(piece, voiceId, opts));
+      return new Blob(blobs, { type: (blobs[0] && blobs[0].type) || "audio/mpeg" });
+    }
+  }
+  return ttsSynthOne(text, voiceId, opts);
+}
+async function ttsSynthOne(text, voiceId, opts) {
   opts = opts || {};
   const a = loadTtsApi();
   if (!ttsReady(a)) throw new Error("没配置语音 API（设置 · 语音 TTS）");
