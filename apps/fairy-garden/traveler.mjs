@@ -1,35 +1,56 @@
-import {anchorArgyleSleeves,lineArgyleSleeves} from './argyle-sleeve-lining.mjs?v=fg-2d158c39249397f1';
-import {applyOutfitMeshEdits} from './outfit-mesh-edits.mjs?v=fg-2d158c39249397f1';
+import {anchorArgyleSleeves,lineArgyleSleeves} from './argyle-sleeve-lining.mjs?v=fg-ad900744140b5c2c';
+import {applyOutfitMeshEdits} from './outfit-mesh-edits.mjs?v=fg-ad900744140b5c2c';
 let motionController;
 async function loadMotionController(){
- return motionController??=await import('./avatar-motion/controller.mjs?v=fg-2d158c39249397f1');
+ return motionController??=await import('./avatar-motion/controller.mjs?v=fg-ad900744140b5c2c');
 }
-import {makeWeatherEffects} from './emotion-weather.mjs?v=fg-2d158c39249397f1';
-import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-2d158c39249397f1';
-import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-2d158c39249397f1';
-import {settleEmotionGround} from './emotion-ground.mjs?v=fg-2d158c39249397f1';
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-2d158c39249397f1';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-2d158c39249397f1';
-import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-2d158c39249397f1';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-2d158c39249397f1';
-import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-2d158c39249397f1';
-import {emotionPose} from './emotion-pose.mjs?v=fg-2d158c39249397f1';
-import {makeEmotionProps,phoneTapTarget,phoneSurfaceTarget,phoneHoldTarget} from './emotion-props.mjs?v=fg-2d158c39249397f1';
-import {makeDollLife} from './doll-life.mjs?v=fg-2d158c39249397f1';
-import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-2d158c39249397f1';
-import {makeUpperBody} from './upper-body.mjs?v=fg-2d158c39249397f1';
-import {makeBentArms} from './bent-arms.mjs?v=fg-2d158c39249397f1';
-import {makeHangingHair} from './hanging-hair.mjs?v=fg-2d158c39249397f1';
-import {createPiercings} from './piercings.mjs?v=fg-2d158c39249397f1';
-import {PIERCINGS,piercingColor,OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,hairAccessoryOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE,eyesOf} from './wardrobe.mjs?v=fg-2d158c39249397f1';
-import {makeSeatContact} from './seat-contact.mjs?v=fg-2d158c39249397f1';
-import {makeSurfaceAttachment} from './surface-attachment.mjs?v=fg-2d158c39249397f1';
+import {makeWeatherEffects} from './emotion-weather.mjs?v=fg-ad900744140b5c2c';
+import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-ad900744140b5c2c';
+import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-ad900744140b5c2c';
+import {settleEmotionGround} from './emotion-ground.mjs?v=fg-ad900744140b5c2c';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-ad900744140b5c2c';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-ad900744140b5c2c';
+import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-ad900744140b5c2c';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-ad900744140b5c2c';
+import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-ad900744140b5c2c';
+import {emotionPose} from './emotion-pose.mjs?v=fg-ad900744140b5c2c';
+import {makeEmotionProps,phoneTapTarget,phoneSurfaceTarget,phoneHoldTarget} from './emotion-props.mjs?v=fg-ad900744140b5c2c';
+import {makeDollLife} from './doll-life.mjs?v=fg-ad900744140b5c2c';
+import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-ad900744140b5c2c';
+import {makeUpperBody} from './upper-body.mjs?v=fg-ad900744140b5c2c';
+import {makeBentArms} from './bent-arms.mjs?v=fg-ad900744140b5c2c';
+import {makeHangingHair} from './hanging-hair.mjs?v=fg-ad900744140b5c2c';
+import {createPiercings} from './piercings.mjs?v=fg-ad900744140b5c2c';
+import {PIERCINGS,piercingColor,OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,hairAccessoryOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE,eyesOf} from './wardrobe.mjs?v=fg-ad900744140b5c2c';
+import {makeSeatContact} from './seat-contact.mjs?v=fg-ad900744140b5c2c';
+import {makeSurfaceAttachment} from './surface-attachment.mjs?v=fg-ad900744140b5c2c';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-2d158c39249397f1';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-2d158c39249397f1';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-ad900744140b5c2c';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-ad900744140b5c2c';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
+// 壳里没有 Service Worker（她 2026-11-24「每次打开点陪伴都要重新下载一遍小人」「每次都会卡死」）：
+//   网页版靠 sw.js 按 ?v= 缓存这些 glb；iOS 壳的 WKWebView 没开 App-Bound Domains，Service Worker 起不来，于是每开一次 app 都从网上整份重下。
+//   没有 Service Worker 接手时，按带指纹的整条网址存进 IndexedDB，下次直接读；同一个文件换了指纹就把旧的删掉。有 Service Worker 的照旧走它
+const GLB_DB='qq-glb-cache',GLB_STORE='f';let glbDbP=null;
+const glbDb=()=>glbDbP??=new Promise((ok,no)=>{const r=indexedDB.open(GLB_DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(GLB_STORE);r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error);});
+const glbTx=(mode,fn)=>glbDb().then(db=>new Promise((ok,no)=>{const tx=db.transaction(GLB_STORE,mode),st=tx.objectStore(GLB_STORE),out=fn(st);tx.oncomplete=()=>ok(out&&out.result);tx.onerror=()=>no(tx.error);}));
+const glbNoSW=()=>{try{return typeof indexedDB!=='undefined'&&!(navigator.serviceWorker&&navigator.serviceWorker.controller);}catch(e){return false;}};
+async function glbBytes(url,onProgress){
+ try{const hit=await glbTx('readonly',st=>st.get(url));if(hit){onProgress?.({loaded:1,total:1});return hit;}}catch(e){}
+ const res=await fetch(url);if(!res.ok)throw new Error('HTTP '+res.status+' '+url);
+ const total=+res.headers.get('content-length')||0;let buf;
+ if(res.body&&res.body.getReader){const rd=res.body.getReader(),parts=[];let got=0;for(;;){const {done,value}=await rd.read();if(done)break;parts.push(value);got+=value.length;if(total)onProgress?.({loaded:got,total});}
+  const u8=new Uint8Array(got);let o=0;for(const p of parts){u8.set(p,o);o+=p.length;}buf=u8.buffer;}
+ else buf=await res.arrayBuffer();
+ try{const path=url.split('?')[0];await glbTx('readwrite',st=>{const c=st.openCursor();c.onsuccess=()=>{const cur=c.result;if(!cur)return;if(String(cur.key).split('?')[0]===path&&cur.key!==url)cur.delete();cur.continue();};st.put(buf,url);return null;});}catch(e){}
+ return buf;
+}
+function loadGlb(loader,url,onProgress){
+ if(!glbNoSW())return loader.loadAsync(url,onProgress);
+ return glbBytes(url,onProgress).then(buf=>loader.parseAsync(buf,url.slice(0,url.split('?')[0].lastIndexOf('/')+1)));
+}
 const OUTFIT_FILES=new Map(),OUTFIT_READY=new Map();let outfitLoader=null;
 const lightOutfitKey=id=>'skeleton:'+id;
 function outfitSource(id,skeletonOnly=false){
@@ -38,7 +59,7 @@ function outfitSource(id,skeletonOnly=false){
   if(!outfitLoader){const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);outfitLoader=new GLTFLoader();outfitLoader.setDRACOLoader(draco);}
   const url=new URL('./outfits/'+id+'.glb'+new URL(import.meta.url).search,import.meta.url).href;
   // 失败了不留在表里：下次换衣服还能重试，不会一次网抖就永远穿不上
-  OUTFIT_FILES.set(key,Promise.all([outfitLoader.loadAsync(url),skeletonOnly?null:loadMotionController().then(m=>m.prepareOutfitMotion(id))]).then(([g,motion])=>{
+  OUTFIT_FILES.set(key,Promise.all([loadGlb(outfitLoader,url),skeletonOnly?null:loadMotionController().then(m=>m.prepareOutfitMotion(id))]).then(([g,motion])=>{
    if(motion)applyOutfitMeshEdits(g.scene,motion.meshEdits);
    if(skeletonOnly&&id==='argyle')anchorArgyleSleeves(g.scene.getObjectByName('outfit_argyle_trim'));
    OUTFIT_READY.set(key,g.scene);return g.scene;
@@ -56,7 +77,7 @@ function hairSource(id){
  if(!HAIR_FILES.has(id)){
   if(!outfitLoader){const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);outfitLoader=new GLTFLoader();outfitLoader.setDRACOLoader(draco);}
   const url=new URL('./hair/'+id+'.glb'+new URL(import.meta.url).search,import.meta.url).href;
-  HAIR_FILES.set(id,outfitLoader.loadAsync(url).then(g=>(HAIR_READY.set(id,g.scene),g.scene),e=>{HAIR_FILES.delete(id);throw e;}));
+  HAIR_FILES.set(id,loadGlb(outfitLoader,url).then(g=>(HAIR_READY.set(id,g.scene),g.scene),e=>{HAIR_FILES.delete(id);throw e;}));
  }
  return HAIR_FILES.get(id);
 }
@@ -542,7 +563,7 @@ if(lastPoseTime==null){sitBlend=Number(seated);kneeBlend=Number(seated&&seatPose
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource,fullSource;
 export function loadTravelerSource(onProgress,{skeletonOnly=false}={}){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{const url=new URL('./doll.glb?v=fg-2d158c39249397f1',import.meta.url);if(!url.search)url.search=new URL(import.meta.url).search;const source=(await loader.loadAsync(url.href,e=>{if(e?.total)onProgress?.(.25*e.loaded/e.total)})).scene;return source;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{const url=new URL('./doll.glb?v=fg-ad900744140b5c2c',import.meta.url);if(!url.search)url.search=new URL(import.meta.url).search;const source=(await loadGlb(loader,url.href,e=>{if(e?.total)onProgress?.(.25*e.loaded/e.total)})).scene;return source;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  if(!skeletonOnly&&!fullSource)fullSource=Promise.all([travelerSource,loadMotionController()]).then(([source,controller])=>controller.prepareMotionSource(source)).catch(e=>{fullSource=null;throw e});
  return (skeletonOnly?travelerSource:fullSource).then(source=>{onProgress?.(1);return source});
 }
