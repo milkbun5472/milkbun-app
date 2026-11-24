@@ -908,7 +908,8 @@ function phoneGrowMerge(appKey, oldData, newData, nowTs) {
     const merged = phoneGrowMerge("_wechatRest", { moments: (oldData || {}).moments, me: (oldData || {}).me },
       { moments: newData.moments, me: newData.me }, nowTs);
     if (Array.isArray(merged && merged.moments)) keep.moments = merged.moments;
-    if (newData.me && typeof newData.me === "object") keep.me = { ...(oldData || {}).me, ...newData.me };
+    if (newData.me && typeof newData.me === "object") { const _om = (oldData || {}).me || {}; keep.me = { ..._om, ...newData.me };
+      if (newData.me.signature && newData.me.signature !== _om.signature) keep.me._sigTs = nowTs || Date.now(); else if (_om._sigTs) keep.me._sigTs = _om._sigTs; }
     return keep;
   }
   const conf = PHONE_GROW[appKey];
@@ -921,9 +922,12 @@ function phoneGrowMerge(appKey, oldData, newData, nowTs) {
     const fresh = phoneGetPath(out, field);
     const old = oldData ? phoneGetPath(oldData, field) : null;
     if (!Array.isArray(fresh) && !Array.isArray(old)) return;
-    let list = phoneGrowList(fresh, old, conf[field], now, !!(roster && roster[field]));
+    // 便签：写下的就不改了（她 2026-11-24 选 A「写得挺好的一刷新都变了」）——同名的留旧的那份，这一轮只往上加新的；
+    //   不收他的 retired，满了按上限把最旧的挤出去
+    const _noteLock = appKey === "notes" && field === "items";
+    let list = _noteLock ? phoneGrowList(old, fresh, conf[field], now, true) : phoneGrowList(fresh, old, conf[field], now, !!(roster && roster[field]));
     // 墓碑：模型显式说这几个已经不在名单上了
-    const gone = (Array.isArray(retired[field]) ? retired[field] : []).map(phoneNameNorm).filter(Boolean);
+    const gone = _noteLock ? [] : (Array.isArray(retired[field]) ? retired[field] : []).map(phoneNameNorm).filter(Boolean);
     if (gone.length) list = list.filter(x => gone.indexOf(phoneNameNorm(phoneRowName(x))) < 0);
     phoneSetPath(out, field, list);
   });
@@ -1054,6 +1058,9 @@ function phoneGateVisits(data, known) {
 function phoneRosterBlock(appKey, known) {
   const conf = PHONE_RETIRE[appKey];
   if (!conf || !known) return "";
+  // 便签写下就不改（她 2026-11-24 选 A）：已有的由手机自己留着，只告诉他有哪些、别撞抬头
+  if (appKey === "notes") { const ts = (Array.isArray(known.items) ? known.items : []).map(phoneRowName).filter(Boolean).slice(0, 24);
+    return ts.length ? "\n\n【他便签里已经有的（手机自己留着，不用抄回来，也不会被改）】" + ts.join("｜") + "\n这一轮只写这几天新记下的那几条，抬头别跟上面这些撞。" : ""; }
   const lines = [];
   Object.keys(conf).forEach(field => {
     const arr = phoneGetPath(known, field);
@@ -1691,9 +1698,11 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
           + "last（这个会话现在的最后一条）、time。\n"
           + "⚠️新消息要接得上原来那段话的走向——是同一段关系往前走了几步，不是换个话题重开。\n"
           + characterText(char, "moments 照旧给 1-2 条新的朋友圈（那是真发生的事，该有新的），作者从他已有的联系人里选。\n")
-          + "me 这一栏【基本不要动】：朋友圈签名 signature 和封面 cover 不是每天换的东西。"
-          + characterText(char, "只有他这几天的心境真的翻篇了（结束了什么、开始了什么、想通了什么），才在 me 里写新的那一两栏；")
-          + "**不写就是照旧**，绝大多数轮次都该一栏都不写。\n"
+          // 签名和公众号文章（她 2026-11-24「微信阅读的文章和个性签名都没什么变化」）：原来整个 me 都叫他别动，文章也跟着永远是那几篇
+          + characterText(char, "me.accounts 是他最近在看的公众号文章：这几天新看的 2-3 篇写进 me.accounts（跟已有的不重名），旧的会自己往下沉。\n")
+          + (() => { const _sTs = Number((known && known.me && known.me._sigTs) || (known && known._at) || 0), _sd = _sTs ? Math.floor((Date.now() - _sTs) / 86400000) : 0;
+              return _sd >= 4 ? "朋友圈签名 signature 已经挂了 " + _sd + " 天：照他这几天的心境换一句新的，写进 me.signature。" : "朋友圈签名 signature 和封面 cover 不是每天换的东西：他这几天心境真的翻篇了才写新的，不写就是照旧。"; })()
+          + "\n"
           + wxChatList + relHint + wxMissingLine + wxMomentRule)
         : ("推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint + wxFreshMust + wxMomentRule) + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 8-12 条有来有回的对话，不要只给三两句。contacts 正好 5 个，不含用户本人：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体、有个人态度的关系简介 intro。userContact 单独写【用户本人】：name 就用上面告诉你的那个用户名字，remark 必须是 TA 真会给对方起的微信备注，intro 必须写 TA 对对方的具体认识、情感和私下评价，不能写「以主聊天为准」之类占位话。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己给自己取的 wechatName（不是角色本名照抄，要像 TA 真会使用的微信昵称、符合 TA 的取名风格）、wechatId 和本轮新生成的朋友圈 signature；、以及 TA 朋友圈封面长什么样 cover（**一句画面描述**，不是图片：写清是什么画面、什么色调、为什么是这张，要能一眼看出是 TA 挑的，换个人就不成立）；并给最近看过的 3 篇公众号文章：标题、公众号、时间、较完整的文章摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
       schemaHint: wxUpdOnly
@@ -1701,7 +1710,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         : "{\"chats\":[{\"type\":\"private或group\",\"name\":\"会话名\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}],\"userContact\":{\"name\":\"用户本人的名字\",\"remark\":\"TA给用户的微信备注\",\"intro\":\"TA对用户具体而私人的感想\"},\"contacts\":[{\"name\":\"本名\",\"remark\":\"TA的备注\",\"intro\":\"关系与感想\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"wechatName\":\"TA的微信昵称\",\"wechatId\":\"微信号\",\"signature\":\"本轮生成的朋友圈签名\",\"cover\":\"朋友圈封面的一句画面描述\",\"accounts\":[{\"title\":\"文章标题\",\"source\":\"公众号\",\"time\":\"昨晚\",\"summary\":\"较完整文章摘要\",\"thought\":\"TA的感想\"}]}}"
     },
     notes: {
-      instruction: "推演「" + char.name + characterText(char, "」手机便签里的东西（**8-12 条**）。这里既有他打字记下的，也有他说出口录下来的——**两种混在一起，本来就是一个 app**。\n")
+      instruction: "推演「" + char.name + characterText(char, "」手机便签里的东西（" + (known && Array.isArray(known.items) && known.items.length ? "**这几天新记下的 2-4 条**" : "**8-12 条**") + "）。这里既有他打字记下的，也有他说出口录下来的——**两种混在一起，本来就是一个 app**。\n")
         + "每条：kind（typed = 打字的 / voice = 录音的）、title（很短的一句抬头，可以就是正文第一句）、time、body（正文）、color（0-5 的整数，定便签颜色）。\n"
         + "kind=voice 的另给 duration（如 0:37 / 2:14）；它的 body 就是那段录音，照发语音的写法写：" + (typeof VOICE_PAUSE_MARK === "string" ? VOICE_PAUSE_MARK : "") + (typeof mmSoundHint === "function" ? mmSoundHint() : "") + "\n\n"
         + "【两种要真的不一样，这是这个 app 唯一重要的事】\n"
