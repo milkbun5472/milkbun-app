@@ -57,3 +57,6 @@ test("首页能测网络，摆在中转卡上面", () => {
   assert.match(src, /async function probeNet\(turn\)/);
   assert.match(src, /probeBox, turnBox, supaBox/);
 });
+test("联机页里不许再起一个叫 runProbe 的局部名：会盖住角色开口用的那个，打包后点角色报「初始化前无法访问」", () => {
+  assert.doesNotMatch(src, /const runProbe\b/);
+});

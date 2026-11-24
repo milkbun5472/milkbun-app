@@ -3126,11 +3126,11 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         ? "开着：你跟谁连上了，就把这个中转的地址、用户名、密码悄悄发给她那台，好让房里其他人之间连不通时也能走它。只沿你们俩的加密直连发，不经过公共中转；她那边不显示、不存，退出房间就没了，转话用的是你中转的流量。但真懂行的人能从她手机里翻出来，所以这里别填你别处也在用的密码。"
         : "关着：这个中转只有你自己这台用。房里别人之间连不通，你帮不上。")
     ]);
-    const runProbe = async () => { setProbe({ busy: true }); try { setProbe(await Core.probeNet(supaOwn.turn)); } catch (e) { setProbe({ err: true }); } };
+    const testNet = async () => { setProbe({ busy: true }); try { setProbe(await Core.probeNet(supaOwn.turn)); } catch (e) { setProbe({ err: true }); } };
     const probeBox = card([
       h("div", { key: "t", className: "flex items-center", style: { gap: 10 } },
         h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: fs(14), color: t.ink } }, "测一下我的网络"),
-        h(Btn, { label: probe && probe.busy ? "在测…" : "测一下", onClick: () => !(probe && probe.busy) && runProbe(), wk: "nrprobe" })),
+        h(Btn, { label: probe && probe.busy ? "在测…" : "测一下", onClick: () => !(probe && probe.busy) && testNet(), wk: "nrprobe" })),
       h(Note, { key: "res" }, !probe ? "几秒钟看看这台能不能直连、填的中转通不通；不连任何人、不花调用。"
         : probe.busy ? "在跟外面要地址，最多等几秒…"
         : probe.err ? "这台浏览器测不了：可能不支持直连，换个浏览器试试。"
