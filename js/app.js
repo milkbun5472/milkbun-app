@@ -13500,7 +13500,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   论坛发帖不在此处——它由 tickAmbient 的计数器按「50轮/3天」定时触发（见 forceAmbient），别在每轮聊天里重复问，省 token。
       const isCouple = roomReads("innerLife") && couples[charId] && couples[charId].status === "together";
       const ambientBits = [];
-      if (_s.autoMoment) ambientBits.push("发条朋友圈(moment)");
+      if (char.npc ? char.npcMoments : _s.autoMoment) ambientBits.push("发条朋友圈(moment)");
       // ⚠️「贴一张便签」是【过期说法】：便签墙 v59.23 就撤掉了，悄悄话早并进了情侣空间那个抽屉。
       //   这句话一直躺在那条不再发送的基线里，没人发现它在说一个不存在的东西——
       //   跟 v61.35 修过的那次（「模型还以为自己在往一个不存在的墙上贴」）是同一个毛病的第二处。
@@ -13786,7 +13786,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               + "。⚠️上面这些只是让你知道哪几张是你、挑得准——发的时候直接发，跟发别的表情一样，话里不用提「这是我的表情包」「我自己画的」「用我的脸」「Q 版的我」这类话，她问起或者正聊到这件事才说。";
           })());
       }
-      if (_s.autoMoment) openCaps.push("moment");
+      if (char.npc ? char.npcMoments : _s.autoMoment) openCaps.push("moment");
       if (!char.npc && storyRoomFor(charId)) openCaps.push("story");
       if (!char.npc && window.Stories && window.Stories.activeFor("me", charId).some(s0 => s0.sticker && s0.sticker.type === "poll" && (s0.sticker.votes || {})[charId] == null)) openCaps.push("storyVote");
       if (!char.npc && storyOnFor(charId) && window.Stories && window.Stories.activeFor("me", charId).some(s0 => !window.Stories.all().some(x => x.repostOf === s0.id && x.by === charId))) openCaps.push("storyRepost");
@@ -13854,7 +13854,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "⚠️评论挂在 Ta 那条底下，刷到的人都看得见：只属于你和 " + uName + " 之间的私事不写进去。");
       }
       // 顺手发朋友圈 / 留悄悄话：条件不成立时这一格根本不给，别让TA以为自己发得出去
-      if (_s.autoMoment) openCaps.push("moment");
+      if (char.npc ? char.npcMoments : _s.autoMoment) openCaps.push("moment");
       if (!char.npc && storyRoomFor(charId)) openCaps.push("story");
       if (!char.npc && window.Stories && window.Stories.activeFor("me", charId).some(s0 => s0.sticker && s0.sticker.type === "poll" && (s0.sticker.votes || {})[charId] == null)) openCaps.push("storyVote");
       if (!char.npc && storyOnFor(charId) && window.Stories && window.Stories.activeFor("me", charId).some(s0 => !window.Stories.all().some(x => x.repostOf === s0.id && x.by === charId))) openCaps.push("storyRepost");
@@ -15762,7 +15762,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         delivered = true;
       }
       // 仅当该角色开启了「自由发朋友圈」才把 Ta 想发的动态发出去
-      const mo = !char.npc && settingsFor(charId).autoMoment && momRoomFor(charId) && parsed.moment && String(parsed.moment).toLowerCase() !== "null" ? String(parsed.moment) : null;
+      const mo = (char.npc ? !!char.npcMoments : settingsFor(charId).autoMoment) && momRoomFor(charId) && parsed.moment && String(parsed.moment).toLowerCase() !== "null" ? String(parsed.moment) : null;
       if (mo) { pMom(p => [{
         id: "m_" + Date.now(),
         characterId: charId,

@@ -11052,6 +11052,8 @@ function MomentsFeed({
   const t = useTheme();
   // 朋友圈里的头像也认聊天那张（她 2026-10-13「朋友圈也没变」）
   const characters = (rawCharacters || []).map(chatFace);
+  // 「让谁发一条」也列开着「发朋友圈」的配角（她 2026-11-24 转群友：配角本来就会自己发，挑人时却挑不到）
+  const pickChars = characters.concat((npcs || []).filter(c => c && c.npcMoments && !characters.some(x => x.id === c.id)).map(chatFace));
   const [pick, setPick] = useState(false);
   const [commenting, setCommenting] = useState(null);
   const [cText, setCText] = useState("");
@@ -11356,11 +11358,11 @@ function MomentsFeed({
     }
   }, "让谁发一条"), /*#__PURE__*/React.createElement("div", {
     className: "space-y-1 max-h-72 overflow-y-auto"
-  }, (characters || []).length > 1 ? h("button", { key: "__rand", "data-wk": "mocharrand", onClick: () => { const c = window.__momentPick ? window.__momentPick(characters) : characters[Math.floor(Math.random() * characters.length)]; setPick(false); if (c) onGen(c); },   // 随机挑一个（她 2026-11-21）
+  }, (pickChars || []).length > 1 ? h("button", { key: "__rand", "data-wk": "mocharrand", onClick: () => { const c = window.__momentPick ? window.__momentPick(pickChars) : pickChars[Math.floor(Math.random() * pickChars.length)]; setPick(false); if (c) onGen(c); },   // 随机挑一个（她 2026-11-21）
       className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
       h("span", { style: { width: 34, height: 34, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", background: t.bg2, border: "1px dashed " + t.line, fontSize: 17 } }, "🎲"),
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.ink } }, "随机挑一个")) : null,
-  characters.map(c => /*#__PURE__*/React.createElement("button", {
+  pickChars.map(c => /*#__PURE__*/React.createElement("button", {
     key: c.id,
     onClick: () => {
       setPick(false);
