@@ -1704,6 +1704,9 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
               // 不定死几天（她 2026-11-24「4 天太短了，但是不要 set time」）：挂得越久，这一轮被提醒「可以换了」的机会越大，没有哪一天一定换
               return Math.random() < Math.min(0.6, _sd / 40) ? "朋友圈签名 signature 挂了有一阵子了：他这阵子的心境要是跟那句对不上了，就换一句新的写进 me.signature；还对得上就照旧。" : ""; })()
           // 换签名的勤快程度是这个人自己的事（她 2026-11-24「有些人设就是会一天一换」）
+          // 他得知道现在挂的是哪句、挂了多久（她 2026-11-24「他咋知道上次换是多久前」）
+          + (() => { const _sg = known && known.me && known.me.signature, _sTs = Number((known && known.me && known.me._sigTs) || (known && known._at) || 0); if (!_sg) return "";
+              const _h = _sTs ? Math.floor((Date.now() - _sTs) / 3600000) : -1; return "他现在挂的签名是「" + String(_sg).slice(0, 40) + "」" + (_h < 0 ? "" : _h < 24 ? "，今天刚换的" : "，挂了 " + Math.floor(_h / 24) + " 天") + "。"; })()
           + characterText(char, "朋友圈签名 signature 换得勤不勤照他这个人来：有的人心情一变就换、一天能换好几回，有的人一句挂好几年都不动；照他的性子决定这一轮写不写新的，不写就是照旧。")
           + "\n"
           + wxChatList + relHint + wxMissingLine + wxMomentRule)
