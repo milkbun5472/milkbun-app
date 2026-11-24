@@ -1117,6 +1117,33 @@
     let b = null; try { b = typeof byoRaw === "string" ? JSON.parse(byoRaw) : byoRaw; } catch (e) {}
     return cleanSupa(b);
   }
+  // 连不上时看一眼两边递过来的地址单子，说出是谁那边、为什么（她 11-23：「能不能让她们看到是谁为什么连不上」）
+  //   地址单子里：srflx＝从外网看得到的地址（拿到了才能直连），relay＝中转给的地址。哪边一个都没有，就是哪边的网络挡住了
+  function iceKinds(sdp) {
+    const k = { host: 0, srflx: 0, relay: 0 };
+    (String(sdp || "").match(/ typ (host|srflx|prflx|relay)/g) || []).forEach(x => { const t = x.slice(5); k[t === "prflx" ? "srflx" : t]++; });
+    return k;
+  }
+  // d: { mine: 我递出去的 sdp, theirs: 她递来的 sdp（没收到＝null）, turn: 我填了中转没 }
+  function diagnose(d) {
+    if (!d || !d.mine) return { who: "你", why: "你这台还没准备好连接", fix: "退出房间再进一次" };
+    if (!d.theirs) return { who: "她", why: "她那台一直没回话", fix: "让她看看手机是不是锁屏了、还开着这个房间，然后点「重新连上」" };
+    const a = iceKinds(d.mine), b = iceKinds(d.theirs);
+    if (d.turn && !a.relay) return { who: "你", why: "你填的中转没接通", fix: "看看中转的地址、用户名、密码有没有抄错，或者中转的流量用完了" };
+    if (!a.srflx && !a.relay) return { who: "你", why: "你这边的网络把直连挡住了", fix: "关掉梯子再试；连着公司、学校的网就换成流量" };
+    if (!b.srflx && !b.relay) return { who: "她", why: "她那边的网络把直连挡住了", fix: "让她关掉梯子再试；连着公司、学校的网就换成流量" };
+    if (a.relay || b.relay) return { who: "中转", why: "走中转也没打通", fix: "中转可能流量用完了，或者地址不对，换一个试试" };
+    return { who: "两边", why: "两边的网络都不让对方直接连进来", fix: "一边换成流量试试；还不行就房里有人在联机首页「连不上的时候」填一个自己的中转" };
+  }
+  const diagOf = (pc, turn) => { try { return diagnose({ mine: pc.localDescription && pc.localDescription.sdp, theirs: pc.remoteDescription && pc.remoteDescription.sdp, turn }); } catch (e) { return null; } };
+  // 「测一下我的网络」：自己跟自己要一张地址单子，看拿不拿得到外面的地址、中转通不通（不连任何人）
+  async function probeNet(turn) {
+    const c = cleanTurn(turn), pc = new RTCPeerConnection({ iceServers: c ? ICE_SERVERS.concat([c]) : ICE_SERVERS });
+    try { pc.createDataChannel("probe"); await pc.setLocalDescription(await pc.createOffer()); await iceDone(pc, !!c);
+      const k = iceKinds(pc.localDescription && pc.localDescription.sdp);
+      return { out: k.srflx > 0, turn: !!c, relay: k.relay > 0 };
+    } finally { try { pc.close(); } catch (e) {} }
+  }
   function iceDone(pc, slow) {
     return new Promise(ok => {
       if (pc.iceGatheringState === "complete") return ok();
@@ -1133,21 +1160,28 @@
     const topic = topicOf(o.code), sess = rid();
     const links = {};    // peerId → { pc, dc, lid, state: pending/open/fail, sess, timer }
     let link = null, hello = null, clock = null, anyOpen = false, dead = false;
+    let ice = o.ice || null;   // 自己没填中转时，房里别人借来的那份由 setIce 换进来
+    const tries = {};          // 每个人自动重连过几次：连上清零；最多两次，免得一直刷
     const pub = obj => { try { link && link.publish(topic, Object.assign({ from: o.me, s: sess }, obj)); } catch (e) {} };
     const stopHello = () => { if (hello) clearInterval(hello); hello = null; if (clock) clearTimeout(clock); clock = null; };
-    const fail = text => { if (dead) return; api.close(); o.onFail && o.onFail(text); };
+    const fail = text => { if (dead) return;
+      if (text === FAIL_TEXT) { const L = Object.keys(links).map(id => links[id])[0]; const d = L && (L.diag || diagOf(L.pc, !!ice));
+        if (d) text = "看下来是" + d.why + "：" + d.fix + "。" + text; }
+      api.close(); o.onFail && o.onFail(text); };
     const drop = id => { const L = links[id]; if (!L) return; delete links[id]; clearTimeout(L.timer); try { L.pc.close(); } catch (e) {} };
     const openIds = () => Object.keys(links).filter(id => links[id].state === "open");
     const linkFail = (id, L) => {
       if (links[id] !== L || L.state === "open") return;
-      clearTimeout(L.timer); try { L.pc.close(); } catch (e) {}
+      clearTimeout(L.timer); L.diag = diagOf(L.pc, !!ice); try { L.pc.close(); } catch (e) {}
       L.state = "fail"; o.onLinkFail && o.onLinkFail(id);
+      // 连不上先别认命：隔十几秒自己再连一次（刚切回前台、Wi-Fi 和流量刚换过时常常第二次就通）
+      if ((tries[id] = (tries[id] || 0) + 1) <= 2) setTimeout(() => { if (!dead && links[id] === L) linkTo(id, null); }, 12000 * tries[id]);
     };
     const wire = (id, L, ch) => {
       L.dc = ch;
       ch.onopen = () => {
         if (links[id] !== L || dead) return;
-        L.state = "open"; L.rx = Date.now(); clearTimeout(L.timer); anyOpen = true; stopHello();
+        L.state = "open"; L.rx = Date.now(); clearTimeout(L.timer); tries[id] = 0; anyOpen = true; stopHello();
         o.onOpen && o.onOpen(id, ch);
       };
       ch.onclose = () => { if (links[id] !== L) return; const was = L.state === "open"; drop(id); if (was) o.onClose && o.onClose(id); };
@@ -1155,7 +1189,7 @@
     };
     const mkLink = (id, peerSess) => {
       drop(id);
-      const pc = new RTCPeerConnection({ iceServers: o.ice || ICE_SERVERS });
+      const pc = new RTCPeerConnection({ iceServers: ice || ICE_SERVERS });
       const L = { pc, dc: null, lid: rid(), state: "pending", sess: peerSess || null };
       links[id] = L;
       pc.onconnectionstatechange = () => {
@@ -1170,7 +1204,7 @@
       try {
         wire(id, L, L.pc.createDataChannel("room", { ordered: true }));
         await L.pc.setLocalDescription(await L.pc.createOffer());
-        await iceDone(L.pc, !!o.ice);
+        await iceDone(L.pc, !!ice);
         if (links[id] === L) pub({ t: "offer", to: id, lid: L.lid, sdp: L.pc.localDescription.sdp });
       } catch (e) { linkFail(id, L); }
     };
@@ -1211,7 +1245,7 @@
           L.pc.ondatachannel = ev => wire(from, L, ev.channel);
           await L.pc.setRemoteDescription({ type: "offer", sdp: m.sdp });
           await L.pc.setLocalDescription(await L.pc.createAnswer());
-          await iceDone(L.pc, !!o.ice);
+          await iceDone(L.pc, !!ice);
           if (links[from] === L) pub({ t: "answer", to: from, lid: m.lid, sdp: L.pc.localDescription.sdp });
         } else if (m.t === "answer") {
           const L = links[from];
@@ -1258,6 +1292,10 @@
     const api = {
       openIds,
       state: id => (links[id] ? links[id].state : ""),
+      diag: id => (links[id] ? links[id].diag || null : null),
+      // 房里有人借来中转：自己没填才换上；换上以后把连不上的那几条马上重连一次
+      setIce(next) { if (dead || ice || !next) return false; ice = next;
+        Object.keys(links).forEach(id => { if (links[id].state === "fail") { tries[id] = 0; linkTo(id, null); } }); return true; },
       sendTo(id, raw) { const L = links[id]; try { L && L.state === "open" && L.dc && L.dc.readyState === "open" && L.dc.send(raw); } catch (e) {} },
       close() { dead = true; clearInterval(beat); stopHello(); try { link && link.close(); } catch (e) {} link = null; Object.keys(links).forEach(drop); }
       // 页面从后台回到前台：中转那条线多半已经死了，先换一条新的，再喊一声让还没连上的人来接
@@ -1371,7 +1409,7 @@
   }
   function recapBlock(room) { const t = recapText(room && room.recap); return t ? "\n\n" + t + (promptRoom(room).cut ? "\n（更早的记录太长，下面只给最近这一段）" : "") : ""; }
 
-  const Core = { cleanTurn, iceFor, BROKERS, BROKER_FAIL_TEXT, SUPA_FAIL_TEXT, JOIN_PREFIX, MqttLink, openBroker, SupaLink, signalFor, packJoin, parseJoin, cleanSupa, supaCfg, secretKey, Mesh, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
+  const Core = { cleanTurn, iceFor, iceKinds, diagnose, probeNet, BROKERS, BROKER_FAIL_TEXT, SUPA_FAIL_TEXT, JOIN_PREFIX, MqttLink, openBroker, SupaLink, signalFor, packJoin, parseJoin, cleanSupa, supaCfg, secretKey, Mesh, TOPIC_PREFIX, ICE_SERVERS, CONNECT_TIMEOUT, FAIL_TEXT, STORE_KEY, AVATAR_PX, MAX_PEOPLE, LEGACY,
     mqtt, topicOf, newCode, validCode, cardOf, cleanCard, wireMsg, loadRooms, saveRooms, upsertRoom, addMsg, patchRoom,
     memoryTargets, transcript, lineInstruction, actBits, actsOf, cleanSong, songPlan, listenLines, capLines, sinceLast, CHUNK, IMG_MAX, RICH_TYPES, cleanRich, richLine, splitRaw, Joiner, grabRp, votePoll, askResult, replaceTurn,
     ownsMsg, editMsg, recallMsg, dropMsg, dropOwnMsg, tombOwn, applyDrops, isDropped, TOMB_MAX, missingImgs, cleanQuote, quoteOf, quoteState, quoteCatalog, resolveQuote, sysMsg, sidesLines, FILE_TEXT_MAX, memoryInstruction, sayLines, humansHere, watchTargets, jointInstruction, jointLines, mergeMsgs, removeRoom, hostGamesIn, HOST_GAMES_KEY, sinceRemembered, echoText,
@@ -1658,6 +1696,7 @@
     const byoRaw = (() => { try { return loadJSON("x_byoSupa", null); } catch (e) { return null; } })();   // 公共版云同步填的那份；家里版没有
     const supa = Core.supaCfg(supaOwn, byoRaw);
     const useSupa = !!(supa && supaOwn.on);
+    const [probe, setProbe] = useState(null);   // 「测一下我的网络」的结果
     const saveSupaOwn = patch => { const next = Object.assign({}, supaOwn, patch); setSupaOwn(next); try { saveJSON("x_netroomSupa", next); } catch (e) {} };
     const [sig, setSig] = useState(null);   // 这一场递名片用的 Supabase（null＝公共中转）
     const [status, setStatus] = useState("");
@@ -1739,7 +1778,8 @@
       const fail = Object.keys(linkMap.current).concat(((roomRef.current && roomRef.current.peers) || []).map(p => p.peerId))
         .filter((x, i, a) => a.indexOf(x) === i && m.state(x) === "fail");
       const reach = Core.reachable(meId.current, open, linkMap.current);
-      setNet({ open, fail, reach });
+      const diag = {}; fail.forEach(id => { const d = m.diag && m.diag(id); if (d) diag[id] = d; });
+      setNet({ open, fail, reach, diag });
       setPeerTyping(x => { const n = {}; Object.keys(x).forEach(k => { if (reach.indexOf(k.split("|")[0]) >= 0) n[k] = x[k]; }); return n; });
     };
     // 发给房里所有人：每条带编号和「谁说的」；直连不上的那几位由跟 TA 通着的人转过去。
@@ -1758,6 +1798,9 @@
       out.forEach(r => ids.forEach(id => m.sendTo(id, r)));
     };
     const routeTo = (to, cameFrom) => GC() ? GC().privateRoute(mesh.current ? mesh.current.openIds() : [], to, linkMap.current, cameFrom) : [];
+    // 中转借给房里的人（她 11-23）：开着「借给房里的人」时，跟谁直连上了就只沿那条直连把中转递给谁（直连本身加密，不走公共中转）。
+    //   对方只放在这一次联机的内存里用，不存、不显示；她自己填了中转就用她自己的
+    const shareTurn = id => { const c = supaOwn.turnShare !== false && Core.cleanTurn(supaOwn.turn); if (c && mesh.current) send({ t: "turn", ice: c }, id); };
     const sendLinks = () => { if (mesh.current) send({ t: "links", ids: mesh.current.openIds() }); };
     const joiner = useRef(Core.Joiner(60000));
     const left = useRef(new Set());       // 说过 bye 的人：TA 再报到时记一行「回来了」
@@ -1791,6 +1834,9 @@
       if (hit) commit(Core.upsertRoom(Object.assign({}, r, { msgs }))); };
     const handle = (e, origin) => {
       const r = roomRef.current; if (!r) return;
+      if (e.t === "turn") { const x = e.ice || {}, c = Core.cleanTurn({ url: (Array.isArray(x.urls) ? x.urls : []).slice(0, 4).join(","), user: x.username, pass: x.credential });
+        if (c && mesh.current && mesh.current.setIce && mesh.current.setIce(Core.ICE_SERVERS.concat([c]))) sysLine(nickOf(origin) + " 把她的中转借给房里用了，连不上的人正在重新接");
+        return; }
       if (e.t === "links") { linkMap.current[origin] = (Array.isArray(e.ids) ? e.ids : []).map(String).slice(0, MAX_LINKS); syncNet(); }
       else if (e.t === "hi") {
         const known = !!Core.peerOf(r, origin), nick = String(e.nick || "对方").slice(0, 20);
@@ -1967,14 +2013,14 @@
         onStatus: setStatus,
         onFail: text => { if (mesh.current !== m) return; mesh.current = null; setErr(text); if (!entered.current) setPage("home"); syncNet(); },
         onLinkFail: id => { if (mesh.current !== m) return; syncNet(); if (!entered.current && !roomRef.current) setStatus("有人进来了但没接通：" + FAIL_TEXT); },
-        onOpen: () => {
+        onOpen: id => {
           if (mesh.current !== m) return;
           if (!roomRef.current) {
             const r = { id: "nr_" + Date.now(), code: c, host, myPeerId: meId.current, startedAt: Date.now(), endedAt: 0, myNick: myNick(),
               peers: [], myChars: [], msgs: [], remembered: {}, sig: s0 || null };
             commit(Core.upsertRoom(r)); setPage("pick");
           } else if (entered.current) announce(roomRef.current);
-          sendLinks(); syncNet();
+          shareTurn(id); sendLinks(); syncNet();
         },
         onClose: () => { if (mesh.current !== m) return; sendLinks(); syncNet(); },
         onData });
@@ -2882,8 +2928,11 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         peers.length > 0 && h("div", { "data-wk": "nrpeerbar", className: "shrink-0", style: { padding: "6px 14px", borderBottom: "1px solid " + t.line, display: "flex", flexWrap: "wrap", gap: "4px 12px" } },
           peers.map(p => { const st = stateOf(p.peerId); return h("span", { key: p.peerId, "data-wk": "nrpeer", "data-state": st, style: { fontFamily: F_BODY, fontSize: fs(11.5), color: st === "on" ? t.ink : t.fog } },
             (st === "on" ? "● " : "○ ") + p.nick + (st === "on" ? (peerWatch[p.peerId] ? " · " + stateText.watch : "") : " · " + stateText[st])); }),
-          trouble.length > 0 && h("div", { style: { width: "100%", fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
-            "和 " + trouble.map(p => p.nick).join("、") + " 直连不上：" + (trouble.some(p => stateOf(p.peerId) === "relay") ? "话由房里其他人转过去，可能慢一点。" : "她收不到你的话。两边先关掉梯子再试；还不行就一边改用流量，或者填一个自己的中转（首页「连不上的时候」）。"))),
+          trouble.map(p => { const relay = stateOf(p.peerId) === "relay", d = !relay && net.diag && net.diag[p.peerId];
+            return h("div", { key: "d" + p.peerId, "data-wk": "nrdiag", style: { width: "100%", fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5 } },
+              "和 " + p.nick + " 直连不上：" + (relay ? "话由房里其他人转过去，可能慢一点。"
+                : d ? d.why + "。" + d.fix + "。"
+                : "她收不到你的话。两边先关掉梯子再试；还不行就一边改用流量，或者填一个自己的中转（首页「连不上的时候」）。")); })),
         (() => { const L = Core.listenLines(Object.assign({}, np, myNp.current ? { me: Object.assign({ who: "你" }, myNp.current) } : {}));
           return L.length > 0 && h("div", { key: "np", "data-wk": "nrlisten", className: "shrink-0", style: { padding: "5px 14px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.5 } },
             L.map((x, i) => h("div", { key: i, style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "♪ " + x))); })(),
@@ -2907,6 +2956,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         go: "棋盘大小照下面挑的；双方连着停一手就由开局的人那台估死子、数子。没有提示、悔棋和教学。", haigui: "下一页选谁出题。", q25: "下一页选谁出题。",
         story: "三圈，每人每次抽一个要用上的词；角色用带 TA 来的那台、TA 自己的线路接。", tod: "每人约两轮，题由下一位出；角色出题、回答都用带 TA 来的那台的线路。",
         monopoly: "钱和地都在开局的人那台结算；不买的地自动拍卖，讨价还价在房间里说。",
+        ludo: "骰子由开局的人那台掷；每人点自己那一手，角色、NPC 由手机替着挑飞机（不花调用）。",
         spy: "词由开局的人那台出、只发到各人自己的手机；描述、投票轮流来，角色用带 TA 来的那台、TA 自己的线路。",
         uno: "每人的手牌只发到自己那台；角色、NPC 由手机替着出（不花调用）。没有「每人自己想」。",
         oldmaid: "每人的手牌只发到自己那台，抽的时候只看得到下家牌背。", liar: "每人的骰子只发到自己那台，开了才一起亮。",
@@ -2914,7 +2964,8 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         blackjack: "庄家是手机；每人的牌只发到自己那台，一手结算时才一起亮。没有「TA 坐庄」和「每人自己想」。",
         doudizhu: "正好 3 个座位，真人不够用角色和 NPC 补；手牌只发到自己那台，底牌定了地主才亮。",
         mahjong: "正好 4 个座位，真人不够用角色和 NPC 补；手牌只发到自己那台。牌墙自动摸；四川的换三张、定缺由手机替每家挑。",
-        lingxi: "两个人各写各的，两边都交了才一起亮；角色用带 TA 来的那台、TA 自己的线路。开局的人随时能结束。" };
+        lingxi: "两个人各写各的，两边都交了才一起亮；角色用带 TA 来的那台、TA 自己的线路。开局的人随时能结束。",
+        draw: "两到四个人轮流画，一段一段画；每画完一段，其余的人按顺序各猜一次，先猜中的那个和画的人各得一分。题目只发到画的人那台。角色画、猜都用带 TA 来的那台、TA 自己的线路；看真人画的要识图的模型，不识图就看线条的文字描述。" };
       // 不在单机小游戏目录里、只在房间里有的那几盒（辩论擂台）：摆在架子最后，点了去它自己的开局页
       const extra = root.NetGameCore.supported().filter(k => k !== "debate" && k !== "trpg")   /* 擂台、跑团各在 ＋ 里单独一格（她 11-22） */.map(k => root.NetGameCore.ADAPTERS[k].shelf).filter(Boolean)
         .map(g => Object.assign({}, g, { onPick: () => { setGamePend({ game: g, cfg: {} }); setPage("gameprep"); } }));
@@ -2929,7 +2980,9 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
           hint: v => v === "hot" ? "真心话 / 大冒险 会更暧昧大胆。" : "朋友聚会的尺度，轻松好玩。" });
         return out; };
       return h(G, { characters: mine, profile: props.profile, only: root.NetGameCore.supported(), extra, onConfigured, setupExtra,
-        setupHide: ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins", "cardBrain", "bjDealer", "pkTruth", "mjAutoDraw", "mjSwap", "wolf_whitewolf", "av_lady"], setupNote: g => (NOTE[g.key] || (root.NetGameCore.ADAPTERS[g.key] || {}).note || "") + (GC() && GC().charOptKinds(g.key).length ? "你带的角色怎么玩（牌技、牌手水平、随手、带不带最近单聊）在邀请卡上点「换人／加入」那张单里调。" : ""),
+        // 联机能坐的人比单机多的那几盒（你画我猜单机两个人、联机最多四个）：开局页的人数上限照联机这一桌
+        setupGame: g => { const A = root.NetGameCore.ADAPTERS[g.key], r = A && A.seatRange ? A.seatRange({}) : null; return r && r.max > g.max ? Object.assign({}, g, { max: r.max }) : g; },
+        setupHide: ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins", "cardBrain", "bjDealer", "pkTruth", "mjAutoDraw", "mjSwap", "drawBrain", "wolf_whitewolf", "av_lady"], setupNote: g => (NOTE[g.key] || (root.NetGameCore.ADAPTERS[g.key] || {}).note || "") + (GC() && GC().charOptKinds(g.key).length ? "你带的角色怎么玩（牌技、牌手水平、随手、带不带最近单聊）在邀请卡上点「换人／加入」那张单里调。" : ""),
         intro: "挑一盒、设好开局（开局页里勾的角色就是你这边上场的人），房里会出现一张邀请卡，大家在卡上报名，你点开始。", onBack: () => setPage("chat") });
     }
     // 自己带开局页的那几盒（辩论擂台）：页面在它自己的文件里，这儿只套顶栏
@@ -3069,7 +3122,24 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
       ...[["url", "中转地址（turn: 开头，几条用逗号隔开）", "nrturnurl"], ["user", "用户名", "nrturnuser"], ["pass", "密码", "nrturnpass"]].map(([k, ph, wk]) =>
         h("input", { key: k, "data-wk": wk, defaultValue: turn[k] || "", placeholder: ph, autoCapitalize: "off", autoCorrect: "off", spellCheck: false,
           onBlur: e => saveSupaOwn({ turn: Object.assign({}, supaOwn.turn || {}, { [k]: e.target.value.trim() }) }),
-          style: { width: "100%", minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: fs(12.5) } }))
+          style: { width: "100%", minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: fs(12.5) } })),
+      h("label", { key: "share", className: "flex items-center", style: { gap: 10, minHeight: 44 } },
+        h("input", { type: "checkbox", "data-wk": "nrturnshare", checked: supaOwn.turnShare !== false, onChange: e => saveSupaOwn({ turnShare: e.target.checked }) }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: fs(14) } }, "借给房里的人一起用")),
+      h(Note, { key: "sharewhy" }, supaOwn.turnShare !== false
+        ? "开着：你跟谁连上了，就把这个中转的地址、用户名、密码悄悄发给她那台，好让房里其他人之间连不通时也能走它。只沿你们俩的加密直连发，不经过公共中转；她那边不显示、不存，退出房间就没了，转话用的是你中转的流量。但真懂行的人能从她手机里翻出来，所以这里别填你别处也在用的密码。"
+        : "关着：这个中转只有你自己这台用。房里别人之间连不通，你帮不上。")
+    ]);
+    const testNet = async () => { setProbe({ busy: true }); try { setProbe(await Core.probeNet(supaOwn.turn)); } catch (e) { setProbe({ err: true }); } };
+    const probeBox = card([
+      h("div", { key: "t", className: "flex items-center", style: { gap: 10 } },
+        h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: fs(14), color: t.ink } }, "测一下我的网络"),
+        h(Btn, { label: probe && probe.busy ? "在测…" : "测一下", onClick: () => !(probe && probe.busy) && testNet(), wk: "nrprobe" })),
+      h(Note, { key: "res" }, !probe ? "几秒钟看看这台能不能直连、填的中转通不通；不连任何人、不花调用。"
+        : probe.busy ? "在跟外面要地址，最多等几秒…"
+        : probe.err ? "这台浏览器测不了：可能不支持直连，换个浏览器试试。"
+        : (probe.out ? "这台能从外面被找到，一般能直连。" : "这台拿不到外面的地址：多半开着梯子，或者这张网拦着直连。关掉梯子、或者换成流量再测一次。")
+          + (probe.turn ? (probe.relay ? "中转也通了。" : "填的中转没接通：地址、用户名、密码再对一下，或者中转的流量用完了。") : ""))
     ]);
     // 首页排法（她 11-23「看起来好乱」）：进门的事在最上面；以前的房间、认识的人其次；
     //   递名片那块是房间号连不上才用的，收到最底下折起来（开着自己的 Supabase 时默认展开）
@@ -3102,7 +3172,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
       rowBtn("kn", "nrknownopen", () => setPage("known"), "在联机里认识的人", knownN ? knownN + " 位别人家的角色" : "退房时记进记忆的角色，会记下在房里见过谁"),
       h("details", { key: "supa", "data-wk": "nrsupafold", open: (useSupa || !!Core.cleanTurn(supaOwn.turn)) || undefined, style: { marginTop: 6 } },
         h("summary", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.sub, minHeight: 36, cursor: "pointer" } }, "连不上的时候" + ([Core.cleanTurn(supaOwn.turn) && "正在用自己的中转", useSupa && "正在用自己的 Supabase"].filter(Boolean).length ? "（" + [Core.cleanTurn(supaOwn.turn) && "正在用自己的中转", useSupa && "正在用自己的 Supabase"].filter(Boolean).join("、") + "）" : "")),
-        h("div", { style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } }, turnBox, supaBox))
+        h("div", { style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 10 } }, probeBox, turnBox, supaBox))
     ]));
   }
   if (typeof window !== "undefined") window.NetRoomApp = NetRoomApp;

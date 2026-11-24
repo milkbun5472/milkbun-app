@@ -72,7 +72,7 @@ test("那一向跟着这篇文走，续写第七章还是那一向", () => {
   // 加笔走同一个 cpBlock（v67.02 删掉魂穿之后，那一枪永远带着 includeMe）
   assert.match(code, /parts\.push\(cpBlock\(cpChars, ficOpts\(fic, \{ includeMe: true/);
   // 落在这篇文上，不然续写时无从读起
-  assert.match(code, /cp: cp \|\| \[\], withMe: !!includeMe && !noCP, noCP: !!noCP, oneShot: !!oneShot, meMask: meMask \|\| "", groupWay: String\(groupWay \|\| ""\)\.trim\(\)/);
+  assert.match(code, /cp: cp \|\| \[\], withMe: includeMe && !noCP \? includeMe : false, noCP: !!noCP, oneShot: !!oneShot, meMask: meMask \|\| "", groupWay: String\(groupWay \|\| ""\)\.trim\(\)/);
 });
 
 test("名字：三个人以上不写成「A × B × C」", () => {
@@ -104,7 +104,7 @@ test("挑人那一格：点的先后就是顺序，三个以上才问向", () =>
   assert.equal(gs.split('setSel([]); setCast([]); setPick').length - 1, 2, "两个下拉没都清群像");
   // 群像时不给「带上我」：一群人里没有「他俩 × 我」这回事
   assert.match(gs, /\(!isGroup && !noCP && twoRealChars\(\)\) \? h\("button"/);
-  assert.match(gs, /props\.onConfirm\(n, chosenCP\(\), styleIds, !isGroup && twoRealChars\(\) && includeMe,/,
+  assert.match(gs, /props\.onConfirm\(n, chosenCP\(\), styleIds, !isGroup && twoRealChars\(\) && includeMe(?: \? \(meAll \? "all" : true\) : false)?,/,
     "群像还是把「带上我」递了出去——那一枪会按「他俩 × 我」写");
   // 三个人以上才问那一向
   assert.match(gs, /isGroup \? h\("div", \{ style: \{ marginTop: 12 \} \}/);

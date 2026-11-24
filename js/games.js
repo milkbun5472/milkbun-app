@@ -308,7 +308,8 @@
     xiangqi:   { paper: "#f2dfb8", ink: "#5a3418", hot: "#b8322a", band: "#5a3418", bandInk: "#f2dfb8" },
     go:        { paper: "#e9cf98", ink: "#3d2c16", hot: "#1a1816", band: "#3d2c16", bandInk: "#e9cf98" },
     jungle:    { paper: "#dfe8c6", ink: "#3f5a3a", hot: "#b8322a", band: "#3f5a3a", bandInk: "#dfe8c6" },
-    lingxi:    { paper: "#f1e4e6", ink: "#4d3a40", hot: "#c2566e", band: "#4d3a40", bandInk: "#f1e4e6" }
+    lingxi:    { paper: "#f1e4e6", ink: "#4d3a40", hot: "#c2566e", band: "#4d3a40", bandInk: "#f1e4e6" },
+    ludo:      { paper: "#f4efe4", ink: "#3d3a36", hot: "#d9584b", band: "#3d3a36", bandInk: "#f4efe4" }
   };
   function GameLid(props) {
     const k = props.k, c = LID[k] || LID.spy;
@@ -518,6 +519,17 @@
         h("circle", { key: "d", cx: 37, cy: 26, r: 6, fill: c.ink, opacity: .5 }),
         h("circle", { key: "e", cx: 83, cy: 26, r: 6, fill: c.ink, opacity: .5 })
       ],
+      // 十字棋盘的一角：四色格子绕一圈，一架小飞机停在格子上，旁边一颗骰子
+      ludo: [
+        h("rect", { key: "a", x: 22, y: 16, width: 26, height: 26, rx: 4, fill: "#d9584b", opacity: .85 }),
+        h("rect", { key: "b", x: 72, y: 16, width: 26, height: 26, rx: 4, fill: "#e0b735", opacity: .85 }),
+        h("rect", { key: "c", x: 22, y: 50, width: 26, height: 26, rx: 4, fill: "#459464", opacity: .85 }),
+        h("rect", { key: "d", x: 72, y: 50, width: 26, height: 26, rx: 4, fill: "#4382bf", opacity: .85 }),
+        h("path", { key: "e", d: "M52 20h16v52H52zM26 44h68", stroke: c.ink, strokeWidth: 1.4, fill: "none", opacity: .35 }),
+        h("path", { key: "f", d: "M60 30l4 10h9l-9 4 2 10-6-5-6 5 2-10-9-4h9z", fill: c.hot, stroke: "#fff", strokeWidth: 1 }),
+        h("rect", { key: "g", x: 86, y: 58, width: 14, height: 14, rx: 3, fill: "#fff", stroke: c.ink, strokeOpacity: .45, transform: "rotate(12 93 65)" }),
+        h("circle", { key: "h", cx: 93, cy: 65, r: 1.8, fill: c.ink })
+      ],
       uno: [0, 1, 2, 3].map(function (i) {
         const rot = -24 + i * 16, col = [c.hot, "#e8b53c", "#3f7fd0", "#4f9a58"][i];
         return h("g", { key: "u" + i, transform: "rotate(" + rot + " 60 76)" },
@@ -614,6 +626,7 @@
       if (session.game.key === "liar") return h(LiarDiceGame, engineProps);
       if (session.game.key === "poker") return h(PokerGame, engineProps);
       if (session.game.key === "oldmaid") return h(OldMaidGame, engineProps);
+      if (session.game.key === "ludo") return h(LudoGame, engineProps);
       if (session.game.key === "blackjack") return h(BlackjackGame, engineProps);
       if (session.game.key === "doudizhu") return h(DoudizhuGame, engineProps);
       if (session.game.key === "mahjong" && window.MahjongCore) return h(MahjongGame, engineProps);
@@ -624,7 +637,8 @@
     }
     // 各怀心思的约会也走公共开局页（她 2026-10-12：「格式跟其他的也不一样」）——原来那张自己画的 DateGameSetup 不再挂
     if (game) return h(GameSetup, {
-      game: game, characters: props.characters, profile: props.profile, moods: props.moods, t: t,
+      // setupGame：借大厅的那一处可以改这一盒的开局（比如那边你画我猜能坐四个人）
+      game: props.setupGame ? props.setupGame(game) : game, characters: props.characters, profile: props.profile, moods: props.moods, t: t,
       hide: props.setupHide, extraOpts: props.setupExtra, note: props.setupNote ? props.setupNote(game) : "",
       initialPicked: entry && entryHandledRef.current === entry.key && entry.characterId ? [String(entry.characterId)] : [],
       onBack: function () { setGame(null); },
@@ -947,7 +961,7 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, q25Host === "system" ? "系统心里想一个，大家一起猜。"
             : q25Host === "me" ? "你写下一个东西锁住（TA 看不到），TA 一问一问来猜，你点按钮答。只跟挑的第一个人玩。"
             : q25Host === "ta" ? "TA 照你们的事想一个，你来问、来猜。只跟挑的第一个人玩。" : "一局你出、一局 TA 出，记比分。只跟挑的第一个人玩。")) : null,
-        game.key === "draw" ? h("div", { "data-wk": "drawbrain", style: { marginBottom: 20 } },
+        game.key === "draw" && !hid("drawBrain") ? h("div", { "data-wk": "drawbrain", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "TA 怎么画"),
           h(Segmented, { t: t, value: drawBrain, onChange: setDrawBrain, options: [{ key: "once", zh: "一口气画好" }, { key: "step", zh: "一段一段想" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, drawBrain === "step"
@@ -3198,7 +3212,8 @@
     xiangqi: ["#b8322a", "#5a3418"],
     go: ["#c8a467", "#3d2c16"],
     jungle: ["#7fa35a", "#3f5a3a"],
-    lingxi: ["#c2566e", "#4d3a40"]
+    lingxi: ["#c2566e", "#4d3a40"],
+    ludo: ["#d9584b", "#459464"]
   };
   function gameTable(k, t) {
     // 透明度后缀要先验主题色是不是六位色号，验不过退回纯色（mobile-ui-layout §3.5）
@@ -7030,6 +7045,7 @@
   const DRAW_BUILTIN = ["猫", "雨伞", "西瓜", "自行车", "月亮", "眼镜", "蜗牛", "冰淇淋", "灯泡", "钥匙", "蝴蝶", "火锅", "风筝", "仙人掌", "企鹅", "吉他", "雪人", "闹钟", "彩虹", "热气球", "章鱼", "蛋糕", "帐篷", "鲨鱼", "向日葵", "牙刷", "火箭", "长颈鹿", "汉堡", "灯塔"];
   const DRAW_INK = { k: "#2b2723", r: "#d0533f", b: "#3f6fb0", g: "#4f8a4a", y: "#e0a92e", p: "#9a5fb0" };
   const DRAW_ROUNDS = 3;
+  const DRAW_STROKE_FMT = "\n一笔的格式：{\"t\":\"line\",\"p\":[x1,y1,x2,y2,...]} 折线；{\"t\":\"curve\",\"p\":[起点x,y,控制点x,y,终点x,y,控制点x,y,终点x,y...]} 弧线；{\"t\":\"circle\",\"c\":[x,y,r]} 圆；可加 \"k\" 颜色（k 黑 r 红 b 蓝 g 绿 y 黄 p 紫）、\"f\":true 填色、\"close\":true 闭合。";
   function drawPool() { try { const v = loadJSON(DRAW_POOL_KEY, null); return v && Array.isArray(v.words) ? v : { words: [], theme: "" }; } catch (e) { return { words: [], theme: "" }; } }
   function saveDrawPool(v) { try { saveJSON(DRAW_POOL_KEY, v); } catch (e) {} }
   // 模型写的一笔 → 一条 svg path（坐标 0~100）。认不出的形状丢掉，不让一笔坏的毁了整幅
@@ -7053,6 +7069,19 @@
     return st.close ? d + "Z" : d;
   }
   function drawHit(guess, word) { return spyGuessHits(guess, word); }
+  // 一幅画写成一段话（给猜的人／接着画的人看）：list＝[{ strokes:[{ raw, k, f }] }]，只看前 n 段。各处同一份
+  function drawDescribe(list, n) {
+    const r1 = function (v) { return Math.round(Number(v)); };
+    return list.slice(0, n).map(function (sg, si) {
+      return "第" + (si + 1) + "段：" + sg.strokes.map(function (st) {
+        const raw = st.raw || {};
+        const col = st.k && st.k !== "k" ? "（" + ({ r: "红", b: "蓝", g: "绿", y: "黄", p: "紫" })[st.k] + "）" : "";
+        if (raw.t === "circle") return "圆，圆心(" + r1(raw.c[0]) + "," + r1(raw.c[1]) + ")半径" + r1(raw.c[2]) + (st.f ? "涂满" : "") + col;
+        const pts = []; for (let i = 0; i + 1 < (raw.p || []).length; i += 2) pts.push("(" + r1(raw.p[i]) + "," + r1(raw.p[i + 1]) + ")");
+        return (raw.t === "curve" ? "弧线" : "线") + pts.join("→") + (raw.close ? "闭合" : "") + (st.f ? "涂满" : "") + col;
+      }).join("；");
+    }).join("\n");
+  }
 
   function DrawGuessGame(props) {
     const t = props.t, cfg = props.config, api = props.active;
@@ -7110,18 +7139,7 @@
         + "\n画画、猜词都是手上的事；嘴上那句（say）才是你这个人在说话——用你人设里的口气、跟对面这个人的关系说，别说成游戏解说。";
     };
     // 给猜的人「看」画：不发图，把已经画出来的几笔念给 TA（不用识图模型；读坐标会像真人一样猜歪）
-    const describeSegs = function (list, n) {
-      const r1 = function (v) { return Math.round(Number(v)); };
-      return list.slice(0, n).map(function (sg, si) {
-        return "第" + (si + 1) + "段：" + sg.strokes.map(function (st) {
-          const raw = st.raw || {};
-          const col = st.k && st.k !== "k" ? "（" + ({ r: "红", b: "蓝", g: "绿", y: "黄", p: "紫" })[st.k] + "）" : "";
-          if (raw.t === "circle") return "圆，圆心(" + r1(raw.c[0]) + "," + r1(raw.c[1]) + ")半径" + r1(raw.c[2]) + (st.f ? "涂满" : "") + col;
-          const pts = []; for (let i = 0; i + 1 < (raw.p || []).length; i += 2) pts.push("(" + r1(raw.p[i]) + "," + r1(raw.p[i + 1]) + ")");
-          return (raw.t === "curve" ? "弧线" : "线") + pts.join("→") + (raw.close ? "闭合" : "") + (st.f ? "涂满" : "") + col;
-        }).join("；");
-      }).join("\n");
-    };
+    const describeSegs = drawDescribe;
     const said = function () {
       const L = lines.slice(-8);
       return L.length ? "\n【刚才已经说过的】\n" + L.map(function (l) { return "· " + l.name + "：" + l.text; }).join("\n") + "\n这些说过了：同一个意思别换个说法再说一遍。" : "";
@@ -7161,7 +7179,7 @@
         const d = drawStrokePath(st); return d ? { d: d, k: DRAW_INK[st.k] ? st.k : "k", f: !!st.f, raw: st } : null;
       }).filter(Boolean);
     };
-    const STROKE_FMT = "\n一笔的格式：{\"t\":\"line\",\"p\":[x1,y1,x2,y2,...]} 折线；{\"t\":\"curve\",\"p\":[起点x,y,控制点x,y,终点x,y,控制点x,y,终点x,y...]} 弧线；{\"t\":\"circle\",\"c\":[x,y,r]} 圆；可加 \"k\" 颜色（k 黑 r 红 b 蓝 g 绿 y 黄 p 紫）、\"f\":true 填色、\"close\":true 闭合。";
+    const STROKE_FMT = DRAW_STROKE_FMT;
     const stepSeg = async function (w, who, have) {
       who = who || drawer;
       const other = duo ? (who === char ? char2 : char) : null;
@@ -7204,7 +7222,7 @@
           + "画在 100×100 的画布上（左上角 0,0）。把这幅画分成几段画，分几段你自己定（2 到 5 段）：一段是几笔、画完停一下让 TA 猜。"
           + (easy ? "这局你让着 TA，画得好认一点。" : "照你人设里的画画水平来：本来就不会画的，线条歪、比例怪、该圆的画成方的都正常；会画的也可以哪一笔随手、哪一段画得潦草，或者存心画丑一点逗对方——看你这个人、看你此刻的心思。但得是真想让人猜到的画，不是乱涂。")
           + "画里不许写字、不许写这个词的任何一个字。每段带一句你画这段时顺口说的话（say），照你自己的性子，别透露答案。"
-          + "\n一笔的格式：{\"t\":\"line\",\"p\":[x1,y1,x2,y2,...]} 折线；{\"t\":\"curve\",\"p\":[起点x,y,控制点x,y,终点x,y,控制点x,y,终点x,y...]} 弧线；{\"t\":\"circle\",\"c\":[x,y,r]} 圆；可加 \"k\" 颜色（k 黑 r 红 b 蓝 g 绿 y 黄 p 紫）、\"f\":true 填色、\"close\":true 闭合。"
+          + DRAW_STROKE_FMT
           + "\n只输出 JSON：{\"segments\":[{\"strokes\":[...],\"say\":\"一句\"}]}";
         const raw = await callRetry(api, sys, [{ role: "user", content: "开始画。" }], { maxTokens: 12000, tag: "你画我猜·画" });
         const p = extractJSON(raw) || {};
@@ -8603,6 +8621,310 @@
       busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, (current ? current.name : "TA") + " 的手悬在牌上…") : null);
   }
 
+  // ---------------- 飞行棋 ----------------
+  // 2~4 色、每色四架。掷到 6 才能起飞，掷到 6 再掷一次；落在自己颜色的格子往前跳到下一格同色；
+  //   落在虚线那一格顺着虚线飞过去；停下的那一格上只有对面一架就把它撞回机库（两架以上叠着撞不动）；终点要正好走到，多出来的往回弹。
+  //   骰子是手机掷的（Math.random），挑哪一架也是手机按路数挑（ludoPick）——一手都不调模型，TA 们只在桌边说话（useCardTableTalk）。
+  //   外圈 52 格四色轮流，每色从自己那格出发绕 51 格，再拐进自家那条 5 格跑道，第 56 步到家（画在哪儿见 LudoBoard 上面）。
+  // 顺时针红→黄→绿→蓝，照实物：红左上、黄右上、绿右下、蓝左下（她 2026-11-24「画错了」）
+  const LUDO_COLORS = [{ zh: "红", c: "#d9584b" }, { zh: "黄", c: "#e0b735" }, { zh: "绿", c: "#459464" }, { zh: "蓝", c: "#4382bf" }];
+  // 照实物：出发格是起飞三角后面那格；回家入口在出发格前 4 格（第 49 格），跑道 5 格、第 54 格到家；自家虚线从第 17 格飞到第 29 格
+  const LUDO_RING_END = 48, LUDO_HOME = 54, LUDO_FLY = [16, 28], LUDO_PLANES = 4;
+  function ludoColorsFor(n) { return n === 2 ? [0, 2] : [0, 1, 2, 3].slice(0, Math.max(2, Math.min(4, n))); }
+  function ludoGlobal(color, rel) { return (color * 13 + rel) % 52; }
+  function ludoDie(rnd) { return 1 + Math.floor((rnd || Math.random)() * 6); }
+  function ludoNewGame(players, rnd) {
+    const ps = players.slice(0, 4), cols = ludoColorsFor(ps.length);
+    const state = { id: "ludo_" + Date.now().toString(36), status: "playing", turn: Math.floor((rnd || Math.random)() * ps.length), phase: "roll", dice: 0, log: [], winner: null,
+      players: ps.map(function (p, i) { return Object.assign({}, p, { color: cols[i], planes: [-1, -1, -1, -1] }); }) };
+    state.log.push({ kind: "sys", text: "—— 各就各位：" + state.players.map(function (p) { return LUDO_COLORS[p.color].zh + "·" + p.name; }).join("，") + "。掷到 6 才能起飞，" + state.players[state.turn].name + " 先掷 ——" });
+    return state;
+  }
+  // 一架飞机从 from 走 d 步落在哪儿：stops 是一路停过的格子（撞人看这几格），jump/fly 记下跳没跳、飞没飞
+  function ludoStep(from, d) {
+    if (from >= LUDO_HOME) return null;
+    if (from < 0) return d === 6 ? { to: 0, stops: [0], takeoff: true } : null;
+    let to = from + d;
+    if (to > LUDO_HOME) to = LUDO_HOME - (to - LUDO_HOME);
+    const r = { to: to, stops: [to], bounce: from + d > LUDO_HOME };
+    if (to > 0 && to <= LUDO_RING_END && to % 4 === 0) {
+      if (to === LUDO_FLY[0]) { r.fly = true; r.to = LUDO_FLY[1]; r.stops.push(r.to); }
+      else if (to + 4 <= LUDO_RING_END) {
+        r.jump = true; r.to = to + 4; r.stops.push(r.to);
+        if (r.to === LUDO_FLY[0]) { r.fly = true; r.to = LUDO_FLY[1]; r.stops.push(r.to); }
+      }
+    }
+    return r;
+  }
+  // 这一骰能走哪几架（机库里的、叠在同一格的只列一架）
+  function ludoMoves(state) {
+    const p = state.players[state.turn], d = state.dice, seen = {}, out = [];
+    if (!p || state.phase !== "move" || !d) return out;
+    p.planes.forEach(function (from, i) {
+      if (seen[from]) return;
+      const r = ludoStep(from, d); if (!r) return;
+      seen[from] = 1; out.push(Object.assign({ plane: i, from: from }, r));
+    });
+    return out;
+  }
+  function ludoNext(state) { state.turn = (state.turn + 1) % state.players.length; state.phase = "roll"; }
+  function ludoWhere(rel) { return rel < 0 ? "机库" : rel >= LUDO_HOME ? "终点" : rel > LUDO_RING_END ? "自家跑道" : "第 " + (rel + 1) + " 格"; }
+  function ludoTag(p) { return p.name + "（" + LUDO_COLORS[p.color].zh + "）"; }
+  function ludoRoll(state, d) {
+    if (state.status !== "playing" || state.phase !== "roll") throw new Error("现在不是掷骰子的时候");
+    state.dice = d; state.phase = "move";
+    if (!ludoMoves(state).length) {
+      const p = state.players[state.turn];
+      state.log.push({ kind: "roll", player: p.key, text: ludoTag(p) + " 掷出 " + d + (d === 6 ? "，没有能走的，再掷一次" : "，没有能走的") });
+      if (d === 6) state.phase = "roll"; else ludoNext(state);
+    }
+    return state;
+  }
+  // 一手：挑第几架飞机走这一骰
+  function ludoAct(state, plane, say) {
+    const p = state.players[state.turn], d = state.dice;
+    const mv = ludoMoves(state).find(function (m) { return m.plane === plane || (p && p.planes[plane] === m.from); });
+    if (!p || state.status !== "playing" || !mv) throw new Error("这一架现在走不了");
+    const pi = p.planes[plane] === mv.from ? plane : mv.plane;
+    p.planes[pi] = mv.to;
+    const bits = [mv.takeoff ? "起飞" : mv.to >= LUDO_HOME ? (pi + 1) + " 号机到家了" : (pi + 1) + " 号机走到" + ludoWhere(mv.stops[0])];
+    if (mv.bounce) bits.push("多出来的往回弹");
+    if (mv.jump) bits.push("踩到自己的颜色跳 4 格");
+    if (mv.fly) bits.push("顺着虚线飞到" + ludoWhere(LUDO_FLY[1]));
+    const line = String(say || "").trim().slice(0, 160);
+    state.log.push({ kind: "move", player: p.key, text: ludoTag(p) + " 掷 " + d + "：" + bits.join("，") + (line ? "　“" + line + "”" : "") });
+    // 撞人：停过的外圈格子上，对面只有一架就撞回机库
+    mv.stops.forEach(function (rel) {
+      if (rel > LUDO_RING_END) return;
+      const g = ludoGlobal(p.color, rel);
+      state.players.forEach(function (q) {
+        if (q === p) return;
+        const here = q.planes.map(function (x, i) { return x >= 0 && x <= LUDO_RING_END && ludoGlobal(q.color, x) === g ? i : -1; }).filter(function (i) { return i >= 0; });
+        if (here.length === 1) { q.planes[here[0]] = -1; state.hitAt = state.log.length + 1; state.log.push({ kind: "hit", player: p.key, text: "💥 " + p.name + " 把 " + q.name + " 的 " + (here[0] + 1) + " 号机撞回了机库" }); }
+      });
+    });
+    if (p.planes.every(function (x) { return x >= LUDO_HOME; })) {
+      state.status = "finished"; state.winner = p.key; state.phase = "done";
+      state.log.push({ kind: "sys", text: p.name + " 四架飞机都到家了，这一局 " + p.name + " 赢。" });
+      return state;
+    }
+    if (d === 6) { state.phase = "roll"; state.log.push({ kind: "sys", text: p.name + " 掷到 6，再掷一次" }); } else ludoNext(state);
+    return state;
+  }
+  // 手机替 TA 挑一架：能到家先到家、能撞人就撞、能起飞就起飞、能跳能飞就跳、躲开身后六格里的对面；soft＝放水局里不撞这几位
+  function ludoPick(state, soft, rnd) {
+    const p = state.players[state.turn], opts = ludoMoves(state), r = rnd || Math.random;
+    if (!opts.length) return -1;
+    const foes = state.players.filter(function (q) { return q !== p; });
+    const near = function (rel, own) {   // 这一格身后 1~6 格里有几架对面的
+      if (rel < 0 || rel > LUDO_RING_END) return 0;
+      const g = ludoGlobal(p.color, rel); let n = 0;
+      foes.forEach(function (q) { q.planes.forEach(function (x) { if (x >= 0 && x <= LUDO_RING_END) { const dist = (g - ludoGlobal(q.color, x) + 52) % 52; if (dist >= 1 && dist <= 6) n++; } }); });
+      return n;
+    };
+    const hits = function (m) {
+      let n = 0, gentle = false;
+      m.stops.forEach(function (rel) {
+        if (rel > LUDO_RING_END) return;
+        const g = ludoGlobal(p.color, rel);
+        foes.forEach(function (q) { const k = q.planes.filter(function (x) { return x >= 0 && x <= LUDO_RING_END && ludoGlobal(q.color, x) === g; }).length; if (k === 1) { n++; if ((soft || []).indexOf(q.key) >= 0) gentle = true; } });
+      });
+      return { n: n, gentle: gentle };
+    };
+    let best = null;
+    opts.forEach(function (m) {
+      const hh = hits(m);
+      let s = r() * 3;
+      if (m.to >= LUDO_HOME) s += 100;
+      if (hh.n) s += hh.gentle ? -60 : 80 * hh.n;
+      if (m.takeoff) s += 55;
+      if (m.fly) s += 40; else if (m.jump) s += 25;
+      if (m.from <= LUDO_RING_END && m.to > LUDO_RING_END) s += 30;
+      s += near(m.from) * 15 - near(m.to) * 20;
+      if (m.bounce) s -= 10;
+      s += m.to / 20;
+      if (!best || s > best.s) best = { s: s, plane: m.plane };
+    });
+    return best.plane;
+  }
+  function ludoHomeCount(p) { return p.planes.filter(function (x) { return x >= LUDO_HOME; }).length; }
+  function ludoPublic(state) {
+    return state.players.map(function (p) {
+      const air = p.planes.filter(function (x) { return x >= 0 && x < LUDO_HOME; }).map(function (x) { return x; });
+      return ludoTag(p) + "：到家 " + ludoHomeCount(p) + " 架，机库 " + p.planes.filter(function (x) { return x < 0; }).length + " 架" + (air.length ? "，在路上的走到 " + air.map(ludoWhere).join("、") : "");
+    }).join("\n") + "\n最近：\n" + state.log.slice(-10).map(function (x) { return x.text; }).join("\n");
+  }
+  // 画法照真的飞行棋盘（她 2026-11-24 拿实物图比：「棋盘不是这样的吗」）：19×19 的画布，四角四个大机库，
+  //   外圈 52 格绕着中间那个十字的外沿走（每个拐角是一格劈成两个三角），一格一色红→黄→蓝→绿轮流；
+  //   每色的终点跑道从十字那条臂的尽头直插中心。只换每个逻辑格画在哪儿，规则一格没动。
+  //   底稿画的是右上那一家（机库右上、从十字上臂的右沿往下出发、走上臂正中那条跑道回家），其余三家转 90° 的倍数；
+  //   红在左上，所以第 c 色转 (c+3)%4 次。
+  // 一比一照实物临摹（她 2026-11-24 第三回：「你数一下格子还有家旁边的格子是三角的」）：
+  //   17×17 格，四角机库各 4×4，边上那圈两格宽。每一家 13 格（底稿是右上那一家，顺时针）：
+  //   上沿 1 格（出发格）→ 机库口那块 2×2 斜劈开、彩色那半是跑道（米色那半画起飞箭头）→ 顺机库左边下来 2 格 →
+  //   机库内角那块 2×2 劈成两个彩色三角 → 顺机库底边 2 格 → 外角那块 2×2 斜劈、彩色那半是跑道 → 沿右边下来 2 格 →
+  //   右边正中的回家入口 → 再往下 1 格。边上的格子是 1×2 的长条，跟实物一样
+  const LUDO_N = 17;
+  function ludoRot(x, y, k) { let a = x, b = y; for (let i = 0; i < ((k % 4) + 4) % 4; i++) { const nx = LUDO_N - b; b = a; a = nx; } return [a, b]; }
+  const LUDO_R = function (x0, y0, x1, y1) { return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]; };
+  const LUDO_QUAD = [LUDO_R(11, 2, 13, 3), LUDO_R(11, 3, 13, 4), [[11, 4], [13, 4], [11, 6]], [[13, 4], [13, 6], [11, 6]],
+    LUDO_R(13, 4, 14, 6), LUDO_R(14, 4, 15, 6), [[15, 4], [15, 6], [17, 6]], LUDO_R(15, 6, 17, 7), LUDO_R(15, 7, 17, 8), LUDO_R(15, 8, 17, 9),
+    LUDO_R(15, 9, 17, 10), LUDO_R(15, 10, 17, 11), [[17, 11], [15, 11], [15, 13]]];
+  // 两块斜劈开的格子另一半（米色，不是跑道）：第一块是机库口，上面画这一家的起飞箭头
+  const LUDO_GAPS = [[[11, 0], [13, 0], [13, 2]], [[15, 4], [17, 4], [17, 6]]];
+  function ludoRingCell(g) {
+    const q = Math.floor(g / 13), k = (q + 3) % 4;
+    const pts = LUDO_QUAD[g % 13].map(function (p) { return ludoRot(p[0], p[1], k); });
+    return { pts: pts, at: [pts.reduce(function (s, p) { return s + p[0]; }, 0) / pts.length, pts.reduce(function (s, p) { return s + p[1]; }, 0) / pts.length] };
+  }
+  // 机库（右上那一家的底稿）：四个圆机位
+  const LUDO_BASE = [13.1, 0.1, 16.9, 3.9], LUDO_SLOTS = [[14.1, 1.1], [15.9, 1.1], [14.1, 2.9], [15.9, 2.9]], LUDO_TAKEOFF = [12.35, 0.65];
+  function ludoCell(color, rel, slot) {
+    const k = (color + 3) % 4;
+    if (rel < 0) { const s = LUDO_SLOTS[slot % 4]; return ludoRot(s[0], s[1], k); }
+    if (rel >= LUDO_HOME) return ludoRot(8.5, 7.6, k);
+    if (rel > LUDO_RING_END) return ludoRot(8.5, 1.5 + (rel - LUDO_RING_END), k);
+    return ludoRingCell(ludoGlobal(color, rel)).at;
+  }
+  // 一架小飞机（机头朝上，原点在机身中间，约 7×7）
+  const LUDO_PLANE_D = "M0 -3.4C.5 -3.4 .65 -2.8 .65 -2.2L.65 -.7 3.3 .7 3.3 1.35 .65 .6 .55 2.1 1.5 2.8 1.5 3.25 0 2.9 -1.5 3.25 -1.5 2.8 -.55 2.1 -.65 .6 -3.3 1.35 -3.3 .7 -.65 -.7 -.65 -2.2C-.65 -2.8 -.5 -3.4 0 -3.4Z";
+  function LudoBoard(props) {
+    const t = props.t, players = props.players || [], cur = props.cur, movable = props.movable || [], S = 10;
+    const used = players.map(function (p) { return p.color; });
+    const P = function (xy) { return xy[0] * S + " " + xy[1] * S; };
+    const els = [];
+    els.push(h("defs", { key: "defs" }, [0, 1, 2, 3].map(function (c) {
+      return h("marker", { key: c, id: "ludoArr" + c, viewBox: "0 0 10 10", refX: 8, refY: 5, markerWidth: 5, markerHeight: 5, orient: "auto" }, h("path", { d: "M0 0L10 5L0 10z", fill: LUDO_COLORS[c].c }));
+    })));
+    // 中间：四色三角拼成的终点，和每色那条直插中心的跑道（格子里一个箭头朝里）
+    [0, 1, 2, 3].forEach(function (c) {
+      const k = (c + 3) % 4, col = LUDO_COLORS[c].c;
+      els.push(h("path", { key: "ctr" + c, d: "M" + P(ludoRot(7, 7, k)) + "L" + P(ludoRot(10, 7, k)) + "L" + P(ludoRot(8.5, 8.5, k)) + "Z", fill: col, stroke: "#fbf8f1", strokeWidth: .8 }));
+      for (let j = 1; j <= 5; j++) {
+        const yy = 1.5 + j, m = ludoRot(8.5, yy, k), b = ludoRot(8.5, yy + .22, k), l = ludoRot(8.22, yy - .1, k), r = ludoRot(8.78, yy - .1, k);
+        els.push(h("rect", { key: "h" + c + j, x: (m[0] - .46) * S, y: (m[1] - .46) * S, width: .92 * S, height: .92 * S, rx: 1.6, fill: col, opacity: .9 }));
+        els.push(h("path", { key: "ha" + c + j, d: "M" + P(l) + "L" + P(b) + "L" + P(r), stroke: "#fbf8f1", strokeWidth: .9, fill: "none", strokeLinecap: "round", opacity: .9 }));
+      }
+      // 机库：四角大方块，四个圆机位；门口一颗起飞点，指向出发那格
+      const a0 = ludoRot(LUDO_BASE[0], LUDO_BASE[1], k), a1 = ludoRot(LUDO_BASE[2], LUDO_BASE[3], k), on = used.indexOf(c) >= 0;
+      els.push(h("rect", { key: "base" + c, x: Math.min(a0[0], a1[0]) * S, y: Math.min(a0[1], a1[1]) * S, width: (LUDO_BASE[2] - LUDO_BASE[0]) * S, height: (LUDO_BASE[3] - LUDO_BASE[1]) * S, rx: 5, fill: col, opacity: on ? .95 : .3 }));
+      LUDO_SLOTS.forEach(function (s, i) { const q = ludoRot(s[0], s[1], k); els.push(h("circle", { key: "slot" + c + i, cx: q[0] * S, cy: q[1] * S, r: 6.5, fill: "#fbf8f1", opacity: .9 })); });
+      // 机库两侧斜劈开那两块的米色半边；机库口那块上画一枚自家颜色的起飞箭头
+      LUDO_GAPS.forEach(function (tri, gi) { const pts = tri.map(function (p) { return ludoRot(p[0], p[1], k); });
+        els.push(h("path", { key: "gap" + c + gi, d: "M" + pts.map(P).join("L") + "Z", fill: "#efe6cf", stroke: "#fbf8f1", strokeWidth: .9 })); });
+      const tk = ludoRot(LUDO_TAKEOFF[0], LUDO_TAKEOFF[1], k), st = ludoRingCell(ludoGlobal(c, 0)).at;
+      const ta = ludoRot(12.55, 1.05, k), tb = ludoRot(12.2, 0.4, k), tc = ludoRot(12.9, 0.4, k);   // 起飞箭头：机库口米色那半上一枚小三角，指着出去的方向
+      els.push(h("path", { key: "tka" + c, d: "M" + P(tb) + "L" + P(ta) + "L" + P(tc) + "Z", fill: col, opacity: on ? .95 : .4 }));
+    });
+    // 外圈 52 格：一格一色轮流
+    for (let g = 0; g < 52; g++) {
+      const c = ludoRingCell(g), col = LUDO_COLORS[g % 4].c;
+      els.push(h("path", { key: "r" + g, d: "M" + c.pts.map(P).join("L") + "Z", fill: col, stroke: "#fbf8f1", strokeWidth: .9 }));
+    }
+    // 虚线捷径：从第 21 格那块同色格飞到第 33 格，带箭头
+    [0, 1, 2, 3].forEach(function (c) {
+      const f0 = ludoCell(c, LUDO_FLY[0]), f1 = ludoCell(c, LUDO_FLY[1]);
+      els.push(h("path", { key: "fly" + c, d: "M" + P(f0) + "L" + P(f1), stroke: LUDO_COLORS[c].c, strokeWidth: 1.6, strokeDasharray: "3.2 2.4", markerEnd: "url(#ludoArr" + c + ")", opacity: used.indexOf(c) >= 0 ? .95 : .4 }));
+    });
+    // 飞机：同一格叠着的错开一点
+    const at = {};
+    players.forEach(function (p, pi) {
+      p.planes.forEach(function (rel, i) {
+        const xy = ludoCell(p.color, rel, i), k = rel < 0 ? "b" + p.color + i : Math.round(xy[0] * 10) + ":" + Math.round(xy[1] * 10);
+        const n = at[k] = (at[k] || 0) + 1, off = (n - 1) * 1.8;
+        const can = pi === cur && movable.indexOf(i) >= 0, x = xy[0] * S + off, y = xy[1] * S - off;
+        els.push(h("g", { key: "pl" + pi + "_" + i, "data-wk": "ludoplane", "data-on": can ? "1" : "0", onClick: can && props.onPick ? function () { props.onPick(i); } : undefined, style: { cursor: can ? "pointer" : "default" } },
+          can ? h("circle", { cx: x, cy: y, r: 7, fill: "none", stroke: "#f6d48a", strokeWidth: 2.2, className: "ludo-pulse" }) : null,
+          // 棋子画成一枚小飞机（她 2026-11-24「棋子能不能画好看点」）：白底圆片、一圈自家颜色，里面一架自家颜色的飞机，机头朝它出发的方向；右下角小标号认哪一架
+          h("circle", { cx: x + .5, cy: y + .7, r: rel >= LUDO_HOME ? 3.2 : 4.9, fill: "rgba(40,30,20,.22)" }),
+          h("circle", { cx: x, cy: y, r: rel >= LUDO_HOME ? 3.2 : 4.9, fill: "#fffdf7", stroke: LUDO_COLORS[p.color].c, strokeWidth: 1.4 }),
+          h("path", { d: LUDO_PLANE_D, fill: LUDO_COLORS[p.color].c, transform: "translate(" + x + " " + y + ") rotate(" + (((p.color + 3) % 4) * 90 + 180) + ") scale(" + (rel >= LUDO_HOME ? .62 : .95) + ")" }),
+          rel < LUDO_HOME ? h("circle", { cx: x + 3.6, cy: y + 3.6, r: 1.9, fill: LUDO_COLORS[p.color].c, stroke: "#fffdf7", strokeWidth: .6 }) : null,
+          rel < LUDO_HOME ? h("text", { x: x + 3.6, y: y + 4.45, textAnchor: "middle", fontSize: 2.5, fontWeight: 700, fill: "#fffdf7", style: { pointerEvents: "none" } }, String(i + 1)) : null,
+          can ? h("circle", { cx: x, cy: y, r: 8, fill: "transparent" }) : null));
+      });
+    });
+    if (typeof document !== "undefined" && document.head && !document.getElementById("ludo-css")) {
+      const st = document.createElement("style"); st.id = "ludo-css";
+      st.textContent = "@keyframes ludoPulse{0%,100%{opacity:1}50%{opacity:.25}}.ludo-pulse{animation:ludoPulse 1.1s ease-in-out infinite}";
+      document.head.appendChild(st);
+    }
+    return h("svg", { "data-wk": "ludoboard", viewBox: "-3 -3 176 176", style: { width: "100%", maxWidth: 440, display: "block", margin: "0 auto", borderRadius: 14, background: "#f4efe4", border: "1px solid " + t.line, boxShadow: "0 6px 16px rgba(20,16,10,.14)" } }, els);
+  }
+  function LudoGame(props) {
+    const t = props.t, cfg = props.config || {};
+    const restored = props.savedState && props.savedState.state;
+    const [state, setState] = useState(function () { return restored && restored.status === "playing" ? restored : ludoNewGame(unoPlayers(props, 4)); });
+    const [say, setSay] = useState(""), [resultNotice, setResultNotice] = useState("");
+    const current = state.players[state.turn], me = !!(current && current.isUser && state.status === "playing");
+    const spectate = cfg.mode === "spectate";
+    const soft = cfg.mode === "easy" ? state.players.filter(function (p) { return p.isUser; }).map(function (p) { return p.key; }) : [];
+    const opts = me && state.phase === "move" ? ludoMoves(state) : [];
+    const step = function (fn) { setState(function (prev) { const n = JSON.parse(JSON.stringify(prev)); try { fn(n); } catch (e) { return prev; } return n; }); };
+    useEffect(function () {
+      if (state.status === "finished") { clearGameSave("ludo"); return; }
+      const u = state.players.find(function (p) { return p.isUser; });
+      saveGameSnap("ludo", { config: cfg, state: state, label: "轮到 " + (current ? current.name : "—") + (u ? " · 你到家 " + ludoHomeCount(u) + " 架" : "") });
+    }, [state]);
+    useEffect(function () {
+      if (state.status !== "finished") return;
+      const w = state.players.find(function (p) { return p.key === state.winner; }), u = state.players.find(function (p) { return p.isUser; });
+      ccGameResult("ludo", state.id, state.players, cfg,
+        "《飞行棋》" + ((w && w.name) || "没人") + " 先把四架飞机都飞回了家。\n" + ((u && u.name) || "用户") + "：" + (u && w && u.key === w.key ? "获胜" : "未获胜") + "。\n最后几手：\n" + state.log.slice(-8).map(function (x) { return x.text; }).join("\n"),
+        function (line, seat) { setState(function (prev) { const n = JSON.parse(JSON.stringify(prev)); n.log.push({ kind: "chat", player: seat.key, text: seat.name + "：“" + line + "”" }); return n; }); },
+        setResultNotice);
+    }, [state.status, state.winner]);
+    // TA 们（和 NPC）那一手：掷骰子、挑一架都由手机来，不调模型
+    useEffect(function () {
+      if (!current || current.isUser || state.status !== "playing") return;
+      const tm = setTimeout(function () {
+        step(function (n) { if (n.phase === "roll") ludoRoll(n, ludoDie()); else ludoAct(n, ludoPick(n, soft)); });
+      }, state.phase === "roll" ? 700 : 600);
+      return function () { clearTimeout(tm); };
+    }, [state.turn, state.phase, state.log.length, state.status]);
+    // 她这一骰只有一架能走：替她走掉，不用再点
+    useEffect(function () {
+      if (!me || state.phase !== "move" || opts.length !== 1) return;
+      const k = opts[0].plane, line = say;
+      const tm = setTimeout(function () { step(function (n) { ludoAct(n, k, line); }); setSay(""); }, 650);
+      return function () { clearTimeout(tm); };
+    }, [me, state.phase, state.log.length]);
+    const userMove = function (k) { const line = say; step(function (n) { ludoAct(n, k, line); }); setSay(""); };
+    const u = state.players.find(function (p) { return p.isUser; });
+    const talking = useCardTableTalk(props, state, setState, { on: true, zh: "飞行棋", ready: state.status === "finished" || (state.hitAt || 0) > (state.talkAt || 0), every: Math.max(10, state.players.length * 5),
+      view: function () { return ludoPublic(state); } });
+    const winner = state.players.find(function (p) { return p.key === state.winner; });
+    return h("div", { "data-wk": "gameplay", "data-part": "ludo", className: "h-full flex flex-col", style: gameTable("ludo", t) },
+      h(Head, { zh: "飞行棋", en: state.status === "finished" ? "终局" : ("轮到 " + (current ? current.name : "—")), onBack: props.onBack, bg: "transparent" }),
+      h("div", { className: "flex-1 overflow-y-auto px-4 pb-3", style: { paddingTop: 10 } },
+        h(CardSeats, { t: t, evalOf: { host: props, key: "ludo", zh: "飞行棋" }, log: state.log, seats: state.players.map(function (p, i) {
+          return { key: p.key, name: p.name, char: cardSeatChar(props, p), isUser: p.isUser, on: i === state.turn && state.status === "playing", hot: state.winner === p.key, dealer: true, badge: LUDO_COLORS[p.color].zh, sub: "到家 " + ludoHomeCount(p) + "/4" };
+        }) }),
+        h(LudoBoard, { t: t, players: state.players, cur: state.turn, movable: opts.map(function (m) { return m.plane; }), onPick: me ? userMove : null }),
+        h("div", { "data-wk": "ludodice", style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, margin: "12px 0", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub } },
+          state.dice ? h(Die, { v: state.dice, size: 30, hot: state.dice === 6 }) : null,
+          h("span", null, state.status === "finished" ? "" : current ? (LUDO_COLORS[current.color].zh + "·" + current.name + (state.phase === "roll" ? " 该掷骰子了" : " 掷出 " + state.dice + "，在挑走哪一架")) : "")),
+        h(CardLog, { t: t, part: "ludo", log: state.log, talking: talking, seats: state.players }),
+        resultNotice ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, textAlign: "center" } }, resultNotice) : null,
+        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 18, fontFamily: F_DISPLAY, fontSize: "calc(21px * var(--app-fs, 1))", color: t.tint } },
+          ((winner && winner.name) || "没人") + " 先飞回了家！",
+          h(KeepMemBtn, { t: t, host: props, rep: function () {
+            const ids = realCharIds(state.players);
+            return { proc: state.log, key: "ludo", zh: "飞行棋", ids: ids, wins: winner && ids.indexOf(winner.key) >= 0 ? [winner.key] : [], meWin: u ? !!(winner && winner.isUser) : null,
+              text: "一起下了一盘飞行棋，" + (winner ? (winner.isUser ? "她" : winner.name) : "没人") + "先把四架飞机都飞回了家。" };
+          } })) : null),
+      state.status === "playing" && (me || (!spectate && u)) ? h("div", { "data-wk": "gameactions", "data-part": "ludo", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) * 0.4 + 10px)" } },
+        h(CardSay, { t: t, state: state, setState: setState, value: say, setValue: setSay, placeholder: "顺便说一句", talking: talking }),
+        me && state.phase === "roll" ? h("button", { "data-wk": "ludoroll", onClick: function () { step(function (n) { ludoRoll(n, ludoDie()); }); }, className: "active:opacity-80",
+          style: { width: "100%", minHeight: 44, borderRadius: 12, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 700, color: t.bg2, background: t.ink } }, "掷骰子") : null,
+        me && state.phase === "move" && opts.length > 1 ? h("div", { "data-wk": "ludopick", style: { display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" } },
+          h("div", { style: { width: "100%", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 2 } }, "掷出 " + state.dice + "：点棋盘上闪着的飞机，或者点下面一架"),
+          opts.map(function (m) { return h("button", { key: m.plane, "data-wk": "ludopickbtn", onClick: function () { userMove(m.plane); }, className: "active:opacity-70",
+            style: { minHeight: 40, padding: "0 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: t.bg2, border: "1px solid " + t.line } },
+            m.takeoff ? "起飞一架" : (m.plane + 1) + " 号机 → " + ludoWhere(m.to) + (m.fly ? "（飞）" : m.jump ? "（跳）" : "")); })) : null,
+        !me ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, (current ? current.name : "TA") + (state.phase === "roll" ? " 在掷骰子…" : " 在挑飞机…")) : null) : null);
+  }
+
   // ---------------- 21 点 ----------------
   // 庄家是牌桌（不是谁），一律要到 17 点；你和 TA 们各自跟庄家比。每手各押 10，一共 8 手，筹码最多的赢。
   const BJ_CHIPS = 100, BJ_BET = 10, BJ_HANDS = 8;
@@ -9381,7 +9703,7 @@
       busy && actor ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, actor.name + (state.phase === "bid" ? " 在想叫不叫…" : " 在理牌…")) : null);
   }
 
-  if (typeof module === "object" && module.exports) module.exports = { gmkPlace: gmkPlace, gmkReplay: gmkReplay, gmkEmpty: gmkEmpty, gmkWins: gmkWins, cardDeck: cardDeck, pkEval5: pkEval5, pkCmp: pkCmp, pkBest: pkBest, pkNewGame: pkNewGame, pkNewHand: pkNewHand, pkAct: pkAct, pkOptions: pkOptions, pkNpcMove: pkNpcMove, omNewGame: omNewGame, omAct: omAct, omDiscardPairs: omDiscardPairs, bjValue: bjValue, bjNewGame: bjNewGame, bjNewHand: bjNewHand, bjAct: bjAct, bjNpcMove: bjNpcMove, ddzAnalyze: ddzAnalyze, ddzBeats: ddzBeats, ddzFind: ddzFind, ddzLead: ddzLead, ddzNewGame: ddzNewGame, ddzNewRound: ddzNewRound, ddzBid: ddzBid, ddzPlay: ddzPlay, ddzNpcBid: ddzNpcBid, ddzNpcPlay: ddzNpcPlay, ddzHint: ddzHint, unoLocalMove: unoLocalMove, cardLocal: cardLocal, cardMovesSince: cardMovesSince, cardSayOf: cardSayOf, spyGuessHits: spyGuessHits, seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, liarLegalBid: liarLegalBid, liarCount: liarCount, liarNewGame: liarNewGame, liarAct: liarAct, liarNpcMove: liarNpcMove, liarNewRound: liarNewRound, storyNewGame: storyNewGame, storyAct: storyAct, storyText: storyText, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
+  if (typeof module === "object" && module.exports) module.exports = { LUDO_COLORS: LUDO_COLORS, ludoHomeCount: ludoHomeCount, ludoWhere: ludoWhere, ludoPublic: ludoPublic, ludoDie: ludoDie, ludoNewGame: ludoNewGame, ludoRoll: ludoRoll, ludoAct: ludoAct, ludoMoves: ludoMoves, ludoPick: ludoPick, ludoStep: ludoStep, ludoGlobal: ludoGlobal, ludoRingCell: ludoRingCell, ludoCell: ludoCell, LUDO_HOME: LUDO_HOME, gmkPlace: gmkPlace, gmkReplay: gmkReplay, gmkEmpty: gmkEmpty, gmkWins: gmkWins, cardDeck: cardDeck, pkEval5: pkEval5, pkCmp: pkCmp, pkBest: pkBest, pkNewGame: pkNewGame, pkNewHand: pkNewHand, pkAct: pkAct, pkOptions: pkOptions, pkNpcMove: pkNpcMove, omNewGame: omNewGame, omAct: omAct, omDiscardPairs: omDiscardPairs, bjValue: bjValue, bjNewGame: bjNewGame, bjNewHand: bjNewHand, bjAct: bjAct, bjNpcMove: bjNpcMove, ddzAnalyze: ddzAnalyze, ddzBeats: ddzBeats, ddzFind: ddzFind, ddzLead: ddzLead, ddzNewGame: ddzNewGame, ddzNewRound: ddzNewRound, ddzBid: ddzBid, ddzPlay: ddzPlay, ddzNpcBid: ddzNpcBid, ddzNpcPlay: ddzNpcPlay, ddzHint: ddzHint, unoLocalMove: unoLocalMove, cardLocal: cardLocal, cardMovesSince: cardMovesSince, cardSayOf: cardSayOf, spyGuessHits: spyGuessHits, seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, liarLegalBid: liarLegalBid, liarCount: liarCount, liarNewGame: liarNewGame, liarAct: liarAct, liarNpcMove: liarNpcMove, liarNewRound: liarNewRound, storyNewGame: storyNewGame, storyAct: storyAct, storyText: storyText, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
   // 聊天那头要按 key 报菜名（房间里的「TA可以拉你玩点什么」），别在那边再抄一份清单。
   Games.LIST = (typeof window !== "undefined" && window.GamesList) || GAMES.map(function (g) { return { key: g.key, zh: g.zh, min: g.min, max: g.max, rule: g.rule }; });
   if (typeof window !== "undefined") window.Games = Games;
@@ -9409,6 +9731,7 @@
       liar: { newGame: liarNewGame, newRound: liarNewRound, act: liarAct, npc: liarNpcMove, total: liarTotal, legal: liarLegalBid, DICE: LIAR_DICE },
       poker: { newGame: pkNewGame, newHand: pkNewHand, act: pkAct, npc: pkNpcMove, options: pkOptions, pot: pkPot, best: pkBest, CAT: PK_CAT, HANDS: PK_HANDS },
       oldmaid: { newGame: omNewGame, act: omAct, target: omTarget },
+      ludo: { COLORS: LUDO_COLORS, HOME: LUDO_HOME, Board: LudoBoard, newGame: ludoNewGame, roll: ludoRoll, act: ludoAct, moves: ludoMoves, pick: ludoPick, die: ludoDie, homeCount: ludoHomeCount, where: ludoWhere, text: ludoPublic },
       bj: { newGame: bjNewGame, newHand: bjNewHand, act: bjAct, npc: bjNpcMove, value: bjValue, HANDS: BJ_HANDS },
       ddz: { Mid: DdzMid, newGame: ddzNewGame, newRound: ddzNewRound, bid: ddzBid, play: ddzPlay, npcBid: ddzNpcBid, npcPlay: ddzNpcPlay, hint: ddzHint, analyze: ddzAnalyze, TYPE_ZH: DDZ_TYPE_ZH, ROUNDS: DDZ_ROUNDS },
       style: cardStyle
@@ -9421,6 +9744,8 @@
     // 阿瓦隆：配身份、任务人数、谁知道谁、组队／投票／出任务／刺杀（玩家对象带 secret 时就用这一句当 TA 知道的，不再从全桌身份推）
     avalon: { QUEST: AV_QUEST, EVIL: AV_EVIL, ROLE_ZH: AV_ROLE_ZH, side: avSide, failsReq: avFailsReq, board: avalonBoard, secretFor: avSecretFor, revealFor: avRevealFor, propose: genProposal, votes: genAvVotes, quest: genQuest, assassin: genAssassin },
     lingxi: { Chip: LingxiChip, RevCard: LingxiRevCard },
+    // 你画我猜：一笔画成 svg 线、整幅画写成话、猜没猜中、颜色、自带词库和她生成的那批词（别处摆同一张桌也用这一份）
+    draw: { path: drawStrokePath, describe: drawDescribe, hit: drawHit, INK: DRAW_INK, BUILTIN: DRAW_BUILTIN, pool: drawPool, STROKE_FMT: DRAW_STROKE_FMT },
     voiceRules: gameVoiceRules, call: callRetry, sayFree: GAME_SAY_FREE, sayList: sayList, seatTalk: seatTalk
   };
   if (typeof window !== "undefined") window.GameShared = GameShared;

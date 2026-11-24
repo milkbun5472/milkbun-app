@@ -860,7 +860,7 @@ if (typeof window !== "undefined") window.CallLog = CallLog;
 // 「在干嘛」认不出来时按【是谁叫的】认（她 2026-10-09：「其他的也来慢慢补吧」）：
 //   一百多处调用不一处处手写，在进 callAI／runProbe 那一刻看一眼调用栈——先认函数名，再认文件。
 //   新加一处调用、表里没有，就显示「其他」；看见哪个常出现就往这两张表里补一行。
-const CALL_FN_LABEL = Object.freeze({"writeBdayLetter": "生日信", "openBdayPlan": "生日计划", "suggestGroupName": "起群名", "drawLuckyChat": "幸运字符", "stampBeg": "集邮·生日池讨卡", "stampWriteSmall": "集邮·写小卡", "stampWriteSSR": "集邮·写 SSR", "stampInner": "集邮·SSR 换他视角重读", "stampExtra": "集邮·加一面", "stampReshot": "集邮·重拍", "stampPoke": "集邮·戳卡面", "genMyWeek": "我的一周", "regenCharAlt": "论坛·重起小号", "askForumWechat": "论坛·要微信", "spaceHomeTa": "情侣空间·TA 动手", "spaceBookTa": "情侣空间·TA 动笔", "collageArrange": "拼贴·TA 摆", "collageLook": "拼贴·TA 看看动几下", "collageChoose": "拼贴·TA 挑一个", "collageDraft": "拼贴·TA 起稿", "tripBookSearch": "旅行·查机票酒店", "comicFromMessages": "聊天变漫画", "coverCopy": "封面上的字", "studioShoot": "照相馆·拍", "replyToQA": "情侣问答·回答", "pickEmoteNine": "表情包·挑九宫格", "pickMyEmoteNine": "表情包·挑我的九宫格", "extractMemories": "记忆·提取", "extractGroupMemories": "记忆·群聊提取", "splitMemoryToEntries": "记忆·拆条", "generateRelation": "生成关系", "generateMyNpc": "生成我的配角", "generateNpcs": "生成配角", "generateNpc": "生成配角", "generateOfflineGroup": "群线下", "oocAsk": "场外问一句", "oocAskGroup": "群里场外问一句", "generateDiary": "日记", "gachaRedeem": "抽卡兑换", "mkThread": "查手机·聊天记录", "desireTendAllToday": "念头", "sendForumPM": "论坛私信", "openAnon": "匿名提问", "makeupOpen": "和好间", "callSend": "通话", "askYesNo": "问TA答不答应", "askAnonMe": "匿名提问", "_replyTurn": "聊天回复", "wearMatch": "穿搭", "watchKnock": "一起看", "unlinkCouple": "解除情侣", "tripPlanGen": "旅行行程", "summarizeChatRoom": "小房间小结", "schedMaybeSelfRevise": "日程自己改", "runProbeRetry": "重试", "routeWorld": "地图路线", "rerollCoupleQA": "情侣问答", "requestKinshipRaise": "亲属卡加额度", "replyGroup": "群聊", "refreshAnonPersona": "匿名主页", "reactToUserMoment": "回你的朋友圈", "radioAsk": "电台", "pinWishAsChar": "愿望板", "openAnonBox": "匿名箱", "observeRelationshipBShadow": "关系观察", "notifyChapterToChars": "同人文通知", "myClosetGen": "我的衣柜", "momentReplies": "朋友圈评论", "makeupSay": "和好间", "leaveInCoupleSpace": "情侣空间留言", "leaveAtHis": "去TA那儿留言", "ifOpen": "另一种我们", "ifAdvance": "另一种我们", "handPhoneTo": "给TA看手机", "generateTemperamentDraft": "写性格", "genWorldNodes": "地图", "genWorld": "地图", "genWhisper": "悄悄话", "genWeekSpend": "一周消费", "genWatchSession": "一起看", "genWalletProfile": "钱包档案", "genTimelineMusing": "时光轴感慨", "genTakeout": "外卖", "genSnoop": "查手机", "genShop": "购物", "genScheduleWeek": "一周日程", "genScheduleDay": "日程", "genPollVotes": "群投票", "genPhoneApp": "查手机", "genPhoneAll": "查手机", "genNetizenQ": "网友提问", "genMoment": "朋友圈", "genLetterReply": "情书回信", "genGiftThought": "礼物心声", "genExDiaryReply": "交换日记", "genDwellPlace": "住处", "genDateOutfits": "约会穿搭", "genDailySpend": "每日消费", "genCoupleRecall": "情侣回忆", "genCoupleLetter": "情书", "genCoupleDisc": "情侣唱片", "genClosetMore": "衣柜", "genCharPlaylist": "TA的歌单", "genCarrySection": "随身物品", "genCarryAll": "随身物品", "genCalMonth": "日历", "genAnonMe": "匿名主页", "gazeCall": "印象卡", "gardenPlantGen": "种花", "ensureCharForumMeta": "论坛主页", "endCall": "通话小结", "desireMuseFor": "念头", "decidePayLater": "代付", "decideGroupPayLater": "群代付", "charReceiveGiftReact": "收到礼物", "brewAnonPool": "匿名箱", "blockedReaction": "拉黑反应", "backfillMemEmotion": "记忆补情绪", "autoForumForChar": "论坛发帖", "autoBuryCapsuleForChar": "时光胶囊", "astroSignSweep": "星盘", "askAnon": "匿名提问", "answerCoupleQA": "情侣问答", "_pageTheme": "页面配色", "summarizeGroup": "总结群聊", "summarizeChatBlock": "总结聊天", "summarizeChat": "总结聊天", "scenePhotoBrief": "线下照片", "offlineSummaryCall": "线下小结", "offlineRewriteScene": "线下改写", "naiTagsFor": "生图标签", "jpKanaReading": "日文注音", "generateDiaryComment": "日记评论", "_transModel": "翻译", "probeAs": "直播", "probeMany": "直播", "askStranger": "刷视频", "probeStranger": "刷视频", "onSummarizePin": "回忆卡", "onRecall": "回忆卡", "onConnect": "电台", "onStudio": "电台", "onWheelReact": "转盘", "phoneCalendarFor": "查手机·日历", "genForumBoard": "论坛", "loadForumComments": "论坛评论", "genMoreComments": "论坛评论", "refreshForumPMs": "论坛私信", "startForumPM": "论坛私信", "forumMineTick": "论坛", "genRepliesToMe": "论坛回复", "genForumSearch": "论坛搜索"});
+const CALL_FN_LABEL = Object.freeze({"writeBdayLetter": "生日信", "openBdayPlan": "生日计划", "suggestGroupName": "起群名", "drawLuckyChat": "幸运字符", "stampBeg": "集邮·生日池讨卡", "stampWriteSmall": "集邮·写小卡", "stampWriteSSR": "集邮·写 SSR", "stampInner": "集邮·SSR 换他视角重读", "stampExtra": "集邮·加一面", "stampReshot": "集邮·重拍", "stampPoke": "集邮·戳卡面", "genMyWeek": "我的一周", "regenCharAlt": "论坛·重起小号", "askForumWechat": "论坛·要微信", "spaceHomeTa": "情侣空间·TA 动手", "spaceBookTa": "情侣空间·TA 动笔", "collageArrange": "拼贴·TA 摆", "collageLook": "拼贴·TA 看看动几下", "collageChoose": "拼贴·TA 挑一个", "collageDraft": "拼贴·TA 起稿", "tripBookSearch": "旅行·查机票酒店", "comicFromMessages": "聊天变漫画", "coverCopy": "封面上的字", "studioShoot": "照相馆·拍", "replyToQA": "情侣问答·回答", "pickEmoteNine": "表情包·挑九宫格", "pickMyEmoteNine": "表情包·挑我的九宫格", "extractMemories": "记忆·提取", "extractGroupMemories": "记忆·群聊提取", "splitMemoryToEntries": "记忆·拆条", "generateRelation": "生成关系", "generateMyNpc": "生成我的配角", "generateNpcs": "生成配角", "generateNpc": "生成配角", "generateOfflineGroup": "群线下", "oocAsk": "场外问一句", "oocAskGroup": "群里场外问一句", "generateDiary": "日记", "gachaRedeem": "抽卡兑换", "mkThread": "查手机·聊天记录", "desireTendAllToday": "念头", "sendForumPM": "论坛私信", "openAnon": "匿名提问", "makeupOpen": "和好间", "callSend": "通话", "askYesNo": "问TA答不答应", "askAnonMe": "匿名提问", "_replyTurn": "聊天回复", "wearMatch": "穿搭", "watchKnock": "一起看", "unlinkCouple": "解除情侣", "tripPlanGen": "旅行行程", "summarizeChatRoom": "小房间小结", "schedMaybeSelfRevise": "日程自己改", "runProbeRetry": "重试", "routeWorld": "地图路线", "rerollCoupleQA": "情侣问答", "requestKinshipRaise": "亲属卡加额度", "replyGroup": "群聊", "refreshAnonPersona": "匿名主页", "reactToUserMoment": "回你的朋友圈", "radioAsk": "电台", "pinWishAsChar": "愿望板", "openAnonBox": "匿名箱", "observeRelationshipBShadow": "关系观察", "notifyChapterToChars": "同人文通知", "myClosetGen": "我的衣柜", "momentReplies": "朋友圈评论", "makeupSay": "和好间", "leaveInCoupleSpace": "情侣空间留言", "leaveAtHis": "去TA那儿留言", "ifOpen": "另一种我们", "ifAdvance": "另一种我们", "handPhoneTo": "给TA看手机", "generateTemperamentDraft": "写性格", "genWorldNodes": "地图", "genWorld": "地图", "genWhisper": "悄悄话", "genWeekSpend": "一周消费", "genWatchSession": "一起看", "genWalletProfile": "钱包档案", "genTimelineMusing": "时光轴感慨", "genTakeout": "外卖", "genSnoop": "查手机", "genShop": "购物", "genScheduleWeek": "一周日程", "genScheduleDay": "日程", "genPollVotes": "群投票", "genPhoneApp": "查手机", "genPhoneAll": "查手机", "genNetizenQ": "网友提问", "genMoment": "朋友圈", "genLetterReply": "情书回信", "genGiftThought": "礼物心声", "genExDiaryReply": "交换日记", "genDwellPlace": "住处", "genDateOutfits": "约会穿搭", "genDailySpend": "每日消费", "genCoupleRecall": "情侣回忆", "genCoupleLetter": "情书", "genCoupleDisc": "情侣唱片", "genClosetMore": "衣柜", "genCharPlaylist": "TA的歌单", "genCarrySection": "随身物品", "genCarryAll": "随身物品", "genCalMonth": "日历", "genAnonMe": "匿名主页", "gazeCall": "Ta 眼里", "gardenPlantGen": "种花", "ensureCharForumMeta": "论坛主页", "endCall": "通话小结", "desireMuseFor": "念头", "decidePayLater": "代付", "decideGroupPayLater": "群代付", "charReceiveGiftReact": "收到礼物", "brewAnonPool": "匿名箱", "blockedReaction": "拉黑反应", "backfillMemEmotion": "记忆补情绪", "autoForumForChar": "论坛发帖", "autoBuryCapsuleForChar": "时光胶囊", "astroSignSweep": "星盘", "askAnon": "匿名提问", "answerCoupleQA": "情侣问答", "_pageTheme": "页面配色", "summarizeGroup": "总结群聊", "summarizeChatBlock": "总结聊天", "summarizeChat": "总结聊天", "scenePhotoBrief": "线下照片", "offlineSummaryCall": "线下小结", "offlineRewriteScene": "线下改写", "naiTagsFor": "生图标签", "jpKanaReading": "日文注音", "generateDiaryComment": "日记评论", "_transModel": "翻译", "probeAs": "直播", "probeMany": "直播", "askStranger": "刷视频", "probeStranger": "刷视频", "onSummarizePin": "回忆卡", "onRecall": "回忆卡", "onConnect": "电台", "onStudio": "电台", "onWheelReact": "转盘", "phoneCalendarFor": "查手机·日历", "genForumBoard": "论坛", "loadForumComments": "论坛评论", "genMoreComments": "论坛评论", "refreshForumPMs": "论坛私信", "startForumPM": "论坛私信", "forumMineTick": "论坛", "genRepliesToMe": "论坛回复", "genForumSearch": "论坛搜索"});
 const CALL_FILE_LABEL = Object.freeze({"fanfic-core": "同人", "impression-core": "印象卡", "ledger-core": "记账", "zhaoying-core": "照影·性格小测", "assistant": "秋秋", "astro": "星盘", "capsule": "时光胶囊", "companion": "桌宠", "debate": "擂台", "dream": "梦境", "dreamjournal": "梦境日记", "fairy-garden": "小世界", "fanfic": "同人文", "games": "小游戏", "health": "健康", "impression": "月度印象", "ledger": "记账", "listen-talk": "一起听", "memo": "备忘录", "pomodoro": "番茄钟", "read": "一起读", "study": "一起学", "style-presets": "文风预设", "tarot": "塔罗", "theater": "小剧场", "trpg": "跑团", "watch": "一起看", "weekly": "周刊"});
 // tag 是调用点自己起的名字：中文直接用；英文那几个翻一下，认不出的不显示（落到「其他」），别把英文摆到她眼前
 const CALL_TAG_LABEL = Object.freeze({ live: "直播", shua: "刷视频", phoneWatch: "查手机", "notif-test": "测试通知", astro: "星盘", tarot: "塔罗", "wh-": "悄悄话", "mom-": "朋友圈", health: "健康" });
@@ -899,6 +899,13 @@ function callerLabelOf(stack) {
 }
 // 中转站回了个空身子／一页网页（多半是它那头超时或网关报错），r.json() 只会甩一句
 //   「Unexpected end of JSON input」，谁也看不懂。三条主线路都走这一处，换成人话。
+// 中转站自己没读懂上游回来的东西、把那页网页原样塞进报错里（她 2026-11-24 截图：「Syntax error at index 1: invalid char … <html>」）：
+//   那一串谁也看不懂，换成人话；原文开头留一小截，排查时还认得出
+function aiErrHuman(msg) {
+  const m = String(msg || "");
+  if (!/<html|<!doctype|<meta\b|<head\b|<body\b/i.test(m)) return m;
+  return "中转站那头出错了：它从模型那边收到的是一页网页，不是回答（多半是上游网关报错、超时或被拦了）。过会儿再发；老这样就换条线路。〔原文开头：" + m.replace(/<[^>]*>?/g, " ").replace(/\\[ntr]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40) + "〕";
+}
 async function readAIJSON(r) {
   const raw = await r.text();
   if (!raw.trim()) throw new Error("线路回了个空回复（HTTP " + r.status + "）：多半是中转站那头等太久掐断了。再发一次；老这样就换条线路或换个模型");
@@ -967,6 +974,8 @@ async function callAI(p, system, messages, opts) {
   const bgRoute = _nm && _md && _nm.indexOf(_md) < 0 ? _nm + " · " + _md : (_nm || _md);
   const bgSay = (ok, msg) => { if (!bgShow) return; try { window.dispatchEvent(new CustomEvent("bg-call", { detail: { show: bgShow, route: bgRoute, ok: ok, msg: msg || "" } })); } catch (e) {} };
   // 调用记录：干嘛＝调用点自己写的 logLabel → 三种她按下去的（use）→ 后台活的名字 → tag → 其他。
+  //   ⚠️后台活的名字是全局挂着的：那件活儿跑着的时候，别处随手发的一枪也会被记成它（她 2026-11-23 截图：
+  //   「Ta 眼里·周树生」一秒内两条，第二条其实是聊完那一下别的活）。调用栈认得出是谁、又不是这件活儿，就照调用栈记
   //   回合＝她按一下换来的那一枪（use 是 chat/offline/call，且不是兜底重发 logRetry）。⚠️这张表也写在函数里面，理由同上。
   const LOG_USE = { chat: "聊天回复", offline: "线下", call: "通话" };
   // 她按下去的那一枪成了（不是后台自己跑的、不是兜底重发）：广播一声，邮票册照这个记邮资印泥（js/stamps-core.js）
@@ -978,7 +987,7 @@ async function callAI(p, system, messages, opts) {
     if (typeof CallLog === "undefined") return;
     const o0 = opts || {}, use = String(o0.use || "");
     try { CallLog.add({ ts: t0, ms: Date.now() - t0, ok: ok === true, cut: ok === "cut", err: ok === true ? "" : String(msg || "").slice(0, 300),
-      label: o0.logLabel || LOG_USE[use] || (bgShow && bgShow.indexOf("／") >= 0 ? "同时在跑：" + bgShow + "（这一次是其中一样）" : bgShow) || logFrom || (typeof callTagLabel === "function" ? callTagLabel(o0.tag) : "") || "其他", who: o0.logWho || "",
+      label: o0.logLabel || LOG_USE[use] || (bgShow && logFrom && bgShow.indexOf(logFrom) !== 0 ? logFrom : "") || (bgShow && bgShow.indexOf("／") >= 0 ? "同时在跑：" + bgShow + "（这一次是其中一样）" : bgShow) || logFrom || (typeof callTagLabel === "function" ? callTagLabel(o0.tag) : "") || "其他", who: o0.logWho || "",
       turn: !!LOG_USE[use] && !o0.logRetry, tok: o._tok || null, route: (p && p.name) || "", model: (p && p.model) || "", stream: !!(o0.stream || o0.onDelta) }); } catch (e) {}
   };
   // 流式已经吐出字的那一次不重试：再发一遍，她屏幕上同一句话会冒两遍
@@ -3020,7 +3029,8 @@ function chfGallery(msgs, files) {
     if (!m || m.recalled) return;
     const who = { role: m.role, senderId: m.senderId || null, senderName: m.senderName || null };
     const base = { from: "chat", who, ts: m.ts || 0, gen: m.role !== "user" && m.photoMode !== "real" };
-    if (m.imageRef) add(m.imageRef, Object.assign({ desc: String(m.desc || "").trim() }, base));
+    // 角色在群／频道里拍的照片只有 imgKey（img_ 本机图库），没有 imageRef（她 2026-11-24：角色发的图没进文件里的图片）；有 imageRef 的照旧认它，同一张不算两次
+    if (m.imageRef || m.imgKey) add(m.imageRef || m.imgKey, Object.assign({ desc: String(m.desc || "").trim() }, base));
     if (m.ask && m.ask.imageRef) add(m.ask.imageRef, Object.assign({ desc: String(m.ask.q || m.ask.title || "").trim() }, base));
     (Array.isArray(m.shots) ? m.shots : []).forEach(k => add(k, Object.assign({ desc: "通话里拍的画面" }, base)));
   });
@@ -4108,7 +4118,7 @@ location 写细的（具体哪间屋子、哪个铺子），place 写粗的—�
 const SCHED_END_RULE = `【每段都要 end】time 是开始时刻、end 是结束时刻，都填 "HH:MM"（24 小时制，跨到午夜写 "24:00"）。
 end 必须晚于 time；相邻两段可以留空档（没排事就是没排事），不必首尾相接。
 时长要符合这件事本身：吃早饭二三十分钟、开组会一两小时、跑一下午实验就写到傍晚——别一律给一小时。
-【就寝那一段】几点睡照这个人的作息和今天的事来：夜猫子、加班的、熬夜追东西的就晚睡，作息规律的就早点。午夜前睡的，type="sleep" 那一段的 end 写 "24:00"（表示一觉睡过午夜，第二天凌晨自然接上），别写成凌晨四点就结束。过了午夜才睡的，这一天最后一段照常写到 "24:00"，睡觉那段写在第二天最前面，从几点睡写到几点醒。`;
+【就寝那一段】几点睡照这个人平时的作息和今天的事来：熬夜型过了午夜才睡；作息规律的，就照这样一个人平常真会几点上床来定，别一律往早了排。过了午夜才睡的，这一天最后一段照常写到 "24:00"，睡觉那段写在第二天最前面，从几点睡写到几点醒。午夜前就睡的，type="sleep" 那一段的 end 写 "24:00"（表示一觉睡过午夜，第二天凌晨自然接上），别写成凌晨四点就结束。`;
 // 群里一个人也可以连发好几条。（v56.27，她 2026-08-26 截图：顾朝在群里一口气发了整段
 // 「热奶和吐司我都弄好了，你先闭着眼出来把早餐塞进肚子里，开考了中途我再给你送温水和小零食
 // 当后勤」——同样一段话在单聊里会被拆成两三条。）
@@ -6593,6 +6603,24 @@ function photoDuoSaid(scene, uName) {
   if (/合照|合影|两个人|两人|俩人|我们|我俩|咱们|一起|并肩|挽着|搂着|牵着|靠在.{0,4}(?:肩|怀)|抱着(?:她|你)|她|你/.test(t)) return true;
   const n = String(uName || "").trim();
   return !!n && n.length >= 1 && t.indexOf(n) >= 0;
+}
+// 线下「这一幕」（她 2026-11-24 转群友：「线下可以有第三视角的图片，就是那种全景图」）：
+//   合照走的是自拍那张机位表，拍出来都像两个人自己举着手机；这一张是旁边的视角拍下这一幕，人在环境里。
+//   只写镜头语言（远近、高低、朝向、构图），最后一格把这条轴还给模型——跟上面那几张表同一个写法
+const PHOTO_SCENE_SHOTS = [
+  "远一点的全景，人物全身都在画面里，周围的环境完整",
+  "从侧面看过去，人物在画面一侧，另一侧是环境",
+  "从门口或稍远处看进来，人在画面中间偏远",
+  "稍高一点往下看，能看清人和人之间的距离",
+  "隔着前景拍，前景是虚的，人在后面清楚",
+  "平视的中景，人物到膝盖左右，背景交代清楚在哪",
+  "很远，人在画面里只占一小块，场景是主角",
+  "这一张的机位你自己定：挑一个合这个时刻、又是旁观视角的角度"
+];
+function photoSceneShotLine(seed) {
+  const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : Math.floor(Math.random() * 100000);
+  return "【这一张是这一幕的画面·旁观视角】不是谁举着手机拍的：像旁边有人、或者镜头远远拍下了这一幕，画面里没有人拿手机对着镜头，人物不看镜头，照自己正在做的事。"
+    + "这一张的机位：" + PHOTO_SCENE_SHOTS[n % PHOTO_SCENE_SHOTS.length] + "。参考图只决定这是谁，角度和构图照这一句来。";
 }
 function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 设定里【明说了画风】才算二次元：只认画风词。
@@ -10117,7 +10145,60 @@ function ttsWarm(text, voiceId, opts) {
   try { const t = ttsSpeak(text, voiceId, opts); t.catch(() => {}); return t; }
   catch (e) { return Promise.resolve(null); }
 }
+// 长语音分段合成（她 2026-11-24 转群友「语音最长一分钟吗」→「第二种吧」）：原来一条只念前 800 字、后面截掉。
+//   现在超过的照句号切成几段，各自合成（各自进缓存，重听不花钱），再首尾接成一条——四家语音都回 mp3，接起来照常播。
+//   切点只落在句末标点后面；一句本身就很长的，才按字数硬切
+const TTS_PIECE = 600;
+function ttsSplitLong(text) {
+  const s = String(text || ""), out = [];
+  const parts = s.match(/[^。！？!?…\n]+[。！？!?…]*[」』"”’）)]*\s*|\n+/g) || [s];
+  let cur = "";
+  parts.forEach(p => {
+    if ((cur + p).length > TTS_PIECE && cur.trim()) { out.push(cur); cur = ""; }
+    while (p.length > TTS_PIECE) { out.push(p.slice(0, TTS_PIECE)); p = p.slice(TTS_PIECE); }
+    cur += p;
+  });
+  if (cur.trim()) out.push(cur);
+  return out.filter(x => x.trim());
+}
 async function ttsSynth(text, voiceId, opts) {
+  if (ttsMarkForSynth(String(text || "")).length > 800) {
+    const pieces = ttsSplitLong(text);
+    if (pieces.length > 1) {
+      const blobs = [];
+      for (const piece of pieces) blobs.push(await ttsSynthOne(piece, voiceId, opts));
+      return new Blob(blobs, { type: (blobs[0] && blobs[0].type) || "audio/mpeg" });
+    }
+  }
+  return ttsSynthOne(text, voiceId, opts);
+}
+// 边放边合成（她 2026-11-24「边放边合成也做了吧」）：长的那条切成几段，第一段一好就在这只 <audio> 上开始放，
+//   放着的时候合成下一段（只提前一段，跟通话自动播那一招同一个分寸：中途停掉最多白花一段），这段放完立刻接上。
+//   短的照旧整条。aud 用调用方在点按那一下就 play() 解锁过的那一只（iOS 只认手势里那一下）。
+//   hooks.live()：还要不要接着放（她点了停、换了别的就返回 false）；hooks.onStart：第一段真的响起来那一刻
+async function ttsPlayStream(aud, text, voiceId, opts, hooks) {
+  hooks = hooks || {};
+  const live = typeof hooks.live === "function" ? hooks.live : () => true;
+  const pieces = ttsMarkForSynth(String(text || "")).length > 800 ? ttsSplitLong(text) : [text];
+  let next = ttsSpeak(pieces[0], voiceId, opts), started = false;
+  for (let i = 0; i < pieces.length; i++) {
+    const blob = await next;
+    if (!live()) return;
+    next = i + 1 < pieces.length ? ttsSpeak(pieces[i + 1], voiceId, opts) : null;
+    if (next) next.catch(() => {});
+    const url = URL.createObjectURL(blob);
+    try {
+      await new Promise((ok, no) => {
+        aud.onended = () => ok();
+        aud.onerror = () => no(new Error("音频播放失败"));
+        aud.src = url;
+        aud.play().then(() => { if (!started) { started = true; if (hooks.onStart) hooks.onStart(); } }, no);
+      });
+    } finally { URL.revokeObjectURL(url); }
+    if (!live()) return;
+  }
+}
+async function ttsSynthOne(text, voiceId, opts) {
   opts = opts || {};
   const a = loadTtsApi();
   if (!ttsReady(a)) throw new Error("没配置语音 API（设置 · 语音 TTS）");

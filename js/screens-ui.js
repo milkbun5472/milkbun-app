@@ -7680,6 +7680,7 @@ function Config(props) {
           : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "24px 0" } }, "哪个聊天窗都没写自己的 CSS"))),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
+      page === "auto" && h(QuietHoursBox, { t: t, toast: props.toast }),
       page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetRate: props.onSetAutoRefreshRate, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
       page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onExportChars: props.onExportChars, mediaParts: props.mediaParts, onExportMedia: props.onExportMedia, onCopyExport: props.onCopyExport, copyParts: props.copyParts, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
       page === "log" && h(ChangelogView, { list: clList }),
@@ -8034,8 +8035,8 @@ function ApiConfig({
       + "总结不出来、「Ta 眼里」不更新时，先回来看这一栏。"
       // 「无」（她 2026-10-10：「后台 api 能不能选个无，这样可以强制不刷新」）：后台自己跑的那些一律不跑
       + "选「无」：「谁会自己动」里那些自己跑的（日程、日记、朋友圈、论坛、刷手机、群里自己聊、主动来找你……）和自动抽记忆一律停掉，只剩你点了才动的；聊天到一定长度的前情浓缩照旧走主模型，不然 TA 会忘。",
-      bgApiId, onSetBgApi, "跟随主模型", "无（记忆、日程这些后台活不跑）"),
-    h(QuietHoursBox, { t: t, toast: toast }));
+      bgApiId, onSetBgApi, "跟随主模型", "无（记忆、日程这些后台活不跑）"));
+    // 免打扰搬去「谁会自己动」（她 2026-11-24「从文字api那里移出来 放别的地方不放接哪些模型」）：它管的是谁什么时候不动，跟接哪条线路无关
     // MCP 搬去「接哪些模型」里单独一格（她 2026-11-23「从文字api里面移出来做一个单独格子，这个不好找」）：搬＝这儿删掉
   return /*#__PURE__*/React.createElement("div", null,
   h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),
@@ -12728,7 +12729,9 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
   // （跟一起读、线下文风是同一处病，编码都交给 core.js 的 readTextFileSmart）
   const readFile = async e => {
     const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
-    const text = String(await readTextFileSmart(f) || "");
+    let text = "";
+    try { text = String(await readTextFileSmart(f) || ""); } catch (err) { if (window.__toast) window.__toast("这个文件读不出字：" + ((err && err.message) || err), 4000); return; }
+    if (!importEmotesOk(text)) { if (window.__toast) window.__toast("文件里没找到「关键词 + 链接」", 4000); return; }
     setImportText(prev => (prev ? prev + "\n" : "") + text);
   };
   // 从相册直接选图（自己画的表情不用先传图床）：存进本机图库 iv_。
@@ -12901,7 +12904,7 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
             h(FilePick, { accept: ANY_FILE, onChange: readFile, label: "从文件里读表情包清单" },
               h("span", { "data-wk": "emofilebtn", "data-part": "list", className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, "从文件里读")),
-            h("span", { "data-wk": "emofilehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "支持 .txt、.json、.docx；打不开就把清单直接贴在下面那个框里")),
+            h("span", { "data-wk": "emofilehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "支持 .txt、.json、.docx、.pdf；打不开就把清单直接贴在下面那个框里")),
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
             h(FilePick, { accept: "image/*", multiple: true, onChange: pickImages, disabled: picking, label: "从相册选表情" },
               h("span", { "data-wk": "emofilebtn", "data-part": "images", className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, picking ? "存着呢…" : "从相册选图")),

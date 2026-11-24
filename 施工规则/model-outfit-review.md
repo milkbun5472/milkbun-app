@@ -676,3 +676,8 @@ Lisa随后指出旧衣服也有同类问题：以裸小人的实际肩／上臂�
 - 原因：待查（推测是 academy 衣服网格换过、手机缓存里绑定表还是旧的，meshId/顶点数对不上）。
 - 修法：controller.mjs afterBind 先整份核对，对不上就 console.warn、这件不做袖子贴合，不再 throw。重出指纹 fg-2d158c39249397f1。
 - 未解决：academy/2 本身为什么对不上，没查。arm-rig.test 4、5 两条修前就红。
+
+## 2026-11-24 iOS 壳里每次打开陪伴都整份重下小人
+- 原因：壳（tools/ios-shell）的 WKWebView 没开 App-Bound Domains，Service Worker 起不来，sw.js 那层 ?v= 缓存在壳里不存在。
+- 修法：traveler.mjs 的 loadGlb：没有 Service Worker 接手时，doll／衣服／头发的 glb 按带指纹的整条网址存进 IndexedDB（qq-glb-cache），换指纹删旧。有 SW 的网页版照旧走 SW。
+- 证据：Playwright 无 SW 打开 apps/companion，第一次下 3 个 glb，第二次网络 0 个 glb、pet-ready 照常。指纹 fg-ad900744140b5c2c。

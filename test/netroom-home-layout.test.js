@@ -21,7 +21,7 @@ test("自己的中转：地址补成 turn:，接在公共 STUN 后面，没填�
     { urls: ["turn:a.example:80", "turns:b.example:443?transport=tcp"], username: "u", credential: "p" });
   assert.equal(f.iceFor(null).length, 1);
   assert.equal(f.iceFor({ url: "turn:a:3478" }).length, 2);
-  assert.match(src, /iceServers: o\.ice \|\| ICE_SERVERS/);
+  assert.match(src, /iceServers: ice \|\| ICE_SERVERS/);
   assert.match(src, /ice: Core\.cleanTurn\(supaOwn\.turn\)/);
 });
 test("中转卡里点开就是攻略那一节，跟递名片共用一个折叠", () => {
@@ -29,4 +29,34 @@ test("中转卡里点开就是攻略那一节，跟递名片共用一个折叠",
   assert.match(src, /guideFold\("guide", "nrsupaguide", supaGuideText\)/);
   const man = fs.readFileSync(path.join(__dirname, "..", "js", "assistant-manual.js"), "utf8");
   assert.ok(man.includes("### 直连不上时：自己的中转"));
+});
+
+test("连不上时说清是谁那边、为什么", () => {
+  const i = src.indexOf("function iceKinds"), j = src.indexOf("const diagOf");
+  const f = new Function(src.slice(i, j) + "; return { iceKinds, diagnose };")();
+  const S = k => k.map(x => "a=candidate:1 1 udp 1 1.2.3.4 9 typ " + x).join("\n");
+  assert.equal(f.diagnose({ mine: S(["host", "srflx"]), theirs: null }).who, "她");
+  assert.equal(f.diagnose({ mine: S(["host"]), theirs: S(["host", "srflx"]) }).who, "你");
+  assert.equal(f.diagnose({ mine: S(["host", "srflx"]), theirs: S(["host"]) }).who, "她");
+  assert.equal(f.diagnose({ mine: S(["host", "srflx"]), theirs: S(["srflx"]), turn: true }).why, "你填的中转没接通");
+  assert.equal(f.diagnose({ mine: S(["srflx"]), theirs: S(["prflx"]) }).who, "两边");
+  assert.match(src, /L\.diag = diagOf\(L\.pc, !!ice\); try \{ L\.pc\.close/);
+  assert.match(src, /"data-wk": "nrdiag"/);
+});
+test("中转借给房里：只沿直连发给连上的那个人，收到的人自己没填才换上，换上就重连失败的线", () => {
+  assert.match(src, /send\(\{ t: "turn", ice: c \}, id\)/);
+  assert.match(src, /supaOwn\.turnShare !== false && Core\.cleanTurn\(supaOwn\.turn\)/);
+  assert.match(src, /setIce\(next\) \{ if \(dead \|\| ice \|\| !next\) return false;/);
+  assert.match(src, /"data-wk": "nrturnshare"/);
+});
+test("连不上自己重试两次，连上清零", () => {
+  assert.match(src, /\(tries\[id\] = \(tries\[id\] \|\| 0\) \+ 1\) <= 2/);
+  assert.match(src, /tries\[id\] = 0;/);
+});
+test("首页能测网络，摆在中转卡上面", () => {
+  assert.match(src, /async function probeNet\(turn\)/);
+  assert.match(src, /probeBox, turnBox, supaBox/);
+});
+test("联机页里不许再起一个叫 runProbe 的局部名：会盖住角色开口用的那个，打包后点角色报「初始化前无法访问」", () => {
+  assert.doesNotMatch(src, /const runProbe\b/);
 });

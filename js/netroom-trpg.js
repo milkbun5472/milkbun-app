@@ -118,7 +118,7 @@
       choices: (c.choices || []).slice(0, 4).map(x => ({ text: cut(x.text, 80), stat: x.check && STAT_ZH[x.check.stat] ? x.check.stat : "", who: cut(x.check && x.check.who, 16), risk: cut(x.risk, 36), payoff: cut(x.payoff, 36), cost: cut(x.cost, 36), safe: x.approach === "safe" })),
       time: c.time ? "第" + int(c.time.day, 1, 999, 1) + "日·" + cut(c.time.part, 2) : "", pov: cut(c.pov, 16), canEnd: !c.ended && (!!c.pendingEnd || (c.stageIdx || 0) >= (c.stages || []).length),
       side: c.ended ? [] : menuOf(st).slice(0, 14).map(x => ({ kind: x.kind, arg: cut(x.arg, 30), label: cut(x.label, 40) })),
-      epi: c.ended && c.epilogue ? { paras: (c.epilogue.paras || []).slice(0, 10).map(x => cut(x, 600)), closing: cut(c.epilogue.closing, 60), untold: (c.epilogue.untold || []).slice(0, 6).map(x => cut(x, 160)),
+      epi: c.ended && c.epilogue ? { paras: (c.epilogue.paras || []).slice(0, 10).map(x => cut(x, 600)), closing: cut(c.epilogue.closing, 60), after: (c.epilogue.after || []).slice(0, 12).map(x => ({ name: cut(x.name, 30), say: cut(x.say, 300) })), untold: (c.epilogue.untold || []).slice(0, 6).map(x => cut(x, 160)),
         truth: cut(c.dossier && c.dossier.truth, 400), twist: cut(c.dossier && c.dossier.twist, 300), apart: Object.keys(st.truth || {}).map(k => ({ who: cut((st.members[k] || {}).name, 16), text: cut((st.truth[k] || []).slice(-1)[0], 400) })).filter(x => x.text) } : null,
       ended: !!c.ended };
   }
@@ -450,8 +450,9 @@
   async function finale(st, inv, ctx, mv) {
     const T = TS(); if (!T || !T.epilogueAsk) return { err: "跑团没装上" };
     if (!ctx.hostApi) return { err: "房主这台没配线下线路,写不了终章" };
-    const c = Object.assign({ dossier: { truth: "", twist: "" } }, st.camp, { party: st.members.map(m => Object.assign({}, m)) });
-    const { sys, user } = T.epilogueAsk(c, playersOf(st).join("、") || "各位玩家", !c.pendingEnd && (c.stageIdx || 0) < (c.stages || []).length, cut(mv.finalAct, 400));
+    // 真人玩家那几座当成「玩家」（key:"user"）：终章和后日谈只替角色开口，不替坐在桌边的人说话
+    const c = Object.assign({ dossier: { truth: "", twist: "" } }, st.camp, { party: st.members.map((m, i) => Object.assign({}, m, st.seatKinds[i] !== "char" ? { key: "user" } : {})) });
+    const { sys, user } = T.epilogueAsk(c, playersOf(st).join("、") || "各位玩家", !c.pendingEnd && (c.stageIdx || 0) < (c.stages || []).length, cut(mv.finalAct, 400), personasOf(st, ctx.prep));
     let p = null;
     try { p = T.parseObj(await root.callAI(ctx.hostApi, sys, [{ role: "user", content: user }], { maxTokens: T.TOK_MAX, timeout: 300000 })); } catch (e) { p = null; }
     if (!p || !Array.isArray(p.paras) || !p.paras.length) return { st: Object.assign({}, st, { busy: false, err: "终章没写出来,再点一次" }) };
@@ -646,7 +647,7 @@
         done: arr(v.done, 5).map(Boolean), seatKinds: arr(v.seatKinds, 5).map(k => ["user", "char", "npc"].indexOf(k) >= 0 ? k : "user"), apart: arr(v.apart, 5).map(x => cut(x, 16)), log: this.cleanLog(v.log),
         time: cut(v.time, 12), pov: cut(v.pov, 16), canEnd: !!v.canEnd,
         side: arr(v.side, 14).map(x => ({ kind: ["talk", "look", "site", "search", "go", "rest", "pov", "night"].indexOf(x && x.kind) >= 0 ? x.kind : "rest", arg: cut(x && x.arg, 30), label: cut(x && x.label, 40) })),
-        epi: v.epi && typeof v.epi === "object" ? { paras: arr(v.epi.paras, 10).map(x => cut(x, 600)), closing: cut(v.epi.closing, 60), untold: arr(v.epi.untold, 6).map(x => cut(x, 160)), truth: cut(v.epi.truth, 400), twist: cut(v.epi.twist, 300),
+        epi: v.epi && typeof v.epi === "object" ? { paras: arr(v.epi.paras, 10).map(x => cut(x, 600)), closing: cut(v.epi.closing, 60), after: arr(v.epi.after, 12).filter(x => x && typeof x === "object").map(x => ({ name: cut(x.name, 30), say: cut(x.say, 300) })).filter(x => x.name && x.say), untold: arr(v.epi.untold, 6).map(x => cut(x, 160)), truth: cut(v.epi.truth, 400), twist: cut(v.epi.twist, 300),
           apart: arr(v.epi.apart, 5).map(x => ({ who: cut(x && x.who, 16), text: cut(x && x.text, 400) })) } : null,
         deadline: int(v.deadline, 0, 9e15, 0), timeoutMin: int(v.timeoutMin, 0, 60, 0), autoed: arr(v.autoed, 5).map(x => cut(x, 16)),
         fate: arr(v.fate, 5).map(x => int(x, 0, 9, 0)), pendingStage: cut(v.pendingStage, 80), growth: arr(v.growth, 12).map(x => cut(x, 40)),
@@ -728,6 +729,9 @@
       (growth || []).length ? h("div", { "data-wk": "nrtrpggrowth", style: small(t) }, "成长骰（房主队里的写回那支小分队；客串的只记在这一晚）：" + growth.join("、")) : null,
       (e.paras || []).map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink, lineHeight: 1.75 } }, x)),
       e.closing ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14.5), color: t.ink, textAlign: "center" } }, e.closing) : null,
+      (e.after || []).length ? h("div", { "data-wk": "nrtrpgafter", style: { display: "flex", flexDirection: "column", gap: 4, borderTop: "1px dashed " + t.line, paddingTop: 8 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13.5), color: t.ink } }, "后日谈"),
+        e.after.map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: fs(13.5), color: t.ink, lineHeight: 1.7 } }, x.name + "：" + x.say))) : null,
       e.truth || e.twist || (e.untold || []).length || (e.apart || []).length ? h("div", { "data-wk": "nrtrpgsecret", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13.5), color: t.ink } }, "秘典揭开"),
         e.truth ? h("div", { style: small(t) }, "真相：" + e.truth) : null,
