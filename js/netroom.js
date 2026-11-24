@@ -2964,7 +2964,8 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         blackjack: "庄家是手机；每人的牌只发到自己那台，一手结算时才一起亮。没有「TA 坐庄」和「每人自己想」。",
         doudizhu: "正好 3 个座位，真人不够用角色和 NPC 补；手牌只发到自己那台，底牌定了地主才亮。",
         mahjong: "正好 4 个座位，真人不够用角色和 NPC 补；手牌只发到自己那台。牌墙自动摸；四川的换三张、定缺由手机替每家挑。",
-        lingxi: "两个人各写各的，两边都交了才一起亮；角色用带 TA 来的那台、TA 自己的线路。开局的人随时能结束。" };
+        lingxi: "两个人各写各的，两边都交了才一起亮；角色用带 TA 来的那台、TA 自己的线路。开局的人随时能结束。",
+        draw: "两到四个人轮流画，一段一段画；每画完一段，其余的人按顺序各猜一次，先猜中的那个和画的人各得一分。题目只发到画的人那台。角色画、猜都用带 TA 来的那台、TA 自己的线路；看真人画的要识图的模型，不识图就看线条的文字描述。" };
       // 不在单机小游戏目录里、只在房间里有的那几盒（辩论擂台）：摆在架子最后，点了去它自己的开局页
       const extra = root.NetGameCore.supported().filter(k => k !== "debate" && k !== "trpg")   /* 擂台、跑团各在 ＋ 里单独一格（她 11-22） */.map(k => root.NetGameCore.ADAPTERS[k].shelf).filter(Boolean)
         .map(g => Object.assign({}, g, { onPick: () => { setGamePend({ game: g, cfg: {} }); setPage("gameprep"); } }));
@@ -2979,7 +2980,9 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
           hint: v => v === "hot" ? "真心话 / 大冒险 会更暧昧大胆。" : "朋友聚会的尺度，轻松好玩。" });
         return out; };
       return h(G, { characters: mine, profile: props.profile, only: root.NetGameCore.supported(), extra, onConfigured, setupExtra,
-        setupHide: ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins", "cardBrain", "bjDealer", "pkTruth", "mjAutoDraw", "mjSwap", "wolf_whitewolf", "av_lady"], setupNote: g => (NOTE[g.key] || (root.NetGameCore.ADAPTERS[g.key] || {}).note || "") + (GC() && GC().charOptKinds(g.key).length ? "你带的角色怎么玩（牌技、牌手水平、随手、带不带最近单聊）在邀请卡上点「换人／加入」那张单里调。" : ""),
+        // 联机能坐的人比单机多的那几盒（你画我猜单机两个人、联机最多四个）：开局页的人数上限照联机这一桌
+        setupGame: g => { const A = root.NetGameCore.ADAPTERS[g.key], r = A && A.seatRange ? A.seatRange({}) : null; return r && r.max > g.max ? Object.assign({}, g, { max: r.max }) : g; },
+        setupHide: ["stake", "injectChat", "ccSeat", "boardTeach", "gmkBrain", "q25Host", "skillPins", "cardBrain", "bjDealer", "pkTruth", "mjAutoDraw", "mjSwap", "drawBrain", "wolf_whitewolf", "av_lady"], setupNote: g => (NOTE[g.key] || (root.NetGameCore.ADAPTERS[g.key] || {}).note || "") + (GC() && GC().charOptKinds(g.key).length ? "你带的角色怎么玩（牌技、牌手水平、随手、带不带最近单聊）在邀请卡上点「换人／加入」那张单里调。" : ""),
         intro: "挑一盒、设好开局（开局页里勾的角色就是你这边上场的人），房里会出现一张邀请卡，大家在卡上报名，你点开始。", onBack: () => setPage("chat") });
     }
     // 自己带开局页的那几盒（辩论擂台）：页面在它自己的文件里，这儿只套顶栏

@@ -637,7 +637,8 @@
     }
     // 各怀心思的约会也走公共开局页（她 2026-10-12：「格式跟其他的也不一样」）——原来那张自己画的 DateGameSetup 不再挂
     if (game) return h(GameSetup, {
-      game: game, characters: props.characters, profile: props.profile, moods: props.moods, t: t,
+      // setupGame：借大厅的那一处可以改这一盒的开局（比如那边你画我猜能坐四个人）
+      game: props.setupGame ? props.setupGame(game) : game, characters: props.characters, profile: props.profile, moods: props.moods, t: t,
       hide: props.setupHide, extraOpts: props.setupExtra, note: props.setupNote ? props.setupNote(game) : "",
       initialPicked: entry && entryHandledRef.current === entry.key && entry.characterId ? [String(entry.characterId)] : [],
       onBack: function () { setGame(null); },
@@ -960,7 +961,7 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, q25Host === "system" ? "系统心里想一个，大家一起猜。"
             : q25Host === "me" ? "你写下一个东西锁住（TA 看不到），TA 一问一问来猜，你点按钮答。只跟挑的第一个人玩。"
             : q25Host === "ta" ? "TA 照你们的事想一个，你来问、来猜。只跟挑的第一个人玩。" : "一局你出、一局 TA 出，记比分。只跟挑的第一个人玩。")) : null,
-        game.key === "draw" ? h("div", { "data-wk": "drawbrain", style: { marginBottom: 20 } },
+        game.key === "draw" && !hid("drawBrain") ? h("div", { "data-wk": "drawbrain", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, "TA 怎么画"),
           h(Segmented, { t: t, value: drawBrain, onChange: setDrawBrain, options: [{ key: "once", zh: "一口气画好" }, { key: "step", zh: "一段一段想" }] }),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.6 } }, drawBrain === "step"
@@ -7044,6 +7045,7 @@
   const DRAW_BUILTIN = ["猫", "雨伞", "西瓜", "自行车", "月亮", "眼镜", "蜗牛", "冰淇淋", "灯泡", "钥匙", "蝴蝶", "火锅", "风筝", "仙人掌", "企鹅", "吉他", "雪人", "闹钟", "彩虹", "热气球", "章鱼", "蛋糕", "帐篷", "鲨鱼", "向日葵", "牙刷", "火箭", "长颈鹿", "汉堡", "灯塔"];
   const DRAW_INK = { k: "#2b2723", r: "#d0533f", b: "#3f6fb0", g: "#4f8a4a", y: "#e0a92e", p: "#9a5fb0" };
   const DRAW_ROUNDS = 3;
+  const DRAW_STROKE_FMT = "\n一笔的格式：{\"t\":\"line\",\"p\":[x1,y1,x2,y2,...]} 折线；{\"t\":\"curve\",\"p\":[起点x,y,控制点x,y,终点x,y,控制点x,y,终点x,y...]} 弧线；{\"t\":\"circle\",\"c\":[x,y,r]} 圆；可加 \"k\" 颜色（k 黑 r 红 b 蓝 g 绿 y 黄 p 紫）、\"f\":true 填色、\"close\":true 闭合。";
   function drawPool() { try { const v = loadJSON(DRAW_POOL_KEY, null); return v && Array.isArray(v.words) ? v : { words: [], theme: "" }; } catch (e) { return { words: [], theme: "" }; } }
   function saveDrawPool(v) { try { saveJSON(DRAW_POOL_KEY, v); } catch (e) {} }
   // 模型写的一笔 → 一条 svg path（坐标 0~100）。认不出的形状丢掉，不让一笔坏的毁了整幅
@@ -7067,6 +7069,19 @@
     return st.close ? d + "Z" : d;
   }
   function drawHit(guess, word) { return spyGuessHits(guess, word); }
+  // 一幅画写成一段话（给猜的人／接着画的人看）：list＝[{ strokes:[{ raw, k, f }] }]，只看前 n 段。各处同一份
+  function drawDescribe(list, n) {
+    const r1 = function (v) { return Math.round(Number(v)); };
+    return list.slice(0, n).map(function (sg, si) {
+      return "第" + (si + 1) + "段：" + sg.strokes.map(function (st) {
+        const raw = st.raw || {};
+        const col = st.k && st.k !== "k" ? "（" + ({ r: "红", b: "蓝", g: "绿", y: "黄", p: "紫" })[st.k] + "）" : "";
+        if (raw.t === "circle") return "圆，圆心(" + r1(raw.c[0]) + "," + r1(raw.c[1]) + ")半径" + r1(raw.c[2]) + (st.f ? "涂满" : "") + col;
+        const pts = []; for (let i = 0; i + 1 < (raw.p || []).length; i += 2) pts.push("(" + r1(raw.p[i]) + "," + r1(raw.p[i + 1]) + ")");
+        return (raw.t === "curve" ? "弧线" : "线") + pts.join("→") + (raw.close ? "闭合" : "") + (st.f ? "涂满" : "") + col;
+      }).join("；");
+    }).join("\n");
+  }
 
   function DrawGuessGame(props) {
     const t = props.t, cfg = props.config, api = props.active;
@@ -7124,18 +7139,7 @@
         + "\n画画、猜词都是手上的事；嘴上那句（say）才是你这个人在说话——用你人设里的口气、跟对面这个人的关系说，别说成游戏解说。";
     };
     // 给猜的人「看」画：不发图，把已经画出来的几笔念给 TA（不用识图模型；读坐标会像真人一样猜歪）
-    const describeSegs = function (list, n) {
-      const r1 = function (v) { return Math.round(Number(v)); };
-      return list.slice(0, n).map(function (sg, si) {
-        return "第" + (si + 1) + "段：" + sg.strokes.map(function (st) {
-          const raw = st.raw || {};
-          const col = st.k && st.k !== "k" ? "（" + ({ r: "红", b: "蓝", g: "绿", y: "黄", p: "紫" })[st.k] + "）" : "";
-          if (raw.t === "circle") return "圆，圆心(" + r1(raw.c[0]) + "," + r1(raw.c[1]) + ")半径" + r1(raw.c[2]) + (st.f ? "涂满" : "") + col;
-          const pts = []; for (let i = 0; i + 1 < (raw.p || []).length; i += 2) pts.push("(" + r1(raw.p[i]) + "," + r1(raw.p[i + 1]) + ")");
-          return (raw.t === "curve" ? "弧线" : "线") + pts.join("→") + (raw.close ? "闭合" : "") + (st.f ? "涂满" : "") + col;
-        }).join("；");
-      }).join("\n");
-    };
+    const describeSegs = drawDescribe;
     const said = function () {
       const L = lines.slice(-8);
       return L.length ? "\n【刚才已经说过的】\n" + L.map(function (l) { return "· " + l.name + "：" + l.text; }).join("\n") + "\n这些说过了：同一个意思别换个说法再说一遍。" : "";
@@ -7175,7 +7179,7 @@
         const d = drawStrokePath(st); return d ? { d: d, k: DRAW_INK[st.k] ? st.k : "k", f: !!st.f, raw: st } : null;
       }).filter(Boolean);
     };
-    const STROKE_FMT = "\n一笔的格式：{\"t\":\"line\",\"p\":[x1,y1,x2,y2,...]} 折线；{\"t\":\"curve\",\"p\":[起点x,y,控制点x,y,终点x,y,控制点x,y,终点x,y...]} 弧线；{\"t\":\"circle\",\"c\":[x,y,r]} 圆；可加 \"k\" 颜色（k 黑 r 红 b 蓝 g 绿 y 黄 p 紫）、\"f\":true 填色、\"close\":true 闭合。";
+    const STROKE_FMT = DRAW_STROKE_FMT;
     const stepSeg = async function (w, who, have) {
       who = who || drawer;
       const other = duo ? (who === char ? char2 : char) : null;
@@ -7218,7 +7222,7 @@
           + "画在 100×100 的画布上（左上角 0,0）。把这幅画分成几段画，分几段你自己定（2 到 5 段）：一段是几笔、画完停一下让 TA 猜。"
           + (easy ? "这局你让着 TA，画得好认一点。" : "照你人设里的画画水平来：本来就不会画的，线条歪、比例怪、该圆的画成方的都正常；会画的也可以哪一笔随手、哪一段画得潦草，或者存心画丑一点逗对方——看你这个人、看你此刻的心思。但得是真想让人猜到的画，不是乱涂。")
           + "画里不许写字、不许写这个词的任何一个字。每段带一句你画这段时顺口说的话（say），照你自己的性子，别透露答案。"
-          + "\n一笔的格式：{\"t\":\"line\",\"p\":[x1,y1,x2,y2,...]} 折线；{\"t\":\"curve\",\"p\":[起点x,y,控制点x,y,终点x,y,控制点x,y,终点x,y...]} 弧线；{\"t\":\"circle\",\"c\":[x,y,r]} 圆；可加 \"k\" 颜色（k 黑 r 红 b 蓝 g 绿 y 黄 p 紫）、\"f\":true 填色、\"close\":true 闭合。"
+          + DRAW_STROKE_FMT
           + "\n只输出 JSON：{\"segments\":[{\"strokes\":[...],\"say\":\"一句\"}]}";
         const raw = await callRetry(api, sys, [{ role: "user", content: "开始画。" }], { maxTokens: 12000, tag: "你画我猜·画" });
         const p = extractJSON(raw) || {};
@@ -9726,6 +9730,8 @@
     // 阿瓦隆：配身份、任务人数、谁知道谁、组队／投票／出任务／刺杀（玩家对象带 secret 时就用这一句当 TA 知道的，不再从全桌身份推）
     avalon: { QUEST: AV_QUEST, EVIL: AV_EVIL, ROLE_ZH: AV_ROLE_ZH, side: avSide, failsReq: avFailsReq, board: avalonBoard, secretFor: avSecretFor, revealFor: avRevealFor, propose: genProposal, votes: genAvVotes, quest: genQuest, assassin: genAssassin },
     lingxi: { Chip: LingxiChip, RevCard: LingxiRevCard },
+    // 你画我猜：一笔画成 svg 线、整幅画写成话、猜没猜中、颜色、自带词库和她生成的那批词（别处摆同一张桌也用这一份）
+    draw: { path: drawStrokePath, describe: drawDescribe, hit: drawHit, INK: DRAW_INK, BUILTIN: DRAW_BUILTIN, pool: drawPool, STROKE_FMT: DRAW_STROKE_FMT },
     voiceRules: gameVoiceRules, call: callRetry, sayFree: GAME_SAY_FREE, sayList: sayList, seatTalk: seatTalk
   };
   if (typeof window !== "undefined") window.GameShared = GameShared;
