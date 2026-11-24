@@ -16249,6 +16249,11 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
                       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, snip || "（无文字）"));
                   }))
               : h(Fragment, null,
+                  // 总记录（她 2026-11-24「能看一共多少天，不止是单独一天」）：一共聊了几天、多少条、从哪天到哪天
+                  dayGroups.length ? (() => { const ds = dayGroups.map(g => g.day).reverse(), n = dayGroups.reduce((a, g) => a + (g.n || 0), 0);
+                    return h("div", { "data-wk": "chatsearchtotal", style: { padding: "11px 12px", borderRadius: 12, background: t.bg, border: "1px solid " + t.line, marginBottom: 12 } },
+                      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "一共聊了 " + dayGroups.length + " 天 · " + n + " 条"),
+                      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } }, ds[0] + (ds.length > 1 ? " 到 " + ds[ds.length - 1] : "") + (dayGroups.some(g => g.cloud) ? " · 含云端归档" : archCount > 0 ? " · 只算本机，连上云端归档会更全" : ""))); })() : null,
                   h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "或按日期定位（点一天看当天完整记录）"),
                   dayGroups.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "20px 0" } }, "还没聊过。") :
                   dayGroups.map(g => h("button", { "data-wk": "block", key: g.day, onClick: () => openDay(g.day, null), className: "w-full active:opacity-70 flex items-center", style: { textAlign: "left", padding: "11px 10px", background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
