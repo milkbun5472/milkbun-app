@@ -35117,7 +35117,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (!kw) kw = pending || "";
         pending = null;
         out.push({ id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: kw || "表情", url: m[1] });
-      } else { pending = line.replace(/[:：]\s*$/, "").trim(); }
+      } else { pending = line.replace(/[:：]\s*$/, "").replace(/^\d{1,3}\s*[.、．:：)）]\s*/, "").trim(); }
     }
     return out;
   };
