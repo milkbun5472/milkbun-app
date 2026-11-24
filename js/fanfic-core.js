@@ -716,7 +716,7 @@
     //   文上没记，续写、写长一点、请原作者回来都照「只写他俩」写——「我」整个被挤出去，外貌更不用说。现在记在文上（withMe），这几枪都跟着带
     if (fic && fic.withMe && o.includeMe == null) {
       const me = ficMeProfile(fic.cp, null, fic.meMask);
-      Object.assign(o, { includeMe: true, meName: (me && me.name) || "我", mePersona: (me && me.persona) || "", meAppearance: (me && me.appearance) || "" });
+      Object.assign(o, { includeMe: fic.withMe, meName: (me && me.name) || "我", mePersona: (me && me.persona) || "", meAppearance: (me && me.appearance) || "" });
     }
     return o;
   }
@@ -754,6 +754,12 @@
       + "外面发生的事（案子、灾变、朝局、山里的规矩）是台子，他们俩才是戏。\n"
       + "⚠️不是要你写甜文：冷、克制、拧巴、求而不得、已经完了还没断干净，都算爱情向。"
       + "写足他们此刻是什么状态，比让他们把爱说出口要紧。\n";
+  }
+  // A × 我 × B（他俩之间不写感情线时）：上面那句「他们俩的感情是主线」原样套过来，就是在叫他俩谈（她 2026-11-24 转群友）
+  function meLoveLine(meName) {
+    return "\n【这一篇的感情线在『" + meName + "』身上】两个人各自跟『" + meName + "』之间是什么关系、走到哪一步、卡在哪儿——**那是这一篇的主线**。"
+      + "他俩之间的来往照各自设定写，可以较劲、可以并肩，但不往恋爱那边写。\n"
+      + "⚠️不是要你写甜文：冷、克制、拧巴、求而不得，都算。\n";
   }
   function evenSidesLine(cpChars) {
     if (!cpChars || cpChars.length < 2) return "";
@@ -828,8 +834,8 @@
     // 带上我：写成 A × 我 × B 三人同框
     if (bothChars && opts.includeMe) {
       const meName = opts.meName || "我";
-      return "【CP：" + a.name + " × " + meName + "（读者本人/我） × " + b.name + "】\n这是三人同框：把『我』作为真正的第三方写进去，三个人彼此之间都有关系张力，别把『我』写成旁观者或工具人。\n· " + sideDesc(a) + "\n· 「" + meName + "」是读者本人（我）" + (opts.mePersona && opts.mePersona.trim() ? "，按这份面具人设来写：\n" + opts.mePersona.trim() : "，没填人设就自由发挥其性格")
-        + (opts.meAppearance && String(opts.meAppearance).trim() ? "\n外貌（务必贴合，别自己另编发色、长相）：" + String(opts.meAppearance).trim().slice(0, 400) : "") + "\n· " + sideDesc(b) + worldIdentityLine(cpChars) + evenSidesLine(cpChars) + loveLine() + posRule(a.name, b.name);
+      return "【CP：" + a.name + " × " + meName + "（读者本人/我） × " + b.name + "】\n" + (opts.includeMe === "all" ? "这是三人同框：把『我』作为真正的第三方写进去，三个人彼此之间都有关系张力，别把『我』写成旁观者或工具人。" : "这是三人同框：『我』是感情线的中心，" + a.name + " 和 " + b.name + " 各自跟『我』之间有感情线；他俩之间照各自的设定和关系来写（情敌、朋友、宿敌都行），他俩之间不写恋爱。别把『我』写成旁观者或工具人。") + "\n· " + sideDesc(a) + "\n· 「" + meName + "」是读者本人（我）" + (opts.mePersona && opts.mePersona.trim() ? "，按这份面具人设来写：\n" + opts.mePersona.trim() : "，没填人设就自由发挥其性格")
+        + (opts.meAppearance && String(opts.meAppearance).trim() ? "\n外貌（务必贴合，别自己另编发色、长相）：" + String(opts.meAppearance).trim().slice(0, 400) : "") + "\n· " + sideDesc(b) + worldIdentityLine(cpChars) + evenSidesLine(cpChars) + (opts.includeMe === "all" ? loveLine() + posRule(a.name, b.name) : meLoveLine(meName));
     }
     // 只他俩 CP：即便角色卡写了「我男朋友」，也不把「我」带进文里
     const soloTail = bothChars ? "\n【只写这两人】这是 " + a.name + " × " + b.name + " 的双人同人文，读者/『我』不出场、不作为角色写进去；就算某人的设定里写了 TA 是「我的男朋友/恋人」，本篇也只聚焦他们两人彼此，别把「我」拉进来凑三人。" : "";
