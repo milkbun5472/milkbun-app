@@ -7680,6 +7680,7 @@ function Config(props) {
           : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "24px 0" } }, "哪个聊天窗都没写自己的 CSS"))),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
+      page === "auto" && h(QuietHoursBox, { t: t, toast: props.toast }),
       page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetRate: props.onSetAutoRefreshRate, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
       page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onExportChars: props.onExportChars, mediaParts: props.mediaParts, onExportMedia: props.onExportMedia, onCopyExport: props.onCopyExport, copyParts: props.copyParts, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
       page === "log" && h(ChangelogView, { list: clList }),
@@ -8034,8 +8035,8 @@ function ApiConfig({
       + "总结不出来、「Ta 眼里」不更新时，先回来看这一栏。"
       // 「无」（她 2026-10-10：「后台 api 能不能选个无，这样可以强制不刷新」）：后台自己跑的那些一律不跑
       + "选「无」：「谁会自己动」里那些自己跑的（日程、日记、朋友圈、论坛、刷手机、群里自己聊、主动来找你……）和自动抽记忆一律停掉，只剩你点了才动的；聊天到一定长度的前情浓缩照旧走主模型，不然 TA 会忘。",
-      bgApiId, onSetBgApi, "跟随主模型", "无（记忆、日程这些后台活不跑）"),
-    h(QuietHoursBox, { t: t, toast: toast }));
+      bgApiId, onSetBgApi, "跟随主模型", "无（记忆、日程这些后台活不跑）"));
+    // 免打扰搬去「谁会自己动」（她 2026-11-24「从文字api那里移出来 放别的地方不放接哪些模型」）：它管的是谁什么时候不动，跟接哪条线路无关
     // MCP 搬去「接哪些模型」里单独一格（她 2026-11-23「从文字api里面移出来做一个单独格子，这个不好找」）：搬＝这儿删掉
   return /*#__PURE__*/React.createElement("div", null,
   h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),
