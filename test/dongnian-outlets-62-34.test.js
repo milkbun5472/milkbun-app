@@ -24,7 +24,7 @@ test("⚠️泄压排在出口【落地之后】——空返回不许把这一�
   // 下一次想再来得再攒六七个小时。这才是「没 follow through」的真实代价。
   const i = app.indexOf("const _drain = async () =>");
   assert.ok(i > 0, "没有把泄压收成一个只在落地时才调的口子");
-  const seg = app.slice(i - 900, i + 1900);
+  const seg = app.slice(i - 900, i + 2600);   // _drain 2026-11-24 多了三行（退到第一道线底下）
   assert.match(seg, /const _settle = ok => \{ if \(ok\) _drain\(\); else _giveBack\(\); \};/, "没落地时不还闸");
   assert.match(seg, /const _giveBack = \(\) => \{ dongnianFiredRef\.current\[cid\] = 0; \};/, "25 分钟闸没还回去");
   // .then 里后来还顺手记 pWhy，所以也认 `ok => { _settle(ok);`
