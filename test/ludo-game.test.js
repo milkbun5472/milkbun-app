@@ -9,11 +9,18 @@ const games = read("js/games.js"), catalog = read("js/games-list.js"), nr = read
 const P = n => Array.from({ length: n }, (_, i) => ({ key: i ? "c" + i : "user", name: i ? "角色" + i : "我", isUser: !i }));
 const fresh = n => { const s = g.ludoNewGame(P(n)); s.turn = 0; s.phase = "roll"; return s; };
 
-test("棋盘外圈 52 格各不相同、一格挨一格；每色从自己颜色那格出发", () => {
-  assert.equal(g.LUDO_RING.length, 52);
-  assert.equal(new Set(g.LUDO_RING.map(x => x.join())).size, 52);
-  g.LUDO_RING.forEach((a, i) => { const b = g.LUDO_RING[(i + 1) % 52]; assert.ok(Math.abs(a[0] - b[0]) <= 1 && Math.abs(a[1] - b[1]) <= 1, "第 " + i + " 格断开了"); });
-  [0, 1, 2, 3].forEach(c => assert.equal(g.ludoGlobal(c, 0) % 4, c));
+test("棋盘照真的飞行棋盘画：外圈 52 格各在各的位置、一格挨一格；每色出发那格是自己的颜色、挨着自己的机库", () => {
+  const at = Array.from({ length: 52 }, (_, i) => g.ludoRingCell(i).at);
+  assert.equal(new Set(at.map(x => x.map(v => v.toFixed(2)).join())).size, 52);
+  at.forEach((a, i) => { const b = at[(i + 1) % 52]; assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) < 1.9, "第 " + i + " 格断开了"); });
+  [0, 1, 2, 3].forEach(c => {
+    assert.equal(g.ludoGlobal(c, 0) % 4, c);
+    const st = g.ludoCell(c, 0), hg = g.ludoCell(c, -1, 0);
+    assert.ok(Math.hypot(st[0] - hg[0], st[1] - hg[1]) < 6, "出发格离机库太远");
+    const lane = g.ludoCell(c, 51), last = g.ludoCell(c, 50);
+    assert.ok(Math.hypot(lane[0] - last[0], lane[1] - last[1]) < 1.6, "跑道没接在第 51 格后面");
+  });
+  assert.deepEqual(g.ludoCell(0, -1, 0).map(v => v < 9.5), [true, true], "红在左上");
 });
 
 test("掷到 6 才能起飞，起飞后再掷一次；不是 6 又没飞机在外面就轮到下一位", () => {
