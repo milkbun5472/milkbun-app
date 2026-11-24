@@ -8878,7 +8878,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           //   模型返回空就 `return false`——于是一次空返回＝**花掉一次调用 + 思念被清掉 +
           //   25 分钟闸也占了 + 什么都没留下**，下一次想再来得再攒六七个小时。
           //   现在：落地了才泄；没落地把闸也还回去，下一轮 tick 重来。
-          const _drain = () => { try { const eng = getDongnian(c); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {} };
+          // 泄多少（她 2026-11-24「刚说完话不会退」）：原来固定减 0.28，想得满的人退完还在「已经想找你了」那一档，45 分钟一到又来一条。
+          //   现在退到「开始找机会」那道线底下（再少也至少退 0.28）；她不回，就从这儿照常慢慢再攒；她回了照旧整个归零
+          const _drain = async () => { try { const eng = getDongnian(c); if (!eng) return; const st = await eng.getState();
+            const th = (eng.thresholds && eng.thresholds.considerContact) || 0.35;
+            eng.applyDelta({ connection: Math.min(-0.28, th * 0.75 - (Number(st && st.connection) || 0)) }); } catch (e) {} };
           const _giveBack = () => { dongnianFiredRef.current[cid] = 0; };
           const _settle = ok => { if (ok) _drain(); else _giveBack(); };
           // 这条消息真正「想发」的时刻：越过阈值那一刻。夹在【上次互动之后】和【一分钟前】之间，

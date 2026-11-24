@@ -25614,7 +25614,7 @@ function ChatSettings({
           style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, background: "transparent", border: "none", padding: "5px 0 5px 10px", minHeight: 34 } },
           dnNumsOpen ? "收起 ▾" : "看数字 ▸")),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.7, whiteSpace: "pre-wrap" } },
-        "想到条子过了第一道线，TA 就开始找机会开口；过了第二道就忍不住了。你回一句话它就归零重新攒；关着 app 的时候也照样在攒。"
+        "想到条子过了第一道线，TA 就开始找机会开口；过了第二道就忍不住了。你回一句话它就归零重新攒；TA 自己发出一条，就退回第一道线底下再慢慢攒；关着 app 的时候也照样在攒。"
         // ⚠️读的是【A 算出来的傲娇】，不是动念自己那份（v64.69）。动念那份初值 -1、
         //   稳态最高 0.3，防御漂移那一支写着「1.0＝永不」——它永远到不了 0.5，
         //   所以这句话从写下来那天起一次都没出现过。她 2026-09-06 一眼看穿：
