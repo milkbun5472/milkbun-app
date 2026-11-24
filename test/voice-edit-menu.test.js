@@ -7,5 +7,5 @@ const v = menu({ kind: "voice", role: "assistant", content: "嗯" }, true).flat(
 assert.ok(v.includes("edit"), "语音没有编辑");
 assert.ok(v.includes("copy") && v.includes("del"));
 // 合成读的就是 m.content：改了字再点就照新字念，不用另外清缓存
-assert.match(src, /await ttsSpeak\(vText, speaker\.voiceId/);
+assert.match(src, /await (?:ttsSpeak|ttsPlayStream)\((?:aud, )?vText, speaker\.voiceId/);   // 2026-11-24 起长的边放边合成，走 ttsPlayStream
 console.log("ok");
