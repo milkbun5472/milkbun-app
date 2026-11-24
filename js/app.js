@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.182";
+const APP_VERSION = "v90.186";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9573,13 +9573,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 合照必须两张参考照都在，否则降级成「她替TA拍的单人照」——绝不一张真一张编。
     let kind = wantMe ? "me" : ["other", "duo", "group"].includes(arg.kind) ? arg.kind : "self";
     if (kind === "duo" && !offlinePhotoCanDuo(char)) kind = "other";
-    if (kind === "duo" && typeof photoDuoSaid === "function" && !photoDuoSaid(scene, userName(profileFor(char.id) || profile))) kind = "self";
+    if (kind === "duo" && !arg.third && typeof photoDuoSaid === "function" && !photoDuoSaid(scene, userName(profileFor(char.id) || profile))) kind = "self";
     let cast = kind === "group" ? (arg.cast || []) : null;
     if (kind === "group" && (!cast || cast.length < 2)) { kind = "other"; cast = null; }
     // reuseSid：重拍 / 改描述重拍（她 2026-10-02：「线下的图不能编辑重roll」）——就地换这一格的像素，不另挂一张。
     const reuse = arg && arg.reuseSid;
     const sid = reuse || "sf_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
-    const row = { id: "c_" + Date.now(), role: "char", kind: "selfie", sid, imgKey: null, pending: true, desc: scene, photoKind: kind, ...(cast ? { cast } : {}), ts: Date.now() };
+    const row = { id: "c_" + Date.now(), role: "char", kind: "selfie", sid, imgKey: null, pending: true, desc: scene, photoKind: kind, ...(cast ? { cast } : {}), ...(arg.third && (kind === "duo" || kind === "group") ? { third: true } : {}), ts: Date.now() };
     const push = extra => {
       const r = { ...row, ...extra };
       if (groupId) pushGOffMsg(groupId, { ...r, id: "gc_" + Date.now(), senderId: char.id, senderName: char.name });
@@ -9627,7 +9627,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (wRef) refs.push(wRef.img);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + scene;
       const _cpS = (couplesRef.current || {})[char.id];
-      const prompt = buildPhotoPrompt(sub, sceneForPhoto, st, { pov: kind === "me" ? povFor(char) : null, kind: drawKind, me, cast, notLover: !!(_cpS && _cpS.status === "together" && !spaceLover(_cpS)), closet: kind === "me" ? (me.closet || "") : closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
+      const prompt = buildPhotoPrompt(sub, sceneForPhoto, st, { pov: kind === "me" ? povFor(char) : null, kind: drawKind, me, cast, ...(arg.third && (kind === "duo" || kind === "group") && typeof photoSceneShotLine === "function" ? { shotLine: photoSceneShotLine() } : {}), notLover: !!(_cpS && _cpS.status === "together" && !spaceLover(_cpS)), closet: kind === "me" ? (me.closet || "") : closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
       const minimalPrompt = buildMinimalPhotoPrompt(sub, { kind: drawKind, cast });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
@@ -9677,7 +9677,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!offlinePhotoCan(char)) { if (desc != null) { const q0 = { desc: scene }; if (groupId) patchGOffMsg(groupId, m.sid, q0); else patchOffMsg(scopeKey, m.sid, q0); } toast("现在拍不了：去 设置·图像API 配好出图，再回来点重拍（改的描述已经存下了）", 6000); return true; }
     const q = { desc: scene, pending: true, failed: false, pendingSince: Date.now() };
     if (groupId) patchGOffMsg(groupId, m.sid, q); else patchOffMsg(scopeKey, m.sid, q);
-    runOfflineShot({ char, scopeKey, groupId, kind: m.photoKind, scene, cast: m.cast, reuseSid: m.sid, keep: { imgKey: m.imgKey || null, imgUrl: m.imgUrl || null, desc: m.desc } });
+    runOfflineShot({ char, scopeKey, groupId, kind: m.photoKind, scene, cast: m.cast, third: !!m.third, reuseSid: m.sid, keep: { imgKey: m.imgKey || null, imgUrl: m.imgUrl || null, desc: m.desc } });
     return true;
   };
   // 合影最多几个人一起入镜（她 2026-11-02 转群里：「五人群聊照片上只有四个人」）：原来三处各写死 4，
@@ -9685,7 +9685,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   上限只是「最多能上几个」，不是每张都上满（她 2026-11-02「干脆就 10 呗，反正上限又不是必用到」）：人多了脸容易串、有的接口收不了那么多张，那是少拍几个人的事
   const GROUP_SHOT_MAX = 10;
   // 群线下当场拍一张合影：点名单＝在场有参考照的成员（第一位当拍照的那个）+ 用户。
-  const groupOfflineShotNow = async groupId => {
+  const groupOfflineShotNow = async (groupId, third) => {
     const group = groups.find(g => String(g.id) === String(groupId));
     if (!group) return;
     const withRef = groupMembers(group).filter(c => c && c.refPhoto);
@@ -9697,7 +9697,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const shooter = withRef[0];
     const st = statesRef.current[shooter.id] || {};
     const bits = [freshLiveStateValue(st, "action"), freshLiveStateValue(st, "place")].map(x => String(x || "").trim()).filter(Boolean);
-    await runOfflineShot({ char: shooter, groupId, kind: "group", scene: bits.length ? bits.join("，") : "几个人凑在一起，平静的自然光", cast });
+    await runOfflineShot({ char: shooter, groupId, kind: "group", scene: bits.length ? bits.join("，") : (third ? "大家此刻在一起的样子，平静的自然光" : "几个人凑在一起，平静的自然光"), cast, third: !!third });
   };
   const groupOfflineCanShoot = group => {
     if (!group || !((typeof imgApiReady === "function") && imgApiReady())) return false;
@@ -9706,6 +9706,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 她自己按【拍一张】：零模型调用。画面从此刻的状态卡长出来——
   // 「在哪、在干嘛、穿什么」正好就是一格照片需要的全部，不必再花一次调用去问模型。
   const offlineShotNow = async (scopeKey, kind) => {
+    const third = kind === "scene"; if (third) kind = "duo";   // 「这一幕」：两个人都在、旁观视角（见 photoSceneShotLine）
     const charId = offlinePersonId(scopeKey);
     const char = offlineCharacterFor(scopeKey);
     if (!char) return;
@@ -9723,7 +9724,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const st = liveStateForScope(charId, scopeKey);
     const bits = [freshLiveStateValue(st, "action"), freshLiveStateValue(st, "wearing")].map(x => String(x || "").trim()).filter(Boolean);
     const scene = bits.length ? bits.join("，") : "此刻的样子，平静的自然光";
-    await runOfflineShot({ char, scopeKey, kind, scene });
+    await runOfflineShot({ char, scopeKey, kind, scene, third });
   };
   const genOfflineFrom = async (scopeKey, workSess) => {
     const charId = offlinePersonId(scopeKey);
@@ -14252,7 +14253,7 @@ ${SCHED_LATER_SPEC}
 ${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；${actDescFor(charId) && (settingsFor(charId) || {}).actMid !== false ? "动描开着时 word 里也可以写 {\"act\":…}（见「说着说着换了动作」）；" : ""}语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；redPacket:{"amount":数字,"note":"写在红包上的一句"}=发红包（她拆开前看不到多少）；location:{"name":"地点"}=位置；stick:{"quote":"她某句话里的原话，照抄几个字","emoji":"一个 emoji"}=往她那句话上贴一个表情（像 QQ 的贴表情，贴在她气泡角上，不是一句话）；想贴的是你自己的表情包，就把 emoji 换成 "emote":"表情包关键词"；pat:true=用微信「拍一拍」戳她一下（聊天里只出现一行灰字，不是一句话；想拍就拍，不用再在 word 里写「拍了拍你」）${char.myPatSig ? "，那一行显示「你拍了拍她 " + char.myPatSig + "」" : ""}；patSig:"新后缀"=把你自己的拍一拍后缀换掉（她拍你时显示「她拍了拍你 ＋这半句」${char.patSig ? "，现在是「" + char.patSig + "」" : "，现在没有"}；真想换才换）；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有","at":"想让它几点送到（HH:MM，你那边的钟点），不填就是尽快"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回。text 照原话抄：抄的是你前面几轮已经发出去的某一条（说错了、发错了、漏了不该露的字），就撤那一条；是这一轮新写的，会先正常显示一秒再变成「已撤回」；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；momentSong:string=想给这条朋友圈配一首歌就写「歌名 歌手」（要是真有的歌，搜到才挂上）；momentPlace:string=想给这条朋友圈带个定位就写那个地方（你此刻真在的地方）；momentChat:string[]=想给这条朋友圈配一张你俩聊天记录的截图，就把最近聊天里要截进去的那几句原话照抄进来（她说的、你说的都行，一字不改，两到十二句，截多截少照你想晒的那一段）；storyVote:string=投她限时动态上那个投票：写你选的那一项原文；storyRepost:string=把她最新那条限时动态转进你自己的动态，写你配的那句话；storyReact:{"emoji":"一个 emoji","say":"回在她动态底下的一句（可空）"}=在她最新那条限时动态上留个反应，她点开自己的动态就看得到；story:string=顺手发一条限时动态（挂 24 小时）：写你此刻想发的那一下是什么，一句话，App 另外把它排成一张竖版卡；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；file:{"name":"文件名（带扩展名）","text":"文件里的全文"}=发给她一份文件（她让你改她发来的文件、或者你要交给她一整份东西时用：改好的整份写进 text，聊天里只说一两句；不是长消息的替代品）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；${actDescFor(charId) && (settingsFor(charId) || {}).actMid !== false ? "动描开着时 word 里也可以写 {\"act\":…}（见「说着说着换了动作」）；" : ""}语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；redPacket:{"amount":数字,"note":"写在红包上的一句"}=发红包（她拆开前看不到多少）；location:{"name":"地点"}=位置；stick:{"quote":"她某句话里的原话，照抄几个字","emoji":"一个 emoji"}=往她那句话上贴一个表情（像 QQ 的贴表情，贴在她气泡角上，不是一句话）；想贴的是你自己的表情包，就把 emoji 换成 "emote":"表情包关键词"；pat:true=用微信「拍一拍」戳她一下（聊天里只出现一行灰字，不是一句话；想拍就拍，不用再在 word 里写「拍了拍你」）${char.myPatSig ? "，那一行显示「你拍了拍她 " + char.myPatSig + "」" : ""}；patSig:"新后缀"=把你自己的拍一拍后缀换掉（她拍你时显示「她拍了拍你 ＋这半句」${char.patSig ? "，现在是「" + char.patSig + "」" : "，现在没有"}；真想换才换）；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有","at":"想让它几点送到（HH:MM，你那边的钟点），不填就是尽快"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回。text 照原话抄：抄的是你前面几轮已经发出去的某一条（说错了、发错了、漏了不该露的字），就撤那一条；是这一轮新写的，会先正常显示一秒再变成「已撤回」；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；momentSong:string=想给这条朋友圈配一首歌就写「歌名 歌手」（要是真有的歌，搜到才挂上）；momentPlace:string=想给这条朋友圈带个定位就写那个地方（你此刻真在的地方）；momentImage:string=想给这条朋友圈配一张照片，就写这张照片拍的是什么（画面描述）；momentImageWho:"none"|"part"|"self"=照片里有没有你（none 没有人、part 只有手或背影这类局部、self 有你的脸）；momentChat:string[]=想给这条朋友圈配一张你俩聊天记录的截图，就把最近聊天里要截进去的那几句原话照抄进来（她说的、你说的都行，一字不改，两到十二句，截多截少照你想晒的那一段）；storyVote:string=投她限时动态上那个投票：写你选的那一项原文；storyRepost:string=把她最新那条限时动态转进你自己的动态，写你配的那句话；storyReact:{"emoji":"一个 emoji","say":"回在她动态底下的一句（可空）"}=在她最新那条限时动态上留个反应，她点开自己的动态就看得到；story:string=顺手发一条限时动态（挂 24 小时）：写你此刻想发的那一下是什么，一句话，App 另外把它排成一张竖版卡；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词（想让表情夹在两句话中间，就别用这一栏，直接在 word 数组里那个位置写一项 {"emote":"关键词"}）；file:{"name":"文件名（带扩展名）","text":"文件里的全文"}=发给她一份文件（她让你改她发来的文件、或者你要交给她一整份东西时用：改好的整份写进 text，聊天里只说一两句；不是长消息的替代品）；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账；health:[{\"kind\":\"meal\",\"meal\":\"breakfast|lunch|dinner|snack\",\"name\":\"吃了什么\",\"kcal\":估的整数} 或 {\"kind\":\"water\",\"cups\":杯数} 或 {\"kind\":\"sport\",\"sport\":\"跑步等\",\"min\":分钟} 或 {\"kind\":\"weight\",\"kg\":数字} 或 {\"kind\":\"sleep\",\"bed\":\"HH:MM\",\"wake\":\"HH:MM\"} 或 {\"kind\":\"steps\",\"steps\":数字} 或 {\"kind\":\"mood\",\"v\":0到4}，每条都可带 \"date\":\"YYYY-MM-DD\"]=替她记进健康。这几个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，一句话就够。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不填 minutes）","about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填；**说了「我现在过去，二十分钟到」这种正往她那儿赶的话也算**；**约好了几点（「五点半门口逮你」「七点来接你」）也算，那就填 at，不填 minutes**（about 写「到了跟她说一声」，minutes 就是你说的路上要多久），minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}${_luckyLine}`;
@@ -15764,15 +15765,21 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       }
       // 仅当该角色开启了「自由发朋友圈」才把 Ta 想发的动态发出去
       const mo = (char.npc ? !!char.npcMoments : settingsFor(charId).autoMoment) && momRoomFor(charId) && parsed.moment && String(parsed.moment).toLowerCase() !== "null" ? String(parsed.moment) : null;
+      // 配图（她 2026-11-24「图片加吧」）：跟它自己发的朋友圈同一套——m.image 先放画面描述，开着「朋友圈自动配图」就当场画，没开就挂着等她点
+      const _moImg = mo && parsed.momentImage && String(parsed.momentImage).toLowerCase() !== "null" ? String(parsed.momentImage).trim().slice(0, 300) : "";
+      const _moWho = ["none", "part", "self"].includes(String(parsed.momentImageWho || "").toLowerCase()) ? String(parsed.momentImageWho).toLowerCase() : null;
+      const _moId = "m_" + Date.now();
       if (mo) { pMom(p => [{
-        id: "m_" + Date.now(),
+        id: _moId,
         characterId: charId,
         content: mo,
+        ...(_moImg ? { image: _moImg, ...(_moWho ? { imageWho: _moWho } : {}) } : {}),
         ts: Date.now(),
         liked: false,
         likeCount: 0,
         comments: []
       }, ...p]); notifyApp("moments"); if (window.Notify) window.Notify.push({ title: char.name + " 发了条朋友圈", body: mo, tag: "mom-" + charId, charId: charId });
+        if (_moImg && loadJSON("x_momentAutoImg", false) && imgApiReady()) setTimeout(() => momentGenImage(_moId, true), 60);
         // 配歌：去云村搜，搜到才挂上那条（不卡这一轮）
         // 配一张聊天记录截图（群里 2026-11-19 许愿「把聊天记录截图发朋友圈」）：只认你俩主聊天里真说过的原话，对不上的那句不要；
         //   小房间里那一轮不截（房里的事不出门）。不另花调用——就是这一轮回复里顺手挑的
@@ -40653,7 +40660,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onStart: opts => startGroupOffline(offlineGroup.id, opts),
     onSend: txt => { gachaEarnGroup(offlineGroup.id, "offline"); groupOfflineSend(offlineGroup.id, txt); },
     onSendPhoto: photo => groupOfflineSendPhoto(offlineGroup.id, photo),
-    onShoot: () => groupOfflineShotNow(offlineGroup.id),
+    onShoot: k => groupOfflineShotNow(offlineGroup.id, k === "scene"),
     // 换衣服：跟单聊同一段、同一个函数，只是在场的人不止一个（这一场只认答应来了的）
     wardrobe: wardrobeFor({ groupId: offlineGroup.id }, (() => {
       const _s = (groupOfflines[offlineGroup.id] || []).find(x => !x.endTs);

@@ -20138,19 +20138,20 @@ function OfflineMode({
       onShoot ? h("div", { className: "mb-4" },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 8, lineHeight: 1.5 } },
           canShoot ? "当场拍一张（照此刻的样子出图）" : "接一个图像模型、再给 Ta 填上外貌或参考照，就能当场拍了"),
-        h("div", { className: "flex gap-2" }, [
+        h("div", { className: "flex flex-wrap gap-2" }, [
           ["duo", "我俩合照", canShoot && canShootDuo],
+          ["scene", "这一幕", canShoot && canShootDuo],
           ["other", "我替 Ta 拍", canShoot],
           ["me", "Ta 帮我拍", !!canShootMe],
           ["self", "让 Ta 自拍", canShoot]
         ].map(([k, label, ok]) => h("button", {
           key: k,
           onClick: () => { if (!ok) return; setPhotoOpen(false); onShoot(k); },
-          disabled: !ok,
-          className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-30",
-          style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
+          disabled: !ok, "data-wk": "offshotkind", "data-part": k,
+          className: "py-2.5 active:opacity-70 disabled:opacity-30",
+          style: { flex: "1 1 30%", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
         }, label))),
-        (canShoot && !canShootDuo) ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "合照要你俩各自的参考照都在，才能把两张脸都锁住") : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 6, lineHeight: 1.5 } }, (canShoot && !canShootDuo) ? "合照和「这一幕」要你俩各自的参考照都在，才能把两张脸都锁住" : "「这一幕」是旁边的视角拍下你俩此刻的样子，人在环境里，不是谁举着手机拍的"),
         h("div", { style: { height: 1, background: t.line, margin: "14px 0 12px" } }),
         null) : null,
       h(OffPhotoFold, { title: "给 Ta 看你手机里的一张" }, h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending })),
@@ -20748,7 +20749,7 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
       h("div", { className: "flex items-center gap-2.5 mb-2.5" },
         spk ? h(Avatar, { character: spk, size: 28, radius: 14 }) : null,
         h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-          (m.senderName || (spk && spk.name) || "") + (m.photoKind === "part" ? " · " + PHOTO_PART_ZH : m.photoKind === "view" ? " · " + PHOTO_VIEW_ZH : m.photoKind === "group" ? " · 大家的合影" : m.photoKind === "duo" ? " · 我俩" : m.photoKind === "other" ? " · 我替 TA 拍的" : m.photoKind === "me" ? " · 给你拍的" : m.photoKind === "drawback" ? " · 接着画的" : " · 自拍")),
+          (m.senderName || (spk && spk.name) || "") + (m.third ? " · 这一幕" : m.photoKind === "part" ? " · " + PHOTO_PART_ZH : m.photoKind === "view" ? " · " + PHOTO_VIEW_ZH : m.photoKind === "group" ? " · 大家的合影" : m.photoKind === "duo" ? " · 我俩" : m.photoKind === "other" ? " · 我替 TA 拍的" : m.photoKind === "me" ? " · 给你拍的" : m.photoKind === "drawback" ? " · 接着画的" : " · 自拍")),
         timeEl,
         // 她 2026-10-02：「线下的图不能编辑重roll」——重拍＝照原描述再画；改描述＝存下就照新描述重画。话一个字不动。
         (editable && onReroll && !m.pending) ? h("button", { onClick: () => onReroll(m.id), disabled: sending, className: "active:opacity-50 disabled:opacity-30", title: "重拍这张" }, h(IRefresh, { size: 15, color: t.fog })) : null,
@@ -21238,6 +21239,13 @@ function GroupOfflineMode({
           className: "w-full py-2.5 active:opacity-70 disabled:opacity-30",
           style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
         }, "拍张合影"),
+        // 这一幕（她 2026-11-24）：旁边的视角拍下大家此刻的样子，不是谁举着手机
+        h("button", {
+          onClick: () => { if (!canShoot) return; setPhotoOpen(false); onShoot("scene"); },
+          disabled: !canShoot, "data-wk": "offshotkind", "data-part": "scene",
+          className: "w-full py-2.5 active:opacity-70 disabled:opacity-30",
+          style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
+        }, "拍这一幕（旁观视角）"),
         h("div", { style: { height: 1, background: t.line, margin: "14px 0 12px" } }),
         null) : null,
       h(OffPhotoFold, { title: "给大家看你手机里的一张" }, h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending })),
