@@ -1701,7 +1701,8 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
           // 签名和公众号文章（她 2026-11-24「微信阅读的文章和个性签名都没什么变化」）：原来整个 me 都叫他别动，文章也跟着永远是那几篇
           + characterText(char, "me.accounts 是他最近在看的公众号文章：这几天新看的 2-3 篇写进 me.accounts（跟已有的不重名），旧的会自己往下沉。\n")
           + (() => { const _sTs = Number((known && known.me && known.me._sigTs) || (known && known._at) || 0), _sd = _sTs ? Math.floor((Date.now() - _sTs) / 86400000) : 0;
-              return _sd >= 4 ? "朋友圈签名 signature 已经挂了 " + _sd + " 天：照他这几天的心境换一句新的，写进 me.signature。" : "朋友圈签名 signature 和封面 cover 不是每天换的东西：他这几天心境真的翻篇了才写新的，不写就是照旧。"; })()
+              // 不定死几天（她 2026-11-24「4 天太短了，但是不要 set time」）：挂得越久，这一轮被提醒「可以换了」的机会越大，没有哪一天一定换
+              return Math.random() < Math.min(0.6, _sd / 40) ? "朋友圈签名 signature 挂了有一阵子了：他这阵子的心境要是跟那句对不上了，就换一句新的写进 me.signature；还对得上就照旧。" : "朋友圈签名 signature 和封面 cover 不是每天换的东西：他这几天心境真的翻篇了才写新的，不写就是照旧。"; })()
           + "\n"
           + wxChatList + relHint + wxMissingLine + wxMomentRule)
         : ("推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint + wxFreshMust + wxMomentRule) + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 8-12 条有来有回的对话，不要只给三两句。contacts 正好 5 个，不含用户本人：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体、有个人态度的关系简介 intro。userContact 单独写【用户本人】：name 就用上面告诉你的那个用户名字，remark 必须是 TA 真会给对方起的微信备注，intro 必须写 TA 对对方的具体认识、情感和私下评价，不能写「以主聊天为准」之类占位话。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己给自己取的 wechatName（不是角色本名照抄，要像 TA 真会使用的微信昵称、符合 TA 的取名风格）、wechatId 和本轮新生成的朋友圈 signature；、以及 TA 朋友圈封面长什么样 cover（**一句画面描述**，不是图片：写清是什么画面、什么色调、为什么是这张，要能一眼看出是 TA 挑的，换个人就不成立）；并给最近看过的 3 篇公众号文章：标题、公众号、时间、较完整的文章摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
