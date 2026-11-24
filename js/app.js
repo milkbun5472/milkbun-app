@@ -9573,13 +9573,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 合照必须两张参考照都在，否则降级成「她替TA拍的单人照」——绝不一张真一张编。
     let kind = wantMe ? "me" : ["other", "duo", "group"].includes(arg.kind) ? arg.kind : "self";
     if (kind === "duo" && !offlinePhotoCanDuo(char)) kind = "other";
-    if (kind === "duo" && typeof photoDuoSaid === "function" && !photoDuoSaid(scene, userName(profileFor(char.id) || profile))) kind = "self";
+    if (kind === "duo" && !arg.third && typeof photoDuoSaid === "function" && !photoDuoSaid(scene, userName(profileFor(char.id) || profile))) kind = "self";
     let cast = kind === "group" ? (arg.cast || []) : null;
     if (kind === "group" && (!cast || cast.length < 2)) { kind = "other"; cast = null; }
     // reuseSid：重拍 / 改描述重拍（她 2026-10-02：「线下的图不能编辑重roll」）——就地换这一格的像素，不另挂一张。
     const reuse = arg && arg.reuseSid;
     const sid = reuse || "sf_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
-    const row = { id: "c_" + Date.now(), role: "char", kind: "selfie", sid, imgKey: null, pending: true, desc: scene, photoKind: kind, ...(cast ? { cast } : {}), ts: Date.now() };
+    const row = { id: "c_" + Date.now(), role: "char", kind: "selfie", sid, imgKey: null, pending: true, desc: scene, photoKind: kind, ...(cast ? { cast } : {}), ...(arg.third && (kind === "duo" || kind === "group") ? { third: true } : {}), ts: Date.now() };
     const push = extra => {
       const r = { ...row, ...extra };
       if (groupId) pushGOffMsg(groupId, { ...r, id: "gc_" + Date.now(), senderId: char.id, senderName: char.name });
@@ -9627,7 +9627,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (wRef) refs.push(wRef.img);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + scene;
       const _cpS = (couplesRef.current || {})[char.id];
-      const prompt = buildPhotoPrompt(sub, sceneForPhoto, st, { pov: kind === "me" ? povFor(char) : null, kind: drawKind, me, cast, notLover: !!(_cpS && _cpS.status === "together" && !spaceLover(_cpS)), closet: kind === "me" ? (me.closet || "") : closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
+      const prompt = buildPhotoPrompt(sub, sceneForPhoto, st, { pov: kind === "me" ? povFor(char) : null, kind: drawKind, me, cast, ...(arg.third && (kind === "duo" || kind === "group") && typeof photoSceneShotLine === "function" ? { shotLine: photoSceneShotLine() } : {}), notLover: !!(_cpS && _cpS.status === "together" && !spaceLover(_cpS)), closet: kind === "me" ? (me.closet || "") : closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
       const minimalPrompt = buildMinimalPhotoPrompt(sub, { kind: drawKind, cast });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
@@ -9677,7 +9677,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!offlinePhotoCan(char)) { if (desc != null) { const q0 = { desc: scene }; if (groupId) patchGOffMsg(groupId, m.sid, q0); else patchOffMsg(scopeKey, m.sid, q0); } toast("现在拍不了：去 设置·图像API 配好出图，再回来点重拍（改的描述已经存下了）", 6000); return true; }
     const q = { desc: scene, pending: true, failed: false, pendingSince: Date.now() };
     if (groupId) patchGOffMsg(groupId, m.sid, q); else patchOffMsg(scopeKey, m.sid, q);
-    runOfflineShot({ char, scopeKey, groupId, kind: m.photoKind, scene, cast: m.cast, reuseSid: m.sid, keep: { imgKey: m.imgKey || null, imgUrl: m.imgUrl || null, desc: m.desc } });
+    runOfflineShot({ char, scopeKey, groupId, kind: m.photoKind, scene, cast: m.cast, third: !!m.third, reuseSid: m.sid, keep: { imgKey: m.imgKey || null, imgUrl: m.imgUrl || null, desc: m.desc } });
     return true;
   };
   // 合影最多几个人一起入镜（她 2026-11-02 转群里：「五人群聊照片上只有四个人」）：原来三处各写死 4，
@@ -9685,7 +9685,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   上限只是「最多能上几个」，不是每张都上满（她 2026-11-02「干脆就 10 呗，反正上限又不是必用到」）：人多了脸容易串、有的接口收不了那么多张，那是少拍几个人的事
   const GROUP_SHOT_MAX = 10;
   // 群线下当场拍一张合影：点名单＝在场有参考照的成员（第一位当拍照的那个）+ 用户。
-  const groupOfflineShotNow = async groupId => {
+  const groupOfflineShotNow = async (groupId, third) => {
     const group = groups.find(g => String(g.id) === String(groupId));
     if (!group) return;
     const withRef = groupMembers(group).filter(c => c && c.refPhoto);
@@ -9697,7 +9697,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const shooter = withRef[0];
     const st = statesRef.current[shooter.id] || {};
     const bits = [freshLiveStateValue(st, "action"), freshLiveStateValue(st, "place")].map(x => String(x || "").trim()).filter(Boolean);
-    await runOfflineShot({ char: shooter, groupId, kind: "group", scene: bits.length ? bits.join("，") : "几个人凑在一起，平静的自然光", cast });
+    await runOfflineShot({ char: shooter, groupId, kind: "group", scene: bits.length ? bits.join("，") : (third ? "大家此刻在一起的样子，平静的自然光" : "几个人凑在一起，平静的自然光"), cast, third: !!third });
   };
   const groupOfflineCanShoot = group => {
     if (!group || !((typeof imgApiReady === "function") && imgApiReady())) return false;
@@ -9706,6 +9706,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 她自己按【拍一张】：零模型调用。画面从此刻的状态卡长出来——
   // 「在哪、在干嘛、穿什么」正好就是一格照片需要的全部，不必再花一次调用去问模型。
   const offlineShotNow = async (scopeKey, kind) => {
+    const third = kind === "scene"; if (third) kind = "duo";   // 「这一幕」：两个人都在、旁观视角（见 photoSceneShotLine）
     const charId = offlinePersonId(scopeKey);
     const char = offlineCharacterFor(scopeKey);
     if (!char) return;
@@ -9723,7 +9724,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const st = liveStateForScope(charId, scopeKey);
     const bits = [freshLiveStateValue(st, "action"), freshLiveStateValue(st, "wearing")].map(x => String(x || "").trim()).filter(Boolean);
     const scene = bits.length ? bits.join("，") : "此刻的样子，平静的自然光";
-    await runOfflineShot({ char, scopeKey, kind, scene });
+    await runOfflineShot({ char, scopeKey, kind, scene, third });
   };
   const genOfflineFrom = async (scopeKey, workSess) => {
     const charId = offlinePersonId(scopeKey);
@@ -40653,7 +40654,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onStart: opts => startGroupOffline(offlineGroup.id, opts),
     onSend: txt => { gachaEarnGroup(offlineGroup.id, "offline"); groupOfflineSend(offlineGroup.id, txt); },
     onSendPhoto: photo => groupOfflineSendPhoto(offlineGroup.id, photo),
-    onShoot: () => groupOfflineShotNow(offlineGroup.id),
+    onShoot: k => groupOfflineShotNow(offlineGroup.id, k === "scene"),
     // 换衣服：跟单聊同一段、同一个函数，只是在场的人不止一个（这一场只认答应来了的）
     wardrobe: wardrobeFor({ groupId: offlineGroup.id }, (() => {
       const _s = (groupOfflines[offlineGroup.id] || []).find(x => !x.endTs);
