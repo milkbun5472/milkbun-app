@@ -1487,7 +1487,7 @@ function Empty({
   }, sub));
 }
 // 他锁了她的手机（她 2026-11-24）：锁着时点进别的页都落到这一页。只留两条路——去找他、回主屏；最底下一行小字能强行解开，他会知道
-function PhoneLockScreen({ lock, onGoChat, onHome, onForce }) {
+function PhoneLockScreen({ lock, onGoChat, onForce }) {
   const t = useTheme();
   const [sure, setSure] = React.useState(false);
   const nm = (lock && lock.byName) || "TA";
@@ -1497,9 +1497,8 @@ function PhoneLockScreen({ lock, onGoChat, onHome, onForce }) {
       h("path", { d: "M11 23V15a11 11 0 0 1 22 0v8" }), h("rect", { x: 4, y: 23, width: 36, height: 26, rx: 6 }), h("path", { d: "M22 33v6" })),
     h("div", { "data-wk": "phonelocktitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", marginBottom: 10 } }, nm + " 把你的手机锁了"),
     lock && lock.text ? h("div", { "data-wk": "phonelocktext", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink, marginBottom: 10 } }, "「" + lock.text + "」") : null,
-    h("div", { "data-wk": "phonelocksub", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 30 } }, "现在只有消息列表和跟" + nm + "的聊天进得去。哄好了TA会自己解开。"),
+    h("div", { "data-wk": "phonelocksub", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 30 } }, "现在只有跟" + nm + "的聊天进得去，退出来也会回到这里。哄好了TA会自己解开。"),
     h("button", { "data-wk": "phonelockbtn", "data-part": "chat", onClick: onGoChat, className: "w-full active:opacity-80", style: { maxWidth: 320, minHeight: 48, borderRadius: 14, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", marginBottom: 10 } }, "去找" + nm),
-    h("button", { "data-wk": "phonelockbtn", "data-part": "home", onClick: onHome, className: "w-full active:opacity-70", style: { maxWidth: 320, minHeight: 44, borderRadius: 14, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "回主屏"),
     h("button", { "data-wk": "phonelockforce", onClick: () => { if (sure) onForce(); else setSure(true); }, className: "active:opacity-60", style: { marginTop: 36, minHeight: 40, padding: "0 12px", background: "transparent", color: sure ? t.accent : t.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
       sure ? "再点一下就解开（" + nm + "会知道）" : "强行解开"));
 }
@@ -13626,7 +13625,7 @@ function ChatThread({
     // 锁手机（她 2026-11-24）：翻完吃醋生气了，他可以把她手机锁上，只留跟他的聊天
     onToggleLock ? h("button", { "data-wk": "peeklockok", onClick: onToggleLock, className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46, borderTop: "1px solid " + t.line } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } }, "允许" + (character.remark || character.name) + "锁我手机",
-        h("span", { style: { display: "block", fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "翻完吃醋或生气了，TA可能把手机锁上：只剩消息列表和跟TA的聊天进得去，哄好了TA自己解开；锁屏底下能强行解开，TA会知道")),
+        h("span", { style: { display: "block", fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "翻完吃醋或生气了，TA可能把手机锁上：只剩跟TA的聊天进得去，哄好了TA自己解开；锁屏底下能强行解开，TA会知道")),
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: peekLockOn ? t.accent : t.fog } }, peekLockOn ? "允许" : "不允许")) : null),
     h("button", { onClick: () => { setPeekOpen(false); onHandPhone(peekAllow, peekHide, peekAllMasks); }, disabled: !peekAllow.length, className: "w-full active:opacity-80", style: { marginTop: 16, minHeight: 48, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", opacity: peekAllow.length ? 1 : .4 } }, "递过去"),
     // 先锁好、不递（群友 2026-11-20）：他自己偷偷翻也照这一份来

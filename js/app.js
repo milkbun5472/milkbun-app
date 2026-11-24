@@ -39924,8 +39924,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onExportMedia: doExportMedia, onCopyExport: doCopyExport, copyParts, onImportText: doImportPasted, inAppBrowser: inAppBrowser(), onImport: doImport, toast } }) });
   }
   // 他锁着她的手机：主屏、消息列表、跟他的聊天以外，哪一页都换成锁屏（他翻手机放录像时不挡）
-  if (phoneLock && !peekPlay && !(screen === "home" || screen === "messages" || (screen === "thread" && activeChar && String(activeChar.id) === String(phoneLock.by)))) {
-    body = h(PhoneLockScreen, { key: "phonelock", lock: phoneLock, onGoChat: () => openChatById(phoneLock.by), onHome: () => goHome(), onForce: forceUnlockPhone });
+  //   只留跟他的聊天：退出来、回主屏、大退重进，落到哪一页都是这张锁屏（她 2026-11-24「只留在他的聊天窗 退出就会弹锁屏」）
+  if (phoneLock && !peekPlay && !(screen === "thread" && activeChar && String(activeChar.id) === String(phoneLock.by))) {
+    body = h(PhoneLockScreen, { key: "phonelock", lock: phoneLock, onGoChat: () => openChatById(phoneLock.by), onForce: forceUnlockPhone });
   }
   const _safeTop = { height: screen === "home" ? "env(safe-area-inset-top)" : 0 };
   // 这一页单独换过色的话，发下去的就是换过的那一份（v65.06，她 2026-09-06：

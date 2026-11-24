@@ -23,8 +23,9 @@ test("开关默认不许；只有开了才给他提这一步、效果才落地",
   assert.match(a, /"paycart", "unblockme", "lock"\]\.includes\(st\.do\)/, "偷偷翻那一路也当场锁");
 });
 
-test("锁着时：主屏、消息列表、跟他的聊天以外都换成锁屏；放录像时不挡", () => {
-  assert.match(a, /if \(phoneLock && !peekPlay && !\(screen === "home" \|\| screen === "messages" \|\| \(screen === "thread" && activeChar && String\(activeChar\.id\) === String\(phoneLock\.by\)\)\)\)/);
+test("锁着时：跟他的聊天以外都换成锁屏（主屏、重开 app 也是）；放录像时不挡", () => {
+  assert.match(a, /if \(phoneLock && !peekPlay && !\(screen === "thread" && activeChar && String\(activeChar\.id\) === String\(phoneLock\.by\)\)\) \{/);
+  assert.ok(!/"回主屏"/.test(c.slice(c.indexOf("function PhoneLockScreen"), c.indexOf("function Spinner"))), "锁屏上没有回主屏");
   assert.match(a, /body = h\(PhoneLockScreen, \{[^}]*onForce: forceUnlockPhone/);
   assert.match(c, /function PhoneLockScreen\(/);
 });
