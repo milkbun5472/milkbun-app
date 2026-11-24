@@ -10172,6 +10172,32 @@ async function ttsSynth(text, voiceId, opts) {
   }
   return ttsSynthOne(text, voiceId, opts);
 }
+// 边放边合成（她 2026-11-24「边放边合成也做了吧」）：长的那条切成几段，第一段一好就在这只 <audio> 上开始放，
+//   放着的时候合成下一段（只提前一段，跟通话自动播那一招同一个分寸：中途停掉最多白花一段），这段放完立刻接上。
+//   短的照旧整条。aud 用调用方在点按那一下就 play() 解锁过的那一只（iOS 只认手势里那一下）。
+//   hooks.live()：还要不要接着放（她点了停、换了别的就返回 false）；hooks.onStart：第一段真的响起来那一刻
+async function ttsPlayStream(aud, text, voiceId, opts, hooks) {
+  hooks = hooks || {};
+  const live = typeof hooks.live === "function" ? hooks.live : () => true;
+  const pieces = ttsMarkForSynth(String(text || "")).length > 800 ? ttsSplitLong(text) : [text];
+  let next = ttsSpeak(pieces[0], voiceId, opts), started = false;
+  for (let i = 0; i < pieces.length; i++) {
+    const blob = await next;
+    if (!live()) return;
+    next = i + 1 < pieces.length ? ttsSpeak(pieces[i + 1], voiceId, opts) : null;
+    if (next) next.catch(() => {});
+    const url = URL.createObjectURL(blob);
+    try {
+      await new Promise((ok, no) => {
+        aud.onended = () => ok();
+        aud.onerror = () => no(new Error("音频播放失败"));
+        aud.src = url;
+        aud.play().then(() => { if (!started) { started = true; if (hooks.onStart) hooks.onStart(); } }, no);
+      });
+    } finally { URL.revokeObjectURL(url); }
+    if (!live()) return;
+  }
+}
 async function ttsSynthOne(text, voiceId, opts) {
   opts = opts || {};
   const a = loadTtsApi();

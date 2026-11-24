@@ -15811,14 +15811,11 @@ function VoiceMsg({ m, isU, speaker }) {
     aud.play().catch(() => {}); // 在用户手势里先解锁 iOS 音频，真数据到了才播
     setPErr(null); setPSt("gen");
     try {
-      const blob = await ttsSpeak(vText, speaker.voiceId, { emo: m.emo }); // v48.31 作者标注的语气优先
-      const url = URL.createObjectURL(blob);
-      aud.src = url;
-      aud.onended = () => { setPSt("idle"); URL.revokeObjectURL(url); };
-      aud.onerror = () => { setPSt("idle"); setPErr("音频播放失败"); URL.revokeObjectURL(url); };
-      await aud.play();
-      setPSt("playing");
+      // 长的边放边合成（ttsPlayStream）：第一段好了就响，后面的边放边合
+      await ttsPlayStream(aud, vText, speaker.voiceId, { emo: m.emo }, { live: () => audRef.current === aud, onStart: () => setPSt("playing") }); // v48.31 作者标注的语气优先
+      if (audRef.current === aud) setPSt("idle");
     } catch (err) {
+      if (audRef.current !== aud) return;
       setPSt("idle"); setPErr(String((err && err.message) || err)); setOpen(true);
     }
   };
@@ -15974,15 +15971,9 @@ function useTtsPlayer() {
     aud.play().catch(() => {}); // 用户手势里先解锁 iOS 音频
     setPlay({ k, st: "gen" });
     try {
-      const blob = await ttsSpeak(text, voiceId, opts);
-      if (requestRef.current !== request) return;
-      markTtsCached(text, voiceId, opts && opts.emo);   // 这一句从此免费重播，点亮它
-      url = URL.createObjectURL(blob);
-      aud.src = url;
-      aud.onended = aud.onerror = () => { if (requestRef.current === request) stop(); };
-      await aud.play();
-      if (requestRef.current !== request) { aud.pause(); return; }
-      setPlay({ k, st: "playing" });
+      await ttsPlayStream(aud, text, voiceId, opts, { live: () => requestRef.current === request,
+        onStart: () => { markTtsCached(text, voiceId, opts && opts.emo); setPlay({ k, st: "playing" }); } });   // 长的边放边合成；第一段响起来就点亮「已缓存」
+      if (requestRef.current === request) stop();
     } catch (e) { if (requestRef.current === request) stop(); }
   };
   return { play, toggle, stop };
