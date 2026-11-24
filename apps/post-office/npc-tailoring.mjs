@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {FIT_EPSILON,clipFitPolygon,CLOTH_WAIST,CLOTH_HEM,clothFall,drapeFitVertex,clothLevels} from './npc-fit.mjs?v=fg-ad900744140b5c2c';
-import {mergeGeometries} from '../fairy-garden/vendor/BufferGeometryUtils.js?v=fg-ad900744140b5c2c';
+import {FIT_EPSILON,clipFitPolygon,CLOTH_WAIST,CLOTH_HEM,clothFall,drapeFitVertex,clothLevels} from './npc-fit.mjs?v=fg-1b632cf8aa8b2311';
+import {mergeGeometries} from '../fairy-garden/vendor/BufferGeometryUtils.js?v=fg-1b632cf8aa8b2311';
 // Shared pattern pieces for the public customers. Geometry belongs to the actor;
 // binding uses its original doll skeleton, never a character's wardrobe asset.
 export function createNpcTailoring(model,style){

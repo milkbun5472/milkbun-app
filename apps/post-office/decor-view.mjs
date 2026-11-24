@@ -1,4 +1,4 @@
-import {SHOP_CUSHIONS} from './furniture.mjs?v=fg-ad900744140b5c2c';
+import {SHOP_CUSHIONS} from './furniture.mjs?v=fg-1b632cf8aa8b2311';
 import * as T from 'three';
 // Monthly names come from the text-shop catalogue. Small props occupy the shop's
 // left display shelves; all variants use generated geometry/text only.
