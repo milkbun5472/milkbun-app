@@ -180,8 +180,9 @@ test("日历真的把这一截画出来了", () => {
 });
 
 test("提示词说明就寝照人设作息、一觉睡过午夜", () => {
-  assert.match(engine, /几点睡照这个人的作息和今天的事来/);
+  assert.match(engine, /几点睡照这个人平时的作息和今天的事来/);
+  assert.ok(!/规律型早睡|作息规律的就早点/.test(engine + app), "「规律＝早睡」把就寝推到九十点（她 2026-11-24），别加回来");
   assert.ok(!/人要睡七八个小时/.test(engine), "这句把入睡全推到十点上下（她 2026-11-22），别加回来");
-  assert.match(engine, /午夜前睡的，type="sleep" 那一段的 end 写 "24:00"/);
+  assert.match(engine, /午夜前就睡的，type="sleep" 那一段的 end 写 "24:00"/);
   assert.match(engine, /过了午夜才睡的，[^`]*睡觉那段写在第二天最前面/);
 });
