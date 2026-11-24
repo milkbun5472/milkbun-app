@@ -20716,6 +20716,18 @@ function offSpeakerAt(text, start, end, people) {
   people.forEach(p => (p.names || []).forEach(n => { if (!n) return; const k = after.indexOf(n); if (k >= 0 && k < first) { first = k; best = p; } }));
   return best;
 }
+// 整段小说里每个人的台词颜色（群里 2026-11-24「还是显示不出来」）：原来直接拿角色自己的 color——用照片当头像的角色多半没设过，
+//   全空就全落回同一个颜色；两个人设成同一个色也分不出。没设、或跟前面撞了的，从一排分得开的颜色里挑一个没用过的
+const OFF_SAY_COLORS = ["#c25a4a", "#3f78a8", "#4f8a45", "#b07a28", "#8a52a0", "#2f8a86", "#b0507a", "#6a6f2a"];
+function offNovelPeople(chars, meChar, meAccent) {
+  const used = new Set(), norm = c => String(c || "").trim().toLowerCase();
+  const meC = (meChar && meChar.name) ? (meAccent || meChar.color || "") : "";
+  if (meC) used.add(norm(meC));
+  const pick = own => { if (own && !used.has(norm(own))) { used.add(norm(own)); return own; }
+    const f = OFF_SAY_COLORS.find(x => !used.has(norm(x))) || own || OFF_SAY_COLORS[0]; used.add(norm(f)); return f; };
+  const out = (chars || []).filter(Boolean).map(c => ({ names: [c.name, c.remark].filter(n => n && String(n).trim().length >= 1).map(String), color: pick(c.color) }));
+  return meC ? out.concat([{ names: [String(meChar.name)], color: meC }]) : out;
+}
 function offBody(t, text, accent, whoId, sayZh, people) {
   // <#0.5#> 停顿记号只给语音用，线下正文里不摆（群里 2026-10-10：「线下听说也会漏」）
   const segs = offSplit(typeof stripPauseMarks === "function" ? stripPauseMarks(text) : text);
@@ -20897,7 +20909,7 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
       editing ? editBox : (m.kind === "photo"
         ? h("div", { style: { maxWidth: 300 } }, h(PhotoCard, { m: m, mine: isUser, max: 300, onOpen: () => setPhotoView(m) }))
         : offBody(t, m.content, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint), isUser ? null : (spk && spk.id), isUser ? null : m.sayZh,
-          isNovel && cast.length ? cast.map(o => ({ names: [o.c.name, o.c.remark].filter(n => n && String(n).trim().length >= 1).map(String), color: o.c.color })).concat(meChar && meChar.name ? [{ names: [String(meChar.name)], color: t.accent || meChar.color }] : []) : null)),
+          isNovel && cast.length ? offNovelPeople(cast.map(o => o.c), meChar, t.accent) : null)),
       photoView ? h(PhotoSheet, { m: photoView, toast: window.__toast, onClose: () => setPhotoView(null) }) : null,
       // 整段小说：头像框点开是一排在场的人，点谁就在下面露出谁的心声
       (isNovel && castOpen && cast.length) ? h("div", { "data-wk": "offcastpick", className: "flex flex-wrap gap-2 mt-3" },
