@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.174";
+const APP_VERSION = "v90.175";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -39857,7 +39857,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       whoOf: w => !w ? "有人" : w.role === "user" ? "我" : (w.senderName || (((characters || []).find(c => c.id === w.senderId) || {}).name) || "有人"),
       onJump: g => { setChannelTab("chat"); if (g.ts) setWalletTrace({ type: "group", id: _g.id, ts: g.ts, key: Date.now() }); },
       onRecall: g => { if (groupSpectating(_g)) return; const d = String(g.desc || "").trim();
-        pushGroupRich(_g.id, { role: "user", ...(String(g.ref || "").indexOf("img_") === 0 ? { kind: "selfie", imgKey: g.ref } : { kind: "photo", imageRef: g.ref }), photoMode: "real", desc: d, recallOf: g.ts || null, content: d ? "[照片] " + d : "[照片]", read: true });
+        pushGroupRich(_g.id, { role: "user", kind: "photo", imageRef: g.ref, photoMode: "real", desc: d, recallOf: g.ts || null, content: d ? "[照片] " + d : "[照片]", read: true });
         setChannelTab("chat"); toast("拿到聊天里了——按回复，大家就接着这张聊"); },
       onBack: () => { setChannelTab("chat"); if ((spaces || []).some(x => x.id === _g.spaceId)) { setActiveSpaceId(_g.spaceId); setScreen("space"); } else setScreen("messages"); } });
   }
