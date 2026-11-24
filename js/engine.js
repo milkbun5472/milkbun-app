@@ -3029,7 +3029,8 @@ function chfGallery(msgs, files) {
     if (!m || m.recalled) return;
     const who = { role: m.role, senderId: m.senderId || null, senderName: m.senderName || null };
     const base = { from: "chat", who, ts: m.ts || 0, gen: m.role !== "user" && m.photoMode !== "real" };
-    if (m.imageRef) add(m.imageRef, Object.assign({ desc: String(m.desc || "").trim() }, base));
+    // 角色在群／频道里拍的照片只有 imgKey（img_ 本机图库），没有 imageRef（她 2026-11-24：角色发的图没进文件里的图片）；有 imageRef 的照旧认它，同一张不算两次
+    if (m.imageRef || m.imgKey) add(m.imageRef || m.imgKey, Object.assign({ desc: String(m.desc || "").trim() }, base));
     if (m.ask && m.ask.imageRef) add(m.ask.imageRef, Object.assign({ desc: String(m.ask.q || m.ask.title || "").trim() }, base));
     (Array.isArray(m.shots) ? m.shots : []).forEach(k => add(k, Object.assign({ desc: "通话里拍的画面" }, base)));
   });

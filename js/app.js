@@ -16316,13 +16316,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 群里圈一段收进时刻：收成一张【多人的】卡，这一段里说过话的每个角色名下都有。群聊、群线下共用这一处。
   const pinGroupToShike = (g, ms) => {
-    const picked = (ms || []).filter(m => m && !m.recalled && m.content);
+    // 照片也能收（她 2026-11-24：频道里角色发的图收不进时刻）：跟单聊那一处同一个认法
+    const picked = (ms || []).filter(m => m && !m.recalled && (m.content || m.desc || m.imgKey || m.imageRef));
+    const pic = picked.find(x => x.imgKey || x.imageRef) || {};
     const cids = Array.from(new Set(picked.map(m => m.senderId).filter(id => id && characters.some(c => c.id === id && !c.npc))));
     if (!picked.length || !cids.length) { toast(picked.length ? "这一段里没有角色说话，挂不到谁名下" : "选中的这几条没有能收的内容"); return; }
     requestAppPrompt("收进时刻", "收进 " + picked.length + " 条，会出现在 " + cids.length + " 个人的时刻里。给这一刻起个名字。", "", name => {
       const all = loadJSON("x_shikeGroupPins", []) || [];
       all.unshift({ id: "gpin_" + Date.now(), ts: Number(picked[0].ts) || Date.now(), title: String(name || "").trim().slice(0, 30), groupId: g.id, groupName: g.name || "", cids,
-        lines: picked.slice(0, 200).map(m => ({ role: m.role === "user" ? "user" : "char", name: m.role === "user" ? null : (m.senderName || (m.role === "narration" ? "旁白" : null)), text: String(m.content).slice(0, 600) })) });
+        lines: picked.slice(0, 200).map(m => ({ role: m.role === "user" ? "user" : "char", name: m.role === "user" ? null : (m.senderName || (m.role === "narration" ? "旁白" : null)), text: String(m.content || m.desc || (m.imgKey || m.imageRef ? "[照片]" : "")).slice(0, 600) })),
+        ...(pic.imgKey ? { imgKey: pic.imgKey } : {}), ...(pic.imageRef ? { imageRef: pic.imageRef } : {}) });
       saveJSON("x_shikeGroupPins", all.slice(0, 500));
       toast("收进时刻了");
     }, "收进去");
@@ -39854,7 +39857,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       whoOf: w => !w ? "有人" : w.role === "user" ? "我" : (w.senderName || (((characters || []).find(c => c.id === w.senderId) || {}).name) || "有人"),
       onJump: g => { setChannelTab("chat"); if (g.ts) setWalletTrace({ type: "group", id: _g.id, ts: g.ts, key: Date.now() }); },
       onRecall: g => { if (groupSpectating(_g)) return; const d = String(g.desc || "").trim();
-        pushGroupRich(_g.id, { role: "user", kind: "photo", imageRef: g.ref, photoMode: "real", desc: d, recallOf: g.ts || null, content: d ? "[照片] " + d : "[照片]", read: true });
+        pushGroupRich(_g.id, { role: "user", ...(String(g.ref || "").indexOf("img_") === 0 ? { kind: "selfie", imgKey: g.ref } : { kind: "photo", imageRef: g.ref }), photoMode: "real", desc: d, recallOf: g.ts || null, content: d ? "[照片] " + d : "[照片]", read: true });
         setChannelTab("chat"); toast("拿到聊天里了——按回复，大家就接着这张聊"); },
       onBack: () => { setChannelTab("chat"); if ((spaces || []).some(x => x.id === _g.spaceId)) { setActiveSpaceId(_g.spaceId); setScreen("space"); } else setScreen("messages"); } });
   }

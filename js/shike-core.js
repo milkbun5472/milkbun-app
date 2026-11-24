@@ -148,7 +148,7 @@
     const gpins = (ctx.groupPins || []).filter(p => p && p.ts && (p.cids || []).indexOf(c.id) >= 0).map(p => {
       const raw = (p.lines || []).map(r => (r.role === "user" ? ctx.uName : (r.name || "")) + (r.role === "user" || r.name ? "：" : "") + String(r.text || "").replace(/\s+/g, " ").slice(0, 160));
       return { key: "gpin_" + p.id, gpinId: p.id, ts: Number(p.ts), title: p.title || "群里的一刻", kind: "group", with: others(p.cids), group: p.groupName || "",
-        what: { kind: p.summary ? "summary" : "pin", lines: p.summary ? [p.summary] : raw.slice(0, 40) }, raw, summary: p.summary || "", img: null };
+        what: { kind: p.summary ? "summary" : "pin", lines: p.summary ? [p.summary] : raw.slice(0, 40) }, raw, summary: p.summary || "", img: p.imgKey ? { imgKey: p.imgKey } : p.imageRef ? { ref: p.imageRef } : null };   // 圈的那段里有照片就带上（她 2026-11-24：频道里角色发的图收不进来）
     });
     const gfest = [];
     (ctx.groups || []).filter(g => g && (g.memberIds || []).indexOf(c.id) >= 0).forEach(g => {
