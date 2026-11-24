@@ -3213,7 +3213,7 @@
     go: ["#c8a467", "#3d2c16"],
     jungle: ["#7fa35a", "#3f5a3a"],
     lingxi: ["#c2566e", "#4d3a40"],
-    ludo: ["#d9584b", "#4382bf"]
+    ludo: ["#d9584b", "#459464"]
   };
   function gameTable(k, t) {
     // 透明度后缀要先验主题色是不是六位色号，验不过退回纯色（mobile-ui-layout §3.5）
@@ -8626,7 +8626,8 @@
   //   落在虚线那一格顺着虚线飞过去；停下的那一格上只有对面一架就把它撞回机库（两架以上叠着撞不动）；终点要正好走到，多出来的往回弹。
   //   骰子是手机掷的（Math.random），挑哪一架也是手机按路数挑（ludoPick）——一手都不调模型，TA 们只在桌边说话（useCardTableTalk）。
   //   外圈 52 格四色轮流，每色从自己那格出发绕 51 格，再拐进自家那条 5 格跑道，第 56 步到家（画在哪儿见 LudoBoard 上面）。
-  const LUDO_COLORS = [{ zh: "红", c: "#d9584b" }, { zh: "黄", c: "#e0b735" }, { zh: "蓝", c: "#4382bf" }, { zh: "绿", c: "#459464" }];
+  // 顺时针红→黄→绿→蓝，照实物：红左上、黄右上、绿右下、蓝左下（她 2026-11-24「画错了」）
+  const LUDO_COLORS = [{ zh: "红", c: "#d9584b" }, { zh: "黄", c: "#e0b735" }, { zh: "绿", c: "#459464" }, { zh: "蓝", c: "#4382bf" }];
   const LUDO_RING_END = 50, LUDO_HOME = 56, LUDO_FLY = [20, 32], LUDO_PLANES = 4;
   function ludoColorsFor(n) { return n === 2 ? [0, 2] : [0, 1, 2, 3].slice(0, Math.max(2, Math.min(4, n))); }
   function ludoGlobal(color, rel) { return (color * 13 + rel) % 52; }
@@ -8773,7 +8774,7 @@
     return { at: ludoRot(c[0], c[1], k), k: k };
   }
   // 机库（右上那一家的底稿）：外圈拐角外面那块空地，四个圆机位
-  const LUDO_BASE = [9.4, 0.1, 12.9, 3.6], LUDO_SLOTS = [[10.3, 1.0], [12.0, 1.0], [10.3, 2.7], [12.0, 2.7]], LUDO_TAKEOFF = [9.4, 0.5];
+  const LUDO_BASE = [9.1, 0.1, 12.9, 3.9], LUDO_SLOTS = [[10.1, 1.1], [11.9, 1.1], [10.1, 2.9], [11.9, 2.9]], LUDO_TAKEOFF = [9.25, 0.5];
   function ludoCell(color, rel, slot) {
     const k = (color + 3) % 4;
     if (rel < 0) { const s = LUDO_SLOTS[slot % 4]; return ludoRot(s[0], s[1], k); }
