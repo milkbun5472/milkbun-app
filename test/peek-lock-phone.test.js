@@ -40,7 +40,7 @@ test("他在聊天里自己解开；强行解开他会知道", () => {
 });
 
 test("新挂点都登记了", () => {
-  for (const k of ["peeklockok", "phonelock", "phonelockicon", "phonelocktitle", "phonelocktext", "phonelocksub", "phonelockbtn", "phonelockforce", "phonelockleave", "phonelockleaveinput", "phonelockleavebtn"]) {
+  for (const k of ["peeklockok", "phonelock", "phonelockicon", "phonelockbg", "phonelockdate", "phonelockclock", "phonelockcard", "phonelocktitle", "phonelocktext", "phonelocksub", "phonelockbtn", "phonelockforce", "phonelockleave", "phonelockleaveinput", "phonelockleavebtn"]) {
     assert.ok(ts.includes('["' + k + '"'), k);
     assert.ok(c.includes('"data-wk": "' + k + '"'), k);
   }

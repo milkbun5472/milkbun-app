@@ -1486,28 +1486,52 @@ function Empty({
     }
   }, sub));
 }
-// 他锁了她的手机（她 2026-11-24）：锁着时点进别的页都落到这一页。只留两条路——去找他、回主屏；最底下一行小字能强行解开，他会知道
-function PhoneLockScreen({ lock, onGoChat, onForce }) {
+// 他锁了她的手机（她 2026-11-24）：锁着时点进别的页都落到这一页。只留一条路——去找他；最底下一行小字能强行解开，要留一句给他
+//   样子照真手机的锁屏（她 2026-11-24「能不能做好看点」）：她的壁纸糊开压暗当底（没设壁纸用一片深色），大钟、日期，
+//   他留的话做成一张通知卡（头像、名字、多久前），按钮是磨砂的
+function PhoneLockScreen({ lock, character, wallpaper, onGoChat, onForce }) {
   const t = useTheme();
   const [sure, setSure] = React.useState(false);
   const [note, setNote] = React.useState("");
+  const [now, setNow] = React.useState(() => new Date());
+  React.useEffect(() => { const id = setInterval(() => setNow(new Date()), 20000); return () => clearInterval(id); }, []);
   const nm = (lock && lock.byName) || "TA";
   const h = React.createElement;
-  return h("div", { "data-wk": "phonelock", className: "flex flex-col items-center justify-center text-center", style: { minHeight: "100%", padding: "calc(env(safe-area-inset-top, 0px) + 48px) 32px calc(env(safe-area-inset-bottom, 0px) + 32px)", background: t.bg, color: t.ink, boxSizing: "border-box" } },
-    h("svg", { "data-wk": "phonelockicon", width: 44, height: 52, viewBox: "0 0 44 52", fill: "none", stroke: t.ink, strokeWidth: 2.4, strokeLinecap: "round", style: { marginBottom: 22 } },
-      h("path", { d: "M11 23V15a11 11 0 0 1 22 0v8" }), h("rect", { x: 4, y: 23, width: 36, height: 26, rx: 6 }), h("path", { d: "M22 33v6" })),
-    h("div", { "data-wk": "phonelocktitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", marginBottom: 10 } }, nm + " 把你的手机锁了"),
-    lock && lock.text ? h("div", { "data-wk": "phonelocktext", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink, marginBottom: 10 } }, "「" + lock.text + "」") : null,
-    h("div", { "data-wk": "phonelocksub", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 30 } }, "现在只有跟" + nm + "的聊天进得去，退出来也会回到这里。哄好了TA会自己解开。"),
-    h("button", { "data-wk": "phonelockbtn", "data-part": "chat", onClick: onGoChat, className: "w-full active:opacity-80", style: { maxWidth: 320, minHeight: 48, borderRadius: 14, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", marginBottom: 10 } }, "去找" + nm),
-    // 强行解开要留一句给他（她 2026-11-24）：第一下摊开一个框，写了才解得开；他下次回你时知道你说了什么
-    sure ? h("div", { "data-wk": "phonelockleave", style: { width: "100%", maxWidth: 320, marginTop: 30 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "留一句给" + nm + "，TA下次会看到"),
-      h("input", { "data-wk": "phonelockleaveinput", value: note, onChange: e => setNote(e.target.value), maxLength: 80, placeholder: "想跟TA说的", className: "w-full outline-none", style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", boxSizing: "border-box" } }),
-      h("div", { className: "flex gap-3", style: { marginTop: 10 } },
-        h("button", { "data-wk": "phonelockleavebtn", "data-part": "cancel", onClick: () => { setSure(false); setNote(""); }, className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 12, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "算了"),
-        h("button", { "data-wk": "phonelockleavebtn", "data-part": "ok", disabled: !note.trim(), onClick: () => onForce(note.trim()), className: "flex-1 active:opacity-80", style: { minHeight: 42, borderRadius: 12, background: t.accent, color: "#fff", opacity: note.trim() ? 1 : 0.4, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "留下，解开")))
-    : h("button", { "data-wk": "phonelockforce", onClick: () => setSure(true), className: "active:opacity-60", style: { marginTop: 36, minHeight: 40, padding: "0 12px", background: "transparent", color: t.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } }, "强行解开"));
+  const wp = wallpaper ? (typeof resolveImg === "function" ? resolveImg(wallpaper) : wallpaper) : "";
+  const pad = n => String(n).padStart(2, "0");
+  const clock = pad(now.getHours()) + ":" + pad(now.getMinutes());
+  const date = (now.getMonth() + 1) + "月" + now.getDate() + "日 星期" + "日一二三四五六"[now.getDay()];
+  const ago = (() => { const m = Math.max(0, Math.round((Date.now() - ((lock && lock.ts) || Date.now())) / 60000)); return m < 1 ? "刚刚" : m < 60 ? m + " 分钟前" : m < 1440 ? Math.floor(m / 60) + " 小时前" : Math.floor(m / 1440) + " 天前"; })();
+  const glass = { background: "rgba(255,255,255,.16)", border: "1px solid rgba(255,255,255,.22)", backdropFilter: "blur(18px) saturate(1.3)", WebkitBackdropFilter: "blur(18px) saturate(1.3)" };
+  const white = "#fff", soft = "rgba(255,255,255,.72)";
+  return h("div", { "data-wk": "phonelock", style: { position: "relative", minHeight: "100dvh", overflow: "hidden", background: "#1c1a1f", color: white, boxSizing: "border-box" } },
+    h("div", { "data-wk": "phonelockbg", "aria-hidden": true, style: { position: "absolute", inset: -40, background: wp ? "center/cover no-repeat url(" + wp + ")" : "radial-gradient(120% 80% at 20% 10%, #4a3f52 0%, #241f2a 55%, #141216 100%)", filter: wp ? "blur(22px) brightness(.62) saturate(1.1)" : "none", transform: "scale(1.06)" } }),
+    h("div", { "aria-hidden": true, style: { position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,.18) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,.35) 100%)" } }),
+    h("div", { className: "flex flex-col items-center", style: { position: "relative", minHeight: "100dvh", padding: "calc(env(safe-area-inset-top, 0px) + 34px) 22px calc(env(safe-area-inset-bottom, 0px) + 28px)", boxSizing: "border-box" } },
+      h("svg", { "data-wk": "phonelockicon", width: 22, height: 26, viewBox: "0 0 44 52", fill: "none", stroke: white, strokeWidth: 3.2, strokeLinecap: "round" },
+        h("path", { d: "M11 23V15a11 11 0 0 1 22 0v8" }), h("rect", { x: 4, y: 23, width: 36, height: 26, rx: 7, fill: white })),
+      h("div", { "data-wk": "phonelockdate", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: soft, letterSpacing: ".04em" } }, date),
+      h("div", { "data-wk": "phonelockclock", style: { fontFamily: F_DISPLAY, fontSize: "calc(78px * var(--app-fs, 1))", lineHeight: 1.05, fontWeight: 300, letterSpacing: "-.01em", textShadow: "0 2px 18px rgba(0,0,0,.25)" } }, clock),
+      h("div", { "data-wk": "phonelocktitle", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: soft } }, nm + " 锁了你的手机"),
+      // 他留的话：一张通知卡
+      h("div", { "data-wk": "phonelockcard", style: { ...glass, width: "100%", maxWidth: 360, marginTop: 34, borderRadius: 22, padding: "14px 16px", boxSizing: "border-box", display: "flex", gap: 12, alignItems: "flex-start" } },
+        character ? h(Avatar, { character, size: 40, radius: 12 }) : h("div", { style: { width: 40, height: 40, borderRadius: 12, background: "rgba(255,255,255,.25)", flexShrink: 0 } }),
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { className: "flex items-center justify-between", style: { gap: 8 } },
+            h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, color: white } }, nm),
+            h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: soft, flexShrink: 0 } }, ago)),
+          h("div", { "data-wk": "phonelocktext", style: { marginTop: 3, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.55, color: white, wordBreak: "break-word" } }, (lock && lock.text) || "手机先放我这儿。"))),
+      h("div", { "data-wk": "phonelocksub", style: { marginTop: 12, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: soft, textAlign: "center", lineHeight: 1.7 } }, "只有跟" + nm + "的聊天进得去，哄好了TA会自己解开"),
+      h("div", { style: { flex: 1, minHeight: 40 } }),
+      sure ? h("div", { "data-wk": "phonelockleave", style: { ...glass, width: "100%", maxWidth: 360, borderRadius: 20, padding: 14, boxSizing: "border-box", marginBottom: 14 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: soft, marginBottom: 8 } }, "留一句给" + nm + "，TA下次会看到"),
+        h("input", { "data-wk": "phonelockleaveinput", value: note, onChange: e => setNote(e.target.value), maxLength: 80, placeholder: "想跟TA说的", className: "w-full outline-none", style: { minHeight: 44, borderRadius: 12, border: "1px solid rgba(255,255,255,.28)", background: "rgba(0,0,0,.22)", color: white, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", boxSizing: "border-box" } }),
+        h("div", { className: "flex gap-3", style: { marginTop: 10 } },
+          h("button", { "data-wk": "phonelockleavebtn", "data-part": "cancel", onClick: () => { setSure(false); setNote(""); }, className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 12, border: "1px solid rgba(255,255,255,.3)", background: "transparent", color: white, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "算了"),
+          h("button", { "data-wk": "phonelockleavebtn", "data-part": "ok", disabled: !note.trim(), onClick: () => onForce(note.trim()), className: "flex-1 active:opacity-80", style: { minHeight: 42, borderRadius: 12, background: white, color: "#1c1a1f", opacity: note.trim() ? 1 : 0.4, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "留下，解开")))
+      : null,
+      h("button", { "data-wk": "phonelockbtn", "data-part": "chat", onClick: onGoChat, className: "active:opacity-80", style: { ...glass, width: "100%", maxWidth: 360, minHeight: 52, borderRadius: 999, color: white, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", letterSpacing: ".04em" } }, "去找" + nm),
+      sure ? null : h("button", { "data-wk": "phonelockforce", onClick: () => setSure(true), className: "active:opacity-60", style: { marginTop: 12, minHeight: 36, padding: "0 12px", background: "transparent", color: "rgba(255,255,255,.5)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "强行解开")));
 }
 function Spinner({
   label
