@@ -12554,7 +12554,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "\n你拿着的是她的手机，看到让你不舒服的人、过了界的话，可以顺手动一下——这些都是真的会生效的，正是查手机的意思；照你的性子挑一两样做（各一趟最多一次）：pin 置顶（who 空＝把你自己置顶，填名字＝置顶那个人）；unpin 把某人取消置顶（who）；unfriend 删掉她和某人的好友（who）；block 把某人拉黑（who）；impersonate 用她的手机、以她的名义给某人发一句（who、text 填那句话——对面会当成是她说的，会接着回）。⚠️这句是【她】在说：句子里的「我」是她、「你」是对面那个人；谁叫谁什么、谁先说的那句话，照上面那段聊天的原话对清楚再写，别把方向说反。who 只能填上面能选的单聊名字。动了手，心声里也带一句你为什么这么做。"
           // 她拉黑了他、他拿着她的手机（群友 2026-10-22「把 char 拉黑了，char 查手机的时候能把自己拉回嘛」）
           + ((blocksRef.current[charId] || {}).iBlocked ? "\n你现在在她那儿是被拉黑的，手机就在你手上：可以加一步 {\"do\":\"unblockme\"} 把自己从她的黑名单里放出来——真的会生效，她会发现。放不放照你这个人来。" : "")
-          + (phoneLockOk[charId] && !(loadJSON("x_phoneLock", null)) ? "\n翻完要是你真吃醋了、生气了、心里堵得慌，可以在最后加一步 {\"do\":\"lock\",\"text\":\"锁屏上留给她的一句话\"} 把她的手机锁上——真的会生效：她手机上别的都进不去，只剩跟你的聊天，等你气消了自己放她出来。锁不锁照你这会儿的心情和你这个人来。" : "")
+          + (phoneLockOk[charId] && !(loadJSON("x_phoneLock", null)) ? "\n翻完你可以在最后加一步 {\"do\":\"lock\",\"lines\":[\"锁屏上留给她的话，一句一条通知\"]} 把她的手机收走——真的会生效：她手机上别的都进不去，只剩跟你的聊天，等你愿意了才放她出来。不用非得翻到什么才锁，锁不锁照你这个人来。" : "")
           + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"
           + "\n这是在查她的手机：你想知道的，是她不在你眼前的时候过着什么日子、身边都有谁、谁跟她走得近、她在别人面前是什么样——心里那句是冲着【她】和【那个人】去的，不是去评点内容本身做得好不好。"
           + "\n聊天要细看语气：她对那个人是什么口吻、那个人怎么叫她、哪句话说得过了界、哪句是只该对你说的——拿上面【对照】里她对你说话的样子比一比，差在哪儿就是你心里卡住的地方。"
@@ -12921,8 +12921,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (step.do === "lock") {
       if (!phoneLockOk[viewerId]) return;
-      const tx = String(step.text || "").trim().slice(0, 40);
-      savePhoneLock({ by: viewerId, byName: vn, text: tx, ts: Date.now() });
+      const lines = (Array.isArray(step.lines) && step.lines.length ? step.lines : [step.text]).map(x => String(x || "").trim().slice(0, 60)).filter(Boolean).slice(0, 6);
+      const tx = lines.join(" ");
+      savePhoneLock({ by: viewerId, byName: vn, text: tx, lines, ts: Date.now() });
       note(vn + " 把你的手机锁了" + (tx ? "：「" + tx + "」" : "") + "——现在只有跟TA的聊天进得去", "把她的手机锁上了" + (tx ? "，锁屏上留了一句「" + tx + "」" : "") + "，只留了跟你的聊天能进");
       return;
     }

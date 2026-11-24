@@ -38,7 +38,9 @@
     list.forEach(s => {
       if (!s) return;
       const d = S(s.do || s.action).trim();
-      if (d === "lock") { if (!lockStep) lockStep = { do: "lock", text: S(s.text).replace(/[《》「」『』“”"]/g, "").trim().slice(0, 40) }; return; }
+      // 锁屏上留的话可以好几句，一句一张通知卡（她 2026-11-24）；老写法单个 text 也认
+      if (d === "lock") { if (!lockStep) { const lines = (Array.isArray(s.lines) ? s.lines : [s.text]).map(x => S(x).replace(/[《》「」『』“”"]/g, "").trim().slice(0, 60)).filter(Boolean).slice(0, 6);
+        lockStep = { do: "lock", lines, text: lines.join(" ") }; } return; }
       if (out.length >= STEP_CAP) return;
       if (d === "open") {
         const app = S(s.app).trim();
@@ -429,7 +431,7 @@
             props.onEffect && props.onEffect(s); await sleep(900);
           } else if (s.do === "lock") {
             setCaption("把你的手机锁上了");
-            setRenameBox({ title: "锁屏", typed: s.text || "••••", ok: "锁定", noCaret: true }); await sleep(1600);
+            setRenameBox({ title: "锁屏", typed: (s.lines && s.lines.length ? s.lines.join(" / ") : s.text) || "••••", ok: "锁定", noCaret: true }); await sleep(1600);
             setRenameBox(null);
             props.onEffect && props.onEffect(s); await sleep(900);
           } else if (s.do === "unblockme") {
