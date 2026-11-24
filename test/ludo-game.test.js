@@ -17,8 +17,8 @@ test("棋盘照真的飞行棋盘画：外圈 52 格各在各的位置、一格�
     assert.equal(g.ludoGlobal(c, 0) % 4, c);
     const st = g.ludoCell(c, 0), hg = g.ludoCell(c, -1, 0);
     assert.ok(Math.hypot(st[0] - hg[0], st[1] - hg[1]) < 6, "出发格离机库太远");
-    const lane = g.ludoCell(c, 51), last = g.ludoCell(c, 50);
-    assert.ok(Math.hypot(lane[0] - last[0], lane[1] - last[1]) < 1.6, "跑道没接在第 51 格后面");
+    const lane = g.ludoCell(c, g.LUDO_HOME - 5), last = g.ludoCell(c, g.LUDO_HOME - 6);
+    assert.ok(Math.hypot(lane[0] - last[0], lane[1] - last[1]) < 1.6, "跑道没接在回家入口后面");
   });
   assert.deepEqual(g.ludoCell(0, -1, 0).map(v => v < 9.5), [true, true], "红在左上");
 });
@@ -39,14 +39,15 @@ test("掷到 6 才能起飞，起飞后再掷一次；不是 6 又没飞机在�
 
 test("停在自己颜色跳 4 格，停在虚线那格飞过去；终点多出来的往回弹", () => {
   assert.deepEqual(g.ludoStep(5, 3), { to: 12, stops: [8, 12], bounce: false, jump: true });
-  const fly = g.ludoStep(17, 3);
-  assert.equal(fly.fly, true); assert.equal(fly.to, 32);
-  const jf = g.ludoStep(14, 2);
-  assert.ok(jf.jump && jf.fly && jf.to === 32, "跳到虚线那格接着飞");
+  // 照实物：自家虚线第 16 格 → 第 28 格（她 2026-11-24 一比一临摹）
+  const fly = g.ludoStep(13, 3);
+  assert.equal(fly.fly, true); assert.equal(fly.to, 28);
+  const jf = g.ludoStep(10, 2);
+  assert.ok(jf.jump && jf.fly && jf.to === 28, "跳到虚线那格接着飞");
   assert.equal(g.ludoStep(-1, 5), null);
-  const b = g.ludoStep(53, 6);
+  const b = g.ludoStep(g.LUDO_HOME - 3, 6);
   assert.equal(b.to, g.LUDO_HOME - 3); assert.equal(b.bounce, true);
-  assert.equal(g.ludoStep(50, 6).to, g.LUDO_HOME);
+  assert.equal(g.ludoStep(g.LUDO_HOME - 6, 6).to, g.LUDO_HOME);
 });
 
 test("撞子：停下那格对面只有一架就撞回机库，叠着两架撞不动", () => {

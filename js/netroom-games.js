@@ -858,7 +858,7 @@
     cleanReplay(r) { return { rows: (Array.isArray(r.rows) ? r.rows : []).slice(0, 4).map(x => cut(x, 80)), log: (Array.isArray(r.log) ? r.log : []).slice(-40).map(x => ({ kind: cut(x && x.kind, 8), player: cut(x && x.player, 8), text: cut(x && x.text, 200) })) }; },
     cleanView(v) {
       const players = (Array.isArray(v.players) ? v.players : []).slice(0, 4).map((p, i) => ({ key: "s" + i, name: cut(p && p.name, 40), color: int(p && p.color, 0, 3, i),
-        planes: [0, 1, 2, 3].map(k => int(p && Array.isArray(p.planes) ? p.planes[k] : -1, -1, 56, -1)) }));
+        planes: [0, 1, 2, 3].map(k => int(p && Array.isArray(p.planes) ? p.planes[k] : -1, -1, 54, -1)) }));
       const keys = players.map(p => p.key);
       return { id: cut(v.id, 40), players, turn: int(v.turn, 0, Math.max(0, players.length - 1), 0), phase: ["roll", "move", "done"].indexOf(v.phase) >= 0 ? v.phase : "roll", dice: int(v.dice, 0, 6, 0),
         status: v.status === "finished" ? "finished" : "playing", winner: keys.indexOf(v.winner) >= 0 ? v.winner : null, hitAt: int(v.hitAt, 0, 1e6, 0),
