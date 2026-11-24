@@ -921,6 +921,161 @@
     return "【房里正在玩：" + inv.zh + "】" + (inv.status === "done" ? "（这一局刚打完）" : "") + (seat ? "你坐在第 " + (seatIdx + 1) + " 个座位。" : "你没上桌，在旁边看。") + "\n" + cut(s, 1500)
       + (talk.length ? "\n牌桌上刚才说的：\n" + talk.join("\n") : "");
   }
+  // ── 你画我猜（她 11-24「你画我猜也接上去吧」）：轮流当画的人，一段一段画；每画完一段，其余座位按顺序各猜一次，
+  //   谁先猜中谁和画的人各得一分；画满五段还没人中（或画的人说画完了、大家又都没中）就揭晓。题目只在庄这台，priv 只发给画的人。
+  //   画、描述、判中都是单机那一份（GameShared.draw）；真人画的是手指线，存成同样的折线格式，角色看图猜（识图不行就看文字）
+  const DRAW_SEGS = 5, DRAW_STROKES = 40, DRAW_PTS = 120;
+  const r1d = v => Math.round(Number(v) * 10) / 10;
+  // 一笔的白名单：只认折线／弧线／圆，坐标夹在 0~100，颜色只认那几种
+  function cleanStroke(x) {
+    if (!x || typeof x !== "object") return null;
+    const k = ["k", "r", "b", "g", "y", "p"].indexOf(x.k) >= 0 ? x.k : "k", f = !!x.f;
+    const n = v => { v = Number(v); return Number.isFinite(v) ? Math.max(0, Math.min(100, r1d(v))) : null; };
+    if (x.t === "circle" && Array.isArray(x.c)) { const c = [n(x.c[0]), n(x.c[1]), Math.max(0.5, Math.min(50, r1d(x.c[2]) || 0))]; return c[0] == null || c[1] == null ? null : { t: "circle", c, k, f }; }
+    let p = (Array.isArray(x.p) ? x.p : []).slice(0, DRAW_PTS * 2).map(n);
+    if (p.length < 2 || p.some(v => v == null)) return null;
+    if (p.length % 2) p = p.slice(0, -1);
+    if (p.length === 2) p = p.concat([p[0] + 0.1, p[1]]);   // 手指点了一下：留成一个点
+    return { t: x.t === "curve" ? "curve" : "line", p, k, f, close: !!x.close };
+  }
+  const cleanSeg = sg => ({ strokes: (Array.isArray(sg && sg.strokes) ? sg.strokes : []).slice(0, DRAW_STROKES).map(cleanStroke).filter(Boolean), say: cut(sg && sg.say, 120).trim() });
+  // 给模型看的那段话：单机那个 describe 要的是 { strokes:[{ raw, k, f }] }
+  const drawText = segs => GS().draw.describe((segs || []).map(sg => ({ strokes: sg.strokes.map(x => ({ raw: x, k: x.k, f: x.f })) })), (segs || []).length);
+  function drawPng(segs) {
+    try {
+      const cv = document.createElement("canvas"); cv.width = 512; cv.height = 512;
+      const g = cv.getContext("2d"), INK = GS().draw.INK; g.fillStyle = "#fff"; g.fillRect(0, 0, 512, 512); g.lineCap = "round"; g.lineJoin = "round"; g.lineWidth = 7;
+      (segs || []).forEach(sg => sg.strokes.forEach(x => { const d = GS().draw.path(x); if (!d) return; const P = new Path2D(d); g.save(); g.scale(5.12, 5.12); g.lineWidth = 1.4; g.strokeStyle = INK[x.k] || "#000";
+        if (x.f) { g.fillStyle = INK[x.k] || "#000"; g.globalAlpha = .85; g.fill(P); g.globalAlpha = 1; } g.stroke(P); g.restore(); }));
+      return cv.toDataURL("image/png");
+    } catch (e) { return ""; }
+  }
+  const drawGuessers = (st, n) => Array.from({ length: n }, (_, i) => (st.drawer + 1 + i) % n).filter(i => i !== st.drawer);
+  function drawNextWord(st, words) {
+    const left = words.filter(w => st.used.indexOf(w) < 0), from = left.length ? left : words;
+    return from[Math.floor(Math.random() * from.length)];
+  }
+  // 换下一张：画的人按座位轮，词从庄的词库里抽（她在单机那边生成过一批就用那批，没有就用自带的）
+  function drawNext(st, n) {
+    const k = st.k + 1;
+    if (k >= st.total) return Object.assign({}, st, { k, phase: "done", word: "", segs: [], guesses: [], gq: [], gi: 0 });
+    const drawer = k % n, word = drawNextWord(st, st.words);
+    const base = Object.assign({}, st, { k, drawer, word, used: st.used.concat([word]), segs: [], guesses: [], fin: false, phase: "draw", gi: 0 });
+    return Object.assign(base, { gq: drawGuessers(base, n) });
+  }
+  async function drawSeg(api, who, word, segs, guesses, easy) {
+    const G = GS();
+    const sys = G.voiceRules() + "\n你是" + who.name + "。" + (who.persona ? "\n" + cut(who.persona, 3000) : "")
+      + "\n\n你在联机房间里跟大家玩你画我猜，这一张轮到你画，题目是「" + word + "」（别人不知道）。画在 100×100 的画布上（左上角 0,0），一段一段画，现在画第 " + (segs.length + 1) + " 段（最多 " + DRAW_SEGS + " 段）。"
+      + (segs.length ? "\n【你已经画了的】\n" + drawText(segs) : "\n画布还是空的。")
+      + (guesses.length ? "\n【大家猜过的】" + guesses.slice(-8).map(g => g.name + "：" + (g.text || "（没猜）")).join("；") : "")
+      + "\n看大家猜到哪儿了来决定这一段：快猜到了可以收着点，猜偏了补一笔提示，也可以故意往歪了带——照你这个人。"
+      + (easy ? "这局让着大家，画得好认一点。" : "照你人设里的画画水平来，不会画的就画得歪。但得是真想让人猜到的画，不是乱涂。")
+      + "画里不许写字、不许写这个词的任何一个字。say 是你画这段时顺口说的一句，别透露答案。觉得画完了就把 done 设成 true。"
+      + G.draw.STROKE_FMT + "\n只输出 JSON：{\"strokes\":[...],\"say\":\"一句\",\"done\":false}";
+    const raw = await G.call(api, sys, [{ role: "user", content: "画下一段。" }], { maxTokens: 9000, tag: "联机·你画我猜·画" });
+    const p = (root.extractJSON ? root.extractJSON(String(raw || "")) : null) || {};
+    const sg = cleanSeg({ strokes: p.strokes, say: p.say });
+    return sg.strokes.length ? { strokes: sg.strokes, say: sg.say, done: !!p.done } : { giveup: true };
+  }
+  async function drawLook(api, who, view) {
+    const G = GS();
+    const sys = G.voiceRules() + "\n你是" + who.name + "。" + (who.persona ? "\n" + cut(who.persona, 3000) : "")
+      + "\n\n你在联机房间里跟大家玩你画我猜，这一张是" + view.drawerName + "在画，你猜，你不知道答案。"
+      + "画布 100×100，左上角是 0,0。到现在画出来的是：\n" + drawText(view.segs)
+      + (view.guesses.length ? "\n【大家猜过的，都不对】" + view.guesses.slice(-10).map(g => g.name + "：" + (g.text || "（没猜）")).join("；") : "")
+      + ((view.segs.slice(-1)[0] || {}).say ? "\n" + view.drawerName + "刚说：「" + view.segs.slice(-1)[0].say + "」" : "")
+      + "\n照你自己的眼力和性子猜一个词（guess，别跟别人猜过的重复），再说一句（say）。看不出来也得猜。\n只输出 JSON：{\"guess\":\"一个词\",\"say\":\"一句\"}";
+    const ask = img => G.call(api, sys, [{ role: "user", content: "猜。", imageDataUrls: img ? [img] : undefined }], { maxTokens: 8000, tag: "联机·你画我猜·猜" });
+    // 真人画的（手指线写成文字太长看不出）先给图；线路不识图就退回只看文字
+    const img = view.segs.some(sg => sg.hand) ? drawPng(view.segs) : "";
+    let raw; try { raw = await ask(img); } catch (e) { if (!img) throw e; raw = await ask(""); }
+    const r = (root.extractJSON ? root.extractJSON(String(raw || "")) : null) || {};
+    return { guess: cut(r.guess, 20).trim(), say: cut(r.say, 120).trim() };
+  }
+  ADAPTERS.draw = {
+    zh: "你画我猜", slow: true, needPriv: true,
+    seatRange: () => ({ min: 2, max: 4 }),
+    roundLabel: v => v.phase === "done" ? "" : "第 " + Math.min(v.k + 1, v.total) + " / " + v.total + " 张",
+    roundEnd(p, n) { const a = (p.history || []).length, b = (n.history || []).length; if (b <= a) return ""; const x = n.history[b - 1]; return x.ok ? x.by + " 猜中了「" + x.word + "」" : "没人猜中，答案是「" + x.word + "」"; },
+    init(inv, ctx) {
+      const n = inv.seats.length, G = GS().draw;
+      let words = []; try { words = (G.pool().words || []).filter(Boolean); } catch (e) {}
+      if (words.length < 6) words = G.BUILTIN.slice();
+      const st = { total: n * (n <= 2 ? 3 : n === 3 ? 2 : 1), k: -1, words: words.slice(0, 200), used: [], scores: Array(n).fill(0), history: [], easy: !!(ctx && ctx.cfg && ctx.cfg.mode === "easy") };
+      return drawNext(st, n);
+    },
+    view: st => ({ total: st.total, k: st.k, drawer: st.drawer, phase: st.phase, segs: st.segs, guesses: st.guesses, gq: st.gq, gi: st.gi, scores: st.scores, history: st.history }),
+    // 猜的座位也发一份空的：needPriv 等的是「这一手的 priv 到了没」，不发角色就一直不出手
+    priv: (st, i) => st.phase === "done" ? null : i === st.drawer ? { word: st.word } : {},
+    turn: st => st.phase === "done" ? -1 : st.phase === "draw" ? st.drawer : (st.gq[st.gi] == null ? -1 : st.gq[st.gi]),
+    apply(st, seat, mv, ctx) {
+      const inv = ctx.inv, n = inv.seats.length;
+      if (st.phase === "done") return { err: "这一局已经结束了" };
+      if (mv && mv.end) return { st: Object.assign({}, st, { phase: "done" }) };
+      if (seat !== this.turn(st)) return { err: "还没轮到这一位" };
+      const close = (ok, by, bySeat) => {
+        const scores = st.scores.slice(); if (ok) { scores[bySeat]++; scores[st.drawer]++; }
+        const history = st.history.concat([{ word: st.word, drawer: nmOf(inv, st.drawer), ok, by: ok ? by : "", segs: st.segs.length }]);
+        return { st: drawNext(Object.assign({}, st, { scores, history }), n) };
+      };
+      if (st.phase === "draw") {
+        if (mv && mv.giveup) return close(false);
+        const sg = cleanSeg(mv);
+        if (!sg.strokes.length) return { err: "这一段一笔都没有" };
+        if (mv.hand) sg.hand = true;
+        const segs = st.segs.concat([sg]);
+        return { st: Object.assign({}, st, { segs, fin: !!mv.done || segs.length >= DRAW_SEGS, phase: "guess", gi: 0, gq: drawGuessers(st, n) }) };
+      }
+      const g = cut(mv && mv.guess, 20).trim(), nm = nmOf(inv, seat);
+      const guesses = st.guesses.concat([{ seat, name: nm, text: g, say: cut(mv && mv.say, 120).trim() }]).slice(-30);
+      if (g && GS().draw.hit(g, st.word)) return close(true, nm, seat);
+      const gi = st.gi + 1;
+      if (gi < st.gq.length) return { st: Object.assign({}, st, { guesses, gi }) };
+      if (st.fin) return close(false);
+      return { st: Object.assign({}, st, { guesses, phase: "draw", gi: 0 }) };
+    },
+    async npcMove(st, i, inv, ctx) {
+      const who = NPC_WHO(nmOf(inv, i));
+      if (!ctx.hostApi) return st.phase === "draw" ? { giveup: true } : { guess: "" };
+      try {
+        if (st.phase === "draw") return await drawSeg(ctx.hostApi, who, st.word, st.segs, st.guesses, st.easy);
+        return await drawLook(ctx.hostApi, who, Object.assign(this.view(st), { drawerName: nmOf(inv, st.drawer) }));
+      } catch (e) { return st.phase === "draw" ? { giveup: true } : { guess: "" }; }
+    },
+    async charMove(view, i, inv, ctx) {
+      if (!ctx.api || !ctx.char) return view.phase === "draw" ? { giveup: true } : { guess: "" };
+      const who = charWho(ctx.char, ctx.opts);
+      if (view.phase === "draw") return drawSeg(ctx.api, who, (ctx.priv && ctx.priv.word) || "", view.segs, view.guesses, false).catch(() => ({ giveup: true }));
+      return drawLook(ctx.api, who, Object.assign({}, view, { drawerName: nmOf(inv, view.drawer) })).catch(() => ({ guess: "" }));
+    },
+    result(st, inv) {
+      if (st.phase !== "done") return null;
+      const top = Math.max.apply(null, st.scores.concat([0]));
+      return { winners: top > 0 ? st.scores.map((v, i) => v === top ? i : -1).filter(i => i >= 0) : [],
+        text: st.history.map(x => x.drawer + "画「" + x.word + "」" + (x.ok ? x.by + "猜中" : "没人猜中")).join("，") || "没画几张就收了",
+        replay: { history: st.history, scores: st.scores } };
+    },
+    cleanReplay(r) {
+      return { history: (Array.isArray(r.history) ? r.history : []).slice(0, 16).map(x => ({ word: cut(x && x.word, 20), drawer: cut(x && x.drawer, 40), ok: !!(x && x.ok), by: cut(x && x.by, 40), segs: int(x && x.segs, 0, DRAW_SEGS, 0) })),
+        scores: (Array.isArray(r.scores) ? r.scores : []).slice(0, 4).map(v => int(v, 0, 99, 0)) };
+    },
+    cleanView(v) {
+      return Object.assign(this.cleanReplay(v), { total: int(v.total, 1, 16, 1), k: int(v.k, 0, 16, 0), drawer: int(v.drawer, 0, 3, 0), phase: ["draw", "guess", "done"].indexOf(v.phase) >= 0 ? v.phase : "draw",
+        segs: (Array.isArray(v.segs) ? v.segs : []).slice(0, DRAW_SEGS).map(sg => Object.assign(cleanSeg(sg), sg && sg.hand ? { hand: true } : {})),
+        guesses: (Array.isArray(v.guesses) ? v.guesses : []).slice(-30).map(g => ({ seat: int(g && g.seat, 0, 3, 0), name: cut(g && g.name, 40), text: cut(g && g.text, 20), say: cut(g && g.say, 120) })),
+        gq: (Array.isArray(v.gq) ? v.gq : []).slice(0, 3).map(x => int(x, 0, 3, 0)), gi: int(v.gi, 0, 3, 0) });
+    },
+    stateText(v, i, inv, priv) {
+      if (v.phase === "done") return "你画我猜打完了：" + (v.history || []).map(x => x.drawer + "画「" + x.word + "」" + (x.ok ? x.by + "猜中" : "没人猜中")).join("，");
+      const dn = nmOf(inv, v.drawer);
+      return "正在玩你画我猜（第 " + (v.k + 1) + " / " + v.total + " 张）：" + dn + " 在画，画了 " + v.segs.length + " 段"
+        + (priv && priv.word ? "，题目是「" + priv.word + "」（只有你知道，别说出来）" : "")
+        + ((v.guesses || []).length ? "；猜过的：" + v.guesses.slice(-6).map(g => g.name + "「" + (g.text || "没猜") + "」").join("、") : "")
+        + "。比分：" + inv.seats.map((s, k) => nmOf(inv, k) + " " + (v.scores[k] || 0)).join("，");
+    }
+  };
+
   const supported = () => Object.keys(ADAPTERS);
 
   const Core = { seatName, cleanTalk, talkEvery, talkDue, CHAR_OPTS, charWho, NPC_WHO, nmOf, charOptKinds, winOpen, winSet, winUnread, myTurn, stateText, SETTER_MODES, byLine, cleanSetter, setterSeat, nextSetter, setterLine, SEAT_KINDS, STATUS, AWAY_MS, ADAPTERS, supported, cleanSeat, cleanInvite, cleanRecord, inviteLine, recordLine, newInvite, joinSeats, leaveSeats, addSeat,
@@ -1746,6 +1901,64 @@
   ADAPTERS.haigui.Table = ADAPTERS.q25.Table = GuessTable; ADAPTERS.haigui.Replay = ADAPTERS.q25.Replay = GuessReplay;
   ["chess", "xiangqi", "jungle"].forEach(k => { ADAPTERS[k].Table = EngineTable; ADAPTERS[k].Replay = EngineReplay; });
   ADAPTERS.go.Table = GoTable; ADAPTERS.go.Replay = GoReplay;
+  // 你画我猜那张桌：一张纸（单机那张的画法），轮到你画就能在纸上画，轮到你猜就一格输入
+  const DRAW_PAPER = { width: "100%", maxWidth: 360, display: "block", margin: "0 auto", borderRadius: 6, background: "#fffdf7", boxShadow: "0 1px 0 rgba(0,0,0,.06), 0 6px 16px rgba(40,30,20,.12)", aspectRatio: "1 / 1" };
+  function DrawSheet({ segs, mine, padRef, on }) {
+    const G = GS().draw;
+    const pts = pp => pp.map((q, i) => (i ? "L" : "M") + q[0] + " " + q[1]).join("") + (pp.length === 1 ? "l.1 0" : "");
+    return h("svg", Object.assign({ "data-wk": "nrdrawsheet", viewBox: "0 0 100 100", style: Object.assign({}, DRAW_PAPER, on ? { touchAction: "none" } : {}) }, on ? { ref: padRef, onPointerDown: on.down, onPointerMove: on.move, onPointerUp: on.up, onPointerCancel: on.up } : {}),
+      (segs || []).map((sg, si) => h("g", { key: si }, sg.strokes.map((x, i) => { const d = G.path(x); return d ? h("path", { key: i, d, fill: x.f ? G.INK[x.k] : "none", fillOpacity: x.f ? .85 : 0, stroke: G.INK[x.k], strokeWidth: 1.4, strokeLinecap: "round", strokeLinejoin: "round" }) : null; }))),
+      (mine || []).map((m, i) => h("path", { key: "m" + i, d: pts(m.pts), fill: "none", stroke: G.INK[m.k], strokeWidth: 1.4, strokeLinecap: "round", strokeLinejoin: "round" })));
+  }
+  function DrawTable({ inv, view, priv, me, onMove }) {
+    const t = useTheme(), G = GS();
+    const [d, setD] = useState(""), [mine, setMine] = useState([]), [ink, setInk] = useState("k");
+    const padRef = useRef(null), cur = useRef(null);
+    const done = view.phase === "done", who = view.phase === "draw" ? view.drawer : view.gq[view.gi];
+    const seat = inv.seats[who], myTurn = !done && actorOf(seat, me, inv.host) === "mine-user";
+    const iDraw = myTurn && view.phase === "draw";
+    // 换了一张、或者这一段交出去了：手上没交的线清掉
+    useEffect(() => { setMine([]); setD(""); }, [view.k, view.segs.length]);
+    const ptOf = e => { const r = padRef.current.getBoundingClientRect(); return [r1d((e.clientX - r.left) / r.width * 100), r1d((e.clientY - r.top) / r.height * 100)]; };
+    const on = iDraw ? {
+      down: e => { e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (x) {} const c = { k: ink, pts: [ptOf(e)] }; cur.current = c; setMine(S => S.concat([{ k: c.k, pts: c.pts.slice() }])); },
+      move: e => { const c = cur.current; if (!c) return; c.pts.push(ptOf(e)); const snap = { k: c.k, pts: c.pts.slice() }; setMine(S => S.slice(0, -1).concat([snap])); },
+      up: () => { cur.current = null; } } : null;
+    // 手指线压成折线：点太密就隔几个取一个，一笔最多 DRAW_PTS 个点
+    const send = fin => {
+      const strokes = mine.filter(m => m.pts.length).slice(0, DRAW_STROKES).map(m => { const step = Math.ceil(m.pts.length / DRAW_PTS); const pp = m.pts.filter((q, i) => i % step === 0 || i === m.pts.length - 1); return { t: "line", k: m.k, p: [].concat.apply([], pp) }; });
+      onMove(view.drawer, { strokes, say: d.trim(), done: fin, hand: true });
+    };
+    const last = view.history[view.history.length - 1];
+    const recent = (view.guesses || []).slice(-6);
+    return h("div", { "data-wk": "nrgametable", "data-game": "draw", style: { padding: "4px 16px 10px", display: "flex", flexDirection: "column", gap: 10 } },
+      h(G.GameVsBar, { t, seats: vsSeats(inv, view, done ? -1 : who, null, i => (i === view.drawer && !done ? "在画 · " : "") + (view.scores[i] || 0) + " 分") }),
+      last && !done && !view.segs.length ? h("div", { "data-wk": "nrdrawlast", style: { textAlign: "center", fontFamily: F_BODY, fontSize: fs(12), color: t.fog } }, "上一张：" + last.drawer + "画「" + last.word + "」" + (last.ok ? "，" + last.by + "猜中了" : "，没人猜中")) : null,
+      done ? null : h(DrawSheet, { segs: view.segs, mine: iDraw ? mine : null, padRef, on }),
+      done ? h("div", { "data-wk": "nrdrawhistory", style: { display: "flex", flexDirection: "column", gap: 4 } }, view.history.map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: fs(13), color: t.ink } }, x.drawer + " 画「", h("b", null, x.word), "」" + (x.ok ? " · " + x.by + " 猜中" : " · 没人猜中")))) : null,
+      recent.length && !done ? h("div", { "data-wk": "nrdrawguesses", style: { fontFamily: F_BODY, fontSize: fs(12), color: t.sub, lineHeight: 1.6 } }, recent.map((g, i) => h("div", { key: i }, g.name + "：" + (g.text ? "「" + g.text + "」" : "看不出") + (g.say ? " " + g.say : "")))) : null,
+      !done && view.segs.length && view.segs[view.segs.length - 1].say ? note(t, nmOf(inv, view.drawer) + "：“" + view.segs[view.segs.length - 1].say + "”") : null,
+      done ? note(t, "画完了")
+        : iDraw ? h("div", { "data-wk": "nrgamestatus", style: { fontFamily: F_BODY, fontSize: fs(12.5), color: t.sub } }, "轮到你画第 " + (view.segs.length + 1) + " 段（最多 " + DRAW_SEGS + " 段），题目：", h("b", { "data-wk": "nrdrawword", style: { color: t.tint, fontSize: fs(14) } }, "「" + ((priv && priv.word) || "…") + "」"), "。画好这一段，大家按顺序各猜一次。")
+        : myTurn ? h("div", { "data-wk": "nrgamestatus", style: { fontFamily: F_BODY, fontSize: fs(12.5), color: t.sub } }, "轮到你猜：" + nmOf(inv, view.drawer) + " 画了 " + view.segs.length + " 段")
+        : note(t, seat && seat.away ? seat.name + " 掉线了，NPC 先替着…" : view.phase === "draw" ? nmOf(inv, view.drawer) + " 在画第 " + (view.segs.length + 1) + " 段…" : (seat ? seat.name : "") + " 在猜…"),
+      iDraw && h("div", { "data-wk": "nrdrawink", style: { display: "flex", gap: 8, justifyContent: "center" } },
+        ["k", "r", "b", "g", "y", "p"].map(k => h("button", { key: k, "aria-label": "颜色", onClick: () => setInk(k), style: { width: 28, height: 28, borderRadius: 999, background: G.draw.INK[k], border: "2px solid " + (ink === k ? t.ink : "transparent") } })),
+        h("button", { "data-wk": "nrdrawundo", disabled: !mine.length, onClick: () => setMine(S => S.slice(0, -1)), style: Object.assign(pill(t, false), { minHeight: 30, padding: "0 10px" }) }, "撤一笔")),
+      (iDraw || (myTurn && view.phase === "guess")) && h("input", { "data-wk": "nrdrawinput", value: d, onChange: e => setD(e.target.value.slice(0, iDraw ? 120 : 20)), placeholder: iDraw ? "边画边说一句（可不填，别说答案）" : "猜一个词", style: Object.assign(box(t), { minHeight: 40 }) }),
+      iDraw && h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+        h("button", { "data-wk": "nrdrawsend", disabled: !mine.length, onClick: () => send(false), style: pill(t, true) }, "画好这一段"),
+        h("button", { "data-wk": "nrdrawfin", disabled: !mine.length, onClick: () => send(true), style: pill(t, false) }, "画完了"),
+        h("button", { "data-wk": "nrdrawgiveup", onClick: () => onMove(view.drawer, { giveup: true }), style: pill(t, false) }, "画不出来，揭晓")),
+      myTurn && view.phase === "guess" && h("div", { style: { display: "flex", gap: 8 } },
+        h("button", { "data-wk": "nrdrawguess", disabled: !d.trim(), onClick: () => { const v = d.trim(); setD(""); onMove(who, { guess: v }); }, style: pill(t, true) }, "猜"),
+        h("button", { "data-wk": "nrdrawpass", onClick: () => { setD(""); onMove(who, { guess: "" }); }, style: pill(t, false) }, "看不出，下一位")));
+  }
+  function DrawReplay({ rec }) {
+    const t = useTheme(), r = rec.replay || {};
+    return h("div", { style: { padding: "8px 16px", display: "flex", flexDirection: "column", gap: 4 } }, (r.history || []).map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: fs(13), color: t.ink } }, x.drawer + " 画「" + x.word + "」" + (x.ok ? " · " + x.by + " 猜中" : " · 没人猜中"))));
+  }
+  ADAPTERS.draw.Table = DrawTable; ADAPTERS.draw.Replay = DrawReplay;
   ADAPTERS.story.Table = StoryTable; ADAPTERS.story.Replay = StoryReplay;
   ADAPTERS.tod.Table = TodTable; ADAPTERS.tod.Replay = TodReplay;
   ADAPTERS.monopoly.Table = MonoTable; ADAPTERS.monopoly.Replay = MonoReplay;
