@@ -20636,7 +20636,21 @@ function offSayZhOf(map, sen) {
   const k = typeof offlineSayKey === "function" ? offlineSayKey(sen) : "";   // 比对规则只在 engine.js 那一份
   return (k && map[k]) || undefined;
 }
-function offBody(t, text, accent, whoId, sayZh) {
+// 整段小说那种一拍里几个人轮着说（群里 2026-11-24 许愿：「一人一拍时每个人的台词颜色不一样，整段小说也想这样」）：
+//   每一句台词认是谁说的——同一段里这句前面最近出现的那个名字；前面没有，就看这句后面紧跟着的（「……」陆衍说）。
+//   认不出的照旧用这一拍的颜色。people：[{ names:[本名, 备注…], color }]
+function offSpeakerAt(text, start, end, people) {
+  const s = String(text || ""), ps = Math.max(0, s.lastIndexOf("\n", start - 1) + 1), pe = (k => k < 0 ? s.length : k)(s.indexOf("\n", end));
+  let best = null, at = -1;
+  const before = s.slice(ps, start);
+  people.forEach(p => (p.names || []).forEach(n => { if (!n) return; const k = before.lastIndexOf(n); if (k > at) { at = k; best = p; } }));
+  if (best) return best;
+  const after = s.slice(end, Math.min(pe, end + 24));
+  let first = 1e9;
+  people.forEach(p => (p.names || []).forEach(n => { if (!n) return; const k = after.indexOf(n); if (k >= 0 && k < first) { first = k; best = p; } }));
+  return best;
+}
+function offBody(t, text, accent, whoId, sayZh, people) {
   // <#0.5#> 停顿记号只给语音用，线下正文里不摆（群里 2026-10-10：「线下听说也会漏」）
   const segs = offSplit(typeof stripPauseMarks === "function" ? stripPauseMarks(text) : text);
   // 粤语台词里有的句子一个粤语专用字都没有（她 2026-10-30 截图：「陸啟架車下晝兩點幾到機場……」没有译键）：
@@ -20646,13 +20660,18 @@ function offBody(t, text, accent, whoId, sayZh) {
   const hasSay = segs.some(x => x.k === "say");
   const d = offDark(t);
   const sayInk = offReadable(accent || t.tint, t.bg2);
+  // 每一段台词在原文里的位置（认说话人用）；只有传了 people 才算
+  const _plain = Array.isArray(people) && people.length ? String(typeof stripPauseMarks === "function" ? stripPauseMarks(text) : text) : "";
+  const _pos = []; if (_plain) { let o = 0; segs.forEach(x => { _pos.push(o); o += x.s.length; }); }
+  const accentAt = i => { if (!_plain) return accent; const who = offSpeakerAt(_plain, _pos[i], _pos[i] + segs[i].s.length, people); return (who && who.color) || accent; };
   // 包一层 TransWho：说话的人开着「外语消息自带中译」，线下的外语台词也直接摆出中文（她 2026-10-20）
   const out = h("div", { "data-wk": "offtext", style: { fontFamily: F_BODY, fontSize: "calc(var(--off-fs, 14px) * var(--app-fs, 1))", lineHeight: 1.9, color: hasSay ? t.sub : t.ink, whiteSpace: "pre-wrap" } },
-    segs.map((x, i) => x.k === "prose" ? x.s : h("span", { key: i, "data-wk": "offsay", style: {
-      color: sayInk, fontWeight: 600,
-      background: "linear-gradient(180deg, transparent 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 92%, transparent 92%)",
+    segs.map((x, i) => { if (x.k === "prose") return x.s; const ac = accentAt(i), ink = ac === accent ? sayInk : offReadable(ac || t.tint, t.bg2);
+      return h("span", { key: i, "data-wk": "offsay", style: {
+      color: ink, fontWeight: 600,
+      background: "linear-gradient(180deg, transparent 12%, " + offA(ac || t.tint, d ? 0.16 : 0.13) + " 12%, " + offA(ac || t.tint, d ? 0.16 : 0.13) + " 92%, transparent 92%)",
       borderRadius: 2, padding: "0 1px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone"
-    } }, typeof TransText === "function" ? offSaySentences(x.s).map((sen, k) => h(TransText, { key: k, text: sen, ink: sayInk, inline: true, size: 13, zhReady: offSayZhOf(sayZh, sen), langHint: _hintOf(sen) })) : x.s)));
+    } }, typeof TransText === "function" ? offSaySentences(x.s).map((sen, k) => h(TransText, { key: k, text: sen, ink: ink, inline: true, size: 13, zhReady: offSayZhOf(sayZh, sen), langHint: _hintOf(sen) })) : x.s); }));
   return whoId && typeof TransWho === "function" ? h(TransWho, { id: whoId }, out) : out;
   // ↑ 引号里那句话是外语时挂「译」（群友 2026-10-20：「线下外语不翻译」）：整段正文是中文叙述、只有台词是外语，
   //   按整段探语种永远探成中文，所以按一句句台词挂。中文台词原样返回、零开销；翻译走免费那条，跟线上气泡同一套。
@@ -20811,7 +20830,8 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
       //   看着跟说话没区别，也点不开。
       editing ? editBox : (m.kind === "photo"
         ? h("div", { style: { maxWidth: 300 } }, h(PhotoCard, { m: m, mine: isUser, max: 300, onOpen: () => setPhotoView(m) }))
-        : offBody(t, m.content, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint), isUser ? null : (spk && spk.id), isUser ? null : m.sayZh)),
+        : offBody(t, m.content, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint), isUser ? null : (spk && spk.id), isUser ? null : m.sayZh,
+          isNovel && cast.length ? cast.map(o => ({ names: [o.c.name, o.c.remark].filter(n => n && String(n).trim().length >= 1).map(String), color: o.c.color })).concat(meChar && meChar.name ? [{ names: [String(meChar.name)], color: t.accent || meChar.color }] : []) : null)),
       photoView ? h(PhotoSheet, { m: photoView, toast: window.__toast, onClose: () => setPhotoView(null) }) : null,
       // 整段小说：头像框点开是一排在场的人，点谁就在下面露出谁的心声
       (isNovel && castOpen && cast.length) ? h("div", { "data-wk": "offcastpick", className: "flex flex-wrap gap-2 mt-3" },
