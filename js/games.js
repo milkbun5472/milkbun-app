@@ -8757,25 +8757,28 @@
   //   每色的终点跑道从十字那条臂的尽头直插中心。只换每个逻辑格画在哪儿，规则一格没动。
   //   底稿画的是右上那一家（机库右上、从十字上臂的右沿往下出发、走上臂正中那条跑道回家），其余三家转 90° 的倍数；
   //   红在左上，所以第 c 色转 (c+3)%4 次。
-  const LUDO_N = 19;
+  const LUDO_N = 13;
   function ludoRot(x, y, k) { let a = x, b = y; for (let i = 0; i < ((k % 4) + 4) % 4; i++) { const nx = LUDO_N - b; b = a; a = nx; } return [a, b]; }
   // 底稿那一象限的 13 格：右沿往下 4 格、拐角两个三角、右臂上沿往外 4 格、右臂尽头 3 格
   // 十字每条臂三格宽：两边是外圈、正中是回家那条；格子一格挨一格排满（她 2026-11-24 照实物图：原来臂太宽、格子稀稀拉拉，臂尽头还拉成了长条）
-  const LUDO_QUAD = [[10.5, 4.5], [10.5, 5.5], [10.5, 6.5], [10.5, 7.5],
-    { tri: [[11, 7], [12, 7], [11, 8]] }, { tri: [[12, 7], [12, 8], [11, 8]] },
-    [11.5, 8.5], [12.5, 8.5], [13.5, 8.5], [14.5, 8.5], [15.5, 8.5], [15.5, 9.5], [15.5, 10.5]];
+  // 照实物（她 2026-11-24 第二回：「你画回原来的图了喂」）：跑道沿着棋盘最外沿走、绕着角上的机库拐，中间留一大块空地；
+  //   回家那条从每条边的正中直通中心。13×13 的格子，底稿是右上那一家：沿上沿往右 → 顺机库左边往下 → 机库左下角劈成两个三角 → 顺机库底边往右 → 沿右沿往下到正中
+  //   出发那格就贴着自家机库（上沿紧挨机库那一格）；回家那条的入口是上沿正中那一格
+  const LUDO_QUAD = [[8.5, 0.5], [8.5, 1.5], [8.5, 2.5], [8.5, 3.5],
+    { tri: [[8, 4], [9, 4], [8, 5]] }, { tri: [[9, 4], [9, 5], [8, 5]] },
+    [9.5, 4.5], [10.5, 4.5], [11.5, 4.5], [12.5, 4.5], [12.5, 5.5], [12.5, 6.5], [12.5, 7.5]];
   function ludoRingCell(g) {
     const q = Math.floor(g / 13), c = LUDO_QUAD[g % 13], k = (q + 3) % 4;
     if (c.tri) { const pts = c.tri.map(function (p) { return ludoRot(p[0], p[1], k); }); return { pts: pts, at: [(pts[0][0] + pts[1][0] + pts[2][0]) / 3, (pts[0][1] + pts[1][1] + pts[2][1]) / 3] }; }
     return { at: ludoRot(c[0], c[1], k), k: k };
   }
   // 机库（右上那一家的底稿）：外圈拐角外面那块空地，四个圆机位
-  const LUDO_BASE = [12.1, 2.3, 16.7, 6.9], LUDO_SLOTS = [[13.3, 3.5], [15.5, 3.5], [13.3, 5.7], [15.5, 5.7]], LUDO_TAKEOFF = [11.5, 3.2];
+  const LUDO_BASE = [9.4, 0.1, 12.9, 3.6], LUDO_SLOTS = [[10.3, 1.0], [12.0, 1.0], [10.3, 2.7], [12.0, 2.7]], LUDO_TAKEOFF = [9.4, 0.5];
   function ludoCell(color, rel, slot) {
     const k = (color + 3) % 4;
     if (rel < 0) { const s = LUDO_SLOTS[slot % 4]; return ludoRot(s[0], s[1], k); }
-    if (rel >= LUDO_HOME) return ludoRot(9.5, 8.6, k);
-    if (rel > LUDO_RING_END) return ludoRot(9.5, 3.6 + 0.8 * (rel - LUDO_RING_END), k);
+    if (rel >= LUDO_HOME) return ludoRot(6.5, 5.95, k);
+    if (rel > LUDO_RING_END) return ludoRot(6.5, 0.65 + 0.85 * (rel - LUDO_RING_END), k);
     return ludoRingCell(ludoGlobal(color, rel)).at;
   }
   function LudoBoard(props) {
@@ -8789,16 +8792,16 @@
     // 中间：四色三角拼成的终点，和每色那条直插中心的跑道（格子里一个箭头朝里）
     [0, 1, 2, 3].forEach(function (c) {
       const k = (c + 3) % 4, col = LUDO_COLORS[c].c;
-      els.push(h("path", { key: "ctr" + c, d: "M" + P(ludoRot(8, 8, k)) + "L" + P(ludoRot(11, 8, k)) + "L" + P(ludoRot(9.5, 9.5, k)) + "Z", fill: col, stroke: "#fbf8f1", strokeWidth: .8 }));
+      els.push(h("path", { key: "ctr" + c, d: "M" + P(ludoRot(5.4, 5.4, k)) + "L" + P(ludoRot(7.6, 5.4, k)) + "L" + P(ludoRot(6.5, 6.5, k)) + "Z", fill: col, stroke: "#fbf8f1", strokeWidth: .8 }));
       for (let j = 1; j <= 5; j++) {
-        const yy = 3.6 + 0.8 * j, m = ludoRot(9.5, yy, k), b = ludoRot(9.5, yy + .2, k), l = ludoRot(9.25, yy - .08, k), r = ludoRot(9.75, yy - .08, k);
+        const yy = 0.65 + 0.85 * j, m = ludoRot(6.5, yy, k), b = ludoRot(6.5, yy + .2, k), l = ludoRot(6.25, yy - .08, k), r = ludoRot(6.75, yy - .08, k);
         els.push(h("rect", { key: "h" + c + j, x: (m[0] - .36) * S, y: (m[1] - .36) * S, width: .72 * S, height: .72 * S, rx: 1.6, fill: col, opacity: .9 }));
         els.push(h("path", { key: "ha" + c + j, d: "M" + P(l) + "L" + P(b) + "L" + P(r), stroke: "#fbf8f1", strokeWidth: .9, fill: "none", strokeLinecap: "round", opacity: .9 }));
       }
       // 机库：四角大方块，四个圆机位；门口一颗起飞点，指向出发那格
       const a0 = ludoRot(LUDO_BASE[0], LUDO_BASE[1], k), a1 = ludoRot(LUDO_BASE[2], LUDO_BASE[3], k), on = used.indexOf(c) >= 0;
       els.push(h("rect", { key: "base" + c, x: Math.min(a0[0], a1[0]) * S, y: Math.min(a0[1], a1[1]) * S, width: (LUDO_BASE[2] - LUDO_BASE[0]) * S, height: (LUDO_BASE[3] - LUDO_BASE[1]) * S, rx: 5, fill: col, opacity: on ? .95 : .3 }));
-      LUDO_SLOTS.forEach(function (s, i) { const q = ludoRot(s[0], s[1], k); els.push(h("circle", { key: "slot" + c + i, cx: q[0] * S, cy: q[1] * S, r: 7.5, fill: "#fbf8f1", opacity: .9 })); });
+      LUDO_SLOTS.forEach(function (s, i) { const q = ludoRot(s[0], s[1], k); els.push(h("circle", { key: "slot" + c + i, cx: q[0] * S, cy: q[1] * S, r: 6.5, fill: "#fbf8f1", opacity: .9 })); });
       const tk = ludoRot(LUDO_TAKEOFF[0], LUDO_TAKEOFF[1], k), st = ludoRingCell(ludoGlobal(c, 0)).at;
       els.push(h("circle", { key: "tk" + c, cx: tk[0] * S, cy: tk[1] * S, r: 3.6, fill: "#fbf8f1", stroke: col, strokeWidth: 1.4, opacity: on ? 1 : .4 }));
       els.push(h("path", { key: "tka" + c, d: "M" + P(tk) + "L" + P([st[0], st[1] - (st[1] > tk[1] ? .45 : -.45)]), stroke: col, strokeWidth: 1, markerEnd: "url(#ludoArr" + c + ")", opacity: on ? .9 : .35 }));
@@ -8835,7 +8838,7 @@
       st.textContent = "@keyframes ludoPulse{0%,100%{opacity:1}50%{opacity:.25}}.ludo-pulse{animation:ludoPulse 1.1s ease-in-out infinite}";
       document.head.appendChild(st);
     }
-    return h("svg", { "data-wk": "ludoboard", viewBox: "18 18 154 154", style: { width: "100%", maxWidth: 440, display: "block", margin: "0 auto", borderRadius: 14, background: "#f4efe4", border: "1px solid " + t.line, boxShadow: "0 6px 16px rgba(20,16,10,.14)" } }, els);
+    return h("svg", { "data-wk": "ludoboard", viewBox: "-3 -3 136 136", style: { width: "100%", maxWidth: 440, display: "block", margin: "0 auto", borderRadius: 14, background: "#f4efe4", border: "1px solid " + t.line, boxShadow: "0 6px 16px rgba(20,16,10,.14)" } }, els);
   }
   function LudoGame(props) {
     const t = props.t, cfg = props.config || {};
