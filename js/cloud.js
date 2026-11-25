@@ -146,6 +146,19 @@
     "drop policy if exists saves_update_own on public.saves;",
     "create policy saves_update_own on public.saves for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);",
     "",
+    "-- 放旧聊天的地方。手机快满时，最早的聊天挪到这里，聊天页顶上「更早的 N 条在云端」点开看的就是它",
+    "create table if not exists public.chat_archive (",
+    "  user_id uuid not null references auth.users(id) on delete cascade,",
+    "  char_id text not null,",
+    "  msgs jsonb not null default '[]'::jsonb,",
+    "  updated_at timestamptz not null default now(),",
+    "  primary key (user_id, char_id)",
+    ");",
+    "alter table public.chat_archive enable row level security;",
+    "grant select, insert, update, delete on public.chat_archive to authenticated;",
+    "drop policy if exists chat_archive_rw_own on public.chat_archive;",
+    "create policy chat_archive_rw_own on public.chat_archive for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);",
+    "",
     "-- 放图片的地方（头像、自拍、壁纸这些）。没有这一段的话，图一张也传不上云",
     "insert into storage.buckets (id, name, public) values ('media', 'media', false) on conflict (id) do nothing;",
     "drop policy if exists media_rw_own on storage.objects;",
@@ -692,6 +705,8 @@
         .eq("user_id", user.id)
         .eq("char_id", String(charId))
         .maybeSingle();
+      // 还没建这张表的云（只跑过早先那份建表内容）：当作没有旧聊天；归档那一下写不进去会报错，本机就一条不裁
+      if (error && (error.code === "42P01" || error.code === "PGRST205" || /chat_archive/.test(error.message || ""))) return [];
       if (error) throw error;
       return (data && Array.isArray(data.msgs)) ? data.msgs : [];
     },

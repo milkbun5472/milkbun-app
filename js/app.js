@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.236";
+const APP_VERSION = "v90.239";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3839,7 +3839,10 @@ function App() {
     const drop = older.filter(m => !isDuoPhoto(m));
     if (!drop.length) return { ok: true, moved: 0 }; // older 里全是合照，没啥可裁
     try {
-      await window.Cloud.chatArchiveAppend(charId, drop); // 只归档非合照的；先上云，抛错就不往下走
+      // ⚠️云上回报的总条数少于这批，就当没存上、一条不裁（群友 2026-11-25：只装了存档表的云，归档那一下安静回 0，
+      //   本机当成功裁掉了几百条，云上一条没有——聊天顶上写「更早的 333 条在云端」，点开是空的）。
+      const _n = await window.Cloud.chatArchiveAppend(charId, drop); // 只归档非合照的；先上云，抛错就不往下走
+      if (!(Number(_n) >= drop.length)) return { ok: false, msg: "云端没有存旧聊天的地方，本机一条没裁" };
       // ⚠️只撤掉【归档上去的那几条】，按对象认，不拿上传前那份快照整份盖回去（群友 2026-10-13：同时给两个人发，
       //   一个人刚回的几条全没了）——上传要等网络，这段时间里TA正好回完，快照里没有那几条，整份一盖就丢了。
       //   按对象认不住的（期间被标了已读之类、换成了新对象）再按 时间+谁+内容 认一遍，认不出就宁可留着。
@@ -3862,7 +3865,8 @@ function App() {
     const keep = all.slice(all.length - keepLocal);
     const archKey = "g_" + groupId;
     try {
-      await window.Cloud.chatArchiveAppend(archKey, older); // 先上云
+      const _gn = await window.Cloud.chatArchiveAppend(archKey, older); // 先上云；回报的总数不够这批＝没存上，一条不裁（同上）
+      if (!(Number(_gn) >= older.length)) return { ok: false, msg: "云端没有存旧聊天的地方，本机一条没裁" };
       const _gDropSet = new Set(older), _gdk = m => m ? (m.id || "") + "|" + (m.ts || "") + "|" + (m.senderId || m.role || "") + "|" + String(m.content || "").slice(0, 80) : "";
       const _gDropKeys = new Set(older.map(_gdk));
       chatShrinkOk(); pGChat(groupId, p => p.filter(m => !_gDropSet.has(m) && !(m && m.ts && _gDropKeys.has(_gdk(m)))));   // 成功才裁本地；只撤归档上去的那几条，等上传时新来的留着
@@ -11653,7 +11657,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     purgeCharData(new Set([id]), null, only);
     if (only.has("chat")) setChatSettings(p => { const n = { ...p, [id]: { ...(p[id] || {}), lastSummarizedCount: 0 } }; saveJSON("x_chatSettings", n); return n; });
     if (only.has("memory")) setMemFor(id, "");
-    if (only.has("chat")) { try { if (window.Cloud && window.Cloud.chatArchiveClear) await window.Cloud.chatArchiveClear(id); } catch (e) { toast("本机清好了，云端旧聊天归档没清掉：" + ((e && e.message) || e)); return; } }
+    if (only.has("chat")) { try { if (window.Cloud && window.Cloud.chatArchiveClear) await window.Cloud.chatArchiveClear(id); } catch (e) { toast("本机清好了，云端旧聊天归档没清掉：" + ((e && e.message) || e)); return; }
+      // 云上那份清空了，本机那本计数簿也得归零——不然聊天顶上还挂着「更早的 N 条在云端」，点开却是空的（群友 2026-11-25）
+      const marks = loadJSON("x_chatArch", {}); if (marks[id]) { delete marks[id]; saveJSON("x_chatArch", marks); setChatArch(marks); } }
     toast(only.size >= ((window.CharPurge && window.CharPurge.CATS.length) || 7) ? "「" + (c.name || "TA") + "」重置好了，下次聊天就是第一次见面" : "清好了");
   };
 
