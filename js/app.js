@@ -35162,7 +35162,31 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     }));
   };
   // 解析批量导入：支持「关键词: url」「关键词 url」同行，也支持关键词一行、url 下一行
+  // 别家导出的表情包 JSON（群友 2026-11-25 截图：一整版都叫「"imageDa…」「"originalU…」）：原来一行行当「关键词 链接」读，
+  //   字段名成了关键词、一张图拆成两张。先认 JSON：每个对象里挑一个图（网址优先，没有再用 data: 图），挑一个名字
+  const EMOTE_URL_KEYS = ["url", "originalUrl", "imageUrl", "src", "link", "image", "img", "imageData", "data", "dataUrl", "base64"];
+  const EMOTE_NAME_KEYS = ["keyword", "name", "title", "label", "desc", "description", "meaning", "text", "tag", "alt"];
+  const parseEmoteJson = text => {
+    let root; try { root = JSON.parse(String(text || "").trim()); } catch (e) { return null; }
+    const out = [], isImg = v => typeof v === "string" && (/^https?:\/\//.test(v.trim()) || /^data:image\//.test(v.trim()));
+    const walk = (o, depth) => {
+      if (!o || typeof o !== "object" || depth > 6) return;
+      if (Array.isArray(o)) { o.forEach(x => walk(x, depth + 1)); return; }
+      const urls = EMOTE_URL_KEYS.map(k => o[k]).filter(isImg).map(v => v.trim());
+      const url = urls.find(v => /^https?:/.test(v)) || urls[0];
+      if (url) {
+        const nm = EMOTE_NAME_KEYS.map(k => o[k]).find(v => typeof v === "string" && v.trim() && !isImg(v));
+        out.push({ id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 1e6), keyword: String(nm || "").trim().slice(0, 20) || "表情", url, ...(/\.gif($|\?)|^data:image\/gif/i.test(url) ? { gif: true } : {}) });
+        return;
+      }
+      Object.keys(o).forEach(k => walk(o[k], depth + 1));
+    };
+    walk(root, 0);
+    return out;
+  };
   const parseEmoteImport = text => {
+    const _js = /^\s*[\[{]/.test(String(text || "")) ? parseEmoteJson(text) : null;
+    if (_js && _js.length) return _js;
     const urlRe = /(https?:\/\/\S+)/;
     const lines = String(text || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     const out = []; let pending = null;
@@ -35223,9 +35247,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     toast("加进来 " + add.length + " 版、" + n + " 个表情，原来的都还在", 6000);
     return true;
   };
-  const importEmotes = (packId, text) => {
-    const items = parseEmoteImport(text);
+  const importEmotes = async (packId, text) => {
+    // 我们自己「导出这一版」的那种文件被读进框里了：照「导入表情包文件」那条走（另加一版，图装回本机）
+    try { const _p = JSON.parse(String(text || "").trim()); if (_p && _p.__archive && _p.kind === "emotes") return (await importEmotePackFile(_p)) ? 1 : 0; } catch (e) {}
+    let items = parseEmoteImport(text);
     if (!items.length) { toast("没解析到「关键词 + 链接」，检查格式"); return 0; }
+    // data: 图（别家把图直接装在文件里）存进本机图库，不往存档里塞一大串
+    if (items.some(x => /^data:image\//.test(x.url))) { toast("在存图…", 2500); items = await Promise.all(items.map(async x => /^data:image\//.test(x.url) ? { ...x, url: await imgToVault(x.url) } : x)); }
     const next = (emotePacksRef.current || []).map(x => x.id === packId ? { ...x, emotes: [...(x.emotes || []), ...items] } : x);
     if (!commitEmotePacks(next)) return 0;
     toast("导入了 " + items.length + " 个表情");
