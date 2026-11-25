@@ -6607,6 +6607,22 @@ function photoYoungerOf(scene) {
 // 合照得是画面里真有两个人（群友 2026-10-27：「为什么让 char 发照片自动生成我们的合照，描述词里也没有」）：
 //   模型 kind 填了 duo、画面描述却只写了他一个人，原来照样拿两张参考照画成合照。
 //   画面里一点没提到另一个人，就按他自己的照片拍。
+// 把别处搬来的日记拆成一篇篇（群友 2026-11-25「char 的日记能不能自己填，我想把别的小手机的 char 搬过来」）：
+//   认行首的日期（2025年3月1日 / 2025-03-01 / 2025.3.1 / 3月1日 / 3/1），一个日期起一篇，日期那行剩下的字当标题；
+//   一个日期都认不出就整段当一篇，日子用 fallbackTs
+function diaryImportParse(text, fallbackTs, nowTs) {
+  const lines = String(text || "").replace(/\r/g, "").split("\n"), out = [], now = new Date(nowTs || Date.now());
+  const RE = /^\s*(?:(\d{4})\s*[年\-./]\s*)?(\d{1,2})\s*[月\-./]\s*(\d{1,2})\s*日?(?:[\s,，、·:：|｜-]+(.*))?$/;
+  let cur = null;
+  lines.forEach(l => { const m = l.match(RE);
+    if (m && (m[1] || /月/.test(l) || /^\s*\d{1,2}\s*[\/.]\s*\d{1,2}\s*(?:[\s,，:：]|$)/.test(l))) {
+      let y = m[1] ? Number(m[1]) : now.getFullYear(); const mo = Number(m[2]) - 1, d = Number(m[3]);
+      let dt = new Date(y, mo, d, 22, 30, 0, 0); if (!m[1] && dt.getTime() > now.getTime()) dt = new Date(y - 1, mo, d, 22, 30, 0, 0);
+      if (mo < 0 || mo > 11 || d < 1 || d > 31 || isNaN(dt.getTime())) { if (cur) cur.body.push(l); return; }
+      cur = { ts: dt.getTime(), title: String(m[4] || "").trim().slice(0, 40), body: [] }; out.push(cur);
+    } else { if (!cur) { cur = { ts: fallbackTs || now.getTime(), title: "", body: [] }; out.push(cur); } cur.body.push(l); } });
+  return out.map(x => ({ ts: x.ts, title: x.title, paras: x.body.join("\n").split(/\n\s*\n|\n/).map(t => t.trim()).filter(Boolean) })).filter(x => x.paras.length);
+}
 function photoDuoSaid(scene, uName) {
   const t = String(scene || "");
   if (/合照|合影|两个人|两人|俩人|我们|我俩|咱们|一起|并肩|挽着|搂着|牵着|靠在.{0,4}(?:肩|怀)|抱着(?:她|你)|她|你/.test(t)) return true;

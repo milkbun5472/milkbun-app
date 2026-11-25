@@ -21790,6 +21790,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     Object.keys(book || {}).forEach(function (k) { out[k] = sortDiaryList(book[k]); });
     return out;
   }
+  // 自己往他那本里填（群友 2026-11-25 搬家）：手写一篇、整段导入都走这一处。source:"imported" 只是给她看的小记号，
+  //   他读自己日记时照样当自己写的
+  const addDiaryEntries = (charId, items) => { const rows = (items || []).filter(x => x && x.paras && x.paras.length).map((x, i) => ({
+      id: "d_" + Date.now() + "_" + i + "_" + Math.floor(Math.random() * 1000), ts: x.ts, no: Math.floor(Math.random() * 9000) + 1000,
+      titleEn: "", titleZh: String(x.title || "").slice(0, 40), location: "", coords: null, weather: "", timeStr: "",
+      paras: x.paras.map(t => ({ text: String(t).slice(0, 4000), secret: false, struck: false, pasted: false })), signature: "", mood: "", source: "imported" }));
+    if (!rows.length) return 0;
+    setDiaries(p => { const n = { ...p, [charId]: sortDiaryList([...rows, ...(p[charId] || [])]) }; diariesRef.current = n; saveJSON("x_diaries", n); return n; });
+    return rows.length; };
   const delDiaryEntry = (charId, entryId) => setDiaries(p => {
     const n = { ...p, [charId]: (p[charId] || []).filter(e => e.id !== entryId) };
     saveJSON("x_diaries", n);
@@ -39591,6 +39600,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onBackfill: (id, opts) => backfillDiary(id, opts),  // opts.days=[ts] 只补那一天
     onDelEntry: delDiaryEntry,
     onSetEntryDate: setDiaryEntryDate,
+    onAddEntries: (id, items) => { const n = addDiaryEntries(id, items); toast(n ? "放进去了 " + n + " 篇" : "没认出内容"); },
     onMarkRead: markDiaryRead,
     onSaveFields: saveDiaryFields,
     onPhotoDiary: genPhotoDiary, onDelPhotoDiary: delPhotoDiary, photoDiaryBusy: photoDiaryBusy,

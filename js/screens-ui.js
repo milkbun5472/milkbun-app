@@ -11689,12 +11689,13 @@ function DiaryCommentPickSheet({ characters, onConfirm, onClose }) {
     h("button", { onClick: () => { if (sel.length) onConfirm(sel); }, disabled: !sel.length, className: "w-full mt-5 active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))" } }, sel.length ? "让这 " + sel.length + " 位评论" : "先选角色"));
 }
 
-function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSetEntryDate, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, onDelPhotoDiary, photoDiaryBusy, onMarkRead, toast }) {
+function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSetEntryDate, onAddEntries, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, onDelPhotoDiary, photoDiaryBusy, onMarkRead, toast }) {
   const t = useTheme();
   // 「我」也是一个作者（No.00），放在最前
   const meAuthor = { id: "__me", name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || t.accent, motto: profile.tagline || "", isMe: true };
   const authors = [meAuthor, ...characters];
   const [pickDay, setPickDay] = useState(false); // 「补齐」弹出的挑日子单
+  const [imp, setImp] = useState(null); // 自己填：{ mode: "one"|"bulk", date, text }（群友 2026-11-25 搬家）
   const [view, setView] = useState("archive"); // archive(默认大图) | home(目录) | entries | entry | compose
   const [curId, setCurId] = useState(characters[0] ? characters[0].id : "__me");
   const [curEntry, setCurEntry] = useState(null);
@@ -11879,7 +11880,22 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         onClick: () => { setPickDay(false); onBackfill && onBackfill(curId); },
         className: "active:opacity-60 disabled:opacity-40",
         style: { width: "100%", marginTop: 12, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub }
-      }, "全部补齐（" + missing.length + " 篇）") : null));
+      }, "全部补齐（" + missing.length + " 篇）") : null,
+      // 自己填：手写一篇（挑日子写正文）、整段粘进来（按行首日期拆成一篇篇）。填进去的他当自己写的
+      onAddEntries ? h("div", { "data-wk": "diimport", style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed " + t.line } },
+        !imp ? h("div", { className: "flex", style: { gap: 8 } },
+          h("button", { onClick: () => { const d = new Date(); d.setDate(d.getDate() - 1); setImp({ mode: "one", date: d.toISOString().slice(0, 10), text: "" }); }, className: "flex-1 active:opacity-60", style: { padding: "10px 0", borderRadius: 12, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "自己写一篇"),
+          h("button", { onClick: () => setImp({ mode: "bulk", text: "" }), className: "flex-1 active:opacity-60", style: { padding: "10px 0", borderRadius: 12, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "整段粘进来"))
+        : h("div", null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 8 } }, imp.mode === "one" ? "写在哪一天、写什么。存进去就是他这一天的日记，他会当成自己写的。" : "把别处的日记整段粘进来：每篇开头一行写日期（像 2025年3月1日、3月1日、3/1），日期后面同一行的字当标题。一个日期都没写的，整段算昨天那一篇。"),
+          imp.mode === "one" ? h("input", { type: "date", value: imp.date, onChange: e => setImp({ ...imp, date: e.target.value }), style: { width: "100%", minWidth: 0, boxSizing: "border-box", marginBottom: 8, padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 16 } }) : null,
+          h("textarea", { value: imp.text, onChange: e => setImp({ ...imp, text: e.target.value }), rows: 8, placeholder: imp.mode === "one" ? "正文，空一行分一段" : "粘贴在这里", style: { width: "100%", boxSizing: "border-box", padding: "10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 16, lineHeight: 1.7 } }),
+          h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+            h("button", { onClick: () => setImp(null), className: "flex-1 active:opacity-60", style: { padding: "10px 0", borderRadius: 12, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "算了"),
+            h("button", { onClick: () => { const y = new Date(); y.setDate(y.getDate() - 1); y.setHours(22, 30, 0, 0);
+                const items = imp.mode === "one" ? (() => { const d = new Date(imp.date + "T22:30:00"); const ps = String(imp.text || "").split(/\n\s*\n|\n/).map(x => x.trim()).filter(Boolean); return ps.length && !isNaN(d.getTime()) ? [{ ts: d.getTime(), title: "", paras: ps }] : []; })() : (typeof diaryImportParse === "function" ? diaryImportParse(imp.text, y.getTime()) : []);
+                if (!items.length) { toast && toast("没认出内容"); return; } onAddEntries(curId, items); setImp(null); setPickDay(false); },
+              className: "flex-1 active:opacity-60", style: { padding: "10px 0", borderRadius: 12, background: t.ink, color: t.bg2, border: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "放进去")))) : null));
     // 目录也铺TA那张纸：翻TA的日记，从目录起就该是TA的本子
     return h("div", { className: "h-full flex flex-col", "data-wk": "dibg", "data-paper": diaryPaperOf(curAuthor, isMe), style: pageSkin(diaryPaperOf(curAuthor, isMe), t, { corner: false, strength: .7 }) }, daySheet,
       h(Head, {
@@ -11930,6 +11946,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
             h("div", { className: "flex-1 min-w-0" },
               e.unread ? h("div", { "data-wk": "diunread", style: { display: "inline-flex", alignItems: "center", gap: 5, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.accent, marginBottom: 4 } },
                 h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, display: "inline-block" } }), "没看") : null,
+              e.source === "imported" ? h("div", { "data-wk": "diimported", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "0 6px", marginBottom: 4, marginLeft: e.unread ? 6 : 0 } }, "搬来的") : null,
               titleMain ? h("div", { "data-wk": "dititle", className: "line-clamp-2", style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, titleMain) : null,
               h("div", { "data-wk": "dibody", className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.75, color: t.sub } }, diaryPreview(e)),
               (marks.length || (isMe && (e.comments || []).length)) ? h("div", { "data-wk": "dimarks", className: "flex items-center", style: { gap: 7, marginTop: 10 } },
