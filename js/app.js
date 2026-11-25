@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.236";
+const APP_VERSION = "v90.237";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11653,7 +11653,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     purgeCharData(new Set([id]), null, only);
     if (only.has("chat")) setChatSettings(p => { const n = { ...p, [id]: { ...(p[id] || {}), lastSummarizedCount: 0 } }; saveJSON("x_chatSettings", n); return n; });
     if (only.has("memory")) setMemFor(id, "");
-    if (only.has("chat")) { try { if (window.Cloud && window.Cloud.chatArchiveClear) await window.Cloud.chatArchiveClear(id); } catch (e) { toast("本机清好了，云端旧聊天归档没清掉：" + ((e && e.message) || e)); return; } 
+    if (only.has("chat")) { try { if (window.Cloud && window.Cloud.chatArchiveClear) await window.Cloud.chatArchiveClear(id); } catch (e) { toast("本机清好了，云端旧聊天归档没清掉：" + ((e && e.message) || e)); return; }
       // 云上那份清空了，本机那本计数簿也得归零——不然聊天顶上还挂着「更早的 N 条在云端」，点开却是空的（群友 2026-11-25）
       const marks = loadJSON("x_chatArch", {}); if (marks[id]) { delete marks[id]; saveJSON("x_chatArch", marks); setChatArch(marks); } }
     toast(only.size >= ((window.CharPurge && window.CharPurge.CATS.length) || 7) ? "「" + (c.name || "TA") + "」重置好了，下次聊天就是第一次见面" : "清好了");
