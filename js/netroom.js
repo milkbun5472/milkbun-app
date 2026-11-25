@@ -1617,7 +1617,7 @@
   // ＋ 里的那些：跟单聊、群聊用的同一套键（ChatToolKey）。两个人之间、本机的那几样（通话、通话记录、朋友圈、转账、亲属卡、给TA看手机、邀约、半窗）不放
   // ＋ 里单独一格进的那几盒（擂台、跑团）：开局页点返回回到房间聊天，不落到小游戏大厅（她 11-22）
   const OWN_SLOT = { debate: true, trpg: true };
-  const NR_PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["chatsearch", "查找记录", "magnifier"],
+  const NR_PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["groupshot", "合照", "camera"], ["voicemsg", "发语音", "wave"], ["chatsearch", "查找记录", "magnifier"],
     ["poll", "投票", "bars"], ["rp", "红包", "packet"], ["ask", "请示", "checklist"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["file", "文件", "file"], ["topics", "话题卡", "quote"], ["listen", "一起听", "note"], ["game", "小游戏", "dice"], ["debate", "擂台", "podium"], ["trpg", "跑团", "d20"]];
   // 擂台单独一格（她 11-22：「擂台从小游戏里面移出来放聊天加号里面」），不再摆在小游戏架子最后
   // 房间页 ＋ 面板、各个小窗、长按菜单（拆在外面，免得 NetRoomApp 一大坨）
@@ -1645,6 +1645,25 @@
         h("input", { "data-wk": "input", value: A.photoText, onChange: e => A.setPhotoText(e.target.value), placeholder: A.photoImgs.length ? "可以顺手说一句（选填）" : "不选图就写一句照片里有什么",
           className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink, background: t.bg, marginTop: 10 } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "可以一次挑几张，图会压小了一张张发给房里的人；那句说明跟在第一张上，大家的角色看到的是这句说明。")),
+      sheet === "groupshot" && (() => {
+        const rows = ((room.myChars || []).filter(c => c.selfie).map(c => ({ key: "me:" + c.id, label: c.name, char: charsById[c.id] || null, who: "我带来的" })))
+          .concat(...(room.peers || []).map(p => (p.chars || []).map(c => ({ key: p.peerId + ":" + c.id, label: c.name, char: { id: c.id, name: c.name, avatarImage: c.avatar || "", avatarEmoji: c.emoji || "", color: c.color || "" }, who: p.nick + " 带来的" }))));
+        const n = rows.filter(x => A.shotPick[x.key]).length;
+        return h(Sheet, { key: "gs", onClose: close, tall: true },
+          h("div", { className: "flex items-center justify-between mb-2" },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: fs(19), color: t.ink } }, "合照"),
+            h("button", { "data-wk": "nrshotgo", onClick: A.shootGroup, style: { minHeight: 34, padding: "0 14px", borderRadius: 17, background: n >= 2 ? t.ink : t.line, color: t.bg, fontFamily: F_BODY, fontSize: fs(13) } }, "拍" + (n ? " · " + n + " 人" : ""))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5, marginBottom: 10 } }, "勾上要入镜的角色，用你这台的生图线路画一张（按张计费），发进房间大家都看得到。每个人都要有参考照才拍得进去；别人带来的，拍的时候会跟她那台要一份 TA 的参考照和外貌描述，她那边开着「允许拍照」才给。"),
+          rows.length ? h("div", { className: "space-y-1", style: { maxHeight: "40vh", overflowY: "auto" } }, rows.map(x => h("button", { key: x.key, "data-wk": "nrshotpick", "data-on": A.shotPick[x.key] ? "1" : "0",
+            onClick: () => A.setShotPick(p => Object.assign({}, p, { [x.key]: !p[x.key] })), className: "w-full flex items-center gap-3 py-2 px-2 active:opacity-60",
+            style: { borderRadius: 10, background: A.shotPick[x.key] ? t.bg : "transparent" } },
+            x.char ? h(Avatar, { character: x.char, size: 34, radius: 8 }) : null,
+            h("span", { className: "flex-1 text-left", style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, x.label),
+            h("span", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog } }, (A.shotPick[x.key] ? "✓ " : "") + x.who))))
+            : h("div", { style: { fontFamily: F_BODY, fontSize: fs(13), color: t.fog, padding: "12px 0" } }, "房里还没有能拍的角色。自己带来的要在挑人那页开「允许拍照」。"),
+          h("input", { "data-wk": "input", value: A.shotScene, onChange: e => A.setShotScene(e.target.value), placeholder: "画面里在干嘛（选填）：比如在游乐园排队买冰淇淋",
+            className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink, background: t.bg, marginTop: 10 } }));
+      })(),
       sheet === "voicemsg" && h(Sheet, { key: "vo", onClose: close },
         h(VoiceEarComposer, { onSend: msg => { close(); A.sayRich("voice", { content: msg.content, dur: msg.dur }); }, onClose: close, senderName: myNick(), ownerKey: props.profile && (props.profile.id || props.profile.name), toast: props.toast })),
       sheet === "geo" && h(GeoStampSheet, { key: "geo", recent: [], places: [], onMoveMe: null, onClose: close, onSend: name => { close(); A.sayRich("geo", { name }); } }),
@@ -1734,6 +1753,9 @@
     const [panel, setPanel] = useState(false);       // ＋ 面板开着没
     const [sheet, setSheet] = useState(null);        // ＋ 里点开的那一样
     const [photoImgs, setPhotoImgs] = useState([]), [photoText, setPhotoText] = useState("");
+    // 合照：勾了谁（键＝"me:角色id" 或 "peerId:角色id"）、写的画面、正在拍没
+    const [shotPick, setShotPick] = useState({}), [shotScene, setShotScene] = useState(""), [shotBusy, setShotBusy] = useState(false);
+    const lookWait = useRef({});   // 跟别人要角色样子：{ 请求号: { left, looks, done } }
     const [menuAt, setMenuAt] = useState(null);      // 长按的那一条（下标）
     const [rpOpen, setRpOpen] = useState(null);      // 点开的那个红包（rpId）
     const fillRef = useRef(null);
@@ -1837,6 +1859,29 @@
       if (e.t === "turn") { const x = e.ice || {}, c = Core.cleanTurn({ url: (Array.isArray(x.urls) ? x.urls : []).slice(0, 4).join(","), user: x.username, pass: x.credential });
         if (c && mesh.current && mesh.current.setIce && mesh.current.setIce(Core.ICE_SERVERS.concat([c]))) sysLine(nickOf(origin) + " 把她的中转借给房里用了，连不上的人正在重新接");
         return; }
+      if (e.t === "lookreq" && Array.isArray(e.ids)) {
+        // 别人要拍合照、来要我带来的角色长什么样：只给开着「允许拍照」、有参考照的；人设一个字不给
+        (async () => {
+          const mine = (r.myChars || []).filter(c => c.selfie && e.ids.map(String).indexOf(String(c.id)) >= 0);
+          const looks = [];
+          for (const c of mine.slice(0, 10)) {
+            const lk = props.lookOf ? props.lookOf(c.id) : null; if (!lk || !lk.refPhoto) continue;
+            const ref = await shrinkImg(lk.refPhoto, 768, 120000); if (!ref) continue;
+            looks.push({ id: String(c.id), name: String(lk.name || c.name || "").slice(0, 40), appearance: String(lk.appearance || "").slice(0, 400), photoStyle: lk.photoStyle === "anime" ? "anime" : "", refPhoto: ref });
+          }
+          send({ t: "look", rid: String(e.rid || "").slice(0, 40), looks }, origin);
+        })();
+        return;
+      }
+      if (e.t === "look") {
+        const w = lookWait.current[String(e.rid || "")]; if (!w) return;
+        (Array.isArray(e.looks) ? e.looks : []).slice(0, 10).forEach(x => {
+          if (x && typeof x.refPhoto === "string" && /^data:image\//.test(x.refPhoto) && x.refPhoto.length < 200000)
+            w.looks.push({ key: origin + ":" + String(x.id), name: String(x.name || "").slice(0, 40), appearance: String(x.appearance || "").slice(0, 400), photoStyle: x.photoStyle === "anime" ? "anime" : "", refPhoto: x.refPhoto });
+        });
+        w.left.delete(origin); if (!w.left.size) w.done();
+        return;
+      }
       if (e.t === "links") { linkMap.current[origin] = (Array.isArray(e.ids) ? e.ids : []).map(String).slice(0, MAX_LINKS); syncNet(); }
       else if (e.t === "hi") {
         const known = !!Core.peerOf(r, origin), nick = String(e.nick || "对方").slice(0, 20);
@@ -2639,6 +2684,7 @@
       if (k === "debate") { const D = GC() && GC().ADAPTERS.debate; if (D && D.shelf) { setGamePend({ game: D.shelf, cfg: {} }); setPage("gameprep"); } else props.toast && props.toast("擂台还没装上，再点一次试试"); return; }
       if (k === "location") setSheet("geo");
       else if (k === "photo") { setPhotoImgs([]); setPhotoText(""); setSheet("photo"); }
+      else if (k === "groupshot") { if (!props.drawCast) { props.toast && props.toast("这台还拍不了合照"); return; } setShotPick({}); setShotScene(""); setSheet("groupshot"); }
       else if (k === "file") pickTextFile(msg => sayRich("file", msg));
       else setSheet(k === "voicemsg" ? "voicemsg" : k);
     };
@@ -2657,6 +2703,41 @@
         sayRich("photo", { desc: first ? cap : "", img, imageRef: ref }); first = false;
       }
       if (bad) props.toast && props.toast(bad + " 张图没能压小，没发出去，换一张试试");
+    };
+    // 合照：自己带来的直接拿；别人带来的跟她那台要（她开着「允许拍照」、TA 有参考照才给），等最多 25 秒，
+    //   凑齐了用我这台的生图线路画一张，当我发的照片发进房间
+    const shootGroup = async () => {
+      const r = roomRef.current; if (!r || shotBusy) return;
+      const keys = Object.keys(shotPick).filter(k => shotPick[k]);
+      if (keys.length < 2) { props.toast && props.toast("至少勾两个人"); return; }
+      setShotBusy(true); setSheet(null);
+      props.toast && props.toast("在拍合照，要等一会儿", 4000);
+      try {
+        const cast = [];
+        keys.filter(k => k.indexOf("me:") === 0).forEach(k => { const lk = props.lookOf ? props.lookOf(k.slice(3)) : null;
+          if (lk && lk.refPhoto) cast.push({ key: k, name: lk.name, appearance: lk.appearance || "", photoStyle: lk.photoStyle || "", refPhoto: lk.refPhoto }); });
+        const ask = {}; keys.filter(k => k.indexOf("me:") !== 0).forEach(k => { const i = k.indexOf(":"); (ask[k.slice(0, i)] = ask[k.slice(0, i)] || []).push(k.slice(i + 1)); });
+        const owners = Object.keys(ask);
+        if (owners.length) {
+          const rid = Core.rid();
+          const got = await new Promise(done => {
+            const w = { left: new Set(owners), looks: [], done: () => { clearTimeout(w.tm); delete lookWait.current[rid]; done(w.looks); } };
+            w.tm = setTimeout(w.done, 25000); lookWait.current[rid] = w;
+            owners.forEach(pid => send({ t: "lookreq", rid, ids: ask[pid] }, pid));
+          });
+          got.forEach(x => { if (keys.indexOf(x.key) >= 0) cast.push(x); });
+        }
+        const miss = keys.length - cast.length;
+        if (cast.length < 2) { props.toast && props.toast("能入镜的不到两个：要 TA 有参考照，别人带来的还要她那边开着「允许拍照」", 8000); return; }
+        const scene = shotScene.trim();
+        const img0 = await props.drawCast(cast.slice(0, 10), scene || "几个人凑在一起合影，自然光");
+        const img = img0 ? await shrinkImg(img0, 1024, Core.IMG_MAX.photo) : "";
+        if (!img) { props.toast && props.toast("合照没画出来，再拍一次试试"); return; }
+        let ref = ""; try { ref = await imgToVault(img); } catch (e) {}
+        sayRich("photo", { desc: "合照：" + cast.map(x => x.name).join("、") + (scene ? "。" + scene : ""), img, imageRef: ref });
+        if (miss > 0) props.toast && props.toast("有 " + miss + " 个没拍进去：没参考照，或者她那边没开「允许拍照」", 7000);
+      } catch (e) { props.toast && props.toast("合照没拍成：" + String((e && e.message) || e).slice(0, 80), 8000); }
+      finally { setShotBusy(false); }
     };
     const sendCard = async r => {
       if (r.me) { sayRich("namecard", { name: myNick(), avatar: "" }); return; }
@@ -2784,7 +2865,7 @@
 
     if (page === "pick") return shell(h(Head, { zh: repick ? "换人" : "带谁进来", onBack: () => { if (repick) { setRepick(false); setPage("chat"); } else setPage("leave"); } }), scroll([
       repick && h(Note, { key: "rp" }, "勾掉的人先走，新勾的人进来；别人那边的名单跟着换。走了的人以前说的话照旧留在记录里，退出时能记进记忆的只有现在名单上的人。"),
-      h(Note, { key: "n" }, "勾上要带进房间的人。别人只看得到 TA 们的名字和头像，人设、记忆、世界书都留在你手机上。TA 们开口用的是你自己的线路。「带上最近单聊」：TA 开口时记得你们最近在单聊里说过什么，聊天原文不发给别人，但 TA 可能自己在房间里提起。「允许自拍」：TA 想发照片时用你这台的生图线路真画一张（按张计费），关了 TA 就不发照片；默认照 TA 能不能出图来。"),
+      h(Note, { key: "n" }, "勾上要带进房间的人。别人只看得到 TA 们的名字和头像，人设、记忆、世界书都留在你手机上。TA 们开口用的是你自己的线路。「带上最近单聊」：TA 开口时记得你们最近在单聊里说过什么，聊天原文不发给别人，但 TA 可能自己在房间里提起。「允许拍照」：TA 想发照片时用你这台的生图线路真画一张（按张计费）；别人在房里拍合照时，也会把 TA 的参考照和外貌描述发给拍照的那台。关了 TA 就不发照片、也不进别人的合照；默认照 TA 能不能出图来。"),
       chars.length ? chars.map(c => h("div", { key: c.id, "data-wk": "nrpickrow", style: { padding: "6px 0" } },
         // 名字一行写满，两颗开关挪到下面一行（她 11-22 截图：并排时名字被挤成一字一行）
         h("label", { className: "flex items-center", style: { gap: 12, minHeight: 48 } },
@@ -2797,7 +2878,7 @@
           withChat[c.id] ? "✓ 带上最近单聊" : "带上最近单聊"),
         picked[c.id] && h("button", { "data-wk": "nrselfie", "data-on": selfieOn(c.id) ? "1" : "0", onClick: e => { e.preventDefault(); setSelfieSet(p => Object.assign({}, p, { [c.id]: !selfieOn(c.id) })); },
           style: { minHeight: 32, padding: "0 10px", borderRadius: 16, border: "1px solid " + (selfieOn(c.id) ? t.ink : t.line), background: selfieOn(c.id) ? t.ink : "transparent", color: selfieOn(c.id) ? t.bg : t.fog, fontFamily: F_BODY, fontSize: fs(12) } },
-          selfieOn(c.id) ? "✓ 允许自拍" : "允许自拍"))))
+          selfieOn(c.id) ? "✓ 允许拍照" : "允许拍照"))))
         : h(Note, { key: "e" }, "你还没有角色，也可以只你自己进去聊。"),
       h(Btn, { key: "go", label: repick ? "换好了" : "进房间", primary: true, onClick: enter, wk: "nrenter" })
     ]));
@@ -2917,7 +2998,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
           pillLabel: "房间聊天" + (gp.unread ? " · " + gp.unread + " 条新消息" : "") + " ▴", pillHot: gp.unread > 0 },
           h("div", { "data-wk": "nrchathalf", className: "h-full flex flex-col", style: { background: t.bg2 } }, chatCore)),
         ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sendSong, sayRich, sendRp,
-          photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
+          photoImgs, setPhotoImgs, photoText, setPhotoText, shotPick, setShotPick, shotScene, setShotScene, shootGroup, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
         joinSheet());
       return shell(
         h(Head, { zh: "房间 " + room.code, sub: "在线 " + online + " 人", onBack: () => setPage("leave"),
@@ -2940,7 +3021,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         tablesBar(),
         ...chatCore, docEl(),
         ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sendSong, sayRich, sendRp,
-          photoImgs, setPhotoImgs, photoText, setPhotoText, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
+          photoImgs, setPhotoImgs, photoText, setPhotoText, shotPick, setShotPick, shotScene, setShotScene, shootGroup, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
         joinSheet(), gp && gp.pill);
     }
 

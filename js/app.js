@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.244";
+const APP_VERSION = "v90.245";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -38899,6 +38899,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     emoteFor: (charId, kw) => emoteMatch(emotesForChar(charId), kw),
     // 房里角色自拍（默认照这个人能不能出图：接了图像通道、填了外貌或参考照）；出图走单聊那一套 shootCharPhoto，回一张 dataURL
     selfieOk: charId => { const c = characters.find(x => x.id === charId); return !!(c && typeof imgApiReady === "function" && imgApiReady() && (c.appearance || c.refPhoto)); },
+    // 房里合照：我带来的角色长什么样（名字、外貌、参考照；人设不给），和拿一份点名单画一张合影（顺序＝参考图顺序，人人都有参考照）
+    lookOf: charId => { const c = characters.find(x => x.id === charId); return c ? { name: c.remark || c.name, appearance: String(c.appearance || "").slice(0, 400), photoStyle: c.photoStyle || "", refPhoto: typeof c.refPhoto === "string" ? c.refPhoto : "" } : null; },
+    drawCast: async (cast, scene) => {
+      if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 接一个图像模型");
+      const list = (cast || []).filter(x => x && x.refPhoto).slice(0, GROUP_SHOT_MAX).map((x, i) => ({ id: "nr_" + i, name: x.name, appearance: x.appearance || "", refPhoto: x.refPhoto, photoStyle: x.photoStyle || "" }));
+      if (list.length < 2) return null;
+      const lead = list[0];
+      const prompt = buildPhotoPrompt(lead, scene, null, { kind: "group", cast: list });
+      const out = await generateSelfieImage(prompt, list.map(x => x.refPhoto), { minimalPrompt: buildMinimalPhotoPrompt(lead, { kind: "group", cast: list }) });
+      return out && out.blob ? await blobToDataUrl(out.blob) : (out && out.url) || null;
+    },
     drawPhoto: async (charId, scene, kind) => {
       const c = characters.find(x => x.id === charId); if (!c || !(typeof imgApiReady === "function" && imgApiReady())) return null;
       const out = await shootCharPhoto({ char: c, realChar: c, charId, photoKind: kind || "self", photoScene: scene, meShot: false, mySelf: false, uName: userName(profileFor(charId) || profile), askAngle: null, prevShot: null });
