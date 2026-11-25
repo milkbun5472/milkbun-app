@@ -10,3 +10,7 @@ test("返回和去别处都先 leave", () => {
   assert.match(fg, /onBack:\(\)=>leave\(\(\)=>props\.onBack\(\)\)/);
   assert.match(fg, /leave\(\(\)=>props\.onTravel\(to\)\)/);
 });
+test("进邮局晚半秒再开建 iframe：等陪伴小人那份 3D 放干净（她 2026-11-25 从集邮社进来闪退）", () => {
+  assert.match(fg, /const \[frameGo,setFrameGo\]=useState\(false\);\s*useEffect\(\(\)=>\{const t=setTimeout\(\(\)=>setFrameGo\(true\),450\);/);
+  assert.match(fg, /frameGo&&h\("iframe",\{ref:binder\.current,/);
+});

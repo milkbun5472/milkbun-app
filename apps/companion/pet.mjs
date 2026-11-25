@@ -3,13 +3,13 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {makeReactions} from './reactions.mjs?v=fg-bad2aafa1db48b97';
-import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-bad2aafa1db48b97';
-import {makeInteractions,afterInteraction} from './interactions.mjs?v=fg-bad2aafa1db48b97';
-import {targetAt} from './touch-targets.mjs?v=fg-bad2aafa1db48b97';
-import {MOODS,DUR,WEATHER_ACTIONS,moodBase,pulse,accent,chooseAction,touchForMood} from './motion.mjs?v=fg-bad2aafa1db48b97';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-bad2aafa1db48b97';
-import {createWardrobe,lookForTa,mergeLook,outfitId,outfitColors} from '../fairy-garden/wardrobe.mjs?v=fg-bad2aafa1db48b97';
+import {makeReactions} from './reactions.mjs?v=fg-1b03eb82341ad289';
+import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-1b03eb82341ad289';
+import {makeInteractions,afterInteraction} from './interactions.mjs?v=fg-1b03eb82341ad289';
+import {targetAt} from './touch-targets.mjs?v=fg-1b03eb82341ad289';
+import {MOODS,DUR,WEATHER_ACTIONS,moodBase,pulse,accent,chooseAction,touchForMood} from './motion.mjs?v=fg-1b03eb82341ad289';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-1b03eb82341ad289';
+import {createWardrobe,lookForTa,mergeLook,outfitId,outfitColors} from '../fairy-garden/wardrobe.mjs?v=fg-1b03eb82341ad289';
 const mode=new URLSearchParams(location.search).get('mode')||'full',reactions=makeReactions(),interactions=makeInteractions();
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);

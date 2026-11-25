@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS, SHOP_WORLD } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-bad2aafa1db48b97", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-1b03eb82341ad289", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -80,6 +80,11 @@
     //   邮局那份显存还没放，手机上两份叠在一起顶爆，整页崩掉重开。先让邮局自己拆干净（丢掉 WebGL 上下文）、iframe 换空页，
     //   等两帧再走
     const leaving=useRef(false);
+    // 从集邮社「回到店里」进来就闪退回开屏（她 2026-11-25，v90.225）：那一页屏幕上的陪伴小人是另一个 3D 场景，进小世界那一刻它被收起、
+    //   邮局同一刻开建——小人那份显存还没放，两份叠着把手机顶崩。从小世界列表进来时小人早收了，所以那条路不崩。
+    //   邮局晚半秒再开建，等那一份放干净
+    const [frameGo,setFrameGo]=useState(false);
+    useEffect(()=>{const t=setTimeout(()=>setFrameGo(true),450);return()=>clearTimeout(t);},[]);
     const leave=go=>{if(leaving.current)return;leaving.current=true;const node=frame.current;
       // 先记下店里此刻的样子（谁站在哪儿），下回进来接着演——原来卸 iframe 时由 binder 记，现在先拆了就记不到了
       try{const g=node?.contentWindow?.PostOfficeGame;if(g?.ready)root.StampShopScene=g.snapshot();}catch{}
@@ -88,7 +93,7 @@
       setTimeout(()=>{try{go();}finally{leaving.current=false;}},250);};
     return h("section",{"data-wk":"fairypage","data-part":"shop",className:"h-full flex flex-col",style:{background:G.paper,color:G.ink,position:"relative"}},
       h(Head,{zh:SHOP_WORLD.name,bg:"transparent",onBack:()=>leave(()=>props.onBack()),right:h("button",{onClick:()=>setPlaces(true),style:{minHeight:40,padding:"0 8px",fontSize:12}},"去别处")}),
-      h("div",{className:"flex-1 min-h-0",style:{position:"relative"}},h("iframe",{ref:binder.current,title:SHOP_WORLD.name+"游戏",src:"apps/post-office/index.html?v="+BUILD,style:{width:"100%",height:"100%",border:0,display:"block"}}),
+      h("div",{className:"flex-1 min-h-0",style:{position:"relative"}},frameGo&&h("iframe",{ref:binder.current,title:SHOP_WORLD.name+"游戏",src:"apps/post-office/index.html?v="+BUILD,style:{width:"100%",height:"100%",border:0,display:"block"}}),
         (!loaded||error&&!panel)&&h("div",{role:error?"alert":"status",style:{position:"absolute",inset:"40% 20px auto",textAlign:"center",fontSize:12}},error||"正在打开邮局…",error&&h('button',{onClick:()=>frame.current?.contentWindow.PostOfficeGame?.refresh(),style:{...pickButtonStyle(),minHeight:40,display:'block',margin:'10px auto'}},'重试读取'))),
       h("div",{className:"shrink-0",style:{padding:"5px 12px",paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:"1px solid "+G.line,display:"flex",alignItems:"center",gap:8}},
         h("p",{style:{flex:1,fontSize:10,lineHeight:1.6}},"单指转动，双指移/缩。"),
