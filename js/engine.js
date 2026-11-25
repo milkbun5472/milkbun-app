@@ -3879,6 +3879,11 @@ function splitLongBubble(s, allowComma) {
     // 连着的句尾标点中间夹空格也算一个句尾（她 2026-10-28：法语「cheveux ? !」把「!」单切成了一泡）
     out = out.reduce((acc, part) => acc.concat(part.split(/((?:\s*[。！？!?])+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean)), []);
   }
+  // 打了标点、又拿空格隔开两句的（她 2026-11-25 截图：「你这一句，说得我心里都熨帖了 刚从兵部回来」「身上还带着点寒气 正好被你这句话给捂热了 你这会儿在哪儿？」）：
+  //   下面那条「打标点的人，空格不当停顿」把整句挤在一个泡里。空格前面连着五个字以上、后面连着六个字以上（两头都是整句）时，那就是句号——在这儿切，不管多长；
+  //   「拍得我 眼睛都快花了」「我发几 张给你看看」那种词中间的短空格凑不够，照旧不切
+  const SP_STOP = /(?<=[\u4e00-\u9fff]{5})\s+(?=[\u4e00-\u9fff]{6})/g;
+  out = out.reduce((acc, part) => acc.concat(/[，,。！？!?、；;]/.test(part) && !/[\u3040-\u30ff]/.test(part) ? part.split(SP_STOP).map(x => x.trim()).filter(Boolean) : [part]), []);
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
   // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
   //   有的人不打标点、拿空格断句，那个空格就是它的逗号；门槛、最多几段、尾巴太短往回粘，全跟逗号共用。英文单词之间的空格不算
