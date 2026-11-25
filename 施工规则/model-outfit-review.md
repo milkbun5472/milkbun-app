@@ -698,3 +698,5 @@ Lisa随后指出旧衣服也有同类问题：以裸小人的实际肩／上臂�
 - 原因：壳（tools/ios-shell）的 WKWebView 没开 App-Bound Domains，Service Worker 起不来，sw.js 那层 ?v= 缓存在壳里不存在。
 - 修法：traveler.mjs 的 loadGlb：没有 Service Worker 接手时，doll／衣服／头发的 glb 按带指纹的整条网址存进 IndexedDB（qq-glb-cache），换指纹删旧。有 SW 的网页版照旧走 SW。
 - 证据：Playwright 无 SW 打开 apps/companion，第一次下 3 个 glb，第二次网络 0 个 glb、pet-ready 照常。指纹 fg-ad900744140b5c2c。
+
+聊天浮窗菱格双举：双举原有前摆和屈肘，与单侧击掌骨架轨迹不同。悬浮菱格的欢呼、惊喜和伸展逐侧复用 five-left/right 的主动臂，中段固定相机与动作进度验两侧袖根。证据 argyle-double-raise.jpg，手机实机待验。
