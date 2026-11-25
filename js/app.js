@@ -19553,10 +19553,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         Object.assign({}, st, { wearing: "", wearingUpdatedAt: 0 }),   // 卡面是另一个时刻：不套状态卡上「此刻穿着」那身（她 2026-11-17「全部生的衣服都一样」），照分镜、衣柜来
         Object.assign({ hairFree: card.kind === "if" }, duo ? { kind: "duo", me: meP, notLover: !lover, poseLine: "【两个人的姿势】两个人在一起做着这一刻的事，有互动、有动势，身体之间的距离照你们的关系，不是并排对着镜头站好。" } : { kind: "other" }, { shotLine: stampCam(!alt && /camera\s*[:：]|机位|镜头|景别/i.test(String(tx.shot || ""))) }, { closet: freeFit ? "" : closetTextFor(char.id, 240) }, paint && paint !== "real" ? { paint } : {}));
       const refs = [char.refPhoto, duo && meP && meP.refPhoto].filter(Boolean);
-      // 跟聊天里拍照走同一套参数（群友 2026-11-25「邮票每次都说没锁住脸、要等很久，聊天里生图很快也能锁住」）：
-      //   卡面原来写死了 1024x1536 大竖图，比她在图像站里设的尺寸大，站子画得慢、常常等到超时，报出来就是「锁脸没成功」；
-      //   现在跟聊天一样用她设的尺寸，也带上被拦时换短描述的那一格
-      const out = await generateSelfieImage(prompt, refs.length ? refs : null, { minimalPrompt: typeof buildMinimalPhotoPrompt === "function" ? buildMinimalPhotoPrompt(char, { kind: duo ? "duo" : "self" }) : undefined });
+      // 卡面要竖图（她 2026-11-25「我就是要竖图」）；带上被拦时换短描述的那一格，跟聊天拍照一样
+      const out = await generateSelfieImage(prompt, refs.length ? refs : null, { size: "1024x1536", minimalPrompt: typeof buildMinimalPhotoPrompt === "function" ? buildMinimalPhotoPrompt(char, { kind: duo ? "duo" : "self" }) : undefined });
       const blob = await imgOutBlob(out); if (!blob) throw new Error(out && out.url ? "站子画好了，但只给了一个图片链接、不让 app 下载下来（跨域）：换一条直接回图的线路，或在站子那边改成返回 base64" : "没拿到图");
       const key = "img_stamp_" + cardId + (alt ? "_alt" : "") + "_" + Date.now().toString(36);
       await idbImgPut(key, blob);
