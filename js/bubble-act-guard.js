@@ -143,7 +143,9 @@
     //   「我坐在沙发扶手旁，手里端着刚洗好的小番茄，笑眯眯看着你们」成了一个气泡）——这正是动描那一格的写法，
     //   只是写错了格子。只认这一个窄形状：「我」开头、紧跟位置姿势、句里一串「着」、不像在说话。认不出照旧不动。
     if (o.group) {
-      if (!o.actOn) return nothing;
+      // 动描关着的群（她 2026-11-25 截图：「我靠在偏殿软阁的紫檀椅背上，转着手里的墨玉扳指……」成了一个气泡）：没有动描那一格可挪，
+      //   就地收进（），一眼是动作、不像他发出去的话
+      if (!o.actOn) { const any = list.some(selfStage); return any ? { words: list.map(w => selfStage(w) ? "（" + w.replace(/^[（(]|[）)]$/g, "") + "）" : w), acts: [] } : nothing; }
       const acts = list.filter(selfStage);
       return acts.length ? { words: list.filter(w => !selfStage(w)), acts } : nothing;
     }
