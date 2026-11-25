@@ -9585,7 +9585,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 合照必须两张参考照都在，否则降级成「她替TA拍的单人照」——绝不一张真一张编。
     let kind = wantMe ? "me" : ["other", "duo", "group"].includes(arg.kind) ? arg.kind : "self";
     if (kind === "duo" && !offlinePhotoCanDuo(char)) kind = "other";
-    if (kind === "duo" && !arg.third && typeof photoDuoSaid === "function" && !photoDuoSaid(scene, userName(profileFor(char.id) || profile))) kind = "self";
+    // 「两个人都在」只是给他自己说要拍照时用来判的；她亲手点的「我俩合照」就是合照（群友 2026-11-25：点合照每次都出自拍——现拍的场景描述里没写她的名字，被这一句降成了自拍）
+    if (kind === "duo" && !arg.third && !arg.explicit && typeof photoDuoSaid === "function" && !photoDuoSaid(scene, userName(profileFor(char.id) || profile))) kind = "self";
     let cast = kind === "group" ? (arg.cast || []) : null;
     if (kind === "group" && (!cast || cast.length < 2)) { kind = "other"; cast = null; }
     // reuseSid：重拍 / 改描述重拍（她 2026-10-02：「线下的图不能编辑重roll」）——就地换这一格的像素，不另挂一张。
@@ -9736,7 +9737,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const st = liveStateForScope(charId, scopeKey);
     const bits = [freshLiveStateValue(st, "action"), freshLiveStateValue(st, "wearing")].map(x => String(x || "").trim()).filter(Boolean);
     const scene = bits.length ? bits.join("，") : "此刻的样子，平静的自然光";
-    await runOfflineShot({ char, scopeKey, kind, scene, third });
+    await runOfflineShot({ char, scopeKey, kind, scene, third, explicit: true });
   };
   const genOfflineFrom = async (scopeKey, workSess) => {
     const charId = offlinePersonId(scopeKey);
