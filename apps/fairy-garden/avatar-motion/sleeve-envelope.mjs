@@ -1,6 +1,6 @@
-import {createOutwardSleeve} from './outward-sleeve.mjs?v=fg-1b632cf8aa8b2311';
-import {createCovarianceRotation} from './covariance-rotation.mjs?v=fg-1b632cf8aa8b2311';
-import {fitRigid} from './rigid-fit.mjs?v=fg-1b632cf8aa8b2311';
+import {createOutwardSleeve} from './outward-sleeve.mjs?v=fg-b8cd24229a56fb6b';
+import {createCovarianceRotation} from './covariance-rotation.mjs?v=fg-b8cd24229a56fb6b';
+import {fitRigid} from './rigid-fit.mjs?v=fg-b8cd24229a56fb6b';
 const anchorCache=new WeakMap();
 function materialAnchors(data){let rows=anchorCache.get(data);if(rows)return rows;
  const a=data.anchors;rows=new Map(a.ids.map((id,j)=>[id,[id,a.side[j],a.weight[j],a.body.slice(j*3,j*3+3),a.bary.slice(j*3,j*3+3),a.offset[j],a.baseBody.slice(j*3,j*3+3),a.baseBary.slice(j*3,j*3+3),a.baseOffset[j]]]));anchorCache.set(data,rows);return rows;
