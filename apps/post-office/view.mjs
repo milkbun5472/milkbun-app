@@ -1,22 +1,22 @@
-import {createNpcProps,makeNpcLeaf,applyNpcPresence,settleNpcHeadwear} from './npc-props.mjs?v=fg-892025f76645ba84';
-import {createAnimalFigure} from '../fairy-garden/animal-figure.mjs?v=fg-892025f76645ba84';
-import {isPostalCat} from './cat-visit.mjs?v=fg-892025f76645ba84';
-import {shopNavigation} from './flow.mjs?v=fg-892025f76645ba84';
-import {SHOP_FLOOR,SHOP_CHAIR,SHOP_BENCH,SHOP_COUNTER,COUNTER_SURFACE} from './furniture.mjs?v=fg-892025f76645ba84';
-import {storyAnimation,storyHandPoint,makeStoryLetter,applyStoryPair,createStoryTools} from '../fairy-garden/story-motion.mjs?v=fg-892025f76645ba84';
-import {createShopExterior} from './exterior.mjs?v=fg-892025f76645ba84';
-import {createDayEnvironment,prepareEnvironmentSurfaces} from '../fairy-garden/day/environment-view.mjs?v=fg-892025f76645ba84';
-import {makeNpcCostume} from './npc-outfits.mjs?v=fg-892025f76645ba84';
-import {createShopFlow,unitSeat} from './flow.mjs?v=fg-892025f76645ba84';
-import {createShopDecor} from './decor-view.mjs?v=fg-892025f76645ba84';
+import {createNpcProps,makeNpcLeaf,applyNpcPresence,settleNpcHeadwear} from './npc-props.mjs?v=fg-1b03eb82341ad289';
+import {createAnimalFigure} from '../fairy-garden/animal-figure.mjs?v=fg-1b03eb82341ad289';
+import {isPostalCat} from './cat-visit.mjs?v=fg-1b03eb82341ad289';
+import {shopNavigation} from './flow.mjs?v=fg-1b03eb82341ad289';
+import {SHOP_FLOOR,SHOP_CHAIR,SHOP_BENCH,SHOP_COUNTER,COUNTER_SURFACE} from './furniture.mjs?v=fg-1b03eb82341ad289';
+import {storyAnimation,storyHandPoint,makeStoryLetter,applyStoryPair,createStoryTools} from '../fairy-garden/story-motion.mjs?v=fg-1b03eb82341ad289';
+import {createShopExterior} from './exterior.mjs?v=fg-1b03eb82341ad289';
+import {createDayEnvironment,prepareEnvironmentSurfaces} from '../fairy-garden/day/environment-view.mjs?v=fg-1b03eb82341ad289';
+import {makeNpcCostume} from './npc-outfits.mjs?v=fg-1b03eb82341ad289';
+import {createShopFlow,unitSeat} from './flow.mjs?v=fg-1b03eb82341ad289';
+import {createShopDecor} from './decor-view.mjs?v=fg-1b03eb82341ad289';
 import * as T from 'three';
-import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-892025f76645ba84';
-import {createWorldRenderer,disposeWorldRenderer} from '../fairy-garden/world-renderer.mjs?v=fg-892025f76645ba84';
-import {createMapGesture,createMapOrbit,orthographicCameraPose,orthographicPanDelta} from '../fairy-garden/view-controls.mjs?v=fg-892025f76645ba84';
-import {splitRoomCutaway,createRoomCutaway} from '../fairy-garden/day/camera-view.mjs?v=fg-892025f76645ba84';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-892025f76645ba84';
-import {disposeMap} from '../fairy-garden/map-loader.mjs?v=fg-892025f76645ba84';
-import {visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-892025f76645ba84';
+import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-1b03eb82341ad289';
+import {createWorldRenderer,disposeWorldRenderer} from '../fairy-garden/world-renderer.mjs?v=fg-1b03eb82341ad289';
+import {createMapGesture,createMapOrbit,orthographicCameraPose,orthographicPanDelta} from '../fairy-garden/view-controls.mjs?v=fg-1b03eb82341ad289';
+import {splitRoomCutaway,createRoomCutaway} from '../fairy-garden/day/camera-view.mjs?v=fg-1b03eb82341ad289';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-1b03eb82341ad289';
+import {disposeMap} from '../fairy-garden/map-loader.mjs?v=fg-1b03eb82341ad289';
+import {visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-1b03eb82341ad289';
 export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthly,onMeetEnd,onEvent}={}){
  const renderer=createWorldRenderer(stage),scene=new T.Scene(),camera=new T.OrthographicCamera(-6,6,7,-7,.1,100),kit=createRoomKit();
  const {root,box,cylinder,sphere,ellipsoid,tube,group,sign,table,chair,bench,plant}=kit;
@@ -118,7 +118,7 @@ export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthl
  async function ensureActors(){
   if(!flow.units.size)return;const source=[...flow.units.values()].some(u=>!isPostalCat(u))?await loadTravelerSource():null;if(closed)return;
   const ready=[];
-  for(const u of flow.units.values()){let a=people.get(u.key);if(!a){const animal=isPostalCat(u)?createAnimalFigure():null,avatar=animal?{root:animal.root,mouth:animal.mouth,animate:animal.animate,dispose:animal.dispose,setLook(){},ready:()=>Promise.resolve()}:createTraveler(source,true,u.look,u.npcStyle?{costume:(model,look)=>makeNpcCostume(model,u.npcStyle,look)}:{skeletonOnly:true}),label=document.createElement('span'),bubble=document.createElement('span');label.className='staff-label';bubble.className='shop-speech';bubble.hidden=true;if(animal)bubble.classList.add('cat-meow');labels.append(label,bubble);a={key:u.key,avatar,animal,label,bubble,badgeKey:''};if(u.npcStyle&&!animal)a.props=createNpcProps(scene,avatar,u.look,{walkable:npcNav.walkable});a.letter=null;people.set(u.key,a);scene.add(avatar.root);}
+  for(const u of flow.units.values()){let a=people.get(u.key);if(!a){const animal=isPostalCat(u)?createAnimalFigure():null,avatar=animal?{root:animal.root,mouth:animal.mouth,animate:animal.animate,dispose:animal.dispose,setLook(){},ready:()=>Promise.resolve()}:createTraveler(source,true,u.look,u.npcStyle?{costume:(model,look)=>makeNpcCostume(model,u.npcStyle,look)}:{}),label=document.createElement('span'),bubble=document.createElement('span');label.className='staff-label';bubble.className='shop-speech';bubble.hidden=true;if(animal)bubble.classList.add('cat-meow');labels.append(label,bubble);a={key:u.key,avatar,animal,label,bubble,badgeKey:''};if(u.npcStyle&&!animal)a.props=createNpcProps(scene,avatar,u.look,{walkable:npcNav.walkable});a.letter=null;people.set(u.key,a);scene.add(avatar.root);}
    const appearance=JSON.stringify(u.look);if(a.lookKey!==appearance){a.avatar.setLook(u.look,true);a.lookKey=appearance;}
    a.label.textContent=u.kind==='staff'?u.name+' · '+u.post:u.urgent?'急':u.visitor?u.name:'';a.label.classList.toggle('urgent',!!u.urgent);
    ready.push(a.avatar.ready().then(()=>{if(closed||!people.has(u.key))return;if(!a.animal)syncBadge(a,u);if(u.npcStyle&&!a.animal)settleNpcHeadwear(a.avatar.root,u.look);a.headHeight=a.animal?.55:1.55;if(u.npcStyle&&u.look?.npcRare==='ghost'&&!a.ghost){a.ghost=true;applyNpcPresence(a.avatar.root,u.look);}}));
