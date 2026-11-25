@@ -143,9 +143,7 @@
     //   「我坐在沙发扶手旁，手里端着刚洗好的小番茄，笑眯眯看着你们」成了一个气泡）——这正是动描那一格的写法，
     //   只是写错了格子。只认这一个窄形状：「我」开头、紧跟位置姿势、句里一串「着」、不像在说话。认不出照旧不动。
     if (o.group) {
-      // 动描关着的群（她 2026-11-25 截图：「我靠在偏殿软阁的紫檀椅背上，转着手里的墨玉扳指……」成了一个气泡）：没有动描那一格可挪，
-      //   就地收进（），一眼是动作、不像他发出去的话
-      if (!o.actOn) { const any = list.some(selfStage); return any ? { words: list.map(w => selfStage(w) ? "（" + w.replace(/^[（(]|[）)]$/g, "") + "）" : w), acts: [] } : nothing; }
+      if (!o.actOn) return nothing;
       const acts = list.filter(selfStage);
       return acts.length ? { words: list.filter(w => !selfStage(w)), acts } : nothing;
     }
@@ -164,10 +162,14 @@
   // ⚠️宁可漏判：认不出来就照旧是动描，维持现状。「一个气泡都没有」不算证据——
   //   有人这一拍确实只动不说（「我低头刷手机」），挪成气泡就成了他发出去的消息。
   const TAIL_PARTICLE = /[吧呢啊嘛呀哦哈啦咯呗噢喔]$|[~～…]$/;
+  // 「你来我往」「你一言我一语」这种成语里的「你」不是对着谁说话（她 2026-11-25 截图：动描「……看着屏幕上这几人的你来我往，唇边泛起一丝笑意。」
+  //   被当成台词挪回了气泡）；写得明明白白是舞台说明的（selfStage 那个窄形状）也不算台词
+  const YOU_IDIOM = /你[来争追推谦死][我]?[往夺赶让活]|你一言我一语|你侬我侬|你情我愿|你我/g;
   function spokenAction(value) {
     const text = clean(value).replace(/[。，,.]+$/, "");
     if (!text) return false;
-    return SECOND_PERSON.test(text) || SPEAKING.test(text) || TAIL_PARTICLE.test(text);
+    if (selfStage(text)) return false;
+    return SECOND_PERSON.test(text.replace(YOU_IDIOM, "")) || SPEAKING.test(text) || TAIL_PARTICLE.test(text);
   }
 
   return { split, couldBeAct, hasActEvidence, pullLabeled, pullSelfBracket, spokenAction };
