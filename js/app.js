@@ -2013,9 +2013,11 @@ function App() {
     const on = ev => {
       const d = (ev && ev.detail) || {};
       if (!bgToastOn()) return;
-      const via = d.route ? "（" + d.route + "）" : "";
-      toast(d.ok ? "后台 · " + d.show + " 生成好了" + via
-        : "后台 · " + d.show + " 没生成出来" + via + "：" + String(d.msg || "").replace(/\s+/g, " ").slice(0, 60), d.ok ? 2600 : 5000);
+      // 打头写「自动」不写「后台」（她 2026-11-25）：这些是它自己跑起来的活，走哪条线路各不相同（群里自己聊走群挑的那条或线上），
+      //   写「后台」会被当成走了后台 API；线路照实写在括号里
+      const via = d.route ? "（走 " + d.route + "）" : "";
+      toast(d.ok ? "自动 · " + d.show + " 生成好了" + via
+        : "自动 · " + d.show + " 没生成出来" + via + "：" + String(d.msg || "").replace(/\s+/g, " ").slice(0, 60), d.ok ? 2600 : 5000);
     };
     window.addEventListener("bg-call", on);
     return () => window.removeEventListener("bg-call", on);
