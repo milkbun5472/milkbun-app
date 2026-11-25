@@ -1027,7 +1027,8 @@ async function callAI(p, system, messages, opts) {
     // 线路不收历史里的图（她 2026-11-03 截图：「contents[158].parts[1].inlineData is not supported in text history」）：
     //   这一轮她没新发图时，会照旧带上最近两张旧图，挂在更早那几条消息上——有的中转只认最后一条里的图。
     //   照着报错退一步：先只留最后一条的图，还不行就一张都不带。原样再发一次，别让整轮失败。
-    if (!streamed && /not supported in (?:text )?history|inline_?data[^\n]{0,60}not supported|image[^\n]{0,40}(?:not supported|unsupported)|does not support (?:image|vision)/i.test(msg)
+    //   自己架的模型（vLLM 这类）没开看图（她 2026-11-25 截图：「Received multimodal data but multimodal processing is not enabled」）也是同一件事
+    if (!streamed && /not supported in (?:text )?history|inline_?data[^\n]{0,60}not supported|image[^\n]{0,40}(?:not supported|unsupported)|does not support (?:image|vision)|multimodal[^\n]{0,60}not enabled/i.test(msg)
       && Array.isArray(messages) && messages.some(m => m && Array.isArray(m.imageDataUrls) && m.imageDataUrls.length)) {
       const lastIdx = messages.length - 1;
       const tries = [messages.map((m, k) => k === lastIdx || !m || !m.imageDataUrls ? m : (({ imageDataUrls, ...r }) => r)(m)),
@@ -1036,7 +1037,7 @@ async function callAI(p, system, messages, opts) {
         if (alt.every((m, k) => m === messages[k])) continue;   // 这一步跟原来一样，跳过
         messages = alt;
         try { const again = await once(); bgSay(true); logIt(true); aiOkSay(); return again; }
-        catch (e2) { e = e2; if (!/not supported|unsupported/i.test(String((e2 && e2.message) || e2 || ""))) break; }
+        catch (e2) { e = e2; if (!/not supported|unsupported|not enabled/i.test(String((e2 && e2.message) || e2 || ""))) break; }
       }
     }
     const bgDrop = wentHidden && /连接中断|load failed|failed to fetch|network|aborted|中止/i.test(msg);
@@ -3785,6 +3786,9 @@ function pullBareHtmlCard(raw) {
 //   ④ 这一泡开头一两个字就接逗号，而上一泡是没收尾的半句长话——那一两个字是上一句的尾巴（「嗯，」「好，」这种自己起头的不算）。
 const BUBBLE_DANGLE = /(只要|哪怕|如果|因为|虽然|即使|就算|除非|为了|除了|而且|但是|可是|还是|或者|所以|然后|不过|甚至|以及|并且|把|被|给|跟|和|与|让|从|对|往|向|比|连|将|于)$/;
 const BUBBLE_INTERJ = /^[好嗯哎唉啊哦噢嘿喂行对是诶呃欸算靠切哼呵哈呀嗷喔唔]+$/;
+// 自己就能成一句、常单发一条起下一句的那几个（她 2026-11-25 截图：「煎出来汁水多／怎么／嫌我买太勤了？」被粘成「煎出来汁水多怎么」）：
+//   ① 那一条不往上一句尾巴上粘
+const BUBBLE_ALONE = /^(怎么|咋了|咋啦|干嘛|干吗|真的|是吗|对吧|好吧|行吧|不是|算了|没事|是啊|对啊|好啊|知道|晓得|明白|懂了|然后|所以|哈哈|嘿嘿|呵呵|乖|笨|傻|喂|诶|欸|哦|噢|嗯|好|行|对|是|啊|哎|唉)$/;
 const BUBBLE_CONJ = /^(还是|但是|可是|不过|所以|然后|而且|或者|因为|就是|而是|要么|如果|虽然|于是|结果)$/;
 function bubbleGlueBrokenLines(list) {
   const isStr = x => typeof x === "string";
@@ -3795,7 +3799,7 @@ function bubbleGlueBrokenLines(list) {
     const cur = x.trim(), prev = out.length ? out[out.length - 1] : null;
     // 模型把句尾的「!」「?!」单交成一条（她 2026-10-28 法语那句）：粘回上一句
     if (isStr(prev) && /^[!?！？。…~～]+$/.test(cur)) { out[out.length - 1] = prev.trim() + (/^[!?]/.test(cur) && /[!?]$/.test(prev.trim()) ? " " : "") + cur; continue; }
-    if (isStr(prev) && /^[\u4e00-\u9fff]{1,2}$/.test(cur) && prev.trim().length >= 6 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev + cur; continue; }
+    if (isStr(prev) && /^[\u4e00-\u9fff]{1,2}$/.test(cur) && !BUBBLE_ALONE.test(cur) && prev.trim().length >= 6 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev + cur; continue; }
     if (isStr(prev) && /^[\u4e00-\u9fff]/.test(cur) && prev.trim().length >= 6 && BUBBLE_DANGLE.test(prev.trim())) { out[out.length - 1] = prev.trim() + cur; continue; }
     { const m = /^([\u4e00-\u9fff]{1,2})[，,]/.exec(cur);
       if (m && !BUBBLE_INTERJ.test(m[1]) && isStr(prev) && prev.trim().length >= 10 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev.trim() + cur; continue; } }
@@ -3875,6 +3879,11 @@ function splitLongBubble(s, allowComma) {
     // 连着的句尾标点中间夹空格也算一个句尾（她 2026-10-28：法语「cheveux ? !」把「!」单切成了一泡）
     out = out.reduce((acc, part) => acc.concat(part.split(/((?:\s*[。！？!?])+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean)), []);
   }
+  // 打了标点、又拿空格隔开两句的（她 2026-11-25 截图：「你这一句，说得我心里都熨帖了 刚从兵部回来」「身上还带着点寒气 正好被你这句话给捂热了 你这会儿在哪儿？」）：
+  //   下面那条「打标点的人，空格不当停顿」把整句挤在一个泡里。空格前面连着五个字以上、后面连着六个字以上（两头都是整句）时，那就是句号——在这儿切，不管多长；
+  //   「拍得我 眼睛都快花了」「我发几 张给你看看」那种词中间的短空格凑不够，照旧不切
+  const SP_STOP = /(?<=[\u4e00-\u9fff]{5})\s+(?=[\u4e00-\u9fff]{6})/g;
+  out = out.reduce((acc, part) => acc.concat(/[，,。！？!?、；;]/.test(part) && !/[\u3040-\u30ff]/.test(part) ? part.split(SP_STOP).map(x => x.trim()).filter(Boolean) : [part]), []);
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
   // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
   //   有的人不打标点、拿空格断句，那个空格就是它的逗号；门槛、最多几段、尾巴太短往回粘，全跟逗号共用。英文单词之间的空格不算
@@ -9935,8 +9944,8 @@ async function _transMyMemory(text, src) {
 }
 // 兜底：用后台线路让模型翻。要花钱，但一条聊天消息只是几百 token，
 // 而且译文进缓存、同一句只花一次。
-async function _transModel(text) {
-  const p = ttsHelperProfile();
+async function _transModel(text, prof) {
+  const p = prof || ttsHelperProfile();
   if (!p || !p.apiKey || !p.model) throw new Error("免费接口没通，后台线路也没配");
   const sys = "你是翻译。把用户发来的这段话翻译成简体中文。\n"
     + "· 只输出译文，不要原文、不要注音、不要解释、不要引号、不要「译：」这类前缀。\n"
@@ -10015,11 +10024,25 @@ function fixGarbledText(s) {
     try { return new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bytes)); } catch (e) { return ""; }
   });
 }
+// 翻译专用线路（群友 2026-11-25）：设置 → 接哪些模型 →「翻译模型」挑的那条；没挑、或挑的那条删掉了就是 null
+function transApiProfile() {
+  try {
+    const id = typeof loadJSON === "function" ? loadJSON("x_transApi", null) : JSON.parse(localStorage.getItem("x_transApi") || "null");
+    if (!id) return null;
+    const stored = JSON.parse(localStorage.getItem("x_api") || "[]");
+    const list = window.CredentialVault ? window.CredentialVault.materializeApiProfiles(stored) : stored;
+    const p = Array.isArray(list) ? list.find(x => x && x.id === id) : null;
+    return p && p.apiKey && p.model ? p : null;
+  } catch (e) { return null; }
+}
 async function translateToZh(text, lang, opts) {
   const cached = transCacheGet(text);
   if (cached && cached.zh) return cached;
   const src = TRANS_LANG_CODE[lang] || "auto";
+  // 挑了翻译线路就先走它（她点名要的，不算「偷偷叫模型」）；翻不成再退免费那几家
+  const tp = transApiProfile();
   const chain = [
+    ...(tp ? [{ by: "模型", run: () => _transModel(text, tp) }] : []),
     { by: "免费", run: () => _transGoogle(text, src) },
     { by: "免费", run: () => _transMicrosoft(text, src) },
     // 日/韩/俄它也试（她 2026-10-18 群里俄文截图：Google 不通、微软取票 404，第三条又因为「要绕道英语」被跳过——三条全断）。
@@ -10030,7 +10053,7 @@ async function translateToZh(text, lang, opts) {
     { by: "模型", run: () => !(opts && opts.allowModel) ? Promise.reject(new Error("翻译只用免费的，不叫模型")) : _transModel(text) }
   ];
   const errs = [];
-  const names = ["Google", "微软", "MyMemory", "模型"];
+  const names = (tp ? ["翻译线路"] : []).concat(["Google", "微软", "MyMemory", "模型"]);
   for (let i = 0; i < chain.length; i++) {
     try {
       const zh = cutLoop(await chain[i].run());

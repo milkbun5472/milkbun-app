@@ -1486,22 +1486,56 @@ function Empty({
     }
   }, sub));
 }
-// 他锁了她的手机（她 2026-11-24）：锁着时点进别的页都落到这一页。只留两条路——去找他、回主屏；最底下一行小字能强行解开，他会知道
-function PhoneLockScreen({ lock, onGoChat, onHome, onForce }) {
+// 他锁了她的手机（她 2026-11-24）：锁着时点进别的页都落到这一页。只留一条路——去找他；最底下一行小字能强行解开，要留一句给他
+//   样子照真手机的锁屏（她 2026-11-24「能不能做好看点」）：她的壁纸糊开压暗当底（没设壁纸用一片深色），大钟、日期，
+//   他留的话做成一张通知卡（头像、名字、多久前），按钮是磨砂的
+function PhoneLockScreen({ lock, character, wallpaper, onGoChat, onForce }) {
   const t = useTheme();
   const [sure, setSure] = React.useState(false);
+  const [note, setNote] = React.useState("");
+  const [now, setNow] = React.useState(() => new Date());
+  React.useEffect(() => { const id = setInterval(() => setNow(new Date()), 20000); return () => clearInterval(id); }, []);
   const nm = (lock && lock.byName) || "TA";
   const h = React.createElement;
-  return h("div", { "data-wk": "phonelock", className: "flex flex-col items-center justify-center text-center", style: { minHeight: "100%", padding: "calc(env(safe-area-inset-top, 0px) + 48px) 32px calc(env(safe-area-inset-bottom, 0px) + 32px)", background: t.bg, color: t.ink, boxSizing: "border-box" } },
-    h("svg", { "data-wk": "phonelockicon", width: 44, height: 52, viewBox: "0 0 44 52", fill: "none", stroke: t.ink, strokeWidth: 2.4, strokeLinecap: "round", style: { marginBottom: 22 } },
-      h("path", { d: "M11 23V15a11 11 0 0 1 22 0v8" }), h("rect", { x: 4, y: 23, width: 36, height: 26, rx: 6 }), h("path", { d: "M22 33v6" })),
-    h("div", { "data-wk": "phonelocktitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(19px * var(--app-fs, 1))", marginBottom: 10 } }, nm + " 把你的手机锁了"),
-    lock && lock.text ? h("div", { "data-wk": "phonelocktext", style: { fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.7, color: t.ink, marginBottom: 10 } }, "「" + lock.text + "」") : null,
-    h("div", { "data-wk": "phonelocksub", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 30 } }, "现在只有消息列表和跟" + nm + "的聊天进得去。哄好了TA会自己解开。"),
-    h("button", { "data-wk": "phonelockbtn", "data-part": "chat", onClick: onGoChat, className: "w-full active:opacity-80", style: { maxWidth: 320, minHeight: 48, borderRadius: 14, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", marginBottom: 10 } }, "去找" + nm),
-    h("button", { "data-wk": "phonelockbtn", "data-part": "home", onClick: onHome, className: "w-full active:opacity-70", style: { maxWidth: 320, minHeight: 44, borderRadius: 14, border: "1px solid " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))" } }, "回主屏"),
-    h("button", { "data-wk": "phonelockforce", onClick: () => { if (sure) onForce(); else setSure(true); }, className: "active:opacity-60", style: { marginTop: 36, minHeight: 40, padding: "0 12px", background: "transparent", color: sure ? t.accent : t.fog, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))" } },
-      sure ? "再点一下就解开（" + nm + "会知道）" : "强行解开"));
+  const wp = wallpaper ? (typeof resolveImg === "function" ? resolveImg(wallpaper) : wallpaper) : "";
+  const pad = n => String(n).padStart(2, "0");
+  const clock = pad(now.getHours()) + ":" + pad(now.getMinutes());
+  const date = (now.getMonth() + 1) + "月" + now.getDate() + "日 星期" + "日一二三四五六"[now.getDay()];
+  const ago = (() => { const m = Math.max(0, Math.round((Date.now() - ((lock && lock.ts) || Date.now())) / 60000)); return m < 1 ? "刚刚" : m < 60 ? m + " 分钟前" : m < 1440 ? Math.floor(m / 60) + " 小时前" : Math.floor(m / 1440) + " 天前"; })();
+  const glass = { background: "rgba(255,255,255,.16)", border: "1px solid rgba(255,255,255,.22)", backdropFilter: "blur(18px) saturate(1.3)", WebkitBackdropFilter: "blur(18px) saturate(1.3)" };
+  const white = "#fff", soft = "rgba(255,255,255,.72)";
+  return h("div", { "data-wk": "phonelock", style: { position: "relative", minHeight: "100dvh", overflow: "hidden", background: "#1c1a1f", color: white, boxSizing: "border-box" } },
+    h("div", { "data-wk": "phonelockbg", "aria-hidden": true, style: { position: "absolute", inset: -40, background: wp ? "center/cover no-repeat url(" + wp + ")" : "radial-gradient(120% 80% at 20% 10%, #4a3f52 0%, #241f2a 55%, #141216 100%)", filter: wp ? "blur(22px) brightness(.62) saturate(1.1)" : "none", transform: "scale(1.06)" } }),
+    h("div", { "aria-hidden": true, style: { position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,.18) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,.35) 100%)" } }),
+    h("div", { className: "flex flex-col items-center", style: { position: "relative", height: "100dvh", padding: "calc(env(safe-area-inset-top, 0px) + 34px) 22px calc(env(safe-area-inset-bottom, 0px) + 28px)", boxSizing: "border-box" } },
+      h("svg", { "data-wk": "phonelockicon", width: 22, height: 26, viewBox: "0 0 44 52", fill: "none", stroke: white, strokeWidth: 3.2, strokeLinecap: "round" },
+        h("path", { d: "M11 23V15a11 11 0 0 1 22 0v8" }), h("rect", { x: 4, y: 23, width: 36, height: 26, rx: 7, fill: white })),
+      h("div", { "data-wk": "phonelockdate", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: soft, letterSpacing: ".04em" } }, date),
+      h("div", { "data-wk": "phonelockclock", style: { fontFamily: F_DISPLAY, fontSize: "calc(78px * var(--app-fs, 1))", lineHeight: 1.05, fontWeight: 300, letterSpacing: "-.01em", textShadow: "0 2px 18px rgba(0,0,0,.25)" } }, clock),
+      h("div", { "data-wk": "phonelocktitle", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: soft } }, nm + " 锁了你的手机"),
+      // 他留的话：一句一张通知卡，叠着排下来（她 2026-11-24「不能好几句然后做成好几个通知气泡」）
+      //   太多了就在这一块里上下滑，跟真手机的通知一样：钟和底下的按钮不动（她 2026-11-24）
+      h("div", { "data-wk": "phonelockcards", style: { width: "100%", maxWidth: 360, marginTop: 30, flex: "1 1 auto", minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", display: "flex", flexDirection: "column", gap: 8, paddingTop: 4, paddingBottom: 12, boxSizing: "border-box",
+          WebkitMaskImage: "linear-gradient(180deg, transparent 0, #000 12px, #000 calc(100% - 24px), transparent 100%)", maskImage: "linear-gradient(180deg, transparent 0, #000 12px, #000 calc(100% - 24px), transparent 100%)" } },
+        ((lock && Array.isArray(lock.lines) && lock.lines.length ? lock.lines : [(lock && lock.text) || "手机先放我这儿。"])).map((ln, k) =>
+          h("div", { key: k, "data-wk": "phonelockcard", style: { ...glass, flexShrink: 0, borderRadius: 22, padding: "14px 16px", boxSizing: "border-box", display: "flex", gap: 12, alignItems: "flex-start" } },
+            character ? h(Avatar, { character, size: 40, radius: 12 }) : h("div", { style: { width: 40, height: 40, borderRadius: 12, background: "rgba(255,255,255,.25)", flexShrink: 0 } }),
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("div", { className: "flex items-center justify-between", style: { gap: 8 } },
+                h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, color: white } }, nm),
+                h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: soft, flexShrink: 0 } }, ago)),
+              h("div", { "data-wk": "phonelocktext", style: { marginTop: 3, fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.55, color: white, wordBreak: "break-word" } }, ln))))),
+      h("div", { "data-wk": "phonelocksub", style: { flexShrink: 0, marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: soft, textAlign: "center", lineHeight: 1.7 } }, "只有跟" + nm + "的聊天进得去，哄好了TA会自己解开"),
+      h("div", { style: { height: 18, flexShrink: 0 } }),
+      sure ? h("div", { "data-wk": "phonelockleave", style: { ...glass, width: "100%", maxWidth: 360, borderRadius: 20, padding: 14, boxSizing: "border-box", marginBottom: 14 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: soft, marginBottom: 8 } }, "留一句给" + nm + "，TA下次会看到"),
+        h("input", { "data-wk": "phonelockleaveinput", value: note, onChange: e => setNote(e.target.value), maxLength: 80, placeholder: "想跟TA说的", className: "w-full outline-none", style: { minHeight: 44, borderRadius: 12, border: "1px solid rgba(255,255,255,.28)", background: "rgba(0,0,0,.22)", color: white, padding: "0 12px", fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", boxSizing: "border-box" } }),
+        h("div", { className: "flex gap-3", style: { marginTop: 10 } },
+          h("button", { "data-wk": "phonelockleavebtn", "data-part": "cancel", onClick: () => { setSure(false); setNote(""); }, className: "flex-1 active:opacity-60", style: { minHeight: 42, borderRadius: 12, border: "1px solid rgba(255,255,255,.3)", background: "transparent", color: white, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "算了"),
+          h("button", { "data-wk": "phonelockleavebtn", "data-part": "ok", disabled: !note.trim(), onClick: () => onForce(note.trim()), className: "flex-1 active:opacity-80", style: { minHeight: 42, borderRadius: 12, background: white, color: "#1c1a1f", opacity: note.trim() ? 1 : 0.4, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "留下，解开")))
+      : null,
+      h("button", { "data-wk": "phonelockbtn", "data-part": "chat", onClick: onGoChat, className: "active:opacity-80", style: { ...glass, width: "100%", maxWidth: 360, minHeight: 52, borderRadius: 999, color: white, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", letterSpacing: ".04em" } }, "去找" + nm),
+      sure ? null : h("button", { "data-wk": "phonelockforce", onClick: () => setSure(true), className: "active:opacity-60", style: { marginTop: 12, minHeight: 36, padding: "0 12px", background: "transparent", color: "rgba(255,255,255,.5)", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, "强行解开")));
 }
 function Spinner({
   label
@@ -9784,14 +9818,25 @@ function Messages({
   const [stView, setStView] = useState(null), [stMake, setStMake] = useState(false), [stAsk, setStAsk] = useState(false), [stPend, setStPend] = useState(null), [stMenu, setStMenu] = useState(false), [plusMenu, setPlusMenu] = useState(false), [stPast, setStPast] = useState(false), [, stTick] = useState(0);
   useEffect(() => { const f = () => stTick(x => x + 1); window.addEventListener("lisa-stories", f); return () => window.removeEventListener("lisa-stories", f); }, []);
   const SK = window.Stories;
-  // 点一个人的圈，把挂着动态的人按聊天列表的顺序串成一条，从这个人开始看——左右划才有下一个人、上一个人（她 2026-11-23「左右划换人没反应」）
+  // 点一个人的圈，把挂着动态的人串成一条，左右划换人（她 2026-11-23「左右划换人没反应」）。照 ins 的规矩（她 2026-11-24）：
+  //   · 顺序跟聊天列表一样（置顶在前、最近聊的在前），不是档案里的顺序；
+  //   · 点的是粉圈（有没看过的）：只串还有粉圈的那几个人，每人从第一条没看过的看起，看过的不再翻到；
+  //   · 点的是灰圈（全看过了）或自己：所有挂着的都能翻。
   const storyChain = id => {
-    const ids = [...new Set(["me"].concat((characters || []).map(c => c && c.id)).filter(Boolean))];
+    const seenMe = st => !!(st.seen || {}).me;
+    const ids = [...new Set(["me"].concat(chatItems.filter(it => it.c).map(it => it.id)).concat((characters || []).map(c => c && c.id)).filter(Boolean).map(String))];
+    const act = x => SK ? SK.activeOf(x) : [];
+    const pink = x => x !== "me" && act(x).some(st => !seenMe(st));
     let list = [], k = 0;
-    ids.forEach(x => { const a = SK ? SK.activeOf(x) : []; if (!a.length) return;
-      if (String(x) === String(id)) { const u = x === "me" ? -1 : a.findIndex(st => !(st.seen || {}).me); k = list.length + (u >= 0 ? u : 0); }
+    if (pink(String(id))) {
+      const ps = ids.filter(pink), at = ps.indexOf(String(id));
+      ps.slice(at).concat(ps.slice(0, at)).forEach(x => { const a = act(x), u = a.findIndex(st => !seenMe(st)); list = list.concat(a.slice(u < 0 ? 0 : u)); });
+      return list.length ? { list, k: 0, fixed: true } : { list: act(id) };
+    }
+    ids.forEach(x => { const a = act(x); if (!a.length) return;
+      if (x === String(id)) k = list.length;
       list = list.concat(a); });
-    return list.length ? { list, k, fixed: true } : { list: SK ? SK.activeOf(id) : [] };
+    return list.length ? { list, k, fixed: true } : { list: act(id) };
   };
   const storyRing = (id, kid) => {
     const act = SK ? SK.activeOf(id) : [];
@@ -13626,7 +13671,7 @@ function ChatThread({
     // 锁手机（她 2026-11-24）：翻完吃醋生气了，他可以把她手机锁上，只留跟他的聊天
     onToggleLock ? h("button", { "data-wk": "peeklockok", onClick: onToggleLock, className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46, borderTop: "1px solid " + t.line } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, textAlign: "left" } }, "允许" + (character.remark || character.name) + "锁我手机",
-        h("span", { style: { display: "block", fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "翻完吃醋或生气了，TA可能把手机锁上：只剩消息列表和跟TA的聊天进得去，哄好了TA自己解开；锁屏底下能强行解开，TA会知道")),
+        h("span", { style: { display: "block", fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "翻完吃醋或生气了，TA可能把手机锁上：只剩跟TA的聊天进得去，哄好了TA自己解开；锁屏底下能强行解开，TA会知道")),
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: peekLockOn ? t.accent : t.fog } }, peekLockOn ? "允许" : "不允许")) : null),
     h("button", { onClick: () => { setPeekOpen(false); onHandPhone(peekAllow, peekHide, peekAllMasks); }, disabled: !peekAllow.length, className: "w-full active:opacity-80", style: { marginTop: 16, minHeight: 48, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", opacity: peekAllow.length ? 1 : .4 } }, "递过去"),
     // 先锁好、不递（群友 2026-11-20）：他自己偷偷翻也照这一份来
@@ -20671,6 +20716,18 @@ function offSpeakerAt(text, start, end, people) {
   people.forEach(p => (p.names || []).forEach(n => { if (!n) return; const k = after.indexOf(n); if (k >= 0 && k < first) { first = k; best = p; } }));
   return best;
 }
+// 整段小说里每个人的台词颜色（群里 2026-11-24「还是显示不出来」）：原来直接拿角色自己的 color——用照片当头像的角色多半没设过，
+//   全空就全落回同一个颜色；两个人设成同一个色也分不出。没设、或跟前面撞了的，从一排分得开的颜色里挑一个没用过的
+const OFF_SAY_COLORS = ["#c25a4a", "#3f78a8", "#4f8a45", "#b07a28", "#8a52a0", "#2f8a86", "#b0507a", "#6a6f2a"];
+function offNovelPeople(chars, meChar, meAccent) {
+  const used = new Set(), norm = c => String(c || "").trim().toLowerCase();
+  const meC = (meChar && meChar.name) ? (meAccent || meChar.color || "") : "";
+  if (meC) used.add(norm(meC));
+  const pick = own => { if (own && !used.has(norm(own))) { used.add(norm(own)); return own; }
+    const f = OFF_SAY_COLORS.find(x => !used.has(norm(x))) || own || OFF_SAY_COLORS[0]; used.add(norm(f)); return f; };
+  const out = (chars || []).filter(Boolean).map(c => ({ names: [c.name, c.remark].filter(n => n && String(n).trim().length >= 1).map(String), color: pick(c.color) }));
+  return meC ? out.concat([{ names: [String(meChar.name)], color: meC }]) : out;
+}
 function offBody(t, text, accent, whoId, sayZh, people) {
   // <#0.5#> 停顿记号只给语音用，线下正文里不摆（群里 2026-10-10：「线下听说也会漏」）
   const segs = offSplit(typeof stripPauseMarks === "function" ? stripPauseMarks(text) : text);
@@ -20852,7 +20909,7 @@ function OffCard({ m, msgIndex, t, char, clockId, meProfile, members, canOpenSta
       editing ? editBox : (m.kind === "photo"
         ? h("div", { style: { maxWidth: 300 } }, h(PhotoCard, { m: m, mine: isUser, max: 300, onOpen: () => setPhotoView(m) }))
         : offBody(t, m.content, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint), isUser ? null : (spk && spk.id), isUser ? null : m.sayZh,
-          isNovel && cast.length ? cast.map(o => ({ names: [o.c.name, o.c.remark].filter(n => n && String(n).trim().length >= 1).map(String), color: o.c.color })).concat(meChar && meChar.name ? [{ names: [String(meChar.name)], color: t.accent || meChar.color }] : []) : null)),
+          isNovel && cast.length ? offNovelPeople(cast.map(o => o.c), meChar, t.accent) : null)),
       photoView ? h(PhotoSheet, { m: photoView, toast: window.__toast, onClose: () => setPhotoView(null) }) : null,
       // 整段小说：头像框点开是一排在场的人，点谁就在下面露出谁的心声
       (isNovel && castOpen && cast.length) ? h("div", { "data-wk": "offcastpick", className: "flex flex-wrap gap-2 mt-3" },

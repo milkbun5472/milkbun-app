@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {makeIngredient,makeTabletopPlate} from './ingredient-visual.mjs?v=fg-ad900744140b5c2c';
-import './kitchen.js?v=fg-ad900744140b5c2c';
+import {makeIngredient,makeTabletopPlate} from './ingredient-visual.mjs?v=fg-b8cd24229a56fb6b';
+import './kitchen.js?v=fg-b8cd24229a56fb6b';
 // The same geometry makes plated food, food in cookware and the held serving.
 export function disposeFood(group){group?.removeFromParent();group?.traverse(o=>{o.geometry?.dispose();if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());});}
 export function makeRecipeFood(recipeId,{vessel=true,variation=null,finish='',tabletop=null}={}){

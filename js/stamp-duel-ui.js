@@ -806,7 +806,7 @@
           sh.day === 1 && sh.phase === "plan" && !sh.decor.length ? modeHero(C, "店", "邮局小店", "你开了一家小邮局。每天先排班：柜台、分拣、送信、看店四个岗，你的角色谁来上；排对擅长的岗收入多。开门接客：路人寄东西直接收钱，难缠的要打一局；没上班的角色也会来当客人，可以听他们跟店员碰上说两句。打烊时花一次调用，写今天在店里的所有人一小段（不管几个人上班都只花这一次）。钱拿去买装修，装修让收入变多，打烊那段也会写到。店里的事不进记忆。") : null,
           sh.missed ? card("missed", [h("div", { key: "t", style: { fontFamily: FD, fontSize: fz(14), color: RED } }, "第 " + sh.missed.day + " 天忘了打烊"),
             h("div", { key: "s", style: { fontSize: fz(11.5), color: SUB, margin: "3px 0 8px" } }, "那天收的 " + sh.missed.earned + " 枚照算。要补写那天晚上的打烊吗——你没来，是店里的人帮着关的门。"),
-            sh.missed.lines ? h("div", { key: "l" }, para(sh.missed.lines)) : null,
+            sh.missed.lines ? h("div", { key: "l" }, para(window.StampShopSay ? window.StampShopSay(sh.missed, nameOf) : sh.missed.lines)) : null,
             h("div", { key: "b", className: "flex", style: { gap: 8 } },
               !sh.missed.lines ? h("button", { "data-wk": "duelshopmissed", disabled: !!shBusy || !onChat || !sh.missed.first, onClick: async () => {setShBusy('missed');try{await shopAct('missed');}catch{}finally{setShBusy('');}}, className: "flex-1 disabled:opacity-50", style: btn(C, "#fff") }, shBusy === "missed" ? "在写…" : "补写那天的打烊（花一次调用）") : null,
               h("button", { onClick: () => shopAct("missedClear").catch(()=>{}), className: "flex-1", style: btn("transparent", INK, "rgba(47,42,34,.3)") }, sh.missed.lines ? "收起来" : "算了"))], RED) : null,
@@ -1104,7 +1104,7 @@
       const said = (turns, lines) => (Array.isArray(turns) && turns.length ? turns.map(t => ({ who: t.speakerId && nameOf(t.speakerId), text: t.text })) : (lines || []).map(t => ({ who: "", text: t })));
       const BROWN = "#9a6a4a", RULE = "rgba(63,111,176,.13)", TAPE = ["rgba(214,170,120,.55)", "rgba(150,180,160,.55)", "rgba(190,150,170,.5)"];
       const lineOf = (x, k) => h("p", { key: k, style: { fontFamily: FD, fontSize: fz(13.5), lineHeight: "28px", margin: 0, whiteSpace: "pre-wrap" } },
-        x.who ? h("span", { style: { color: BROWN, marginRight: 4 } }, x.who + "：") : null, BT(x.text));
+        x.who ? h("span", { style: { color: BROWN, marginRight: 4 } }, x.who + "：") : null, BT(x.who && !/^[「“"『]/.test(String(x.text || "").trim()) ? "「" + String(x.text || "").trim() + "」" : x.text));
       const label = (t, color) => h("div", { style: { display: "flex", alignItems: "center", gap: 6, margin: "14px 0 4px", fontSize: fz(11), letterSpacing: ".2em", color: color || SUB } },
         h("span", { style: { width: 14, height: 1, background: "currentColor", opacity: .5 } }), t, h("span", { style: { flex: 1, height: 1, background: "currentColor", opacity: .2 } }));
       const wkDay = d => { const [y, m, dd] = String(d.date).split("-").map(Number); const t = new Date(y, m - 1, dd); return isNaN(t) ? "" : "周" + "日一二三四五六"[t.getDay()]; };

@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.204";
+const APP_VERSION = "v90.223";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2013,9 +2013,11 @@ function App() {
     const on = ev => {
       const d = (ev && ev.detail) || {};
       if (!bgToastOn()) return;
-      const via = d.route ? "（" + d.route + "）" : "";
-      toast(d.ok ? "后台 · " + d.show + " 生成好了" + via
-        : "后台 · " + d.show + " 没生成出来" + via + "：" + String(d.msg || "").replace(/\s+/g, " ").slice(0, 60), d.ok ? 2600 : 5000);
+      // 打头写「自动」不写「后台」（她 2026-11-25）：这些是它自己跑起来的活，走哪条线路各不相同（群里自己聊走群挑的那条或线上），
+      //   写「后台」会被当成走了后台 API；线路照实写在括号里
+      const via = d.route ? "（走 " + d.route + "）" : "";
+      toast(d.ok ? "自动 · " + d.show + " 生成好了" + via
+        : "自动 · " + d.show + " 没生成出来" + via + "：" + String(d.msg || "").replace(/\s+/g, " ").slice(0, 60), d.ok ? 2600 : 5000);
     };
     window.addEventListener("bg-call", on);
     return () => window.removeEventListener("bg-call", on);
@@ -3435,7 +3437,13 @@ function App() {
   // ⚠️不锚在开头（她 2026-10-06 截图）：语音条前面还挂着 [语音] 那种标记，旁注夹在中间，^ 抓不到，
   //   照抄的那句就原样进了「他说的是」。在哪儿出现都摘。
   const ECHOED_META = /\s*[（(【\[]\s*(?:这一条是你此刻|这条你是用语音说的|这条说的是[^；;】]{0,10}[；;]\s*这是旁注)[^）)】\]]*[）)】\]]\s*/g;   // 它照着改写的那种（「这条说的是外语；这是旁注」，2026-10-31）也摘
-  const stripEchoedMeta = w => String(w == null ? "" : w).replace(ECHOED_META, "").trim();
+  // 动描那两行旁注也照抄（她 2026-11-25 截图：「【场景旁注｜周树生 当时正在做的动作，不是任何人说出口的话】我走到她面前……【这是当时的状态读数，不是你的发言格式……】光说喜欢有什么用」）：
+  //   一前一后夹着的那段是他写的动作——记号摘掉，动作收进（）；单独漏出来的一句记号也摘。她那一侧的两句（「此刻做的动作｜不是说出口的话」）一样
+  const ECHOED_ACT_BLOCK = /【\s*场景旁注\s*[｜|][^】\n]*】\s*([\s\S]*?)\s*【\s*这是当时的状态读数[^】]*】\s*/g;
+  const ECHOED_ACT_LABEL = /\s*【\s*(?:场景旁注\s*[｜|][^】\n]*|这是当时的状态读数[^】]*|[^【】\n]{0,20}此刻做的动作\s*[｜|]\s*不是说出口的话|这是她在做的事[^】]*)】\s*/g;
+  const stripEchoedMeta = w => String(w == null ? "" : w)
+    .replace(ECHOED_ACT_BLOCK, (m0, act) => act.trim() ? "（" + act.trim().replace(/^[（(]|[）)]$/g, "") + "）\n" : "")
+    .replace(ECHOED_ACT_LABEL, "\n").replace(ECHOED_META, "").replace(/\n{2,}/g, "\n").trim();
   // 转账/红包的「播报」（她 2026-10-30 截图：转账卡出来了，底下又多出「【附言：…】转账给 Lisa 30000 元」被拆成四泡）：
   //   卡自己会把钱数和附言摆出来，这一句是它照着聊天记录的样子念了一遍，不是TA说的话
   const ECHO_NOTE_HINT = /已经实际|亲手做过的事|真实发生过的事|用户刚才要求你|这里你已经|不得说自己|没发成的话|这是旁注|正文里没有它|^\s*【\s*(?:附言|转账|红包)\s*[:：]/;
@@ -12554,7 +12562,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "\n你拿着的是她的手机，看到让你不舒服的人、过了界的话，可以顺手动一下——这些都是真的会生效的，正是查手机的意思；照你的性子挑一两样做（各一趟最多一次）：pin 置顶（who 空＝把你自己置顶，填名字＝置顶那个人）；unpin 把某人取消置顶（who）；unfriend 删掉她和某人的好友（who）；block 把某人拉黑（who）；impersonate 用她的手机、以她的名义给某人发一句（who、text 填那句话——对面会当成是她说的，会接着回）。⚠️这句是【她】在说：句子里的「我」是她、「你」是对面那个人；谁叫谁什么、谁先说的那句话，照上面那段聊天的原话对清楚再写，别把方向说反。who 只能填上面能选的单聊名字。动了手，心声里也带一句你为什么这么做。"
           // 她拉黑了他、他拿着她的手机（群友 2026-10-22「把 char 拉黑了，char 查手机的时候能把自己拉回嘛」）
           + ((blocksRef.current[charId] || {}).iBlocked ? "\n你现在在她那儿是被拉黑的，手机就在你手上：可以加一步 {\"do\":\"unblockme\"} 把自己从她的黑名单里放出来——真的会生效，她会发现。放不放照你这个人来。" : "")
-          + (phoneLockOk[charId] && !(loadJSON("x_phoneLock", null)) ? "\n翻完要是你真吃醋了、生气了、心里堵得慌，可以在最后加一步 {\"do\":\"lock\",\"text\":\"锁屏上留给她的一句话\"} 把她的手机锁上——真的会生效：她手机上别的都进不去，只剩跟你的聊天，等你气消了自己放她出来。锁不锁照你这会儿的心情和你这个人来。" : "")
+          + (phoneLockOk[charId] && !(loadJSON("x_phoneLock", null)) ? "\n翻完你可以在最后加一步 {\"do\":\"lock\",\"lines\":[\"锁屏上留给她的话，一句一条通知\"]} 把她的手机收走——真的会生效：她手机上别的都进不去，只剩跟你的聊天，等你愿意了才放她出来。不用非得翻到什么才锁，锁不锁照你这个人来。" : "")
           + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"
           + "\n这是在查她的手机：你想知道的，是她不在你眼前的时候过着什么日子、身边都有谁、谁跟她走得近、她在别人面前是什么样——心里那句是冲着【她】和【那个人】去的，不是去评点内容本身做得好不好。"
           + "\n聊天要细看语气：她对那个人是什么口吻、那个人怎么叫她、哪句话说得过了界、哪句是只该对你说的——拿上面【对照】里她对你说话的样子比一比，差在哪儿就是你心里卡住的地方。"
@@ -12614,11 +12622,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const togglePhoneLockOk = id => setPhoneLockOk(p => { const n = { ...p, [id]: !p[id] }; saveJSON("x_phoneLockOk", n); return n; });
   const [phoneLock, setPhoneLock] = useState(() => loadJSON("x_phoneLock", null));
   const savePhoneLock = v => { saveJSON("x_phoneLock", v || null); setPhoneLock(v || null); };
-  const forceUnlockPhone = () => {
+  const forceUnlockPhone = note => {
     const L = loadJSON("x_phoneLock", null); if (!L) return;
+    const nt = String(note || "").trim().slice(0, 80);
     savePhoneLock(null);
-    pChat(L.by, p => [...p, { role: "system", kind: "system", sub: "phonelock", content: "你没等" + (L.byName || "TA") + "松口，自己把手机强行解开了", ts: Date.now() }]);
-    peekLogAdd(L.by, { how: "forceunlock" });
+    pChat(L.by, p => [...p, { role: "system", kind: "system", sub: "phonelock", content: "你没等" + (L.byName || "TA") + "松口，自己把手机强行解开了" + (nt ? "，留给TA一句：「" + nt + "」" : ""), ts: Date.now() }]);
+    peekLogAdd(L.by, { how: "forceunlock", note: nt });
   };
   const maybeSneak = charId => {
     if (!peekSneakOk[charId] || peekPlay) return;
@@ -12920,8 +12929,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (step.do === "lock") {
       if (!phoneLockOk[viewerId]) return;
-      const tx = String(step.text || "").trim().slice(0, 40);
-      savePhoneLock({ by: viewerId, byName: vn, text: tx, ts: Date.now() });
+      const lines = (Array.isArray(step.lines) && step.lines.length ? step.lines : [step.text]).map(x => String(x || "").trim().slice(0, 60)).filter(Boolean).slice(0, 6);
+      const tx = lines.join(" ");
+      savePhoneLock({ by: viewerId, byName: vn, text: tx, lines, ts: Date.now() });
       note(vn + " 把你的手机锁了" + (tx ? "：「" + tx + "」" : "") + "——现在只有跟TA的聊天进得去", "把她的手机锁上了" + (tx ? "，锁屏上留了一句「" + tx + "」" : "") + "，只留了跟你的聊天能进");
       return;
     }
@@ -12971,7 +12981,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const l = ((loadJSON("x_peekLog", {}) || {})[charId] || []).filter(x => Date.now() - x.ts < 7 * 86400000).slice(0, 3);
     if (!l.length) return "";
     const ago = ts => { const d = Math.floor((Date.now() - ts) / 86400000); return d <= 0 ? "今天" : d === 1 ? "昨天" : d + "天前"; };
-    const one = x => x.how === "refused" ? ago(x.ts) + "你开口要看她手机，她没给。" : x.how === "forceunlock" ? ago(x.ts) + "你锁了她的手机，她没等你松口，自己强行解开了。"
+    const one = x => x.how === "refused" ? ago(x.ts) + "你开口要看她手机，她没给。" : x.how === "forceunlock" ? ago(x.ts) + "你锁了她的手机，她没等你松口，自己强行解开了" + (x.note ? "，给你留了一句：「" + x.note + "」" : "") + "。"
       : ago(x.ts) + ({ given: "她把手机递给你看了", asked: "你开口要了她的手机，她给了", sneak: "你趁她不注意偷偷翻了她的手机" + (x.end === "ask" ? "，被她发现、当面问了" : x.end === "ignore" ? "，她发现了但没吭声" : "") })[x.how] + "。"
         + (x.who && x.who.length ? "看了她和" + x.who.map(n => "「" + n + "」").join("") + "的聊天。" : "")
         + (x.hid && x.hid.length ? "她藏起了" + x.hid.map(n => "「" + n + "」").join("") + "。" : "")
@@ -14934,6 +14944,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 夹在 word 里的 {"emote":"关键词"}（她 2026-10-16「为啥群聊表情包可以插在话中间但是单聊一定在最下面」）：
       //   先写成「[表情] 关键词」，底下那道认表情的会在原位置留一个 emoteslot，发气泡那一圈走到就地发
       words = (Array.isArray(words) ? words : []).map(w => w && typeof w === "object" && !w.voice && typeof w.emote === "string" && w.emote.trim() ? "[表情] " + w.emote.trim() : w);
+      // 照抄了动描旁注那一整块（她 2026-11-25 截图）：动描开着就把夹着的那段动作当成 {"act":…} 摆到动描那一格，话照留；
+      //   动描关着的，下面 stripEchoedMeta 那道会把它收进（）
+      if (actDescFor(charId) && (settingsFor(charId) || {}).actMid !== false) words = words.reduce((acc, w) => {
+        if (typeof w !== "string" || !/场景旁注/.test(w)) return acc.concat([w]);
+        const re = new RegExp(ECHOED_ACT_BLOCK.source, "g"); let last = 0, m; const out = [];
+        while ((m = re.exec(w))) { const before = w.slice(last, m.index).trim(); if (before) out.push(before); if (m[1].trim()) out.push({ act: m[1].trim().replace(/^[（(]|[）)]$/g, "") }); last = re.lastIndex; }
+        const tail = w.slice(last).trim(); if (tail) out.push(tail);
+        return acc.concat(out.length ? out : [w]);
+      }, []);
       // 夹在 word 里的 {"act":…}：动描开着、「说着说着换了动作」没关时留占位，发气泡那一圈就地摆；否则这一项不要
       const _midActs = [];
       words = words.map(w => {
@@ -15010,7 +15029,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         ? splitCardsAndLines(stripAiStamp(w))   // 先摘时间标注再拆：拆完它就被劈成两半、认不出来了
         : String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
       if (_splitOn && typeof bubbleGlueBrokenLines === "function") words = bubbleGlueBrokenLines(words);   // 半句话被断成两泡的粘回去
-      if (_oneLong && words.length > 1 && words.every(w => typeof w === "string")) words = [words.join("\n\n")];
+      // 并成一条长消息时，动描／语音／表情那几个占位各自留在原位、不并进正文（并进去就成了气泡里一串「actslot0」）
+      if (_oneLong && words.length > 1 && words.every(w => typeof w === "string")) {
+        const _slot = w => actSlotOf(w) != null || (typeof voiceSlotOf === "function" && voiceSlotOf(w) != null) || /^\s*\[表情\]/.test(w);
+        words = words.reduce((acc, w) => { const L = acc[acc.length - 1]; if (!_slot(w) && L != null && !_slot(L)) acc[acc.length - 1] = L + "\n\n" + w; else acc.push(w); return acc; }, []);
+      }
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).map(stripEchoedMeta).filter(Boolean);
       // 照抄了「名字：」那种剧本格式（2026-10-29 群友截图：每条都是「温栩年：刚下班」）——只摘【TA 自己的名字】打头的，
@@ -39924,8 +39947,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       onExportMedia: doExportMedia, onCopyExport: doCopyExport, copyParts, onImportText: doImportPasted, inAppBrowser: inAppBrowser(), onImport: doImport, toast } }) });
   }
   // 他锁着她的手机：主屏、消息列表、跟他的聊天以外，哪一页都换成锁屏（他翻手机放录像时不挡）
-  if (phoneLock && !peekPlay && !(screen === "home" || screen === "messages" || (screen === "thread" && activeChar && String(activeChar.id) === String(phoneLock.by)))) {
-    body = h(PhoneLockScreen, { key: "phonelock", lock: phoneLock, onGoChat: () => openChatById(phoneLock.by), onHome: () => goHome(), onForce: forceUnlockPhone });
+  //   只留跟他的聊天：退出来、回主屏、大退重进，落到哪一页都是这张锁屏（她 2026-11-24「只留在他的聊天窗 退出就会弹锁屏」）
+  if (phoneLock && !peekPlay && !(screen === "thread" && activeChar && String(activeChar.id) === String(phoneLock.by))) {
+    body = h(PhoneLockScreen, { key: "phonelock", lock: phoneLock, character: (characters || []).find(x => String(x.id) === String(phoneLock.by)) || null, wallpaper, onGoChat: () => openChatById(phoneLock.by), onForce: forceUnlockPhone });
   }
   const _safeTop = { height: screen === "home" ? "env(safe-area-inset-top)" : 0 };
   // 这一页单独换过色的话，发下去的就是换过的那一份（v65.06，她 2026-09-06：

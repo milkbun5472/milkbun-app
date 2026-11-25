@@ -162,10 +162,14 @@
   // ⚠️宁可漏判：认不出来就照旧是动描，维持现状。「一个气泡都没有」不算证据——
   //   有人这一拍确实只动不说（「我低头刷手机」），挪成气泡就成了他发出去的消息。
   const TAIL_PARTICLE = /[吧呢啊嘛呀哦哈啦咯呗噢喔]$|[~～…]$/;
+  // 「你来我往」「你一言我一语」这种成语里的「你」不是对着谁说话（她 2026-11-25 截图：动描「……看着屏幕上这几人的你来我往，唇边泛起一丝笑意。」
+  //   被当成台词挪回了气泡）；写得明明白白是舞台说明的（selfStage 那个窄形状）也不算台词
+  const YOU_IDIOM = /你[来争追推谦死][我]?[往夺赶让活]|你一言我一语|你侬我侬|你情我愿|你我/g;
   function spokenAction(value) {
     const text = clean(value).replace(/[。，,.]+$/, "");
     if (!text) return false;
-    return SECOND_PERSON.test(text) || SPEAKING.test(text) || TAIL_PARTICLE.test(text);
+    if (selfStage(text)) return false;
+    return SECOND_PERSON.test(text.replace(YOU_IDIOM, "")) || SPEAKING.test(text) || TAIL_PARTICLE.test(text);
   }
 
   return { split, couldBeAct, hasActEvidence, pullLabeled, pullSelfBracket, spokenAction };

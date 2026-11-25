@@ -1,7 +1,7 @@
-import {homeSize} from './home-architecture.mjs?v=fg-ad900744140b5c2c';
-import {HOME_BED_SURFACE,BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint,furnitureObstacles} from './home-catalog.mjs?v=fg-ad900744140b5c2c';
-import {MAPS,walkable} from '../world.mjs?v=fg-ad900744140b5c2c';
-import {homeBathroom,bathroomStructure,bathroomRegions} from './bathroom-layout.mjs?v=fg-ad900744140b5c2c';
+import {homeSize} from './home-architecture.mjs?v=fg-b8cd24229a56fb6b';
+import {HOME_BED_SURFACE,BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint,furnitureObstacles} from './home-catalog.mjs?v=fg-b8cd24229a56fb6b';
+import {MAPS,walkable} from '../world.mjs?v=fg-b8cd24229a56fb6b';
+import {homeBathroom,bathroomStructure,bathroomRegions} from './bathroom-layout.mjs?v=fg-b8cd24229a56fb6b';
 // Layout, navigation and activity anchors share furniture-local coordinates.
 // New furniture placements can rebuild this map without changing its renderer.
 const piece=(id,kind,x,z,w,d,extra={})=>({id,kind,x,z,w,d,heading:0,...extra});

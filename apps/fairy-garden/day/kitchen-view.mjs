@@ -1,8 +1,8 @@
 import * as T from 'three';
-import {makeIngredient} from './ingredient-visual.mjs?v=fg-ad900744140b5c2c';
-import {createTabletopView} from './tabletop-view.mjs?v=fg-ad900744140b5c2c';
-import {HOME_COOK,HOME_PREP,furniturePoint} from './home-catalog.mjs?v=fg-ad900744140b5c2c';
-import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-ad900744140b5c2c';
+import {makeIngredient} from './ingredient-visual.mjs?v=fg-b8cd24229a56fb6b';
+import {createTabletopView} from './tabletop-view.mjs?v=fg-b8cd24229a56fb6b';
+import {HOME_COOK,HOME_PREP,furniturePoint} from './home-catalog.mjs?v=fg-b8cd24229a56fb6b';
+import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-b8cd24229a56fb6b';
 export function createKitchenView({actors=()=>[]}={}){
  let carries=[],carryKey='';
  function carry(job,shared){const walking=job?.kind==='meal'&&shared?.kind==='meal'&&shared.phase!=='active',next=walking?job.id:'';if(next!==carryKey){carries.forEach(disposeFood);carries=[];carryKey=next;if(walking){for(const [i,actor]of actors().entries()){if(!actor?.root)continue;const d=(job.courses||[{recipeId:job.recipeId}])[i%(job.courses?.length||1)],g=makeRecipeFood(d.recipeId,{variation:d.variation,finish:d.finish,tabletop:d.tabletop});if(g){g.name='CarriedMealPlate';g.scale.setScalar(.7);g.position.set(0,.93,.34);actor.root.add(g);carries.push(g);}}}}if(walking)for(const actor of actors()){if(!actor?.root.visible)continue;actor.root.updateMatrixWorld(true);actor.contactPose({left:actor.root.localToWorld(new T.Vector3(-.17,1.02,.33)),right:actor.root.localToWorld(new T.Vector3(.17,1.02,.33))});}}

@@ -1,32 +1,32 @@
-import {anchorArgyleSleeves,lineArgyleSleeves} from './argyle-sleeve-lining.mjs?v=fg-ad900744140b5c2c';
-import {applyOutfitMeshEdits} from './outfit-mesh-edits.mjs?v=fg-ad900744140b5c2c';
+import {anchorArgyleSleeves,lineArgyleSleeves} from './argyle-sleeve-lining.mjs?v=fg-b8cd24229a56fb6b';
+import {applyOutfitMeshEdits} from './outfit-mesh-edits.mjs?v=fg-b8cd24229a56fb6b';
 let motionController;
 async function loadMotionController(){
- return motionController??=await import('./avatar-motion/controller.mjs?v=fg-ad900744140b5c2c');
+ return motionController??=await import('./avatar-motion/controller.mjs?v=fg-b8cd24229a56fb6b');
 }
-import {makeWeatherEffects} from './emotion-weather.mjs?v=fg-ad900744140b5c2c';
-import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-ad900744140b5c2c';
-import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-ad900744140b5c2c';
-import {settleEmotionGround} from './emotion-ground.mjs?v=fg-ad900744140b5c2c';
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-ad900744140b5c2c';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-ad900744140b5c2c';
-import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-ad900744140b5c2c';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-ad900744140b5c2c';
-import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-ad900744140b5c2c';
-import {emotionPose} from './emotion-pose.mjs?v=fg-ad900744140b5c2c';
-import {makeEmotionProps,phoneTapTarget,phoneSurfaceTarget,phoneHoldTarget} from './emotion-props.mjs?v=fg-ad900744140b5c2c';
-import {makeDollLife} from './doll-life.mjs?v=fg-ad900744140b5c2c';
-import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-ad900744140b5c2c';
-import {makeUpperBody} from './upper-body.mjs?v=fg-ad900744140b5c2c';
-import {makeBentArms} from './bent-arms.mjs?v=fg-ad900744140b5c2c';
-import {makeHangingHair} from './hanging-hair.mjs?v=fg-ad900744140b5c2c';
-import {createPiercings} from './piercings.mjs?v=fg-ad900744140b5c2c';
-import {PIERCINGS,piercingColor,OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,hairAccessoryOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE,eyesOf} from './wardrobe.mjs?v=fg-ad900744140b5c2c';
-import {makeSeatContact} from './seat-contact.mjs?v=fg-ad900744140b5c2c';
-import {makeSurfaceAttachment} from './surface-attachment.mjs?v=fg-ad900744140b5c2c';
+import {makeWeatherEffects} from './emotion-weather.mjs?v=fg-b8cd24229a56fb6b';
+import {makeEmotionHands,handStyle,handScaleOf} from './emotion-hands.mjs?v=fg-b8cd24229a56fb6b';
+import {makeEmotionFeatures,transientEmotionFace} from './emotion-features.mjs?v=fg-b8cd24229a56fb6b';
+import {settleEmotionGround} from './emotion-ground.mjs?v=fg-b8cd24229a56fb6b';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-b8cd24229a56fb6b';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-b8cd24229a56fb6b';
+import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-b8cd24229a56fb6b';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-b8cd24229a56fb6b';
+import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-b8cd24229a56fb6b';
+import {emotionPose} from './emotion-pose.mjs?v=fg-b8cd24229a56fb6b';
+import {makeEmotionProps,phoneTapTarget,phoneSurfaceTarget,phoneHoldTarget} from './emotion-props.mjs?v=fg-b8cd24229a56fb6b';
+import {makeDollLife} from './doll-life.mjs?v=fg-b8cd24229a56fb6b';
+import {makeSeatedLegs,WORK_SEATED_HIP} from './seated-legs.mjs?v=fg-b8cd24229a56fb6b';
+import {makeUpperBody} from './upper-body.mjs?v=fg-b8cd24229a56fb6b';
+import {makeBentArms} from './bent-arms.mjs?v=fg-b8cd24229a56fb6b';
+import {makeHangingHair} from './hanging-hair.mjs?v=fg-b8cd24229a56fb6b';
+import {createPiercings} from './piercings.mjs?v=fg-b8cd24229a56fb6b';
+import {PIERCINGS,piercingColor,OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,hairAccessoryOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE,eyesOf} from './wardrobe.mjs?v=fg-b8cd24229a56fb6b';
+import {makeSeatContact} from './seat-contact.mjs?v=fg-b8cd24229a56fb6b';
+import {makeSurfaceAttachment} from './surface-attachment.mjs?v=fg-b8cd24229a56fb6b';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-ad900744140b5c2c';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-ad900744140b5c2c';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-b8cd24229a56fb6b';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-b8cd24229a56fb6b';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -563,7 +563,7 @@ if(lastPoseTime==null){sitBlend=Number(seated);kneeBlend=Number(seated&&seatPose
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource,fullSource;
 export function loadTravelerSource(onProgress,{skeletonOnly=false}={}){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{const url=new URL('./doll.glb?v=fg-ad900744140b5c2c',import.meta.url);if(!url.search)url.search=new URL(import.meta.url).search;const source=(await loadGlb(loader,url.href,e=>{if(e?.total)onProgress?.(.25*e.loaded/e.total)})).scene;return source;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{const url=new URL('./doll.glb?v=fg-b8cd24229a56fb6b',import.meta.url);if(!url.search)url.search=new URL(import.meta.url).search;const source=(await loadGlb(loader,url.href,e=>{if(e?.total)onProgress?.(.25*e.loaded/e.total)})).scene;return source;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  if(!skeletonOnly&&!fullSource)fullSource=Promise.all([travelerSource,loadMotionController()]).then(([source,controller])=>controller.prepareMotionSource(source)).catch(e=>{fullSource=null;throw e});
  return (skeletonOnly?travelerSource:fullSource).then(source=>{onProgress?.(1);return source});
 }

@@ -13,3 +13,7 @@ test("单聊群聊都接上", () => {
   assert.match(app, /if \(_splitOn && typeof bubbleGlueBrokenLines === "function"\) words = bubbleGlueBrokenLines\(words\)/);
   assert.match(app, /bubbleGlueBrokenLines\(_gLines\.map/);
 });
+test("「怎么」这种单发起下一句的不粘到上一句尾巴上（她 2026-11-25）", () => {
+  assert.deepEqual(f(["而且他家牛排切得厚", "煎出来汁水多", "怎么", "嫌我买太勤了？"]), ["而且他家牛排切得厚", "煎出来汁水多", "怎么", "嫌我买太勤了？"]);
+  assert.deepEqual(f(["刚在健身会所做完核心", "训练"]), ["刚在健身会所做完核心训练"], "真尾巴照粘");
+});
