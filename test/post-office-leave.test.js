@@ -18,3 +18,8 @@ test("邮局里的人走省力小人（skeletonOnly）：一个完整小人约 1
   const v = fs.readFileSync(path.join(__dirname, "..", "apps", "post-office", "view.mjs"), "utf8");
   assert.match(v, /createTraveler\(source,true,u\.look,u\.npcStyle\?\{costume:[^}]*\}:\{skeletonOnly:true\}\)/);
 });
+test("来访演出：店员走不到客人身边（柜台前挤满人）也在几秒后就地开口（她 2026-11-25）", () => {
+  const f = fs.readFileSync(path.join(__dirname, "..", "apps", "post-office", "flow.mjs"), "utf8");
+  assert.match(f, /meeting\.phase==='approach'&&\(meeting\.total=\(meeting\.total\|\|0\)\+dt\)>12\)startMeetSpeech\(\)/);
+  assert.match(f, /meeting\.wait=\(meeting\.wait\|\|0\)\+dt;if\(a\.arrived\|\|meeting\.wait>6\|\|\(meeting\.wait>1\.5&&!a\.path\.length\)\)startMeetSpeech\(\);/);
+});
