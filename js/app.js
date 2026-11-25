@@ -9735,7 +9735,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!offlinePhotoCan(char)) { toast("先去 设置·图像API 接一个图像模型，再给 " + char.name + " 填上外貌或参考照"); return; }
     if (kind === "duo" && !offlinePhotoCanDuo(char)) { toast("合照要你俩各自的参考照都在，才能把两张脸都锁住——去「我」那页传一张你的，再给 " + char.name + " 传一张", 9000); return; }
     const st = liveStateForScope(charId, scopeKey);
-    const bits = [freshLiveStateValue(st, "action"), freshLiveStateValue(st, "wearing")].map(x => String(x || "").trim()).filter(Boolean);
+    // 「此刻在干嘛」只在状态卡里留 45 分钟；他这一会儿没换动作，状态卡那一格就过期成空的，拍出来只剩衣服（群友 2026-11-25「这一幕就直接没有了」）。
+    //   线下正在演：过期了就拿这一场最后一拍他写的那段当「此刻」——那才是眼下这一幕
+    let _act = freshLiveStateValue(st, "action");
+    if (!_act) { const _ss = (offlinesRef.current[scopeKey] || []).find(x => x && !x.endTs); const _lb = _ss && (_ss.msgs || []).slice().reverse().find(m => m && m.role !== "user" && !isOocMsg(m) && m.content);
+      if (_lb) _act = String(_lb.content).replace(/\s+/g, " ").trim().slice(-160); }
+    const bits = [_act, freshLiveStateValue(st, "wearing")].map(x => String(x || "").trim()).filter(Boolean);
     const scene = bits.length ? bits.join("，") : "此刻的样子，平静的自然光";
     await runOfflineShot({ char, scopeKey, kind, scene, third, explicit: true });
   };
