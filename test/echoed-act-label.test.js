@@ -12,3 +12,8 @@ test("单漏一句记号也摘；平常的话不动", () => {
   assert.strictEqual(strip("【Lisa 此刻做的动作｜不是说出口的话】"), "");
   assert.strictEqual(strip("【重要】今天别迟到"), "【重要】今天别迟到");
 });
+test("动描开着：照抄的那一块动作挪进动描那一格（{act}），不进气泡", () => {
+  assert.match(a, /if \(actDescFor\(charId\) && \(settingsFor\(charId\) \|\| \{\}\)\.actMid !== false\) words = words\.reduce\(\(acc, w\) => \{\n\s*if \(typeof w !== "string" \|\| !\/场景旁注\/\.test\(w\)\)/);
+  assert.match(a, /out\.push\(\{ act: m\[1\]\.trim\(\)/);
+  assert.ok(a.indexOf("照抄了动描旁注那一整块") < a.indexOf("const _midActs = [];"), "要在 {act} 那道认之前");
+});

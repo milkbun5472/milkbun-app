@@ -56,7 +56,9 @@ test("本体模式一次回一整条：不拆泡，几条也并成一条；言�
   // 2026-10-29 起多一道「拆成短气泡」开关：默认关＝还是一整条
   assert.match(app, /const _oneLong = !!_s\.bodyMode && !_s\.engineerEyes && _s\.bodySplit !== true;/);
   assert.match(app, /const _splitOn = _s\.splitBubbles !== false && !_oneLong;/);
-  assert.match(app, /if \(_oneLong && words\.length > 1 && words\.every\(w => typeof w === "string"\)\) words = \[words\.join\("\\n\\n"\)\];/);
+  // 2026-11-25 起并的时候动描／语音／表情占位各留原位，其余正文照旧并成一条
+  assert.match(app, /if \(_oneLong && words\.length > 1 && words\.every\(w => typeof w === "string"\)\) \{/);
+  assert.match(app, /acc\[acc\.length - 1\] = L \+ "\\n\\n" \+ w;/);
   assert.match(app, /把你要说的写成一整条消息（word 里只放一条）/);
   // 并成一条那一刀要在拆泡之后、在标点细拆之前
   const a = app.indexOf("const _oneLong = "), b = app.indexOf("if (_oneLong && words.length > 1"), c = app.indexOf("splitLongBubble(bi ? bi.text : w");

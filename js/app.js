@@ -14944,6 +14944,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 夹在 word 里的 {"emote":"关键词"}（她 2026-10-16「为啥群聊表情包可以插在话中间但是单聊一定在最下面」）：
       //   先写成「[表情] 关键词」，底下那道认表情的会在原位置留一个 emoteslot，发气泡那一圈走到就地发
       words = (Array.isArray(words) ? words : []).map(w => w && typeof w === "object" && !w.voice && typeof w.emote === "string" && w.emote.trim() ? "[表情] " + w.emote.trim() : w);
+      // 照抄了动描旁注那一整块（她 2026-11-25 截图）：动描开着就把夹着的那段动作当成 {"act":…} 摆到动描那一格，话照留；
+      //   动描关着的，下面 stripEchoedMeta 那道会把它收进（）
+      if (actDescFor(charId) && (settingsFor(charId) || {}).actMid !== false) words = words.reduce((acc, w) => {
+        if (typeof w !== "string" || !/场景旁注/.test(w)) return acc.concat([w]);
+        const re = new RegExp(ECHOED_ACT_BLOCK.source, "g"); let last = 0, m; const out = [];
+        while ((m = re.exec(w))) { const before = w.slice(last, m.index).trim(); if (before) out.push(before); if (m[1].trim()) out.push({ act: m[1].trim().replace(/^[（(]|[）)]$/g, "") }); last = re.lastIndex; }
+        const tail = w.slice(last).trim(); if (tail) out.push(tail);
+        return acc.concat(out.length ? out : [w]);
+      }, []);
       // 夹在 word 里的 {"act":…}：动描开着、「说着说着换了动作」没关时留占位，发气泡那一圈就地摆；否则这一项不要
       const _midActs = [];
       words = words.map(w => {
@@ -15020,7 +15029,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         ? splitCardsAndLines(stripAiStamp(w))   // 先摘时间标注再拆：拆完它就被劈成两半、认不出来了
         : String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
       if (_splitOn && typeof bubbleGlueBrokenLines === "function") words = bubbleGlueBrokenLines(words);   // 半句话被断成两泡的粘回去
-      if (_oneLong && words.length > 1 && words.every(w => typeof w === "string")) words = [words.join("\n\n")];
+      // 并成一条长消息时，动描／语音／表情那几个占位各自留在原位、不并进正文（并进去就成了气泡里一串「actslot0」）
+      if (_oneLong && words.length > 1 && words.every(w => typeof w === "string")) {
+        const _slot = w => actSlotOf(w) != null || (typeof voiceSlotOf === "function" && voiceSlotOf(w) != null) || /^\s*\[表情\]/.test(w);
+        words = words.reduce((acc, w) => { const L = acc[acc.length - 1]; if (!_slot(w) && L != null && !_slot(L)) acc[acc.length - 1] = L + "\n\n" + w; else acc.push(w); return acc; }, []);
+      }
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).map(stripEchoedMeta).filter(Boolean);
       // 照抄了「名字：」那种剧本格式（2026-10-29 群友截图：每条都是「温栩年：刚下班」）——只摘【TA 自己的名字】打头的，
