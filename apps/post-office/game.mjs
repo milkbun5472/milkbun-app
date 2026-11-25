@@ -1,5 +1,5 @@
-import {projectShop} from './state.mjs?v=fg-1a6a7a8ca8cafb47';
-import {createPostOfficeView} from './view.mjs?v=fg-1a6a7a8ca8cafb47';
+import {projectShop} from './state.mjs?v=fg-bad2aafa1db48b97';
+import {createPostOfficeView} from './view.mjs?v=fg-bad2aafa1db48b97';
 const host=parent!==window?parent.FairyGardenHostFor?.(window):null,status=document.getElementById('status');
 let view=null,closed=false,paused=false,frame=0,timer=null,key='',pending=null,refreshAgain=false,closing=false,failed=false,lastRender=0;
 function refresh(){
@@ -19,7 +19,7 @@ function refresh(){
  return pending;
 }
 
-function animate(now){if(closed)return;if(!paused&&!failed&&!document.hidden&&now-lastRender>40){lastRender=now;view?.tick(now/1000);view?.render();}frame=requestAnimationFrame(animate);}
+function animate(now){if(closed)return;if(!paused&&!failed&&!document.hidden&&now-lastRender>32){lastRender=now;view?.tick(now/1000);view?.render();}frame=requestAnimationFrame(animate);}
 function dispose(){if(closed)return;closed=true;clearInterval(timer);cancelAnimationFrame(frame);host?.pauseSound?.(true);view?.dispose();}
 if(!host)status.textContent='请从秋秋机的小世界进入邮局小店。';
 else{

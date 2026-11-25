@@ -1,4 +1,4 @@
-import {createCovarianceRotation} from './covariance-rotation.mjs?v=fg-1a6a7a8ca8cafb47';
+import {createCovarianceRotation} from './covariance-rotation.mjs?v=fg-bad2aafa1db48b97';
 const rotation=createCovarianceRotation();
 export function fitRigid(rest,posed,ids){
  const x=[0,0,0],y=[0,0,0];for(const i of ids)for(let k=0;k<3;k++){x[k]+=rest[i*3+k]/ids.length;y[k]+=posed[i*3+k]/ids.length;}

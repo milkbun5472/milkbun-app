@@ -1,6 +1,6 @@
-import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-1a6a7a8ca8cafb47';
-import {PIANO} from '../work-contacts.mjs?v=fg-1a6a7a8ca8cafb47';
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-1a6a7a8ca8cafb47';
+import {deskWorkSurfaces} from '../work-contacts.mjs?v=fg-bad2aafa1db48b97';
+import {PIANO} from '../work-contacts.mjs?v=fg-bad2aafa1db48b97';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-bad2aafa1db48b97';
 
 const FLOOR=.08;
 const furniture=[

@@ -1,25 +1,24 @@
-import {createNpcProps,makeNpcLeaf,applyNpcPresence,settleNpcHeadwear} from './npc-props.mjs?v=fg-1a6a7a8ca8cafb47';
-import {createAnimalFigure} from '../fairy-garden/animal-figure.mjs?v=fg-1a6a7a8ca8cafb47';
-import {isPostalCat} from './cat-visit.mjs?v=fg-1a6a7a8ca8cafb47';
-import {shopNavigation} from './flow.mjs?v=fg-1a6a7a8ca8cafb47';
-import {SHOP_FLOOR,SHOP_CHAIR,SHOP_BENCH,SHOP_COUNTER,COUNTER_SURFACE} from './furniture.mjs?v=fg-1a6a7a8ca8cafb47';
-import {storyAnimation,storyHandPoint,makeStoryLetter,applyStoryPair,createStoryTools} from '../fairy-garden/story-motion.mjs?v=fg-1a6a7a8ca8cafb47';
-import {createShopExterior} from './exterior.mjs?v=fg-1a6a7a8ca8cafb47';
-import {createDayEnvironment,prepareEnvironmentSurfaces} from '../fairy-garden/day/environment-view.mjs?v=fg-1a6a7a8ca8cafb47';
-import {makeNpcCostume} from './npc-outfits.mjs?v=fg-1a6a7a8ca8cafb47';
-import {createShopFlow,unitSeat} from './flow.mjs?v=fg-1a6a7a8ca8cafb47';
-import {createShopDecor} from './decor-view.mjs?v=fg-1a6a7a8ca8cafb47';
+import {createNpcProps,makeNpcLeaf,applyNpcPresence,settleNpcHeadwear} from './npc-props.mjs?v=fg-bad2aafa1db48b97';
+import {createAnimalFigure} from '../fairy-garden/animal-figure.mjs?v=fg-bad2aafa1db48b97';
+import {isPostalCat} from './cat-visit.mjs?v=fg-bad2aafa1db48b97';
+import {shopNavigation} from './flow.mjs?v=fg-bad2aafa1db48b97';
+import {SHOP_FLOOR,SHOP_CHAIR,SHOP_BENCH,SHOP_COUNTER,COUNTER_SURFACE} from './furniture.mjs?v=fg-bad2aafa1db48b97';
+import {storyAnimation,storyHandPoint,makeStoryLetter,applyStoryPair,createStoryTools} from '../fairy-garden/story-motion.mjs?v=fg-bad2aafa1db48b97';
+import {createShopExterior} from './exterior.mjs?v=fg-bad2aafa1db48b97';
+import {createDayEnvironment,prepareEnvironmentSurfaces} from '../fairy-garden/day/environment-view.mjs?v=fg-bad2aafa1db48b97';
+import {makeNpcCostume} from './npc-outfits.mjs?v=fg-bad2aafa1db48b97';
+import {createShopFlow,unitSeat} from './flow.mjs?v=fg-bad2aafa1db48b97';
+import {createShopDecor} from './decor-view.mjs?v=fg-bad2aafa1db48b97';
 import * as T from 'three';
-import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-1a6a7a8ca8cafb47';
-import {createWorldRenderer,disposeWorldRenderer} from '../fairy-garden/world-renderer.mjs?v=fg-1a6a7a8ca8cafb47';
-import {createMapGesture,createMapOrbit,orthographicCameraPose,orthographicPanDelta} from '../fairy-garden/view-controls.mjs?v=fg-1a6a7a8ca8cafb47';
-import {splitRoomCutaway,createRoomCutaway} from '../fairy-garden/day/camera-view.mjs?v=fg-1a6a7a8ca8cafb47';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-1a6a7a8ca8cafb47';
-import {disposeMap} from '../fairy-garden/map-loader.mjs?v=fg-1a6a7a8ca8cafb47';
-import {visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-1a6a7a8ca8cafb47';
+import {createRoomKit} from '../fairy-garden/day/places/room-kit.mjs?v=fg-bad2aafa1db48b97';
+import {createWorldRenderer,disposeWorldRenderer} from '../fairy-garden/world-renderer.mjs?v=fg-bad2aafa1db48b97';
+import {createMapGesture,createMapOrbit,orthographicCameraPose,orthographicPanDelta} from '../fairy-garden/view-controls.mjs?v=fg-bad2aafa1db48b97';
+import {splitRoomCutaway,createRoomCutaway} from '../fairy-garden/day/camera-view.mjs?v=fg-bad2aafa1db48b97';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-bad2aafa1db48b97';
+import {disposeMap} from '../fairy-garden/map-loader.mjs?v=fg-bad2aafa1db48b97';
+import {visibleBounds} from '../fairy-garden/photo-render.mjs?v=fg-bad2aafa1db48b97';
 export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthly,onMeetEnd,onEvent}={}){
- // 手机上卡（她 2026-11-25）：分辨率压到 1.25 倍，影子三帧才重画一次（人走动影子慢半拍看不出来），拖动缩放并成一帧画一次
- const renderer=createWorldRenderer(stage,{pixelRatio:1.25}),scene=new T.Scene(),camera=new T.OrthographicCamera(-6,6,7,-7,.1,100),kit=createRoomKit();
+ const renderer=createWorldRenderer(stage),scene=new T.Scene(),camera=new T.OrthographicCamera(-6,6,7,-7,.1,100),kit=createRoomKit();
  const {root,box,cylinder,sphere,ellipsoid,tube,group,sign,table,chair,bench,plant}=kit;
  scene.add(root);scene.background=new T.Color('#e6dfcc');
  const hemi=new T.HemisphereLight('#fff4da','#927a60',2.4);scene.add(hemi);
@@ -76,10 +75,8 @@ export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthl
  let lastTap=null,projection=null,cardKey='',generation=0,closed=false,paused=false,zoom=1,pan={x:0,z:.35};
  const labels=document.getElementById('labels'),observers=[],narrator=document.createElement('span');narrator.className='shop-speech shop-narration';narrator.hidden=true;labels.append(narrator);
  const controls=document.createElement('div');controls.className='shop-performance';controls.hidden=true;const progress=document.createElement('span'),nextLine=document.createElement('button'),stopStory=document.createElement('button');nextLine.textContent='下一句';stopStory.textContent='结束演出';nextLine.onclick=()=>flow.nextBeat();stopStory.onclick=()=>flow.skipStory();controls.append(progress,nextLine,stopStory);const weatherLabel=document.createElement('span');weatherLabel.className='shop-weather';weatherLabel.title='按手机本地日期和钟点，每3小时按季节概率安排景观天气';stage.append(controls,weatherLabel);
- let shadowN=0,want=0;
- const requestRender=()=>{if(want||closed)return;want=requestAnimationFrame(()=>{want=0;render();});};
  function render(){
-  if(closed)return;renderer.shadowMap.autoUpdate=false;if(shadowN++%3===0)renderer.shadowMap.needsUpdate=true;const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;
+  if(closed)return;const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;
   const spanX=Math.max(12.8,12.8*w/h),spanY=spanX*h/w;
   camera.left=-spanX/2/zoom;camera.right=spanX/2/zoom;camera.top=spanY/2/zoom;camera.bottom=-spanY/2/zoom;camera.updateProjectionMatrix();
   // Preserve the shop's target height while sharing the orbit/frustum protection.
@@ -90,7 +87,7 @@ export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthl
  function resize(){if(closed)return;renderer.setSize(stage.clientWidth,stage.clientHeight);render();}
  const observer=new ResizeObserver(resize);observer.observe(stage);
  const listen=(target,name,fn,opts)=>{target.addEventListener(name,fn,opts);observers.push(()=>target.removeEventListener(name,fn,opts));};
- const gesture=createMapGesture({min:.65,max:24,initial:1,onZoom:v=>{zoom=v;requestRender();},onRotate:(dx,dy)=>{orbit.rotate(dx,dy);requestRender();},onPan:(dx,dy)=>{const a=new T.Raycaster(),b=new T.Raycaster();a.setFromCamera(new T.Vector2(0,0),camera);b.setFromCamera(new T.Vector2(dx/stage.clientWidth*2,-dy/stage.clientHeight*2),camera);const q=orthographicPanDelta(a.ray.origin,b.ray.origin,a.ray.direction);if(q){pan.x=T.MathUtils.clamp(pan.x+q.x,-4,4);pan.z=T.MathUtils.clamp(pan.z+q.z,-3,4);requestRender();}},onTap:(x,y)=>{
+ const gesture=createMapGesture({min:.65,max:24,initial:1,onZoom:v=>{zoom=v;render();},onRotate:(dx,dy)=>{orbit.rotate(dx,dy);render();},onPan:(dx,dy)=>{const a=new T.Raycaster(),b=new T.Raycaster();a.setFromCamera(new T.Vector2(0,0),camera);b.setFromCamera(new T.Vector2(dx/stage.clientWidth*2,-dy/stage.clientHeight*2),camera);const q=orthographicPanDelta(a.ray.origin,b.ray.origin,a.ray.direction);if(q){pan.x=T.MathUtils.clamp(pan.x+q.x,-4,4);pan.z=T.MathUtils.clamp(pan.z+q.z,-3,4);render();}},onTap:(x,y)=>{
   if(paused||flow.closing)return;const rect=renderer.domElement.getBoundingClientRect(),ray=new T.Raycaster();ray.setFromCamera(new T.Vector2((x-rect.left)/rect.width*2-1,-(y-rect.top)/rect.height*2+1),camera);
   for(const a of people.values()){const u=flow.units.get(a.key);if(!u||u.phase==='waiting-entry'||u.phase==='leaving')continue;const point=a.avatar.root.position.clone().add(new T.Vector3(0,u.seated?1.0:1.4,0)).project(camera),dx=(point.x+1)*rect.width/2-(x-rect.left),dy=(1-point.y)*rect.height/2-(y-rect.top);if(Math.hypot(dx,dy)<23){select?.(u.kind==='staff'?{type:'staff',post:u.post}:{type:'guest',id:u.id});return;}}
   const item=decoration.hit(ray);if(item){select?.({type:'decor',name:item});return;}
@@ -180,7 +177,7 @@ export function createPostOfficeView(stage,{name,counter,thumbnail,select,monthl
  function lampPower(next){const e=next?.environment;return e?(e.phase==='傍晚'||e.night||e.light<.65?6:0):next?.lighting==='evening'?6:0;}
  function weatherSnapshot(){const state=environment.inspect(),weather=scene.getObjectByName('DayWeather'),roofs=root.userData.dayWeatherRoofs||[];let indoorParticles=0;if(weather?.visible)for(const mesh of weather.children){if(!mesh.visible)continue;const p=mesh.geometry.attributes.position,count=Math.min(p.count,mesh.geometry.drawRange.count);for(let i=0;i<count;i+=mesh.isLineSegments?2:1)if(p.getY(i)>0&&roofs.some(r=>p.getX(i)>r.min[0]&&p.getX(i)<r.max[0]&&p.getZ(i)>r.min[2]&&p.getZ(i)<r.max[2]))indoorParticles++;}return {...state,indoorParticles};}
  async function startClosing(story=projection?.closing){if(closePromise)return closePromise;closePromise=new Promise(resolve=>{closeResolve=resolve;});flow=createShopFlow({onEvent});flow.reconcile({...projection,ambient:false,closed:false,phase:'open',staff:Array.isArray(story?.staff)?story.staff:projection?.staff||[],customers:[]});flow.startClosing(story||{});await ensureActors();return closePromise;}
- function dispose(){if(closed)return;closed=true;cancelAnimationFrame(want);generation++;observer.disconnect();for(const off of observers)off();for(const a of people.values()){a.label.remove();a.bubble.remove();a.props?.dispose();a.avatar.dispose();}people.clear();narrator.remove();controls.remove();weatherLabel.remove();cutaway.restore();environment.close();closeResolve?.(false);closeResolve=null;disposeWorldRenderer(renderer,scene);}
+ function dispose(){if(closed)return;closed=true;generation++;observer.disconnect();for(const off of observers)off();for(const a of people.values()){a.label.remove();a.bubble.remove();a.props?.dispose();a.avatar.dispose();}people.clear();narrator.remove();controls.remove();weatherLabel.remove();cutaway.restore();environment.close();closeResolve?.(false);closeResolve=null;disposeWorldRenderer(renderer,scene);}
  resize();
  return {scene,camera,renderer,sync,tick,render,dispose,startClosing,finishClosing:async next=>{flow.finishClosing();flow=liveFlow;closePromise=null;if(next?.closed)liveFlow.units.clear();if(next)projection=next;if(projection)await sync(projection);},resume:flow.resume,playMeet:flow.playMeet,pause:value=>{paused=!!value;lastTime=null;if(paused)gesture.cancel();},resetView:()=>{pan={x:0,z:.35};orbit.restore(homeOrbit);gesture.setZoom(1);},snapshot:()=>({lastTap,projection,storyTools:storyTools.inspect(),pairContact:pairReport,catLeaves:[...catLeaves].map(([key,leaf])=>({key,uuid:leaf.uuid,dropped:!!leaf.userData.dropped,position:leaf.getWorldPosition(new T.Vector3()).toArray()})),heldItems:[...heldLetters.values()].map(l=>({id:l.userData.itemId,uuid:l.uuid,owner:l.userData.owner,position:l.position.toArray()})),cameraView:{orbit:orbit.snapshot(),pan:{...pan},zoom,cutaway:cutaway.snapshot()},rendering:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles},exterior:exterior.snapshot(),weather:weatherSnapshot(),performance:flow.performance,flow:flow.snapshot(),people:[...people.values()].filter(a=>flow.units.has(a.key)).map(a=>{const u=flow.units.get(a.key);return {id:u.id,post:u.post,kind:u.kind,heading:u.heading,forward:(a.avatar.root.getObjectByName('TravelerVisual')||a.avatar.root).getWorldDirection(new T.Vector3()).toArray(),look:u.look,species:a.animal?'cat':'person',props:a.props?.inspect()||null,x:a.avatar.root.position.x,z:a.avatar.root.position.z,posture:a.avatar.root.userData.posture,catPhase:a.animal?u.phase:null,seat:unitSeat(u),seatContact:a.avatar.root.userData.seatContact,phase:u.phase,action:u.taskAction||'',badge:a.badgeKey,badgeView:badgeSnapshot(a),letter:!!a.letter?.visible,storyMotion:u.storyMotion||null,storySkeleton:u.storyMotion||u.partnerMotion?{right:storyHandPoint(a.avatar).toArray(),left:storyHandPoint(a.avatar,'left').toArray(),rightShoulder:a.avatar.root.getObjectByName('rightArm')?.getWorldPosition(new T.Vector3()).toArray(),leftShoulder:a.avatar.root.getObjectByName('leftArm')?.getWorldPosition(new T.Vector3()).toArray(),bodyTilt:a.avatar.root.getObjectByName('TravelerVisual')?.rotation.x}:null,emotion:a.avatar.root.userData.emotion,dailyAction:a.avatar.root.userData.dailyAction,costume:a.animal?'cat':a.avatar.root.getObjectByName('TravelerVisual')?.userData.outfit};}),decor:[...decoration.entries].filter(([,n])=>n.node.visible).map(([name])=>name),cards:cardRoot.children.filter(c=>c.userData.cardId).map(c=>({id:c.userData.cardId,image:!!c.material.map&&!c.material.map.isCanvasTexture})),lighting:{ambient:hemi.intensity,sun:sun.intensity,lamp:lights.reduce((sum,l)=>sum+l.intensity,0)},closedSign:closedSign.visible,disposed:closed}),projectCounter:()=>projectPoint(-1.45,.91,1.15),project:projectPoint};
  function projectPoint(x,y,z){const q=new T.Vector3(x,y,z).project(camera);return {x:(q.x+1)*stage.clientWidth/2,y:(1-q.y)*stage.clientHeight/2};}
