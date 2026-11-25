@@ -19523,7 +19523,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const endWhat = endSec ? (endSec.beats || []).map(b => b.text || "").join("").slice(-300) : "";
       // 分镜写的是她的视角（他朝镜头递东西、她只露出一截袖口）：她就是镜头，画成第一人称，不再按双人合影把她整个人画进去（她 2026-11-20：纪念日卡两张脸并排、又多一只伸出来的手）
       const povShot = !alt && /(?:递|伸|朝|向|看)[^。；;]{0,6}镜头|第一人称|(?:她|你)[^。；;]{0,8}只露出|只露出[^。；;]{0,6}(?:她|你)的/.test(String(tx.shot || ""));
-      const duo = !povShot && ((alt && mode === "duo") || (card.kind === "mybday" && mode !== "solo") || card.kind === "anniv");   // 纪念日卡：每一面都是你们俩   // 她的生日卡：第一面就是你们俩
+      const duo = card.kind === "anniv" || (card.kind === "mybday" && mode !== "solo") || (!povShot && alt && mode === "duo");   // 纪念日、她的生日：分镜写成第一人称也照样画两个人（群里 2026-11-25：纪念日卡画成了单人）   // 纪念日卡：每一面都是你们俩   // 她的生日卡：第一面就是你们俩
       const lover = spaceLover((couplesRef.current || {})[char.id]);
       let scene = alt
         ? "一张乙游满级纪念卡面：「" + (tx.name || "") + "」。画的是这段剧情走到结局时的那一刻：" + (endWhat || String(what).slice(0, 300)) + "\n跟第一张卡面不是同一刻，构图和光也换一套。景别拉开到看得见这一刻的场景和氛围，不是一张脸部近照。"

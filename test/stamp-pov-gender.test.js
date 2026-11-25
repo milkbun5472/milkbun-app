@@ -138,3 +138,6 @@ test("生日、纪念日卡不再顶着「日常卡」的开头", () => {
   assert.match(src, /if \(day\) return "这是一张【" \+ day \+ "卡】：写这一天前后真发生的一刻。"/);
   assert.ok(!/隆重不等于西装，照那天在做的事配/.test(src));
 });
+test("纪念日、她的生日卡面一律画两个人，分镜写成第一人称也一样", () => {
+  assert.match(src, /const duo = card\.kind === "anniv" \|\| \(card\.kind === "mybday" && mode !== "solo"\) \|\| \(!povShot && alt && mode === "duo"\)/);
+});
