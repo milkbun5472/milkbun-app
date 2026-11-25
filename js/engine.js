@@ -9944,8 +9944,8 @@ async function _transMyMemory(text, src) {
 }
 // 兜底：用后台线路让模型翻。要花钱，但一条聊天消息只是几百 token，
 // 而且译文进缓存、同一句只花一次。
-async function _transModel(text) {
-  const p = ttsHelperProfile();
+async function _transModel(text, prof) {
+  const p = prof || ttsHelperProfile();
   if (!p || !p.apiKey || !p.model) throw new Error("免费接口没通，后台线路也没配");
   const sys = "你是翻译。把用户发来的这段话翻译成简体中文。\n"
     + "· 只输出译文，不要原文、不要注音、不要解释、不要引号、不要「译：」这类前缀。\n"
@@ -10024,11 +10024,25 @@ function fixGarbledText(s) {
     try { return new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bytes)); } catch (e) { return ""; }
   });
 }
+// 翻译专用线路（群友 2026-11-25）：设置 → 接哪些模型 →「翻译模型」挑的那条；没挑、或挑的那条删掉了就是 null
+function transApiProfile() {
+  try {
+    const id = typeof loadJSON === "function" ? loadJSON("x_transApi", null) : JSON.parse(localStorage.getItem("x_transApi") || "null");
+    if (!id) return null;
+    const stored = JSON.parse(localStorage.getItem("x_api") || "[]");
+    const list = window.CredentialVault ? window.CredentialVault.materializeApiProfiles(stored) : stored;
+    const p = Array.isArray(list) ? list.find(x => x && x.id === id) : null;
+    return p && p.apiKey && p.model ? p : null;
+  } catch (e) { return null; }
+}
 async function translateToZh(text, lang, opts) {
   const cached = transCacheGet(text);
   if (cached && cached.zh) return cached;
   const src = TRANS_LANG_CODE[lang] || "auto";
+  // 挑了翻译线路就先走它（她点名要的，不算「偷偷叫模型」）；翻不成再退免费那几家
+  const tp = transApiProfile();
   const chain = [
+    ...(tp ? [{ by: "模型", run: () => _transModel(text, tp) }] : []),
     { by: "免费", run: () => _transGoogle(text, src) },
     { by: "免费", run: () => _transMicrosoft(text, src) },
     // 日/韩/俄它也试（她 2026-10-18 群里俄文截图：Google 不通、微软取票 404，第三条又因为「要绕道英语」被跳过——三条全断）。
@@ -10039,7 +10053,7 @@ async function translateToZh(text, lang, opts) {
     { by: "模型", run: () => !(opts && opts.allowModel) ? Promise.reject(new Error("翻译只用免费的，不叫模型")) : _transModel(text) }
   ];
   const errs = [];
-  const names = ["Google", "微软", "MyMemory", "模型"];
+  const names = (tp ? ["翻译线路"] : []).concat(["Google", "微软", "MyMemory", "模型"]);
   for (let i = 0; i < chain.length; i++) {
     try {
       const zh = cutLoop(await chain[i].run());

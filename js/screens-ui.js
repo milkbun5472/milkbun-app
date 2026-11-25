@@ -7856,6 +7856,8 @@ function ApiConfig({
 }) {
   const t = useTheme();
   const [genStopOn, setGenStopOn] = useState(() => !!loadJSON("x_genStopOn", false));
+  // 翻译专用线路（群友 2026-11-25「能弄一个专门连接翻译的 api 接口嘛，免费的那个翻译太奇怪了而且经常抽」）：选了就先走它，翻不成再退免费
+  const [transApiId, setTransApiId] = useState(() => loadJSON("x_transApi", null));
   const [list, setList] = useState(profiles.length ? profiles : [{
     id: "p_" + Date.now(),
     name: "",
@@ -8035,7 +8037,10 @@ function ApiConfig({
       + "总结不出来、「Ta 眼里」不更新时，先回来看这一栏。"
       // 「无」（她 2026-10-10：「后台 api 能不能选个无，这样可以强制不刷新」）：后台自己跑的那些一律不跑
       + "选「无」：「谁会自己动」里那些自己跑的（日程、日记、朋友圈、论坛、刷手机、群里自己聊、主动来找你……）和自动抽记忆一律停掉，只剩你点了才动的；聊天到一定长度的前情浓缩照旧走主模型，不然 TA 会忘。",
-      bgApiId, onSetBgApi, "跟随主模型", "无（记忆、日程这些后台活不跑）"));
+      bgApiId, onSetBgApi, "跟随主模型", "无（记忆、日程这些后台活不跑）"),
+    routeBox("翻译模型", "点「译」、外语消息自动摆中文时用哪条线路翻。不选就只走免费翻译（Google、微软那几家，不花钱但偶尔抽风、翻得生硬）；"
+      + "选了一条，就先让它翻，翻不成再退回免费的。每翻一段调用一次这条线路，按它的价钱算，挑便宜的模型就行。",
+      transApiId, id => { saveJSON("x_transApi", id || null); setTransApiId(id || null); }, "不用（只走免费翻译）"));
     // 免打扰搬去「谁会自己动」（她 2026-11-24「从文字api那里移出来 放别的地方不放接哪些模型」）：它管的是谁什么时候不动，跟接哪条线路无关
     // MCP 搬去「接哪些模型」里单独一格（她 2026-11-23「从文字api里面移出来做一个单独格子，这个不好找」）：搬＝这儿删掉
   return /*#__PURE__*/React.createElement("div", null,
