@@ -14,3 +14,7 @@ test("进邮局晚半秒再开建 iframe：等陪伴小人那份 3D 放干净（
   assert.match(fg, /const \[frameGo,setFrameGo\]=useState\(false\);\s*useEffect\(\(\)=>\{const t=setTimeout\(\(\)=>setFrameGo\(true\),450\);/);
   assert.match(fg, /frameGo&&h\("iframe",\{ref:binder\.current,/);
 });
+test("邮局里的人走省力小人（skeletonOnly）：一个完整小人约 150MB，四个店员 630MB 顶爆手机（她 2026-11-25）", () => {
+  const v = fs.readFileSync(path.join(__dirname, "..", "apps", "post-office", "view.mjs"), "utf8");
+  assert.match(v, /createTraveler\(source,true,u\.look,u\.npcStyle\?\{costume:[^}]*\}:\{skeletonOnly:true\}\)/);
+});
