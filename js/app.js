@@ -12568,6 +12568,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               const who = (L.who || []).filter(ok), taps = (L.taps || []).filter(ok), th = (L.thoughts || []).filter(ok);
               const bits = [].concat(who.length ? ["和" + who.join("、") + "的聊天"] : [], taps.length ? taps.slice(0, 6).map(x => "「" + x + "」") : []);
               return bits.length ? "\n\n你上次翻她手机已经看过：" + bits.join("、") + (th.length ? "；当时心里想过：" + th.slice(0, 3).map(x => "「" + x + "」").join("") : "") + "——这回多去看看上次没看的。" : ""; })()
+          // 前几次自己动过的手脚（群友 2026-11-25：「自己把备注改了，第二次查手机当成是我改的；一直是置顶，每次都再置顶一遍」）：
+          //   原来只记看过什么、不记做过什么。这几件事是他自己干的、到现在还摆在她手机上
+          + (() => { const did = [].concat(...((loadJSON("x_peekLog", {}) || {})[charId] || []).slice(0, 4).map(e => (e && e.did) || [])).filter(Boolean);
+              const uniq = [...new Set(did)].slice(0, 6);
+              return uniq.length ? "\n\n你前几次翻她手机时自己动过的手脚（是你自己干的，到现在还是这样）：" + uniq.join("；") + "。她手机上现在给你的备注是「" + (c.remark || c.name) + "」。已经是这样的就不用再做一遍。" : ""; })()
           + "\n\n能打开的：messages（消息列表——备注、最后一句、几点聊的都在上面）、chat（和某个人或某个群的聊天，要写 who＝对方名字或群名，能选的：" + others.join("、") + "）"
           + (apps.includes("offline") ? "；offline（她和别人线下见面的往期，要写 who＝那个人的名字）" : "")
           + (apps.includes("calendar") ? "；calendar（她的日历，看她写了哪天跟谁、去干嘛）" : "")
