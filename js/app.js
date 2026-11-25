@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.232";
+const APP_VERSION = "v90.234";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9585,7 +9585,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 合照必须两张参考照都在，否则降级成「她替TA拍的单人照」——绝不一张真一张编。
     let kind = wantMe ? "me" : ["other", "duo", "group"].includes(arg.kind) ? arg.kind : "self";
     if (kind === "duo" && !offlinePhotoCanDuo(char)) kind = "other";
-    if (kind === "duo" && !arg.third && typeof photoDuoSaid === "function" && !photoDuoSaid(scene, userName(profileFor(char.id) || profile))) kind = "self";
+    // 「两个人都在」只是给他自己说要拍照时用来判的；她亲手点的「我俩合照」就是合照（群友 2026-11-25：点合照每次都出自拍——现拍的场景描述里没写她的名字，被这一句降成了自拍）
+    if (kind === "duo" && !arg.third && !arg.explicit && typeof photoDuoSaid === "function" && !photoDuoSaid(scene, userName(profileFor(char.id) || profile))) kind = "self";
     let cast = kind === "group" ? (arg.cast || []) : null;
     if (kind === "group" && (!cast || cast.length < 2)) { kind = "other"; cast = null; }
     // reuseSid：重拍 / 改描述重拍（她 2026-10-02：「线下的图不能编辑重roll」）——就地换这一格的像素，不另挂一张。
@@ -9734,9 +9735,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!offlinePhotoCan(char)) { toast("先去 设置·图像API 接一个图像模型，再给 " + char.name + " 填上外貌或参考照"); return; }
     if (kind === "duo" && !offlinePhotoCanDuo(char)) { toast("合照要你俩各自的参考照都在，才能把两张脸都锁住——去「我」那页传一张你的，再给 " + char.name + " 传一张", 9000); return; }
     const st = liveStateForScope(charId, scopeKey);
-    const bits = [freshLiveStateValue(st, "action"), freshLiveStateValue(st, "wearing")].map(x => String(x || "").trim()).filter(Boolean);
+    // 「此刻在干嘛」只在状态卡里留 45 分钟；他这一会儿没换动作，状态卡那一格就过期成空的，拍出来只剩衣服（群友 2026-11-25「这一幕就直接没有了」）。
+    //   线下正在演：过期了就拿这一场最后一拍他写的那段当「此刻」——那才是眼下这一幕
+    let _act = freshLiveStateValue(st, "action");
+    if (!_act) { const _ss = (offlinesRef.current[scopeKey] || []).find(x => x && !x.endTs); const _lb = _ss && (_ss.msgs || []).slice().reverse().find(m => m && m.role !== "user" && !isOocMsg(m) && m.content);
+      if (_lb) _act = String(_lb.content).replace(/\s+/g, " ").trim().slice(-160); }
+    const bits = [_act, freshLiveStateValue(st, "wearing")].map(x => String(x || "").trim()).filter(Boolean);
     const scene = bits.length ? bits.join("，") : "此刻的样子，平静的自然光";
-    await runOfflineShot({ char, scopeKey, kind, scene, third });
+    await runOfflineShot({ char, scopeKey, kind, scene, third, explicit: true });
   };
   const genOfflineFrom = async (scopeKey, workSess) => {
     const charId = offlinePersonId(scopeKey);
