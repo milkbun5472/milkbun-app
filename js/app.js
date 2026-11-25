@@ -40377,6 +40377,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             sumThresh: s.sumThresh,
             sumBuffer: s.sumBuffer,
             autoMoment: s.autoMoment,
+            // 朋友圈 24 小时上限：页面上有、存的时候漏了这一格，点勾回来又是「不限」（群友 2026-11-25）
+            momMax: Math.max(0, Math.floor(Number(s.momMax) || 0)),
             autoStory: !!s.autoStory,
             storyPhoto: !!s.storyPhoto,
             storyMax: Math.max(1, Math.min(10, Number(s.storyMax) || 3)),
