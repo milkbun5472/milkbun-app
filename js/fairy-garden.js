@@ -9,7 +9,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   const { h, useState, useRef, useEffect, selectDialogs, localDialogs, replaceDialogs, worldCognition, WORLDS, SHOP_WORLD } = root.FairyCore;
-  const KEY = "x_fairyGarden", BUILD = "fg-b8cd24229a56fb6b", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-1a6a7a8ca8cafb47", hosts = new WeakMap();
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
   //   那一刻读到的也是空；这时候要是照着「没有」开一档新的，第一次保存就把她真正的
@@ -53,7 +53,7 @@
     const options=()=>({characters:latest.current.characters||[],cards:cards(),onChat:latest.current.onShopChat});
     const sync=()=>root.StampShop.sync(options()).then(s=>{setShop(old=>JSON.stringify(old)===JSON.stringify(s)?old:s);return s;});
     if(!binder.current)binder.current=node=>{
-      const old=frame.current;if(old&&old!==node){const game=old.contentWindow?.PostOfficeGame;if(game?.ready)root.StampShopScene=game.snapshot();game?.dispose();hosts.delete(old.contentWindow);}frame.current=node;if(!node)return;
+      const old=frame.current;if(old&&old!==node){const game=old.contentWindow?.PostOfficeGame;try{if(game?.ready&&!leaving.current)root.StampShopScene=game.snapshot();}catch{}game?.dispose();hosts.delete(old.contentWindow);}frame.current=node;if(!node)return;
       hosts.set(node.contentWindow,{
         name:SHOP_WORLD.name,
         previous:()=>root.StampShopScene||null,
@@ -81,6 +81,8 @@
     //   等两帧再走
     const leaving=useRef(false);
     const leave=go=>{if(leaving.current)return;leaving.current=true;const node=frame.current;
+      // 先记下店里此刻的样子（谁站在哪儿），下回进来接着演——原来卸 iframe 时由 binder 记，现在先拆了就记不到了
+      try{const g=node?.contentWindow?.PostOfficeGame;if(g?.ready)root.StampShopScene=g.snapshot();}catch{}
       try{node?.contentWindow?.PostOfficeGame?.dispose?.();}catch{}
       try{if(node)node.src="about:blank";}catch{}
       setTimeout(()=>{try{go();}finally{leaving.current=false;}},250);};
