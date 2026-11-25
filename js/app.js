@@ -1179,6 +1179,11 @@ function App() {
     clearTimeout(loreVecTimer.current);
     loreVecTimer.current = setTimeout(() => { if (typeof ensureLoreVecs === "function") ensureLoreVecs(loreRef.current).catch(() => {}); }, 4000);
   };
+  // 已经删掉的群还挂在世界书上的，开机对着群名单清一遍（上面 deleteGroup 之前删的群留下的）
+  useEffect(() => { const ids = new Set((groups || []).map(g => g && g.id).filter(Boolean)); if (!ids.size) return;
+    const bad = (loreRef.current || []).some(e => e && (e.groupIds || []).some(id => !ids.has(id)));
+    if (bad) saveLore((loreRef.current || []).map(e => e && (e.groupIds || []).length ? { ...e, groupIds: e.groupIds.filter(id => ids.has(id)) } : e)); }, [groups, loreEntries.length]);
+
   const [theme, setTheme] = useState(DEFAULT_THEME);
   // 「米白」旧版界面（配色页选的）：写到 <html data-look>，图标、档案桌面这些拿不到 theme 的地方问 isClassicLook()。
   //   在渲染里同步写、不放 effect：effect 晚一拍，换完那一帧子组件读到的还是旧的
@@ -20070,6 +20075,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } else toast("已改名");
   };
   const deleteGroup = groupId => {
+    // 绑在这个群上的世界书松开（群友 2026-11-25：群删了，那几条还挂着「只给群」，哪儿都不进了）
+    if ((loreRef.current || []).some(e => e && (e.groupIds || []).includes(groupId))) saveLore((loreRef.current || []).map(e => e && (e.groupIds || []).includes(groupId) ? { ...e, groupIds: e.groupIds.filter(x => x !== groupId) } : e));
     // 删主群＝它的小房间一起删（列表里房间本来就不露面，留着就成了找不回的孤儿）；删房间只删这一间、回主群
     const self = groups.find(g => g && g.id === groupId);
     const ids = [groupId, ...groups.filter(g => g && g.roomOf === groupId).map(g => g.id)];

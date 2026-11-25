@@ -350,3 +350,8 @@ test("备注不进群里大家看得到的那几行：合照说明、抽签、�
 test("频道改名走 chName，群名照拼，列表和聊天页一起变", () => {
   assert.match(ap, /if \(g && g\.spaceId && name\) \{ const sp0 = /);
 });
+
+test("群删了，绑在它上面的世界书松开；开机清掉已删群的绑定", () => {
+  assert.match(ap, /groupIds: e\.groupIds\.filter\(x => x !== groupId\)/);
+  assert.match(ap, /groupIds: e\.groupIds\.filter\(id => ids\.has\(id\)\)/);
+});
