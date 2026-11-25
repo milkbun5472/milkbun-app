@@ -12737,6 +12737,8 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
     let text = "";
     try { text = String(await readTextFileSmart(f) || ""); } catch (err) { if (window.__toast) window.__toast("这个文件读不出字：" + ((err && err.message) || err), 4000); return; }
     if (!importEmotesOk(text)) { if (window.__toast) window.__toast("文件里没找到「关键词 + 链接」", 4000); return; }
+    // JSON 文件（别家导出的、或我们自己导出的）直接导进这一版，不往框里塞——图装在文件里的那种一塞就是几兆，框会卡死
+    if (/^\s*[\[{]/.test(text) && pack && onImport) { let ok = false; try { JSON.parse(text); ok = true; } catch (err) {} if (ok) { onImport(pack.id, text); return; } }
     setImportText(prev => (prev ? prev + "\n" : "") + text);
   };
   // 从相册直接选图（自己画的表情不用先传图床）：存进本机图库 iv_。
@@ -12933,7 +12935,7 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
             h("button", { "data-wk": "emoexportbtn", "data-part": "all", onClick: () => onExportPacks(list.map(x => x.id)), className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 0" } }, "导出全部表情包")) : null,
           h("button", { "data-wk": "emodelpack", onClick: () => requestAppConfirm("撕掉「" + pack.name + "」这一版？", "这一版上贴着的表情会一起没了。", () => onDeletePack(pack.id), "撕掉"), className: "w-full active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.accent, borderRadius: 14, padding: "14px 0" } }, "撕掉这一版"))));
 }
-function importEmotesOk(text) { return /(https?:\/\/\S+)/.test(String(text || "")); }
+function importEmotesOk(text) { return /(https?:\/\/\S+)|data:image\//.test(String(text || "")); }
 
 // ============================================================
 // 收藏 Favorites —— 按角色查看收藏的聊天消息

@@ -10,3 +10,16 @@ test("返回和去别处都先 leave", () => {
   assert.match(fg, /onBack:\(\)=>leave\(\(\)=>props\.onBack\(\)\)/);
   assert.match(fg, /leave\(\(\)=>props\.onTravel\(to\)\)/);
 });
+test("进邮局晚半秒再开建 iframe：等陪伴小人那份 3D 放干净（她 2026-11-25 从集邮社进来闪退）", () => {
+  assert.match(fg, /const \[frameGo,setFrameGo\]=useState\(false\);\s*useEffect\(\(\)=>\{const t=setTimeout\(\(\)=>setFrameGo\(true\),450\);/);
+  assert.match(fg, /frameGo&&h\("iframe",\{ref:binder\.current,/);
+});
+test("邮局里的人走省力小人（skeletonOnly）：一个完整小人约 150MB，四个店员 630MB 顶爆手机（她 2026-11-25）", () => {
+  const v = fs.readFileSync(path.join(__dirname, "..", "apps", "post-office", "view.mjs"), "utf8");
+  assert.match(v, /createTraveler\(source,true,u\.look,u\.npcStyle\?\{costume:[^}]*\}:\{skeletonOnly:true\}\)/);
+});
+test("来访演出：店员走不到客人身边（柜台前挤满人）也在几秒后就地开口（她 2026-11-25）", () => {
+  const f = fs.readFileSync(path.join(__dirname, "..", "apps", "post-office", "flow.mjs"), "utf8");
+  assert.match(f, /meeting\.phase==='approach'&&\(meeting\.total=\(meeting\.total\|\|0\)\+dt\)>12\)startMeetSpeech\(\)/);
+  assert.match(f, /meeting\.wait=\(meeting\.wait\|\|0\)\+dt;if\(a\.arrived\|\|meeting\.wait>6\|\|\(meeting\.wait>1\.5&&!a\.path\.length\)\)startMeetSpeech\(\);/);
+});
