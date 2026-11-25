@@ -23,3 +23,8 @@ test("来访演出：店员走不到客人身边（柜台前挤满人）也在�
   assert.match(f, /meeting\.phase==='approach'&&\(meeting\.total=\(meeting\.total\|\|0\)\+dt\)>12\)startMeetSpeech\(\)/);
   assert.match(f, /meeting\.wait=\(meeting\.wait\|\|0\)\+dt;if\(a\.arrived\|\|meeting\.wait>6\|\|\(meeting\.wait>1\.5&&!a\.path\.length\)\)startMeetSpeech\(\);/);
 });
+test("开口了两人还隔得远：客人走到店员身边，到了再面对面（她 2026-11-25）", () => {
+  const f = fs.readFileSync(path.join(__dirname, "..", "apps", "post-office", "flow.mjs"), "utf8");
+  assert.match(f, /meeting\.phase==='talk'&&!meeting\.close\)\{const d=Math\.hypot/);
+  assert.match(f, /go\(b,nearby\(b,a,\.85\)\)/);
+});

@@ -1,9 +1,9 @@
-import {CAT_APPROACH,isPostalCat,stepCatVisit} from './cat-visit.mjs?v=fg-e261a18259d8bc86';
-import {visitorSeat,windowSeat,SHOP_CHAIR,SHOP_BENCH} from './furniture.mjs?v=fg-e261a18259d8bc86';
-import {STORY_ACTIONS,normalizeStoryAction} from '../fairy-garden/story-actions.mjs?v=fg-e261a18259d8bc86';
-import {createStoryPlayback} from './playback.mjs?v=fg-e261a18259d8bc86';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-e261a18259d8bc86';
-import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-e261a18259d8bc86';
+import {CAT_APPROACH,isPostalCat,stepCatVisit} from './cat-visit.mjs?v=fg-555a345303ec1181';
+import {visitorSeat,windowSeat,SHOP_CHAIR,SHOP_BENCH} from './furniture.mjs?v=fg-555a345303ec1181';
+import {STORY_ACTIONS,normalizeStoryAction} from '../fairy-garden/story-actions.mjs?v=fg-555a345303ec1181';
+import {createStoryPlayback} from './playback.mjs?v=fg-555a345303ec1181';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-555a345303ec1181';
+import {stepRoute} from '../fairy-garden/locomotion.mjs?v=fg-555a345303ec1181';
 export const ENTRY={x:3.32,z:4.7};
 export const SHOP_FURNITURE=[{id:'Counter',x:-1.45,z:1.15,w:3.93,d:1.04},{id:'SortTable',x:-2.25,z:-2.5,w:2.8,d:.85},SHOP_CHAIR,{id:'DisplayShelves',x:-4.2,z:0,w:.45,d:6},{id:'Mailbags',x:4.05,z:2.45,w:.85,d:.55}];
 export const queuePoint=i=>({x:-1.45+(Math.floor(i/3)%6)*.84,z:2.2+(Math.floor(i/18)%2?2-i%3:i%3)*.85});
@@ -133,7 +133,8 @@ export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
   const places=[{x:.15,z:-2.05,yaw:Math.PI},{x:2.1,z:-1.25,yaw:Math.PI},{x:3.65,z:2.8,yaw:.2}],to=places[(idleSerial-1)%places.length];a.phase='idle-walk';a.taskAction='look';a.seated=false;a.idleTime=0;a.idleYaw=to.yaw;go(a,to);
  }
  // 来访演出：店员走到客人身边才开口。柜台前挤满排队的客人时那个位置走不到（她 2026-11-25 截图：店员站在客人面前一直不出聊天），
- //   走了 6 秒还没到、或者已经停下没路可走了，就地开口；客人自己被人群挡着一直到不了位，整段走位超过 12 秒也开口
+ //   走了 6 秒还没到、或者已经停下没路可走了，就地开口；客人自己被人群挡着一直到不了位，整段走位超过 12 秒也开口。
+ //   开口了两人还隔得远（她 2026-11-25 截图：店员在柜台里、客人在门口那头），就让客人走到店员身边（店里这一侧是通的），到了再面对面
  function step(dt){
   dt=Math.max(0,Math.min(.1,dt));clock+=dt;
   if(closing?.phase==='tidy'){closing.time+=dt;for(const u of staff()){if(u.phase==='tidy-return'&&u.arrived){u.phase='tidying';u.tidyTime=0;}if(u.phase==='tidying'){u.tidyTime+=dt;if(u.tidyTime>1.45)depart(u,false);}}}
@@ -149,7 +150,7 @@ export function createShopFlow({onMeetEnd=()=>{},onEvent=()=>{}}={}){
    if(u.arrived&&u.kind==='guest'&&u.seat&&!u.performing&&!(meeting?.phase==='talk'&&meetingMember(u))&&u.phase!=='leaving'){u.seated=true;u.heading=0;}
    if(u.arrived&&u.kind==='staff'&&u.phase==='working'){u.seated=!!u.seatHeight;u.heading=u.yaw;}
   }
-  if(meeting){const a=units.get(meeting.staff),b=units.get(meeting.visitor);if(!a||!b||a.phase==='leaving'||b.phase==='leaving'){finishBeat();clearSpeech();if(a&&a.phase!=='leaving')returnHome(a);if(b&&b.phase!=='leaving'){b.performing=false;b.performanceSeat=null;b.seated=false;go(b,b.target);}meeting=null;playback=null;}else if(meeting.phase==='approach'&&(meeting.total=(meeting.total||0)+dt)>12)startMeetSpeech();else if(meeting.phase==='approach'&&b.arrived){if(!meeting.approaching){meeting.approaching=true;meeting.wait=0;a.seated=false;go(a,nearby(a,b,.85,b.seated?b.position:null));}meeting.wait=(meeting.wait||0)+dt;if(a.arrived||meeting.wait>6||(meeting.wait>1.5&&!a.path.length))startMeetSpeech();}}
+  if(meeting){const a=units.get(meeting.staff),b=units.get(meeting.visitor);if(!a||!b||a.phase==='leaving'||b.phase==='leaving'){finishBeat();clearSpeech();if(a&&a.phase!=='leaving')returnHome(a);if(b&&b.phase!=='leaving'){b.performing=false;b.performanceSeat=null;b.seated=false;go(b,b.target);}meeting=null;playback=null;}else if(meeting.phase==='talk'&&!meeting.close){const d=Math.hypot(a.position.x-b.position.x,a.position.z-b.position.z);if(d<=1.4){if(!b.path.length&&!a.path.length){meeting.close=true;facePair(a,b);}}else if(!b.path.length&&(meeting.regoal=(meeting.regoal||0)+dt)>1){meeting.regoal=0;b.seated=false;go(b,nearby(b,a,.85));}}else if(meeting.phase==='approach'&&(meeting.total=(meeting.total||0)+dt)>12)startMeetSpeech();else if(meeting.phase==='approach'&&b.arrived){if(!meeting.approaching){meeting.approaching=true;meeting.wait=0;a.seated=false;go(a,nearby(a,b,.85,b.seated?b.position:null));}meeting.wait=(meeting.wait||0)+dt;if(a.arrived||meeting.wait>6||(meeting.wait>1.5&&!a.path.length))startMeetSpeech();}}
   if(playback){stepAction(dt);updateSpeech();const actor=actorById(playback.beat?.actorId||playback.beat?.speakerId);playback.step(dt,!actor||actor.arrived&&(!actor.storyMotion?.seconds||actor.storyMotion.progress>=1));}
   stepIdle(dt);
  }
