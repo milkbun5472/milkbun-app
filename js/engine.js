@@ -3785,6 +3785,9 @@ function pullBareHtmlCard(raw) {
 //   ④ 这一泡开头一两个字就接逗号，而上一泡是没收尾的半句长话——那一两个字是上一句的尾巴（「嗯，」「好，」这种自己起头的不算）。
 const BUBBLE_DANGLE = /(只要|哪怕|如果|因为|虽然|即使|就算|除非|为了|除了|而且|但是|可是|还是|或者|所以|然后|不过|甚至|以及|并且|把|被|给|跟|和|与|让|从|对|往|向|比|连|将|于)$/;
 const BUBBLE_INTERJ = /^[好嗯哎唉啊哦噢嘿喂行对是诶呃欸算靠切哼呵哈呀嗷喔唔]+$/;
+// 自己就能成一句、常单发一条起下一句的那几个（她 2026-11-25 截图：「煎出来汁水多／怎么／嫌我买太勤了？」被粘成「煎出来汁水多怎么」）：
+//   ① 那一条不往上一句尾巴上粘
+const BUBBLE_ALONE = /^(怎么|咋了|咋啦|干嘛|干吗|真的|是吗|对吧|好吧|行吧|不是|算了|没事|是啊|对啊|好啊|知道|晓得|明白|懂了|然后|所以|哈哈|嘿嘿|呵呵|乖|笨|傻|喂|诶|欸|哦|噢|嗯|好|行|对|是|啊|哎|唉)$/;
 const BUBBLE_CONJ = /^(还是|但是|可是|不过|所以|然后|而且|或者|因为|就是|而是|要么|如果|虽然|于是|结果)$/;
 function bubbleGlueBrokenLines(list) {
   const isStr = x => typeof x === "string";
@@ -3795,7 +3798,7 @@ function bubbleGlueBrokenLines(list) {
     const cur = x.trim(), prev = out.length ? out[out.length - 1] : null;
     // 模型把句尾的「!」「?!」单交成一条（她 2026-10-28 法语那句）：粘回上一句
     if (isStr(prev) && /^[!?！？。…~～]+$/.test(cur)) { out[out.length - 1] = prev.trim() + (/^[!?]/.test(cur) && /[!?]$/.test(prev.trim()) ? " " : "") + cur; continue; }
-    if (isStr(prev) && /^[\u4e00-\u9fff]{1,2}$/.test(cur) && prev.trim().length >= 6 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev + cur; continue; }
+    if (isStr(prev) && /^[\u4e00-\u9fff]{1,2}$/.test(cur) && !BUBBLE_ALONE.test(cur) && prev.trim().length >= 6 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev + cur; continue; }
     if (isStr(prev) && /^[\u4e00-\u9fff]/.test(cur) && prev.trim().length >= 6 && BUBBLE_DANGLE.test(prev.trim())) { out[out.length - 1] = prev.trim() + cur; continue; }
     { const m = /^([\u4e00-\u9fff]{1,2})[，,]/.exec(cur);
       if (m && !BUBBLE_INTERJ.test(m[1]) && isStr(prev) && prev.trim().length >= 10 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev.trim() + cur; continue; } }
