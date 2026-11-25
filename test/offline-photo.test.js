@@ -84,7 +84,7 @@ test("手动拍一张不花模型调用——画面从状态卡长出来", () =>
   const seg = app.slice(i, app.indexOf("\n  };", i));
   assert.doesNotMatch(seg, /await (generateOffline|callAI|gen[A-Z])/, "手动拍不许顺手再调一次模型");
   assert.match(seg, /freshLiveStateValue\(st, "action"\)/);
-  assert.match(seg, /runOfflineShot\(\{ char, scopeKey, kind, scene(?:, third)? \}\)/,
+  assert.match(seg, /runOfflineShot\(\{ char, scopeKey, kind, scene(?:, third)?(?:, explicit: true)? \}\)/,
     "拍下的照片要回到当前主线或侧房作用域");
 });
 
