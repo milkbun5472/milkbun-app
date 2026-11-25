@@ -1,4 +1,4 @@
-import {academySleeveSamples} from './academy-sleeve-samples.mjs?v=fg-1b03eb82341ad289';
+import {academySleeveSamples} from './academy-sleeve-samples.mjs?v=fg-892025f76645ba84';
 
 export function bindAcademySleeve(q,entries,cuffs){
  const T=q.T,byPoint=new Map(),nodes=[],pieces=[];
