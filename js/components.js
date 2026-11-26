@@ -1504,10 +1504,11 @@ function PhoneLockScreen({ lock, character, wallpaper, onGoChat, onForce }) {
   const ago = (() => { const m = Math.max(0, Math.round((Date.now() - ((lock && lock.ts) || Date.now())) / 60000)); return m < 1 ? "刚刚" : m < 60 ? m + " 分钟前" : m < 1440 ? Math.floor(m / 60) + " 小时前" : Math.floor(m / 1440) + " 天前"; })();
   const glass = { background: "rgba(255,255,255,.16)", border: "1px solid rgba(255,255,255,.22)", backdropFilter: "blur(18px) saturate(1.3)", WebkitBackdropFilter: "blur(18px) saturate(1.3)" };
   const white = "#fff", soft = "rgba(255,255,255,.72)";
-  return h("div", { "data-wk": "phonelock", style: { position: "relative", minHeight: "100dvh", overflow: "hidden", background: "#1c1a1f", color: white, boxSizing: "border-box" } },
+  return h("div", { "data-wk": "phonelock", className: "h-full", style: { position: "relative", height: "100%", minHeight: "100%", overflow: "hidden", background: "#1c1a1f", color: white, boxSizing: "border-box" } },
     h("div", { "data-wk": "phonelockbg", "aria-hidden": true, style: { position: "absolute", inset: -40, background: wp ? "center/cover no-repeat url(" + wp + ")" : "radial-gradient(120% 80% at 20% 10%, #4a3f52 0%, #241f2a 55%, #141216 100%)", filter: wp ? "blur(22px) brightness(.62) saturate(1.1)" : "none", transform: "scale(1.06)" } }),
     h("div", { "aria-hidden": true, style: { position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,.18) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,.35) 100%)" } }),
-    h("div", { className: "flex flex-col items-center", style: { position: "relative", height: "100dvh", padding: "calc(env(safe-area-inset-top, 0px) + 34px) 22px calc(env(safe-area-inset-bottom, 0px) + 28px)", boxSizing: "border-box" } },
+    // 高度跟外壳走（h-full），不写 100dvh：iOS 壳里 dvh 比整屏矮一截，底下会露出一条浅色（她 2026-11-26 转群友截图）
+    h("div", { className: "flex flex-col items-center", style: { position: "relative", height: "100%", padding: "calc(env(safe-area-inset-top, 0px) + 34px) 22px calc(env(safe-area-inset-bottom, 0px) + 28px)", boxSizing: "border-box" } },
       h("svg", { "data-wk": "phonelockicon", width: 22, height: 26, viewBox: "0 0 44 52", fill: "none", stroke: white, strokeWidth: 3.2, strokeLinecap: "round" },
         h("path", { d: "M11 23V15a11 11 0 0 1 22 0v8" }), h("rect", { x: 4, y: 23, width: 36, height: 26, rx: 7, fill: white })),
       h("div", { "data-wk": "phonelockdate", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: soft, letterSpacing: ".04em" } }, date),
