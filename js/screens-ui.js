@@ -2086,9 +2086,29 @@ function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDel
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
   const importDocument = async e => {
-    const input = e.target, file = input.files && input.files[0];
+    const input = e.target, files = Array.from((input.files) || []), file = files[0];
     input.value = "";
     if (!file || importLock.current) return;
+    // 一次选好几份（2026-11-26「世界书能不能批量导入」）：每份 .docx/.txt 一条、每份 .json 里有几条收几条，全部收进世界书
+    if (files.length > 1 && onImportMany) {
+      importLock.current = true; setImporting(true); setImportError("");
+      try {
+        const all = [], bad = [];
+        for (const f0 of files) {
+          try {
+            if (f0.size > 20 * 1024 * 1024 || !/\.(docx|txt|json|md)$/i.test(f0.name || "")) { bad.push(f0.name); continue; }
+            if (/\.json$/i.test(f0.name)) { const d = JSON.parse(await f0.text()); const ls = typeof loreEntriesFromJson === "function" ? loreEntriesFromJson(d) : []; if (ls.length) all.push(...ls); else bad.push(f0.name); continue; }
+            const tx = String(await readOfflineStyleDocument(f0) || "").trim(); if (!tx) { bad.push(f0.name); continue; }
+            all.push({ title: f0.name.replace(/\.(docx|txt|md)$/i, "").trim() || "导入设定", payload: tx, keyword: "", alwaysOn: true });
+          } catch (x) { bad.push(f0.name); }
+        }
+        if (!all.length) throw new Error("这几份里一条都没认出来");
+        onImportMany(all, "批量导入");
+        if (bad.length && typeof window !== "undefined" && window.__toast) window.__toast("有 " + bad.length + " 份没认出来：" + bad.slice(0, 3).join("、"));
+      } catch (err) { setImportError(String(err && err.message || "文件读取失败，请重新选择")); }
+      finally { importLock.current = false; setImporting(false); }
+      return;
+    }
     importLock.current = true; setImporting(true); setImportError("");
     try {
       if (!/\.(docx|txt|json)$/i.test(file.name || "")) throw new Error("请选择 .json、.docx 或 .txt 文件");
@@ -2134,7 +2154,7 @@ function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDel
   return h("div", { "data-wk": "loreedit", className: "absolute inset-0 z-50 h-full flex flex-col", style: binderSkin(t) },
     h(Head, { zh: isNew ? "新建设定" : "编辑设定", sub: "给谁看、什么时候翻出来、去哪几处", bg: "transparent", onBack: onClose,
       right: isNew ? h("button", { onClick: () => importRef.current && importRef.current.click(), disabled: importing, className: "active:opacity-60 disabled:opacity-40", style: { minWidth: 40, minHeight: 40, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, importing ? "读取中" : "导入") : onDelete ? h("button", { onClick: onDelete, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.accent } }, "删除") : null }),
-    h("input", { ref: importRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importDocument }),
+    h("input", { ref: importRef, type: "file", multiple: true, accept: ANY_FILE, style: { display: "none" }, onChange: importDocument }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 30px)" } },
     importError && h("div", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, importError),
     lbl("这条是什么", "标题是给你看的索引；分类帮助以后检索。只有「照做」「生图」会改变它怎么被用"),
