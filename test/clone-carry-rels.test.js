@@ -12,8 +12,6 @@ const own = Object.keys(rels).filter(k => { const [a, b] = k.split("->"); return
 const nks = own.map(k => { const [a, b] = k.split("->"); return (a === c.id ? newId : a) + "->" + (b === c.id ? newId : b); });
 assert.deepEqual(nks.sort(), ["N->B", "me->N"]);
 
-test("克隆先问新名字，默认「（副本）」", () => {
-  const ap = require("fs").readFileSync(__dirname + "/../js/app.js", "utf8");
-  assert.match(ap, /requestAppPrompt\("新的这位叫什么？"/);
-  assert.match(ap, /name: nm \}\)\)\]\);/);
-});
+// 克隆先问新名字，默认「（副本）」（群友 2026-11-26）
+assert.match(seg, /requestAppPrompt\("新的这位叫什么？"/);
+assert.match(seg, /name: nm \}\)\)\]\);/);
