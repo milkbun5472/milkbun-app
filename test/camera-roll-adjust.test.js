@@ -48,3 +48,9 @@ test("旅行：一站一站寄；样子可以定也可以让TA挑；出发前选
   assert.match(html, /data-lazy="camera" data-src="js\/camera-trip\.js\?v=/);
   for (const k of ["trippage", "tripcard", "tripone", "tripstop", "tripitem", "trippost", "tripflip", "tripfront", "tripback", "tripbtn"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(trip.includes('"data-wk": "' + k + '"'), k); }
 });
+test("旅行的照片每张都有脸：没有 view 那一种", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const body = app.slice(app.indexOf("const tripCard = async"), app.indexOf("const cameraGenShot = async"));
+  assert.ok(!/view|buildScenePrompt/.test(body));
+  assert.match(body, /const blob = await castShotBlob\(cast, scene,/);
+});

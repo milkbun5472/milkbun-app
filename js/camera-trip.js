@@ -182,7 +182,7 @@
           const k = "img_trip_" + Date.now().toString(36);
           if (typeof idbImgPut === "function") await idbImgPut(k, r.blob);
           const style = stop.style !== "auto" ? stop.style : (r.style || STYLES[Math.floor(Math.random() * STYLES.length)].id);
-          const c = { imgKey: k, kind: r.kind, kindZh: ({ self: "自拍", other: "别人帮拍", view: "风景", group: "合照" })[r.kind] || "", scene: r.scene, texts: r.texts, style, ts: Date.now() };
+          const c = { imgKey: k, kind: r.kind, kindZh: ({ self: "自拍", other: "别人帮拍", group: "合照" })[r.kind] || "", scene: r.scene, texts: r.texts, style, ts: Date.now() };
           const list = load().map(t => t.id === trip.id ? Object.assign({}, t, { stops: t.stops.map((s, i) => i === next ? Object.assign({}, s, { card: c }) : s) }) : t);
           put(list);
         } catch (e) { toast("没寄成：" + String(e && e.message || e).slice(0, 80)); }
