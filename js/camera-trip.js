@@ -97,6 +97,24 @@
         h("button", { "data-wk": "tripbtn", "data-part": "savecard", onClick: onSave, style: { border: "none", background: "transparent", color: PINK, fontSize: FS(12), fontWeight: 600 } }, "存到手机")));
   }
 
+  // 相机里「旅行／电影／平行人生」几页共用的一套（粉底白卡、药丸、底下那颗粉橙大按钮、输入框）：挂点名各页自己给
+  function makeUI(wk) {
+    const card = (part, title, hint, kid) => h("div", { "data-wk": wk.card, "data-part": part, style: { background: "#fff", borderRadius: 22, padding: "14px 14px 16px", marginBottom: 12, boxShadow: "0 10px 26px -18px rgba(160,60,110,.55)" } },
+      h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 } },
+        h("span", { style: { fontSize: FS(14.5), fontWeight: 600, color: INK } }, title), hint ? h("span", { style: { fontSize: FS(11), color: SUB } }, hint) : null), kid);
+    const pill = (label, on, onClick, part) => h("button", { "data-wk": wk.btn, "data-part": part || "", "data-on": on ? "1" : "0", onClick,
+      style: { flexShrink: 0, height: 30, padding: "0 12px", borderRadius: 15, border: "1.5px solid " + (on ? PINK : "#f1e4ea"), background: on ? "#fff1f6" : "#fff", color: INK, fontSize: FS(12), fontWeight: on ? 600 : 400 } }, label);
+    const big = (label, onClick, part, dim) => h("button", { "data-wk": wk.btn, "data-part": part, onClick, disabled: !!dim,
+      style: { width: "100%", height: 52, borderRadius: 26, border: "none", background: GRAD, opacity: dim ? .55 : 1, color: "#fff", fontSize: FS(15.5), fontWeight: 600, letterSpacing: ".1em", boxShadow: "0 14px 28px -14px rgba(255,80,130,.85)" } }, label);
+    const page = (title, onBack, body, foot) => h("div", { "data-wk": wk.page, className: "h-full flex flex-col", style: { background: "linear-gradient(180deg,#ffe3ee 0%,#fff6f9 38%,#fdfbfc 100%)", color: INK } },
+      typeof Head === "function" ? h(Head, { zh: title, bg: "transparent", onBack }) : null,
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 18px" } }, body),
+      foot ? h("div", { style: { flexShrink: 0, padding: "10px 16px 14px", paddingBottom: "calc(14px + " + (typeof COMPOSER_PAD_BOTTOM !== "undefined" ? COMPOSER_PAD_BOTTOM : "0px") + ")" } }, foot) : null);
+    const inp = (v, on, ph, part, rows) => h(rows ? "textarea" : "input", { value: v, placeholder: ph, rows, "data-part": part, onChange: e => on(e.target.value),
+      style: { width: "100%", boxSizing: "border-box", border: "1.5px solid #f1e4ea", borderRadius: 12, padding: "9px 11px", fontSize: FS(13.5), color: INK, background: "#fffafc", outline: "none", resize: "none", lineHeight: 1.5 } });
+    return { card, pill, big, page, inp };
+  }
+
   function CameraTrip(props) {
     const chars = props.characters || [];
     const [trips, setTrips] = useState(load);
@@ -106,17 +124,7 @@
     const toast = m => props.toast && props.toast(m);
     const put = list => { setTrips(list); store(list); };
     const names = {}; chars.forEach(c => { names[c.id] = c.name; });
-    const card = (part, title, hint, kid) => h("div", { "data-wk": "tripcard", "data-part": part, style: { background: "#fff", borderRadius: 22, padding: "14px 14px 16px", marginBottom: 12, boxShadow: "0 10px 26px -18px rgba(160,60,110,.55)" } },
-      h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 } },
-        h("span", { style: { fontSize: FS(14.5), fontWeight: 600, color: INK } }, title), hint ? h("span", { style: { fontSize: FS(11), color: SUB } }, hint) : null), kid);
-    const pill = (label, on, onClick, part) => h("button", { "data-wk": "tripbtn", "data-part": part || "", "data-on": on ? "1" : "0", onClick,
-      style: { flexShrink: 0, height: 30, padding: "0 12px", borderRadius: 15, border: "1.5px solid " + (on ? PINK : "#f1e4ea"), background: on ? "#fff1f6" : "#fff", color: INK, fontSize: FS(12), fontWeight: on ? 600 : 400 } }, label);
-    const big = (label, onClick, part, dim) => h("button", { "data-wk": "tripbtn", "data-part": part, onClick, disabled: !!dim,
-      style: { width: "100%", height: 52, borderRadius: 26, border: "none", background: GRAD, opacity: dim ? .55 : 1, color: "#fff", fontSize: FS(15.5), fontWeight: 600, letterSpacing: ".1em", boxShadow: "0 14px 28px -14px rgba(255,80,130,.85)" } }, label);
-    const page = (title, onBack, body, foot) => h("div", { "data-wk": "trippage", className: "h-full flex flex-col", style: { background: "linear-gradient(180deg,#ffe3ee 0%,#fff6f9 38%,#fdfbfc 100%)", color: INK } },
-      typeof Head === "function" ? h(Head, { zh: title, bg: "transparent", onBack }) : null,
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 18px" } }, body),
-      foot ? h("div", { style: { flexShrink: 0, padding: "10px 16px 14px", paddingBottom: "calc(14px + " + (typeof COMPOSER_PAD_BOTTOM !== "undefined" ? COMPOSER_PAD_BOTTOM : "0px") + ")" } }, foot) : null);
+    const { card, pill, big, page, inp } = makeUI({ page: "trippage", card: "tripcard", btn: "tripbtn" });
 
     // ── 新的旅行 ──
     if (draft) {
@@ -137,8 +145,6 @@
         const t = { id: "trip_" + Date.now().toString(36), ts: Date.now(), title: String(d.place || "").trim().slice(0, 20) || stops[0].place, ids: d.ids, meGo: !!d.meGo, remember: !!d.remember, stops: stops.map(s => Object.assign({}, s, { card: null })) };
         put([t].concat(trips)); setDraft(null); setOpenId(t.id);
       };
-      const inp = (v, on, ph, part, rows) => h(rows ? "textarea" : "input", { value: v, placeholder: ph, rows, "data-part": part, onChange: e => on(e.target.value),
-        style: { width: "100%", boxSizing: "border-box", border: "1.5px solid #f1e4ea", borderRadius: 12, padding: "9px 11px", fontSize: FS(13.5), color: INK, background: "#fffafc", outline: "none", resize: "none", lineHeight: 1.5 } });
       return page("新的旅行", () => setDraft(null), [
         card("who", "谁去", "可以多选", h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))", gap: "12px 6px" } },
           chars.map(p => { const on = d.ids.indexOf(p.id) >= 0;
@@ -233,4 +239,5 @@
   }
   window.CameraTrip = CameraTrip;
   window.CameraTrip.STYLES = STYLES;
+  window.CameraTrip.kit = { makeUI, wrap, loadImg, HAND, GRAD, INK, SUB, PINK, FS, dateZh };
 })();

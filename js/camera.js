@@ -559,7 +559,9 @@
         duo: ["M8.5 11a3 3 0 100-6 3 3 0 000 6z", "M15.5 11a3 3 0 100-6 3 3 0 000 6z", "M3 20c.5-3.5 2.8-5.5 5.5-5.5S13.5 16.5 14 20", "M10 20c.5-3.5 2.8-5.5 5.5-5.5S20.5 16.5 21 20"],
         grid: ["M4 4h7v7H4z", "M13 4h7v7h-7z", "M4 13h7v7H4z", "M13 13h7v7h-7z"],
         booth: ["M8 3h8v18H8z", "M8 7.5h8", "M8 12h8", "M8 16.5h8"],
-        trip: ["M4 6.5l5-2 6 2 5-2v13l-5 2-6-2-5 2z", "M9 4.5v13", "M15 6.5v13"]
+        trip: ["M4 6.5l5-2 6 2 5-2v13l-5 2-6-2-5 2z", "M9 4.5v13", "M15 6.5v13"],
+        movie: ["M4 8h16v11H4z", "M4 8l3-4h3l-3 4", "M10 8l3-4h3l-3 4", "M16 8l3-4h1"],
+        worlds: ["M12 3a9 9 0 100 18 9 9 0 100-18", "M3.5 9h17", "M3.5 15h17", "M12 3c-3 3-3 15 0 18", "M12 3c3 3 3 15 0 18"]
       };
       const tile = (part, title, sub, grad, icon, onClick, wide) => h("button", { key: part, "data-wk": "camhubtile", "data-part": part, onClick, className: "active:opacity-80",
         style: { gridColumn: wide ? "1 / -1" : "auto", position: "relative", overflow: "hidden", border: "none", borderRadius: 20, padding: "14px 14px 13px", textAlign: "left", color: "#fff", background: grad, boxShadow: "0 8px 20px -12px rgba(120,40,80,.55)", minHeight: 108, display: "flex", flexDirection: "column", justifyContent: "space-between" } },
@@ -583,7 +585,9 @@
             tile("genN", "多人合照", "挑几个人，画在一起", "linear-gradient(135deg,#46c6c0,#7fd9a8)", I.duo, () => goGen("other", true)),
             tile("collage", "拼图", "宫格、拍立得、剪贴本", "linear-gradient(135deg,#ffb259,#ffd27a)", I.grid, () => { setColTpl("grid4"); switchMode("collage"); }),
             tile("booth", "大头贴", "一条四格，印上日期", "linear-gradient(135deg,#5aa2ff,#8fc1ff)", I.booth, () => { setColTpl("booth"); switchMode("collage"); }),
-            props.onTripCard ? tile("trip", "旅行", "排几站，每站收一张明信片", "linear-gradient(135deg,#ff8fb1,#c39bff)", I.trip, () => switchMode("trip")) : null),
+            props.onTripCard ? tile("trip", "旅行", "排几站，每站收一张明信片", "linear-gradient(135deg,#ff8fb1,#c39bff)", I.trip, () => switchMode("trip")) : null,
+            props.onMoviePlan ? tile("movie", "电影", "主演一部片：海报、剧照、台词", "linear-gradient(135deg,#3d3550,#8a5a7a)", I.movie, () => switchMode("movie")) : null,
+            props.onWorldsPlan ? tile("worlds", "平行人生", "换个世界的TA，一张写真一封信", "linear-gradient(135deg,#6fb8e8,#a99bff)", I.worlds, () => switchMode("worlds")) : null),
           roll.length ? h("div", { style: { marginTop: 20 } },
             h("div", { style: { fontSize: FS(13), fontWeight: 600, marginBottom: 8 } }, "拍过的"),
             rollPeople.length ? h("div", { "data-wk": "camrollwho", style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8 } },
@@ -597,6 +601,8 @@
     }
     // 拼贴、大头贴：借拼壁纸那个编辑器（collage.js），solo 不对着哪个人；这一趟拍的画的在胶卷里，也能从手机传
     // 旅行（她 2026-11-26）：整页交给 camera-trip.js
+    if (mode === "movie" && window.CameraMovie) return h(window.CameraMovie, { characters: chars, meName: props.meName, meAvatar: props.meAvatar, toast: props.toast, onBack: () => switchMode("hub"), onMoviePlan: props.onMoviePlan, onMoviePoster: props.onMoviePoster, onMovieScene: props.onMovieScene });
+    if (mode === "worlds" && window.CameraWorlds) return h(window.CameraWorlds, { characters: chars, toast: props.toast, onBack: () => switchMode("hub"), onWorldsPlan: props.onWorldsPlan, onWorldCard: props.onWorldCard });
     if (mode === "trip" && window.CameraTrip) return h(window.CameraTrip, { characters: chars, toast: props.toast, onBack: () => switchMode("hub"), onTripPlan: props.onTripPlan, onTripCard: props.onTripCard });
     if (mode === "collage" && window.Collage) return h(window.Collage.CollageMaker, { partner: { id: "camera", name: "拼贴" }, photos: roll, solo: true, startTpl: colTpl, key: colTpl,
       onBack: () => switchMode("hub"),

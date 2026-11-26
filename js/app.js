@@ -19836,7 +19836,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     o = o || {};
     const lead = cast.find(c => c.id !== "me") || cast[0], multi = cast.length > 1, kind = o.kind || "self";
     const st = (statesRef.current || {})[lead.id] || {};
-    const prompt = buildPhotoPrompt(lead, scene, st, { kind, cast: multi ? cast : null, closet: lead.id !== "me" ? closetTextFor(lead.id) : "" });
+    const prompt = buildPhotoPrompt(lead, scene, st, { kind, cast: multi ? cast : null, closet: lead.id !== "me" ? closetTextFor(lead.id) : "", ...(o.popts || {}) });
     const refs = cast.map(c => c.refPhoto).filter(Boolean).concat(o.extraRef ? [o.extraRef] : []);
     const out = await generateSelfieImage(prompt + (o.extraText || ""), refs.length ? refs : null, { minimalPrompt: buildMinimalPhotoPrompt(lead, { kind, cast: multi ? cast : null }) });
     if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换掉了" : "审核挡了两次，这张只拍了人像、没带场景");
@@ -20010,6 +20010,85 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       try { addMemEntry({ text: (trip.meGo ? "和" + uName + "、" : "") + names.join("、") + "一起旅行，到了「" + stop.place + "」" + (stop.plan ? "，" + stop.plan : "") + "。明信片上写：" + texts.map(t => (((characters || []).find(c => c.id === t.pid) || {}).name || "") + "「" + t.text + "」").join(" "), tags: ["旅行"], charIds: who, knownBy: who, source: "auto" }); } catch (e) {}
     }
     return { blob, kind, kindZh: TRIP_KIND[kind], scene, texts, style, castPids: kind === "group" ? ids : [lead.id] };
+  };
+  // ═══ 相机·电影 和 平行人生（她 2026-11-26「生人像、好看的，像旅行、邮票册那样」挑的两个）═══
+  //   电影：几个人主演一部片——先定片名、角色、几场戏；出一张海报（PosterLayout 排字，跟同人本封面同一套），再一场一场拍剧照、配台词。
+  //   平行人生：同一个TA在几个不同的世界里——每个世界一张写真，背面是那个世界的TA写给她的信。
+  //   演员／入镜的人照性格演、多人看得出关系：同行那份人设和关系照旅行那一份（tripCastLines）。
+  const storyCast = (ids, meIn) => ids.map(id => id === "me" ? { ...meSubject(null, userName(profile), null), id: "me", name: userName(profile) } : (characters || []).find(c => c && c.id === id)).filter(Boolean);
+  const storyLead = ids => { const c = (characters || []).find(x => x.id === ids.find(i => i !== "me")); if (!c) throw new Error("先挑人"); const r = apiFor(c.id); if (!r) throw new Error("请先到设置配置 API"); return { c, r }; };
+  const moviePlan = async (ids, brief, title) => {
+    const { c: lead, r } = storyLead(ids), uName = (profileFor(lead.id) || {}).name || "她", meIn = ids.indexOf("me") >= 0;
+    const names = tripNames(ids.filter(i => i !== "me")).concat(meIn ? [uName] : []);
+    const d = await runProbe(r, ctxFor(lead), {
+      instruction: names.join("、") + " 要一起主演一部电影。她给的是：「" + String(brief || "").trim() + "」" + (title ? "，片名用「" + title + "」" : "") + "。"
+        + "定这部片：title 片名；genre 类型（一两个词）；mood 这部片的气质（两三个词）；tagline 海报上的一句宣传语；synopsis 剧情简介（一段）；"
+        + "roles 每个演员演谁（who 写演员名，role 写角色名和这个角色是什么人）；scenes 是顺着剧情往下走的几场戏，每场 name 场名、beat 这一场发生什么（一段）；"
+        + "poster 是海报怎么拍：几个人的站位、动作、谁看谁，镜头从哪个高度、多远拍。"
+        + "角色照演员各自的性格和他们之间的关系来分，戏要给每个人都有。\n" + tripCastLines(ids.filter(i => i !== "me"), meIn, uName),
+      schemaHint: "{\"title\":\"片名\",\"genre\":\"类型\",\"mood\":\"气质\",\"tagline\":\"宣传语\",\"synopsis\":\"剧情简介\",\"roles\":[{\"who\":\"演员名\",\"role\":\"角色\"}],\"scenes\":[{\"name\":\"场名\",\"beat\":\"这一场发生什么\"}],\"poster\":\"海报怎么拍\"}",
+      maxTokens: 20000
+    });
+    const t = x => String(x == null ? "" : x).trim();
+    return { title: t(title || (d && d.title)), genre: t(d && d.genre), mood: t(d && d.mood), tagline: t(d && d.tagline), synopsis: t(d && d.synopsis), poster: t(d && d.poster),
+      roles: (Array.isArray(d && d.roles) ? d.roles : []).map(x => ({ who: t(x && x.who), role: t(x && x.role) })).filter(x => x.who),
+      scenes: (Array.isArray(d && d.scenes) ? d.scenes : []).map(x => ({ name: t(x && x.name), beat: t(x && x.beat) })).filter(x => x.name || x.beat) };
+  };
+  const moviePoster = async (mv) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const cast = storyCast(mv.ids);
+    const lead = cast.find(x => x.id !== "me") || cast[0];
+    const plan = window.PosterLayout ? window.PosterLayout.plan("movie", { title: mv.title, genre: mv.genre, mood: mv.mood }) : null;
+    const scene = "电影《" + mv.title + "》的正式海报：" + cast.map(x => x.name).join("、") + "主演。" + (mv.poster || "") + (mv.roles.length ? "（" + mv.roles.map(x => x.who + "演" + x.role).join("；") + "）" : "") + "画面里不要出现任何文字。";
+    const blob = await castShotBlob(cast, scene, { kind: cast.length > 1 ? "group" : "self", popts: { editorial: "movie", editorialSpace: plan ? window.PosterLayout.spaceLine(plan) : "" } });
+    return plan ? await studioOverlay(blob, plan, { title: mv.title, tagline: mv.tagline || "", credit: "主演 " + cast.map(x => x.name).join(" "), dateLine: mv.genre || "" }, cast.map(x => x.name)) : blob;
+  };
+  const movieScene = async (mv, idx) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const { c: lead, r } = storyLead(mv.ids), uName = (profileFor(lead.id) || {}).name || "她", meIn = mv.ids.indexOf("me") >= 0;
+    const sc = mv.scenes[idx];
+    const before = mv.scenes.slice(0, idx).filter(x => x.shot).map(x => "- 「" + x.name + "」" + x.beat + (x.shot.lines || []).map(l => " " + l.who + "：「" + l.line + "」").join("")).join("\n");
+    const d = await runProbe(r, ctxFor(lead), {
+      instruction: "电影《" + mv.title + "》（" + mv.genre + "）。剧情：" + mv.synopsis + "\n角色：" + mv.roles.map(x => x.who + " 演 " + x.role).join("；") + "\n"
+        + (before ? "【前面拍好的几场】\n" + before + "\n" : "")
+        + "现在拍第 " + (idx + 1) + " 场「" + sc.name + "」：" + sc.beat + "\n"
+        + "写这一场的一张剧照和这一场的台词：still 写剧照画面（谁在画面里、站位、动作、表情、场景、光），像电影里定格的一帧；inFrame 是入镜的演员名（数组，写演员本名）；"
+        + "lines 是这一场里最戳的几句台词（who 写角色名，line 写台词）。入镜的人照各自的角色和性格来演，几个人同框要看得出角色之间是什么关系。\n" + tripCastLines(mv.ids.filter(i => i !== "me"), meIn, uName),
+      schemaHint: "{\"still\":\"剧照画面\",\"inFrame\":[\"演员名\"],\"lines\":[{\"who\":\"角色名\",\"line\":\"台词\"}]}",
+      maxTokens: 12000
+    });
+    const cast0 = storyCast(mv.ids), want = (Array.isArray(d && d.inFrame) ? d.inFrame : []).map(String);
+    let cast = cast0.filter(x => want.some(n => n && (n.indexOf(x.name) >= 0 || x.name.indexOf(n) >= 0 || (x.id === "me" && n.indexOf(uName) >= 0))));
+    if (!cast.length) cast = [lead];
+    const scene = "电影《" + mv.title + "》第 " + (idx + 1) + " 场的剧照：" + String((d && d.still) || sc.beat || "").trim() + "（" + mv.roles.filter(x => cast.some(c => x.who.indexOf(c.name) >= 0)).map(x => x.who + "演" + x.role).join("；") + "）";
+    const blob = await castShotBlob(cast, scene, { kind: cast.length > 1 ? "group" : "other", popts: { cinematic: true } });
+    return { blob, still: String((d && d.still) || "").trim(), lines: (Array.isArray(d && d.lines) ? d.lines : []).map(x => ({ who: String((x && x.who) || "").trim(), line: String((x && x.line) || "").trim() })).filter(x => x.line), castPids: cast.map(x => x.id).filter(x => x !== "me") };
+  };
+  const worldsPlan = async (charId, brief) => {
+    const { c, r } = storyLead([charId]), uName = (profileFor(c.id) || {}).name || "她";
+    const d = await runProbe(r, ctxFor(c), {
+      instruction: "想几个平行世界里的你：同一个你，换了一个世界、一种人生。" + (String(brief || "").trim() ? "她想看的是：「" + String(brief).trim() + "」。" : "")
+        + "每个世界 world 写那是个什么世界（短），who 写那个世界里的你是什么人、在过什么日子（一段）。世界之间要拉开，照你这个人的性格去想那个世界里的你会变成什么样。",
+      schemaHint: "{\"worlds\":[{\"world\":\"什么世界\",\"who\":\"那个世界的你\"}]}",
+      maxTokens: 12000
+    });
+    return (Array.isArray(d && d.worlds) ? d.worlds : []).map(x => ({ world: String((x && x.world) || "").trim(), who: String((x && x.who) || "").trim() })).filter(x => x.world);
+  };
+  const worldCard = async (charId, w, done) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const { c, r } = storyLead([charId]), uName = (profileFor(c.id) || {}).name || "她";
+    const d = await runProbe(r, ctxFor(c), {
+      voice: true,
+      instruction: "在一个平行世界里：" + w.world + "。那个世界的你：" + (w.who || "照这个世界和你的性格去想") + "\n"
+        + (done && done.length ? "【已经写过的别的世界】\n" + done.map(x => "- " + x).join("\n") + "\n" : "")
+        + "photo 是那个世界的你的一张写真：穿什么、在哪、在干嘛、什么神情、光从哪来，照那个世界和你这个人来拍，要好看；"
+        + "letter 是那个世界的你写给 " + uName + " 的信：那个世界里你们是怎么遇见的、或者还没遇见，那个你想对她说什么，长短跟着那个世界的你的心情和说话的样子来。",
+      schemaHint: "{\"photo\":\"写真画面\",\"letter\":\"写给她的信\"}",
+      maxTokens: 12000
+    });
+    const scene = "平行世界「" + w.world + "」里的" + c.name + "：" + String((d && d.photo) || w.who || "").trim();
+    const blob = await castShotBlob([c], scene, { kind: "other", popts: { cinematic: true } });
+    return { blob, photo: String((d && d.photo) || "").trim(), letter: String((d && d.letter) || "").trim() };
   };
   const cameraGenShot = async (ids, scene, who) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
@@ -39536,7 +39615,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, onTripPlan: tripPlan, onTripCard: tripCard, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, onTripPlan: tripPlan, onTripCard: tripCard, onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onWorldsPlan: worldsPlan, onWorldCard: worldCard, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,
