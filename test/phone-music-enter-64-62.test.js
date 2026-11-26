@@ -22,7 +22,7 @@ test("落针/收针那套礼数只有一份，两处共用", () => {
   const seg = app.slice(app.indexOf("const roomMusicEnter"), app.indexOf("const discEnter = cid =>"));
   ["queue:", "t: (el && el.currentTime)", "playing: !!(el && !el.paused)"].forEach(k =>
     assert.ok(seg.indexOf(k) > 0, "共用那份里少了「暂借要还」的一样：" + k));
-  assert.match(seg, /if \(!prev \|\| !resolveSong\(prev\.id\)\) \{ stopPlayer\(\); return; \}/,
+  assert.match(seg, /if \(!prev \|\| !\(resolveSong\(prev\.id\) \|\| prev\.song\)\) \{ stopPlayer\(\); return; \}/,
     "进来前没在放的，出去该停干净");
 });
 

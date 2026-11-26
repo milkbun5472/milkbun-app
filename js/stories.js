@@ -199,11 +199,11 @@
   }
   const ago = ts => { const m = Math.max(0, Math.round((Date.now() - ts) / 60000)); return m < 60 ? (m || 1) + " 分钟前" : Math.round(m / 60) + " 小时前"; };
   const MI = { textAlign: "left", padding: "9px 14px", color: "#fff", whiteSpace: "nowrap" };   // 照片「··」里每一行
-  function StoryViewer({ list, start, viewer, nameOf, avatarOf, onReply, onDelete, onClose, archive }) {
+  function StoryViewer({ list, start, viewer, nameOf, avatarOf, onReply, onDelete, onClose, archive, fixed }) {
     const h = React.createElement;
     // 有没看过的就从第一条没看过的翻起，全看过了才从头（她 2026-11-15）；翻过往、点了某一格指定从哪条开始的照给的来
     const [i, setI] = React.useState(() => { const L = list || [];
-      if (start || archive) return Math.max(0, Math.min(L.length - 1, start || 0));
+      if (start || archive || fixed) return Math.max(0, Math.min(L.length - 1, start || 0));
       const k = L.findIndex(x => x && String(x.by) !== String(viewer) && !((all().find(y => y.id === x.id) || x).seen || {})[viewer]);
       return k >= 0 ? k : 0; });
     const [draft, setDraft] = React.useState(""), [seenOpen, setSeenOpen] = React.useState(false);
@@ -274,7 +274,7 @@
         h("div", { className: "flex items-center", style: { gap: 8, marginTop: 8, color: "#fff", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
           (avatarOf || window.__storyAvatar) ? (avatarOf || window.__storyAvatar)(s.by) : null,
           h("span", { className: "truncate", style: { fontWeight: 600, minWidth: 0, flexShrink: 1, whiteSpace: "nowrap" } }, nameOf(s.by)),   // 备注再长也只占一行（她 2026-11-14）
-          h("span", { style: { opacity: .7, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, archive ? new Date(s.ts).toLocaleDateString() : ago(s.ts)),
+          h("span", { style: { opacity: .7, fontSize: "calc(11.5px * var(--app-fs, 1))" } }, archive ? (typeof vDate === "function" ? (s.by === "me" ? new Date(vclockMainMap(s.ts)) : vDate(s.ts, s.by)) : new Date(s.ts)).toLocaleDateString() : ago(s.ts)),
           audLabel(cur) ? h("span", { "data-wk": "storyaudtag", style: { padding: "1px 7px", borderRadius: 999, border: "1px solid rgba(255,255,255,.6)", fontSize: "calc(10.5px * var(--app-fs, 1))" } }, audLabel(cur)) : null,
           h("span", { style: { flex: 1 } }),
           // 谁的都能删（她 2026-11-14「动态可以删除」）：先问一句，删了这张图一起清掉

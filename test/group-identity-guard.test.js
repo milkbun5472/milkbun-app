@@ -32,7 +32,7 @@ console.log("group identity guard tests passed");
   const app = require("fs").readFileSync("js/app.js", "utf8");
   const live = app.split("\n").map(l => l.split("//")[0]).join("\n");
   assert.ok(live.indexOf("条群聊身份串线") < 0, "那句误报的 toast 又被加回来了");
-  assert.ok(app.indexOf("window.GroupIdentityGuard.sanitize(arr, members, userName(profile))") > 0,
+  assert.ok(app.indexOf("window.GroupIdentityGuard.sanitize(arr, members, herNameIn(groupId))") > 0,   // 群里按这个群她的名字认（60e6033cd 起不是 userName(profile)）
     "守卫本身不能跟着 toast 一起被删掉——拦是要拦的，只是别吱声");
 }
 
@@ -53,5 +53,5 @@ console.log("group identity guard tests passed");
     "收集代码没人读了还留着，比压根没写更坏");
   // 隐私本身没有不管：铁律照旧发，身份串线那道本地闸照旧拦
   assert.ok(app2.indexOf("隐私边界铁律") > 0 && app2.indexOf("关系隐私铁律") > 0);
-  assert.ok(app2.indexOf("window.GroupIdentityGuard.sanitize(arr, members, userName(profile))") > 0);
+  assert.ok(app2.indexOf("window.GroupIdentityGuard.sanitize(arr, members, herNameIn(groupId))") > 0);
 }

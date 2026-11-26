@@ -7,3 +7,8 @@ assert.match(seg, /not supported in \(\?:text \)\?history/);
 assert.match(seg, /k === lastIdx \|\| !m \|\| !m\.imageDataUrls \? m :/, "先只留最后一条的图");
 assert.match(seg, /messages\.map\(m => !m \|\| !m\.imageDataUrls \? m :/, "再不行一张不带");
 assert.match("contents[158].parts[1].inlineData is not supported in text history. (request id: x)", /not supported in (?:text )?history/);
+// 她 2026-11-25 截图：自己架的模型没开看图（vLLM）——也照这条退一步，去掉图重发
+{ const re = new RegExp(seg.match(/test\(msg\)/) ? seg.match(/if \(!streamed && \/(.+?)\/i\.test\(msg\)/)[1] : "x", "i");
+  assert.ok(re.test("Received multimodal data but multimodal processing is not enabled. Use --*** flag to enable multimodal processing."), "vLLM 那句也认");
+  assert.match(seg, /not supported\|unsupported\|not enabled/, "去掉图重发还报这句就接着退"); }
+console.log("ok history-image-retry");

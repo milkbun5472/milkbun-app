@@ -21,7 +21,7 @@ test("【 被拆到两行的先接回一行", () => {
 });
 test("免费线路：Google → 微软 → MyMemory → 模型（模型要明说才叫）", () => {
   const fn = s.slice(s.indexOf("async function translateToZh"), s.indexOf("async function translateToZh") + 1800);
-  const i = ["_transGoogle", "_transMicrosoft", "_transMyMemory", "_transModel"].map(x => fn.indexOf(x));
+  const i = ["_transGoogle", "_transMicrosoft", "_transMyMemory", "_transModel"].map(x => x === "_transModel" ? fn.lastIndexOf(x) : fn.indexOf(x));   // 挑了翻译线路时它排最前（2026-11-25），没挑照旧这个顺序
   assert.ok(i[0] > 0 && i[1] > i[0] && i[2] > i[1] && i[3] > i[2]);
   assert.match(s, /&from=" \+ src/);
 });

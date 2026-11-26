@@ -175,16 +175,30 @@ async function serveShell(event, req) {
     try { if ((await missingAssets(cache, shellAssets(await cached.clone().text()))).length) cached = null; }
     catch (e) { cached = null; }
   }
+  // ⚠️有旧版兜底时网络最多等 4 秒：拿不到就先用旧版开门，但【不掐断】这次请求——
+  //   让它在后台接着拿完、接着下新版（2026-11-23：网慢的人每次都超 4 秒，以前一掐就永远下不到新版；
+  //   新浏览器没旧版兜底不受限，所以「开新浏览器是最新的」）。
+  const netP = fetch(req, { cache: "no-store" });
   let fresh;
-  try {
-    // 有旧版兜底时网络最多等 4 秒：拿不到就先用旧版开门
-    const ctl = cached && typeof AbortController !== "undefined" ? new AbortController() : null;
-    const timer = ctl ? setTimeout(() => ctl.abort(), 4000) : 0;
-    try { fresh = await fetch(req, { cache: "no-store", signal: ctl ? ctl.signal : undefined }); }
-    finally { if (timer) clearTimeout(timer); }
-  } catch (e) {
-    if (cached) return cached;
-    throw e;
+  if (cached) {
+    let timer = 0;
+    const slow = new Promise(r => { timer = setTimeout(() => r(null), 4000); });
+    try { fresh = await Promise.race([netP, slow]); }
+    catch (e) { clearTimeout(timer); return cached; }
+    clearTimeout(timer);
+    if (!fresh) {
+      event.waitUntil(netP.then(async late => {
+        if (!late.ok || shellJob) return;
+        const html = await late.text();
+        shellJob = installShell(html, new Headers(late.headers), shellAssets(html))
+          .catch(e => console.warn("[sw] 新版后台下载未完成，下次接着下", e))
+          .finally(() => { shellJob = null; });
+        await shellJob;
+      }).catch(() => {}));
+      return cached;
+    }
+  } else {
+    fresh = await netP;
   }
   if (!fresh.ok) return cached || fresh;
   const html = await fresh.clone().text();

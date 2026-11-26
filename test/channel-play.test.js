@@ -316,3 +316,42 @@ test("从别的频道过来：提示里说、聊天里冒一行；挂机房分�
   assert.match(cs, /"data-wk": "loungecount"/);
   assert.match(cs, /"data-here": p\.here \? "1" : "0"/);
 });
+
+test("每日一问带上人设、关系、这两天聊的、前几天问过的", () => {
+  assert.match(ap, /荒唐但答起来很见性格的假设/);
+  assert.match(ap, /askHist: \(x\.askHist \|\| \[\]\)\.concat\(\[q\]\)/);
+});
+
+test("歌单「放这首」：歌库没有的去搜来放", () => {
+  assert.match(ap, /onPlaySong: async x => \{/);
+  assert.match(ap, /neteaseSearchOne\(\(x\.title \+ " " \+ \(x\.artist \|\| ""\)\)\.trim\(\)/);
+  assert.match(cs, /onPlaySong && \(canSearchSong \|\| chpSongMatch\(myLib, x\)\)/);
+});
+
+test("便利贴上不重复署名", () => {
+  const c = {}; vm.createContext(c);
+  vm.runInContext(en.slice(en.indexOf("function chpNoSelfName"), en.indexOf("function chpScribble")) + ";this.F=chpNoSelfName;", c);
+  assert.equal(c.F("周树生：祝发财", "周树生"), "祝发财");
+  assert.equal(c.F("到此一游", "周树生"), "到此一游");
+  assert.equal(c.F("周树生到此一游", "周树生"), "到此一游");
+});
+
+test("歌单整张按顺序放：歌库里没有的搜来一起连播", () => {
+  assert.match(ap, /onPlayAll: async list => \{/);
+  assert.match(ap, /nowBatch: out\.filter/);
+  assert.match(cs, /"data-wk": "chsongplayall"/);
+});
+
+test("备注不进群里大家看得到的那几行：合照说明、抽签、见面", () => {
+  assert.match(ap, /who = cast\.map\(c => c\.id === "me" \? meName : c\.name\)/);
+  assert.match(ap, /const pool0 = members\.map\(c => c\.name\)/);
+});
+
+test("频道改名走 chName，群名照拼，列表和聊天页一起变", () => {
+  assert.match(ap, /if \(g && g\.spaceId && name\) \{ const sp0 = /);
+});
+
+test("群删了，绑在它上面的世界书松开；开机清掉已删群的绑定", () => {
+  assert.match(ap, /groupIds: e\.groupIds\.filter\(x => x !== groupId\)/);
+  assert.match(ap, /groupIds: e\.groupIds\.filter\(id => ids\.has\(id\)\)/);
+});

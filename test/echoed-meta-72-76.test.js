@@ -13,7 +13,7 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const strip = (() => {
   const i = app.indexOf("  const ECHOED_META =");
   assert.ok(i > 0, "抠不出 ECHOED_META");
-  const j = app.indexOf("\n", app.indexOf("const stripEchoedMeta", i));
+  const j = app.indexOf(".trim();", app.indexOf("const stripEchoedMeta", i)) + 8;   // 2026-11-25 起这一句拆成了好几行
   return new Function(app.slice(i, j) + "\nreturn stripEchoedMeta;")();
 })();
 

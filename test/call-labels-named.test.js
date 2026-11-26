@@ -12,7 +12,7 @@ const res={};
 for(const file of fs.readdirSync("js").filter(f=>f.endsWith(".js"))){
  if(FMAP[file.replace(".js","")]) continue;
  const L=fs.readFileSync("js/"+file,"utf8").split("\n");
- L.forEach((ln,i)=>{ if(!/\b(runProbe|runProbeRetry|callAI)\(/.test(ln)||/function (runProbe|runProbeRetry|callAI)\b/.test(ln))return;
+ L.forEach((ln,i)=>{ if(/^\s*\/\//.test(ln))return; if(!/\b(runProbe|runProbeRetry|callAI)\(/.test(ln)||/function (runProbe|runProbeRetry|callAI)\b/.test(ln))return;
   const win=L.slice(i,i+10).join(" "); if(/logFrom|logLabel|\btag:|\buse:/.test(win))return;
   const re=file==="app.js"?/^  (?:const|let|async function|function) ([\w$]+)/:/^(?:async function|function|const|let) ([\w$]+)/;
   let name="?";for(let j=i;j>=0;j--){const mm=L[j].match(re);if(mm){name=mm[1];break;}}

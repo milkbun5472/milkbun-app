@@ -51,7 +51,7 @@ test("说给 TA 的是这个世界的真实时间，不说「戏里」；四处�
 
 test("日记、日程、记忆上的日子都照那个人的钟", () => {
   assert.match(app, /const dateStr = typeof vclockCfg === "function" && vclockCfg\(charId\) \? vclockLabel\(targetTs, charId, false\)/);
-  assert.match(screens, /const d = new Date\(!isMe && char && typeof vclockMap === "function" \? vclockMap\(entry\.ts, char\.id\) : entry\.ts\);/);
+  assert.match(screens, /const d = vDate\(entry\.ts, !isMe && char \? char\.id : null\);/);
   assert.match(screens, /function schedDateParts\(k, id\) \{/);
   assert.match(app, /const dp = schedDateParts\(dayKey, char && char\.id\);/);
   assert.match(engine, /window\.TemporalAnchor\.stamp\(_vm\(e\.ts\), _vm\(Date\.now\(\)\)\)/);

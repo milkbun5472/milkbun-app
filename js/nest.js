@@ -288,7 +288,7 @@
     if (s < 3600) return Math.max(1, Math.round(s / 60)) + " 分钟前";
     if (s < 86400) return Math.round(s / 3600) + " 小时前";
     if (s < 86400 * 30) return Math.round(s / 86400) + " 天前";
-    const d = new Date(ts); return (d.getMonth() + 1) + " 月 " + d.getDate() + " 日";
+    const d = new Date(typeof vclockMainMap === "function" ? vclockMainMap(ts) : ts); return (d.getMonth() + 1) + " 月 " + d.getDate() + " 日";
   };
 
   // 外壳底纹：格子柜的木板——竖向细木纹，铺在最外那层、Head 透明透上来（mobile-ui-layout.md §3.5）。

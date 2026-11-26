@@ -15,14 +15,15 @@ test("聊过的配角才进聊天列表", () => {
   assert.match(comp, /characters\.concat\(\(allChars \|\| \[\]\)\.filter\(c => c && c\.npc && \(chats\[c\.id\] \|\| \[\]\)\.length\)\)/);
 });
 
-test("私聊里配角没有好感、印象卡、朋友圈、抽卡点", () => {
+test("私聊里配角没有好感、印象卡、抽卡点；朋友圈照「发朋友圈」那颗", () => {
   assert.match(app, /affinity: char\.npc \? null : Math\.round\(affOf\(char\.id\)\),/);
   assert.match(engine, /typeof affinity === "number"\) parts\.push\("【当前对 "/, "null 时引擎不再整句跳过");
   assert.match(app, /const bumpAff = \(charId, aiDelta\) => \{\n\s*if \(typeof charactersRef !== "undefined" && [^\n]*\.npc\) return;/);
   assert.match(app, /const gachaEarn = [\s\S]{0,200}\.npc\) return 0;   \/\/ 配角没有抽卡点/);
   assert.match(app, /window\.Gaze && !char\.npc \? window\.Gaze\.spec\("对方", charId/);
   assert.match(app, /if \(parsed\.impression && !char\.npc\)/);
-  assert.match(app, /const mo = !char\.npc && settingsFor\(charId\)\.autoMoment/);
+  // 朋友圈 2026-11-24 起照配角自己那颗「发朋友圈」（npcMoments）：开着才能聊着顺手发，关着照旧不发
+  assert.match(app, /const mo = \(char\.npc \? !!char\.npcMoments : settingsFor\(charId\)\.autoMoment\)/);
 
 });
 

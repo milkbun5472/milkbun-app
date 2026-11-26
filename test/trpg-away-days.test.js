@@ -54,7 +54,7 @@ test("捎信:只有名册里活着、有人情账的那位写得出来;信单独
   assert.equal(applyTurnPayload(camp(), { letter: { from: "路人", text: "x" } }, { away: { days: 2 } }).letter, null, "没人情账的不写信");
   assert.equal(applyTurnPayload(camp(), { letter: { from: "死人", text: "x" } }, { away: { days: 2 } }).letter, null, "死了的不写信");
   assert.equal(applyTurnPayload(camp(), { letter: { from: "老掌柜", text: "x" } }, {}).letter, null, "不是离线拍没有信");
-  assert.match(src, /if \(r\.letter\) msgs\.push\(\{ id: rid\("rm_"\), role: "letter", from: r\.letter\.from, content: r\.letter\.text, ts: Date\.now\(\) \}\);/, "写入方");
+  assert.match(src, /if \(r\.letter\) out\.push\(\{ id: rid\("rm_"\), role: "letter", from: r\.letter\.from, content: r\.letter\.text, ts: Date\.now\(\) \}\);/, "写入方");
   const hist = foldHist([{ role: "gm", content: "a" }, { role: "letter", from: "老掌柜", content: "b" }]);
   assert.equal(hist[1].content, "〔老掌柜 捎来的信〕b", "信也要喂回历史,守密人得知道他写过什么");
 });

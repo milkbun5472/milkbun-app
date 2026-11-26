@@ -62,7 +62,7 @@ test("提示词:换视角拍以他为视点、选项标 willing、两条要打�
 });
 
 test("界面:+ 菜单和自由活动里都能把镜头交出去;那一拍气泡带眉标;选项标他想不想", () => {
-  assert.match(src, /turn\("\(镜头转到" \+ x\.name \+ "那边\)", null, \{ pov: x\.name \}\)/, "+ 菜单每位在场队友一个");
+  assert.match(src, /sideMove\(camp, \{ kind: "pov", arg: x\.name \}\)/, "+ 菜单每位在场队友一个");
   assert.match(src, /const mt = mates\[camp\.msgs\.length % mates\.length\];/, "自由活动里轮着给一位");
   assert.match(src, /pov: nc\.pov \|\| undefined, chips:/, "写入方:gm 气泡带 pov");
   assert.match(src, /"👁 " \+ m\.pov \+ " 的视角"/);

@@ -2261,7 +2261,7 @@ function forumIpOf(x, ch, post) {
   const city = ch && ch.home && ch.home.city ? String(ch.home.city).trim() : "";
   if (city) return forumIpTrim(city);
   try {
-    const mine = !ch && x && (x.authorType === "me" || x.authorId === "me") && !x.anon;   // 她的小号也照她的定位（IP 跟人走，不跟号走）
+    const mine = !ch && x && (x.authorType === "me" || x.authorId === "me");   // 她的小号也照她的定位（IP 跟人走，不跟号走）
     if (mine && window.MapKit && window.MapKit.userRealm && typeof loadJSON === "function") {
       const rl = window.MapKit.userRealm(loadJSON("x_prefs", {}), loadJSON("x_geo", null), loadJSON("x_worlds", []));
       const v = rl && (rl.kind === "real" ? (rl.geo.city || rl.geo.label) : (rl.node || (rl.world && rl.world.name)));
@@ -2270,7 +2270,8 @@ function forumIpOf(x, ch, post) {
     if (ch && window.MapKit && window.MapKit.CITY_DB) { const txt = [ch.persona, ch.description, ch.desc].filter(Boolean).join(" ");
       const hit = Object.keys(window.MapKit.CITY_DB).map(k => [k, txt.indexOf(k)]).filter(z => z[1] >= 0).sort((a, b) => a[1] - b[1])[0]; if (hit) return hit[0]; }
   } catch (e) {}
-  const key = String((x && (x.authorName || x.authorId)) || "?");
+  // 路人匿名都叫「匿名用户」，按名字散就全落在同一个省（她 2026-11-23「匿名怎么都是陕西」）：匿名的按这一楼自己的 id 散
+  const key = String((x && (x.anon || /^匿名/.test(String(x.authorName || "")) ? (x.id || x.ts || x.authorName) : (x.authorName || x.authorId))) || "?");
   let hsh = 0; for (const ch2 of key) hsh = (hsh * 31 + ch2.charCodeAt(0)) >>> 0;
   const places = !ch && post ? forumWorldPlaces(post) : null;
   if (places) return forumIpTrim(places[hsh % places.length]);
@@ -2418,7 +2419,7 @@ function Forum({
   characters, profile, posts, comments, follows, followBack, followingOf, pms, groups, gen, forumMe, charMetaOf, forumOff, forumMasks, forumMaskNow,
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onRegenFloors, onReplyFloor, onReplySub,
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
-  onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
+  onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup, onForwardToMoment,
   onRefreshPMs, onSendPM, onDelPMMsg, onForwardToPM, onAskWechat, onOpenWechat, onMarkPMRead, onEditMe, onEditCharMeta, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
   onEditPost, onPinFloor, onDeletePost, onDeletePosts, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空；onDeletePosts 多选一起删
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
@@ -3000,7 +3001,8 @@ function Forum({
 
   // ---- 楼层（含楼中楼 + 回复按钮 + 赞）----
   // IP 跟人走（她 2026-11-16「小号没有跟着他地图的地点」）：小号背后是哪个角色就照他在地图上的地方；匿名的照旧不露
-  const ipCharOf = x => x && !x.anon && (x.authorType === "character" || x.authorType === "character_alt") && x.authorId ? charOf(x.authorId) : null;
+  // 匿名也是那个人发的，IP 跟人走（她 2026-11-23「是角色的号就按角色位置来」）
+  const ipCharOf = x => x && (x.authorType === "character" || x.authorType === "character_alt") && x.authorId ? charOf(x.authorId) : null;
   function floorRow(post, cm, i) {
     const c = cm.authorType === "character" ? charOf(cm.authorId) : null;
     const isL = liked.has(cm.id);
@@ -3729,6 +3731,10 @@ function Forum({
     // 转发 picker
     fwd && h(Sheet, { onClose: () => setFwd(null) },
       h(Eyebrow, { style: { marginBottom: 10 } }, "转发「" + (fwd.title || "").slice(0, 14) + "」到"),
+      // 转发到朋友圈（她 2026-11-23 许愿板「帖子和回复都想转发」）：跟私聊、群聊同一个面板，多一行
+      onForwardToMoment ? h("button", { "data-wk": "forumfwdmoment", onClick: () => { const f = fwd; setFwd(null); onForwardToMoment(f); }, className: "w-full flex items-center gap-3 py-2 mb-2 active:opacity-60" },
+        h("span", { style: { width: 32, height: 32, borderRadius: 999, background: FORUM_SKIN.line, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "calc(15px * var(--app-fs, 1))" } }, "◎"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, "我的朋友圈")) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "私聊"),
       h("div", { className: "space-y-1 max-h-44 overflow-y-auto mb-3" }, (characters || []).map(c => h("button", { key: c.id, onClick: () => { onForwardToChat(fwd, c); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h(Avatar, { character: c, size: 32, radius: 8 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, c.remark || c.name)))),
       (groups || []).length > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 8 } }, "群聊"),
@@ -4213,7 +4219,7 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
                   h("div", { style: { padding: "6px 7px 8px" } },
                     h("div", { "data-wk": "shopinvname", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MSHOP.ink, lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 30 } }, it.name),
                     it.addedTs ? h("div", { "data-wk": "shopinvtime", style: { fontFamily: F_BODY, fontSize: "calc(9px * var(--app-fs, 1))", color: MSHOP.dim, marginTop: 3 } },
-                      new Date(it.addedTs).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })) : null));
+                      vDate(it.addedTs, null).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })) : null));
               }))));
             })())));
 
@@ -4543,7 +4549,7 @@ function TakeoutSlotRuler({ slot, onPick, now }) {
           at != null ? h("span", { "data-wk": "tkoslotnow", "aria-label": "现在", style: { position: "absolute", left: at + "%", top: 0, width: 8, height: 8, marginLeft: -4, borderRadius: 999, background: MTAKE.deep, boxShadow: "0 0 0 2px " + MTAKE.card } }) : null));
     }));
 }
-function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, toast, initialNav, payMasks, walletOf }) {
+function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, onDelOrder, onDelLog, toast, initialNav, payMasks, walletOf }) {
   // 用哪张面具点（她 2026-10-29「来我们慢慢开始分吧」，跟购物结算那一排同一个规矩）：""＝主面具
   const [payMask, setPayMask] = useState("");
   const t = useTheme();
@@ -4781,7 +4787,9 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
         o.takeout && o.takeout.items ? h("div", { "data-wk": "tkoorderitems", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: MTAKE.sub, marginTop: 3, lineHeight: 1.6, wordBreak: "break-word" } }, o.takeout.items.join("、")) : null,
         o.payLabel ? h("div", { "data-wk": "tkoorderpay", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: MTAKE.dim, marginTop: 3 } }, o.payLabel) : null)),
     takeoutWords(o),
-    body);
+    body,
+    // 删掉这一单（群友 2026-11-23：他点错了城市，记录删不掉）：只拿掉记录，不动钱
+    onDelOrder ? h("button", { "data-wk": "tkodel", onClick: () => (typeof requestAppConfirm === "function" ? requestAppConfirm("删掉这一单？", "只是把这条记录拿掉，钱不会退回去。", () => onDelOrder(o.id), "删掉") : onDelOrder(o.id)), className: "active:opacity-60", style: { display: "block", marginLeft: "auto", marginTop: 8, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.dim } }, "删掉这一单") : null);
   const ordersView = h("div", { "data-wk": "tkoorders", className: "flex-1 flex flex-col min-h-0" },
     head("订单", onBack),
     h("div", { "data-wk": "tkoorderlist", className: "flex-1 min-h-0 overflow-y-auto px-2.5 py-3", style: { background: MTAKE.bg } },
@@ -4806,7 +4814,7 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
       // 一行放不下店名加菜名（她 2026-09-28 截图）：点一下整条展开看全，再点收回
       (log || []).length ? h("div", { "data-wk": "tkolog", style: Object.assign({}, cardStyle, { padding: "2px 12px" }) }, (log || []).slice(0, 60).map((o, li) => {
         const open = openLog === o.id;
-        const d = new Date(o.ts);
+        const d = vDate(o.ts, null);   // 她自己点的外卖：主面具那只钟
         return h("button", { "data-wk": "tkologrow", "data-on": open ? "1" : "0", key: o.id, onClick: () => setOpenLog(open ? null : o.id), "aria-expanded": open, className: "w-full text-left active:opacity-70",
           style: { display: "block", padding: "11px 0", borderTop: li ? "1px solid " + MTAKE.line : "none" } },
           h("div", { className: "flex items-baseline justify-between", style: { gap: 10 } },
@@ -4817,7 +4825,8 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
             o.takeout && o.takeout.items ? h("div", { "data-wk": "tkologitems", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7, color: MTAKE.sub, wordBreak: "break-word" } }, o.takeout.items.join("、")) : null,
             h("div", { "data-wk": "tkologmeta", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.dim, marginTop: 3 } },
               [o.price ? "¥" + o.price : "", o.payLabel || "", String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") + " 吃完的"].filter(Boolean).join(" · ")),
-            takeoutWords(o)) : null);
+            takeoutWords(o),
+            onDelLog ? h("span", { "data-wk": "tkologdel", role: "button", onClick: e => { e.stopPropagation(); typeof requestAppConfirm === "function" ? requestAppConfirm("删掉这条？", "", () => onDelLog(o.id), "删掉") : onDelLog(o.id); }, style: { display: "inline-block", marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: MTAKE.dim, textDecoration: "underline" } }, "删掉这条") : null) : null);
       })) : h("div", { "data-wk": "tkoempty", "data-part": "log", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: MTAKE.dim, margin: "0 2px" } }, "还没吃过"),
       h("div", { style: { height: 20 } })));
 
@@ -4887,7 +4896,7 @@ function MyKinPage({ characters, cards, charId, wallet, onPick, onIssue, onEdit,
     ledger.length ? ledger.map(l => h("div", { "data-wk": "mykinrow", key: l.id, className: "flex items-center", style: { gap: 10, padding: "10px 0", borderBottom: "1px solid " + t.line } },
       h("div", { style: { flex: 1, minWidth: 0 } },
         h("div", { "data-wk": "mykinrowname", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.ink } }, l.item),
-        h("div", { "data-wk": "mykinrowtime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, new Date(l.ts).toLocaleString() + (l.source === "daily" ? " · 平时花钱" : " · 聊天时"))),
+        h("div", { "data-wk": "mykinrowtime", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, vDate(l.ts, charId || null).toLocaleString() + (l.source === "daily" ? " · 平时花钱" : " · 聊天时"))),
       h("div", { "data-wk": "mykinrowamount", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "-" + mTight(l.amount)),
       h("button", { "data-wk": "mykinrowask", onClick: () => onEdit(c.id, "ask", l), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent, minHeight: 36, padding: "0 4px" } }, "问问 TA"))) :
       h("div", { "data-wk": "mykinempty", key: "e", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.fog, padding: "20px 0", textAlign: "center" } }, "TA 还一笔都没刷过")]);
@@ -7397,8 +7406,8 @@ function AutoRefreshConfig(props) {
       "总开关关掉只会暂停，不会抹掉下面每个人的选择；手动刷新、手动写日记等按钮仍可照常使用。"),
     h("div", { "data-wk": "block", className: "flex items-center justify-between", style: { marginBottom: 14, padding: "15px 15px 13px", gap: 12, borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t) } },
       h("div", { style: { minWidth: 0 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, "后台跑完提示我"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 3 } }, "下面这些自己跑的，每调用一次都弹一句：谁的什么、走的哪条线路、成没成")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, "自动跑完提示我"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", lineHeight: 1.5, color: t.fog, marginTop: 3 } }, "下面这些不用你点、自己跑起来的，每调用一次都弹一句「自动 · 谁的什么」，括号里是实际走的那条线路（不一定是后台线路）、成没成")),
       h(Toggle, { on: bgToast, onChange: on => { setBgToast(on); saveJSON("x_bgToast", on); } })),
     h(ApiMeterCard, { toast: props.toast }),
     groups.map(g => h("div", { key: g.id, style: { marginBottom: 22 } },
@@ -7518,7 +7527,7 @@ function Config(props) {
   //   而且下一个人照着这份表继续往里加英文。撤掉东西要删干净，不是留在原地。
   const meta = {
     home: "设置", api: "接哪些模型", apiText: "文字模型",
-    apiImage: "图像 API", apiTts: "语音 API", apiVideo: "视频 API", apiEmbed: "向量记忆",
+    apiImage: "图像 API", apiMcp: "MCP 服务器", apiTts: "语音 API", apiVideo: "视频 API", apiEmbed: "向量记忆",
     apiStt: "语音识别", apiEars: "真声耳朵", apiMouth: "电台嗓子", apiCache: "额度与缓存", sense: "他们知道现在几点、我在哪",
     cot: "创作小稿", look: "这个 app 长什么样",
     theme: "外观与壁纸", themeStudio: "主题工作台", chatCss: "各聊天窗的 CSS",
@@ -7639,6 +7648,7 @@ function Config(props) {
       page === "api" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "文", tint: "#5c7fa3", title: "文字模型", sub: "聊天、线下、后台模型与多线路方案", onClick: () => setPage("apiText"), wide: true }),
         h(ConfigTile, { icon: "图", tint: "#7c8a52", title: "图像 API", sub: "自拍、合照与多个图像站点", onClick: () => setPage("apiImage") }),
+        h(ConfigTile, { icon: "具", tint: "#6a7f9a", title: "MCP 服务器", sub: "让他们会查、会用工具、接外面的记忆", onClick: () => setPage("apiMcp") }),
         h(ConfigTile, { icon: "影", tint: "#718567", title: "视频 API", sub: "MiniMax · 可灵 · 即梦，做动态形象", onClick: () => setPage("apiVideo") }),
         h(ConfigTile, { icon: "声", tint: "#a3714f", title: "语音 API", sub: "语音合成、克隆音色与指派", onClick: () => setPage("apiTts") }),
         h(ConfigTile, { icon: "索", tint: "#6f6f96", title: "向量记忆", sub: "独立 Embedding 接口与索引", onClick: () => setPage("apiEmbed") }),
@@ -7647,6 +7657,7 @@ function Config(props) {
         h(ConfigTile, { icon: "嗓", tint: "#8e6b4f", title: "电台嗓子", sub: "自己架的朗读服务，没配就用系统音色", onClick: () => setPage("apiMouth") }),
         h(ConfigTile, { icon: "量", tint: "#8a8378", title: "调用记录与缓存", sub: "每一次叫模型的记录、缓存命中", onClick: () => setPage("apiCache"), wide: true })),
       page === "apiText" && section(h(ApiConfig, { profiles: props.apiProfiles, activeId: props.activeId, offlineApiId: props.offlineApiId, onSetOfflineApi: props.onSetOfflineApi, modelFloatOn: props.modelFloatOn, onSetModelFloat: props.onSetModelFloat, bgApiId: props.bgApiId, onSetBgApi: props.onSetBgApi, onSave: props.onSaveApi, toast: props.toast })),
+      page === "apiMcp" && section(h(McpConfig, { toast: props.toast })),
       page === "apiImage" && section(h(React.Fragment, null, h(ImageApiConfig, { toast: props.toast }), h(AvatarPoolConfig, { toast: props.toast }))),
       page === "apiVideo" && section(h(VideoApiConfig, { toast: props.toast })),
       page === "apiTts" && section(h(TtsApiConfig, { toast: props.toast, characters: props.characters, onAssignVoice: props.onAssignVoice })),
@@ -7669,6 +7680,7 @@ function Config(props) {
           : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, textAlign: "center", padding: "24px 0" } }, "哪个聊天窗都没写自己的 CSS"))),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
+      page === "auto" && h(QuietHoursBox, { t: t, toast: props.toast }),
       page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetRate: props.onSetAutoRefreshRate, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
       page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onExportChars: props.onExportChars, mediaParts: props.mediaParts, onExportMedia: props.onExportMedia, onCopyExport: props.onCopyExport, copyParts: props.copyParts, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
       page === "log" && h(ChangelogView, { list: clList }),
@@ -7701,9 +7713,13 @@ function McpConfig({ toast }) {
     } catch (e) { toast && toast("连不上这个转接：地址对不对？在浏览器里直接打开它，应该看得到「转接在线 ✓」"); }
     finally { setBusy(""); }
   };
+  // 先取好放着（她 2026-11-23 截图「没复制上」）：iOS 只认【点下去那一下】里的复制，
+  //   原来点了才去取，取回来已经不算那一下了，剪贴板不让写
+  const relayCodeRef = useRef("");
+  useEffect(() => { fetch("tools/mcp-relay-worker.js", { cache: "no-store" }).then(r => r.text()).then(c => { if (/export default/.test(c)) relayCodeRef.current = c; }).catch(() => {}); }, []);
   const copyRelayCode = async () => {
     try {
-      const code = await (await fetch("tools/mcp-relay-worker.js", { cache: "no-store" })).text();
+      const code = relayCodeRef.current || await (await fetch("tools/mcp-relay-worker.js", { cache: "no-store" })).text();
       if (!/export default/.test(code)) throw new Error("取回来的不是代码");
       const ok = typeof copyText === "function" && await copyText(code);
       toast && toast(ok ? "转接代码复制好了，去 Cloudflare 粘进去" : "没复制上");
@@ -7840,6 +7856,8 @@ function ApiConfig({
 }) {
   const t = useTheme();
   const [genStopOn, setGenStopOn] = useState(() => !!loadJSON("x_genStopOn", false));
+  // 翻译专用线路（群友 2026-11-25「能弄一个专门连接翻译的 api 接口嘛，免费的那个翻译太奇怪了而且经常抽」）：选了就先走它，翻不成再退免费
+  const [transApiId, setTransApiId] = useState(() => loadJSON("x_transApi", null));
   const [list, setList] = useState(profiles.length ? profiles : [{
     id: "p_" + Date.now(),
     name: "",
@@ -8020,8 +8038,11 @@ function ApiConfig({
       // 「无」（她 2026-10-10：「后台 api 能不能选个无，这样可以强制不刷新」）：后台自己跑的那些一律不跑
       + "选「无」：「谁会自己动」里那些自己跑的（日程、日记、朋友圈、论坛、刷手机、群里自己聊、主动来找你……）和自动抽记忆一律停掉，只剩你点了才动的；聊天到一定长度的前情浓缩照旧走主模型，不然 TA 会忘。",
       bgApiId, onSetBgApi, "跟随主模型", "无（记忆、日程这些后台活不跑）"),
-    h(QuietHoursBox, { t: t, toast: toast }),
-    h(McpConfig, { toast: toast }));
+    routeBox("翻译模型", "点「译」、外语消息自动摆中文时用哪条线路翻。不选就只走免费翻译；"
+      + "选了一条，就先让它翻，翻不成再退回免费的。每翻一段调用一次这条线路，按它的价钱算，挑便宜的模型就行。",
+      transApiId, id => { saveJSON("x_transApi", id || null); setTransApiId(id || null); }, "不用（只走免费翻译）"));
+    // 免打扰搬去「谁会自己动」（她 2026-11-24「从文字api那里移出来 放别的地方不放接哪些模型」）：它管的是谁什么时候不动，跟接哪条线路无关
+    // MCP 搬去「接哪些模型」里单独一格（她 2026-11-23「从文字api里面移出来做一个单独格子，这个不好找」）：搬＝这儿删掉
   return /*#__PURE__*/React.createElement("div", null,
   h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),
   false && onSetModelFloat && h("div", { style: { marginTop: 2, marginBottom: 18, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, background: t.bg2 } },
@@ -9869,7 +9890,7 @@ function EventComposeSheet({ entries, characters, onClose, onCreated, toast, pre
         return h("button", { key: e.id, onClick: () => toggle(e.id), className: "w-full text-left rounded-lg p-2.5 mb-1.5 active:opacity-70", style: { border: "1px solid " + (on ? t.tint : t.line), background: on ? "rgba(158,130,96,.07)" : t.bg2 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.55 } }, (on ? "☑ " : "☐ ") + String(e.text).slice(0, 80) + (String(e.text).length > 80 ? "…" : "")),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } },
-            new Date(e.ts || 0).toLocaleDateString(), e.open ? " · ⏳未了结" : "", e.archived ? " · 🗂已归档" : "", e.pinned ? " · 📌" : ""));
+            vDate(e.ts || 0, selChar || null).toLocaleDateString(), e.open ? " · ⏳未了结" : "", e.archived ? " · 🗂已归档" : "", e.pinned ? " · 📌" : ""));
       })),
       h("button", { onClick: verify, disabled: busy || !selChar || selIds.length < 2 || selIds.length > 30, className: "w-full mt-2 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } },
         busy ? "正在跟云端对账…" : "核对这 " + selIds.length + " 条（需 2~30 条" + (selChar ? "" : "，先选执笔人") + "）")),
@@ -9880,7 +9901,7 @@ function EventComposeSheet({ entries, characters, onClose, onCreated, toast, pre
         h("div", { key: r.id, className: "rounded-lg p-2.5 mb-1.5", style: { border: "1px solid " + t.line, background: t.bg2 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.55 } }, transShow(r.text)),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } },
-            new Date(r.ts || 0).toLocaleDateString(), " · rev " + r.revision, (r.tags || []).length ? " · " + r.tags.join("/") : "", r.open ? " · ⏳未了结" : "", r.archived ? " · 🗂已归档" : "")))),
+            vDate(r.ts || 0, selChar || null).toLocaleDateString(), " · rev " + r.revision, (r.tags || []).length ? " · " + r.tags.join("/") : "", r.open ? " · ⏳未了结" : "", r.archived ? " · 🗂已归档" : "")))),
       h("div", { className: "flex", style: { gap: 8 } },
         h("button", { onClick: () => { setStage("pick"); setRows(null); setProblems([]); }, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "返回改选"),
         h("button", { onClick: create, disabled: busy || !!problems.length, className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, busy ? "提交中…" : "创建请求，交给执笔人"))));
@@ -10047,7 +10068,7 @@ function EventShelfSection({ characters, entries }) {
   const [showRejected, setShowRejected] = useState(false);
   const [evQ, setEvQ] = useState(""); // ⑥第7步：书架搜索（标题/梗概/主题，本地过滤）
   const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : "？"; };
-  const fmtD = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "/" + d.getDate(); };
+  const fmtD = (ts, id) => { if (!ts) return ""; const d = vDate(ts, id || null); return (d.getMonth() + 1) + "/" + d.getDate(); };   // 有人就照那个人的钟，没有＝主面具
   const load = async () => {
     if (!window.MemoryEvents) return;
     try {
@@ -10153,7 +10174,7 @@ function EventShelfSection({ characters, entries }) {
       ev.synopsis ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, marginTop: 4, lineHeight: 1.6 } }, ev.synopsis) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 5 } },
         (ev.char_ids || []).map(nameOf).join("、"),
-        " · ", fmtD(ev.started_ts), ev.ended_ts ? "–" + fmtD(ev.ended_ts) : "起",
+        " · ", fmtD(ev.started_ts, (ev.char_ids || [])[0]), ev.ended_ts ? "–" + fmtD(ev.ended_ts, (ev.char_ids || [])[0]) : "起",
         ev.edited_by_user ? " · 你改过" : "")))),
   composeOpen && h(EventComposeSheet, { entries: entries, characters: characters, preselect: preselect, toast: window.__toast, onCreated: async () => { if (window.MemoryEvents) { await window.MemoryEvents.refresh(); load(); } }, onClose: () => { setComposeOpen(false); setPreselect(null); } }),
   reviewId && h(CandidateReviewSheet, { candidateId: reviewId, characters: characters, toast: window.__toast, onChanged: async () => { if (window.MemoryEvents) { await window.MemoryEvents.refresh(); load(); } }, onClose: () => setReviewId(null) }),
@@ -11423,7 +11444,7 @@ function diaryPreview(e) {
 function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onSetDate, onComment, commenting, onPhotoDiary, onDelPhoto, photoBusy }) {
   const t = useTheme();
   // 虚拟时间开着时，TA 那篇上的日子按 TA 那只钟（她 2026-10-11：「日记显示的日期要跟随虚拟时间」）
-  const d = new Date(!isMe && char && typeof vclockMap === "function" ? vclockMap(entry.ts, char.id) : entry.ts);
+  const d = vDate(entry.ts, !isMe && char ? char.id : null);   // 她自己的日记照主面具那只钟
   const wd = "日一二三四五六"[d.getDay()];
   const dateStr = (!isMe && char && typeof vclockCfg === "function" && vclockCfg(char.id) ? vclockYear(d.getFullYear(), vclockCfg(char.id)) : "") + (d.getMonth() + 1) + "月" + d.getDate() + "日";
   const paper = diaryPaperOf(char, isMe);
@@ -11530,7 +11551,7 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
   const paper = diaryPaperOf(char);
   const iRGB = (typeof skinRGB === "function" ? skinRGB(t.ink || "#2b2622") : [43, 38, 34]).join(",");
   // 群里 2026-11-11「app 还有哪些地方应该接虚拟时间」：封面上最新一篇的日子照 TA 的钟
-  const lastD = last ? (char && !char.isMe ? vDate(last.ts, char.id) : new Date(last.ts)) : null;
+  const lastD = last ? vDate(last.ts, char && !char.isMe ? char.id : null) : null;
   const lastStr = lastD ? (lastD.getMonth() + 1) + "月" + lastD.getDate() + "日" : "";
   return h("div", { "data-wk": "dicover", "data-paper": paper, className: "h-full flex flex-col", style: Object.assign({}, pageSkin(paper, t, { corner: false }), { touchAction: "pan-y" }), onTouchStart: onTS, onTouchEnd: onTE },
     h(Head, { zh: "日记", sub: characters.length > 1 ? "第 " + (idx + 1) + " / " + characters.length + " 本" : "",
@@ -11668,12 +11689,13 @@ function DiaryCommentPickSheet({ characters, onConfirm, onClose }) {
     h("button", { onClick: () => { if (sel.length) onConfirm(sel); }, disabled: !sel.length, className: "w-full mt-5 active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))" } }, sel.length ? "让这 " + sel.length + " 位评论" : "先选角色"));
 }
 
-function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSetEntryDate, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, onDelPhotoDiary, photoDiaryBusy, onMarkRead, toast }) {
+function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSetEntryDate, onAddEntries, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, onDelPhotoDiary, photoDiaryBusy, onMarkRead, toast }) {
   const t = useTheme();
   // 「我」也是一个作者（No.00），放在最前
   const meAuthor = { id: "__me", name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || t.accent, motto: profile.tagline || "", isMe: true };
   const authors = [meAuthor, ...characters];
   const [pickDay, setPickDay] = useState(false); // 「补齐」弹出的挑日子单
+  const [imp, setImp] = useState(null); // 自己填：{ mode: "one"|"bulk", date, text }（群友 2026-11-25 搬家）
   const [view, setView] = useState("archive"); // archive(默认大图) | home(目录) | entries | entry | compose
   const [curId, setCurId] = useState(characters[0] ? characters[0].id : "__me");
   const [curEntry, setCurEntry] = useState(null);
@@ -11858,7 +11880,22 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         onClick: () => { setPickDay(false); onBackfill && onBackfill(curId); },
         className: "active:opacity-60 disabled:opacity-40",
         style: { width: "100%", marginTop: 12, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub }
-      }, "全部补齐（" + missing.length + " 篇）") : null));
+      }, "全部补齐（" + missing.length + " 篇）") : null,
+      // 自己填：手写一篇（挑日子写正文）、整段粘进来（按行首日期拆成一篇篇）。填进去的他当自己写的
+      onAddEntries ? h("div", { "data-wk": "diimport", style: { marginTop: 16, paddingTop: 12, borderTop: "1px dashed " + t.line } },
+        !imp ? h("div", { className: "flex", style: { gap: 8 } },
+          h("button", { onClick: () => { const d = new Date(); d.setDate(d.getDate() - 1); setImp({ mode: "one", date: d.toISOString().slice(0, 10), text: "" }); }, className: "flex-1 active:opacity-60", style: { padding: "10px 0", borderRadius: 12, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "自己写一篇"),
+          h("button", { onClick: () => setImp({ mode: "bulk", text: "" }), className: "flex-1 active:opacity-60", style: { padding: "10px 0", borderRadius: 12, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.sub } }, "整段粘进来"))
+        : h("div", null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.7, marginBottom: 8 } }, imp.mode === "one" ? "写在哪一天、写什么。存进去就是他这一天的日记，他会当成自己写的。" : "把别处的日记整段粘进来：每篇开头一行写日期（像 2025年3月1日、3月1日、3/1），日期后面同一行的字当标题。一个日期都没写的，整段算昨天那一篇。"),
+          imp.mode === "one" ? h("input", { type: "date", value: imp.date, onChange: e => setImp({ ...imp, date: e.target.value }), style: { width: "100%", minWidth: 0, boxSizing: "border-box", marginBottom: 8, padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))" } }) : null,
+          h("textarea", { value: imp.text, onChange: e => setImp({ ...imp, text: e.target.value }), rows: 8, placeholder: imp.mode === "one" ? "正文，空一行分一段" : "粘贴在这里", style: { width: "100%", boxSizing: "border-box", padding: "10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: "calc(16px * var(--app-fs, 1))", lineHeight: 1.7 } }),
+          h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+            h("button", { onClick: () => setImp(null), className: "flex-1 active:opacity-60", style: { padding: "10px 0", borderRadius: 12, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog } }, "算了"),
+            h("button", { onClick: () => { const y = new Date(); y.setDate(y.getDate() - 1); y.setHours(22, 30, 0, 0);
+                const items = imp.mode === "one" ? (() => { const d = new Date(imp.date + "T22:30:00"); const ps = String(imp.text || "").split(/\n\s*\n|\n/).map(x => x.trim()).filter(Boolean); return ps.length && !isNaN(d.getTime()) ? [{ ts: d.getTime(), title: "", paras: ps }] : []; })() : (typeof diaryImportParse === "function" ? diaryImportParse(imp.text, y.getTime()) : []);
+                if (!items.length) { toast && toast("没认出内容"); return; } onAddEntries(curId, items); setImp(null); setPickDay(false); },
+              className: "flex-1 active:opacity-60", style: { padding: "10px 0", borderRadius: 12, background: t.ink, color: t.bg2, border: "none", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "放进去")))) : null));
     // 目录也铺TA那张纸：翻TA的日记，从目录起就该是TA的本子
     return h("div", { className: "h-full flex flex-col", "data-wk": "dibg", "data-paper": diaryPaperOf(curAuthor, isMe), style: pageSkin(diaryPaperOf(curAuthor, isMe), t, { corner: false, strength: .7 }) }, daySheet,
       h(Head, {
@@ -11888,7 +11925,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
             style: { display: "block", marginLeft: "auto", marginTop: 10, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", minHeight: 32 } },
           list.filter(e => e.unread).length + " 篇没看 · 全部标为已读") : null,
         list.map((e, i) => {
-          const d = new Date(!isMe && typeof vclockMap === "function" ? vclockMap(e.ts, curId) : e.ts);
+          const d = vDate(e.ts, isMe ? null : curId);
           const wd = "日一二三四五六"[d.getDay()];
           const titleMain = isMe ? (e.title || "") : (e.titleZh || e.titleEn || "");
           const ps = e.paras || [];
@@ -11909,6 +11946,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
             h("div", { className: "flex-1 min-w-0" },
               e.unread ? h("div", { "data-wk": "diunread", style: { display: "inline-flex", alignItems: "center", gap: 5, fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.accent, marginBottom: 4 } },
                 h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, display: "inline-block" } }), "没看") : null,
+              e.source === "imported" ? h("div", { "data-wk": "diimported", style: { display: "inline-block", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "0 6px", marginBottom: 4, marginLeft: e.unread ? 6 : 0 } }, "搬来的") : null,
               titleMain ? h("div", { "data-wk": "dititle", className: "line-clamp-2", style: { fontFamily: F_DISPLAY, fontSize: "calc(18px * var(--app-fs, 1))", lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, titleMain) : null,
               h("div", { "data-wk": "dibody", className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", lineHeight: 1.75, color: t.sub } }, diaryPreview(e)),
               (marks.length || (isMe && (e.comments || []).length)) ? h("div", { "data-wk": "dimarks", className: "flex items-center", style: { gap: 7, marginTop: 10 } },
@@ -11943,7 +11981,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
               h("div", { "data-wk": "diname", style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", color: t.ink } }, c.isMe ? c.name + "（我）" : c.name),
               cur && h("span", { style: { fontFamily: F_BODY, fontSize: "calc(8px * var(--app-fs, 1))", letterSpacing: ".05em", padding: "2px 6px", borderRadius: 999, border: `1px solid ${t.line}`, color: t.fog } }, "当前")),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } },
-              gb ? "正在记录今天…" : list.length ? (list.filter(e => e.unread).length ? list.filter(e => e.unread).length + " 篇没看 · " : "") + "共 " + list.length + " 篇 · 最后 " + (c.isMe ? new Date(last.ts) : vDate(last.ts, c.id)).toLocaleDateString("zh-CN", { month: "long", day: "numeric" }) : (c.isMe ? "还没写过，点铅笔写一篇" : "尚未记录"))),
+              gb ? "正在记录今天…" : list.length ? (list.filter(e => e.unread).length ? list.filter(e => e.unread).length + " 篇没看 · " : "") + "共 " + list.length + " 篇 · 最后 " + vDate(last.ts, c.isMe ? null : c.id).toLocaleDateString("zh-CN", { month: "long", day: "numeric" }) : (c.isMe ? "还没写过，点铅笔写一篇" : "尚未记录"))),
           gb ? h(IPulse, { size: 18, color: t.fog }) : h(IChevR, { size: 16, color: t.fog }));
       })));
 }
@@ -12087,7 +12125,7 @@ function MyWallet({ asks, balance, log, cards, characters, groups, onBack, onSet
               lines.map((l, k) => h("div", { key: k }, l))),
             asks.map((x, k) => h("div", { key: k, style: { marginBottom: 12, display: "flex", flexDirection: "column", alignItems: x.mine ? "flex-end" : "flex-start" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 4 } },
-                (x.where ? x.where + " · " : (x.mine ? "递给 " + x.who + " · " : "")) + (x.m.ts ? new Date(x.m.ts).toLocaleDateString() : "")),
+                (x.where ? x.where + " · " : (x.mine ? "递给 " + x.who + " · " : "")) + (x.m.ts ? vDate(x.m.ts, null).toLocaleDateString() : "")),
               h(AskSlipCard, { m: x.m, asker: x.mine ? "我" : x.who }))))));
   }
   if (view === "cards") {
@@ -12152,7 +12190,7 @@ function MyWallet({ asks, balance, log, cards, characters, groups, onBack, onSet
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, marginTop: 1 } }, "余 " + money(e.after)))),
         // 凭证：这一笔从哪儿来的，能点回去看（老流水没记出处，只有说明）
         open ? h("div", { "data-wk": "walletproof", className: "px-4", style: { paddingBottom: 12, borderTop: "1px dashed " + t.line, paddingTop: 10, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.8 } },
-          h("div", null, "时间：" + new Date(e.ts).toLocaleString("zh-CN", { hour12: false })),
+          h("div", null, "时间：" + vDate(e.ts, null).toLocaleString("zh-CN", { hour12: false })),
           h("div", null, "类别：" + ((KIND_GROUPS.find(g => g[0] === groupOf(e.kind)) || [])[1] || "其他")),
           r && r.where ? h("div", null, "出处：" + r.where + (who ? " · " + who : "")) : h("div", { style: { color: t.fog } }, "这一笔记账时还没开始存出处，只有上面那行说明。"),
           h("div", null, "这一笔：" + signed(e.delta) + " → 余额 " + money(e.after)),
@@ -12683,7 +12721,7 @@ const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
 //   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
 const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
 
-function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes, onMoveEmotes, myFaces }) {
+function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, onUncaptionPack, setBusy, onCaptionPack, onRenameEmote, onDeleteEmotes, onMoveEmotes, onReorderPack, onReorderEmotes, myFaces }) {
   const [setPick, setSetPick] = useState(false);
   const [setCaption, setSetCaption] = useState(true);   // 画出来的每张底下印上名字
   // 一张动图（她 2026-11-04：gpt-image-2.6 能出 GIF）：不锁脸，照外貌文字画一张会动的
@@ -12697,6 +12735,12 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
   const [selId, setSelId] = useState(list[0] && list[0].id);
   const [selMode, setSelMode] = useState(false);
   const [selEmotes, setSelEmotes] = useState([]);
+  // 长按一版／一张弹出来的「往前挪／往后挪／挪到最前」：{ kind: "pack"|"emote", id, label }。
+  //   跟话题卡长按是同一个手势（useLongPressMenu），主网格上不多摆按钮
+  const [orderMenu, setOrderMenu] = useState(null);
+  const { startPress: orderPress, endPress: orderEnd } = useLongPressMenu(x => { if (!selMode) setOrderMenu(x); });
+  const pressOn = x => ({ onTouchStart: () => orderPress(x), onTouchEnd: orderEnd, onTouchMove: orderEnd, onTouchCancel: orderEnd,
+    onMouseDown: () => orderPress(x), onMouseUp: orderEnd, onMouseLeave: orderEnd, onContextMenu: e => e.preventDefault() });
   const [importText, setImportText] = useState("");
   const fileRef = useRef(null);
   const pack = list.find(p => p.id === selId) || list[0] || null;
@@ -12707,7 +12751,11 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
   // （跟一起读、线下文风是同一处病，编码都交给 core.js 的 readTextFileSmart）
   const readFile = async e => {
     const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
-    const text = String(await readTextFileSmart(f) || "");
+    let text = "";
+    try { text = String(await readTextFileSmart(f) || ""); } catch (err) { if (window.__toast) window.__toast("这个文件读不出字：" + ((err && err.message) || err), 4000); return; }
+    if (!importEmotesOk(text)) { if (window.__toast) window.__toast("文件里没找到「关键词 + 链接」", 4000); return; }
+    // JSON 文件（别家导出的、或我们自己导出的）直接导进这一版，不往框里塞——图装在文件里的那种一塞就是几兆，框会卡死
+    if (/^\s*[\[{]/.test(text) && pack && onImport) { let ok = false; try { JSON.parse(text); ok = true; } catch (err) {} if (ok) { onImport(pack.id, text); return; } }
     setImportText(prev => (prev ? prev + "\n" : "") + text);
   };
   // 从相册直接选图（自己画的表情不用先传图床）：存进本机图库 iv_。
@@ -12740,6 +12788,15 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
 
   return h("div", { "data-wk": "emopage", className: "h-full flex flex-col", style: RELEASE_PAPER(t) },
     h(Head, { zh: "表情包", sub: list.length ? list.length + " 版 · 共 " + total + " 张" : null, bg: "transparent", onBack: onBack }),
+    orderMenu && h(Sheet, { onClose: () => setOrderMenu(null) },
+      h("div", { "data-wk": "emoordermenu", "data-part": orderMenu.kind, className: "px-5 pb-6 pt-1" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, marginBottom: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          (orderMenu.kind === "pack" ? "这一版：" : "这一张：") + (orderMenu.label || "未命名") + "　发表情那一格也照这个先后摆"),
+        [["往前挪", -1], ["往后挪", 1], ["挪到最前", "first"]].map(([zh, how], i) => h("button", {
+          key: zh, "data-wk": "emoordermenuitem", onClick: () => { const m = orderMenu; setOrderMenu(null);
+            if (m.kind === "pack") onReorderPack && onReorderPack(m.id, how); else onReorderEmotes && pack && onReorderEmotes(pack.id, [m.id], how); },
+          className: "w-full text-left py-3 active:opacity-60",
+          style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, borderTop: i ? "1px solid " + t.line : "none" } }, zh)))),
     h("div", { "data-wk": "emoscroll", className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
       h("div", { "data-wk": "emosuggestrow", className: "flex items-center justify-between", style: { marginTop: 14, gap: 12 } },
         h("div", { className: "min-w-0" },
@@ -12787,7 +12844,7 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
           //   v74.382 修好的裂图也只修在那一边，这边的裸 url 还留着。
           //   现在两处共用同一份，别再在这里另写。
           const first = packCoverOf(p);
-          return h("button", { "data-wk": "emopack", "data-on": on ? "1" : "0", key: p.id, onClick: () => { setSelId(p.id); setSelMode(false); setSelEmotes([]); },
+          return h("button", { "data-wk": "emopack", "data-on": on ? "1" : "0", key: p.id, onClick: () => { setSelId(p.id); setSelMode(false); setSelEmotes([]); }, ...(onReorderPack && list.length > 1 ? pressOn({ kind: "pack", id: p.id, label: p.name }) : {}),
             className: "shrink-0 active:opacity-80", style: { width: 76, paddingTop: on ? 0 : 10, paddingBottom: on ? 10 : 0 } },
             h("div", { "data-wk": "emopackcover", style: { width: 76, height: on ? 76 : 62, borderRadius: 10, overflow: "hidden", position: "relative",
               background: STICKER_PAPER, border: (on ? 3 : 1) + "px solid " + (on ? "#fff" : t.line),
@@ -12838,7 +12895,7 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
             ? h("div", { "data-wk": "emoempty", "data-part": "emotes", className: "text-center", style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "38px 0", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.9 } }, "这一版还是空的\n在下面把新的贴上来")
             : h("div", { "data-wk": "emogrid", className: "grid grid-cols-3 gap-3" }, pack.emotes.map(em => {
               const on = selEmotes.includes(em.id);
-              return h("button", { "data-wk": "emotile", "data-on": on ? "1" : "0", key: em.id, onClick: () => { if (!selMode) { if (onRenameEmote) requestAppPrompt("改关键词", "角色靠它挑图，写「什么时候用」最好。", em.keyword || "", v => { const k = String(v || "").trim(); if (k) onRenameEmote(pack.id, em.id, k); }, "改好了"); return; } setSelEmotes(s => s.includes(em.id) ? s.filter(x => x !== em.id) : [...s, em.id]); }, className: "text-left active:opacity-80", style: { background: "transparent", padding: 1 } },
+              return h("button", { "data-wk": "emotile", "data-on": on ? "1" : "0", key: em.id, onClick: () => { if (!selMode) { if (onRenameEmote) requestAppPrompt("改关键词", "角色靠它挑图，写「什么时候用」最好。", em.keyword || "", v => { const k = String(v || "").trim(); if (k) onRenameEmote(pack.id, em.id, k); }, "改好了"); return; } setSelEmotes(s => s.includes(em.id) ? s.filter(x => x !== em.id) : [...s, em.id]); }, ...(onReorderEmotes && pack.emotes.length > 1 ? pressOn({ kind: "emote", id: em.id, label: em.keyword }) : {}), className: "text-left active:opacity-80", style: { background: "transparent", padding: 1 } },
                 h("div", { "data-wk": "emotilecard", style: { position: "relative", borderRadius: 11, overflow: "hidden", background: STICKER_PAPER,
                   // 贴纸的 die-cut 白边：挑中那张按平（不歪、不悬空），换成一圈醒目描边
                   border: "3px solid " + (on ? t.accent : "#fff"),
@@ -12862,6 +12919,8 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
             h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, list.filter(p => p.id !== pack.id).map(p => h("button", { "data-wk": "emomoveto", key: p.id,
               onClick: () => { if (onMoveEmotes(pack.id, selEmotes, p.id, moveCopy)) { setSelEmotes([]); setSelMode(false); } },
               className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, p.name || "未命名")))),
+          // 挑中的这几张按原来的先后一起挪到这一版最前面
+          selMode && selEmotes.length > 0 && onReorderEmotes && pack.emotes.length > selEmotes.length && h("button", { "data-wk": "emoselfirst", onClick: () => { onReorderEmotes(pack.id, selEmotes, "first"); setSelEmotes([]); setSelMode(false); }, className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, background: t.bg2, borderRadius: 12, padding: "12px 0" } }, "把选中的 " + selEmotes.length + " 张挪到最前"),
           selMode && selEmotes.length > 0 && h("button", { "data-wk": "emodelsel", onClick: () => { onDeleteEmotes(pack.id, selEmotes); setSelEmotes([]); setSelMode(false); }, className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: "#fff", background: t.accent, borderRadius: 12, padding: "12px 0" } }, "撕掉选中的 " + selEmotes.length + " 张"),
           // ── 往这版上贴新的 ──
           note("往这版上贴新的"),
@@ -12869,7 +12928,7 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
             h(FilePick, { accept: ANY_FILE, onChange: readFile, label: "从文件里读表情包清单" },
               h("span", { "data-wk": "emofilebtn", "data-part": "list", className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, "从文件里读")),
-            h("span", { "data-wk": "emofilehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "支持 .txt、.json、.docx；打不开就把清单直接贴在下面那个框里")),
+            h("span", { "data-wk": "emofilehint", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "支持 .txt、.json、.docx、.pdf；打不开就把清单直接贴在下面那个框里")),
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
             h(FilePick, { accept: "image/*", multiple: true, onChange: pickImages, disabled: picking, label: "从相册选表情" },
               h("span", { "data-wk": "emofilebtn", "data-part": "images", className: "flex items-center gap-2 active:opacity-60", style: { display: "inline-flex", fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 14px" } }, picking ? "存着呢…" : "从相册选图")),
@@ -12893,7 +12952,7 @@ function EmoteMatrix({ onExportPacks, onMakeGif, packs, characters, onBack, onAd
             h("button", { "data-wk": "emoexportbtn", "data-part": "all", onClick: () => onExportPacks(list.map(x => x.id)), className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.ink, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 0" } }, "导出全部表情包")) : null,
           h("button", { "data-wk": "emodelpack", onClick: () => requestAppConfirm("撕掉「" + pack.name + "」这一版？", "这一版上贴着的表情会一起没了。", () => onDeletePack(pack.id), "撕掉"), className: "w-full active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: "calc(16px * var(--app-fs, 1))", color: t.accent, border: "1px solid " + t.accent, borderRadius: 14, padding: "14px 0" } }, "撕掉这一版"))));
 }
-function importEmotesOk(text) { return /(https?:\/\/\S+)/.test(String(text || "")); }
+function importEmotesOk(text) { return /(https?:\/\/\S+)|data:image\//.test(String(text || "")); }
 
 // ============================================================
 // 收藏 Favorites —— 按角色查看收藏的聊天消息
@@ -13635,7 +13694,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     })();
   const giftNode = openGift && h(PageSheet, { onClose: () => setOpenGiftId(null), tall: true },
       h(Eyebrow, { style: { marginBottom: 8 } }, openGift.name),
-      h("div", { "data-wk": "carrygiftmeta", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 12 } }, "你送的 · 收到于 " + new Date(openGift.receivedTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })),
+      h("div", { "data-wk": "carrygiftmeta", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 12 } }, "你送的 · 收到于 " + vDate(openGift.receivedTs, char.id).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })),
       h("div", { "data-wk": "carrythinklabel", style: { fontFamily: "'Archivo',sans-serif", fontSize: "calc(9.5px * var(--app-fs, 1))", letterSpacing: "0.16em", color: t.accent, marginBottom: 6 } }, char.name + " 的想法"),
       giftBusy === openGift.id && !openGift.thought
         ? h(Spinner, { label: "让 " + char.name + " 说说…" })
@@ -14709,7 +14768,7 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onRead, o
   const padD = s => String(s || "").split("-").map((x, i) => i ? String(x).padStart(2, "0") : x).join("-");
   const mine = (events || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => { const da = padD(a.date), db = padD(b.date); return da < db ? 1 : da > db ? -1 : b.createdAt - a.createdAt; });
   // 下一次在哪天全走 annivNext（core.js）：不重复的过了就是过了，不再滚到明年倒数。
-  const annivInfo = a => { const nx = annivNext(a); return { days: nx.days, y: new Date(nx.ts).getFullYear(), passed: nx.passed }; };
+  const annivInfo = a => { const nx = annivNext(a, vclockMap(Date.now(), a.characterId)); return { days: nx.days, y: new Date(nx.ts).getFullYear(), passed: nx.passed }; };
   // 过期的（不重复且已过）沉到最底下，像翻过去的日历页；没过的照旧按远近排
   const anns = (annivs || []).filter(a => a.characterId === partner.id).slice().sort((a, b) => {
     const ia = annivInfo(a), ib = annivInfo(b);
@@ -14980,10 +15039,10 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
     if (days >= threshold) onGen(partner);
     // eslint-disable-next-line
   }, []);
-  const md = ts => { const d = new Date(ts); return d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(); };
+  const md = ts => { const d = vDate(ts, partner.id); return d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(); };   // 信上的日子照TA那只钟
   const threadText = l => ["【" + (l.title || "无题") + "】\n" + l.body].concat((l.replies || []).map(r => (r.authorId === "user" ? "她：" : partner.name + "：") + r.content)).join("\n");
   const doCompose = () => { if (cBody.trim()) { onAddMy(partner, cTitle, cBody, { paper: cPaper, font: cFont }); setCTitle(""); setCBody(""); setCompose(false); } };
-  const mdParts = ts => { const d = new Date(ts); return { md: (d.getMonth() + 1) + "." + d.getDate(), y: d.getFullYear() }; };
+  const mdParts = ts => { const d = vDate(ts, partner.id); return { md: (d.getMonth() + 1) + "." + d.getDate(), y: d.getFullYear() }; };
 
   // —— 阅读一封信（信纸样式 + 信下回复串）——
   if (open) {
@@ -15640,7 +15699,7 @@ function CoupleJar({ partner, data, wishes, myWallet, myName, onMove, onGoal, on
         byMonth.map(g => h("div", { key: g.k },
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", letterSpacing: ".12em", color: "#7c2f2f", padding: "8px 12px 2px" } }, g.k),
           g.list.map(r => h("div", { key: r.id, "data-wk": "jarrow", "data-who": r.who, style: { display: "grid", gridTemplateColumns: COLS, gap: 4, alignItems: "baseline", padding: "7px 12px", borderBottom: "1px dashed " + RULE, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: INK } },
-            h("div", { style: { color: FOG, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, (new Date(r.ts).getMonth() + 1) + "/" + new Date(r.ts).getDate()),
+            h("div", { style: { color: FOG, fontSize: "calc(10.5px * var(--app-fs, 1))" } }, (vDate(r.ts, partner.id).getMonth() + 1) + "/" + vDate(r.ts, partner.id).getDate()),
             h("div", { style: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (r.who === "me" ? "我" : partner.name) + (r.auto ? " · 工资日" : "") + (r.note ? " · " + r.note : "")),
             h("div", { style: { textAlign: "right", color: GREEN } }, r.delta > 0 ? money(r.delta) : ""),
             h("div", { style: { textAlign: "right", color: RED } }, r.delta < 0 ? money(-r.delta) : ""),
@@ -16527,7 +16586,7 @@ function Us({ onPutDrawerMine, onReplyDrawerMine, drawerReplyBusy, characters, c
     // 「下一件值得等的事」走 annivNext（core.js）：不重复且已经过了的，不再是「值得等的事」
     const bAnn = (coupleAnniv || []).filter(a => a.characterId === bCid)
       // month/day 也带上：首页那一格现在真的画一张日历页（v62.31），要它俩才写得出那一天
-      .map(a => { const nx = annivNext(a); return nx.passed ? null : { name: a.name, days: nx.days, month: a.month, day: a.day }; })
+      .map(a => { const nx = annivNext(a, vclockMap(Date.now(), bCid)); return nx.passed ? null : { name: a.name, days: nx.days, month: a.month, day: a.day }; })
       .filter(Boolean).sort((x, y) => x.days - y.days)[0];
     const bHome = (coupleHome || {})[bCid] || {};
     const bArchive = bHome.archive || {};
@@ -18026,8 +18085,8 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
   const setDOf = (e, v) => setDraft(o => Object.assign({}, o, { [e.id]: Object.assign({}, dOf(e), v) }));
   const sendOf = e => { const d = dOf(e); if (!d.text.trim()) return; onReply(e.id, { kind: d.kind, text: d.text.trim() }); setDOf(e, { text: "" }); };
   const whoTxtOf = e => { const f = book.fields.find(x => x.pick); return f && e[f.k] ? (e[f.k] === "ta" ? nm : "我") : ""; };
-  const dateOf = ts => (dd => (dd.getMonth() + 1) + "." + dd.getDate())(new Date(ts));
-  const timeOf = ts => (dd => String(dd.getHours()).padStart(2, "0") + ":" + String(dd.getMinutes()).padStart(2, "0"))(new Date(ts));
+  const dateOf = ts => (dd => (dd.getMonth() + 1) + "." + dd.getDate())(vDate(ts, partner.id));   // 留言本照TA那只钟
+  const timeOf = ts => fmtClock(vDate(ts, partner.id));
   const noOf = e => String(list.length - list.indexOf(e)).padStart(3, "0");
   // 接话那一栏：卷宗是一排墨章，诉状是庭上的几个动作，车票和对照卡是一行小字
   const replyBar = (e, look) => {
@@ -18240,7 +18299,7 @@ function SpaceBook({ partner, book, entries, busy, onAdd, onReply, onRemove, onT
         const whoF = book.fields.find(f => f.pick), whoTxt = whoF && e[whoF.k] ? (e[whoF.k] === "ta" ? nm : "我") : "";
         const otherF = book.fields.filter(f => !f.pick && f.k !== "title" && f.k !== "body" && e[f.k]);
         const stamp = (txt, color) => h("div", { "data-wk": "spacebookstamp", style: { position: "absolute", right: 12, top: 10, transform: "rotate(-9deg)", border: "2px solid " + color, color: color, borderRadius: 6, padding: "1px 8px", fontFamily: F_DISPLAY, fontSize: "calc(13px * var(--app-fs, 1))", letterSpacing: ".15em", opacity: .82 } }, txt);
-        const date = (dd => (dd.getMonth() + 1) + "." + dd.getDate())(new Date(e.ts));
+        const date = dateOf(e.ts);
         const lineOf = (x, i) => {
           const mine = x.by === "me", nmx = who(x.by);
           if (book.key === "safe") return h("div", { key: i, "data-wk": "spacebookline", "data-me": mine ? "1" : "0", style: { position: "relative", paddingLeft: 20, marginTop: 10, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", lineHeight: 1.6, color: ink } },

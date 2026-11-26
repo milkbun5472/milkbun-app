@@ -441,6 +441,8 @@
     const [pickA, setPickA] = useState(""), [pickB, setPickB] = useState("");
     const [styleIds, setStyleIds] = useState(cfg0.activeStyleIds || []); // 本次生效的文风（默认=上次选的）
     const [includeMe, setIncludeMe] = useState(false); // 俩角色 CP 时：带上「我」写成 A×我×B
+    // 带上我时他俩之间也写感情线（她 2026-11-24 转群友：A×我×B 写着写着 A 和 B 谈了）：默认关＝感情线都朝着「我」，他俩之间是别的关系
+    const [meAll, setMeAll] = useState(false);
     // 这一篇「我」用哪张面具（她 2026-10-17）：空＝跟着那位角色认的那张
     const [meMask, setMeMask] = useState("");
     const [noCP, setNoCP] = useState(false);
@@ -594,6 +596,13 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, includeMe ? "把「我」作为第三方写进文里" : "只聚焦这两个角色，就算设定写了 TA 是我男朋友也不把我带进去")),
             h("div", { style: { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: "1px solid " + (includeMe ? t.ink : t.line), background: includeMe ? t.ink : "transparent", color: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "calc(13px * var(--app-fs, 1))" } }, includeMe ? "✓" : "")) : null,
 
+          (!isGroup && !noCP && twoRealChars() && includeMe) ? h("button", { onClick: function () { setMeAll(function (v) { return !v; }); }, className: "w-full active:opacity-80", "data-wk": "ficgensheetbtn", "data-part": "meall",
+            style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 12px", background: t.bg2, border: "1px solid " + (meAll ? t.ink : t.line), borderRadius: 12, marginTop: -8, marginBottom: 14 } },
+            h("div", { style: { textAlign: "left" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink } }, "他俩之间也写感情线"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2, lineHeight: 1.5 } }, meAll ? "三个人互相都可以有感情" : "关着：他俩各自对你有感情线，他俩之间照各自关系写（情敌、朋友……），不谈恋爱")),
+            h("div", { style: { width: 18, height: 18, flexShrink: 0, borderRadius: 5, border: "1px solid " + (meAll ? t.ink : t.line), background: meAll ? t.ink : "transparent", color: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "calc(12px * var(--app-fs, 1))" } }, meAll ? "✓" : "")) : null,
+
           // ── 几个人一起（她 2026-09-11）────────────────────────────
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.ink, letterSpacing: ".16em", margin: "16px 0 2px" } }, "或者几个人一起"),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginBottom: 4, lineHeight: 1.6 } },
@@ -645,7 +654,7 @@
       // 安全区，跟主聊天输入栏同一把尺子——mobile-ui-layout.md §2）
       h("div", { className: "shrink-0 flex items-center gap-3 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
         h("button", { onClick: function () { setN(3); setSel([]); setPickA(""); setPickB(""); setIncludeMe(false); setBriefs([]); setById(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: t.sub, padding: "10px 18px", borderRadius: 12, border: "1px solid " + t.line }, "data-wk": "ficgensheetbtn", "data-part": "3" }, "重置"),
-        h("button", { onClick: function () { if (rndCP) { const rc = rollCP(); if (rc.length < 2) { (props.toast || window.__toast || function () {})("至少要有一个角色才能随机"); return; } props.onConfirm(n, rc, styleIds, false, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, "", meMask, false, oneShot); return; } props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : "", meMask, noCP && !isGroup && chosenCP().length > 0, oneShot); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "ficgensheetbtn", "data-part": "4" }, "确定生成")));
+        h("button", { onClick: function () { if (rndCP) { const rc = rollCP(); if (rc.length < 2) { (props.toast || window.__toast || function () {})("至少要有一个角色才能随机"); return; } props.onConfirm(n, rc, styleIds, false, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, "", meMask, false, oneShot); return; } props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe ? (meAll ? "all" : true) : false, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : "", meMask, noCP && !isGroup && chosenCP().length > 0, oneShot); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "ficgensheetbtn", "data-part": "4" }, "确定生成")));
   }
 
   // ---------- 新建/编辑自定义世界观 tab ----------
@@ -2768,7 +2777,7 @@
         const briefList = Array.isArray(briefs) ? briefs : [];
         const opts = { style: styleText, perFic: cfg.perFic, minChars: cfg.minChars, chatMaterial: chatMaterialFor(chars), worldPool: worldPool,
           briefs: briefList, author: byAuthor || null,
-          includeMe: !!includeMe && !noCP, meName: (props.profile && props.profile.name) || userName || "我",
+          includeMe: includeMe && !noCP ? includeMe : false, meName: (props.profile && props.profile.name) || userName || "我",
           mePersona: ((ficMeProfile(cp, props.profile, meMask) || {}).persona) || "", meAppearance: ((ficMeProfile(cp, props.profile, meMask) || {}).appearance) || "",
           groupWay: String(groupWay || "").trim(), noCP: !!noCP, oneShot: !!oneShot };
         // 超长文风（如金鱼灯）若一口气索要多篇，Supabase 代理要等整份 JSON 写完才回，
@@ -2782,7 +2791,7 @@
           return arr.map(function (x, i) {
           return {
             // ⚠️那一向要落在【这篇文】上：续写第七章、加笔穿进去，读的都是这一栏
-            id: uid("fic"), tabId: curTab.id, cp: cp || [], withMe: !!includeMe && !noCP, noCP: !!noCP, oneShot: !!oneShot, meMask: meMask || "", groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: oneShot ? ["完结"].concat((x.tags || []).filter(function (g) { return g !== "完结"; })) : x.tags, premise: x.premise || "",
+            id: uid("fic"), tabId: curTab.id, cp: cp || [], withMe: includeMe && !noCP ? includeMe : false, noCP: !!noCP, oneShot: !!oneShot, meMask: meMask || "", groupWay: String(groupWay || "").trim(), title: x.title, author: x.author, tags: oneShot ? ["完结"].concat((x.tags || []).filter(function (g) { return g !== "完结"; })) : x.tags, premise: x.premise || "",
             chapters: [{ content: x.body, endHook: x.endHook, cot: x.cot || null, cotRequested: !!x.cotRequested }], source: "npc", onShelf: false, sharedTo: [],
             generationStyleIds: selectedStyleIds.slice(), generationStyleLabels: selectedStyleLabels.slice(),
             stats: ficHeat(x.title + now + i + offset), reviews: [], createdAt: now - i - offset, updatedAt: now - i - offset

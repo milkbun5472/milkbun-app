@@ -17,7 +17,8 @@
     return !cap.charId && !!characterName && String(cap.charName || "") === String(characterName);
   };
   window.capsuleDueCount = function (characterId, characterName) { try { const now = Date.now(); return load().filter(c => belongsTo(c, characterId, characterName) && !c.opened && c.openTs <= now).length; } catch (e) { return 0; } };
-  const fmtD = ts => { const d = new Date(ts); return d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日"; };
+  // 只是显示：拆封到没到期照现实比，日子照那个人那只钟写（没绑人＝她主面具那只）
+  const fmtD = (ts, id) => { const d = id && typeof vDate === "function" ? vDate(ts, id) : new Date(typeof vclockMainMap === "function" ? vclockMainMap(ts) : ts); return d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日"; };
   const leftTxt = ts => { const ms = ts - Date.now(); if (ms <= 0) return "可拆封"; const dd = Math.ceil(ms / 86400000); return dd > 1 ? "还有 " + dd + " 天" : "不到 1 天"; };
   const uid = () => "cap_" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
 
@@ -91,7 +92,7 @@
         //   没有那句站位它必然往那儿滑。解梦馆那次是同一个形状。
         const d = await runProbe(props.apiFor ? props.apiFor(char.id) : props.active, props.ctxFor(char), {
           voice: true,
-          instruction: uName + " 刚埋下一颗写给你的时光胶囊（内容保密），约定 " + fmtD(openTs) + " 才能拆。你心里一动，也悄悄把一封【现在写下、到期才送达】的信埋给 Ta。"
+          instruction: uName + " 刚埋下一颗写给你的时光胶囊（内容保密），约定 " + fmtD(openTs, char.id) + " 才能拆。你心里一动，也悄悄把一封【现在写下、到期才送达】的信埋给 Ta。"
             + sealGuide(openTs) + "第一人称，贴你的人设与此刻心情；别客套、别落款。",
           schemaHint: "{\"letter\":\"信的正文\"}",
           maxTokens: 20000   // 一封长信＝「一整章」那一档（max-tokens-floor）；放宽字数之后 12000 会截在半句
@@ -108,7 +109,7 @@
       const entry = { id: uid(), dir: "toChar", source: "manual", charId: c.id, charName: c.name, text, createdTs: Date.now(), openTs, opened: false, reply: null };
       updateAll(prev => [entry, ...prev]);
       setView(null);
-      props.toast && props.toast("已封存 · " + fmtD(openTs) + " 开启");
+      props.toast && props.toast("已封存 · " + fmtD(openTs, c.id) + " 开启");
       maybeBuryBack(c, openTs);
     };
     // 拆封：给角色的 → TA 读信写回信；TA 埋的/给自己的 → 直接揭开
@@ -124,7 +125,7 @@
         try {
           const d = await runProbe(props.apiFor ? props.apiFor(c.id) : props.active, props.ctxFor(c), {
             voice: true,
-            instruction: uName + " 在 " + fmtD(cap.createdTs) + " 埋了一颗时光胶囊给你，约定今天才能拆。你刚拆开，读到 Ta 当时写的信：\n「" + cap.text + "」\n\n"
+            instruction: uName + " 在 " + fmtD(cap.createdTs, cap.charId) + " 埋了一颗时光胶囊给你，约定今天才能拆。你刚拆开，读到 Ta 当时写的信：\n「" + cap.text + "」\n\n"
               + replyGuide(cap.createdTs, Date.now())
               + "以你此刻的人设与心情写回信：直接回应信里最具体、最让你有反应的地方，联系你真正知道的共同经历。"
               + "写 4-6 个自然段，**至少 400 个汉字、别超过 900**；第一人称，动真格，别客套、别复述原文、别落款。",
@@ -146,9 +147,9 @@
       if (!props.onKeep || !c || cap.dir === "toSelf") return;
       const snip = (x, n) => String(x || "").replace(/\s+/g, " ").trim().slice(0, n);
       const text = cap.dir === "toChar"
-        ? uName + " 在 " + fmtD(cap.createdTs) + " 埋了一颗时光胶囊给" + c.name + "，今天拆开了。信里写着「" + snip(cap.text, 120) + "」"
+        ? uName + " 在 " + fmtD(cap.createdTs, cap.charId) + " 埋了一颗时光胶囊给" + c.name + "，今天拆开了。信里写着「" + snip(cap.text, 120) + "」"
           + (reply ? "；" + c.name + "回信说「" + snip(reply, 120) + "」" : "")
-        : c.name + " 在 " + fmtD(cap.createdTs) + " 悄悄埋了一颗时光胶囊，今天" + uName + characterText(charOf(cap.charId), "拆开了，他当时写的是「") + snip(cap.text, 120) + "」";
+        : c.name + " 在 " + fmtD(cap.createdTs, cap.charId) + " 悄悄埋了一颗时光胶囊，今天" + uName + characterText(charOf(cap.charId), "拆开了，他当时写的是「") + snip(cap.text, 120) + "」";
       props.onKeep(c.id, text, "时光胶囊");
     };
     const delCap = id => requestAppConfirm("删掉这颗胶囊？", "删了不可恢复。", () => {
@@ -165,7 +166,7 @@
       return h("div", { "data-wk": "capsulepage", "data-part": "capsuleapp", className: "h-full flex flex-col", style: { background: t.bg, backgroundImage: STRATA } },
         h(Head, { zh: "时光胶囊", en: activeChar ? activeChar.name : "", bg: "transparent", onBack: () => setView(null), right: h("button", { onClick: () => delCap(cap.id), className: "active:opacity-50" }, h(ITrash, { size: 18, color: t.fog })) }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 12 } }, who + " · 埋于 " + fmtD(cap.createdTs) + " · 拆于 " + fmtD(cap.openedTs || cap.openTs)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog, marginBottom: 12 } }, who + " · 埋于 " + fmtD(cap.createdTs, cap.charId) + " · 拆于 " + fmtD(cap.openedTs || cap.openTs, cap.charId)),
           h("div", { "data-wk": "block", style: { background: "#f7f1e2", border: "1px solid #e2d7c1", borderRadius: 2, padding: "18px 17px", marginBottom: 16,
             boxShadow: "0 7px 18px rgba(90,70,40,.11)",
             backgroundImage: "repeating-linear-gradient(180deg,rgba(0,0,0,0) 0 26px,rgba(120,100,60,.14) 26px 27px)", backgroundPosition: "0 38px" } },
@@ -225,9 +226,9 @@
         h("div", { className: "flex-1 min-w-0" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: "#5b4a33" } }, who),
           h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: "#9b8a6c", marginTop: 3, lineHeight: 1.6 } },
-            kind === "sealed" ? "埋于 " + fmtD(cap.createdTs) + " · " + fmtD(cap.openTs) + " 开启 · " + leftTxt(cap.openTs)
-            : kind === "due" ? "埋于 " + fmtD(cap.createdTs) + " · 到日子了，点开拆封"
-            : "拆于 " + fmtD(cap.openedTs || cap.openTs))),
+            kind === "sealed" ? "埋于 " + fmtD(cap.createdTs, cap.charId) + " · " + fmtD(cap.openTs, cap.charId) + " 开启 · " + leftTxt(cap.openTs)
+            : kind === "due" ? "埋于 " + fmtD(cap.createdTs, cap.charId) + " · 到日子了，点开拆封"
+            : "拆于 " + fmtD(cap.openedTs || cap.openTs, cap.charId))),
         kind === "due" ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#a5642c", flexShrink: 0 } }, "拆封") : null);
     };
     return h("div", { "data-wk": "capsulepage", "data-part": "capsuleapp", className: "h-full flex flex-col", style: { background: t.bg, backgroundImage: STRATA } },

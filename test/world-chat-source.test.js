@@ -41,7 +41,7 @@ test('real room handoff source formatting respects its cursor/recalled gate and 
 test('chat, search, archive, copy and forwarding retain the same source formatter with a scoped theme hook',()=>{
  assert.ok(between(components,'function ChatThread(','function ChatSearchSheet(').includes('h(GameChatSource, { m })'));
  assert.ok(between(components,'function ChatSearchSheet(','function callInviteState(').includes('gameChatText({ ...m'));
- assert.match(components,/const body = .*gameChatText\(m\)/);assert.match(app,/copyText\(gameChatText\(m\)\)/);assert.match(app,/text: who \+ "：" \+ gameChatText\(m\)/);assert.match(app,/text: gameChatText\(m\),\n(        \.\.\.\(imgs\[k\][^\n]*\n)?        ts:/);
+ assert.match(components,/const body = .*gameChatText\(m\)/);assert.match(app,/copyText\(gameChatText\(m\)\)/);assert.match(app,/text: who \+ "：" \+ gameChatText\(m\)/);/* 合并转发收成公共的 forwardMergeTo 之后，单聊那路不递 textOf、落回 gameChatText（线下/群各递自己的）*/assert.match(app,/text: src\.textOf \? src\.textOf\(m\) : gameChatText\(m\),/);assert.match(app,/forwardMergeTo\(msgs, destination, \{ title: "【转发的聊天记录】", sourceType: "chat", [^\n]*nameOf: [^\n]*activeChar\.name \}\);/);
  const studio=fs.readFileSync('js/theme-studio.js','utf8');assert.match(studio,/\["messagesource", "游戏对话上方的世界来源/);
 });
 

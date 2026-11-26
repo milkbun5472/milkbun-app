@@ -6,15 +6,16 @@ const old = { items: [
   { kind: "typed", title: "交房租", time: "8月29日 02:11", body: "月底" },
   { kind: "voice", title: "跟她说的那句", time: "8月30日", body: "…" }] };
 
-// 她 2026-09-01 选了「乙」：便签不删，只是别再只进不出。
-// 便签会被划掉、会写完就撕、事情办完了就没用了——是名册不是日志。
-test("便签走名册，划掉的能退出", () => {
+// 她 2026-09-01 选了「乙」（便签是名册、能划掉）；2026-11-24 改选「A」：写下的就不改，一刷新只往上加新的，
+//   满了按上限把最旧的挤出去。模型交回来的 retired 对便签不再生效，同名的留旧的那份。
+test("便签写下就不改：同名留旧的、retired 不收、只往上加", () => {
   assert.equal((P.PHONE_RETIRE.notes || {}).items, "便签", "便签没登记成名册");
-  const gone = P.phoneGrowMerge("notes", old, { items: [{ title: "跟她说的那句", time: "昨天" }], retired: { items: ["交房租"] } }, NOW);
-  assert.deepEqual(gone.items.map(x => x.title), ["跟她说的那句"], "写进 retired 了却还留着");
-  // ⚠️只是没写不算删掉
-  const silent = P.phoneGrowMerge("notes", old, { items: [{ title: "跟她说的那句", time: "昨天" }] }, NOW);
-  assert.equal(silent.items.length, 2, "模型漏写一条就把它撕了");
+  const kept = P.phoneGrowMerge("notes", old, { items: [{ title: "交房租", time: "昨天", body: "改写过的正文" }, { title: "新记的", time: "今天", body: "新" }], retired: { items: ["跟她说的那句"] } }, NOW);
+  assert.equal(kept.items.length, 3, "旧的被 retired 撕掉了，或者新的没加进来");
+  assert.equal(kept.items.find(x => x.title === "交房租").body, "月底", "同名的被新写的那份改掉了");
+  const silent = P.phoneGrowMerge("notes", old, { items: [] }, NOW);
+  assert.equal(silent.items.length, 2, "这一轮没写，旧的就没了");
+  assert.match(require("fs").readFileSync(__dirname + "/../js/phone.js", "utf8"), /不用抄回来，也不会被改/);
 });
 
 // ⚠️名册的身份是【名字】，不是名字＋时刻——同一件事被再提起，还是那一件事。

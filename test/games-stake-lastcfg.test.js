@@ -9,7 +9,7 @@ test("开局页能写彩头、能照上次那桌摆；开局时记下这一桌",
   assert.match(g, /const LAST_CFG_KEY = "x_gameLastCfg";/);
   assert.match(g, /last\[game\.key\] = config; saveJSON\(LAST_CFG_KEY, last\);/);
   assert.match(g, /"data-wk": "gamelastcfg", onClick: useLast/);
-  assert.match(g, /stake: stake\.trim\(\) \|\| undefined \}\); \},/);
+  assert.match(g, /stake: stake\.trim\(\) \|\| undefined \}\)\); \},/);
   assert.match(g, /"data-wk": "gamestake"/);
 });
 test("终局按输赢写清谁该兑现；战报里从 TA 那边看谁欠谁", () => {

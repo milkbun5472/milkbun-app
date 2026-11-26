@@ -34,9 +34,14 @@
     const FOLLOW = ["wallet", "takeout", "shop"], gate = hints.gate || null;
     const names = (hints.who || []).map(S).filter(Boolean);
     const nameIn = t => names.find(n => t === n || (t.length >= 2 && (t.indexOf(n) >= 0 || n.indexOf(t) >= 0))) || "";
+    let lockStep = null;   // 锁她手机（2026-11-24）：一趟最多一次，不管写在哪儿都挪到最后——翻完了才锁
     list.forEach(s => {
-      if (!s || out.length >= STEP_CAP) return;
+      if (!s) return;
       const d = S(s.do || s.action).trim();
+      // 锁屏上留的话可以好几句，一句一张通知卡（她 2026-11-24）；老写法单个 text 也认
+      if (d === "lock") { if (!lockStep) { const lines = (Array.isArray(s.lines) ? s.lines : [s.text]).map(x => S(x).replace(/[《》「」『』“”"]/g, "").trim().slice(0, 60)).filter(Boolean).slice(0, 6);
+        lockStep = { do: "lock", lines, text: lines.join(" ") }; } return; }
+      if (out.length >= STEP_CAP) return;
       if (d === "open") {
         const app = S(s.app).trim();
         // 进自己那一栏是 rename／pin 自己的事，不单独演一趟「打开自己的聊天」
@@ -101,6 +106,7 @@
         if (text) out.push({ do: "think", text });
       }
     });
+    if (lockStep) out.push(lockStep);
     // 退出来才想的那一句挪回退出之前（她 2026-10-01：「第二句钱包想法是会退出了钱包才想的」）
     for (let i = 1; i < out.length; i++) {
       if (out[i].do === "think" && out[i - 1].do === "back") { const b = out[i - 1]; out[i - 1] = out[i]; out[i] = b; }
@@ -421,6 +427,11 @@
           } else if (s.do === "paycart") {
             setCaption("在替你付购物车");
             setRenameBox({ title: "购物车 · 结算", typed: s.items && s.items.length ? s.items.join("、") : "全部", ok: "付款", noCaret: true }); await sleep(1600);
+            setRenameBox(null);
+            props.onEffect && props.onEffect(s); await sleep(900);
+          } else if (s.do === "lock") {
+            setCaption("把你的手机锁上了");
+            setRenameBox({ title: "锁屏", typed: (s.lines && s.lines.length ? s.lines.join(" / ") : s.text) || "••••", ok: "锁定", noCaret: true }); await sleep(1600);
             setRenameBox(null);
             props.onEffect && props.onEffect(s); await sleep(900);
           } else if (s.do === "unblockme") {

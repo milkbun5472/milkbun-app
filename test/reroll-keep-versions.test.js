@@ -70,7 +70,8 @@ test("群聊和线下：同一份翻版、群里拍全体成员、线下接着�
   assert.match(comp, /function RerollNav\(\{ nav, onFlip, pad \}\)/);
   assert.equal((comp.match(/h\(RerollNav, \{ (?:key: "grnav", )?nav: rerollNav, onFlip: onRerollFlip/g) || []).length, 4);
   assert.equal((comp.match(/"data-wk": "rerollnav"/g) || []).length, 1);
-  assert.match(comp, /onSave\(\{ (?:apiId: gApiId, offlineApiId: gOffApiId, )?actLong: gActLong, keepRerolls: gKeepRerolls, /);
+  // 只钉「群设置保存时带上 keepRerolls」，不钉前后排了哪些字段（中间后来插了线上预设那两项，anchor-on-code）
+  assert.match(comp, /onSave\(\{ [^\n]*?keepRerolls: gKeepRerolls, /);
 });
 
 test("线下留版：一拍正文、整段小说算轻的；她的话夹在中间不留", () => {

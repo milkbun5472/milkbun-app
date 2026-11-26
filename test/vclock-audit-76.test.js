@@ -13,9 +13,9 @@ test("往期线下进提示词时，日子按 TA 的钟", () => {
 test("TA 日记被翻出来当卡片标题时，日子按 TA 的钟", () => {
   assert.match(app, /title: x\.titleZh \|\| \(x\.ts \? vDate\(x\.ts, char\.id\)\.toLocaleDateString/);
 });
-test("日记目录「最后一篇」：TA 的按 TA 的钟，自己的照现实", () => {
-  assert.match(ui, /\(c\.isMe \? new Date\(last\.ts\) : vDate\(last\.ts, c\.id\)\)\.toLocaleDateString/);
+test("日记目录「最后一篇」：TA 的按 TA 的钟，自己的照主面具那只钟", () => {
+  assert.match(ui, /vDate\(last\.ts, c\.isMe \? null : c\.id\)\.toLocaleDateString/);
 });
 test("日记封面最新一篇的日子按 TA 的钟", () => {
-  assert.match(ui, /const lastD = last \? \(char && !char\.isMe \? vDate\(last\.ts, char\.id\) : new Date\(last\.ts\)\) : null;/);
+  assert.match(ui, /const lastD = last \? vDate\(last\.ts, char && !char\.isMe \? char\.id : null\) : null;/);
 });

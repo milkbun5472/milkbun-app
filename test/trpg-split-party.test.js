@@ -29,7 +29,7 @@ test("分头拍:apart 落成 report/truth/hidden;没 report 就当没说;不是�
 });
 
 test("写入方:另一路的说法单独一张 apart 卡,真相跟着存;历史里守密人两个版本都看得到", () => {
-  assert.match(src, /if \(r\.apart\) msgs\.push\(\{ id: rid\("rm_"\), role: "apart", who: r\.apart\.who, content: r\.apart\.report, truth: r\.apart\.truth, hidden: r\.apart\.hidden, ts: Date\.now\(\) \}\);/);
+  assert.match(src, /if \(r\.apart\) out\.push\(\{ id: rid\("rm_"\), role: "apart", who: r\.apart\.who, content: r\.apart\.report, truth: r\.apart\.truth, hidden: r\.apart\.hidden, ts: Date\.now\(\) \}\);/);
   const hist = foldHist([{ role: "gm", content: "a" }, { role: "apart", who: ["裴照川"], content: "没找到", truth: "放走了" }]);
   assert.equal(hist[1].content, "〔分头·裴照川那边真正发生的(玩家只听到了他们的说法)〕放走了\n〔他们回来对玩家说的〕没找到");
 });

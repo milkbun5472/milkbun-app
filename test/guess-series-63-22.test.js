@@ -10,7 +10,7 @@ const src = fs.readFileSync(path.join(__dirname, "..", "js", "games.js"), "utf8"
 const cut = (s, a, b) => { const i = s.indexOf(a); assert.ok(i >= 0, "锚没了：" + a.slice(0, 40)); return s.slice(i, s.indexOf(b, i + a.length)); };
 
 test("下一题只出题不重摆桌，而且带着已出过的答案防重复", () => {
-  const g = cut(src, "async function genGuessNext(api, kind, prevAnswers)", "\n  }");
+  const g = cut(src, "async function genGuessNext(", "\n  }");
   assert.match(g, /本场已出过的（别重复、也别出近似的）/, "没带旧答案，三题里会出重的");
   assert.ok(g.indexOf("npc") < 0 && g.indexOf("skill") < 0, "下一题还在重生成 NPC/小传——桌被重摆了");
   const n = cut(src, "const nextPuzzle = async function ()", "\n    };");

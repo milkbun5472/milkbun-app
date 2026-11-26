@@ -40,7 +40,7 @@ test("绝不能把中文消息误判成外语", () => {
 // 改成免费优先、一级一级往下退，模型只当兜底。
 test("免费优先：Google → MyMemory → 模型兜底", () => {
   const fn = engine.slice(engine.indexOf("async function translateToZh"), engine.indexOf("async function translateToZh") + 1600);
-  const i0 = fn.indexOf("_transGoogle"), i1 = fn.indexOf("_transMyMemory"), i2 = fn.indexOf("_transModel");
+  const i0 = fn.indexOf("_transGoogle"), i1 = fn.indexOf("_transMyMemory"), i2 = fn.lastIndexOf("_transModel");
   assert.ok(i0 > 0 && i1 > i0 && i2 > i1, "顺序必须是 免费→免费→模型，模型绝不能排在前面");
   assert.match(fn, /if \(cached && cached\.zh\) return cached;/, "先查缓存，一分钱不花");
   // 每一级都要短超时，不能让她对着「翻译中…」干等

@@ -58,8 +58,8 @@ test("平行世界：判据只有 groupParallel 一处，记忆召回和关系�
   assert.match(app, /const groupRelLines = \(gid, people, me\) => \(groupParallel\(gid\)/);
   // 群里不许再有直接召记忆库的：群线上／投票／群通话／群线下全走 groupMemSplit
   assert.strictEqual((app.match(/splitGroupMemories\(memLibRef\.current/g) || []).length, 1);   // 只剩 groupMemSplit 里那一处
-  assert.strictEqual((app.match(/groupMemSplit\(/g) || []).length, 4);   // 群线上／投票／群通话／群线下
-  assert.strictEqual((app.match(/groupRelLines\(/g) || []).length, 2);   // 群线上／群通话（群线下走 ctx.rels）
+  assert.strictEqual((app.match(/groupMemSplit\(/g) || []).length, 5);   // 群线上／投票／群通话／群线下 ＋ 一起说 castFor
+  assert.strictEqual((app.match(/groupRelLines\(/g) || []).length, 3);   // 群线上／群通话／一起说 castFor（群线下走 ctx.rels）
 });
 
 test("平行世界：共用的三层（背景／此刻／私下往来）都认 parallel，三条群路都按 groupParallel 递进去", () => {

@@ -13,7 +13,7 @@ function fixture() {
     SCHEDULE_CONTEXT_RULE: new Function(engine.match(/^const SCHEDULE_CONTEXT_RULE = .*;$/m)[0] + ' return SCHEDULE_CONTEXT_RULE;')(),
     members, people: members, characters: members, phones: {}, groupId: 'g', profile: {},
     gs: { memoryInterop: true }, gcInterop: true, gPersonaCap: 6000, gCallCap: 6000, NPC_PERSONA_CAP: 3000,
-    userName: () => '读者', groupPersonaText: (p, cap) => p.slice(0, cap),
+    userName: () => '读者', profileFor: () => null, groupPersonaText: (p, cap) => p.slice(0, cap),
     statesRef: { current: { a: { wearing: '甲衣', action: '甲动作' }, b: { wearing: '乙衣' } } },
     moods: { a: { label: '甲心情', ts: 1 }, b: { label: '乙心情', ts: 2 } },
     freshLiveStateValue: (s, k) => s[k] || '',

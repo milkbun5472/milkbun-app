@@ -860,7 +860,7 @@ if (typeof window !== "undefined") window.CallLog = CallLog;
 // 「在干嘛」认不出来时按【是谁叫的】认（她 2026-10-09：「其他的也来慢慢补吧」）：
 //   一百多处调用不一处处手写，在进 callAI／runProbe 那一刻看一眼调用栈——先认函数名，再认文件。
 //   新加一处调用、表里没有，就显示「其他」；看见哪个常出现就往这两张表里补一行。
-const CALL_FN_LABEL = Object.freeze({"writeBdayLetter": "生日信", "openBdayPlan": "生日计划", "suggestGroupName": "起群名", "drawLuckyChat": "幸运字符", "stampBeg": "集邮·生日池讨卡", "stampWriteSmall": "集邮·写小卡", "stampWriteSSR": "集邮·写 SSR", "stampInner": "集邮·SSR 换他视角重读", "stampExtra": "集邮·加一面", "stampReshot": "集邮·重拍", "stampPoke": "集邮·戳卡面", "genMyWeek": "我的一周", "regenCharAlt": "论坛·重起小号", "askForumWechat": "论坛·要微信", "spaceHomeTa": "情侣空间·TA 动手", "spaceBookTa": "情侣空间·TA 动笔", "collageArrange": "拼贴·TA 摆", "collageLook": "拼贴·TA 看看动几下", "collageChoose": "拼贴·TA 挑一个", "collageDraft": "拼贴·TA 起稿", "tripBookSearch": "旅行·查机票酒店", "comicFromMessages": "聊天变漫画", "coverCopy": "封面上的字", "studioShoot": "照相馆·拍", "replyToQA": "情侣问答·回答", "pickEmoteNine": "表情包·挑九宫格", "pickMyEmoteNine": "表情包·挑我的九宫格", "extractMemories": "记忆·提取", "extractGroupMemories": "记忆·群聊提取", "splitMemoryToEntries": "记忆·拆条", "generateRelation": "生成关系", "generateMyNpc": "生成我的配角", "generateNpcs": "生成配角", "generateNpc": "生成配角", "generateOfflineGroup": "群线下", "oocAsk": "场外问一句", "oocAskGroup": "群里场外问一句", "generateDiary": "日记", "gachaRedeem": "抽卡兑换", "mkThread": "查手机·聊天记录", "desireTendAllToday": "念头", "sendForumPM": "论坛私信", "openAnon": "匿名提问", "makeupOpen": "和好间", "callSend": "通话", "askYesNo": "问TA答不答应", "askAnonMe": "匿名提问", "_replyTurn": "聊天回复", "wearMatch": "穿搭", "watchKnock": "一起看", "unlinkCouple": "解除情侣", "tripPlanGen": "旅行行程", "summarizeChatRoom": "小房间小结", "schedMaybeSelfRevise": "日程自己改", "runProbeRetry": "重试", "routeWorld": "地图路线", "rerollCoupleQA": "情侣问答", "requestKinshipRaise": "亲属卡加额度", "replyGroup": "群聊", "refreshAnonPersona": "匿名主页", "reactToUserMoment": "回你的朋友圈", "radioAsk": "电台", "pinWishAsChar": "愿望板", "openAnonBox": "匿名箱", "observeRelationshipBShadow": "关系观察", "notifyChapterToChars": "同人文通知", "myClosetGen": "我的衣柜", "momentReplies": "朋友圈评论", "makeupSay": "和好间", "leaveInCoupleSpace": "情侣空间留言", "leaveAtHis": "去TA那儿留言", "ifOpen": "另一种我们", "ifAdvance": "另一种我们", "handPhoneTo": "给TA看手机", "generateTemperamentDraft": "写性格", "genWorldNodes": "地图", "genWorld": "地图", "genWhisper": "悄悄话", "genWeekSpend": "一周消费", "genWatchSession": "一起看", "genWalletProfile": "钱包档案", "genTimelineMusing": "时光轴感慨", "genTakeout": "外卖", "genSnoop": "查手机", "genShop": "购物", "genScheduleWeek": "一周日程", "genScheduleDay": "日程", "genPollVotes": "群投票", "genPhoneApp": "查手机", "genPhoneAll": "查手机", "genNetizenQ": "网友提问", "genMoment": "朋友圈", "genLetterReply": "情书回信", "genGiftThought": "礼物心声", "genExDiaryReply": "交换日记", "genDwellPlace": "住处", "genDateOutfits": "约会穿搭", "genDailySpend": "每日消费", "genCoupleRecall": "情侣回忆", "genCoupleLetter": "情书", "genCoupleDisc": "情侣唱片", "genClosetMore": "衣柜", "genCharPlaylist": "TA的歌单", "genCarrySection": "随身物品", "genCarryAll": "随身物品", "genCalMonth": "日历", "genAnonMe": "匿名主页", "gazeCall": "印象卡", "gardenPlantGen": "种花", "ensureCharForumMeta": "论坛主页", "endCall": "通话小结", "desireMuseFor": "念头", "decidePayLater": "代付", "decideGroupPayLater": "群代付", "charReceiveGiftReact": "收到礼物", "brewAnonPool": "匿名箱", "blockedReaction": "拉黑反应", "backfillMemEmotion": "记忆补情绪", "autoForumForChar": "论坛发帖", "autoBuryCapsuleForChar": "时光胶囊", "astroSignSweep": "星盘", "askAnon": "匿名提问", "answerCoupleQA": "情侣问答", "_pageTheme": "页面配色", "summarizeGroup": "总结群聊", "summarizeChatBlock": "总结聊天", "summarizeChat": "总结聊天", "scenePhotoBrief": "线下照片", "offlineSummaryCall": "线下小结", "offlineRewriteScene": "线下改写", "naiTagsFor": "生图标签", "jpKanaReading": "日文注音", "generateDiaryComment": "日记评论", "_transModel": "翻译", "probeAs": "直播", "probeMany": "直播", "askStranger": "刷视频", "probeStranger": "刷视频", "onSummarizePin": "回忆卡", "onRecall": "回忆卡", "onConnect": "电台", "onStudio": "电台", "onWheelReact": "转盘", "phoneCalendarFor": "查手机·日历", "genForumBoard": "论坛", "loadForumComments": "论坛评论", "genMoreComments": "论坛评论", "refreshForumPMs": "论坛私信", "startForumPM": "论坛私信", "forumMineTick": "论坛", "genRepliesToMe": "论坛回复", "genForumSearch": "论坛搜索"});
+const CALL_FN_LABEL = Object.freeze({"writeBdayLetter": "生日信", "openBdayPlan": "生日计划", "suggestGroupName": "起群名", "drawLuckyChat": "幸运字符", "stampBeg": "集邮·生日池讨卡", "stampWriteSmall": "集邮·写小卡", "stampWriteSSR": "集邮·写 SSR", "stampInner": "集邮·SSR 换他视角重读", "stampExtra": "集邮·加一面", "stampReshot": "集邮·重拍", "stampPoke": "集邮·戳卡面", "genMyWeek": "我的一周", "regenCharAlt": "论坛·重起小号", "askForumWechat": "论坛·要微信", "spaceHomeTa": "情侣空间·TA 动手", "spaceBookTa": "情侣空间·TA 动笔", "collageArrange": "拼贴·TA 摆", "collageLook": "拼贴·TA 看看动几下", "collageChoose": "拼贴·TA 挑一个", "collageDraft": "拼贴·TA 起稿", "tripBookSearch": "旅行·查机票酒店", "comicFromMessages": "聊天变漫画", "coverCopy": "封面上的字", "studioShoot": "照相馆·拍", "replyToQA": "情侣问答·回答", "pickEmoteNine": "表情包·挑九宫格", "pickMyEmoteNine": "表情包·挑我的九宫格", "extractMemories": "记忆·提取", "extractGroupMemories": "记忆·群聊提取", "splitMemoryToEntries": "记忆·拆条", "generateRelation": "生成关系", "generateMyNpc": "生成我的配角", "generateNpcs": "生成配角", "generateNpc": "生成配角", "generateOfflineGroup": "群线下", "oocAsk": "场外问一句", "oocAskGroup": "群里场外问一句", "generateDiary": "日记", "gachaRedeem": "抽卡兑换", "mkThread": "查手机·聊天记录", "desireTendAllToday": "念头", "sendForumPM": "论坛私信", "openAnon": "匿名提问", "makeupOpen": "和好间", "callSend": "通话", "askYesNo": "问TA答不答应", "askAnonMe": "匿名提问", "_replyTurn": "聊天回复", "wearMatch": "穿搭", "watchKnock": "一起看", "unlinkCouple": "解除情侣", "tripPlanGen": "旅行行程", "summarizeChatRoom": "小房间小结", "schedMaybeSelfRevise": "日程自己改", "runProbeRetry": "重试", "routeWorld": "地图路线", "rerollCoupleQA": "情侣问答", "requestKinshipRaise": "亲属卡加额度", "replyGroup": "群聊", "refreshAnonPersona": "匿名主页", "reactToUserMoment": "回你的朋友圈", "radioAsk": "电台", "pinWishAsChar": "愿望板", "openAnonBox": "匿名箱", "observeRelationshipBShadow": "关系观察", "notifyChapterToChars": "同人文通知", "myClosetGen": "我的衣柜", "momentReplies": "朋友圈评论", "makeupSay": "和好间", "leaveInCoupleSpace": "情侣空间留言", "leaveAtHis": "去TA那儿留言", "ifOpen": "另一种我们", "ifAdvance": "另一种我们", "handPhoneTo": "给TA看手机", "generateTemperamentDraft": "写性格", "genWorldNodes": "地图", "genWorld": "地图", "genWhisper": "悄悄话", "genWeekSpend": "一周消费", "genWatchSession": "一起看", "genWalletProfile": "钱包档案", "genTimelineMusing": "时光轴感慨", "genTakeout": "外卖", "genSnoop": "查手机", "genShop": "购物", "genScheduleWeek": "一周日程", "genScheduleDay": "日程", "genPollVotes": "群投票", "genPhoneApp": "查手机", "genPhoneAll": "查手机", "genNetizenQ": "网友提问", "genMoment": "朋友圈", "genLetterReply": "情书回信", "genGiftThought": "礼物心声", "genExDiaryReply": "交换日记", "genDwellPlace": "住处", "genDateOutfits": "约会穿搭", "genDailySpend": "每日消费", "genCoupleRecall": "情侣回忆", "genCoupleLetter": "情书", "genCoupleDisc": "情侣唱片", "genClosetMore": "衣柜", "genCharPlaylist": "TA的歌单", "genCarrySection": "随身物品", "genCarryAll": "随身物品", "genCalMonth": "日历", "genAnonMe": "匿名主页", "gazeCall": "Ta 眼里", "gardenPlantGen": "种花", "ensureCharForumMeta": "论坛主页", "endCall": "通话小结", "desireMuseFor": "念头", "decidePayLater": "代付", "decideGroupPayLater": "群代付", "charReceiveGiftReact": "收到礼物", "brewAnonPool": "匿名箱", "blockedReaction": "拉黑反应", "backfillMemEmotion": "记忆补情绪", "autoForumForChar": "论坛发帖", "autoBuryCapsuleForChar": "时光胶囊", "astroSignSweep": "星盘", "askAnon": "匿名提问", "answerCoupleQA": "情侣问答", "_pageTheme": "页面配色", "summarizeGroup": "总结群聊", "summarizeChatBlock": "总结聊天", "summarizeChat": "总结聊天", "scenePhotoBrief": "线下照片", "offlineSummaryCall": "线下小结", "offlineRewriteScene": "线下改写", "naiTagsFor": "生图标签", "jpKanaReading": "日文注音", "generateDiaryComment": "日记评论", "_transModel": "翻译", "probeAs": "直播", "probeMany": "直播", "askStranger": "刷视频", "probeStranger": "刷视频", "onSummarizePin": "回忆卡", "onRecall": "回忆卡", "onConnect": "电台", "onStudio": "电台", "onWheelReact": "转盘", "phoneCalendarFor": "查手机·日历", "genForumBoard": "论坛", "loadForumComments": "论坛评论", "genMoreComments": "论坛评论", "refreshForumPMs": "论坛私信", "startForumPM": "论坛私信", "forumMineTick": "论坛", "genRepliesToMe": "论坛回复", "genForumSearch": "论坛搜索"});
 const CALL_FILE_LABEL = Object.freeze({"fanfic-core": "同人", "impression-core": "印象卡", "ledger-core": "记账", "zhaoying-core": "照影·性格小测", "assistant": "秋秋", "astro": "星盘", "capsule": "时光胶囊", "companion": "桌宠", "debate": "擂台", "dream": "梦境", "dreamjournal": "梦境日记", "fairy-garden": "小世界", "fanfic": "同人文", "games": "小游戏", "health": "健康", "impression": "月度印象", "ledger": "记账", "listen-talk": "一起听", "memo": "备忘录", "pomodoro": "番茄钟", "read": "一起读", "study": "一起学", "style-presets": "文风预设", "tarot": "塔罗", "theater": "小剧场", "trpg": "跑团", "watch": "一起看", "weekly": "周刊"});
 // tag 是调用点自己起的名字：中文直接用；英文那几个翻一下，认不出的不显示（落到「其他」），别把英文摆到她眼前
 const CALL_TAG_LABEL = Object.freeze({ live: "直播", shua: "刷视频", phoneWatch: "查手机", "notif-test": "测试通知", astro: "星盘", tarot: "塔罗", "wh-": "悄悄话", "mom-": "朋友圈", health: "健康" });
@@ -899,6 +899,13 @@ function callerLabelOf(stack) {
 }
 // 中转站回了个空身子／一页网页（多半是它那头超时或网关报错），r.json() 只会甩一句
 //   「Unexpected end of JSON input」，谁也看不懂。三条主线路都走这一处，换成人话。
+// 中转站自己没读懂上游回来的东西、把那页网页原样塞进报错里（她 2026-11-24 截图：「Syntax error at index 1: invalid char … <html>」）：
+//   那一串谁也看不懂，换成人话；原文开头留一小截，排查时还认得出
+function aiErrHuman(msg) {
+  const m = String(msg || "");
+  if (!/<html|<!doctype|<meta\b|<head\b|<body\b/i.test(m)) return m;
+  return "中转站那头出错了：它从模型那边收到的是一页网页，不是回答（多半是上游网关报错、超时或被拦了）。过会儿再发；老这样就换条线路。〔原文开头：" + m.replace(/<[^>]*>?/g, " ").replace(/\\[ntr]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40) + "〕";
+}
 async function readAIJSON(r) {
   const raw = await r.text();
   if (!raw.trim()) throw new Error("线路回了个空回复（HTTP " + r.status + "）：多半是中转站那头等太久掐断了。再发一次；老这样就换条线路或换个模型");
@@ -967,6 +974,8 @@ async function callAI(p, system, messages, opts) {
   const bgRoute = _nm && _md && _nm.indexOf(_md) < 0 ? _nm + " · " + _md : (_nm || _md);
   const bgSay = (ok, msg) => { if (!bgShow) return; try { window.dispatchEvent(new CustomEvent("bg-call", { detail: { show: bgShow, route: bgRoute, ok: ok, msg: msg || "" } })); } catch (e) {} };
   // 调用记录：干嘛＝调用点自己写的 logLabel → 三种她按下去的（use）→ 后台活的名字 → tag → 其他。
+  //   ⚠️后台活的名字是全局挂着的：那件活儿跑着的时候，别处随手发的一枪也会被记成它（她 2026-11-23 截图：
+  //   「Ta 眼里·周树生」一秒内两条，第二条其实是聊完那一下别的活）。调用栈认得出是谁、又不是这件活儿，就照调用栈记
   //   回合＝她按一下换来的那一枪（use 是 chat/offline/call，且不是兜底重发 logRetry）。⚠️这张表也写在函数里面，理由同上。
   const LOG_USE = { chat: "聊天回复", offline: "线下", call: "通话" };
   // 她按下去的那一枪成了（不是后台自己跑的、不是兜底重发）：广播一声，邮票册照这个记邮资印泥（js/stamps-core.js）
@@ -978,7 +987,7 @@ async function callAI(p, system, messages, opts) {
     if (typeof CallLog === "undefined") return;
     const o0 = opts || {}, use = String(o0.use || "");
     try { CallLog.add({ ts: t0, ms: Date.now() - t0, ok: ok === true, cut: ok === "cut", err: ok === true ? "" : String(msg || "").slice(0, 300),
-      label: o0.logLabel || LOG_USE[use] || (bgShow && bgShow.indexOf("／") >= 0 ? "同时在跑：" + bgShow + "（这一次是其中一样）" : bgShow) || logFrom || (typeof callTagLabel === "function" ? callTagLabel(o0.tag) : "") || "其他", who: o0.logWho || "",
+      label: o0.logLabel || LOG_USE[use] || (bgShow && logFrom && bgShow.indexOf(logFrom) !== 0 ? logFrom : "") || (bgShow && bgShow.indexOf("／") >= 0 ? "同时在跑：" + bgShow + "（这一次是其中一样）" : bgShow) || logFrom || (typeof callTagLabel === "function" ? callTagLabel(o0.tag) : "") || "其他", who: o0.logWho || "",
       turn: !!LOG_USE[use] && !o0.logRetry, tok: o._tok || null, route: (p && p.name) || "", model: (p && p.model) || "", stream: !!(o0.stream || o0.onDelta) }); } catch (e) {}
   };
   // 流式已经吐出字的那一次不重试：再发一遍，她屏幕上同一句话会冒两遍
@@ -1018,7 +1027,8 @@ async function callAI(p, system, messages, opts) {
     // 线路不收历史里的图（她 2026-11-03 截图：「contents[158].parts[1].inlineData is not supported in text history」）：
     //   这一轮她没新发图时，会照旧带上最近两张旧图，挂在更早那几条消息上——有的中转只认最后一条里的图。
     //   照着报错退一步：先只留最后一条的图，还不行就一张都不带。原样再发一次，别让整轮失败。
-    if (!streamed && /not supported in (?:text )?history|inline_?data[^\n]{0,60}not supported|image[^\n]{0,40}(?:not supported|unsupported)|does not support (?:image|vision)/i.test(msg)
+    //   自己架的模型（vLLM 这类）没开看图（她 2026-11-25 截图：「Received multimodal data but multimodal processing is not enabled」）也是同一件事
+    if (!streamed && /not supported in (?:text )?history|inline_?data[^\n]{0,60}not supported|image[^\n]{0,40}(?:not supported|unsupported)|does not support (?:image|vision)|multimodal[^\n]{0,60}not enabled/i.test(msg)
       && Array.isArray(messages) && messages.some(m => m && Array.isArray(m.imageDataUrls) && m.imageDataUrls.length)) {
       const lastIdx = messages.length - 1;
       const tries = [messages.map((m, k) => k === lastIdx || !m || !m.imageDataUrls ? m : (({ imageDataUrls, ...r }) => r)(m)),
@@ -1027,7 +1037,7 @@ async function callAI(p, system, messages, opts) {
         if (alt.every((m, k) => m === messages[k])) continue;   // 这一步跟原来一样，跳过
         messages = alt;
         try { const again = await once(); bgSay(true); logIt(true); aiOkSay(); return again; }
-        catch (e2) { e = e2; if (!/not supported|unsupported/i.test(String((e2 && e2.message) || e2 || ""))) break; }
+        catch (e2) { e = e2; if (!/not supported|unsupported|not enabled/i.test(String((e2 && e2.message) || e2 || ""))) break; }
       }
     }
     const bgDrop = wentHidden && /连接中断|load failed|failed to fetch|network|aborted|中止/i.test(msg);
@@ -2498,6 +2508,8 @@ function chpPin(s, m, by) {
 function chpUnpin(s, key) { s.pins = s.pins.filter(p => p.key !== String(key)); return s; }
 function chpNoteAdd(s, text, by) { const t = String(text || "").trim().slice(0, 140); if (!t) return s; s.notes = s.notes.concat([{ id: "n" + Date.now() + Math.floor(Math.random() * 1000), text: t, by, ts: Date.now(), color: s.notes.length % 5, doodles: [] }]).slice(-40); return s; }
 function chpNoteFind(s, quote) { const q = String(quote || "").trim(); return q ? s.notes.find(n => n.text.indexOf(q) >= 0 || q.indexOf(n.text) >= 0) || null : null; }
+// 纸条底下本来就写着是谁写的；他们有时还在字前面自己再署一遍「名字：」，屏幕上就成了「周树生 周树生：……」（她 2026-11-22）
+function chpNoSelfName(text, name) { const t = String(text || ""), n = String(name || "").trim(); if (!n) return t; return t.startsWith(n) ? t.slice(n.length).replace(/^\s*[:：]\s*/, "") || t : t; }
 function chpScribble(s, quote, text, by) { const n = chpNoteFind(s, quote), t = String(text || "").trim().slice(0, 80); if (!n || !t) return s; s.notes = s.notes.map(x => x.id === n.id ? Object.assign({}, x, { doodles: (x.doodles || []).concat([{ by, text: t, ts: Date.now() }]).slice(-8) }) : x); return s; }
 // 撕掉：自己贴的随时能撕；别人贴的放够一天才撕得动
 function chpTearOk(n, by, now) { return !!n && (n.by === by || (now || Date.now()) - (n.ts || 0) > 86400000); }
@@ -3018,7 +3030,8 @@ function chfGallery(msgs, files) {
     if (!m || m.recalled) return;
     const who = { role: m.role, senderId: m.senderId || null, senderName: m.senderName || null };
     const base = { from: "chat", who, ts: m.ts || 0, gen: m.role !== "user" && m.photoMode !== "real" };
-    if (m.imageRef) add(m.imageRef, Object.assign({ desc: String(m.desc || "").trim() }, base));
+    // 角色在群／频道里拍的照片只有 imgKey（img_ 本机图库），没有 imageRef（她 2026-11-24：角色发的图没进文件里的图片）；有 imageRef 的照旧认它，同一张不算两次
+    if (m.imageRef || m.imgKey) add(m.imageRef || m.imgKey, Object.assign({ desc: String(m.desc || "").trim() }, base));
     if (m.ask && m.ask.imageRef) add(m.ask.imageRef, Object.assign({ desc: String(m.ask.q || m.ask.title || "").trim() }, base));
     (Array.isArray(m.shots) ? m.shots : []).forEach(k => add(k, Object.assign({ desc: "通话里拍的画面" }, base)));
   });
@@ -3043,7 +3056,7 @@ function chfContextBlock(files, recentText, nameOf, herLast) {
   const list = (Array.isArray(files) ? files : []).filter(f => f && f.name);
   if (!list.length) return "";
   const who = id => id === "me" ? (nameOf ? nameOf("me") : "她") : (nameOf ? nameOf(id) : "") || "有人";
-  const md = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日" + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  const md = ts => { if (!ts) return ""; const d = typeof vDate === "function" ? vDate(ts) : new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日" + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
   const rt = String(recentText || "");
   const rows = list.slice().sort((a, b) => (b.updatedTs || 0) - (a.updatedTs || 0)).slice(0, 20).map(f =>
     "· 《" + f.name + "》" + (f.kind === "image" ? "（图片" + (f.desc ? "：" + String(f.desc).slice(0, 60) : "") + "）" : "（文档，" + String(f.text || "").length + " 字）")
@@ -3117,7 +3130,7 @@ function spaceChannelBlock(g, allGroups, chatsOf, uName, nameOf) {
 function groupNoticeBlock(notice) {
   const t = String((notice && notice.text) || "").trim();
   if (!t) return "";
-  const d = notice.ts ? new Date(notice.ts) : null;
+  const d = notice.ts ? (typeof vDate === "function" ? vDate(notice.ts) : new Date(notice.ts)) : null;   // 拼群提示词前已 vclockUse("g:"+群id)，不带 id 就是群那只钟
   return "\n\n【群公告】（钉在群聊顶上，群里每个人都看过" + (notice.by ? "，" + notice.by + " 发的" : "") + (d ? "，" + (d.getMonth() + 1) + "月" + d.getDate() + "日" : "") + "）\n" + t.slice(0, 2000);
 }
 function directivesBlock(dirs) {
@@ -3773,6 +3786,9 @@ function pullBareHtmlCard(raw) {
 //   ④ 这一泡开头一两个字就接逗号，而上一泡是没收尾的半句长话——那一两个字是上一句的尾巴（「嗯，」「好，」这种自己起头的不算）。
 const BUBBLE_DANGLE = /(只要|哪怕|如果|因为|虽然|即使|就算|除非|为了|除了|而且|但是|可是|还是|或者|所以|然后|不过|甚至|以及|并且|把|被|给|跟|和|与|让|从|对|往|向|比|连|将|于)$/;
 const BUBBLE_INTERJ = /^[好嗯哎唉啊哦噢嘿喂行对是诶呃欸算靠切哼呵哈呀嗷喔唔]+$/;
+// 自己就能成一句、常单发一条起下一句的那几个（她 2026-11-25 截图：「煎出来汁水多／怎么／嫌我买太勤了？」被粘成「煎出来汁水多怎么」）：
+//   ① 那一条不往上一句尾巴上粘
+const BUBBLE_ALONE = /^(怎么|咋了|咋啦|干嘛|干吗|真的|是吗|对吧|好吧|行吧|不是|算了|没事|是啊|对啊|好啊|知道|晓得|明白|懂了|然后|所以|哈哈|嘿嘿|呵呵|乖|笨|傻|喂|诶|欸|哦|噢|嗯|好|行|对|是|啊|哎|唉)$/;
 const BUBBLE_CONJ = /^(还是|但是|可是|不过|所以|然后|而且|或者|因为|就是|而是|要么|如果|虽然|于是|结果)$/;
 function bubbleGlueBrokenLines(list) {
   const isStr = x => typeof x === "string";
@@ -3783,7 +3799,7 @@ function bubbleGlueBrokenLines(list) {
     const cur = x.trim(), prev = out.length ? out[out.length - 1] : null;
     // 模型把句尾的「!」「?!」单交成一条（她 2026-10-28 法语那句）：粘回上一句
     if (isStr(prev) && /^[!?！？。…~～]+$/.test(cur)) { out[out.length - 1] = prev.trim() + (/^[!?]/.test(cur) && /[!?]$/.test(prev.trim()) ? " " : "") + cur; continue; }
-    if (isStr(prev) && /^[\u4e00-\u9fff]{1,2}$/.test(cur) && prev.trim().length >= 6 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev + cur; continue; }
+    if (isStr(prev) && /^[\u4e00-\u9fff]{1,2}$/.test(cur) && !BUBBLE_ALONE.test(cur) && prev.trim().length >= 6 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev + cur; continue; }
     if (isStr(prev) && /^[\u4e00-\u9fff]/.test(cur) && prev.trim().length >= 6 && BUBBLE_DANGLE.test(prev.trim())) { out[out.length - 1] = prev.trim() + cur; continue; }
     { const m = /^([\u4e00-\u9fff]{1,2})[，,]/.exec(cur);
       if (m && !BUBBLE_INTERJ.test(m[1]) && isStr(prev) && prev.trim().length >= 10 && /[\u4e00-\u9fff]$/.test(prev.trim())) { out[out.length - 1] = prev.trim() + cur; continue; } }
@@ -3863,6 +3879,11 @@ function splitLongBubble(s, allowComma) {
     // 连着的句尾标点中间夹空格也算一个句尾（她 2026-10-28：法语「cheveux ? !」把「!」单切成了一泡）
     out = out.reduce((acc, part) => acc.concat(part.split(/((?:\s*[。！？!?])+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean)), []);
   }
+  // 打了标点、又拿空格隔开两句的（她 2026-11-25 截图：「你这一句，说得我心里都熨帖了 刚从兵部回来」「身上还带着点寒气 正好被你这句话给捂热了 你这会儿在哪儿？」）：
+  //   下面那条「打标点的人，空格不当停顿」把整句挤在一个泡里。空格前面连着五个字以上、后面连着六个字以上（两头都是整句）时，那就是句号——在这儿切，不管多长；
+  //   「拍得我 眼睛都快花了」「我发几 张给你看看」那种词中间的短空格凑不够，照旧不切
+  const SP_STOP = /(?<=[\u4e00-\u9fff]{5})\s+(?=[\u4e00-\u9fff]{6})/g;
+  out = out.reduce((acc, part) => acc.concat(/[，,。！？!?、；;]/.test(part) && !/[\u3040-\u30ff]/.test(part) ? part.split(SP_STOP).map(x => x.trim()).filter(Boolean) : [part]), []);
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
   // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
   //   有的人不打标点、拿空格断句，那个空格就是它的逗号；门槛、最多几段、尾巴太短往回粘，全跟逗号共用。英文单词之间的空格不算
@@ -4106,7 +4127,7 @@ location 写细的（具体哪间屋子、哪个铺子），place 写粗的—�
 const SCHED_END_RULE = `【每段都要 end】time 是开始时刻、end 是结束时刻，都填 "HH:MM"（24 小时制，跨到午夜写 "24:00"）。
 end 必须晚于 time；相邻两段可以留空档（没排事就是没排事），不必首尾相接。
 时长要符合这件事本身：吃早饭二三十分钟、开组会一两小时、跑一下午实验就写到傍晚——别一律给一小时。
-【就寝那一段】几点睡照这个人的作息和今天的事来：夜猫子、加班的、熬夜追东西的就晚睡，作息规律的就早点。午夜前睡的，type="sleep" 那一段的 end 写 "24:00"（表示一觉睡过午夜，第二天凌晨自然接上），别写成凌晨四点就结束。过了午夜才睡的，这一天最后一段照常写到 "24:00"，睡觉那段写在第二天最前面，从几点睡写到几点醒。`;
+【就寝那一段】几点睡照这个人平时的作息和今天的事来：熬夜型过了午夜才睡；作息规律的，就照这样一个人平常真会几点上床来定，别一律往早了排。过了午夜才睡的，这一天最后一段照常写到 "24:00"，睡觉那段写在第二天最前面，从几点睡写到几点醒。午夜前就睡的，type="sleep" 那一段的 end 写 "24:00"（表示一觉睡过午夜，第二天凌晨自然接上），别写成凌晨四点就结束。`;
 // 群里一个人也可以连发好几条。（v56.27，她 2026-08-26 截图：顾朝在群里一口气发了整段
 // 「热奶和吐司我都弄好了，你先闭着眼出来把早餐塞进肚子里，开考了中途我再给你送温水和小零食
 // 当后勤」——同样一段话在单聊里会被拆成两三条。）
@@ -5351,6 +5372,7 @@ function buildBundle(ctx, opts) {
   if (ctx.moneyWithHer && ctx.moneyWithHer.trim()) parts.push(ctx.moneyWithHer.trim());
   // 往期线下（她 2026-10-31：线下总结完，再进线下、群里都对上次见面没印象）：固定带最近几场的经过，不靠记忆库搜不搜得到
   if (ctx.pastOffline && String(ctx.pastOffline).trim()) parts.push("【你们前几次线下见面·真实发生过、你都记得】按时间从早到晚排，都已经结束了，发生在你们现在这一段之前\n" + String(ctx.pastOffline).trim());
+  if (ctx.roomEcho && String(ctx.roomEcho).trim()) parts.push(String(ctx.roomEcho).trim());
   if (recentChat && recentChat.trim()) parts.push("【最近对话】\n" + recentChat.trim());
   // 数字生命只需要最近对话作为事实，不再额外下达「不许否认/必须圆过去」的表演式行为命令。
   if (!(opts && opts.ooc) && !ctx.notRoleplay && recentChat && recentChat.trim()) parts.push("【对话连贯·别否认自己说过的话】" + userName(profile) + " 这一句多半是【顺着你自己上一句、或你俩最近聊的】接下来的。回应前先认清【你自己刚说过什么、提过什么要求或建议】——绝不许把你自己说过的话/提过的要求当成对方凭空冒出来的，更别反问『什么X？』『我什么时候说的』来装不知道（那多半是你自己刚说的）。真记不清就顺着圆过去，别当场否认、打自己脸。同时把 Ta 这句里的人称对准：中文接话常省略主语，省掉的部分必须从【你上一句的结构】里继承，不许悄悄换人——比如你刚说『我去哪你都得跟着』，Ta 接『去厕所也要吗』，问的是【你去厕所时 Ta 要不要跟】，不是 Ta 自己要去厕所。回应前先想清这句里『你』『我』各指谁、谁做动作谁承受，以 Ta 的原话和你上一句的框架为准；主客一旦弄反，整条回复都会答非所问。");
@@ -6585,11 +6607,45 @@ function photoYoungerOf(scene) {
 // 合照得是画面里真有两个人（群友 2026-10-27：「为什么让 char 发照片自动生成我们的合照，描述词里也没有」）：
 //   模型 kind 填了 duo、画面描述却只写了他一个人，原来照样拿两张参考照画成合照。
 //   画面里一点没提到另一个人，就按他自己的照片拍。
+// 把别处搬来的日记拆成一篇篇（群友 2026-11-25「char 的日记能不能自己填，我想把别的小手机的 char 搬过来」）：
+//   认行首的日期（2025年3月1日 / 2025-03-01 / 2025.3.1 / 3月1日 / 3/1），一个日期起一篇，日期那行剩下的字当标题；
+//   一个日期都认不出就整段当一篇，日子用 fallbackTs
+function diaryImportParse(text, fallbackTs, nowTs) {
+  const lines = String(text || "").replace(/\r/g, "").split("\n"), out = [], now = new Date(nowTs || Date.now());
+  const RE = /^\s*(?:(\d{4})\s*[年\-./]\s*)?(\d{1,2})\s*[月\-./]\s*(\d{1,2})\s*日?(?:[\s,，、·:：|｜-]+(.*))?$/;
+  let cur = null;
+  lines.forEach(l => { const m = l.match(RE);
+    if (m && (m[1] || /月/.test(l) || /^\s*\d{1,2}\s*[\/.]\s*\d{1,2}\s*(?:[\s,，:：]|$)/.test(l))) {
+      let y = m[1] ? Number(m[1]) : now.getFullYear(); const mo = Number(m[2]) - 1, d = Number(m[3]);
+      let dt = new Date(y, mo, d, 22, 30, 0, 0); if (!m[1] && dt.getTime() > now.getTime()) dt = new Date(y - 1, mo, d, 22, 30, 0, 0);
+      if (mo < 0 || mo > 11 || d < 1 || d > 31 || isNaN(dt.getTime())) { if (cur) cur.body.push(l); return; }
+      cur = { ts: dt.getTime(), title: String(m[4] || "").trim().slice(0, 40), body: [] }; out.push(cur);
+    } else { if (!cur) { cur = { ts: fallbackTs || now.getTime(), title: "", body: [] }; out.push(cur); } cur.body.push(l); } });
+  return out.map(x => ({ ts: x.ts, title: x.title, paras: x.body.join("\n").split(/\n\s*\n|\n/).map(t => t.trim()).filter(Boolean) })).filter(x => x.paras.length);
+}
 function photoDuoSaid(scene, uName) {
   const t = String(scene || "");
   if (/合照|合影|两个人|两人|俩人|我们|我俩|咱们|一起|并肩|挽着|搂着|牵着|靠在.{0,4}(?:肩|怀)|抱着(?:她|你)|她|你/.test(t)) return true;
   const n = String(uName || "").trim();
   return !!n && n.length >= 1 && t.indexOf(n) >= 0;
+}
+// 线下「这一幕」（她 2026-11-24 转群友：「线下可以有第三视角的图片，就是那种全景图」）：
+//   合照走的是自拍那张机位表，拍出来都像两个人自己举着手机；这一张是旁边的视角拍下这一幕，人在环境里。
+//   只写镜头语言（远近、高低、朝向、构图），最后一格把这条轴还给模型——跟上面那几张表同一个写法
+const PHOTO_SCENE_SHOTS = [
+  "远一点的全景，人物全身都在画面里，周围的环境完整",
+  "从侧面看过去，人物在画面一侧，另一侧是环境",
+  "从门口或稍远处看进来，人在画面中间偏远",
+  "稍高一点往下看，能看清人和人之间的距离",
+  "隔着前景拍，前景是虚的，人在后面清楚",
+  "平视的中景，人物到膝盖左右，背景交代清楚在哪",
+  "很远，人在画面里只占一小块，场景是主角",
+  "这一张的机位你自己定：挑一个合这个时刻、又是旁观视角的角度"
+];
+function photoSceneShotLine(seed) {
+  const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : Math.floor(Math.random() * 100000);
+  return "【这一张是这一幕的画面·旁观视角】不是谁举着手机拍的：像旁边有人、或者镜头远远拍下了这一幕，画面里没有人拿手机对着镜头，人物不看镜头，照自己正在做的事。"
+    + "这一张的机位：" + PHOTO_SCENE_SHOTS[n % PHOTO_SCENE_SHOTS.length] + "。参考图只决定这是谁，角度和构图照这一句来。";
 }
 function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 设定里【明说了画风】才算二次元：只认画风词。
@@ -9229,7 +9285,9 @@ function pullPauseVoice(words) {
 // yueVoice：这把嗓子是不是给说粤语的人用的（档案里常用语言写着粤语）。
 //   ⚠️只写着繁体、没有粤语字的那句，只有这种人才按粤语念——群里 2026-10-18：「普通话 char 给我说的粤语」，
 //   人设写繁体的普通话角色（台湾腔、古风）被一刀切成了粤语。
-function ttsLangBoost(text, yueVoice) {
+// yueOnly：档案里常用语言只写了粤语（没另写普通话/国语）——这个人说的中文句句是粤语，
+//   简体写、又没有粤语专用字的那句也按粤语念（群里 2026-11-24「老师粤语语音有时候会说普通话」）
+function ttsLangBoost(text, yueVoice, yueOnly) {
   const s = String(text || "");
   if (/[぀-ヿ]/.test(s)) return "Japanese";
   if (/[가-힣]/.test(s)) return "Korean";
@@ -9240,7 +9298,8 @@ function ttsLangBoost(text, yueVoice) {
   //   普通话角色一句「唔……被姐姐握着」整条念成了粤语）
   if (/[嘅咗啲喺嗰冇佢嚟乜嘢噉哋㗎啱揾搵睇畀攰瞓諗谂嚿嗮嘥]/.test(s)
     || (yueVoice && /[唔咁囉嘞咩冚啩喎噃]/.test(s))
-    || (yueVoice && typeof toSimplified === "function" && toSimplified(s) !== s)) return "Chinese,Yue";
+    || (yueVoice && typeof toSimplified === "function" && toSimplified(s) !== s)
+    || (yueOnly && /[一-鿿]/.test(s))) return "Chinese,Yue";
   return "Chinese";
 }
 // 取后台便宜池给「日语汉字转假名」这类合成期机械小活用。
@@ -9901,8 +9960,8 @@ async function _transMyMemory(text, src) {
 }
 // 兜底：用后台线路让模型翻。要花钱，但一条聊天消息只是几百 token，
 // 而且译文进缓存、同一句只花一次。
-async function _transModel(text) {
-  const p = ttsHelperProfile();
+async function _transModel(text, prof) {
+  const p = prof || ttsHelperProfile();
   if (!p || !p.apiKey || !p.model) throw new Error("免费接口没通，后台线路也没配");
   const sys = "你是翻译。把用户发来的这段话翻译成简体中文。\n"
     + "· 只输出译文，不要原文、不要注音、不要解释、不要引号、不要「译：」这类前缀。\n"
@@ -9981,11 +10040,25 @@ function fixGarbledText(s) {
     try { return new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bytes)); } catch (e) { return ""; }
   });
 }
+// 翻译专用线路（群友 2026-11-25）：设置 → 接哪些模型 →「翻译模型」挑的那条；没挑、或挑的那条删掉了就是 null
+function transApiProfile() {
+  try {
+    const id = typeof loadJSON === "function" ? loadJSON("x_transApi", null) : JSON.parse(localStorage.getItem("x_transApi") || "null");
+    if (!id) return null;
+    const stored = JSON.parse(localStorage.getItem("x_api") || "[]");
+    const list = window.CredentialVault ? window.CredentialVault.materializeApiProfiles(stored) : stored;
+    const p = Array.isArray(list) ? list.find(x => x && x.id === id) : null;
+    return p && p.apiKey && p.model ? p : null;
+  } catch (e) { return null; }
+}
 async function translateToZh(text, lang, opts) {
   const cached = transCacheGet(text);
   if (cached && cached.zh) return cached;
   const src = TRANS_LANG_CODE[lang] || "auto";
+  // 挑了翻译线路就先走它（她点名要的，不算「偷偷叫模型」）；翻不成再退免费那几家
+  const tp = transApiProfile();
   const chain = [
+    ...(tp ? [{ by: "模型", run: () => _transModel(text, tp) }] : []),
     { by: "免费", run: () => _transGoogle(text, src) },
     { by: "免费", run: () => _transMicrosoft(text, src) },
     // 日/韩/俄它也试（她 2026-10-18 群里俄文截图：Google 不通、微软取票 404，第三条又因为「要绕道英语」被跳过——三条全断）。
@@ -9996,7 +10069,7 @@ async function translateToZh(text, lang, opts) {
     { by: "模型", run: () => !(opts && opts.allowModel) ? Promise.reject(new Error("翻译只用免费的，不叫模型")) : _transModel(text) }
   ];
   const errs = [];
-  const names = ["Google", "微软", "MyMemory", "模型"];
+  const names = (tp ? ["翻译线路"] : []).concat(["Google", "微软", "MyMemory", "模型"]);
   for (let i = 0; i < chain.length; i++) {
     try {
       const zh = cutLoop(await chain[i].run());
@@ -10068,9 +10141,10 @@ function ttsKeyFor(text, voiceId, opts) {
   }
   const pit = 0;
   // 这把嗓子挂在哪个说粤语的人身上（档案常用语言写着粤语），才让「只有繁体」的句子按粤语念
-  let yueVoice = false;
-  try { yueVoice = (loadJSON("x_characters", []) || []).some(c => c && String(c.voiceId || "").trim() === vid && /粤|粵|广东话|廣東話|cantonese/i.test(String(c.lang || ""))); } catch (e) {}
-  const boost = ttsLangBoost(txt, yueVoice);   // 按句子语言选发音矫正（日语句走 Japanese，别被中文带偏口音）
+  let yueVoice = false, yueOnly = false;
+  try { const _yc = (loadJSON("x_characters", []) || []).filter(c => c && String(c.voiceId || "").trim() === vid && /粤|粵|广东话|廣東話|cantonese/i.test(String(c.lang || "")));
+    yueVoice = _yc.length > 0; yueOnly = yueVoice && _yc.every(c => !/普通话|普通話|国语|國語|mandarin|中文/i.test(String(c.lang || ""))); } catch (e) {}
+  const boost = ttsLangBoost(txt, yueVoice, yueOnly);   // 按句子语言选发音矫正（日语句走 Japanese，别被中文带偏口音）
   // 日语汉字注音（v47.93）：音色开了 jpKana + 是日语句 + 含汉字 → 先转假名再合成，治「寝→中文qin」
   const wantKana = !!ve.jpKana && boost === "Japanese" && /[一-鿿]/.test(txt);
   // 缓存键带情绪(null=raw) + 语速档 + 语言矫正 + 注音标记 + hq44 音质版本：不同参数别互相命中，
@@ -10114,7 +10188,60 @@ function ttsWarm(text, voiceId, opts) {
   try { const t = ttsSpeak(text, voiceId, opts); t.catch(() => {}); return t; }
   catch (e) { return Promise.resolve(null); }
 }
+// 长语音分段合成（她 2026-11-24 转群友「语音最长一分钟吗」→「第二种吧」）：原来一条只念前 800 字、后面截掉。
+//   现在超过的照句号切成几段，各自合成（各自进缓存，重听不花钱），再首尾接成一条——四家语音都回 mp3，接起来照常播。
+//   切点只落在句末标点后面；一句本身就很长的，才按字数硬切
+const TTS_PIECE = 600;
+function ttsSplitLong(text) {
+  const s = String(text || ""), out = [];
+  const parts = s.match(/[^。！？!?…\n]+[。！？!?…]*[」』"”’）)]*\s*|\n+/g) || [s];
+  let cur = "";
+  parts.forEach(p => {
+    if ((cur + p).length > TTS_PIECE && cur.trim()) { out.push(cur); cur = ""; }
+    while (p.length > TTS_PIECE) { out.push(p.slice(0, TTS_PIECE)); p = p.slice(TTS_PIECE); }
+    cur += p;
+  });
+  if (cur.trim()) out.push(cur);
+  return out.filter(x => x.trim());
+}
 async function ttsSynth(text, voiceId, opts) {
+  if (ttsMarkForSynth(String(text || "")).length > 800) {
+    const pieces = ttsSplitLong(text);
+    if (pieces.length > 1) {
+      const blobs = [];
+      for (const piece of pieces) blobs.push(await ttsSynthOne(piece, voiceId, opts));
+      return new Blob(blobs, { type: (blobs[0] && blobs[0].type) || "audio/mpeg" });
+    }
+  }
+  return ttsSynthOne(text, voiceId, opts);
+}
+// 边放边合成（她 2026-11-24「边放边合成也做了吧」）：长的那条切成几段，第一段一好就在这只 <audio> 上开始放，
+//   放着的时候合成下一段（只提前一段，跟通话自动播那一招同一个分寸：中途停掉最多白花一段），这段放完立刻接上。
+//   短的照旧整条。aud 用调用方在点按那一下就 play() 解锁过的那一只（iOS 只认手势里那一下）。
+//   hooks.live()：还要不要接着放（她点了停、换了别的就返回 false）；hooks.onStart：第一段真的响起来那一刻
+async function ttsPlayStream(aud, text, voiceId, opts, hooks) {
+  hooks = hooks || {};
+  const live = typeof hooks.live === "function" ? hooks.live : () => true;
+  const pieces = ttsMarkForSynth(String(text || "")).length > 800 ? ttsSplitLong(text) : [text];
+  let next = ttsSpeak(pieces[0], voiceId, opts), started = false;
+  for (let i = 0; i < pieces.length; i++) {
+    const blob = await next;
+    if (!live()) return;
+    next = i + 1 < pieces.length ? ttsSpeak(pieces[i + 1], voiceId, opts) : null;
+    if (next) next.catch(() => {});
+    const url = URL.createObjectURL(blob);
+    try {
+      await new Promise((ok, no) => {
+        aud.onended = () => ok();
+        aud.onerror = () => no(new Error("音频播放失败"));
+        aud.src = url;
+        aud.play().then(() => { if (!started) { started = true; if (hooks.onStart) hooks.onStart(); } }, no);
+      });
+    } finally { URL.revokeObjectURL(url); }
+    if (!live()) return;
+  }
+}
+async function ttsSynthOne(text, voiceId, opts) {
   opts = opts || {};
   const a = loadTtsApi();
   if (!ttsReady(a)) throw new Error("没配置语音 API（设置 · 语音 TTS）");
@@ -13577,8 +13704,26 @@ function vclockSeg(c, ts) {
 //   最早那一段一丢，vclockMapBy 就以为这只钟是「最近才拨的」，比它早的每条消息、每条记忆全按现实日子算。
 //   现在：最早那一段永远留着（它说明钟是哪一刻开的），超了只从第二段起往后丢；上限放到 2000 段
 const VCLOCK_HIST_CAP = 2000;
+// 前后两段算出来的时间一模一样，就只留后一段（她 2026-11-23 转群友：钟停着又开着「离开时停住」，一天进出上百次，每次记一段，
+//   几天就攒满。停住的钟只要 base 没变，哪一段算出来都是同一刻；跟现实一样走的钟，base−at×速度 没变也是同一条线）。
+//   第一段永远不动：它说明钟是哪一刻开的
+function vclockSameSeg(a, b) {
+  if (!a || !b) return false;
+  if (a.real || b.real) return !!(a.real && b.real);
+  const sa = isFinite(Number(a.speed)) && Number(a.speed) >= 0 ? Number(a.speed) : 1, sb = isFinite(Number(b.speed)) && Number(b.speed) >= 0 ? Number(b.speed) : 1;
+  if (sa !== sb) return false;
+  if (sa === 0) return Number(a.base) === Number(b.base);
+  if (a.awayAt || b.awayAt) return false;
+  return Math.abs((Number(a.base) - Number(a.at || 0) * sa) - (Number(b.base) - Number(b.at || 0) * sb)) < 1;
+}
 function vclockTrimHist(h) {
-  const a = Array.isArray(h) ? h : [];
+  let a = Array.isArray(h) ? h : [];
+  if (a.length > 2) {
+    // ⚠️下面 vclockMapBy 靠「攒到 300 段」认出旧版丢过最早几段的存档；合并以后段数会掉下去，先把这个记号钉在第一段上
+    const cut = a.length >= 300 && a[0] && !a[0].real && !a[0].cut;
+    a = a.filter((x, i) => i === 0 || i === a.length - 1 || !vclockSameSeg(x, a[i + 1]));
+    if (cut) a = [{ ...a[0], cut: true }].concat(a.slice(1));
+  }
   return a.length <= VCLOCK_HIST_CAP ? a : [a[0]].concat(a.slice(a.length - (VCLOCK_HIST_CAP - 1)));
 }
 function vclockKeepHist(oldClocks, newClocks, now) {
@@ -13620,7 +13765,8 @@ function vtsClockOf(k, item) {
   if (s.indexOf("x_offline:") === 0) return s.slice(10).split("::")[0];
   if (s.indexOf("x_gchat:") === 0) return "g:" + s.slice(8).split("::")[0];
   if (s.indexOf("x_goffline:") === 0) return "g:" + s.slice(11).split("::")[0];
-  if (s === "x_memLib") return item && Array.isArray(item.charIds) && item.charIds.length ? String(item.charIds[0]) : null;
+  // 群里提出来的记忆照群那只钟（她 2026-11-23 补）：原来只看第一个角色，群挑的面具跟他不同时日子就错
+  if (s === "x_memLib") return item && item.groupId ? "g:" + String(item.groupId) : item && Array.isArray(item.charIds) && item.charIds.length ? String(item.charIds[0]) : null;
   // 单独存的那几样（她 2026-11-19「单独的也一起接了吧」）：日记、朋友圈、限时动态、情侣空间、时光胶囊——
   //   这一条是谁的，照它身上记着的人认那只钟；认不出就照主面具那只
   if (VTS_EXTRA[s]) { const w = item && (item.characterId || item.charId || item.ownerId || (item.by && item.by !== "me" ? item.by : "")); return w ? String(w) : null; }
@@ -13641,14 +13787,16 @@ function vtsTouchList(k, v, stamp, who) {
     const now = Date.now();
     const one = it => {
       if (!it || typeof it !== "object") return;
-      const ts = Number(it.ts);
-      if (!isFinite(ts) || ts <= 0) return;
+      // 时间认 ts，没有就认 createdTs／createdAt（单独存的那几样有的不叫 ts）
+      const ts = [it.ts, it.createdTs, it.createdAt].map(Number).find(x => isFinite(x) && x > 0);
+      if (ts == null) return;
       // 「刚写下的」：聊天这些十分钟以内；单独存的那几样（日记写的是昨天、补写前几天）放到四天
       if (it.vts == null && stamp && now - ts < (VTS_EXTRA[String(k)] ? 4 * 864e5 : 600000) && ts <= now + 60000) {
         const cid = who != null ? String(who) : vtsClockOf(k, it);
         if (typeof vclockCfg === "function" && vclockCfg(cid, ts)) { const vv = vclockMap(ts, cid); if (isFinite(vv) && vv !== ts) it.vts = vv; }
       }
-      if (isFinite(Number(it.vts))) VTS_INDEX.set(ts, Number(it.vts));
+      // 连「是哪只钟上的」一起记：查的时候只认同一只钟（同一时刻的东西被搬到别人那儿用，不拿别人钟上的日子）
+      if (isFinite(Number(it.vts))) { const cid = who != null ? String(who) : vtsClockOf(k, it); VTS_INDEX.set(ts, { v: Number(it.vts), k: vtsKeyOf(cid, ts) }); }
     };
     const list = off ? v.reduce((a, sess) => a.concat(Array.isArray(sess && sess.msgs) ? sess.msgs : []), []) : v;
     // 落盘时只看最新那一截（记忆库新的在前、聊天新的在后）；开机读进来时整份登记
@@ -13657,8 +13805,13 @@ function vtsTouchList(k, v, stamp, who) {
     part.forEach(one);
   } catch (e) {}
 }
+// 这个人（或 "g:群id"、null＝当前那个）在这一刻认的是哪只钟
+function vtsKeyOf(id, ts) {
+  try { const W = vclockState(); if (!W || !W.clocks) return "main"; const who = id !== undefined ? id : W.active;
+    return (who != null && typeof W.maskOf === "function" ? String(W.maskOf(String(who), ts) || "") : "") || "main"; } catch (e) { return "main"; }
+}
 function vclockMap(ts, id) {
-  if (typeof VTS_INDEX !== "undefined" && VTS_INDEX.size) { const hit = VTS_INDEX.get(Number(ts)); if (hit != null) return hit; }
+  if (typeof VTS_INDEX !== "undefined" && VTS_INDEX.size) { const hit = VTS_INDEX.get(Number(ts)); if (hit != null && (typeof hit !== "object" ? true : hit.k === vtsKeyOf(id, ts))) return typeof hit === "object" ? hit.v : hit; }
   const c = vclockCfg(id, ts);
   if (c) return vclockMapBy(c, ts);
   // 钟现在关着，可以前开过：那几段照当时的钟算，之后的照现实
@@ -13692,7 +13845,7 @@ function vclockMapBy(c0, ts) {
   const h0 = Array.isArray(c0.hist) && c0.hist.length ? c0.hist[0] : c0;
   // ⚠️攒满过 300 段的旧存档（2026-11-19 前的版本会把最早几段丢掉）：h0 已经不是开钟那一刻，比它早的不能当现实，
   //   照 h0 那一版往前推（日子可能差几天，但留在她拨的那个年月里，不会整片跳回现实）
-  const _trimmedOld = Array.isArray(c0.hist) && c0.hist.length >= 300;
+  const _trimmedOld = Array.isArray(c0.hist) && (c0.hist.length >= 300 || !!(c0.hist[0] && c0.hist[0].cut));
   if (h0 && !h0.real && !_trimmedOld && Number(h0.at) > 0 && Number(ts) < Number(h0.at)) return Number(ts);
   if (h0 && !h0.real && _trimmedOld && Number(ts) < Number(h0.at)) { const sp0 = Number(h0.speed); return Number(h0.base) + (Number(ts) - Number(h0.at || 0)) * (isFinite(sp0) && sp0 >= 0 ? sp0 : 1); }
   const c = vclockSeg(c0, ts);

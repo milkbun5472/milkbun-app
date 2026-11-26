@@ -121,7 +121,7 @@ test("语音条的波形/时长/转录都用剥过的那一份", () => {
   assert.match(vm, /Math\.round\(say\.replace/);
   // ⚠️合成仍旧送原文：停顿要留给 MiniMax，剥不剥由 ttsKeyFor 那一处统一说了算
   //   （vText 只拆了 JSON 外壳，停顿标记都还在）
-  assert.match(vm, /ttsSpeak\(vText, speaker\.voiceId/);
+  assert.match(vm, /(?:ttsSpeak|ttsPlayStream)\((?:aud, )?vText, speaker\.voiceId/);
 });
 
 test("方括号、带一两个修饰词的语气标记也剥掉，不念出来（群里 2026-10-19 whisper 被念出来）", () => {

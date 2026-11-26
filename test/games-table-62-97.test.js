@@ -46,7 +46,12 @@ test("八个对局外壳全都铺上了桌面，顶栏透明不压带子", () =>
   // 桌上的 Head 一律透明（§3.5），压回平色就是那条带子
   // 13 = 架子 1 + 五个共用 header + UNO + 五子棋 + 你画我猜 + 骗子骰 + 故事接龙 + 德州/抽鬼牌/21 点/斗地主 + 开局配置 + 占位页；3 = 大富翁那三条（压缩写法）
   assert.match(src, /h\(Head, \{ zh: ZH, onBack: g\.props\.onBack, bg: "transparent" \}\)/);
-  assert.equal((src.match(/onBack: props\.onBack, bg: "transparent" \}\)/g) || []).length, 20, "有 Head 在桌上压平色带（国际象棋、中国象棋、斗兽棋共用 EngineBoardPage 那一个，单算；广东麻将那桌也算一个）（或多出了没登记的）");
+  // 不再数总数（每加一桌就得改数字、右边挂个参数就漏数）：改成逐个查——games.js 里每一个 Head 都必须透明。
+  // 25 问和俄罗斯方块就是数数漏掉的两桌：铺了 gameTable 却压着平色带。
+  const heads = src.split("\n").filter((l) => /h\(Head, ?\{/.test(l));
+  assert.ok(heads.length >= 20, "抠不出 Head");
+  const flat = heads.filter((l) => !/bg: ?"transparent"/.test(l));
+  assert.deepEqual(flat.map((l) => l.trim().slice(0, 40)), [], "有 Head 在桌上压平色带");
   assert.equal((src.match(/onBack:props\.onBack,bg:"transparent"/g) || []).length, 3, "大富翁的 Head 有漏");
   // 老样子一处都不许剩：贴细线的头像横排
   assert.ok(src.indexOf('padding: "10px 16px", borderBottom: "1px solid " + t.line') < 0, "还有老的头像横排");
@@ -74,5 +79,6 @@ test("UNO 和大富翁：轮到谁，谁的牌抬起来——不靠一个色差�
   assert.match(seats, /animation: s\.on \? "gcardPulse/, "轮到谁不闪了");
   assert.match(seats, /h\(CardBacks, \{/, "座位上那叠牌背没了");
   // 大富翁同款抬起
-  assert.match(src, /transform:i===turn&&!p\.bankrupt\?"translateY\(-2px\)":"none"/, "大富翁轮次牌不抬了");
+  // （v90 起那排人搬进公共的 MonoRoster，单机、联机同一份）
+  assert.match(src, /transform:i===props\.turn&&!p\.bankrupt\?"translateY\(-2px\)":"none"/, "大富翁轮次牌不抬了");
 });

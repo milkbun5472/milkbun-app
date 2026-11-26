@@ -614,7 +614,7 @@
       if (!who || !txt) return;
       total++;
       byWho[who] = (byWho[who] || 0) + 1;
-      hours[new Date(r.ts).getHours()]++;
+      hours[vt(r.ts).getHours()]++;   // 跟周刊别处一样走主面具那只钟
       if (!longest || txt.length > longest.len) longest = { who: who, len: txt.length, text: txt.slice(0, 40) };
       // 线下整段是叙述（「他坐在她旁边」），不在括号里也是动描：条数照算，词不算（她 2026-10-31「为啥还是手机之类的」）
       if (/^【[^】]*线下[^】]*】/.test(line)) return;

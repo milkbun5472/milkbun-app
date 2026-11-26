@@ -225,18 +225,16 @@
     }, "更新");
     // 恢复初始装扮（群友 2026-11-16 许愿）：先把现在这一整套存进「我存的主题」、再存一份文件，然后预览出厂那一份——
     //   跟导入同一条路：挑哪几样要还原，确认才落盘；后悔了从「我存的主题」点回来就是原样
-    const resetFactory = () => requestAppConfirm("恢复初始装扮？", "先把你现在这一整套存进「我存的主题」，再导出一份文件留底；然后预览初始的样子，下面挑哪几样要还原，点确认才真的换。", async () => {
+    // 恢复初始装扮：直接预览出厂那一份，挑哪几样要还原，确认才落盘。
+    //   不再自己先存一份进「我存的主题」、导一份文件（她 2026-11-23「回复初始能不能不要保存啊」）——想留就先点「存进我存的主题」
+    const resetFactory = () => requestAppConfirm("恢复初始装扮？", "先预览初始的样子，下面挑哪几样要还原，点确认才真的换。现在这一套不会自动另存，想留着先存进「我存的主题」。", () => {
       try {
-        const text = await packNow();
-        const d = new Date();
-        shelfSave([{ id: "th" + Date.now().toString(36), name: "恢复初始前 · " + (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"), text, at: Date.now() }].concat(shelfLoad()).slice(0, THEME_SHELF_MAX));
-        try { await window.saveTextFile("qq-theme-恢复初始前-" + d.toISOString().slice(0, 10) + ".json", text, "application/json"); } catch (_) {}
         const pack = studio.factoryPack(), sel = {};
         studio.PACK_KEYS.forEach(k => { sel[k] = true; });
         setIncoming(pack); setPick(sel); livePick(pack, sel);
-        toast("现在这一套存好了；正在预览初始的样子，下面挑要还原哪几样，确认才落盘", 6000);
-      } catch (e) { toast("没存成，先不动：" + ((e && e.message) || e)); }
-    }, "先存再预览");
+        toast("正在预览初始的样子，下面挑要还原哪几样，确认才落盘", 6000);
+      } catch (e) { toast("没能打开初始的样子：" + ((e && e.message) || e)); }
+    }, "预览");
     const saveToShelf = async () => {
       try {
         const text = await packNow();
@@ -473,10 +471,10 @@
                 h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: on ? t.ink : t.fog } }, name));
             }),
             // 别的颜色：自己挑一个，只取它的色相和浓淡
-            h("label", { "data-wk": "icontintpick", "data-on": draft.iconTint && !draft.iconTint.raw && !studio.ICON_TINTS.some(([, tt]) => tt && tt.h === draft.iconTint.h && tt.s === draft.iconTint.s) ? "1" : "0", className: "active:opacity-80 flex flex-col items-center", style: { gap: 4, minWidth: 44, minHeight: 44, cursor: "pointer", position: "relative" } },
-              h("span", { style: { width: 28, height: 28, borderRadius: 999, border: "1.5px dashed " + t.fog, display: "grid", placeItems: "center", color: t.fog, fontSize: "calc(15px * var(--app-fs, 1))" } }, "+"),
-              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "自己挑"),
-              h("input", { type: "color", onChange: e => { const tt = studio.tintFromHex(e.target.value); if (tt) patchDraft({ iconTint: tt }); }, style: { position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" } })))),
+            h("div", { "data-wk": "icontintpick", "data-on": draft.iconTint && !draft.iconTint.raw && !studio.ICON_TINTS.some(([, tt]) => tt && tt.h === draft.iconTint.h && tt.s === draft.iconTint.s) ? "1" : "0", className: "active:opacity-80 flex flex-col items-center", style: { gap: 4, minWidth: 44, minHeight: 44 } },
+              // 取色走公共那颗 ColorDot（全 App 只许一个原生取色器，one-public-mechanism.md）；只取它的色相和浓淡
+              h("div", { style: { height: 28, display: "flex", alignItems: "center" } }, h(ColorDot, { value: "", label: "图标颜色", size: 28, onChange: v => { const tt = studio.tintFromHex(v); if (tt) patchDraft({ iconTint: tt }); } })),
+              h("span", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, "自己挑")))),
         // ── 图标自带底（她 2026-09-04 要的那个开关）：图里已经画了玻璃方块的，别再套一层 ──
         h("div", { "data-wk": "block", className: "flex items-center justify-between", style: { marginBottom: 14, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px" } },
           h("div", { style: { flex: 1, minWidth: 0 } },
@@ -712,7 +710,7 @@
           //   文件选择器可能整个弹不出来。备份恢复那一处（能用的那一处）就是 MIME 在前。
           h("button", { onClick: () => importFile.current && importFile.current.click(), className: "flex-1 py-3", style: { borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY } }, "导入主题包")),
         h("input", { ref: importFile, type: "file", accept: ANY_FILE, className: "hidden", onChange: importTheme }),
-        h("button", { "data-wk": "themefactory", onClick: resetFactory, className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 42, borderRadius: 12, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "恢复初始装扮（先存一份现在的）"),
+        h("button", { "data-wk": "themefactory", onClick: resetFactory, className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 42, borderRadius: 12, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "恢复初始装扮"),
         h("div", { "data-wk": "themeshelf", style: { marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px dashed " + t.line } },
           h("div", { className: "flex items-center", style: { gap: 8, marginBottom: shelf.length ? 8 : 0 } },
             h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.ink, lineHeight: 1.5 } }, "我存的主题",

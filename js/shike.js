@@ -10,6 +10,7 @@
 // 都没有就老实说「那天没留下记录」——不编。
 // ============================================================
 (function () {
+  const vd = (ts, id) => typeof vDate === "function" ? vDate(ts, id) : new Date(ts);   // 时刻是故事里的日子：照那个人那只钟
   const { g, useState, useMemo, DAY, dayKey, startOf, MEET_KEY, meetStart, momentsFor, MomentArt, upcoming } = (typeof window !== "undefined" ? window : globalThis).ShikeCore;
   const COVER_KEY = "x_shikeCover";
 
@@ -214,7 +215,7 @@
         g2.font = font(30); g2.fillText(daysLine(c, ctx) + "  ·  " + items.length + " 个时刻", PAD, 610);
         let y = 720;
         for (const b of blocks) {
-          const d = new Date(b.m.ts);
+          const d = vd(b.m.ts, c.id);
           g2.fillStyle = "#9a8a78"; g2.font = font(28); g2.fillText(d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate() + "  ·  " + (KIND_ZH[b.m.kind] || ""), PAD, y + 40);
           g2.fillStyle = "#2e261d"; g2.font = font(48, true); g2.fillText(b.m.title.slice(0, 20), PAD, y + 110);
           let yy = y + 170;
@@ -265,7 +266,7 @@
       const list = (all[cur.id] || []).slice().reverse();
       const imgOf = m => { const g = (arts[cur.id] || {})[m.key] ? { ref: arts[cur.id][m.key] } : m.img; return g ? (g.imgKey || g.ref || "") : ""; };
       const mcard = (m, i) => {
-        const d = new Date(m.ts), pk = imgOf(m) ? imgPick.press(m.key) : {};
+        const d = vd(m.ts, cur.id), pk = imgOf(m) ? imgPick.press(m.key) : {};
         // 多选时卡上的按钮一律不响：点哪儿都只是加减这一张（捕获阶段先拦下）
         return h("div", Object.assign({}, pk, { key: m.key, "data-wk": "shikeitem", "data-kind": m.kind, className: "shrink-0",
           onClickCapture: e => { const f = imgPick.click(m.key, null); if (imgPick.on) { e.stopPropagation(); if (!imgOf(m)) return; } f(e); },
@@ -317,8 +318,8 @@
       };
       // 目录（她 2026-10-03 点的第 6 条）：按「几年几月」分组，点一下滑到那个月的第一张
       const months = [];
-      list.forEach((m, k) => { const d = new Date(m.ts), lab = d.getFullYear() + "." + (d.getMonth() + 1); if (!months.some(x => x.lab === lab)) months.push({ lab, k }); });
-      const curLab = list[mIdx] ? (new Date(list[mIdx].ts).getFullYear() + "." + (new Date(list[mIdx].ts).getMonth() + 1)) : "";
+      list.forEach((m, k) => { const d = vd(m.ts, cur.id), lab = d.getFullYear() + "." + (d.getMonth() + 1); if (!months.some(x => x.lab === lab)) months.push({ lab, k }); });
+      const curLab = list[mIdx] ? (vd(list[mIdx].ts, cur.id).getFullYear() + "." + (vd(list[mIdx].ts, cur.id).getMonth() + 1)) : "";
       const jump = k => { const el = mRef.current; if (!el) return; const w = el.firstChild ? el.firstChild.getBoundingClientRect().width + 14 : el.clientWidth; try { el.scrollTo({ left: k * w, behavior: "smooth" }); } catch (e) { el.scrollLeft = k * w; } setMIdx(k); };
       const onMScroll = e => {
         const el = e.currentTarget, w = el.firstChild ? el.firstChild.getBoundingClientRect().width + 14 : el.clientWidth;
@@ -361,7 +362,7 @@
             h("div", { style: { position: "absolute", left: 0, right: 0, top: 12, height: 1, background: t.line } }),
             list.map((m, k) => {
               // 旧的在左、新的在右（她 2026-10-03）：里层 list 已经是旧→新；每个月最早那张底下写月份
-              const on = k === mIdx, d = new Date(m.ts), pv = list[k - 1] ? new Date(list[k - 1].ts) : null,
+              const on = k === mIdx, d = vd(m.ts, cur.id), pv = list[k - 1] ? vd(list[k - 1].ts, cur.id) : null,
                 first = !pv || pv.getMonth() !== d.getMonth() || pv.getFullYear() !== d.getFullYear(),
                 x = k / (list.length - 1), shift = x < .08 ? "-8px" : x > .92 ? "calc(-100% + 8px)" : "-50%";
               return h("button", { key: m.key, onClick: () => jump(k), "aria-label": d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(),

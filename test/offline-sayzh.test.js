@@ -19,5 +19,5 @@ test("单人线下、群线下都接上：开着自带中译才要、存进消�
   assert.match(app, /sayZhOn: !!\(settingsFor\(charId\) \|\| \{\}\)\.bilingual/);
   assert.match(app, /sayZhNames: \(gCtx\.members/);
   assert.equal((app.match(/\.\.\.\((res|b)\.sayZh \? \{ sayZh: (res|b)\.sayZh \} : \{\}\)/g) || []).length, 2);
-  assert.match(comp, /zhReady: offSayZhOf\(sayZh, sen\)/); assert.match(comp, /isUser \? null : m\.sayZh\)\)/);
+  assert.match(comp, /zhReady: offSayZhOf\(sayZh, sen\)/); assert.match(comp, /isUser \? null : m\.sayZh(?:\)\)|,)/);
 });

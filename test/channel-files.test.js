@@ -46,7 +46,7 @@ test("接线：频道群的提示词带文件块，发言里的 file 写进频�
   assert.match(cs, /if \(m\.kind === "chfile" \|\| m\.kind === "chlink"\) return h\("div"/);
 });
 test("文件页渲染：索引签、三个按钮、一行一个文件", () => {
-  const i = cs.indexOf("function ChannelTabs("), j = cs.indexOf("// 把已有的群放进这个频道空间", i);
+  const i = cs.indexOf("// ── 公共的几样"), j = cs.indexOf("// 把已有的群放进这个频道空间", i);   // 索引签、文件行都在公共那几份里
   const h = (type, props, ...kids) => ({ type, props: props || {}, kids: kids.flat(Infinity).filter(x => x != null && x !== false) });
   const ctx = { h, useState: v => [v, () => {}], useRef: () => ({ current: null }), useEffect: () => {}, useTheme: () => ({ ink: "#111", sub: "#555", fog: "#999", line: "#ddd", bg: "#fff", bg2: "#f5f5f5", accent: "#46c" }),
     useIdbImgUrl: () => null, Head: "Head", PageSheet: "PageSheet", F_BODY: "s", F_DISPLAY: "s", requestAppPrompt() {}, requestAppConfirm() {}, window: {}, chfApplyDoc() {}, chfDiffSummary: () => "", chfLineDiff: () => [] };

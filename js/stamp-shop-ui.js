@@ -15,8 +15,12 @@
  function StampShopNotes({notes=[],name=()=> '店员',font=F_BODY,size=12,titleSize=11}){
   return notes.length?h('div',{'data-wk':'duelshopnotes',className:'flex flex-wrap',style:{gap:8,margin:'8px 0 4px'}},notes.map((n,i)=>h('div',{key:i,'data-wk':'duelshopnote',style:{flex:'1 1 140px',padding:'8px 10px',background:'#fffbe8',boxShadow:'0 2px 5px rgba(47,42,34,.12)',transform:'rotate('+(i%2?1.2:-1.2)+'deg)',fontSize:size,lineHeight:1.6}},h('div',{style:{fontFamily:font,fontSize:titleSize,color:'#9a6a4a',marginBottom:2}},(name(n.speakerId)||'店员')+' 留的'),BT(n.text)))):null;
  }
+ // 打烊正文里有人开口的那几句加上「」（她 2026-11-24：「手动加上引号，看得出来是人讲话」）：认的是 turns 里的说话人，旁白不加；原话自带引号的不重复套
+ function StampShopSay(r,name){const q=t=>{const x=String(t||'').trim();return /^[「“"『]/.test(x)?x:'「'+x+'」';};
+  return Array.isArray(r&&r.turns)&&r.turns.length?r.turns.map(t=>t.speakerId?((name&&name(t.speakerId)&&name(t.speakerId)!=='店员'?name(t.speakerId)+'：':'')+q(t.text)):t.text):((r&&r.lines)||[]);}
+ g.StampShopSay=StampShopSay;
  function StampShopStories({shop,onReplay,reader=true,inlineCurrent=false,onDiary,name=()=> '店员'}){
-  const [expanded,setExpanded]=React.useState({});const say=r=>Array.isArray(r.turns)&&r.turns.length?r.turns.map(t=>(t.speakerId&&name(t.speakerId)&&name(t.speakerId)!=='店员'?name(t.speakerId)+'：':'')+t.text):r.lines;const all=g.StampShop.history(shop),records=inlineCurrent?all.filter(r=>r.date===shop.date):all,body={fontSize:13,lineHeight:1.9,whiteSpace:'pre-wrap',margin:'8px 0'};
+  const [expanded,setExpanded]=React.useState({});const say=r=>g.StampShopSay(r,name);const all=g.StampShop.history(shop),records=inlineCurrent?all.filter(r=>r.date===shop.date):all,body={fontSize:13,lineHeight:1.9,whiteSpace:'pre-wrap',margin:'8px 0'};
   if(!records.length)return h('p',{style:body},'写过的打烊会按天留在这里。只关门不会生成故事。');
   const older=inlineCurrent&&onDiary&&all.length>records.length?h('button',{key:'older','data-wk':'duelshopolder',type:'button',onClick:onDiary,style:{display:'block',width:'100%',margin:'10px 0 4px',padding:'8px 0',borderRadius:4,border:'1px dashed #9a6a4a',color:'#9a6a4a',fontSize:12.5,background:'transparent'}},'往期 '+(all.length-records.length)+' 晚的打烊都收在「店铺日记」里 ›'):null;
   return h(inlineCurrent?React.Fragment:'div',inlineCurrent?null:{'data-shop-stories':true,style:{display:'grid',gap:12}},records.map(record=>{

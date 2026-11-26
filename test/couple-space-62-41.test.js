@@ -44,7 +44,7 @@ test("年份这一层写的和读的对得上，日历那一份也跟着走", ()
   assert.match(app, /if \(yr\) rec\.year = yr;/, "年份没存进去");
   // ⚠️日历那一份原来硬写今年：填了 2027 也会被记进今年的格子。
   //   跟倒数用的必须是同一个算法，否则「空间里写着明年、日历上却在今年」。
-  assert.match(app, /const nx = annivNext\(rec\);[\s\S]{0,200}?new Date\(nx\.ts\)\.getFullYear\(\)/,
+  assert.match(app, /const nx = annivNext\(rec(?:, vclockMap\(Date\.now\(\), char\.id\))?\);[\s\S]{0,200}?new Date\(nx\.ts\)\.getFullYear\(\)/,
     "日历那一份还在自己算年份");
   assert.doesNotMatch(app, /saveCalEvent\(char\.id, new Date\(\)\.getFullYear\(\)/, "旧那行硬写今年的还留着");
   // 表单：每年重复的那一档不发这一行——它压根没有「哪一年」这个问题
