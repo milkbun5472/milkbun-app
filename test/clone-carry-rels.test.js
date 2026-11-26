@@ -11,3 +11,9 @@ const rels = { "A->B": { label: "x" }, "me->A": { label: "y" }, "B->C": { label:
 const own = Object.keys(rels).filter(k => { const [a, b] = k.split("->"); return (a === c.id || b === c.id) && a !== b; });
 const nks = own.map(k => { const [a, b] = k.split("->"); return (a === c.id ? newId : a) + "->" + (b === c.id ? newId : b); });
 assert.deepEqual(nks.sort(), ["N->B", "me->N"]);
+
+test("克隆先问新名字，默认「（副本）」", () => {
+  const ap = require("fs").readFileSync(__dirname + "/../js/app.js", "utf8");
+  assert.match(ap, /requestAppPrompt\("新的这位叫什么？"/);
+  assert.match(ap, /name: nm \}\)\)\]\);/);
+});
