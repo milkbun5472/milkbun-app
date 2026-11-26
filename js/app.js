@@ -19937,6 +19937,75 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     await idbImgPut(k, blob);
     return shareShotToChat(char, { imgKey: k, desc: caption ? "拍立得，白边上你写了：" + caption : "" });
   };
+  // ═══ 相机·旅行（她 2026-11-26）═══
+  //   挑几个人、写一个地方，排出几站；一站一站寄明信片：正面是寄信的人在那儿拍的照（自拍／别人帮拍／风景／大家合照，TA 自己挑），
+  //   背面是TA写的一小段话。出发前选她去不去、要不要记进记忆；明信片的样子可以定，也可以让TA挑。
+  //   出图走跟相机合照同一个 castShotBlob；风景那种照聊天里「随手拍」那条空景路（buildScenePrompt、不喂脸）。
+  const tripNames = ids => ids.map(id => ((characters || []).find(c => c.id === id) || {}).name).filter(Boolean);
+  const tripPlan = async (ids, place, meGo, n) => {
+    const lead = (characters || []).find(c => c.id === ids[0]);
+    if (!lead) throw new Error("先挑一起去的人");
+    const route = apiFor(lead.id); if (!route) throw new Error("请先到设置配置 API");
+    const uName = (profileFor(lead.id) || {}).name || "她", names = tripNames(ids);
+    const d = await runProbe(route, ctxFor(lead), {
+      instruction: "要出门旅行：" + names.join("、") + (meGo ? "，还有 " + uName + " 一起" : "（" + uName + " 这趟没来，在家等明信片）") + "。她写的目的地是：「" + String(place || "").trim() + "」。"
+        + "排一条" + (n ? n + " 站" : "三到六站") + "的路线，一站接一站顺着走得通。她写的是真实存在的地方，就排那里真有的景点、街区、店；写的是一种地方或者一句话，就照这一句和这几个人的世界去想这几站。"
+        + "每站 place 写地名（短），plan 写他们在那儿做什么（一句）。",
+      schemaHint: "{\"stops\":[{\"place\":\"地名\",\"plan\":\"在那儿做什么\"}]}",
+      maxTokens: 12000
+    });
+    return (Array.isArray(d && d.stops) ? d.stops : []).map(x => ({ place: String((x && x.place) || "").trim(), plan: String((x && x.plan) || "").trim() })).filter(x => x.place);
+  };
+  const TRIP_KIND = { self: "自拍", other: "别人帮忙拍的", view: "随手拍的风景（画面里没有人）", group: "大家一起的合照" };
+  const tripCard = async (trip, idx, styles) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const stop = trip.stops[idx], ids = trip.ids || [], all = stop.sender === "all";
+    const writers = (all ? ids : [stop.sender]).map(id => (characters || []).find(c => c.id === id)).filter(Boolean);
+    if (!writers.length) throw new Error("这一站没有寄信的人");
+    const lead = writers[0], uName = (profileFor(lead.id) || {}).name || "她", meName = userName(profile);
+    const names = tripNames(ids);
+    const before = trip.stops.slice(0, idx).filter(x => x.card).map(x => "- " + x.place + "：" + (x.card.texts || []).map(t => (((characters || []).find(c => c.id === t.pid) || {}).name || "") + "写「" + t.text + "」").join("；")).join("\n");
+    const head = w => "你在旅行：同行的有 " + names.filter(n => n !== w.name).concat(trip.meGo ? [uName] : []).join("、") + (trip.meGo ? "" : "（" + uName + " 这趟没来，在家等你们的明信片）") + "。"
+      + "这一站是「" + stop.place + "」" + (stop.plan ? "，" + stop.plan : "") + "。"
+      + (before ? "\n【前几站寄出去的明信片】\n" + before + "\n接着往下写，这一站是新的一天、新的地方，别把前面写过的再写一遍。\n" : "")
+      + (all ? "这张明信片是大家一起寄的，每个人在背面写自己的一两句；" : "这张明信片是你寄给 " + uName + " 的；")
+      + "text 是你写在背面的话，" + (trip.meGo ? "写给一起来的她，" : "写给在家的她，") + "说这一站的事和你此刻想说的，长短跟着你此刻的心情和你平时说话的样子来" + (all ? "（只写你自己那一两句）" : "") + "。";
+    const pickStyle = stop.style === "auto" && styles && styles.length;
+    const lr = apiFor(lead.id); if (!lr) throw new Error("请先到设置配置 API");
+    const d = await runProbe(lr, ctxFor(lead), {
+      voice: true,
+      instruction: head(lead) + "\n正面是你在这一站拍的照片，你来挑怎么拍：kind 是 self（你自拍）、other（别人帮你拍）、view（只拍风景或东西，画面里没有人）"
+        + (ids.length > 1 || trip.meGo ? "、group（同行的人一起入镜的合照）" : "") + "；scene 写画面里是什么（在哪、在干嘛、穿什么、光线），给画画的人看。"
+        + (pickStyle ? "\nstyle 是你挑的明信片样子，从这几种里挑一个写它的 id：" + styles.map(x => x.id + "＝" + x.zh).join("；") + "。" : ""),
+      schemaHint: "{\"text\":\"写在背面的话\",\"kind\":\"self|other|view" + (ids.length > 1 || trip.meGo ? "|group" : "") + "\",\"scene\":\"画面\"" + (pickStyle ? ",\"style\":\"样子的id\"" : "") + "}",
+      maxTokens: 12000
+    });
+    const texts = [{ pid: lead.id, text: String((d && d.text) || "").trim() }];
+    if (all && writers.length > 1) {
+      const rest = await Promise.all(writers.slice(1).map(async w => { try { const r = apiFor(w.id); if (!r) return null;
+        const x = await runProbe(r, ctxFor(w), { voice: true, instruction: head(w) + "\n" + lead.name + " 已经在上面写了：「" + texts[0].text + "」。", schemaHint: "{\"text\":\"你写的一两句\"}", maxTokens: 8000 });
+        return { pid: w.id, text: String((x && x.text) || "").trim() }; } catch (e) { return null; } }));
+      rest.forEach(x => x && x.text && texts.push(x));
+    }
+    let kind = String((d && d.kind) || "self"); if (!TRIP_KIND[kind]) kind = "self";
+    if (kind === "group" && !(ids.length > 1 || trip.meGo)) kind = "self";
+    const scene = "在「" + stop.place + "」旅行时拍的：" + String((d && d.scene) || stop.plan || "").trim();
+    let blob;
+    if (kind === "view") {
+      const out = await generateSelfieImage(buildScenePrompt(lead, scene, { forText: false }), null, {});
+      blob = await imgOutBlob(out); if (!blob) throw new Error((out && out.err) || "没出图");
+    } else {
+      const castIds = kind === "group" ? ids.concat(trip.meGo ? ["me"] : []) : [lead.id];
+      const cast = castIds.map(id => id === "me" ? { ...meSubject(null, meName, null), id: "me", name: meName } : (characters || []).find(c => c && c.id === id)).filter(Boolean).slice(0, GROUP_SHOT_MAX);
+      blob = await castShotBlob(cast, scene, { kind: kind === "other" ? "other" : "self" });
+    }
+    const style = pickStyle && styles.some(x => x.id === d.style) ? d.style : "";
+    if (trip.remember) {
+      const who = ids.slice();
+      try { addMemEntry({ text: (trip.meGo ? "和" + uName + "、" : "") + names.join("、") + "一起旅行，到了「" + stop.place + "」" + (stop.plan ? "，" + stop.plan : "") + "。明信片上写：" + texts.map(t => (((characters || []).find(c => c.id === t.pid) || {}).name || "") + "「" + t.text + "」").join(" "), tags: ["旅行"], charIds: who, knownBy: who, source: "auto" }); } catch (e) {}
+    }
+    return { blob, kind, kindZh: TRIP_KIND[kind], scene, texts, style, castPids: kind === "view" ? [] : kind === "group" ? ids : [lead.id] };
+  };
   const cameraGenShot = async (ids, scene, who) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
     const meName = userName(profile);
@@ -39462,7 +39531,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, onTripPlan: tripPlan, onTripCard: tripCard, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,
