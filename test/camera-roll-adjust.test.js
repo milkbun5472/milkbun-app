@@ -30,3 +30,10 @@ test("拍过的点开看大图：复用成片页，左下是删除，删本机�
   assert.match(cam, /await idbImgDel\(shot\.k\)/);
   assert.ok(ts.includes('["camrollone"'));
 });
+test("拍过的按角色分：画面里有谁写在键尾，开相机时读回来，上面一排按人筛", () => {
+  assert.match(cam, /ps\.map\(encodeURIComponent\)\.join\("~"\)/);
+  assert.match(cam, /rest\.slice\(j \+ 1\)\.split\("~"\)/);
+  assert.match(cam, /toRoll\(blob, "拍的", stickers\.map\(s => s\.pid\)\)/);
+  assert.match(cam, /toRoll\(blob, "画的", genIds\)/);
+  assert.ok(ts.includes('["camrollwho"') && cam.includes('"data-wk": "camrollwhoone"'));
+});

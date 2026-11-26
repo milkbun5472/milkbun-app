@@ -290,6 +290,7 @@
     };   // 首页点的是「单人写真」还是「多人合照」
     // 这一趟拍的、画的都排进胶卷：拼贴那边直接从这里挑（存进图库，拼贴读图走 imgKey）
     const [roll, setRoll] = useState([]);
+    const [rollWho, setRollWho] = useState("");   // 拍过的：按谁筛，空＝全部
     // 抠图人：给谁抠（默认第一个角色）、她写的姿势、在忙什么；抠好的图按 img_ 键现读成 objectURL
     const [pTab, setPTab] = useState("avatar");   // 加人面板里两格：头像贴纸 / 抠出来的人（底栏不再多塞一颗，挤不下）
     const [cutFor, setCutFor] = useState(() => (chars[0] && chars[0].id) || "me");
@@ -327,11 +328,13 @@
     // 胶卷（她 2026-11-26「拍完大退重进怎么就没了」）：图本来就进了本机图库，丢的是这张清单——
     //   清单不另存，开相机时照图库里 img_camroll_ 的键排出来；拍的/画的写在键尾，时间是键里那段 36 进制
     const ROLL_DESC = { s: "拍的", g: "画的" };
-    const toRoll = async (blob, desc) => { try { if (typeof idbImgPut !== "function") return; const ts = Date.now(), k = "img_camroll_" + ts.toString(36) + "_" + (desc === "画的" ? "g" : "s"); await idbImgPut(k, blob); setRoll(l => [{ imgKey: k, ts, desc }].concat(l)); return k; } catch (e) { return ""; } };
+    // 按角色分（她 2026-11-26）：画面里有谁也写在键尾（各自 encode、用 ~ 连），胶卷那一排按人筛
+    const toRoll = async (blob, desc, pids) => { try { if (typeof idbImgPut !== "function") return; const ps = (pids || []).filter(x => x && x !== "me"), ts = Date.now(), k = "img_camroll_" + ts.toString(36) + "_" + (desc === "画的" ? "g" : "s") + (ps.length ? "_" + ps.map(encodeURIComponent).join("~") : ""); await idbImgPut(k, blob); setRoll(l => [{ imgKey: k, ts, desc, pids: ps }].concat(l)); return k; } catch (e) { return ""; } };
     useEffect(() => { let live = true;
       (async () => { try { if (typeof idbAllKeys !== "function" || typeof idbImgOpen !== "function") return;
         const ks = (await idbAllKeys(idbImgOpen) || []).map(String).filter(k => k.indexOf("img_camroll_") === 0);
-        const list = ks.map(k => { const m = k.slice(12).split("_"); return { imgKey: k, ts: parseInt(m[0], 36) || 0, desc: ROLL_DESC[m[1]] || "拍的" }; }).sort((a, b) => b.ts - a.ts);
+        const list = ks.map(k => { const r = k.slice(12), i = r.indexOf("_"), rest = i < 0 ? "" : r.slice(i + 1), j = rest.indexOf("_");
+          return { imgKey: k, ts: parseInt(i < 0 ? r : r.slice(0, i), 36) || 0, desc: ROLL_DESC[rest.charAt(0)] || "拍的", pids: j < 0 ? [] : rest.slice(j + 1).split("~").map(x => { try { return decodeURIComponent(x); } catch (e) { return x; } }) }; }).sort((a, b) => b.ts - a.ts);
         if (live) setRoll(l => l.concat(list.filter(x => !l.some(y => y.imgKey === x.imgKey)))); } catch (e) {} })();
       return () => { live = false; }; }, []);
     const camRef = useRef(null), videoRef = useRef(null), stageRef = useRef(null), fileRef = useRef(null), touches = useRef({});
@@ -355,7 +358,7 @@
       if (genBusy || !props.onGen) return;
       if (!genIds.length) { props.toast && props.toast("先挑画面里有谁"); return; }
       setGenBusy(true);
-      try { const blob = await props.onGen(genIds, genScene, genWho); setShot({ url: URL.createObjectURL(blob), blob, gen: true, pids: genIds.filter(x => x !== "me") }); setLook(null); toRoll(blob, "画的").then(k => k && setShot(s => s && s.blob === blob ? Object.assign({}, s, { k }) : s)); }
+      try { const blob = await props.onGen(genIds, genScene, genWho); setShot({ url: URL.createObjectURL(blob), blob, gen: true, pids: genIds.filter(x => x !== "me") }); setLook(null); toRoll(blob, "画的", genIds).then(k => k && setShot(s => s && s.blob === blob ? Object.assign({}, s, { k }) : s)); }
       catch (e) { props.toast && props.toast("没画成：" + String(e && e.message || e).slice(0, 80)); }
       finally { setGenBusy(false); }
     };
@@ -457,6 +460,8 @@
       try { await props.onShare(look.pid, await finalBlob(), look.caption || ""); } catch (e) { props.toast && props.toast("没发出去：" + String(e && e.message || e).slice(0, 80)); }
     };
     // 拍过的那一排：点开就是拍完那一页（存到手机、给TA看照旧），左下换成「删除」——删的是本机图库里这一张
+    const rollPeople = chars.filter(c => roll.some(x => (x.pids || []).indexOf(c.id) >= 0));
+    const rollShown = rollWho && rollPeople.some(c => c.id === rollWho) ? roll.filter(x => (x.pids || []).indexOf(rollWho) >= 0) : roll;
     const openRoll = async p => {
       try { const blob = typeof idbImgGet === "function" ? await idbImgGet(p.imgKey) : null; if (!blob) throw new Error("这张在本机图库里找不到了");
         setLook(null); setShot({ url: URL.createObjectURL(blob), blob, k: p.imgKey, fromRoll: true, gen: p.desc === "画的", pids: [] }); }
@@ -472,7 +477,7 @@
       try {
         const blob = await renderFrame();
         setShot({ url: URL.createObjectURL(blob), blob, pids: Array.from(new Set(stickers.map(s => s.pid).filter(x => x && x !== "me"))) }); setSel(null); setLook(null);
-        toRoll(blob, "拍的").then(k => k && setShot(s => s && s.blob === blob ? Object.assign({}, s, { k }) : s));
+        toRoll(blob, "拍的", stickers.map(s => s.pid)).then(k => k && setShot(s => s && s.blob === blob ? Object.assign({}, s, { k }) : s));
       } catch (e) {
         const m = e && e.name === "SecurityError" ? "有张头像是网上的图，浏览器不让画进照片；换成本地上传的头像再拍" : String(e && e.message || e);
         props.toast && props.toast(m);
@@ -577,8 +582,13 @@
             tile("booth", "大头贴", "一条四格，印上日期", "linear-gradient(135deg,#5aa2ff,#8fc1ff)", I.booth, () => { setColTpl("booth"); switchMode("collage"); }, true)),
           roll.length ? h("div", { style: { marginTop: 20 } },
             h("div", { style: { fontSize: FS(13), fontWeight: 600, marginBottom: 8 } }, "拍过的"),
+            rollPeople.length ? h("div", { "data-wk": "camrollwho", style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8 } },
+              [{ id: "", name: "全部" }].concat(rollPeople).map(p => { const on = rollWho === p.id;
+                return h("button", { key: p.id || "all", "data-wk": "camrollwhoone", "data-on": on ? "1" : "0", onClick: () => setRollWho(p.id),
+                  style: { flexShrink: 0, height: 28, padding: "0 12px", borderRadius: 14, border: on ? "none" : "1px solid rgba(0,0,0,.1)", background: on ? GRAD : "#fff", color: on ? "#fff" : "#4a3f47", fontSize: FS(12), fontWeight: on ? 600 : 400 } },
+                  p.name + (p.id ? " " + roll.filter(x => (x.pids || []).indexOf(p.id) >= 0).length : "")); })) : null,
             h("div", { "data-wk": "camhubroll", style: { display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 } },
-              roll.map(p => h("div", { key: p.imgKey, "data-wk": "camrollone", onClick: () => openRoll(p), style: { flexShrink: 0, width: 72, height: 96, borderRadius: 12, overflow: "hidden", background: "#eee", cursor: "pointer" } }, typeof AlbumPhoto === "function" ? h(AlbumPhoto, { photo: p }) : null)))) : null),
+              rollShown.map(p => h("div", { key: p.imgKey, "data-wk": "camrollone", onClick: () => openRoll(p), style: { flexShrink: 0, width: 72, height: 96, borderRadius: 12, overflow: "hidden", background: "#eee", cursor: "pointer" } }, typeof AlbumPhoto === "function" ? h(AlbumPhoto, { photo: p }) : null)))) : null),
         h("input", { ref: hubFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; setBg(URL.createObjectURL(f)); setMode("live"); setPanel(""); } }));
     }
     // 拼贴、大头贴：借拼壁纸那个编辑器（collage.js），solo 不对着哪个人；这一趟拍的画的在胶卷里，也能从手机传
