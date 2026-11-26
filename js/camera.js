@@ -66,6 +66,24 @@
       return await new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error("没存下来")), "image/jpeg", 0.92));
     } finally { URL.revokeObjectURL(u); }
   }
+  // 穿什么（她 2026-11-26「跟情侣空间一样选衣柜或者生成一套新的」）：衣柜里挑几件拼一整套（跟照相馆那排一个用法），或者「配一套新的」——配好挂进TA衣柜、顺手挑上
+  function OutfitPick({ name, sets, picked, onToggle, onClear, onGen, busy, dark }) {
+    const ink = dark ? "#fff" : "#2b2230", sub = dark ? "rgba(255,255,255,.55)" : "#9a8592", PINK = "#ff5f9e";
+    const on = n => picked.indexOf(n) >= 0;
+    return h("div", { "data-wk": "camoutfit", style: { marginTop: 10 } },
+      h("div", { style: { display: "flex", alignItems: "baseline", gap: 6, fontSize: FS(12), color: ink } },
+        h("span", { style: { fontWeight: 600 } }, name + " 穿"),
+        h("span", { style: { fontSize: FS(10.5), color: picked.length ? PINK : sub } }, picked.length ? "挑了 " + picked.length + " 件" : sets.length ? "可多选，拼成一整套；不挑就照场景配" : "衣柜还空着，不挑就照场景配"),
+        h("span", { style: { flex: 1 } }),
+        picked.length ? h("button", { onClick: onClear, style: { border: "none", background: "transparent", color: sub, fontSize: FS(10.5), padding: 0 } }, "不指定") : null),
+      h("div", { style: { display: "flex", gap: 6, overflowX: "auto", padding: "6px 0 2px", alignItems: "stretch" } },
+        onGen ? h("button", { "data-wk": "cambtn", "data-part": "genfit", onClick: onGen, disabled: !!busy, style: { flexShrink: 0, padding: "6px 11px", borderRadius: 12, border: "1.5px dashed " + PINK, background: "transparent", color: PINK, fontSize: FS(11.5), whiteSpace: "nowrap", opacity: busy ? .6 : 1 } }, busy ? "在配…" : "＋ 配一套新的") : null,
+        sets.slice(0, 40).map((x, i) => h("button", { key: i, "data-wk": "camoutfitone", "data-on": on(x.name) ? "1" : "0", onClick: () => onToggle(x.name),
+          style: { flexShrink: 0, maxWidth: 170, textAlign: "left", padding: "6px 10px", borderRadius: 12, border: "1.5px solid " + (on(x.name) ? PINK : dark ? "rgba(255,255,255,.18)" : "#f1e4ea"), background: on(x.name) ? (dark ? "rgba(255,95,158,.25)" : "#fff1f6") : dark ? "rgba(255,255,255,.06)" : "#fff", color: ink } },
+          h("div", { style: { fontSize: FS(11.5), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: on(x.name) ? 600 : 400 } }, (x.occasion ? x.occasion + " · " : "") + x.name),
+          x.note ? h("div", { style: { fontSize: FS(10), color: sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, x.note) : null))));
+  }
+  const FRAMES = [["", "不指定"], ["full", "全身"], ["half", "半身"]];
   const STYLES = [["round", "圆头像"], ["card", "小卡"], ["plain", "原图"]];
 
   // 不认 ctx.filter 时的兜底：把同一串 CSS 滤镜逐像素算一遍（只用到上面那几种函数）
@@ -223,9 +241,10 @@
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(st.r * Math.PI / 180);
     ctx.shadowColor = "rgba(0,0,0,.28)"; ctx.shadowBlur = size * 0.08; ctx.shadowOffsetY = size * 0.03;
     if (st.style === "cut") {   // 抠出来的人：不加框，影子跟着人的轮廓落；可以左右翻
-      const ar2 = im ? im.naturalHeight / im.naturalWidth || 1 : 1, ih2 = size * ar2;
+      // 半身（她 2026-11-26「生成全身之后只想显示半身」）：只画上面 crop 那一截，下面裁掉
+      const cr = st.crop || 1, ar2 = im ? im.naturalHeight / im.naturalWidth || 1 : 1, ih2 = size * ar2 * cr;
       if (st.flip) ctx.scale(-1, 1);
-      if (im) ctx.drawImage(im, -size / 2, -ih2 / 2, size, ih2);
+      if (im) ctx.drawImage(im, 0, 0, im.naturalWidth, im.naturalHeight * cr, -size / 2, -ih2 / 2, size, ih2);
       ctx.restore(); return;
     }
     const half = size / 2, bd = st.style === "plain" ? 0 : size * 0.06;
@@ -265,6 +284,11 @@
     const [panel, setPanel] = useState("");       // "people" | "filter" | ""
     const [shot, setShot] = useState(null);       // {url, blob}
     const [busy, setBusy] = useState(false);
+    // 全身／半身、挑的衣服（她 2026-11-26）：写真合照和抠图人各一份景别；衣服按人记，两处共用
+    const [genFrame, setGenFrame] = useState("");
+    const [cutFrame, setCutFrame] = useState("full");
+    const [fitPick, setFitPick] = useState({});      // {人id: [挑的那几件的名字]}
+    const [fitBusy, setFitBusy] = useState("");
     // 给TA看（她 2026-11-26 挑的前三个好玩的）：拍完挑一个人看这张——TA 说一句、在相纸白边上写一行；还能发进TA的聊天
     const [look, setLook] = useState(null);       // {pid, busy, say, caption}
     const [talkBusy, setTalkBusy] = useState("");  // 一起逛：哪张贴纸正在想说什么
@@ -311,10 +335,21 @@
       const st = { id: "s" + Date.now() + Math.random().toString(36).slice(2, 5), pid, k, x: 0.5 + (stickers.length % 3 - 1) * 0.18, y: 0.6, s: 0.5, r: 0, style: "cut" };
       setStickers(l => l.concat([st])); setSel(st.id);
     };
+    const closetOf = id => id && id !== "me" && props.onClosetOf ? props.onClosetOf(id) || [] : [];
+    const fitText = id => { const sets = closetOf(id), names = fitPick[id] || []; return names.map(n => { const x = sets.find(y => y.name === n); return x ? x.name + (x.note ? "（" + x.note + "）" : "") : n; }).join("、"); };
+    const fitsFor = ids => { const o = {}; ids.forEach(id => { const t = fitText(id); if (t) o[id] = t; }); return o; };
+    const togFit = (id, n) => setFitPick(m => { const l = m[id] || []; return Object.assign({}, m, { [id]: l.indexOf(n) >= 0 ? l.filter(x => x !== n) : l.concat([n]) }); });
+    const genFit = async (id, hint) => {
+      if (fitBusy || !props.onGenFit) return; setFitBusy(id);
+      try { const x = await props.onGenFit(id, hint); setFitPick(m => Object.assign({}, m, { [id]: [x.name] })); }
+      catch (e) { props.toast && props.toast("没配成：" + String(e && e.message || e).slice(0, 80)); } finally { setFitBusy(""); }
+    };
+    const outfitFor = (id, hint, dark) => { const p = people.find(x => x.id === id); if (!p || id === "me") return null;
+      return h(OutfitPick, { key: "fit" + id, name: p.name, sets: closetOf(id), picked: fitPick[id] || [], onToggle: n => togFit(id, n), onClear: () => setFitPick(m => Object.assign({}, m, { [id]: [] })), onGen: props.onGenFit ? () => genFit(id, hint) : null, busy: fitBusy === id, dark }); };
     const genCut = async () => {
       if (cutBusy || !props.onGenCutout) return;
       setCutBusy("gen");
-      try { const raw = await props.onGenCutout(cutFor, cutPose); const png = await keyGreen(raw); const k = await cutSave(cutFor, png, "gen"); setCutRev(n => n + 1); addCut(cutFor, k); }
+      try { const raw = await props.onGenCutout(cutFor, cutPose, { frame: cutFrame, fits: fitsFor([cutFor]) }); const png = await keyGreen(raw); const k = await cutSave(cutFor, png, "gen"); setCutRev(n => n + 1); addCut(cutFor, k); }
       catch (e) { props.toast && props.toast("没抠成：" + String(e && e.message || e).slice(0, 80)); }
       finally { setCutBusy(""); }
     };
@@ -358,7 +393,7 @@
       if (genBusy || !props.onGen) return;
       if (!genIds.length) { props.toast && props.toast("先挑画面里有谁"); return; }
       setGenBusy(true);
-      try { const blob = await props.onGen(genIds, genScene, genWho); setShot({ url: URL.createObjectURL(blob), blob, gen: true, pids: genIds.filter(x => x !== "me") }); setLook(null); toRoll(blob, "画的", genIds).then(k => k && setShot(s => s && s.blob === blob ? Object.assign({}, s, { k }) : s)); }
+      try { const blob = await props.onGen(genIds, genScene, genWho, { frame: genFrame, fits: fitsFor(genIds) }); setShot({ url: URL.createObjectURL(blob), blob, gen: true, pids: genIds.filter(x => x !== "me") }); setLook(null); toRoll(blob, "画的", genIds).then(k => k && setShot(s => s && s.blob === blob ? Object.assign({}, s, { k }) : s)); }
       catch (e) { props.toast && props.toast("没画成：" + String(e && e.message || e).slice(0, 80)); }
       finally { setGenBusy(false); }
     };
@@ -432,7 +467,7 @@
         return await new Promise((res, rej) => { try { cv.toBlob(b => b ? res(b) : rej(new Error("没存下来")), "image/jpeg", 0.92); } catch (x) { rej(x); } });
     };
     // 贴纸头顶在哪：泡泡的尖对着它。高度＝宽×长宽比（原图／抠的人按图本身的比例，图载好时记在 st.ar）
-    const talkLift = (st, W, H) => { const ar = st.style === "round" ? 1 : st.style === "card" ? 1.12 : (st.ar || 1.4); return st.s * W * ar / 2 / H; };
+    const talkLift = (st, W, H) => { const ar = st.style === "round" ? 1 : st.style === "card" ? 1.12 : (st.ar || 1.4) * (st.style === "cut" ? st.crop || 1 : 1); return st.s * W * ar / 2 / H; };
     // 一起逛：TA 看着取景框里此刻的样子（自己也在里面）说一句，泡泡挂在TA头顶，按快门时一起拍进去
     const talk = async st => {
       if (talkBusy || !props.onLook) return;
@@ -632,7 +667,12 @@
                   h("div", { style: { fontSize: FS(11.5), marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: on ? 600 : 400, color: on ? INK : "#6f5d68" } }, p.name)); }))),
           card("who", "谁拿的手机", "",
             h("div", { style: { display: "flex", gap: 10 } }, seg("other", "有人帮忙拍", "看得到全身和周围"), seg("self", "自己举着自拍", "近一点、带点手臂"))),
-          card("scene", "画面", "选填：在哪、在干嘛、穿什么",
+          card("frame", "拍多少", "",
+            h("div", { style: { display: "flex", gap: 8 } }, FRAMES.map(([k, zh]) => h("button", { key: k, "data-wk": "cambtn", "data-part": "frame", "data-on": genFrame === k ? "1" : "0", onClick: () => setGenFrame(k),
+              style: { flex: 1, height: 36, borderRadius: 12, border: "1.5px solid " + (genFrame === k ? PINK : "#f1e4ea"), background: genFrame === k ? "#fff1f6" : "#fff", color: INK, fontSize: FS(13), fontWeight: genFrame === k ? 600 : 400 } }, zh)))),
+          genIds.some(id => id !== "me") ? card("outfit", "穿什么", "从衣柜挑，或者配一套新的",
+            h("div", { style: { marginTop: -10 } }, genIds.map(id => outfitFor(id, genScene, false)))) : null,
+          card("scene", "画面", "选填：在哪、在干嘛",
             h("div", null,
               h("textarea", { "data-wk": "camgenscene", value: genScene, onChange: e => setGenScene(e.target.value), rows: genScene.split("\n").length > 2 ? 7 : 3, placeholder: "空着＝随手拍的一张；也可以只写一两个字，再让 AI 先写一版",
                 style: { width: "100%", boxSizing: "border-box", borderRadius: 14, border: "1.5px solid #f1e4ea", background: "#fffafc", color: INK, padding: "10px 12px", fontSize: FS(14), lineHeight: 1.6, outline: "none", resize: "none" } }),
@@ -654,7 +694,8 @@
           onPointerDown: e => onDown(e, st.id), onPointerMove: e => onMove(e, st.id), onPointerUp: onUp, onPointerCancel: onUp,
           style: { position: "absolute", left: st.x * 100 + "%", top: st.y * 100 + "%", width: st.s * 100 + "%", transform: "translate(-50%,-50%) rotate(" + st.r + "deg)", touchAction: "none",
             outline: on ? "1.5px dashed rgba(255,255,255,.9)" : "none", outlineOffset: 4 } },
-          u ? h("img", { src: u, draggable: false, onLoad: e => { const t = e.currentTarget, a = t.naturalHeight / t.naturalWidth; if (a && Math.abs(a - (st.ar || 0)) > .01) patch(st.id, { ar: a }); }, style: { display: "block", width: "100%", height: "auto", pointerEvents: "none", transform: st.flip ? "scaleX(-1)" : "none", filter: "drop-shadow(0 6px 10px rgba(0,0,0,.28))" } }) : null);
+          u ? h("div", { style: { width: "100%", aspectRatio: st.ar ? "1 / " + (st.ar * (st.crop || 1)) : "auto", overflow: "hidden", filter: "drop-shadow(0 6px 10px rgba(0,0,0,.28))" } },
+            h("img", { src: u, draggable: false, onLoad: e => { const t = e.currentTarget, a = t.naturalHeight / t.naturalWidth; if (a && Math.abs(a - (st.ar || 0)) > .01) patch(st.id, { ar: a }); }, style: { display: "block", width: "100%", height: "auto", pointerEvents: "none", transform: st.flip ? "scaleX(-1)" : "none" } })) : null);
       }
       const p = people.find(x => x.id === st.pid) || {}, src = srcOf(p), on = st.id === sel;
       const shape = st.style === "round" ? { borderRadius: "50%", border: "0.06em solid #fff", background: "#fff" } : st.style === "card" ? { border: "0.06em solid #fff", borderBottomWidth: "0.18em", background: "#fff" } : {};
@@ -694,7 +735,10 @@
           h("span", { style: { position: "absolute", left: "50%", bottom: -6, marginLeft: -6, width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "7px solid rgba(255,255,255,.96)" } })); }),
       selSt && !sheetOn ? h("div", { "data-wk": "camtool", style: { position: "absolute", left: 0, right: 0, bottom: "calc(118px + " + COMPOSER_PAD_BOTTOM + ")", display: "flex", justifyContent: "center", padding: "0 12px" } },
         h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", padding: 6, borderRadius: 22, background: "rgba(20,16,22,.5)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" } },
-          selSt.style === "cut" ? btn("左右翻", () => patch(selSt.id, { flip: !selSt.flip }), !!selSt.flip, "flip")
+          selSt.style === "cut" ? h(React.Fragment, null, btn("左右翻", () => patch(selSt.id, { flip: !selSt.flip }), !!selSt.flip, "flip"),
+              btn("半身", () => patch(selSt.id, { crop: selSt.crop && selSt.crop < 1 ? 1 : 0.55 }), !!(selSt.crop && selSt.crop < 1), "halfcrop"),
+              selSt.crop && selSt.crop < 1 ? h("label", { "data-wk": "camcrop", style: { display: "flex", alignItems: "center", gap: 6, color: "#fff", fontSize: FS(11.5), padding: "0 6px", width: "100%" } }, "露多少",
+                h("input", { type: "range", min: 25, max: 95, step: 1, value: Math.round(selSt.crop * 100), onChange: e => patch(selSt.id, { crop: (+e.target.value) / 100 }), style: { flex: 1, accentColor: "#ff8fa8" } })) : null)
             : STYLES.map(([k, zh]) => h(React.Fragment, { key: k }, btn(zh, () => patch(selSt.id, { style: k }), selSt.style === k, "style"))),
           selSt.pid && selSt.pid !== "me" && props.onLook ? btn(talkBusy === selSt.id ? "在想…" : selSt.say ? "换一句" : "TA说一句", () => talk(selSt), !!selSt.say, "talk") : null,
           btn("删掉", () => { setStickers(l => l.filter(s => s.id !== selSt.id)); setSel(null); }, false, "del"))) : null,
@@ -725,7 +769,9 @@
                 cutUrls[x.k] ? h("img", { src: cutUrls[x.k], style: { width: "100%", height: "100%", objectFit: "contain" } }) : null),
               h("button", { "data-wk": "camcutdel", "aria-label": "不要这张", onClick: () => { cutDrop(cutFor, x.k); setCutRev(n => n + 1); },
                 style: { position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: 11, border: "1.5px solid rgba(20,16,22,.9)", background: "#fff", color: "#2b2230", fontSize: FS(12), lineHeight: "18px", padding: 0 } }, "×")))),
-          h("div", { style: { display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8 } },
+          h("div", { style: { display: "flex", gap: 6, marginBottom: 2 } }, [["full", "全身"], ["half", "半身"]].map(([k, zh]) => h(React.Fragment, { key: k }, btn(zh, () => setCutFrame(k), cutFrame === k, "cutframe")))),
+          outfitFor(cutFor, cutPose, true),
+          h("div", { style: { display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8, marginTop: 10 } },
             h("textarea", { "data-wk": "camcutpose", value: cutPose, onChange: e => setCutPose(e.target.value), placeholder: "姿势（选填，写一两个字也行）", rows: cutPose.split("\n").length > 1 ? 4 : 1,
               style: { flex: 1, minWidth: 0, minHeight: 38, borderRadius: 19, border: "1px solid rgba(255,255,255,.2)", background: "rgba(255,255,255,.08)", color: "#fff", padding: "9px 14px", fontSize: FS(13), lineHeight: 1.5, outline: "none", resize: "none", boxSizing: "border-box" } }),
             props.onWriteShot ? h("button", { "data-wk": "cambtn", "data-part": "cutwrite", onClick: () => writeShot(true), disabled: !!writing,
@@ -734,7 +780,7 @@
             h("button", { "data-wk": "cambtn", "data-part": "cutgen", onClick: genCut, style: { flex: 1, height: 38, padding: "0 14px", borderRadius: 19, border: "none", background: GRAD, color: "#fff", fontSize: FS(12.5), fontWeight: 600, opacity: cutBusy ? .6 : 1 } }, cutBusy === "gen" ? "在画…" : "现生一张"),
             h("button", { "data-wk": "cambtn", "data-part": "cutphoto", onClick: () => !cutBusy && cutFileRef.current && cutFileRef.current.click(), style: { flex: 1, height: 38, padding: "0 14px", borderRadius: 19, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.1)", color: "#fff", fontSize: FS(12.5), opacity: cutBusy ? .6 : 1 } }, cutBusy === "seg" ? "在抠…" : "从照片抠")),
           h("div", { style: { fontSize: FS(10.5), color: "rgba(255,255,255,.5)", padding: "8px 2px 0", lineHeight: 1.6 } },
-            cutBusy === "seg" ? "第一次抠要先下载抠图工具（三十兆左右），稍等" : "现生：锁脸画一张全身再去底（用图像API）；从照片抠：手机上就地抠，不花额度")) : null,
+            cutBusy === "seg" ? "第一次抠要先下载抠图工具（三十兆左右），稍等" : "现生：锁脸照上面选的全身／半身和衣服画一张再去底（用图像API）；从照片抠：手机上就地抠，不花额度")) : null,
         panel === "filter" ? h("div", { "data-wk": "camfilter", style: { display: "flex", gap: 8, overflowX: "auto", padding: "12px 16px 4px" } },
           FILTERS.map(f => h(React.Fragment, { key: f.id }, btn(f.zh, () => setFilter(f.id), filter === f.id, "filter")))) : null,
         panel === "filter" ? h("div", { "data-wk": "camadjust", style: { padding: "6px 18px 2px" } },

@@ -19879,13 +19879,37 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 相机里那张「抠出来的他」（她 2026-11-26「ar相机你想想怎么生图或者生好的图怎么扣出人像一起拍」）：
   //   锁脸画一张全身、背景一整片纯绿的，相机那头把绿色去掉，就是一张透明底的他，贴进实景里拍。
   //   pose：她写的一句姿势，空着就自然站着
-  const cameraGenCutout = async (id, pose) => {
+  // 相机里挑衣服（她 2026-11-26「给个选衣服的地方，跟情侣空间一样选衣柜或者生成一套新的」）：
+  //   衣柜读 TA 自己那一格（carry[id].outfit，跟衣柜页、照相馆同一份）；挑好的那身锁进这一张（outfit/photoOutfit，跟钉住常服同一把锁）
+  const cameraClosetOf = id => { const out = []; (closetGroups(((carry || {})[id] || {}).outfit) || []).forEach(g => (g.sets || []).forEach(x => out.push({ occasion: g.occasion || "", name: x.name, note: x.note || "" }))); return out; };
+  const cameraGenFit = async (id, hint) => {
+    const char = (characters || []).find(c => c.id === id); if (!char) throw new Error("先挑是谁");
+    const route = apiFor(id); if (!route) throw new Error("请先到设置配置 API");
+    const d = await runProbe(route, ctxFor(char), {
+      voice: true,
+      instruction: "她要给你拍一张照片" + (String(hint || "").trim() ? "，这一张是：" + String(hint).trim() : "") + "。给你自己配一身这次穿的衣服：写清是什么衣服（款式、颜色、料子），别只给一个名字；"
+        + characterText(char, "要落在你这个时代和处境里，是你穿得出来的，") + "也要上镜好看。",
+      schemaHint: "{\"occasion\":\"场合，四个字以内\",\"name\":\"这身叫什么\",\"note\":\"是什么衣服\"}",
+      maxTokens: 8000
+    });
+    const one = { name: String((d && d.name) || "").trim().slice(0, 24), note: String((d && d.note) || "").trim().slice(0, 120) };
+    if (!one.name) throw new Error("没配出来");
+    const occ = String((d && d.occasion) || "拍照").trim().slice(0, 8) || "拍照";
+    if (closetRoom(((carryRef.current[id] || {}).outfit)) > 0) setCarry(p => { const box = p[id] || {}; const n = { ...p, [id]: { ...box, outfit: closetMerge(box.outfit, { closet: [{ occasion: occ, sets: [one] }] }) } }; carryRef.current = n; saveJSON("x_carry", n); return n; });
+    else toast(characterText(char, "TA的衣柜挂满了，这身这次照样穿，只是没挂进去"));
+    return { occasion: occ, name: one.name, note: one.note };
+  };
+  // 全身／半身＋挑好的衣服，写进这一张（o.frame：full/half；o.fits：{人id: 那一身}）
+  const CAM_FRAME = { full: "【景别】全身照：从头顶到鞋子整个人都在画面里。", half: "【景别】半身照：腰部以上入镜，人占画面大半。" };
+  const camDress = (c, o) => { const f = o && o.fits && String(o.fits[c.id] || "").trim(); return f ? { ...c, outfit: f, photoOutfit: f } : c; };
+  const cameraGenCutout = async (id, pose, o) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
     const meName = userName(profile);
-    const who = id === "me" ? { ...meSubject(null, meName, null), id: "me", name: meName } : (characters || []).find(c => c && c.id === id);
-    if (!who) throw new Error("先挑是谁");
+    const who0 = id === "me" ? { ...meSubject(null, meName, null), id: "me", name: meName } : (characters || []).find(c => c && c.id === id);
+    if (!who0) throw new Error("先挑是谁");
+    const who = camDress(who0, o), half = o && o.frame === "half";
     const sc = String(pose || "").trim() || "自然地站着";
-    return castShotBlob([who], sc, { kind: "other", extraText: "\n\n【这张要拿去抠图】从头顶到鞋子整个人完整入镜，四周留一点空，不裁掉任何部位；人站在画面正中。"
+    return castShotBlob([who], sc, { kind: "other", extraText: "\n\n【这张要拿去抠图】" + (half ? "腰部以上的半身入镜，头顶上方留一点空，不裁掉头和肩；人在画面正中。" : "从头顶到鞋子整个人完整入镜，四周留一点空，不裁掉任何部位；人站在画面正中。")
       + "背景是一整片均匀的纯绿色（#00FF00），像摄影棚的绿幕：没有地面、墙、影子、道具和其他人，也没有渐变。人身上不要穿绿色。" });
   };
   // 相机「让 AI 先写一版」（她 2026-11-26「我写沙滩 可以直接拍或者先让模型先写一版看着满意了再拍」）：
@@ -20090,13 +20114,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const blob = await castShotBlob([c], scene, { kind: "other", popts: { cinematic: true } });
     return { blob, photo: String((d && d.photo) || "").trim(), letter: String((d && d.letter) || "").trim() };
   };
-  const cameraGenShot = async (ids, scene, who) => {
+  const cameraGenShot = async (ids, scene, who, o) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
     const meName = userName(profile);
-    const cast = (ids || []).map(id => id === "me" ? { ...meSubject(null, meName, null), id: "me", name: meName } : (characters || []).find(c => c && c.id === id)).filter(Boolean).slice(0, GROUP_SHOT_MAX);
+    const cast = (ids || []).map(id => id === "me" ? { ...meSubject(null, meName, null), id: "me", name: meName } : (characters || []).find(c => c && c.id === id)).filter(Boolean).slice(0, GROUP_SHOT_MAX).map(c => camDress(c, o));
     if (!cast.length) throw new Error("先挑画面里有谁");
     const sc = String(scene || "").trim() || (cast.length > 1 ? "一起拍的一张合照" : "随手拍的一张照片");
-    return castShotBlob(cast, sc, { kind: who === "other" ? "other" : "self" });
+    const fr = o && CAM_FRAME[o.frame];
+    return castShotBlob(cast, sc, { kind: who === "other" ? "other" : "self", ...(fr ? { extraText: "\n\n" + fr + (who === "other" ? "" : "自拍拍不全的话就当是手机架在远处定时拍的。") } : {}) });
   };
   // 送走它（她 2026-11-20「什么时候养完或者换一种」）：收进「养过的」，频道里冒一行告别，再让大家接一轮
   const sendOffChannelPet = (g, how) => {
@@ -39615,7 +39640,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, onTripPlan: tripPlan, onTripCard: tripCard, onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onWorldsPlan: worldsPlan, onWorldCard: worldCard, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, onClosetOf: cameraClosetOf, onGenFit: cameraGenFit, onTripPlan: tripPlan, onTripCard: tripCard, onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onWorldsPlan: worldsPlan, onWorldCard: worldCard, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,

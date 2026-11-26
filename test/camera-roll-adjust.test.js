@@ -77,3 +77,14 @@ test("电影和平行人生：入口、存档、出图接上；界面跟旅行�
   assert.ok(!/window\.confirm\(/.test(st));
   for (const k of ["moviepage", "moviecard", "movieone", "moviescene", "movieitem", "movieposter", "moviestill", "moviesubs", "moviebtn", "worldpage", "worldcard", "worldone", "worldrow", "worlditem", "worldpost", "worldflip", "worldphoto", "worldletter", "worldbtn"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(st.includes('"data-wk": "' + k + '"') || st.includes('wk: "' + k + '"') || st.includes('"' + k + '"'), k); }
 });
+test("全身／半身、穿什么（衣柜或配一套新的）、抠好的再裁成半身", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(app, /const cameraClosetOf = id =>/);
+  assert.match(app, /const cameraGenFit = async \(id, hint\) =>/);
+  assert.match(app, /const camDress = \(c, o\) =>[^\n]*outfit: f, photoOutfit: f/);
+  assert.match(app, /onClosetOf: cameraClosetOf, onGenFit: cameraGenFit/);
+  assert.match(cam, /props\.onGen\(genIds, genScene, genWho, \{ frame: genFrame, fits: fitsFor\(genIds\) \}\)/);
+  assert.match(cam, /props\.onGenCutout\(cutFor, cutPose, \{ frame: cutFrame, fits: fitsFor\(\[cutFor\]\) \}\)/);
+  assert.match(cam, /ctx\.drawImage\(im, 0, 0, im\.naturalWidth, im\.naturalHeight \* cr,/);
+  for (const k of ["camoutfit", "camoutfitone", "camcrop"]) assert.ok(ts.includes('["' + k + '"'), k);
+});

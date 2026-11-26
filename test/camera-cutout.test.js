@@ -2,10 +2,10 @@
 const test = require("node:test"), assert = require("node:assert"), fs = require("fs"), path = require("path");
 const cam = fs.readFileSync(path.join(__dirname, "..", "js", "camera.js"), "utf8"), app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8"), ts = fs.readFileSync(path.join(__dirname, "..", "js", "theme-studio.js"), "utf8");
 test("现生：锁脸那一套画全身纯绿底，相机那头去绿", () => {
-  assert.match(app, /const cameraGenCutout = async \(id, pose\) =>/);
+  assert.match(app, /const cameraGenCutout = async \(id, pose, o\) =>/);
   assert.match(app, /return castShotBlob\(\[who\], sc, \{ kind: "other", extraText:/);
   assert.match(app, /onGenCutout: cameraGenCutout/);
-  assert.match(cam, /const raw = await props\.onGenCutout\(cutFor, cutPose\); const png = await keyGreen\(raw\);/);
+  assert.match(cam, /const raw = await props\.onGenCutout\(cutFor, cutPose, \{ frame: cutFrame, fits: fitsFor\(\[cutFor\]\) \}\); const png = await keyGreen\(raw\);/);
   assert.match(cam, /if \(!\(kg > kr \+ 40 && kg > kb \+ 40\)\) throw new Error/, "底不是绿的就照实说，不硬抠");
 });
 test("从照片抠：先用自带的那份（vendor），载不下来再退 CDN", () => {
