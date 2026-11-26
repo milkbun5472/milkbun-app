@@ -277,7 +277,15 @@
   // 样式自己那一层：时间轴的线和日子、日历的格子
   function overlay(ctx, def, ox, k, layout, meta, ink, font) {
     ctx.save(); ctx.translate(ox, 0);
-    if (def.overlay === "timeline") {
+    if (def.overlay === "booth" || def.overlay === "booth2") {
+      // 相纸条：白底、四角小圆，底下留一截印日期
+      const strips = def.overlay === "booth" ? [[540, 640]] : [[290, 440], [790, 440]];
+      strips.forEach(([cx, w]) => { ctx.save(); ctx.shadowColor = "rgba(0,0,0,.25)"; ctx.shadowBlur = 26; ctx.shadowOffsetY = 10; ctx.fillStyle = "#fbfaf6";
+        const top = def.overlay === "booth" ? 230 : 300, bot = def.overlay === "booth" ? 2260 : 2200;
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(cx - w / 2, top, w, bot - top, 10); ctx.fill(); } else ctx.fillRect(cx - w / 2, top, w, bot - top); ctx.restore(); });
+      if (def.overlay === "booth") { const d = new Date(meta.now || Date.now()); ctx.fillStyle = "#9a9187"; ctx.font = "34px " + font; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(d.getFullYear() + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + String(d.getDate()).padStart(2, "0"), 540, 2225); }
+    } else if (def.overlay === "timeline") {
       ctx.strokeStyle = ink; ctx.globalAlpha = 0.55; ctx.lineWidth = 5; ctx.setLineDash([2, 16]); ctx.lineCap = "round";
       ctx.beginPath(); ctx.moveTo(540, 330); ctx.lineTo(540, 2250); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
       def.slots.forEach((sl, i) => {
@@ -510,7 +518,24 @@
       on ? h("button", { onClick: onDrop, "aria-label": "删掉这张底", style: { position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: 11, background: t.ink, color: t.bg2, fontSize: 12, lineHeight: "22px" } }, "✕") : null);
   }
   // startTpl：从哪种样式开始（限时动态那一路从「自己摆」那张空纸开始，她 2026-11-14）
-  function CollageMaker({ partner, photos, extra, onBack, onArrange, onSave, onLook, onChoose, onDraft, autoDraft, startTpl, story }) {
+  // 大头贴和宫格（她 2026-11-26 相机里的「拼贴」）：大头贴＝一条白纸上竖着四格，底下印日期；宫格＝整整齐齐排满
+  Object.assign(TPL, {
+    booth: { name: "大头贴", sub: "一条四格，像大头贴机吐出来的", n: 4, bg: "night", frame: "lock", overlay: "booth",
+      slots: [{ x: 540, y: 470, w: 600, h: 440, round: 6 }, { x: 540, y: 935, w: 600, h: 440, round: 6 }, { x: 540, y: 1400, w: 600, h: 440, round: 6 }, { x: 540, y: 1865, w: 600, h: 440, round: 6 }],
+      words: [{ x: 540, y: 2185, size: 46, color: "#3b3b3b" }], deco: [] },
+    booth2: { name: "双排大头贴", sub: "两条并排，一共八格", n: 8, bg: "dots", frame: "lock", overlay: "booth2",
+      slots: [0, 1, 2, 3].map(i => ({ x: 290, y: 520 + i * 430, w: 400, h: 390, round: 6 })).concat([0, 1, 2, 3].map(i => ({ x: 790, y: 520 + i * 430, w: 400, h: 390, round: 6 }))),
+      words: [{ x: 540, y: 230, size: 64, color: "#b23a48" }], deco: [["♡", 540, 2280, 80, "#d0465c"]] },
+    grid4: { name: "四宫格", sub: "两行两列，整整齐齐", n: 4, bg: "cream", frame: "lock",
+      slots: [{ x: 285, y: 900, w: 470, h: 620, round: 18 }, { x: 795, y: 900, w: 470, h: 620, round: 18 }, { x: 285, y: 1560, w: 470, h: 620, round: 18 }, { x: 795, y: 1560, w: 470, h: 620, round: 18 }],
+      words: [{ x: 540, y: 380, size: 70, color: "#3b3b3b" }, { x: 540, y: 2080, size: 44, color: "#7d7064" }], deco: [] },
+    grid9: { name: "九宫格", sub: "三行三列", n: 9, bg: "grid", frame: "lock",
+      slots: [0, 1, 2].flatMap(r => [0, 1, 2].map(c => ({ x: 200 + c * 340, y: 850 + r * 340, w: 320, h: 320, round: 10 }))),
+      words: [{ x: 540, y: 380, size: 70, color: "#3b3b3b" }, { x: 540, y: 1960, size: 44, color: "#7d7064" }], deco: [] }
+  });
+  ORDER.splice(ORDER.length - 1, 0, "booth", "booth2", "grid4", "grid9");
+  function CollageMaker({ partner, photos, extra, onBack, onArrange, onSave, onLook, onChoose, onDraft, autoDraft, startTpl, story, solo }) {
+    // solo：相机里的拼贴（她 2026-11-26）——不对着哪个人，「一人一半」和「TA 会看到」那几句不出；照片可以现传
     // story：发限时动态时借这个编辑器——只留摆字、贴纸、底、照片这些用得上的，合照墙那一套（样式页签、一人一半、格子）不出（她 2026-11-14）
     const [ups, setUps] = useState([]), upRef = React.useRef(null);
     const [emoIn, setEmoIn] = useState(""), [myEmo, setMyEmo] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON("x_collageEmoji", []) : []; return Array.isArray(v) ? v : []; } catch (e) { return []; } });
@@ -878,6 +903,11 @@
         h(Head, { zh: pickFor.kind === "new" ? "加哪一张" : "换成哪张", bg: "transparent", onBack: () => setPickFor(null) }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 } },
+            // 相机拼贴：手机相册里的照片直接传进来用（存进图库，跟限时动态传图同一个口子）
+            solo ? h("label", { key: "up", "data-part": "collagepickup", className: "active:opacity-80", style: { aspectRatio: "1", borderRadius: 10, border: "1.5px dashed " + t.accent, color: t.accent, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.5 } },
+              "＋", h("br"), "从手机传",
+              h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: async e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f || typeof idbImgPut !== "function") return;
+                const k = "img_storyup_" + Date.now().toString(36); await idbImgPut(k, f); const i = list.length; setUps(u => u.concat([{ imgKey: k, ts: Date.now() }])); choose(i); } })) : null,
             list.map((p, i) => h("button", { key: i, onClick: () => choose(i),
               className: "active:opacity-80", style: { aspectRatio: "1", borderRadius: 10, overflow: "hidden", border: "2px solid " + (cur === i ? t.accent : t.line), padding: 0 } },
               typeof AlbumPhoto === "function" ? h(AlbumPhoto, { photo: p }) : null)))));
@@ -893,8 +923,8 @@
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.sub, width: 44, textAlign: "right" } }, fmt(val)));
     const hiddenN = Object.keys(layout.hidden || {}).length;
     return h("div", { "data-wk": "uspage", "data-part": "collage", className: "h-full flex flex-col", style: cpSkin(t, "page") },
-      h(Head, { zh: story ? "发一条限时动态" : "拼一张壁纸", sub: story ? "" : name, bg: "transparent", onBack }),
-      story ? h("input", { ref: upRef, type: "file", accept: "image/*", "data-part": "collagestoryfile", style: { display: "none" }, onChange: async e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f || typeof idbImgPut !== "function") return;
+      h(Head, { zh: story ? "发一条限时动态" : solo ? "拼贴" : "拼一张壁纸", sub: story || solo ? "" : name, bg: "transparent", onBack }),
+      story || solo ? h("input", { ref: upRef, type: "file", accept: "image/*", "data-part": "collagestoryfile", style: { display: "none" }, onChange: async e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f || typeof idbImgPut !== "function") return;
         const k = "img_storyup_" + Date.now().toString(36); await idbImgPut(k, f); const i = list.length; setUps(u => u.concat([{ imgKey: k, ts: Date.now() }])); addFree({ type: "photo", p: i, w: 640, h: 800, frame: "scrap" }); } }) : null,
       h("div", { ref: typeof keepScroll === "function" ? keepScroll("collage:" + partner.id) : null, className: "flex-1 min-h-0 overflow-y-auto px-5 pb-12" },
         // 样式：下划线页签（tabs-not-plain-pills）
@@ -942,12 +972,12 @@
             small("复原", resetSel), small(selBox.kind === "slot" ? "这格不要" : "删掉", dropSel))) : null,
         // 自己放（她 2026-11-10「可以选自己放」）
         h("div", { "data-part": "collagefree", className: "flex", style: { gap: 8, marginTop: 12 } },
-          h("button", { onClick: () => story ? upRef.current && upRef.current.click() : setPickFor({ kind: "new" }), disabled: !story && !list.length, className: "flex-1 active:opacity-70 disabled:opacity-40",
+          h("button", { onClick: () => story ? upRef.current && upRef.current.click() : setPickFor({ kind: "new" }), disabled: !story && !solo && !list.length, className: "flex-1 active:opacity-70 disabled:opacity-40",
             style: { padding: "11px 0", borderRadius: 12, border: "1px dashed " + t.accent, color: t.accent, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, story ? "＋ 放一张照片" : "＋ 自己放一张照片"),
           h("button", { onClick: addText, className: "flex-1 active:opacity-70",
             style: { padding: "11px 0", borderRadius: 12, border: "1px dashed " + t.accent, color: t.accent, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, "＋ 自己写一句")),
         hiddenN ? h("button", { onClick: () => setLayout(l => Object.assign({}, l, { hidden: {} })), style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "把删掉的 " + hiddenN + " 格放回来") : null,
-        story ? null : h("div", { className: "flex items-center", style: { gap: 10, marginTop: 14, padding: "10px 12px", borderRadius: 14, border: "1px solid " + t.line } },
+        story || solo ? null : h("div", { className: "flex items-center", style: { gap: 10, marginTop: 14, padding: "10px 12px", borderRadius: 14, border: "1px solid " + t.line } },
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink } }, "一人一半"),
             h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, marginTop: 2 } }, "左边那张给你，右边那张换成 " + name + " 手机的锁屏，并排才拼成一颗心")),
@@ -1036,8 +1066,8 @@
           onChange: e => { const v = e.target.value; setLayout(l => { const c = (l.words || []).slice(); c[i] = v; return Object.assign({}, l, { words: c }); }); } })),
         h("button", { onClick: save, disabled: !!busy, "data-part": "collagesave", className: "w-full active:opacity-70 disabled:opacity-40",
           style: { marginTop: 16, padding: "13px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))" } },
-          busy === "save" ? "在存…" : story ? "下一步" : (layout.split ? "存下来 · 右边那张给 " + name : "存下来")),
-        story ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 8, textAlign: "center" } },
+          busy === "save" ? "在存…" : story ? "下一步" : solo ? "存到手机" : (layout.split ? "存下来 · 右边那张给 " + name : "存下来")),
+        story || solo ? null : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 8, textAlign: "center" } },
           "存到手机、也挂上合照墙；" + name + " 会看到你们拼了一张。照片和字都是 App 排的，不花生图。")));
   }
   window.Collage = { FILTERS, TSTYLES, SHAPES, filtered, TPL, ORDER, BGS, FONTS, STICKERS, draw, hitTest, slotCount, wordCount, defaultDeco, CollageMaker };

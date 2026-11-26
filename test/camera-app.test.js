@@ -20,5 +20,10 @@ assert(K.FILTERS.every(f => f.id && f.zh), "滤镜都有中文名");
 assert(/const cameraGenShot = [\s\S]{0,700}return castShotBlob\(cast, sc,/.test(app), "相机生图走 castShotBlob");
 assert(/const blob = await castShotBlob\(cast, scene, \{ kind: "self", extraRef: pref/.test(app), "小家伙合照也走 castShotBlob");
 assert(/onGen: cameraGenShot/.test(app) && /props\.onGen\(genIds, genScene, genWho\)/.test(cam), "相机接上生图");
-console.log("ok camera-app");
+
 assert(/togglePerson\(p\)/.test(cam), "加人多选");
+const col = R("js/collage.js");
+assert(/booth: \{ name: "大头贴"/.test(col) && /grid9: \{ name: "九宫格"/.test(col), "大头贴、宫格模板");
+assert(/ORDER\.splice\(ORDER\.length - 1, 0, "booth", "booth2", "grid4", "grid9"\)/.test(col), "模板排进样式页签");
+assert(/photos: roll, solo: true, startTpl: "booth"/.test(cam), "相机拼贴借拼壁纸编辑器");
+console.log("ok camera-app");

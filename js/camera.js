@@ -101,6 +101,9 @@
     const [genWho, setGenWho] = useState("other");
     const [genScene, setGenScene] = useState("");
     const [genBusy, setGenBusy] = useState(false);
+    // 这一趟拍的、画的都排进胶卷：拼贴那边直接从这里挑（存进图库，拼贴读图走 imgKey）
+    const [roll, setRoll] = useState([]);
+    const toRoll = async (blob, desc) => { try { if (typeof idbImgPut !== "function") return; const k = "img_camroll_" + Date.now().toString(36); await idbImgPut(k, blob); setRoll(l => [{ imgKey: k, ts: Date.now(), desc }].concat(l)); } catch (e) {} };
     const camRef = useRef(null), videoRef = useRef(null), stageRef = useRef(null), fileRef = useRef(null), touches = useRef({});
     useEffect(() => {
       const cam = window.CallCamera.create(setCs, window, { width: 1920, height: 1080 });
@@ -113,21 +116,21 @@
     const mirror = !bg && cs.facing === "user";
     const switchMode = m => {
       if (m === mode) return; setMode(m); setPanel(""); setSel(null);
-      if (m === "gen") { camRef.current && camRef.current.close(); }
+      if (m !== "live") { camRef.current && camRef.current.close(); }
       else if (!bg) camRef.current && camRef.current.open(cs.facing || "environment");
     };
     const runGen = async () => {
       if (genBusy || !props.onGen) return;
       if (!genIds.length) { props.toast && props.toast("先挑画面里有谁"); return; }
       setGenBusy(true);
-      try { const blob = await props.onGen(genIds, genScene, genWho); setShot({ url: URL.createObjectURL(blob), blob, gen: true }); }
+      try { const blob = await props.onGen(genIds, genScene, genWho); setShot({ url: URL.createObjectURL(blob), blob, gen: true }); toRoll(blob, "画的"); }
       catch (e) { props.toast && props.toast("没画成：" + String(e && e.message || e).slice(0, 80)); }
       finally { setGenBusy(false); }
     };
     // 画好的那张拿去实景那边：当背景，照样能贴人、上滤镜，再按快门
     const genToEdit = () => { if (!shot) return; if (bg) URL.revokeObjectURL(bg); setBg(URL.createObjectURL(shot.blob)); setShot(null); setMode("live"); };
-    const dial = () => h("div", { "data-wk": "camdial", style: { display: "flex", justifyContent: "center", gap: 22, padding: "6px 0 2px", transform: "translateX(" + (mode === "live" ? 22 : -22) + "px)", transition: "transform .25s ease" } },
-      [["live", "实景"], ["gen", "生图"]].map(([k, zh]) => h("button", { key: k, "data-wk": "camdialone", "data-on": mode === k ? "1" : "0", onClick: () => switchMode(k),
+    const dial = () => h("div", { "data-wk": "camdial", style: { display: "flex", justifyContent: "center", gap: 22, padding: "6px 0 2px", transform: "translateX(" + (mode === "live" ? 44 : mode === "gen" ? 0 : -44) + "px)", transition: "transform .25s ease" } },
+      [["live", "实景"], ["gen", "生图"], ["collage", "拼贴"]].map(([k, zh]) => h("button", { key: k, "data-wk": "camdialone", "data-on": mode === k ? "1" : "0", onClick: () => switchMode(k),
         style: { border: "none", background: "transparent", padding: "2px 0", fontSize: FS(13), letterSpacing: ".12em", color: mode === k ? "#ffd54a" : "rgba(255,255,255,.62)", fontWeight: mode === k ? 600 : 400 } }, zh)));
 
     // 加人那一排是多选：点一下上画面，再点一下拿下来；面板不收，可以一口气挑好几个（她 2026-11-26「我和角色都可以」）
@@ -192,7 +195,7 @@
           else pixelFilter(ctx, W, H, fcss);
         }
         const blob = await new Promise((res, rej) => { try { cv.toBlob(b => b ? res(b) : rej(new Error("没存下来")), "image/jpeg", 0.92); } catch (x) { rej(x); } });
-        setShot({ url: URL.createObjectURL(blob), blob }); setSel(null);
+        setShot({ url: URL.createObjectURL(blob), blob }); setSel(null); toRoll(blob, "拍的");
       } catch (e) {
         const m = e && e.name === "SecurityError" ? "有张头像是网上的图，浏览器不让画进照片；换成本地上传的头像再拍" : String(e && e.message || e);
         props.toast && props.toast(m);
@@ -213,6 +216,10 @@
         shot.gen ? btn("加滤镜·贴人", genToEdit, false, "edit") : null,
         shot.gen ? btn("返回", () => setShot(null), false, "retake") : null,
         btn("存到手机", save, true, "save")));
+    // 拼贴、大头贴：借拼壁纸那个编辑器（collage.js），solo 不对着哪个人；这一趟拍的画的在胶卷里，也能从手机传
+    if (mode === "collage" && window.Collage) return h(window.Collage.CollageMaker, { partner: { id: "camera", name: "拼贴" }, photos: roll, solo: true, startTpl: "booth",
+      onBack: () => switchMode("live"),
+      onSave: async r => { if (r && r.mine && typeof saveFile === "function") await saveFile(new File([r.mine], "拼贴-" + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "") + ".jpg", { type: "image/jpeg" })); } });
     if (mode === "gen") {
       const people2 = people, max = props.groupMax || 10;
       const tog = id => setGenIds(l => l.indexOf(id) >= 0 ? l.filter(x => x !== id) : l.length >= max ? l : l.concat([id]));
