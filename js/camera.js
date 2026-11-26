@@ -16,6 +16,19 @@
     { id: "night", zh: "夜景", css: "brightness(0.92) contrast(1.22) saturate(1.15)" },
     { id: "mono", zh: "黑白", css: "grayscale(1) contrast(1.12)" }
   ];
+  // 五根调节条：数值 -100~100，0＝不动
+  const ADJ = [["light", "亮度"], ["contrast", "对比"], ["sat", "饱和"], ["warm", "色温"], ["fade", "褪色"]];
+  const ADJ0 = { light: 0, contrast: 0, sat: 0, warm: 0, fade: 0 };
+  function adjCss(a) {
+    if (!a) return ""; const o = [], f = n => +(n).toFixed(3);
+    if (a.light) o.push("brightness(" + f(1 + a.light / 250) + ")");
+    if (a.contrast) o.push("contrast(" + f(1 + a.contrast / 200) + ")");
+    if (a.sat) o.push("saturate(" + f(1 + a.sat / 100) + ")");
+    if (a.warm > 0) o.push("sepia(" + f(a.warm / 300) + ")");
+    if (a.warm < 0) o.push("hue-rotate(" + f(a.warm / 6) + "deg)");
+    if (a.fade) o.push("contrast(" + f(1 - a.fade / 400) + ") brightness(" + f(1 + a.fade / 900) + ")");
+    return o.join(" ");
+  }
   const STYLES = [["round", "圆头像"], ["card", "小卡"], ["plain", "原图"]];
 
   // 不认 ctx.filter 时的兜底：把同一串 CSS 滤镜逐像素算一遍（只用到上面那几种函数）
@@ -211,6 +224,7 @@
     const [stickers, setStickers] = useState([]);
     const [sel, setSel] = useState(null);
     const [filter, setFilter] = useState("none");
+    const [adj, setAdj] = useState(ADJ0);
     const [panel, setPanel] = useState("");       // "people" | "filter" | ""
     const [shot, setShot] = useState(null);       // {url, blob}
     const [busy, setBusy] = useState(false);
@@ -270,7 +284,16 @@
       catch (err) { props.toast && props.toast("没抠成：" + String(err && err.message || err).slice(0, 80)); }
       finally { setCutBusy(""); }
     };
-    const toRoll = async (blob, desc) => { try { if (typeof idbImgPut !== "function") return; const k = "img_camroll_" + Date.now().toString(36); await idbImgPut(k, blob); setRoll(l => [{ imgKey: k, ts: Date.now(), desc }].concat(l)); } catch (e) {} };
+    // 胶卷（她 2026-11-26「拍完大退重进怎么就没了」）：图本来就进了本机图库，丢的是这张清单——
+    //   清单不另存，开相机时照图库里 img_camroll_ 的键排出来；拍的/画的写在键尾，时间是键里那段 36 进制
+    const ROLL_DESC = { s: "拍的", g: "画的" };
+    const toRoll = async (blob, desc) => { try { if (typeof idbImgPut !== "function") return; const ts = Date.now(), k = "img_camroll_" + ts.toString(36) + "_" + (desc === "画的" ? "g" : "s"); await idbImgPut(k, blob); setRoll(l => [{ imgKey: k, ts, desc }].concat(l)); } catch (e) {} };
+    useEffect(() => { let live = true;
+      (async () => { try { if (typeof idbAllKeys !== "function" || typeof idbImgOpen !== "function") return;
+        const ks = (await idbAllKeys(idbImgOpen) || []).map(String).filter(k => k.indexOf("img_camroll_") === 0);
+        const list = ks.map(k => { const m = k.slice(12).split("_"); return { imgKey: k, ts: parseInt(m[0], 36) || 0, desc: ROLL_DESC[m[1]] || "拍的" }; }).sort((a, b) => b.ts - a.ts);
+        if (live) setRoll(l => l.concat(list.filter(x => !l.some(y => y.imgKey === x.imgKey)))); } catch (e) {} })();
+      return () => { live = false; }; }, []);
     const camRef = useRef(null), videoRef = useRef(null), stageRef = useRef(null), fileRef = useRef(null), touches = useRef({});
     useEffect(() => {
       const cam = window.CallCamera.create(setCs, window, { width: 1920, height: 1080 });
@@ -279,7 +302,8 @@
       return () => cam.dispose();
     }, []);
     useEffect(() => () => { if (shot) URL.revokeObjectURL(shot.url); }, [shot]);
-    const fcss = (FILTERS.find(f => f.id === filter) || FILTERS[0]).css;
+    // 自己调（她 2026-11-26「滤镜能不能自己调」）：选好的滤镜后面再叠一层，五根条都只拼成同一种 CSS 串，预览、导出、逐像素兜底照旧共用
+    const fcss = ((FILTERS.find(f => f.id === filter) || FILTERS[0]).css + " " + adjCss(adj)).trim();
     const mirror = !bg && cs.facing === "user";
     const switchMode = m => {
       if (m === mode) return; setMode(m); setPanel(""); setSel(null);
@@ -447,7 +471,7 @@
             tile("collage", "拼图", "宫格、拍立得、剪贴本", "linear-gradient(135deg,#ffb259,#ffd27a)", I.grid, () => { setColTpl("grid4"); switchMode("collage"); }),
             tile("booth", "大头贴", "一条四格，印上日期", "linear-gradient(135deg,#5aa2ff,#8fc1ff)", I.booth, () => { setColTpl("booth"); switchMode("collage"); }, true)),
           roll.length ? h("div", { style: { marginTop: 20 } },
-            h("div", { style: { fontSize: FS(13), fontWeight: 600, marginBottom: 8 } }, "刚才拍的"),
+            h("div", { style: { fontSize: FS(13), fontWeight: 600, marginBottom: 8 } }, "拍过的"),
             h("div", { "data-wk": "camhubroll", style: { display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 } },
               roll.map(p => h("div", { key: p.imgKey, style: { flexShrink: 0, width: 72, height: 96, borderRadius: 12, overflow: "hidden", background: "#eee" } }, typeof AlbumPhoto === "function" ? h(AlbumPhoto, { photo: p }) : null)))) : null),
         h("input", { ref: hubFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; setBg(URL.createObjectURL(f)); setMode("live"); setPanel(""); } }));
@@ -580,12 +604,18 @@
             cutBusy === "seg" ? "第一次抠要先下载抠图工具（三十兆左右），稍等" : "现生：锁脸画一张全身再去底（用图像API）；从照片抠：手机上就地抠，不花额度")) : null,
         panel === "filter" ? h("div", { "data-wk": "camfilter", style: { display: "flex", gap: 8, overflowX: "auto", padding: "12px 16px 4px" } },
           FILTERS.map(f => h(React.Fragment, { key: f.id }, btn(f.zh, () => setFilter(f.id), filter === f.id, "filter")))) : null,
+        panel === "filter" ? h("div", { "data-wk": "camadjust", style: { padding: "6px 18px 2px" } },
+          ADJ.map(([k, zh]) => h("label", { key: k, style: { display: "flex", alignItems: "center", gap: 10, height: 30, color: "#fff", fontSize: FS(11.5) } },
+            h("span", { style: { width: 30, flexShrink: 0, opacity: .8 } }, zh),
+            h("input", { type: "range", min: k === "fade" ? 0 : -100, max: 100, step: 1, value: adj[k], "data-part": "adj-" + k, onChange: e => { const v = +e.target.value; setAdj(a => Object.assign({}, a, { [k]: v })); }, style: { flex: 1, accentColor: "#ff8fa8" } }),
+            h("span", { style: { width: 28, textAlign: "right", opacity: .6, fontVariantNumeric: "tabular-nums" } }, adj[k] > 0 ? "+" + adj[k] : String(adj[k])))),
+          h("div", { style: { display: "flex", justifyContent: "flex-start", paddingTop: 2 } }, btn("复原", () => setAdj(ADJ0), false, "adjreset"))) : null,
         h("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "space-around", padding: "12px 10px 12px" } },
           ctl("相册", IC.album, () => fileRef.current && fileRef.current.click(), !!bg, "album"),
           ctl("加人", IC.people, () => setPanel(panel === "people" ? "" : "people"), panel === "people", "people"),
           h("button", { "data-wk": "camshutter", onClick: capture, disabled: busy, "aria-label": "拍照", style: { width: 74, height: 74, borderRadius: 37, border: "none", padding: 0, background: "rgba(255,255,255,.28)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 6, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" } },
             h("span", { style: { width: 60, height: 60, borderRadius: 30, background: busy ? "rgba(255,255,255,.6)" : "#fff", boxShadow: "0 0 0 3px rgba(0,0,0,.08) inset", transition: "transform .1s", transform: busy ? "scale(.9)" : "none" } })),
-          ctl("滤镜", IC.filter, () => setPanel(panel === "filter" ? "" : "filter"), panel === "filter" || filter !== "none", "filtertab"),
+          ctl("滤镜", IC.filter, () => setPanel(panel === "filter" ? "" : "filter"), panel === "filter" || fcss !== "", "filtertab"),
           ctl("清空", IC.clear, () => { setStickers([]); setSel(null); }, false, "clear", !stickers.length))),
       h("input", { ref: fileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: pickBg }),
       h("input", { ref: cutFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: pickCut }));
