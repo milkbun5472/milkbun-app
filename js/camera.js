@@ -54,11 +54,130 @@
   });
   const srcOf = c => { const v = c && c.avatarImage; return v ? (typeof resolveImg === "function" ? resolveImg(v) : v) : ""; };
 
+  // ── 抠出来的人（她 2026-11-26「生好的图怎么扣出人像一起拍」）──────────────
+  //   两条来路，抠完都是一张透明底 PNG，存进本机图库（img_cut_），记在 x_camCutouts[人]：
+  //   ① 现生：生图画一张全身、纯绿底的，这里把绿色去掉（keyGreen）；
+  //   ② 从照片抠：本机跑人像分割（MediaPipe，模型和运行库放在 vendor/，第一次用才下载）
+  const blobImg = async b => { const u = URL.createObjectURL(b); try { return await loadImg(u); } finally { setTimeout(() => URL.revokeObjectURL(u), 2000); } };
+  const toPng = cv => new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error("没存下来")), "image/png"));
+  // 透明边裁掉，四周留一点
+  function trimCanvas(cv) {
+    const W = cv.width, H = cv.height, d = cv.getContext("2d").getImageData(0, 0, W, H).data;
+    let x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 12) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 < 0) throw new Error("没抠出人来");
+    const pad = Math.round(Math.max(x1 - x0, y1 - y0) * 0.02);
+    x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(W - 1, x1 + pad); y1 = Math.min(H - 1, y1 + pad);
+    const out = document.createElement("canvas"); out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
+    out.getContext("2d").drawImage(cv, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+    return out;
+  }
+  // 绿幕去底：背景色取四条边的中位数（模型画的绿不一定正好 #00FF00），从四边往里漫，像这个颜色的都去掉；
+  //   夹在胳膊和身子中间那种围起来的绿也去（更严一点的门槛）；挨着背景的那一圈按颜色远近给半透明，再把反上去的绿压掉
+  async function keyGreen(blob) {
+    const im = await blobImg(blob); if (!im) throw new Error("这张图没读出来");
+    const k = Math.min(1, 1400 / Math.max(im.naturalWidth, im.naturalHeight)), W = Math.round(im.naturalWidth * k), H = Math.round(im.naturalHeight * k);
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    const ctx = cv.getContext("2d"); ctx.drawImage(im, 0, 0, W, H);
+    const img = ctx.getImageData(0, 0, W, H), d = img.data, N = W * H;
+    const rs = [], gs = [], bs = [], put = i => { rs.push(d[i * 4]); gs.push(d[i * 4 + 1]); bs.push(d[i * 4 + 2]); };
+    for (let x = 0; x < W; x += 3) { put(x); put((H - 1) * W + x); }
+    for (let y = 0; y < H; y += 3) { put(y * W); put(y * W + W - 1); }
+    const med = a => a.sort((p, q) => p - q)[a.length >> 1], kr = med(rs), kg = med(gs), kb = med(bs);
+    if (!(kg > kr + 40 && kg > kb + 40)) throw new Error("这张的底不是绿的，抠不干净；再生一张试试");
+    const dist = i => { const r = d[i * 4] - kr, g = d[i * 4 + 1] - kg, b = d[i * 4 + 2] - kb; return Math.sqrt(r * r + g * g + b * b); };
+    const T = 120, TIGHT = 70, SOFT = 190, bg = new Uint8Array(N), q = new Int32Array(N); let qh = 0, qt = 0;
+    const seed = i => { if (!bg[i] && dist(i) < T) { bg[i] = 1; q[qt++] = i; } };
+    for (let x = 0; x < W; x++) { seed(x); seed((H - 1) * W + x); }
+    for (let y = 0; y < H; y++) { seed(y * W); seed(y * W + W - 1); }
+    while (qh < qt) { const i = q[qh++], x = i % W, y = (i / W) | 0;
+      if (x > 0) seed(i - 1); if (x < W - 1) seed(i + 1); if (y > 0) seed(i - W); if (y < H - 1) seed(i + W); }
+    for (let i = 0; i < N; i++) if (!bg[i] && dist(i) < TIGHT) bg[i] = 1;
+    let bgN = 0; for (let i = 0; i < N; i++) bgN += bg[i];
+    if (bgN < N * 0.15) throw new Error("背景太少，像是没画成绿底；再生一张试试");
+    // 挨着背景两圈以内的算边
+    const edge = new Uint8Array(N);
+    for (let pass = 0; pass < 2; pass++) { const src = pass ? edge.slice() : bg;
+      for (let i = 0; i < N; i++) { if (bg[i] || edge[i]) continue; const x = i % W;
+        if ((x > 0 && src[i - 1]) || (x < W - 1 && src[i + 1]) || (i >= W && src[i - W]) || (i < N - W && src[i + W])) edge[i] = 1; } }
+    for (let i = 0; i < N; i++) {
+      const o = i * 4;
+      if (bg[i]) { d[o + 3] = 0; continue; }
+      if (!edge[i]) continue;
+      const a = Math.max(0, Math.min(1, (dist(i) - T * 0.6) / (SOFT - T * 0.6)));
+      d[o + 3] = Math.round(d[o + 3] * a);
+      const r = d[o], g = d[o + 1], b = d[o + 2], m = Math.max(r, b);
+      if (g > m) d[o + 1] = m + (g - m) * 0.25;   // 去绿边
+    }
+    ctx.putImageData(img, 0, 0);
+    return toPng(trimCanvas(cv));
+  }
+  // 本机人像分割：先用 App 自带的那份（vendor/，国内也打得开），载不下来再退到公共 CDN
+  const MP_VER = "1.2.3";
+  let segP = null;
+  function getSegmenter() {
+    if (segP) return segP;
+    const here = p => new URL(p, location.href).href;
+    const tries = [
+      { lib: here("vendor/mediapipe-tasks-vision-" + MP_VER + "/vision_bundle.mjs"), wasm: here("vendor/mediapipe-tasks-vision-" + MP_VER + "/wasm"), model: here("vendor/mediapipe-models/selfie_multiclass_256x256.tflite") },
+      { lib: "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + MP_VER + "/vision_bundle.mjs", wasm: "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + MP_VER + "/wasm",
+        model: "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite" }];
+    segP = (async () => {
+      let last = null;
+      for (const t of tries) {
+        try {
+          const mod = await import(t.lib);
+          const files = await mod.FilesetResolver.forVisionTasks(t.wasm);
+          return await mod.ImageSegmenter.createFromOptions(files, { baseOptions: { modelAssetPath: t.model, delegate: "CPU" }, runningMode: "IMAGE", outputCategoryMask: false, outputConfidenceMasks: true });
+        } catch (e) { last = e; }
+      }
+      segP = null; throw new Error("抠图工具没载下来（要联网）" + (last && last.message ? "：" + String(last.message).slice(0, 60) : ""));
+    })();
+    return segP;
+  }
+  // 照片里的人抠出来：第 0 张置信图是「背景」，透明度＝1－背景的把握；边上糊一像素，不发硬
+  async function segmentPerson(blob) {
+    const im = await blobImg(blob); if (!im) throw new Error("这张图没读出来");
+    const k = Math.min(1, 1400 / Math.max(im.naturalWidth, im.naturalHeight)), W = Math.round(im.naturalWidth * k), H = Math.round(im.naturalHeight * k);
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const ctx = cv.getContext("2d"); ctx.drawImage(im, 0, 0, W, H);
+    const seg = await getSegmenter(), res = seg.segment(cv);
+    try {
+      const m = res.confidenceMasks && res.confidenceMasks[0]; if (!m) throw new Error("没认出人来");
+      const mw = m.width, mh = m.height, bgc = m.getAsFloat32Array();
+      const mc = document.createElement("canvas"); mc.width = mw; mc.height = mh;
+      const mx = mc.getContext("2d"), md = mx.createImageData(mw, mh);
+      let fg = 0;
+      for (let i = 0; i < mw * mh; i++) { const a = Math.max(0, Math.min(1, (1 - bgc[i] - 0.15) / 0.7)); md.data[i * 4 + 3] = Math.round(a * 255); fg += a; }
+      if (fg < mw * mh * 0.02) throw new Error("这张里没认出人来");
+      mx.putImageData(md, 0, 0);
+      ctx.globalCompositeOperation = "destination-in";
+      try { ctx.filter = "blur(1px)"; } catch (e) {}
+      ctx.drawImage(mc, 0, 0, W, H);
+      ctx.globalCompositeOperation = "source-over"; try { ctx.filter = "none"; } catch (e) {}
+    } finally { try { res.close && res.close(); } catch (e) {} }
+    return toPng(trimCanvas(cv));
+  }
+  const CUT_KEY = "x_camCutouts";
+  const cutList = pid => (((typeof loadJSON === "function" ? loadJSON(CUT_KEY, {}) : {}) || {})[pid] || []);
+  async function cutSave(pid, png, how) {
+    const k = "img_cut_" + String(pid).replace(/[^\w-]/g, "") + "_" + Date.now().toString(36);
+    await idbImgPut(k, png);
+    const all = loadJSON(CUT_KEY, {}) || {}; all[pid] = [{ k, ts: Date.now(), how }].concat(all[pid] || []).slice(0, 24); saveJSON(CUT_KEY, all);
+    return k;
+  }
+  function cutDrop(pid, k) { const all = loadJSON(CUT_KEY, {}) || {}; all[pid] = (all[pid] || []).filter(x => x.k !== k); saveJSON(CUT_KEY, all); }
+
   // 贴纸怎么画：预览（DOM）和导出（画布）各照这一份尺寸比例来，边框＝宽的 6%
   function drawSticker(ctx, im, st, W, H, label) {
     const size = st.s * W, cx = st.x * W, cy = st.y * H;
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(st.r * Math.PI / 180);
     ctx.shadowColor = "rgba(0,0,0,.28)"; ctx.shadowBlur = size * 0.08; ctx.shadowOffsetY = size * 0.03;
+    if (st.style === "cut") {   // 抠出来的人：不加框，影子跟着人的轮廓落；可以左右翻
+      const ar2 = im ? im.naturalHeight / im.naturalWidth || 1 : 1, ih2 = size * ar2;
+      if (st.flip) ctx.scale(-1, 1);
+      if (im) ctx.drawImage(im, -size / 2, -ih2 / 2, size, ih2);
+      ctx.restore(); return;
+    }
     const half = size / 2, bd = st.style === "plain" ? 0 : size * 0.06;
     const ar = im ? im.naturalHeight / im.naturalWidth || 1 : 1, ih = st.style === "plain" ? size * ar : size;
     if (st.style === "round") { ctx.beginPath(); ctx.arc(0, 0, half, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill(); }
@@ -106,6 +225,40 @@
     const [genMulti, setGenMulti] = useState(true);   // 首页点的是「单人写真」还是「多人合照」
     // 这一趟拍的、画的都排进胶卷：拼贴那边直接从这里挑（存进图库，拼贴读图走 imgKey）
     const [roll, setRoll] = useState([]);
+    // 抠图人：给谁抠（默认第一个角色）、她写的姿势、在忙什么；抠好的图按 img_ 键现读成 objectURL
+    const [pTab, setPTab] = useState("avatar");   // 加人面板里两格：头像贴纸 / 抠出来的人（底栏不再多塞一颗，挤不下）
+    const [cutFor, setCutFor] = useState(() => (chars[0] && chars[0].id) || "me");
+    const [cutPose, setCutPose] = useState("");
+    const [cutBusy, setCutBusy] = useState("");
+    const [cutRev, setCutRev] = useState(0);
+    const [cutUrls, setCutUrls] = useState({});
+    const cutFileRef = useRef(null);
+    const cuts = cutList(cutFor);
+    useEffect(() => {
+      let alive = true;
+      const want = new Set(stickers.filter(s => s.style === "cut").map(s => s.k).concat(cuts.map(x => x.k)));
+      want.forEach(k => { if (cutUrls[k] || typeof idbImgGet !== "function") return;
+        idbImgGet(k).then(b => { if (alive && b) { const u = URL.createObjectURL(b); setCutUrls(m => m[k] ? m : Object.assign({}, m, { [k]: u })); } }).catch(() => {}); });
+      return () => { alive = false; };
+    }, [cutFor, cutRev, stickers.length]);
+    const addCut = (pid, k) => {
+      const st = { id: "s" + Date.now() + Math.random().toString(36).slice(2, 5), pid, k, x: 0.5 + (stickers.length % 3 - 1) * 0.18, y: 0.6, s: 0.5, r: 0, style: "cut" };
+      setStickers(l => l.concat([st])); setSel(st.id);
+    };
+    const genCut = async () => {
+      if (cutBusy || !props.onGenCutout) return;
+      setCutBusy("gen");
+      try { const raw = await props.onGenCutout(cutFor, cutPose); const png = await keyGreen(raw); const k = await cutSave(cutFor, png, "gen"); setCutRev(n => n + 1); addCut(cutFor, k); }
+      catch (e) { props.toast && props.toast("没抠成：" + String(e && e.message || e).slice(0, 80)); }
+      finally { setCutBusy(""); }
+    };
+    const pickCut = async e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f || cutBusy) return;
+      setCutBusy("seg");
+      try { const png = await segmentPerson(f); const k = await cutSave(cutFor, png, "photo"); setCutRev(n => n + 1); addCut(cutFor, k); }
+      catch (err) { props.toast && props.toast("没抠成：" + String(err && err.message || err).slice(0, 80)); }
+      finally { setCutBusy(""); }
+    };
     const toRoll = async (blob, desc) => { try { if (typeof idbImgPut !== "function") return; const k = "img_camroll_" + Date.now().toString(36); await idbImgPut(k, blob); setRoll(l => [{ imgKey: k, ts: Date.now(), desc }].concat(l)); } catch (e) {} };
     const camRef = useRef(null), videoRef = useRef(null), stageRef = useRef(null), fileRef = useRef(null), touches = useRef({});
     useEffect(() => {
@@ -190,7 +343,9 @@
         if (mirror) { ctx.translate(W, 0); ctx.scale(-1, 1); }
         ctx.drawImage(src, cx, cy, cw, ch, 0, 0, W, H);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        for (const st of stickers) { const p = people.find(x => x.id === st.pid); drawSticker(ctx, await loadImg(srcOf(p)), st, W, H, p && p.name); }
+        for (const st of stickers) { const p = people.find(x => x.id === st.pid);
+          if (st.style === "cut") { ctx.save(); ctx.shadowColor = "rgba(0,0,0,.28)"; ctx.shadowBlur = st.s * W * 0.04; ctx.shadowOffsetY = st.s * W * 0.02; drawSticker(ctx, await loadImg(cutUrls[st.k]), st, W, H); ctx.restore(); }
+          else drawSticker(ctx, await loadImg(srcOf(p)), st, W, H, p && p.name); }
         if (fcss) {
           if (canCtxFilter(ctx)) { const c2 = document.createElement("canvas"); c2.width = W; c2.height = H; const x2 = c2.getContext("2d"); x2.filter = fcss; x2.drawImage(cv, 0, 0); ctx.clearRect(0, 0, W, H); ctx.drawImage(c2, 0, 0); }
           else pixelFilter(ctx, W, H, fcss);
@@ -288,6 +443,13 @@
     }
 
     const stickerEl = st => {
+      if (st.style === "cut") { const on = st.id === sel, u = cutUrls[st.k];
+        return h("div", { "data-wk": "camsticker", "data-part": "cut", "data-on": on ? "1" : "0", key: st.id,
+          onPointerDown: e => onDown(e, st.id), onPointerMove: e => onMove(e, st.id), onPointerUp: onUp, onPointerCancel: onUp,
+          style: { position: "absolute", left: st.x * 100 + "%", top: st.y * 100 + "%", width: st.s * 100 + "%", transform: "translate(-50%,-50%) rotate(" + st.r + "deg)", touchAction: "none",
+            outline: on ? "1.5px dashed rgba(255,255,255,.9)" : "none", outlineOffset: 4 } },
+          u ? h("img", { src: u, draggable: false, style: { display: "block", width: "100%", height: "auto", pointerEvents: "none", transform: st.flip ? "scaleX(-1)" : "none", filter: "drop-shadow(0 6px 10px rgba(0,0,0,.28))" } }) : null);
+      }
       const p = people.find(x => x.id === st.pid) || {}, src = srcOf(p), on = st.id === sel;
       const shape = st.style === "round" ? { borderRadius: "50%", border: "0.06em solid #fff", background: "#fff" } : st.style === "card" ? { border: "0.06em solid #fff", borderBottomWidth: "0.18em", background: "#fff" } : {};
       return h("div", { "data-wk": "camsticker", "data-on": on ? "1" : "0", key: st.id,
@@ -315,14 +477,36 @@
         bg ? btn("回到镜头", backToCam, false, "tocam") : btn("翻转", () => camRef.current && camRef.current.switch(), false, "flip")),
       // 选中一张贴纸时：换样式、删掉
       selSt ? h("div", { "data-wk": "camtool", style: { position: "absolute", left: 0, right: 0, bottom: "calc(150px + " + COMPOSER_PAD_BOTTOM + ")", display: "flex", justifyContent: "center", gap: 6, flexWrap: "wrap", padding: "0 12px" } },
-        STYLES.map(([k, zh]) => h(React.Fragment, { key: k }, btn(zh, () => patch(selSt.id, { style: k }), selSt.style === k, "style"))),
+        selSt.style === "cut" ? btn("左右翻", () => patch(selSt.id, { flip: !selSt.flip }), !!selSt.flip, "flip")
+          : STYLES.map(([k, zh]) => h(React.Fragment, { key: k }, btn(zh, () => patch(selSt.id, { style: k }), selSt.style === k, "style"))),
         btn("删掉", () => { setStickers(l => l.filter(s => s.id !== selSt.id)); setSel(null); }, false, "del")) : null,
       // 底下：挑人 / 滤镜面板 + 快门那一排
       h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, paddingBottom: COMPOSER_PAD_BOTTOM, background: "linear-gradient(transparent, rgba(0,0,0,.55))" } },
-        panel === "people" ? h("div", { "data-wk": "campick", style: { display: "flex", gap: 12, overflowX: "auto", padding: "10px 16px" } },
+        panel === "people" ? h("div", { "data-wk": "campicktab", style: { display: "flex", gap: 6, padding: "8px 16px 0" } },
+          btn("头像", () => setPTab("avatar"), pTab === "avatar", "ptab"), btn("抠图人", () => setPTab("cut"), pTab === "cut", "ptab")) : null,
+        panel === "people" && pTab === "avatar" ? h("div", { "data-wk": "campick", style: { display: "flex", gap: 12, overflowX: "auto", padding: "10px 16px" } },
           people.map(p => { const on = stickers.some(s => s.pid === p.id); return h("button", { key: p.id, "data-wk": "campickone", "data-on": on ? "1" : "0", onClick: () => togglePerson(p), style: { flexShrink: 0, border: "none", background: "transparent", color: "#fff", width: 58, textAlign: "center", opacity: on ? 1 : .7 } },
             h("div", { style: { display: "inline-block", borderRadius: "50%", boxShadow: on ? "0 0 0 2.5px #ffd54a" : "none" } }, typeof Avatar === "function" ? h(Avatar, { character: p, size: 48 }) : null),
             h("div", { style: { fontSize: FS(11), marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name)); })) : null,
+        panel === "people" && pTab === "cut" ? h("div", { "data-wk": "camcut", style: { padding: "8px 16px 0" } },
+          h("div", { "data-wk": "camcutwho", style: { display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6 } },
+            people.map(p => h("button", { key: p.id, "data-wk": "camcutone", "data-on": cutFor === p.id ? "1" : "0", onClick: () => setCutFor(p.id),
+              style: { flexShrink: 0, border: "none", background: "transparent", color: "#fff", textAlign: "center", width: 52, opacity: cutFor === p.id ? 1 : 0.6 } },
+              h("div", { style: { display: "inline-block", borderRadius: "50%", boxShadow: cutFor === p.id ? "0 0 0 2.5px #ffd54a" : "none" } }, typeof Avatar === "function" ? h(Avatar, { character: p, size: 36 }) : null),
+              h("div", { style: { fontSize: FS(10.5), marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name)))),
+          h("div", { "data-wk": "camcutlist", style: { display: "flex", gap: 8, overflowX: "auto", padding: "4px 0 8px", minHeight: cuts.length ? 84 : 0 } },
+            cuts.map(x => h("div", { key: x.k, "data-wk": "camcutthumb", style: { position: "relative", flexShrink: 0, width: 62, height: 84, borderRadius: 10, background: "rgba(255,255,255,.12)" } },
+              h("button", { onClick: () => addCut(cutFor, x.k), style: { width: "100%", height: "100%", border: "none", background: "transparent", padding: 4 } },
+                cutUrls[x.k] ? h("img", { src: cutUrls[x.k], style: { width: "100%", height: "100%", objectFit: "contain" } }) : null),
+              h("button", { "data-wk": "camcutdel", "aria-label": "不要这张", onClick: () => { cutDrop(cutFor, x.k); setCutRev(n => n + 1); },
+                style: { position: "absolute", top: -4, right: -4, width: 20, height: 20, borderRadius: 10, border: "none", background: "rgba(0,0,0,.6)", color: "#fff", fontSize: FS(11), lineHeight: "20px" } }, "×")))),
+          h("div", { style: { display: "flex", gap: 8, alignItems: "center" } },
+            h("input", { "data-wk": "camcutpose", value: cutPose, onChange: e => setCutPose(e.target.value), placeholder: "姿势（选填）",
+              style: { flex: 1, minWidth: 0, height: 34, borderRadius: 17, border: "1px solid rgba(255,255,255,.25)", background: "rgba(255,255,255,.1)", color: "#fff", padding: "0 12px", fontSize: FS(13), outline: "none" } }),
+            btn(cutBusy === "gen" ? "在画…" : "现生一张", genCut, false, "cutgen"),
+            btn(cutBusy === "seg" ? "在抠…" : "从照片抠", () => !cutBusy && cutFileRef.current && cutFileRef.current.click(), false, "cutphoto")),
+          h("div", { style: { fontSize: FS(10.5), opacity: .6, color: "#fff", padding: "6px 2px 0", lineHeight: 1.6 } },
+            cutBusy === "seg" ? "第一次抠要先下载抠图工具（三十兆左右），稍等" : "现生：锁脸画一张全身再去底（用图像API）；从照片抠：手机上就地抠，不花额度")) : null,
         panel === "filter" ? h("div", { "data-wk": "camfilter", style: { display: "flex", gap: 8, overflowX: "auto", padding: "10px 16px" } },
           FILTERS.map(f => h(React.Fragment, { key: f.id }, btn(f.zh, () => setFilter(f.id), filter === f.id, "filter")))) : null,
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-around", padding: "10px 16px 14px" } },
@@ -331,8 +515,9 @@
           h("button", { "data-wk": "camshutter", onClick: capture, disabled: busy, "aria-label": "拍照", style: { width: 68, height: 68, borderRadius: 34, border: "4px solid #fff", background: busy ? "rgba(255,255,255,.5)" : "rgba(255,255,255,.92)", boxShadow: "0 0 0 3px rgba(0,0,0,.25)" } }),
           btn("滤镜", () => setPanel(panel === "filter" ? "" : "filter"), panel === "filter" || filter !== "none", "filtertab"),
           btn(stickers.length ? "清空" : "　", () => { setStickers([]); setSel(null); }, false, "clear"))),
-      h("input", { ref: fileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: pickBg }));
+      h("input", { ref: fileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: pickBg }),
+      h("input", { ref: cutFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: pickCut }));
   }
   window.CameraApp = CameraApp;
-  window.CameraKit = { FILTERS, pixelFilter, drawSticker };
+  window.CameraKit = { FILTERS, pixelFilter, drawSticker, keyGreen, segmentPerson };
 })();

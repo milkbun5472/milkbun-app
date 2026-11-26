@@ -19874,6 +19874,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   每人用自己的参照锁脸，跟频道小家伙合照、线下合影同一条 buildPhotoPrompt + generateSelfieImage。
   //   who：self＝画面里的人自己举着手机拍；other＝像有人帮他们拍。返回 blob，存不存由相机那页决定。
   //   ⚠️提示词和出图跟小家伙合照是【同一个】castShotBlob，不另拼一份。
+  // 相机里那张「抠出来的他」（她 2026-11-26「ar相机你想想怎么生图或者生好的图怎么扣出人像一起拍」）：
+  //   锁脸画一张全身、背景一整片纯绿的，相机那头把绿色去掉，就是一张透明底的他，贴进实景里拍。
+  //   pose：她写的一句姿势，空着就自然站着
+  const cameraGenCutout = async (id, pose) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const meName = userName(profile);
+    const who = id === "me" ? { ...meSubject(null, meName, null), id: "me", name: meName } : (characters || []).find(c => c && c.id === id);
+    if (!who) throw new Error("先挑是谁");
+    const sc = String(pose || "").trim() || "自然地站着";
+    return castShotBlob([who], sc, { kind: "other", extraText: "\n\n【这张要拿去抠图】从头顶到鞋子整个人完整入镜，四周留一点空，不裁掉任何部位；人站在画面正中。"
+      + "背景是一整片均匀的纯绿色（#00FF00），像摄影棚的绿幕：没有地面、墙、影子、道具和其他人，也没有渐变。人身上不要穿绿色。" });
+  };
   const cameraGenShot = async (ids, scene, who) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
     const meName = userName(profile);
@@ -39398,7 +39410,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,

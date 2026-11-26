@@ -1,0 +1,3 @@
+MediaPipe Tasks Vision 1.2.3 (npm @mediapipe/tasks-vision) and the selfie_multiclass_256x256 model,
+from Google MediaPipe. Apache License 2.0 — https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE
+Used by js/camera.js (抠图人 · 从照片抠), loaded only when that button is used.
