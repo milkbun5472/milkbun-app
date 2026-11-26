@@ -22,6 +22,7 @@ test("抠好的存图库、按人记；放进来是 cut 贴纸，拍照时一起
 });
 test("不往底栏多塞按钮：抠图人是加人面板里的一格", () => {
   assert.ok(!/btn\("抠图人", \(\) => setPanel/.test(cam));
-  assert.match(cam, /btn\("抠图人", \(\) => setPTab\("cut"\)/);
+  assert.match(cam, /\[\["avatar", "头像贴纸"\], \["cut", "抠图人"\]\]\.map/);
+  for (const k of ["camsheet", "camgencard", "camresultframe"]) assert.ok(ts.includes('["' + k + '"'), k);
   for (const k of ["campicktab", "camcut", "camcutwho", "camcutone", "camcutlist", "camcutthumb", "camcutdel", "camcutpose"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(cam.includes('"data-wk": "' + k + '"'), k); }
 });
