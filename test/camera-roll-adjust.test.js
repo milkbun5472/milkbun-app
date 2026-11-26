@@ -15,3 +15,12 @@ test("自己调：五根条拼成 CSS 串，只用逐像素兜底认得的那几
   assert.match(cam, /const fcss = \(\(FILTERS\.find/);
   assert.ok(ts.includes('["camadjust"') && cam.includes('"data-wk": "camadjust"'));
 });
+test("给TA看／一起逛：同一个 cameraLook，看图回 say(+caption)；发进聊天走 shareShotToChat，不当场替TA开口", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(app, /const cameraLook = async \(charId, img, kind, inPhoto\) =>/);
+  assert.match(app, /const cameraShare = async \(charId, blob, caption\) =>[\s\S]{0,400}return shareShotToChat\(char,/);
+  assert.match(app, /onLook: cameraLook, onShare: cameraShare/);
+  assert.match(cam, /const finalBlob = async \(\) => look && look\.caption \? await polaroid\(/);
+  assert.match(cam, /if \(st\.say\) drawBubble\(ctx,/);
+  for (const k of ["camlook", "camlookone", "camlooksay", "camcaption", "camsay"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(cam.includes('"data-wk": "' + k + '"'), k); }
+});

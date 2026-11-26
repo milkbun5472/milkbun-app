@@ -19912,6 +19912,31 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!out) throw new Error("没写出来，再点一次");
     return out;
   };
+  // 相机里给TA看（她 2026-11-26）：photo/gen＝拍好、画好的这一张，TA 说一句＋在拍立得白边上写一行；live＝她举着相机、把TA放进取景框一起逛，TA 看着画面说一句
+  const cameraLook = async (charId, img, kind, inPhoto) => {
+    const char = characters.find(c => c.id === charId);
+    const route = apiFor(charId);
+    if (!char || !route) throw new Error("请先到设置配置 API");
+    const uName = (profileFor(charId) || {}).name || "她";
+    const live = kind === "live";
+    const d = await runProbe(route, ctxFor(char), {
+      voice: true, images: img ? [img] : [],
+      instruction: live
+        ? uName + " 举着手机相机在外面，把你也放进了取景框里，像你们一起在逛（图里就是取景框此刻的样子，你也在画面里）。你看看画面里真有的东西，照你这个人的性子跟她说一句。say 只写说出口的话，跟着你此刻的心情和你平时说话的样子来。"
+        : uName + (kind === "gen" ? " 在相机里让人画了这张，拿给你看" : " 刚用相机拍了这张，拿给你看") + (inPhoto ? "（照片里也有你）" : "") + "，图里就是。say 是你看着这张想跟她说的话，长短跟着你此刻的心情和你平时说话的样子来。caption 是你想亲手写在这张拍立得白边上的一行字，写在照片上留着的那种，短。",
+      schemaHint: live ? "{\"say\":\"你想跟她说的话\"}" : "{\"say\":\"你想跟她说的话\",\"caption\":\"写在白边上的一行字\"}",
+      maxTokens: 8000
+    });
+    return { say: String((d && d.say) || "").trim(), caption: live ? "" : String((d && d.caption) || "").trim() };
+  };
+  // 发进TA的聊天：跟照相馆那张一样走 shareShotToChat（先进本机图库，再搬进聊天图库）；发完TA等她开口
+  const cameraShare = async (charId, blob, caption) => {
+    const char = characters.find(c => c.id === charId);
+    if (!char) return false;
+    const k = "img_camshare_" + Date.now().toString(36);
+    await idbImgPut(k, blob);
+    return shareShotToChat(char, { imgKey: k, desc: caption ? "拍立得，白边上你写了：" + caption : "" });
+  };
   const cameraGenShot = async (ids, scene, who) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
     const meName = userName(profile);
@@ -39437,7 +39462,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,

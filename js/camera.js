@@ -29,6 +29,43 @@
     if (a.fade) o.push("contrast(" + f(1 - a.fade / 400) + ") brightness(" + f(1 + a.fade / 900) + ")");
     return o.join(" ");
   }
+  // 一起逛那句话：圆角白泡泡＋朝下的小尖，跟着贴纸头顶；拍照时同一个形状画进去
+  function wrapText(ctx, text, maxW) {
+    const out = []; let line = "";
+    for (const ch of String(text || "")) { if (ch === "\n") { out.push(line); line = ""; continue; } if (ctx.measureText(line + ch).width > maxW && line && !/[，。！？、；：,.!?;:」』）)…~～]/.test(ch)) { out.push(line); line = ch; } else line += ch; }
+    if (line) out.push(line); return out;
+  }
+  function drawBubble(ctx, text, cx, bottomY, W) {
+    const fs = Math.round(W * 0.036), pad = fs * 0.7, maxW = W * 0.56;
+    ctx.save(); ctx.font = "500 " + fs + "px 'PingFang SC','Noto Sans SC',sans-serif";
+    const lines = wrapText(ctx, text, maxW - pad * 2), lh = fs * 1.4;
+    const bw = Math.min(maxW, Math.max.apply(null, lines.map(l => ctx.measureText(l).width)) + pad * 2), bh = lines.length * lh + pad * 1.4;
+    const x = Math.max(W * 0.03, Math.min(W * 0.97 - bw, cx - bw / 2)), y = Math.max(W * 0.03, bottomY - bh - fs * 0.6), r = fs * 0.8;
+    ctx.shadowColor = "rgba(0,0,0,.22)"; ctx.shadowBlur = fs * 0.6; ctx.shadowOffsetY = fs * 0.15; ctx.fillStyle = "rgba(255,255,255,.96)";
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + bw, y, x + bw, y + bh, r); ctx.arcTo(x + bw, y + bh, x, y + bh, r); ctx.arcTo(x, y + bh, x, y, r); ctx.arcTo(x, y, x + bw, y, r); ctx.closePath(); ctx.fill();
+    const tx = Math.max(x + r, Math.min(x + bw - r, cx));
+    ctx.beginPath(); ctx.moveTo(tx - fs * 0.4, y + bh - 1); ctx.lineTo(tx, y + bh + fs * 0.55); ctx.lineTo(tx + fs * 0.4, y + bh - 1); ctx.fill();
+    ctx.shadowColor = "transparent"; ctx.fillStyle = "#2b2230"; ctx.textBaseline = "top";
+    lines.forEach((l, i) => ctx.fillText(l, x + pad, y + pad * 0.7 + i * lh + fs * 0.12));
+    ctx.restore();
+  }
+  // 拍立得白边：TA 写的那一行手写在底边上，存到手机／发给TA的就是这一张
+  const HAND = "'Long Cang','Ma Shan Zheng','Kaiti SC','STKaiti',KaiTi,cursive";
+  async function polaroid(blob, caption, loadImg) {
+    const u = URL.createObjectURL(blob); try {
+      const im = await loadImg(u); if (!im) return blob; const w = im.naturalWidth, hh = im.naturalHeight, m = Math.round(w * 0.045), bot = Math.round(w * 0.2);
+      const cv = document.createElement("canvas"); cv.width = w + m * 2; cv.height = hh + m + bot;
+      const ctx = cv.getContext("2d"); ctx.fillStyle = "#fbfaf7"; ctx.fillRect(0, 0, cv.width, cv.height); ctx.drawImage(im, m, m);
+      try { if (document.fonts && document.fonts.load) await document.fonts.load(Math.round(w * 0.06) + "px 'Long Cang'"); } catch (e) {}
+      let fs = Math.round(w * 0.06); ctx.font = fs + "px " + HAND;
+      let lines = wrapText(ctx, caption, w);
+      while (lines.length > 2 && fs > w * 0.035) { fs = Math.round(fs * 0.88); ctx.font = fs + "px " + HAND; lines = wrapText(ctx, caption, w); }
+      lines = lines.slice(0, 2); ctx.fillStyle = "#3a3340"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      const lh = fs * 1.15, top = hh + m + bot / 2 - (lines.length - 1) * lh / 2;
+      lines.forEach((l, i) => ctx.fillText(l, cv.width / 2, top + i * lh));
+      return await new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error("没存下来")), "image/jpeg", 0.92));
+    } finally { URL.revokeObjectURL(u); }
+  }
   const STYLES = [["round", "圆头像"], ["card", "小卡"], ["plain", "原图"]];
 
   // 不认 ctx.filter 时的兜底：把同一串 CSS 滤镜逐像素算一遍（只用到上面那几种函数）
@@ -228,6 +265,9 @@
     const [panel, setPanel] = useState("");       // "people" | "filter" | ""
     const [shot, setShot] = useState(null);       // {url, blob}
     const [busy, setBusy] = useState(false);
+    // 给TA看（她 2026-11-26 挑的前三个好玩的）：拍完挑一个人看这张——TA 说一句、在相纸白边上写一行；还能发进TA的聊天
+    const [look, setLook] = useState(null);       // {pid, busy, say, caption}
+    const [talkBusy, setTalkBusy] = useState("");  // 一起逛：哪张贴纸正在想说什么
     // 模式转盘（真相机快门上面那一排「照片·人像·视频」）：实景＝镜头叠人；生图＝挑人写一句画面，让生图画一张
     const [mode, setMode] = useState("hub");   // hub＝首页那几块入口（她 2026-11-26「像美图秀秀那样分开」）
     const [colTpl, setColTpl] = useState("booth");
@@ -287,7 +327,7 @@
     // 胶卷（她 2026-11-26「拍完大退重进怎么就没了」）：图本来就进了本机图库，丢的是这张清单——
     //   清单不另存，开相机时照图库里 img_camroll_ 的键排出来；拍的/画的写在键尾，时间是键里那段 36 进制
     const ROLL_DESC = { s: "拍的", g: "画的" };
-    const toRoll = async (blob, desc) => { try { if (typeof idbImgPut !== "function") return; const ts = Date.now(), k = "img_camroll_" + ts.toString(36) + "_" + (desc === "画的" ? "g" : "s"); await idbImgPut(k, blob); setRoll(l => [{ imgKey: k, ts, desc }].concat(l)); } catch (e) {} };
+    const toRoll = async (blob, desc) => { try { if (typeof idbImgPut !== "function") return; const ts = Date.now(), k = "img_camroll_" + ts.toString(36) + "_" + (desc === "画的" ? "g" : "s"); await idbImgPut(k, blob); setRoll(l => [{ imgKey: k, ts, desc }].concat(l)); return k; } catch (e) { return ""; } };
     useEffect(() => { let live = true;
       (async () => { try { if (typeof idbAllKeys !== "function" || typeof idbImgOpen !== "function") return;
         const ks = (await idbAllKeys(idbImgOpen) || []).map(String).filter(k => k.indexOf("img_camroll_") === 0);
@@ -315,7 +355,7 @@
       if (genBusy || !props.onGen) return;
       if (!genIds.length) { props.toast && props.toast("先挑画面里有谁"); return; }
       setGenBusy(true);
-      try { const blob = await props.onGen(genIds, genScene, genWho); setShot({ url: URL.createObjectURL(blob), blob, gen: true }); toRoll(blob, "画的"); }
+      try { const blob = await props.onGen(genIds, genScene, genWho); setShot({ url: URL.createObjectURL(blob), blob, gen: true, pids: genIds.filter(x => x !== "me") }); setLook(null); toRoll(blob, "画的").then(k => k && setShot(s => s && s.blob === blob ? Object.assign({}, s, { k }) : s)); }
       catch (e) { props.toast && props.toast("没画成：" + String(e && e.message || e).slice(0, 80)); }
       finally { setGenBusy(false); }
     };
@@ -362,9 +402,8 @@
       const url = URL.createObjectURL(f); setBg(url); if (camRef.current) camRef.current.close(); };
     const backToCam = () => { if (bg) URL.revokeObjectURL(bg); setBg(null); camRef.current && camRef.current.open(cs.facing || "environment"); };
 
-    const capture = async () => {
-      if (busy) return; setBusy(true);
-      try {
+    // 把取景框此刻的样子画成一张图：快门存它；「TA说一句」也拿它给TA看（tiny＝缩小省流量）
+    const renderFrame = async (opt) => {
         const R = rect(), W0 = R.width, H0 = R.height;
         let src = null, sw = 0, sh = 0;
         if (bg) { src = await loadImg(bg); sw = src && src.naturalWidth; sh = src && src.naturalHeight; }
@@ -372,7 +411,7 @@
         if (!src || !sw || !sh) throw new Error(bg ? "这张图没读出来" : "镜头还没出画面，等一下再按");
         // 跟预览一样按 cover 裁：取景框里看到哪一块，存下来就是哪一块
         const sc = Math.max(W0 / sw, H0 / sh), cw = W0 / sc, ch = H0 / sc, cx = (sw - cw) / 2, cy = (sh - ch) / 2;
-        const out = Math.min(1440, Math.round(cw)), W = Math.max(1, out), H = Math.max(1, Math.round(out * H0 / W0));
+        const out = Math.min(opt && opt.tiny ? 768 : 1440, Math.round(cw)), W = Math.max(1, out), H = Math.max(1, Math.round(out * H0 / W0));
         const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
         const ctx = cv.getContext("2d");
         if (mirror) { ctx.translate(W, 0); ctx.scale(-1, 1); }
@@ -381,18 +420,54 @@
         for (const st of stickers) { const p = people.find(x => x.id === st.pid);
           if (st.style === "cut") { ctx.save(); ctx.shadowColor = "rgba(0,0,0,.28)"; ctx.shadowBlur = st.s * W * 0.04; ctx.shadowOffsetY = st.s * W * 0.02; drawSticker(ctx, await loadImg(cutUrls[st.k]), st, W, H); ctx.restore(); }
           else drawSticker(ctx, await loadImg(srcOf(p)), st, W, H, p && p.name); }
+        if (!(opt && opt.noTalk)) for (const st of stickers) if (st.say) drawBubble(ctx, st.say, st.x * W, st.y * H - talkLift(st, W, H) * H, W);
         if (fcss) {
           if (canCtxFilter(ctx)) { const c2 = document.createElement("canvas"); c2.width = W; c2.height = H; const x2 = c2.getContext("2d"); x2.filter = fcss; x2.drawImage(cv, 0, 0); ctx.clearRect(0, 0, W, H); ctx.drawImage(c2, 0, 0); }
           else pixelFilter(ctx, W, H, fcss);
         }
-        const blob = await new Promise((res, rej) => { try { cv.toBlob(b => b ? res(b) : rej(new Error("没存下来")), "image/jpeg", 0.92); } catch (x) { rej(x); } });
-        setShot({ url: URL.createObjectURL(blob), blob }); setSel(null); toRoll(blob, "拍的");
+        if (opt && opt.tiny) return cv.toDataURL("image/jpeg", 0.8);
+        return await new Promise((res, rej) => { try { cv.toBlob(b => b ? res(b) : rej(new Error("没存下来")), "image/jpeg", 0.92); } catch (x) { rej(x); } });
+    };
+    // 贴纸头顶在哪：泡泡的尖对着它。高度＝宽×长宽比（原图／抠的人按图本身的比例，图载好时记在 st.ar）
+    const talkLift = (st, W, H) => { const ar = st.style === "round" ? 1 : st.style === "card" ? 1.12 : (st.ar || 1.4); return st.s * W * ar / 2 / H; };
+    // 一起逛：TA 看着取景框里此刻的样子（自己也在里面）说一句，泡泡挂在TA头顶，按快门时一起拍进去
+    const talk = async st => {
+      if (talkBusy || !props.onLook) return;
+      setTalkBusy(st.id);
+      try { const img = await renderFrame({ tiny: true, noTalk: true }); const d = await props.onLook(st.pid, img, "live");
+        const say = String((d && d.say) || "").trim(); if (say) patch(st.id, { say }); }
+      catch (e) { props.toast && props.toast("没说成：" + String(e && e.message || e).slice(0, 80)); }
+      finally { setTalkBusy(""); }
+    };
+    // 给TA看：TA 看拍好的这一张，说一句、写一行在白边上
+    const showTo = async pid => {
+      if (!shot || (look && look.busy) || !props.onLook) return;
+      setLook({ pid, busy: true }); const blob = shot.blob;
+      try { const u = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+        const d = await props.onLook(pid, await shrink(u), shot.gen ? "gen" : "photo", (shot.pids || []).indexOf(pid) >= 0);
+        setLook({ pid, say: String((d && d.say) || "").trim(), caption: String((d && d.caption) || "").replace(/\s+/g, " ").trim() }); }
+      catch (e) { setLook(null); props.toast && props.toast("没看成：" + String(e && e.message || e).slice(0, 80)); }
+    };
+    const shrink = async u => { const im = await loadImg(u); if (!im) return u; const k = Math.min(1, 1024 / Math.max(im.naturalWidth, im.naturalHeight)); if (k >= 1) return u;
+      const cv = document.createElement("canvas"); cv.width = Math.round(im.naturalWidth * k); cv.height = Math.round(im.naturalHeight * k); cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height); return cv.toDataURL("image/jpeg", 0.82); };
+    // 存／发出去的那一张：TA 写了字就是带白边那张拍立得，没写就是原片
+    const finalBlob = async () => look && look.caption ? await polaroid(shot.blob, look.caption, loadImg) : shot.blob;
+    const sendTo = async () => {
+      if (!shot || !look || !props.onShare) return;
+      try { await props.onShare(look.pid, await finalBlob(), look.caption || ""); } catch (e) { props.toast && props.toast("没发出去：" + String(e && e.message || e).slice(0, 80)); }
+    };
+    const capture = async () => {
+      if (busy) return; setBusy(true);
+      try {
+        const blob = await renderFrame();
+        setShot({ url: URL.createObjectURL(blob), blob, pids: Array.from(new Set(stickers.map(s => s.pid).filter(x => x && x !== "me"))) }); setSel(null); setLook(null);
+        toRoll(blob, "拍的").then(k => k && setShot(s => s && s.blob === blob ? Object.assign({}, s, { k }) : s));
       } catch (e) {
         const m = e && e.name === "SecurityError" ? "有张头像是网上的图，浏览器不让画进照片；换成本地上传的头像再拍" : String(e && e.message || e);
         props.toast && props.toast(m);
       } finally { setBusy(false); }
     };
-    const save = () => { if (!shot) return; const f = new File([shot.blob], "相机-" + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "") + ".jpg", { type: "image/jpeg" });
+    const save = async () => { if (!shot) return; let b = shot.blob; try { b = await finalBlob(); } catch (e) {} const f = new File([b], "相机-" + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "") + ".jpg", { type: "image/jpeg" });
       if (typeof saveFile === "function") saveFile(f); };
 
     // 按钮（她 2026-11-26「各个页面里面的界面好丑」）：浮在实景上的一律是磨砂深底＋细白边，选中的那颗是白底；颜色跟首页那块「拍照」同一组粉橙
@@ -418,6 +493,8 @@
     const roundBtn = (icon, onClick, part, label) => h("button", { "data-wk": "cambtn", "data-part": part, onClick, "aria-label": label,
       style: { height: 38, minWidth: 38, padding: label && part !== "back" ? "0 14px 0 10px" : 0, borderRadius: 19, border: "1px solid rgba(255,255,255,.22)", background: "rgba(28,22,30,.42)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontSize: FS(12.5), backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" } },
       svg(icon, 20), label && part !== "back" ? label : null);
+    const avatarRing = (p, on, size) => h("div", { style: { display: "inline-block", borderRadius: "50%", padding: 2.5, background: on ? GRAD : "rgba(255,255,255,.18)" } },
+      h("div", { style: { borderRadius: "50%", padding: 1.5, background: "rgba(20,16,22,.9)" } }, typeof Avatar === "function" ? h(Avatar, { character: p, size }) : null));
     const selSt = stickers.find(s => s.id === sel);
 
     if (shot) {
@@ -425,13 +502,30 @@
       const big = (label, onClick, part, primary) => h("button", { "data-wk": "cambtn", "data-part": part, onClick,
         style: { flex: primary ? 1.4 : 1, height: 48, borderRadius: 24, border: primary ? "none" : "1px solid rgba(255,255,255,.22)", background: primary ? GRAD : "rgba(255,255,255,.1)", color: "#fff", fontSize: FS(14), fontWeight: primary ? 600 : 500, letterSpacing: ".04em",
           boxShadow: primary ? "0 10px 24px -12px rgba(255,80,130,.8)" : "none" } }, label);
+      // 给TA看：一排头像（照片里有的人排前面），点谁谁看；看完一块白泡泡，「发给TA」把这张（带字就是拍立得那张）发进TA的聊天
+      const lk = look, lp = lk && people.find(x => x.id === lk.pid), cap = lk && lk.caption;
+      const order = chars.slice().sort((a, b) => ((shot.pids || []).indexOf(b.id) >= 0) - ((shot.pids || []).indexOf(a.id) >= 0));
+      const lookRow = props.onLook && chars.length ? h("div", { "data-wk": "camlook", style: { padding: "0 18px 6px" } },
+        lk && !lk.busy && lk.say ? h("div", { "data-wk": "camlooksay", style: { background: "rgba(255,255,255,.96)", color: "#2b2230", borderRadius: 16, padding: "10px 12px", marginBottom: 10, fontSize: FS(13.5), lineHeight: 1.6, boxShadow: "0 10px 24px -14px rgba(0,0,0,.7)" } },
+          h("div", { style: { fontSize: FS(11), color: "#9a8a96", marginBottom: 2 } }, (lp && lp.name) || "TA"),
+          h("div", { style: { whiteSpace: "pre-wrap" } }, lk.say),
+          props.onShare ? h("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: 6 } },
+            h("button", { "data-wk": "cambtn", "data-part": "sendto", onClick: sendTo, style: { height: 30, padding: "0 14px", borderRadius: 15, border: "none", background: GRAD, color: "#fff", fontSize: FS(12), fontWeight: 600 } }, "发给" + ((lp && lp.name) || "TA"))) : null) : null,
+        h("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+          h("span", { style: { flexShrink: 0, color: "rgba(255,255,255,.7)", fontSize: FS(12) } }, lk && lk.busy ? "在看…" : "给TA看"),
+          h("div", { style: { display: "flex", gap: 8, overflowX: "auto", padding: "2px 0" } },
+            order.map(p => h("button", { key: p.id, "data-wk": "camlookone", "data-on": lk && lk.pid === p.id ? "1" : "0", onClick: () => showTo(p.id), "aria-label": p.name,
+              style: { flexShrink: 0, border: "none", background: "transparent", padding: 0, opacity: lk && lk.busy && lk.pid !== p.id ? .4 : 1 } },
+              avatarRing(p, lk && lk.pid === p.id, 36)))))) : null;
       return h("div", { "data-wk": "campage", "data-part": "result", className: "h-full", style: { position: "relative", background: "radial-gradient(120% 70% at 50% 0%, #3a2433 0%, #17121a 60%)", display: "flex", flexDirection: "column" } },
         h("div", { style: { paddingTop: safeTop(8), paddingLeft: 12, paddingRight: 12, display: "flex", alignItems: "center" } },
           roundBtn(IC.back, () => setShot(null), "back", "返回"),
           h("div", { style: { flex: 1, textAlign: "center", color: "rgba(255,255,255,.8)", fontSize: FS(13.5), letterSpacing: ".18em" } }, shot.gen ? "画好了" : "拍好了"), h("div", { style: { width: 38 } })),
         h("div", { style: { flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "14px 22px" } },
-          h("div", { "data-wk": "camresultframe", style: { background: "#fff", padding: 8, paddingBottom: 26, borderRadius: 6, boxShadow: "0 24px 50px -20px rgba(0,0,0,.8)", maxWidth: "100%", maxHeight: "100%", display: "flex" } },
-            h("img", { "data-wk": "camresult", src: shot.url, style: { maxWidth: "100%", maxHeight: "calc(100vh - 260px)", objectFit: "contain", display: "block", borderRadius: 2 } }))),
+          h("div", { "data-wk": "camresultframe", style: { background: "#fbfaf7", padding: 8, paddingBottom: cap ? 6 : 26, borderRadius: 6, boxShadow: "0 24px 50px -20px rgba(0,0,0,.8)", maxWidth: "100%", maxHeight: "100%", display: "flex", flexDirection: "column", alignItems: "center" } },
+            h("img", { "data-wk": "camresult", src: shot.url, style: { maxWidth: "100%", maxHeight: "calc(100vh - " + (lookRow ? 400 : 260) + "px)", objectFit: "contain", display: "block", borderRadius: 2 } }),
+            cap ? h("div", { "data-wk": "camcaption", style: { fontFamily: HAND, fontSize: FS(20), color: "#3a3340", textAlign: "center", padding: "8px 6px 4px", lineHeight: 1.2, maxWidth: "100%" } }, cap) : null)),
+        lookRow,
         h("div", { style: { display: "flex", gap: 10, padding: "6px 18px 16px", paddingBottom: "calc(16px + " + COMPOSER_PAD_BOTTOM + ")" } },
           shot.gen ? big(genBusy ? "在画…" : "再画一张", () => { if (!genBusy) { setShot(null); runGen(); } }, "regen") : big("重拍", () => setShot(null), "retake"),
           shot.gen ? big("加滤镜·贴人", genToEdit, "edit") : null,
@@ -527,7 +621,7 @@
           onPointerDown: e => onDown(e, st.id), onPointerMove: e => onMove(e, st.id), onPointerUp: onUp, onPointerCancel: onUp,
           style: { position: "absolute", left: st.x * 100 + "%", top: st.y * 100 + "%", width: st.s * 100 + "%", transform: "translate(-50%,-50%) rotate(" + st.r + "deg)", touchAction: "none",
             outline: on ? "1.5px dashed rgba(255,255,255,.9)" : "none", outlineOffset: 4 } },
-          u ? h("img", { src: u, draggable: false, style: { display: "block", width: "100%", height: "auto", pointerEvents: "none", transform: st.flip ? "scaleX(-1)" : "none", filter: "drop-shadow(0 6px 10px rgba(0,0,0,.28))" } }) : null);
+          u ? h("img", { src: u, draggable: false, onLoad: e => { const t = e.currentTarget, a = t.naturalHeight / t.naturalWidth; if (a && Math.abs(a - (st.ar || 0)) > .01) patch(st.id, { ar: a }); }, style: { display: "block", width: "100%", height: "auto", pointerEvents: "none", transform: st.flip ? "scaleX(-1)" : "none", filter: "drop-shadow(0 6px 10px rgba(0,0,0,.28))" } }) : null);
       }
       const p = people.find(x => x.id === st.pid) || {}, src = srcOf(p), on = st.id === sel;
       const shape = st.style === "round" ? { borderRadius: "50%", border: "0.06em solid #fff", background: "#fff" } : st.style === "card" ? { border: "0.06em solid #fff", borderBottomWidth: "0.18em", background: "#fff" } : {};
@@ -536,14 +630,12 @@
         style: { position: "absolute", left: st.x * 100 + "%", top: st.y * 100 + "%", width: st.s * 100 + "%", transform: "translate(-50%,-50%) rotate(" + st.r + "deg)", touchAction: "none",
           outline: on ? "1.5px dashed rgba(255,255,255,.9)" : "none", outlineOffset: 4 } },
         h("div", { style: Object.assign({ fontSize: st.s * 100 + "vw", boxSizing: "border-box", overflow: "hidden", boxShadow: "0 0.03em 0.08em rgba(0,0,0,.28)", aspectRatio: st.style === "plain" ? "auto" : st.style === "card" ? "1 / 1.12" : "1 / 1" }, shape) },
-          src ? h("img", { src, draggable: false, style: { display: "block", width: "100%", height: st.style === "plain" ? "auto" : "100%", objectFit: "cover", pointerEvents: "none" } })
+          src ? h("img", { src, draggable: false, onLoad: e => { const t = e.currentTarget, a = t.naturalHeight / t.naturalWidth; if (st.style === "plain" && a && Math.abs(a - (st.ar || 0)) > .01) patch(st.id, { ar: a }); }, style: { display: "block", width: "100%", height: st.style === "plain" ? "auto" : "100%", objectFit: "cover", pointerEvents: "none" } })
             : h("div", { style: { width: "100%", aspectRatio: "1 / 1", display: "flex", alignItems: "center", justifyContent: "center", background: "#ddd", color: "#555", fontSize: ".3em" } }, (p.name || "?").slice(0, 1))));
     };
 
     // 实景那一页：画面铺满；顶上两颗磨砂圆钮；底下一块磨砂底板——面板（加人／抠图人／滤镜）和快门那一排都在板子上，压在浅色照片上也看得清
     const sheetOn = !!panel;
-    const avatarRing = (p, on, size) => h("div", { style: { display: "inline-block", borderRadius: "50%", padding: 2.5, background: on ? GRAD : "rgba(255,255,255,.18)" } },
-      h("div", { style: { borderRadius: "50%", padding: 1.5, background: "rgba(20,16,22,.9)" } }, typeof Avatar === "function" ? h(Avatar, { character: p, size }) : null));
     const label = t => h("div", { style: { fontSize: FS(11), color: "rgba(255,255,255,.62)", letterSpacing: ".06em", margin: "2px 2px 8px" } }, t);
     return h("div", { "data-wk": "campage", className: "h-full", style: { position: "relative", background: "#000", overflow: "hidden", display: "flex", flexDirection: "column" } },
       // 取景框：整屏都是画面，跟直播间一样是全屏例外，返回键浮在左上、走 safeTop
@@ -560,10 +652,18 @@
         h("div", { style: { flex: 1 } }),
         bg ? roundBtn(IC.flip, backToCam, "tocam", "回到镜头") : roundBtn(IC.flip, () => camRef.current && camRef.current.switch(), "flip", "翻转")),
       // 选中一张贴纸时：一条磨砂小条，换样式、删掉
+      // 一起逛那句话：挂在TA头顶，点一下收掉；拍的时候一起画进去
+      stickers.filter(st => st.say || talkBusy === st.id).map(st => { const R = stageRef.current && stageRef.current.getBoundingClientRect(), Wp = (R && R.width) || 390, Hp = (R && R.height) || 844;
+        return h("div", { key: "say" + st.id, "data-wk": "camsay", onClick: () => talkBusy !== st.id && patch(st.id, { say: "" }),
+          style: { position: "absolute", left: Math.max(4, Math.min(96, st.x * 100)) + "%", bottom: (1 - st.y + talkLift(st, Wp, Hp)) * 100 + "%", transform: "translateX(-50%)", marginBottom: 10, maxWidth: "56%", width: "max-content",
+            background: "rgba(255,255,255,.96)", color: "#2b2230", borderRadius: 14, padding: "7px 11px", fontSize: FS(13), lineHeight: 1.45, boxShadow: "0 6px 14px -6px rgba(0,0,0,.45)", pointerEvents: "auto", filter: fcss || "none" } },
+          talkBusy === st.id ? "……" : st.say,
+          h("span", { style: { position: "absolute", left: "50%", bottom: -6, marginLeft: -6, width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "7px solid rgba(255,255,255,.96)" } })); }),
       selSt && !sheetOn ? h("div", { "data-wk": "camtool", style: { position: "absolute", left: 0, right: 0, bottom: "calc(118px + " + COMPOSER_PAD_BOTTOM + ")", display: "flex", justifyContent: "center", padding: "0 12px" } },
         h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", padding: 6, borderRadius: 22, background: "rgba(20,16,22,.5)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" } },
           selSt.style === "cut" ? btn("左右翻", () => patch(selSt.id, { flip: !selSt.flip }), !!selSt.flip, "flip")
             : STYLES.map(([k, zh]) => h(React.Fragment, { key: k }, btn(zh, () => patch(selSt.id, { style: k }), selSt.style === k, "style"))),
+          selSt.pid && selSt.pid !== "me" && props.onLook ? btn(talkBusy === selSt.id ? "在想…" : selSt.say ? "换一句" : "TA说一句", () => talk(selSt), !!selSt.say, "talk") : null,
           btn("删掉", () => { setStickers(l => l.filter(s => s.id !== selSt.id)); setSel(null); }, false, "del"))) : null,
       // 底下：磨砂底板（面板开着时整块托起来），快门那一排
       h("div", { "data-wk": "camsheet", "data-on": sheetOn ? "1" : "0", style: { position: "absolute", left: 0, right: 0, bottom: 0, paddingBottom: COMPOSER_PAD_BOTTOM,
