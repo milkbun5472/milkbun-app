@@ -31,3 +31,21 @@ test("app 侧：lookOf 不带人设；drawCast 人人有参考照、走群合影
   assert.ok(/kind: "group", cast: list/.test(seg));
   assert.ok(/filter\(x => x && x\.refPhoto\)/.test(seg));
 });
+
+// 她 2026-11-26「联机合照可以增加自己和朋友」：本人也能入镜；朋友本人要她自己开「允许把我拍进合照」才给
+test("本人入镜：我自己一行、朋友本人一行；朋友没开就勾不上", () => {
+  const seg = cut(nsrc, 'sheet === "groupshot"', 'sheet === "voicemsg"');
+  assert.ok(/key: "self"/.test(seg));
+  assert.ok(/":__self"/.test(seg));
+  assert.ok(/off: !p\.shot/.test(seg));
+});
+test("别人要拍我本人：只在我开着 meShot 时给", () => {
+  const seg = cut(nsrc, 'e.t === "lookreq"', 'e.t === "look")');
+  assert.ok(/r\.meShot && e\.ids/.test(seg));
+  assert.ok(!/persona/.test(seg));
+});
+test("hi 名片带上 shot；upsertPeer 记下来", () => {
+  assert.ok(/shot: !!r\.meShot/.test(nsrc) && /shot: meShotOn\(\)/.test(nsrc));
+  assert.ok(/function upsertPeer\(room, peerId, nick, chars, face, shot\)/.test(nsrc));
+  assert.ok(/lookOf: charId => \{ if \(charId === "__self"\)/.test(app));
+});
