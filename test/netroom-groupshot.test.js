@@ -49,3 +49,8 @@ test("hi 名片带上 shot；upsertPeer 记下来", () => {
   assert.ok(/function upsertPeer\(room, peerId, nick, chars, face, shot\)/.test(nsrc));
   assert.ok(/lookOf: charId => \{ if \(charId === "__self"\)/.test(app));
 });
+test("房里的照片（合照）长按能保存", () => {
+  assert.ok(/m\.type === "photo" && m\.x && m\.x\.imageRef \? \["saveimg"\]/.test(nsrc));
+  assert.ok(/act === "saveimg"[^\n]*saveImgOriginal\(m\.x\.imageRef/.test(nsrc));
+  assert.ok(/saveimg: \["保存图片"/.test(read("js/components.js")));
+});

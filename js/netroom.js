@@ -2769,7 +2769,7 @@
     // 自己发的能改字、撤回；自己带来的人说的也能；别人的只能删我这边。卡片（红包、投票……）不改字
     const menuItems = m => {
       if (m.sys || m.recalled) return [[m.side === "me" && !m.sys ? "del" : "delmine"]];
-      const own = m.side === "me", first = (m.type ? [] : ["copy"]).concat(m.type === "pat" ? [] : ["quote"]);
+      const own = m.side === "me", first = (m.type ? [] : ["copy"]).concat(m.type === "pat" ? [] : ["quote"]).concat(m.type === "photo" && m.x && m.x.imageRef ? ["saveimg"] : []);
       if (!own) return [first, ["delmine"]];
       return [first, [m.type ? null : "edit", m.kind === "char" && m.turnId ? "reroll" : null].filter(Boolean), ["recall", "del"]];
     };
@@ -2777,6 +2777,7 @@
       if (act === "copy") { typeof copyText === "function" && copyText(m.text); props.toast && props.toast("复制好了"); }
       else if (act === "del" && m.side === "me" && !m.sys) requestAppConfirm("删除这条消息？", "房里每个人那边都一起删掉，不留「撤回了」那一行。删了不能恢复。", () => dropOwn(m.id), "删除");
       else if (act === "del" || act === "delmine") requestAppConfirm("删除这条消息？", "只从你这台手机上删掉，房里别人那边还在。删了不能恢复。", () => dropLocal(m.id), "删除");
+      else if (act === "saveimg") { (async () => { let ok = false; try { ok = typeof saveImgOriginal === "function" && await saveImgOriginal(m.x.imageRef, "合照-" + new Date().toISOString().slice(0, 10)); } catch (e) {} props.toast && props.toast(ok ? "存好了" : "没存成，图可能还没下完，等一下再试"); })(); }
       else if (act === "quote") { const q = Core.quoteOf(roomRef.current, m); if (q) setQuoted(q); }
       else if (act === "recall") recallOwn(m.id);
       else if (act === "edit") requestAppPrompt("编辑这条消息", "改好以后房里每个人那边都会换成新的，标「已编辑」。", m.text, v => { if (String(v || "").trim()) editOwn(m.id, v); }, "改好了");
