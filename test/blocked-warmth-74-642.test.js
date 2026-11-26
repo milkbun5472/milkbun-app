@@ -50,7 +50,7 @@ test("③ 掷轴走公共件，不许再就地现写一份", () => {
 });
 
 test("④ 朋友圈那处也搬到公共件了（上一轮我现写的那份是违规的）", () => {
-  const i = app.indexOf("  const genMoment = async char =>");
+  const i = app.indexOf("  const genMoment = async (char, momOpts) =>");
   const j = app.indexOf("const content = String(d && d.content", i);
   const mom = app.slice(i, j);
   assert.match(mom, /window\.Axes\.roll\(MOMENT_AXES/, "朋友圈也要走公共件");
