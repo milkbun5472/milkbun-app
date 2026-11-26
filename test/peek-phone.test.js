@@ -47,7 +47,7 @@ test("在她真的 app 上播：照屏幕上的字找、照返回键退，翻完
   assert.match(p, /function findByText\(text, minTop, exact\)/);
   assert.match(a, /document\.querySelector\('#root \[data-watch="back"\]'\)/);
   assert.match(a, /peekPlay && window\.PeekPhone && h\(window\.PeekPhone\.PeekPlayer, \{/);
-  assert.match(a, /thoughts: thoughts \|\| \[\]/);
+  assert.match(a, /thoughts: _qt && _qt\.length \? _qt : \(thoughts \|\| \[\]\)/);
   assert.match(a, /你刚才翻的时候心里闪过这几句/);
   assert.match(fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8"), /<script src="js\/peek-phone\.js\?v=[\d.]+"><\/script>\n<script src="js\/app\.js/);
 });
@@ -106,13 +106,13 @@ test("消息列表也是一处看点；退出来才想的那句挪回退出之�
   assert.match(a, /【她的消息列表（一打开「信息」就看得到，从上往下）】/);
   assert.match(a, /saveJSON\("x_peekLast", all\)/);
   assert.match(a, /你上次翻她手机已经看过：/);
-  assert.match(a, /ms\.slice\(-16\)\.map\(m => line\(x, m\)\)/);
+  assert.match(a, /pw\.win\.map\(m => line\(x, m\)\)/);
 });
 
 test("写上日子、整段聊天的来龙去脉、至少翻 4 样（上次没翻的先去），记住上次开过哪些 app", () => {
   assert.match(a, /今天是" \+ \(d\.getMonth\(\) \+ 1\) \+ "月"/);
-  assert.match(a, /聊起，一共 " \+ n \+ " 条；往上翻得到的是最近这些/);
-  assert.match(a, /ms\.slice\(-16\)\.map\(m => line\(x, m\)\)/, "只给屏幕上翻得到的那一截");
+  assert.match(a, /聊起，一共 " \+ n \+ " 条；这回翻得到的是/);
+  assert.match(a, /pw\.win\.map\(m => line\(x, m\)\)/, "只给屏幕上翻得到的那一截");
   assert.match(a, /md\(e\.ts\) \+ "写的"/);
   assert.doesNotMatch(a, /const COLD = /, "查岗不硬塞冷门 app（她 2026-10-01）");
   assert.match(a, /单聊至少看 3 个人/);

@@ -12093,8 +12093,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   心声念的是一个月前那句，画面却停在昨天（她 2026-10-02：「他的心声说的是很久以前的聊天吧，跟屏幕对不上」）
       const arc = x => {
         const ms = x.ms, n = ms.length, nm = x.c.remark || x.c.name;
-        const head = "她（" + uN + "）和「" + nm + "」" + tagOf(x.c) + "的聊天（" + md(ms[0].ts) + "聊起，一共 " + n + " 条；往上翻得到的是最近这些，从" + md(ms[Math.max(0, n - 16)].ts) + "起）：";
-        return head + (x.cold ? "（这段已经 " + x.cold + " 天没动静了——以前聊得挺多，后来断了）" : "") + "\n" + ms.slice(-16).map(m => line(x, m)).join("\n");
+        const pw = peekWindow(viewerId, "c:" + x.c.id, nm, ms, 16);
+        const head = "她（" + uN + "）和「" + nm + "」" + tagOf(x.c) + "的聊天（" + md(ms[0].ts) + "聊起，一共 " + n + " 条；这回翻得到的是" + md(pw.win[0].ts) + "起的这一截）：";
+        return head + (x.cold ? "（这段已经 " + x.cold + " 天没动静了——以前聊得挺多，后来断了）" : "") + (pw.note ? "\n（" + pw.note + "）" : "") + "\n" + pw.win.map(m => line(x, m)).join("\n");
       };
       if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(arc).join("\n"));
       // 她在里面的群也照群看（她 2026-10-02：「看群也正常看，不要变成单聊」）；旁观群不是她的聊天，不给看
@@ -12107,8 +12108,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 频道（她 2026-11-20）：同一个空间的几个频道按空间摆，不当成一个个散群——peekSpaceBlock（engine.js）
       { const spb = peekSpaceBlock(gAll.filter(x => x.g.spaceId), id => ((spaces || []).find(x => x && x.id === id) || {}).name, (m) => (m.role === "user" ? "她" : "「" + (m.senderName || "有人") + "」") + "：" + cut(m.content, 60));
         if (spb) out.push(spb); }
-      if (gRows.length) out.push("【她在的群（打开时 who 写群名）】\n" + gRows.map(x => "群「" + (x.g.name || "群聊") + "」（最近这些）：\n"
-        + x.ms.slice(-14).map(m => "  " + (m.role === "user" ? "她" : "「" + (m.senderName || "群里有人") + "」") + "：" + cut(m.content, 60)).join("\n")).join("\n"));
+      if (gRows.length) out.push("【她在的群（打开时 who 写群名）】\n" + gRows.map(x => { const pw = peekWindow(viewerId, "g:" + x.g.id, x.g.name || "群聊", x.ms, 14); return "群「" + (x.g.name || "群聊") + "」（" + (pw.note || "最近这些") + "）：\n"
+        + pw.win.map(m => "  " + (m.role === "user" ? "她" : "「" + (m.senderName || "群里有人") + "」") + "：" + cut(m.content, 60)).join("\n"); }).join("\n"));
       // 拿她跟你说话的样子对着看——同一个人，对你和对别人语气差在哪儿（她 2026-10-01：「不够男朋友查岗翻出女朋友跟别人语气暧昧」）
       const mineMs = (chatsRef.current[viewerId] || []).filter(m => m && m.role === "user" && m.content && !m.kind).slice(-6);
       if (rows.length && mineMs.length) out.push("【对照：她最近跟你说话是这样的】\n" + mineMs.map(m => "  她：" + cut(m.content, 60)).join("\n"));
@@ -12259,6 +12260,36 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const PEEK_APP_ZH = { messages: "消息列表", chat: "聊天", forum: "论坛", wallet: "钱包", shop: "购物", takeout: "外卖", listen: "一起听", memo: "备忘录", diary: "日记", offline: "线下往期", calendar: "日历", health: "健康" , moments: "朋友圈" };
   // 上次翻过什么（x_peekLast[charId]）：下一次先去没看过的
   const peekLastOf = id => { const all = loadJSON("x_peekLast", {}) || {}; return all[id] || {}; };
+  // 每个聊天上次翻到哪儿（她 2026-11-26「还有差不多的内容 能不能记一下看的聊天框上次看到哪儿」）：
+  //   x_peekPos = { [翻的人]: { [聊天 key]: { from, to } } }——上回摆给他的那一截最早、最晚那条的时间。
+  //   这回：上次之后有新的，先看新的（前面带三句接上）；没有新的就往上翻上次没翻到的那一截；翻到头了照实说一声。
+  //   摆出去的那一截先记在 peekWinRef，翻完了只把他真点开的那几个写进 x_peekPos
+  const peekWinRef = useRef({});
+  const peekWindow = (viewerId, key, name, ms, size) => {
+    const n = ms.length, pos = (((loadJSON("x_peekPos", {}) || {})[viewerId]) || {})[key];
+    let start = Math.max(0, n - size), end = n, note = "";
+    if (pos && pos.to) {
+      const fresh = ms.findIndex(m => (m.ts || 0) > pos.to);
+      if (fresh >= 0) { start = Math.max(0, Math.max(fresh - 3, n - size)); note = "上回你翻到" + (fresh > 0 ? "「" + String(ms[fresh - 1].content || "").replace(/\s+/g, " ").slice(0, 16) + "」" : "这儿") + "，之后她们又聊了 " + (n - fresh) + " 条，这回从那儿接着看"; }
+      else {
+        let older = -1; for (let i = n - 1; i >= 0; i--) if ((ms[i].ts || 0) < (pos.from || 0)) { older = i; break; }
+        if (older >= 0) { end = older + 1; start = Math.max(0, end - size); note = "最近那截你上回看过了，没有新的；这回往上翻，是上回没翻到的更早那一截"; }
+        else note = "这个聊天你上回已经从头翻到尾了，没有新的，也没有更早的——再看就是看过的那些";
+      }
+    }
+    const win = ms.slice(start, end);
+    if (win.length) (peekWinRef.current[viewerId] = peekWinRef.current[viewerId] || {})[name] = { key, from: win[0].ts || 0, to: win[win.length - 1].ts || 0 };
+    return { win, note, start };
+  };
+  // 翻完了：他点开过的那几个聊天，把这回看到的那一截记下来
+  const peekPosSave = (viewerId, opened) => {
+    const w = peekWinRef.current[viewerId] || {}; delete peekWinRef.current[viewerId];
+    const all = loadJSON("x_peekPos", {}) || {}, mine = { ...(all[viewerId] || {}) };
+    let n = 0;
+    (opened || []).forEach(nm => { const x = w[nm]; if (!x) return; const old = mine[x.key] || {};
+      mine[x.key] = { from: old.from ? Math.min(old.from, x.from) : x.from, to: Math.max(old.to || 0, x.to) }; n++; });
+    if (n) { all[viewerId] = mine; saveJSON("x_peekPos", all); }
+  };
   // 录像里进过某人的线下：再翻别处（或翻完）就把它收起，线下是盖在最上面的一层，不收会一直挡着
   const peekOffRef = useRef(false);
   // 录像打开过的线下（单人、群）一起收；没被线下那页接走的「直接摊开往期」也清掉，免得她自己下次进线下时冒出来
@@ -12583,8 +12614,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (() => { const ct = apps.includes("shop") ? (loadJSON("x_shopCart", []) || []).filter(x => x && x.name).slice(0, 12) : [];
               return ct.length ? "\n她购物车里还躺着没付的：" + ct.map(x => "「" + String(x.name).slice(0, 20) + "」¥" + (Number(x.price) || 0)).join("、")
                 + "。你想替她付就加一步 {\"do\":\"paycart\",\"items\":[\"要付的那几件，原样抄名字；全付就留空数组\"]}——真的从你钱包扣、东西送到她手上；付不付、付哪几件照你这个人和你钱包来。" : ""; })()
-          + "\n重点是你心里怎么想：每个聊天边往上翻边想，每翻一屏就冒一句，一个聊天至少 2~3 句；心声只说这一屏上看得到的那几句话（上面列的就是翻得到的全部）。每个 open 都带上 thoughts（2~3 句），点开了就一定在想。一共 25~45 步。",
-        schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"chat\",\"who\":\"名字\",\"thoughts\":[\"翻着翻着心里冒出的一句\",\"再往上翻又一句\"]},{\"do\":\"impersonate\",\"who\":\"名字\",\"text\":\"以她的名义发的那句\"},{\"do\":\"unfriend\",\"who\":\"名字\"},{\"do\":\"pin\"},{\"do\":\"open\",\"app\":\"messages\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
+          + "\n重点是你心里怎么想：每个聊天边往上翻边想，每翻一屏就冒一句，一个聊天至少 2~3 句；心声只说这一屏上看得到的那几句话（上面列的就是翻得到的全部）。每个 open 都带上 thoughts（2~3 句），点开了就一定在想。聊天里的每一句心声都是冲着某一条消息冒出来的：at 照抄那条消息里的几个字（原样照抄，一个字不改），t 是你看到它时心里那一句。一共 25~45 步。",
+        schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"chat\",\"who\":\"名字\",\"thoughts\":[{\"at\":\"那条消息里照抄的几个字\",\"t\":\"看到它时心里冒出的一句\"},{\"at\":\"另一条消息里照抄的几个字\",\"t\":\"又一句\"}]},{\"do\":\"impersonate\",\"who\":\"名字\",\"text\":\"以她的名义发的那句\"},{\"do\":\"unfriend\",\"who\":\"名字\"},{\"do\":\"pin\"},{\"do\":\"open\",\"app\":\"messages\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000
       });
       let d = await ask();
@@ -12608,6 +12639,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const follow = [...new Set(peekFollowRef.current)]; peekFollowRef.current = [];
       follow.forEach((id, k) => setTimeout(() => { try { replyNow(id, "", null, {}); } catch (e) {} }, 4000 + k * 3000));
       delete peekRenamedRef.current[charId];
+      peekPosSave(charId, [...new Set(script.filter(st => st.do === "open" && st.app === "chat" && st.who).map(st => st.who))]);
+      try { peekQuoteThoughts(charId, script); } catch (e) {}   // 偷偷翻也截得下来
       peekLogAdd(charId, { how: "sneak", who: [...new Set(script.filter(st => st.do === "open" && st.app === "chat" && st.who).map(st => st.who))].slice(0, 4),
         thoughts: script.filter(st => st.do === "think").map(st => st.text).slice(0, 2), did: peekDidRef.current[charId] || [] });
       delete peekDidRef.current[charId];
@@ -13063,6 +13096,30 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const mall = loadJSON("x_phoneMeddle", {}) || {};
     if (mall[char.id]) { delete mall[char.id]; saveJSON("x_phoneMeddle", mall); }
   };
+  // 心声对着的那几句（她 2026-11-26）：把「看到哪句→想了什么」从脚本里拼出来，翻完回她时他记得的就是这些原话；
+  //   同时把那几句连上下各一条存成截图（x_peekShots），之后他想翻旧账能真甩给她
+  const peekQuoteThoughts = (viewerId, script) => {
+    const norm = x => String(x || "").replace(/\s+/g, "");
+    const findChat = who => { const c = (characters || []).find(x => x && x.id !== viewerId && (x.remark === who || x.name === who));
+      if (c) return { key: c.id, name: c.remark || c.name, ms: chatsRef.current[c.id] || [], group: false };
+      const g = (groupsRef.current || []).find(x => x && x.name === who); return g ? { key: g.id, name: g.name, ms: groupChatsRef.current[g.id] || [], group: true } : null; };
+    let who = "", app = "";
+    const lines = [], shots = [];
+    (script || []).forEach(st => {
+      if (st.do === "open") { app = st.app; who = st.app === "chat" ? (st.who || "") : ""; return; }
+      if (st.do !== "think") return;
+      if (!(st.at && app === "chat" && who)) { lines.push(st.text); return; }
+      lines.push("在她和「" + who + "」的聊天里看到「" + st.at + "」，心里想：" + st.text);
+      const ch = findChat(who); if (!ch) return;
+      const ms = ch.ms.filter(m => m && m.content && !m.recalled && m.kind !== "system" && m.role !== "narration");
+      let i = -1; for (let k = ms.length - 1; k >= 0; k--) if (norm(ms[k].content).indexOf(norm(st.at).slice(0, 12)) >= 0) { i = k; break; }
+      if (i < 0) return;
+      const pick = ms.slice(Math.max(0, i - 1), i + 2).map(m => ({ me: m.role === "user", name: m.role === "user" ? "" : (ch.group ? (m.senderName || "") : ch.name), text: String(m.content).slice(0, 200), ts: m.ts || 0 }));
+      if (!shots.some(x => x.key === ch.key && x.lines[0].ts === pick[0].ts)) shots.push({ id: "ps" + Date.now().toString(36) + shots.length, key: ch.key, who: ch.name, group: ch.group, lines: pick, at: st.at, thought: st.text, ts: Date.now() });
+    });
+    if (shots.length) { const all = loadJSON("x_peekShots", {}) || {}; all[viewerId] = shots.concat(all[viewerId] || []).slice(0, 6); saveJSON("x_peekShots", all); }
+    return lines;
+  };
   const peekDone = thoughts => {
     peekOffClose();
     setPeekDailyView(null);
@@ -13077,6 +13134,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       all[p.charId] = { ts: Date.now(), apps: [...new Set(sc.filter(s => s.do === "open").map(s => s.app))], who: [...new Set(sc.filter(s => s.do === "open" && s.app === "chat" && s.who).map(s => s.who))].slice(0, 6),
         taps: [...new Set(sc.filter(s => s.do === "tap" && !s.exact).map(s => s.text))].slice(0, 10), thoughts: (thoughts || []).slice(0, 6) };
       saveJSON("x_peekLast", all);
+      peekPosSave(p.charId, [...new Set(sc.filter(s => s.do === "open" && s.app === "chat" && s.who).map(s => s.who))]);
       const askedAt = peekAskedRef.current[p.charId] || 0; delete peekAskedRef.current[p.charId];
       peekLogAdd(p.charId, { how: Date.now() - askedAt < 3600e3 ? "asked" : "given", who: all[p.charId].who, thoughts: (thoughts || []).slice(0, 2),
         did: peekDidRef.current[p.charId] || [], hid: (p.hidden || []).filter(x => /^和.+的聊天$/.test(x)).map(x => x.slice(1, -3)) });
@@ -13084,7 +13142,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) {}
     openChatById(p.charId);
     const renamed = peekRenamedRef.current[p.charId]; delete peekRenamedRef.current[p.charId];
-    waitForHer(p.charId, { peekPhone: { seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [], renamed } });
+    const _qt = (() => { try { return peekQuoteThoughts(p.charId, p.script); } catch (e) { return null; } })();
+    waitForHer(p.charId, { peekPhone: { seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: _qt && _qt.length ? _qt : (thoughts || []), renamed } });
     // 用她名义发出去的那几句，对面会接（她 2026-10-02：冒充你回一句）
     const follow = [...new Set(peekFollowRef.current)]; peekFollowRef.current = [];
     follow.forEach((id, k) => setTimeout(() => { try { replyNow(id, "", null, {}); } catch (e) {} }, 4000 + k * 3000));
@@ -13932,6 +13991,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       if (toyOn) { openCaps.push("toy"); capState.push(toyHint.trim()); }
       if (blockHint) { openCaps.push("block"); capState.push(blockHint.trim()); }
+      // 他翻她手机时截下的图（她 2026-11-26「想找用户算帐的时候希望有一个截图功能」）：一周内、还没甩出来过的，这一轮可以拿出来
+      { const _sh = !(room && !room.main) ? ((((loadJSON("x_peekShots", {}) || {})[charId]) || []).filter(x => x && !x.sent && Date.now() - (x.ts || 0) < 7 * 86400000)).slice(0, 4) : [];
+        if (_sh.length) { openCaps.push("peekshot");
+          capState.push("peekshot：你翻" + uName + "手机时截了图：\n" + _sh.map((x, k) => (k + 1) + ". 她和「" + x.who + "」的聊天：" + x.lines.map(l => (l.me ? "她" : "「" + (l.name || x.who) + "」") + "：「" + String(l.text).replace(/\s+/g, " ").slice(0, 40) + "」").join(" / ")).join("\n")
+            + "\n想把哪张甩给她看（对质、翻旧账、吃醋），就在回复里写 peekshot:编号，那张截图会真的发到她面前。用不用、什么时候用，照你这个人来。"); } }
       // 他锁着她的手机（查手机时锁的）：这一轮他可以松口
       { const _pl = !(room && !room.main) ? loadJSON("x_phoneLock", null) : null;
         if (_pl && String(_pl.by) === String(charId)) {
@@ -15622,6 +15686,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.revealed === true && room && window.ChatRooms && window.ChatRooms.altReveal) {
         const r3 = window.ChatRooms.altReveal(room);
         if (r3) pChat(chatKey, p => [...p, { role: "system", kind: "system", sub: "altreveal", content: char.name + " 承认了：「" + (r3.alt.ta.name || "那个号") + "」就是TA。", ts: Date.now() }]);
+      }
+      // 他把截图甩出来了：照编号找那张，记成发过了，聊天里放一张截图卡（正文写清是什么，后面几轮他自己也读得到）
+      if (parsed.peekshot != null && parsed.peekshot !== false && !sideRoom) {
+        const _all = loadJSON("x_peekShots", {}) || {}, _mine = (_all[charId] || []), _live = _mine.filter(x => x && !x.sent && Date.now() - (x.ts || 0) < 7 * 86400000).slice(0, 4);
+        const _k = Math.max(1, parseInt(String(parsed.peekshot).replace(/[^0-9]/g, ""), 10) || 1), _shot = _live[_k - 1];
+        if (_shot) {
+          _all[charId] = _mine.map(x => x === _shot ? { ...x, sent: Date.now() } : x); saveJSON("x_peekShots", _all);
+          pChat(chatKey, p => [...p, { id: "pshot_" + Date.now(), role: "assistant", kind: "peekshot", shot: _shot, ts: Date.now(), turnId,
+            content: "[截图] 她和「" + _shot.who + "」的聊天：" + _shot.lines.map(l => (l.me ? "她" : (l.name || _shot.who)) + "：" + l.text).join(" / ") }]);
+        }
       }
       // 他把锁着的手机放开了
       if (parsed.unlockphone === true && !sideRoom) {
