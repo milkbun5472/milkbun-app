@@ -1503,7 +1503,7 @@
     return img ? { img } : {};
   }
   // 一条消息里的那张卡／那颗气泡：跟单聊、群聊用的是同一批组件
-  function RichBody({ m, mine, meName, onRp, onVote, voters, game, onRec, onSong, speaker }) {
+  function RichBody({ m, mine, meName, onRp, onVote, voters, game, onRec, onSong, speaker, onPhoto }) {
     const t = useTheme();
     const x = m.x || {};
     // 小游戏的两张卡：房间页里能点（报名、开始、回看）；以前的房间里只剩那一行字
@@ -1513,7 +1513,8 @@
     if (m.type === "game") return h(UI.InviteCard, Object.assign({ x }, game));
     if (m.type === "gamerec") return h(UI.RecordCard, { x, onOpen: onRec });
     if (m.type === "emote") return h(EmoteBubble, { url: x.url || "", keyword: x.keyword, max: 112 });
-    if (m.type === "photo") return h(PhotoCard, { m: { imageRef: x.imageRef || "", desc: x.desc }, mine, max: 220 });
+    // 点开看大图（群友 11-26「点不开看不了」）：跟单聊同一张 PhotoSheet，里面有保存
+    if (m.type === "photo") return h(PhotoCard, { m: { imageRef: x.imageRef || "", desc: x.desc }, mine, max: 220, onOpen: onPhoto ? () => onPhoto({ imageRef: x.imageRef || "", desc: x.desc }) : undefined });
     if (m.type === "voice") return h("div", { "data-wk": "bubble", "data-me": mine ? "1" : "0", "data-kind": "voice", style: { padding: "8px 12px", borderRadius: 14, background: mine ? t.ink : t.bg2, color: mine ? t.bg : t.ink, border: "1px solid " + t.line } },
       h(VoiceMsg, { m: { content: x.content, dur: x.dur, emo: x.emo }, isU: mine && !speaker, speaker: speaker || null }));
     if (m.type === "geo") return h(GeoCard, { m: { name: x.name, ts: m.ts }, isU: mine, who: m.name, avatar: null, myAvatar: null });
@@ -1646,6 +1647,7 @@
         h("input", { "data-wk": "input", value: A.photoText, onChange: e => A.setPhotoText(e.target.value), placeholder: A.photoImgs.length ? "可以顺手说一句（选填）" : "不选图就写一句照片里有什么",
           className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: fs(14), color: t.ink, background: t.bg, marginTop: 10 } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "可以一次挑几张，图会压小了一张张发给房里的人；那句说明跟在第一张上，大家的角色看到的是这句说明。")),
+      A.photoView && h(PhotoSheet, { key: "pv", m: A.photoView, toast: props.toast, onClose: () => A.setPhotoView(null) }),
       sheet === "groupshot" && (() => {
         const selfOk = !!((A.selfLook() || {}).refPhoto);
         const ppl = [{ key: "self", label: myNick(), char: Object.assign({ id: "__self", name: myNick() }, props.profile ? { avatarImage: props.profile.avatarImage || "", avatarEmoji: props.profile.avatarEmoji || "", color: props.profile.color || "" } : {}), who: selfOk ? "我自己" : "先去「我」的资料里传一张自己的参考照", off: !selfOk }]
@@ -1762,6 +1764,7 @@
     const [sheet, setSheet] = useState(null);        // ＋ 里点开的那一样
     const [photoImgs, setPhotoImgs] = useState([]), [photoText, setPhotoText] = useState("");
     // 合照：勾了谁（键＝"me:角色id" 或 "peerId:角色id"）、写的画面、正在拍没
+    const [photoView, setPhotoView] = useState(null);
     const [shotPick, setShotPick] = useState({}), [shotScene, setShotScene] = useState(""), [shotBusy, setShotBusy] = useState(false);
     const lookWait = useRef({});   // 跟别人要角色样子：{ 请求号: { left, looks, done } }
     const [menuAt, setMenuAt] = useState(null);      // 长按的那一条（下标）
@@ -2790,7 +2793,7 @@
     const rowProps = (r, interactive) => (m, i) => {
       const o = { rich: x => h(RichBody, { m: x, mine: x.side === "me", meName: myNick(), speaker: x.type === "voice" && x.kind === "char" && x.side === "me" && x.charId ? charsById[x.charId] || null : null, voters: Math.max(1, headCount(r) - 1),
         game: interactive && x.type === "game" ? gameHandlers(x) : null, onRec: () => { setRecId(x.id); setViewId(r.id); setPage("gamerec"); },
-        onRp: interactive ? () => setRpOpen(x.x.rpId) : undefined, onSong: () => playCard(x.x), onVote: interactive ? opt => vote(x.x.pollId, opt, myNick()) : undefined }) };
+        onRp: interactive ? () => setRpOpen(x.x.rpId) : undefined, onSong: () => playCard(x.x), onPhoto: setPhotoView, onVote: interactive ? opt => vote(x.x.pollId, opt, myNick()) : undefined }) };
       if (!interactive) return o;
       o.onPress = onPress; o.onRelease = onRelease;
       const next = r.msgs[i + 1];
@@ -3018,7 +3021,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         h(HalfWinFrame, { win: chatWin, setWin: setChatWin, forKey: "netchat",
           pillLabel: "房间聊天" + (gp.unread ? " · " + gp.unread + " 条新消息" : "") + " ▴", pillHot: gp.unread > 0 },
           h("div", { "data-wk": "nrchathalf", className: "h-full flex flex-col", style: { background: t.bg2 } }, chatCore)),
-        ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, selfLook, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sendSong, sayRich, sendRp,
+        ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, selfLook, photoView, setPhotoView, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sendSong, sayRich, sendRp,
           photoImgs, setPhotoImgs, photoText, setPhotoText, shotPick, setShotPick, shotScene, setShotScene, shootGroup, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
         joinSheet());
       return shell(
@@ -3041,7 +3044,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
         ...boardEl() || [],
         tablesBar(),
         ...chatCore, docEl(),
-        ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, selfLook, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sendSong, sayRich, sendRp,
+        ...roomExtras({ t, room, sheet, setSheet, props, myNick, charsById, selfLook, photoView, setPhotoView, panel, onTap, patTargets, headCount, sendEmote, sendPhoto, sendCard, sendSong, sayRich, sendRp,
           photoImgs, setPhotoImgs, photoText, setPhotoText, shotPick, setShotPick, shotScene, setShotScene, shootGroup, fillRef, rpOpen, setRpOpen, openRp, myKey, menuAt, setMenuAt, menuItems, onMenu }),
         joinSheet(), gp && gp.pill);
     }

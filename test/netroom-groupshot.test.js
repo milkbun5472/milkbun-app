@@ -59,3 +59,8 @@ test("还在画时再点「拍」会说一声；生图最多等三分钟", () =>
   assert.ok(/if \(shotBusy\) \{ props\.toast/.test(seg));
   assert.ok(/Promise\.race\(\[props\.drawCast/.test(seg));
 });
+test("房里的照片点开能看大图（PhotoSheet，里面带保存）", () => {
+  assert.ok(/h\(PhotoCard, \{[^\n]*onOpen: onPhoto/.test(nsrc));
+  assert.ok(/onPhoto: setPhotoView/.test(nsrc));
+  assert.ok(/A\.photoView && h\(PhotoSheet/.test(nsrc));
+});
