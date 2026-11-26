@@ -95,6 +95,12 @@
     const [panel, setPanel] = useState("");       // "people" | "filter" | ""
     const [shot, setShot] = useState(null);       // {url, blob}
     const [busy, setBusy] = useState(false);
+    // 模式转盘（真相机快门上面那一排「照片·人像·视频」）：实景＝镜头叠人；生图＝挑人写一句画面，让生图画一张
+    const [mode, setMode] = useState("live");
+    const [genIds, setGenIds] = useState([]);
+    const [genWho, setGenWho] = useState("other");
+    const [genScene, setGenScene] = useState("");
+    const [genBusy, setGenBusy] = useState(false);
     const camRef = useRef(null), videoRef = useRef(null), stageRef = useRef(null), fileRef = useRef(null), touches = useRef({});
     useEffect(() => {
       const cam = window.CallCamera.create(setCs, window, { width: 1920, height: 1080 });
@@ -105,6 +111,24 @@
     useEffect(() => () => { if (shot) URL.revokeObjectURL(shot.url); }, [shot]);
     const fcss = (FILTERS.find(f => f.id === filter) || FILTERS[0]).css;
     const mirror = !bg && cs.facing === "user";
+    const switchMode = m => {
+      if (m === mode) return; setMode(m); setPanel(""); setSel(null);
+      if (m === "gen") { camRef.current && camRef.current.close(); }
+      else if (!bg) camRef.current && camRef.current.open(cs.facing || "environment");
+    };
+    const runGen = async () => {
+      if (genBusy || !props.onGen) return;
+      if (!genIds.length) { props.toast && props.toast("先挑画面里有谁"); return; }
+      setGenBusy(true);
+      try { const blob = await props.onGen(genIds, genScene, genWho); setShot({ url: URL.createObjectURL(blob), blob, gen: true }); }
+      catch (e) { props.toast && props.toast("没画成：" + String(e && e.message || e).slice(0, 80)); }
+      finally { setGenBusy(false); }
+    };
+    // 画好的那张拿去实景那边：当背景，照样能贴人、上滤镜，再按快门
+    const genToEdit = () => { if (!shot) return; if (bg) URL.revokeObjectURL(bg); setBg(URL.createObjectURL(shot.blob)); setShot(null); setMode("live"); };
+    const dial = () => h("div", { "data-wk": "camdial", style: { display: "flex", justifyContent: "center", gap: 22, padding: "6px 0 2px", transform: "translateX(" + (mode === "live" ? 22 : -22) + "px)", transition: "transform .25s ease" } },
+      [["live", "实景"], ["gen", "生图"]].map(([k, zh]) => h("button", { key: k, "data-wk": "camdialone", "data-on": mode === k ? "1" : "0", onClick: () => switchMode(k),
+        style: { border: "none", background: "transparent", padding: "2px 0", fontSize: FS(13), letterSpacing: ".12em", color: mode === k ? "#ffd54a" : "rgba(255,255,255,.62)", fontWeight: mode === k ? 600 : 400 } }, zh)));
 
     const addPerson = p => {
       const st = { id: "s" + Date.now() + Math.random().toString(36).slice(2, 5), pid: p.id, x: 0.5 + (stickers.length % 3 - 1) * 0.18, y: 0.55, s: 0.32, r: 0, style: "round" };
@@ -183,7 +207,37 @@
       h("div", { style: { flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", paddingTop: safeTop(8) } },
         h("img", { "data-wk": "camresult", src: shot.url, style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain" } })),
       h("div", { style: { display: "flex", gap: 10, justifyContent: "center", padding: "14px 16px", paddingBottom: "calc(14px + " + COMPOSER_PAD_BOTTOM + ")" } },
-        btn("重拍", () => setShot(null), false, "retake"), btn("存到手机", save, true, "save")));
+        shot.gen ? btn(genBusy ? "在画…" : "再画一张", () => { if (!genBusy) { setShot(null); runGen(); } }, false, "regen") : btn("重拍", () => setShot(null), false, "retake"),
+        shot.gen ? btn("加滤镜·贴人", genToEdit, false, "edit") : null,
+        shot.gen ? btn("返回", () => setShot(null), false, "retake") : null,
+        btn("存到手机", save, true, "save")));
+    if (mode === "gen") {
+      const people2 = people, max = props.groupMax || 10;
+      const tog = id => setGenIds(l => l.indexOf(id) >= 0 ? l.filter(x => x !== id) : l.length >= max ? l : l.concat([id]));
+      return h("div", { "data-wk": "campage", "data-part": "gen", className: "h-full", style: { position: "relative", background: "#111", color: "#fff", display: "flex", flexDirection: "column" } },
+        h("div", { style: { paddingTop: safeTop(8), paddingLeft: 12, paddingRight: 12, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 } },
+          h("button", { "data-wk": "cambtn", "data-part": "back", onClick: props.onBack, style: { width: 36, height: 36, borderRadius: 18, border: "none", background: "rgba(255,255,255,.12)", color: "#fff", fontSize: FS(18) } }, "‹"),
+          h("div", { style: { flex: 1, textAlign: "center", fontSize: FS(14), letterSpacing: ".1em", opacity: .85 } }, "生图"), h("div", { style: { width: 36 } })),
+        h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px" } },
+          h("div", { style: { fontSize: FS(12), opacity: .6, marginBottom: 8 } }, "画面里有谁（可以多选，最多 " + max + " 个）"),
+          h("div", { "data-wk": "camgenpeople", style: { display: "flex", flexWrap: "wrap", gap: 10 } },
+            people2.map(p => { const on = genIds.indexOf(p.id) >= 0, n = genIds.indexOf(p.id) + 1;
+              return h("button", { key: p.id, "data-wk": "camgenone", "data-on": on ? "1" : "0", onClick: () => tog(p.id), style: { position: "relative", width: 64, border: "none", background: "transparent", color: "#fff", textAlign: "center", opacity: on ? 1 : .62 } },
+                h("div", { style: { display: "inline-block", borderRadius: "50%", boxShadow: on ? "0 0 0 2.5px #ffd54a" : "none" } }, typeof Avatar === "function" ? h(Avatar, { character: p, size: 48 }) : null),
+                on ? h("div", { style: { position: "absolute", top: -2, right: 4, minWidth: 18, height: 18, borderRadius: 9, background: "#ffd54a", color: "#111", fontSize: FS(11), lineHeight: "18px", fontWeight: 600 } }, n) : null,
+                h("div", { style: { fontSize: FS(11), marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name)); })),
+          h("div", { style: { fontSize: FS(12), opacity: .6, margin: "18px 0 8px" } }, "谁拿的手机"),
+          h("div", { style: { display: "flex", gap: 8 } }, btn("有人帮忙拍", () => setGenWho("other"), genWho === "other", "who"), btn("自己举着自拍", () => setGenWho("self"), genWho === "self", "who")),
+          h("div", { style: { fontSize: FS(12), opacity: .6, margin: "18px 0 8px" } }, "画面（选填：在哪、在干嘛、穿什么）"),
+          h("textarea", { "data-wk": "camgenscene", value: genScene, onChange: e => setGenScene(e.target.value), rows: 3, placeholder: "空着＝随手拍的一张",
+            style: { width: "100%", boxSizing: "border-box", borderRadius: 10, border: "1px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.06)", color: "#fff", padding: "10px 12px", fontSize: FS(14), lineHeight: 1.6, outline: "none", resize: "none" } }),
+          h("div", { style: { fontSize: FS(11.5), opacity: .5, marginTop: 8, lineHeight: 1.7 } }, "每个人用自己设的参照照锁脸；没设参照照的照设定画。画一张要等半分钟左右，走的是 设置·图像API。")),
+        h("div", { style: { flexShrink: 0, paddingBottom: COMPOSER_PAD_BOTTOM } },
+          dial(),
+          h("div", { style: { display: "flex", justifyContent: "center", padding: "8px 16px 14px" } },
+            h("button", { "data-wk": "camshutter", "data-part": "gen", onClick: runGen, disabled: genBusy, style: { minWidth: 160, height: 52, borderRadius: 26, border: "none", background: genBusy ? "rgba(255,213,74,.5)" : "#ffd54a", color: "#111", fontSize: FS(15), fontWeight: 600 } },
+              genBusy ? "在画…" : "画一张" + (genIds.length ? "（" + genIds.length + " 人）" : "")))));
+    }
 
     const stickerEl = st => {
       const p = people.find(x => x.id === st.pid) || {}, src = srcOf(p), on = st.id === sel;
@@ -223,6 +277,7 @@
             h("div", { style: { fontSize: FS(11), marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name)))) : null,
         panel === "filter" ? h("div", { "data-wk": "camfilter", style: { display: "flex", gap: 8, overflowX: "auto", padding: "10px 16px" } },
           FILTERS.map(f => h(React.Fragment, { key: f.id }, btn(f.zh, () => setFilter(f.id), filter === f.id, "filter")))) : null,
+        props.onGen ? dial() : null,
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-around", padding: "10px 16px 14px" } },
           btn("相册", () => fileRef.current && fileRef.current.click(), !!bg, "album"),
           btn("加人", () => setPanel(panel === "people" ? "" : "people"), panel === "people", "people"),

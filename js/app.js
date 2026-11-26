@@ -19751,6 +19751,19 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 和小家伙合照（她 2026-11-20「想要和小家伙合照咋弄」）：挑这张里有谁，各用自己的参照锁脸，它用定好的那张样子；拍完照她发照片那样落进频道
   const petRefDataUrl = async pet => { if (!pet || !pet.lookRef) return null; try { const b0 = await idbImgGet(pet.lookRef); return b0 ? await blobToDataUrl(b0) : null; } catch (e) { return null; } };
+  // 挑好的几个人拍一张（单人也行）：每人用自己的参照锁脸，走 buildPhotoPrompt + generateSelfieImage。
+  //   小家伙合照和相机·生图都从这儿出，提示词只此一份。extraRef/extraText：再多带一张参考图（小家伙的样子）和说明
+  const castShotBlob = async (cast, scene, o) => {
+    o = o || {};
+    const lead = cast.find(c => c.id !== "me") || cast[0], multi = cast.length > 1, kind = o.kind || "self";
+    const st = (statesRef.current || {})[lead.id] || {};
+    const prompt = buildPhotoPrompt(lead, scene, st, { kind, cast: multi ? cast : null, closet: lead.id !== "me" ? closetTextFor(lead.id) : "" });
+    const refs = cast.map(c => c.refPhoto).filter(Boolean).concat(o.extraRef ? [o.extraRef] : []);
+    const out = await generateSelfieImage(prompt + (o.extraText || ""), refs.length ? refs : null, { minimalPrompt: buildMinimalPhotoPrompt(lead, { kind, cast: multi ? cast : null }) });
+    if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换掉了" : "审核挡了两次，这张只拍了人像、没带场景");
+    const blob = await imgOutBlob(out); if (!blob) throw new Error((out && out.err) || "没出图");
+    return blob;
+  };
   const shootPetGroupPhoto = async (g, ids) => {
     if (petShootingId) return;
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
@@ -19761,14 +19774,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!cast.length) { toast("先挑这张里有谁"); return; }
     setPetShootingId(g.id);
     try {
-      const kind = pet.kind || "一只小动物", lead = cast.find(c => c.id !== "me") || cast[0];
+      const kind = pet.kind || "一只小动物";
       const scene = "大家抱着／围着频道里一起养的「" + pet.name + "」（" + kind + "）拍的一张合照，它在画面里很显眼；" + pet.doing + "。";
-      const st = (statesRef.current || {})[lead.id] || {};
-      const prompt = buildPhotoPrompt(lead, scene, st, { kind: cast.length > 1 ? "group" : "self", cast: cast.length > 1 ? cast : null, closet: lead.id !== "me" ? closetTextFor(lead.id) : "" });
       const pref = await petRefDataUrl(pet);
-      const refs = cast.map(c => c.refPhoto).filter(Boolean).concat(pref ? [pref] : []);
-      const out = await generateSelfieImage(prompt + (pref ? "\n最后一张参考图是「" + pet.name + "」之前的样子：同一个它，长相颜色照它。" : ""), refs.length ? refs : null, { minimalPrompt: buildMinimalPhotoPrompt(lead, { kind: cast.length > 1 ? "group" : "self", cast: cast.length > 1 ? cast : null }) });
-      const blob = await imgOutBlob(out); if (!blob) throw new Error((out && out.err) || "没出图");
+      const blob = await castShotBlob(cast, scene, { kind: "self", extraRef: pref, extraText: pref ? "\n最后一张参考图是「" + pet.name + "」之前的样子：同一个它，长相颜色照它。" : "" });
       const key = "img_chf_petg_" + Date.now().toString(36);
       await idbImgPut(key, blob);
       const now = Date.now(), who = cast.map(c => c.id === "me" ? meName : c.name).join("、");
@@ -19783,6 +19792,18 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       toast("合照拍好了，发进聊天里了");
     } catch (e) { toast("没拍成：" + String(e && e.message || e).slice(0, 60)); }
     finally { setPetShootingId(""); }
+  };
+  // 相机·生图（她 2026-11-26「除了 ar 相机还要弄单人多人生图」）：挑几个人（可以带她自己）、写一句画面，
+  //   每人用自己的参照锁脸，跟频道小家伙合照、线下合影同一条 buildPhotoPrompt + generateSelfieImage。
+  //   who：self＝画面里的人自己举着手机拍；other＝像有人帮他们拍。返回 blob，存不存由相机那页决定。
+  //   ⚠️提示词和出图跟小家伙合照是【同一个】castShotBlob，不另拼一份。
+  const cameraGenShot = async (ids, scene, who) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const meName = userName(profile);
+    const cast = (ids || []).map(id => id === "me" ? { ...meSubject(null, meName, null), id: "me", name: meName } : (characters || []).find(c => c && c.id === id)).filter(Boolean).slice(0, GROUP_SHOT_MAX);
+    if (!cast.length) throw new Error("先挑画面里有谁");
+    const sc = String(scene || "").trim() || (cast.length > 1 ? "一起拍的一张合照" : "随手拍的一张照片");
+    return castShotBlob(cast, sc, { kind: who === "other" ? "other" : "self" });
   };
   // 送走它（她 2026-11-20「什么时候养完或者换一种」）：收进「养过的」，频道里冒一行告别，再让大家接一轮
   const sendOffChannelPet = (g, how) => {
@@ -39300,7 +39321,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,

@@ -16,4 +16,8 @@ const ctx = { getImageData: () => ({ data: d }), putImageData() {} };
 K.pixelFilter(ctx, 1, 1, "grayscale(1)");
 assert(d[0] === d[1] && d[1] === d[2], "黑白兜底算成灰");
 assert(K.FILTERS.every(f => f.id && f.zh), "滤镜都有中文名");
+// 生图跟小家伙合照同一份提示词：都走 castShotBlob
+assert(/const cameraGenShot = [\s\S]{0,700}return castShotBlob\(cast, sc,/.test(app), "相机生图走 castShotBlob");
+assert(/const blob = await castShotBlob\(cast, scene, \{ kind: "self", extraRef: pref/.test(app), "小家伙合照也走 castShotBlob");
+assert(/onGen: cameraGenShot/.test(app) && /props\.onGen\(genIds, genScene, genWho\)/.test(cam), "相机接上生图");
 console.log("ok camera-app");
