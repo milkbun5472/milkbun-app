@@ -3884,6 +3884,9 @@ function splitLongBubble(s, allowComma) {
   //   「拍得我 眼睛都快花了」「我发几 张给你看看」那种词中间的短空格凑不够，照旧不切
   const SP_STOP = /(?<=[\u4e00-\u9fff]{5})\s+(?=[\u4e00-\u9fff]{6})/g;
   out = out.reduce((acc, part) => acc.concat(/[，,。！？!?、；;]/.test(part) && !/[\u3040-\u30ff]/.test(part) ? part.split(SP_STOP).map(x => x.trim()).filter(Boolean) : [part]), []);
+  // 空格前面是句末语气字（了吧呢啊吗嘛呀哦啦），后面是收尾的一小截（几个字）就另起一句（2026-11-26 群友截图：「煤球听了都把耳朵转过来了 说吧」挤成一泡、读着像「转过来了说吧」）
+  const SP_PART = /(?<=[\u4e00-\u9fff]{3}[了吧呢啊吗嘛呀哦啦])\s+(?=[\u4e00-\u9fff]{1,4}[？?！!~～…]*$)/g;   // 只管收尾那一小截（「大考官呢 今天工位上…」那种后面是一整句的，照 11-04 她说的不切）
+  out = out.reduce((acc, part) => acc.concat(/[，,。！？!?、；;]/.test(part) && !/[\u3040-\u30ff]/.test(part) ? part.split(SP_PART).map(x => x.trim()).filter(Boolean) : [part]), []);
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
   // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
   //   有的人不打标点、拿空格断句，那个空格就是它的逗号；门槛、最多几段、尾巴太短往回粘，全跟逗号共用。英文单词之间的空格不算
@@ -6607,6 +6610,30 @@ function photoYoungerOf(scene) {
 // 合照得是画面里真有两个人（群友 2026-10-27：「为什么让 char 发照片自动生成我们的合照，描述词里也没有」）：
 //   模型 kind 填了 duo、画面描述却只写了他一个人，原来照样拿两张参考照画成合照。
 //   画面里一点没提到另一个人，就按他自己的照片拍。
+// 把别处搬来的日记拆成一篇篇（群友 2026-11-25「char 的日记能不能自己填，我想把别的小手机的 char 搬过来」）：
+//   认行首的日期（2025年3月1日 / 2025-03-01 / 2025.3.1 / 3月1日 / 3/1），一个日期起一篇，日期那行剩下的字当标题；
+//   一个日期都认不出就整段当一篇，日子用 fallbackTs
+function diaryImportParse(text, fallbackTs, nowTs) {
+  const lines = String(text || "").replace(/\r/g, "").split("\n"), out = [], now = new Date(nowTs || Date.now());
+  const RE = /^\s*(?:(\d{4})\s*[年\-./]\s*)?(\d{1,2})\s*[月\-./]\s*(\d{1,2})\s*日?(?:[\s,，、·:：|｜-]+(.*))?$/;
+  let cur = null;
+  lines.forEach(l => { const m = l.match(RE);
+    if (m && (m[1] || /月/.test(l) || /^\s*\d{1,2}\s*[\/.]\s*\d{1,2}\s*(?:[\s,，:：]|$)/.test(l))) {
+      let y = m[1] ? Number(m[1]) : now.getFullYear(); const mo = Number(m[2]) - 1, d = Number(m[3]);
+      let dt = new Date(y, mo, d, 22, 30, 0, 0); if (!m[1] && dt.getTime() > now.getTime()) dt = new Date(y - 1, mo, d, 22, 30, 0, 0);
+      if (mo < 0 || mo > 11 || d < 1 || d > 31 || isNaN(dt.getTime())) { if (cur) cur.body.push(l); return; }
+      cur = { ts: dt.getTime(), title: String(m[4] || "").trim().slice(0, 40), body: [] }; out.push(cur);
+    } else { if (!cur) { cur = { ts: fallbackTs || now.getTime(), title: "", body: [] }; out.push(cur); } cur.body.push(l); } });
+  return out.map(x => ({ ts: x.ts, title: x.title, paras: x.body.join("\n").split(/\n\s*\n|\n/).map(t => t.trim()).filter(Boolean) })).filter(x => x.paras.length);
+}
+// 角色发的朋友圈谁看得见（她 2026-11-26「角色能发仅我可见或者范围可见吗」）：m.visibleTo 是名单（"me"＝她）就只这几个人看得见；
+//   m.hiddenFrom 里的看不见；发的人自己总看得见。她自己发的那几条照旧走她那套
+function momCharSees(m, viewerId) {
+  if (!m) return false; const v = String(viewerId || "");
+  if (String(m.characterId || "") === v) return true;
+  if (Array.isArray(m.visibleTo) && m.visibleTo.length && !m.visibleTo.map(String).includes(v)) return false;
+  return !(Array.isArray(m.hiddenFrom) && m.hiddenFrom.map(String).includes(v));
+}
 function photoDuoSaid(scene, uName) {
   const t = String(scene || "");
   if (/合照|合影|两个人|两人|俩人|我们|我俩|咱们|一起|并肩|挽着|搂着|牵着|靠在.{0,4}(?:肩|怀)|抱着(?:她|你)|她|你/.test(t)) return true;
@@ -12569,7 +12596,8 @@ async function runProbe(p, ctx, probe) {
   // 两张表都认不出、又没起 tag 的：拿它要干的那件事开头几个字当名字（她 2026-10-18 群里截图：一排「其他」看不出是什么）
   if (!_from && probe && typeof probe === "object" && !probe.logFrom && !(typeof callTagLabel === "function" && callTagLabel(probe.tag))) {
     // 开头是日期、钟点的（她 2026-11-20 截图「其他·2026年11月20日周五2…」）：跳过去，拿后面真正要干的事起名
-    const _ins = String(probe.instruction || "").replace(/【[^】]{0,30}】/g, "").replace(/[\s「」"“”]+/g, "")
+    const _ins = String(probe.instruction || "").replace(/【[^】]*】/g, "")   // 长的【】也去掉（2026-11-26：提示里一整段准则被当成名字弹了出来）
+      .replace(/[\s「」"“”]+/g, "")
       .replace(/^(?:(?:现在是|今天是|此刻是|现在|今天)?(?:\d{4}年)?(?:\d{1,2}月\d{1,2}日)?(?:周[一二三四五六日天]|星期[一二三四五六日天])?(?:[上下]午|凌晨|早上|晚上|中午|傍晚)?(?:\d{1,2}[:：点]\d{0,2}分?)?[，,。；;：:、]?)+/, "").slice(0, 14);
     if (_ins) probe = Object.assign({}, probe, { logFrom: "其他·" + _ins + "…" });
   }

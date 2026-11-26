@@ -37,7 +37,7 @@
     return frame ? "\n\n【本轮真实摄像头画面】视觉输入附了对方在发话时展示的手机" + (frame.facing === "environment" ? "后置" : "前置") + "镜头画面，拍摄时间 " + new Date(frame.capturedAt).toISOString() + "。这是那一刻的真实截图，不是角色背景图，也不是持续可见的整段视频。顺着对方的话和看清的东西自然接话；看不清就按你自己的口吻说没看清、让对方换角度。"
       : "\n\n【本轮镜头输入】没有附上真实摄像头画面。现实中的外貌、物品和环境依据对方说的话及此前通话中已观察到的信息；需要看新的东西时可以请对方开启镜头展示。";
   }
-  function create(onChange, env) {
+  function create(onChange, env, size) {   // size：{width,height} 想要的画面大小；视频通话不传，照旧 640×480，相机传高清
     env = env || window;
     let stream = null, element = null, epoch = 0, disposed = false, phase = "off", facing = "user";
     const emit = (next, message) => { phase = next; if (!disposed) onChange({ phase, facing, message: message || "" }); };
@@ -63,7 +63,7 @@
       if (unavailable) { emit("error", unavailable); return; }
       emit("opening", "正在打开镜头…");
       try {
-        const result = await env.navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 } } });
+        const result = await env.navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: facing }, width: { ideal: (size && size.width) || 640 }, height: { ideal: (size && size.height) || 480 } } });
         if (disposed || token !== epoch) { release(result); return; }
         stream = result;
         const track = result.getVideoTracks()[0], actual = track && track.getSettings && track.getSettings().facingMode;

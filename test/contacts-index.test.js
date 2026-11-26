@@ -49,7 +49,8 @@ test("Intl 不给力时全体落到 #，至少不乱排", () => {
 
 // 她 2026-08-26：「做截图这俩收纳放字母分类上面」
 test("通讯录顶上是群聊和标签两个入口，下面才是字母分组", () => {
-  const seg = comp.slice(comp.indexOf('tab === "contacts" && (() => {'), comp.indexOf('tab === "moments"'));
+  // 顶栏右上那颗「发朋友圈」也写着 tab === "moments"，在通讯录前面——从通讯录那段往后找结尾
+  const _ci = comp.indexOf('tab === "contacts" && (() => {'), seg = comp.slice(_ci, comp.indexOf('tab === "moments"', _ci));
   const gi = seg.indexOf('entry("群聊"'), ti = seg.indexOf('entry("标签"'), si = seg.indexOf("secs.map(sec =>");
   assert.ok(gi > 0 && ti > gi, "群聊在标签上面");
   assert.ok(si > ti, "两个入口都要排在字母分组上面");
@@ -103,7 +104,7 @@ test("聊天列表顶部有搜索，名字和最后一条消息都能搜", () =>
 // 但她随后拦下了「只能从名单里挑」那版：「原本其他角色能看到他们的同学舍友评论还挺有意思的
 // 不要收紧」——所以名单是【优先】，不是【白名单】。
 test("熟人名单写进提示词，但只当优先人选、不封死", () => {
-  const seg = app.slice(app.indexOf("const genMoment = async char =>"), app.indexOf("const likeMoment"));
+  const seg = app.slice(app.indexOf("const genMoment = async (char, momOpts) =>"), app.indexOf("const likeMoment"));
   assert.match(seg, /const peerNames = /);
   assert.match(seg, /liveChars\.forEach\(o => \{ if \(rels\[char\.id \+ "->" \+ o\.id\] \|\| rels\[o\.id \+ "->" \+ char\.id\]\)/, "任一方向有关系就算");
   assert.match(seg, /npcsOf\(char\.id\)\.forEach\(add\)/, "自己的 NPC 也要算进来");

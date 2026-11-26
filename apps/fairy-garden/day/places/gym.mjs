@@ -1,4 +1,4 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-555a345303ec1181';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-a1238597b9ec04b4';
 const FLOOR=.08;
 // The treadmill's open belt is floor height. Only its actual console and rails block walking.
 const furniture=[

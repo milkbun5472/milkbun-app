@@ -1504,10 +1504,11 @@ function PhoneLockScreen({ lock, character, wallpaper, onGoChat, onForce }) {
   const ago = (() => { const m = Math.max(0, Math.round((Date.now() - ((lock && lock.ts) || Date.now())) / 60000)); return m < 1 ? "刚刚" : m < 60 ? m + " 分钟前" : m < 1440 ? Math.floor(m / 60) + " 小时前" : Math.floor(m / 1440) + " 天前"; })();
   const glass = { background: "rgba(255,255,255,.16)", border: "1px solid rgba(255,255,255,.22)", backdropFilter: "blur(18px) saturate(1.3)", WebkitBackdropFilter: "blur(18px) saturate(1.3)" };
   const white = "#fff", soft = "rgba(255,255,255,.72)";
-  return h("div", { "data-wk": "phonelock", style: { position: "relative", minHeight: "100dvh", overflow: "hidden", background: "#1c1a1f", color: white, boxSizing: "border-box" } },
+  return h("div", { "data-wk": "phonelock", className: "h-full", style: { position: "relative", height: "100%", minHeight: "100%", overflow: "hidden", background: "#1c1a1f", color: white, boxSizing: "border-box" } },
     h("div", { "data-wk": "phonelockbg", "aria-hidden": true, style: { position: "absolute", inset: -40, background: wp ? "center/cover no-repeat url(" + wp + ")" : "radial-gradient(120% 80% at 20% 10%, #4a3f52 0%, #241f2a 55%, #141216 100%)", filter: wp ? "blur(22px) brightness(.62) saturate(1.1)" : "none", transform: "scale(1.06)" } }),
     h("div", { "aria-hidden": true, style: { position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,.18) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,.35) 100%)" } }),
-    h("div", { className: "flex flex-col items-center", style: { position: "relative", height: "100dvh", padding: "calc(env(safe-area-inset-top, 0px) + 34px) 22px calc(env(safe-area-inset-bottom, 0px) + 28px)", boxSizing: "border-box" } },
+    // 高度跟外壳走（h-full），不写 100dvh：iOS 壳里 dvh 比整屏矮一截，底下会露出一条浅色（她 2026-11-26 转群友截图）
+    h("div", { className: "flex flex-col items-center", style: { position: "relative", height: "100%", padding: "calc(env(safe-area-inset-top, 0px) + 34px) 22px calc(env(safe-area-inset-bottom, 0px) + 28px)", boxSizing: "border-box" } },
       h("svg", { "data-wk": "phonelockicon", width: 22, height: 26, viewBox: "0 0 44 52", fill: "none", stroke: white, strokeWidth: 3.2, strokeLinecap: "round" },
         h("path", { d: "M11 23V15a11 11 0 0 1 22 0v8" }), h("rect", { x: 4, y: 23, width: 36, height: 26, rx: 7, fill: white })),
       h("div", { "data-wk": "phonelockdate", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: soft, letterSpacing: ".04em" } }, date),
@@ -2318,6 +2319,7 @@ function fitFont(text, base, fits, min) {
 // ── 用到才加载的那几个功能，主屏图标留在这儿（她 2026-10-18 瘦身：脚本点进去才加载，图标得开机就画得出来）──
 if (typeof window !== "undefined") {
   // 小剧场：两片小幕布 + 星
+  window.GCamera = p => h(Svg, p, h("path", { d: "M4 8h3l1.6-2.2h6.8L17 8h3v11H4z" }), h("circle", { cx: 12, cy: 13.3, r: 3.6 }));
   window.GTheater = p => h(Svg, p, h("path", { d: "M3 4c3 2 15 2 18 0v5a9 9 0 01-18 0z" }), h("path", { d: "M7.5 13.5v4M12 14.5v5M16.5 13.5v4" }), h("path", { d: "M12 6.2l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z" }));
   // 秋秋小窝的主屏图标：一个小屋檐底下三格格子（js/nest.js 点进去才加载，2026-10-18 瘦身第八批搬来）
   window.GNest = p => h(Svg, p,
@@ -2393,7 +2395,7 @@ function lazyScreen(name, group, zh) {
   window[name] = Stub;
 }
 [["Games", "games", "小游戏"], ["WeeklyApp", "weekly", "周刊"], ["Debate", "debate", "擂台"], ["ReadTogether", "read", "一起读"],
- ["Dream", "dream", "梦境"], ["DreamJournalApp", "dreamjournal", "解梦馆"], ["TheaterApp", "theater", "小剧场"], ["StudyApp", "study", "一起学"], ["Ledger", "ledger", "记账"], ["PhoneCarry", "phone", "查手机"], ["FanficApp", "fanfic", "同人文"], ["FairyGardenApp", "garden", "小世界"],
+ ["Dream", "dream", "梦境"], ["DreamJournalApp", "dreamjournal", "解梦馆"], ["TheaterApp", "theater", "小剧场"], ["CameraApp", "camera", "相机"], ["StudyApp", "study", "一起学"], ["Ledger", "ledger", "记账"], ["PhoneCarry", "phone", "查手机"], ["FanficApp", "fanfic", "同人文"], ["FairyGardenApp", "garden", "小世界"],
  // 下面这一排都在 screens-ui.js（screens.js 的页面那一半，2026-10-18 拆出来）：点开其中哪一页，整组一起装上
  // 瘦身第八批：秋秋小窝整份；跑团、片刻、番茄钟的页面那半（开机那半在 trpg-core.js / shua-core.js / pomodoro-core.js）
  // 瘦身第九批：健康、星测、时刻、月度印象、同居、一起看的页面那半（开机那半在各自的 *-core.js）
@@ -7273,7 +7275,7 @@ const DEFAULT_FOLDERS = {
   f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout", "astro", "health"] },
   f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
   f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg", "shua", "netroom"] },
-  f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro"] },
+  f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro", "camera"] },
   // ⚠️id 里带上「脑洞」的拼音不是随手起的：文件夹的颜色是【按 key 哈希】出来的，
   //   f_def_mind 那个名字算出来的色相和它左边的匿名问答只差 24，
   //   撞色那道闸（home-tone-58-45）当场就红。换个 id ＝换个色。
@@ -7403,7 +7405,8 @@ function Home({
   const [editMode, setEditMode] = useState(false);
   const [dragKey, setDragKey] = useState(null);
   // ⚠️不替老用户挪图标（她 2026-11-15「只给第一次开的人」）：joinAppOnce 留着备用，这里不调；第一次开的人走 DEFAULT_FOLDERS（外卖本来就跟购物在「每日看」）
-  const [layout, setLayout] = useState(function () { return loadJSON("x_homeLayout", {}); });
+  // 相机（她 2026-11-26「放在一起做的文件夹里面」）：挪进「一起做」，挨着一起学；先改存档再读布局，只挪一次
+  const [layout, setLayout] = useState(function () { joinAppOnce("camera", "study", "x_cameraJoined"); return loadJSON("x_homeLayout", {}); });
   // 一页能放几行，是【量出来的】不是拍的。行高钉死成 82 之后这个数就算得准了：
   // 原来写死 6 行，在高屏上底下白白空掉一大截、还放不进东西（她 2026-09-03 截图）。
   // 第一页顶上有时钟，所以比别的页少一行。
@@ -7603,6 +7606,8 @@ function Home({
     vpscodex: { kind: "app", zh: "值班室", G: GDuty },
     loungeapp: { kind: "app", zh: "三席会客", G: FG("loungeapp", GLounge) },
     theater: { kind: "app", zh: "小剧场", G: FG("theater", () => window.GTheater || GDream) },
+    // 相机：在「一起做」文件夹里（她 2026-11-26 改的）
+    camera: { kind: "app", zh: "相机", G: FG("camera", () => window.GCamera || GGame) },
     trpg: { kind: "app", zh: "跑团", G: FG("trpg", () => window.GTrpg || GGame) },
     impression: { kind: "app", zh: "月度印象", G: FG("impression", () => window.GImpression || GDream) },
     shike: { kind: "app", zh: "时刻", G: FG("shike", () => window.GShike || GDream) },
@@ -11304,12 +11309,13 @@ function MomentsFeed({
       , "data-wk": "motime"
     }, typeof timeAgoOn === "function" ? timeAgoOn(m.ts, isMine ? null : m.characterId) : timeAgo(m.ts)),
       // 只给部分人看的那条：时间后面一把小锁，点开看给谁看、不给谁看（她 2026-11-14）
-      isMine && ((m.visibleTo || []).length || (m.hiddenFrom || []).length) ? h("button", { "data-wk": "molock", onClick: () => setLockFor(v => v === m.id ? null : m.id), "aria-label": "谁可以看", style: { marginLeft: 6, fontSize: 11, opacity: .7 } }, "🔒") : null,
+      // 他们设了范围的那条也挂同一把锁（她 2026-11-26「角色能发仅我可见或者范围可见吗」）
+      ((m.visibleTo || []).length || (m.hiddenFrom || []).length) ? h("button", { "data-wk": "molock", onClick: () => setLockFor(v => v === m.id ? null : m.id), "aria-label": "谁可以看", style: { marginLeft: 6, fontSize: 11, opacity: .7 } }, "🔒") : null,
       h("span", { className: "flex-1" }), h(MomentActions, { m, open: moreFor === m.id, setOpen: v => setMoreFor(v ? m.id : null),
       onLike: () => onLike(m.id), onComment: () => { setCommenting(m.id); setCReply(null); setCText(""); },
       onPin: null, onTop: onTop && isMine ? () => onTop(m.id) : null, onDelete: onDelete ? () => setDelId(m.id) : null,
       onShare: onShare ? () => setShareM(m) : null })), lockFor === m.id ? h("div", { "data-wk": "molockline", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
-      (m.visibleTo || []).length ? "只给这些人看：" + m.visibleTo.map(id => momentDisplayName(characters, ((characters || []).find(c => c.id === id) || {}).name || "")).filter(Boolean).join("、") : "",
+      (m.visibleTo || []).length ? (!isMine && m.visibleTo.length === 1 && m.visibleTo[0] === "me" ? "仅你可见" : "只给这些人看：" + m.visibleTo.map(id => id === "me" ? "你" : momentDisplayName(characters, ((characters || []).find(c => c.id === id) || {}).name || "")).filter(Boolean).join("、")) : "",
       (m.hiddenFrom || []).length ? ((m.visibleTo || []).length ? "；" : "") + "不给这些人看：" + m.hiddenFrom.map(id => momentDisplayName(characters, ((characters || []).find(c => String(c.id) === String(id)) || {}).name || "")).filter(Boolean).join("、") : "") : null,
     // 刷到了没吭声的那几位（只有她自己看得到）：赞过评论过的不再列
     isMine && (m.seenBy || []).length ? (() => { const done = new Set([...(m.likers || []), ...(m.comments || []).map(cm => cm.author)]);
@@ -18464,6 +18470,7 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
     trash: [P("M4.5 6.5h15"), P("M9.5 6.5V4.5h5v2"), P("M6.5 6.5l1 13h9l1-13"), P("M10.5 10.5v6M13.5 10.5v6")],
     sticker: [P("M4.5 4.5h10.8L19.5 8.7v10.8h-15z"), P("M15.3 4.5v4.2h4.2"), P("M9 13c.9 1.4 4.1 1.4 5 0"), P("M9.3 9.6v.7M14.7 9.6v.7")],
     picture: [R(3.5, 5, 17, 14, 2), C(8.6, 10, 1.6), P("M20.5 16.5l-5.2-5.2L5 19")],
+    camera: [P("M4 8.5h3.2l1.6-2.5h6.4l1.6 2.5H20a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1v-9a1 1 0 011-1z"), C(12, 13.5, 3.4)],
     wave: [P("M3.5 10.5v3M7.5 7.5v9M11.5 5v14M15.5 8.5v7M19.5 10.8v2.4")],
     handset: [P("M21.5 16.9v2.6a1.9 1.9 0 01-2.1 1.9A18.6 18.6 0 013.1 4.6 1.9 1.9 0 015 2.5h2.6a1.9 1.9 0 011.9 1.6c.1 1 .4 1.9.7 2.7a1.9 1.9 0 01-.5 2L8.5 10a15 15 0 005.5 5.5l1.2-1.2a1.9 1.9 0 012-.5c.8.3 1.7.6 2.7.7a1.9 1.9 0 011.6 1.9z")],
     camcorder: [R(3, 7, 12.5, 10, 2.4), P("M15.5 11.6l5.5-3.1v7l-5.5-3.1z")],
