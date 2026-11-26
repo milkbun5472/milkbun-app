@@ -456,6 +456,17 @@
       if (!shot || !look || !props.onShare) return;
       try { await props.onShare(look.pid, await finalBlob(), look.caption || ""); } catch (e) { props.toast && props.toast("没发出去：" + String(e && e.message || e).slice(0, 80)); }
     };
+    // 拍过的那一排：点开就是拍完那一页（存到手机、给TA看照旧），左下换成「删除」——删的是本机图库里这一张
+    const openRoll = async p => {
+      try { const blob = typeof idbImgGet === "function" ? await idbImgGet(p.imgKey) : null; if (!blob) throw new Error("这张在本机图库里找不到了");
+        setLook(null); setShot({ url: URL.createObjectURL(blob), blob, k: p.imgKey, fromRoll: true, gen: p.desc === "画的", pids: [] }); }
+      catch (e) { props.toast && props.toast(String(e && e.message || e)); }
+    };
+    const delRoll = async () => {
+      if (!shot || !shot.k || !window.confirm("删掉这张？删了就找不回来了（已经存到手机、发进聊天的那份不受影响）")) return;
+      try { if (typeof idbImgDel === "function") await idbImgDel(shot.k); } catch (e) {}
+      const k = shot.k; setRoll(l => l.filter(x => x.imgKey !== k)); setShot(null); setLook(null);
+    };
     const capture = async () => {
       if (busy) return; setBusy(true);
       try {
@@ -520,15 +531,15 @@
       return h("div", { "data-wk": "campage", "data-part": "result", className: "h-full", style: { position: "relative", background: "radial-gradient(120% 70% at 50% 0%, #3a2433 0%, #17121a 60%)", display: "flex", flexDirection: "column" } },
         h("div", { style: { paddingTop: safeTop(8), paddingLeft: 12, paddingRight: 12, display: "flex", alignItems: "center" } },
           roundBtn(IC.back, () => setShot(null), "back", "返回"),
-          h("div", { style: { flex: 1, textAlign: "center", color: "rgba(255,255,255,.8)", fontSize: FS(13.5), letterSpacing: ".18em" } }, shot.gen ? "画好了" : "拍好了"), h("div", { style: { width: 38 } })),
+          h("div", { style: { flex: 1, textAlign: "center", color: "rgba(255,255,255,.8)", fontSize: FS(13.5), letterSpacing: ".18em" } }, shot.fromRoll ? "拍过的" : shot.gen ? "画好了" : "拍好了"), h("div", { style: { width: 38 } })),
         h("div", { style: { flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "14px 22px" } },
           h("div", { "data-wk": "camresultframe", style: { background: "#fbfaf7", padding: 8, paddingBottom: cap ? 6 : 26, borderRadius: 6, boxShadow: "0 24px 50px -20px rgba(0,0,0,.8)", maxWidth: "100%", maxHeight: "100%", display: "flex", flexDirection: "column", alignItems: "center" } },
             h("img", { "data-wk": "camresult", src: shot.url, style: { maxWidth: "100%", maxHeight: "calc(100vh - " + (lookRow ? 400 : 260) + "px)", objectFit: "contain", display: "block", borderRadius: 2 } }),
             cap ? h("div", { "data-wk": "camcaption", style: { fontFamily: HAND, fontSize: FS(20), color: "#3a3340", textAlign: "center", padding: "8px 6px 4px", lineHeight: 1.2, maxWidth: "100%" } }, cap) : null)),
         lookRow,
         h("div", { style: { display: "flex", gap: 10, padding: "6px 18px 16px", paddingBottom: "calc(16px + " + COMPOSER_PAD_BOTTOM + ")" } },
-          shot.gen ? big(genBusy ? "在画…" : "再画一张", () => { if (!genBusy) { setShot(null); runGen(); } }, "regen") : big("重拍", () => setShot(null), "retake"),
-          shot.gen ? big("加滤镜·贴人", genToEdit, "edit") : null,
+          shot.fromRoll ? big("删除", delRoll, "delshot") : shot.gen ? big(genBusy ? "在画…" : "再画一张", () => { if (!genBusy) { setShot(null); runGen(); } }, "regen") : big("重拍", () => setShot(null), "retake"),
+          shot.gen && !shot.fromRoll ? big("加滤镜·贴人", genToEdit, "edit") : null,
           big("存到手机", save, "save", true)));
     }
     // ── 首页：像修图 app 的首屏，一块大的「拍照」，底下几格各进各的 ──
@@ -567,7 +578,7 @@
           roll.length ? h("div", { style: { marginTop: 20 } },
             h("div", { style: { fontSize: FS(13), fontWeight: 600, marginBottom: 8 } }, "拍过的"),
             h("div", { "data-wk": "camhubroll", style: { display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 } },
-              roll.map(p => h("div", { key: p.imgKey, style: { flexShrink: 0, width: 72, height: 96, borderRadius: 12, overflow: "hidden", background: "#eee" } }, typeof AlbumPhoto === "function" ? h(AlbumPhoto, { photo: p }) : null)))) : null),
+              roll.map(p => h("div", { key: p.imgKey, "data-wk": "camrollone", onClick: () => openRoll(p), style: { flexShrink: 0, width: 72, height: 96, borderRadius: 12, overflow: "hidden", background: "#eee", cursor: "pointer" } }, typeof AlbumPhoto === "function" ? h(AlbumPhoto, { photo: p }) : null)))) : null),
         h("input", { ref: hubFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; setBg(URL.createObjectURL(f)); setMode("live"); setPanel(""); } }));
     }
     // 拼贴、大头贴：借拼壁纸那个编辑器（collage.js），solo 不对着哪个人；这一趟拍的画的在胶卷里，也能从手机传

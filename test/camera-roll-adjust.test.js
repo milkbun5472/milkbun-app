@@ -24,3 +24,9 @@ test("给TA看／一起逛：同一个 cameraLook，看图回 say(+caption)；�
   assert.match(cam, /if \(st\.say\) drawBubble\(ctx,/);
   for (const k of ["camlook", "camlookone", "camlooksay", "camcaption", "camsay"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(cam.includes('"data-wk": "' + k + '"'), k); }
 });
+test("拍过的点开看大图：复用成片页，左下是删除，删本机图库那张", () => {
+  assert.match(cam, /onClick: \(\) => openRoll\(p\)/);
+  assert.match(cam, /shot\.fromRoll \? big\("删除", delRoll, "delshot"\)/);
+  assert.match(cam, /await idbImgDel\(shot\.k\)/);
+  assert.ok(ts.includes('["camrollone"'));
+});
