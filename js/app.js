@@ -37742,6 +37742,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onDrawPhoto: drawKeptPhoto,
     // 相册回收站进出（她 2026-09-10）：走现成的 savePhoneApp，
     // ⚠️patched＋noArchive——这是【就地改一条】，不是整份覆盖，不能过累积层、也不该归档。
+    // 剪贴板「留着」（群友 2026-11-26）：只改那一条的 kept，写回这一栏
+    onClipEdit: (char, items) => {
+      if (!char || !Array.isArray(items)) return;
+      const cur = ((phonesRef.current || {})[char.id] || {}).clipboard;
+      if (!cur) return;
+      savePhoneApp(char.id, "clipboard", { ...cur, items: items }, { noArchive: true, patched: true });
+    },
     onPhotoEdit: (char, items) => {
       if (!char || !Array.isArray(items)) return;
       const cur = ((phonesRef.current || {})[char.id] || {}).album;

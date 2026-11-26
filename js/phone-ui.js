@@ -4152,7 +4152,7 @@ function ClipPin({ color, size }) {
       fill: "none", stroke: color, strokeWidth: 2.1, strokeLinecap: "round", strokeLinejoin: "round"
     }));
 }
-function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) {
+function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive, onItemsEdit }) {
   const [open, setOpen] = useState(null);
   // ── 「看TA玩」驱动（第五批）：剪贴板只能看 ──
   const driveItem = drive && drive.item;
@@ -4239,7 +4239,15 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive }) 
           onClick: () => onPeek({ tier: isHeld ? "hidden" : "quiet", label: isHeld ? "剪贴板里没发出去的一段" : "剪贴板", title: open.from || "", text: open.text }),
           className: "w-full active:opacity-60",
           style: { marginTop: 26, padding: "13px 0", borderRadius: 2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid " + (isHeld ? "rgba(180,72,60,.55)" : "rgba(240,238,232,.22)"), color: isHeld ? "#e0918a" : CLIP_DESKINK }
-        }, isHeld ? T("摆到 TA 面前 · 这是他没发出去的") : T("转发给 TA · 他会知道你翻了手机")) : null));
+        }, isHeld ? T("摆到 TA 面前 · 这是他没发出去的") : T("转发给 TA · 他会知道你翻了手机")) : null,
+        // 留着：喜欢的那条刷新时不被挤掉（只改这一条的 kept，不进TA的上下文）
+        onItemsEdit ? h("button", {
+          "data-wk": "pclipkeep", "data-on": open.kept ? "1" : "0",
+          onClick: () => { const nk = !open.kept, sameAs = x => x === open || (x && x.text === open.text && x.time === open.time);
+            onItemsEdit(items.map(x => sameAs(x) ? { ...x, kept: nk } : x)); setOpen({ ...open, kept: nk }); },
+          className: "w-full active:opacity-60",
+          style: { marginTop: 10, padding: "13px 0", borderRadius: 2, fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", border: "1px solid rgba(240,238,232," + (open.kept ? ".6" : ".22") + ")", background: open.kept ? "rgba(240,238,232,.12)" : "transparent", color: CLIP_DESKINK }
+        }, open.kept ? "已留着 · 刷新也不会被挤掉（再点取消）" : "留着这一条 · 刷新也不会被挤掉") : null));
   })() : null;
   // 分栏名不做成英文眉标：这一叠是什么，用中文说一句就够
   const sec = (title, list, isHeld) => list.length ? h("section", { key: title, style: { marginBottom: 22 } },
@@ -5038,7 +5046,7 @@ function renderPhoneModule(key, d, ctx) {
     onPlay: ctx.onPlaySong, onPeek: ctx.onPeek, onBack: ctx.onBack, drive: ctx.drive, nowSongId: ctx.nowSongId
   });
   if (key === "reading") return h(ReadingView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "clipboard") return h(ClipView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "clipboard") return h(ClipView, { drive: ctx.drive, onItemsEdit: ctx.onClipEdit, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "health") return h(HealthView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, vitals: ctx.vitals });
   if (key === "liked") return h(PlazaView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calendar") return h(CalendarView, { drive: ctx.drive, d: ctx.calendar || d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -5243,6 +5251,7 @@ function PhoneCarry({
   onPeek,
   onDrawPhoto,
   onPhotoEdit,
+  onClipEdit,
   drawingPhoto,
   onWatchStart,
   onWatchSend,
@@ -5869,6 +5878,7 @@ function PhoneCarry({
     // 的指纹，不是 true/false——同屏两张的按钮不能一起转圈。
     onDrawPhoto: (photo, key, override) => onDrawPhoto && onDrawPhoto(char, photo, key, override),
     onPhotoEdit: items => onPhotoEdit && onPhotoEdit(char, items),
+    onClipEdit: onClipEdit ? items => onClipEdit(char, items) : null,
     drawing: drawingPhoto || ""
   };
   // ── 时间线 + delta ──────────────────────────────────────────

@@ -931,6 +931,15 @@ function phoneGrowMerge(appKey, oldData, newData, nowTs) {
     // 墓碑：模型显式说这几个已经不在名单上了
     const gone = _noteLock ? [] : (Array.isArray(retired[field]) ? retired[field] : []).map(phoneNameNorm).filter(Boolean);
     if (gone.length) list = list.filter(x => gone.indexOf(phoneNameNorm(phoneRowName(x))) < 0);
+    // 她点了「留着」的（kept:true，群友 2026-11-26「有一条特别喜欢的，还没翻过去就被挤没了」）：上限再满也不挤掉，
+    //   这一轮挤出去的照原样补回来（同一段字只留一份）
+    const _keptOld = (Array.isArray(old) ? old : []).filter(x => x && typeof x === "object" && x.kept === true);
+    if (_keptOld.length) {
+      const _sig = x => phoneNameNorm(phoneRowName(x)) || String((x && x.text) || "");
+      const _have = new Set(list.map(_sig));
+      list = list.map(x => x && typeof x === "object" && _keptOld.some(k => _sig(k) === _sig(x)) ? { ...x, kept: true } : x)
+        .concat(_keptOld.filter(k => !_have.has(_sig(k))));
+    }
     phoneSetPath(out, field, list);
   });
   delete out.retired;    // 它是一条指令，不是要存下来的内容
