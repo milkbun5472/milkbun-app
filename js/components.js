@@ -11304,12 +11304,13 @@ function MomentsFeed({
       , "data-wk": "motime"
     }, typeof timeAgoOn === "function" ? timeAgoOn(m.ts, isMine ? null : m.characterId) : timeAgo(m.ts)),
       // 只给部分人看的那条：时间后面一把小锁，点开看给谁看、不给谁看（她 2026-11-14）
-      isMine && ((m.visibleTo || []).length || (m.hiddenFrom || []).length) ? h("button", { "data-wk": "molock", onClick: () => setLockFor(v => v === m.id ? null : m.id), "aria-label": "谁可以看", style: { marginLeft: 6, fontSize: 11, opacity: .7 } }, "🔒") : null,
+      // 他们设了范围的那条也挂同一把锁（她 2026-11-26「角色能发仅我可见或者范围可见吗」）
+      ((m.visibleTo || []).length || (m.hiddenFrom || []).length) ? h("button", { "data-wk": "molock", onClick: () => setLockFor(v => v === m.id ? null : m.id), "aria-label": "谁可以看", style: { marginLeft: 6, fontSize: 11, opacity: .7 } }, "🔒") : null,
       h("span", { className: "flex-1" }), h(MomentActions, { m, open: moreFor === m.id, setOpen: v => setMoreFor(v ? m.id : null),
       onLike: () => onLike(m.id), onComment: () => { setCommenting(m.id); setCReply(null); setCText(""); },
       onPin: null, onTop: onTop && isMine ? () => onTop(m.id) : null, onDelete: onDelete ? () => setDelId(m.id) : null,
       onShare: onShare ? () => setShareM(m) : null })), lockFor === m.id ? h("div", { "data-wk": "molockline", style: { marginTop: 6, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6 } },
-      (m.visibleTo || []).length ? "只给这些人看：" + m.visibleTo.map(id => momentDisplayName(characters, ((characters || []).find(c => c.id === id) || {}).name || "")).filter(Boolean).join("、") : "",
+      (m.visibleTo || []).length ? (!isMine && m.visibleTo.length === 1 && m.visibleTo[0] === "me" ? "仅你可见" : "只给这些人看：" + m.visibleTo.map(id => id === "me" ? "你" : momentDisplayName(characters, ((characters || []).find(c => c.id === id) || {}).name || "")).filter(Boolean).join("、")) : "",
       (m.hiddenFrom || []).length ? ((m.visibleTo || []).length ? "；" : "") + "不给这些人看：" + m.hiddenFrom.map(id => momentDisplayName(characters, ((characters || []).find(c => String(c.id) === String(id)) || {}).name || "")).filter(Boolean).join("、") : "") : null,
     // 刷到了没吭声的那几位（只有她自己看得到）：赞过评论过的不再列
     isMine && (m.seenBy || []).length ? (() => { const done = new Set([...(m.likers || []), ...(m.comments || []).map(cm => cm.author)]);

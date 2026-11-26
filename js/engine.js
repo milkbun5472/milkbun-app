@@ -6626,6 +6626,14 @@ function diaryImportParse(text, fallbackTs, nowTs) {
     } else { if (!cur) { cur = { ts: fallbackTs || now.getTime(), title: "", body: [] }; out.push(cur); } cur.body.push(l); } });
   return out.map(x => ({ ts: x.ts, title: x.title, paras: x.body.join("\n").split(/\n\s*\n|\n/).map(t => t.trim()).filter(Boolean) })).filter(x => x.paras.length);
 }
+// 角色发的朋友圈谁看得见（她 2026-11-26「角色能发仅我可见或者范围可见吗」）：m.visibleTo 是名单（"me"＝她）就只这几个人看得见；
+//   m.hiddenFrom 里的看不见；发的人自己总看得见。她自己发的那几条照旧走她那套
+function momCharSees(m, viewerId) {
+  if (!m) return false; const v = String(viewerId || "");
+  if (String(m.characterId || "") === v) return true;
+  if (Array.isArray(m.visibleTo) && m.visibleTo.length && !m.visibleTo.map(String).includes(v)) return false;
+  return !(Array.isArray(m.hiddenFrom) && m.hiddenFrom.map(String).includes(v));
+}
 function photoDuoSaid(scene, uName) {
   const t = String(scene || "");
   if (/合照|合影|两个人|两人|俩人|我们|我俩|咱们|一起|并肩|挽着|搂着|牵着|靠在.{0,4}(?:肩|怀)|抱着(?:她|你)|她|你/.test(t)) return true;
