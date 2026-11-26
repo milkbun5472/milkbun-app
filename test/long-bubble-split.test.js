@@ -130,3 +130,9 @@ test("打了标点、又拿空格隔开两整句的：空格当句号切（她 2
   assert.deepEqual(splitLongBubble("你这一句，说得我心里都熨帖了 刚从兵部回来", true), ["你这一句，说得我心里都熨帖了", "刚从兵部回来"]);
   assert.deepEqual(splitLongBubble("身上还带着点寒气 正好被你这句话给捂热了 你这会儿在哪儿？", true), ["身上还带着点寒气", "正好被你这句话给捂热了", "你这会儿在哪儿？"]);
 });
+test("空格前是句末语气字：后面再短也另起一泡（2026-11-26 群友截图「转过来了 说吧」）", () => {
+  const r = splitLongBubble("今天嘴这么甜，煤球听了都把耳朵转过来了 说吧", true);
+  assert.equal(r[r.length - 1], "说吧");
+  assert.ok(!r.some(x => /了说吧/.test(x)));
+  assert.deepEqual(splitLongBubble("拍得我 眼睛都快花了", true), ["拍得我 眼睛都快花了"]);
+});
