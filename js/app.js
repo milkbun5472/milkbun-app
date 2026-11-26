@@ -35991,7 +35991,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 有自己整页的那几条，直接去那一页，不停在信息首页
       const BY_ENTRY = { emotes: "emotes", favorites: "favorites", closet: "mycloset" };
       const sc = BY_ENTRY[entryId] || ALIAS[app] || app;
-      const OK = ["anon", "astro", "zhaoying", "netroom", "stamps", "calendar", "carry", "cast", "companion", "config", "debate", "diary", "dream", "dreamjournal", "dwell", "fairyGarden", "fanfic", "forum", "games", "health", "home", "impression", "ledger", "listen", "lore", "loungeapp", "map", "memlib", "memo", "messages", "nest", "phone", "pomodoro", "read", "rescue", "shike", "shop", "shua", "study", "stylelab", "takeout", "tarot", "theater", "ties", "trpg", "us", "vpscodex", "wallet", "watch", "weekly", "yanqiu", "emotes", "favorites", "mycloset"];
+      const OK = ["camera", "anon", "astro", "zhaoying", "netroom", "stamps", "calendar", "carry", "cast", "companion", "config", "debate", "diary", "dream", "dreamjournal", "dwell", "fairyGarden", "fanfic", "forum", "games", "health", "home", "impression", "ledger", "listen", "lore", "loungeapp", "map", "memlib", "memo", "messages", "nest", "phone", "pomodoro", "read", "rescue", "shike", "shop", "shua", "study", "stylelab", "takeout", "tarot", "theater", "ties", "trpg", "us", "vpscodex", "wallet", "watch", "weekly", "yanqiu", "emotes", "favorites", "mycloset"];
       if (OK.indexOf(sc) < 0) return false;
       setScreen(sc);
       return true;
@@ -39300,7 +39300,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,

@@ -2318,6 +2318,7 @@ function fitFont(text, base, fits, min) {
 // ── 用到才加载的那几个功能，主屏图标留在这儿（她 2026-10-18 瘦身：脚本点进去才加载，图标得开机就画得出来）──
 if (typeof window !== "undefined") {
   // 小剧场：两片小幕布 + 星
+  window.GCamera = p => h(Svg, p, h("path", { d: "M4 8h3l1.6-2.2h6.8L17 8h3v11H4z" }), h("circle", { cx: 12, cy: 13.3, r: 3.6 }));
   window.GTheater = p => h(Svg, p, h("path", { d: "M3 4c3 2 15 2 18 0v5a9 9 0 01-18 0z" }), h("path", { d: "M7.5 13.5v4M12 14.5v5M16.5 13.5v4" }), h("path", { d: "M12 6.2l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z" }));
   // 秋秋小窝的主屏图标：一个小屋檐底下三格格子（js/nest.js 点进去才加载，2026-10-18 瘦身第八批搬来）
   window.GNest = p => h(Svg, p,
@@ -2393,7 +2394,7 @@ function lazyScreen(name, group, zh) {
   window[name] = Stub;
 }
 [["Games", "games", "小游戏"], ["WeeklyApp", "weekly", "周刊"], ["Debate", "debate", "擂台"], ["ReadTogether", "read", "一起读"],
- ["Dream", "dream", "梦境"], ["DreamJournalApp", "dreamjournal", "解梦馆"], ["TheaterApp", "theater", "小剧场"], ["StudyApp", "study", "一起学"], ["Ledger", "ledger", "记账"], ["PhoneCarry", "phone", "查手机"], ["FanficApp", "fanfic", "同人文"], ["FairyGardenApp", "garden", "小世界"],
+ ["Dream", "dream", "梦境"], ["DreamJournalApp", "dreamjournal", "解梦馆"], ["TheaterApp", "theater", "小剧场"], ["CameraApp", "camera", "相机"], ["StudyApp", "study", "一起学"], ["Ledger", "ledger", "记账"], ["PhoneCarry", "phone", "查手机"], ["FanficApp", "fanfic", "同人文"], ["FairyGardenApp", "garden", "小世界"],
  // 下面这一排都在 screens-ui.js（screens.js 的页面那一半，2026-10-18 拆出来）：点开其中哪一页，整组一起装上
  // 瘦身第八批：秋秋小窝整份；跑团、片刻、番茄钟的页面那半（开机那半在 trpg-core.js / shua-core.js / pomodoro-core.js）
  // 瘦身第九批：健康、星测、时刻、月度印象、同居、一起看的页面那半（开机那半在各自的 *-core.js）
@@ -7603,6 +7604,8 @@ function Home({
     vpscodex: { kind: "app", zh: "值班室", G: GDuty },
     loungeapp: { kind: "app", zh: "三席会客", G: FG("loungeapp", GLounge) },
     theater: { kind: "app", zh: "小剧场", G: FG("theater", () => window.GTheater || GDream) },
+    // 相机（她 2026-11-26「主屏单独一个」）：不进文件夹，老用户由安全网补到最后一页
+    camera: { kind: "app", zh: "相机", tail: true, G: FG("camera", () => window.GCamera || GGame) },
     trpg: { kind: "app", zh: "跑团", G: FG("trpg", () => window.GTrpg || GGame) },
     impression: { kind: "app", zh: "月度印象", G: FG("impression", () => window.GImpression || GDream) },
     shike: { kind: "app", zh: "时刻", G: FG("shike", () => window.GShike || GDream) },
