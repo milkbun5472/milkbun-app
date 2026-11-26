@@ -54,3 +54,9 @@ test("旅行的照片每张都有脸：没有 view 那一种", () => {
   assert.ok(!/view|buildScenePrompt/.test(body));
   assert.match(body, /const blob = await castShotBlob\(cast, scene,/);
 });
+test("旅行：入镜的人按性格拍，多人看得出关系（同行各人设定＋彼此关系给到挑怎么拍那一枪）", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(app, /const tripCastLines = \(ids, meGo, uName\) =>/);
+  assert.match(app, /\(rels \|\| \{\}\)\[a\.id \+ "->" \+ b\.id\]/);
+  assert.match(app, /\+ tripCastLines\(ids, trip\.meGo, uName\)/);
+});

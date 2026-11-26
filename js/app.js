@@ -19957,6 +19957,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return (Array.isArray(d && d.stops) ? d.stops : []).map(x => ({ place: String((x && x.place) || "").trim(), plan: String((x && x.plan) || "").trim() })).filter(x => x.place);
   };
   // 每张都要有脸（她 2026-11-26「拍照不准只有 view，每张必须是有脸的」）：只有自拍／别人帮拍／合照三种
+  // 入镜的人按性格拍、多人要看得出关系（她 2026-11-26）：同行几个人各是什么样、彼此什么关系，给挑怎么拍的那一枪
+  const tripCastLines = (ids, meGo, uName) => {
+    const cs = ids.map(id => (characters || []).find(c => c.id === id)).filter(Boolean);
+    const who = cs.map(c => "- " + c.name + "：" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 300)).join("\n");
+    const pairs = [];
+    cs.forEach(a => cs.forEach(b => { if (a.id !== b.id) { const r = (rels || {})[a.id + "->" + b.id]; if (r && r.label) pairs.push(a.name + " 对 " + b.name + "：" + r.label); } }));
+    if (meGo) cs.forEach(c => { const cp = (couples || {})[c.id] || {}; if (cp.status === "together") pairs.push(c.name + " 和 " + uName + "：恋人"); });
+    return "【同行的人】\n" + who + (pairs.length ? "\n【彼此的关系】\n" + pairs.join("\n") : "");
+  };
   const TRIP_KIND = { self: "自拍", other: "别人帮忙拍的", group: "大家一起的合照" };
   const tripCard = async (trip, idx, styles) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
@@ -19977,6 +19986,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       voice: true,
       instruction: head(lead) + "\n正面是你在这一站拍的照片，你来挑怎么拍：kind 是 self（你自拍）、other（别人帮你拍）"
         + (ids.length > 1 || trip.meGo ? "、group（同行的人一起入镜的合照）" : "") + "；scene 写画面里是什么（在哪、在干嘛、穿什么、光线），给画画的人看。"
+        + "入镜的人照各自的性格来拍：谁会怎么站、怎么看镜头、手往哪放、什么表情，都是这个人会有的样子；几个人一起入镜时，站位、距离、谁挨着谁、有没有动作上的来往，要看得出他们之间是什么关系。\n" + tripCastLines(ids, trip.meGo, uName)
         + (pickStyle ? "\nstyle 是你挑的明信片样子，从这几种里挑一个写它的 id：" + styles.map(x => x.id + "＝" + x.zh).join("；") + "。" : ""),
       schemaHint: "{\"text\":\"写在背面的话\",\"kind\":\"self|other" + (ids.length > 1 || trip.meGo ? "|group" : "") + "\",\"scene\":\"画面\"" + (pickStyle ? ",\"style\":\"样子的id\"" : "") + "}",
       maxTokens: 12000
