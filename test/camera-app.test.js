@@ -21,3 +21,4 @@ assert(/const cameraGenShot = [\s\S]{0,700}return castShotBlob\(cast, sc,/.test(
 assert(/const blob = await castShotBlob\(cast, scene, \{ kind: "self", extraRef: pref/.test(app), "小家伙合照也走 castShotBlob");
 assert(/onGen: cameraGenShot/.test(app) && /props\.onGen\(genIds, genScene, genWho\)/.test(cam), "相机接上生图");
 console.log("ok camera-app");
+assert(/togglePerson\(p\)/.test(cam), "加人多选");

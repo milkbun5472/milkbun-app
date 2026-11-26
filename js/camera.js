@@ -130,9 +130,11 @@
       [["live", "实景"], ["gen", "生图"]].map(([k, zh]) => h("button", { key: k, "data-wk": "camdialone", "data-on": mode === k ? "1" : "0", onClick: () => switchMode(k),
         style: { border: "none", background: "transparent", padding: "2px 0", fontSize: FS(13), letterSpacing: ".12em", color: mode === k ? "#ffd54a" : "rgba(255,255,255,.62)", fontWeight: mode === k ? 600 : 400 } }, zh)));
 
+    // 加人那一排是多选：点一下上画面，再点一下拿下来；面板不收，可以一口气挑好几个（她 2026-11-26「我和角色都可以」）
+    const togglePerson = p => { const on = stickers.filter(s => s.pid === p.id); if (on.length) { setStickers(l => l.filter(s => s.pid !== p.id)); setSel(null); } else addPerson(p); };
     const addPerson = p => {
       const st = { id: "s" + Date.now() + Math.random().toString(36).slice(2, 5), pid: p.id, x: 0.5 + (stickers.length % 3 - 1) * 0.18, y: 0.55, s: 0.32, r: 0, style: "round" };
-      setStickers(l => l.concat([st])); setSel(st.id); setPanel("");
+      setStickers(l => l.concat([st])); setSel(st.id);
     };
     const patch = (id, p) => setStickers(l => l.map(s => s.id === id ? Object.assign({}, s, p) : s));
     const rect = () => stageRef.current.getBoundingClientRect();
@@ -272,9 +274,9 @@
       // 底下：挑人 / 滤镜面板 + 快门那一排
       h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, paddingBottom: COMPOSER_PAD_BOTTOM, background: "linear-gradient(transparent, rgba(0,0,0,.55))" } },
         panel === "people" ? h("div", { "data-wk": "campick", style: { display: "flex", gap: 12, overflowX: "auto", padding: "10px 16px" } },
-          people.map(p => h("button", { key: p.id, "data-wk": "campickone", onClick: () => addPerson(p), style: { flexShrink: 0, border: "none", background: "transparent", color: "#fff", width: 58, textAlign: "center" } },
-            typeof Avatar === "function" ? h(Avatar, { character: p, size: 48 }) : null,
-            h("div", { style: { fontSize: FS(11), marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name)))) : null,
+          people.map(p => { const on = stickers.some(s => s.pid === p.id); return h("button", { key: p.id, "data-wk": "campickone", "data-on": on ? "1" : "0", onClick: () => togglePerson(p), style: { flexShrink: 0, border: "none", background: "transparent", color: "#fff", width: 58, textAlign: "center", opacity: on ? 1 : .7 } },
+            h("div", { style: { display: "inline-block", borderRadius: "50%", boxShadow: on ? "0 0 0 2.5px #ffd54a" : "none" } }, typeof Avatar === "function" ? h(Avatar, { character: p, size: 48 }) : null),
+            h("div", { style: { fontSize: FS(11), marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name)); })) : null,
         panel === "filter" ? h("div", { "data-wk": "camfilter", style: { display: "flex", gap: 8, overflowX: "auto", padding: "10px 16px" } },
           FILTERS.map(f => h(React.Fragment, { key: f.id }, btn(f.zh, () => setFilter(f.id), filter === f.id, "filter")))) : null,
         props.onGen ? dial() : null,
