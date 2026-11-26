@@ -5305,7 +5305,9 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, onListenStat
         : h("div", { style: { width: 48, height: 48, borderRadius: 999, border: "1.5px dashed " + t.fog, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, ic("note", t.fog, 20)),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(17px * var(--app-fs, 1))", color: t.ink } }, partner ? "和 " + partner.name + " 一起听" : "自己听"),
-        !partner ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.55 } }, "点一下，挑个人一起听") : null),
+        !partner ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3, lineHeight: 1.55 } }, "点一下，挑个人一起听") : null,
+        partner && Number(data.togetherMs) >= 60000 ? h("div", { "data-wk": "listentogether", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 3 } },
+          "已经一起听了 " + (() => { const m = Math.floor(Number(data.togetherMs) / 60000), hh = Math.floor(m / 60); return (hh ? hh + " 小时 " : "") + (m % 60) + " 分钟"; })()) : null),
       h("span", { "aria-hidden": "true", style: { flexShrink: 0, color: t.fog, transform: pickWho ? "rotate(90deg)" : "none", transition: "transform .15s" } }, ic("next", t.fog, 14))),
     // ⚠️这儿原来还有一行开关「让 TA 在聊天里聊这首歌」——撤掉了（她 2026-09-06：
     //   「一起听这一句不会在偷偷调用吧，能不能不要了」）。它确实在偷偷调用：

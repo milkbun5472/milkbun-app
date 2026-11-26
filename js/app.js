@@ -33628,7 +33628,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     saveListen(p => ({ ...p, songs: capListenSongs([{ id, source: "local", title: (title || "").trim() || file.name.replace(/\.[^.]+$/, ""), artist: (artist || "").trim(), ts: Date.now() }, ...(p.songs || [])]) }));
     toast("已添加");
   };
-  const setListenPartner = charId => saveListen(p => ({ ...p, partnerId: charId }));
+  // 换了一起听的人，「一起听了多久」从零算起（群友 2026-11-26 许愿「一起听界面实时记录听了多久」）
+  const setListenPartner = charId => saveListen(p => ({ ...p, partnerId: charId, ...(charId !== p.partnerId ? { togetherMs: 0 } : {}) }));
+  // 有人陪着、歌真在放的时候才算时间：每 30 秒记一笔
+  useEffect(() => {
+    if (!player.playing || !(listenRef.current || {}).partnerId) return;
+    const tm = setInterval(() => { if ((listenRef.current || {}).partnerId) saveListen(p => ({ ...p, togetherMs: (Number(p.togetherMs) || 0) + 30000 })); }, 30000);
+    return () => clearInterval(tm);
+  }, [player.playing, (listen || {}).partnerId]);
   const saveNeteaseApi = url => { const u = (url || "").trim().replace(/\/+$/, ""); setNeteaseApi(u); saveJSON("x_neteaseApi", u); toast(u ? "已连搜索接口" : "已清空"); };
   const saveNeteaseCookie = ck => { const c = (ck || "").trim(); setNeteaseCookie(c); saveJSON("x_neteaseCookie", c); toast(c ? "已保存 Cookie（可放 VIP 了）" : "已清空 Cookie"); };
   // 测试网易云登录/VIP 状态
