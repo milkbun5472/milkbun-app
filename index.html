@@ -211,6 +211,12 @@
   [data-wk="chat"]::before, [data-wk="chat"]::after, [data-wk="chathead"]::before, [data-wk="chathead"]::after,
   [data-wk="composer"]::before, [data-wk="composer"]::after, [data-wk="offline"]::before, [data-wk="offline"]::after,
   [data-wk="app"]::before, [data-wk="app"]::after { pointer-events: none !important; }
+  /* 线下输入栏一行装不下时让输入框让位，回复键永远留在屏幕里（她 2026-11-26：很多美化只做了线上、没做线下，
+     线上那套给输入框、按键写的宽度带到线下来，回复键被顶出屏幕外）。选择器加了 html body，压得住美化里写的 textarea{width:…} 这类。 */
+  html body [data-wk="offcomposer"] { flex-wrap: nowrap !important; max-width: 100% !important; box-sizing: border-box !important; }
+  html body [data-wk="offcomposer"] > textarea { flex: 1 1 0% !important; min-width: 0 !important; width: auto !important; max-width: none !important; }
+  html body [data-wk="offcomposer"] > button { flex-shrink: 0 !important; }
+  html body [data-wk="offcomposer"] > [data-wk="chatreply"] { max-width: 64px !important; }
   input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
   /* 能长按选字拷走的正文（群里 2026-11-11：「想复制 TA 的日记和情书，不想加复制键」）：不加按钮，长按就是系统自己的选字、拷贝。要开的地方挂 data-copyable */
   [data-copyable], [data-copyable] * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
