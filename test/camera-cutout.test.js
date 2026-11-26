@@ -26,3 +26,11 @@ test("不往底栏多塞按钮：抠图人是加人面板里的一格", () => {
   for (const k of ["camsheet", "camgencard", "camresultframe"]) assert.ok(ts.includes('["' + k + '"'), k);
   for (const k of ["campicktab", "camcut", "camcutwho", "camcutone", "camcutlist", "camcutthumb", "camcutdel", "camcutpose"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(cam.includes('"data-wk": "' + k + '"'), k); }
 });
+test("让 AI 先写一版：三处都接上，格式照邮票卡面那几栏，镜头那套和邮票共用一份", () => {
+  assert.match(app, /const SHOT_COMBO_SPEC = "镜头可以这样搭/);
+  assert.match(app, /\+ SHOT_COMBO_SPEC\n/, "邮票卡面照旧用它");
+  assert.match(app, /const cameraWriteShot = async \(ids, brief, who, cut\) =>/);
+  assert.match(app, /onWriteShot: cameraWriteShot/);
+  assert.match(cam, /"data-part": "writeshot", onClick: \(\) => writeShot\(false\)/);
+  assert.match(cam, /"data-part": "cutwrite", onClick: \(\) => writeShot\(true\)/);
+});

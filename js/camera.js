@@ -222,7 +222,18 @@
     const [genWho, setGenWho] = useState("other");
     const [genScene, setGenScene] = useState("");
     const [genBusy, setGenBusy] = useState(false);
-    const [genMulti, setGenMulti] = useState(true);   // 首页点的是「单人写真」还是「多人合照」
+    const [genMulti, setGenMulti] = useState(true);
+    // 「让 AI 先写一版」：她写一句，模型扩成一份分镜填回框里；写的时候那颗按钮转圈（她 2026-11-26）
+    const [writing, setWriting] = useState("");
+    const writeShot = async (cut) => {
+      if (writing || !props.onWriteShot) return;
+      const ids = cut ? [cutFor] : genIds;
+      if (!ids.length) { props.toast && props.toast("先挑画面里有谁"); return; }
+      setWriting(cut ? "cut" : "gen");
+      try { const t = await props.onWriteShot(ids, cut ? cutPose : genScene, genWho, !!cut); if (cut) setCutPose(t); else setGenScene(t); }
+      catch (e) { props.toast && props.toast("没写成：" + String(e && e.message || e).slice(0, 80)); }
+      finally { setWriting(""); }
+    };   // 首页点的是「单人写真」还是「多人合照」
     // 这一趟拍的、画的都排进胶卷：拼贴那边直接从这里挑（存进图库，拼贴读图走 imgKey）
     const [roll, setRoll] = useState([]);
     // 抠图人：给谁抠（默认第一个角色）、她写的姿势、在忙什么；抠好的图按 img_ 键现读成 objectURL
@@ -471,8 +482,14 @@
           card("who", "谁拿的手机", "",
             h("div", { style: { display: "flex", gap: 10 } }, seg("other", "有人帮忙拍", "看得到全身和周围"), seg("self", "自己举着自拍", "近一点、带点手臂"))),
           card("scene", "画面", "选填：在哪、在干嘛、穿什么",
-            h("textarea", { "data-wk": "camgenscene", value: genScene, onChange: e => setGenScene(e.target.value), rows: 3, placeholder: "空着＝随手拍的一张",
-              style: { width: "100%", boxSizing: "border-box", borderRadius: 14, border: "1.5px solid #f1e4ea", background: "#fffafc", color: INK, padding: "10px 12px", fontSize: FS(14), lineHeight: 1.6, outline: "none", resize: "none" } })),
+            h("div", null,
+              h("textarea", { "data-wk": "camgenscene", value: genScene, onChange: e => setGenScene(e.target.value), rows: genScene.split("\n").length > 2 ? 7 : 3, placeholder: "空着＝随手拍的一张；也可以只写一两个字，再让 AI 先写一版",
+                style: { width: "100%", boxSizing: "border-box", borderRadius: 14, border: "1.5px solid #f1e4ea", background: "#fffafc", color: INK, padding: "10px 12px", fontSize: FS(14), lineHeight: 1.6, outline: "none", resize: "none" } }),
+              props.onWriteShot ? h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 10 } },
+                h("button", { "data-wk": "cambtn", "data-part": "writeshot", onClick: () => writeShot(false), disabled: !!writing,
+                  style: { flexShrink: 0, whiteSpace: "nowrap", height: 36, padding: "0 14px", borderRadius: 18, border: "1.5px solid " + PINK, background: "#fff", color: PINK, fontSize: FS(12.5), fontWeight: 600, opacity: writing ? .6 : 1 } },
+                  writing === "gen" ? "在写…" : "让 AI 先写一版"),
+                h("span", { style: { fontSize: FS(10.5), color: SUB, lineHeight: 1.5 } }, "照你这句补成姿势、镜头、光、地点、穿着，写好了还能改")) : null)),
           h("div", { style: { fontSize: FS(11), color: SUB, lineHeight: 1.7, padding: "0 4px" } }, "每个人用自己设的参照照锁脸；没设参照照的照设定画。画一张要等半分钟左右，走的是 设置·图像API。")),
         h("div", { style: { flexShrink: 0, padding: "10px 16px 14px", paddingBottom: "calc(14px + " + COMPOSER_PAD_BOTTOM + ")" } },
           h("button", { "data-wk": "camshutter", "data-part": "gen", onClick: runGen, disabled: genBusy,
@@ -551,11 +568,14 @@
                 cutUrls[x.k] ? h("img", { src: cutUrls[x.k], style: { width: "100%", height: "100%", objectFit: "contain" } }) : null),
               h("button", { "data-wk": "camcutdel", "aria-label": "不要这张", onClick: () => { cutDrop(cutFor, x.k); setCutRev(n => n + 1); },
                 style: { position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: 11, border: "1.5px solid rgba(20,16,22,.9)", background: "#fff", color: "#2b2230", fontSize: FS(12), lineHeight: "18px", padding: 0 } }, "×")))),
+          h("div", { style: { display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8 } },
+            h("textarea", { "data-wk": "camcutpose", value: cutPose, onChange: e => setCutPose(e.target.value), placeholder: "姿势（选填，写一两个字也行）", rows: cutPose.split("\n").length > 1 ? 4 : 1,
+              style: { flex: 1, minWidth: 0, minHeight: 38, borderRadius: 19, border: "1px solid rgba(255,255,255,.2)", background: "rgba(255,255,255,.08)", color: "#fff", padding: "9px 14px", fontSize: FS(13), lineHeight: 1.5, outline: "none", resize: "none", boxSizing: "border-box" } }),
+            props.onWriteShot ? h("button", { "data-wk": "cambtn", "data-part": "cutwrite", onClick: () => writeShot(true), disabled: !!writing,
+              style: { flexShrink: 0, height: 38, padding: "0 12px", borderRadius: 19, border: "1px solid #ff8fb8", background: "transparent", color: "#ffb3cf", fontSize: FS(12.5), opacity: writing ? .6 : 1 } }, writing === "cut" ? "在写…" : "写一版") : null),
           h("div", { style: { display: "flex", gap: 8, alignItems: "center" } },
-            h("input", { "data-wk": "camcutpose", value: cutPose, onChange: e => setCutPose(e.target.value), placeholder: "姿势（选填）",
-              style: { flex: 1, minWidth: 0, height: 38, borderRadius: 19, border: "1px solid rgba(255,255,255,.2)", background: "rgba(255,255,255,.08)", color: "#fff", padding: "0 14px", fontSize: FS(13), outline: "none" } }),
-            h("button", { "data-wk": "cambtn", "data-part": "cutgen", onClick: genCut, style: { flexShrink: 0, height: 38, padding: "0 14px", borderRadius: 19, border: "none", background: GRAD, color: "#fff", fontSize: FS(12.5), fontWeight: 600, opacity: cutBusy ? .6 : 1 } }, cutBusy === "gen" ? "在画…" : "现生一张"),
-            h("button", { "data-wk": "cambtn", "data-part": "cutphoto", onClick: () => !cutBusy && cutFileRef.current && cutFileRef.current.click(), style: { flexShrink: 0, height: 38, padding: "0 14px", borderRadius: 19, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.1)", color: "#fff", fontSize: FS(12.5), opacity: cutBusy ? .6 : 1 } }, cutBusy === "seg" ? "在抠…" : "从照片抠")),
+            h("button", { "data-wk": "cambtn", "data-part": "cutgen", onClick: genCut, style: { flex: 1, height: 38, padding: "0 14px", borderRadius: 19, border: "none", background: GRAD, color: "#fff", fontSize: FS(12.5), fontWeight: 600, opacity: cutBusy ? .6 : 1 } }, cutBusy === "gen" ? "在画…" : "现生一张"),
+            h("button", { "data-wk": "cambtn", "data-part": "cutphoto", onClick: () => !cutBusy && cutFileRef.current && cutFileRef.current.click(), style: { flex: 1, height: 38, padding: "0 14px", borderRadius: 19, border: "1px solid rgba(255,255,255,.3)", background: "rgba(255,255,255,.1)", color: "#fff", fontSize: FS(12.5), opacity: cutBusy ? .6 : 1 } }, cutBusy === "seg" ? "在抠…" : "从照片抠")),
           h("div", { style: { fontSize: FS(10.5), color: "rgba(255,255,255,.5)", padding: "8px 2px 0", lineHeight: 1.6 } },
             cutBusy === "seg" ? "第一次抠要先下载抠图工具（三十兆左右），稍等" : "现生：锁脸画一张全身再去底（用图像API）；从照片抠：手机上就地抠，不花额度")) : null,
         panel === "filter" ? h("div", { "data-wk": "camfilter", style: { display: "flex", gap: 8, overflowX: "auto", padding: "12px 16px 4px" } },

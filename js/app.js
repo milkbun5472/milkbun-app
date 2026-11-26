@@ -19160,15 +19160,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // ── 邮票册（2026-10-26 方案）：写卡、画卡面。抽、存、界面在 js/stamps-core.js / js/stamps.js ──
   //   ⚠️写失败不丢卡：卡已经落进 x_stamps，只是没写完（text:null），界面上点一下重写。
-  const STAMP_SHOT_SPEC = "shot 是给画卡面的人看的分镜（中文，几句话）：pose＝这一刻身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪，要有动势，不是对着镜头站着坐着摆好；camera＝景别、机位高低、镜头远近，像乙游卡面那样人和场景一起讲这一刻，有前景、有纵深，景别别总是半身近照；"
-    + "light＝主光从哪边来、是什么光、冷暖、有没有轮廓光、阴影落在哪；place＝在哪、身边两三样带着这一刻的东西；outfit＝穿什么；mood＝一两个词。"
+  // 镜头怎么搭（几栏各挑一样、自己配）：邮票卡面和相机「让 AI 先写一版」共用这一份（她 2026-11-26「格式可以参考邮票册的来」）
     // 镜头能组合的种类（她 2026-11-18「多一点种类可以组合」，不要程序分配）：每一栏挑一样、自己配，几栏搭起来就很少撞
-    + "镜头可以这样搭（每一栏挑一个，跟这一刻配，几栏组合起来，别总落在同一种）："
+  const SHOT_COMBO_SPEC = "镜头可以这样搭（每一栏挑一个，跟这一刻配，几栏组合起来，别总落在同一种）："
     + "景别——远景（人和场景一起讲，人至少占画面三分之一）、全身、七分身、半身、近景；"
     + "机位——平视、微微俯视、低机位微微仰拍（显身形）、四分之三侧脸、正侧面、侧后方他正回头、镜头微微倾斜、越过别人或东西的肩、隔着前景（门框、玻璃、枝叶、人群）看过去、拍镜子或玻璃里的他、从她的视线看他（他低头看过来、俯身凑近、把手伸向镜头）；"
     + "人在画面哪儿——居中、偏左或偏右三分之一、斜对角、被门窗框起来、人在下半上面留一片天或景、前景虚着一层光斑或东西、背景虚化只有他清楚；"
     + "身体——站着、走着、正停下、坐着、侧坐在窗台或台阶上、靠着、斜倚门框或墙、单手撑在桌沿或墙上、手插兜、托着腮、抬手理领口袖口或拨头发、低着头眼睛往上看、转身回头、伸手去够、弯腰俯身、整个人在动作中途；"
-    + "光——逆光带一圈轮廓光、傍晚斜进来的金色阳光、穿过窗或树的一道道光束、侧光、窗光、夜里一盏暖灯、手机或屏幕的冷光照在脸上、身后一串灯虚成光斑、阴天的软光、霓虹或彩色的光、火光、雪地或水面反上来的光。"
+    + "光——逆光带一圈轮廓光、傍晚斜进来的金色阳光、穿过窗或树的一道道光束、侧光、窗光、夜里一盏暖灯、手机或屏幕的冷光照在脸上、身后一串灯虚成光斑、阴天的软光、霓虹或彩色的光、火光、雪地或水面反上来的光。";
+  const STAMP_SHOT_SPEC = "shot 是给画卡面的人看的分镜（中文，几句话）：pose＝这一刻身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪，要有动势，不是对着镜头站着坐着摆好；camera＝景别、机位高低、镜头远近，像乙游卡面那样人和场景一起讲这一刻，有前景、有纵深，景别别总是半身近照；"
+    + "light＝主光从哪边来、是什么光、冷暖、有没有轮廓光、阴影落在哪；place＝在哪、身边两三样带着这一刻的东西；outfit＝穿什么；mood＝一两个词。"
+    + SHOT_COMBO_SPEC
     // 她 2026-11-18「也要考虑好不好看」：怎么搭都先要他好看
     + "怎么搭都以好看为先：这是乙游卡面不是纪实照，他的脸要看得清、光要落在脸上，身形舒展、比例好看，衣服和头发有质感；会让脸看不清、人显矮显胖、表情难看的组合就别选。"
     + "画的是这张卡里真的发生的那一刻，不另编动作：你那时在干什么就画什么，构图跟着这个动作来，全身、半身、背影、俯拍仰拍都行；你那时没在看谁，就不看镜头。卡面是竖版的，上面只画你一个人。";
@@ -19885,6 +19887,30 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const sc = String(pose || "").trim() || "自然地站着";
     return castShotBlob([who], sc, { kind: "other", extraText: "\n\n【这张要拿去抠图】从头顶到鞋子整个人完整入镜，四周留一点空，不裁掉任何部位；人站在画面正中。"
       + "背景是一整片均匀的纯绿色（#00FF00），像摄影棚的绿幕：没有地面、墙、影子、道具和其他人，也没有渐变。人身上不要穿绿色。" });
+  };
+  // 相机「让 AI 先写一版」（她 2026-11-26「我写沙滩 可以直接拍或者先让模型先写一版看着满意了再拍」）：
+  //   她那一句扩成邮票卡面那样的分镜（姿势、镜头、光、地点、穿着、氛围），填回框里给她看、给她改；拍的时候就照框里的字画。
+  //   cut＝抠图人那一格：只写姿势、穿着、氛围（背景是绿幕，地点、光、镜头都不用）
+  const CAM_SHOT_ZH = [["pose", "姿势"], ["camera", "镜头"], ["light", "光"], ["place", "地点"], ["outfit", "穿着"], ["mood", "氛围"]];
+  const cameraWriteShot = async (ids, brief, who, cut) => {
+    const meName = userName(profile);
+    const cast = (ids || []).map(id => id === "me" ? { id: "me", name: meName } : (characters || []).find(c => c && c.id === id)).filter(Boolean).slice(0, GROUP_SHOT_MAX);
+    if (!cast.length) throw new Error("先挑画面里有谁");
+    const lead = cast.find(c => c.id !== "me") || (characters || [])[0];
+    if (!lead) throw new Error("先建一个角色");
+    const names = cast.map(c => c.id === "me" ? meName + "（她自己）" : c.name).join("、");
+    const keys = cut ? ["pose", "outfit", "mood"] : ["pose", "camera", "light", "place", "outfit", "mood"];
+    const instruction = (cut ? "她要在相机里给「" + names + "」拍一张全身照，抠出来贴进实景里一起拍。"
+        : "她要在相机里拍一张照片，画面里有：" + names + "；" + (who === "self" ? "是画面里的人自己举着手机自拍。" : "是有人帮忙拍的。"))
+      + "她只写了一句：「" + (String(brief || "").trim() || "随手拍一张") + "」。把这一句写成给画画的人看的分镜（中文，每栏一两句）："
+      + (cut ? "pose＝身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪；outfit＝穿什么（不要绿色）；mood＝一两个词。只写这三栏：这张是整个人站在纯色背景前的全身照，地点、光、镜头都不用写。"
+        : "pose＝身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪；camera＝景别、机位高低、镜头远近；light＝主光从哪边来、冷暖、阴影落在哪；place＝在哪、身边两三样东西；outfit＝穿什么；mood＝一两个词。" + SHOT_COMBO_SPEC)
+      + "怎么搭都以好看为先：脸要看得清、光落在脸上，身形舒展、比例好看；会让脸看不清、人显矮显胖、表情难看的组合就别选。"
+      + "她那一句里写了的照她的来，没写的照画面里这几个人和这一句补齐。";
+    const d = await runProbe(apiFor(lead.id), ctxFor(lead), { instruction, schemaHint: "{" + keys.map(k => "\"" + k + "\":\"…\"").join(",") + "}", maxTokens: 8000 });
+    const out = CAM_SHOT_ZH.filter(([k]) => keys.indexOf(k) >= 0 && String((d && d[k]) || "").trim()).map(([k, zh]) => zh + "：" + String(d[k]).trim()).join("\n");
+    if (!out) throw new Error("没写出来，再点一次");
+    return out;
   };
   const cameraGenShot = async (ids, scene, who) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
@@ -39411,7 +39437,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,
