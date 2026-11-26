@@ -54,3 +54,8 @@ test("房里的照片（合照）长按能保存", () => {
   assert.ok(/act === "saveimg"[^\n]*saveImgOriginal\(m\.x\.imageRef/.test(nsrc));
   assert.ok(/saveimg: \["保存图片"/.test(read("js/components.js")));
 });
+test("还在画时再点「拍」会说一声；生图最多等三分钟", () => {
+  const seg = cut(nsrc, "const shootGroup = async", "const sendCard = async");
+  assert.ok(/if \(shotBusy\) \{ props\.toast/.test(seg));
+  assert.ok(/Promise\.race\(\[props\.drawCast/.test(seg));
+});

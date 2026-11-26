@@ -2719,7 +2719,9 @@
     // 合照：自己带来的直接拿；别人带来的跟她那台要（她开着「允许拍照」、TA 有参考照才给），等最多 25 秒，
     //   凑齐了用我这台的生图线路画一张，当我发的照片发进房间
     const shootGroup = async () => {
-      const r = roomRef.current; if (!r || shotBusy) return;
+      const r = roomRef.current; if (!r) return;
+      // 上一张还在画：别闷声不动（群友 11-26「生图按钮点不了」），说一声
+      if (shotBusy) { props.toast && props.toast("上一张合照还在画，画好了会发进房间；等两分钟没动静再点一次"); return; }
       const keys = Object.keys(shotPick).filter(k => shotPick[k]);
       if (keys.length < 2) { props.toast && props.toast("至少勾两个人"); return; }
       setShotBusy(true); setSheet(null);
@@ -2743,7 +2745,8 @@
         const miss = keys.length - cast.length;
         if (cast.length < 2) { props.toast && props.toast("能入镜的不到两个：每个人都要有参考照，别人那边的还要她开着拍照的开关", 8000); return; }
         const scene = shotScene.trim();
-        const img0 = await props.drawCast(cast.slice(0, 10), scene || "几个人凑在一起合影，自然光");
+        // 生图线路卡住不回时最多等 3 分钟，不然「拍」一直按不动
+        const img0 = await Promise.race([props.drawCast(cast.slice(0, 10), scene || "几个人凑在一起合影，自然光"), new Promise((_, no) => setTimeout(() => no(new Error("等了三分钟图还没回来，生图线路可能卡住了")), 180000))]);
         const img = img0 ? await shrinkImg(img0, 1024, Core.IMG_MAX.photo) : "";
         if (!img) { props.toast && props.toast("合照没画出来，再拍一次试试"); return; }
         let ref = ""; try { ref = await imgToVault(img); } catch (e) {}
