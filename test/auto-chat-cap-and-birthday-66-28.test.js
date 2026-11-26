@@ -83,7 +83,7 @@ test("关掉自发聊天，线上线下两条自主续聊都得停", () => {
 // 她 2026-09-10：「不要Lisa，改成设置里可以替换的名字」
 test("生日那几行的名字来自设置，不是写死的", () => {
   const seg = app.slice(app.indexOf("    dateNote: (() => {"), app.indexOf("      // —— 纪念日：和这个角色在一起满几周年 ——"));
-  assert.match(seg, /const uName = userName\(profile\);/, "又自己写了一份兜底");
+  assert.match(seg, /const uName = userName\(profileFor\(char\.id\) \|\| profile\);/, "又自己写了一份兜底");   // 认这个角色那张面具的名字
   assert.ok(!/Lisa/.test(seg), "生日这一段里出现了写死的名字");
   // 群里那一句同理
   const g = app.slice(app.indexOf("      const gBdayHint = (() => {"), app.indexOf("      // 每个成员只列他自己能用的那几套"));
