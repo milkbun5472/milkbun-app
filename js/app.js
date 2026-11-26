@@ -1999,7 +1999,9 @@ function App() {
       if (bgToastOn() && window.AutoGate && window.AutoGate.currentShow && window.AutoGate.currentShow()) return;
       // 没报名字的那一声，问一句「此刻在跑哪件活儿」（她 2026-10-04：「之前失败也只是说后台失败，没说到底是啥」）
       const _now = window.AutoGate && window.AutoGate.currentShow ? window.AutoGate.currentShow() : "";
-      const d = (ev && ev.detail) || {}, at = Date.now(), key = String(d.label || d.tag || _now || "生成") + (d.route ? "（" + d.route + "）" : "");
+      const d = (ev && ev.detail) || {}, at = Date.now(), _lb = String(d.label || d.tag || _now || "生成"),
+        // 认不出是哪件活儿时，名字是从提示词开头摘的——不往提示里放（2026-11-26 群友截图：一段准则原文弹在屏幕上），调用记录里照旧有
+        key = (/^其他·/.test(_lb) ? "这一次生成" : _lb) + (d.route ? "（" + d.route + "）" : "");
       if (at - (genFailSeenRef.current[key] || 0) < 60000) return;
       // 收到就先记下：runProbe 和 callAI 两层都会报同一次失败，第二声进来直接挡掉
       genFailSeenRef.current[key] = at;
@@ -19307,7 +19309,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const ser = stampSeriesOf(list), prev = stampPrev(char.id, list.map(c => c.id), ser && ser.series);
       const d = await runProbe(offlineApiFor(char.id), stampCtx(char, list), { ...LONG_WRITE, salvage: stampLooseJSON,
         voice: true,
-        instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
+        logFrom: "邮票册·写剧情", instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了几张印着你的邮票，每张是你的一个样子。下面按顺序写这几张。\n"
           // 一批十张常常是同一种卡：同样的要求只说一遍，每张标它照哪一种（以前同一大段重复十遍）
           + (() => { const kinds = [], idx = list.map(c => { const t = stampKindLine(c, char); let k = kinds.indexOf(t); if (k < 0) { kinds.push(t); k = kinds.length - 1; } return k; });
               return (kinds.length === 1 ? kinds[0] + "\n" + list.map((c, i) => "第 " + (i + 1) + " 张：" + c.rarity).join("；") + "。"
@@ -19338,7 +19340,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const ser = stampSeriesOf([c]), prev = stampPrev(char.id, [c.id], ser && ser.series), me = userName(meOf(char.id));
       const d = await runProbe(offlineApiFor(char.id), stampCtx(char, [c]), { ...LONG_WRITE, salvage: stampLooseJSON,
         voice: true,
-        instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
+        logFrom: "邮票册·写剧情", instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里抽到了一张印着你的 SSR 邮票。" + stampKindLine(c, char)
           + "\nSSR 是一段完整的剧情，像乙游的卡面剧情：分几节，她在中间做选择，选的不同走的路不同。是什么样的故事，跟着你这个人、你的世界和你们现在的关系来，不一定是恋爱的事。"
           + "sections 里每一节：id、lv（第几道锁）、title、beats（一句一句往下走：who 是 he＝你说的话、me＝" + me + "说的话、narr＝旁白动作；text 是这一句）、" + STAMP_NARR_POV
           + "choices（这一节结尾她要选的两三个选项：text 是她说的话或做的事，go 是去哪一节的 id；没有选项就空着）、end（是不是一个结局）。"
@@ -19367,7 +19369,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         let more = null;
         try {
           more = await runProbe(offlineApiFor(char.id), stampCtx(char, [c]), { ...LONG_WRITE, salvage: stampLooseJSON, voice: true,
-            instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "你在写邮票册里那张 SSR「" + d.name + "」的剧情。" + stampKindLine(c, char)
+            logFrom: "邮票册·写剧情", instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "你在写邮票册里那张 SSR「" + d.name + "」的剧情。" + stampKindLine(c, char)
               + "\n前面已经写好了这几节（每节只摘了结尾几句）：\n" + sofar
               + "\n\n接着把还缺的写完：" + miss.map(l => l === 10 || l === 30 ? "lv" + l + " 的两条岔路" : l === 40 ? "lv40 的两三个结局（end:true）" : l === 50 ? "lv50 的隐藏的路（hidden:true，也是一个结局）" : "lv" + l + " 那一节").join("、")
               + "。" + STAMP_NARR_POV(char) + "id 要跟前面选项里 go 指向的那几个对上；没被指到的，就由你在新写的节里接上。每节写得跟前面一样丰满，口气、事情都接着前面走。",
@@ -19389,7 +19391,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const me = userName(meOf(char.id));
     const dump = (tx.sections || []).map(sc => "【" + sc.id + "】" + (sc.title || "") + "\n" + (sc.beats || []).map((b, k) => k + ". " + (b.who === "pick" ? "（她在这儿做了个小选择）" : (b.who === "he" ? "你：" : b.who === "me" ? me + "：" : "") + String(b.text || "").slice(0, 160))).join("\n")).join("\n\n");
     const d = await runProbe(offlineApiFor(char.id), stampCtx(char, [card]), { ...LONG_WRITE, voice: true,
-      instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里把你这张 SSR「" + (tx.name || "") + "」升满了，想换你的视角重读一遍。下面是这段剧情，每节每句前面有编号。"
+      logFrom: "邮票册·写剧情", instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她在「邮票册」里把你这张 SSR「" + (tx.name || "") + "」升满了，想换你的视角重读一遍。下面是这段剧情，每节每句前面有编号。"
         + "在你想说的地方插进你那时心里的话：那会儿你在想什么、注意到了什么、没说出口的是什么。照你这个人，有的地方多想、有的地方根本没想，不必每句都插；每节几处。at 是插在哪一句后面的编号。\n\n" + dump.slice(0, 24000),
       schemaHint: "{\"inner\":{\"节的id\":[{\"at\":0,\"text\":\"\"}]}}", maxTokens: 30000 });
     const inner = d && d.inner && typeof d.inner === "object" ? d.inner : null;
@@ -19410,7 +19412,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const ends = (tx.sections || []).filter(x => x && (x.end || x.hidden)).map(x => "「" + (x.title || "") + "」" + (x.beats || []).filter(b => b && b.who !== "pick").slice(-3).map(b => String(b.text || "").slice(0, 80)).join(" / ")).join("\n");
       const had = (card0.extras || []).filter(x => x.text && x.id !== xid).map(x => "「" + (x.title || "") + "」" + (x.gist || "")).slice(-10);
       const d = await runProbe(offlineApiFor(char.id), ctxFor(char, { loreScope: "offline" }), { voice: true,
-        instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她想给你这张" + card0.rarity + "「" + (tx.name || "") + "」写一段番外。" + stampKindLine(card0, char)
+        logFrom: "邮票册·写剧情", instruction: STAMP_CORE() + stampVoice(char) + stampBi(char) + "她想给你这张" + card0.rarity + "「" + (tx.name || "") + "」写一段番外。" + stampKindLine(card0, char)
           + "\n这张卡写的是：" + String(tx.gist || tx.highlight || "").slice(0, 200) + (ends ? "\n它的几个结局：\n" + ends.slice(0, 900) : card0.rarity === "SR" ? "\n那件事：\n" + [tx.open, tx.rest, tx.sequel].filter(Boolean).join("\n").slice(0, 900) : "")
           + (wish0 ? "\n她点了题，想看的是：「" + wish0 + "」。就写这个，落到这张卡的故事和你们真实的关系里；她说得不细的地方由你补。" : "")
           + "\n番外是这段故事外面的一段：结局之后的某一天、故事里没写到的那一晚，或者同一件事里你那边没让她看到的部分" + (wish0 ? "。" : "，挑一个最想补上的。") + stampPov(char, "八百到一千二百字，一个完整的小场景，有开头有收尾。旁白里她是「你」，你是「他」。")
