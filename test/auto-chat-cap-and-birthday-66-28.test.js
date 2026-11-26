@@ -87,6 +87,6 @@ test("生日那几行的名字来自设置，不是写死的", () => {
   assert.ok(!/Lisa/.test(seg), "生日这一段里出现了写死的名字");
   // 群里那一句同理
   const g = app.slice(app.indexOf("      const gBdayHint = (() => {"), app.indexOf("      // 每个成员只列他自己能用的那几套"));
-  assert.match(g, /const uN = userName\(profile\);/);
+  assert.match(g, /const uN = herNameIn\(groupId\);/);   // 群里她叫什么走面具（herNameIn），也是设置里来的
   assert.ok(!/Lisa/.test(g), "群里那一句出现了写死的名字");
 });

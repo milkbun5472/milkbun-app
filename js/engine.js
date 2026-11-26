@@ -3884,8 +3884,8 @@ function splitLongBubble(s, allowComma) {
   //   「拍得我 眼睛都快花了」「我发几 张给你看看」那种词中间的短空格凑不够，照旧不切
   const SP_STOP = /(?<=[\u4e00-\u9fff]{5})\s+(?=[\u4e00-\u9fff]{6})/g;
   out = out.reduce((acc, part) => acc.concat(/[，,。！？!?、；;]/.test(part) && !/[\u3040-\u30ff]/.test(part) ? part.split(SP_STOP).map(x => x.trim()).filter(Boolean) : [part]), []);
-  // 空格前面是句末语气字（了吧呢啊吗嘛呀哦啦），后面不管多短都是新的一句（2026-11-26 群友截图：「煤球听了都把耳朵转过来了 说吧」挤成一泡、读着像「转过来了说吧」）
-  const SP_PART = /(?<=[\u4e00-\u9fff]{3}[了吧呢啊吗嘛呀哦啦])\s+(?=[\u4e00-\u9fff])/g;
+  // 空格前面是句末语气字（了吧呢啊吗嘛呀哦啦），后面是收尾的一小截（几个字）就另起一句（2026-11-26 群友截图：「煤球听了都把耳朵转过来了 说吧」挤成一泡、读着像「转过来了说吧」）
+  const SP_PART = /(?<=[\u4e00-\u9fff]{3}[了吧呢啊吗嘛呀哦啦])\s+(?=[\u4e00-\u9fff]{1,4}[？?！!~～…]*$)/g;   // 只管收尾那一小截（「大考官呢 今天工位上…」那种后面是一整句的，照 11-04 她说的不切）
   out = out.reduce((acc, part) => acc.concat(/[，,。！？!?、；;]/.test(part) && !/[\u3040-\u30ff]/.test(part) ? part.split(SP_PART).map(x => x.trim()).filter(Boolean) : [part]), []);
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
   // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
