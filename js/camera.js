@@ -468,9 +468,11 @@
       catch (e) { props.toast && props.toast(String(e && e.message || e)); }
     };
     const delRoll = async () => {
-      if (!shot || !shot.k || !window.confirm("删掉这张？删了就找不回来了（已经存到手机、发进聊天的那份不受影响）")) return;
-      try { if (typeof idbImgDel === "function") await idbImgDel(shot.k); } catch (e) {}
-      const k = shot.k; setRoll(l => l.filter(x => x.imgKey !== k)); setShot(null); setLook(null);
+      // ⚠️不用 window.confirm：装成 App 后那个框被系统吞掉、直接当「取消」（她 2026-11-26「删不掉按不动」）——走 App 自己那层确认
+      if (!shot || !shot.k) return;
+      const k = shot.k, go = async () => { try { if (typeof idbImgDel === "function") await idbImgDel(k); } catch (e) {} setRoll(l => l.filter(x => x.imgKey !== k)); setShot(null); setLook(null); };
+      if (typeof requestAppConfirm === "function") requestAppConfirm("删掉这张？", "删了就找不回来了（已经存到手机、发进聊天的那份不受影响）", go, "删掉");
+      else await go();
     };
     const capture = async () => {
       if (busy) return; setBusy(true);

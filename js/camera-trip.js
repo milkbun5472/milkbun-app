@@ -188,10 +188,14 @@
         } catch (e) { toast("没寄成：" + String(e && e.message || e).slice(0, 80)); }
         finally { setBusy(""); }
       };
-      const del = async () => {
-        if (!window.confirm("删掉这趟旅行？明信片和照片都会删掉（已经存到手机的不受影响）")) return;
-        for (const s of trip.stops) if (s.card && s.card.imgKey && typeof idbImgDel === "function") { try { await idbImgDel(s.card.imgKey); } catch (e) {} }
-        put(trips.filter(t => t.id !== trip.id)); setOpenId(null);
+      const del = () => {
+        // 同上：不用 window.confirm
+        const go = async () => {
+          for (const s of trip.stops) if (s.card && s.card.imgKey && typeof idbImgDel === "function") { try { await idbImgDel(s.card.imgKey); } catch (e) {} }
+          put(load().filter(t => t.id !== trip.id)); setOpenId(null);
+        };
+        if (typeof requestAppConfirm === "function") requestAppConfirm("删掉这趟旅行？", "明信片和照片都会删掉（已经存到手机的不受影响）", go, "删掉");
+        else go();
       };
       const save = async (c, s) => { try { const b = await drawCard(c, s, names); if (typeof saveFile === "function") await saveFile(new File([b], "明信片-" + s.place + ".jpg", { type: "image/jpeg" })); } catch (e) { toast("没存下来：" + String(e && e.message || e).slice(0, 60)); } };
       const who = s => s.sender === "all" ? "大家一起" : names[s.sender] || "TA";

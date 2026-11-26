@@ -27,7 +27,8 @@ test("给TA看／一起逛：同一个 cameraLook，看图回 say(+caption)；�
 test("拍过的点开看大图：复用成片页，左下是删除，删本机图库那张", () => {
   assert.match(cam, /onClick: \(\) => openRoll\(p\)/);
   assert.match(cam, /shot\.fromRoll \? big\("删除", delRoll, "delshot"\)/);
-  assert.match(cam, /await idbImgDel\(shot\.k\)/);
+  assert.match(cam, /await idbImgDel\(k\)/);
+  assert.match(cam, /requestAppConfirm\("删掉这张？"/);
   assert.ok(ts.includes('["camrollone"'));
 });
 test("拍过的按角色分：画面里有谁写在键尾，开相机时读回来，上面一排按人筛", () => {
@@ -59,4 +60,8 @@ test("旅行：入镜的人按性格拍，多人看得出关系（同行各人�
   assert.match(app, /const tripCastLines = \(ids, meGo, uName\) =>/);
   assert.match(app, /\(rels \|\| \{\}\)\[a\.id \+ "->" \+ b\.id\]/);
   assert.match(app, /\+ tripCastLines\(ids, trip\.meGo, uName\)/);
+});
+test("相机里的删除不用原生 confirm（App 里会被吞掉，按不动）", () => {
+  const trip = fs.readFileSync(path.join(__dirname, "..", "js", "camera-trip.js"), "utf8");
+  for (const src of [cam, trip]) assert.ok(!/window\.confirm\(/.test(src));
 });
