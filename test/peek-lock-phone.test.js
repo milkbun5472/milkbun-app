@@ -47,3 +47,7 @@ test("新挂点都登记了", () => {
     assert.ok(c.includes('"data-wk": "' + k + '"'), k);
   }
 });
+// 锁屏那几句只说它是什么、用他自己的口吻（她 2026-11-26「都有点放狠话了」）
+{ const fs2 = require("fs"), a2 = fs2.readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  require("assert").ok(/锁屏上那几条，就是你这会儿想对她说的话：站在你是她的谁那儿，用你平时跟她说话的样子说/.test(a2), "锁屏话的口吻");
+  require("assert").ok(!/把她的手机收走/.test(a2), "不再框成收走"); }
