@@ -25,5 +25,5 @@ assert(/togglePerson\(p\)/.test(cam), "加人多选");
 const col = R("js/collage.js");
 assert(/booth: \{ name: "大头贴"/.test(col) && /grid9: \{ name: "九宫格"/.test(col), "大头贴、宫格模板");
 assert(/ORDER\.splice\(ORDER\.length - 1, 0, "booth", "booth2", "grid4", "grid9"\)/.test(col), "模板排进样式页签");
-assert(/photos: roll, solo: true, startTpl: "booth"/.test(cam), "相机拼贴借拼壁纸编辑器");
+assert(/photos: roll, solo: true, startTpl: colTpl/.test(cam) && /mode === "hub"/.test(cam), "相机拼贴借拼壁纸编辑器");
 console.log("ok camera-app");

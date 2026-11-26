@@ -96,18 +96,21 @@
     const [shot, setShot] = useState(null);       // {url, blob}
     const [busy, setBusy] = useState(false);
     // 模式转盘（真相机快门上面那一排「照片·人像·视频」）：实景＝镜头叠人；生图＝挑人写一句画面，让生图画一张
-    const [mode, setMode] = useState("live");
+    const [mode, setMode] = useState("hub");   // hub＝首页那几块入口（她 2026-11-26「像美图秀秀那样分开」）
+    const [colTpl, setColTpl] = useState("booth");
+    const hubFileRef = useRef(null);
     const [genIds, setGenIds] = useState([]);
     const [genWho, setGenWho] = useState("other");
     const [genScene, setGenScene] = useState("");
     const [genBusy, setGenBusy] = useState(false);
+    const [genMulti, setGenMulti] = useState(true);   // 首页点的是「单人写真」还是「多人合照」
     // 这一趟拍的、画的都排进胶卷：拼贴那边直接从这里挑（存进图库，拼贴读图走 imgKey）
     const [roll, setRoll] = useState([]);
     const toRoll = async (blob, desc) => { try { if (typeof idbImgPut !== "function") return; const k = "img_camroll_" + Date.now().toString(36); await idbImgPut(k, blob); setRoll(l => [{ imgKey: k, ts: Date.now(), desc }].concat(l)); } catch (e) {} };
     const camRef = useRef(null), videoRef = useRef(null), stageRef = useRef(null), fileRef = useRef(null), touches = useRef({});
     useEffect(() => {
       const cam = window.CallCamera.create(setCs, window, { width: 1920, height: 1080 });
-      camRef.current = cam; cam.open("environment");
+      camRef.current = cam;   // 进了「拍照」才开镜头，首页不占摄像头
       if (videoRef.current) cam.attach(videoRef.current);
       return () => cam.dispose();
     }, []);
@@ -116,6 +119,7 @@
     const mirror = !bg && cs.facing === "user";
     const switchMode = m => {
       if (m === mode) return; setMode(m); setPanel(""); setSel(null);
+      if (m === "hub" && bg) { URL.revokeObjectURL(bg); setBg(null); }
       if (m !== "live") { camRef.current && camRef.current.close(); }
       else if (!bg) camRef.current && camRef.current.open(cs.facing || "environment");
     };
@@ -129,9 +133,6 @@
     };
     // 画好的那张拿去实景那边：当背景，照样能贴人、上滤镜，再按快门
     const genToEdit = () => { if (!shot) return; if (bg) URL.revokeObjectURL(bg); setBg(URL.createObjectURL(shot.blob)); setShot(null); setMode("live"); };
-    const dial = () => h("div", { "data-wk": "camdial", style: { display: "flex", justifyContent: "center", gap: 22, padding: "6px 0 2px", transform: "translateX(" + (mode === "live" ? 44 : mode === "gen" ? 0 : -44) + "px)", transition: "transform .25s ease" } },
-      [["live", "实景"], ["gen", "生图"], ["collage", "拼贴"]].map(([k, zh]) => h("button", { key: k, "data-wk": "camdialone", "data-on": mode === k ? "1" : "0", onClick: () => switchMode(k),
-        style: { border: "none", background: "transparent", padding: "2px 0", fontSize: FS(13), letterSpacing: ".12em", color: mode === k ? "#ffd54a" : "rgba(255,255,255,.62)", fontWeight: mode === k ? 600 : 400 } }, zh)));
 
     // 加人那一排是多选：点一下上画面，再点一下拿下来；面板不收，可以一口气挑好几个（她 2026-11-26「我和角色都可以」）
     const togglePerson = p => { const on = stickers.filter(s => s.pid === p.id); if (on.length) { setStickers(l => l.filter(s => s.pid !== p.id)); setSel(null); } else addPerson(p); };
@@ -216,19 +217,58 @@
         shot.gen ? btn("加滤镜·贴人", genToEdit, false, "edit") : null,
         shot.gen ? btn("返回", () => setShot(null), false, "retake") : null,
         btn("存到手机", save, true, "save")));
+    // ── 首页：像修图 app 的首屏，一块大的「拍照」，底下几格各进各的 ──
+    if (mode === "hub") {
+      const ico = (d, c) => h("svg", { viewBox: "0 0 24 24", width: 26, height: 26, fill: "none", stroke: c || "#fff", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" }, d.map((x, i) => h("path", { key: i, d: x })));
+      const I = {
+        cam: ["M4 8h3l1.6-2.2h6.8L17 8h3v11H4z", "M12 9.7a3.6 3.6 0 100 7.2 3.6 3.6 0 000-7.2z"],
+        edit: ["M4 20h4L19 9l-4-4L4 16z", "M13.5 6.5l4 4"],
+        gen: ["M12 3l1.8 4.6L18.5 9l-4.7 1.6L12 15l-1.8-4.4L5.5 9l4.7-1.4z", "M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"],
+        duo: ["M8.5 11a3 3 0 100-6 3 3 0 000 6z", "M15.5 11a3 3 0 100-6 3 3 0 000 6z", "M3 20c.5-3.5 2.8-5.5 5.5-5.5S13.5 16.5 14 20", "M10 20c.5-3.5 2.8-5.5 5.5-5.5S20.5 16.5 21 20"],
+        grid: ["M4 4h7v7H4z", "M13 4h7v7h-7z", "M4 13h7v7H4z", "M13 13h7v7h-7z"],
+        booth: ["M8 3h8v18H8z", "M8 7.5h8", "M8 12h8", "M8 16.5h8"]
+      };
+      const tile = (part, title, sub, grad, icon, onClick, wide) => h("button", { key: part, "data-wk": "camhubtile", "data-part": part, onClick, className: "active:opacity-80",
+        style: { gridColumn: wide ? "1 / -1" : "auto", position: "relative", overflow: "hidden", border: "none", borderRadius: 20, padding: "14px 14px 13px", textAlign: "left", color: "#fff", background: grad, boxShadow: "0 8px 20px -12px rgba(120,40,80,.55)", minHeight: 108, display: "flex", flexDirection: "column", justifyContent: "space-between" } },
+        h("div", { style: { width: 42, height: 42, borderRadius: 14, background: "rgba(255,255,255,.22)", display: "flex", alignItems: "center", justifyContent: "center" } }, ico(icon)),
+        h("div", null, h("div", { style: { fontSize: FS(15.5), fontWeight: 600, letterSpacing: ".04em" } }, title), h("div", { style: { fontSize: FS(11), opacity: .85, marginTop: 2 } }, sub)));
+      const goGen = (who, multi) => { setGenWho(who); setGenMulti(multi); if (!multi && genIds.length > 1) setGenIds(genIds.slice(0, 1)); switchMode("gen"); };
+      return h("div", { "data-wk": "campage", "data-part": "hub", className: "h-full flex flex-col", style: { background: "linear-gradient(180deg,#ffe3ee 0%,#fff6f9 38%,#fdfbfc 100%)", color: "#2b2230" } },
+        typeof Head === "function" ? h(Head, { zh: "相机", bg: "transparent", onBack: props.onBack }) : null,
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 28px" } },
+          // 主入口：拍照（实景 + 带上TA）
+          h("button", { "data-wk": "camhubtile", "data-part": "shoot", onClick: () => { if (bg) { URL.revokeObjectURL(bg); setBg(null); } setMode("live"); setPanel(""); camRef.current && camRef.current.open(cs.facing || "environment"); }, className: "active:opacity-85",
+            style: { width: "100%", border: "none", borderRadius: 26, padding: "20px 20px 18px", textAlign: "left", color: "#fff", background: "linear-gradient(135deg,#ff5f9e 0%,#ff8a7a 55%,#ffb36b 100%)", boxShadow: "0 14px 30px -16px rgba(255,80,130,.75)", position: "relative", overflow: "hidden" } },
+            h("div", { style: { position: "absolute", right: -26, top: -26, width: 140, height: 140, borderRadius: 70, background: "rgba(255,255,255,.16)" } }),
+            h("div", { style: { position: "absolute", right: 30, bottom: -40, width: 90, height: 90, borderRadius: 45, background: "rgba(255,255,255,.12)" } }),
+            h("div", { style: { width: 52, height: 52, borderRadius: 18, background: "rgba(255,255,255,.25)", display: "flex", alignItems: "center", justifyContent: "center" } }, ico(I.cam)),
+            h("div", { style: { fontSize: FS(22), fontWeight: 700, letterSpacing: ".06em", marginTop: 14 } }, "拍照"),
+            h("div", { style: { fontSize: FS(12.5), opacity: .9, marginTop: 4 } }, "镜头里的真实景色，把TA和你贴进来一起拍")),
+          h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 } },
+            tile("edit", "修图", "挑一张照片，加滤镜、贴人", "linear-gradient(135deg,#8f7bff,#c08bff)", I.edit, () => hubFileRef.current && hubFileRef.current.click()),
+            tile("gen1", "单人写真", "挑一个人，画一张", "linear-gradient(135deg,#ff7eb3,#ffa3c4)", I.gen, () => goGen("other", false)),
+            tile("genN", "多人合照", "挑几个人，画在一起", "linear-gradient(135deg,#46c6c0,#7fd9a8)", I.duo, () => goGen("other", true)),
+            tile("collage", "拼图", "宫格、拍立得、剪贴本", "linear-gradient(135deg,#ffb259,#ffd27a)", I.grid, () => { setColTpl("grid4"); switchMode("collage"); }),
+            tile("booth", "大头贴", "一条四格，印上日期", "linear-gradient(135deg,#5aa2ff,#8fc1ff)", I.booth, () => { setColTpl("booth"); switchMode("collage"); }, true)),
+          roll.length ? h("div", { style: { marginTop: 20 } },
+            h("div", { style: { fontSize: FS(13), fontWeight: 600, marginBottom: 8 } }, "刚才拍的"),
+            h("div", { "data-wk": "camhubroll", style: { display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 } },
+              roll.map(p => h("div", { key: p.imgKey, style: { flexShrink: 0, width: 72, height: 96, borderRadius: 12, overflow: "hidden", background: "#eee" } }, typeof AlbumPhoto === "function" ? h(AlbumPhoto, { photo: p }) : null)))) : null),
+        h("input", { ref: hubFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; setBg(URL.createObjectURL(f)); setMode("live"); setPanel(""); } }));
+    }
     // 拼贴、大头贴：借拼壁纸那个编辑器（collage.js），solo 不对着哪个人；这一趟拍的画的在胶卷里，也能从手机传
-    if (mode === "collage" && window.Collage) return h(window.Collage.CollageMaker, { partner: { id: "camera", name: "拼贴" }, photos: roll, solo: true, startTpl: "booth",
-      onBack: () => switchMode("live"),
+    if (mode === "collage" && window.Collage) return h(window.Collage.CollageMaker, { partner: { id: "camera", name: "拼贴" }, photos: roll, solo: true, startTpl: colTpl, key: colTpl,
+      onBack: () => switchMode("hub"),
       onSave: async r => { if (r && r.mine && typeof saveFile === "function") await saveFile(new File([r.mine], "拼贴-" + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "") + ".jpg", { type: "image/jpeg" })); } });
     if (mode === "gen") {
-      const people2 = people, max = props.groupMax || 10;
-      const tog = id => setGenIds(l => l.indexOf(id) >= 0 ? l.filter(x => x !== id) : l.length >= max ? l : l.concat([id]));
+      const people2 = people, max = genMulti ? (props.groupMax || 10) : 1;
+      const tog = id => setGenIds(l => l.indexOf(id) >= 0 ? l.filter(x => x !== id) : max === 1 ? [id] : l.length >= max ? l : l.concat([id]));
       return h("div", { "data-wk": "campage", "data-part": "gen", className: "h-full", style: { position: "relative", background: "#111", color: "#fff", display: "flex", flexDirection: "column" } },
         h("div", { style: { paddingTop: safeTop(8), paddingLeft: 12, paddingRight: 12, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 } },
-          h("button", { "data-wk": "cambtn", "data-part": "back", onClick: props.onBack, style: { width: 36, height: 36, borderRadius: 18, border: "none", background: "rgba(255,255,255,.12)", color: "#fff", fontSize: FS(18) } }, "‹"),
-          h("div", { style: { flex: 1, textAlign: "center", fontSize: FS(14), letterSpacing: ".1em", opacity: .85 } }, "生图"), h("div", { style: { width: 36 } })),
+          h("button", { "data-wk": "cambtn", "data-part": "back", onClick: () => switchMode("hub"), style: { width: 36, height: 36, borderRadius: 18, border: "none", background: "rgba(255,255,255,.12)", color: "#fff", fontSize: FS(18) } }, "‹"),
+          h("div", { style: { flex: 1, textAlign: "center", fontSize: FS(14), letterSpacing: ".1em", opacity: .85 } }, genMulti ? "多人合照" : "单人写真"), h("div", { style: { width: 36 } })),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px" } },
-          h("div", { style: { fontSize: FS(12), opacity: .6, marginBottom: 8 } }, "画面里有谁（可以多选，最多 " + max + " 个）"),
+          h("div", { style: { fontSize: FS(12), opacity: .6, marginBottom: 8 } }, max === 1 ? "画谁（挑一个）" : "画面里有谁（可以多选，最多 " + max + " 个）"),
           h("div", { "data-wk": "camgenpeople", style: { display: "flex", flexWrap: "wrap", gap: 10 } },
             people2.map(p => { const on = genIds.indexOf(p.id) >= 0, n = genIds.indexOf(p.id) + 1;
               return h("button", { key: p.id, "data-wk": "camgenone", "data-on": on ? "1" : "0", onClick: () => tog(p.id), style: { position: "relative", width: 64, border: "none", background: "transparent", color: "#fff", textAlign: "center", opacity: on ? 1 : .62 } },
@@ -242,7 +282,6 @@
             style: { width: "100%", boxSizing: "border-box", borderRadius: 10, border: "1px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.06)", color: "#fff", padding: "10px 12px", fontSize: FS(14), lineHeight: 1.6, outline: "none", resize: "none" } }),
           h("div", { style: { fontSize: FS(11.5), opacity: .5, marginTop: 8, lineHeight: 1.7 } }, "每个人用自己设的参照照锁脸；没设参照照的照设定画。画一张要等半分钟左右，走的是 设置·图像API。")),
         h("div", { style: { flexShrink: 0, paddingBottom: COMPOSER_PAD_BOTTOM } },
-          dial(),
           h("div", { style: { display: "flex", justifyContent: "center", padding: "8px 16px 14px" } },
             h("button", { "data-wk": "camshutter", "data-part": "gen", onClick: runGen, disabled: genBusy, style: { minWidth: 160, height: 52, borderRadius: 26, border: "none", background: genBusy ? "rgba(255,213,74,.5)" : "#ffd54a", color: "#111", fontSize: FS(15), fontWeight: 600 } },
               genBusy ? "在画…" : "画一张" + (genIds.length ? "（" + genIds.length + " 人）" : "")))));
@@ -271,7 +310,7 @@
         cs.message || "正在打开镜头…", cs.phase === "error" ? h("div", { style: { fontSize: FS(12), opacity: .7, marginTop: 6 } }, "也可以点下面「相册」挑一张照片当背景") : null) : null,
       // 顶上：返回、换前后镜头
       h("div", { style: { position: "absolute", left: 0, right: 0, top: 0, paddingTop: safeTop(8), paddingLeft: 12, paddingRight: 12, display: "flex", alignItems: "center", gap: 8 } },
-        h("button", { "data-wk": "cambtn", "data-part": "back", onClick: props.onBack, style: { width: 36, height: 36, borderRadius: 18, border: "none", background: "rgba(0,0,0,.35)", color: "#fff", fontSize: FS(18) } }, "‹"),
+        h("button", { "data-wk": "cambtn", "data-part": "back", onClick: () => switchMode("hub"), style: { width: 36, height: 36, borderRadius: 18, border: "none", background: "rgba(0,0,0,.35)", color: "#fff", fontSize: FS(18) } }, "‹"),
         h("div", { style: { flex: 1 } }),
         bg ? btn("回到镜头", backToCam, false, "tocam") : btn("翻转", () => camRef.current && camRef.current.switch(), false, "flip")),
       // 选中一张贴纸时：换样式、删掉
@@ -286,7 +325,6 @@
             h("div", { style: { fontSize: FS(11), marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name)); })) : null,
         panel === "filter" ? h("div", { "data-wk": "camfilter", style: { display: "flex", gap: 8, overflowX: "auto", padding: "10px 16px" } },
           FILTERS.map(f => h(React.Fragment, { key: f.id }, btn(f.zh, () => setFilter(f.id), filter === f.id, "filter")))) : null,
-        props.onGen ? dial() : null,
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-around", padding: "10px 16px 14px" } },
           btn("相册", () => fileRef.current && fileRef.current.click(), !!bg, "album"),
           btn("加人", () => setPanel(panel === "people" ? "" : "people"), panel === "people", "people"),
