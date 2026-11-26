@@ -208,7 +208,13 @@ async function serveShell(event, req) {
   if (!miss.length || !cached) {
     // 新版块已齐（或第一次装没得选）：用新版；块没齐的话由页面自己按缓存优先去拉
     if (!miss.length) { await cache.put("__index__", new Response(html, { headers })); _kept = null; }
-    else event.waitUntil(installShell(html, headers, urls).catch(e => console.warn("[sw] 首装补块未完成", e)));
+    else {
+      // 已经用新版开了门：缓存里那份缺块的旧 index 立刻丢掉。不丢的话，后台补块时把它缺的那几份也补齐了
+      //   （新旧共用的文件），下次开机它又「全齐」了，就拿它开门——版本往回退（2026-11-26 群友：上次还看得到 11-24，这次只到 11-23）
+      try { await cache.delete("__index__"); } catch (e) {}
+      _kept = null;
+      event.waitUntil(installShell(html, headers, urls).catch(e => console.warn("[sw] 首装补块未完成", e)));
+    }
     return new Response(html, { status: fresh.status, statusText: fresh.statusText, headers });
   }
   if (!shellJob) {
