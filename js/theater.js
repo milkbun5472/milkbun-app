@@ -1218,7 +1218,7 @@
 
     if (view === "create") {
       const preview = draft && h("div", { "data-wk": "thrdraft", style: S.card }, staples(),
-        h("div", { "data-wk": "thrdrafttitle", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }, draft.title),
+        h("input", { "data-wk": "thrdrafttitle", value: draft.title || "", onChange: e => { const v = e.target.value; setDraft(d => d ? Object.assign({}, d, { title: v }) : d); }, style: { display: "block", width: "100%", boxSizing: "border-box", background: "transparent", border: "none", borderBottom: "1px dashed " + t.line, outline: "none", padding: "0 0 2px", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }),
         // 生成完可以直接改：每一格就是一个输入框，改的字原样进开演（她 2026-11-26「生成完能不能手动改」）
         [["Ta 的新身份", "charRole"], [uName + " 的新身份", "userRole"], ["世界与长期张力", draft.world ? "world" : "setting"], ["此刻正在发生", "hook"], ["Ta 的行头", "charOutfit"], [uName + " 的行头", "userOutfit"], ["开场", "opening"], ["本轮目标", "goal"]].map(([k, f]) => draft[f] != null && draft[f] !== "" ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k),
           h("textarea", { "data-wk": "thrdraftedit", value: draft[f], onChange: e => { const v = e.target.value; setDraft(d => d ? Object.assign({}, d, { [f]: v }) : d); }, onInput: e => { const el = e.target; el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }, ref: el => { if (el && !el.dataset.sz) { el.dataset.sz = "1"; el.style.height = el.scrollHeight + "px"; } },
