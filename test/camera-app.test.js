@@ -3,7 +3,7 @@ const R = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 const cam = R("js/camera.js"), comp = R("js/components.js"), app = R("js/app.js"), idx = R("index.html"), cc = R("js/call-camera.js");
 assert(/window\.CallCamera\.create\(setCs, window, \{ width: 1920, height: 1080 \}\)/.test(cam), "相机走 CallCamera 那一份镜头");
 assert(/width: \{ ideal: \(size && size\.width\) \|\| 640 \}/.test(cc), "视频通话不传时照旧 640");
-assert(/camera: \{ kind: "app", zh: "相机", tail: true/.test(comp), "主屏单独一个");
+assert(/camera: \{ kind: "app", zh: "相机", G:/.test(comp) && /f_def_do:[^\n]*"camera"/.test(comp) && /joinAppOnce\("camera", "study", "x_cameraJoined"\)/.test(comp), "相机在「一起做」");
 assert(/\["CameraApp", "camera", "相机"\]/.test(comp), "懒加载登记");
 assert(/data-lazy="camera" data-src="js\/camera\.js\?v=/.test(idx), "index 挂脚本");
 assert(/screen === "camera"\) body = h\(window\.CameraApp/.test(app) && /const OK = \["camera"/.test(app), "路由");

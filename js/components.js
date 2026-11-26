@@ -7274,7 +7274,7 @@ const DEFAULT_FOLDERS = {
   f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout", "astro", "health"] },
   f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
   f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg", "shua", "netroom"] },
-  f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro"] },
+  f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro", "camera"] },
   // ⚠️id 里带上「脑洞」的拼音不是随手起的：文件夹的颜色是【按 key 哈希】出来的，
   //   f_def_mind 那个名字算出来的色相和它左边的匿名问答只差 24，
   //   撞色那道闸（home-tone-58-45）当场就红。换个 id ＝换个色。
@@ -7404,7 +7404,8 @@ function Home({
   const [editMode, setEditMode] = useState(false);
   const [dragKey, setDragKey] = useState(null);
   // ⚠️不替老用户挪图标（她 2026-11-15「只给第一次开的人」）：joinAppOnce 留着备用，这里不调；第一次开的人走 DEFAULT_FOLDERS（外卖本来就跟购物在「每日看」）
-  const [layout, setLayout] = useState(function () { return loadJSON("x_homeLayout", {}); });
+  // 相机（她 2026-11-26「放在一起做的文件夹里面」）：挪进「一起做」，挨着一起学；先改存档再读布局，只挪一次
+  const [layout, setLayout] = useState(function () { joinAppOnce("camera", "study", "x_cameraJoined"); return loadJSON("x_homeLayout", {}); });
   // 一页能放几行，是【量出来的】不是拍的。行高钉死成 82 之后这个数就算得准了：
   // 原来写死 6 行，在高屏上底下白白空掉一大截、还放不进东西（她 2026-09-03 截图）。
   // 第一页顶上有时钟，所以比别的页少一行。
@@ -7604,8 +7605,8 @@ function Home({
     vpscodex: { kind: "app", zh: "值班室", G: GDuty },
     loungeapp: { kind: "app", zh: "三席会客", G: FG("loungeapp", GLounge) },
     theater: { kind: "app", zh: "小剧场", G: FG("theater", () => window.GTheater || GDream) },
-    // 相机（她 2026-11-26「主屏单独一个」）：不进文件夹，老用户由安全网补到最后一页
-    camera: { kind: "app", zh: "相机", tail: true, G: FG("camera", () => window.GCamera || GGame) },
+    // 相机：在「一起做」文件夹里（她 2026-11-26 改的）
+    camera: { kind: "app", zh: "相机", G: FG("camera", () => window.GCamera || GGame) },
     trpg: { kind: "app", zh: "跑团", G: FG("trpg", () => window.GTrpg || GGame) },
     impression: { kind: "app", zh: "月度印象", G: FG("impression", () => window.GImpression || GDream) },
     shike: { kind: "app", zh: "时刻", G: FG("shike", () => window.GShike || GDream) },
