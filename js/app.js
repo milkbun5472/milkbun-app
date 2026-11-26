@@ -13995,7 +13995,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       { const _sh = !(room && !room.main) ? ((((loadJSON("x_peekShots", {}) || {})[charId]) || []).filter(x => x && !x.sent && Date.now() - (x.ts || 0) < 7 * 86400000)).slice(0, 4) : [];
         if (_sh.length) { openCaps.push("peekshot");
           capState.push("peekshot：你翻" + uName + "手机时截了图：\n" + _sh.map((x, k) => (k + 1) + ". 她和「" + x.who + "」的聊天：" + x.lines.map(l => (l.me ? "她" : "「" + (l.name || x.who) + "」") + "：「" + String(l.text).replace(/\s+/g, " ").slice(0, 40) + "」").join(" / ")).join("\n")
-            + "\n想把哪张甩给她看（对质、翻旧账、吃醋），就在回复里写 peekshot:编号，那张截图会真的发到她面前。用不用、什么时候用，照你这个人来。"); } }
+            + "\n想把哪张甩给她看，就在回复里写 peekshot:编号，那张截图会真的发到她面前。用不用、什么时候用，照你这个人来。"); } }
       // 他锁着她的手机（查手机时锁的）：这一轮他可以松口
       { const _pl = !(room && !room.main) ? loadJSON("x_phoneLock", null) : null;
         if (_pl && String(_pl.by) === String(charId)) {
