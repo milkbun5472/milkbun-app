@@ -20004,7 +20004,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const head = w => "你在旅行：同行的有 " + names.filter(n => n !== w.name).concat(trip.meGo ? [uName] : []).join("、") + (trip.meGo ? "" : "（" + uName + " 这趟没来，在家等你们的明信片）") + "。"
       + "这一站是「" + stop.place + "」" + (stop.plan ? "，" + stop.plan : "") + "。"
       + (before ? "\n【前几站寄出去的明信片】\n" + before + "\n接着往下写，这一站是新的一天、新的地方，别把前面写过的再写一遍。\n" : "")
-      + (all ? "这张明信片是大家一起寄的，每个人在背面写自己的一两句；" : "这张明信片是你寄给 " + uName + " 的；")
+      + (all ? "这张明信片是大家一起寄的：texts 里每个人各写自己那一两句（who 写名字），每个人照自己的性格、说话的样子和跟她的关系来写，彼此之间可以接话、拌嘴；你自己那句也在里面。" : "这张明信片是你寄给 " + uName + " 的；")
       + "text 是你写在背面的话，" + (trip.meGo ? "写给一起来的她，" : "写给在家的她，") + "说这一站的事和你此刻想说的，长短跟着你此刻的心情和你平时说话的样子来" + (all ? "（只写你自己那一两句）" : "") + "。";
     const pickStyle = stop.style === "auto" && styles && styles.length;
     const lr = apiFor(lead.id); if (!lr) throw new Error("请先到设置配置 API");
@@ -20014,16 +20014,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + (ids.length > 1 || trip.meGo ? "、group（同行的人一起入镜的合照）" : "") + "；scene 写画面里是什么（在哪、在干嘛、穿什么、光线），给画画的人看。"
         + "入镜的人照各自的性格来拍：谁会怎么站、怎么看镜头、手往哪放、什么表情，都是这个人会有的样子；几个人一起入镜时，站位、距离、谁挨着谁、有没有动作上的来往，要看得出他们之间是什么关系。\n" + tripCastLines(ids, trip.meGo, uName)
         + (pickStyle ? "\nstyle 是你挑的明信片样子，从这几种里挑一个写它的 id：" + styles.map(x => x.id + "＝" + x.zh).join("；") + "。" : ""),
-      schemaHint: "{\"text\":\"写在背面的话\",\"kind\":\"self|other" + (ids.length > 1 || trip.meGo ? "|group" : "") + "\",\"scene\":\"画面\"" + (pickStyle ? ",\"style\":\"样子的id\"" : "") + "}",
+      schemaHint: "{" + (all ? "\"texts\":[{\"who\":\"名字\",\"text\":\"这个人写的\"}]" : "\"text\":\"写在背面的话\"") + ",\"kind\":\"self|other" + (ids.length > 1 || trip.meGo ? "|group" : "") + "\",\"scene\":\"画面\"" + (pickStyle ? ",\"style\":\"样子的id\"" : "") + "}",
       maxTokens: 12000
     });
-    const texts = [{ pid: lead.id, text: String((d && d.text) || "").trim() }];
-    if (all && writers.length > 1) {
-      const rest = await Promise.all(writers.slice(1).map(async w => { try { const r = apiFor(w.id); if (!r) return null;
-        const x = await runProbe(r, ctxFor(w), { voice: true, instruction: head(w) + "\n" + lead.name + " 已经在上面写了：「" + texts[0].text + "」。", schemaHint: "{\"text\":\"你写的一两句\"}", maxTokens: 8000 });
-        return { pid: w.id, text: String((x && x.text) || "").trim() }; } catch (e) { return null; } }));
-      rest.forEach(x => x && x.text && texts.push(x));
-    }
+    // 大家一起寄的一次写完（她 2026-11-27「大家一起寄不能全部一次吗」）：每个人的完整人设和彼此关系都在 tripCastLines 里
+    const texts = all && writers.length > 1
+      ? (Array.isArray(d && d.texts) ? d.texts : []).map(x => { const w = writers.find(c => String((x && x.who) || "").indexOf(c.name) >= 0 || c.name.indexOf(String((x && x.who) || "").trim() || "\u0000") >= 0); return w ? { pid: w.id, text: String((x && x.text) || "").trim() } : null; }).filter(x => x && x.text)
+      : [{ pid: lead.id, text: String((d && (d.text || (Array.isArray(d.texts) && d.texts[0] && d.texts[0].text))) || "").trim() }];
+    if (!texts.length) throw new Error("这一站没写出字来，再寄一次");
     let kind = String((d && d.kind) || "self"); if (!TRIP_KIND[kind]) kind = "self";
     if (kind === "group" && !(ids.length > 1 || trip.meGo)) kind = "self";
     const scene = "在「" + stop.place + "」旅行时拍的：" + String((d && d.scene) || stop.plan || "").trim();

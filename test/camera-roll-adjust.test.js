@@ -100,3 +100,10 @@ test("相机里的文字调用都走 runProbe+ctxFor（人设、关系网、防�
   const tcl = app.slice(app.indexOf("const tripCastLines"), app.indexOf("const TRIP_KIND"));
   assert.ok(!/persona[^\n]*\.slice\(/.test(tcl), "同行的人设不截断");
 });
+test("旅行大家一起寄：一次调用写完每个人那几句", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const i = app.indexOf("const tripCard = async"), body = app.slice(i, app.indexOf("\n  };", i));
+  assert.ok(!/Promise\.all\(writers/.test(body));
+  assert.equal((body.match(/runProbe\(/g) || []).length, 1);
+  assert.match(body, /\\"texts\\":\[\{\\"who\\"/);
+});
