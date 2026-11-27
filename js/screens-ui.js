@@ -2067,7 +2067,7 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
     editing && h(WorldBookEntryPage, {
       entry: editing.__new ? { charIds: editing.charIds } : editing, characters: characters, folders: folders, onClose: () => setEditing(null),
       onSave: data => { onSave(data); setEditing(null); },
-      onImportMany: onImportMany ? (list, bookName) => { onImportMany(list, editing.charIds || [], bookName); setEditing(null); } : null,
+      onImportMany: onImportMany ? (list, bookName, ids) => { onImportMany(list, ids || editing.charIds || [], bookName); setEditing(null); } : null,
       onDelete: editing.__new ? null : () => { onDelete(editing.id); setEditing(null); }
     }));
 }
@@ -2084,6 +2084,10 @@ function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDel
   const [error, setError] = useState("");
   const importRef = useRef(null), importLock = useRef(false);
   const [importing, setImporting] = useState(false);
+  // 一次导进好几条（json 多条、批量选好几份）：先停在这一页，下面那套「给谁看·分类·去哪儿」照单条一样挑，
+  //   挑好了对这几条一次生效（她 2026-11-27：原来默默存成谁都看得到，开两个世界的设定互相串）
+  const [many, setMany] = useState(null);   // { list, name }
+  const askMany = (list, name) => { setMany({ list, name }); setF(x => Object.assign({}, x, { folder: String(name || "").replace(/\.json$/i, "").trim().slice(0, 30) })); setError(""); };
   const [importError, setImportError] = useState("");
   const importDocument = async e => {
     const input = e.target, files = Array.from((input.files) || []), file = files[0];
@@ -2103,7 +2107,7 @@ function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDel
           } catch (x) { bad.push(f0.name); }
         }
         if (!all.length) throw new Error("这几份里一条都没认出来");
-        onImportMany(all, "批量导入");
+        askMany(all, "批量导入");
         if (bad.length && typeof window !== "undefined" && window.__toast) window.__toast("有 " + bad.length + " 份没认出来：" + bad.slice(0, 3).join("、"));
       } catch (err) { setImportError(String(err && err.message || "文件读取失败，请重新选择")); }
       finally { importLock.current = false; setImporting(false); }
@@ -2119,7 +2123,7 @@ function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDel
         const list = typeof loreEntriesFromJson === "function" ? loreEntriesFromJson(d) : [];
         if (!list.length) throw new Error("这份 json 里没认出世界书词条");
         if (list.length === 1) { const one = list[0]; setF(current => ({ ...current, title: one.title, payload: one.payload, keyword: one.keyword || "", alwaysOn: !!one.alwaysOn })); return; }
-        if (onImportMany) { onImportMany(list, file.name); return; }
+        if (onImportMany) { askMany(list, file.name); return; }
         throw new Error("这份里有 " + list.length + " 条，这一页只收得下一条");
       }
       const payload = await readOfflineStyleDocument(file);
@@ -2131,7 +2135,14 @@ function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDel
   };
   const set = p => setF(x => Object.assign({}, x, p));
   const setScope = k => setF(x => Object.assign({}, x, { scope: Object.assign({ chat: true }, x.scope, { [k]: !(x.scope && x.scope[k]) }) }));
+  const saveMany = () => {
+    if (!LORE_SCOPE_UI.some(x => loreScopeEnabled(f, x[0]))) { setError("至少选择一个去向，否则这些永远不会被使用"); return; }
+    // 每条自己的标题、正文、关键词、常驻与否照文件里的；分类、给谁、去哪儿、顺序、启用照这一页挑的
+    const list = many.list.map(e => Object.assign({}, e, { category: f.category, scope: Object.assign({}, f.scope), priority: f.priority, enabled: f.enabled !== false }));
+    onImportMany(list, f.folder || "", (f.charIds || []).slice());
+  };
   const save = () => {
+    if (many) { saveMany(); return; }
     const payload = String(f.payload || "").trim();
     const keyword = String(f.keyword || "").trim();
     const hasScope = LORE_SCOPE_UI.some(x => loreScopeEnabled(f, x[0]));
@@ -2157,8 +2168,13 @@ function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDel
     h("input", { ref: importRef, type: "file", multiple: true, accept: ANY_FILE, style: { display: "none" }, onChange: importDocument }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 30px)" } },
     importError && h("div", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", marginTop: 8 } }, importError),
-    lbl("这条是什么", "标题是给你看的索引；分类帮助以后检索。只有「照做」「生图」会改变它怎么被用"),
-    h("input", { "data-wk": "input", value: f.title, onChange: e => { set({ title: e.target.value }); setError(""); }, placeholder: "例如：港口城的宵禁", style: field }),
+    many ? h("div", { "data-wk": "loremany", style: { marginTop: 14, padding: "12px 12px", background: t.bg2, border: "1px solid " + t.line } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, "一次导入 " + many.list.length + " 条"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, marginTop: 5 } }, "下面挑的文件夹、分类、给谁、去哪儿、顺序，对这 " + many.list.length + " 条一起生效；每条的标题、正文、关键词照文件里的。导进去以后还能一条条改。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, lineHeight: 1.6, marginTop: 6 } }, many.list.slice(0, 6).map(e => e.title || "未命名").join("、") + (many.list.length > 6 ? " 等" : "")),
+      h("button", { onClick: () => { setMany(null); setError(""); }, className: "active:opacity-60", style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "不导了")) : null,
+    lbl(many ? "放进哪里、算什么" : "这条是什么", many ? "文件夹不填就不放；分类对这几条一起生效" : "标题是给你看的索引；分类帮助以后检索。只有「照做」「生图」会改变它怎么被用"),
+    many ? null : h("input", { "data-wk": "input", value: f.title, onChange: e => { set({ title: e.target.value }); setError(""); }, placeholder: "例如：港口城的宵禁", style: field }),
     h("div", { "data-wk": "lorefolderfield", style: { display: "flex", alignItems: "center", gap: 8, marginTop: 9 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, flexShrink: 0 } }, "文件夹"),
       h("input", { "data-wk": "input", list: "lore-folder-names", value: f.folder || "", onChange: e => set({ folder: e.target.value.slice(0, 30) }), placeholder: "不放就空着", style: Object.assign({}, field, { flex: 1, marginTop: 0 }) }),
@@ -2168,14 +2184,14 @@ function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDel
       "「照做」不是设定，是给 TA 的输出指令：这条被翻出来的那一轮，TA 会照着正文去做。适合「提到冰箱就发一张冰箱小卡」这种——把 HTML 模板和怎么填写进正文，配上关键词触发。") : null,
     f.category === "生图" ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.65, marginTop: 8 } },
       "「生图」只在画图时用：拼进发给图像接口的画面要求，聊天、线下这些地方一个字都不带。适合画风、配色、这个世界的服装建筑。选「每次常驻」就张张都带；选「按话题触发」时关键词对的是这张图的画面描述。下面「去哪几处」对它不起作用。") : null,
-    lbl("交给模型的正文", f.category === "照做" ? "写清楚什么时候、发什么、照什么格式；网页小卡的模板整块贴进来" : "只写事实、背景或规则；模型看到的是这里，不是标题"),
-    h("textarea", { "data-wk": "textarea", value: f.payload, onChange: e => { set({ payload: e.target.value }); setError(""); }, rows: 6, placeholder: "例如：港口城每晚十一点宵禁，钟声后只有持银色通行证的人可以上街。", style: Object.assign({}, field, { resize: "vertical", minHeight: 132, lineHeight: 1.65 }) }),
+    many ? null : lbl("交给模型的正文", f.category === "照做" ? "写清楚什么时候、发什么、照什么格式；网页小卡的模板整块贴进来" : "只写事实、背景或规则；模型看到的是这里，不是标题"),
+    many ? null : h("textarea", { "data-wk": "textarea", value: f.payload, onChange: e => { set({ payload: e.target.value }); setError(""); }, rows: 6, placeholder: "例如：港口城每晚十一点宵禁，钟声后只有持银色通行证的人可以上街。", style: Object.assign({}, field, { resize: "vertical", minHeight: 132, lineHeight: 1.65 }) }),
     lbl("谁能拿到", "不选角色就是公共设定；绑定后只有该角色本人或有 Ta 在场的群聊能拿到"),
     h(LoreWhoPick, { charIds: f.charIds, characters: characters, onChange: ids => set({ charIds: ids }) }),
-    lbl("什么时候出现", "常驻适合核心世界规则；触发适合只在谈到某件事时才需要的背景"),
-    h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } },
+    many ? null : lbl("什么时候出现", "常驻适合核心世界规则；触发适合只在谈到某件事时才需要的背景"),
+    many ? null : h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } },
       [[true, "每次常驻", "不等关键词"], [false, "按话题触发", "命中才注入"]].map(x => h("button", { key: String(x[0]), onClick: () => { set({ alwaysOn: x[0] }); setError(""); }, className: "active:opacity-70 text-left", style: { border: "1px solid " + (!!f.alwaysOn === x[0] ? t.ink : t.line), background: !!f.alwaysOn === x[0] ? t.ink : "transparent", color: !!f.alwaysOn === x[0] ? t.bg : t.ink, padding: "11px" } }, h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, x[1]), h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", opacity: .65, marginTop: 3 } }, x[2])))),
-    !f.alwaysOn ? h("div", { style: { marginTop: 9 } },
+    !many && !f.alwaysOn ? h("div", { style: { marginTop: 9 } },
       h("input", { "data-wk": "input", value: f.keyword, onChange: e => { set({ keyword: e.target.value }); setError(""); }, placeholder: "关键词用逗号、顿号或竖线隔开，全角半角都行", style: field }),
       toggle("把关键词当正则", "仅在你确实需要表达式匹配时打开", !!f.regex, () => set({ regex: !f.regex }))) : null,
     lbl("会去哪些地方", "只有勾中的功能可以取到这条；角色绑定和触发条件仍然继续生效"),
@@ -2195,10 +2211,10 @@ function WorldBookEntryPage({ entry, characters, folders, onClose, onSave, onDel
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", letterSpacing: ".06em", color: t.fog } }, "这条会怎么送出去"),
       h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.sub, lineHeight: 1.6, marginTop: 6 } },
         (f.charIds || []).length ? "只给：" + (f.charIds || []).map(id => { const c = (characters || []).find(x => x.id === id); return c && (c.remark || c.name); }).filter(Boolean).join("、") : "给所有角色",
-        " · ", f.alwaysOn ? "每次常驻" : "话题触发",
+        " · ", many ? "常驻或触发照各条自己的" : f.alwaysOn ? "每次常驻" : "话题触发",
         " · 去往 ", loreScopeNames(f).join(" / ") || "无")),
     error ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.accent, lineHeight: 1.5, marginTop: 12 } }, error) : null,
-    h("button", { "data-wk": "loresave", onClick: save, className: "w-full active:opacity-80", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.bg2, background: t.ink, border: "none", padding: "14px" } }, "保存并交给筛选器")));
+    h("button", { "data-wk": "loresave", onClick: save, className: "w-full active:opacity-80", style: { marginTop: 14, fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", color: t.bg2, background: t.ink, border: "none", padding: "14px" } }, many ? "全部导入（" + many.list.length + " 条）" : "保存并交给筛选器")));
 }
 function charWorldsSave(d) { try { localStorage.setItem(CHAR_WORLDS_KEY, JSON.stringify({ worlds: d.worlds || [], of: d.of || {} })); } catch (e) {} }
 function forumSetWorld(w) { try { localStorage.setItem(FORUM_WORLD_KEY, w || ""); } catch (e) {} try { window.dispatchEvent(new CustomEvent("lisa-forum-world")); } catch (e) {} }

@@ -38330,7 +38330,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const folder = String(bookName || "").replace(/\.json$/i, "").trim().slice(0, 30);
       const add = (list || []).map((e, i) => Object.assign({ category: "世界观", regex: false, ensemble: false, scope: { chat: true } }, e, { id: "le_json_" + now + "_" + i, charIds: (charIds || []).slice(), ts: now + i }, folder ? { folder } : {}));
       saveLore(add.concat(loreRef.current || []));
-      toast("导进了 " + add.length + " 条" + (folder ? "，收在「" + folder + "」里" : "") + ((charIds || []).length ? "" : "（没绑角色，去每条里按需要绑）"));
+      toast("导进了 " + add.length + " 条" + (folder ? "，收在「" + folder + "」里" : "") + ((charIds || []).length ? "，只给挑的那几位" : "，所有角色都拿得到"));
     },
     // 多选那几条一起改（挪文件夹、整批开关），一次写回
     onBulk: (ids, patch) => {
