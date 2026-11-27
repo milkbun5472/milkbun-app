@@ -2405,7 +2405,8 @@
       const body = !sv || !A || !root.GameShared ? h("div", { style: { padding: 16 } }, h(Note, null, "牌桌还没到，在等开局的那台手机发过来…")) : (() => {
         const inv = sv.inv, isHost = gs.isHost(gid), done = inv.status === "done";
         const pr = presence(), hostGone = !isHost && pr[inv.host] !== "on" && pr[inv.host] !== "relay";
-        return h("div", { "data-wk": "nrgamearea", className: "h-full", style: { overflowY: "auto", paddingBottom: 12 } },
+        // 擂台、跑团、集邮社打起来也铺单机那页的地面（她 11-26「改吧」）
+        return h("div", { "data-wk": "nrgamearea", className: "h-full", style: Object.assign({ overflowY: "auto", paddingBottom: 12 }, A.prepFloor ? A.prepFloor(t) : {}) },
           h("div", { style: { padding: "6px 16px 0", fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, inv.zh, h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog } }, done ? "这一局打完了" : inv.seats.some(x => x.peer === meId.current && x.kind !== "npc") ? "你在桌上" : "你在旁边看")),
           hostGone && h("div", { style: { padding: "8px 16px" } }, h(Note, null, "开局的人不在，这一局等她回来接着打。")),
           sv.pause && !done && h(PauseBar, { pause: sv.pause, isHost, onGo: () => gs.resume(gid), hostName: (inv.seats.find(x => x.kind === "user" && x.peer === inv.host) || {}).name || "" }),

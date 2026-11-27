@@ -97,3 +97,9 @@ test("擂台、跑团、集邮社的开局页照单机的样子：各有自己�
   assert.ok(/A\.prepFloor = \(\) =>/.test(tr) && /"nrtrpgcard"/.test(tr));
   assert.ok(/A\.prepFloor = \(\) =>/.test(st) && /"nrstampsmodetile"/.test(st) && /"nrstampsmodehero"/.test(st));
 });
+test("打起来的牌桌也铺这一盒的地面；跑团桌上是纸卡和色条选项", () => {
+  const fs = require("node:fs"), path = require("node:path"), rd = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
+  assert.ok(/"nrgamearea"[^\n]*A\.prepFloor \? A\.prepFloor\(t\) : \{\}/.test(rd("js/netroom.js")));
+  const tr = rd("js/netroom-trpg.js");
+  assert.ok(/"nrtrpglog", style: Object\.assign\(paperCard\(t\)/.test(tr) && /borderLeft: "3px solid " \+ tone/.test(tr));
+});
