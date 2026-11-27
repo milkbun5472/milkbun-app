@@ -26733,3 +26733,39 @@ function ChatSettings({
     }
   }, "从对话提取"))))))), document.body);
 }
+
+// ── 整页存图（她 2026-11-20；2026-11-27 从 phone-ui.js 搬来——日记、情书也能存长图，群友「ios 不好截图」）：「一个个弄了，合适的话；相册论坛这种不用」）─────────────
+//   查手机里那些页（邮件、账本、购物、外卖、日历、便签……）顶栏刷新键左边一颗「存图」：把这一页能往下翻的整段内容
+//   一次画成一张长图，进相册。只此一份：每个 app 只是摆这颗按钮，怎么截、怎么存都在这儿。
+//   截图库 vendor/modern-screenshot.js（MIT）点了才去载，平时不占开机。健康那一档档化验单另有自己的单张存法。
+let _shotLib = null;
+function loadShotLib() {
+  if (window.modernScreenshot) return Promise.resolve(window.modernScreenshot);
+  if (_shotLib) return _shotLib;
+  _shotLib = new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "vendor/modern-screenshot.js"; sc.onload = () => window.modernScreenshot ? ok(window.modernScreenshot) : no(new Error("截图组件没载上")); sc.onerror = () => { _shotLib = null; no(new Error("截图组件没载上，网不好再点一次")); }; document.head.appendChild(sc); });
+  return _shotLib;
+}
+// 从按钮往上找这一页，再在页里挑能滚的那一块里最长的那个——那就是这一页的正文
+function phoneShotTarget(btn) {
+  let page = btn; for (let i = 0; i < 8 && page && page.parentElement; i++) page = page.parentElement;
+  const all = page ? Array.from(page.querySelectorAll("*")) : [];
+  let best = null;
+  all.forEach(el => { const st = getComputedStyle(el); if (/(auto|scroll)/.test(st.overflowY) && el.scrollHeight > 40 && (!best || el.scrollHeight > best.scrollHeight)) best = el; });
+  return best;
+}
+async function savePhoneScreen(btn, name) {
+  const el = phoneShotTarget(btn);
+  if (!el) throw new Error("这一页没找到能存的内容");
+  const lib = await loadShotLib();
+  let bg = "#ffffff"; for (let n = el; n; n = n.parentElement) { const c = getComputedStyle(n).backgroundColor; if (c && !/rgba\(0, 0, 0, 0\)|transparent/.test(c)) { bg = c; break; } }
+  const url = await lib.domToPng(el, { width: el.clientWidth, height: el.scrollHeight, scale: 2, backgroundColor: bg,
+    style: { height: el.scrollHeight + "px", maxHeight: "none", overflow: "visible" } });
+  const ok = window.saveImgOriginal && await window.saveImgOriginal(url, name);
+  if (!ok) throw new Error("没存下来，再点一次");
+}
+function PhoneShotBtn({ color, name }) {
+  const [busy, setBusy] = useState(false);
+  return h("button", { "data-wk": "phoneshot", "aria-label": "这一页存成图", disabled: busy, className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center",
+    onClick: async e => { const b = e.currentTarget; setBusy(true); try { await savePhoneScreen(b, name); } catch (er) { if (typeof window.__toast === "function") window.__toast("存图失败：" + ((er && er.message) || er)); } finally { setBusy(false); } },
+    style: { minWidth: 36, height: 36, padding: "0 4px", background: "transparent", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: color } }, busy ? "…" : "存图");
+}
