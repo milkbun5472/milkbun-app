@@ -19930,7 +19930,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + (cut ? "pose＝身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪；outfit＝穿什么（不要绿色）；mood＝一两个词。只写这三栏：这张是整个人站在纯色背景前的全身照，地点、光、镜头都不用写。"
         : "pose＝身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪；camera＝景别、机位高低、镜头远近；light＝主光从哪边来、冷暖、阴影落在哪；place＝在哪、身边两三样东西；outfit＝穿什么；mood＝一两个词。" + SHOT_COMBO_SPEC)
       + "怎么搭都以好看为先：脸要看得清、光落在脸上，身形舒展、比例好看；会让脸看不清、人显矮显胖、表情难看的组合就别选。"
-      + "她那一句里写了的照她的来，没写的照画面里这几个人和这一句补齐。";
+      + "她那一句里写了的照她的来，没写的照画面里这几个人和这一句补齐。"
+      + "入镜的人照各自的性格来摆：怎么站、怎么看镜头、手往哪放、什么表情，都是这个人会有的样子；几个人一起时，站位、距离、谁挨着谁要看得出他们之间是什么关系。\n"
+      + tripCastLines(cast.filter(c => c.id !== "me").map(c => c.id), cast.some(c => c.id === "me"), meName);
     const d = await runProbe(apiFor(lead.id), ctxFor(lead), { instruction, schemaHint: "{" + keys.map(k => "\"" + k + "\":\"…\"").join(",") + "}", maxTokens: 8000 });
     const out = CAM_SHOT_ZH.filter(([k]) => keys.indexOf(k) >= 0 && String((d && d[k]) || "").trim()).map(([k, zh]) => zh + "：" + String(d[k]).trim()).join("\n");
     if (!out) throw new Error("没写出来，再点一次");
@@ -19984,11 +19986,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 入镜的人按性格拍、多人要看得出关系（她 2026-11-26）：同行几个人各是什么样、彼此什么关系，给挑怎么拍的那一枪
   const tripCastLines = (ids, meGo, uName) => {
     const cs = ids.map(id => (characters || []).find(c => c.id === id)).filter(Boolean);
-    const who = cs.map(c => "- " + c.name + "：" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 300)).join("\n");
+    const who = cs.map(c => "- " + c.name + "：" + String(c.persona || "").replace(/\s+/g, " ").trim()).join("\n");
     const pairs = [];
     cs.forEach(a => cs.forEach(b => { if (a.id !== b.id) { const r = (rels || {})[a.id + "->" + b.id]; if (r && r.label) pairs.push(a.name + " 对 " + b.name + "：" + r.label); } }));
     if (meGo) cs.forEach(c => { const cp = (couples || {})[c.id] || {}; if (cp.status === "together") pairs.push(c.name + " 和 " + uName + "：恋人"); });
-    return "【同行的人】\n" + who + (pairs.length ? "\n【彼此的关系】\n" + pairs.join("\n") : "");
+    return "【这几个人各自是什么样】\n" + who + (pairs.length ? "\n【彼此的关系】\n" + pairs.join("\n") : "");
   };
   const TRIP_KIND = { self: "自拍", other: "别人帮忙拍的", group: "大家一起的合照" };
   const tripCard = async (trip, idx, styles) => {

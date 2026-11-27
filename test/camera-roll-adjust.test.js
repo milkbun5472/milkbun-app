@@ -90,3 +90,13 @@ test("全身／半身、穿什么（衣柜或配一套新的）、抠好的再�
   assert.match(cam, /\["bust", "到胸"\]/);
   for (const k of ["camoutfit", "camoutfitone", "camcrop"]) assert.ok(ts.includes('["' + k + '"'), k);
 });
+test("相机里的文字调用都走 runProbe+ctxFor（人设、关系网、防八股那一套公共的）；几个人的都带上每个人的人设和彼此关系", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  for (const f of ["cameraWriteShot", "cameraLook", "cameraGenFit", "tripPlan", "tripCard", "moviePlan", "movieScene", "worldsPlan", "worldCard"]) {
+    const i = app.indexOf("const " + f + " = async"), body = app.slice(i, app.indexOf("\n  };", i));
+    assert.ok(/runProbe\([^,]+, ctxFor\(/.test(body), f);
+  }
+  for (const f of ["cameraWriteShot", "tripCard", "moviePlan", "movieScene"]) { const i = app.indexOf("const " + f + " = async"); assert.ok(app.slice(i, app.indexOf("\n  };", i)).includes("tripCastLines("), f); }
+  const tcl = app.slice(app.indexOf("const tripCastLines"), app.indexOf("const TRIP_KIND"));
+  assert.ok(!/persona[^\n]*\.slice\(/.test(tcl), "同行的人设不截断");
+});
