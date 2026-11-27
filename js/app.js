@@ -19951,7 +19951,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const keys = cut ? ["pose", "outfit", "mood"] : ["pose", "camera", "light", "place", "outfit", "mood"];
     const instruction = (cut ? "她要在相机里给「" + names + "」拍一张全身照，抠出来贴进实景里一起拍。"
         : "她要在相机里拍一张照片，画面里有：" + names + "；" + (who === "self" ? "是画面里的人自己举着手机自拍。" : "是有人帮忙拍的。"))
-      + "她只写了一句：「" + (String(brief || "").trim() || "随手拍一张") + "」。把这一句写成给画画的人看的分镜（中文，每栏一两句）："
+      + "她只写了一句：「" + (String(brief || "").trim() || "随手拍一张") + "」。把这一句写成给画画的人看的分镜（中文）："
       + (cut ? "pose＝身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪；outfit＝穿什么（不要绿色）；mood＝一两个词。只写这三栏：这张是整个人站在纯色背景前的全身照，地点、光、镜头都不用写。"
         : "pose＝身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪；camera＝景别、机位高低、镜头远近；light＝主光从哪边来、冷暖、阴影落在哪；place＝在哪、身边两三样东西；outfit＝穿什么；mood＝一两个词。" + SHOT_COMBO_SPEC)
       + "怎么搭都以好看为先：脸要看得清、光落在脸上，身形舒展、比例好看；会让脸看不清、人显矮显胖、表情难看的组合就别选。"
@@ -20002,8 +20002,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const uName = (profileFor(lead.id) || {}).name || "她", names = tripNames(ids);
     const d = await runProbe(route, ctxFor(lead), {
       instruction: "要出门旅行：" + names.join("、") + (meGo ? "，还有 " + uName + " 一起" : "（" + uName + " 这趟没来，在家等明信片）") + "。她写的目的地是：「" + String(place || "").trim() + "」。"
-        + "排一条" + (n ? n + " 站" : "三到六站") + "的路线，一站接一站顺着走得通。去的是真实存在的地方，就排那里真有的景点、街区、店；去的是一种地方或者一句话，就照这一句和这几个人的世界去想这几站。"
-        + "每站 place 写地名（短），plan 写他们在那儿做什么（一段）。",
+        + "排一条" + (n ? n + " 站" : "") + "的路线，一站接一站顺着走得通。去的是真实存在的地方，就排那里真有的景点、街区、店；去的是一种地方或者一句话，就照这一句和这几个人的世界去想这几站。"
+        + "每站 place 写地名（短），plan 写他们在那儿做什么。",
       schemaHint: "{\"stops\":[{\"place\":\"地名\",\"plan\":\"在那儿做什么\"}]}",
       maxTokens: 12000
     });
@@ -20031,8 +20031,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const head = w => "你在旅行：同行的有 " + names.filter(n => n !== w.name).concat(trip.meGo ? [uName] : []).join("、") + (trip.meGo ? "" : "（" + uName + " 这趟没来，在家等你们的明信片）") + "。"
       + "这一站是「" + stop.place + "」" + (stop.plan ? "，" + stop.plan : "") + "。"
       + (before ? "\n【前几站寄出去的明信片】\n" + before + "\n接着往下写，这一站是新的一天、新的地方，别把前面写过的再写一遍。\n" : "")
-      + (all ? "这张明信片是大家一起寄的：texts 里每个人各写自己那一两句（who 写名字），每个人照自己的性格、说话的样子和跟她的关系来写，彼此之间可以接话、拌嘴；你自己那句也在里面。" : "这张明信片是你寄给 " + uName + " 的；")
-      + "text 是你写在背面的话，" + (trip.meGo ? "写给一起来的她，" : "写给在家的她，") + "说这一站的事和你此刻想说的，长短跟着你此刻的心情和你平时说话的样子来" + (all ? "（只写你自己那一两句）" : "") + "。";
+      + (all ? "这张明信片是大家一起寄的：texts 里每个人各写自己想说的（who 写名字），每个人照自己的性格、说话的样子和跟她的关系来写，彼此之间可以接话、拌嘴；你自己那句也在里面。" : "这张明信片是你寄给 " + uName + " 的；")
+      + "text 是你写在背面的话，" + (trip.meGo ? "写给一起来的她，" : "写给在家的她，") + "说这一站的事和你此刻想说的，长短跟着你此刻的心情和你平时说话的样子来" + (all ? "（只写你自己想说的）" : "") + "。";
     const pickStyle = stop.style === "auto" && styles && styles.length;
     const lr = apiFor(lead.id); if (!lr) throw new Error("请先到设置配置 API");
     const d = await runProbe(lr, ctxFor(lead), {
@@ -20073,8 +20073,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const names = tripNames(ids.filter(i => i !== "me")).concat(meIn ? [uName] : []);
     const d = await runProbe(r, ctxFor(lead), {
       instruction: names.join("、") + " 要一起主演一部电影。她给的是：「" + String(brief || "").trim() + "」" + (title ? "，片名用「" + title + "」" : "") + "。"
-        + "定这部片：title 片名；genre 类型（一两个词）；mood 这部片的气质（两三个词）；tagline 海报上的一句宣传语；synopsis 剧情简介（一段）；"
-        + "roles 每个演员演谁（who 写演员名，role 写角色名和这个角色是什么人）；scenes 是顺着剧情往下走的几场戏，每场 name 场名、beat 这一场发生什么（一段）；"
+        + "定这部片：title 片名；genre 类型（一两个词）；mood 这部片的气质（两三个词）；tagline 海报上的一句宣传语；synopsis 剧情简介；"
+        + "roles 每个演员演谁（who 写演员名，role 写角色名和这个角色是什么人）；scenes 是顺着剧情往下走的几场戏，每场 name 场名、beat 这一场发生什么；"
         + "poster 是海报怎么拍：几个人的站位、动作、谁看谁，镜头从哪个高度、多远拍。"
         // 演员不等于角色（她 2026-11-27「一个高中生不会永远演高中生吧」）：角色照这部片要什么来分，年纪、身份、时代、性格都可以跟演员本人不一样
         + "演员不一定演跟自己一样的人：角色照这部片需要来分，年纪、身份、职业、时代、性格都可以跟演员本人差得很远；演员本人的性格和他们之间的关系，只决定谁演谁更有看头、谁跟谁对手戏更有火花。戏要给每个人都有。\n" + tripCastLines(ids.filter(i => i !== "me"), meIn, uName),
@@ -20107,7 +20107,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "现在拍第 " + (idx + 1) + " 场「" + sc.name + "」：" + sc.beat + "\n"
         + (String(note || "").trim() ? "【导演对这场的要求】" + String(note).trim() + "——照这个来拍、来演。\n" : "")
         + "写这一场的一张剧照和这一场的台词：still 写剧照画面（谁在画面里、站位、动作、表情、场景、光），像电影里定格的一帧；inFrame 是入镜的演员名（数组，写演员本名）；"
-        + "lines 是这一场里最戳的几句台词（who 写角色名，line 写台词）。入镜的人演的是戏里那个角色：穿着、神情、站姿都照角色来，演员本人只是长相；几个人同框要看得出戏里角色之间是什么关系，台词是角色说的话，不是演员本人的口头禅。\n" + "slug 是这场开头那张场次卡（时间·地点，像剧本的场景标题）；script 是这一场的剧本片段：动作、神情、停顿和台词穿插着写，像真的剧本那样；bts 是这场的幕后花絮——下了戏的演员是他们本人（照各自真实的性子和彼此的关系），拍这场时出了什么事、NG、笑场、私下的一两句，一两条就好。\n" + tripCastLines(mv.ids.filter(i => i !== "me"), meIn, uName),
+        + "lines 是这一场里最戳的几句台词（who 写角色名，line 写台词）。入镜的人演的是戏里那个角色：穿着、神情、站姿都照角色来，演员本人只是长相；几个人同框要看得出戏里角色之间是什么关系，台词是角色说的话，不是演员本人的口头禅。\n" + "slug 是这场开头那张场次卡（时间·地点，像剧本的场景标题）；script 是这一场的剧本片段：动作、神情、停顿和台词穿插着写，像真的剧本那样；bts 是这场的幕后花絮——下了戏的演员是他们本人（照各自真实的性子和彼此的关系），拍这场时出了什么事、NG、笑场、私下的话。\n" + tripCastLines(mv.ids.filter(i => i !== "me"), meIn, uName),
       schemaHint: "{\"slug\":\"场次卡：时间·地点（短）\",\"still\":\"剧照画面\",\"inFrame\":[\"演员名\"],\"lines\":[{\"who\":\"角色名\",\"line\":\"台词\"}],\"script\":\"这一场的剧本片段\",\"bts\":[{\"who\":\"演员本名\",\"text\":\"花絮\"}]}",
       maxTokens: 16000
     });
@@ -20127,9 +20127,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const all = mv.scenes.filter(x => x.shot).map((x, i) => "- 第" + (i + 1) + "场「" + x.name + "」" + x.beat + (x.shot.lines || []).slice(0, 3).map(l => " " + l.who + "：「" + l.line + "」").join("")).join("\n");
     const d = await runProbe(r, ctxFor(lead), {
       instruction: "电影《" + mv.title + "》（" + mv.genre + "）拍完了。剧情：" + mv.synopsis + "\n角色：" + mv.roles.map(x => x.who + " 演 " + x.role).join("；") + "\n导演是 " + uName + "。\n【拍完的几场】\n" + all + "\n"
-        + "写杀青以后的这些：egg 是片尾彩蛋——演职员表滚完以后再放的那一小场（still 剧照画面、inFrame 入镜的演员名、lines 一两句台词），留个钩子或者让人会心一笑；"
-        + "rating 是这部片的评分（满分 10，可以有一位小数，照这部片拍成什么样来给，不用捧）；shorts 是几条看过的人的短评（who 网名，stars 1～5 星，text 一两句），口味各不相同、有夸有骂；"
-        + "review 是一条长影评（title 标题、text 正文一段）；interviews 是映后采访：主持人问、每个演员以本人身份答（照各自真实的性子和彼此关系，聊拍这部戏、聊对手、聊角色），q 问题、who 演员本名、a 回答。\n"
+        + "写杀青以后的这些：egg 是片尾彩蛋——演职员表滚完以后再放的那一小场（still 剧照画面、inFrame 入镜的演员名、lines 台词），留个钩子或者让人会心一笑；"
+        + "rating 是这部片的评分（满分 10，可以有一位小数，照这部片拍成什么样来给，不用捧）；shorts 是几条看过的人的短评（who 网名，stars 1～5 星，text 短评），口味各不相同、有夸有骂；"
+        + "review 是一条长影评（title 标题、text 正文）；interviews 是映后采访：主持人问、每个演员以本人身份答（照各自真实的性子和彼此关系，聊拍这部戏、聊对手、聊角色），q 问题、who 演员本名、a 回答。\n"
         + tripCastLines(mv.ids.filter(i => i !== "me"), meIn, uName),
       schemaHint: "{\"egg\":{\"still\":\"画面\",\"inFrame\":[\"演员名\"],\"lines\":[{\"who\":\"角色名\",\"line\":\"台词\"}]},\"rating\":8.1,\"shorts\":[{\"who\":\"网名\",\"stars\":4,\"text\":\"短评\"}],\"review\":{\"title\":\"标题\",\"text\":\"正文\"},\"interviews\":[{\"q\":\"问题\",\"who\":\"演员本名\",\"a\":\"回答\"}]}",
       maxTokens: 20000
@@ -20150,7 +20150,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const { c, r } = storyLead([charId]), uName = (profileFor(c.id) || {}).name || "她";
     const d = await runProbe(r, ctxFor(c), {
       instruction: "想几个平行世界里的你：同一个你，换了一个世界、一种人生。" + (String(brief || "").trim() ? "她想看的是：「" + String(brief).trim() + "」。" : "")
-        + "每个世界 world 写那是个什么世界（短），who 写那个世界里的你是什么人、在过什么日子（一段）。世界之间要拉开。那个世界里的你可以是另一个年纪、另一种身份、另一种活法，性子也可以被那个世界磨成另一个样子——底下还是你，但不用处处跟现在的你一样。",
+        + "每个世界 world 写那是个什么世界（短），who 写那个世界里的你是什么人、在过什么日子。世界之间要拉开。那个世界里的你可以是另一个年纪、另一种身份、另一种活法，性子也可以被那个世界磨成另一个样子——底下还是你，但不用处处跟现在的你一样。",
       schemaHint: "{\"worlds\":[{\"world\":\"什么世界\",\"who\":\"那个世界的你\"}]}",
       maxTokens: 12000
     });
