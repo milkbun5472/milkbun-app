@@ -98,21 +98,55 @@
   }
 
   // 相机里「旅行／电影／平行人生」几页共用的一套（粉底白卡、药丸、底下那颗粉橙大按钮、输入框）：挂点名各页自己给
-  function makeUI(wk) {
-    const card = (part, title, hint, kid) => h("div", { "data-wk": wk.card, "data-part": part, style: { background: "#fff", borderRadius: 22, padding: "14px 14px 16px", marginBottom: 12, boxShadow: "0 10px 26px -18px rgba(160,60,110,.55)" } },
+  // 三个玩法各一套颜色（她 2026-11-27「相机里那几个页面弄好看点」）：旅行暖粉、电影暗场金、平行人生梦幻蓝紫
+  const THEMES = {
+    trip: { bg: "linear-gradient(180deg,#ffe3ee 0%,#fff6f9 38%,#fdfbfc 100%)", card: "#fff", ink: INK, sub: SUB, accent: PINK, grad: GRAD, line: "#f1e4ea", soft: "#fff1f6", inputBg: "#fffafc", glow: "rgba(255,80,130,.85)", shadow: "rgba(160,60,110,.55)", dark: false,
+      hero: "linear-gradient(135deg,#ff8fb1 0%,#ffb38a 100%)" },
+    movie: { bg: "radial-gradient(120% 60% at 50% 0%, #3a2a36 0%, #17121a 55%, #0f0c11 100%)", card: "rgba(255,255,255,.06)", ink: "#f4ede3", sub: "rgba(244,237,227,.55)", accent: "#e8b86b", grad: "linear-gradient(135deg,#f2c879 0%,#d98a4e 100%)", line: "rgba(255,255,255,.12)", soft: "rgba(232,184,107,.14)", inputBg: "rgba(255,255,255,.05)", glow: "rgba(232,150,80,.6)", shadow: "rgba(0,0,0,.6)", dark: true,
+      hero: "linear-gradient(135deg,#3d2c3e 0%,#6b4258 55%,#b4775a 100%)" },
+    worlds: { bg: "linear-gradient(180deg,#e6ecff 0%,#f3eeff 45%,#fbfaff 100%)", card: "#fff", ink: "#2c2a44", sub: "#8b88a8", accent: "#7b74f0", grad: "linear-gradient(135deg,#7fb4ff 0%,#a98bff 100%)", line: "#e7e4f7", soft: "#f1efff", inputBg: "#fbfaff", glow: "rgba(120,110,255,.6)", shadow: "rgba(90,80,180,.4)", dark: false,
+      hero: "linear-gradient(135deg,#7fb4ff 0%,#a98bff 60%,#e6a7f0 100%)" }
+  };
+  const ICONS = {
+    trip: ["M4 6.5l5-2 6 2 5-2v13l-5 2-6-2-5 2z", "M9 4.5v13", "M15 6.5v13"],
+    movie: ["M4 8h16v11H4z", "M4 8l3-4h3l-3 4", "M10 8l3-4h3l-3 4", "M16 8l3-4h1"],
+    worlds: ["M12 3a9 9 0 100 18 9 9 0 100-18", "M3.5 9h17", "M3.5 15h17", "M12 3c-3 3-3 15 0 18", "M12 3c3 3 3 15 0 18"]
+  };
+  const icon = (d, size, color) => h("svg", { viewBox: "0 0 24 24", width: size, height: size, fill: "none", stroke: color || "#fff", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" }, d.map((x, i) => h("path", { key: i, d: x })));
+  function makeUI(wk, themeId) {
+    const th = THEMES[themeId] || THEMES.trip;
+    const card = (part, title, hint, kid) => h("div", { "data-wk": wk.card, "data-part": part, style: { background: th.card, borderRadius: 22, padding: "14px 14px 16px", marginBottom: 12, boxShadow: "0 10px 26px -18px " + th.shadow, border: th.dark ? "1px solid " + th.line : "none" } },
       h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 } },
-        h("span", { style: { fontSize: FS(14.5), fontWeight: 600, color: INK } }, title), hint ? h("span", { style: { fontSize: FS(11), color: SUB } }, hint) : null), kid);
+        h("span", { style: { fontSize: FS(14.5), fontWeight: 600, color: th.ink } }, title), hint ? h("span", { style: { fontSize: FS(11), color: th.sub } }, hint) : null), kid);
     const pill = (label, on, onClick, part) => h("button", { "data-wk": wk.btn, "data-part": part || "", "data-on": on ? "1" : "0", onClick,
-      style: { flexShrink: 0, height: 30, padding: "0 12px", borderRadius: 15, border: "1.5px solid " + (on ? PINK : "#f1e4ea"), background: on ? "#fff1f6" : "#fff", color: INK, fontSize: FS(12), fontWeight: on ? 600 : 400 } }, label);
+      style: { flexShrink: 0, height: 30, padding: "0 12px", borderRadius: 15, border: "1.5px solid " + (on ? th.accent : th.line), background: on ? th.soft : th.dark ? "transparent" : "#fff", color: th.ink, fontSize: FS(12), fontWeight: on ? 600 : 400 } }, label);
     const big = (label, onClick, part, dim) => h("button", { "data-wk": wk.btn, "data-part": part, onClick, disabled: !!dim,
-      style: { width: "100%", height: 52, borderRadius: 26, border: "none", background: GRAD, opacity: dim ? .55 : 1, color: "#fff", fontSize: FS(15.5), fontWeight: 600, letterSpacing: ".1em", boxShadow: "0 14px 28px -14px rgba(255,80,130,.85)" } }, label);
-    const page = (title, onBack, body, foot) => h("div", { "data-wk": wk.page, className: "h-full flex flex-col", style: { background: "linear-gradient(180deg,#ffe3ee 0%,#fff6f9 38%,#fdfbfc 100%)", color: INK } },
-      typeof Head === "function" ? h(Head, { zh: title, bg: "transparent", onBack }) : null,
+      style: { width: "100%", height: 52, borderRadius: 26, border: "none", background: th.grad, opacity: dim ? .5 : 1, color: th.dark ? "#2a1a10" : "#fff", fontSize: FS(15.5), fontWeight: 600, letterSpacing: ".1em", boxShadow: "0 14px 28px -14px " + th.glow } }, label);
+    const small = (label, onClick, part, busy) => h("button", { "data-wk": wk.btn, "data-part": part, onClick, disabled: !!busy,
+      style: { height: 34, padding: "0 16px", borderRadius: 17, border: "none", background: th.grad, color: th.dark ? "#2a1a10" : "#fff", fontSize: FS(12.5), fontWeight: 600, opacity: busy ? .6 : 1, whiteSpace: "nowrap" } }, label);
+    const page = (title, onBack, body, foot) => h("div", { "data-wk": wk.page, "data-theme": themeId || "trip", className: "h-full flex flex-col", style: { background: th.bg, color: th.ink } },
+      typeof Head === "function" ? h(Head, { zh: title, bg: "transparent", onBack, ...(th.dark ? { ink: th.ink, lineInk: th.line } : {}) }) : null,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 18px" } }, body),
       foot ? h("div", { style: { flexShrink: 0, padding: "10px 16px 14px", paddingBottom: "calc(14px + " + (typeof COMPOSER_PAD_BOTTOM !== "undefined" ? COMPOSER_PAD_BOTTOM : "0px") + ")" } }, foot) : null);
     const inp = (v, on, ph, part, rows) => h(rows ? "textarea" : "input", { value: v, placeholder: ph, rows, "data-part": part, onChange: e => on(e.target.value),
-      style: { width: "100%", boxSizing: "border-box", border: "1.5px solid #f1e4ea", borderRadius: 12, padding: "9px 11px", fontSize: FS(13.5), color: INK, background: "#fffafc", outline: "none", resize: "none", lineHeight: 1.5 } });
-    return { card, pill, big, page, inp };
+      style: { width: "100%", boxSizing: "border-box", border: "1.5px solid " + th.line, borderRadius: 12, padding: "9px 11px", fontSize: FS(13.5), color: th.ink, background: th.inputBg, outline: "none", resize: "none", lineHeight: 1.5 } });
+    // 列表页顶上那块：大图标＋一句这是什么＋要花几次调用
+    const hero = (title, line, cost) => h("div", { key: "hero", "data-wk": wk.page.replace("page", "hero"), style: { position: "relative", overflow: "hidden", borderRadius: 24, padding: "18px 18px 16px", marginBottom: 16, background: th.hero, color: "#fff", boxShadow: "0 16px 30px -18px " + th.glow } },
+      h("div", { style: { position: "absolute", right: -26, top: -26, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,.14)" } }),
+      h("div", { style: { position: "absolute", right: 18, top: 16, opacity: .9 } }, icon(ICONS[themeId] || ICONS.trip, 38)),
+      h("div", { style: { fontSize: FS(20), fontWeight: 700, letterSpacing: ".06em" } }, title),
+      h("div", { style: { fontSize: FS(12.5), lineHeight: 1.65, marginTop: 6, opacity: .95, paddingRight: 40 } }, line),
+      cost ? h("div", { style: { display: "inline-block", marginTop: 10, fontSize: FS(10.5), padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,.22)" } }, cost) : null);
+    const empty = text => h("div", { key: "empty", style: { textAlign: "center", padding: "44px 0 20px", color: th.sub } },
+      h("div", { style: { display: "inline-flex", width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center", background: th.soft, marginBottom: 10 } }, icon(ICONS[themeId] || ICONS.trip, 28, th.accent)),
+      h("div", { style: { fontSize: FS(13) } }, text));
+    const item = (key, wkName, onClick, thumb, title, sub, note) => h("button", { key, "data-wk": wkName, onClick, style: { width: "100%", display: "flex", gap: 12, alignItems: "center", textAlign: "left", border: th.dark ? "1px solid " + th.line : "none", background: th.card, borderRadius: 20, padding: 10, marginBottom: 10, boxShadow: "0 10px 26px -18px " + th.shadow, color: th.ink } },
+      thumb, h("div", { style: { flex: 1, minWidth: 0 } },
+        h("div", { style: { fontSize: FS(14.5), fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title),
+        h("div", { style: { fontSize: FS(11.5), color: th.sub, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub),
+        h("div", { style: { fontSize: FS(11), color: th.accent, marginTop: 3, fontWeight: 600 } }, note)),
+      h("span", { style: { color: th.sub, fontSize: FS(16) } }, "›"));
+    return { card, pill, big, small, page, inp, hero, empty, item, th };
   }
 
   function CameraTrip(props) {
@@ -124,7 +158,7 @@
     const toast = m => props.toast && props.toast(m);
     const put = list => { setTrips(list); store(list); };
     const names = {}; chars.forEach(c => { names[c.id] = c.name; });
-    const { card, pill, big, page, inp } = makeUI({ page: "trippage", card: "tripcard", btn: "tripbtn" });
+    const { card, pill, big, page, inp, hero, empty, item } = makeUI({ page: "trippage", card: "tripcard", btn: "tripbtn" }, "trip");
 
     // ── 新的旅行 ──
     if (draft) {
@@ -221,23 +255,20 @@
 
     // ── 旅行列表 ──
     return page("旅行", props.onBack, [
-      h("div", { key: "intro", style: { fontSize: FS(11.5), color: SUB, lineHeight: 1.7, margin: "2px 2px 14px" } }, "挑几个人、写一个地方，排出几站；每到一站寄回一张明信片，正面是TA在那儿拍的照，背面是TA写的话。每寄一张调用一次聊天模型、画一张图。"),
+      hero("出门走走", "挑几个人、写一个地方，排出几站。每到一站寄回一张明信片：正面是TA在那儿拍的照，背面是TA写给你的话。", "每寄一张：一次聊天模型＋一张图"),
       trips.length ? trips.map(t => { const n = t.stops.filter(s => s.card).length, c0 = (t.stops.find(s => s.card) || {}).card;
-        return h("button", { key: t.id, "data-wk": "tripitem", onClick: () => setOpenId(t.id), style: { width: "100%", display: "flex", gap: 12, alignItems: "center", textAlign: "left", border: "none", background: "#fff", borderRadius: 20, padding: 10, marginBottom: 10, boxShadow: "0 10px 26px -18px rgba(160,60,110,.55)", color: INK } },
-          h(TripThumb, { k: c0 && c0.imgKey }),
-          h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { style: { fontSize: FS(14.5), fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, t.title),
-            h("div", { style: { fontSize: FS(11.5), color: SUB, marginTop: 3 } }, t.ids.map(id => names[id]).filter(Boolean).join("、") + (t.meGo ? " 和你" : "")),
-            h("div", { style: { fontSize: FS(11), color: PINK, marginTop: 3 } }, n >= t.stops.length ? "走完了 · " + n + " 张明信片" : "收到 " + n + " / " + t.stops.length))); })
-        : h("div", { key: "none", style: { textAlign: "center", color: SUB, fontSize: FS(12.5), padding: "40px 0" } }, "还没出过门")
+        return item(t.id, "tripitem", () => setOpenId(t.id), h(TripThumb, { k: c0 && c0.imgKey }), t.title,
+          t.ids.map(id => names[id]).filter(Boolean).join("、") + (t.meGo ? " 和你" : ""),
+          n >= t.stops.length ? "走完了 · " + n + " 张明信片" : "收到 " + n + " / " + t.stops.length); })
+        : empty("还没出过门，点下面开始第一趟")
     ], big("新的旅行", () => setDraft({ ids: chars[0] ? [chars[0].id] : [], meGo: false, remember: true, place: "", stops: [] }), "new"));
   }
   function TripThumb({ k }) {
     const url = typeof useIdbImgUrl === "function" ? useIdbImgUrl(k) : null;
-    return h("div", { style: { width: 66, height: 66, borderRadius: 14, overflow: "hidden", flexShrink: 0, background: GRAD, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: FS(22) } },
-      url ? h("img", { src: url, style: { width: "100%", height: "100%", objectFit: "cover" } }) : "✈");
+    return h("div", { style: { width: 66, height: 66, borderRadius: 14, overflow: "hidden", flexShrink: 0, background: THEMES.trip.hero, display: "flex", alignItems: "center", justifyContent: "center" } },
+      url ? h("img", { src: url, style: { width: "100%", height: "100%", objectFit: "cover" } }) : icon(ICONS.trip, 26));
   }
   window.CameraTrip = CameraTrip;
   window.CameraTrip.STYLES = STYLES;
-  window.CameraTrip.kit = { makeUI, wrap, loadImg, HAND, GRAD, INK, SUB, PINK, FS, dateZh };
+  window.CameraTrip.kit = { makeUI, THEMES, wrap, loadImg, HAND, GRAD, INK, SUB, PINK, FS, dateZh };
 })();

@@ -598,10 +598,6 @@
         movie: ["M4 8h16v11H4z", "M4 8l3-4h3l-3 4", "M10 8l3-4h3l-3 4", "M16 8l3-4h1"],
         worlds: ["M12 3a9 9 0 100 18 9 9 0 100-18", "M3.5 9h17", "M3.5 15h17", "M12 3c-3 3-3 15 0 18", "M12 3c3 3 3 15 0 18"]
       };
-      const tile = (part, title, sub, grad, icon, onClick, wide) => h("button", { key: part, "data-wk": "camhubtile", "data-part": part, onClick, className: "active:opacity-80",
-        style: { gridColumn: wide ? "1 / -1" : "auto", position: "relative", overflow: "hidden", border: "none", borderRadius: 20, padding: "14px 14px 13px", textAlign: "left", color: "#fff", background: grad, boxShadow: "0 8px 20px -12px rgba(120,40,80,.55)", minHeight: 108, display: "flex", flexDirection: "column", justifyContent: "space-between" } },
-        h("div", { style: { width: 42, height: 42, borderRadius: 14, background: "rgba(255,255,255,.22)", display: "flex", alignItems: "center", justifyContent: "center" } }, ico(icon)),
-        h("div", null, h("div", { style: { fontSize: FS(15.5), fontWeight: 600, letterSpacing: ".04em" } }, title), h("div", { style: { fontSize: FS(11), opacity: .85, marginTop: 2 } }, sub)));
       const goGen = (who, multi) => { setGenWho(who); setGenMulti(multi); if (!multi && genIds.length > 1) setGenIds(genIds.slice(0, 1)); switchMode("gen"); };
       return h("div", { "data-wk": "campage", "data-part": "hub", className: "h-full flex flex-col", style: { background: "linear-gradient(180deg,#ffe3ee 0%,#fff6f9 38%,#fdfbfc 100%)", color: "#2b2230" } },
         typeof Head === "function" ? h(Head, { zh: "相机", bg: "transparent", onBack: props.onBack }) : null,
@@ -614,15 +610,29 @@
             h("div", { style: { width: 52, height: 52, borderRadius: 18, background: "rgba(255,255,255,.25)", display: "flex", alignItems: "center", justifyContent: "center" } }, ico(I.cam)),
             h("div", { style: { fontSize: FS(22), fontWeight: 700, letterSpacing: ".06em", marginTop: 14 } }, "拍照"),
             h("div", { style: { fontSize: FS(12.5), opacity: .9, marginTop: 4 } }, "镜头里的真实景色，把TA和你贴进来一起拍")),
-          h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 } },
-            tile("edit", "修图", "挑一张照片，加滤镜、贴人", "linear-gradient(135deg,#8f7bff,#c08bff)", I.edit, () => hubFileRef.current && hubFileRef.current.click()),
-            tile("gen1", "单人写真", "挑一个人，画一张", "linear-gradient(135deg,#ff7eb3,#ffa3c4)", I.gen, () => goGen("other", false)),
-            tile("genN", "多人合照", "挑几个人，画在一起", "linear-gradient(135deg,#46c6c0,#7fd9a8)", I.duo, () => goGen("other", true)),
-            tile("collage", "拼图", "宫格、拍立得、剪贴本", "linear-gradient(135deg,#ffb259,#ffd27a)", I.grid, () => { setColTpl("grid4"); switchMode("collage"); }),
-            tile("booth", "大头贴", "一条四格，印上日期", "linear-gradient(135deg,#5aa2ff,#8fc1ff)", I.booth, () => { setColTpl("booth"); switchMode("collage"); }),
-            props.onTripCard ? tile("trip", "旅行", "排几站，每站收一张明信片", "linear-gradient(135deg,#ff8fb1,#c39bff)", I.trip, () => switchMode("trip")) : null,
-            props.onMoviePlan ? tile("movie", "电影", "主演一部片：海报、剧照、台词", "linear-gradient(135deg,#3d3550,#8a5a7a)", I.movie, () => switchMode("movie")) : null,
-            props.onWorldsPlan ? tile("worlds", "平行人生", "换个世界的TA，一张写真一封信", "linear-gradient(135deg,#6fb8e8,#a99bff)", I.worlds, () => switchMode("worlds")) : null),
+          // 小工具一排（她 2026-11-27「弄好看点」：八块一样大的色块挤一格一格的，看不出哪个是哪种）：图标圆片＋两个字，装在一张白卡里
+          h("div", { style: { fontSize: FS(12), color: "#9a8592", letterSpacing: ".12em", margin: "18px 4px 8px" } }, "修图 · 生图"),
+          h("div", { "data-wk": "camhubtools", style: { background: "#fff", borderRadius: 22, padding: "14px 6px 10px", display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4, boxShadow: "0 10px 26px -18px rgba(160,60,110,.5)" } },
+            [["edit", "修图", "linear-gradient(135deg,#8f7bff,#c08bff)", I.edit, () => hubFileRef.current && hubFileRef.current.click()],
+             ["gen1", "单人写真", "linear-gradient(135deg,#ff7eb3,#ffa3c4)", I.gen, () => goGen("other", false)],
+             ["genN", "多人合照", "linear-gradient(135deg,#46c6c0,#7fd9a8)", I.duo, () => goGen("other", true)],
+             ["collage", "拼图", "linear-gradient(135deg,#ffb259,#ffd27a)", I.grid, () => { setColTpl("grid4"); switchMode("collage"); }],
+             ["booth", "大头贴", "linear-gradient(135deg,#5aa2ff,#8fc1ff)", I.booth, () => { setColTpl("booth"); switchMode("collage"); }]
+            ].map(([part, zh, g, ic, go]) => h("button", { key: part, "data-wk": "camhubtile", "data-part": part, onClick: go, className: "active:opacity-70", style: { border: "none", background: "transparent", padding: "2px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "#2b2230" } },
+              h("span", { style: { width: 46, height: 46, borderRadius: 16, background: g, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 14px -8px rgba(120,40,80,.6)" } }, ico(ic)),
+              h("span", { style: { fontSize: FS(11.5), whiteSpace: "nowrap" } }, zh)))),
+          // 玩一玩：三张有自己颜色的横卡，跟进去那一页同一套色
+          (props.onTripCard || props.onMoviePlan || props.onWorldsPlan) ? h("div", { style: { fontSize: FS(12), color: "#9a8592", letterSpacing: ".12em", margin: "20px 4px 8px" } }, "玩一玩") : null,
+          [props.onTripCard && ["trip", "旅行", "排几站，每到一站收一张明信片", "linear-gradient(135deg,#ff8fb1 0%,#ffb38a 100%)", I.trip, "#fff"],
+           props.onMoviePlan && ["movie", "电影", "主演一部片：海报、剧照、台词", "linear-gradient(135deg,#2b2030 0%,#5a3a4c 60%,#a8705a 100%)", I.movie, "#f4ede3"],
+           props.onWorldsPlan && ["worlds", "平行人生", "换个世界的TA，一张写真一封信", "linear-gradient(135deg,#7fb4ff 0%,#a98bff 60%,#e6a7f0 100%)", I.worlds, "#fff"]
+          ].filter(Boolean).map(([part, zh, sub, g, ic, ink]) => h("button", { key: part, "data-wk": "camhubtile", "data-part": part, onClick: () => switchMode(part), className: "active:opacity-80",
+            style: { width: "100%", position: "relative", overflow: "hidden", border: "none", borderRadius: 22, padding: "16px 18px", marginBottom: 10, textAlign: "left", color: ink, background: g, boxShadow: "0 12px 26px -16px rgba(80,30,60,.6)", display: "flex", alignItems: "center", gap: 14 } },
+            h("div", { style: { position: "absolute", right: -20, top: -30, width: 110, height: 110, borderRadius: 55, background: "rgba(255,255,255,.12)" } }),
+            h("div", { style: { flex: 1, minWidth: 0, position: "relative" } },
+              h("div", { style: { fontSize: FS(17), fontWeight: 700, letterSpacing: ".06em" } }, zh),
+              h("div", { style: { fontSize: FS(11.5), opacity: .85, marginTop: 3 } }, sub)),
+            h("div", { style: { width: 48, height: 48, borderRadius: 16, background: "rgba(255,255,255,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, position: "relative" } }, ico(ic)))),
           roll.length ? h("div", { style: { marginTop: 20 } },
             h("div", { style: { fontSize: FS(13), fontWeight: 600, marginBottom: 8 } }, "拍过的"),
             rollPeople.length ? h("div", { "data-wk": "camrollwho", style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8 } },

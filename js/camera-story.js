@@ -15,12 +15,12 @@
   const Img = ({ k, style, wk }) => { const url = typeof useIdbImgUrl === "function" ? useIdbImgUrl(k) : null; return url ? h("img", { src: url, "data-wk": wk, style: Object.assign({ display: "block", width: "100%" }, style) }) : h("div", { style: Object.assign({ width: "100%", aspectRatio: "2 / 3", background: "#f1e4ea" }, style) }); };
 
   // 挑人：一排头像，可以多选／单选；withMe＝带上她自己
-  function PeoplePick({ chars, meName, meAvatar, ids, onToggle, withMe, wk }) {
+  function PeoplePick({ chars, meName, meAvatar, ids, onToggle, withMe, wk, th }) {
     const k = K(), list = (withMe ? [{ id: "me", name: meName || "我", avatarImage: meAvatar || "" }] : []).concat(chars);
     return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))", gap: "12px 6px" } },
       list.map(p => { const on = ids.indexOf(p.id) >= 0;
-        return h("button", { key: p.id, "data-wk": wk, "data-on": on ? "1" : "0", onClick: () => onToggle(p.id), style: { border: "none", background: "transparent", color: k.INK, textAlign: "center", padding: 0 } },
-          h("div", { style: { display: "inline-block", borderRadius: "50%", padding: 3, background: on ? k.GRAD : "transparent" } }, h("div", { style: { borderRadius: "50%", padding: 2, background: "#fff" } }, typeof Avatar === "function" ? h(Avatar, { character: p, size: 48 }) : null)),
+        return h("button", { key: p.id, "data-wk": wk, "data-on": on ? "1" : "0", onClick: () => onToggle(p.id), style: { border: "none", background: "transparent", color: th.ink, textAlign: "center", padding: 0 } },
+          h("div", { style: { display: "inline-block", borderRadius: "50%", padding: 3, background: on ? th.grad : "transparent" } }, h("div", { style: { borderRadius: "50%", padding: 2, background: "#fff" } }, typeof Avatar === "function" ? h(Avatar, { character: p, size: 48 }) : null)),
           h("div", { style: { fontSize: k.FS(11.5), marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name)); }));
   }
 
@@ -47,7 +47,7 @@
     const toast = m => props.toast && props.toast(m);
     const put = l => { setList(l); storeL(KEY, l); };
     const patchMv = (id, fn) => put(loadL(KEY).map(m => m.id === id ? fn(m) : m));
-    const { card, pill, big, page, inp } = k.makeUI({ page: "moviepage", card: "moviecard", btn: "moviebtn" });
+    const { card, pill, big, small, page, inp, hero, empty, item, th } = k.makeUI({ page: "moviepage", card: "moviecard", btn: "moviebtn" }, "movie");
     const nameOf = id => id === "me" ? (props.meName || "我") : ((chars.find(c => c.id === id) || {}).name || "");
 
     if (draft) {
@@ -67,25 +67,25 @@
       };
       const setScene = (i, p) => set({ scenes: d.scenes.map((s, j) => j === i ? Object.assign({}, s, p) : s) });
       return page("新电影", () => setDraft(null), [
-        card("cast", "演员", "可以多选，也可以带上你", h(PeoplePick, { chars, meName: props.meName, meAvatar: props.meAvatar, ids: d.ids, onToggle: tog, withMe: true, wk: "movieone" })),
+        card("cast", "演员", "可以多选，也可以带上你", h(PeoplePick, { th, chars, meName: props.meName, meAvatar: props.meAvatar, ids: d.ids, onToggle: tog, withMe: true, wk: "movieone" })),
         card("brief", "想看什么片", "类型、一句剧情、一个梗都行", h("div", null,
           inp(d.brief, v => set({ brief: v }), "写一句", "brief", 2),
           h("div", { style: { display: "flex", gap: 8, alignItems: "center", marginTop: 8 } },
-            h("button", { "data-wk": "moviebtn", "data-part": "plan", onClick: write, style: { height: 34, padding: "0 16px", borderRadius: 17, border: "none", background: k.GRAD, color: "#fff", fontSize: k.FS(12.5), fontWeight: 600, opacity: busy ? .6 : 1, whiteSpace: "nowrap" } }, busy === "plan" ? "在写…" : d.planned ? "重新写一版" : "让 AI 写一版"),
-            h("span", { style: { fontSize: k.FS(10.5), color: k.SUB } }, "片名、角色、几场戏，写完都能改")))),
+            small(busy === "plan" ? "在写…" : d.planned ? "重新写一版" : "让 AI 写一版", write, "plan", busy),
+            h("span", { style: { fontSize: k.FS(10.5), color: th.sub } }, "片名、角色、几场戏，写完都能改")))),
         d.planned ? card("plan", "这部片", null, h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
           inp(d.title, v => set({ title: v, titleLock: true }), "片名", "title"),
           inp(d.tagline, v => set({ tagline: v }), "海报上的一句", "tagline"),
           inp(d.synopsis, v => set({ synopsis: v }), "剧情简介", "synopsis", 4),
           (d.roles || []).map((r, i) => h("div", { key: i, style: { display: "flex", gap: 6, alignItems: "center" } }, h("span", { style: { fontSize: k.FS(12), width: 64, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.who), h("div", { style: { flex: 1 } }, inp(r.role, v => set({ roles: d.roles.map((x, j) => j === i ? Object.assign({}, x, { role: v }) : x) }), "演谁", "role")))))) : null,
         d.planned ? card("scenes", "几场戏", (d.scenes || []).length + " 场，一场拍一张剧照", h("div", null,
-          (d.scenes || []).map((s, i) => h("div", { key: i, "data-wk": "moviescene", style: { border: "1.5px solid #f6e8ee", borderRadius: 16, padding: 10, marginBottom: 10 } },
+          (d.scenes || []).map((s, i) => h("div", { key: i, "data-wk": "moviescene", style: { border: "1.5px solid " + th.line, borderRadius: 16, padding: 10, marginBottom: 10 } },
             h("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6 } },
-              h("span", { style: { width: 22, height: 22, borderRadius: 11, background: k.GRAD, color: "#fff", fontSize: k.FS(11), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, i + 1),
+              h("span", { style: { width: 22, height: 22, borderRadius: 11, background: th.grad, color: "#fff", fontSize: k.FS(11), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, i + 1),
               h("div", { style: { flex: 1 } }, inp(s.name, v => setScene(i, { name: v }), "场名", "scenename")),
-              h("button", { "data-wk": "moviebtn", "data-part": "delscene", onClick: () => set({ scenes: d.scenes.filter((_, j) => j !== i) }), style: { border: "none", background: "transparent", color: k.SUB, fontSize: k.FS(16), padding: "0 4px" } }, "×")),
+              h("button", { "data-wk": "moviebtn", "data-part": "delscene", onClick: () => set({ scenes: d.scenes.filter((_, j) => j !== i) }), style: { border: "none", background: "transparent", color: th.sub, fontSize: k.FS(16), padding: "0 4px" } }, "×")),
             inp(s.beat, v => setScene(i, { beat: v }), "这一场发生什么", "scenebeat", 3))),
-          h("button", { "data-wk": "moviebtn", "data-part": "addscene", onClick: () => set({ scenes: (d.scenes || []).concat([{ name: "", beat: "" }]) }), style: { width: "100%", height: 38, borderRadius: 14, border: "1.5px dashed #f1cfdc", background: "transparent", color: k.PINK, fontSize: k.FS(12.5) } }, "＋ 加一场"))) : null
+          h("button", { "data-wk": "moviebtn", "data-part": "addscene", onClick: () => set({ scenes: (d.scenes || []).concat([{ name: "", beat: "" }]) }), style: { width: "100%", height: 38, borderRadius: 14, border: "1.5px dashed " + th.accent, background: "transparent", color: th.accent, fontSize: k.FS(12.5) } }, "＋ 加一场"))) : null
       ], big("开拍", go, "go", !d.planned));
     }
 
@@ -111,13 +111,13 @@
             : h("div", { style: { aspectRatio: "2 / 3", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#f4efe6", gap: 10, padding: 20, textAlign: "center" } },
               h("div", { style: { fontSize: k.FS(22), fontWeight: 700, letterSpacing: ".1em" } }, mv.title),
               h("div", { style: { fontSize: k.FS(12), opacity: .7 } }, mv.tagline),
-              h("button", { "data-wk": "moviebtn", "data-part": "poster", onClick: doPoster, style: { marginTop: 8, height: 36, padding: "0 18px", borderRadius: 18, border: "none", background: k.GRAD, color: "#fff", fontSize: k.FS(13), fontWeight: 600, opacity: busy ? .6 : 1 } }, busy === "poster" ? "在拍海报…" : "出海报"))),
+              h("button", { "data-wk": "moviebtn", "data-part": "poster", onClick: doPoster, style: { marginTop: 8, height: 36, padding: "0 18px", borderRadius: 18, border: "none", background: th.grad, color: "#fff", fontSize: k.FS(13), fontWeight: 600, opacity: busy ? .6 : 1 } }, busy === "poster" ? "在拍海报…" : "出海报"))),
         mv.posterKey ? h("div", { key: "pact", style: { display: "flex", justifyContent: "space-between", fontSize: k.FS(11.5), marginBottom: 14 } },
-          h("button", { "data-wk": "moviebtn", "data-part": "reposter", onClick: doPoster, style: { border: "none", background: "transparent", color: k.SUB } }, busy === "poster" ? "在拍…" : "重拍海报"),
-          h("button", { "data-wk": "moviebtn", "data-part": "saveposter", onClick: async () => { try { await saveBlob(await idbImgGet(mv.posterKey), mv.title + "-海报"); } catch (e) {} }, style: { border: "none", background: "transparent", color: k.PINK, fontWeight: 600 } }, "存到手机")) : null,
-        h("div", { key: "meta", style: { fontSize: k.FS(12), color: k.INK, lineHeight: 1.75, marginBottom: 14 } },
-          h("div", { style: { color: k.SUB, fontSize: k.FS(11.5) } }, [mv.genre, mv.ids.map(nameOf).filter(Boolean).join("、") + " 主演"].filter(Boolean).join(" · ")),
-          mv.roles.length ? h("div", { style: { color: k.SUB, fontSize: k.FS(11.5) } }, mv.roles.map(r => r.who + " 饰 " + r.role.split(/[，,。（(]/)[0]).join("　")) : null,
+          h("button", { "data-wk": "moviebtn", "data-part": "reposter", onClick: doPoster, style: { border: "none", background: "transparent", color: th.sub } }, busy === "poster" ? "在拍…" : "重拍海报"),
+          h("button", { "data-wk": "moviebtn", "data-part": "saveposter", onClick: async () => { try { await saveBlob(await idbImgGet(mv.posterKey), mv.title + "-海报"); } catch (e) {} }, style: { border: "none", background: "transparent", color: th.accent, fontWeight: 600 } }, "存到手机")) : null,
+        h("div", { key: "meta", style: { fontSize: k.FS(12), color: th.ink, lineHeight: 1.75, marginBottom: 14 } },
+          h("div", { style: { color: th.sub, fontSize: k.FS(11.5) } }, [mv.genre, mv.ids.map(nameOf).filter(Boolean).join("、") + " 主演"].filter(Boolean).join(" · ")),
+          mv.roles.length ? h("div", { style: { color: th.sub, fontSize: k.FS(11.5) } }, mv.roles.map(r => r.who + " 饰 " + r.role.split(/[，,。（(]/)[0]).join("　")) : null,
           mv.synopsis ? h("div", { style: { marginTop: 6 } }, mv.synopsis) : null),
         got.map((s, i) => h("div", { key: i, "data-wk": "moviestill", style: { marginBottom: 18 } },
           h("div", { style: { fontSize: k.FS(13), fontWeight: 600, margin: "0 2px 6px" } }, "第 " + (mv.scenes.indexOf(s) + 1) + " 场 · " + s.name),
@@ -125,23 +125,19 @@
             h(Img, { k: s.shot.imgKey }),
             (s.shot.lines || []).length ? h("div", { "data-wk": "moviesubs", style: { padding: "10px 14px 12px", color: "#f4efe6", fontSize: k.FS(13), lineHeight: 1.7, textAlign: "center" } },
               s.shot.lines.map((l, j) => h("div", { key: j }, (l.who ? h("span", { style: { opacity: .6 } }, l.who + "：") : null), l.line))) : null),
-          h("div", { style: { textAlign: "right", marginTop: 4 } }, h("button", { "data-wk": "moviebtn", "data-part": "savestill", onClick: async () => { try { await saveBlob(await stillWithSubs(s.shot.imgKey, s.shot.lines), mv.title + "-" + s.name); } catch (e) { toast(String(e && e.message || e)); } }, style: { border: "none", background: "transparent", color: k.PINK, fontSize: k.FS(12), fontWeight: 600 } }, "存到手机")))),
-        h("div", { key: "left", style: { fontSize: k.FS(11.5), color: k.SUB, lineHeight: 1.9 } }, mv.scenes.map((s, i) => h("div", { key: i, style: { color: s.shot ? k.SUB : i === next ? k.INK : "#c8b8c0" } }, (s.shot ? "✓ " : i === next ? "→ " : "· ") + "第 " + (i + 1) + " 场 " + s.name))),
-        h("button", { key: "del", "data-wk": "moviebtn", "data-part": "delmovie", onClick: del, style: { marginTop: 18, border: "none", background: "transparent", color: k.SUB, fontSize: k.FS(12) } }, "删掉这部电影")
-      ], sc ? h("div", null, h("div", { style: { fontSize: k.FS(11), color: k.SUB, textAlign: "center", marginBottom: 8 } }, busy === "scene" ? "在写台词、在拍…要等半分钟左右" : "下一场：" + sc.name),
-        big(busy === "scene" ? "在拍…" : "拍这一场", shoot, "shoot", !!busy)) : h("div", { style: { textAlign: "center", color: k.SUB, fontSize: k.FS(12.5), padding: "8px 0" } }, "杀青了"));
+          h("div", { style: { textAlign: "right", marginTop: 4 } }, h("button", { "data-wk": "moviebtn", "data-part": "savestill", onClick: async () => { try { await saveBlob(await stillWithSubs(s.shot.imgKey, s.shot.lines), mv.title + "-" + s.name); } catch (e) { toast(String(e && e.message || e)); } }, style: { border: "none", background: "transparent", color: th.accent, fontSize: k.FS(12), fontWeight: 600 } }, "存到手机")))),
+        h("div", { key: "left", style: { fontSize: k.FS(11.5), color: th.sub, lineHeight: 1.9 } }, mv.scenes.map((s, i) => h("div", { key: i, style: { color: s.shot ? th.sub : i === next ? th.ink : th.line } }, (s.shot ? "✓ " : i === next ? "→ " : "· ") + "第 " + (i + 1) + " 场 " + s.name))),
+        h("button", { key: "del", "data-wk": "moviebtn", "data-part": "delmovie", onClick: del, style: { marginTop: 18, border: "none", background: "transparent", color: th.sub, fontSize: k.FS(12) } }, "删掉这部电影")
+      ], sc ? h("div", null, h("div", { style: { fontSize: k.FS(11), color: th.sub, textAlign: "center", marginBottom: 8 } }, busy === "scene" ? "在写台词、在拍…要等半分钟左右" : "下一场：" + sc.name),
+        big(busy === "scene" ? "在拍…" : "拍这一场", shoot, "shoot", !!busy)) : h("div", { style: { textAlign: "center", color: th.sub, fontSize: k.FS(12.5), padding: "8px 0" } }, "杀青了"));
     }
 
     return page("电影", props.onBack, [
-      h("div", { key: "intro", style: { fontSize: k.FS(11.5), color: k.SUB, lineHeight: 1.7, margin: "2px 2px 14px" } }, "挑几个演员（可以带上你），写一句想看什么片；定好片名、角色和几场戏，出一张海报，再一场一场拍剧照、配台词。写一版、出海报、每拍一场各调用一次。"),
+      hero("开机", "挑几个演员（可以带上你），写一句想看什么片。定好片名、角色和几场戏，先出海报，再一场一场拍剧照、配台词。", "写一版、出海报、每拍一场各一次"),
       list.length ? list.map(m => { const n = m.scenes.filter(s => s.shot).length;
-        return h("button", { key: m.id, "data-wk": "movieitem", onClick: () => setOpenId(m.id), style: { width: "100%", display: "flex", gap: 12, alignItems: "center", textAlign: "left", border: "none", background: "#fff", borderRadius: 20, padding: 10, marginBottom: 10, boxShadow: "0 10px 26px -18px rgba(160,60,110,.55)", color: k.INK } },
-          h("div", { style: { width: 54, height: 80, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "#1a1418" } }, m.posterKey ? h(Img, { k: m.posterKey, style: { height: "100%", objectFit: "cover" } }) : null),
-          h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { style: { fontSize: k.FS(14.5), fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + m.title + "》"),
-            h("div", { style: { fontSize: k.FS(11.5), color: k.SUB, marginTop: 3 } }, m.ids.map(nameOf).filter(Boolean).join("、") + " 主演"),
-            h("div", { style: { fontSize: k.FS(11), color: k.PINK, marginTop: 3 } }, n >= m.scenes.length ? "杀青 · " + n + " 场" : "拍了 " + n + " / " + m.scenes.length + " 场"))); })
-        : h("div", { key: "none", style: { textAlign: "center", color: k.SUB, fontSize: k.FS(12.5), padding: "40px 0" } }, "还没拍过")
+        return item(m.id, "movieitem", () => setOpenId(m.id), h("div", { style: { width: 54, height: 80, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "#1a1418", boxShadow: "0 6px 14px -6px rgba(0,0,0,.6)" } }, m.posterKey ? h(Img, { k: m.posterKey, style: { height: "100%", objectFit: "cover" } }) : null),
+          "《" + m.title + "》", m.ids.map(nameOf).filter(Boolean).join("、") + " 主演", n >= m.scenes.length ? "杀青 · " + n + " 场" : "拍了 " + n + " / " + m.scenes.length + " 场"); })
+        : empty("还没拍过，点下面开一部")
     ], big("新电影", () => setDraft({ ids: chars[0] ? [chars[0].id] : [], brief: "", title: "", scenes: [], roles: [] }), "new"));
   }
 
@@ -158,17 +154,17 @@
     ctx.fillStyle = "#3a3340"; ctx.font = fs + "px " + k.HAND; rows.forEach((r, i) => ctx.fillText(r, m, ph + m + 100 + i * fs * 1.5));
     return await new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error("没存下来")), "image/jpeg", 0.92));
   }
-  function WorldCard({ w, name, onSave }) {
+  function WorldCard({ w, name, onSave, th }) {
     const k = K(), [back, setBack] = useState(false);
     return h("div", { "data-wk": "worldpost", style: { marginBottom: 20 } },
-      h("div", { style: { margin: "0 2px 8px", color: k.INK } }, h("span", { style: { fontSize: k.FS(14), fontWeight: 600 } }, w.world), w.who ? h("div", { style: { fontSize: k.FS(11), color: k.SUB, marginTop: 2, lineHeight: 1.5 } }, w.who) : null),
+      h("div", { style: { margin: "0 2px 8px", color: th.ink } }, h("span", { style: { fontSize: k.FS(14), fontWeight: 600 } }, w.world), w.who ? h("div", { style: { fontSize: k.FS(11), color: th.sub, marginTop: 2, lineHeight: 1.5 } }, w.who) : null),
       h("div", { "data-wk": "worldflip", onClick: () => setBack(b => !b), style: { position: "relative", borderRadius: 14, overflow: "hidden", boxShadow: "0 16px 34px -18px rgba(80,30,60,.6)", cursor: "pointer", background: "#fbf7f1" } },
         h("div", { style: { visibility: back ? "hidden" : "visible" } }, h(Img, { k: w.card.imgKey, wk: "worldphoto" })),
         back ? h("div", { "data-wk": "worldletter", style: { position: "absolute", inset: 0, overflowY: "auto", padding: "22px 20px", fontFamily: k.HAND, fontSize: k.FS(17), lineHeight: 1.6, color: "#3a3340", whiteSpace: "pre-wrap", background: "#fbf7f1" } },
           w.card.letter, h("div", { style: { textAlign: "right", marginTop: 12 } }, "—— 「" + w.world + "」里的 " + name)) : null),
-      h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: k.FS(11), color: k.SUB } },
+      h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: k.FS(11), color: th.sub } },
         h("span", null, back ? "点一下看照片" : "点一下看TA写的信"),
-        h("button", { "data-wk": "worldbtn", "data-part": "saveworld", onClick: onSave, style: { border: "none", background: "transparent", color: k.PINK, fontSize: k.FS(12), fontWeight: 600 } }, "存到手机")));
+        h("button", { "data-wk": "worldbtn", "data-part": "saveworld", onClick: onSave, style: { border: "none", background: "transparent", color: th.accent, fontSize: k.FS(12), fontWeight: 600 } }, "存到手机")));
   }
   function CameraWorlds(props) {
     const k = K(), chars = props.characters || [], KEY = "x_camWorlds";
@@ -178,7 +174,7 @@
     const [busy, setBusy] = useState("");
     const toast = m => props.toast && props.toast(m);
     const put = l => { setList(l); storeL(KEY, l); };
-    const { card, big, page, inp } = k.makeUI({ page: "worldpage", card: "worldcard", btn: "worldbtn" });
+    const { card, big, small, page, inp, hero, empty, item, th } = k.makeUI({ page: "worldpage", card: "worldcard", btn: "worldbtn" }, "worlds");
     const nameOf = id => (chars.find(c => c.id === id) || {}).name || "TA";
 
     if (draft) {
@@ -196,17 +192,17 @@
       };
       const setW = (i, p) => set({ worlds: d.worlds.map((w, j) => j === i ? Object.assign({}, w, p) : w) });
       return page("平行人生", () => setDraft(null), [
-        card("who", "谁", "挑一个", h(PeoplePick, { chars, ids: d.charId ? [d.charId] : [], onToggle: id => set({ charId: id }), wk: "worldone" })),
+        card("who", "谁", "挑一个", h(PeoplePick, { th, chars, ids: d.charId ? [d.charId] : [], onToggle: id => set({ charId: id }), wk: "worldone" })),
         card("brief", "想看哪种人生", "可以空着，让TA自己想", h("div", null,
           inp(d.brief, v => set({ brief: v }), "写一句，或者留空", "brief", 2),
-          h("button", { "data-wk": "worldbtn", "data-part": "plan", onClick: think, style: { marginTop: 8, height: 34, padding: "0 16px", borderRadius: 17, border: "none", background: k.GRAD, color: "#fff", fontSize: k.FS(12.5), fontWeight: 600, opacity: busy ? .6 : 1, whiteSpace: "nowrap" } }, busy === "plan" ? "在想…" : d.worlds.length ? "重新想几个" : "让TA想几个世界"))),
+          h("div", { style: { marginTop: 8 } }, small(busy === "plan" ? "在想…" : d.worlds.length ? "重新想几个" : "让TA想几个世界", think, "plan", busy)))),
         card("worlds", "几个世界", d.worlds.length ? d.worlds.length + " 个，一个一张写真一封信" : "还没有", h("div", null,
-          d.worlds.map((w, i) => h("div", { key: i, "data-wk": "worldrow", style: { border: "1.5px solid #f6e8ee", borderRadius: 16, padding: 10, marginBottom: 10 } },
+          d.worlds.map((w, i) => h("div", { key: i, "data-wk": "worldrow", style: { border: "1.5px solid " + th.line, borderRadius: 16, padding: 10, marginBottom: 10 } },
             h("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6 } },
               h("div", { style: { flex: 1 } }, inp(w.world, v => setW(i, { world: v }), "什么世界", "world")),
-              h("button", { "data-wk": "worldbtn", "data-part": "delworld", onClick: () => set({ worlds: d.worlds.filter((_, j) => j !== i) }), style: { border: "none", background: "transparent", color: k.SUB, fontSize: k.FS(16), padding: "0 4px" } }, "×")),
+              h("button", { "data-wk": "worldbtn", "data-part": "delworld", onClick: () => set({ worlds: d.worlds.filter((_, j) => j !== i) }), style: { border: "none", background: "transparent", color: th.sub, fontSize: k.FS(16), padding: "0 4px" } }, "×")),
             inp(w.who, v => setW(i, { who: v }), "那个世界的TA是什么人（可空）", "whoami", 2))),
-          h("button", { "data-wk": "worldbtn", "data-part": "addworld", onClick: () => set({ worlds: d.worlds.concat([{ world: "", who: "" }]) }), style: { width: "100%", height: 38, borderRadius: 14, border: "1.5px dashed #f1cfdc", background: "transparent", color: k.PINK, fontSize: k.FS(12.5) } }, "＋ 加一个世界")))
+          h("button", { "data-wk": "worldbtn", "data-part": "addworld", onClick: () => set({ worlds: d.worlds.concat([{ world: "", who: "" }]) }), style: { width: "100%", height: 38, borderRadius: 14, border: "1.5px dashed " + th.accent, background: "transparent", color: th.accent, fontSize: k.FS(12.5) } }, "＋ 加一个世界")))
       ], big("出发", go, "go", !d.charId || !d.worlds.some(w => String(w.world || "").trim())));
     }
 
@@ -222,23 +218,19 @@
       };
       const del = () => confirmDo("删掉这一组平行人生？", "写真和信都会删掉（已经存到手机的不受影响）", async () => { await delImgs(pw.worlds.map(w => w.card && w.card.imgKey)); put(loadL(KEY).filter(t => t.id !== pw.id)); setOpenId(null); });
       return page(name + "的平行人生", () => setOpenId(null), [
-        pw.worlds.filter(w => w.card).map((w, i) => h(WorldCard, { key: i, w, name, onSave: async () => { try { await saveBlob(await worldWithLetter(w.card, w, name), name + "-" + w.world); } catch (e) { toast(String(e && e.message || e)); } } })),
-        h("div", { key: "left", style: { fontSize: k.FS(11.5), color: k.SUB, lineHeight: 1.9 } }, pw.worlds.map((w, i) => h("div", { key: i, style: { color: w.card ? k.SUB : i === next ? k.INK : "#c8b8c0" } }, (w.card ? "✓ " : i === next ? "→ " : "· ") + w.world))),
-        h("button", { key: "del", "data-wk": "worldbtn", "data-part": "delpw", onClick: del, style: { marginTop: 18, border: "none", background: "transparent", color: k.SUB, fontSize: k.FS(12) } }, "删掉这一组")
-      ], w0 ? h("div", null, h("div", { style: { fontSize: k.FS(11), color: k.SUB, textAlign: "center", marginBottom: 8 } }, busy === "go" ? "TA在那个世界里写信、拍照…要等半分钟左右" : "下一个世界：" + w0.world),
-        big(busy === "go" ? "在路上…" : "去这个世界", visit, "visit", !!busy)) : h("div", { style: { textAlign: "center", color: k.SUB, fontSize: k.FS(12.5), padding: "8px 0" } }, "这几个世界都去过了"));
+        pw.worlds.filter(w => w.card).map((w, i) => h(WorldCard, { key: i, w, name, th, onSave: async () => { try { await saveBlob(await worldWithLetter(w.card, w, name), name + "-" + w.world); } catch (e) { toast(String(e && e.message || e)); } } })),
+        h("div", { key: "left", style: { fontSize: k.FS(11.5), color: th.sub, lineHeight: 1.9 } }, pw.worlds.map((w, i) => h("div", { key: i, style: { color: w.card ? th.sub : i === next ? th.ink : th.line } }, (w.card ? "✓ " : i === next ? "→ " : "· ") + w.world))),
+        h("button", { key: "del", "data-wk": "worldbtn", "data-part": "delpw", onClick: del, style: { marginTop: 18, border: "none", background: "transparent", color: th.sub, fontSize: k.FS(12) } }, "删掉这一组")
+      ], w0 ? h("div", null, h("div", { style: { fontSize: k.FS(11), color: th.sub, textAlign: "center", marginBottom: 8 } }, busy === "go" ? "TA在那个世界里写信、拍照…要等半分钟左右" : "下一个世界：" + w0.world),
+        big(busy === "go" ? "在路上…" : "去这个世界", visit, "visit", !!busy)) : h("div", { style: { textAlign: "center", color: th.sub, fontSize: k.FS(12.5), padding: "8px 0" } }, "这几个世界都去过了"));
     }
 
     return page("平行人生", props.onBack, [
-      h("div", { key: "intro", style: { fontSize: k.FS(11.5), color: k.SUB, lineHeight: 1.7, margin: "2px 2px 14px" } }, "同一个TA，换一个世界、一种人生：一个世界一张写真，背面是那个世界的TA写给你的信。想世界、每去一个世界各调用一次。"),
+      hero("换一个世界", "同一个TA，换一个世界、一种人生：一个世界一张写真，背面是那个世界的TA写给你的信。", "想世界、每去一个世界各一次"),
       list.length ? list.map(t => { const n = t.worlds.filter(w => w.card).length, c0 = (t.worlds.find(w => w.card) || {}).card;
-        return h("button", { key: t.id, "data-wk": "worlditem", onClick: () => setOpenId(t.id), style: { width: "100%", display: "flex", gap: 12, alignItems: "center", textAlign: "left", border: "none", background: "#fff", borderRadius: 20, padding: 10, marginBottom: 10, boxShadow: "0 10px 26px -18px rgba(160,60,110,.55)", color: k.INK } },
-          h("div", { style: { width: 60, height: 80, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: k.GRAD } }, c0 ? h(Img, { k: c0.imgKey, style: { height: "100%", objectFit: "cover" } }) : null),
-          h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { style: { fontSize: k.FS(14.5), fontWeight: 600 } }, nameOf(t.charId)),
-            h("div", { style: { fontSize: k.FS(11.5), color: k.SUB, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, t.worlds.map(w => w.world).join(" · ")),
-            h("div", { style: { fontSize: k.FS(11), color: k.PINK, marginTop: 3 } }, "去过 " + n + " / " + t.worlds.length))); })
-        : h("div", { key: "none", style: { textAlign: "center", color: k.SUB, fontSize: k.FS(12.5), padding: "40px 0" } }, "还没有")
+        return item(t.id, "worlditem", () => setOpenId(t.id), h("div", { style: { width: 60, height: 80, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: th.grad } }, c0 ? h(Img, { k: c0.imgKey, style: { height: "100%", objectFit: "cover" } }) : null),
+          nameOf(t.charId), t.worlds.map(w => w.world).join(" · "), "去过 " + n + " / " + t.worlds.length); })
+        : empty("还没有，点下面开始")
     ], big("新的一组", () => setDraft({ charId: chars[0] ? chars[0].id : "", brief: "", worlds: [] }), "new"));
   }
   window.CameraMovie = CameraMovie;

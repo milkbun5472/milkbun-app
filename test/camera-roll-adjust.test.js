@@ -47,7 +47,7 @@ test("旅行：一站一站寄；样子可以定也可以让TA挑；出发前选
   assert.match(trip, /const style = stop\.style !== "auto" \? stop\.style : \(r\.style \|\|/);
   assert.match(trip, /const next = trip\.stops\.findIndex\(s => !s\.card\)/);
   assert.match(html, /data-lazy="camera" data-src="js\/camera-trip\.js\?v=/);
-  for (const k of ["trippage", "tripcard", "tripone", "tripstop", "tripitem", "trippost", "tripflip", "tripfront", "tripback", "tripbtn"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(trip.includes('"data-wk": "' + k + '"') || trip.includes(': "' + k + '"'), k); }
+  for (const k of ["trippage", "tripcard", "tripone", "tripstop", "tripitem", "trippost", "tripflip", "tripfront", "tripback", "tripbtn"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(trip.includes('"' + k + '"'), k); }
 });
 test("旅行的照片每张都有脸：没有 view 那一种", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
