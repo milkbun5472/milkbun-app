@@ -17314,7 +17314,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         if (!spect && chpCount(st, "rename") < CHP_CAP.rename) can.push(["rename", "\"rename\":{\"name\":\"新频道名\",\"about\":\"新的一句这里聊什么\"}——两样可以只写一样，频道里大家都看得到是谁改的，别人也能改回去"]);
         can.push(["pin", "\"pin\":{\"quote\":\"要钉到顶上那句里逐字的一小段\"} 或 \"unpin\":{\"quote\":\"…\"}——置顶最多三条"]);
         if (chpCount(st, "note") < CHP_CAP.note) can.push(["w", "\"note\":{\"text\":\"往墙上贴一张便利贴\"}"]);
-        can.push(["w", "\"scribble\":{\"on\":\"墙上那张便利贴里的一小段\",\"text\":\"在上面写一句\"}、\"tear\":{\"quote\":\"…\"}——撕的是自己的，或者贴了一天以上的"]);
+        can.push(["w", "\"scribble\":{\"on\":\"墙上别人那张便利贴里的一小段\",\"text\":\"在上面写一句\"}、\"tear\":{\"quote\":\"…\"}——撕的是自己的，或者贴了一天以上的"]);
         if (window.__chAskSongs === groupId) { window.__chAskSongs = null; _askSongs = true; }
         if (window.__chAskPet === groupId) { window.__chAskPet = null; if (st.pet && (st.pet.kindPending || st.pet.naming)) _askPet = st.pet.kindPending ? "kind" : "name"; }
         if (_askSongs || chpCount(st, "song") < CHP_CAP.song) can.push(["song", "\"song\":{\"title\":\"歌名\",\"artist\":\"歌手\"}——往频道歌单里加一首"]);
@@ -18109,7 +18109,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
               if (item.pin && typeof item.pin === "object") { const k = chpFindMsg(_ms, item.pin.quote, 40); if (k >= 0) { chpPin(_st, _ms[k], spk.id); _say(spk.name + " 置顶了一句"); } }
               if (item.unpin && typeof item.unpin === "object") { const q = String(item.unpin.quote || "").trim(), pp = q && _st.pins.find(x => x.text.indexOf(q) >= 0); if (pp) { chpUnpin(_st, pp.key); _say(spk.name + " 取消了一条置顶"); } }
               if (item.note && typeof item.note === "object" && chpCount(_st, "note") < CHP_CAP.note && String(item.note.text || "").trim()) { chpNoteAdd(_st, chpNoSelfName(item.note.text, spk.name), spk.id); chpBump(_st, "note"); _say(spk.name + " 往墙上贴了张便利贴"); }
-              if (item.scribble && typeof item.scribble === "object") { const _nb = JSON.stringify(_st.notes); chpScribble(_st, item.scribble.on, chpNoSelfName(item.scribble.text, spk.name), spk.id); if (JSON.stringify(_st.notes) !== _nb) _say(spk.name + " 在墙上一张便利贴上写了一句"); }
+              // 在自己那张上「写一句」＝想再贴一张（她 2026-11-27：一个人好几天都往自己那张上续，墙上一直只有那一张）：今天还能贴就另贴一张新的
+              let _scrib = item.scribble && typeof item.scribble === "object" ? item.scribble : null;
+              if (_scrib) { const _own = chpNoteFind(_st, _scrib.on), _tx = String(_scrib.text || "").trim();
+                if (_own && _own.by === spk.id && _tx && chpCount(_st, "note") < CHP_CAP.note) { chpNoteAdd(_st, chpNoSelfName(_tx, spk.name), spk.id); chpBump(_st, "note"); _say(spk.name + " 往墙上贴了张便利贴"); _scrib = null; } }
+              if (_scrib) { const _nb = JSON.stringify(_st.notes); chpScribble(_st, _scrib.on, chpNoSelfName(_scrib.text, spk.name), spk.id); if (JSON.stringify(_st.notes) !== _nb) _say(spk.name + " 在墙上一张便利贴上写了一句"); }
               if (item.tear && typeof item.tear === "object") { const n0 = _st.notes.length; chpTear(_st, item.tear.quote, spk.id, Date.now()); if (_st.notes.length < n0) _say(spk.name + " 撕掉了一张便利贴"); }
               if (item.song && typeof item.song === "object" && chpCount(_st, "song") < CHP_CAP.song) { const n0 = _st.playlist.length; chpSongAdd(_st, item.song.title, item.song.artist, spk.id); if (_st.playlist.length > n0) { chpBump(_st, "song"); _say(spk.name + " 往歌单里加了《" + String(item.song.title).slice(0, 30) + "》"); } }
               if (item.skip) { const tt = typeof item.skip === "object" ? item.skip.title : ""; chpSkipVote(_st, tt || (((chListenOf(groupId) || {}).song) || {}).title, spk.id); }

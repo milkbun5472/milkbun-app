@@ -355,3 +355,9 @@ test("群删了，绑在它上面的世界书松开；开机清掉已删群的�
   assert.match(ap, /groupIds: e\.groupIds\.filter\(x => x !== groupId\)/);
   assert.match(ap, /groupIds: e\.groupIds\.filter\(id => ids\.has\(id\)\)/);
 });
+// 她 2026-11-27：一个人好几天只往自己那张便利贴上续写，墙上一直只有那一张——往自己那张上「写一句」改成另贴一张（今天还能贴的话）
+{
+  const fs2 = require("fs"), appSrc = fs2.readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  require("assert").match(appSrc, /if \(_own && _own\.by === spk\.id && _tx && chpCount\(_st, "note"\) < CHP_CAP\.note\) \{ chpNoteAdd\(_st, chpNoSelfName\(_tx, spk\.name\), spk\.id\); chpBump\(_st, "note"\);/);
+  require("assert").match(appSrc, /墙上别人那张便利贴里的一小段/);
+}
