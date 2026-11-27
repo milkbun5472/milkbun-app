@@ -13263,7 +13263,7 @@ function clothFigure(o) {
 // 标题栏、分节标题和跳转——两份渲染各画一遍的话，改一处就必然忘掉另一处。
 function CarryAll(props) {
   const t = useTheme();
-  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onEditItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, scrollTo } = props;
+  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onEditItem, onRenameOcc, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, scrollTo } = props;
   const scRef = useRef(null);
   const secRefs = useRef({});
   const busyAll = busyKey === "__all__";
@@ -13346,11 +13346,24 @@ function CarryAll(props) {
           closetData: data.outfit,
           busyKey: busyAll ? x.key : busyKey, giftBusy,
           pinned: ((carryPins || {})[char.id] || {})[x.key] || [],
-          onTogglePin, onDeleteItem, onEditItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack
+          onTogglePin, onDeleteItem, onEditItem, onRenameOcc, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack
         })))));
 }
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
-function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onEditItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, embedded }) {
+// 衣柜场合名：点名字就地改（群友 2026-11-27 许愿「可以改衣柜里的场合名字」）；我的衣柜和TA的衣柜共用这一份
+//   改成已经有的那个名字，两组并成一组（closetRenameOcc 管）
+function OccName({ t, name, onRename, wk, style }) {
+  const [ed, setEd] = useState(null);
+  if (!onRename) return h("span", { "data-wk": wk, style }, name);
+  if (ed != null) return h("span", { className: "inline-flex items-center", style: { gap: 6 } },
+    h("input", { "data-wk": "occrenameinput", autoFocus: true, value: ed, maxLength: 8, onChange: e => setEd(e.target.value), onKeyDown: e => { if (e.key === "Enter") { onRename(ed); setEd(null); } else if (e.key === "Escape") setEd(null); },
+      style: Object.assign({}, style, { width: "7em", border: "1px solid " + t.line, borderRadius: 8, padding: "2px 7px", background: t.bg2, outline: "none" }) }),
+    h("button", { "data-wk": "occrenameok", onClick: () => { onRename(ed); setEd(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent || t.ink } }, "好"),
+    h("button", { onClick: () => setEd(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog } }, "算了"));
+  return h("button", { "data-wk": wk, onClick: () => setEd(name || ""), className: "active:opacity-60 inline-flex items-baseline", "aria-label": "改场合名", style: Object.assign({ gap: 4, textAlign: "left" }, style) },
+    name, h("span", { style: { fontSize: "calc(10px * var(--app-fs, 1))", color: t.fog, fontFamily: F_BODY } }, "✎"));
+}
+function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onEditItem, onRenameOcc, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onClosetHang, onWear, onBack, embedded }) {
   const [closetKw, setClosetKw] = useState(""), [hangOpen, setHangOpen] = useState(false), [hang, setHang] = useState({ occ: "", name: "", note: "" });
   const t = useTheme();
   const sec = CARRY_SECTIONS.find(s => s.key === sectionKey) || {};
@@ -13529,7 +13542,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
             "喜欢的那身点开 →「留着」（标 \u25c6），刷新时就不会被换掉；没留的一次最多换两身。想让 TA 穿哪身，点开点「让他换上这一身」。") : null,
           groups.map((g, gi) => h("div", { "data-wk": "carryoccasion", key: gi, style: { marginBottom: 20 } },
             g.occasion ? h("div", { className: "flex items-baseline gap-2", style: { marginBottom: 7 } },
-              h("span", { "data-wk": "carryoccasionname", style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, letterSpacing: "0.02em" } }, g.occasion),
+              h(OccName, { t, name: g.occasion, wk: "carryoccasionname", onRename: onRenameOcc ? v => onRenameOcc(char.id, g.occasion, v) : null, style: { fontFamily: F_DISPLAY, fontSize: "calc(14.5px * var(--app-fs, 1))", color: t.ink, letterSpacing: "0.02em" } }),
               h("span", { "data-wk": "carryoccasioncount", style: { fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: t.fog } }, g.sets.length + " 套")) : null,
             bay(g.sets.map((it, si) => hanger(it, g, gi, si))))),
           addBox);
@@ -13788,7 +13801,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     sheetNode,
     giftNode);
 }
-function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear, onTogglePin, onDeleteItem, onEditItem, onPeek }) {
+function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear, onTogglePin, onDeleteItem, onEditItem, onRenameOcc, onPeek }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -13878,7 +13891,7 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
   // 以前是一格一页、各自一次生成；现在整页共用一次调用。
   if (open) return h(CarryAll, {
     char, data, gifts, busyKey, giftBusy, closetBusy, carryPins,
-    onTogglePin, onDeleteItem, onEditItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear,
+    onTogglePin, onDeleteItem, onEditItem, onRenameOcc, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onClosetHang, onWear,
     scrollTo: open, onBack: () => setOpen(null)
   });
   // 一格一格的抽屉，摞成一个立着的柜子——她 2026-08-29 之前那版是五个白方块
@@ -13997,7 +14010,7 @@ function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carr
 // 在这之前压根没有正门——只能在情侣空间→照相馆里点「配一身约会装」，一次一身、
 // 还绑着某个角色。这一页是它的正门：关键词生成一次四身，也能自己挂。
 // 整页，不用半窗（施工规则/no-half-sheet.md）。
-function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onEdit, onPin, onBack, masks, maskKey, onMask, hasIn, onToggleMask }) {
+function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onEdit, onRenameOcc, onPin, onBack, masks, maskKey, onMask, hasIn, onToggleMask }) {
   // 钉住的那一身：写的是「名字：说明」这一句，跟出图常服那把锁同一格
   const pinText = x => String(x.name || "").trim() + (x.note ? "：" + String(x.note).trim() : "");
   const pinned = String((profile && profile.photoOutfit) || "").trim();
@@ -14062,7 +14075,7 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onEdit, onPin, on
             groups.map((g, gi) => h("div", { "data-wk": "closetgroup", key: gi, style: { marginTop: gi ? 18 : 0 } },
               h("div", { "data-wk": "closetgrouphead", className: "flex items-center", style: { gap: 8, marginBottom: 8 } },
                 h("span", { "data-wk": "closetgroupbar", style: { width: 3, height: 14, borderRadius: 3, background: t.accent || t.ink } }),
-                h("div", { "data-wk": "closetgroupname", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } }, g.occasion || "平常")),
+                h(OccName, { t, name: g.occasion || "平常", wk: "closetgroupname", onRename: onRenameOcc ? v => onRenameOcc(g.occasion || "", v) : null, style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink } })),
               (g.sets || []).map((x, i) => h("div", { "data-wk": "closetset", key: i, style: { borderRadius: 13, border: "1px solid " + t.line, background: t.bg2, padding: "12px 13px", marginTop: i ? 8 : 0 } },
                 h("div", { className: "flex items-start", style: { gap: 10 } },
                   h("div", { "data-wk": "closetsetname", className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", lineHeight: 1.5, color: t.ink, wordBreak: "break-word" } }, x.name),

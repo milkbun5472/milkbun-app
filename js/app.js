@@ -32303,6 +32303,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return true;
   };
   // 改一身（她 2026-11-19「我的衣柜吗」——TA的衣柜能改了，她自己那一柜也要）：名字、说明，按场合＋名字找到那一身就地换
+  const myClosetRenameOcc = (from, to) => { const box = myBoxOf(closetWho()) || {}; const next = closetRenameOcc(box, from, to); if (next === box) return false; saveMyBox(closetWho(), { closet: next.closet }); toast("改好了"); return true; };
+  const carryRenameOcc = (charId, from, to) => setCarry(p => { const box = p[charId] || {}; const next = closetRenameOcc(box.outfit, from, to); if (next === box.outfit) return p; const n = { ...p, [charId]: { ...box, outfit: next } }; carryRef.current = n; saveJSON("x_carry", n); return n; });
   const myClosetEdit = (occ, oldName, patch) => {
     const nn = String((patch && patch.name) || "").trim().slice(0, 24);
     if (!nn) { toast("先写这身叫什么"); return false; }
@@ -38125,6 +38127,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onAdd: myClosetAdd,
     onDrop: myClosetDrop,
     onEdit: myClosetEdit,
+    onRenameOcc: myClosetRenameOcc,
     // 在衣柜里直接钉住一身（她 2026-10-12：「放我的资料里太隐蔽了，不能在我的衣柜里直接选吗，然后把我的那里删掉」）：
     //   钉住＝写进出图常服那把锁（跟线下「以后都这样」同一格），出图每张都穿它；再点一次就取消，回到从衣柜里挑
     onPin: text => { const v = String(text || "").trim().slice(0, 200);
@@ -38142,6 +38145,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onTogglePin: toggleCarryPin,
     onDeleteItem: carryDeleteItem,
     onEditItem: carryEditItem,
+    onRenameOcc: carryRenameOcc,
     onPeek: forwardCarryToChat,
     selId: selCarry,
     busyKey: gen.carrySec,

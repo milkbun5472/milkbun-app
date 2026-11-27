@@ -1383,6 +1383,18 @@ function closetGroups(data) {
   const items = (Array.isArray(data.items) ? data.items : []).filter(x => x && String(x.name || "").trim());
   return items.length ? [{ occasion: "", sets: items.slice(0, CLOSET_MAX_TOTAL) }] : [];
 }
+// 场合改名（群友 2026-11-27 许愿「可以改衣柜里的场合名字」）：我的衣柜和TA的衣柜都走这一处。
+//   改成一个已经有的场合名，就把两组并成一组（衣服一身不丢，撞名的只留一身）
+function closetRenameOcc(data, from, to) {
+  const nn = String(to || "").trim().slice(0, 8), old = String(from || "");
+  if (!nn || nn === old) return data;
+  const groups = closetGroups(data).map(g => ({ occasion: g.occasion, sets: g.sets.slice() }));
+  const src = groups.find(g => String(g.occasion || "") === old); if (!src) return data;
+  const dst = groups.find(g => g !== src && String(g.occasion || "") === nn);
+  if (dst) { src.sets.forEach(x => { if (!dst.sets.some(y => y.name === x.name)) dst.sets.push(x); }); groups.splice(groups.indexOf(src), 1); }
+  else src.occasion = nn;
+  return { ...(data || {}), closet: groups, items: undefined };
+}
 // 衣柜里一共几套 / 还塞得下几套。数的是【真会显示出来的那些】，
 // 所以一律从 closetGroups 数起，别另写一把尺子。
 function closetCount(data) { return closetGroups(data).reduce((n, g) => n + g.sets.length, 0); }
