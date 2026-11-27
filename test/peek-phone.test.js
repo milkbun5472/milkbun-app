@@ -453,7 +453,8 @@ test("认人：一字不差优先，再挑最接近的；他自己的名字不�
   assert.deepStrictEqual(s2.filter(x => x.do === "impersonate").map(x => x.who), ["沈既白"], "写的是他自己，就是他自己");
   const s3 = P.cleanScript({ steps: [{ do: "open", app: "chat", who: "沈既白" }, { do: "think", text: "嗯" }] }, ["chat", "messages"], { who: ["沈既白言"], self: "既白", selfNames: ["既白", "沈既白"] });
   assert.ok(!s3.some(x => x.do === "open" && x.who === "沈既白言"), "打开自己那栏不演成别人");
-  assert.match(a, /\|\| \(\(v && \(v\.remark === step\.who \|\| v\.name === step\.who\)\) \? v : null\)/);
+  assert.match(a, /\|\| \(step\.do === "impersonate" && v && \(v\.remark === step\.who \|\| v\.name === step\.who\) \? v : null\)/, "只有替她发一句认他自己，拉黑删好友不会落到自己头上");
+  assert.match(a, /if \(tgt\.id !== viewerId\) peekFollowRef\.current\.push\(tgt\.id\);/, "发给自己的不引他回");
   assert.match(a, /上面这些都不是你：你自己在她手机里存的是/);
   assert.match(a, /selfNames: \[c\.remark, c\.name\]\.filter\(Boolean\)/);
 });

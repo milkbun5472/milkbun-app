@@ -575,7 +575,8 @@ async function pumpSSE(r, opts, consume, hooks) {
   // 正文还没开始流之前可以多等（群友 2026-11-27 同人文「流式回复中途静默超过 90 秒」）：思考型模型先在心里想，
   //   有的中转那段时间一个字节都不发，长文想上两三分钟很常见——那不是断线。开头只来几个小包（role、空 delta）也还算没开始；
   //   真流起来（收过 2KB 以上）以后照旧 90 秒判断线
-  const FIRST_SILENCE_MS = (opts && opts.streamFirstSilenceMs) || 300000;
+  //   ⚠️只给写长文的那几枪（LONG_WRITE，总时限给到 5 分钟以上的）；平时聊天回一句，中转真断了还是 90 秒就报，不让人干等 5 分钟
+  const FIRST_SILENCE_MS = (opts && opts.streamFirstSilenceMs) || (opts && opts.timeout >= 300000 ? 300000 : SILENCE_MS);
   let gotBytes = 0;
   const TOTAL_MS = (opts && opts.streamTotalMs) || 600000;
   const t0 = Date.now();

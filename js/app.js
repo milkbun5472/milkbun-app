@@ -12988,8 +12988,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const peekEffect = (viewerId, step) => {
     const v = (characters || []).find(x => x.id === viewerId);
     // 他自己也认得出来（群友 2026-11-27：想用她的名义发给自己，原来自己被排除在外，落到名字相近的另一个人那儿）
+    //   ⚠️只有「用她的名义发一句」认他自己；删好友、拉黑、置顶这些写成自己的名字照旧不算（不然会把自己拉黑）
     const tgt = step.who ? ((characters || []).find(x => x.id !== viewerId && (x.remark === step.who || x.name === step.who))
-      || ((v && (v.remark === step.who || v.name === step.who)) ? v : null)) : null;
+      || (step.do === "impersonate" && v && (v.remark === step.who || v.name === step.who) ? v : null)) : null;
     const vn = (v && v.name) || "TA", tn = tgt ? (tgt.remark || tgt.name) : "";
     // t 给她看（聊天里那条记录）；mine 是TA自己记得的说法（进查手机记事）
     const note = (t, mine) => { pChat(viewerId, p => [...p, { role: "system", kind: "system", content: t, ts: Date.now() }]);
@@ -13029,7 +13030,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       note(vn + (step.do === "unfriend" ? " 删掉了你的好友「" : " 拉黑了「") + tn + "」", (step.do === "unfriend" ? "删掉了她和「" : "替她拉黑了「") + tn + (step.do === "unfriend" ? "」的好友" : "」"));
     } else if (step.do === "impersonate" && tgt && step.text) {
       pChat(tgt.id, p => [...p, { role: "user", content: step.text, ts: Date.now(), peekBy: viewerId }]);
-      peekFollowRef.current.push(tgt.id);
+      if (tgt.id !== viewerId) peekFollowRef.current.push(tgt.id);   // 发给他自己的那句不引他回：话就是他写的
       note(vn + " 用你的手机给「" + tn + "」发了一句：「" + step.text + "」", "用她的手机、以她的名义给「" + tn + "」发了一句「" + step.text + "」");
     }
   };
