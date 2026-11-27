@@ -19852,7 +19852,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const castShotBlob = async (cast, scene, o) => {
     o = o || {};
     const lead = cast.find(c => c.id !== "me") || cast[0], multi = cast.length > 1, kind = o.kind || "self";
-    const st = (statesRef.current || {})[lead.id] || {};
+    const st0 = (statesRef.current || {})[lead.id] || {};
+    // o.costume：拍的是戏（电影海报、剧照），他此刻身上那身、钉住的常服都不算，穿戏服
+    const st = o.costume ? { ...st0, wearing: "", wearingUpdatedAt: 0 } : st0;
     const prompt = buildPhotoPrompt(lead, scene, st, { kind, cast: multi ? cast : null, closet: lead.id !== "me" ? closetTextFor(lead.id) : "", ...(o.popts || {}) });
     const refs = cast.map(c => c.refPhoto).filter(Boolean).concat(o.extraRef ? [o.extraRef] : []);
     const out = await generateSelfieImage(prompt + (o.extraText || ""), refs.length ? refs : null, { minimalPrompt: buildMinimalPhotoPrompt(lead, { kind, cast: multi ? cast : null }) });
@@ -20066,7 +20068,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + "定这部片：title 片名；genre 类型（一两个词）；mood 这部片的气质（两三个词）；tagline 海报上的一句宣传语；synopsis 剧情简介（一段）；"
         + "roles 每个演员演谁（who 写演员名，role 写角色名和这个角色是什么人）；scenes 是顺着剧情往下走的几场戏，每场 name 场名、beat 这一场发生什么（一段）；"
         + "poster 是海报怎么拍：几个人的站位、动作、谁看谁，镜头从哪个高度、多远拍。"
-        + "角色照演员各自的性格和他们之间的关系来分，戏要给每个人都有。\n" + tripCastLines(ids.filter(i => i !== "me"), meIn, uName),
+        // 演员不等于角色（她 2026-11-27「一个高中生不会永远演高中生吧」）：角色照这部片要什么来分，年纪、身份、时代、性格都可以跟演员本人不一样
+        + "演员不一定演跟自己一样的人：角色照这部片需要来分，年纪、身份、职业、时代、性格都可以跟演员本人差得很远；演员本人的性格和他们之间的关系，只决定谁演谁更有看头、谁跟谁对手戏更有火花。戏要给每个人都有。\n" + tripCastLines(ids.filter(i => i !== "me"), meIn, uName),
       schemaHint: "{\"title\":\"片名\",\"genre\":\"类型\",\"mood\":\"气质\",\"tagline\":\"宣传语\",\"synopsis\":\"剧情简介\",\"roles\":[{\"who\":\"演员名\",\"role\":\"角色\"}],\"scenes\":[{\"name\":\"场名\",\"beat\":\"这一场发生什么\"}],\"poster\":\"海报怎么拍\"}",
       maxTokens: 20000
     });
@@ -20081,7 +20084,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const lead = cast.find(x => x.id !== "me") || cast[0];
     const plan = window.PosterLayout ? window.PosterLayout.plan("movie", { title: mv.title, genre: mv.genre, mood: mv.mood }) : null;
     const scene = "电影《" + mv.title + "》的正式海报：" + cast.map(x => x.name).join("、") + "主演。" + (mv.poster || "") + (mv.roles.length ? "（" + mv.roles.map(x => x.who + "演" + x.role).join("；") + "）" : "") + "画面里不要出现任何文字。";
-    const blob = await castShotBlob(cast, scene, { kind: cast.length > 1 ? "group" : "self", popts: { editorial: "movie", editorialSpace: plan ? window.PosterLayout.spaceLine(plan) : "" } });
+    const blob = await castShotBlob(cast.map(c => ({ ...c, closet: "", outfit: "", photoOutfit: "" })), scene + "每个人穿的是自己演的那个角色的戏服。", { kind: cast.length > 1 ? "group" : "self", costume: true, popts: { closet: "", editorial: "movie", editorialSpace: plan ? window.PosterLayout.spaceLine(plan) : "" } });
     return plan ? await studioOverlay(blob, plan, { title: mv.title, tagline: mv.tagline || "", credit: "主演 " + cast.map(x => x.name).join(" "), dateLine: mv.genre || "" }, cast.map(x => x.name)) : blob;
   };
   const movieScene = async (mv, idx) => {
@@ -20094,7 +20097,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         + (before ? "【前面拍好的几场】\n" + before + "\n" : "")
         + "现在拍第 " + (idx + 1) + " 场「" + sc.name + "」：" + sc.beat + "\n"
         + "写这一场的一张剧照和这一场的台词：still 写剧照画面（谁在画面里、站位、动作、表情、场景、光），像电影里定格的一帧；inFrame 是入镜的演员名（数组，写演员本名）；"
-        + "lines 是这一场里最戳的几句台词（who 写角色名，line 写台词）。入镜的人照各自的角色和性格来演，几个人同框要看得出角色之间是什么关系。\n" + tripCastLines(mv.ids.filter(i => i !== "me"), meIn, uName),
+        + "lines 是这一场里最戳的几句台词（who 写角色名，line 写台词）。入镜的人演的是戏里那个角色：穿着、神情、站姿都照角色来，演员本人只是长相；几个人同框要看得出戏里角色之间是什么关系，台词是角色说的话，不是演员本人的口头禅。\n" + tripCastLines(mv.ids.filter(i => i !== "me"), meIn, uName),
       schemaHint: "{\"still\":\"剧照画面\",\"inFrame\":[\"演员名\"],\"lines\":[{\"who\":\"角色名\",\"line\":\"台词\"}]}",
       maxTokens: 12000
     });
@@ -20102,7 +20105,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     let cast = cast0.filter(x => want.some(n => n && (n.indexOf(x.name) >= 0 || x.name.indexOf(n) >= 0 || (x.id === "me" && n.indexOf(uName) >= 0))));
     if (!cast.length) cast = [lead];
     const scene = "电影《" + mv.title + "》第 " + (idx + 1) + " 场的剧照：" + String((d && d.still) || sc.beat || "").trim() + "（" + mv.roles.filter(x => cast.some(c => x.who.indexOf(c.name) >= 0)).map(x => x.who + "演" + x.role).join("；") + "）";
-    const blob = await castShotBlob(cast, scene, { kind: cast.length > 1 ? "group" : "other", popts: { cinematic: true } });
+    // 剧照穿戏服：不从演员自己的衣柜里挑（castShotBlob 会把主演的衣柜递过去）
+    const blob = await castShotBlob(cast.map(c => ({ ...c, closet: "", outfit: "", photoOutfit: "" })), scene + "。每个人穿的是这个角色在这场戏里的戏服，照角色的身份、年代来，不是演员平时的衣服。", { kind: cast.length > 1 ? "group" : "other", costume: true, popts: { cinematic: true, closet: "" } });
     return { blob, still: String((d && d.still) || "").trim(), lines: (Array.isArray(d && d.lines) ? d.lines : []).map(x => ({ who: String((x && x.who) || "").trim(), line: String((x && x.line) || "").trim() })).filter(x => x.line), castPids: cast.map(x => x.id).filter(x => x !== "me") };
   };
   const worldsPlan = async (charId, brief) => {

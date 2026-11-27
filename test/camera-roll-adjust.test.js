@@ -69,7 +69,8 @@ test("电影和平行人生：入口、存档、出图接上；界面跟旅行�
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8"), st = fs.readFileSync(path.join(__dirname, "..", "js", "camera-story.js"), "utf8"), html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
   for (const f of ["moviePlan", "moviePoster", "movieScene", "worldsPlan", "worldCard"]) assert.match(app, new RegExp("const " + f + " = async"));
   assert.match(app, /onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onWorldsPlan: worldsPlan, onWorldCard: worldCard/);
-  assert.match(app, /popts: \{ editorial: "movie"/);
+  assert.match(app, /popts: \{ closet: "", editorial: "movie"/);
+  assert.match(app, /演员不一定演跟自己一样的人/); assert.match(app, /const st = o\.costume \? \{ ...st0, wearing: "", wearingUpdatedAt: 0 \} : st0;/);
   assert.match(app, /popts: \{ cinematic: true \}/);
   assert.match(app, /\.\.\.\(o\.popts \|\| \{\}\)/);
   assert.match(html, /data-lazy="camera" data-src="js\/camera-story\.js\?v=/);
