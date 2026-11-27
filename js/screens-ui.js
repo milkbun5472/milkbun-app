@@ -4009,7 +4009,25 @@ function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, acce
       busy ? h(IPulse, { size: 19, color: iconInk }) : h(IRefresh, { size: 19, color: sub })));
   return topBar;
 }
-function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onReturn, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, payMasks, walletOf, toast }) {
+// 商品／菜那张图的相机键（她 2026-11-27「换成相机图标，跟朋友圈一样点开可以自己上传图或者生图」）：购物和外卖共用
+//   点开两样：从相册传一张、让 AI 画一张；传的和画的存在同一处，送礼、拿给TA看时TA都看得见
+function GoodsCamBtn({ name, desc, kind, onDraw, onUpload, busy, has, ink, small }) {
+  const [open, setOpen] = useState(null);   // 打开时记着按钮在屏幕上的位置：菜单挂到页面最上层（外卖那格小图是裁边的，挂在里面会被切掉）
+  const fileRef = useRef(null);
+  const sz = small ? 24 : 32;
+  const item = (label, fn, part) => h("button", { "data-wk": "goodscamitem", "data-part": part, onClick: e => { e.stopPropagation(); setOpen(null); fn(); }, className: "active:opacity-60",
+    style: { display: "block", width: "100%", textAlign: "left", whiteSpace: "nowrap", padding: "8px 12px", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#2b2b2b" } }, label);
+  return h("span", { style: { position: "relative", display: "inline-block" }, onClick: e => e.stopPropagation() },
+    h("button", { "data-wk": "goodsdraw", "aria-label": has ? "换一张图" : "给它配一张图", disabled: !!busy, onClick: e => { const r = e.currentTarget.getBoundingClientRect(); setOpen(v => v ? null : { top: r.bottom + 4, left: Math.max(8, Math.min(window.innerWidth - 150, r.left)) }); }, className: "active:opacity-70 flex items-center justify-center",
+      style: { width: sz, height: sz, borderRadius: 999, background: "rgba(255,255,255,.88)", boxShadow: "0 2px 6px rgba(0,0,0,.12)", opacity: busy ? .6 : 1 } },
+      busy ? h("span", { style: { fontSize: "calc(10px * var(--app-fs, 1))", color: ink } }, "…") : h(ICamera, { size: small ? 13 : 17, color: ink })),
+    open ? ReactDOM.createPortal(h("div", { onClick: e => { e.stopPropagation(); setOpen(null); }, style: { position: "fixed", inset: 0, zIndex: 9998 } },
+      h("div", { "data-wk": "goodscammenu", onClick: e => e.stopPropagation(), style: { position: "fixed", top: open.top, left: open.left, zIndex: 9999, background: "#fff", borderRadius: 12, boxShadow: "0 8px 22px rgba(0,0,0,.18)", overflow: "hidden", minWidth: 140 } },
+        onUpload ? item("从相册传一张", () => fileRef.current && fileRef.current.click(), "upload") : null,
+        onDraw ? item(has ? "让 AI 重画一张" : "让 AI 画一张", () => onDraw(name, desc, kind), "draw") : null)), document.body) : null,
+    h("input", { ref: fileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f && onUpload) onUpload(name, f); } }));
+}
+function Shop({ goodsImgOf, onDrawGoods, onUploadGoods, drawingGoods, onSetCartQty, payAs, initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onReturn, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, payMasks, walletOf, toast }) {
   const t = useTheme();
   const [nav, setNav] = useState(initialNav || "home"); // home | cart | my
   const [cat, setCat] = useState("recommend");
@@ -4275,9 +4293,8 @@ function Shop({ goodsImgOf, onDrawGoods, drawingGoods, onSetCartQty, payAs, init
       },
         h("div", { "data-wk": "shopdetailhero", style: { position: "relative", height: goodsImgOf && goodsImgOf(detail.name) ? 260 : 180, overflow: "hidden", background: "linear-gradient(150deg," + c.light + " 0%," + c.base + " 58%," + c.dark + " 100%)", borderRadius: "18px 18px 0 0" } },
           goodsImgOf && goodsImgOf(detail.name) ? h(GoodsPic, { imgKey: goodsImgOf(detail.name), style: { position: "absolute", inset: 0, width: "100%", height: "100%", borderRadius: "18px 18px 0 0" } }) : null,
-          onDrawGoods ? h("button", { "data-wk": "goodsdraw", onClick: () => onDrawGoods(detail.name, detail.desc, "shop"), disabled: !!drawingGoods, className: "active:opacity-70",
-            style: { position: "absolute", right: 12, top: 12, zIndex: 2, minHeight: 30, padding: "0 12px", borderRadius: 999, background: "rgba(255,255,255,.88)", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: MSHOP.ink, opacity: drawingGoods ? .6 : 1 } },
-            drawingGoods ? "在画…" : goodsImgOf(detail.name) ? "重画" : "画一张") : null,
+          onDrawGoods || onUploadGoods ? h("div", { style: { position: "absolute", right: 12, top: 12, zIndex: 2 } },
+            h(GoodsCamBtn, { name: detail.name, desc: detail.desc, kind: "shop", onDraw: onDrawGoods, onUpload: onUploadGoods, busy: !!drawingGoods, has: !!(goodsImgOf && goodsImgOf(detail.name)), ink: MSHOP.ink })) : null,
           h("div", { style: { position: "absolute", inset: 0, borderRadius: "18px 18px 0 0", background: "repeating-linear-gradient(58deg,rgba(255,255,255,.07) 0px,rgba(255,255,255,.07) 1px,rgba(255,255,255,0) 1px,rgba(255,255,255,0) 7px)" } }),
           c.word ? h("div", { style: { position: "absolute", right: 12, bottom: 12, padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,.85)", fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: c.ink } }, c.word) : null,
           h("button", { "data-wk": "shopdetailclose", onClick: () => setDetail(null), "aria-label": "关闭", className: "active:opacity-70", style: { position: "absolute", left: 12, top: 12, width: 30, height: 30, borderRadius: 999, background: "rgba(255,255,255,.85)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: "calc(15px * var(--app-fs, 1))", color: MSHOP.ink } }, "✕")),
@@ -4585,7 +4602,7 @@ function TakeoutSlotRuler({ slot, onPick, now }) {
           at != null ? h("span", { "data-wk": "tkoslotnow", "aria-label": "现在", style: { position: "absolute", left: at + "%", top: 0, width: 8, height: 8, marginLeft: -4, borderRadius: 999, background: MTAKE.deep, boxShadow: "0 0 0 2px " + MTAKE.card } }) : null));
     }));
 }
-function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, onDelOrder, onDelLog, toast, initialNav, payMasks, walletOf }) {
+function Takeout({ goodsImgOf, onDrawGoods, onUploadGoods, drawingGoods, payAs, wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, onDelOrder, onDelLog, toast, initialNav, payMasks, walletOf }) {
   // 用哪张面具点（她 2026-10-29「来我们慢慢开始分吧」，跟购物结算那一排同一个规矩）：""＝主面具
   const [payMask, setPayMask] = useState("");
   const t = useTheme();
@@ -4744,9 +4761,8 @@ function Takeout({ goodsImgOf, onDrawGoods, drawingGoods, payAs, wallet, orders,
             return h("div", { "data-wk": "tkodish", "data-on": n > 0 ? "1" : "0", key: x.uid, className: "flex", style: Object.assign({}, cardStyle, { padding: 10, marginBottom: 9, gap: 11 }) },
               toneSwatch(c, { width: 76, height: 76, borderRadius: 9, flexShrink: 0, overflow: "hidden" },
                 goodsImgOf && goodsImgOf(x.name) ? h(GoodsPic, { imgKey: goodsImgOf(x.name), style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }) : null,
-                onDrawGoods ? h("button", { "data-wk": "goodsdraw", onClick: () => onDrawGoods(x.name, x.desc, "food"), disabled: !!drawingGoods, "aria-label": "给这道菜画一张", className: "active:opacity-70",
-                  style: { position: "absolute", left: 4, top: 4, zIndex: 2, minHeight: 22, padding: "0 7px", borderRadius: 999, background: "rgba(255,255,255,.86)", fontFamily: F_BODY, fontSize: "calc(10px * var(--app-fs, 1))", color: MTAKE.ink, opacity: drawingGoods ? .6 : 1 } },
-                  drawingGoods ? "画…" : goodsImgOf(x.name) ? "重画" : "画") : null,
+                onDrawGoods || onUploadGoods ? h("div", { style: { position: "absolute", left: 4, top: 4, zIndex: 2 } },
+                  h(GoodsCamBtn, { name: x.name, desc: x.desc, kind: "food", onDraw: onDrawGoods, onUpload: onUploadGoods, busy: !!drawingGoods, has: !!(goodsImgOf && goodsImgOf(x.name)), ink: MTAKE.ink, small: true })) : null,
                 c.word && !(goodsImgOf && goodsImgOf(x.name)) ? h("div", { "data-wk": "tkodishword", style: { position: "absolute", right: 5, bottom: 5, padding: "1px 6px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: c.ink } }, c.word) : null),
               h("div", { className: "flex-1 min-w-0 flex flex-col" },
                 h("div", { "data-wk": "tkodishname", style: { fontFamily: F_BODY, fontSize: "calc(14px * var(--app-fs, 1))", fontWeight: 600, color: MTAKE.ink, lineHeight: 1.35, wordBreak: "break-word" } }, x.name),

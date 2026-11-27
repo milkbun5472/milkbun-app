@@ -15,7 +15,11 @@ test("三种卡带图，回话时当图看", () => {
   assert.match(app, /const _uRef = \(m\.kind === "photo" \|\| m\.kind === "selfie" \|\| m\.kind === "ask" \|\| m\.goodsImg \|\| m\.storyImg\)/);
 });
 test("购物详情和外卖菜单都有「画一张」，卡上画得出图", () => {
-  assert.equal((ui.match(/"data-wk": "goodsdraw"/g) || []).length, 2);
+  // 2026-11-27 换成一颗公共的相机键（从相册传／让 AI 画），购物详情和外卖菜单都摆它
+  assert.equal((ui.match(/"data-wk": "goodsdraw"/g) || []).length, 1);
+  assert.equal((ui.match(/h\(GoodsCamBtn, \{ name: /g) || []).length, 2);
+  assert.match(app, /const uploadGoods = async \(name, file\) =>/);
+  assert.equal((app.match(/onDrawGoods: drawGoods, onUploadGoods: uploadGoods,/g) || []).length, 2);
   assert.match(comp, /function GoodsPic\(\{ imgKey, style, onClick \}\)/);
   assert.match(ui, /function toneSwatch\(c, style, \.\.\.kids\)/);
 });

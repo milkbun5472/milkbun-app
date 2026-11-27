@@ -29311,6 +29311,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     } catch (e) { toast("没画成：" + String(e && e.message || e).slice(0, 60)); }
     finally { setDrawingGoods(""); }
   };
+  // 自己传一张（她 2026-11-27「跟朋友圈一样点开可以自己上传图上去或者可以生图」）：跟画出来的那张存在同一处（x_goodsImgs），送礼、拿给TA看时TA照样看得见
+  const uploadGoods = async (name, file) => {
+    const k = goodsKey(name);
+    if (!k || !file) return;
+    try {
+      const key = "img_goods_" + Date.now().toString(36);
+      await idbImgPut(key, file);
+      setGoodsImgs(p => { const n = { ...p, [k]: key }; const ks = Object.keys(n); if (ks.length > 400) ks.slice(0, ks.length - 400).forEach(x => delete n[x]); saveJSON("x_goodsImgs", n); goodsImgsRef.current = n; return n; });
+      toast("换上了");
+    } catch (e) { toast("没传上：" + String(e && e.message || e).slice(0, 60)); }
+  };
   const askCharAboutItem = (charId, item) => {
     const char = characters.find(c => c.id === charId);
     if (!char || !item || !String(item.name || "").trim()) return;
@@ -38275,7 +38286,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onEditCharMeta: editCharForumMeta,
     onEnsureCharMeta: ensureCharForumMeta
   });else if (screen === "shop") body = h(Shop, {
-    goodsImgOf: goodsImgFor, onDrawGoods: drawGoods, drawingGoods: drawingGoods, goodsImgsVer: goodsImgs,
+    goodsImgOf: goodsImgFor, onDrawGoods: drawGoods, onUploadGoods: uploadGoods, drawingGoods: drawingGoods, goodsImgsVer: goodsImgs,
     payAs: asPhonePay,
     wallet: wallet,
     cart: cart,
@@ -38314,7 +38325,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onLeaveAtHis: leaveAtHis,
     toast: toast
   });else if (screen === "takeout") body = h(Takeout, {
-    goodsImgOf: goodsImgFor, onDrawGoods: drawGoods, drawingGoods: drawingGoods, goodsImgsVer: goodsImgs,
+    goodsImgOf: goodsImgFor, onDrawGoods: drawGoods, onUploadGoods: uploadGoods, drawingGoods: drawingGoods, goodsImgsVer: goodsImgs,
     payAs: asPhonePay,
     key: "takeout:" + takeoutNav + (asPhone ? ":as" : ""),
     initialNav: takeoutNav,
