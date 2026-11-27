@@ -28495,7 +28495,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 一条原始评论 → 楼层对象（回复者随机 NPC 或某个符合人设的角色，x.char=角色名则归到该角色）
   // post 传入时用于识别「楼主」：楼主不另开楼自问自答（顶楼命中→丢弃），楼主的追评正确署名+标记 isOp
-  const buildForumFloor = (x, floorNo, base, idx, post) => {
+  // 帖子投票（群友 2026-11-27 许愿「论坛发帖的时候可以投票」）：post.poll = { options:[文字], mine: 她投的序号 }
+  //   来回帖的人顺手投一票：模型在那一楼写 vote＝选项序号（从 1 起），记在楼上；票数从楼里现数，不另存一份会对不上的计数
+  const forumPollLine = post => post && post.poll && (post.poll.options || []).length >= 2
+    ? " 【这帖带着一个投票】" + post.poll.options.map((o, i) => (i + 1) + "．" + o).join("　") + "——每条回复照这个人自己的想法投一票，vote 填选项序号（不想投就填 0）；想说为什么选它就在回复里说，不想说就不说。"
+    : "";
+  const buildForumFloor = (x, floorNo, base, idx, post) => { const f = buildForumFloorRaw(x, floorNo, base, idx, post); return typeof forumWithVote === "function" ? forumWithVote(f, x, post) : f; };
+  const buildForumFloorRaw = (x, floorNo, base, idx, post) => {
     const opChar = post && isForumCharAuthor(post) ? (characters || []).find(c => c.id === post.authorId) : null;
     const opName = opChar ? opChar.name : (post ? (post.authorName || "") : "");
     const looksOp = s => { s = String(s || "").trim().toLowerCase(); return s === "楼主" || s === "楼主本人" || s === "lz"; };
@@ -28580,7 +28586,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   那就是一条替她说的话（她 2026-09-23：「我自己的回复一直有个层主但是明明我就是这一层的层主」）。
   // 插进已有楼层的那一条也带上「回复 @谁」：只认这层里已经有的人
   const buildForumReplyObj = (x, post, floor) => {
-    const r = buildForumReplyObjBase(x, post, floor);
+    const r0 = buildForumReplyObjBase(x, post, floor), r = typeof forumWithVote === "function" ? forumWithVote(r0, x, post) : r0;
     if (!r || !floor) return r;
     const names = (floor.replies || []).map(y => y && y.authorName).filter(n => n && n !== floor.authorName && n !== r.authorName);
     const toName = forumValidTo(x.to, names);
@@ -28717,7 +28723,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       + pick.map(c => "「" + c.name + "」" + (c.knowsUserNote ? "（跟她：" + c.knowsUserNote + "）" : "") + "：" + groupPersonaText(c.persona, 1200) + charLangLine(c)).join("\n")
       + "\n口气、用词、在意的事照各自这个人来，按跟她的真实关系说话；公开楼里别把只有你们知道的私事说出来。authorName 写TA在网上用的网名。\n";
   };
-  const forumCommentProbe = (post, n, opts = {}) => {
+  const forumCommentProbe = (post, n, opts) => {
+    const pr = forumCommentProbeBase(post, n, opts || {});
+    if (!forumPollLine(post)) return pr;
+    return { ...pr, instruction: pr.instruction + forumPollLine(post), schemaHint: String(pr.schemaHint).replace(/"content":"回复"/g, '"content":"回复","vote":0') };
+  };
+  const forumCommentProbeBase = (post, n, opts = {}) => {
     const isSearch = /^搜索/.test(post.triggerSource || "");
     const opChar = isForumCharAuthor(post) ? (characters || []).find(c => c.id === post.authorId) : null;
     const opName = opChar ? opChar.name : (post.authorType === "me" ? (post.alt ? post.authorName : (forumMe.handle || profile.name || "我")) : (post.authorName || "楼主"));
@@ -30208,13 +30219,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // 我发帖
   // as：「main」大号 /「alt」小号（她 2026-10-06）。小号的名字在「我」那页设，没设过就用一个默认的
-  const postMyForum = (board, title, body, photo, as, more, mentions) => {
+  const postMyForum = (board, title, body, photo, as, more, mentions, poll) => {
+    const pollOpts = (Array.isArray(poll) ? poll : []).map(x => String(x || "").trim().slice(0, 30)).filter(Boolean).slice(0, 6);
     const anonB = board === "匿名吧";
     const altB = !anonB && (as ? as === "alt" : forumMe.using === "alt");
     const altName = String(forumMe.altName || "").trim() || "一只不说话的鱼";
     const base = Date.now();
     const maskB = !anonB && !altB ? forumMaskNow() : "";
-    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", ...(altB ? { alt: true } : {}), ...(maskB ? { mask: maskB } : {}), authorName: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(Array.isArray(mentions) && mentions.length ? { mentions: mentions.slice(0, 12) } : {}), ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ...(forumPhotoOf({ photo }) && forumMorePhotos({ morePhotos: more }).length ? { morePhotos: forumMorePhotos({ morePhotos: more }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld(), ...forumFmtTag() };
+    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", ...(altB ? { alt: true } : {}), ...(maskB ? { mask: maskB } : {}), authorName: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(pollOpts.length >= 2 ? { poll: { options: pollOpts, mine: null } } : {}), ...(Array.isArray(mentions) && mentions.length ? { mentions: mentions.slice(0, 12) } : {}), ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ...(forumPhotoOf({ photo }) && forumMorePhotos({ morePhotos: more }).length ? { morePhotos: forumMorePhotos({ morePhotos: more }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld(), ...forumFmtTag() };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
     // 小号发的帖安安静静放着：不排队叫人来回，打开也不现编一楼（她 2026-10-06：两个都要）
     if (altB) { setForumComments(prev => { const n = { ...prev, [rec.id]: [] }; saveForumComments(n); return n; }); toast("已用小号发到「" + board + "」"); return; }
@@ -30223,6 +30235,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!anonB && !maskB) growMyFans(1);
     toast("已发布到「" + board + "」·  过会儿回来看看有没有人理你");
   };
+  // 她在自己（或别人）帖子的投票里点一项；再点同一项＝撤回
+  const voteForumPoll = (postId, idx) => setForumPosts(prev => { const n = prev.map(p => p && p.id === postId && p.poll ? { ...p, poll: { ...p.poll, mine: p.poll.mine === idx ? null : idx } } : p); saveJSON("x_forumPosts", n); return n; });
   // 搜索：随机刷到四版块之外的吧（据全局聊天/世界话题），board 由 AI 起名
   const genForumSearch = async query => {
     if (!active) { toast("请先到设置配置 API"); return; }
@@ -38252,6 +38266,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     onReplyFloor: addForumFloor,
     onReplySub: addForumSubReply,
     onPostMine: postMyForum,
+    onVotePoll: voteForumPoll,
     onGenCharPost: genCharForumPost,
     onGenCharPosts: genForumCharPosts,
     onToggleFollow: toggleForumFollow,

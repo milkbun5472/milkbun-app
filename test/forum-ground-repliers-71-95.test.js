@@ -14,7 +14,7 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
 // 切片两头钉函数名，不钉注释（anchor-on-code.md）
 const i = app.indexOf("  const forumCharGrounding = (ch, post, role, extraQuery) => {");
-const j = app.indexOf("  const forumCommentProbe = (post, n, opts = {}) => {", i);
+const j = app.indexOf("  const forumCommentProbe = (post, n, opts) => {", i);
 assert.ok(i > 0 && j > i, "app.js 里抠不出 forumCharGrounding");
 const ground = app.slice(i, j);
 

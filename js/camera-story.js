@@ -97,12 +97,15 @@
         try { const b = await props.onMoviePoster(mv); const key = await putImg("img_movie_", b); const old = mv.posterKey; patchMv(mv.id, m => Object.assign({}, m, { posterKey: key })); if (old) delImgs([old]); }
         catch (e) { toast("海报没出来：" + String(e && e.message || e).slice(0, 80)); } finally { setBusy(""); }
       };
-      const shoot = async () => {
-        if (busy || !sc) return; setBusy("scene");
-        try { const r = await props.onMovieScene(mv, next); const key = await putImg("img_movie_", r.blob);
-          patchMv(mv.id, m => Object.assign({}, m, { scenes: m.scenes.map((s, i) => i === next ? Object.assign({}, s, { shot: { imgKey: key, still: r.still, lines: r.lines, ts: Date.now() } }) : s) })); }
+      // 拍第 idx 场；已经拍过的就是重拍（群友 2026-11-27「电影第几场可以重新生成么」）：新的拍成了才换掉旧图，没拍成旧的还在
+      const shootAt = async idx => {
+        const s0 = mv.scenes[idx]; if (busy || !s0) return; setBusy("scene:" + idx);
+        try { const r = await props.onMovieScene(mv, idx); const key = await putImg("img_movie_", r.blob); const old = s0.shot && s0.shot.imgKey;
+          patchMv(mv.id, m => Object.assign({}, m, { scenes: m.scenes.map((s, i) => i === idx ? Object.assign({}, s, { shot: { imgKey: key, still: r.still, lines: r.lines, ts: Date.now() } }) : s) }));
+          if (old) delImgs([old]); }
         catch (e) { toast("没拍成：" + String(e && e.message || e).slice(0, 80)); } finally { setBusy(""); }
       };
+      const shoot = () => shootAt(next);
       const del = () => confirmDo("删掉这部电影？", "海报和剧照都会删掉（已经存到手机的不受影响）", async () => { await delImgs([mv.posterKey].concat(mv.scenes.map(s => s.shot && s.shot.imgKey))); put(loadL(KEY).filter(m => m.id !== mv.id)); setOpenId(null); });
       const got = mv.scenes.filter(s => s.shot);
       return page(mv.title, () => setOpenId(null), [
@@ -125,11 +128,13 @@
             h(Img, { k: s.shot.imgKey }),
             (s.shot.lines || []).length ? h("div", { "data-wk": "moviesubs", style: { padding: "10px 14px 12px", color: "#f4efe6", fontSize: k.FS(13), lineHeight: 1.7, textAlign: "center" } },
               s.shot.lines.map((l, j) => h("div", { key: j }, (l.who ? h("span", { style: { opacity: .6 } }, l.who + "：") : null), l.line))) : null),
-          h("div", { style: { textAlign: "right", marginTop: 4 } }, h("button", { "data-wk": "moviebtn", "data-part": "savestill", onClick: async () => { try { await saveBlob(await stillWithSubs(s.shot.imgKey, s.shot.lines), mv.title + "-" + s.name); } catch (e) { toast(String(e && e.message || e)); } }, style: { border: "none", background: "transparent", color: th.accent, fontSize: k.FS(12), fontWeight: 600 } }, "存到手机")))),
+          h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 4 } },
+            h("button", { "data-wk": "moviebtn", "data-part": "reshoot", disabled: !!busy, onClick: () => shootAt(mv.scenes.indexOf(s)), style: { border: "none", background: "transparent", color: th.sub, fontSize: k.FS(12), opacity: busy ? .5 : 1 } }, busy === "scene:" + mv.scenes.indexOf(s) ? "在重拍…" : "重拍这一场"),
+            h("button", { "data-wk": "moviebtn", "data-part": "savestill", onClick: async () => { try { await saveBlob(await stillWithSubs(s.shot.imgKey, s.shot.lines), mv.title + "-" + s.name); } catch (e) { toast(String(e && e.message || e)); } }, style: { border: "none", background: "transparent", color: th.accent, fontSize: k.FS(12), fontWeight: 600 } }, "存到手机")))),
         h("div", { key: "left", style: { fontSize: k.FS(11.5), color: th.sub, lineHeight: 1.9 } }, mv.scenes.map((s, i) => h("div", { key: i, style: { color: s.shot ? th.sub : i === next ? th.ink : th.line } }, (s.shot ? "✓ " : i === next ? "→ " : "· ") + "第 " + (i + 1) + " 场 " + s.name))),
         h("button", { key: "del", "data-wk": "moviebtn", "data-part": "delmovie", onClick: del, style: { marginTop: 18, border: "none", background: "transparent", color: th.sub, fontSize: k.FS(12) } }, "删掉这部电影")
-      ], sc ? h("div", null, h("div", { style: { fontSize: k.FS(11), color: th.sub, textAlign: "center", marginBottom: 8 } }, busy === "scene" ? "在写台词、在拍…要等半分钟左右" : "下一场：" + sc.name),
-        big(busy === "scene" ? "在拍…" : "拍这一场", shoot, "shoot", !!busy)) : h("div", { style: { textAlign: "center", color: th.sub, fontSize: k.FS(12.5), padding: "8px 0" } }, "杀青了"));
+      ], sc ? h("div", null, h("div", { style: { fontSize: k.FS(11), color: th.sub, textAlign: "center", marginBottom: 8 } }, busy === "scene:" + next ? "在写台词、在拍…要等半分钟左右" : "下一场：" + sc.name),
+        big(busy === "scene:" + next ? "在拍…" : "拍这一场", shoot, "shoot", !!busy)) : h("div", { style: { textAlign: "center", color: th.sub, fontSize: k.FS(12.5), padding: "8px 0" } }, "杀青了"));
     }
 
     return page("电影", props.onBack, [
@@ -154,7 +159,7 @@
     ctx.fillStyle = "#3a3340"; ctx.font = fs + "px " + k.HAND; rows.forEach((r, i) => ctx.fillText(r, m, ph + m + 100 + i * fs * 1.5));
     return await new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error("没存下来")), "image/jpeg", 0.92));
   }
-  function WorldCard({ w, name, onSave, th }) {
+  function WorldCard({ w, name, onSave, onRedo, redoing, th }) {
     const k = K(), [back, setBack] = useState(false);
     return h("div", { "data-wk": "worldpost", style: { marginBottom: 20 } },
       h("div", { style: { margin: "0 2px 8px", color: th.ink } }, h("span", { style: { fontSize: k.FS(14), fontWeight: 600 } }, w.world), w.who ? h("div", { style: { fontSize: k.FS(11), color: th.sub, marginTop: 2, lineHeight: 1.5 } }, w.who) : null),
@@ -164,6 +169,7 @@
           w.card.letter, h("div", { style: { textAlign: "right", marginTop: 12 } }, "—— 「" + w.world + "」里的 " + name)) : null),
       h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: k.FS(11), color: th.sub } },
         h("span", null, back ? "点一下看照片" : "点一下看TA写的信"),
+        onRedo ? h("button", { "data-wk": "worldbtn", "data-part": "redoworld", disabled: !!redoing, onClick: onRedo, style: { border: "none", background: "transparent", color: th.sub, fontSize: k.FS(12), marginLeft: "auto", marginRight: 14 } }, redoing === true ? "在重来…" : "重来这一张") : null,
         h("button", { "data-wk": "worldbtn", "data-part": "saveworld", onClick: onSave, style: { border: "none", background: "transparent", color: th.accent, fontSize: k.FS(12), fontWeight: 600 } }, "存到手机")));
   }
   function CameraWorlds(props) {
@@ -209,20 +215,23 @@
     const pw = list.find(t => t.id === openId);
     if (pw) {
       const name = nameOf(pw.charId), next = pw.worlds.findIndex(w => !w.card), w0 = next >= 0 ? pw.worlds[next] : null;
-      const visit = async () => {
-        if (busy || !w0) return; setBusy("go");
-        try { const r = await props.onWorldCard(pw.charId, w0, pw.worlds.filter(w => w.card).map(w => w.world + "：" + String(w.card.letter || "").slice(0, 80)));
-          const key = await putImg("img_world_", r.blob);
-          put(loadL(KEY).map(t => t.id === pw.id ? Object.assign({}, t, { worlds: t.worlds.map((w, i) => i === next ? Object.assign({}, w, { card: { imgKey: key, photo: r.photo, letter: r.letter, ts: Date.now() } }) : w) }) : t)); }
+      // 去第 idx 个世界；去过的就是重来一张（写真和信一起换），新的成了才换掉旧图
+      const visitAt = async idx => {
+        const wi = pw.worlds[idx]; if (busy || !wi) return; setBusy("go:" + idx);
+        try { const r = await props.onWorldCard(pw.charId, wi, pw.worlds.filter((w, i) => w.card && i !== idx).map(w => w.world + "：" + String(w.card.letter || "").slice(0, 80)));
+          const key = await putImg("img_world_", r.blob), old = wi.card && wi.card.imgKey;
+          put(loadL(KEY).map(t => t.id === pw.id ? Object.assign({}, t, { worlds: t.worlds.map((w, i) => i === idx ? Object.assign({}, w, { card: { imgKey: key, photo: r.photo, letter: r.letter, ts: Date.now() } }) : w) }) : t));
+          if (old) delImgs([old]); }
         catch (e) { toast("没去成：" + String(e && e.message || e).slice(0, 80)); } finally { setBusy(""); }
       };
+      const visit = () => visitAt(next);
       const del = () => confirmDo("删掉这一组平行人生？", "写真和信都会删掉（已经存到手机的不受影响）", async () => { await delImgs(pw.worlds.map(w => w.card && w.card.imgKey)); put(loadL(KEY).filter(t => t.id !== pw.id)); setOpenId(null); });
       return page(name + "的平行人生", () => setOpenId(null), [
-        pw.worlds.filter(w => w.card).map((w, i) => h(WorldCard, { key: i, w, name, th, onSave: async () => { try { await saveBlob(await worldWithLetter(w.card, w, name), name + "-" + w.world); } catch (e) { toast(String(e && e.message || e)); } } })),
+        pw.worlds.filter(w => w.card).map((w, i) => h(WorldCard, { key: i, w, name, th, onRedo: () => visitAt(pw.worlds.indexOf(w)), redoing: busy === "go:" + pw.worlds.indexOf(w) ? true : !!busy, onSave: async () => { try { await saveBlob(await worldWithLetter(w.card, w, name), name + "-" + w.world); } catch (e) { toast(String(e && e.message || e)); } } })),
         h("div", { key: "left", style: { fontSize: k.FS(11.5), color: th.sub, lineHeight: 1.9 } }, pw.worlds.map((w, i) => h("div", { key: i, style: { color: w.card ? th.sub : i === next ? th.ink : th.line } }, (w.card ? "✓ " : i === next ? "→ " : "· ") + w.world))),
         h("button", { key: "del", "data-wk": "worldbtn", "data-part": "delpw", onClick: del, style: { marginTop: 18, border: "none", background: "transparent", color: th.sub, fontSize: k.FS(12) } }, "删掉这一组")
-      ], w0 ? h("div", null, h("div", { style: { fontSize: k.FS(11), color: th.sub, textAlign: "center", marginBottom: 8 } }, busy === "go" ? "TA在那个世界里写信、拍照…要等半分钟左右" : "下一个世界：" + w0.world),
-        big(busy === "go" ? "在路上…" : "去这个世界", visit, "visit", !!busy)) : h("div", { style: { textAlign: "center", color: th.sub, fontSize: k.FS(12.5), padding: "8px 0" } }, "这几个世界都去过了"));
+      ], w0 ? h("div", null, h("div", { style: { fontSize: k.FS(11), color: th.sub, textAlign: "center", marginBottom: 8 } }, busy === "go:" + next ? "TA在那个世界里写信、拍照…要等半分钟左右" : "下一个世界：" + w0.world),
+        big(busy === "go:" + next ? "在路上…" : "去这个世界", visit, "visit", !!busy)) : h("div", { style: { textAlign: "center", color: th.sub, fontSize: k.FS(12.5), padding: "8px 0" } }, "这几个世界都去过了"));
     }
 
     return page("平行人生", props.onBack, [

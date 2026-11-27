@@ -19,7 +19,7 @@ assert.ok(/没写说明/.test(ctx.forumWithPhoto("", { photo: { imageRef: "iv_x"
 
 // 2. 发帖 / 回楼：她的图真的存上
 const pm = app.indexOf("const postMyForum = ("); assert.ok(pm > 0);
-assert.match(app.slice(pm, pm + 1400), /\(board, title, body, photo, as, more(, mentions)?\)[\s\S]*photo: forumPhotoOf\(\{ photo \}\)/);   // v74.908 多了 as（用哪个号发）
+assert.match(app.slice(pm, pm + 1400), /\(board, title, body, photo, as, more(, mentions)?(, poll)?\)[\s\S]*photo: forumPhotoOf\(\{ photo \}\)/);   // v74.908 多了 as（用哪个号发）
 const af = app.indexOf("const addForumFloor = ("); assert.ok(af > 0);
 const afBody = app.slice(af, app.indexOf("const addForumSubReply", af));
 assert.match(afBody, /photo: forumPhotoOf\(\{ photo \}\)/);

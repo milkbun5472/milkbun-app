@@ -566,6 +566,12 @@ async function fetchT(url, options, ms) {
 //   fetchT 只管到响应头，此后 reader.read() 原本裸奔——桥/网关半路断线不抛错时气泡永远转圈。
 //   静默超时=每收到一段数据就重置（桥每 15s 有心跳，90s 静默≈连丢 6 次心跳，判死）；
 //   总时限只防无限滴漏，给足长思考。
+// 论坛帖子投票（2026-11-27）：来回帖的那一楼写了 vote（选项序号，从 1 起），记成 0 起的下标挂在楼上；没投票的帖、没写或写错的一律不挂
+function forumWithVote(obj, x, post) {
+  const L = post && post.poll && post.poll.options ? post.poll.options.length : 0;
+  const n = Math.round(Number(x && x.vote));
+  return obj && L && n >= 1 && n <= L ? Object.assign({}, obj, { vote: n - 1 }) : obj;
+}
 async function pumpSSE(r, opts, consume, hooks) {
   const reader = r.body.getReader(), decoder = new TextDecoder();
   const stop = (hooks && hooks.stop) || (() => false);

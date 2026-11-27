@@ -2451,6 +2451,26 @@ function ForumAnonWrap(props) {
   }, [props.posts, props.comments, wRev]);
   return h(Forum, Object.assign({}, props, { posts: _av.posts, comments: _av.comments }));
 }
+// 帖子里的投票（群友 2026-11-27 许愿「论坛发帖的时候可以投票」）：票从楼里现数——来回帖的人那一楼记着投了哪项，
+//   她自己那票记在帖子上；只数已经露面的楼（还在排队的那几楼到点了才算进来）
+function ForumPoll({ post, floors, onVote }) {
+  const opts = post.poll.options, now = Date.now(), cnt = opts.map(() => 0), who = opts.map(() => []);
+  (floors || []).forEach(f => { if (!f || (f.visibleAt && f.visibleAt > now)) return;
+    [f].concat(f.replies || []).forEach(x => { if (x && x.vote != null && cnt[x.vote] != null) { cnt[x.vote]++; if (x.authorName) who[x.vote].push(x.authorName); } }); });
+  const mine = post.poll.mine;
+  if (mine != null && cnt[mine] != null) cnt[mine]++;
+  const total = cnt.reduce((a, b) => a + b, 0), max = Math.max(1, ...cnt);
+  return h("div", { "data-wk": "forumpoll", style: { marginTop: 12, border: "1px solid " + FORUM_SKIN.line, borderRadius: 12, padding: "10px 12px", background: FORUM_SKIN.paper } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, marginBottom: 8 } }, "投票 · " + total + " 人投了" + (onVote ? (mine != null ? " · 再点一次你那项可以撤回" : " · 点一项投一票") : "")),
+    opts.map((o, i) => { const pct = total ? Math.round(cnt[i] * 100 / total) : 0, me = mine === i;
+      return h("button", { key: i, "data-wk": "forumpollopt", "data-on": me ? "1" : "0", disabled: !onVote, onClick: () => onVote && onVote(i), className: "w-full active:opacity-70 text-left",
+        style: { position: "relative", display: "block", overflow: "hidden", borderRadius: 8, marginBottom: 6, padding: "8px 10px", border: "1px solid " + (me ? FORUM_SKIN.accent : FORUM_SKIN.line), background: "transparent" } },
+        h("span", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: (total ? cnt[i] * 100 / total : 0) + "%", background: FORUM_SKIN.accent, opacity: cnt[i] === max && total ? .2 : .1 } }),
+        h("span", { className: "flex items-center justify-between", style: { position: "relative", gap: 8 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))", color: FORUM_SKIN.ink } }, (me ? "✓ " : "") + o),
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: FORUM_SKIN.fog, flexShrink: 0 } }, cnt[i] + " 票 · " + pct + "%")),
+        who[i].length ? h("span", { style: { position: "relative", display: "block", fontFamily: F_BODY, fontSize: "calc(10.5px * var(--app-fs, 1))", color: FORUM_SKIN.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, who[i].slice(0, 6).join("、") + (who[i].length > 6 ? " 等" : "")) : null); }));
+}
 function Forum({
   characters, profile, posts, comments, follows, followBack, followingOf, pms, groups, gen, forumMe, charMetaOf, forumOff, forumMasks, forumMaskNow,
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onRegenFloors, onReplyFloor, onReplySub,
@@ -2459,6 +2479,7 @@ function Forum({
   onRefreshPMs, onSendPM, onDelPMMsg, onForwardToPM, onAskWechat, onOpenWechat, onMarkPMRead, onEditMe, onEditCharMeta, onEnsureCharMeta, onToggleForumChar, onRenameCharAlt, onRegenCharAlt,
   onEditPost, onPinFloor, onDeletePost, onDeletePosts, onDeleteFloor, onClearBoard, onRenameBoard, onDropBoard,  // 删帖（她 2026-09-19）：一条一条删，或者整版清空；onDeletePosts 多选一起删
   onGenCharPosts,              // 请角色来发帖（她 2026-09-23）
+  onVotePoll,                  // 帖子里的投票（2026-11-27）
   toast
 }) {
   const t = useTheme();
@@ -2567,6 +2588,7 @@ function Forum({
   const [composer, setComposer] = useState(false);   // 我发帖
   const [cbBoard, setCbBoard] = useState("日常吧");
   const [cbTitle, setCbTitle] = useState("");
+  const [cbPoll, setCbPoll] = useState(null);   // 发帖带投票（群友 2026-11-27）：null＝不带；数组＝几个选项
   const [cbBody, setCbBody] = useState("");
   const [rTxt, setRtxt] = useState("");
   // @ 人、贴帖子（她 2026-11-21）：发帖正文、回楼、楼中楼三个框都能用；名单和认名字走 screens.js 那几个 forumAt*/forumLink*
@@ -3245,6 +3267,7 @@ function Forum({
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(20px * var(--app-fs, 1))", lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, STX(p.title)),
           xhs ? xhsBody(p) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(14.5px * var(--app-fs, 1))", lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, rich(p, p.body)),
           xhsPhotos(p),   // 好几张就左右滑：贴吧样子也一样（群友 2026-10-27）
+          p.poll && (p.poll.options || []).length >= 2 ? h(ForumPoll, { post: p, floors: (comments || {})[p.id] || [], onVote: onVotePoll ? i => onVotePoll(p.id, i) : null }) : null,
           xhs ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog, marginTop: 10 } }, forumTag(p.board) + "　编辑于 " + timeAgo(p.ts) + " " + forumIpOf(p, ipCharOf(p), p)) : h("div", { className: "mt-3 flex items-center flex-wrap", style: { gap: 8 } }, tag(p.board), h("span", { "data-wk": "forumip", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "IP属地：" + forumIpOf(p, ipCharOf(p), p))),
           xhs ? xhsBar(p) : actBar(p),
           p.authorType === "me" && onEditPost && h("button", { "data-wk": "foeditpost", onClick: () => setEditPost({ id: p.id, title: p.title || "", body: p.body || "" }), className: "active:opacity-60",
@@ -3810,9 +3833,19 @@ function Forum({
       cbAtPicker,
       h("div", { className: "flex items-center gap-2 mt-2 flex-wrap" }, linkBtn("cb"),
         h("span", { style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog } }, "正文里打「@」可以点名，被点到的人下一波会来回你")),
+      // 投票：点「＋投票」展开几个选项框，两项起、最多六项；空着的那几项发帖时不算
+      cbPoll ? h("div", { "data-wk": "forumpolledit", className: "mt-3", style: { border: "1px solid " + t.line, borderRadius: 10, padding: "10px 10px 6px" } },
+        h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink } }, "投票 · 来回帖的人会顺手投一票"),
+          h("button", { onClick: () => setCbPoll(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: t.fog } }, "不要投票了")),
+        cbPoll.map((o, i) => h("div", { key: i, className: "flex items-center gap-1.5", style: { marginBottom: 6 } },
+          h("input", { "data-wk": "input", value: o, maxLength: 30, onChange: e => setCbPoll(cbPoll.map((x, j) => j === i ? e.target.value : x)), placeholder: "选项 " + (i + 1), className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))", color: t.ink, background: t.bg, minWidth: 0 } }),
+          cbPoll.length > 2 ? h("button", { onClick: () => setCbPoll(cbPoll.filter((_, j) => j !== i)), "aria-label": "删掉这个选项", className: "active:opacity-60", style: { width: 28, fontSize: "calc(15px * var(--app-fs, 1))", color: t.fog } }, "×") : null)),
+        cbPoll.length < 6 ? h("button", { onClick: () => setCbPoll(cbPoll.concat([""])), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent || t.ink, padding: "2px 0 4px" } }, "＋ 再加一项") : null)
+        : h("button", { "data-wk": "forumpolladd", onClick: () => setCbPoll(["", ""]), className: "mt-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.accent || t.ink } }, "＋ 投票"),
       cardLayout ? h("div", { "data-wk": "foxhstopics", className: "flex gap-1.5 mt-2 flex-wrap" }, forumBoardsAll().map(b => chip(forumTag(b), cbBoard === b, () => setCbBoard(b))))
         : h("div", { className: "mt-2" }, cbPhotos()),
-      h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim(), photoAttachValue(cbPhoto), cbAs, cbMore.map(photoAttachValue).filter(Boolean), forumMentionIds(cbBody, atCands)); setCbTitle(""); setCbBody(""); setCbPhoto(null); setCbMore([]); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, cardLayout ? "发布笔记" : "发布")),
+      h("button", { onClick: () => { if (cbTitle.trim()) { onPostMine(cbBoard, cbTitle.trim(), cbBody.trim(), photoAttachValue(cbPhoto), cbAs, cbMore.map(photoAttachValue).filter(Boolean), forumMentionIds(cbBody, atCands), (cbPoll || []).map(x => String(x || "").trim()).filter(Boolean)); setCbTitle(""); setCbBody(""); setCbPoll(null); setCbPhoto(null); setCbMore([]); setComposer(false); setNav("home"); setTab(cbBoard); } }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: "calc(13px * var(--app-fs, 1))" } }, cardLayout ? "发布笔记" : "发布")),
     // 编辑我的资料
     editPost && typeof CenterCard === "function" && h(CenterCard, { onClose: () => setEditPost(null), maxWidth: 360, wk: "centercard" },
       h("div", { style: { padding: "16px 17px 17px" } },

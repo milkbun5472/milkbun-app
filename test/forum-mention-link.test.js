@@ -43,7 +43,7 @@ test("@ 的 id 存在记录上：发出去那一下按正文里还在的「@名�
   assert.match(cut(app, "const addForumFloor = (", "const addForumSubReply"), /content: text, \.\.\.\(Array\.isArray\(mentions\) && mentions\.length \? \{ mentions: mentions\.slice\(0, 12\) \}/);
   assert.match(cut(app, "const addForumSubReply = (", "const forumPmKnow"), /mentions: mentions\.slice\(0, 12\)/);
   // 界面把认出来的 id 递过去
-  assert.match(ui, /cbMore\.map\(photoAttachValue\)\.filter\(Boolean\), forumMentionIds\(cbBody, atCands\)\)/);
+  assert.match(ui, /cbMore\.map\(photoAttachValue\)\.filter\(Boolean\), forumMentionIds\(cbBody, atCands\)[,)]/);
   assert.match(ui, /const ments = forumMentionIds\(rTxt, atCands\)/);
 });
 

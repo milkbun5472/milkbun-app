@@ -12,7 +12,7 @@ assert.strictEqual(ctx.forumValidTo("@蓝笔批注", ["蓝笔批注"]), "蓝笔�
 assert.strictEqual(ctx.forumValidTo("sweeper_chen", ["蓝笔批注"]), "", "楼里没有的人不显示");
 assert(/是在回【这层楼里的某个人】，就填 to/.test(app), "提示词让它写 to");
 assert(/_to: r\.to \}/.test(app) && /const toName = forumValidTo\(_to, seen\)/.test(app), "首刷楼中楼接上");
-assert(/const r = buildForumReplyObjBase\(x, post, floor\)/.test(app), "插楼那条接上");
+assert(/const r0? = buildForumReplyObjBase\(x, post, floor\)/.test(app), "插楼那条接上");
 assert(/const toName = forumValidTo\(x\.to, \[meNow\]/.test(app), "回我那条接上");
 const a = sc.indexOf("const atClean = ");
 const re = eval(sc.slice(sc.indexOf("replace(", a) + 8, sc.indexOf(", (all, name)", a)));
