@@ -19958,7 +19958,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return out;
   };
   // 相机里给TA看（她 2026-11-26）：photo/gen＝拍好、画好的这一张，TA 说一句＋在拍立得白边上写一行；live＝她举着相机、把TA放进取景框一起逛，TA 看着画面说一句
-  const cameraLook = async (charId, img, kind, inPhoto) => {
+  // live：一次可以说好几句（她 2026-11-27「说一句能不能一次很多句，然后可以回看」），prior＝这一路他刚才说过的，接着往下说别重复
+  const cameraLook = async (charId, img, kind, inPhoto, prior) => {
     const char = characters.find(c => c.id === charId);
     const route = apiFor(charId);
     if (!char || !route) throw new Error("请先到设置配置 API");
@@ -19967,12 +19968,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const d = await runProbe(route, ctxFor(char), {
       voice: true, images: img ? [img] : [],
       instruction: live
-        ? uName + " 举着手机相机在外面，把你也放进了取景框里，像你们一起在逛（图里就是取景框此刻的样子，你也在画面里）。你看看画面里真有的东西，照你这个人的性子跟她说一句。say 只写说出口的话，跟着你此刻的心情和你平时说话的样子来。"
+        ? uName + " 举着手机相机在外面，把你也放进了取景框里，像你们一起在逛（图里就是取景框此刻的样子，你也在画面里）。你看看画面里真有的东西，照你这个人的性子跟她说话：想说几句就几句，一句一条放进 lines，长短、多少跟着你此刻的心情和你平时说话的样子来；只写说出口的话。" + (Array.isArray(prior) && prior.length ? "\n【这一路你刚才说过的】\n" + prior.slice(-12).join("\n") + "\n接着往下说，画面变了就说新看到的，别把说过的再说一遍。" : "") + ""
         : uName + (kind === "gen" ? " 在相机里让人画了这张，拿给你看" : " 刚用相机拍了这张，拿给你看") + (inPhoto ? "（照片里也有你）" : "") + "，图里就是。say 是你看着这张想跟她说的话，长短跟着你此刻的心情和你平时说话的样子来。caption 是你想亲手写在这张拍立得白边上的一行字，写在照片上留着的那种，短。",
-      schemaHint: live ? "{\"say\":\"你想跟她说的话\"}" : "{\"say\":\"你想跟她说的话\",\"caption\":\"写在白边上的一行字\"}",
+      schemaHint: live ? "{\"lines\":[\"一句\",\"又一句\"]}" : "{\"say\":\"你想跟她说的话\",\"caption\":\"写在白边上的一行字\"}",
       maxTokens: 8000
     });
-    return { say: String((d && d.say) || "").trim(), caption: live ? "" : String((d && d.caption) || "").trim() };
+    if (live) { const ls = (Array.isArray(d && d.lines) ? d.lines : [d && d.say]).map(x => String(x || "").trim()).filter(Boolean); return { lines: ls, say: ls.join("\n"), caption: "" }; }
+    return { say: String((d && d.say) || "").trim(), caption: String((d && d.caption) || "").trim() };
   };
   // 发进TA的聊天：跟照相馆那张一样走 shareShotToChat（先进本机图库，再搬进聊天图库）；发完TA等她开口
   const cameraShare = async (charId, blob, caption) => {

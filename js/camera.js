@@ -292,6 +292,10 @@
     // 给TA看（她 2026-11-26 挑的前三个好玩的）：拍完挑一个人看这张——TA 说一句、在相纸白边上写一行；还能发进TA的聊天
     const [look, setLook] = useState(null);       // {pid, busy, say, caption}
     const [talkBusy, setTalkBusy] = useState("");  // 一起逛：哪张贴纸正在想说什么
+    // 一起逛说过的话都记着，能回看（她 2026-11-27「可以回看一下」）：x_camTalkLog，最近 200 段；回看是整页
+    const [talkLog, setTalkLog] = useState(() => { try { const v = typeof loadJSON === "function" ? loadJSON("x_camTalkLog", []) : []; return Array.isArray(v) ? v : []; } catch (e) { return []; } });
+    const [talkView, setTalkView] = useState(false);
+    const logTalk = (pid, lines) => setTalkLog(l => { const n = l.concat([{ pid, lines, ts: Date.now() }]).slice(-200); try { if (typeof saveJSON === "function") saveJSON("x_camTalkLog", n); } catch (e) {} return n; });
     // 模式转盘（真相机快门上面那一排「照片·人像·视频」）：实景＝镜头叠人；生图＝挑人写一句画面，让生图画一张
     const [mode, setMode] = useState("hub");   // hub＝首页那几块入口（她 2026-11-26「像美图秀秀那样分开」）
     const [colTpl, setColTpl] = useState("booth");
@@ -472,8 +476,11 @@
     const talk = async st => {
       if (talkBusy || !props.onLook) return;
       setTalkBusy(st.id);
-      try { const img = await renderFrame({ tiny: true, noTalk: true }); const d = await props.onLook(st.pid, img, "live");
-        const say = String((d && d.say) || "").trim(); if (say) patch(st.id, { say }); }
+      try { const img = await renderFrame({ tiny: true, noTalk: true });
+        const prior = talkLog.filter(x => x.pid === st.pid).slice(-6).flatMap(x => x.lines);
+        const d = await props.onLook(st.pid, img, "live", false, prior);
+        const lines = (d && Array.isArray(d.lines) ? d.lines : [d && d.say]).map(x => String(x || "").trim()).filter(Boolean);
+        if (lines.length) { patch(st.id, { say: lines.join("\n") }); logTalk(st.pid, lines); } }
       catch (e) { props.toast && props.toast("没说成：" + String(e && e.message || e).slice(0, 80)); }
       finally { setTalkBusy(""); }
     };
@@ -721,6 +728,27 @@
     // 实景那一页：画面铺满；顶上两颗磨砂圆钮；底下一块磨砂底板——面板（加人／抠图人／滤镜）和快门那一排都在板子上，压在浅色照片上也看得清
     const sheetOn = !!panel;
     const label = t => h("div", { style: { fontSize: FS(11), color: "rgba(255,255,255,.62)", letterSpacing: ".06em", margin: "2px 2px 8px" } }, t);
+    // 回看：一起逛时他说过的每一段，按天排，最新的在下面；整页，不是半窗
+    if (talkView) {
+      const nm = pid => ((people.find(x => x.id === pid) || {}).name) || "TA";
+      const day = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
+      const hm = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+      let lastDay = "";
+      return h("div", { "data-wk": "campage", "data-part": "talklog", className: "h-full flex flex-col", style: { background: "linear-gradient(180deg,#ffe3ee 0%,#fff6f9 38%,#fdfbfc 100%)", color: "#2b2230" } },
+        typeof Head === "function" ? h(Head, { zh: "一起逛时说过的", bg: "transparent", onBack: () => setTalkView(false) }) : null,
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 24px" } },
+          talkLog.map((x, i) => { const d0 = day(x.ts), head = d0 !== lastDay; lastDay = d0;
+            return h(React.Fragment, { key: i },
+              head ? h("div", { style: { textAlign: "center", fontSize: FS(11), color: "#9a8592", margin: "14px 0 8px" } }, d0) : null,
+              h("div", { "data-wk": "camtalkrow", style: { display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 12 } },
+                h("div", { style: { flexShrink: 0 } }, typeof Avatar === "function" ? h(Avatar, { character: people.find(p => p.id === x.pid) || { name: nm(x.pid) }, size: 34 }) : null),
+                h("div", { style: { flex: 1, minWidth: 0 } },
+                  h("div", { style: { fontSize: FS(11), color: "#9a8592", marginBottom: 3 } }, nm(x.pid) + " · " + hm(x.ts)),
+                  x.lines.map((l, j) => h("div", { key: j, style: { display: "table", maxWidth: "100%", background: "#fff", borderRadius: 14, padding: "7px 11px", marginBottom: 4, fontSize: FS(13.5), lineHeight: 1.5, boxShadow: "0 4px 12px -8px rgba(160,60,110,.5)" } }, l))))); })),
+        h("div", { style: { flexShrink: 0, padding: "8px 16px 14px", paddingBottom: "calc(14px + " + COMPOSER_PAD_BOTTOM + ")", textAlign: "center" } },
+          h("button", { "data-wk": "cambtn", "data-part": "talkclear", onClick: () => { const go = () => { setTalkLog([]); try { saveJSON("x_camTalkLog", []); } catch (e) {} setTalkView(false); };
+            if (typeof requestAppConfirm === "function") requestAppConfirm("清空说过的话？", "只清这一页的记录，拍下来的照片不受影响", go, "清空"); else go(); }, style: { border: "none", background: "transparent", color: "#9a8592", fontSize: FS(12) } }, "清空记录")));
+    }
     return h("div", { "data-wk": "campage", className: "h-full", style: { position: "relative", background: "#000", overflow: "hidden", display: "flex", flexDirection: "column" } },
       // 取景框：整屏都是画面，跟直播间一样是全屏例外，返回键浮在左上、走 safeTop
       h("div", { ref: stageRef, "data-wk": "camstage", onPointerDown: () => setSel(null), style: { position: "absolute", inset: 0, filter: fcss || "none" } },
@@ -734,12 +762,13 @@
       h("div", { style: { position: "absolute", left: 0, right: 0, top: 0, paddingTop: safeTop(8), paddingLeft: 12, paddingRight: 12, display: "flex", alignItems: "center", gap: 8, background: "linear-gradient(rgba(0,0,0,.28), transparent)", paddingBottom: 16 } },
         roundBtn(IC.back, () => switchMode("hub"), "back", "返回"),
         h("div", { style: { flex: 1 } }),
+        talkLog.length ? h("button", { "data-wk": "cambtn", "data-part": "talklog", onClick: () => setTalkView(true), style: { height: 38, padding: "0 14px", borderRadius: 19, border: "1px solid rgba(255,255,255,.22)", background: "rgba(28,22,30,.42)", color: "#fff", fontSize: FS(12.5), backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" } }, "说过的") : null,
         bg ? roundBtn(IC.flip, backToCam, "tocam", "回到镜头") : roundBtn(IC.flip, () => camRef.current && camRef.current.switch(), "flip", "翻转")),
       // 选中一张贴纸时：一条磨砂小条，换样式、删掉
       // 一起逛那句话：挂在TA头顶，点一下收掉；拍的时候一起画进去
       stickers.filter(st => st.say || talkBusy === st.id).map(st => { const R = stageRef.current && stageRef.current.getBoundingClientRect(), Wp = (R && R.width) || 390, Hp = (R && R.height) || 844;
         return h("div", { key: "say" + st.id, "data-wk": "camsay", onClick: () => talkBusy !== st.id && patch(st.id, { say: "" }),
-          style: { position: "absolute", left: Math.max(4, Math.min(96, st.x * 100)) + "%", bottom: (1 - st.y + talkLift(st, Wp, Hp)) * 100 + "%", transform: "translateX(-50%)", marginBottom: 10, maxWidth: "56%", width: "max-content",
+          style: { position: "absolute", left: Math.max(4, Math.min(96, st.x * 100)) + "%", bottom: (1 - st.y + talkLift(st, Wp, Hp)) * 100 + "%", transform: "translateX(-50%)", marginBottom: 10, maxWidth: "56%", width: "max-content", whiteSpace: "pre-wrap", maxHeight: "40vh", overflowY: "auto",
             background: "rgba(255,255,255,.96)", color: "#2b2230", borderRadius: 14, padding: "7px 11px", fontSize: FS(13), lineHeight: 1.45, boxShadow: "0 6px 14px -6px rgba(0,0,0,.45)", pointerEvents: "auto", filter: fcss || "none" } },
           talkBusy === st.id ? "……" : st.say,
           h("span", { style: { position: "absolute", left: "50%", bottom: -6, marginLeft: -6, width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "7px solid rgba(255,255,255,.96)" } })); }),

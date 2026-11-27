@@ -17,7 +17,7 @@ test("自己调：五根条拼成 CSS 串，只用逐像素兜底认得的那几
 });
 test("给TA看／一起逛：同一个 cameraLook，看图回 say(+caption)；发进聊天走 shareShotToChat，不当场替TA开口", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-  assert.match(app, /const cameraLook = async \(charId, img, kind, inPhoto\) =>/);
+  assert.match(app, /const cameraLook = async \(charId, img, kind, inPhoto(, prior)?\) =>/);
   assert.match(app, /const cameraShare = async \(charId, blob, caption\) =>[\s\S]{0,400}return shareShotToChat\(char,/);
   assert.match(app, /onLook: cameraLook, onShare: cameraShare/);
   assert.match(cam, /const finalBlob = async \(\) => look && look\.caption \? await polaroid\(/);
@@ -107,4 +107,13 @@ test("旅行大家一起寄：一次调用写完每个人那几句", () => {
   assert.ok(!/Promise\.all\(writers/.test(body));
   assert.equal((body.match(/runProbe\(/g) || []).length, 1);
   assert.match(body, /\\"texts\\":\[\{\\"who\\"/);
+});
+test("一起逛：一次可以说好几句、接着刚才说过的往下说；说过的记着能回看", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(app, /const cameraLook = async \(charId, img, kind, inPhoto, prior\) =>/);
+  assert.match(app, /schemaHint: live \? "\{\\"lines\\":\[\\"一句\\",\\"又一句\\"\]\}"/);
+  assert.match(cam, /const d = await props\.onLook\(st\.pid, img, "live", false, prior\);/);
+  assert.match(cam, /loadJSON\("x_camTalkLog", \[\]\)/);
+  assert.match(cam, /"data-part": "talklog"/);
+  assert.ok(ts.includes('["camtalkrow"'));
 });
