@@ -86,5 +86,7 @@ test("全身／半身、穿什么（衣柜或配一套新的）、抠好的再�
   assert.match(cam, /props\.onGen\(genIds, genScene, genWho, \{ frame: genFrame, fits: fitsFor\(genIds\) \}\)/);
   assert.match(cam, /props\.onGenCutout\(cutFor, cutPose, \{ frame: cutFrame, fits: fitsFor\(\[cutFor\]\) \}\)/);
   assert.match(cam, /ctx\.drawImage\(im, 0, 0, im\.naturalWidth, im\.naturalHeight \* cr,/);
+  assert.match(app, /bust: "【景别】胸像近景/);
+  assert.match(cam, /\["bust", "到胸"\]/);
   for (const k of ["camoutfit", "camoutfitone", "camcrop"]) assert.ok(ts.includes('["' + k + '"'), k);
 });

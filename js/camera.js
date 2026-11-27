@@ -83,7 +83,7 @@
           h("div", { style: { fontSize: FS(11.5), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: on(x.name) ? 600 : 400 } }, (x.occasion ? x.occasion + " · " : "") + x.name),
           x.note ? h("div", { style: { fontSize: FS(10), color: sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, x.note) : null))));
   }
-  const FRAMES = [["", "不指定"], ["full", "全身"], ["half", "半身"]];
+  const FRAMES = [["", "不指定"], ["full", "全身"], ["half", "半身"], ["bust", "到胸"]];
   const STYLES = [["round", "圆头像"], ["card", "小卡"], ["plain", "原图"]];
 
   // 不认 ctx.filter 时的兜底：把同一串 CSS 滤镜逐像素算一遍（只用到上面那几种函数）
@@ -769,7 +769,7 @@
                 cutUrls[x.k] ? h("img", { src: cutUrls[x.k], style: { width: "100%", height: "100%", objectFit: "contain" } }) : null),
               h("button", { "data-wk": "camcutdel", "aria-label": "不要这张", onClick: () => { cutDrop(cutFor, x.k); setCutRev(n => n + 1); },
                 style: { position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: 11, border: "1.5px solid rgba(20,16,22,.9)", background: "#fff", color: "#2b2230", fontSize: FS(12), lineHeight: "18px", padding: 0 } }, "×")))),
-          h("div", { style: { display: "flex", gap: 6, marginBottom: 2 } }, [["full", "全身"], ["half", "半身"]].map(([k, zh]) => h(React.Fragment, { key: k }, btn(zh, () => setCutFrame(k), cutFrame === k, "cutframe")))),
+          h("div", { style: { display: "flex", gap: 6, marginBottom: 2 } }, [["full", "全身"], ["half", "半身"], ["bust", "到胸"]].map(([k, zh]) => h(React.Fragment, { key: k }, btn(zh, () => setCutFrame(k), cutFrame === k, "cutframe")))),
           outfitFor(cutFor, cutPose, true),
           h("div", { style: { display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8, marginTop: 10 } },
             h("textarea", { "data-wk": "camcutpose", value: cutPose, onChange: e => setCutPose(e.target.value), placeholder: "姿势（选填，写一两个字也行）", rows: cutPose.split("\n").length > 1 ? 4 : 1,

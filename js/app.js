@@ -19900,16 +19900,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     return { occasion: occ, name: one.name, note: one.note };
   };
   // 全身／半身＋挑好的衣服，写进这一张（o.frame：full/half；o.fits：{人id: 那一身}）
-  const CAM_FRAME = { full: "【景别】全身照：从头顶到鞋子整个人都在画面里。", half: "【景别】半身照：腰部以上入镜，人占画面大半。" };
+  const CAM_FRAME = { full: "【景别】全身照：从头顶到鞋子整个人都在画面里。", half: "【景别】半身照：腰部以上入镜，人占画面大半。", bust: "【景别】胸像近景：胸口以上入镜，像自拍那样脸占画面的大头，肩膀露一点。" };
   const camDress = (c, o) => { const f = o && o.fits && String(o.fits[c.id] || "").trim(); return f ? { ...c, outfit: f, photoOutfit: f } : c; };
   const cameraGenCutout = async (id, pose, o) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
     const meName = userName(profile);
     const who0 = id === "me" ? { ...meSubject(null, meName, null), id: "me", name: meName } : (characters || []).find(c => c && c.id === id);
     if (!who0) throw new Error("先挑是谁");
-    const who = camDress(who0, o), half = o && o.frame === "half";
+    const who = camDress(who0, o), half = o && o.frame === "half", bust = o && o.frame === "bust";
     const sc = String(pose || "").trim() || "自然地站着";
-    return castShotBlob([who], sc, { kind: "other", extraText: "\n\n【这张要拿去抠图】" + (half ? "腰部以上的半身入镜，头顶上方留一点空，不裁掉头和肩；人在画面正中。" : "从头顶到鞋子整个人完整入镜，四周留一点空，不裁掉任何部位；人站在画面正中。")
+    return castShotBlob([who], sc, { kind: "other", extraText: "\n\n【这张要拿去抠图】" + (bust ? "胸口以上的近景，像自拍那样脸占画面大半，头顶上方留一点空，不裁掉头发；人在画面正中。" : half ? "腰部以上的半身入镜，头顶上方留一点空，不裁掉头和肩；人在画面正中。" : "从头顶到鞋子整个人完整入镜，四周留一点空，不裁掉任何部位；人站在画面正中。")
       + "背景是一整片均匀的纯绿色（#00FF00），像摄影棚的绿幕：没有地面、墙、影子、道具和其他人，也没有渐变。人身上不要穿绿色。" });
   };
   // 相机「让 AI 先写一版」（她 2026-11-26「我写沙滩 可以直接拍或者先让模型先写一版看着满意了再拍」）：
