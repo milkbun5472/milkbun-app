@@ -572,6 +572,11 @@ async function pumpSSE(r, opts, consume, hooks) {
   const tail = (hooks && hooks.tail) || (() => null);
   const cancelReader = () => { try { Promise.resolve(reader.cancel()).catch(() => {}); } catch (e) {} };
   const SILENCE_MS = (opts && opts.streamSilenceMs) || 90000;
+  // 正文还没开始流之前可以多等（群友 2026-11-27 同人文「流式回复中途静默超过 90 秒」）：思考型模型先在心里想，
+  //   有的中转那段时间一个字节都不发，长文想上两三分钟很常见——那不是断线。开头只来几个小包（role、空 delta）也还算没开始；
+  //   真流起来（收过 2KB 以上）以后照旧 90 秒判断线
+  const FIRST_SILENCE_MS = (opts && opts.streamFirstSilenceMs) || 300000;
+  let gotBytes = 0;
   const TOTAL_MS = (opts && opts.streamTotalMs) || 600000;
   const t0 = Date.now();
   let pending = "";
@@ -588,14 +593,15 @@ async function pumpSSE(r, opts, consume, hooks) {
     try {
       chunk = await Promise.race([
         reader.read(),
-        new Promise((resolve, rej) => { silenceTimer = setTimeout(() => grace != null ? resolve({ done: true, finished: true }) : rej(new Error("__stream_silence__")), grace != null ? grace : SILENCE_MS); })
+        new Promise((resolve, rej) => { silenceTimer = setTimeout(() => grace != null ? resolve({ done: true, finished: true }) : rej(new Error("__stream_silence__")), grace != null ? grace : (gotBytes > 2048 ? SILENCE_MS : FIRST_SILENCE_MS)); })
       ]);
     } catch (e) {
       cancelReader();
-      if (String(e && e.message).indexOf("__stream_silence__") >= 0) throw new Error("流式回复中途静默超过 " + Math.round(SILENCE_MS / 1000) + " 秒（桥或网关可能断了），已断开——请重试");
+      if (String(e && e.message).indexOf("__stream_silence__") >= 0) throw new Error("流式回复中途静默超过 " + Math.round((gotBytes > 2048 ? SILENCE_MS : FIRST_SILENCE_MS) / 1000) + " 秒（桥或网关可能断了），已断开——请重试");
       throw e;
     } finally { clearTimeout(silenceTimer); }
     if (chunk.done) { if (chunk.finished) cancelReader(); break; }
+    gotBytes += (chunk.value && chunk.value.length) || 0;
     pending += decoder.decode(chunk.value, { stream: true });
     const lines = pending.split(/\r?\n/); pending = lines.pop() || "";
     lines.forEach(consume);
