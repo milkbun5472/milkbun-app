@@ -4827,6 +4827,17 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onPrev, 
 // 全屏月历
 // 经期预测
 function pKeyDate(k) { return window.ScheduleClock.parseDayKey(k); }
+// 这一天还算不算在「这次」里（群友 2026-11-27：周期短、一个月来两次，第二次只能记成「上一次的最后一天」）：
+//   原来是「之前随便哪一次没记结束」就当还开着——几个月前漏记结束的那次也算，新的一次永远开不了头。
+//   现在只看【最近的那一次】：它没记结束、而且离这天不超过两周，才算这次还在；不然这天就是新的一次。
+//   月事本那颗按钮、健康页「今天来了／走了」、真记下去的 recordPeriodStart 都问这一处。
+const PERIOD_OPEN_MAX_DAYS = 14;
+function periodOpenAt(list, key) {
+  const dt = pKeyDate(key);
+  const prev = (list || []).filter(function (x) { return x && x.start && pKeyDate(x.start) < dt; }).sort(function (a, b) { return pKeyDate(b.start) - pKeyDate(a.start); })[0];
+  if (!prev || prev.end) return null;
+  return (dt - pKeyDate(prev.start)) / 86400000 <= PERIOD_OPEN_MAX_DAYS ? prev : null;
+}
 function pDK(d) { return window.ScheduleClock.deviceDayKey(d, true); }
 const PERIOD_COLORS = { period: "#c25a4a", fertile: "#a98bbf", ov: "#7a5aa0", safe: "#7faf7a" };
 const PERIOD_LABELS = { period: "经期", fertile: "排卵期", ov: "排卵日", safe: "安全期" };
@@ -5017,9 +5028,14 @@ function PeriodBook({ period, chars, daySel, onSave, onRecord, onBack }) {
           (function () {
             if (list.some(function (x) { return x.start === key; })) return "取消：" + key.slice(5) + " 不是开始那天";
             if (list.some(function (x) { return x.end === key; })) return "取消：" + key.slice(5) + " 不是结束那天";
-            const open = list.filter(function (x) { return !x.end && pKeyDate(x.start) < pKeyDate(key); })[0];
-            return open ? ("把 " + key.slice(5) + " 记为这次的最后一天") : ("把 " + key.slice(5) + " 记为这次的第一天");
-          })())),
+            return periodOpenAt(list, key) ? ("把 " + key.slice(5) + " 记为这次的最后一天") : ("把 " + key.slice(5) + " 记为这次的第一天");
+          })()),
+        // 还开着的那次其实早结束了、这天是新来的：给一条另起的路
+        periodOpenAt(list, key) && !list.some(function (x) { return x.start === key || x.end === key; })
+          ? h("button", { "data-wk": "periodnewstart", onClick: function () { onRecord(key, "start"); }, className: "w-full active:opacity-70",
+              style: { marginTop: 8, fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: ACC, background: "transparent", border: "1px solid " + ACC, borderRadius: 12, padding: "9px 0" } },
+              "不是，" + key.slice(5) + " 是新的一次开始")
+          : null),
       // ── 今天这一页 ──
       sec("记在 " + key.slice(5) + " 这一页"),
       // ⚠️右边留一截：选中的那天永远是最右一个，不留白就被裁在屏幕边上

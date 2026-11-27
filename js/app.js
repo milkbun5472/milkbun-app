@@ -21294,7 +21294,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   // 经期
   const savePeriodSettings = patch => setPeriod(p => { const n = { ...p, ...patch }; saveJSON("x_period", n); return n; });
   // 点某天：若这天已是某段的开始/结束→取消它；否则若有「已开始未结束」的段且这天在其后→记为结束；否则新开一段
-  const recordPeriodStart = dateKey => setPeriod(p => {
+  const recordPeriodStart = (dateKey, mode) => setPeriod(p => {
     let periods = periodList(p).map(x => ({ start: x.start, end: x.end || null }));
     const dt = pKeyDate(dateKey);
     const asStart = periods.findIndex(x => x.start === dateKey);
@@ -21302,7 +21302,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (asStart >= 0) periods.splice(asStart, 1);
     else if (asEnd >= 0) periods[asEnd].end = null; // 取消结束，重新变成进行中
     else {
-      const open = periods.filter(x => !x.end && pKeyDate(x.start) < dt).sort((a, b) => pKeyDate(b.start) - pKeyDate(a.start))[0];
+      const open = mode === "start" ? null : periodOpenAt(periods, dateKey);
       if (open) open.end = dateKey; else periods.push({ start: dateKey, end: null });
     }
     periods.sort((a, b) => pKeyDate(a.start) - pKeyDate(b.start));

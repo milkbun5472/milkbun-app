@@ -463,7 +463,7 @@
     const per = typeof periodPhaseNow === "function" ? periodPhaseNow(props.period) : null;
     const legacyToday = typeof pDK === "function" ? pDK(new Date()) : today;
     const plist = typeof periodList === "function" ? periodList(props.period) : [];
-    const open = plist.filter(p => !p.end).slice(-1)[0];
+    const open = typeof periodOpenAt === "function" ? periodOpenAt(plist, legacyToday) : plist.filter(p => !p.end).slice(-1)[0];
     const startedToday = plist.some(p => p.start === legacyToday);
     const pBtn = startedToday ? "今天不算，撤掉" : open ? "今天走了" : "今天来了";
     const wrows = weightTrend(d), lastW = wrows[wrows.length - 1];
