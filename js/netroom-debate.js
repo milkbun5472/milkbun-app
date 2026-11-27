@@ -295,8 +295,14 @@
     const [p, setP] = useState({ topic: "", rounds: 3, mode: "serious", me: "pro", chars: {} });
     const [busy, setBusy] = useState(false), [opts, setOpts] = useState([]);
     const set = o => setP(x => Object.assign({}, x, o));
-    const seg = (val, list, on, wk) => h("div", { "data-wk": wk, className: "flex flex-wrap", style: { gap: 6 } }, list.map(o => h("button", { key: o.k, onClick: () => on(o.k), style: Object.assign(pill(t, val === o.k), { minHeight: 34, padding: "0 12px" }) }, o.zh)));
-    const label = s => h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: t.fog, margin: "4px 0 2px" } }, s);
+    // 长相照单机「摆台子」（她 11-26「参考一下他们原本的页面」）：布面场地、每栏抬头压一道台面线、选中的描强调色
+    const chip = on => ({ minHeight: 38, padding: "0 13px", borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent + "18" : t.bg2, color: on ? t.accent : t.ink, fontWeight: on ? 700 : 400, fontFamily: F_BODY, fontSize: fs(13) });
+    const seg = (val, list, on, wk) => h("div", { "data-wk": wk, className: "flex flex-wrap", style: { gap: 8 } }, list.map(o => h("button", { key: o.k, onClick: () => on(o.k), className: "active:opacity-70", "data-on": val === o.k ? "1" : "0", style: chip(val === o.k) }, o.zh)));
+    const label = s => h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), fontWeight: 700, color: t.sub, letterSpacing: .3, borderTop: "3px solid " + t.line, paddingTop: 9, marginTop: 12, marginBottom: 2 } }, s);
+    const card2 = (val, list, on, wk) => h("div", { "data-wk": wk, style: { display: "flex", gap: 8 } }, list.map(o => h("button", { key: o.k, onClick: () => on(o.k), className: "active:opacity-70 flex-1", "data-on": val === o.k ? "1" : "0",
+      style: { textAlign: "left", padding: "11px 13px", borderRadius: 11, border: "1.5px solid " + (val === o.k ? t.accent : t.line), background: val === o.k ? t.accent + "12" : t.bg2 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: fs(13.5), fontWeight: 700, color: val === o.k ? t.accent : t.ink } }, o.zh),
+      h("div", { style: { fontFamily: F_BODY, fontSize: fs(10.5), color: t.fog, marginTop: 2 } }, o.sub))));
     const ME = [{ k: "pro", zh: "我上台 · 正方" }, { k: "con", zh: "我上台 · 反方" }, { k: "any", zh: "我上台 · 都行" }, { k: "off", zh: "我坐观众席" }];
     const CH = [{ k: "", zh: "不上" }, { k: "auto", zh: "随人设" }, { k: "pro", zh: "正方" }, { k: "con", zh: "反方" }];
     const draw = async () => {
@@ -306,20 +312,21 @@
     const picks = (p.me === "off" ? [] : [{ kind: "user", side: p.me === "any" ? "" : p.me }])
       .concat((myChars || []).filter(c => p.chars[c.id]).map(c => ({ kind: "char", charId: c.id, name: c.remark || c.name, side: p.chars[c.id] === "auto" ? "" : p.chars[c.id], tag: SIDE_ZH[p.chars[c.id]] || "" })));
     return h("div", { "data-wk": "nrdebateprep", style: { display: "flex", flexDirection: "column", gap: 8 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: t.fog, lineHeight: 1.7 } }, "几台手机一起开一场。没有单机擂台里的裁判人选、递纸条、临时规矩和台下投票——胜负由你这台（庄）用你的线路判；观众席谁都能发弹幕。别人在邀请卡上报名：自己上台、派带来的角色上台，或者只坐观众席。"),
-      label("辩题"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.7 } }, "几台手机一起开一场。没有单机擂台里的裁判人选、递纸条、临时规矩和台下投票——胜负由你这台（庄）用你的线路判；观众席谁都能发弹幕。别人在邀请卡上报名：自己上台、派带来的角色上台，或者只坐观众席。"),
+      label("今天台上吵什么"),
       h("textarea", { "data-wk": "nrdebatetopicin", value: p.topic, rows: 2, onChange: e => { set({ topic: e.target.value.slice(0, 120) }); fit(e); }, placeholder: "写一句两边都站得住的话；空着就开局时用你的线路现出一道", style: box(t) }),
-      myApi && h("button", { "data-wk": "nrdebatedraw", disabled: busy, onClick: draw, style: Object.assign(pill(t, false), { alignSelf: "flex-start", minHeight: 34 }) }, busy ? "在想…" : "让模型出三道挑一道（花一次调用）"),
+      myApi && h("button", { "data-wk": "nrdebatedraw", disabled: busy, onClick: draw, className: "active:opacity-60", style: { alignSelf: "flex-start", minHeight: 40, padding: "6px 14px", borderRadius: 999, border: "1px dashed " + t.line, background: t.bg2, color: t.sub, fontFamily: F_BODY, fontSize: fs(12.5) } }, busy ? "在想…" : "让模型出三道挑一道（花一次调用）"),
       opts.length ? seg(p.topic, opts.map(x => ({ k: x, zh: x })), k => set({ topic: k }), "nrdebatetopicopt") : null,
       label("几轮（每轮台上每人说一段）"), seg(p.rounds, [3, 5, 8, 12].map(n => ({ k: n, zh: n + " 轮" })).concat([{ k: 0, zh: "不限" }]), k => set({ rounds: k }), "nrdebaterounds"),
       // 不限：一直轮着说，开局的人点「收台判胜负」才停（单机擂台也是这样，没有轮数上限）
-      label("怎么吵"), seg(p.mode, [{ k: "serious", zh: "讲道理" }, { k: "free", zh: "随便吵" }], k => set({ mode: k }), "nrdebatemode"),
+      label("模式"), card2(p.mode, [{ k: "serious", zh: "讲道理", sub: "维持人设，正经论辩" }, { k: "free", zh: "随便吵", sub: "允许按人设跑题发散" }], k => set({ mode: k }), "nrdebatemode"),
       label("你自己"), seg(p.me, ME, k => set({ me: k }), "nrdebateme"),
       (myChars || []).length ? label("你带来的角色（随人设＝开讲前由你这台按 TA 的人设挑边）") : null,
-      (myChars || []).map(c => h("div", { key: c.id, className: "flex items-center", style: { gap: 8, flexWrap: "wrap" } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: fs(13.5), color: t.ink, minWidth: 64 } }, c.remark || c.name),
+      (myChars || []).map(c => h("div", { key: c.id, "data-wk": "nrdebatecharrow", style: { display: "flex", flexDirection: "column", gap: 6, padding: "8px 0" } },
+        h("div", { className: "flex items-center", style: { gap: 8 } }, h(Avatar, { character: c, size: 26, radius: 999 }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: fs(13.5), fontWeight: p.chars[c.id] ? 700 : 400, color: p.chars[c.id] ? t.accent : t.ink } }, c.remark || c.name)),
         seg(p.chars[c.id] || "", CH, k => set({ chars: Object.assign({}, p.chars, { [c.id]: k }) }), "nrdebatechar"))),
-      h("button", { "data-wk": "nrdebatego", onClick: () => onSend({ total: Math.max(2, picks.length), mode: p.me === "off" ? "spectate" : "normal", npcFill: true, picks }, { topic: p.topic.trim(), rounds: p.rounds, mode: p.mode }), style: Object.assign(pill(t, true), { marginTop: 8 }) }, "发邀请卡"));
+      h("button", { "data-wk": "nrdebatego", onClick: () => onSend({ total: Math.max(2, picks.length), mode: p.me === "off" ? "spectate" : "normal", npcFill: true, picks }, { topic: p.topic.trim(), rounds: p.rounds, mode: p.mode }), className: "w-full active:opacity-80", style: { marginTop: 16, fontFamily: F_BODY, fontSize: fs(15), fontWeight: 700, color: "#fff", background: t.accent, borderRadius: 13, padding: "13px 0" } }, "发邀请卡"));
   }
   // 邀请卡上改开局设置（「再来一局」带过来的辩题在这儿换）：只有开局的人那台、还没开局时
   function DebatePrepEdit({ pz, onSave }) {
@@ -334,4 +341,6 @@
       h("button", { "data-wk": "nrdebateprepsave", onClick: () => onSave({ topic: p.topic.trim(), rounds: p.rounds, mode: p.mode }), style: Object.assign(pill(t, true), { minHeight: 32 }) }, "就这样"));
   }
   A.Table = DebateTable; A.Replay = DebateReplay; A.Prep = DebatePrep; A.PrepEdit = DebatePrepEdit;
+  // 开局页那一整页的地面：单机擂台「摆台子」那块布
+  A.prepFloor = t => (typeof pageSkin === "function" ? pageSkin("cloth", t, { strength: .55, corner: false }) : null);
 })(typeof window !== "undefined" ? window : globalThis);

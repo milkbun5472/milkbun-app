@@ -858,7 +858,10 @@
     const fresh = p.how === "new";
     const camp = fresh ? null : (camps || []).find(c => c.id === p.campId);
     const inParty = id => !!(camp && (camp.party || []).some(m => m.key === id));
-    const label = s => h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: t.fog, margin: "4px 0 2px" } }, s);
+    // 长相照单机跑团「新开跑团」（她 11-26「参考一下他们原本的页面」）：坐标纸桌面上压几张半透明纸卡，键都垫一层纸
+    const label = s => h("div", { style: { fontFamily: F_BODY, fontSize: fs(11), color: t.fog, margin: "2px 0 0" } }, s);
+    const pill = (t, on) => ({ minHeight: 36, padding: "0 14px", borderRadius: 12, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "rgba(255,255,255,.62)", color: on ? t.bg : t.ink, fontFamily: F_BODY, fontSize: fs(12.5) });
+    const card = (...kids) => h("div", { "data-wk": "nrtrpgcard", style: { padding: 13, borderRadius: 16, background: "rgba(255,255,255,.58)", border: "1px solid " + t.line, boxShadow: "0 1px 2px rgba(46,38,29,.05), 0 8px 18px -10px rgba(46,38,29,.18)", display: "flex", flexDirection: "column", gap: 8 } }, ...kids);
     const partyChars = camp ? (camp.party || []).filter(m => m.key && m.key !== "user").map(m => (allChars || []).find(c => c.id === m.key)).filter(Boolean) : [];
     const roomIds = new Set((myChars || []).map(c => c.id));
     const partyOn = c => (p.party || {})[c.id] !== false;
@@ -872,10 +875,10 @@
     const go = () => onSend({ total: Math.max(1, total), mode: "normal", npcFill: false, picks },
       fresh ? { mode: "new", kw: p.kw.trim(), style: p.style, limits: p.limits.trim(), personas, timeout: p.timeout } : { campId: p.campId, personas, timeout: p.timeout });
     const input = (k, ph, rows) => h("textarea", { "data-wk": k === "kw" ? "nrtrpgkw" : "nrtrpglimits", value: p[k], rows: rows || 1, maxLength: k === "kw" ? 200 : 400, onChange: e => set({ [k]: e.target.value }), placeholder: ph,
-      style: { width: "100%", resize: "none", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "9px 12px", fontFamily: F_BODY, fontSize: fs(13.5) } });
-    return h("div", { "data-wk": "nrtrpgprep", style: { display: "flex", flexDirection: "column", gap: 8 } },
+      style: { width: "100%", resize: "none", borderRadius: 10, border: "1px solid " + t.line, background: "rgba(255,255,255,.55)", color: t.ink, padding: "9px 12px", fontFamily: F_BODY, fontSize: fs(13.5) } });
+    return h("div", { "data-wk": "nrtrpgprep", style: { display: "flex", flexDirection: "column", gap: 12 } },
       h("div", { style: small(t) }, "你开团、你当庄：守密人用你的线下线路，骰子在你这台掷，团存在你这台的跑团里，之后单机也能接着跑。别人在邀请卡上报名：自己上桌，和／或派带来的角色当队友（人设留在各自手机）。"),
-      h("div", { "data-wk": "nrtrpghow", className: "flex flex-wrap", style: { gap: 6 } }, [["new", "新开一团"], ["old", "接着跑我的一个团"]].map(([k, zh]) =>
+      card(h("div", { "data-wk": "nrtrpghow", className: "flex flex-wrap", style: { gap: 6 } }, [["new", "新开一团"], ["old", "接着跑我的一个团"]].map(([k, zh]) =>
         h("button", { key: k, onClick: () => set({ how: k }), style: Object.assign(pill(t, p.how === k), { minHeight: 36 }) }, zh))),
       fresh ? h(React.Fragment, null,
         h("div", { style: small(t) }, "大家坐好、你点开始以后，每个人先各自掷数值；掷齐了，守密人照这一桌的人搭世界、地图和开场（会花你一两次线下线路的调用，要等一会儿）。"),
@@ -888,9 +891,9 @@
         camps == null ? h("div", { style: small(t) }, "在读你的团…")
           : !camps.length ? h("div", { style: small(t) }, "你还没有在演的团，选上面「新开一团」。")
           : h("div", { "data-wk": "nrtrpgcamps", style: { display: "flex", flexDirection: "column", gap: 6 } }, camps.map(c => h("button", { key: c.id, onClick: () => set({ campId: c.id }),
-            style: { textAlign: "left", borderRadius: 12, border: "1px solid " + (p.campId === c.id ? t.ink : t.line), background: t.bg2, color: t.ink, padding: "8px 12px", fontFamily: F_BODY, fontSize: fs(13.5) } },
-            (p.campId === c.id ? "✓ " : "") + (c.title || "无题"), h("div", { style: small(t) }, (c.party || []).map(m => m.name).join("、") + " · " + (c.msgs || []).filter(m => m.role === "gm").length + " 拍"))))),
-      label("你自己"),
+            style: { textAlign: "left", borderRadius: 12, border: "1px solid " + (p.campId === c.id ? t.ink : t.line), background: "rgba(255,255,255,.62)", color: t.ink, padding: "8px 12px", fontFamily: F_BODY, fontSize: fs(13.5) } },
+            (p.campId === c.id ? "✓ " : "") + (c.title || "无题"), h("div", { style: small(t) }, (c.party || []).map(m => m.name).join("、") + " · " + (c.msgs || []).filter(m => m.role === "gm").length + " 拍"))))),),
+      card(label("你自己"),
       h("div", { className: "flex", style: { gap: 6 } }, [[true, "我上桌"], [false, "我只当守密人那一边（不上桌）"]].map(([k, zh]) => h("button", { key: String(k), onClick: () => set({ me: k }), style: Object.assign(pill(t, p.me === k), { minHeight: 34 }) }, zh))),
       (myChars || []).length ? label(fresh ? "你带来的角色（勾上的上桌，开团前各自掷数值）" : "你带来的角色（本来在这支队里的照队里的数值；不在队里的这一晚临时入队、开局现掷）") : null,
       (myChars || []).map(c => h("button", { key: c.id, "data-wk": "nrtrpgchar", onClick: () => set({ chars: Object.assign({}, p.chars, { [c.id]: !p.chars[c.id] }) }), style: Object.assign(pill(t, !!p.chars[c.id]), { alignSelf: "flex-start", minHeight: 34 }) },
@@ -898,13 +901,20 @@
       partyChars.filter(c => !roomIds.has(c.id)).length ? label("这个团原来的队员（没带进房间也能上：由你这台替 TA 们出手，照队里的数值）") : null,
       partyChars.filter(c => !roomIds.has(c.id)).map(c => h("button", { key: "pt" + c.id, "data-wk": "nrtrpgpartymate", onClick: () => set({ party: Object.assign({}, p.party, { [c.id]: !partyOn(c) }) }), style: Object.assign(pill(t, partyOn(c)), { alignSelf: "flex-start", minHeight: 34 }) },
         (c.remark || c.name) + " · 队里的")),
-      picks.length > 5 ? h("div", { style: small(t) }, "上桌的已经 " + picks.length + " 位了，一桌最多 5 人：多出来的坐不上，先点掉几位。") : null,
-      label("给别人留几个座位（整桌最多 5 人）"),
+      picks.length > 5 ? h("div", { style: small(t) }, "上桌的已经 " + picks.length + " 位了，一桌最多 5 人：多出来的坐不上，先点掉几位。") : null,),
+      card(label("给别人留几个座位（整桌最多 5 人）"),
       h("div", { className: "flex", style: { gap: 6 } }, [0, 1, 2, 3, 4].map(n => h("button", { key: n, onClick: () => set({ open: n }), style: Object.assign(pill(t, p.open === n), { minHeight: 34, padding: "0 12px" }) }, String(n)))),
       label("这一拍几分钟没交，庄按「稳妥」那条替她交（掉线的照常由庄托管）"),
-      h("div", { "data-wk": "nrtrpgtimeout", className: "flex", style: { gap: 6 } }, TIMEOUTS.map(n => h("button", { key: n, onClick: () => set({ timeout: n }), style: Object.assign(pill(t, p.timeout === n), { minHeight: 34, padding: "0 12px" }) }, n ? n + " 分钟" : "不替交"))),
+      h("div", { "data-wk": "nrtrpgtimeout", className: "flex", style: { gap: 6 } }, TIMEOUTS.map(n => h("button", { key: n, onClick: () => set({ timeout: n }), style: Object.assign(pill(t, p.timeout === n), { minHeight: 34, padding: "0 12px" }) }, n ? n + " 分钟" : "不替交"))),),
       !can ? h("div", { style: small(t) }, !fresh && !camp ? "先在上面点一个团。" : "至少要有一个人上桌：你自己上桌，或者带一位角色，或者给别人留座位。") : null,
-      h("button", { "data-wk": "nrtrpggo", disabled: !can, onClick: go, style: Object.assign(pill(t, true), { opacity: can ? 1 : 0.4, marginTop: 6 }) }, "发邀请卡"));
+      h("button", { "data-wk": "nrtrpggo", disabled: !can, onClick: go, style: Object.assign(pill(t, true), { opacity: can ? 1 : 0.4, marginTop: 4, minHeight: 46, borderRadius: 14, fontSize: fs(14) }) }, "发邀请卡"));
   }
   A.Table = TrpgTable; A.Replay = TrpgReplay; A.Prep = TrpgPrep;
+  // 开局页那一整页的地面：单机跑团那张桌（白天那盏灯、GM 的方格坐标纸、羊皮纸底）
+  A.prepFloor = () => ({ background: [
+    "radial-gradient(88% 52% at 12% -6%, rgba(232,196,120,.22), transparent 62%)",
+    "radial-gradient(124% 82% at 50% 40%, rgba(46,38,28,0) 38%, rgba(46,38,28,.12) 100%)",
+    "repeating-linear-gradient(0deg, rgba(70,56,38,.026) 0px, rgba(70,56,38,.026) 1px, transparent 1px, transparent 24px)",
+    "repeating-linear-gradient(90deg, rgba(70,56,38,.026) 0px, rgba(70,56,38,.026) 1px, transparent 1px, transparent 24px)",
+    "linear-gradient(168deg, #f2ece0 0%, #eae3d5 48%, #ded6c6 100%)"].join(", ") });
 })(typeof window !== "undefined" ? window : globalThis);

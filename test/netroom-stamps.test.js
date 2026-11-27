@@ -87,3 +87,13 @@ test("集邮社在 ＋ 里单独一格，不在小游戏架子上", () => {
   assert.ok(/filter\(k => !OWN_SLOT\[k\]\)/.test(src));
   assert.ok(/if \(k === "stamps"\) \{ const D = GC\(\) && GC\(\)\.ADAPTERS\.stamps/.test(src));
 });
+
+// 她 11-26「联机擂台跑团邮票册页面能不能都做好看点参考一下他们原本的页面」：三盒开局页各带单机那页的地面和长相
+test("擂台、跑团、集邮社的开局页照单机的样子：各有自己的地面", () => {
+  const fs = require("node:fs"), path = require("node:path"), rd = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
+  const nr = rd("js/netroom.js"), db = rd("js/netroom-debate.js"), tr = rd("js/netroom-trpg.js"), st = rd("js/netroom-stamps.js");
+  assert.ok(/shellOn\(prepA\.prepFloor \? prepA\.prepFloor\(t\) : null/.test(nr), "房间页要把开局页的地面铺满整页");
+  assert.ok(/A\.prepFloor = t => \(typeof pageSkin === "function" \? pageSkin\("cloth"/.test(db));
+  assert.ok(/A\.prepFloor = \(\) =>/.test(tr) && /"nrtrpgcard"/.test(tr));
+  assert.ok(/A\.prepFloor = \(\) =>/.test(st) && /"nrstampsmodetile"/.test(st) && /"nrstampsmodehero"/.test(st));
+});

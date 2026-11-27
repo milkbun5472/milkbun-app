@@ -3094,7 +3094,7 @@ h("div", { key: "cp", "data-wk": "nrcomposer", className: "shrink-0", style: { b
     }
     // 自己带开局页的那几盒（辩论擂台）：页面在它自己的文件里，这儿只套顶栏
     const prepA = page === "gameprep" && room && gamePend && GC() ? GC().ADAPTERS[gamePend.game.key] : null;
-    if (prepA && prepA.Prep) return shell(h(Head, { zh: gamePend.game.zh, onBack: () => { setGamePend(null); setPage(OWN_SLOT[gamePend.game.key] ? "chat" : "gamepick"); } }), scroll([
+    if (prepA && prepA.Prep) return shellOn(prepA.prepFloor ? prepA.prepFloor(t) : null, h(Head, { zh: gamePend.game.zh, bg: prepA.prepFloor ? "transparent" : undefined, onBack: () => { setGamePend(null); setPage(OWN_SLOT[gamePend.game.key] ? "chat" : "gamepick"); } }), scroll([
       h(prepA.Prep, { key: "p", allChars: props.characters || [], myChars: (room.myChars || []).map(c => charsById[c.id]).filter(Boolean), myApi: props.gameApi ? props.gameApi() : null, nick: myNick(), onSend: (cfg, pz) => sendInvite(gamePend.game, cfg, pz) })]));
     if (page === "gameprep" && room && gamePend) {
       // 谁出题：开局的人（就是你，下面写或者现出）／系统现出／指定一个座位／轮流（每局「再来一局」换下一个座位）。出题的人这一局不参与问
