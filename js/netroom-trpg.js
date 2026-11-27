@@ -674,13 +674,16 @@
   const h = React.createElement;
   const { useState, useEffect } = React;
   const fs = px => "calc(" + px + "px * var(--app-fs, 1))";
-  const pill = (t, on) => ({ minHeight: 40, padding: "0 16px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : t.bg2, color: on ? t.bg : t.ink, fontFamily: F_BODY, fontSize: fs(13) });
-  const box = t => ({ width: "100%", resize: "none", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "9px 12px", fontFamily: F_BODY, fontSize: fs(14) });
+  // 桌上的键、框、纸卡照单机跑团那张桌（她 11-26）：坐标纸上透明的键会糊进去，都垫一层纸
+  const pill = (t, on) => ({ minHeight: 40, padding: "0 16px", borderRadius: 12, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "rgba(255,255,255,.62)", color: on ? t.bg : t.ink, fontFamily: F_BODY, fontSize: fs(13) });
+  const paperCard = t => ({ padding: 13, borderRadius: 16, background: "rgba(255,255,255,.58)", border: "1px solid " + t.line, boxShadow: "0 1px 2px rgba(46,38,29,.05), 0 8px 18px -10px rgba(46,38,29,.18)" });
+  const box = t => ({ width: "100%", resize: "none", borderRadius: 12, border: "1px solid " + t.line, background: "rgba(255,255,255,.55)", color: t.ink, padding: "9px 12px", fontFamily: F_BODY, fontSize: fs(14) });
   const fit = e => { if (typeof fitTextarea === "function") fitTextarea(e.target, 160); };
   const small = t => ({ fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.6 });
 
   function Log({ t, log }) {
-    return h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, (log || []).map((x, i) => h("div", { key: i, "data-wk": "nrtrpgline", "data-role": x.role,
+    if (!(log || []).length) return null;
+    return h("div", { "data-wk": "nrtrpglog", style: Object.assign(paperCard(t), { display: "flex", flexDirection: "column", gap: 8 }) }, (log || []).map((x, i) => h("div", { key: i, "data-wk": "nrtrpgline", "data-role": x.role,
       style: x.role === "gm" ? { fontFamily: F_BODY, fontSize: fs(14), color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap" }
         : x.role === "apart" ? { border: "1px dashed " + t.line, borderRadius: 10, padding: "6px 10px", fontFamily: F_BODY, fontSize: fs(13), color: t.ink, lineHeight: 1.6 }
         : Object.assign(small(t), { whiteSpace: "pre-wrap" }) },
@@ -688,8 +691,9 @@
   }
   function Board({ t, v, inv, mine }) {
     const p = v.pace;
-    return h("div", { "data-wk": "nrtrpgboard", style: { display: "flex", flexDirection: "column", gap: 6 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, "「" + v.title + "」", h("span", { style: Object.assign(small(t), { marginLeft: 6 }) }, v.place + (v.time ? " · " + v.time : "") + " · 第 " + (v.beat + 1) + " 拍")),
+    return h("div", { "data-wk": "nrtrpgboard", style: Object.assign(paperCard(t), { display: "flex", flexDirection: "column", gap: 6, padding: 0, overflow: "hidden" }) },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "7px 11px", borderBottom: "1px solid " + t.line, background: "rgba(46,38,29,.04)", fontFamily: F_DISPLAY, fontSize: fs(15), color: t.ink } }, "🗺 「" + v.title + "」", h("span", { style: Object.assign(small(t), { marginLeft: 6 }) }, v.place + (v.time ? " · " + v.time : "") + " · 第 " + (v.beat + 1) + " 拍")),
+      h("div", { style: { padding: "2px 11px 11px", display: "flex", flexDirection: "column", gap: 6 } },
       v.pov ? h("div", { style: small(t) }, "这一拍镜头在 " + v.pov + " 身上：下面几条是 TA 的选择，你们替 TA 拿主意") : null,
       v.goal ? h("div", { style: small(t) }, "这一章：" + v.goal + (p ? "　这一场 " + p.beat + "/" + p.total + " 拍 · 线索 " + p.got + "/" + p.clues : "")) : null,
       v.objective ? h("div", { style: small(t) }, "眼下：" + v.objective + (v.stakes ? "　代价：" + v.stakes : "")) : null,
@@ -697,7 +701,7 @@
       h("div", { "data-wk": "nrtrpgparty", className: "flex flex-wrap", style: { gap: 6 } }, (v.party || []).map((m, i) => h("span", { key: i, "data-done": v.done[i] ? "1" : "0",
         style: Object.assign(small(t), { border: "1px solid " + (mine.indexOf(i) >= 0 ? t.ink : t.line), borderRadius: 10, padding: "2px 8px", color: t.ink }) },
         m.name + (inv.seats[i] && inv.seats[i].kind === "char" ? "（角色）" : "") + " HP" + m.hp + ((v.fate || [])[i] ? " ✦×" + v.fate[i] : "") + ((v.phase === "act" || v.phase === "roll") ? (v.done[i] ? " ✓" : " …") : "")))),
-      v.clues ? h("div", { style: small(t) }, "线索 " + v.clues + " 条：" + (v.clueList || []).join("；")) : null);
+      v.clues ? h("div", { style: small(t) }, "线索 " + v.clues + " 条：" + (v.clueList || []).join("；")) : null));
   }
   const SIDE_ICON = { talk: "💬 ", look: "🔍 ", site: "◇ ", search: "🔍 ", go: "? ", rest: "🏕 ", pov: "👁 ", night: "🌙 " };
   function Act({ t, v, seat, isHost, onMove }) {
@@ -708,7 +712,8 @@
     const sideOn = x => side && side.kind === x.kind && side.arg === x.arg;
     return h("div", { "data-wk": "nrtrpgact", style: { display: "flex", flexDirection: "column", gap: 8 } },
       v.choices.map((c, k) => h("button", { key: k, "data-wk": "nrtrpgchoice", onClick: () => { setSide(null); setPick(pick === k ? -1 : k); },
-        style: { textAlign: "left", borderRadius: 12, border: "1px solid " + (pick === k ? t.ink : t.line), background: pick === k ? t.bg : t.bg2, color: t.ink, padding: "8px 12px", fontFamily: F_BODY, fontSize: fs(13.5) } },
+        // 单机跑团那种选项卡：左边一道色条（稳妥绿、要检定的褐、有风险的红），字用标题体
+        style: (tone => ({ textAlign: "left", borderRadius: 12, border: "1px solid " + (pick === k ? t.ink : tone + "66"), borderLeft: "3px solid " + tone, background: pick === k ? "rgba(255,255,255,.9)" : "rgba(255,255,255,.62)", boxShadow: pick === k ? "0 4px 12px -6px rgba(46,38,29,.35)" : "none", color: t.ink, padding: "9px 11px", fontFamily: F_DISPLAY, fontSize: fs(13.5), lineHeight: 1.45 }))(c.safe ? "#557269" : c.risk ? "#a4442e" : c.stat ? "#7b6949" : "#6c728c") },
         c.text, h("div", { style: small(t) }, [c.safe ? "稳妥" : "", c.stat ? "要过「" + STAT_ZH[c.stat] + "」检定" + (c.who ? "（" + c.who + "）" : "") : "", c.payoff ? "换来：" + c.payoff : "", c.risk ? "风险：" + c.risk : "", c.cost ? "代价：" + c.cost : ""].filter(Boolean).join("　")))),
       (v.side || []).length ? h("div", { style: small(t) }, "别的能做的事（挑的人比挑上面那几条的多，这一拍就整桌一起做它；不然只算你自己的——找人说话就是私下说，回话只有你看得到）") : null,
       (v.side || []).length ? h("div", { "data-wk": "nrtrpgside", className: "flex flex-wrap", style: { gap: 6 } }, v.side.map((x, k) => h("button", { key: k, "data-wk": "nrtrpgsidebtn", "data-kind": x.kind, onClick: () => { setPick(-1); setApart(false); setSide(sideOn(x) ? null : x); },

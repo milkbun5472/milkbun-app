@@ -280,8 +280,9 @@
   const perfBg = bg => "radial-gradient(circle at 4px 4px, transparent 2.6px, " + bg + " 2.8px) -4px -4px / 7px 7px";
   const MODE_LOOK = { duel: ["#b23a2e", "对", -1.5], relay: ["#a0522d", "接", 1], raid: ["#8a3a4a", "积", -1], siege: ["#3f6fb0", "护", 1],
     edict: ["#5a4f8a", "封", -1.2], puzzle: ["#6a5a3a", "死", .9], patrol: ["#5a7a4a", "巡", -.8], shift: ["#4f6a8a", "值", 1.1] };
-  const btn = (t, on) => ({ minHeight: 36, padding: "0 12px", borderRadius: 8, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : (t.bg2 || t.bg), color: on ? t.bg : t.ink, fontFamily: F_BODY, fontSize: fs(12.5) });
-  const small = t => ({ fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.6 });
+  // 桌上的键照单机集邮社（她 11-26）：信纸上的小签，主键是邮戳红
+  const btn = (t, on) => ({ minHeight: 36, padding: "0 13px", borderRadius: 999, border: "1px solid " + (on ? "#b23a2e" : "rgba(47,42,34,.22)"), background: on ? "#b23a2e" : "rgba(255,255,255,.55)", color: on ? "#fff" : "#2f2a22", fontFamily: F_BODY, fontSize: fs(12.5) });
+  const small = t => ({ fontFamily: F_BODY, fontSize: fs(11.5), color: "rgba(47,42,34,.6)", lineHeight: 1.6 });
   const useStampsReady = () => { const [ok, setOk] = useState(!!(D() && root.StampDuelParts)); useEffect(() => { if (!ok) ensure().then(() => setOk(!!(D() && root.StampDuelParts))); }, []); return ok; };
   const myCards = () => ((root.StampsCore && root.StampsCore.load && root.StampsCore.load().cards) || []);
 
@@ -353,7 +354,7 @@
       hpLine(foeName, work.foe), env(work.foe, true),
       !work.pvp && Object.keys(foeActs).length ? h("div", { style: Object.assign(small(t), { textAlign: "center" }) }, "对面这回合：" + Object.keys(foeActs).map(k => foeActs[k]).filter(Boolean).slice(0, 4).join("、")) : null,
       env(work.me, false), hpLine(meName, work.me),
-      selU ? h("div", { style: Object.assign(small(t), { textAlign: "center", color: t.ink }) }, "「" + selU.name + "」" + selU.role + " ⚔" + selU.pow + " ♥" + selU.hp + (acts[sel] ? " · 这回合" + acts[sel] : "")) : null,
+      selU ? h("div", { style: Object.assign(small(t), { textAlign: "center", color: "#2f2a22" }) }, "「" + selU.name + "」" + selU.role + " ⚔" + selU.pow + " ♥" + selU.hp + (acts[sel] ? " · 这回合" + acts[sel] : "")) : null,
       live ? h("div", { "data-wk": "nrstampshand", style: { display: "grid", gridTemplateColumns: "repeat(" + Math.max(4, work.me.hand.length) + ", minmax(0, 1fr))", gap: 6 } },
         work.me.hand.map((u, k) => h("div", { key: k, style: { position: "relative" } },
           h(P.Ticket, { u, card: cards[u.cardId] || null, owner: u.owner || "", useThumb: thumb, small: true, sel: hand === k, onTap: () => { setHand(hand === k ? -1 : k); setSel(-1); setMoving(false); } }),
@@ -376,7 +377,7 @@
     const S = D(), v = view || {}, M = (MODES[v.mode] || MODES.duel).zh;
     const mySeats = inv.seats.map((s, i) => NC.actorOf(s, me, inv.host) === "mine-user" ? i : -1).filter(i => i >= 0), my = mySeats[0];
     const nm = k => nmOf(inv, k), wait = A.turns(v), myTurn = my != null && wait.indexOf(my) >= 0;
-    const top = h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14.5), color: t.ink, textAlign: "center" } }, "集邮社 · " + M + (v.cfg && v.cfg.wager ? "　彩头：" + v.cfg.wager : ""));
+    const top = h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(16), color: "#b23a2e", textAlign: "center", letterSpacing: ".06em" } }, "集邮社 · " + M + (v.cfg && v.cfg.wager ? "　彩头：" + v.cfg.wager : ""));
     if (v.phase === "deck") return h("div", { "data-wk": "nrstampsdeck", style: { display: "flex", flexDirection: "column", gap: 8 } }, top,
       h("div", { style: small(t) }, "每人从自己的邮票册里抽一副 12 张。" + inv.seats.map((s, k) => nm(k) + (v.ready[k] ? " ✓" : " 在挑")).join("　")),
       myTurn ? h("button", { "data-wk": "nrstampsdeckgo", onClick: () => onMove(my, { deck: myDeck("", "", id => { const c = (charsById || {})[id]; return c ? (c.remark || c.name) : ""; }) }), style: btn(t, true) }, "从我的邮票册里抽一副") : null,
@@ -411,15 +412,15 @@
     else if (x.battle) body = h(Board, { ds: x.battle, live: mine, mine: v.mode, foeName: v.mode === "patrol" ? ({ boss: "巡查长", elite: "硬仗" })[x.btype] || "路上的麻烦" : "审查局", meName: "我", waitLine: "", onSend: ops => onMove(my, { ops }) });
     else if (v.mode === "patrol") { const p = x.p, N = S.PATROL.N;
       body = h("div", { style: { display: "flex", flexDirection: "column", gap: 8, maxWidth: 340, margin: "0 auto", width: "100%" } },
-        h("div", { style: Object.assign(small(t), { textAlign: "center", color: t.ink }) }, "「" + p.theme + "」邮区　步数 " + p.steps + "　信封 " + p.hp + "/" + p.max + "　巡查分 " + p.score),
+        h("div", { style: Object.assign(small(t), { textAlign: "center", color: "#2f2a22" }) }, "「" + p.theme + "」邮区　步数 " + p.steps + "　信封 " + p.hp + "/" + p.max + "　巡查分 " + p.score),
         h("div", { "data-wk": "nrstampspatrol", style: { display: "grid", gridTemplateColumns: "repeat(" + N + ", minmax(0, 1fr))", gap: 5 } }, p.cells.map((cl, i) => { const here = p.pos[0] === cl.r && p.pos[1] === cl.c, can = mine && S.patrolCan(p, cl.r, cl.c), ic = PICON[cl.type] || PICON.empty;
-          return h("button", { key: i, "data-wk": "nrstampscell", disabled: !can, onClick: () => onMove(my, { go: [cl.r, cl.c] }), style: { aspectRatio: "1 / 1", borderRadius: 6, border: here ? "2px solid " + t.ink : can ? "2px dashed " + t.accent : "1px solid " + t.line, background: cl.open ? (t.bg2 || t.bg) : "repeating-linear-gradient(45deg, " + t.line + " 0 4px, transparent 4px 9px)", opacity: cl.done && !here && cl.type !== "start" ? 0.5 : 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: fs(16), color: t.ink } },
+          return h("button", { key: i, "data-wk": "nrstampscell", disabled: !can, onClick: () => onMove(my, { go: [cl.r, cl.c] }), style: { aspectRatio: "1 / 1", borderRadius: 6, border: here ? "2px solid " + t.ink : can ? "2px dashed " + t.accent : "1px solid " + t.line, background: cl.open ? (t.bg2 || t.bg) : "repeating-linear-gradient(45deg, " + t.line + " 0 4px, transparent 4px 9px)", opacity: cl.done && !here && cl.type !== "start" ? 0.5 : 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: fs(16), color: "#2f2a22" } },
             cl.open ? ic[0] : "", cl.open ? h("span", { style: { fontFamily: F_BODY, fontSize: fs(9), color: t.fog } }, here ? "你在这" : ic[1]) : null); })),
         (p.log || []).length ? h("div", { style: small(t) }, p.log.slice(-3).reverse().map((l, k) => h("div", { key: k }, l))) : null,
         mine ? h("button", { "data-wk": "nrstampspatrolend", onClick: () => onMove(my, { end: true }), style: Object.assign(btn(t, false), { alignSelf: "center" }) }, "就走到这儿") : null); }
     else { const sh = x.sh, selU = sh.bench[sel];
       body = h("div", { style: { display: "flex", flexDirection: "column", gap: 8, maxWidth: 360, margin: "0 auto", width: "100%" } },
-        h("div", { style: Object.assign(small(t), { textAlign: "center", color: t.ink }) }, "第 " + sh.round + " / " + S.SHIFT.ROUNDS + " 轮　命 " + "♥".repeat(sh.lives) + "　邮花 " + sh.coins + "　卡组 " + sh.bench.length + " / " + S.SHIFT.BENCH),
+        h("div", { style: Object.assign(small(t), { textAlign: "center", color: "#2f2a22" }) }, "第 " + sh.round + " / " + S.SHIFT.ROUNDS + " 轮　命 " + "♥".repeat(sh.lives) + "　邮花 " + sh.coins + "　卡组 " + sh.bench.length + " / " + S.SHIFT.BENCH),
         h("div", { style: small(t) }, "柜台（点一张买；同一张再买会合成变强）"),
         h("div", { "data-wk": "nrstampsshop", style: { display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 5 } }, sh.shop.map((u, i) => h("div", { key: i },
           h(P.Ticket, { u, card: cards[u.cardId] || null, owner: u.owner || "", useThumb: thumb, small: true, onTap: () => mine && onMove(my, { buy: i }) }),
