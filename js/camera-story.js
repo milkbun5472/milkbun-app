@@ -179,6 +179,12 @@
       const pm = mv.premiere;
       const del = () => confirmDo("删掉这部电影？", "海报和剧照都会删掉（已经存到手机的不受影响）", async () => { await delImgs([mv.posterKey, mv.premiere && mv.premiere.eggKey].concat(mv.scenes.map(s => s.shot && s.shot.imgKey))); put(loadL(KEY).filter(m => m.id !== mv.id)); setOpenId(null); });
       const got = mv.scenes.filter(s => s.shot);
+      // 页面上的小部件：分段标题、描边小按钮（她 2026-11-27「页面弄好看点」）
+      const sec = (zh, en, key) => h("div", { key, "data-wk": "moviesec", style: { display: "flex", alignItems: "center", gap: 10, margin: "22px 2px 12px" } },
+        h("span", { style: { fontSize: k.FS(13.5), fontWeight: 700, color: th.ink, letterSpacing: ".08em" } }, zh),
+        h("span", { style: { fontSize: k.FS(9.5), color: th.accent, letterSpacing: ".3em", opacity: .8 } }, en),
+        h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg, " + th.line + ", transparent)" } }));
+      const ghost = (label, on, part, accent, dis) => h("button", { "data-wk": "moviebtn", "data-part": part, disabled: !!dis, onClick: on, style: { height: 28, padding: "0 12px", borderRadius: 14, border: "1px solid " + (accent ? th.accent : th.line), background: accent ? "rgba(232,184,108,.1)" : "transparent", color: accent ? th.accent : th.sub, fontSize: k.FS(11.5), fontWeight: accent ? 600 : 400, opacity: dis ? .5 : 1 } }, label);
       return h(React.Fragment, null, screening ? h(Screening, { mv, nameOf, onClose: () => setScreening(false) }) : null, page(mv.title, () => setOpenId(null), [
         h("div", { key: "poster", "data-wk": "movieposter", style: { borderRadius: 14, overflow: "hidden", boxShadow: "0 18px 36px -18px rgba(40,10,30,.7)", marginBottom: 10, background: "#1a1418" } },
           mv.posterKey ? h(Img, { k: mv.posterKey, wk: "movieposterimg" })
@@ -189,10 +195,14 @@
         mv.posterKey ? h("div", { key: "pact", style: { display: "flex", justifyContent: "space-between", fontSize: k.FS(11.5), marginBottom: 14 } },
           h("button", { "data-wk": "moviebtn", "data-part": "reposter", onClick: doPoster, style: { border: "none", background: "transparent", color: th.sub } }, busy === "poster" ? "在拍…" : "重拍海报"),
           h("button", { "data-wk": "moviebtn", "data-part": "saveposter", onClick: async () => { try { await saveBlob(await idbImgGet(mv.posterKey), mv.title + "-海报"); } catch (e) {} }, style: { border: "none", background: "transparent", color: th.accent, fontWeight: 600 } }, "存到手机")) : null,
-        h("div", { key: "meta", style: { fontSize: k.FS(12), color: th.ink, lineHeight: 1.75, marginBottom: 14 } },
-          h("div", { style: { color: th.sub, fontSize: k.FS(11.5) } }, [mv.genre, mv.ids.map(nameOf).filter(Boolean).join("、") + " 主演"].filter(Boolean).join(" · ")),
-          mv.roles.length ? h("div", { style: { color: th.sub, fontSize: k.FS(11.5) } }, mv.roles.map(r => r.who + " 饰 " + r.role.split(/[，,。（(]/)[0]).join("　")) : null,
-          mv.synopsis ? h("div", { style: { marginTop: 6 } }, mv.synopsis) : null),
+        h("div", { key: "meta", "data-wk": "moviemeta", style: { fontSize: k.FS(12.5), color: th.ink, lineHeight: 1.8, padding: "14px 16px", borderRadius: 16, background: "rgba(255,255,255,.04)", border: "1px solid " + th.line } },
+          mv.genre ? h("div", { style: { fontSize: k.FS(10.5), color: th.accent, letterSpacing: ".25em", marginBottom: 6 } }, mv.genre) : null,
+          mv.tagline ? h("div", { style: { fontSize: k.FS(14), fontWeight: 600, marginBottom: 8, fontFamily: "'Songti SC','Noto Serif SC',serif" } }, "「" + mv.tagline + "」") : null,
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: mv.synopsis ? 10 : 0 } },
+            (mv.roles.length ? mv.roles : mv.ids.map(i => ({ who: nameOf(i), role: "" }))).map((r, j) => h("span", { key: j, style: { fontSize: k.FS(11), padding: "3px 10px", borderRadius: 12, background: "rgba(255,255,255,.06)", color: th.sub } },
+              h("span", { style: { color: th.ink } }, r.who), r.role ? " 饰 " + r.role.split(/[，,。（(]/)[0] : " 主演"))),
+          mv.synopsis ? h("div", { style: { color: th.sub } }, mv.synopsis) : null),
+        got.length ? sec("片场", "STILLS", "secstill") : null,
         got.length ? h("div", { key: "tools", style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 16 } },
           small("▶ 开始放映", () => setScreening(true), "screen"),
           h("span", { style: { fontSize: k.FS(11), color: th.sub, marginLeft: 4 } }, "字幕"),
@@ -200,26 +210,29 @@
           pill("放在下面", !overlay, () => patchMv(mv.id, m => Object.assign({}, m, { subOverlay: false })), "subbelow")) : null,
         got.map((s, i) => { const si = mv.scenes.indexOf(s), sh = s.shot;
           return h("div", { key: i, "data-wk": "moviestill", style: { marginBottom: 22 } },
-          h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, margin: "0 2px 6px" } },
-            h("span", { style: { fontSize: k.FS(13), fontWeight: 600 } }, "第 " + (si + 1) + " 场 · " + s.name),
-            sh.slug ? h("span", { "data-wk": "movieslug", style: { fontSize: k.FS(10.5), color: th.sub, letterSpacing: ".12em" } }, sh.slug) : null),
+          h("div", { style: { display: "flex", alignItems: "center", gap: 10, margin: "0 2px 8px" } },
+            h("span", { style: { minWidth: 30, height: 30, borderRadius: 8, background: th.grad, color: "#1a1418", fontSize: k.FS(13), fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, String(si + 1).padStart(2, "0")),
+            h("div", { style: { minWidth: 0 } },
+              h("div", { style: { fontSize: k.FS(13.5), fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
+              sh.slug ? h("div", { "data-wk": "movieslug", style: { fontSize: k.FS(10), color: th.sub, letterSpacing: ".15em" } }, sh.slug) : null)),
           h(StillCard, { imgKey: sh.imgKey, lines: sh.lines, overlay, th }),
-          h("div", { style: { display: "flex", alignItems: "center", gap: 14, marginTop: 4 } },
-            h("button", { "data-wk": "moviebtn", "data-part": "reshoot", disabled: !!busy, onClick: () => shootAt(si), style: { border: "none", background: "transparent", color: th.sub, fontSize: k.FS(12), opacity: busy ? .5 : 1 } }, busy === "scene:" + si ? "在重拍…" : "重拍这一场"),
-            sh.script ? h("button", { "data-wk": "moviebtn", "data-part": "script", onClick: () => setOpenScript(openScript === si ? -1 : si), style: { border: "none", background: "transparent", color: th.sub, fontSize: k.FS(12) } }, openScript === si ? "收起剧本" : "看剧本") : null,
+          h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" } },
+            ghost(busy === "scene:" + si ? "在重拍…" : "重拍这一场", () => shootAt(si), "reshoot", false, busy),
+            sh.script ? ghost(openScript === si ? "收起剧本" : "看剧本", () => setOpenScript(openScript === si ? -1 : si), "script") : null,
             h("span", { style: { flex: 1 } }),
-            h("button", { "data-wk": "moviebtn", "data-part": "savestill", onClick: async () => { try { await saveBlob(await stillWithSubs(sh.imgKey, sh.lines, overlay), mv.title + "-" + s.name); } catch (e) { toast(String(e && e.message || e)); } }, style: { border: "none", background: "transparent", color: th.accent, fontSize: k.FS(12), fontWeight: 600 } }, "存到手机")),
+            ghost("存到手机", async () => { try { await saveBlob(await stillWithSubs(sh.imgKey, sh.lines, overlay), mv.title + "-" + s.name); } catch (e) { toast(String(e && e.message || e)); } }, "savestill", true)),
           openScript === si && sh.script ? h("div", { "data-wk": "moviescript", style: { marginTop: 6, padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,.05)", border: "1px solid " + th.line, fontFamily: "'Courier New','Songti SC',serif", fontSize: k.FS(12.5), lineHeight: 1.85, whiteSpace: "pre-wrap", color: th.ink } }, (sh.slug ? sh.slug + "\n\n" : "") + sh.script) : null,
-          (sh.bts || []).length ? h("div", { "data-wk": "moviebts", style: { marginTop: 8, padding: "8px 12px", borderLeft: "2px solid " + th.accent, fontSize: k.FS(11.5), lineHeight: 1.7, color: th.sub } },
+          (sh.bts || []).length ? h("div", { "data-wk": "moviebts", style: { marginTop: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(232,184,108,.06)", borderLeft: "3px solid " + th.accent, fontSize: k.FS(11.5), lineHeight: 1.7, color: th.sub } },
             h("div", { style: { fontSize: k.FS(10.5), letterSpacing: ".15em", marginBottom: 2, color: th.accent } }, "幕后花絮"),
             sh.bts.map((b, j) => h("div", { key: j }, b.who ? h("span", { style: { color: th.ink } }, b.who + "　") : null, b.text))) : null); }),
         // 下一场开拍之前：导演说戏
-        sc ? h("div", { key: "note", "data-wk": "movienote", style: { marginTop: 4, marginBottom: 14 } },
+        sc ? h("div", { key: "note", "data-wk": "movienote", style: { marginTop: 8, marginBottom: 14, padding: "12px 14px", borderRadius: 16, border: "1px dashed " + th.accent, background: "rgba(232,184,108,.05)" } },
           h("div", { style: { fontSize: k.FS(11.5), color: th.sub, marginBottom: 6 } }, "导演说戏 · 第 " + (next + 1) + " 场「" + sc.name + "」（选填，拍的时候照这句来）"),
           inp(sc.note || "", v => setNote(next, v), "比如：这场要更凶一点／让他哭", "scenenote")) : null,
         // 杀青以后：首映——彩蛋、评分、短评、长评、映后采访
-        !sc && got.length ? (pm ? h("div", { key: "pm", "data-wk": "moviepremiere", style: { marginTop: 6, marginBottom: 14 } },
-          h("div", { style: { fontSize: k.FS(13), fontWeight: 600, margin: "0 2px 6px" } }, "片尾彩蛋"),
+        !sc && got.length && pm ? sec("首映礼", "PREMIERE", "secpm") : null,
+        !sc && got.length ? (pm ? h("div", { key: "pm", "data-wk": "moviepremiere", style: { marginBottom: 14 } },
+          h("div", { style: { fontSize: k.FS(11.5), color: th.sub, letterSpacing: ".15em", margin: "0 2px 8px" } }, "片尾彩蛋"),
           h(StillCard, { imgKey: pm.eggKey, lines: (pm.egg && pm.egg.lines) || [], overlay, th }),
           h("div", { "data-wk": "movierating", style: { display: "flex", alignItems: "center", gap: 12, margin: "18px 0 10px", padding: "14px 16px", borderRadius: 16, background: "rgba(255,255,255,.05)", border: "1px solid " + th.line } },
             h("div", { style: { fontSize: k.FS(34), fontWeight: 700, color: th.accent, lineHeight: 1 } }, Number(pm.rating).toFixed(1)),
@@ -231,14 +244,15 @@
             h("div", { style: { fontSize: k.FS(14), fontWeight: 600, marginBottom: 6 } }, pm.review.title || "长评"),
             h("div", { style: { fontSize: k.FS(12.5), lineHeight: 1.8, whiteSpace: "pre-wrap", color: th.ink } }, pm.review.text)) : null,
           (pm.interviews || []).length ? h("div", { style: { marginTop: 16 } },
-            h("div", { style: { fontSize: k.FS(13), fontWeight: 600, margin: "0 2px 8px" } }, "映后采访"),
-            pm.interviews.map((x, j) => h("div", { key: j, style: { marginBottom: 12, fontSize: k.FS(12.5), lineHeight: 1.7 } },
+            h("div", { style: { fontSize: k.FS(11.5), color: th.sub, letterSpacing: ".15em", margin: "0 2px 8px" } }, "映后采访"),
+            pm.interviews.map((x, j) => h("div", { key: j, style: { marginBottom: 10, padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,.04)", fontSize: k.FS(12.5), lineHeight: 1.7 } },
               x.q ? h("div", { style: { color: th.sub } }, "问：" + x.q) : null,
               h("div", null, h("span", { style: { color: th.accent, fontWeight: 600 } }, (x.who || "演员") + "："), x.a)))) : null,
-          h("button", { "data-wk": "moviebtn", "data-part": "repremiere", disabled: !!busy, onClick: premiere, style: { marginTop: 4, border: "none", background: "transparent", color: th.sub, fontSize: k.FS(12) } }, busy === "premiere" ? "在重办…" : "重办一场首映"))
+          h("div", { style: { marginTop: 6 } }, ghost(busy === "premiere" ? "在重办…" : "重办一场首映", premiere, "repremiere", false, busy)))
           : null) : null,
-        h("div", { key: "left", style: { fontSize: k.FS(11.5), color: th.sub, lineHeight: 1.9 } }, mv.scenes.map((s, i) => h("div", { key: i, style: { color: s.shot ? th.sub : i === next ? th.ink : th.line } }, (s.shot ? "✓ " : i === next ? "→ " : "· ") + "第 " + (i + 1) + " 场 " + s.name))),
-        h("button", { key: "del", "data-wk": "moviebtn", "data-part": "delmovie", onClick: del, style: { marginTop: 18, border: "none", background: "transparent", color: th.sub, fontSize: k.FS(12) } }, "删掉这部电影")
+        sec("场记", "SLATE", "secslate"),
+        h("div", { key: "left", "data-wk": "movieslate", style: { display: "flex", flexWrap: "wrap", gap: 6 } }, mv.scenes.map((s, i) => h("span", { key: i, style: { fontSize: k.FS(11), padding: "4px 10px", borderRadius: 12, border: "1px solid " + (i === next ? th.accent : th.line), color: s.shot ? th.sub : i === next ? th.accent : th.line, background: s.shot ? "rgba(255,255,255,.05)" : "transparent" } }, (s.shot ? "✓ " : "") + (i + 1) + " " + s.name))),
+        h("div", { key: "del", style: { textAlign: "center", marginTop: 26 } }, h("button", { "data-wk": "moviebtn", "data-part": "delmovie", onClick: del, style: { border: "none", background: "transparent", color: th.sub, opacity: .7, fontSize: k.FS(11.5) } }, "删掉这部电影"))
       ], sc ? h("div", null, h("div", { style: { fontSize: k.FS(11), color: th.sub, textAlign: "center", marginBottom: 8 } }, busy === "scene:" + next ? "在写台词、在拍…要等半分钟左右" : "下一场：" + sc.name),
         big(busy === "scene:" + next ? "在拍…" : "拍这一场", shoot, "shoot", !!busy))
         : !pm && props.onMoviePremiere ? h("div", null, h("div", { style: { fontSize: k.FS(11), color: th.sub, textAlign: "center", marginBottom: 8 } }, busy === "premiere" ? "在办首映：彩蛋、影评、映后采访…" : "杀青了：办一场首映，片尾彩蛋、评分影评、映后采访一起出"),
