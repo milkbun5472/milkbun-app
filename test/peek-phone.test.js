@@ -10,7 +10,7 @@ test("能翻的几样是一张表，记账（现实的钱）不在里面", () =>
   const m = a.match(/const PEEK_PHONE_SECTIONS = (\[[\s\S]*?\]\]);/);
   assert.ok(m);
   const list = new Function("return " + m[1])();
-  assert.deepStrictEqual(list.map(x => x[0]), ["chats", "offline", "calendar", "health", "money", "shop", "pics", "moments", "daily"]);
+  assert.deepStrictEqual(list.map(x => x[0]), ["chats", "offline", "calendar", "health", "money", "shop", "pics", "moments", "forum", "daily"]);
   assert.ok(!list.some(x => /记账/.test(x[1])));
 });
 
@@ -437,4 +437,9 @@ test("递手机一按下去先摆出播放层，再去编日常联系人", () =>
   const a = app.indexOf('if (!sneak) setPeekPlay({ charId, allow, seen: "", hidden: [], script: null });', i);
   const b = app.indexOf("await peekDailyEnsure(charId, c0)", i);
   assert.ok(a > i && b > a, "播放层要在等日常联系人之前摆出来");
+});
+test("论坛加回能翻的几样（她 2026-11-27），默认不勾", () => {
+  const c = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(a, /\["forum", "论坛（我发的帖和底下的评论）"\]/);
+  assert.match(c, /return all\.filter\(k => k !== "daily" && k !== "forum"\);/);
 });
