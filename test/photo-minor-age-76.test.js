@@ -1,7 +1,8 @@
 // 生图未成年判断：「21岁」不许被认成一岁（群里 2026-10-23）
 const test = require("node:test"), assert = require("node:assert");
 const src = require("fs").readFileSync(require("path").join(__dirname, "../js/engine.js"), "utf8");
-const grab = name => new RegExp(src.match(new RegExp("const " + name + " = /(.+?)/(i?)\\.test"))[1], src.match(new RegExp("const " + name + " = /(.+?)/(i?)\\.test"))[2]);
+// 带往前看的那两条写成 (globalThis.reLB || RegExp)(String.raw`…`)（旧 iPhone 装得进来，见 js/regex-compat.js），两种写法都认
+const grab = name => { const m = src.match(new RegExp("const " + name + " = /(.+?)/(i?)\\.test")) || src.match(new RegExp("const " + name + " = \\(globalThis\\.reLB \\|\\| RegExp\\)\\(String\\.raw`(.+?)`(?:, \"(i?)\")?\\)\\.test")); return new RegExp(m[1], m[2] || ""); };
 const W = grab("_minorWord"), A = grab("_minorAge"), D = grab("_adultAge");
 const minor = s => W.test(s) || (A.test(s) && !D.test(s));
 test("adult ages are not minors", () => {

@@ -968,7 +968,7 @@
       const src = String(txt || "");
       if (!src) return src;
       // 按中文句读切开，逐句看：句里有不许出现的配对就整句丢掉
-      const parts = src.split(/(?<=[。！？；，、])/);
+      const parts = src.split((globalThis.reLB || RegExp)(String.raw`(?<=[。！？；，、])`));
       const kept = parts.filter(function (seg) {
         re.lastIndex = 0;
         let m, bad = false;

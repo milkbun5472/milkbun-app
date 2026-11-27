@@ -18,7 +18,7 @@
   // 前后不是字母数字就算一个整词——下划线、冒号、短横算分隔（x_offline_c1、img_c1_3、c1::房间 都认得出）。
   //   长的排前面：c1_mw4t 和 c1 同时在场时先认长的。
   const sortLong = ids => ids.slice().sort((a, b) => b.length - a.length);
-  const wordRe = ids => ids.length ? new RegExp("(?<![A-Za-z0-9])(?:" + sortLong(ids).map(esc).join("|") + ")(?![A-Za-z0-9])") : null;
+  const wordRe = ids => ids.length ? (globalThis.reLB || RegExp)("(?<![A-Za-z0-9])(?:" + sortLong(ids).map(esc).join("|") + ")(?![A-Za-z0-9])") : null;
   const parse = v => { if (typeof v !== "string") return undefined; try { return JSON.parse(v); } catch (e) { return undefined; } };
   const listOf = (data, k) => { const v = parse(data && data[k]); return Array.isArray(v) ? v.filter(x => x && x.id != null) : []; };
 
@@ -63,7 +63,7 @@
     ids.forEach(id => { if (taken.has(String(id))) { let n; do { n = id + "_m" + Math.random().toString(36).slice(2, 6); } while (taken.has(n)); map[id] = n; taken.add(n); } });
     const olds = Object.keys(map);
     if (!olds.length) return { pack, map };
-    const re = new RegExp("(?<![A-Za-z0-9])(" + sortLong(olds).map(esc).join("|") + ")(?![A-Za-z0-9])", "g");
+    const re = (globalThis.reLB || RegExp)("(?<![A-Za-z0-9])(" + sortLong(olds).map(esc).join("|") + ")(?![A-Za-z0-9])", "g");
     const sw = s => String(s).replace(re, m => map[m] || m);
     const data = {};
     Object.keys(pack.data || {}).forEach(k => { data[sw(k)] = typeof pack.data[k] === "string" ? sw(pack.data[k]) : pack.data[k]; });

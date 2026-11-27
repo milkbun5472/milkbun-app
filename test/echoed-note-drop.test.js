@@ -10,7 +10,7 @@ test("抄来的历史旁注整段拿掉；正常带【】的话不动", () => {
   assert.ok(app.includes("words = dropEchoedNotes(words);"));
 });
 test("她开口要照片的说法放宽：拍腹肌、看看都算，拍一拍不算", () => {
-  const re = new Function("return " + app.match(/const PHOTO_REQUEST_RE = (\/[^\n]+\/i);/)[1])();
+  const re = (m => new RegExp(m[1], "i"))(app.match(/const PHOTO_REQUEST_RE = \(globalThis\.reLB \|\| RegExp\)\(String\.raw`([^`]+)`, "i"\);/));
   assert.ok(re.test("拍腹肌给我") && re.test("看看腹肌") && !re.test("拍一拍你"));
 });
 
