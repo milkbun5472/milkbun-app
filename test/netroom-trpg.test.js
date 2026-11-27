@@ -421,7 +421,7 @@ test("台面公开那一份白名单：view 里没有可请的人、没有被藏
 test("跑团从小游戏架子挪到房间 ＋ 里单独一格", () => {
   const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
   assert.ok(src.includes('["trpg", "跑团", "d20"]') && /if \(k === "trpg"\) \{/.test(src));
-  assert.ok(src.includes('k !== "debate" && k !== "trpg"'));
+  assert.ok(/OWN_SLOT = \{[^}]*trpg: true/.test(src) && src.includes("filter(k => !OWN_SLOT[k])"));
 });
 
 
@@ -436,7 +436,7 @@ test("团里原来的队员不用先带进房间也能上桌：开局页列出�
 
 test("跑团、擂台的开局页点返回回到房间聊天，不落到小游戏大厅", () => {
   const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
-  assert.ok(/const OWN_SLOT = \{ debate: true, trpg: true \}/.test(src) && /setPage\(OWN_SLOT\[gamePend\.game\.key\] \? "chat" : "gamepick"\)/.test(src));
+  assert.ok(/const OWN_SLOT = \{ debate: true, trpg: true[,}]/.test(src) && /setPage\(OWN_SLOT\[gamePend\.game\.key\] \? "chat" : "gamepick"\)/.test(src));
 });
 
 test("跑团开局页：默认「新开一团」，不挑团也能发卡；开始后掷齐数值，开团的人那台才照这一桌搭团（单机那一份）", () => {

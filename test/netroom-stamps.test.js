@@ -78,3 +78,12 @@ test("值班：柜台照轮次和刷新次数摆，同一轮大家一样；没�
   assert.deepEqual(st.sheets[0].sh.shop.map(u => u.cardId), st.sheets[1].sh.shop.map(u => u.cardId));
   assert.ok(A.apply(st, 0, { fight: true }, { inv: iv }).err);
 });
+
+// 她 11-26「集邮社从小游戏里面移出来到加号里面」：跟擂台、跑团一样单独一格，小游戏架子上不再摆
+test("集邮社在 ＋ 里单独一格，不在小游戏架子上", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
+  assert.ok(/\["stamps", "集邮社", "stampEdge"\]/.test(src));
+  assert.ok(/OWN_SLOT = \{[^}]*stamps: true/.test(src));
+  assert.ok(/filter\(k => !OWN_SLOT\[k\]\)/.test(src));
+  assert.ok(/if \(k === "stamps"\) \{ const D = GC\(\) && GC\(\)\.ADAPTERS\.stamps/.test(src));
+});

@@ -164,7 +164,7 @@ test("擂台从小游戏架子挪到房间 ＋ 里单独一格", () => {
   const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/netroom.js"), "utf8");
   assert.ok(src.includes('["debate", "擂台", "podium"]'));
   assert.ok(/if \(k === "debate"\) \{/.test(src));
-  assert.ok(src.includes('k !== "debate" && k !== "trpg"'), "小游戏架子上不再摆擂台");
+  assert.ok(/OWN_SLOT = \{[^}]*debate: true/.test(src) && src.includes("filter(k => !OWN_SLOT[k])"), "小游戏架子上不再摆擂台");
 });
 
 test("台上角色的发言是这一手本身：不被当成桌边台词拿走，没勾「自己边玩边说」也照样说", () => {
