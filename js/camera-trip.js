@@ -115,32 +115,31 @@
   const icon = (d, size, color) => h("svg", { viewBox: "0 0 24 24", width: size, height: size, fill: "none", stroke: color || "#fff", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" }, d.map((x, i) => h("path", { key: i, d: x })));
   function makeUI(wk, themeId) {
     const th = THEMES[themeId] || THEMES.trip;
-    const card = (part, title, hint, kid) => h("div", { "data-wk": wk.card, "data-part": part, style: { background: th.card, borderRadius: 22, padding: "14px 14px 16px", marginBottom: 12, boxShadow: "0 10px 26px -18px " + th.shadow, border: th.dark ? "1px solid " + th.line : "none" } },
+    const card = (part, title, hint, kid) => h("div", { "data-wk": wk.card, "data-part": part, style: { padding: "14px 2px 20px", borderBottom: "1px solid " + th.line } },
       h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 } },
         h("span", { style: { fontSize: FS(14.5), fontWeight: 600, color: th.ink } }, title), hint ? h("span", { style: { fontSize: FS(11), color: th.sub } }, hint) : null), kid);
     const pill = (label, on, onClick, part) => h("button", { "data-wk": wk.btn, "data-part": part || "", "data-on": on ? "1" : "0", onClick,
-      style: { flexShrink: 0, height: 30, padding: "0 12px", borderRadius: 15, border: "1.5px solid " + (on ? th.accent : th.line), background: on ? th.soft : th.dark ? "transparent" : "#fff", color: th.ink, fontSize: FS(12), fontWeight: on ? 600 : 400 } }, label);
+      style: { flexShrink: 0, padding: "4px 0", marginRight: 6, border: "none", background: "transparent", color: on ? th.ink : th.sub, fontSize: FS(12.5), fontWeight: on ? 600 : 400, textDecoration: on ? "underline" : "none", textDecorationColor: th.accent, textDecorationThickness: 2, textUnderlineOffset: 5 } }, label);
     const big = (label, onClick, part, dim) => h("button", { "data-wk": wk.btn, "data-part": part, onClick, disabled: !!dim,
       style: { width: "100%", height: 52, borderRadius: 26, border: "none", background: th.grad, opacity: dim ? .5 : 1, color: th.dark ? "#2a1a10" : "#fff", fontSize: FS(15.5), fontWeight: 600, letterSpacing: ".1em", boxShadow: "0 14px 28px -14px " + th.glow } }, label);
     const small = (label, onClick, part, busy) => h("button", { "data-wk": wk.btn, "data-part": part, onClick, disabled: !!busy,
-      style: { height: 34, padding: "0 16px", borderRadius: 17, border: "none", background: th.grad, color: th.dark ? "#2a1a10" : "#fff", fontSize: FS(12.5), fontWeight: 600, opacity: busy ? .6 : 1, whiteSpace: "nowrap" } }, label);
+      style: { padding: "4px 0", border: "none", background: "transparent", color: th.accent, fontSize: FS(13), fontWeight: 600, opacity: busy ? .6 : 1, whiteSpace: "nowrap" } }, "→ " + label);
     const page = (title, onBack, body, foot) => h("div", { "data-wk": wk.page, "data-theme": themeId || "trip", className: "h-full flex flex-col", style: { background: th.bg, color: th.ink } },
       typeof Head === "function" ? h(Head, { zh: title, bg: "transparent", onBack, ...(th.dark ? { ink: th.ink, lineInk: th.line } : {}) }) : null,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 18px" } }, body),
       foot ? h("div", { style: { flexShrink: 0, padding: "10px 16px 14px", paddingBottom: "calc(14px + " + (typeof COMPOSER_PAD_BOTTOM !== "undefined" ? COMPOSER_PAD_BOTTOM : "0px") + ")" } }, foot) : null);
     const inp = (v, on, ph, part, rows) => h(rows ? "textarea" : "input", { value: v, placeholder: ph, rows, "data-part": part, onChange: e => on(e.target.value),
-      style: { width: "100%", boxSizing: "border-box", border: "1.5px solid " + th.line, borderRadius: 12, padding: "9px 11px", fontSize: FS(13.5), color: th.ink, background: th.inputBg, outline: "none", resize: "none", lineHeight: 1.5 } });
+      style: { width: "100%", boxSizing: "border-box", border: "none", borderBottom: "1px solid " + th.line, borderRadius: 0, padding: "8px 2px", fontSize: FS(13.5), color: th.ink, background: "transparent", outline: "none", resize: "none", lineHeight: 1.6 } });
     // 列表页顶上那块：大图标＋一句这是什么＋要花几次调用
-    const hero = (title, line, cost) => h("div", { key: "hero", "data-wk": wk.page.replace("page", "hero"), style: { position: "relative", overflow: "hidden", borderRadius: 24, padding: "18px 18px 16px", marginBottom: 16, background: th.hero, color: "#fff", boxShadow: "0 16px 30px -18px " + th.glow } },
-      h("div", { style: { position: "absolute", right: -26, top: -26, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,.14)" } }),
-      h("div", { style: { position: "absolute", right: 18, top: 16, opacity: .9 } }, icon(ICONS[themeId] || ICONS.trip, 38)),
-      h("div", { style: { fontSize: FS(20), fontWeight: 700, letterSpacing: ".06em" } }, title),
-      h("div", { style: { fontSize: FS(12.5), lineHeight: 1.65, marginTop: 6, opacity: .95, paddingRight: 40 } }, line),
-      cost ? h("div", { style: { display: "inline-block", marginTop: 10, fontSize: FS(10.5), padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,.22)" } }, cost) : null);
+    const hero = (title, line, cost) => h("div", { key: "hero", "data-wk": wk.page.replace("page", "hero"), style: { textAlign: "center", padding: "18px 12px 22px", marginBottom: 8, color: th.ink } },
+      h("div", { style: { display: "inline-block", opacity: .9 } }, icon(ICONS[themeId] || ICONS.trip, 34, th.accent)),
+      h("div", { style: { fontSize: FS(22), fontWeight: 600, letterSpacing: ".12em", marginTop: 6, fontFamily: "'Songti SC','Noto Serif SC',serif" } }, title),
+      h("div", { style: { fontSize: FS(12.5), lineHeight: 1.75, marginTop: 8, color: th.sub } }, line),
+      cost ? h("div", { style: { marginTop: 8, fontSize: FS(10.5), color: th.accent, letterSpacing: ".08em" } }, cost) : null);
     const empty = text => h("div", { key: "empty", style: { textAlign: "center", padding: "44px 0 20px", color: th.sub } },
-      h("div", { style: { display: "inline-flex", width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center", background: th.soft, marginBottom: 10 } }, icon(ICONS[themeId] || ICONS.trip, 28, th.accent)),
+      h("div", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 10, opacity: .6 } }, icon(ICONS[themeId] || ICONS.trip, 28, th.accent)),
       h("div", { style: { fontSize: FS(13) } }, text));
-    const item = (key, wkName, onClick, thumb, title, sub, note) => h("button", { key, "data-wk": wkName, onClick, style: { width: "100%", display: "flex", gap: 12, alignItems: "center", textAlign: "left", border: th.dark ? "1px solid " + th.line : "none", background: th.card, borderRadius: 20, padding: 10, marginBottom: 10, boxShadow: "0 10px 26px -18px " + th.shadow, color: th.ink } },
+    const item = (key, wkName, onClick, thumb, title, sub, note) => h("button", { key, "data-wk": wkName, onClick, style: { width: "100%", display: "flex", gap: 14, alignItems: "center", textAlign: "left", border: "none", borderBottom: "1px solid " + th.line, background: "transparent", borderRadius: 0, padding: "12px 2px", color: th.ink } },
       thumb, h("div", { style: { flex: 1, minWidth: 0 } },
         h("div", { style: { fontSize: FS(14.5), fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title),
         h("div", { style: { fontSize: FS(11.5), color: th.sub, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub),
@@ -196,7 +195,7 @@
           h("button", { "data-wk": "tripbtn", "data-part": "plan", onClick: plan, style: { marginTop: 8, height: 34, padding: "0 16px", borderRadius: 17, border: "none", background: GRAD, color: "#fff", fontSize: FS(12.5), fontWeight: 600, opacity: busy ? .6 : 1, whiteSpace: "nowrap" } }, busy === "plan" ? "在排…" : d.stops.length ? "重新排一版" : "让 AI 排一版"),
           h("span", { style: { fontSize: FS(10.5), color: SUB, marginLeft: 8 } }, "排完都能改，也能自己加"))),
         card("stops", "路线", d.stops.length ? d.stops.length + " 站，一站寄一张" : "还没有站", h("div", null,
-          d.stops.map((s, i) => h("div", { key: i, "data-wk": "tripstop", style: { border: "1.5px solid #f6e8ee", borderRadius: 16, padding: 10, marginBottom: 10 } },
+          d.stops.map((s, i) => h("div", { key: i, "data-wk": "tripstop", style: { padding: "2px 0", marginBottom: 18 } },
             h("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6 } },
               h("span", { style: { width: 22, height: 22, borderRadius: 11, background: GRAD, color: "#fff", fontSize: FS(11), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, i + 1),
               h("div", { style: { flex: 1 } }, inp(s.place, v => setStop(i, { place: v }), "地名", "stopplace")),
@@ -207,7 +206,7 @@
               (d.ids.length > 1 ? [["all", "大家一起"]] : []).concat(d.ids.map(id => [id, names[id] || "?"])).map(([k, zh]) => h(React.Fragment, { key: k }, pill(zh, s.sender === k, () => setStop(i, { sender: k }), "sender")))),
             h("div", { style: { display: "flex", gap: 6, overflowX: "auto", marginTop: 6, alignItems: "center" } }, h("span", { style: { fontSize: FS(11), color: SUB, flexShrink: 0 } }, "样子"),
               [["auto", "让TA挑"]].concat(STYLES.map(x => [x.id, x.zh])).map(([k, zh]) => h(React.Fragment, { key: k }, pill(zh, s.style === k, () => setStop(i, { style: k }), "style")))))),
-          h("button", { "data-wk": "tripbtn", "data-part": "addstop", onClick: () => set({ stops: d.stops.concat([{ place: "", plan: "", sender: defSender(), style: "auto" }]) }), style: { width: "100%", height: 38, borderRadius: 14, border: "1.5px dashed #f1cfdc", background: "transparent", color: PINK, fontSize: FS(12.5) } }, "＋ 加一站")))
+          h("button", { "data-wk": "tripbtn", "data-part": "addstop", onClick: () => set({ stops: d.stops.concat([{ place: "", plan: "", sender: defSender(), style: "auto" }]) }), style: { width: "100%", padding: "8px 0", border: "none", background: "transparent", color: PINK, fontSize: FS(12.5), fontWeight: 600 } }, "＋ 加一站")))
       ], big("出发", go, "go", !d.ids.length || !d.stops.some(s => String(s.place || "").trim())));
     }
 
