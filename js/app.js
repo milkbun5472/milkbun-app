@@ -12609,6 +12609,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               const uniq = [...new Set(did)].slice(0, 6);
               return uniq.length ? "\n\n你前几次翻她手机时自己动过的手脚（是你自己干的，到现在还是这样）：" + uniq.join("；") + "。她手机上现在给你的备注是「" + (c.remark || c.name) + "」。已经是这样的就不用再做一遍。" : ""; })()
           + "\n\n能打开的：messages（消息列表——备注、最后一句、几点聊的都在上面）、chat（和某个人或某个群的聊天，要写 who＝对方名字或群名，能选的：" + others.join("、") + "）"
+          // 谁是谁说清楚（群友 2026-11-27：她拿自设建了个角色、又用同名的面具跟他聊，他翻手机时把自己、那个角色、她三个认混了）
+          + "。上面这些都不是你：你自己在她手机里存的是「" + (c.remark || c.name) + "」，要用她的名义发给你自己、改你的备注，who 就写这个"
+          + (() => { const herNames = [userName(profileFor(charId) || profile)].concat((masks || []).map(m => m && String(m.name || "").trim())).filter(Boolean);
+              const same = others.filter(n => herNames.indexOf(n) >= 0 || herNames.some(h => h && (n.indexOf(h) >= 0 || h.indexOf(n) >= 0)));
+              return same.length ? "；" + same.map(n => "「" + n + "」").join("") + "跟她的名字一样或很像，那是她手机里的另一个联系人，不是她本人，也不是你" : ""; })()
           + (apps.includes("offline") ? "；offline（她和别人线下见面的往期，要写 who＝那个人的名字）" : "")
           + (apps.includes("calendar") ? "；calendar（她的日历，看她写了哪天跟谁、去干嘛）" : "")
           + (apps.includes("health") ? "；health（她的健康 app，她自己记的吃喝、睡眠、心情、不舒服）" : "")
@@ -12653,7 +12658,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         .map(p => ({ title: String(p.title).slice(0, 30), anon: !!(p.anon || p.board === "匿名吧"), alt: !!p.alt }));
       const myDiary = ((diariesRef.current || {})["__me"] || []).slice().reverse().map(e => String(e.title || "").slice(0, 30)).filter(Boolean)
         .sort((a, b) => seenT.has(a) - seenT.has(b));
-      const clean = x => window.PeekPhone ? window.PeekPhone.cleanScript(x, apps, { forum: myPosts, diary: myDiary, who: others, gate, self: c.remark || c.name }) : [];
+      const clean = x => window.PeekPhone ? window.PeekPhone.cleanScript(x, apps, { forum: myPosts, diary: myDiary, who: others, gate, self: c.remark || c.name, selfNames: [c.remark, c.name].filter(Boolean) }) : [];
       script = clean(d);
       // 一步都没演得出来（群里 2026-10-11：「我给他手机他也不查」）：模型没写出步骤，或者写的全点在她藏起来的那几样上，
       //   原来录像当场就收了，一句话没有，看着就像TA拿了手机不翻。先再要一次，还是空的就照实说。
@@ -12982,7 +12987,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const peekFollowRef = useRef([]);   // 用她名义发出去的那几句：翻完再让对面接
   const peekEffect = (viewerId, step) => {
     const v = (characters || []).find(x => x.id === viewerId);
-    const tgt = step.who ? (characters || []).find(x => x.id !== viewerId && (x.remark === step.who || x.name === step.who)) : null;
+    // 他自己也认得出来（群友 2026-11-27：想用她的名义发给自己，原来自己被排除在外，落到名字相近的另一个人那儿）
+    const tgt = step.who ? ((characters || []).find(x => x.id !== viewerId && (x.remark === step.who || x.name === step.who))
+      || ((v && (v.remark === step.who || v.name === step.who)) ? v : null)) : null;
     const vn = (v && v.name) || "TA", tn = tgt ? (tgt.remark || tgt.name) : "";
     // t 给她看（聊天里那条记录）；mine 是TA自己记得的说法（进查手机记事）
     const note = (t, mine) => { pChat(viewerId, p => [...p, { role: "system", kind: "system", content: t, ts: Date.now() }]);

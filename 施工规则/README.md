@@ -36,7 +36,7 @@
 | `merge-to-main.md` | 干完就自己合进 main（她 2026-09-16 授权，不用再问）；⚠️收冲突不许 `git checkout --ours` |
 | `anchor-on-code.md` | 测试切代码时，两头只许钉函数名/常量名，**不许钉注释或整行参数表** |
 
-剩下十六条**按今天动哪儿去挑**：
+剩下十七条**按今天动哪儿去挑**：
 
 | 今天动的是 | 读这份 |
 |---|---|
@@ -48,6 +48,7 @@
 | 任何标题、眉标 | `no-english-titles.md`（纯英文一律删，只留中文） |
 | 主屏 / 根节点 | `home-screen-layout.md`（**一个都不许改**） |
 | 写给模型的提示词 | `prompt-no-content-samples.md`（留格式示范，删内容示范） |
+| 跟 user 是谁、怎么称呼她有关的任何东西 | `no-user-gender-option.md`（**永远不加性别选项**，user 就是「她」） |
 | 新开一处模型调用 | `prompt-send-shape.md`（料全放 system，user 只留一句触发） |
 | 任何 `callAI` / `runProbe` | `max-tokens-floor.md`（不许低于 8000） |
 | 查手机那四层数据 | `phone-data-layers.md`（钉死／演化／日志／快照＋名册） |

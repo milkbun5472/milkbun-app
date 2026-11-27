@@ -444,3 +444,16 @@ test("论坛加回能翻的几样（她 2026-11-27），默认不勾", () => {
   assert.match(c, /return all\.filter\(k => \["daily", "forum", "music", "memo", "journal"\]\.indexOf\(k\) < 0\);/);
   for (const k of ["forum", "listen", "memo", "diary"]) assert.ok(a.includes('apps.includes("' + k + '") ? "；' + k + '（'), "能打开的里写着 " + k);
 });
+test("认人：一字不差优先，再挑最接近的；他自己的名字不往别人身上靠（群友 2026-11-27 自设角色和他认混）", () => {
+  const P = loadPeek();
+  const who = ["沈默言", "沈默", "许咏安"];
+  const s = P.cleanScript({ steps: [{ do: "open", app: "chat", who: "沈默" }, { do: "think", text: "嗯" }] }, ["chat", "messages"], { who });
+  assert.deepStrictEqual(s.filter(x => x.do === "open").map(x => x.who), ["沈默"], "一字不差的那个优先");
+  const s2 = P.cleanScript({ steps: [{ do: "impersonate", who: "沈既白", text: "想你了" }] }, ["chat", "messages"], { who: ["沈既白言"], self: "既白", selfNames: ["既白", "沈既白"] });
+  assert.deepStrictEqual(s2.filter(x => x.do === "impersonate").map(x => x.who), ["沈既白"], "写的是他自己，就是他自己");
+  const s3 = P.cleanScript({ steps: [{ do: "open", app: "chat", who: "沈既白" }, { do: "think", text: "嗯" }] }, ["chat", "messages"], { who: ["沈既白言"], self: "既白", selfNames: ["既白", "沈既白"] });
+  assert.ok(!s3.some(x => x.do === "open" && x.who === "沈既白言"), "打开自己那栏不演成别人");
+  assert.match(a, /\|\| \(\(v && \(v\.remark === step\.who \|\| v\.name === step\.who\)\) \? v : null\)/);
+  assert.match(a, /上面这些都不是你：你自己在她手机里存的是/);
+  assert.match(a, /selfNames: \[c\.remark, c\.name\]\.filter\(Boolean\)/);
+});

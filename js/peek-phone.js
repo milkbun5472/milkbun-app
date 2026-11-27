@@ -33,7 +33,14 @@
     //   hints.gate 是聊天里真翻得出线索的那几样，不在里面的那一趟连同它后面的动作一起不演
     const FOLLOW = ["wallet", "takeout", "shop"], gate = hints.gate || null;
     const names = (hints.who || []).map(S).filter(Boolean);
-    const nameIn = t => names.find(n => t === n || (t.length >= 2 && (t.indexOf(n) >= 0 || n.indexOf(t) >= 0))) || "";
+    // 认人先认一字不差的；对不上再认「互相包含」的，挑最接近的那个（群友 2026-11-27：两个名字相近，原来谁排前面就认成谁——想改自己的备注改到了别人头上）
+    // 他自己的名字和备注（她手机里怎么存的他）也认：写的是自己，就是自己，不往名字相近的别人身上靠
+    const selfNames = [].concat(hints.selfNames || [], hints.self || []).map(S).filter(Boolean);
+    const isSelf = t => selfNames.indexOf(S(t).trim()) >= 0;
+    const nameIn = t => { if (!t) return ""; if (names.indexOf(t) >= 0) return t; if (isSelf(t)) return t;
+      if (t.length < 2) return "";
+      const hit = names.filter(n => t.indexOf(n) >= 0 || n.indexOf(t) >= 0).sort((a, b) => Math.abs(a.length - t.length) - Math.abs(b.length - t.length));
+      return hit[0] || ""; };
     let lockStep = null;   // 锁她手机（2026-11-24）：一趟最多一次，不管写在哪儿都挪到最后——翻完了才锁
     list.forEach(s => {
       if (!s) return;
@@ -45,7 +52,7 @@
       if (d === "open") {
         const app = S(s.app).trim();
         // 进自己那一栏是 rename／pin 自己的事，不单独演一趟「打开自己的聊天」
-        if (app === "chat" && hints.self && (S(s.who).trim() === hints.self)) { skip = true; return; }
+        if (app === "chat" && isSelf(s.who)) { skip = true; return; }
         if (allowApps.indexOf(app) < 0) { skip = true; return; }          // 她藏起来的那几样，录像里也碰不到
         if (gate && FOLLOW.indexOf(app) >= 0 && gate.indexOf(app) < 0) { skip = true; return; }
         // 打开某人的聊天，那人得真在她的聊天列表里（群里 2026-10-21：他在朋友圈评论里看到一个名字，
