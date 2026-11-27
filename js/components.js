@@ -12248,7 +12248,7 @@ function ChatThread({
   const [peekAllow, setPeekAllow] = useState(() => {   // 日常联系人默认不编，要了才勾；上回递手机时勾成什么样，这回照旧（x_peekAllow，按人记）
     const all = (window.PEEK_PHONE_SECTIONS || []).map(s => s[0]);
     try { const was = (loadJSON("x_peekAllow", {}) || {})[character && character.id]; if (Array.isArray(was)) return was.filter(k => all.includes(k)); } catch (e) {}
-    return all.filter(k => k !== "daily" && k !== "forum");   // 论坛也默认不勾（她 2026-11-27 加回来的；小号、匿名帖都在里面，要给看自己勾）
+    return all.filter(k => ["daily", "forum", "music", "memo", "journal"].indexOf(k) < 0);   // 论坛、一起听、备忘录、手记默认不勾（她 2026-11-27 加回来的，要给看自己勾）
   });
   // 上回递手机时藏了谁，这回照样勾着（群友 2026-10-31）；偷偷翻那一路也认这份
   const [peekHide, setPeekHide] = useState(() => { try { return ((loadJSON("x_peekHide", {}) || {})[character && character.id] || []).slice(); } catch (e) { return []; } });

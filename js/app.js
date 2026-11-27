@@ -212,7 +212,7 @@ function ScreenBoundaryClass() {
 // 聊天页「给TA看手机」那张单子和下面拼素材的那段读同一张表。
 // 她 2026-10-02：「我们真的需要那些 app 吗」——查岗只查聊天；钱包、外卖、购物是聊天里翻出线索才顺着去的。
 //   论坛、一起听、备忘录、手记都拿掉了：主屏一路找过去最容易点错，也没翻出过一句戳人的心声。
-const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"], ["moments", "我的朋友圈"], ["forum", "论坛（我发的帖和底下的评论）"], ["daily", "日常联系人（照我的人设自动编几个：同事、家人、群）"]];
+const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"], ["moments", "我的朋友圈"], ["forum", "论坛（我发的帖和底下的评论）"], ["music", "一起听（播放记录、挂着跟谁听）"], ["memo", "备忘录和提醒"], ["journal", "我的手记"], ["daily", "日常联系人（照我的人设自动编几个：同事、家人、群）"]];
 if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
 function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, onSetModel, clock, vclock, onVClock, onOpenApi, onGo }) {
   const [scs, setScs] = useState(() => { const v = loadJSON("x_floatShortcuts", []); return Array.isArray(v) ? v.slice(0, 6) : []; }), [scEdit, setScEdit] = useState(false);
@@ -12613,6 +12613,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (apps.includes("calendar") ? "；calendar（她的日历，看她写了哪天跟谁、去干嘛）" : "")
           + (apps.includes("health") ? "；health（她的健康 app，她自己记的吃喝、睡眠、心情、不舒服）" : "")
           + (apps.includes("moments") ? "；moments（她的朋友圈：她联系人发的和她自己发的，谁赞了谁评了）" : "")
+          // 论坛、一起听、备忘录、手记加回来（她 2026-11-27「还有啥能翻的一起加回去」）：料一直都在，原来这几样没写进「能打开的」，TA翻不过去
+          + (apps.includes("forum") ? "；forum（她的论坛：她发过的帖和底下的评论）" : "")
+          + (apps.includes("listen") ? "；listen（一起听：她的播放记录、挂着跟谁一起听）" : "")
+          + (apps.includes("memo") ? "；memo（她的备忘录和提醒）" : "")
+          + (apps.includes("diary") ? "；diary（她自己写的手记）" : "")
           + (gate.length ? "；聊天里翻得出线索、可以顺着去追的：" + gate.map(a => a + "（" + PEEK_APP_ZH[a] + "：和" + [...clues[a]].slice(0, 4).map(n => "「" + n + "」").join("") + "的聊天里有" + ({ wallet: "转账／红包", takeout: "外卖", shop: "送东西" })[a] + "）").join("、") : "")
           + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开（app 填上面那几个英文名）；tap 点屏幕上写着某几个字的地方；scroll 往下或往上滑（dir、n=1~3；聊天里往上翻是往前看）；back 从聊天退回消息列表；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）；rename 把她给你的备注改掉（只写这一步就行，进自己那一栏、点设置这些不用写；text 填新备注，16 个字以内）——这是真的会改的，看着她给你存的名字不顺眼才改，一趟最多一次，不想改就别写。" + peekRenameAngles()
           // ⚠️上一版写「真气到那份上才用，不想就别写」，TA几乎从来不动手（她 2026-10-02：「不会删好友拉黑或者回复，概率好低」）
