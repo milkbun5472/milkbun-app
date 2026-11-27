@@ -275,6 +275,11 @@
   if (typeof React === "undefined") return;
   const h = React.createElement, { useState, useEffect, useMemo } = React;
   const fs = px => "calc(" + px + "px * var(--app-fs, 1))";
+  // 单机集邮社的那几样长相（stamp-duel-ui 里的同一套颜色和齿孔），开局页用
+  const STAMP_PAPER = "#fbf6ea", STAMP_INK = "#2f2a22";
+  const perfBg = bg => "radial-gradient(circle at 4px 4px, transparent 2.6px, " + bg + " 2.8px) -4px -4px / 7px 7px";
+  const MODE_LOOK = { duel: ["#b23a2e", "对", -1.5], relay: ["#a0522d", "接", 1], raid: ["#8a3a4a", "积", -1], siege: ["#3f6fb0", "护", 1],
+    edict: ["#5a4f8a", "封", -1.2], puzzle: ["#6a5a3a", "死", .9], patrol: ["#5a7a4a", "巡", -.8], shift: ["#4f6a8a", "值", 1.1] };
   const btn = (t, on) => ({ minHeight: 36, padding: "0 12px", borderRadius: 8, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : (t.bg2 || t.bg), color: on ? t.bg : t.ink, fontFamily: F_BODY, fontSize: fs(12.5) });
   const small = t => ({ fontFamily: F_BODY, fontSize: fs(11.5), color: t.fog, lineHeight: 1.6 });
   const useStampsReady = () => { const [ok, setOk] = useState(!!(D() && root.StampDuelParts)); useEffect(() => { if (!ok) ensure().then(() => setOk(!!(D() && root.StampDuelParts))); }, []); return ok; };
@@ -284,27 +289,44 @@
     const t = useTheme();
     const [p, setP] = useState({ mode: "duel", rule: "", level: false, wager: "", tier: 1, lv: 8, chars: {}, me: true });
     const set = o => setP(x => Object.assign({}, x, o));
-    const seg = (val, list, on, wk) => h("div", { "data-wk": wk, className: "flex flex-wrap", style: { gap: 6 } }, list.map(o => h("button", { key: o.k, onClick: () => on(o.k), className: "active:opacity-70", style: btn(t, val === o.k) }, o.zh)));
-    const label = s => h("div", { style: { fontFamily: F_BODY, fontSize: fs(12), color: t.fog, margin: "6px 0 2px" } }, s);
-    const M = MODES[p.mode];
+    // 长相照单机集邮社（她 11-26「参考一下他们原本的页面」）：横格信纸地面、玩法摆成一面齿孔邮票墙、选中的那枚出一张封面头，选项是信纸上的小签
+    const M = MODES[p.mode], MC = MODE_LOOK[p.mode] || MODE_LOOK.duel;
+    const tag = on => ({ minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + (on ? MC[0] : "rgba(47,42,34,.22)"), background: on ? MC[0] : "rgba(255,255,255,.55)", color: on ? "#fff" : STAMP_INK, fontFamily: F_BODY, fontSize: fs(12.5) });
+    const seg = (val, list, on, wk) => h("div", { "data-wk": wk, className: "flex flex-wrap", style: { gap: 6 } }, list.map(o => h("button", { key: o.k, onClick: () => on(o.k), className: "active:opacity-70", "data-on": val === o.k ? "1" : "0", style: tag(val === o.k) }, o.zh)));
+    const label = s => h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(14), color: STAMP_INK, margin: "8px 0 2px" } }, s);
+    const sm = Object.assign({}, small(t), { color: "rgba(47,42,34,.6)" });
+    const tile = k => { const L = MODE_LOOK[k], on = p.mode === k;
+      return h("button", { key: k, "data-wk": "nrstampsmodetile", "data-on": on ? "1" : "0", onClick: () => set({ mode: k }), className: "text-left active:scale-[.97]",
+        style: { display: "block", padding: 4, background: perfBg(STAMP_PAPER), border: "none", transform: "rotate(" + L[2] + "deg)" + (on ? " translateY(-2px)" : ""), filter: on ? "drop-shadow(0 4px 8px rgba(47,42,34,.32))" : "drop-shadow(0 2px 4px rgba(47,42,34,.18))", opacity: on ? 1 : .82, transition: "transform .15s" } },
+        h("div", { style: { position: "relative", height: 64, padding: "6px 7px", overflow: "hidden", background: "linear-gradient(155deg, rgba(255,255,255,.14), rgba(0,0,0,.14)), " + L[0], color: "#fff", display: "flex", flexDirection: "column", justifyContent: "flex-end" } },
+          h("div", { style: { position: "absolute", right: -3, top: -8, fontFamily: F_DISPLAY, fontSize: fs(44), lineHeight: 1, opacity: .2 } }, L[1]),
+          on ? h("div", { style: { position: "absolute", inset: 3, border: "1px solid rgba(255,255,255,.55)", pointerEvents: "none" } }) : null,
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(13.5), letterSpacing: ".04em" } }, MODES[k].zh))); };
     const picks = (p.me ? [{ kind: "user" }] : []).concat((myChars || []).filter(c => p.chars[c.id]).map(c => ({ kind: "char", charId: c.id, name: c.remark || c.name })));
     const total = Math.max(M.min, Math.min(M.max, picks.length || M.min));
-    return h("div", { "data-wk": "nrstampsprep", style: { display: "flex", flexDirection: "column", gap: 6 } },
-      h("div", { style: small(t) }, "用各自邮票册里的卡玩。每个人的卡组在她自己那台抽，卡面只在自己那台看得到，别人那边写卡名。角色由带 TA 来的那台替着下，不花调用。"),
-      label("玩什么"), seg(p.mode, Object.keys(MODES).map(k => ({ k, zh: MODES[k].zh })), k => set({ mode: k }), "nrstampsmode"),
-      h("div", { style: small(t) }, M.desc + "，" + (M.min === M.max ? M.min + " 个人" : M.min + "~" + M.max + " 个人") + "；人不够用 NPC 补。"),
+    return h("div", { "data-wk": "nrstampsprep", style: { display: "flex", flexDirection: "column", gap: 6, color: STAMP_INK } },
+      h("div", { style: sm }, "用各自邮票册里的卡玩。每个人的卡组在她自己那台抽，卡面只在自己那台看得到，别人那边写卡名。角色由带 TA 来的那台替着下，不花调用。"),
+      label("玩什么"), h("div", { "data-wk": "nrstampsmode", style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10, padding: "4px 2px 6px" } }, Object.keys(MODES).map(tile)),
+      // 选中那枚的封面头：同色斜条、一枚斜贴的小票、玩法名和一句话
+      h("div", { "data-wk": "nrstampsmodehero", style: { position: "relative", margin: "4px 0 6px", borderRadius: 6, overflow: "hidden", background: STAMP_PAPER, boxShadow: "0 3px 10px rgba(47,42,34,.14)" } },
+        h("div", { style: { height: 6, background: "repeating-linear-gradient(135deg, " + MC[0] + " 0 10px, " + STAMP_PAPER + " 10px 16px)" } }),
+        h("div", { style: { position: "relative", padding: "12px 14px 13px 76px", minHeight: 76 } },
+          h("div", { style: { position: "absolute", left: 12, top: 12, width: 50, height: 58, padding: 3, background: perfBg(STAMP_PAPER), transform: "rotate(-6deg)", filter: "drop-shadow(0 2px 3px rgba(47,42,34,.25))" } },
+            h("div", { style: { width: "100%", height: "100%", background: MC[0], color: "#fff", fontFamily: F_DISPLAY, fontSize: fs(24), display: "flex", alignItems: "center", justifyContent: "center" } }, MC[1])),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: fs(17), color: MC[0] } }, M.zh),
+          h("div", { style: { fontFamily: F_BODY, fontSize: fs(11.5), color: "rgba(47,42,34,.6)", lineHeight: 1.7, marginTop: 3 } }, M.desc + "，" + (M.min === M.max ? M.min + " 个人" : M.min + "~" + M.max + " 个人") + "；人不够用 NPC 补。"))),
       p.mode === "duel" ? h(React.Fragment, null,
         label("规则"), seg(p.rule, Object.keys(RULES).map(k => ({ k, zh: RULES[k] })), k => set({ rule: k }), "nrstampsrule"),
         label("等级"), seg(p.level ? "1" : "0", [{ k: "0", zh: "照各自的卡" }, { k: "1", zh: "两边拉平" }], k => set({ level: k === "1" }), "nrstampslevel"),
-        h("div", { style: small(t) }, p.level ? "两副卡组都换算到两边的平均等级，只比谁摆得好。" : "谁的卡练得高谁占便宜。"),
+        h("div", { style: sm }, p.level ? "两副卡组都换算到两边的平均等级，只比谁摆得好。" : "谁的卡练得高谁占便宜。"),
         label("彩头（可以不填，打完写在战绩上）"),
-        h("input", { "data-wk": "nrstampswager", value: p.wager, onChange: e => set({ wager: e.target.value.slice(0, 40) }), placeholder: "比如：输的人回答一个真心话", style: { width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 16 } })) : null,
+        h("input", { "data-wk": "nrstampswager", value: p.wager, onChange: e => set({ wager: e.target.value.slice(0, 40) }), placeholder: "比如：输的人回答一个真心话", style: { width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(47,42,34,.22)", background: "rgba(255,255,255,.6)", color: STAMP_INK, fontFamily: F_BODY, fontSize: 16 } })) : null,
       p.mode === "siege" ? h(React.Fragment, null, label("难度"), seg(p.tier, [0, 1, 2, 3, 4].map(k => ({ k, zh: "第 " + (k + 1) + " 档" })), k => set({ tier: k }), "nrstampstier")) : null,
       p.mode === "puzzle" ? h(React.Fragment, null, label("第几关"), seg(p.lv, [3, 8, 15, 22, 30].map(k => ({ k, zh: "第 " + k + " 关" })), k => set({ lv: k }), "nrstampslv")) : null,
-      p.mode === "edict" ? h("div", { style: small(t) }, "开打前每人轮流加一条难度（角色、NPC 由手机替着挑），加得越多危险分越高。") : null,
+      p.mode === "edict" ? h("div", { style: sm }, "开打前每人轮流加一条难度（角色、NPC 由手机替着挑），加得越多危险分越高。") : null,
       label("谁上场"), seg(p.me ? "1" : "0", [{ k: "1", zh: "我上场" }, { k: "0", zh: "我不上，看着" }], k => set({ me: k === "1" }), "nrstampsme"),
-      (myChars || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 6 } }, myChars.map(c => h("button", { key: c.id, "data-wk": "nrstampschar", onClick: () => set({ chars: Object.assign({}, p.chars, { [c.id]: !p.chars[c.id] }) }), style: btn(t, !!p.chars[c.id]) }, (p.chars[c.id] ? "✓ " : "") + (c.remark || c.name)))) : null,
-      h("button", { "data-wk": "nrstampsgo", onClick: () => onSend({ total, smode: p.mode, mode: p.me ? "normal" : "spectate", npcFill: true, picks }, { mode: p.mode, rule: p.rule, level: p.level, wager: p.wager.trim(), tier: p.tier, lv: p.lv }), style: Object.assign(btn(t, true), { marginTop: 10, minHeight: 42 }) }, "发邀请卡"));
+      (myChars || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 6 } }, myChars.map(c => h("button", { key: c.id, "data-wk": "nrstampschar", onClick: () => set({ chars: Object.assign({}, p.chars, { [c.id]: !p.chars[c.id] }) }), style: tag(!!p.chars[c.id]) }, (p.chars[c.id] ? "✓ " : "") + (c.remark || c.name)))) : null,
+      h("button", { "data-wk": "nrstampsgo", onClick: () => onSend({ total, smode: p.mode, mode: p.me ? "normal" : "spectate", npcFill: true, picks }, { mode: p.mode, rule: p.rule, level: p.level, wager: p.wager.trim(), tier: p.tier, lv: p.lv }), className: "active:opacity-80", style: { marginTop: 12, minHeight: 46, borderRadius: 6, border: "none", background: MC[0], color: "#fff", fontFamily: F_DISPLAY, fontSize: fs(15), letterSpacing: ".1em", boxShadow: "0 3px 10px rgba(47,42,34,.2)" } }, "发邀请卡"));
   }
 
   // 一张信封＋手里那几张：她这一回合在自己那份上点着试，「寄出」才把那一串交给庄
@@ -415,4 +437,6 @@
     return h("div", { style: small(t) }, (r.lines || []).map((x, k) => h("div", { key: k }, x)));
   }
   A.Table = StampsTable; A.Replay = StampsReplay; A.Prep = StampsPrep;
+  // 开局页那一整页的地面：单机集邮社的横格信纸
+  A.prepFloor = () => ({ background: "repeating-linear-gradient(0deg, transparent 0 27px, rgba(47,42,34,.05) 27px 28px), linear-gradient(#f3ebdb, #e8dcc4)" });
 })(typeof window !== "undefined" ? window : globalThis);
