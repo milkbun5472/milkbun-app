@@ -20164,14 +20164,52 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       instruction: "在一个平行世界里：" + w.world + "。那个世界的你：" + (w.who || "照这个世界和你的性格去想") + "\n"
         + (done && done.length ? "【已经写过的别的世界】\n" + done.map(x => "- " + x).join("\n") + "\n" : "")
         + "photo 是那个世界的你的一张写真：穿什么、在哪、在干嘛、什么神情、光从哪来，照那个世界和那个世界里的你来拍（年纪、打扮、气质跟着那个世界的你走，不用跟现在一样），要好看；"
-        + "letter 是那个世界的你写给 " + uName + " 的信：那个世界里你们是怎么遇见的、或者还没遇见，那个你想对她说什么，长短跟着那个世界的你的心情和说话的样子来。",
-      schemaHint: "{\"photo\":\"写真画面\",\"letter\":\"写给她的信\"}",
+        + "letter 是那个世界的你写给 " + uName + " 的信：那个世界里你们是怎么遇见的、或者还没遇见，那个你想对她说什么，长短跟着那个世界的你的心情和说话的样子来。"
+        // 世界档案、那个世界的她、留给现在的暗号（她 2026-11-27「平行人生丰富点好玩点」）
+        + "\nprofile 是那个世界的你的档案：name 在那儿叫什么，age 几岁，job 做什么，people 身边最要紧的人，habit 一句口头禅或者一个小习惯。"
+        + "\nher 写那个世界里的 " + uName + " 是什么人、你们俩在那儿是什么关系（可以是恋人、死对头、刚擦肩而过、从没见过面）。"
+        + "\nsecret 是那个世界的你隐约记得的、只属于现在你们俩的一个小细节或暗号——从你们真实聊过、经历过的事里挑，写成那个世界的你说不清从哪来、却一直记着的东西；想不出真实的就留空，别编。",
+      schemaHint: "{\"photo\":\"写真画面\",\"letter\":\"写给她的信\",\"profile\":{\"name\":\"\",\"age\":\"\",\"job\":\"\",\"people\":\"\",\"habit\":\"\"},\"her\":\"那个世界的她\",\"secret\":\"只有你们懂的\"}",
       maxTokens: 12000
     });
     const scene = "平行世界「" + w.world + "」里的" + c.name + "：" + String((d && d.photo) || w.who || "").trim();
     // 穿那个世界的衣服：不拿他现在的衣柜、此刻穿着、钉住的常服（跟电影剧照同一个开关）
     const blob = await castShotBlob([{ ...c, closet: "", outfit: "", photoOutfit: "" }], scene + "。穿的是那个世界里他会穿的衣服，照那个世界的年代和他在那儿的身份来。", { kind: "other", costume: true, popts: { cinematic: true, closet: "" } });
-    return { blob, photo: String((d && d.photo) || "").trim(), letter: String((d && d.letter) || "").trim() };
+    const T = v => String(v == null ? "" : v).trim(), pf = (d && d.profile) || {};
+    return { blob, photo: T(d && d.photo), letter: T(d && d.letter), profile: { name: T(pf.name), age: T(pf.age), job: T(pf.job), people: T(pf.people), habit: T(pf.habit) }, her: T(d && d.her), secret: T(d && d.secret) };
+  };
+  // 平行人生的后续玩法（她 2026-11-27「做吧」）：reply 回信往来／day 那个世界的一天（早中晚三张）／meet 两个世界的TA见面／finale 现在的TA读完所有信
+  const worldMore = async (kind, charId, pw, idx, extra) => {
+    const { c, r } = storyLead([charId]), uName = (profileFor(c.id) || {}).name || "她", T = v => String(v == null ? "" : v).trim();
+    const ws = pw.worlds || [], w = ws[idx] || {}, card = w.card || {};
+    const about = x => "「" + x.world + "」：那个世界的你——" + (x.who || "") + (x.card && x.card.letter ? "\n你从那儿写给她的信：" + x.card.letter : "") + (x.card && x.card.her ? "\n那个世界的她：" + x.card.her : "");
+    const ask = (instruction, schemaHint) => runProbe(r, ctxFor(c), { voice: true, instruction, schemaHint, maxTokens: 12000 });
+    const shot = async (scene, o) => castShotBlob([{ ...c, closet: "", outfit: "", photoOutfit: "" }], scene + "。穿的是那个世界里他会穿的衣服，照那个世界的年代和他在那儿的身份来。", { kind: "other", costume: true, popts: { cinematic: true, closet: "" }, ...(o || {}) });
+    if (kind === "reply") {
+      const thread = (card.thread || []).map(x => (x.from === "me" ? uName + "写来：" : "你回：") + x.text).join("\n");
+      const d = await ask("你是平行世界" + about(w) + "\n" + (thread ? "【后来的通信】\n" + thread + "\n" : "") + uName + " 隔着世界给你回了信：「" + T(extra) + "」\n以那个世界的你回她一封信，letter 写信的正文，长短照那个世界的你此刻的心情和说话的样子来。", "{\"letter\":\"回信\"}");
+      const t = T(d && d.letter); if (!t) throw new Error("TA没回出来，再试一次"); return { letter: t };
+    }
+    if (kind === "day") {
+      const d = await ask("你是平行世界" + about(w) + "\n拍那个世界的你过的一天：shots 是从早到晚的几张照片，每张 time 写什么时候，photo 写画面（在哪、在干嘛、什么神情、光），caption 是那个世界的你给这张配的一句话。照那个世界里你真实的日子来，要好看。", "{\"shots\":[{\"time\":\"\",\"photo\":\"\",\"caption\":\"\"}]}");
+      const list = (Array.isArray(d && d.shots) ? d.shots : []).map(x => ({ time: T(x && x.time), photo: T(x && x.photo), caption: T(x && x.caption) })).filter(x => x.photo);
+      if (!list.length) throw new Error("没想出来，再试一次");
+      const out = []; for (const x of list) { const blob = await shot("平行世界「" + w.world + "」里的" + c.name + "，" + x.time + "：" + x.photo); out.push({ ...x, blob }); }
+      return { shots: out };
+    }
+    if (kind === "meet") {
+      const w2 = ws[extra] || {}; if (!w2.world) throw new Error("先挑另一个世界");
+      const d = await ask("两个平行世界的你见面了。\n一个是" + about(w) + "\n另一个是" + about(w2) + "\n写他们隔着世界撞上的这一场：talk 是两个你之间的对话（who 写「" + w.world + "」或「" + w2.world + "」，line 写话），各自照自己那个世界的活法和性子说话，可以互相不服、互相羡慕、聊起各自世界里的 " + uName + "；photo 写两个你同框的一张照片画面（站位、距离、各自的打扮、神情、光）。", "{\"talk\":[{\"who\":\"\",\"line\":\"\"}],\"photo\":\"同框画面\"}");
+      const talk = (Array.isArray(d && d.talk) ? d.talk : []).map(x => ({ who: T(x && x.who), line: T(x && x.line) })).filter(x => x.line);
+      const blob = await shot("同一个人" + c.name + "的两个平行世界版本同框：一个来自「" + w.world + "」，一个来自「" + w2.world + "」，长着同一张脸、打扮和气质各属各的世界。" + T(d && d.photo), { extraText: "\n\n画面里是同一个人的两个版本，两个人都要是这张脸。" });
+      return { talk, blob };
+    }
+    if (kind === "finale") {
+      const been = ws.filter(x => x.card);
+      const d = await ask("她带你去看了好几个平行世界里的你：\n" + been.map(about).join("\n\n") + "\n\n现在回到这里、作为现在的你，读完那些信，letter 写一封给 " + uName + " 的信：你看见那些你以后想说什么，照你自己的性子和你们现在的关系来写。", "{\"letter\":\"信\"}");
+      const t = T(d && d.letter); if (!t) throw new Error("没写出来，再试一次"); return { letter: t };
+    }
+    throw new Error("unknown");
   };
   const cameraGenShot = async (ids, scene, who, o) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
@@ -39729,7 +39767,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, onClosetOf: cameraClosetOf, onGenFit: cameraGenFit, onTripPlan: tripPlan, onTripCard: tripCard, onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onMoviePremiere: moviePremiere, onWorldsPlan: worldsPlan, onWorldCard: worldCard, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, onClosetOf: cameraClosetOf, onGenFit: cameraGenFit, onTripPlan: tripPlan, onTripCard: tripCard, onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onMoviePremiere: moviePremiere, onWorldsPlan: worldsPlan, onWorldCard: worldCard, onWorldMore: worldMore, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,

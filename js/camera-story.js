@@ -283,9 +283,43 @@
     ctx.fillStyle = "#3a3340"; ctx.font = fs + "px " + k.HAND; rows.forEach((r, i) => ctx.fillText(r, m, ph + m + 100 + i * fs * 1.5));
     return await new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error("没存下来")), "image/jpeg", 0.92));
   }
+  // 一张图（按 key 显示），点开不需要；只是给「一天」「见面」用
+  const cardKeys = c => c ? [c.imgKey, c.meet && c.meet.imgKey].concat((c.day || []).map(x => x.imgKey)) : [];
+  const lnk = (th, k, label, on, part, accent, dis) => h("button", { "data-wk": "worldbtn", "data-part": part, disabled: !!dis, onClick: on, style: { border: "none", background: "transparent", padding: "4px 0", color: accent ? th.accent : th.sub, fontSize: k.FS(12), fontWeight: accent ? 600 : 400, opacity: dis ? .5 : 1 } }, label);
+  // 一个世界那张卡下面的东西：档案、通信、那个世界的一天、跟另一个世界的TA见面（她 2026-11-27「平行人生丰富点好玩点」）
+  function WorldMore({ w, idx, name, others, busy, onAct, th }) {
+    const k = K(), c = w.card, [tab, setTab] = useState(""), [msg, setMsg] = useState(""), [pick, setPick] = useState(-1);
+    const b = busy && busy.indexOf(":" + idx) > 0 ? busy.split(":")[0] : "", pf = c.profile || {};
+    const tabs = [["file", "档案"], ["mail", "通信" + ((c.thread || []).length ? " " + c.thread.length : "")], ["day", "那个世界的一天"]].concat(others.length ? [["meet", "见另一个TA"]] : []);
+    const row = (label, v) => v ? h("div", { style: { display: "flex", gap: 10, padding: "3px 0" } }, h("span", { style: { width: 64, flexShrink: 0, color: th.sub } }, label), h("span", null, v)) : null;
+    return h("div", { "data-wk": "worldmore", style: { marginTop: 4 } },
+      h("div", { style: { display: "flex", gap: 16, flexWrap: "wrap", borderBottom: "1px solid " + th.line } }, tabs.map(([key, label]) => h("button", { key, "data-wk": "worldbtn", "data-part": "tab" + key, "data-on": tab === key ? "1" : "0", onClick: () => setTab(tab === key ? "" : key), style: { border: "none", background: "transparent", padding: "8px 0", marginBottom: -1, fontSize: k.FS(12), color: tab === key ? th.ink : th.sub, fontWeight: tab === key ? 600 : 400, borderBottom: "2px solid " + (tab === key ? th.accent : "transparent") } }, label))),
+      tab === "file" ? h("div", { "data-wk": "worldfile", style: { padding: "12px 2px 4px", fontSize: k.FS(12.5), lineHeight: 1.7, color: th.ink } },
+        row("名字", pf.name), row("年纪", pf.age), row("做什么", pf.job), row("身边的人", pf.people), row("小习惯", pf.habit), row("那儿的你", c.her),
+        c.secret ? h("div", { "data-wk": "worldsecret", style: { marginTop: 10, fontFamily: k.HAND, fontSize: k.FS(15), color: th.accent } }, "TA 说不清从哪来、却一直记着：" + c.secret) : null,
+        !pf.name && !c.her ? h("div", { style: { color: th.sub } }, "这一张是之前去的，没有档案；点「重来这一张」会一起写上") : null) : null,
+      tab === "mail" ? h("div", { "data-wk": "worldmail", style: { padding: "12px 2px 4px" } },
+        (c.thread || []).map((x, j) => h("div", { key: j, style: { marginBottom: 12, fontFamily: x.from === "me" ? "inherit" : k.HAND, fontSize: k.FS(x.from === "me" ? 12.5 : 15.5), lineHeight: 1.7, whiteSpace: "pre-wrap", color: x.from === "me" ? th.sub : th.ink, textAlign: x.from === "me" ? "right" : "left" } }, x.text)),
+        h("textarea", { "data-wk": "worldreply", value: msg, onChange: e => setMsg(e.target.value), placeholder: "给「" + w.world + "」里的 " + name + " 回一封", rows: 3, style: { width: "100%", boxSizing: "border-box", border: "none", borderBottom: "1px solid " + th.line, background: "transparent", color: th.ink, fontSize: k.FS(13), padding: "6px 0", resize: "none", outline: "none", fontFamily: "inherit" } }),
+        h("div", { style: { textAlign: "right" } }, lnk(th, k, b === "reply" ? "信在路上…" : "寄出去", async () => { const t = msg.trim(); if (!t) return; if (await onAct("reply", t)) setMsg(""); }, "sendreply", true, !!busy || !msg.trim()))) : null,
+      tab === "day" ? h("div", { "data-wk": "worldday", style: { padding: "12px 0 4px" } },
+        (c.day || []).length ? h("div", { style: { display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6, scrollSnapType: "x mandatory" } }, c.day.map((x, j) => h("div", { key: j, style: { flex: "0 0 72%", scrollSnapAlign: "start" } },
+          h(Img, { k: x.imgKey, style: { borderRadius: 10 } }),
+          h("div", { style: { fontSize: k.FS(10.5), color: th.accent, letterSpacing: ".15em", marginTop: 6 } }, x.time),
+          h("div", { style: { fontFamily: k.HAND, fontSize: k.FS(14.5), color: th.ink, lineHeight: 1.5 } }, x.caption)))) : h("div", { style: { fontSize: k.FS(12), color: th.sub, lineHeight: 1.7 } }, "拍「" + w.world + "」里的 " + name + " 从早到晚怎么过：几张照片，每张一调用画图"),
+        h("div", null, lnk(th, k, b === "day" ? "在跟拍一整天…" : (c.day || []).length ? "重拍这一天" : "跟拍一天", () => onAct("day"), "day", true, !!busy))) : null,
+      tab === "meet" ? h("div", { "data-wk": "worldmeet", style: { padding: "12px 2px 4px" } },
+        c.meet ? h("div", { style: { marginBottom: 12 } },
+          h("div", { style: { fontSize: k.FS(11), color: th.sub, marginBottom: 6 } }, "跟「" + c.meet.with + "」里的 TA"),
+          h(Img, { k: c.meet.imgKey, style: { borderRadius: 10 } }),
+          (c.meet.talk || []).map((x, j) => h("div", { key: j, style: { fontSize: k.FS(12.5), lineHeight: 1.7, marginTop: 6 } }, h("span", { style: { color: th.accent } }, x.who + "　"), x.line))) : null,
+        h("div", { style: { fontSize: k.FS(12), color: th.sub, marginBottom: 4 } }, "让这个 TA 去见："),
+        h("div", { style: { display: "flex", gap: 14, flexWrap: "wrap" } }, others.map(o => h("button", { key: o.i, "data-wk": "worldbtn", "data-part": "meetwho", "data-on": pick === o.i ? "1" : "0", onClick: () => setPick(o.i), style: { border: "none", background: "transparent", padding: "4px 0", fontSize: k.FS(12.5), color: pick === o.i ? th.ink : th.sub, fontWeight: pick === o.i ? 600 : 400, textDecoration: pick === o.i ? "underline" : "none", textUnderlineOffset: 4 } }, o.world))),
+        h("div", { style: { textAlign: "right" } }, lnk(th, k, b === "meet" ? "两个TA撞上了…" : "让他们见面", () => onAct("meet", pick), "meet", true, !!busy || pick < 0))) : null);
+  }
   function WorldCard({ w, name, onSave, onRedo, redoing, th }) {
     const k = K(), [back, setBack] = useState(false);
-    return h("div", { "data-wk": "worldpost", style: { marginBottom: 20 } },
+    return h("div", { "data-wk": "worldpost", style: { marginBottom: 8 } },
       h("div", { style: { margin: "0 2px 8px", color: th.ink } }, h("span", { style: { fontSize: k.FS(14), fontWeight: 600 } }, w.world), w.who ? h("div", { style: { fontSize: k.FS(11), color: th.sub, marginTop: 2, lineHeight: 1.5 } }, w.who) : null),
       h("div", { "data-wk": "worldflip", onClick: () => setBack(b => !b), style: { position: "relative", borderRadius: 14, overflow: "hidden", boxShadow: "0 16px 34px -18px rgba(80,30,60,.6)", cursor: "pointer", background: "#fbf7f1" } },
         h("div", { style: { visibility: back ? "hidden" : "visible" } }, h(Img, { k: w.card.imgKey, wk: "worldphoto" })),
@@ -343,19 +377,46 @@
       const visitAt = async idx => {
         const wi = pw.worlds[idx]; if (busy || !wi) return; setBusy("go:" + idx);
         try { const r = await props.onWorldCard(pw.charId, wi, pw.worlds.filter((w, i) => w.card && i !== idx).map(w => w.world + "：" + String(w.card.letter || "").slice(0, 80)));
-          const key = await putImg("img_world_", r.blob), old = wi.card && wi.card.imgKey;
-          put(loadL(KEY).map(t => t.id === pw.id ? Object.assign({}, t, { worlds: t.worlds.map((w, i) => i === idx ? Object.assign({}, w, { card: { imgKey: key, photo: r.photo, letter: r.letter, ts: Date.now() } }) : w) }) : t));
-          if (old) delImgs([old]); }
+          const key = await putImg("img_world_", r.blob);
+          put(loadL(KEY).map(t => t.id === pw.id ? Object.assign({}, t, { worlds: t.worlds.map((w, i) => i === idx ? Object.assign({}, w, { card: { imgKey: key, photo: r.photo, letter: r.letter, profile: r.profile || null, her: r.her || "", secret: r.secret || "", ts: Date.now() } }) : w) }) : t));
+          if (wi.card) delImgs(cardKeys(wi.card)); }
         catch (e) { toast("没去成：" + String(e && e.message || e).slice(0, 80)); } finally { setBusy(""); }
       };
       const visit = () => visitAt(next);
-      const del = () => confirmDo("删掉这一组平行人生？", "写真和信都会删掉（已经存到手机的不受影响）", async () => { await delImgs(pw.worlds.map(w => w.card && w.card.imgKey)); put(loadL(KEY).filter(t => t.id !== pw.id)); setOpenId(null); });
+      const patchCard = (idx, fn) => put(loadL(KEY).map(t => t.id === pw.id ? Object.assign({}, t, { worlds: t.worlds.map((w, i) => i === idx && w.card ? Object.assign({}, w, { card: fn(w.card) }) : w) }) : t));
+      const act = async (idx, kind, extra) => {
+        if (busy || !props.onWorldMore) return false; setBusy(kind + ":" + idx);
+        try {
+          const r = await props.onWorldMore(kind, pw.charId, pw, idx, extra);
+          if (kind === "reply") patchCard(idx, c => Object.assign({}, c, { thread: (c.thread || []).concat([{ from: "me", text: extra, ts: Date.now() }, { from: "ta", text: r.letter, ts: Date.now() }]) }));
+          if (kind === "day") { const day = []; for (const x of r.shots) day.push({ time: x.time, caption: x.caption, photo: x.photo, imgKey: await putImg("img_world_", x.blob) });
+            const old = (pw.worlds[idx].card.day || []).map(x => x.imgKey); patchCard(idx, c => Object.assign({}, c, { day })); delImgs(old); }
+          if (kind === "meet") { const key = await putImg("img_world_", r.blob), old = pw.worlds[idx].card.meet && pw.worlds[idx].card.meet.imgKey;
+            patchCard(idx, c => Object.assign({}, c, { meet: { with: pw.worlds[extra].world, talk: r.talk, imgKey: key } })); if (old) delImgs([old]); }
+          return true;
+        } catch (e) { toast("没成：" + String(e && e.message || e).slice(0, 80)); return false; } finally { setBusy(""); }
+      };
+      const finale = async () => {
+        if (busy || !props.onWorldMore) return; setBusy("finale");
+        try { const r = await props.onWorldMore("finale", pw.charId, pw, -1); put(loadL(KEY).map(t => t.id === pw.id ? Object.assign({}, t, { finale: { letter: r.letter, ts: Date.now() } }) : t)); }
+        catch (e) { toast("没写成：" + String(e && e.message || e).slice(0, 80)); } finally { setBusy(""); }
+      };
+      const del = () => confirmDo("删掉这一组平行人生？", "写真和信都会删掉（已经存到手机的不受影响）", async () => { await delImgs([].concat.apply([], pw.worlds.map(w => cardKeys(w.card)))); put(loadL(KEY).filter(t => t.id !== pw.id)); setOpenId(null); });
       return page(name + "的平行人生", () => setOpenId(null), [
-        pw.worlds.filter(w => w.card).map((w, i) => h(WorldCard, { key: i, w, name, th, onRedo: () => visitAt(pw.worlds.indexOf(w)), redoing: busy === "go:" + pw.worlds.indexOf(w) ? true : !!busy, onSave: async () => { try { await saveBlob(await worldWithLetter(w.card, w, name), name + "-" + w.world); } catch (e) { toast(String(e && e.message || e)); } } })),
+        pw.worlds.filter(w => w.card).map((w, i) => { const wi = pw.worlds.indexOf(w); return h("div", { key: i, style: { marginBottom: 28 } }, h(WorldCard, { w, name, th, onRedo: () => visitAt(pw.worlds.indexOf(w)), redoing: busy === "go:" + pw.worlds.indexOf(w) ? true : !!busy, onSave: async () => { try { await saveBlob(await worldWithLetter(w.card, w, name), name + "-" + w.world); } catch (e) { toast(String(e && e.message || e)); } } }),
+          props.onWorldMore ? h(WorldMore, { w, idx: wi, name, th, busy, onAct: (kind, extra) => act(wi, kind, extra), others: pw.worlds.map((x, j) => ({ i: j, world: x.world, card: x.card })).filter(x => x.card && x.i !== wi) }) : null); }),
+        // 都去过以后：回到现在，现在的TA读完这些信写一封
+        pw.finale ? h("div", { key: "fin", "data-wk": "worldfinale", style: { margin: "10px 0 22px", padding: "26px 22px", background: "#fbf7f1", borderRadius: 4, boxShadow: "0 16px 34px -20px rgba(80,30,60,.55)", fontFamily: k.HAND, fontSize: k.FS(17), lineHeight: 1.65, color: "#3a3340", whiteSpace: "pre-wrap" } },
+          h("div", { style: { fontFamily: "inherit", fontSize: k.FS(12), color: "#9a8592", letterSpacing: ".2em", marginBottom: 12 } }, "回到现在"),
+          pw.finale.letter, h("div", { style: { textAlign: "right", marginTop: 14 } }, "—— " + name),
+          h("div", { style: { textAlign: "right", fontFamily: "system-ui", marginTop: 8 } }, lnk(th, k, busy === "finale" ? "在重写…" : "让TA重写", finale, "refinale", false, !!busy))) : null,
         h("div", { key: "left", style: { fontSize: k.FS(11.5), color: th.sub, lineHeight: 1.9 } }, pw.worlds.map((w, i) => h("div", { key: i, style: { color: w.card ? th.sub : i === next ? th.ink : th.line } }, (w.card ? "✓ " : i === next ? "→ " : "· ") + w.world))),
         h("button", { key: "del", "data-wk": "worldbtn", "data-part": "delpw", onClick: del, style: { marginTop: 18, border: "none", background: "transparent", color: th.sub, fontSize: k.FS(12) } }, "删掉这一组")
       ], w0 ? h("div", null, h("div", { style: { fontSize: k.FS(11), color: th.sub, textAlign: "center", marginBottom: 8 } }, busy === "go:" + next ? "TA在那个世界里写信、拍照…要等半分钟左右" : "下一个世界：" + w0.world),
-        big(busy === "go:" + next ? "在路上…" : "去这个世界", visit, "visit", !!busy)) : h("div", { style: { textAlign: "center", color: th.sub, fontSize: k.FS(12.5), padding: "8px 0" } }, "这几个世界都去过了"));
+        big(busy === "go:" + next ? "在路上…" : "去这个世界", visit, "visit", !!busy))
+        : !pw.finale && props.onWorldMore ? h("div", null, h("div", { style: { fontSize: k.FS(11), color: th.sub, textAlign: "center", marginBottom: 8 } }, busy === "finale" ? "现在的 " + name + " 在读那些信…" : "几个世界都去过了：让现在的 " + name + " 读完这些信，写一封给你"),
+            big(busy === "finale" ? "在写…" : "回到现在", finale, "finale", !!busy))
+        : h("div", { style: { textAlign: "center", color: th.sub, fontSize: k.FS(12.5), padding: "8px 0" } }, "这几个世界都去过了"));
     }
 
     return page("平行人生", props.onBack, [

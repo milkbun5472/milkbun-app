@@ -654,7 +654,7 @@
     // 拼贴、大头贴：借拼壁纸那个编辑器（collage.js），solo 不对着哪个人；这一趟拍的画的在胶卷里，也能从手机传
     // 旅行（她 2026-11-26）：整页交给 camera-trip.js
     if (mode === "movie" && window.CameraMovie) return h(window.CameraMovie, { characters: chars, meName: props.meName, meAvatar: props.meAvatar, toast: props.toast, onBack: () => switchMode("hub"), onMoviePlan: props.onMoviePlan, onMoviePoster: props.onMoviePoster, onMovieScene: props.onMovieScene, onMoviePremiere: props.onMoviePremiere });
-    if (mode === "worlds" && window.CameraWorlds) return h(window.CameraWorlds, { characters: chars, toast: props.toast, onBack: () => switchMode("hub"), onWorldsPlan: props.onWorldsPlan, onWorldCard: props.onWorldCard });
+    if (mode === "worlds" && window.CameraWorlds) return h(window.CameraWorlds, { characters: chars, toast: props.toast, onBack: () => switchMode("hub"), onWorldsPlan: props.onWorldsPlan, onWorldCard: props.onWorldCard, onWorldMore: props.onWorldMore });
     if (mode === "trip" && window.CameraTrip) return h(window.CameraTrip, { characters: chars, toast: props.toast, onBack: () => switchMode("hub"), onTripPlan: props.onTripPlan, onTripCard: props.onTripCard });
     if (mode === "collage" && window.Collage) return h(window.Collage.CollageMaker, { partner: { id: "camera", name: "拼贴" }, photos: roll, solo: true, startTpl: colTpl, key: colTpl,
       onBack: () => switchMode("hub"),

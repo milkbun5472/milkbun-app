@@ -119,3 +119,15 @@ test("一起逛：一次可以说好几句、接着刚才说过的往下说；�
   assert.match(cam, /"data-part": "talklog"/);
   assert.ok(ts.includes('["camtalkrow"'));
 });
+test("平行人生：档案、通信、一天、见面、回到现在都接上；提示词不限字数", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8"), st = fs.readFileSync(path.join(__dirname, "..", "js", "camera-story.js"), "utf8"), cm = fs.readFileSync(path.join(__dirname, "..", "js", "camera.js"), "utf8");
+  assert.match(app, /const worldMore = async \(kind, charId, pw, idx, extra\) =>/);
+  assert.match(app, /onWorldCard: worldCard, onWorldMore: worldMore/);
+  assert.match(cm, /onWorldMore: props\.onWorldMore/);
+  for (const k of ["reply", "day", "meet", "finale"]) assert.ok(app.includes('kind === "' + k + '"'), k);
+  assert.match(app, /想不出真实的就留空，别编/);
+  assert.match(st, /function WorldMore\(/); assert.match(st, /const cardKeys = /);
+  for (const k of ["worldmore", "worldfile", "worldsecret", "worldmail", "worldreply", "worldday", "worldmeet", "worldfinale"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(st.includes('"' + k + '"'), k); }
+  const body = app.slice(app.indexOf("const tripPlan = async"), app.indexOf("const cameraGenShot = async"));
+  assert.ok(!/三到六站|一两条就好|（一段）|正文一段/.test(body));
+});
