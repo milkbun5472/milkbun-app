@@ -184,7 +184,7 @@
         h("span", { style: { fontSize: k.FS(13.5), fontWeight: 700, color: th.ink, letterSpacing: ".08em" } }, zh),
         h("span", { style: { fontSize: k.FS(9.5), color: th.accent, letterSpacing: ".3em", opacity: .8 } }, en),
         h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg, " + th.line + ", transparent)" } }));
-      const ghost = (label, on, part, accent, dis) => h("button", { "data-wk": "moviebtn", "data-part": part, disabled: !!dis, onClick: on, style: { height: 28, padding: "0 12px", borderRadius: 14, border: "1px solid " + (accent ? th.accent : th.line), background: accent ? "rgba(232,184,108,.1)" : "transparent", color: accent ? th.accent : th.sub, fontSize: k.FS(11.5), fontWeight: accent ? 600 : 400, opacity: dis ? .5 : 1 } }, label);
+      const ghost = (label, on, part, accent, dis) => h("button", { "data-wk": "moviebtn", "data-part": part, disabled: !!dis, onClick: on, style: { height: 28, padding: "0 12px", borderRadius: 14, border: "1px solid " + (accent ? th.accent : th.line), background: accent ? th.soft : "transparent", color: accent ? th.accent : th.sub, fontSize: k.FS(11.5), fontWeight: accent ? 600 : 400, opacity: dis ? .5 : 1 } }, label);
       return h(React.Fragment, null, screening ? h(Screening, { mv, nameOf, onClose: () => setScreening(false) }) : null, page(mv.title, () => setOpenId(null), [
         h("div", { key: "poster", "data-wk": "movieposter", style: { borderRadius: 14, overflow: "hidden", boxShadow: "0 18px 36px -18px rgba(40,10,30,.7)", marginBottom: 10, background: "#1a1418" } },
           mv.posterKey ? h(Img, { k: mv.posterKey, wk: "movieposterimg" })
@@ -222,11 +222,11 @@
             h("span", { style: { flex: 1 } }),
             ghost("存到手机", async () => { try { await saveBlob(await stillWithSubs(sh.imgKey, sh.lines, overlay), mv.title + "-" + s.name); } catch (e) { toast(String(e && e.message || e)); } }, "savestill", true)),
           openScript === si && sh.script ? h("div", { "data-wk": "moviescript", style: { marginTop: 6, padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,.05)", border: "1px solid " + th.line, fontFamily: "'Courier New','Songti SC',serif", fontSize: k.FS(12.5), lineHeight: 1.85, whiteSpace: "pre-wrap", color: th.ink } }, (sh.slug ? sh.slug + "\n\n" : "") + sh.script) : null,
-          (sh.bts || []).length ? h("div", { "data-wk": "moviebts", style: { marginTop: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(232,184,108,.06)", borderLeft: "3px solid " + th.accent, fontSize: k.FS(11.5), lineHeight: 1.7, color: th.sub } },
+          (sh.bts || []).length ? h("div", { "data-wk": "moviebts", style: { marginTop: 10, padding: "10px 14px", borderRadius: 12, background: th.soft, borderLeft: "3px solid " + th.accent, fontSize: k.FS(11.5), lineHeight: 1.7, color: th.sub } },
             h("div", { style: { fontSize: k.FS(10.5), letterSpacing: ".15em", marginBottom: 2, color: th.accent } }, "幕后花絮"),
             sh.bts.map((b, j) => h("div", { key: j }, b.who ? h("span", { style: { color: th.ink } }, b.who + "　") : null, b.text))) : null); }),
         // 下一场开拍之前：导演说戏
-        sc ? h("div", { key: "note", "data-wk": "movienote", style: { marginTop: 8, marginBottom: 14, padding: "12px 14px", borderRadius: 16, border: "1px dashed " + th.accent, background: "rgba(232,184,108,.05)" } },
+        sc ? h("div", { key: "note", "data-wk": "movienote", style: { marginTop: 8, marginBottom: 14, padding: "12px 14px", borderRadius: 16, border: "1px dashed " + th.accent, background: th.soft } },
           h("div", { style: { fontSize: k.FS(11.5), color: th.sub, marginBottom: 6 } }, "导演说戏 · 第 " + (next + 1) + " 场「" + sc.name + "」（选填，拍的时候照这句来）"),
           inp(sc.note || "", v => setNote(next, v), "比如：这场要更凶一点／让他哭", "scenenote")) : null,
         // 杀青以后：首映——彩蛋、评分、短评、长评、映后采访

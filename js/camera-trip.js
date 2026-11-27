@@ -102,7 +102,7 @@
   const THEMES = {
     trip: { bg: "linear-gradient(180deg,#ffe3ee 0%,#fff6f9 38%,#fdfbfc 100%)", card: "#fff", ink: INK, sub: SUB, accent: PINK, grad: GRAD, line: "#f1e4ea", soft: "#fff1f6", inputBg: "#fffafc", glow: "rgba(255,80,130,.85)", shadow: "rgba(160,60,110,.55)", dark: false,
       hero: "linear-gradient(135deg,#ff8fb1 0%,#ffb38a 100%)" },
-    movie: { bg: "radial-gradient(120% 60% at 50% 0%, #3a2a36 0%, #17121a 55%, #0f0c11 100%)", card: "rgba(255,255,255,.06)", ink: "#f4ede3", sub: "rgba(244,237,227,.55)", accent: "#e8b86b", grad: "linear-gradient(135deg,#f2c879 0%,#d98a4e 100%)", line: "rgba(255,255,255,.12)", soft: "rgba(232,184,107,.14)", inputBg: "rgba(255,255,255,.05)", glow: "rgba(232,150,80,.6)", shadow: "rgba(0,0,0,.6)", dark: true,
+    movie: { bg: "radial-gradient(120% 60% at 50% 0%, #5a2333 0%, #2e1019 55%, #1c0a10 100%)", card: "rgba(255,255,255,.06)", ink: "#f7ece8", sub: "rgba(247,236,232,.58)", accent: "#f2c4b8", grad: "linear-gradient(135deg,#fbe3d8 0%,#e3a3a8 100%)", line: "rgba(255,255,255,.12)", soft: "rgba(242,196,184,.14)", inputBg: "rgba(255,255,255,.05)", glow: "rgba(227,163,168,.5)", shadow: "rgba(0,0,0,.6)", dark: true,
       hero: "linear-gradient(135deg,#3d2c3e 0%,#6b4258 55%,#b4775a 100%)" },
     worlds: { bg: "linear-gradient(180deg,#e6ecff 0%,#f3eeff 45%,#fbfaff 100%)", card: "#fff", ink: "#2c2a44", sub: "#8b88a8", accent: "#7b74f0", grad: "linear-gradient(135deg,#7fb4ff 0%,#a98bff 100%)", line: "#e7e4f7", soft: "#f1efff", inputBg: "#fbfaff", glow: "rgba(120,110,255,.6)", shadow: "rgba(90,80,180,.4)", dark: false,
       hero: "linear-gradient(135deg,#7fb4ff 0%,#a98bff 60%,#e6a7f0 100%)" }
