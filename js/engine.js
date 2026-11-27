@@ -3889,7 +3889,7 @@ function splitLongBubble(s, allowComma) {
   let out = [s];
   // 颜文字收尾也是一句的结尾（她 2026-11-04：「兴奋呢 (〃^▽^〃) 大考官呢 今天工位上…」被切在「大考官呢」后面）：
   //   括号里全是符号（没有汉字、字母、数字）的那一小串，后面空一格再接中文，就在它后面断，跟句号一样
-  const KAO_END = /(?<=[（(][^（）()\u4e00-\u9fffA-Za-z0-9]{2,14}[）)][^\s\u4e00-\u9fffA-Za-z0-9]{0,3})\s+(?=[\u4e00-\u9fff])/;
+  const KAO_END = (globalThis.reLB || RegExp)(String.raw`(?<=[（(][^（）()\u4e00-\u9fffA-Za-z0-9]{2,14}[）)][^\s\u4e00-\u9fffA-Za-z0-9]{0,3})\s+(?=[\u4e00-\u9fff])`);
   if (s.length > LONG && KAO_END.test(s)) out = s.split(new RegExp(KAO_END.source, "g")).map(x => x.trim()).filter(Boolean);
   if (s.length > LONG && /[。！？!?]/.test(s.slice(0, -1))) {
     // 连着的句尾标点中间夹空格也算一个句尾（她 2026-10-28：法语「cheveux ? !」把「!」单切成了一泡）
@@ -3898,17 +3898,17 @@ function splitLongBubble(s, allowComma) {
   // 打了标点、又拿空格隔开两句的（她 2026-11-25 截图：「你这一句，说得我心里都熨帖了 刚从兵部回来」「身上还带着点寒气 正好被你这句话给捂热了 你这会儿在哪儿？」）：
   //   下面那条「打标点的人，空格不当停顿」把整句挤在一个泡里。空格前面连着五个字以上、后面连着六个字以上（两头都是整句）时，那就是句号——在这儿切，不管多长；
   //   「拍得我 眼睛都快花了」「我发几 张给你看看」那种词中间的短空格凑不够，照旧不切
-  const SP_STOP = /(?<=[\u4e00-\u9fff]{5})\s+(?=[\u4e00-\u9fff]{6})/g;
+  const SP_STOP = (globalThis.reLB || RegExp)(String.raw`(?<=[\u4e00-\u9fff]{5})\s+(?=[\u4e00-\u9fff]{6})`, "g");
   out = out.reduce((acc, part) => acc.concat(/[，,。！？!?、；;]/.test(part) && !/[\u3040-\u30ff]/.test(part) ? part.split(SP_STOP).map(x => x.trim()).filter(Boolean) : [part]), []);
   // 空格前面是句末语气字（了吧呢啊吗嘛呀哦啦），后面是收尾的一小截（几个字）就另起一句（2026-11-26 群友截图：「煤球听了都把耳朵转过来了 说吧」挤成一泡、读着像「转过来了说吧」）
-  const SP_PART = /(?<=[\u4e00-\u9fff]{3}[了吧呢啊吗嘛呀哦啦])\s+(?=[\u4e00-\u9fff]{1,4}[？?！!~～…]*$)/g;   // 只管收尾那一小截（「大考官呢 今天工位上…」那种后面是一整句的，照 11-04 她说的不切）
+  const SP_PART = (globalThis.reLB || RegExp)(String.raw`(?<=[\u4e00-\u9fff]{3}[了吧呢啊吗嘛呀哦啦])\s+(?=[\u4e00-\u9fff]{1,4}[？?！!~～…]*$)`, "g");   // 只管收尾那一小截（「大考官呢 今天工位上…」那种后面是一整句的，照 11-04 她说的不切）
   out = out.reduce((acc, part) => acc.concat(/[，,。！？!?、；;]/.test(part) && !/[\u3040-\u30ff]/.test(part) ? part.split(SP_PART).map(x => x.trim()).filter(Boolean) : [part]), []);
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
   // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
   //   有的人不打标点、拿空格断句，那个空格就是它的逗号；门槛、最多几段、尾巴太短往回粘，全跟逗号共用。英文单词之间的空格不算
   // ⚠️空格后面得还是中文才算断句：中文和数字、英文之间习惯空一格（「乘以 0.312」「是 46,800」「跟 Ta 说」），
   //   那个空格是排版不是停顿——原来后面跟什么都切，一段算账的话被切成「乘以」「0.312，也就是46,800」
-  const SEP = /([，,]|(?<=[\u4e00-\u9fff…~～])\s+(?=[\u4e00-\u9fff]))/;
+  const SEP = (globalThis.reLB || RegExp)(String.raw`([，,]|(?<=[\u4e00-\u9fff…~～])\s+(?=[\u4e00-\u9fff]))`);
   // ⚠️空格只在【这段话本来就不打标点】时才算断句（她 2026-10-27 截图：「拍得我 眼睛都快花了」「我发几 张给你看看」被从空格劈开）：
   //   这段里有逗号句号，就说明它是打标点的人，那个空格不当停顿用——只按逗号切，空格原样留着
   const PUNC = /[，,。！？!?、；;]/;
@@ -3917,7 +3917,7 @@ function splitLongBubble(s, allowComma) {
   //   日文的「、」就是它的逗号，假名旁边的空格也是停顿。只认带假名的那段——中文里「苹果、香蕉」那种顿号是列举，不下刀。
   //   韩文不算：韩文每个词之间本来就空一格，那不是停顿。
   const JP = /[\u3040-\u30ff]/;
-  const SEP_JP = /([，,、]|(?<=[\u4e00-\u9fff\u3040-\u30ff…~～])\s+(?=[\u4e00-\u9fff\u3040-\u30ff]))/;
+  const SEP_JP = (globalThis.reLB || RegExp)(String.raw`([，,、]|(?<=[\u4e00-\u9fff\u3040-\u30ff…~～])\s+(?=[\u4e00-\u9fff\u3040-\u30ff]))`);
   const SEP_COMMA_JP = /([，,、])/;
   const out3 = out.reduce((acc, part) => {
     const jp = JP.test(part);
@@ -6812,8 +6812,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   //   就被认成一岁——人设写了二十几岁的，生图全被当成儿童加了硬锁。「八岁那年」这种往事也不算现在的年纪；
   //   人设里写着成年的岁数，就以它为准。
   const _minorWord = /(?:幼儿|儿童|小男孩|小女孩|男童|女童|孩童|少年儿童|未成年|\bchild\b|\bminor\b)/i.test(identityText);
-  const _minorAge = /(?<![0-9０-９])(?:[1-9]|1[0-7])\s*周?岁(?!那|时|的时候|起|以前|之前|前|后)/.test(identityText);
-  const _adultAge = /(?<![0-9０-９])(?:1[89]|[2-9][0-9])\s*周?岁(?!那|时|的时候|起|以前|之前|前|后)/.test(identityText);
+  const _minorAge = (globalThis.reLB || RegExp)(String.raw`(?<![0-9０-９])(?:[1-9]|1[0-7])\s*周?岁(?!那|时|的时候|起|以前|之前|前|后)`).test(identityText);
+  const _adultAge = (globalThis.reLB || RegExp)(String.raw`(?<![0-9０-９])(?:1[89]|[2-9][0-9])\s*周?岁(?!那|时|的时候|起|以前|之前|前|后)`).test(identityText);
   // 合照也认（她 2026-10-27「合照也能弄吗」）：描述里点了谁小时候就只画小谁；笼统写「小时候」「童年合照」就是每个人都小时候
   const _yNames = multi ? cast.map(x => String(x.name).trim()) : kind === "duo" ? [cName, uName] : [cName];
   // notYounger：调用方知道这张拍的就是现在（照片日记）。光看字会被要求里自己写的「小时候」骗到（她 2026-11-02：「怎么日记还是会生成小时候」）
@@ -9559,7 +9559,7 @@ function translatableLang(text) {
     const _trad = typeof toSimplified === "function" && toSimplified(t) !== t;
     // 简体粤语短句一个字也算（她 2026-11-07 截图：「我要瞓啦」「记低咗」一整轮没有译键）：只认普通话里
     //   几乎碰不到的那几个，外加夹在两个汉字中间的「唔」（「睁唔开」；句首「唔，」是普通话的嗯）和「点解」
-    const _strong = count(/[咗瞓嘅啲喺冇嚟嘢哋囉㗎攰諗谂冚嗮噃嘥睇畀]|点解|點解|(?<=[\u4e00-\u9fff])唔(?=[\u4e00-\u9fff])/g);
+    const _strong = count((globalThis.reLB || RegExp)(String.raw`[咗瞓嘅啲喺冇嚟嘢哋囉㗎攰諗谂冚嗮噃嘥睇畀]|点解|點解|(?<=[\u4e00-\u9fff])唔(?=[\u4e00-\u9fff])`, "g"));
     if (_yue >= 2 || (_strong >= 1 && t.replace(/\s/g, "").length <= 30) || (_yue >= 1 && _trad && t.replace(/\s/g, "").length <= 20)) return "粤语"; }
   return "";
 }
@@ -11002,7 +11002,7 @@ function offlineLastOpening(msgs, senderId) {
     const m = list[i];
     if (!m || (m.role !== "char" && m.role !== "assistant") || !m.content) continue;
     if (senderId && m.senderId && m.senderId !== senderId) continue;
-    const first = String(m.content).replace(/^\s+/, "").split(/(?<=[。！？!?…])/)[0] || "";
+    const first = String(m.content).replace(/^\s+/, "").split((globalThis.reLB || RegExp)(String.raw`(?<=[。！？!?…])`))[0] || "";
     return first.trim().slice(0, 50);
   }
   return "";
@@ -11727,7 +11727,7 @@ function salvageOfflineGroupProse(raw, members) {
   const fromJson = salvageOfflineGroupBeats(clean);
   if (fromJson.length) return fromJson;
   let chunks = clean.split(/\n\s*\n|\n(?=(?:【[^】]+】|[^\n：:]{1,16}[：:]))/).map(s => s.trim()).filter(Boolean);
-  if (chunks.length === 1) chunks = clean.split(/(?<=[。！？!?])\s*(?=(?:【[^】]+】|[^\s，。！？]{1,8}[：:]))/).map(s => s.trim()).filter(Boolean);
+  if (chunks.length === 1) chunks = clean.split((globalThis.reLB || RegExp)(String.raw`(?<=[。！？!?])\s*(?=(?:【[^】]+】|[^\s，。！？]{1,8}[：:]))`)).map(s => s.trim()).filter(Boolean);
   return chunks.slice(0, 8).map(scene => {
     const named = (members || []).find(c => c && c.name && (scene.startsWith(c.name + "：") || scene.startsWith(c.name + ":") || scene.startsWith("【" + c.name + "】")));
     return { name: named ? named.name : "旁白", scene: scene.replace(/^【[^】]+】\s*/, "").replace(/^[^\n：:]{1,16}[：:]\s*/, named ? "" : "$&") };

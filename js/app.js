@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.301";
+const APP_VERSION = "v90.302";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11901,7 +11901,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const rerollHistRef = useRef({});
   // 她开口要照片 → 冷却让路。说法放宽（她 2026-10-01：「没到冷却我让他拍也是可以的啊」）：
   //   「拍腹肌给我」「看看腹肌」「发个图」都算；「拍一拍」那个动作不算。
-  const PHOTO_REQUEST_RE = /(?:照片|自拍|(?<!拍一)拍(?!一拍)|发(?:张|个|一张|照片|图片|图)|给我看|让我看|看看|看一下|合照|photo|selfie|picture|pic)/i;
+  const PHOTO_REQUEST_RE = (globalThis.reLB || RegExp)(String.raw`(?:照片|自拍|(?<!拍一)拍(?!一拍)|发(?:张|个|一张|照片|图片|图)|给我看|让我看|看看|看一下|合照|photo|selfie|picture|pic)`, "i");
   // 最近三次角色文字回复内，已经发过照片就关闭 photo 能力；只有用户在那张图之后
   // 明确要求再拍才放行。不能把“别频繁”只交给模型自觉。
   const photoCooldownState = (messages, senderId) => {
@@ -18302,7 +18302,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
           const gDmRaw = item.dm;
           let gDmList = Array.isArray(gDmRaw) ? gDmRaw : [];
           if (!gDmList.length && gDmRaw && String(gDmRaw).toLowerCase() !== "null") {
-            gDmList = String(gDmRaw).split(/\n+/).flatMap(x => x.length > 40 ? x.split(/(?<=[。！？…~～])/) : [x]);
+            gDmList = String(gDmRaw).split(/\n+/).flatMap(x => x.length > 40 ? x.split((globalThis.reLB || RegExp)(String.raw`(?<=[。！？…~～])`)) : [x]);
           }
           gDmList = gDmList.map(x => String(x == null ? "" : x).trim()).filter(Boolean).slice(0, 6);
           // 冷却闸（v54.32）：提示词说了「默认不用」它照样每轮都来，所以再加一道代码闸——
@@ -36511,7 +36511,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const vault = {}, selfies = {};
     const refs = new Set(JSON.stringify(p.data).match(/iv_[A-Za-z0-9_-]+/g) || []);
     try { if (refs.size && typeof idbVaultEntries === "function") for (const [k, b] of await idbVaultEntries()) if (refs.has(k)) { try { vault[k] = await blobToDataUrl(b); } catch (e) {} } } catch (e) {}
-    const idRe = new RegExp("(?<![A-Za-z0-9])(?:" + p.ids.map(x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")(?![A-Za-z0-9])");
+    const idRe = (globalThis.reLB || RegExp)("(?<![A-Za-z0-9])(?:" + p.ids.map(x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")(?![A-Za-z0-9])");
     try { if (typeof idbImgEntries === "function") for (const [k, b] of await idbImgEntries()) if (idRe.test(k)) { try { selfies[k] = await blobToDataUrl(b); } catch (e) {} } } catch (e) {}
     const out = { __archive: 1, kind: "chars", version: 1, exportedAt: Date.now(), names: p.names, ids: p.ids, groups: p.groups, data: p.data, vault, selfies };
     const name = "chars-" + p.names.filter(Boolean).slice(0, 3).join("_").replace(/[\\/:*?"<>|\s]/g, "") + "-" + new Date().toISOString().slice(0, 10) + ".json";
