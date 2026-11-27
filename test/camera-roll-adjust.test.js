@@ -52,7 +52,7 @@ test("旅行：一站一站寄；样子可以定也可以让TA挑；出发前选
 test("旅行的照片每张都有脸：没有 view 那一种", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   const body = app.slice(app.indexOf("const tripCard = async"), app.indexOf("const cameraGenShot = async"));
-  assert.ok(!/view|buildScenePrompt/.test(body));
+  assert.ok(!/\bview\b|buildScenePrompt/.test(body));
   assert.match(body, /const blob = await castShotBlob\(cast, scene,/);
 });
 test("旅行：入镜的人按性格拍，多人看得出关系（同行各人设定＋彼此关系给到挑怎么拍那一枪）", () => {
@@ -68,7 +68,7 @@ test("相机里的删除不用原生 confirm（App 里会被吞掉，按不动�
 test("电影和平行人生：入口、存档、出图接上；界面跟旅行共用 makeUI；删除走 App 确认框", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8"), st = fs.readFileSync(path.join(__dirname, "..", "js", "camera-story.js"), "utf8"), html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
   for (const f of ["moviePlan", "moviePoster", "movieScene", "worldsPlan", "worldCard"]) assert.match(app, new RegExp("const " + f + " = async"));
-  assert.match(app, /onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onWorldsPlan: worldsPlan, onWorldCard: worldCard/);
+  assert.match(app, /onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onMoviePremiere: moviePremiere, onWorldsPlan: worldsPlan, onWorldCard: worldCard/);
   assert.match(app, /popts: \{ closet: "", editorial: "movie"/);
   assert.match(app, /演员不一定演跟自己一样的人/); assert.match(app, /那个世界里的你可以是另一个年纪、另一种身份/); assert.match(app, /穿的是那个世界里他会穿的衣服/); assert.match(app, /const st = o\.costume \? \{ ...st0, wearing: "", wearingUpdatedAt: 0 \} : st0;/);
   assert.match(app, /popts: \{ cinematic: true, closet: "" \}/);
@@ -76,6 +76,8 @@ test("电影和平行人生：入口、存档、出图接上；界面跟旅行�
   assert.match(html, /data-lazy="camera" data-src="js\/camera-story\.js\?v=/);
   assert.match(st, /k\.makeUI\(\{ page: "moviepage"/);
   assert.ok(!/window\.confirm\(/.test(st));
+  assert.match(app, /const moviePremiere = async \(mv\) =>/); assert.match(st, /function Screening\(/); assert.match(st, /function StillCard\(/); assert.match(st, /mv\.subOverlay !== false/);
+  for (const k of ["moviescreen", "moviepremiere", "movierating", "movienote", "moviescript", "moviebts", "movieslug"]) assert.ok(ts.includes('["' + k + '"'), k);
   for (const k of ["moviepage", "moviecard", "movieone", "moviescene", "movieitem", "movieposter", "moviestill", "moviesubs", "moviebtn", "worldpage", "worldcard", "worldone", "worldrow", "worlditem", "worldpost", "worldflip", "worldphoto", "worldletter", "worldbtn"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(st.includes('"data-wk": "' + k + '"') || st.includes('wk: "' + k + '"') || st.includes('"' + k + '"'), k); }
 });
 test("全身／半身、穿什么（衣柜或配一套新的）、抠好的再裁成半身", () => {

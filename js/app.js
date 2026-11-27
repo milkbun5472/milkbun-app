@@ -20089,7 +20089,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const blob = await castShotBlob(cast.map(c => ({ ...c, closet: "", outfit: "", photoOutfit: "" })), scene + "每个人穿的是自己演的那个角色的戏服。", { kind: cast.length > 1 ? "group" : "self", costume: true, popts: { closet: "", editorial: "movie", editorialSpace: plan ? window.PosterLayout.spaceLine(plan) : "" } });
     return plan ? await studioOverlay(blob, plan, { title: mv.title, tagline: mv.tagline || "", credit: "主演 " + cast.map(x => x.name).join(" "), dateLine: mv.genre || "" }, cast.map(x => x.name)) : blob;
   };
-  const movieScene = async (mv, idx) => {
+  // note：她这一场「导演说戏」写的那句（她 2026-11-27「电影略简陋」→ 都做）；同一枪顺带写场次卡、剧本片段、幕后花絮，不多花调用
+  const movieScene = async (mv, idx, note) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
     const { c: lead, r } = storyLead(mv.ids), uName = (profileFor(lead.id) || {}).name || "她", meIn = mv.ids.indexOf("me") >= 0;
     const sc = mv.scenes[idx];
@@ -20098,10 +20099,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       instruction: "电影《" + mv.title + "》（" + mv.genre + "）。剧情：" + mv.synopsis + "\n角色：" + mv.roles.map(x => x.who + " 演 " + x.role).join("；") + "\n"
         + (before ? "【前面拍好的几场】\n" + before + "\n" : "")
         + "现在拍第 " + (idx + 1) + " 场「" + sc.name + "」：" + sc.beat + "\n"
+        + (String(note || "").trim() ? "【导演对这场的要求】" + String(note).trim() + "——照这个来拍、来演。\n" : "")
         + "写这一场的一张剧照和这一场的台词：still 写剧照画面（谁在画面里、站位、动作、表情、场景、光），像电影里定格的一帧；inFrame 是入镜的演员名（数组，写演员本名）；"
-        + "lines 是这一场里最戳的几句台词（who 写角色名，line 写台词）。入镜的人演的是戏里那个角色：穿着、神情、站姿都照角色来，演员本人只是长相；几个人同框要看得出戏里角色之间是什么关系，台词是角色说的话，不是演员本人的口头禅。\n" + tripCastLines(mv.ids.filter(i => i !== "me"), meIn, uName),
-      schemaHint: "{\"still\":\"剧照画面\",\"inFrame\":[\"演员名\"],\"lines\":[{\"who\":\"角色名\",\"line\":\"台词\"}]}",
-      maxTokens: 12000
+        + "lines 是这一场里最戳的几句台词（who 写角色名，line 写台词）。入镜的人演的是戏里那个角色：穿着、神情、站姿都照角色来，演员本人只是长相；几个人同框要看得出戏里角色之间是什么关系，台词是角色说的话，不是演员本人的口头禅。\n" + "slug 是这场开头那张场次卡（时间·地点，像剧本的场景标题）；script 是这一场的剧本片段：动作、神情、停顿和台词穿插着写，像真的剧本那样；bts 是这场的幕后花絮——下了戏的演员是他们本人（照各自真实的性子和彼此的关系），拍这场时出了什么事、NG、笑场、私下的一两句，一两条就好。\n" + tripCastLines(mv.ids.filter(i => i !== "me"), meIn, uName),
+      schemaHint: "{\"slug\":\"场次卡：时间·地点（短）\",\"still\":\"剧照画面\",\"inFrame\":[\"演员名\"],\"lines\":[{\"who\":\"角色名\",\"line\":\"台词\"}],\"script\":\"这一场的剧本片段\",\"bts\":[{\"who\":\"演员本名\",\"text\":\"花絮\"}]}",
+      maxTokens: 16000
     });
     const cast0 = storyCast(mv.ids), want = (Array.isArray(d && d.inFrame) ? d.inFrame : []).map(String);
     let cast = cast0.filter(x => want.some(n => n && (n.indexOf(x.name) >= 0 || x.name.indexOf(n) >= 0 || (x.id === "me" && n.indexOf(uName) >= 0))));
@@ -20109,7 +20111,34 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const scene = "电影《" + mv.title + "》第 " + (idx + 1) + " 场的剧照：" + String((d && d.still) || sc.beat || "").trim() + "（" + mv.roles.filter(x => cast.some(c => x.who.indexOf(c.name) >= 0)).map(x => x.who + "演" + x.role).join("；") + "）";
     // 剧照穿戏服：不从演员自己的衣柜里挑（castShotBlob 会把主演的衣柜递过去）
     const blob = await castShotBlob(cast.map(c => ({ ...c, closet: "", outfit: "", photoOutfit: "" })), scene + "。每个人穿的是这个角色在这场戏里的戏服，照角色的身份、年代来，不是演员平时的衣服。", { kind: cast.length > 1 ? "group" : "other", costume: true, popts: { cinematic: true, closet: "" } });
-    return { blob, still: String((d && d.still) || "").trim(), lines: (Array.isArray(d && d.lines) ? d.lines : []).map(x => ({ who: String((x && x.who) || "").trim(), line: String((x && x.line) || "").trim() })).filter(x => x.line), castPids: cast.map(x => x.id).filter(x => x !== "me") };
+    const T = x => String(x == null ? "" : x).trim();
+    return { blob, slug: T(d && d.slug), script: T(d && d.script), bts: (Array.isArray(d && d.bts) ? d.bts : []).map(x => ({ who: T(x && x.who), text: T(x && x.text) })).filter(x => x.text), still: String((d && d.still) || "").trim(), lines: (Array.isArray(d && d.lines) ? d.lines : []).map(x => ({ who: String((x && x.who) || "").trim(), line: String((x && x.line) || "").trim() })).filter(x => x.line), castPids: cast.map(x => x.id).filter(x => x !== "me") };
+  };
+  // 杀青以后（她 2026-11-27）：片尾彩蛋一场（一张剧照）＋首映页——评分、几条短评、一条长评、演员映后采访。一枪写字＋一张图
+  const moviePremiere = async (mv) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const { c: lead, r } = storyLead(mv.ids), uName = (profileFor(lead.id) || {}).name || "她", meIn = mv.ids.indexOf("me") >= 0;
+    const all = mv.scenes.filter(x => x.shot).map((x, i) => "- 第" + (i + 1) + "场「" + x.name + "」" + x.beat + (x.shot.lines || []).slice(0, 3).map(l => " " + l.who + "：「" + l.line + "」").join("")).join("\n");
+    const d = await runProbe(r, ctxFor(lead), {
+      instruction: "电影《" + mv.title + "》（" + mv.genre + "）拍完了。剧情：" + mv.synopsis + "\n角色：" + mv.roles.map(x => x.who + " 演 " + x.role).join("；") + "\n导演是 " + uName + "。\n【拍完的几场】\n" + all + "\n"
+        + "写杀青以后的这些：egg 是片尾彩蛋——演职员表滚完以后再放的那一小场（still 剧照画面、inFrame 入镜的演员名、lines 一两句台词），留个钩子或者让人会心一笑；"
+        + "rating 是这部片的评分（满分 10，可以有一位小数，照这部片拍成什么样来给，不用捧）；shorts 是几条看过的人的短评（who 网名，stars 1～5 星，text 一两句），口味各不相同、有夸有骂；"
+        + "review 是一条长影评（title 标题、text 正文一段）；interviews 是映后采访：主持人问、每个演员以本人身份答（照各自真实的性子和彼此关系，聊拍这部戏、聊对手、聊角色），q 问题、who 演员本名、a 回答。\n"
+        + tripCastLines(mv.ids.filter(i => i !== "me"), meIn, uName),
+      schemaHint: "{\"egg\":{\"still\":\"画面\",\"inFrame\":[\"演员名\"],\"lines\":[{\"who\":\"角色名\",\"line\":\"台词\"}]},\"rating\":8.1,\"shorts\":[{\"who\":\"网名\",\"stars\":4,\"text\":\"短评\"}],\"review\":{\"title\":\"标题\",\"text\":\"正文\"},\"interviews\":[{\"q\":\"问题\",\"who\":\"演员本名\",\"a\":\"回答\"}]}",
+      maxTokens: 20000
+    });
+    const T = x => String(x == null ? "" : x).trim();
+    const egg = (d && d.egg) || {};
+    const cast0 = storyCast(mv.ids), want = (Array.isArray(egg.inFrame) ? egg.inFrame : []).map(String);
+    let cast = cast0.filter(x => want.some(n => n && (n.indexOf(x.name) >= 0 || x.name.indexOf(n) >= 0)));
+    if (!cast.length) cast = [lead];
+    const blob = await castShotBlob(cast.map(c => ({ ...c, closet: "", outfit: "", photoOutfit: "" })), "电影《" + mv.title + "》片尾彩蛋的剧照：" + T(egg.still) + "。每个人穿的是戏里角色的戏服。", { kind: cast.length > 1 ? "group" : "other", costume: true, popts: { cinematic: true, closet: "" } });
+    const rating = Math.max(1, Math.min(10, Math.round((Number(d && d.rating) || 7) * 10) / 10));
+    return { blob, egg: { still: T(egg.still), lines: (Array.isArray(egg.lines) ? egg.lines : []).map(x => ({ who: T(x && x.who), line: T(x && x.line) })).filter(x => x.line) }, rating,
+      shorts: (Array.isArray(d && d.shorts) ? d.shorts : []).map(x => ({ who: T(x && x.who), stars: Math.max(1, Math.min(5, Math.round(Number(x && x.stars) || 3))), text: T(x && x.text) })).filter(x => x.text),
+      review: { title: T(d && d.review && d.review.title), text: T(d && d.review && d.review.text) },
+      interviews: (Array.isArray(d && d.interviews) ? d.interviews : []).map(x => ({ q: T(x && x.q), who: T(x && x.who), a: T(x && x.a) })).filter(x => x.a) };
   };
   const worldsPlan = async (charId, brief) => {
     const { c, r } = storyLead([charId]), uName = (profileFor(c.id) || {}).name || "她";
@@ -39694,7 +39723,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, onClosetOf: cameraClosetOf, onGenFit: cameraGenFit, onTripPlan: tripPlan, onTripCard: tripCard, onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onWorldsPlan: worldsPlan, onWorldCard: worldCard, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, onClosetOf: cameraClosetOf, onGenFit: cameraGenFit, onTripPlan: tripPlan, onTripCard: tripCard, onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onMoviePremiere: moviePremiere, onWorldsPlan: worldsPlan, onWorldCard: worldCard, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,
