@@ -20113,7 +20113,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const { c, r } = storyLead([charId]), uName = (profileFor(c.id) || {}).name || "她";
     const d = await runProbe(r, ctxFor(c), {
       instruction: "想几个平行世界里的你：同一个你，换了一个世界、一种人生。" + (String(brief || "").trim() ? "她想看的是：「" + String(brief).trim() + "」。" : "")
-        + "每个世界 world 写那是个什么世界（短），who 写那个世界里的你是什么人、在过什么日子（一段）。世界之间要拉开，照你这个人的性格去想那个世界里的你会变成什么样。",
+        + "每个世界 world 写那是个什么世界（短），who 写那个世界里的你是什么人、在过什么日子（一段）。世界之间要拉开。那个世界里的你可以是另一个年纪、另一种身份、另一种活法，性子也可以被那个世界磨成另一个样子——底下还是你，但不用处处跟现在的你一样。",
       schemaHint: "{\"worlds\":[{\"world\":\"什么世界\",\"who\":\"那个世界的你\"}]}",
       maxTokens: 12000
     });
@@ -20126,13 +20126,14 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       voice: true,
       instruction: "在一个平行世界里：" + w.world + "。那个世界的你：" + (w.who || "照这个世界和你的性格去想") + "\n"
         + (done && done.length ? "【已经写过的别的世界】\n" + done.map(x => "- " + x).join("\n") + "\n" : "")
-        + "photo 是那个世界的你的一张写真：穿什么、在哪、在干嘛、什么神情、光从哪来，照那个世界和你这个人来拍，要好看；"
+        + "photo 是那个世界的你的一张写真：穿什么、在哪、在干嘛、什么神情、光从哪来，照那个世界和那个世界里的你来拍（年纪、打扮、气质跟着那个世界的你走，不用跟现在一样），要好看；"
         + "letter 是那个世界的你写给 " + uName + " 的信：那个世界里你们是怎么遇见的、或者还没遇见，那个你想对她说什么，长短跟着那个世界的你的心情和说话的样子来。",
       schemaHint: "{\"photo\":\"写真画面\",\"letter\":\"写给她的信\"}",
       maxTokens: 12000
     });
     const scene = "平行世界「" + w.world + "」里的" + c.name + "：" + String((d && d.photo) || w.who || "").trim();
-    const blob = await castShotBlob([c], scene, { kind: "other", popts: { cinematic: true } });
+    // 穿那个世界的衣服：不拿他现在的衣柜、此刻穿着、钉住的常服（跟电影剧照同一个开关）
+    const blob = await castShotBlob([{ ...c, closet: "", outfit: "", photoOutfit: "" }], scene + "。穿的是那个世界里他会穿的衣服，照那个世界的年代和他在那儿的身份来。", { kind: "other", costume: true, popts: { cinematic: true, closet: "" } });
     return { blob, photo: String((d && d.photo) || "").trim(), letter: String((d && d.letter) || "").trim() };
   };
   const cameraGenShot = async (ids, scene, who, o) => {

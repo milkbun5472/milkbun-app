@@ -70,8 +70,8 @@ test("电影和平行人生：入口、存档、出图接上；界面跟旅行�
   for (const f of ["moviePlan", "moviePoster", "movieScene", "worldsPlan", "worldCard"]) assert.match(app, new RegExp("const " + f + " = async"));
   assert.match(app, /onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onWorldsPlan: worldsPlan, onWorldCard: worldCard/);
   assert.match(app, /popts: \{ closet: "", editorial: "movie"/);
-  assert.match(app, /演员不一定演跟自己一样的人/); assert.match(app, /const st = o\.costume \? \{ ...st0, wearing: "", wearingUpdatedAt: 0 \} : st0;/);
-  assert.match(app, /popts: \{ cinematic: true \}/);
+  assert.match(app, /演员不一定演跟自己一样的人/); assert.match(app, /那个世界里的你可以是另一个年纪、另一种身份/); assert.match(app, /穿的是那个世界里他会穿的衣服/); assert.match(app, /const st = o\.costume \? \{ ...st0, wearing: "", wearingUpdatedAt: 0 \} : st0;/);
+  assert.match(app, /popts: \{ cinematic: true, closet: "" \}/);
   assert.match(app, /\.\.\.\(o\.popts \|\| \{\}\)/);
   assert.match(html, /data-lazy="camera" data-src="js\/camera-story\.js\?v=/);
   assert.match(st, /k\.makeUI\(\{ page: "moviepage"/);
