@@ -3716,13 +3716,19 @@ function App() {
     if (!fresh.length) { toast("上次摘要以后还没有新对话"); return null; }
     const toTs = Math.max.apply(null, fresh.map(m => Number(m.ts || 0)));
     const transcript = fresh.map(m => (m.role === "user" ? userName(profileFor(character.id) || profile) : character.name) + "：" + gameChatText(m)).join("\n");
+    // 这间房演的是以前的事（房间设置「这里演的是以前的事」）：带回主聊天时也说清是以前（群友 2026-11-27「过去的事带回主聊天，TA 会理解成现在的事」）
+    //   跟记忆那边贴「过去」是同一个开关、同一个时候
+    const pastOn = !!(room.writeback && room.writeback.pastMemory), pastWhen = String(room.pastWhen || "").trim();
+    const pastTag = pastOn ? "〔这是你们以前的事" + (pastWhen ? "，" + pastWhen : "") + "，不是最近发生的〕" : "";
     try {
       const raw = await callAI(apiFor(character.id),
-        "你是房间交接整理器。只根据原话，忠实整理这段对话中真正发生的事、双方表达的感受、做出的决定、仍未结束的事和值得主聊天接住的变化。不得杜撰，不把设想写成事实，不代替任何人说新台词。输出一段自然中文正文，不要标题、列表、JSON 或代码块。" + gameChatSummaryContext(fresh) + "\n\n房间名：" + room.name + "\n需要整理的新增原话：\n" + transcript,
+        "你是房间交接整理器。只根据原话，忠实整理这段对话中真正发生的事、双方表达的感受、做出的决定、仍未结束的事和值得主聊天接住的变化。不得杜撰，不把设想写成事实，不代替任何人说新台词。输出一段自然中文正文，不要标题、列表、JSON 或代码块。"
+          + (pastOn ? "\n这间房里演的是两个人以前的事" + (pastWhen ? "（" + pastWhen + "）" : "") + "：整理成回忆过去的口吻，写清是那时候发生的，不写成眼下正在进行、还没结束的事。" : "") + gameChatSummaryContext(fresh) + "\n\n房间名：" + room.name + "\n需要整理的新增原话：\n" + transcript,
         [{ role: "user", content: "整理这段记录。" }],
         { maxTokens: 65000, timeout: 120000 });
-      const summary = String(raw || "").replace(/^```[^\n]*\n?|```$/g, "").trim();
-      if (!summary) throw new Error("模型没有返回摘要");
+      const body = String(raw || "").replace(/^```[^\n]*\n?|```$/g, "").trim();
+      if (!body) throw new Error("模型没有返回摘要");
+      const summary = pastTag + body;
       window.ChatRooms.addSummary({ personId: character.id, roomId: room.id, roomName: room.name, frame: String(frame || ""), summary, fromTs: Number(room.summaryCursorTs || 0), toTs });
       const saved = window.ChatRooms.save(character.id, { ...room, summaryFrame: String(frame || ""), summaryCursorTs: toTs });
       pChat(character.id, p => [...p, { id: "room_sum_" + Date.now(), role: "system", kind: "system", ts: Date.now(), content: "从「" + room.name + "」带回主聊天\n" + String(frame || "") + summary }]);
