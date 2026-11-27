@@ -2291,7 +2291,8 @@ const ANON_MASK_BG = `主页背景写的是一张图：TA愿意让陌生人看�
 //   「复述对方 + 规划怎么应对」「让自己显得…」当导演稿拒掉——于是 TA 的心声
 //   每轮都被拒、状态卡冻在上一条（她 2026-09-15：「他心声都不会变了」）。
 //   摆事实，然后闭嘴：怎么想是 TA 的事，不是这句话该替 TA 想的。
-// ⚠️只写在这一处，单聊线上／群聊／recentChat 三条载体共用（one-public-mechanism）。
+// ⚠️只写在这一处，单聊线上／群聊／recentChat／记忆抽取（单人、群）共用（one-public-mechanism）。
+//   记忆抽取也要挂（群友 2026-11-27「记忆没办法让他自己记得这件事是她发的嘛」）：不挂的话这条按他说的话抽进记忆库，聊天记录滚出去以后他就记成是自己说的。
 const bySomeoneElseMark = (uName, who) => "【这一条不是" + (who || "TA") + "自己打的："
   + (uName || "对方") + "拿着" + (who || "TA") + "的手机，以" + (who || "TA") + "的名义发了出去。"
   + (who || "TA") + "本人心里清楚这句不是自己说的（别人看见的就是一条 Ta 发的消息）。"
@@ -5926,7 +5927,7 @@ async function extractMemories(p, ctx, msgs, opts = {}) {
   const uName = (ctx.profile && ctx.profile.name) || "用户";
   const charName = ctx.char.name;
   const messageIdOf = (m, i) => String((m && (m.id || m.mid)) || (m && m.ts ? "ts_" + m.ts : "idx_" + i));
-  const text = msgs.map((m, i) => "[消息ID " + messageIdOf(m, i) + "] " + (m.role === "user" ? uName : charName) + ": " + gameChatText(m)).join("\n");
+  const text = msgs.map((m, i) => "[消息ID " + messageIdOf(m, i) + "] " + (m.role === "user" ? uName : charName) + ": " + gameChatText(m) + (m && m.byUser ? bySomeoneElseMark(uName, charName) : "")).join("\n");
   const avoid = Array.isArray(opts.existing) && opts.existing.length
     ? "\n\n【这些事实已经记过了，别再抽取——同一件事换个说法也算重复，一律跳过】\n" + opts.existing.slice(0, 40).map(t => "· " + String(t).replace(/\s+/g, " ").slice(0, 60)).join("\n")
     : "";
@@ -5955,7 +5956,7 @@ async function extractGroupMemories(p, ctx, msgs, members, opts = {}) {
   const roster = (members || []).map(m => m && m.name).filter(Boolean);
   const messageIdOf = (m, i) => String((m && (m.id || m.mid)) || (m && m.ts ? "ts_" + m.ts : "idx_" + i));
   const nameOf = m => m.role === "user" ? uName : (m.role === "narration" ? "【场景】" : (m.senderName || "某人"));
-  const text = (msgs || []).map((m, i) => "[消息ID " + messageIdOf(m, i) + "] " + nameOf(m) + ": " + gameChatText(m)).join("\n");
+  const text = (msgs || []).map((m, i) => "[消息ID " + messageIdOf(m, i) + "] " + nameOf(m) + ": " + gameChatText(m) + (m && m.byUser ? bySomeoneElseMark(uName, m.senderName || nameOf(m)) : "")).join("\n");
   const avoid = Array.isArray(opts.existing) && opts.existing.length
     ? "\n\n【这些事实已经记过了，别再抽取——换个说法也算重复，一律跳过】\n" + opts.existing.slice(0, 40).map(t => "· " + String(t).replace(/\s+/g, " ").slice(0, 60)).join("\n")
     : "";
