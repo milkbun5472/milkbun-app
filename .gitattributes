@@ -1,0 +1,2 @@
+# 第三方原样打包的运行库：行尾空白是人家原文，不改，也不让 diff --check 拦
+vendor/mediapipe-tasks-vision-*/** whitespace=-trailing-space,-space-before-tab,-indent-with-non-tab

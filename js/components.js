@@ -13113,6 +13113,8 @@ function ChatThread({
     if (m.kind === "callinvite") return h(CallReceipt, { key: i, m: m, isU: m.role === "user", who: cName,
       avatar: charAvEl(), onCallBack: onCallBack });
     // 她自己的自拍（role user）靠右、配她的头像
+    if (m.kind === "peekshot" && m.shot) return h("div", { key: i, "data-wk": "cardrow", "data-me": "0", "data-kind": "peekshot", className: "py-1 flex items-start gap-2 justify-start" },
+      charAvEl(), h(PeekShotCard, { shot: m.shot }));
     if (m.kind === "selfie") return h("div", { key: i, "data-wk": "cardrow", "data-me": m.role === "user" ? "1" : "0", "data-kind": m.kind || "", className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role === "user" ? null : charAvEl(),
       h("div", {
@@ -17347,6 +17349,20 @@ function DateInviteCard({ m, character, onGo, onGoMine, onAnswer, avatar, myAvat
   return h("div", { className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start") }, !mine && avatar, open ? inside : cover, mine && myAvatar);
 }
 // TA趁她不注意偷偷翻过（她 2026-10-02）：回放看TA翻了什么、想了什么；当面问；装没看见
+// 他翻你手机时截下的那张图，后来拿出来跟你对质（她 2026-11-26「带着截图去找用户算帐」）：做成一张手机截图的样子——
+//   顶上一条小状态栏、「‹ 名字」，下面那几句气泡，她的在右、对方的在左，原话一字不改
+function PeekShotCard({ shot }) {
+  const t = useTheme(), sh = shot || {}, d = sh.ts ? new Date(sh.ts) : new Date();
+  const clock = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  return h("div", { "data-wk": "peekshot", style: { width: 230, borderRadius: 18, overflow: "hidden", background: t.bg, border: "1px solid " + t.line, boxShadow: "0 6px 18px rgba(0,0,0,.12)" } },
+    h("div", { "data-wk": "peekshotbar", style: { display: "flex", justifyContent: "space-between", padding: "6px 12px 2px", fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.sub } }, h("span", null, clock), h("span", null, "截图")),
+    h("div", { "data-wk": "peekshothead", style: { padding: "2px 12px 7px", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.ink, borderBottom: "1px solid " + t.line } }, "‹ " + (sh.who || "聊天")),
+    h("div", { style: { padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 6 } },
+      (sh.lines || []).map((l, k) => h("div", { key: k, "data-wk": "peekshotline", "data-me": l.me ? "1" : "0", style: { display: "flex", flexDirection: "column", alignItems: l.me ? "flex-end" : "flex-start" } },
+        sh.group && !l.me && l.name ? h("span", { style: { fontFamily: F_BODY, fontSize: "calc(9.5px * var(--app-fs, 1))", color: t.fog, margin: "0 4px 2px" } }, l.name) : null,
+        h("span", { style: { maxWidth: "86%", padding: "6px 9px", borderRadius: 11, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", lineHeight: 1.5, wordBreak: "break-word",
+          background: l.me ? (t.accent || t.ink) : t.bg2, color: l.me ? "#fff" : t.ink, border: l.me ? "none" : "1px solid " + t.line } }, l.text)))));
+}
 function PeekSneakCard({ m, character, onPick }) {
   const t = useTheme();
   const st = m.state || "pending";
@@ -18751,6 +18767,8 @@ const MSG_MENU = {
   edit: ["编辑", "pencil"], reroll: ["重Roll", "redo"], speak: ["念出来", "wave"],
   // 只重拍这张图（她 2026-10-01）：TA 那一轮的话留着，只把这张照片重新画一遍
   reshoot: ["只重拍这张图", "picture"],
+  // 联机房里的照片（合照）存进手机相册（她 2026-11-26「还有可以保存的吧合照」）
+  saveimg: ["保存图片", "picture"],
   multi: ["多选", "checklist"], recall: ["撤回", "undo"],
   // 单独删一条（群里读者 2026-10-02：「有时候不需要多选，只需要删除这条就行」）。
   // 跟撤回不一样：撤回是TA看得见的「撤回了一条消息」，删除只是从你这边的记录里抹掉。

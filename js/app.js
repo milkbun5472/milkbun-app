@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.268";
+const APP_VERSION = "v90.284";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12108,8 +12108,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   心声念的是一个月前那句，画面却停在昨天（她 2026-10-02：「他的心声说的是很久以前的聊天吧，跟屏幕对不上」）
       const arc = x => {
         const ms = x.ms, n = ms.length, nm = x.c.remark || x.c.name;
-        const head = "她（" + uN + "）和「" + nm + "」" + tagOf(x.c) + "的聊天（" + md(ms[0].ts) + "聊起，一共 " + n + " 条；往上翻得到的是最近这些，从" + md(ms[Math.max(0, n - 16)].ts) + "起）：";
-        return head + (x.cold ? "（这段已经 " + x.cold + " 天没动静了——以前聊得挺多，后来断了）" : "") + "\n" + ms.slice(-16).map(m => line(x, m)).join("\n");
+        const pw = peekWindow(viewerId, "c:" + x.c.id, nm, ms, 16);
+        const head = "她（" + uN + "）和「" + nm + "」" + tagOf(x.c) + "的聊天（" + md(ms[0].ts) + "聊起，一共 " + n + " 条；这回翻得到的是" + md(pw.win[0].ts) + "起的这一截）：";
+        return head + (x.cold ? "（这段已经 " + x.cold + " 天没动静了——以前聊得挺多，后来断了）" : "") + (pw.note ? "\n（" + pw.note + "）" : "") + "\n" + pw.win.map(m => line(x, m)).join("\n");
       };
       if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(arc).join("\n"));
       // 她在里面的群也照群看（她 2026-10-02：「看群也正常看，不要变成单聊」）；旁观群不是她的聊天，不给看
@@ -12122,8 +12123,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 频道（她 2026-11-20）：同一个空间的几个频道按空间摆，不当成一个个散群——peekSpaceBlock（engine.js）
       { const spb = peekSpaceBlock(gAll.filter(x => x.g.spaceId), id => ((spaces || []).find(x => x && x.id === id) || {}).name, (m) => (m.role === "user" ? "她" : "「" + (m.senderName || "有人") + "」") + "：" + cut(m.content, 60));
         if (spb) out.push(spb); }
-      if (gRows.length) out.push("【她在的群（打开时 who 写群名）】\n" + gRows.map(x => "群「" + (x.g.name || "群聊") + "」（最近这些）：\n"
-        + x.ms.slice(-14).map(m => "  " + (m.role === "user" ? "她" : "「" + (m.senderName || "群里有人") + "」") + "：" + cut(m.content, 60)).join("\n")).join("\n"));
+      if (gRows.length) out.push("【她在的群（打开时 who 写群名）】\n" + gRows.map(x => { const pw = peekWindow(viewerId, "g:" + x.g.id, x.g.name || "群聊", x.ms, 14); return "群「" + (x.g.name || "群聊") + "」（" + (pw.note || "最近这些") + "）：\n"
+        + pw.win.map(m => "  " + (m.role === "user" ? "她" : "「" + (m.senderName || "群里有人") + "」") + "：" + cut(m.content, 60)).join("\n"); }).join("\n"));
       // 拿她跟你说话的样子对着看——同一个人，对你和对别人语气差在哪儿（她 2026-10-01：「不够男朋友查岗翻出女朋友跟别人语气暧昧」）
       const mineMs = (chatsRef.current[viewerId] || []).filter(m => m && m.role === "user" && m.content && !m.kind).slice(-6);
       if (rows.length && mineMs.length) out.push("【对照：她最近跟你说话是这样的】\n" + mineMs.map(m => "  她：" + cut(m.content, 60)).join("\n"));
@@ -12274,6 +12275,36 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const PEEK_APP_ZH = { messages: "消息列表", chat: "聊天", forum: "论坛", wallet: "钱包", shop: "购物", takeout: "外卖", listen: "一起听", memo: "备忘录", diary: "日记", offline: "线下往期", calendar: "日历", health: "健康" , moments: "朋友圈" };
   // 上次翻过什么（x_peekLast[charId]）：下一次先去没看过的
   const peekLastOf = id => { const all = loadJSON("x_peekLast", {}) || {}; return all[id] || {}; };
+  // 每个聊天上次翻到哪儿（她 2026-11-26「还有差不多的内容 能不能记一下看的聊天框上次看到哪儿」）：
+  //   x_peekPos = { [翻的人]: { [聊天 key]: { from, to } } }——上回摆给他的那一截最早、最晚那条的时间。
+  //   这回：上次之后有新的，先看新的（前面带三句接上）；没有新的就往上翻上次没翻到的那一截；翻到头了照实说一声。
+  //   摆出去的那一截先记在 peekWinRef，翻完了只把他真点开的那几个写进 x_peekPos
+  const peekWinRef = useRef({});
+  const peekWindow = (viewerId, key, name, ms, size) => {
+    const n = ms.length, pos = (((loadJSON("x_peekPos", {}) || {})[viewerId]) || {})[key];
+    let start = Math.max(0, n - size), end = n, note = "";
+    if (pos && pos.to) {
+      const fresh = ms.findIndex(m => (m.ts || 0) > pos.to);
+      if (fresh >= 0) { start = Math.max(0, Math.max(fresh - 3, n - size)); note = "上回你翻到" + (fresh > 0 ? "「" + String(ms[fresh - 1].content || "").replace(/\s+/g, " ").slice(0, 16) + "」" : "这儿") + "，之后她们又聊了 " + (n - fresh) + " 条，这回从那儿接着看"; }
+      else {
+        let older = -1; for (let i = n - 1; i >= 0; i--) if ((ms[i].ts || 0) < (pos.from || 0)) { older = i; break; }
+        if (older >= 0) { end = older + 1; start = Math.max(0, end - size); note = "最近那截你上回看过了，没有新的；这回往上翻，是上回没翻到的更早那一截"; }
+        else note = "这个聊天你上回已经从头翻到尾了，没有新的，也没有更早的——再看就是看过的那些";
+      }
+    }
+    const win = ms.slice(start, end);
+    if (win.length) (peekWinRef.current[viewerId] = peekWinRef.current[viewerId] || {})[name] = { key, from: win[0].ts || 0, to: win[win.length - 1].ts || 0 };
+    return { win, note, start };
+  };
+  // 翻完了：他点开过的那几个聊天，把这回看到的那一截记下来
+  const peekPosSave = (viewerId, opened) => {
+    const w = peekWinRef.current[viewerId] || {}; delete peekWinRef.current[viewerId];
+    const all = loadJSON("x_peekPos", {}) || {}, mine = { ...(all[viewerId] || {}) };
+    let n = 0;
+    (opened || []).forEach(nm => { const x = w[nm]; if (!x) return; const old = mine[x.key] || {};
+      mine[x.key] = { from: old.from ? Math.min(old.from, x.from) : x.from, to: Math.max(old.to || 0, x.to) }; n++; });
+    if (n) { all[viewerId] = mine; saveJSON("x_peekPos", all); }
+  };
   // 录像里进过某人的线下：再翻别处（或翻完）就把它收起，线下是盖在最上面的一层，不收会一直挡着
   const peekOffRef = useRef(false);
   // 录像打开过的线下（单人、群）一起收；没被线下那页接走的「直接摊开往期」也清掉，免得她自己下次进线下时冒出来
@@ -12607,7 +12638,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               return ct.length ? "\n她购物车里还躺着没付的：" + ct.map(x => "「" + String(x.name).slice(0, 20) + "」¥" + (Number(x.price) || 0)).join("、")
                 + "。你想替她付就加一步 {\"do\":\"paycart\",\"items\":[\"要付的那几件，原样抄名字；全付就留空数组\"]}——真的从你钱包扣、东西送到她手上；付不付、付哪几件照你这个人和你钱包来。" : ""; })()
           + "\n重点是你心里怎么想：每个聊天边往上翻边想，每翻一屏就冒一句，一个聊天至少 2~3 句；心声只说这一屏上看得到的那几句话（上面列的就是翻得到的全部）。每个 open 都带上 thoughts（2~3 句），点开了就一定在想。一共 25~45 步。",
-        schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"chat\",\"who\":\"名字\",\"thoughts\":[\"翻着翻着心里冒出的一句\",\"再往上翻又一句\"]},{\"do\":\"impersonate\",\"who\":\"名字\",\"text\":\"以她的名义发的那句\"},{\"do\":\"unfriend\",\"who\":\"名字\"},{\"do\":\"pin\"},{\"do\":\"open\",\"app\":\"messages\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
+        schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"chat\",\"who\":\"名字\",\"thoughts\":[{\"at\":\"那条消息里照抄的几个字\",\"t\":\"看到它时心里冒出的一句\"},{\"at\":\"另一条消息里照抄的几个字\",\"t\":\"又一句\"}]},{\"do\":\"impersonate\",\"who\":\"名字\",\"text\":\"以她的名义发的那句\"},{\"do\":\"unfriend\",\"who\":\"名字\"},{\"do\":\"pin\"},{\"do\":\"open\",\"app\":\"messages\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000
       });
       let d = await ask();
@@ -12631,6 +12662,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const follow = [...new Set(peekFollowRef.current)]; peekFollowRef.current = [];
       follow.forEach((id, k) => setTimeout(() => { try { replyNow(id, "", null, {}); } catch (e) {} }, 4000 + k * 3000));
       delete peekRenamedRef.current[charId];
+      peekPosSave(charId, [...new Set(script.filter(st => st.do === "open" && st.app === "chat" && st.who).map(st => st.who))]);
+      try { peekQuoteThoughts(charId, script); } catch (e) {}   // 偷偷翻也截得下来
       peekLogAdd(charId, { how: "sneak", who: [...new Set(script.filter(st => st.do === "open" && st.app === "chat" && st.who).map(st => st.who))].slice(0, 4),
         thoughts: script.filter(st => st.do === "think").map(st => st.text).slice(0, 2), did: peekDidRef.current[charId] || [] });
       delete peekDidRef.current[charId];
@@ -13086,6 +13119,30 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const mall = loadJSON("x_phoneMeddle", {}) || {};
     if (mall[char.id]) { delete mall[char.id]; saveJSON("x_phoneMeddle", mall); }
   };
+  // 心声对着的那几句（她 2026-11-26）：把「看到哪句→想了什么」从脚本里拼出来，翻完回她时他记得的就是这些原话；
+  //   同时把那几句连上下各一条存成截图（x_peekShots），之后他想翻旧账能真甩给她
+  const peekQuoteThoughts = (viewerId, script) => {
+    const norm = x => String(x || "").replace(/\s+/g, "");
+    const findChat = who => { const c = (characters || []).find(x => x && x.id !== viewerId && (x.remark === who || x.name === who));
+      if (c) return { key: c.id, name: c.remark || c.name, ms: chatsRef.current[c.id] || [], group: false };
+      const g = (groupsRef.current || []).find(x => x && x.name === who); return g ? { key: g.id, name: g.name, ms: groupChatsRef.current[g.id] || [], group: true } : null; };
+    let who = "", app = "";
+    const lines = [], shots = [];
+    (script || []).forEach(st => {
+      if (st.do === "open") { app = st.app; who = st.app === "chat" ? (st.who || "") : ""; return; }
+      if (st.do !== "think") return;
+      if (!(st.at && app === "chat" && who)) { lines.push(st.text); return; }
+      lines.push("在她和「" + who + "」的聊天里看到「" + st.at + "」，心里想：" + st.text);
+      const ch = findChat(who); if (!ch) return;
+      const ms = ch.ms.filter(m => m && m.content && !m.recalled && m.kind !== "system" && m.role !== "narration");
+      let i = -1; for (let k = ms.length - 1; k >= 0; k--) if (norm(ms[k].content).indexOf(norm(st.at).slice(0, 12)) >= 0) { i = k; break; }
+      if (i < 0) return;
+      const pick = ms.slice(Math.max(0, i - 1), i + 2).map(m => ({ me: m.role === "user", name: m.role === "user" ? "" : (ch.group ? (m.senderName || "") : ch.name), text: String(m.content).slice(0, 200), ts: m.ts || 0 }));
+      if (!shots.some(x => x.key === ch.key && x.lines[0].ts === pick[0].ts)) shots.push({ id: "ps" + Date.now().toString(36) + shots.length, key: ch.key, who: ch.name, group: ch.group, lines: pick, at: st.at, thought: st.text, ts: Date.now() });
+    });
+    if (shots.length) { const all = loadJSON("x_peekShots", {}) || {}; all[viewerId] = shots.concat(all[viewerId] || []).slice(0, 6); saveJSON("x_peekShots", all); }
+    return lines;
+  };
   const peekDone = thoughts => {
     peekOffClose();
     setPeekDailyView(null);
@@ -13100,6 +13157,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       all[p.charId] = { ts: Date.now(), apps: [...new Set(sc.filter(s => s.do === "open").map(s => s.app))], who: [...new Set(sc.filter(s => s.do === "open" && s.app === "chat" && s.who).map(s => s.who))].slice(0, 6),
         taps: [...new Set(sc.filter(s => s.do === "tap" && !s.exact).map(s => s.text))].slice(0, 10), thoughts: (thoughts || []).slice(0, 6) };
       saveJSON("x_peekLast", all);
+      peekPosSave(p.charId, [...new Set(sc.filter(s => s.do === "open" && s.app === "chat" && s.who).map(s => s.who))]);
       const askedAt = peekAskedRef.current[p.charId] || 0; delete peekAskedRef.current[p.charId];
       peekLogAdd(p.charId, { how: Date.now() - askedAt < 3600e3 ? "asked" : "given", who: all[p.charId].who, thoughts: (thoughts || []).slice(0, 2),
         did: peekDidRef.current[p.charId] || [], hid: (p.hidden || []).filter(x => /^和.+的聊天$/.test(x)).map(x => x.slice(1, -3)) });
@@ -13107,7 +13165,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) {}
     openChatById(p.charId);
     const renamed = peekRenamedRef.current[p.charId]; delete peekRenamedRef.current[p.charId];
-    waitForHer(p.charId, { peekPhone: { seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [], renamed } });
+    const _qt = (() => { try { return peekQuoteThoughts(p.charId, p.script); } catch (e) { return null; } })();
+    waitForHer(p.charId, { peekPhone: { seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: _qt && _qt.length ? _qt : (thoughts || []), renamed } });
     // 用她名义发出去的那几句，对面会接（她 2026-10-02：冒充你回一句）
     const follow = [...new Set(peekFollowRef.current)]; peekFollowRef.current = [];
     follow.forEach((id, k) => setTimeout(() => { try { replyNow(id, "", null, {}); } catch (e) {} }, 4000 + k * 3000));
@@ -13955,6 +14014,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       if (toyOn) { openCaps.push("toy"); capState.push(toyHint.trim()); }
       if (blockHint) { openCaps.push("block"); capState.push(blockHint.trim()); }
+      // 他翻她手机时截下的图（她 2026-11-26「想找用户算帐的时候希望有一个截图功能」）：一周内、还没甩出来过的，这一轮可以拿出来
+      { const _sh = !(room && !room.main) ? ((((loadJSON("x_peekShots", {}) || {})[charId]) || []).filter(x => x && !x.sent && Date.now() - (x.ts || 0) < 7 * 86400000)).slice(0, 4) : [];
+        if (_sh.length) { openCaps.push("peekshot");
+          capState.push("peekshot：你翻" + uName + "手机时截了图：\n" + _sh.map((x, k) => (k + 1) + ". 她和「" + x.who + "」的聊天：" + x.lines.map(l => (l.me ? "她" : "「" + (l.name || x.who) + "」") + "：「" + String(l.text).replace(/\s+/g, " ").slice(0, 40) + "」").join(" / ")).join("\n")
+            + "\n想把哪张甩给她看，就在回复里写 peekshot:编号，那张截图会真的发到她面前。用不用、什么时候用，照你这个人来。"); } }
       // 他锁着她的手机（查手机时锁的）：这一轮他可以松口
       { const _pl = !(room && !room.main) ? loadJSON("x_phoneLock", null) : null;
         if (_pl && String(_pl.by) === String(charId)) {
@@ -15645,6 +15709,16 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       if (parsed.revealed === true && room && window.ChatRooms && window.ChatRooms.altReveal) {
         const r3 = window.ChatRooms.altReveal(room);
         if (r3) pChat(chatKey, p => [...p, { role: "system", kind: "system", sub: "altreveal", content: char.name + " 承认了：「" + (r3.alt.ta.name || "那个号") + "」就是TA。", ts: Date.now() }]);
+      }
+      // 他把截图甩出来了：照编号找那张，记成发过了，聊天里放一张截图卡（正文写清是什么，后面几轮他自己也读得到）
+      if (parsed.peekshot != null && parsed.peekshot !== false && !sideRoom) {
+        const _all = loadJSON("x_peekShots", {}) || {}, _mine = (_all[charId] || []), _live = _mine.filter(x => x && !x.sent && Date.now() - (x.ts || 0) < 7 * 86400000).slice(0, 4);
+        const _k = Math.max(1, parseInt(String(parsed.peekshot).replace(/[^0-9]/g, ""), 10) || 1), _shot = _live[_k - 1];
+        if (_shot) {
+          _all[charId] = _mine.map(x => x === _shot ? { ...x, sent: Date.now() } : x); saveJSON("x_peekShots", _all);
+          pChat(chatKey, p => [...p, { id: "pshot_" + Date.now(), role: "assistant", kind: "peekshot", shot: _shot, ts: Date.now(), turnId,
+            content: "[截图] 她和「" + _shot.who + "」的聊天：" + _shot.lines.map(l => (l.me ? "她" : (l.name || _shot.who)) + "：" + l.text).join(" / ") }]);
+        }
       }
       // 他把锁着的手机放开了
       if (parsed.unlockphone === true && !sideRoom) {
@@ -19086,15 +19160,17 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   };
   // ── 邮票册（2026-10-26 方案）：写卡、画卡面。抽、存、界面在 js/stamps-core.js / js/stamps.js ──
   //   ⚠️写失败不丢卡：卡已经落进 x_stamps，只是没写完（text:null），界面上点一下重写。
-  const STAMP_SHOT_SPEC = "shot 是给画卡面的人看的分镜（中文，几句话）：pose＝这一刻身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪，要有动势，不是对着镜头站着坐着摆好；camera＝景别、机位高低、镜头远近，像乙游卡面那样人和场景一起讲这一刻，有前景、有纵深，景别别总是半身近照；"
-    + "light＝主光从哪边来、是什么光、冷暖、有没有轮廓光、阴影落在哪；place＝在哪、身边两三样带着这一刻的东西；outfit＝穿什么；mood＝一两个词。"
+  // 镜头怎么搭（几栏各挑一样、自己配）：邮票卡面和相机「让 AI 先写一版」共用这一份（她 2026-11-26「格式可以参考邮票册的来」）
     // 镜头能组合的种类（她 2026-11-18「多一点种类可以组合」，不要程序分配）：每一栏挑一样、自己配，几栏搭起来就很少撞
-    + "镜头可以这样搭（每一栏挑一个，跟这一刻配，几栏组合起来，别总落在同一种）："
+  const SHOT_COMBO_SPEC = "镜头可以这样搭（每一栏挑一个，跟这一刻配，几栏组合起来，别总落在同一种）："
     + "景别——远景（人和场景一起讲，人至少占画面三分之一）、全身、七分身、半身、近景；"
     + "机位——平视、微微俯视、低机位微微仰拍（显身形）、四分之三侧脸、正侧面、侧后方他正回头、镜头微微倾斜、越过别人或东西的肩、隔着前景（门框、玻璃、枝叶、人群）看过去、拍镜子或玻璃里的他、从她的视线看他（他低头看过来、俯身凑近、把手伸向镜头）；"
     + "人在画面哪儿——居中、偏左或偏右三分之一、斜对角、被门窗框起来、人在下半上面留一片天或景、前景虚着一层光斑或东西、背景虚化只有他清楚；"
     + "身体——站着、走着、正停下、坐着、侧坐在窗台或台阶上、靠着、斜倚门框或墙、单手撑在桌沿或墙上、手插兜、托着腮、抬手理领口袖口或拨头发、低着头眼睛往上看、转身回头、伸手去够、弯腰俯身、整个人在动作中途；"
-    + "光——逆光带一圈轮廓光、傍晚斜进来的金色阳光、穿过窗或树的一道道光束、侧光、窗光、夜里一盏暖灯、手机或屏幕的冷光照在脸上、身后一串灯虚成光斑、阴天的软光、霓虹或彩色的光、火光、雪地或水面反上来的光。"
+    + "光——逆光带一圈轮廓光、傍晚斜进来的金色阳光、穿过窗或树的一道道光束、侧光、窗光、夜里一盏暖灯、手机或屏幕的冷光照在脸上、身后一串灯虚成光斑、阴天的软光、霓虹或彩色的光、火光、雪地或水面反上来的光。";
+  const STAMP_SHOT_SPEC = "shot 是给画卡面的人看的分镜（中文，几句话）：pose＝这一刻身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪，要有动势，不是对着镜头站着坐着摆好；camera＝景别、机位高低、镜头远近，像乙游卡面那样人和场景一起讲这一刻，有前景、有纵深，景别别总是半身近照；"
+    + "light＝主光从哪边来、是什么光、冷暖、有没有轮廓光、阴影落在哪；place＝在哪、身边两三样带着这一刻的东西；outfit＝穿什么；mood＝一两个词。"
+    + SHOT_COMBO_SPEC
     // 她 2026-11-18「也要考虑好不好看」：怎么搭都先要他好看
     + "怎么搭都以好看为先：这是乙游卡面不是纪实照，他的脸要看得清、光要落在脸上，身形舒展、比例好看，衣服和头发有质感；会让脸看不清、人显矮显胖、表情难看的组合就别选。"
     + "画的是这张卡里真的发生的那一刻，不另编动作：你那时在干什么就画什么，构图跟着这个动作来，全身、半身、背影、俯拍仰拍都行；你那时没在看谁，就不看镜头。卡面是竖版的，上面只画你一个人。";
@@ -19760,7 +19836,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     o = o || {};
     const lead = cast.find(c => c.id !== "me") || cast[0], multi = cast.length > 1, kind = o.kind || "self";
     const st = (statesRef.current || {})[lead.id] || {};
-    const prompt = buildPhotoPrompt(lead, scene, st, { kind, cast: multi ? cast : null, closet: lead.id !== "me" ? closetTextFor(lead.id) : "" });
+    const prompt = buildPhotoPrompt(lead, scene, st, { kind, cast: multi ? cast : null, closet: lead.id !== "me" ? closetTextFor(lead.id) : "", ...(o.popts || {}) });
     const refs = cast.map(c => c.refPhoto).filter(Boolean).concat(o.extraRef ? [o.extraRef] : []);
     const out = await generateSelfieImage(prompt + (o.extraText || ""), refs.length ? refs : null, { minimalPrompt: buildMinimalPhotoPrompt(lead, { kind, cast: multi ? cast : null }) });
     if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换掉了" : "审核挡了两次，这张只拍了人像、没带场景");
@@ -19800,13 +19876,254 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   //   每人用自己的参照锁脸，跟频道小家伙合照、线下合影同一条 buildPhotoPrompt + generateSelfieImage。
   //   who：self＝画面里的人自己举着手机拍；other＝像有人帮他们拍。返回 blob，存不存由相机那页决定。
   //   ⚠️提示词和出图跟小家伙合照是【同一个】castShotBlob，不另拼一份。
-  const cameraGenShot = async (ids, scene, who) => {
+  // 相机里那张「抠出来的他」（她 2026-11-26「ar相机你想想怎么生图或者生好的图怎么扣出人像一起拍」）：
+  //   锁脸画一张全身、背景一整片纯绿的，相机那头把绿色去掉，就是一张透明底的他，贴进实景里拍。
+  //   pose：她写的一句姿势，空着就自然站着
+  // 相机里挑衣服（她 2026-11-26「给个选衣服的地方，跟情侣空间一样选衣柜或者生成一套新的」）：
+  //   衣柜读 TA 自己那一格（carry[id].outfit，跟衣柜页、照相馆同一份）；挑好的那身锁进这一张（outfit/photoOutfit，跟钉住常服同一把锁）
+  const cameraClosetOf = id => { const out = []; (closetGroups(((carry || {})[id] || {}).outfit) || []).forEach(g => (g.sets || []).forEach(x => out.push({ occasion: g.occasion || "", name: x.name, note: x.note || "" }))); return out; };
+  const cameraGenFit = async (id, hint) => {
+    const char = (characters || []).find(c => c.id === id); if (!char) throw new Error("先挑是谁");
+    const route = apiFor(id); if (!route) throw new Error("请先到设置配置 API");
+    const d = await runProbe(route, ctxFor(char), {
+      voice: true,
+      instruction: "她要给你拍一张照片" + (String(hint || "").trim() ? "，这一张是：" + String(hint).trim() : "") + "。给你自己配一身这次穿的衣服：写清是什么衣服（款式、颜色、料子），别只给一个名字；"
+        + characterText(char, "要落在你这个时代和处境里，是你穿得出来的，") + "也要上镜好看。",
+      schemaHint: "{\"occasion\":\"场合，四个字以内\",\"name\":\"这身叫什么\",\"note\":\"是什么衣服\"}",
+      maxTokens: 8000
+    });
+    const one = { name: String((d && d.name) || "").trim().slice(0, 24), note: String((d && d.note) || "").trim().slice(0, 120) };
+    if (!one.name) throw new Error("没配出来");
+    const occ = String((d && d.occasion) || "拍照").trim().slice(0, 8) || "拍照";
+    if (closetRoom(((carryRef.current[id] || {}).outfit)) > 0) setCarry(p => { const box = p[id] || {}; const n = { ...p, [id]: { ...box, outfit: closetMerge(box.outfit, { closet: [{ occasion: occ, sets: [one] }] }) } }; carryRef.current = n; saveJSON("x_carry", n); return n; });
+    else toast(characterText(char, "TA的衣柜挂满了，这身这次照样穿，只是没挂进去"));
+    return { occasion: occ, name: one.name, note: one.note };
+  };
+  // 全身／半身＋挑好的衣服，写进这一张（o.frame：full/half；o.fits：{人id: 那一身}）
+  const CAM_FRAME = { full: "【景别】全身照：从头顶到鞋子整个人都在画面里。", half: "【景别】半身照：腰部以上入镜，人占画面大半。", bust: "【景别】胸像近景：胸口以上入镜，像自拍那样脸占画面的大头，肩膀露一点。" };
+  const camDress = (c, o) => { const f = o && o.fits && String(o.fits[c.id] || "").trim(); return f ? { ...c, outfit: f, photoOutfit: f } : c; };
+  const cameraGenCutout = async (id, pose, o) => {
     if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
     const meName = userName(profile);
-    const cast = (ids || []).map(id => id === "me" ? { ...meSubject(null, meName, null), id: "me", name: meName } : (characters || []).find(c => c && c.id === id)).filter(Boolean).slice(0, GROUP_SHOT_MAX);
+    const who0 = id === "me" ? { ...meSubject(null, meName, null), id: "me", name: meName } : (characters || []).find(c => c && c.id === id);
+    if (!who0) throw new Error("先挑是谁");
+    const who = camDress(who0, o), half = o && o.frame === "half", bust = o && o.frame === "bust";
+    const sc = String(pose || "").trim() || "自然地站着";
+    return castShotBlob([who], sc, { kind: "other", extraText: "\n\n【这张要拿去抠图】" + (bust ? "胸口以上的近景，像自拍那样脸占画面大半，头顶上方留一点空，不裁掉头发；人在画面正中。" : half ? "腰部以上的半身入镜，头顶上方留一点空，不裁掉头和肩；人在画面正中。" : "从头顶到鞋子整个人完整入镜，四周留一点空，不裁掉任何部位；人站在画面正中。")
+      + "背景是一整片均匀的纯绿色（#00FF00），像摄影棚的绿幕：没有地面、墙、影子、道具和其他人，也没有渐变。人身上不要穿绿色。" });
+  };
+  // 相机「让 AI 先写一版」（她 2026-11-26「我写沙滩 可以直接拍或者先让模型先写一版看着满意了再拍」）：
+  //   她那一句扩成邮票卡面那样的分镜（姿势、镜头、光、地点、穿着、氛围），填回框里给她看、给她改；拍的时候就照框里的字画。
+  //   cut＝抠图人那一格：只写姿势、穿着、氛围（背景是绿幕，地点、光、镜头都不用）
+  const CAM_SHOT_ZH = [["pose", "姿势"], ["camera", "镜头"], ["light", "光"], ["place", "地点"], ["outfit", "穿着"], ["mood", "氛围"]];
+  const cameraWriteShot = async (ids, brief, who, cut) => {
+    const meName = userName(profile);
+    const cast = (ids || []).map(id => id === "me" ? { id: "me", name: meName } : (characters || []).find(c => c && c.id === id)).filter(Boolean).slice(0, GROUP_SHOT_MAX);
+    if (!cast.length) throw new Error("先挑画面里有谁");
+    const lead = cast.find(c => c.id !== "me") || (characters || [])[0];
+    if (!lead) throw new Error("先建一个角色");
+    const names = cast.map(c => c.id === "me" ? meName + "（她自己）" : c.name).join("、");
+    const keys = cut ? ["pose", "outfit", "mood"] : ["pose", "camera", "light", "place", "outfit", "mood"];
+    const instruction = (cut ? "她要在相机里给「" + names + "」拍一张全身照，抠出来贴进实景里一起拍。"
+        : "她要在相机里拍一张照片，画面里有：" + names + "；" + (who === "self" ? "是画面里的人自己举着手机自拍。" : "是有人帮忙拍的。"))
+      + "她只写了一句：「" + (String(brief || "").trim() || "随手拍一张") + "」。把这一句写成给画画的人看的分镜（中文，每栏一两句）："
+      + (cut ? "pose＝身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪；outfit＝穿什么（不要绿色）；mood＝一两个词。只写这三栏：这张是整个人站在纯色背景前的全身照，地点、光、镜头都不用写。"
+        : "pose＝身体正在做的动作——朝向、重心往哪边、两只手各在干嘛、视线落在哪；camera＝景别、机位高低、镜头远近；light＝主光从哪边来、冷暖、阴影落在哪；place＝在哪、身边两三样东西；outfit＝穿什么；mood＝一两个词。" + SHOT_COMBO_SPEC)
+      + "怎么搭都以好看为先：脸要看得清、光落在脸上，身形舒展、比例好看；会让脸看不清、人显矮显胖、表情难看的组合就别选。"
+      + "她那一句里写了的照她的来，没写的照画面里这几个人和这一句补齐。"
+      + "入镜的人照各自的性格来摆：怎么站、怎么看镜头、手往哪放、什么表情，都是这个人会有的样子；几个人一起时，站位、距离、谁挨着谁要看得出他们之间是什么关系。\n"
+      + tripCastLines(cast.filter(c => c.id !== "me").map(c => c.id), cast.some(c => c.id === "me"), meName);
+    const d = await runProbe(apiFor(lead.id), ctxFor(lead), { instruction, schemaHint: "{" + keys.map(k => "\"" + k + "\":\"…\"").join(",") + "}", maxTokens: 8000 });
+    const out = CAM_SHOT_ZH.filter(([k]) => keys.indexOf(k) >= 0 && String((d && d[k]) || "").trim()).map(([k, zh]) => zh + "：" + String(d[k]).trim()).join("\n");
+    if (!out) throw new Error("没写出来，再点一次");
+    return out;
+  };
+  // 相机里给TA看（她 2026-11-26）：photo/gen＝拍好、画好的这一张，TA 说一句＋在拍立得白边上写一行；live＝她举着相机、把TA放进取景框一起逛，TA 看着画面说一句
+  const cameraLook = async (charId, img, kind, inPhoto) => {
+    const char = characters.find(c => c.id === charId);
+    const route = apiFor(charId);
+    if (!char || !route) throw new Error("请先到设置配置 API");
+    const uName = (profileFor(charId) || {}).name || "她";
+    const live = kind === "live";
+    const d = await runProbe(route, ctxFor(char), {
+      voice: true, images: img ? [img] : [],
+      instruction: live
+        ? uName + " 举着手机相机在外面，把你也放进了取景框里，像你们一起在逛（图里就是取景框此刻的样子，你也在画面里）。你看看画面里真有的东西，照你这个人的性子跟她说一句。say 只写说出口的话，跟着你此刻的心情和你平时说话的样子来。"
+        : uName + (kind === "gen" ? " 在相机里让人画了这张，拿给你看" : " 刚用相机拍了这张，拿给你看") + (inPhoto ? "（照片里也有你）" : "") + "，图里就是。say 是你看着这张想跟她说的话，长短跟着你此刻的心情和你平时说话的样子来。caption 是你想亲手写在这张拍立得白边上的一行字，写在照片上留着的那种，短。",
+      schemaHint: live ? "{\"say\":\"你想跟她说的话\"}" : "{\"say\":\"你想跟她说的话\",\"caption\":\"写在白边上的一行字\"}",
+      maxTokens: 8000
+    });
+    return { say: String((d && d.say) || "").trim(), caption: live ? "" : String((d && d.caption) || "").trim() };
+  };
+  // 发进TA的聊天：跟照相馆那张一样走 shareShotToChat（先进本机图库，再搬进聊天图库）；发完TA等她开口
+  const cameraShare = async (charId, blob, caption) => {
+    const char = characters.find(c => c.id === charId);
+    if (!char) return false;
+    const k = "img_camshare_" + Date.now().toString(36);
+    await idbImgPut(k, blob);
+    return shareShotToChat(char, { imgKey: k, desc: caption ? "拍立得，白边上你写了：" + caption : "" });
+  };
+  // ═══ 相机·旅行（她 2026-11-26）═══
+  //   挑几个人、写一个地方，排出几站；一站一站寄明信片：正面是寄信的人在那儿拍的照（自拍／别人帮拍／风景／大家合照，TA 自己挑），
+  //   背面是TA写的一小段话。出发前选她去不去、要不要记进记忆；明信片的样子可以定，也可以让TA挑。
+  //   出图走跟相机合照同一个 castShotBlob；风景那种照聊天里「随手拍」那条空景路（buildScenePrompt、不喂脸）。
+  const tripNames = ids => ids.map(id => ((characters || []).find(c => c.id === id) || {}).name).filter(Boolean);
+  const tripPlan = async (ids, place, meGo, n) => {
+    const lead = (characters || []).find(c => c.id === ids[0]);
+    if (!lead) throw new Error("先挑一起去的人");
+    const route = apiFor(lead.id); if (!route) throw new Error("请先到设置配置 API");
+    const uName = (profileFor(lead.id) || {}).name || "她", names = tripNames(ids);
+    const d = await runProbe(route, ctxFor(lead), {
+      instruction: "要出门旅行：" + names.join("、") + (meGo ? "，还有 " + uName + " 一起" : "（" + uName + " 这趟没来，在家等明信片）") + "。她写的目的地是：「" + String(place || "").trim() + "」。"
+        + "排一条" + (n ? n + " 站" : "三到六站") + "的路线，一站接一站顺着走得通。去的是真实存在的地方，就排那里真有的景点、街区、店；去的是一种地方或者一句话，就照这一句和这几个人的世界去想这几站。"
+        + "每站 place 写地名（短），plan 写他们在那儿做什么（一段）。",
+      schemaHint: "{\"stops\":[{\"place\":\"地名\",\"plan\":\"在那儿做什么\"}]}",
+      maxTokens: 12000
+    });
+    return (Array.isArray(d && d.stops) ? d.stops : []).map(x => ({ place: String((x && x.place) || "").trim(), plan: String((x && x.plan) || "").trim() })).filter(x => x.place);
+  };
+  // 每张都要有脸（她 2026-11-26「拍照不准只有 view，每张必须是有脸的」）：只有自拍／别人帮拍／合照三种
+  // 入镜的人按性格拍、多人要看得出关系（她 2026-11-26）：同行几个人各是什么样、彼此什么关系，给挑怎么拍的那一枪
+  const tripCastLines = (ids, meGo, uName) => {
+    const cs = ids.map(id => (characters || []).find(c => c.id === id)).filter(Boolean);
+    const who = cs.map(c => "- " + c.name + "：" + String(c.persona || "").replace(/\s+/g, " ").trim()).join("\n");
+    const pairs = [];
+    cs.forEach(a => cs.forEach(b => { if (a.id !== b.id) { const r = (rels || {})[a.id + "->" + b.id]; if (r && r.label) pairs.push(a.name + " 对 " + b.name + "：" + r.label); } }));
+    if (meGo) cs.forEach(c => { const cp = (couples || {})[c.id] || {}; if (cp.status === "together") pairs.push(c.name + " 和 " + uName + "：恋人"); });
+    return "【这几个人各自是什么样】\n" + who + (pairs.length ? "\n【彼此的关系】\n" + pairs.join("\n") : "");
+  };
+  const TRIP_KIND = { self: "自拍", other: "别人帮忙拍的", group: "大家一起的合照" };
+  const tripCard = async (trip, idx, styles) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const stop = trip.stops[idx], ids = trip.ids || [], all = stop.sender === "all";
+    const writers = (all ? ids : [stop.sender]).map(id => (characters || []).find(c => c.id === id)).filter(Boolean);
+    if (!writers.length) throw new Error("这一站没有寄信的人");
+    const lead = writers[0], uName = (profileFor(lead.id) || {}).name || "她", meName = userName(profile);
+    const names = tripNames(ids);
+    const before = trip.stops.slice(0, idx).filter(x => x.card).map(x => "- " + x.place + "：" + (x.card.texts || []).map(t => (((characters || []).find(c => c.id === t.pid) || {}).name || "") + "写「" + t.text + "」").join("；")).join("\n");
+    const head = w => "你在旅行：同行的有 " + names.filter(n => n !== w.name).concat(trip.meGo ? [uName] : []).join("、") + (trip.meGo ? "" : "（" + uName + " 这趟没来，在家等你们的明信片）") + "。"
+      + "这一站是「" + stop.place + "」" + (stop.plan ? "，" + stop.plan : "") + "。"
+      + (before ? "\n【前几站寄出去的明信片】\n" + before + "\n接着往下写，这一站是新的一天、新的地方，别把前面写过的再写一遍。\n" : "")
+      + (all ? "这张明信片是大家一起寄的，每个人在背面写自己的一两句；" : "这张明信片是你寄给 " + uName + " 的；")
+      + "text 是你写在背面的话，" + (trip.meGo ? "写给一起来的她，" : "写给在家的她，") + "说这一站的事和你此刻想说的，长短跟着你此刻的心情和你平时说话的样子来" + (all ? "（只写你自己那一两句）" : "") + "。";
+    const pickStyle = stop.style === "auto" && styles && styles.length;
+    const lr = apiFor(lead.id); if (!lr) throw new Error("请先到设置配置 API");
+    const d = await runProbe(lr, ctxFor(lead), {
+      voice: true,
+      instruction: head(lead) + "\n正面是你在这一站拍的照片，你来挑怎么拍：kind 是 self（你自拍）、other（别人帮你拍）"
+        + (ids.length > 1 || trip.meGo ? "、group（同行的人一起入镜的合照）" : "") + "；scene 写画面里是什么（在哪、在干嘛、穿什么、光线），给画画的人看。"
+        + "入镜的人照各自的性格来拍：谁会怎么站、怎么看镜头、手往哪放、什么表情，都是这个人会有的样子；几个人一起入镜时，站位、距离、谁挨着谁、有没有动作上的来往，要看得出他们之间是什么关系。\n" + tripCastLines(ids, trip.meGo, uName)
+        + (pickStyle ? "\nstyle 是你挑的明信片样子，从这几种里挑一个写它的 id：" + styles.map(x => x.id + "＝" + x.zh).join("；") + "。" : ""),
+      schemaHint: "{\"text\":\"写在背面的话\",\"kind\":\"self|other" + (ids.length > 1 || trip.meGo ? "|group" : "") + "\",\"scene\":\"画面\"" + (pickStyle ? ",\"style\":\"样子的id\"" : "") + "}",
+      maxTokens: 12000
+    });
+    const texts = [{ pid: lead.id, text: String((d && d.text) || "").trim() }];
+    if (all && writers.length > 1) {
+      const rest = await Promise.all(writers.slice(1).map(async w => { try { const r = apiFor(w.id); if (!r) return null;
+        const x = await runProbe(r, ctxFor(w), { voice: true, instruction: head(w) + "\n" + lead.name + " 已经在上面写了：「" + texts[0].text + "」。", schemaHint: "{\"text\":\"你写的一两句\"}", maxTokens: 8000 });
+        return { pid: w.id, text: String((x && x.text) || "").trim() }; } catch (e) { return null; } }));
+      rest.forEach(x => x && x.text && texts.push(x));
+    }
+    let kind = String((d && d.kind) || "self"); if (!TRIP_KIND[kind]) kind = "self";
+    if (kind === "group" && !(ids.length > 1 || trip.meGo)) kind = "self";
+    const scene = "在「" + stop.place + "」旅行时拍的：" + String((d && d.scene) || stop.plan || "").trim();
+    const castIds = kind === "group" ? ids.concat(trip.meGo ? ["me"] : []) : [lead.id];
+    const cast = castIds.map(id => id === "me" ? { ...meSubject(null, meName, null), id: "me", name: meName } : (characters || []).find(c => c && c.id === id)).filter(Boolean).slice(0, GROUP_SHOT_MAX);
+    const blob = await castShotBlob(cast, scene, { kind: kind === "other" ? "other" : "self" });
+    const style = pickStyle && styles.some(x => x.id === d.style) ? d.style : "";
+    if (trip.remember) {
+      const who = ids.slice();
+      try { addMemEntry({ text: (trip.meGo ? "和" + uName + "、" : "") + names.join("、") + "一起旅行，到了「" + stop.place + "」" + (stop.plan ? "，" + stop.plan : "") + "。明信片上写：" + texts.map(t => (((characters || []).find(c => c.id === t.pid) || {}).name || "") + "「" + t.text + "」").join(" "), tags: ["旅行"], charIds: who, knownBy: who, source: "auto" }); } catch (e) {}
+    }
+    return { blob, kind, kindZh: TRIP_KIND[kind], scene, texts, style, castPids: kind === "group" ? ids : [lead.id] };
+  };
+  // ═══ 相机·电影 和 平行人生（她 2026-11-26「生人像、好看的，像旅行、邮票册那样」挑的两个）═══
+  //   电影：几个人主演一部片——先定片名、角色、几场戏；出一张海报（PosterLayout 排字，跟同人本封面同一套），再一场一场拍剧照、配台词。
+  //   平行人生：同一个TA在几个不同的世界里——每个世界一张写真，背面是那个世界的TA写给她的信。
+  //   演员／入镜的人照性格演、多人看得出关系：同行那份人设和关系照旅行那一份（tripCastLines）。
+  const storyCast = (ids, meIn) => ids.map(id => id === "me" ? { ...meSubject(null, userName(profile), null), id: "me", name: userName(profile) } : (characters || []).find(c => c && c.id === id)).filter(Boolean);
+  const storyLead = ids => { const c = (characters || []).find(x => x.id === ids.find(i => i !== "me")); if (!c) throw new Error("先挑人"); const r = apiFor(c.id); if (!r) throw new Error("请先到设置配置 API"); return { c, r }; };
+  const moviePlan = async (ids, brief, title) => {
+    const { c: lead, r } = storyLead(ids), uName = (profileFor(lead.id) || {}).name || "她", meIn = ids.indexOf("me") >= 0;
+    const names = tripNames(ids.filter(i => i !== "me")).concat(meIn ? [uName] : []);
+    const d = await runProbe(r, ctxFor(lead), {
+      instruction: names.join("、") + " 要一起主演一部电影。她给的是：「" + String(brief || "").trim() + "」" + (title ? "，片名用「" + title + "」" : "") + "。"
+        + "定这部片：title 片名；genre 类型（一两个词）；mood 这部片的气质（两三个词）；tagline 海报上的一句宣传语；synopsis 剧情简介（一段）；"
+        + "roles 每个演员演谁（who 写演员名，role 写角色名和这个角色是什么人）；scenes 是顺着剧情往下走的几场戏，每场 name 场名、beat 这一场发生什么（一段）；"
+        + "poster 是海报怎么拍：几个人的站位、动作、谁看谁，镜头从哪个高度、多远拍。"
+        + "角色照演员各自的性格和他们之间的关系来分，戏要给每个人都有。\n" + tripCastLines(ids.filter(i => i !== "me"), meIn, uName),
+      schemaHint: "{\"title\":\"片名\",\"genre\":\"类型\",\"mood\":\"气质\",\"tagline\":\"宣传语\",\"synopsis\":\"剧情简介\",\"roles\":[{\"who\":\"演员名\",\"role\":\"角色\"}],\"scenes\":[{\"name\":\"场名\",\"beat\":\"这一场发生什么\"}],\"poster\":\"海报怎么拍\"}",
+      maxTokens: 20000
+    });
+    const t = x => String(x == null ? "" : x).trim();
+    return { title: t(title || (d && d.title)), genre: t(d && d.genre), mood: t(d && d.mood), tagline: t(d && d.tagline), synopsis: t(d && d.synopsis), poster: t(d && d.poster),
+      roles: (Array.isArray(d && d.roles) ? d.roles : []).map(x => ({ who: t(x && x.who), role: t(x && x.role) })).filter(x => x.who),
+      scenes: (Array.isArray(d && d.scenes) ? d.scenes : []).map(x => ({ name: t(x && x.name), beat: t(x && x.beat) })).filter(x => x.name || x.beat) };
+  };
+  const moviePoster = async (mv) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const cast = storyCast(mv.ids);
+    const lead = cast.find(x => x.id !== "me") || cast[0];
+    const plan = window.PosterLayout ? window.PosterLayout.plan("movie", { title: mv.title, genre: mv.genre, mood: mv.mood }) : null;
+    const scene = "电影《" + mv.title + "》的正式海报：" + cast.map(x => x.name).join("、") + "主演。" + (mv.poster || "") + (mv.roles.length ? "（" + mv.roles.map(x => x.who + "演" + x.role).join("；") + "）" : "") + "画面里不要出现任何文字。";
+    const blob = await castShotBlob(cast, scene, { kind: cast.length > 1 ? "group" : "self", popts: { editorial: "movie", editorialSpace: plan ? window.PosterLayout.spaceLine(plan) : "" } });
+    return plan ? await studioOverlay(blob, plan, { title: mv.title, tagline: mv.tagline || "", credit: "主演 " + cast.map(x => x.name).join(" "), dateLine: mv.genre || "" }, cast.map(x => x.name)) : blob;
+  };
+  const movieScene = async (mv, idx) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const { c: lead, r } = storyLead(mv.ids), uName = (profileFor(lead.id) || {}).name || "她", meIn = mv.ids.indexOf("me") >= 0;
+    const sc = mv.scenes[idx];
+    const before = mv.scenes.slice(0, idx).filter(x => x.shot).map(x => "- 「" + x.name + "」" + x.beat + (x.shot.lines || []).map(l => " " + l.who + "：「" + l.line + "」").join("")).join("\n");
+    const d = await runProbe(r, ctxFor(lead), {
+      instruction: "电影《" + mv.title + "》（" + mv.genre + "）。剧情：" + mv.synopsis + "\n角色：" + mv.roles.map(x => x.who + " 演 " + x.role).join("；") + "\n"
+        + (before ? "【前面拍好的几场】\n" + before + "\n" : "")
+        + "现在拍第 " + (idx + 1) + " 场「" + sc.name + "」：" + sc.beat + "\n"
+        + "写这一场的一张剧照和这一场的台词：still 写剧照画面（谁在画面里、站位、动作、表情、场景、光），像电影里定格的一帧；inFrame 是入镜的演员名（数组，写演员本名）；"
+        + "lines 是这一场里最戳的几句台词（who 写角色名，line 写台词）。入镜的人照各自的角色和性格来演，几个人同框要看得出角色之间是什么关系。\n" + tripCastLines(mv.ids.filter(i => i !== "me"), meIn, uName),
+      schemaHint: "{\"still\":\"剧照画面\",\"inFrame\":[\"演员名\"],\"lines\":[{\"who\":\"角色名\",\"line\":\"台词\"}]}",
+      maxTokens: 12000
+    });
+    const cast0 = storyCast(mv.ids), want = (Array.isArray(d && d.inFrame) ? d.inFrame : []).map(String);
+    let cast = cast0.filter(x => want.some(n => n && (n.indexOf(x.name) >= 0 || x.name.indexOf(n) >= 0 || (x.id === "me" && n.indexOf(uName) >= 0))));
+    if (!cast.length) cast = [lead];
+    const scene = "电影《" + mv.title + "》第 " + (idx + 1) + " 场的剧照：" + String((d && d.still) || sc.beat || "").trim() + "（" + mv.roles.filter(x => cast.some(c => x.who.indexOf(c.name) >= 0)).map(x => x.who + "演" + x.role).join("；") + "）";
+    const blob = await castShotBlob(cast, scene, { kind: cast.length > 1 ? "group" : "other", popts: { cinematic: true } });
+    return { blob, still: String((d && d.still) || "").trim(), lines: (Array.isArray(d && d.lines) ? d.lines : []).map(x => ({ who: String((x && x.who) || "").trim(), line: String((x && x.line) || "").trim() })).filter(x => x.line), castPids: cast.map(x => x.id).filter(x => x !== "me") };
+  };
+  const worldsPlan = async (charId, brief) => {
+    const { c, r } = storyLead([charId]), uName = (profileFor(c.id) || {}).name || "她";
+    const d = await runProbe(r, ctxFor(c), {
+      instruction: "想几个平行世界里的你：同一个你，换了一个世界、一种人生。" + (String(brief || "").trim() ? "她想看的是：「" + String(brief).trim() + "」。" : "")
+        + "每个世界 world 写那是个什么世界（短），who 写那个世界里的你是什么人、在过什么日子（一段）。世界之间要拉开，照你这个人的性格去想那个世界里的你会变成什么样。",
+      schemaHint: "{\"worlds\":[{\"world\":\"什么世界\",\"who\":\"那个世界的你\"}]}",
+      maxTokens: 12000
+    });
+    return (Array.isArray(d && d.worlds) ? d.worlds : []).map(x => ({ world: String((x && x.world) || "").trim(), who: String((x && x.who) || "").trim() })).filter(x => x.world);
+  };
+  const worldCard = async (charId, w, done) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const { c, r } = storyLead([charId]), uName = (profileFor(c.id) || {}).name || "她";
+    const d = await runProbe(r, ctxFor(c), {
+      voice: true,
+      instruction: "在一个平行世界里：" + w.world + "。那个世界的你：" + (w.who || "照这个世界和你的性格去想") + "\n"
+        + (done && done.length ? "【已经写过的别的世界】\n" + done.map(x => "- " + x).join("\n") + "\n" : "")
+        + "photo 是那个世界的你的一张写真：穿什么、在哪、在干嘛、什么神情、光从哪来，照那个世界和你这个人来拍，要好看；"
+        + "letter 是那个世界的你写给 " + uName + " 的信：那个世界里你们是怎么遇见的、或者还没遇见，那个你想对她说什么，长短跟着那个世界的你的心情和说话的样子来。",
+      schemaHint: "{\"photo\":\"写真画面\",\"letter\":\"写给她的信\"}",
+      maxTokens: 12000
+    });
+    const scene = "平行世界「" + w.world + "」里的" + c.name + "：" + String((d && d.photo) || w.who || "").trim();
+    const blob = await castShotBlob([c], scene, { kind: "other", popts: { cinematic: true } });
+    return { blob, photo: String((d && d.photo) || "").trim(), letter: String((d && d.letter) || "").trim() };
+  };
+  const cameraGenShot = async (ids, scene, who, o) => {
+    if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 配一下");
+    const meName = userName(profile);
+    const cast = (ids || []).map(id => id === "me" ? { ...meSubject(null, meName, null), id: "me", name: meName } : (characters || []).find(c => c && c.id === id)).filter(Boolean).slice(0, GROUP_SHOT_MAX).map(c => camDress(c, o));
     if (!cast.length) throw new Error("先挑画面里有谁");
     const sc = String(scene || "").trim() || (cast.length > 1 ? "一起拍的一张合照" : "随手拍的一张照片");
-    return castShotBlob(cast, sc, { kind: who === "other" ? "other" : "self" });
+    const fr = o && CAM_FRAME[o.frame];
+    return castShotBlob(cast, sc, { kind: who === "other" ? "other" : "self", ...(fr ? { extraText: "\n\n" + fr + (who === "other" ? "" : "自拍拍不全的话就当是手机架在远处定时拍的。") } : {}) });
   };
   // 送走它（她 2026-11-20「什么时候养完或者换一种」）：收进「养过的」，频道里冒一行告别，再让大家接一轮
   const sendOffChannelPet = (g, how) => {
@@ -38941,7 +39258,8 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 房里角色自拍（默认照这个人能不能出图：接了图像通道、填了外貌或参考照）；出图走单聊那一套 shootCharPhoto，回一张 dataURL
     selfieOk: charId => { const c = characters.find(x => x.id === charId); return !!(c && typeof imgApiReady === "function" && imgApiReady() && (c.appearance || c.refPhoto)); },
     // 房里合照：我带来的角色长什么样（名字、外貌、参考照；人设不给），和拿一份点名单画一张合影（顺序＝参考图顺序，人人都有参考照）
-    lookOf: charId => { const c = characters.find(x => x.id === charId); return c ? { name: c.remark || c.name, appearance: String(c.appearance || "").slice(0, 400), photoStyle: c.photoStyle || "", refPhoto: typeof c.refPhoto === "string" ? c.refPhoto : "" } : null; },
+    lookOf: charId => { if (charId === "__self") return profile ? { name: userName(profile), appearance: String(profile.appearance || "").slice(0, 400), photoStyle: "", refPhoto: typeof profile.refPhoto === "string" ? profile.refPhoto : "" } : null;
+      const c = characters.find(x => x.id === charId); return c ? { name: c.remark || c.name, appearance: String(c.appearance || "").slice(0, 400), photoStyle: c.photoStyle || "", refPhoto: typeof c.refPhoto === "string" ? c.refPhoto : "" } : null; },
     drawCast: async (cast, scene) => {
       if (!(typeof imgApiReady === "function" && imgApiReady())) throw new Error("先去 设置·图像API 接一个图像模型");
       const list = (cast || []).filter(x => x && x.refPhoto).slice(0, GROUP_SHOT_MAX).map((x, i) => ({ id: "nr_" + i, name: x.name, appearance: x.appearance || "", refPhoto: x.refPhoto, photoStyle: x.photoStyle || "" }));
@@ -39324,7 +39642,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, onClosetOf: cameraClosetOf, onGenFit: cameraGenFit, onTripPlan: tripPlan, onTripCard: tripCard, onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onWorldsPlan: worldsPlan, onWorldCard: worldCard, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,

@@ -55,8 +55,12 @@
         skip = false; at = app;
         opens++; out.push({ do: "open", app, who });
         // open 自己带着一串心声（schema 里要求的）：边翻边想，一屏一句
-        (Array.isArray(s.thoughts) ? s.thoughts : []).slice(0, 4).forEach(t => { const text = clipThink(t);
-          if (text) out.push({ do: "scroll", dir: app === "chat" ? "up" : "down", n: 1, auto: true }, { do: "think", text }); });
+        // 每句心声可以挂着他看到的那句原话（她 2026-11-26「先框出回的哪一句再给心里活动」）：{ at, t }——回放时先滑到那句、框住，再冒心声；
+        //   挂了原话的不再空滑一屏（滑到哪儿由那句决定）。老写法纯字符串照旧
+        (Array.isArray(s.thoughts) ? s.thoughts : []).slice(0, 4).forEach(t => { const o = t && typeof t === "object" ? t : null, text = clipThink(o ? (o.t || o.text || o.think) : t), q = seenQuote(o && (o.at || o.quote));
+          if (!text) return;
+          if (q && app === "chat") out.push({ do: "think", text, at: q });
+          else out.push({ do: "scroll", dir: app === "chat" ? "up" : "down", n: 1, auto: true }, { do: "think", text }); });
         return;
       }
       // 被跳过的那一段里，真动手的那几步（改备注、置顶……）照留——它们不靠那一页
@@ -102,8 +106,8 @@
         if (text) out.push({ do: "rename", text });
       }
       else if (d === "think") {
-        const text = clipThink(s.text);
-        if (text) out.push({ do: "think", text });
+        const text = clipThink(s.text), q = at === "chat" ? seenQuote(s.at || s.quote) : "";
+        if (text) out.push(q ? { do: "think", text, at: q } : { do: "think", text });
       }
     });
     if (lockStep) out.push(lockStep);
@@ -198,6 +202,28 @@
     }
     return best;
   }
+  // 心声挂的那句原话在聊天里是哪个气泡：不管在不在屏幕里都找（要先滑过去）。整句找不到，退一步拿头、尾各一截再找
+  function findSaid(quote) {
+    const norm = x => S(x).replace(/\s+/g, "");
+    const want = norm(quote);
+    if (!want) return null;
+    const tries = [want].concat(want.length > 10 ? [want.slice(0, 8), want.slice(-8)] : []);
+    const bubbles = document.querySelectorAll('#root [data-wk="bubble"]');
+    for (const all of [bubbles, document.querySelectorAll("#root p, #root span, #root div")]) for (const w of tries) {
+      let best = null, bestLen = Infinity;
+      for (let i = 0; i < all.length; i++) {
+        const el = all[i];
+        if (el.closest("[data-peek-overlay]")) continue;
+        const tx = norm(el.textContent);
+        if (!tx || tx.indexOf(w) < 0 || tx.length > Math.max(w.length * 4, w.length + 160)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 8 || r.height < 8) continue;
+        if (tx.length < bestLen) { best = el; bestLen = tx.length; }
+      }
+      if (best) return best;
+    }
+    return null;
+  }
   // 圆点底下那个能滚的；没有就挑屏幕上最大的那个能滚的
   function findScroller(x, y) {
     // ⚠️遮罩盖在最上面，elementFromPoint 只会拿到遮罩自己——要往下数第一个不是遮罩的
@@ -232,6 +258,11 @@
 
   // props: charName, avatarChar, script(null＝还在想), goHome(), onOpen(app, who)（主屏找不到时直接打开）, onBack(), onDone(thoughts)
   // 心声别从半句里切断（她 2026-10-29 截图：「一个随」「Tu te」）：给到 160 字，超了就退到最后一个句末标点
+  // 心声挂的那句原话：去掉引号、说话人前缀，留够认得出来的一小截
+  function seenQuote(raw) {
+    let q = S(raw).replace(/[《》「」『』“”"]/g, "").replace(/^\s*[^：:\s]{1,12}[：:]\s*/, "").replace(/\s+/g, " ").trim();
+    return q.length >= 2 ? q.slice(0, 40) : "";
+  }
   function clipThink(raw) {
     const t = S(raw).trim();
     if (t.length <= 160) return t;
@@ -244,6 +275,7 @@
     const h = React.createElement, t = (typeof useTheme === "function" ? useTheme() : {}) || {};
     const [dot, setDot] = React.useState({ x: window.innerWidth / 2, y: window.innerHeight * 0.62, down: false });
     const [thought, setThought] = React.useState("");
+    const [hi, setHi] = React.useState(null);   // 心声对着的那句：一圈框（屏幕坐标）
     const [caption, setCaption] = React.useState("接过了你的手机…");
     const [spd, setSpd] = React.useState(speed);
     // 等他想好怎么翻的那一段（她 2026-11-14 转群友「查手机很慢」）：说一句在干嘛、过了几秒，看得出没卡住
@@ -477,9 +509,30 @@
             await sleep(600);
           } else if (s.do === "think") {
             logRef.current.push(s.text);
+            // 挂着原话的：先滑到那一句、框住，停一下再冒心声；找不到那句就照旧往上滑一屏再想
+            if (s.at) {
+              let el = findSaid(s.at);
+              if (el) {
+                let sc = el.parentElement;
+                while (sc && sc !== document.body && !(sc.scrollHeight > sc.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+                const r0 = el.getBoundingClientRect(), dy = (r0.top + r0.height / 2) - window.innerHeight * 0.42;
+                if (sc && sc !== document.body && Math.abs(dy) > 40) {
+                  setDot({ x: window.innerWidth * 0.55, y: dy > 0 ? window.innerHeight * 0.7 : window.innerHeight * 0.35, down: true });
+                  await animScroll(sc, dy, Math.min(1600, 600 + Math.abs(dy) * 0.6));
+                  setDot(d => ({ ...d, down: false }));
+                }
+                await sleep(250);
+                const r = el.getBoundingClientRect();
+                setHi({ x: r.left - 6, y: r.top - 6, w: r.width + 12, h: r.height + 12 });
+                await sleep(900);
+              } else {
+                const sc = findScroller(window.innerWidth / 2, window.innerHeight / 2);
+                if (sc) await animScroll(sc, -sc.clientHeight * 0.55, 800);
+              }
+            }
             setThought(s.text);
             await sleep(1800 + Math.min(2400, s.text.length * 90));
-            setThought("");
+            setThought(""); setHi(null);
             await sleep(250);
           }
         }
@@ -491,6 +544,7 @@
     const ink = t.ink || "#222", bg2 = t.bg2 || "#fff";
     return h("div", { "data-peek-overlay": "1", style: { position: "fixed", inset: 0, zIndex: 9990, background: "transparent" },
         onClickCapture: e => { if (!e.target.closest("[data-peek-skip]")) { e.stopPropagation(); e.preventDefault(); } } },
+      hi ? h("div", { "data-wk": "peeksaidbox", style: { position: "absolute", left: hi.x, top: hi.y, width: hi.w, height: hi.h, border: "2.5px solid " + (t.ink || "#222"), borderRadius: 12, boxShadow: "0 0 0 3px rgba(255,255,255,.7)", pointerEvents: "none", transition: "all .2s" } }) : null,
       // 顶上那一行：谁在翻、在翻什么
       h("div", { style: { position: "absolute", left: 12, right: 136, top: "calc(env(safe-area-inset-top, 0px) + 10px)", display: "flex", alignItems: "center", gap: 8,
           padding: "7px 12px", borderRadius: 999, background: "rgba(20,20,20,.62)", color: "#fff", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" } },
