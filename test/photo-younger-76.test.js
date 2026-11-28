@@ -33,3 +33,11 @@ test("小时候也要认得出：有外貌抄外貌，没写就看参考照挑�
   assert.match(s, /看参考照，找出这个人脸上最认得出的几样/);
   assert.equal((s.match(/像从相册里扫出来的。" : ""\) \+ _yLook\);/g) || []).length, 2);
 });
+test("少年那几年按少年画（她 2026-11-28「十三岁但是看起来还是有点大」）", () => {
+  const a = f.photoYoungerOf("初一运动会，十三岁的顾朝趴在跳远沙坑里");
+  assert.ok(a && a.teen && a.age === "十三岁");
+  assert.ok(f.photoYoungerOf("高二那年在教室后排睡觉").teen);
+  assert.equal(f.photoYoungerOf("大约六七岁的小沈屿白的旧照片").teen, false);
+  assert.equal(f.photoYoungerOf("十八岁生日那天切蛋糕"), null);
+  assert.match(s, /const _yKid = younger && younger\.teen \? "少年" : "孩子";/);
+});
