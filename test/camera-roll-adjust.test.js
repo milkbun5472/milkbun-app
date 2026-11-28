@@ -25,7 +25,7 @@ test("给TA看／一起逛：同一个 cameraLook，看图回 say(+caption)；�
   for (const k of ["camlook", "camlookone", "camlooksay", "camcaption", "camsay"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(cam.includes('"data-wk": "' + k + '"'), k); }
 });
 test("拍过的点开看大图：复用成片页，左下是删除，删本机图库那张", () => {
-  assert.match(cam, /onClick: \(\) => openRoll\(p\)/);
+  assert.match(cam, /: openRoll\(p\)/);
   assert.match(cam, /shot\.fromRoll \? big\("删除", delRoll, "delshot"\)/);
   assert.match(cam, /await idbImgDel\(k\)/);
   assert.match(cam, /requestAppConfirm\("删掉这张？"/);
@@ -139,4 +139,9 @@ test("旅行：路上小意外、纪念品、回明信片、旅行手账、下�
   assert.match(trip, /mishap: r\.mishap \|\| "", souvenir: r\.souvenir \|\| null/);
   assert.match(trip, /const nextTrip = \(\) =>/); assert.match(trip, /const sendAt = async idx =>/); assert.match(trip, /remember: false/); assert.ok(trip.includes('"data-part": "resend"'));
   for (const k of ["tripmishap", "tripsouvenir", "tripthread", "tripreply", "tripjournal", "tripjroute", "tripjphotos", "tripjsouvenir", "tripjsummary", "tripnext"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(trip.includes('"' + k + '"'), k); }
+});
+test("拍过的：可以多选删除、全选删除，走 App 确认框", () => {
+  assert.match(cam, /const \[rollSel, setRollSel\] = useState\(null\)/);
+  assert.match(cam, /const delRollMany = keys =>/);
+  for (const k of ["rollpick", "rollall", "rolldel"]) { assert.ok(cam.includes('"data-part": "' + k + '"'), k); assert.ok(ts.includes(k), k); }
 });

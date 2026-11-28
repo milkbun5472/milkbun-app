@@ -319,6 +319,7 @@
     // 这一趟拍的、画的都排进胶卷：拼贴那边直接从这里挑（存进图库，拼贴读图走 imgKey）
     const [roll, setRoll] = useState([]);
     const [rollWho, setRollWho] = useState("");   // 拍过的：按谁筛，空＝全部
+    const [rollSel, setRollSel] = useState(null);  // 多选删除（群友 2026-11-28「拍了几百张一个个删有点费」）：null＝没在选，数组＝选中的 imgKey
     // 抠图人：给谁抠（默认第一个角色）、她写的姿势、在忙什么；抠好的图按 img_ 键现读成 objectURL
     const [pTab, setPTab] = useState("avatar");   // 加人面板里两格：头像贴纸 / 抠出来的人（底栏不再多塞一颗，挤不下）
     const [cutFor, setCutFor] = useState(() => (chars[0] && chars[0].id) || "me");
@@ -509,6 +510,13 @@
         setLook(null); setShot({ url: URL.createObjectURL(blob), blob, k: p.imgKey, fromRoll: true, gen: p.desc === "画的", pids: [] }); }
       catch (e) { props.toast && props.toast(String(e && e.message || e)); }
     };
+    const delRollMany = keys => {
+      if (!keys || !keys.length) return;
+      const go = async () => { for (const k of keys) { try { if (typeof idbImgDel === "function") await idbImgDel(k); } catch (e) {} }
+        setRoll(l => l.filter(x => keys.indexOf(x.imgKey) < 0)); setRollSel(null); };
+      if (typeof requestAppConfirm === "function") requestAppConfirm("删掉这 " + keys.length + " 张？", "删了就找不回来了（已经存到手机、发进聊天的那份不受影响）", go, "删掉");
+      else go();
+    };
     const delRoll = async () => {
       // ⚠️不用 window.confirm：装成 App 后那个框被系统吞掉、直接当「取消」（她 2026-11-26「删不掉按不动」）——走 App 自己那层确认
       if (!shot || !shot.k) return;
@@ -641,14 +649,21 @@
               h("div", { style: { fontSize: FS(11.5), opacity: .85, marginTop: 3 } }, sub)),
             h("div", { style: { width: 48, height: 48, borderRadius: 16, background: "rgba(255,255,255,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, position: "relative" } }, ico(ic)))),
           roll.length ? h("div", { style: { marginTop: 20 } },
-            h("div", { style: { fontSize: FS(13), fontWeight: 600, marginBottom: 8 } }, "拍过的"),
+            h("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 8 } },
+              h("div", { style: { fontSize: FS(13), fontWeight: 600, flex: 1 } }, "拍过的" + (rollSel ? " · 选了 " + rollSel.length + " 张" : "")),
+              rollSel ? h("button", { "data-wk": "cambtn", "data-part": "rollall", onClick: () => { const all = rollShown.map(x => x.imgKey); setRollSel(rollSel.length === all.length ? [] : all); }, style: { border: "none", background: "transparent", color: "#4a3f47", fontSize: FS(12), padding: 0 } }, rollSel.length === rollShown.length ? "全不选" : "全选") : null,
+              rollSel ? h("button", { "data-wk": "cambtn", "data-part": "rolldel", disabled: !rollSel.length, onClick: () => delRollMany(rollSel), style: { border: "none", background: "transparent", color: "#e0457b", fontSize: FS(12), fontWeight: 600, padding: 0, opacity: rollSel.length ? 1 : .4 } }, "删掉") : null,
+              h("button", { "data-wk": "cambtn", "data-part": "rollpick", onClick: () => setRollSel(rollSel ? null : []), style: { border: "none", background: "transparent", color: "#9a8592", fontSize: FS(12), padding: 0 } }, rollSel ? "取消" : "选择")),
             rollPeople.length ? h("div", { "data-wk": "camrollwho", style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8 } },
               [{ id: "", name: "全部" }].concat(rollPeople).map(p => { const on = rollWho === p.id;
                 return h("button", { key: p.id || "all", "data-wk": "camrollwhoone", "data-on": on ? "1" : "0", onClick: () => setRollWho(p.id),
                   style: { flexShrink: 0, height: 28, padding: "0 12px", borderRadius: 14, border: on ? "none" : "1px solid rgba(0,0,0,.1)", background: on ? GRAD : "#fff", color: on ? "#fff" : "#4a3f47", fontSize: FS(12), fontWeight: on ? 600 : 400 } },
                   p.name + (p.id ? " " + roll.filter(x => (x.pids || []).indexOf(p.id) >= 0).length : "")); })) : null,
             h("div", { "data-wk": "camhubroll", style: { display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 } },
-              rollShown.map(p => h("div", { key: p.imgKey, "data-wk": "camrollone", onClick: () => openRoll(p), style: { flexShrink: 0, width: 72, height: 96, borderRadius: 12, overflow: "hidden", background: "#eee", cursor: "pointer" } }, typeof AlbumPhoto === "function" ? h(AlbumPhoto, { photo: p }) : null)))) : null),
+              rollShown.map(p => { const on = !!rollSel && rollSel.indexOf(p.imgKey) >= 0;
+                return h("div", { key: p.imgKey, "data-wk": "camrollone", "data-on": on ? "1" : "0", onClick: () => rollSel ? setRollSel(on ? rollSel.filter(k => k !== p.imgKey) : rollSel.concat([p.imgKey])) : openRoll(p), style: { position: "relative", flexShrink: 0, width: 72, height: 96, borderRadius: 12, overflow: "hidden", background: "#eee", cursor: "pointer", outline: on ? "2.5px solid #e0457b" : "none", outlineOffset: -2.5 } },
+                  typeof AlbumPhoto === "function" ? h(AlbumPhoto, { photo: p }) : null,
+                  rollSel ? h("div", { style: { position: "absolute", right: 5, top: 5, width: 20, height: 20, borderRadius: 10, border: "1.5px solid #fff", background: on ? "#e0457b" : "rgba(0,0,0,.25)", color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" } }, on ? "✓" : "") : null); }))) : null),
         h("input", { ref: hubFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return; setBg(URL.createObjectURL(f)); setMode("live"); setPanel(""); } }));
     }
     // 拼贴、大头贴：借拼壁纸那个编辑器（collage.js），solo 不对着哪个人；这一趟拍的画的在胶卷里，也能从手机传
