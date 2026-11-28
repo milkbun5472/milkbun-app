@@ -1042,7 +1042,7 @@
       + cpRuleBlock(okCPs)
       + "【输出】只输出合法 JSON 数组，恰好 " + cnt + " 个元素，无 markdown：\n"
       + "[{\"name\":\"\",\"sign\":\"\",\"bio\":\"\",\"style\":\"\",\"sore\":\"\",\"temper\":\"\"}]";
-    const raw = await callAI(active, sys, [{ role: "user", content: "请 " + cnt + " 位。" }], { maxTokens: 12000, timeout: 180000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "请 " + cnt + " 位。" }], { logLabel: "同人文·招作者", maxTokens: 12000, timeout: 180000 });
     const d = parseJSONLoose(raw);
     const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
     const out = [];
@@ -1212,7 +1212,7 @@
         : "别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。");
     let batchCot = null;
     async function once(extra) {
-      const raw = await callAI(active, sys + posTail(cpChars, opts) + (extra || ""), [{ role: "user", content: user }], { maxTokens: ficOutCap(n, perFic, minWords), ...FIC_WRITE_OPTS });
+      const raw = await callAI(active, sys + posTail(cpChars, opts) + (extra || ""), [{ role: "user", content: user }], { logLabel: "同人文·写文", maxTokens: ficOutCap(n, perFic, minWords), ...FIC_WRITE_OPTS });
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       if (sp.cot) batchCot = sp.cot; // 整批一次思考，挂到第一篇
       const d = parseJSONLoose(sp.clean);
@@ -1934,7 +1934,7 @@
       // ⚠️天花板要跟着地板走：她把最少字数调到 5000 字，而天花板还按 perFic 算，
       //   就会写到一半被截断——那才是真多花一次调用（施工规则/max-tokens-floor.md）。
       const raw = await callAI(active, sys + posTail(cpChars, ficOpts(fic, opts)) + (extra || ""), [{ role: "user", content: userMsg }],
-        { maxTokens: ficOutCap(1, clampPerFic(opts.perFic), minWords), ...FIC_WRITE_OPTS });
+        { logLabel: "同人文·写下一章", maxTokens: ficOutCap(1, clampPerFic(opts.perFic), minWords), ...FIC_WRITE_OPTS });
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       const d = parseJSONLoose(sp.clean);
       if (d && d.content) return { content: String(d.content).trim(), endHook: String(d.endHook || "").trim(),
@@ -1990,7 +1990,7 @@
       (!byChar && opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL)
       + (byChar ? charVoiceTail(byChar, opts.style) : "");
     const raw = await callAI(active, sys + posTail(cpChars, ficOpts(fic, opts)), [{ role: "user", content: "接着把这一章写完，至少再写 " + Math.max(200, missing) + " 字。" }],
-      { maxTokens: ficOutCap(1, clampPerFic(opts.perFic), minWords), ...FIC_WRITE_OPTS });
+      { logLabel: "同人文·把这章写完", maxTokens: ficOutCap(1, clampPerFic(opts.perFic), minWords), ...FIC_WRITE_OPTS });
     const d = parseJSONLoose(raw);
     let add = d && d.add ? String(d.add).trim() : "";
     if (!add) {
@@ -2024,7 +2024,7 @@
           : "【这一次你没答应】怎么回绝、说得软还是硬、给不给台阶，照你自己的脾气来。\n") +
       "【输出】只输出一个合法 JSON 对象，无 markdown：\n{\"say\":\"你回的那段话（一两句，就是你打字发出去的样子）\"}" +
       (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL);
-    const raw = await callAI(active, sys, [{ role: "user", content: "回一句。" }], { maxTokens: 12000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "回一句。" }], { logLabel: "同人文·作者回话", maxTokens: 12000 });
     const d = parseJSONLoose(raw);
     const say = String((d && d.say) || "").trim();
     if (!say) throw new Error("她没回话。这一枪回的是：\n" + String(raw || "").replace(/\s+/g, " ").trim().slice(0, 180));
@@ -2141,7 +2141,7 @@
       "【输出】只输出合法 JSON 数组，5-8 条书评：\n" +
       "[{\"author\":\"读者马甲（同人圈网名，别用真名，别带@）\",\"content\":\"书评正文\",\"replies\":[{\"author\":\"另一读者马甲\",\"content\":\"楼中楼回复\",\"isAuthor\":false}]}]\n" +
       "**其中必须至少有一条**（某条书评本身、或某条楼中楼回复）是作者「" + authorName + "」本人下场回复读者的——署名就写「" + authorName + "」、把那条的 isAuthor 设为 true，像作者回评那样（道谢/回应读者的梗/害羞解释/回怼黑评，符合太太本人语气）。其余 replies 大多留空，只 1-2 条带楼中楼。语气各异别雷同。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "给《" + fic.title + "》写书评，记得作者「" + authorName + "」要下场至少回一句。" }], { maxTokens: 11200 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "给《" + fic.title + "》写书评，记得作者「" + authorName + "」要下场至少回一句。" }], { logLabel: "同人文·书评", maxTokens: 11200 });
     const d = parseJSONLoose(raw);
     const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
     // 名册里那几位：只认【真在名册里】的笔名，模型现编的一律当普通读者
@@ -2193,7 +2193,7 @@
       "【输出】只输出合法 JSON 数组，2-4 条回复这条评论的话（自然接话/共鸣/抬杠/补充/玩梗）：\n" +
       "[{\"author\":\"马甲\",\"content\":\"回复\",\"isAuthor\":false}]\n" +
       "**其中让作者「" + authorName + "」本人至少回一条**（那条 author 写「" + authorName + "」、isAuthor 设 true）。别都一个腔调，别客服腔。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "针对这条评论生成回复。" }], { maxTokens: 12000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "针对这条评论生成回复。" }], { logLabel: "同人文·回你的评论", maxTokens: 12000 });
     const d = parseJSONLoose(raw);
     const arr = Array.isArray(d) ? d : (d && Array.isArray(d.items) ? d.items : []);
     return arr.filter(function (x) { return x && x.content; }).slice(0, 5).map(function (x) {
@@ -2619,7 +2619,7 @@
       "· 几件之间不许是同一件事的几个阶段，要落在故事的不同处。\n" +
       "\n\n【输出格式】只输出一个合法 JSON 对象：\n" +
       "{\"beats\":[{\"label\":\"这一页叫什么，≤10字，用原著里的说法\",\"page\":\"原著这一页本来写的是什么：谁、在哪、做了什么、结果怎样，40-80字，把话说完整\",\"cue\":\"什么时候算走到了这一页——那个当口的信号，一句话，供引擎自己判定\"}]}";
-    const raw = await callAI(active, sys, [{ role: "user", content: "抽骨架。" }], { maxTokens: Math.max(14000, Math.min(22000, (perFic || 3000) + 10000)) });
+    const raw = await callAI(active, sys, [{ role: "user", content: "抽骨架。" }], { logLabel: "同人文·穿书开场", maxTokens: Math.max(14000, Math.min(22000, (perFic || 3000) + 10000)) });
     const txt = String(raw || "").trim();
     const d = rpJSON(txt);
     const arr = (d && Array.isArray(d.beats)) ? d.beats : [];
@@ -2683,7 +2683,7 @@
       task + "\n" + rpAnchorLine(cpChars, userName) + "（切记：别把玩家换成原著里的谁，也别把这一场写成她在旁边看。）" +
       "\n\n" + rpTurnShape(fic, session, !!o.wantNote) +
       (cotT && typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "");
-    const raw = await callAI(active, sys, rpMessages(session, userAction), { maxTokens: Math.max(12000, Math.min(22000, (perFic || 2400) + 10000)) });
+    const raw = await callAI(active, sys, rpMessages(session, userAction), { logLabel: "同人文·穿书互动", maxTokens: Math.max(12000, Math.min(22000, (perFic || 2400) + 10000)) });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const out = rpParseTurn(sp.clean);
     out.cot = sp.cot || null;
@@ -2719,7 +2719,7 @@
       + "· 原作者那条的口气照她此刻的态度来（见上面那一段），别写成客气的场面话。\n" +
       rpAuthorBlock(fic, session) +
       "\nverdict 就按上面这个人格写，只是这一次她看的是【整本】不是一拍：她认不认这一版、认到什么程度。不超过 40 字。";
-    const raw = await callAI(active, sys, rpMessages(session, null), { maxTokens: Math.max(12000, Math.min(22000, (perFic || 2400) + 10000)) });
+    const raw = await callAI(active, sys, rpMessages(session, null), { logLabel: "同人文·穿书结局", maxTokens: Math.max(12000, Math.min(22000, (perFic || 2400) + 10000)) });
     const txt = String(raw || "").trim();
     const d = rpJSON(txt);
     const rvs = (d && Array.isArray(d.reviews)) ? d.reviews : [];
@@ -2796,7 +2796,7 @@
       + "scene＝要画的画面（中文，80~160 字）：谁在哪儿、在做什么、几个人之间什么距离和姿态、光和天气、这一刻的情绪。只写画面里看得见的，不写心理活动，不写对白。画面里的人只用 CP 里的名字。\n"
       + "只输出 JSON：" + (kind === "fanart" ? "{\"name\":\"\",\"style\":\"\",\"say\":\"\",\"scene\":\"\"}" : kind === "book" ? "{\"scene\":\"\",\"tagline\":\"\",\"genre\":\"\",\"mood\":\"\"}" : "{\"scene\":\"\"}");
     const user = "《" + (fic.title || "") + "》\nCP：" + cpText + (tags ? "\n标签：" + tags : "") + (fic.groupWay ? "\n关系：" + fic.groupWay : "") + "\n\n" + ficArtText(fic, chapIdx);
-    const raw = await callAI(active, sys, [{ role: "user", content: user }], { maxTokens: 8000, timeout: 120000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: user }], { logLabel: "同人文·挑画面", maxTokens: 8000, timeout: 120000 });
     const d = parseJSONLoose(raw) || {};
     if (!String(d.scene || "").trim()) throw new Error("没想好画什么，再点一次");
     return d;
