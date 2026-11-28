@@ -136,3 +136,12 @@ test("空格前是句末语气字：后面再短也另起一泡（2026-11-26 群
   assert.ok(!r.some(x => /了说吧/.test(x)));
   assert.deepEqual(splitLongBubble("拍得我 眼睛都快花了", true), ["拍得我 眼睛都快花了"]);
 });
+// 她 2026-11-28 截图：「…上午起不来晚安」——短句里句号隔开的、空格后面跟晚安的，单独一泡
+{ const fs3 = require("fs"), vm3 = require("vm"), p3 = require("path");
+  const c3 = { console, window: { addEventListener() {} }, navigator: { userAgent: "" }, document: { addEventListener() {} } };
+  vm3.createContext(c3); try { vm3.runInContext(fs3.readFileSync(p3.join(__dirname, "..", "js", "engine.js"), "utf8"), c3); } catch (e) {}
+  const sp = vm3.runInContext("splitLongBubble", c3), a3 = require("assert");
+  a3.deepStrictEqual(JSON.parse(JSON.stringify(sp("明天记得下午再来找我，上午起不来。晚安"))), ["明天记得下午再来找我，上午起不来。", "晚安"]);
+  a3.deepStrictEqual(JSON.parse(JSON.stringify(sp("明天记得下午再来找我，上午起不来 晚安"))), ["明天记得下午再来找我，上午起不来", "晚安"]);
+  a3.deepStrictEqual(JSON.parse(JSON.stringify(sp("嗯。好吧"))), ["嗯。好吧"]);
+  a3.deepStrictEqual(JSON.parse(JSON.stringify(sp("你先睡 我等会儿"))), ["你先睡 我等会儿"]); }

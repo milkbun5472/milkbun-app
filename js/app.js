@@ -20,7 +20,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v90.327";
+const APP_VERSION = "v90.339";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12584,6 +12584,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       (chatsRef.current[x.id] || []).slice(-80).forEach(m => { const app = m && CLUE[m.kind];
         if (app && apps.includes(app) && Date.now() - (m.ts || 0) < 3 * 86400000) (clues[app] = clues[app] || new Set()).add(x.remark || x.name); }); });
     const gate = Object.keys(clues);
+    // 购物车近 3 天加过东西，也是一条去看购物的线索（她 2026-11-28「他不看怎么知道我的购物车有啥」「购物车有新活动也会看」）：
+    //   跟聊天里的礼物卡同一个三天；加进购物车的时刻记在 uid 里（c_时间戳_…）。替她付得先点开看过（peek-phone.js 的 cleanScript 守着）
+    const cartTs = x => Number(x && x.ts) || Number((/^c_(\d{12,})/.exec(String((x && x.uid) || "")) || [])[1]) || 0;
+    const cartFresh = apps.includes("shop") && (loadJSON("x_shopCart", []) || []).some(x => x && x.name && Date.now() - cartTs(x) < 3 * 86400000);
+    // 外卖也一样（她 2026-11-28「外卖也是」）：三天内点过外卖（自己点的、别人给她点的，送到吃掉的也算），就会去点开外卖看
+    const isTk = o => o && (o.takeout || o.kind === "takeout" || o.cat === "food");
+    const takeoutFresh = apps.includes("takeout") && (ordersRef.current || []).concat(loadJSON("x_takeoutLog", []) || []).some(o => isTk(o) && Date.now() - (Number(o.ts) || 0) < 3 * 86400000);
+    // 钱包也一样（她 2026-11-28「钱包也是」）：三天内钱包里有进出（花了、收了、转了都算），就会去点开钱包看
+    const walletFresh = apps.includes("wallet") && (loadJSON("x_walletLog", []) || []).some(e => e && Date.now() - (Number(e.ts) || 0) < 3 * 86400000);
+    const gateOpen = gate.concat(cartFresh && gate.indexOf("shop") < 0 ? ["shop"] : [], takeoutFresh && gate.indexOf("takeout") < 0 ? ["takeout"] : [], walletFresh && gate.indexOf("wallet") < 0 ? ["wallet"] : []);
     try {
       const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))
           )
@@ -12650,9 +12660,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // 她勾着递过来的那几样（群友 2026-10-22：「勾选了的，但他就是不看」）：原来只列成「能打开」，模型一门心思翻聊天，从来不去。
           //   聊天照旧是重点；看完聊天，这几样里至少点开一样（挑哪样照你想知道什么）
           + (() => { const extra = ["offline", "calendar", "health", "moments"].filter(a => apps.includes(a)); return extra.length ? "\n她递手机时把" + extra.map(a => PEEK_APP_ZH[a]).join("、") + "也留着给你看了：看完聊天，这几样里至少点开一样看看（挑哪样照你这会儿最想知道什么）。" : ""; })()
-          + (() => { const ct = apps.includes("shop") ? (loadJSON("x_shopCart", []) || []).filter(x => x && x.name).slice(0, 12) : [];
-              return ct.length ? "\n她购物车里还躺着没付的：" + ct.map(x => "「" + String(x.name).slice(0, 20) + "」¥" + (Number(x.price) || 0)).join("、")
-                + "。你想替她付就加一步 {\"do\":\"paycart\",\"items\":[\"要付的那几件，原样抄名字；全付就留空数组\"]}——真的从你钱包扣、东西送到她手上；付不付、付哪几件照你这个人和你钱包来。" : ""; })()
+          + (walletFresh && gate.indexOf("wallet") < 0 ? "\n她这几天钱包里有进有出：想知道她钱花哪儿了、谁给她转过，可以 {\"do\":\"open\",\"app\":\"wallet\"} 点开钱包看看。" : "")
+          + (takeoutFresh && gate.indexOf("takeout") < 0 ? "\n她这几天点过外卖：想知道她吃了什么、谁给她点的，可以 {\"do\":\"open\",\"app\":\"takeout\"} 点开外卖看看。" : "")
+          + (() => { const ct = gateOpen.indexOf("shop") >= 0 ? (loadJSON("x_shopCart", []) || []).filter(x => x && x.name).slice(0, 12) : [];
+              return ct.length ? "\n她的购物车里有没付的东西：先 {\"do\":\"open\",\"app\":\"shop\"} 点开购物才看得见，点开就是这几件：" + ct.map(x => "「" + String(x.name).slice(0, 20) + "」¥" + (Number(x.price) || 0)).join("、")
+                + "。看了想替她付，就在点开购物之后加一步 {\"do\":\"paycart\",\"items\":[\"要付的那几件，原样抄名字；全付就留空数组\"]}——真的从你钱包扣、东西送到她手上；看不看、付不付、付哪几件照你这个人和你钱包来。没点开购物就不知道车里有什么，也付不了。" : ""; })()
           + "\n重点是你心里怎么想：每个聊天边往上翻边想，每翻一屏就冒一句，一个聊天至少 2~3 句；心声只说这一屏上看得到的那几句话（上面列的就是翻得到的全部）。每个 open 都带上 thoughts（2~3 句），点开了就一定在想。一共 25~45 步。",
         schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"chat\",\"who\":\"名字\",\"thoughts\":[{\"at\":\"那条消息里照抄的几个字\",\"t\":\"看到它时心里冒出的一句\"},{\"at\":\"另一条消息里照抄的几个字\",\"t\":\"又一句\"}]},{\"do\":\"impersonate\",\"who\":\"名字\",\"text\":\"以她的名义发的那句\"},{\"do\":\"unfriend\",\"who\":\"名字\"},{\"do\":\"pin\"},{\"do\":\"open\",\"app\":\"messages\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000
@@ -12664,7 +12676,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         .map(p => ({ title: String(p.title).slice(0, 30), anon: !!(p.anon || p.board === "匿名吧"), alt: !!p.alt }));
       const myDiary = ((diariesRef.current || {})["__me"] || []).slice().reverse().map(e => String(e.title || "").slice(0, 30)).filter(Boolean)
         .sort((a, b) => seenT.has(a) - seenT.has(b));
-      const clean = x => window.PeekPhone ? window.PeekPhone.cleanScript(x, apps, { forum: myPosts, diary: myDiary, who: others, gate, self: c.remark || c.name, selfNames: [c.remark, c.name].filter(Boolean) }) : [];
+      const clean = x => window.PeekPhone ? window.PeekPhone.cleanScript(x, apps, { forum: myPosts, diary: myDiary, who: others, gate: gateOpen, self: c.remark || c.name, selfNames: [c.remark, c.name].filter(Boolean) }) : [];
       script = clean(d);
       // 一步都没演得出来（群里 2026-10-11：「我给他手机他也不查」）：模型没写出步骤，或者写的全点在她藏起来的那几样上，
       //   原来录像当场就收了，一句话没有，看着就像TA拿了手机不翻。先再要一次，还是空的就照实说。
@@ -29364,10 +29376,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 拍的是TA自己、而且照片里露脸（群友 2026-10-31：描述写着唇钉、眼神、耳朵，画出来脸被裁掉、也不像TA）：
       //   原来TA自己的照片一律不喂参考照，带身体字眼的还走「不露脸局部」那一档。露脸的这种改走聊天自拍那条锁脸的路
       const faceShot = !her && !!char.refPhoto && /脸|眼|嘴|唇|眉|鼻|表情|自拍|笑着|看向镜头|对着镜头|盯着镜头/.test(scene);
-      const pFinal = her ? her.prompt
+      const pFinal0 = her ? her.prompt
         : faceShot ? buildPhotoPrompt(char, scene, (statesRef.current || {})[char.id] || {}, { kind: "selfie", closet: closetTextFor(char.id) }) + (again ? "【这是重画的一张】同一件事，换个拍法、换个角度和光。" : "")
         : p0;
-      const pRefs = her ? her.refs : faceShot ? [char.refPhoto] : null;
+      // 画风选「照参考图」的（人格档案馆里那一格）：空景、局部照原来一张参考图都不带，模型不知道「他一贯的画风」是什么，只好画成写实
+      //   （群友 2026-11-28「相册里的图都是写实的」）。带上他的参考照只当画风样本，画面里不放参考图里的人
+      const styleRef = !her && !faceShot && char.photoStyle === "reference" && !!char.refPhoto;
+      const pRefs = her ? her.refs : faceShot ? [char.refPhoto] : styleRef ? [char.refPhoto] : null;
+      const pFinal = pFinal0 + (!her && !faceShot && char.photoStyle === "reference" && char.refPhoto
+        ? "\n【参考图只看画风】附的那张参考图只用来看画风：是二次元就画成同样的二次元，是写实就画成写实，线条和上色照它；参考图里的人不要出现在这张画面里。" : "");
       const out = await generateSelfieImage(pFinal, pRefs, faceShot ? { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "selfie" }) } : {});
       if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
       const sigOf = (window.PhoneKit && window.PhoneKit.photoSig) || (x => (x && x.id) || "");
@@ -32364,10 +32381,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const meP = photoMe("她", char.id);
     // 「自拍」不算合照（群友 2026-10-31：「她半夜发来的对镜自拍」被画成了两个人）：她自己拍了发过来的，画面里只有她
     const herSelf = /她(?:半夜|刚才|今天|昨晚|早上|晚上)?(?:发来|发给我|传来|自拍)|她的自拍|她拍了自己/.test(scene);
-    const both = !!char.refPhoto && !herSelf && /合照|我们|一起|两个人|和她|跟她|我和/.test(scene);
+    // 描述里两个人都点了名（她自己改描述时多半直接写名字：「沈屿白和林晚」）也是合照（群友 2026-11-28「一个u一个c画成两个c」）
+    const charNamed = [char.name, char.remark].map(x => String(x || "").trim()).some(x => x.length >= 1 && scene.indexOf(x) >= 0);
+    const herNamed = names.some(x => scene.indexOf(x) >= 0);
+    const both = !!char.refPhoto && !herSelf && (/合照|我们|一起|两个人|和她|跟她|我和/.test(scene) || (charNamed && herNamed));
     const prompt = both
       ? buildPhotoPrompt(char, scene, statesRef.current[char.id] || null, { kind: "duo", me: meP, closet: closetTextFor(char.id) })
-      : buildPhotoPrompt({ id: "__me", name: meP.name, appearance: meP.appearance || "", refPhoto: profile.refPhoto }, scene + (herSelf ? "（这张是她自己拍了发给" + (char.remark || char.name) + "的）" : "（这张是" + (char.remark || char.name) + "拍的她）"), null, { kind: herSelf ? "selfie" : "other", closet: meP.closet });
+      : buildPhotoPrompt({ id: "__me", name: meP.name, appearance: meP.appearance || "", refPhoto: profile.refPhoto, photoStyle: char.photoStyle }, scene + (herSelf ? "（这张是她自己拍了发给" + (char.remark || char.name) + "的）" : "（这张是" + (char.remark || char.name) + "拍的她）"), null, { kind: herSelf ? "selfie" : "other", closet: meP.closet });
     return { prompt: prompt + (again ? "【这是重画的一张】同一件事，换个拍法：换个角度、换个距离、换个时刻的光。" : ""), refs: both ? [char.refPhoto, profile.refPhoto] : [profile.refPhoto] };
   };
   const photoMe = (fallbackName, who) => { const P = meOf(who); return {
@@ -32712,8 +32732,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const ficImage = async (req) => {
     if (typeof imgApiReady !== "function" || !imgApiReady(loadImgApi())) { toast("先去 设置 · 图像 API 配一条线路"); return null; }
     try {
+      // 「我」照这篇里对面那个人认的那张面具来（跟聊天、照相馆同一个 photoMe）
+      const _peer = (req.cp || []).find(tok => tok !== "me");
       const who = (req.cp || []).map(tok => tok === "me"
-        ? { name: userName(profile), appearance: profile.appearance || "", refPhoto: profile.refPhoto }
+        ? (m => ({ name: m.name || userName(profile), appearance: m.appearance || "", refPhoto: m.refPhoto || null }))(photoMe(userName(profile), _peer || null))
         : characters.find(c => c.id === tok)).filter(Boolean);
       const refs = [];
       who.forEach(x => { if (x.refPhoto && refs.length < 4 && refs.indexOf(x.refPhoto) < 0) refs.push(x.refPhoto); });
@@ -32728,6 +32750,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         : "画手读完这一章画的同人图，画这一章的名场面";
       const prompt = "【最重要·这是一张" + (req.style || "精致的同人插画") + "风格的插画，不是照片】" + frame + "。\n"
         + (look ? "【画面里的人】\n" + look + "\n参考图只决定长相：机位、姿势、表情、衣服照下面的画面来。\n" : "")
+        + (typeof rareLookLine === "function" && rareLookLine(who) ? rareLookLine(who) + "\n" : "")
         + "【画面】" + String(req.scene || "").slice(0, 400) + "\n"
         + (typeof photoShotPick === "function" && kind !== "bookmark" ? "【机位】" + photoShotPick("other") + "；画面描述里写了怎么取景的就照描述。\n" : "")
         + (plan ? window.PosterLayout.spaceLine(plan) + "\n" : "")

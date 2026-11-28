@@ -105,7 +105,8 @@
       // 替她付购物车（2026-10-22）：一趟最多一次，items 空＝全付
       // 把自己从她的黑名单里放出来（2026-10-22）：一趟最多一次；她没拉黑他，app 那头不生效
       else if (d === "unblockme" && !out.some(x => x.do === "unblockme")) out.push({ do: "unblockme" });
-      else if (d === "paycart" && !out.some(x => x.do === "paycart")) {
+      // 得先点开过购物、看见购物车，才付得了（她 2026-11-28「他不看怎么知道我的购物车有啥」）
+      else if (d === "paycart" && !out.some(x => x.do === "paycart") && out.some(x => x.do === "open" && x.app === "shop")) {
         out.push({ do: "paycart", items: (Array.isArray(s.items) ? s.items : []).map(x => S(x).replace(/[《》「」『』“”"]/g, "").trim().slice(0, 30)).filter(Boolean).slice(0, 12) });
       }
       else if (d === "rename" && !out.some(x => x.do === "rename")) {
