@@ -13,9 +13,9 @@ test("判据：季节落进你们之间，不是背景，也不写干活", () =>
 });
 test("跟钩子对上：你们俩", () => { assert.match(seg, /这一刻是你们俩之间的事/); });
 test("画面：穿着跟季节", () => { assert.match(seg, /人物穿着照这个季节/); });
-test("测试券开着时卡池列表多摆下一期；送券那一路不读它", () => {
+test("测试券开着时卡池列表摆出每一期（往期、这期、往后）；送券那一路不读它", () => {
   const st = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "stamps.js"), "utf8");
   assert.match(s, /function nextLimited\(now\)/);
-  assert.match(st, /st\.opt && st\.opt\.testInf && C\(\)\.nextLimited \? C\(\)\.nextLimited\(Date\.now\(\)\)/);
-  assert.doesNotMatch(s.slice(s.indexOf("function grantOnOpen"), s.indexOf("function activeLimited")), /nextLimited/);
+  assert.match(st, /st\.opt && st\.opt\.testInf && C\(\)\.allLimited \? C\(\)\.allLimited\(\)/);
+  assert.doesNotMatch(s.slice(s.indexOf("function grantOnOpen"), s.indexOf("function allLimited")), /nextLimited|allLimited/);
 });

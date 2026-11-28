@@ -138,6 +138,7 @@
     if (got.length) save(st);
     return got;
   }
+  function allLimited() { return LIMITED.slice(); }
   function activeLimited(now) { const t = now || Date.now(); return LIMITED.filter(L => t >= Date.parse(L.from) && t < Date.parse(L.to)); }
   // 还没开的下一期（她 2026-11-05「把这个卡池连到测试模式里让我自己试试先」）：只给测试券开着时的卡池列表用，送券那一路不读它
   function nextLimited(now) { const t = now || Date.now(); return LIMITED.filter(L => Date.parse(L.from) > t).sort((a, b) => Date.parse(a.from) - Date.parse(b.from))[0] || null; }
@@ -281,7 +282,7 @@
   function ssrUnlocked(lv) { return { sections: Math.min(4, 1 + Math.floor(lv / 10)), ending: lv >= 40, hidden: lv >= 50 }; }
 
   g.StampsCore = { PRICE_ONE, PRICE_TEN, RATE, SOFT_FROM, HARD_AT, SR_EVERY, BDAY, CAP, FULL_COST, GIFT, GAIN, LIMITED,
-    bdTicketCount, EXTRA_INK, buyExtra, MELT_R, MELT_SR, meltable, meltValue, melt, dropCards, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, nextLimited, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
+    bdTicketCount, EXTRA_INK, buyExtra, MELT_R, MELT_SR, meltable, meltValue, melt, dropCards, INK_PER_TEN, claimLetter, claimBdLetter, letterClaimed, cleanText, nextLimited, allLimited, DUPE_INK, UNLOCK, levelUp, canBeg, markBeg, load, save, gain, grantOnOpen, activeLimited, bdayWindow, rollRarity, pay, levelCost, isGate, gateBlocked, ssrUnlocked };
   // 各处喊一声就记上
   g.stampGain = gain;
   // 别的玩法不一处处去挂：callAI 成功一枪（她按下去的、不是后台）会广播 ai-ok，这儿按它是干嘛的分进几档。
