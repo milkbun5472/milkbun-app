@@ -3905,7 +3905,10 @@ function splitLongBubble(s, allowComma) {
   //   括号里全是符号（没有汉字、字母、数字）的那一小串，后面空一格再接中文，就在它后面断，跟句号一样
   const KAO_END = (globalThis.reLB || RegExp)(String.raw`(?<=[（(][^（）()\u4e00-\u9fffA-Za-z0-9]{2,14}[）)][^\s\u4e00-\u9fffA-Za-z0-9]{0,3})\s+(?=[\u4e00-\u9fff])`);
   if (s.length > LONG && KAO_END.test(s)) out = s.split(new RegExp(KAO_END.source, "g")).map(x => x.trim()).filter(Boolean);
-  if (s.length > LONG && /[。！？!?]/.test(s.slice(0, -1))) {
+  // 短短一句里也有句号隔开两句的（她 2026-11-28 截图：「明天记得下午再来找我，上午起不来。晚安」不到 22 个字没切，
+  //   句号在气泡里又不显示，读出来成了「起不来晚安」）：句号后面还有中文，就在句号这儿切；问号叹号留在泡里看得见，短句不动
+  const SHORT_STOP = s.length <= LONG && /[\u4e00-\u9fff]{2}。+(?=[\u4e00-\u9fff]{2})/.test(s);
+  if ((s.length > LONG || SHORT_STOP) && /[。！？!?]/.test(s.slice(0, -1))) {
     // 连着的句尾标点中间夹空格也算一个句尾（她 2026-10-28：法语「cheveux ? !」把「!」单切成了一泡）
     out = out.reduce((acc, part) => acc.concat(part.split(/((?:\s*[。！？!?])+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean)), []);
   }
@@ -3917,6 +3920,9 @@ function splitLongBubble(s, allowComma) {
   // 空格前面是句末语气字（了吧呢啊吗嘛呀哦啦），后面是收尾的一小截（几个字）就另起一句（2026-11-26 群友截图：「煤球听了都把耳朵转过来了 说吧」挤成一泡、读着像「转过来了说吧」）
   const SP_PART = (globalThis.reLB || RegExp)(String.raw`(?<=[\u4e00-\u9fff]{3}[了吧呢啊吗嘛呀哦啦])\s+(?=[\u4e00-\u9fff]{1,4}[？?！!~～…]*$)`, "g");   // 只管收尾那一小截（「大考官呢 今天工位上…」那种后面是一整句的，照 11-04 她说的不切）
   out = out.reduce((acc, part) => acc.concat(/[，,。！？!?、；;]/.test(part) && !/[\u3040-\u30ff]/.test(part) ? part.split(SP_PART).map(x => x.trim()).filter(Boolean) : [part]), []);
+  // 空格后面跟一句道别（晚安、拜拜、好梦……）收尾的，也是另一句（同一张截图那种「上午起不来 晚安」）
+  const SP_BYE = (globalThis.reLB || RegExp)(String.raw`(?<=[\u4e00-\u9fff]{3})\s+(?=(?:晚安|早安|午安|拜拜|再见|好梦|回头聊|先睡了|睡了)[啦哦呀啊~～!！…]*$)`, "g");
+  out = out.reduce((acc, part) => acc.concat(part.split(SP_BYE).map(x => x.trim()).filter(Boolean)), []);
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
   // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
   //   有的人不打标点、拿空格断句，那个空格就是它的逗号；门槛、最多几段、尾巴太短往回粘，全跟逗号共用。英文单词之间的空格不算
