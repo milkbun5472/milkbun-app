@@ -1,4 +1,4 @@
-import {DUR,EXTRA_ACTIONS} from '../../companion/motion.mjs?v=fg-a1238597b9ec04b4';
+import {DUR,EXTRA_ACTIONS} from '../../companion/motion.mjs?v=fg-3eddbf35d67785d1';
 
 // Cosmetic movement stays inside the current schedule scene; it does not invent tasks or moods.
 const WORK_BEATS=[

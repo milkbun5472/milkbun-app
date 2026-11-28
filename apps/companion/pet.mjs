@@ -3,17 +3,22 @@
 // ?mode=float 是悬浮小窗：点一下就请外壳打开陪伴。
 // 小人本身、换装、表情、体型全部走庭院那一份 traveler.mjs，不另写一套（one-public-mechanism）。
 import * as T from 'three';
-import {makeReactions} from './reactions.mjs?v=fg-a1238597b9ec04b4';
-import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-a1238597b9ec04b4';
-import {makeInteractions,afterInteraction} from './interactions.mjs?v=fg-a1238597b9ec04b4';
-import {targetAt} from './touch-targets.mjs?v=fg-a1238597b9ec04b4';
-import {MOODS,DUR,WEATHER_ACTIONS,moodBase,pulse,accent,chooseAction,touchForMood} from './motion.mjs?v=fg-a1238597b9ec04b4';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-a1238597b9ec04b4';
-import {createWardrobe,lookForTa,mergeLook,outfitId,outfitColors} from '../fairy-garden/wardrobe.mjs?v=fg-a1238597b9ec04b4';
+import {makeReactions} from './reactions.mjs?v=fg-3eddbf35d67785d1';
+import {emotionCameraFrame} from '../fairy-garden/emotion-ground.mjs?v=fg-3eddbf35d67785d1';
+import {makeInteractions,afterInteraction} from './interactions.mjs?v=fg-3eddbf35d67785d1';
+import {targetAt} from './touch-targets.mjs?v=fg-3eddbf35d67785d1';
+import {MOODS,DUR,WEATHER_ACTIONS,moodBase,pulse,accent,chooseAction,touchForMood} from './motion.mjs?v=fg-3eddbf35d67785d1';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../fairy-garden/traveler.mjs?v=fg-3eddbf35d67785d1';
+import {createWardrobe,lookForTa,mergeLook,outfitId,outfitColors} from '../fairy-garden/wardrobe.mjs?v=fg-3eddbf35d67785d1';
 const mode=new URLSearchParams(location.search).get('mode')||'full',reactions=makeReactions(),interactions=makeInteractions();
 // 悬浮小窗用庭院那份 1K 的小人和脸：屏幕上只有指甲盖大，高清版白占内存（整页时手机会被挤得重载）
 if(mode!=='float')setFaceBase(new URL('./faces/',import.meta.url).href);
 const r=new T.WebGLRenderer({antialias:true,alpha:true});r.setClearColor(0,0);r.setPixelRatio(Math.min(mode==='float'?1.5:2,devicePixelRatio||1));r.outputColorSpace=T.SRGBColorSpace;document.body.append(r.domElement);
+// 显存被收走又还回来时（她 2026-11-28：邮票册里内存顶满卡了一下，小人衣服变成全黑）：three 能把画布接回来，可衣服的贴图已经没了，就画成一片黑。
+//   被收走时先说一声「要还」；还回来就把这一格整个重开一遍，衣服贴图照常重新加载
+r.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();},false);
+r.domElement.addEventListener('webglcontextrestored',()=>{try{location.reload();}catch(e){}},false);
+let __lostT=0;r.domElement.addEventListener('webglcontextlost',()=>{clearTimeout(__lostT);__lostT=setTimeout(()=>{if(r.getContext()&&r.getContext().isContextLost&&r.getContext().isContextLost())try{location.reload();}catch(e){}},4000);},false);
 const sc=new T.Scene();sc.add(new T.HemisphereLight('#fff8ee','#b8a38c',2.3));const sun=new T.DirectionalLight('#ffffff',1.5);sun.position.set(1.2,3,2.6);sc.add(sun);
 const cam=new T.PerspectiveCamera(mode==='float'?24:26,1,.05,20);
 let cameraMid=.615,cameraDist=3.3;

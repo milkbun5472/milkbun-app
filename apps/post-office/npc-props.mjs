@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {createAnimalFigure} from '../fairy-garden/animal-figure.mjs?v=fg-a1238597b9ec04b4';
-import {storyHandPoint} from '../fairy-garden/story-motion.mjs?v=fg-a1238597b9ec04b4';
-import {mergeGeometries} from '../fairy-garden/vendor/BufferGeometryUtils.js?v=fg-a1238597b9ec04b4';
+import {createAnimalFigure} from '../fairy-garden/animal-figure.mjs?v=fg-3eddbf35d67785d1';
+import {storyHandPoint} from '../fairy-garden/story-motion.mjs?v=fg-3eddbf35d67785d1';
+import {mergeGeometries} from '../fairy-garden/vendor/BufferGeometryUtils.js?v=fg-3eddbf35d67785d1';
 
 export function makeNpcLeaf(){
  const shape=new T.Shape();shape.moveTo(0,0);shape.quadraticCurveTo(-.05,.055,0,.105);shape.quadraticCurveTo(.05,.055,0,0);const g=new T.ShapeGeometry(shape,12),m=new T.Mesh(g,new T.MeshStandardMaterial({color:'#8f9d65',roughness:.9,side:T.DoubleSide}));m.name='CatsLetterLeaf';return m;
