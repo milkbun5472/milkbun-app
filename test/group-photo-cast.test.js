@@ -80,3 +80,10 @@ test("参考图降级要逐张退，不许从 N 张一步掉到 1 张", () => {
   assert.match(seg, /for \(let n = refBlobs\.length - \(opts && opts\.contRef \? 2 : 1\); n >= 2; n--\)/);
   assert.match(seg, /how: "fewer-refs-" \+ n/, "退到第几级要留痕，别悄悄丢脸");
 });
+
+test("名单里有人没参考照：只按有参考照的人数第几张，没参考照的人照外貌画（相机里脸错位）", () => {
+  const p = build(朝, "在海边", null, { kind: "self", cast: [{ name: "顾朝", refPhoto: "a" }, { name: "顾暮", refPhoto: "b" }, { name: "Lisa", refPhoto: null, appearance: "戴眼镜" }] });
+  assert.match(p, /【2 张参考图的对应关系·最高优先级】第一张参考图是「顾朝」本人；第二张参考图是「顾暮」本人/);
+  assert.match(p, /「Lisa」没有参考图，照下面写的外貌画/);
+  assert.match(app, /const cast = cast0\.filter\(c => c && c\.refPhoto\)\.concat/);
+});

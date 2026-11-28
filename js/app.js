@@ -19859,9 +19859,12 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const petRefDataUrl = async pet => { if (!pet || !pet.lookRef) return null; try { const b0 = await idbImgGet(pet.lookRef); return b0 ? await blobToDataUrl(b0) : null; } catch (e) { return null; } };
   // 挑好的几个人拍一张（单人也行）：每人用自己的参照锁脸，走 buildPhotoPrompt + generateSelfieImage。
   //   小家伙合照和相机·生图都从这儿出，提示词只此一份。extraRef/extraText：再多带一张参考图（小家伙的样子）和说明
-  const castShotBlob = async (cast, scene, o) => {
+  const castShotBlob = async (cast0, scene, o) => {
     o = o || {};
-    const lead = cast.find(c => c.id !== "me") || cast[0], multi = cast.length > 1, kind = o.kind || "self";
+    // 有参考照的排前面，参考图一张对一个（她 2026-11-28「有时候是因为脸没锁上」）：原来名单里夹着没参考照的人（常见是没传参考照的你排在第一个），
+    //   参考图被 filter 掉一张，后面每个人都错位、脸对不上号。buildPhotoPrompt 那边也只按有参考照的人数「第几张是谁」
+    const cast = cast0.filter(c => c && c.refPhoto).concat(cast0.filter(c => c && !c.refPhoto).map(c => ({ ...c, refPhoto: null })));
+    const lead = cast0.find(c => c.id !== "me") || cast0[0], multi = cast.length > 1, kind = o.kind || "self";
     const st0 = (statesRef.current || {})[lead.id] || {};
     // o.costume：拍的是戏（电影海报、剧照），他此刻身上那身、钉住的常服都不算，穿戏服
     const st = o.costume ? { ...st0, wearing: "", wearingUpdatedAt: 0 } : st0;

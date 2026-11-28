@@ -6914,10 +6914,16 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     parts.push("照片里【有 " + cast.length + " 个人同框】：" + names.join("、") + (opts.cinematic ? "。" : "，几个人关系亲密、一起合影。"));
     // 谁对应哪张参考图必须说死。两个人时模型猜也能猜对，但人一多、再叠上身份与场景描述，
     // 它就会自己重新分配长相，出来几个陌生人（2026-08-18 duo 踩过一次，人多只会更糟）。
-    parts.push("【" + cast.length + " 张参考图的对应关系·最高优先级】" +
-      cast.map((x, i) => (序[i] || "第" + (i + 1) + "张") + "参考图是" + names[i] + "本人").join("；") +
+    // 参考图只按【真有参考照的人】数（她 2026-11-28 相机里「有时候脸没锁上」）：名单里有人没传参考照时，
+    //   原来照名单顺序一个个点「第几张是谁」，后面的人全错位一张、脸对不上号；没给参考照的人另说一句照外貌画。
+    //   参考图的顺序必须跟名单里有参考照的那几位顺序一致（castShotBlob 会先把有参考照的排前面）。
+    const withRef = cast.map((x, i) => i).filter(i => cast[i].refPhoto !== null && cast[i].refPhoto !== "");   // 明确给了空的才算没参考照；没带这个字段的老调用方照旧当有
+    const noRefIdx = cast.map((x, i) => i).filter(i => withRef.indexOf(i) < 0);
+    parts.push("【" + withRef.length + " 张参考图的对应关系·最高优先级】" +
+      withRef.map((ci, k) => (序[k] || "第" + (k + 1) + "张") + "参考图是" + names[ci] + "本人").join("；") +
       "。必须严格按各自的参考图还原各自的五官、脸型、发色发型、瞳色、肤色与年龄感；每张脸只许对应自己那张参考图，" +
-      "绝不许互换、混合或平均化，也不许按下文的身份、种族或职业描述另造一张脸。");
+      "绝不许互换、混合或平均化，也不许按下文的身份、种族或职业描述另造一张脸。"
+      + (noRefIdx.length ? noRefIdx.map(i => names[i]).join("、") + "没有参考图，照下面写的外貌画，别借用任何一张参考图的脸。" : ""));
     cast.forEach((x, i) => {
       const ap = String(x.appearance || "").trim();
       if (ap) parts.push(names[i] + "的外貌（务必贴合）：" + ap + "。");
