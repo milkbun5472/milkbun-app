@@ -4240,12 +4240,24 @@ function WheelWidget({ editMode, onReact }) {
     open ? h(WheelFull, { data: data, items: items, onSave: save, onReact: onReact, onClose: () => { setOpen(false); setData(loadJSON("x_wheel", data)); } }) : null);
 }
 // 电子木鱼小组件：点一下功德+1（纯本地零 API），飘 +1、右下角连击数（2 秒不敲就断）。点不进任何页面，只为敲。
-function MuyuWidget({ editMode, imageRef }) {
+// 功德怎么清零（群友 2026-11-28「功德要是不会重置就好了」——有人想留、有人想自己挑时候清）：
+//   idle＝停手 5 秒清零（原来那样，默认）；day＝当天一直攒、过零点从头；keep＝一直攒，自己点「清零」。
+//   另记一个「累计」只涨不清，清零只清这一轮
+const MUYU_MODES = [["idle", "停手就清零"], ["day", "每天清零"], ["keep", "一直攒着"]];
+function muyuToday() { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+function MuyuWidget({ editMode, imageRef, mode }) {
+  mode = mode === "day" || mode === "keep" ? mode : "idle";
   const t = useTheme();
   const customImage = imageRef && (typeof resolveImg === "function" ? resolveImg(imageRef) : imageRef);
   // 5 秒不敲就清零、功德重新积——她要的「过期作废」型木鱼（v47.73 从 5 分钟收紧到 5 秒，停手当场看着归零）
   const MUYU_IDLE = 5000;
-  const [total, setTotal] = useState(() => { try { const v = JSON.parse(localStorage.getItem("x_muyu") || "{}"); return (v.last && Date.now() - v.last > MUYU_IDLE) ? 0 : (v.total || 0); } catch (e) { return 0; } });
+  const readMuyu = () => { try { return JSON.parse(localStorage.getItem("x_muyu") || "{}") || {}; } catch (e) { return {}; } };
+  const writeMuyu = (total, all) => { try { localStorage.setItem("x_muyu", JSON.stringify({ total, all, last: Date.now(), day: muyuToday() })); } catch (e) {} };
+  const fresh = v => mode === "idle" ? (v.last && Date.now() - v.last > MUYU_IDLE) : mode === "day" ? (v.day && v.day !== muyuToday()) : false;
+  const [total, setTotal] = useState(() => { const v = readMuyu(); return fresh(v) ? 0 : (v.total || 0); });
+  const [all, setAll] = useState(() => { const v = readMuyu(); return Math.max(Number(v.all) || 0, Number(v.total) || 0); });
+  // 换了清零方式、或者过了零点再看：照新的规矩重算一遍这一轮
+  useEffect(() => { const v = readMuyu(); if (fresh(v)) { setTotal(0); writeMuyu(0, Math.max(Number(v.all) || 0, Number(v.total) || 0)); } }, [mode]);
   const [combo, setCombo] = useState(0);
   const [pops, setPops] = useState([]);
   const [pressed, setPressed] = useState(false);
@@ -4262,9 +4274,10 @@ function MuyuWidget({ editMode, imageRef }) {
   const knock = () => {
     if (editMode) return;
     if (idleT.current) clearTimeout(idleT.current);
-    idleT.current = setTimeout(() => { setTotal(0); try { localStorage.setItem("x_muyu", JSON.stringify({ total: 0, last: Date.now() })); } catch (e) {} }, MUYU_IDLE);
+    if (mode === "idle") idleT.current = setTimeout(() => { setTotal(0); writeMuyu(0, readMuyu().all || 0); }, MUYU_IDLE);
     // 函数式更新：快速连敲会在同一渲染批次里触发多次，读闭包旧值会丢计数
-    setTotal(prev => { const nt = prev + 1; try { localStorage.setItem("x_muyu", JSON.stringify({ total: nt, last: Date.now() })); } catch (e) {} return nt; });
+    const v0 = readMuyu(), base = mode === "day" && v0.day && v0.day !== muyuToday();
+    setTotal(prev => { const v1 = readMuyu(), nt = (base ? 0 : prev) + 1, na = Math.max(Number(v1.all) || 0, Number(v1.total) || 0) + 1; writeMuyu(nt, na); setAll(na); return nt; });
     setCombo(c => c + 1);
     if (comboT.current) clearTimeout(comboT.current);
     comboT.current = setTimeout(() => setCombo(0), 2000);
@@ -4315,7 +4328,12 @@ function MuyuWidget({ editMode, imageRef }) {
     pops.map(pid => h("span", { key: pid, "data-wk": "wpop", style: { position: "absolute", left: "50%", top: 3, zIndex: 2, fontFamily: F_BODY, fontSize: 11, fontWeight: 700, letterSpacing: ".04em", color: "#83552f", background: "rgba(250,246,238,.9)", border: "1px solid rgba(142,103,67,.2)", borderRadius: 999, padding: "3px 8px", boxShadow: "0 3px 10px rgba(70,48,28,.1)", pointerEvents: "none", whiteSpace: "nowrap", animation: "wk-pop .65s ease-out forwards" } }, "+1 功德")),
     h("div", { style: { display: "flex", alignItems: "baseline", gap: 6, marginTop: 1 } },
       h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: total > 0 ? 18 : 15, lineHeight: 1, color: t.ink } }, total > 0 ? shownTotal : "敲一敲"),
-      total > 0 ? h("span", { "data-wk": "wlabel", style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".12em", color: t.fog } }, "功德") : null),
+      total > 0 ? h("span", { "data-wk": "wlabel", style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".12em", color: t.fog } }, mode === "day" ? "今日功德" : "功德") : null),
+    mode !== "idle" && all > total ? h("span", { "data-wk": "wsub", "data-part": "muyuall", style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".08em", color: t.fog, marginTop: 1 } }, "累计 " + (all > 99999 ? Math.floor(all / 1000) + "k" : all)) : null,
+    mode === "keep" && total > 0 && !editMode ? h("button", { "data-wk": "wbtn", "data-part": "muyureset", onClick: e => { e.stopPropagation();
+        const go = () => { setTotal(0); writeMuyu(0, readMuyu().all || all); };
+        if (typeof requestAppConfirm === "function") requestAppConfirm("功德清零？", "这一轮的 " + total + " 清掉从头敲，累计的照样留着。", go, "清零"); else go(); },
+      style: { position: "absolute", left: 4, top: 6, zIndex: 2, padding: "2px 5px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, "清零") : null,
     combo > 1 ? h("span", { "data-wk": "wnum", "data-part": "combo", style: { position: "absolute", right: 4, top: 9, zIndex: 2, fontFamily: "'Archivo',sans-serif", fontSize: 9.5, fontWeight: 700, letterSpacing: ".04em", color: "#91633d", background: "rgba(255,255,255,.72)", border: "1px solid rgba(145,99,61,.2)", borderRadius: 999, padding: "3px 6px", boxShadow: "0 3px 10px rgba(70,48,28,.08)" } }, combo + " COMBO") : null);
 }
 // 情侣空间轮播组件：多位正式在一起的 TA 轮流展示（每 6s 换一位），显示在一起天数+甜蜜值；点开进情侣空间
@@ -7900,7 +7918,7 @@ function Home({
       else if (it.which === "pets") inner = h(PetsWidget, { characters: characters, now: now, homeSize: homeSize, editMode: editMode });
       else if (it.which === "memo") inner = h(MemoWidget, { homeSize: homeSize, onOpen: function () { return onOpenApp("memo"); } });
       else if (it.which === "recent") inner = (window.RecentWidget ? h(window.RecentWidget.Widget, { characters: characters, groups: groups, chats: chats, groupChats: groupChats, unreadMap: unreadMap, now: now, editMode: editMode, onOpenChat: onOpenChat }) : null);
-      else if (it.which === "muyu") inner = h(MuyuWidget, { editMode: editMode, imageRef: lookOf(key).tapImageRef });
+      else if (it.which === "muyu") inner = h(MuyuWidget, { editMode: editMode, imageRef: lookOf(key).tapImageRef, mode: lookOf(key).muyuReset });
       else if (it.which === "weather") inner = h(WeatherWidget, { userGeo: userGeo, characters: characters, worlds: worlds, onOpen: function () { return onOpenApp("map"); } });
       else if (it.which === "ledger") inner = h(LedgerWidget, { onOpen: function () { return onOpenApp("ledger"); } });
       else if (it.which === "wheel") inner = h(WheelWidget, { editMode: editMode, onReact: onWheelReact });
@@ -7916,7 +7934,7 @@ function Home({
       var n = Object.assign({}, prev), cur = Object.assign({}, n[key] || {}, patch || {});
       // 全都是默认值就把这一栏删掉，别留一堆空壳攒成坟场（贴纸那一处同一个写法）
       var empty = (!cur.surface || cur.surface === "paper") && (!cur.borderMode || cur.borderMode === "line")
-        && !cur.accent && !cur.ground && !cur.tapImageRef && !cur.pin && !normalizeHomeDecorTilt(cur.tilt) && !String(cur.badge || "").trim();
+        && !cur.accent && !cur.ground && !cur.tapImageRef && !cur.muyuReset && !cur.pin && !normalizeHomeDecorTilt(cur.tilt) && !String(cur.badge || "").trim();
       if (empty) delete n[key]; else n[key] = cur;
       saveJSON("x_homeWidgetLooks", n); return n;
     });
@@ -9117,6 +9135,13 @@ function Home({
               h("label", { style: { padding: "10px 12px", borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13, opacity: decorBusy ? .5 : 1 } }, "替换敲击物",
                 h("input", { type: "file", accept: "image/*", disabled: decorBusy, "aria-label": "替换敲击物图片", style: { display: "none" }, onChange: function (e) { var f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) takeDecorGround(f, A.target, function (ref) { setWidgetLook(A.key, { tapImageRef: ref }); }, true); } })),
               lookOf(A.key).tapImageRef ? h("button", { onClick: function () { setWidgetLook(A.key, { tapImageRef: null }); }, disabled: decorBusy, style: { padding: 10, color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "恢复木鱼") : null) : null,
+            A.isWidget && A.type === "muyu" ? h("div", { style: { marginTop: 14 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "功德怎么清零"),
+              h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, MUYU_MODES.map(function (m) { var on = (lookOf(A.key).muyuReset || "idle") === m[0];
+                return h("button", { key: m[0], "data-wk": "muyumode", "data-on": on ? "1" : "0", onClick: function () { setWidgetLook(A.key, { muyuReset: m[0] === "idle" ? null : m[0] }); },
+                  style: { padding: "9px 12px", borderRadius: 12, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: 13 } }, m[1]); })),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6, marginTop: 8 } },
+                (lookOf(A.key).muyuReset || "idle") === "idle" ? "停手 5 秒，这一轮的功德就归零。" : lookOf(A.key).muyuReset === "day" ? "当天一直攒，过了零点从头敲；底下另记一个累计。" : "一直攒着不清；想重来就点木鱼左上角的「清零」，累计的照样留着。")) : null,
             // TA在干嘛：跟谁。默认轮换（像情侣空间），也可以钉住一位
             A.isWidget && A.type === "taday" ? h("div", { style: { marginTop: 14 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "看谁"),
