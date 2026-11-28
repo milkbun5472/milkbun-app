@@ -93,9 +93,32 @@
         catch (err) { props.toast && props.toast("导入失败：" + (err && err.message || "内容读不出来")); }
       }, "导入", { multiline: true });
     const importFile = async e => {
-      const file = e.target.files && e.target.files[0];
+      const files = Array.from((e.target.files) || []), file = files[0];
       e.target.value = "";
       if (!file) return;
+      // 一次好几份（多选、或者一个 zip 里装着好几篇，她 2026-11-28「zip 里 12 个文档只拆出来一个」）：
+      //   模块包 json 各自照旧导；其余每一篇当一块，全放进同一条新预设，块块都能单独开关——跟导入分条预设走同一个拆法（fromPromptList）
+      if (files.length > 1) {
+        try {
+          const blocks = [];
+          for (const f of files) {
+            const head = await peek(f), looksJson = /^\s*[{\[]/.test(head);
+            const txt = looksJson || typeof readOfflineStyleDocument !== "function" ? await f.text() : await readOfflineStyleDocument(f);
+            if (!txt || !txt.trim()) continue;
+            const nm = f.name.replace(/\.(docx|txt|md|json)$/i, "").trim();
+            if (looksJson) { try { takeText(txt, nm); continue; } catch (er) {} }
+            blocks.push({ name: nm || "第" + (blocks.length + 1) + "篇", content: txt.trim() });
+          }
+          if (blocks.length) {
+            const tv = SP.fromPromptList({ prompts: blocks }, "导入的 " + blocks.length + " 篇");
+            if (!tv) throw new Error("这几份里没读到文字");
+            SP.importBundle(tv); const next = SP.list(); setPresets(next); setCurId(tv.presets[0].id);
+            setOpenCat(o => Object.assign({}, o, { [tv.modules[0].cat]: true }));
+            props.toast && props.toast(blocks.length + " 篇都进了一条新预设「" + tv.presets[0].name + "」，每篇一块，在下面模块库里随意开关");
+          }
+        } catch (err) { alert("导入失败：" + (err && err.message || "请改用 txt 文件")); }
+        return;
+      }
       try {
         const looksJson = /^\s*[{\[]/.test(await peek(file));
         const txt = looksJson || typeof readOfflineStyleDocument !== "function" ? await file.text() : await readOfflineStyleDocument(file);
@@ -165,7 +188,7 @@
          ["⇧ 导入文件", () => fileRef.current && fileRef.current.click()],
          ["粘贴模块包", pasteBundle],
          ["搬旧文风", importOldStyle]].map(pair => h("button", { "data-wk": "sltool", key: pair[0], onClick: pair[1], style: S.tool }, pair[0])),
-        h("input", { key: "__f", ref: fileRef, type: "file", accept: ANY_FILE, style: { display: "none" }, onChange: importFile })),
+        h("input", { key: "__f", ref: fileRef, type: "file", multiple: true, accept: ANY_FILE, style: { display: "none" }, onChange: importFile })),
 
       // 空台：台上一个空版位（虚线的），底下三步。原来是一整段灰字糊在那儿——
       // 这是她点开这一页看见的第一屏，得让人一眼知道该先按哪个。
