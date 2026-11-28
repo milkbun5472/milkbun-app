@@ -630,7 +630,7 @@
               h("span", { style: { fontSize: FS(11.5), whiteSpace: "nowrap" } }, zh)))),
           // 玩一玩：三张有自己颜色的横卡，跟进去那一页同一套色
           (props.onTripCard || props.onMoviePlan || props.onWorldsPlan) ? h("div", { style: { fontSize: FS(12), color: "#9a8592", letterSpacing: ".12em", margin: "20px 4px 8px" } }, "玩一玩") : null,
-          [props.onTripCard && ["trip", "旅行", "排几站，每到一站收一张明信片", "linear-gradient(135deg,#ff8fb1 0%,#ffb38a 100%)", I.trip, "#fff"],
+          [props.onTripCard && ["trip", "旅行", "排几站，每到一站收一张明信片", "linear-gradient(135deg,#2f4a6d 0%,#6d86a6 100%)", I.trip, "#fff"],
            props.onMoviePlan && ["movie", "电影", "主演一部片：海报、剧照、台词", "linear-gradient(135deg,#2b2030 0%,#5a3a4c 60%,#a8705a 100%)", I.movie, "#f4ede3"],
            props.onWorldsPlan && ["worlds", "平行人生", "换个世界的TA，一张写真一封信", "linear-gradient(135deg,#7fb4ff 0%,#a98bff 60%,#e6a7f0 100%)", I.worlds, "#fff"]
           ].filter(Boolean).map(([part, zh, sub, g, ic, ink]) => h("button", { key: part, "data-wk": "camhubtile", "data-part": part, onClick: () => switchMode(part), className: "active:opacity-80",

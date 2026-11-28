@@ -6,8 +6,11 @@
   const h = React.createElement, useState = React.useState, useEffect = React.useEffect;
   const FS = n => "calc(" + n + "px * var(--app-fs, 1))";
   const KEY = "x_camTrips";
-  const GRAD = "linear-gradient(135deg,#ff5f9e 0%,#ff8a7a 55%,#ffb36b 100%)";
-  const INK = "#2b2230", SUB = "#9a8592", PINK = "#ff5f9e";
+  const GRAD = "#2f4a6d";
+  // 航空信那条红蓝斜纹（她 2026-11-28「旅行都丑，整个重做」）
+  const AIRMAIL = "repeating-linear-gradient(-45deg,#c0473a 0 9px,transparent 9px 16px,#2f4a6d 16px 25px,transparent 25px 32px)";
+  const SERIF = "'Songti SC','Noto Serif SC','STSong',serif";
+  const INK = "#26303d", SUB = "#8a8275", PINK = "#c0473a";
   const HAND = "'Long Cang','Ma Shan Zheng','Kaiti SC','STKaiti',KaiTi,cursive";
   // 明信片的样子：paper 背面纸色、ink 字色、edge 正面相片外框、deco 装饰
   const STYLES = [
@@ -67,13 +70,13 @@
     const [back, setBack] = useState(false);
     const url = typeof useIdbImgUrl === "function" ? useIdbImgUrl(card.imgKey) : null;
     const st = styleOf(card.style);
-    const face = { position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", borderRadius: 10, overflow: "hidden", boxShadow: "0 14px 30px -16px rgba(80,30,60,.55)" };
+    const face = { position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", borderRadius: 3, overflow: "hidden", boxShadow: "0 1px 2px rgba(60,50,30,.18), 0 14px 26px -18px rgba(60,50,30,.5)" };
     const deco = st.deco === "tape" ? [h("div", { key: "t1", style: { position: "absolute", top: -6, left: 18, width: 70, height: 20, background: "rgba(255,170,190,.75)", transform: "rotate(-8deg)" } }), h("div", { key: "t2", style: { position: "absolute", top: -6, right: 22, width: 60, height: 20, background: "rgba(150,210,200,.75)", transform: "rotate(7deg)" } })]
       : st.deco === "heart" ? [h("div", { key: "hh", style: { position: "absolute", right: 12, bottom: 8, color: "#ff8fb1", fontSize: FS(18) } }, "♡")] : [];
     return h("div", { "data-wk": "trippost", style: { marginBottom: 18 } },
-      h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, margin: "0 2px 8px", color: INK } },
-        h("span", { style: { fontSize: FS(14), fontWeight: 600 } }, stop.place),
-        h("span", { style: { fontSize: FS(11), color: SUB } }, (card.texts || []).map(t => names[t.pid]).filter(Boolean).join("、") + " 寄 · " + (card.kindZh || "") + " · " + dateZh(card.ts))),
+      h("div", { style: { margin: "0 2px 10px", color: INK } },
+        h("div", { style: { fontSize: FS(10), color: PINK, letterSpacing: ".3em" } }, dateZh(card.ts) + "　·　" + (card.texts || []).map(t => names[t.pid]).filter(Boolean).join("、") + " 寄"),
+        h("div", { style: { fontSize: FS(19), fontWeight: 600, fontFamily: SERIF, letterSpacing: ".06em", marginTop: 2 } }, stop.place)),
       h("div", { "data-wk": "tripflip", onClick: () => setBack(b => !b), style: { position: "relative", width: "100%", aspectRatio: "3 / 2", perspective: 1200, cursor: "pointer" } },
         h("div", { style: { position: "absolute", inset: 0, transformStyle: "preserve-3d", transition: "transform .6s", transform: back ? "rotateY(180deg)" : "none" } },
           // 正面：照片
@@ -94,14 +97,14 @@
               [0, 1, 2].map(i => h("div", { key: i, style: { width: "100%", borderBottom: "1.5px solid " + st.line, height: 16 } })))))),
       h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, fontSize: FS(11), color: SUB } },
         h("span", null, back ? "点一下翻回正面" : "点一下翻到背面"),
-        h("button", { "data-wk": "tripbtn", "data-part": "savecard", onClick: onSave, style: { border: "none", background: "transparent", color: PINK, fontSize: FS(12), fontWeight: 600 } }, "存到手机")));
+        h("button", { "data-wk": "tripbtn", "data-part": "savecard", onClick: onSave, style: { border: "none", background: "transparent", color: GRAD, fontSize: FS(12), fontWeight: 600 } }, "存到手机")));
   }
 
   // 相机里「旅行／电影／平行人生」几页共用的一套（粉底白卡、药丸、底下那颗粉橙大按钮、输入框）：挂点名各页自己给
   // 三个玩法各一套颜色（她 2026-11-27「相机里那几个页面弄好看点」）：旅行暖粉、电影暗场金、平行人生梦幻蓝紫
   const THEMES = {
-    trip: { bg: "linear-gradient(180deg,#ffe3ee 0%,#fff6f9 38%,#fdfbfc 100%)", card: "#fff", ink: INK, sub: SUB, accent: PINK, grad: GRAD, line: "#f1e4ea", soft: "#fff1f6", inputBg: "#fffafc", glow: "rgba(255,80,130,.85)", shadow: "rgba(160,60,110,.55)", dark: false,
-      hero: "linear-gradient(135deg,#ff8fb1 0%,#ffb38a 100%)" },
+    trip: { bg: "#f4efe5", card: "#fbf8f2", ink: INK, sub: SUB, accent: "#2f4a6d", grad: GRAD, line: "rgba(38,48,61,.13)", soft: "rgba(47,74,109,.07)", inputBg: "transparent", glow: "rgba(47,74,109,.3)", shadow: "rgba(60,50,30,.3)", flat: true, dark: false,
+      hero: "#2f4a6d" },
     movie: { bg: "radial-gradient(120% 60% at 50% 0%, #5a2333 0%, #2e1019 55%, #1c0a10 100%)", card: "rgba(255,255,255,.06)", ink: "#f7ece8", sub: "rgba(247,236,232,.58)", accent: "#f2c4b8", grad: "linear-gradient(135deg,#fbe3d8 0%,#e3a3a8 100%)", line: "rgba(255,255,255,.12)", soft: "rgba(242,196,184,.14)", inputBg: "rgba(255,255,255,.05)", glow: "rgba(227,163,168,.5)", shadow: "rgba(0,0,0,.6)", dark: true,
       hero: "linear-gradient(135deg,#3d2c3e 0%,#6b4258 55%,#b4775a 100%)" },
     worlds: { bg: "linear-gradient(180deg,#e6ecff 0%,#f3eeff 45%,#fbfaff 100%)", card: "#fff", ink: "#2c2a44", sub: "#8b88a8", accent: "#7b74f0", grad: "linear-gradient(135deg,#7fb4ff 0%,#a98bff 100%)", line: "#e7e4f7", soft: "#f1efff", inputBg: "#fbfaff", glow: "rgba(120,110,255,.6)", shadow: "rgba(90,80,180,.4)", dark: false,
@@ -117,15 +120,17 @@
     const th = THEMES[themeId] || THEMES.trip;
     const card = (part, title, hint, kid) => h("div", { "data-wk": wk.card, "data-part": part, style: { padding: "14px 2px 20px", borderBottom: "1px solid " + th.line } },
       h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 } },
-        h("span", { style: { fontSize: FS(14.5), fontWeight: 600, color: th.ink } }, title), hint ? h("span", { style: { fontSize: FS(11), color: th.sub } }, hint) : null), kid);
+        h("span", { style: { fontSize: FS(14.5), fontWeight: 600, color: th.ink, fontFamily: th.flat ? SERIF : undefined, letterSpacing: th.flat ? ".08em" : undefined } }, title), hint ? h("span", { style: { fontSize: FS(11), color: th.sub } }, hint) : null), kid);
     const pill = (label, on, onClick, part) => h("button", { "data-wk": wk.btn, "data-part": part || "", "data-on": on ? "1" : "0", onClick,
       style: { flexShrink: 0, padding: "4px 0", marginRight: 6, border: "none", background: "transparent", color: on ? th.ink : th.sub, fontSize: FS(12.5), fontWeight: on ? 600 : 400, textDecoration: on ? "underline" : "none", textDecorationColor: th.accent, textDecorationThickness: 2, textUnderlineOffset: 5 } }, label);
     const big = (label, onClick, part, dim) => h("button", { "data-wk": wk.btn, "data-part": part, onClick, disabled: !!dim,
-      style: { width: "100%", height: 52, borderRadius: 26, border: "none", background: th.grad, opacity: dim ? .5 : 1, color: th.dark ? "#2a1a10" : "#fff", fontSize: FS(15.5), fontWeight: 600, letterSpacing: ".1em", boxShadow: "0 14px 28px -14px " + th.glow } }, label);
+      style: th.flat ? { width: "100%", height: 50, borderRadius: 4, border: "none", background: th.grad, opacity: dim ? .5 : 1, color: "#f4efe5", fontSize: FS(15), fontWeight: 600, letterSpacing: ".35em", fontFamily: SERIF, boxShadow: "0 0 0 3px " + "#f4efe5" + ", 0 0 0 4px " + th.grad }
+        : { width: "100%", height: 52, borderRadius: 26, border: "none", background: th.grad, opacity: dim ? .5 : 1, color: th.dark ? "#2a1a10" : "#fff", fontSize: FS(15.5), fontWeight: 600, letterSpacing: ".1em", boxShadow: "0 14px 28px -14px " + th.glow } }, label);
     const small = (label, onClick, part, busy) => h("button", { "data-wk": wk.btn, "data-part": part, onClick, disabled: !!busy,
       style: { padding: "4px 0", border: "none", background: "transparent", color: th.accent, fontSize: FS(13), fontWeight: 600, opacity: busy ? .6 : 1, whiteSpace: "nowrap" } }, "→ " + label);
     const page = (title, onBack, body, foot) => h("div", { "data-wk": wk.page, "data-theme": themeId || "trip", className: "h-full flex flex-col", style: { background: th.bg, color: th.ink } },
       typeof Head === "function" ? h(Head, { zh: title, bg: "transparent", onBack, ...(th.dark ? { ink: th.ink, lineInk: th.line } : {}) }) : null,
+      th.flat ? h("div", { style: { height: 5, flexShrink: 0, backgroundImage: AIRMAIL, opacity: .85 } }) : null,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 18px" } }, body),
       foot ? h("div", { style: { flexShrink: 0, padding: "10px 16px 14px", paddingBottom: "calc(14px + " + (typeof COMPOSER_PAD_BOTTOM !== "undefined" ? COMPOSER_PAD_BOTTOM : "0px") + ")" } }, foot) : null);
     const inp = (v, on, ph, part, rows) => h(rows ? "textarea" : "input", { value: v, placeholder: ph, rows, "data-part": part, onChange: e => on(e.target.value),
@@ -184,7 +189,7 @@
         card("who", "谁去", "可以多选", h("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(64px, 1fr))", gap: "12px 6px" } },
           chars.map(p => { const on = d.ids.indexOf(p.id) >= 0;
             return h("button", { key: p.id, "data-wk": "tripone", "data-on": on ? "1" : "0", onClick: () => tog(p.id), style: { border: "none", background: "transparent", color: INK, textAlign: "center", padding: 0 } },
-              h("div", { style: { display: "inline-block", borderRadius: "50%", padding: 3, background: on ? GRAD : "transparent" } }, h("div", { style: { borderRadius: "50%", padding: 2, background: "#fff" } }, typeof Avatar === "function" ? h(Avatar, { character: p, size: 48 }) : null)),
+              h("div", { style: { display: "inline-block", borderRadius: "50%", padding: 3, background: on ? GRAD : "transparent" } }, h("div", { style: { borderRadius: "50%", padding: 2, background: "#f4efe5" } }, typeof Avatar === "function" ? h(Avatar, { character: p, size: 48 }) : null)),
               h("div", { style: { fontSize: FS(11.5), marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name)); }))),
         card("opts", "出发前", null, h("div", null,
           h("div", { style: { display: "flex", gap: 8, marginBottom: 8, alignItems: "center" } }, h("span", { style: { fontSize: FS(12.5), width: 56, flexShrink: 0 } }, "你去吗"),
@@ -194,12 +199,12 @@
           h("div", { style: { fontSize: FS(10.5), color: SUB, marginTop: 8, lineHeight: 1.6 } }, "一起去：合照里有你，话是写给同行的你；记进记忆：每寄一站记一条，以后聊天TA记得去过。"))),
         card("where", "去哪儿", "景点、城市，或者随便一句", h("div", null,
           inp(d.place, v => set({ place: v }), "写一个地方", "place", 2),
-          h("button", { "data-wk": "tripbtn", "data-part": "plan", onClick: plan, style: { marginTop: 8, height: 34, padding: "0 16px", borderRadius: 17, border: "none", background: GRAD, color: "#fff", fontSize: FS(12.5), fontWeight: 600, opacity: busy ? .6 : 1, whiteSpace: "nowrap" } }, busy === "plan" ? "在排…" : d.stops.length ? "重新排一版" : "让 AI 排一版"),
+          h("button", { "data-wk": "tripbtn", "data-part": "plan", onClick: plan, style: { marginTop: 8, padding: "4px 0", border: "none", background: "transparent", color: GRAD, fontSize: FS(13), fontWeight: 600, opacity: busy ? .6 : 1, whiteSpace: "nowrap" } }, busy === "plan" ? "在排…" : "→ " + (d.stops.length ? "重新排一版" : "让 AI 排一版")),
           h("span", { style: { fontSize: FS(10.5), color: SUB, marginLeft: 8 } }, "排完都能改，也能自己加"))),
         card("stops", "路线", d.stops.length ? d.stops.length + " 站，一站寄一张" : "还没有站", h("div", null,
           d.stops.map((s, i) => h("div", { key: i, "data-wk": "tripstop", style: { padding: "2px 0", marginBottom: 18 } },
             h("div", { style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6 } },
-              h("span", { style: { width: 22, height: 22, borderRadius: 11, background: GRAD, color: "#fff", fontSize: FS(11), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, i + 1),
+              h("span", { style: { width: 26, flexShrink: 0, color: PINK, fontFamily: SERIF, fontSize: FS(18) } }, String(i + 1).padStart(2, "0")),
               h("div", { style: { flex: 1 } }, inp(s.place, v => setStop(i, { place: v }), "地名", "stopplace")),
               i > 0 ? h("button", { "data-wk": "tripbtn", "data-part": "up", onClick: () => { const a = d.stops.slice(); [a[i - 1], a[i]] = [a[i], a[i - 1]]; set({ stops: a }); }, style: { border: "none", background: "transparent", color: SUB, fontSize: FS(14), padding: "0 4px" } }, "↑") : null,
               h("button", { "data-wk": "tripbtn", "data-part": "delstop", onClick: () => set({ stops: d.stops.filter((_, j) => j !== i) }), style: { border: "none", background: "transparent", color: SUB, fontSize: FS(16), padding: "0 4px" } }, "×")),
@@ -258,15 +263,15 @@
       if (journal && trip.journal) {
         const j = trip.journal, souv = got.filter(s => s.card.souvenir);
         return page("旅行手账", () => setJournal(false), [
-          h("div", { key: "jr", "data-wk": "tripjournal", style: { background: "#fbf7f1", margin: "4px -4px 0", padding: "26px 20px 30px", borderRadius: 4, boxShadow: "0 18px 36px -24px rgba(120,60,90,.5)", color: "#3a3340" } },
+          h("div", { key: "jr", "data-wk": "tripjournal", style: { position: "relative", background: "#fbf8f2", margin: "14px -4px 0", padding: "30px 20px 34px", borderRadius: 2, boxShadow: "0 1px 2px rgba(60,50,30,.15), 0 18px 36px -24px rgba(60,50,30,.5)", color: INK, backgroundImage: AIRMAIL + "," + AIRMAIL, backgroundSize: "100% 6px, 100% 6px", backgroundPosition: "top, bottom", backgroundRepeat: "no-repeat" } },
             h("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: -14 } }, typeof PhoneShotBtn === "function" ? h(PhoneShotBtn, { color: SUB, name: "旅行手账-" + (j.title || trip.title).slice(0, 12).replace(/[\\/:*?"<>|]/g, "") }) : null),
-            h("div", { style: { textAlign: "center", fontSize: FS(10.5), letterSpacing: ".35em", color: PINK } }, "TRAVEL JOURNAL"),
+            h("div", { style: { textAlign: "center", fontSize: FS(10.5), letterSpacing: ".35em", color: PINK } }, "TRAVEL JOURNAL · 旅行手账"),
             h("div", { style: { textAlign: "center", fontSize: FS(22), fontWeight: 600, letterSpacing: ".1em", margin: "6px 0 4px", fontFamily: "'Songti SC','Noto Serif SC',serif" } }, j.title || trip.title),
             h("div", { style: { textAlign: "center", fontSize: FS(11.5), color: SUB } }, trip.ids.map(id => names[id]).filter(Boolean).join("、") + (trip.meGo ? " 和你" : "")),
             // 路线：几站串成一条虚线
             h("div", { "data-wk": "tripjroute", style: { display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: "6px 0", margin: "20px 0 22px", fontSize: FS(12) } },
-              got.map((s, i) => h(React.Fragment, { key: i }, i ? h("span", { style: { width: 22, borderTop: "1.5px dashed " + PINK, margin: "0 6px", opacity: .6 } }) : null,
-                h("span", null, h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 4, background: PINK, marginRight: 5, verticalAlign: "middle" } }), s.place)))),
+              got.map((s, i) => h(React.Fragment, { key: i }, i ? h("span", { style: { margin: "0 8px", color: SUB, fontSize: FS(11) } }, "✈") : null,
+                h("span", null, s.place)))),
             // 明信片照片：错落贴着
             h("div", { "data-wk": "tripjphotos", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, got.map((s, i) => h("div", { key: i, style: { background: "#fff", padding: "6px 6px 8px", boxShadow: "0 6px 14px -8px rgba(0,0,0,.3)", transform: "rotate(" + (i % 2 ? 2 : -2) + "deg)" } },
               h(JImg, { k: s.card.imgKey }), h("div", { style: { fontFamily: HAND, fontSize: FS(12.5), textAlign: "center", marginTop: 4 } }, s.place)))),
@@ -282,8 +287,11 @@
         ], j.next ? big("就去" + j.next.place, nextTrip, "nexttrip") : null);
       }
       return page(trip.title, () => setOpenId(null), [
-        h("div", { key: "meta", style: { fontSize: FS(11.5), color: SUB, margin: "2px 2px 14px", lineHeight: 1.6 } },
-          trip.ids.map(id => names[id]).filter(Boolean).join("、") + (trip.meGo ? " 和你" : "") + " · " + trip.stops.length + " 站 · " + (trip.remember ? "记进记忆" : "不记进记忆")),
+        h("div", { key: "meta", "data-wk": "triphead", style: { textAlign: "center", padding: "18px 4px 22px", marginBottom: 18, borderBottom: "1px dashed rgba(38,48,61,.25)" } },
+          h("div", { style: { fontSize: FS(10), letterSpacing: ".4em", color: PINK } }, "PAR AVION · 航空"),
+          h("div", { style: { fontSize: FS(24), fontWeight: 600, fontFamily: SERIF, letterSpacing: ".1em", margin: "8px 0 10px", color: INK } }, trip.title),
+          h("div", { style: { fontSize: FS(12), color: INK, lineHeight: 1.9 } }, trip.stops.map((s, i) => h("span", { key: i, style: { color: s.card ? INK : i === next ? PINK : "#b9b1a3", fontWeight: i === next ? 600 : 400 } }, (i ? "  ✈  " : "") + s.place))),
+          h("div", { style: { fontSize: FS(11), color: SUB, marginTop: 6 } }, trip.ids.map(id => names[id]).filter(Boolean).join("、") + (trip.meGo ? " 和你" : "") + "　·　" + (trip.remember ? "记进记忆" : "不记进记忆"))),
         got.length ? null : h("div", { key: "empty", style: { textAlign: "center", color: SUB, fontSize: FS(12.5), padding: "30px 0" } }, "还没寄出第一张"),
         got.map((s, i) => { const si = trip.stops.indexOf(s), c = s.card;
           return h("div", { key: i, style: { marginBottom: 30 } }, h(Postcard, { card: c, stop: s, names, onSave: () => save(c, s) }),
@@ -291,11 +299,9 @@
             c.souvenir ? h("div", { "data-wk": "tripsouvenir", style: { fontSize: FS(12), color: SUB, lineHeight: 1.7, margin: "4px 4px 0" } }, h("span", { style: { color: PINK, marginRight: 6 } }, "带给你"), h("span", { style: { color: INK } }, c.souvenir.name), c.souvenir.why ? "　" + c.souvenir.why : "") : null,
             (c.thread || []).length ? h("div", { "data-wk": "tripthread", style: { margin: "10px 4px 0" } }, c.thread.map((x, j) => h("div", { key: j, style: { textAlign: x.from === "me" ? "right" : "left", fontFamily: x.from === "me" ? "inherit" : HAND, fontSize: FS(x.from === "me" ? 12.5 : 15), color: x.from === "me" ? SUB : INK, lineHeight: 1.6, marginTop: 6, whiteSpace: "pre-wrap" } }, x.text))) : null,
             props.onTripMore ? (replyAt === si ? h("div", { style: { margin: "8px 4px 0" } },
-              h("textarea", { "data-wk": "tripreply", value: replyTx, rows: 2, placeholder: "回一句给寄明信片的人", onChange: e => setReplyTx(e.target.value), style: { width: "100%", boxSizing: "border-box", border: "none", borderBottom: "1px solid #ead9e1", background: "transparent", color: INK, fontSize: FS(13), padding: "6px 0", resize: "none", outline: "none", fontFamily: "inherit" } }),
-              h("div", { style: { textAlign: "right" } }, h("button", { "data-wk": "tripbtn", "data-part": "sendreply", disabled: !!busy || !replyTx.trim(), onClick: () => reply(si), style: { border: "none", background: "transparent", color: PINK, fontWeight: 600, fontSize: FS(12.5), padding: "4px 0", opacity: busy || !replyTx.trim() ? .5 : 1 } }, busy === "reply" ? "寄过去了…" : "寄回去")))
+              h("textarea", { "data-wk": "tripreply", value: replyTx, rows: 2, placeholder: "回一句给寄明信片的人", onChange: e => setReplyTx(e.target.value), style: { width: "100%", boxSizing: "border-box", border: "none", borderBottom: "1px solid rgba(38,48,61,.18)", background: "transparent", color: INK, fontSize: FS(13), padding: "6px 0", resize: "none", outline: "none", fontFamily: "inherit" } }),
+              h("div", { style: { textAlign: "right" } }, h("button", { "data-wk": "tripbtn", "data-part": "sendreply", disabled: !!busy || !replyTx.trim(), onClick: () => reply(si), style: { border: "none", background: "transparent", color: GRAD, fontWeight: 600, fontSize: FS(12.5), padding: "4px 0", opacity: busy || !replyTx.trim() ? .5 : 1 } }, busy === "reply" ? "寄过去了…" : "寄回去")))
               : h("div", { style: { textAlign: "right", margin: "4px 4px 0" } }, h("button", { "data-wk": "tripbtn", "data-part": "reply", onClick: () => { setReplyAt(si); setReplyTx(""); }, style: { border: "none", background: "transparent", color: SUB, fontSize: FS(12), padding: "4px 0" } }, "回一句"))) : null); }),
-        h("div", { key: "route", style: { marginTop: 6, fontSize: FS(11.5), textAlign: "center", lineHeight: 2 } },
-          trip.stops.map((s, i) => h("span", { key: i, style: { color: s.card ? SUB : i === next ? PINK : "#c8b8c0", fontWeight: i === next ? 600 : 400 } }, (i ? "  →  " : "") + s.place))),
         h("div", { key: "del", style: { textAlign: "center", marginTop: 24 } }, h("button", { "data-wk": "tripbtn", "data-part": "deltrip", onClick: del, style: { border: "none", background: "transparent", color: SUB, opacity: .7, fontSize: FS(11.5) } }, "删掉这趟旅行"))
       ], stop ? h("div", null,
         h("div", { style: { fontSize: FS(11), color: SUB, textAlign: "center", marginBottom: 8 } }, busy === "send" ? "在写、在拍…要等半分钟左右" : "下一站：" + stop.place + " · " + who(stop) + "寄"),
@@ -318,10 +324,10 @@
   function JImg({ k }) { const url = typeof useIdbImgUrl === "function" ? useIdbImgUrl(k) : null; return url ? h("img", { src: url, style: { display: "block", width: "100%", aspectRatio: "1", objectFit: "cover" } }) : h("div", { style: { aspectRatio: "1", background: "#f1e4ea" } }); }
   function TripThumb({ k }) {
     const url = typeof useIdbImgUrl === "function" ? useIdbImgUrl(k) : null;
-    return h("div", { style: { width: 66, height: 66, borderRadius: 14, overflow: "hidden", flexShrink: 0, background: THEMES.trip.hero, display: "flex", alignItems: "center", justifyContent: "center" } },
+    return h("div", { style: { width: 66, height: 66, borderRadius: 3, overflow: "hidden", flexShrink: 0, background: THEMES.trip.hero, backgroundImage: AIRMAIL, display: "flex", alignItems: "center", justifyContent: "center" } },
       url ? h("img", { src: url, style: { width: "100%", height: "100%", objectFit: "cover" } }) : icon(ICONS.trip, 26));
   }
   window.CameraTrip = CameraTrip;
   window.CameraTrip.STYLES = STYLES;
-  window.CameraTrip.kit = { makeUI, THEMES, wrap, loadImg, HAND, GRAD, INK, SUB, PINK, FS, dateZh };
+  window.CameraTrip.kit = { makeUI, THEMES, wrap, loadImg, HAND, GRAD: "linear-gradient(135deg,#ff5f9e 0%,#ff8a7a 55%,#ffb36b 100%)", INK, SUB, PINK, FS, dateZh, AIRMAIL, SERIF };
 })();
