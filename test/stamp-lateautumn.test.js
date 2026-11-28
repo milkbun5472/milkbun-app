@@ -16,6 +16,6 @@ test("画面：穿着跟季节", () => { assert.match(seg, /人物穿着照这�
 test("测试券开着时卡池列表摆出每一期（往期、这期、往后）；送券那一路不读它", () => {
   const st = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "stamps.js"), "utf8");
   assert.match(s, /function nextLimited\(now\)/);
-  assert.match(st, /st\.opt && st\.opt\.testInf && C\(\)\.allLimited \? C\(\)\.allLimited\(\)/);
+  assert.match(st, /st\.opt\.testLims \|\| \[\]\)\.indexOf\(L\.id\) >= 0/); assert.match(st, /"data-wk": "stamptestlims"/);
   assert.doesNotMatch(s.slice(s.indexOf("function grantOnOpen"), s.indexOf("function allLimited")), /nextLimited|allLimited/);
 });

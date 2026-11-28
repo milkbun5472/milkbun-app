@@ -841,7 +841,9 @@
       (() => { const lp = ((C().load().opt || {}).limPick || []).filter(id => characters.some(c => c.id === id)); return lp.length || characters.length; })()); if (got.length) { setGotNote(got); setSt(C().load()); } }, []);
     // 测试券开着：把下一期还没开的限定池也摆出来，先试味道（不送它的券，抽的时候走测试券）
     // 测试模式里每一期都能挑来试（她 2026-11-28「开了测试再选以前哪个池子」）：往期、这一期、往后的，照日子排；平时照旧只有正开着的那几期
-    const lims = st.opt && st.opt.testInf && C().allLimited ? C().allLimited().slice().sort((a, b) => Date.parse(a.from) - Date.parse(b.from))
+    // 测试模式里挑几期来试（她 2026-11-28「在设置里选，可以多选，不然全摆出来不好找」）：设置里勾的那几期＋正开着的，照日子排
+    const lims = st.opt && st.opt.testInf && C().allLimited
+      ? C().allLimited().filter(L => (st.opt.testLims || []).indexOf(L.id) >= 0 || C().activeLimited(Date.now()).some(x => x.id === L.id)).sort((a, b) => Date.parse(a.from) - Date.parse(b.from))
       : C().activeLimited(Date.now());
     // 生日池：他生日前 14 天出现，生日后留 7 天；保底和求情按「这个人这一年」单独记
     const bds = characters.map(c => { const w = c.birthday ? C().bdayWindow(c.birthday, Date.now(), c.id) : null; return w ? { char: c, win: w, key: c.id + "_" + w.year } : null; }).filter(Boolean)
@@ -1150,7 +1152,15 @@
             blk("他寄来的信（在私聊里点「领取」）", [["今天的信：每天一个人寄一张", "单抽券"], ["限时池上新：每两个人一张，最多五张", "十连券＋同样多番外券"], ["他的生日池出现", "1 张十连券"], ["你的生日", "10 张生日券"], ["在一起的纪念日", "5 张纪念日券"],
               ["在一起了、满 100 / 520 / 1000 天，甜蜜值 10 / 30 / 50 / 100", "十连券，一辈子一次"], ["每张十连都配", C().INK_PER_TEN + " 印泥"]]),
             blk("盖印升满一张", [["R", F.R + " 印泥"], ["SR", F.SR + " 印泥"], ["SSR", F.SSR + " 印泥"]])); })(),
-        testInf ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: RC.SSR } }, "测试券开着：抽卡不花邮资和券、盖印不花印泥（连点七下「规则」关掉）") : null));
+        testInf ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: RC.SSR } }, "测试券开着：抽卡不花邮资和券、盖印不花印泥（连点七下「规则」关掉）") : null,
+        testInf && C().allLimited ? h("div", { "data-wk": "stamptestlims", style: { marginTop: 10 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: "#827C6F", marginBottom: 6 } }, "测试哪几期（可多选，勾上的会摆进卡池那一排；正开着的一直在）"),
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } }, C().allLimited().slice().sort((a, b) => Date.parse(a.from) - Date.parse(b.from)).map(L => {
+            const sel = (opt.testLims || []).indexOf(L.id) >= 0, now = Date.now(), live = now >= Date.parse(L.from) && now < Date.parse(L.to);
+            return h("button", { key: L.id, "data-on": sel || live ? "1" : "0", disabled: live, onClick: () => setOpt({ testLims: sel ? (opt.testLims || []).filter(x => x !== L.id) : (opt.testLims || []).concat([L.id]) }),
+              style: { padding: "6px 10px", borderRadius: 999, border: "1px solid " + (sel || live ? "#3c7a60" : "rgba(0,0,0,.15)"), background: sel || live ? "#3c7a60" : "transparent", color: sel || live ? "#fff" : "#4a4438", fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", opacity: live ? .7 : 1 } },
+              L.name + (live ? " · 正开着" : now >= Date.parse(L.to) ? " · 往期" : " · 还没开"));
+          }))) : null));
     const meltBar = meltSel != null ? (() => { const S0 = C().load(), picked = (S0.cards || []).filter(c => meltSel.includes(c.id)), ink = picked.reduce((a, c) => a + C().meltValue(c), 0);
       return h("div", { "data-wk": "stampmeltbar", style: { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 40, padding: "10px 16px calc(env(safe-area-inset-bottom) + 12px)", background: "#FFF8E9", borderTop: "1px solid rgba(47,42,34,.15)", boxShadow: "0 -4px 14px rgba(40,30,20,.1)" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: "#2f2a22" } }, "挑了 " + picked.length + " 张 · 熔掉得 " + ink + " 印泥"),
