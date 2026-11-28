@@ -35,7 +35,7 @@ test("拍过的按角色分：画面里有谁写在键尾，开相机时读回�
   assert.match(cam, /ps\.map\(encodeURIComponent\)\.join\("~"\)/);
   assert.match(cam, /rest\.slice\(j \+ 1\)\.split\("~"\)/);
   assert.match(cam, /toRoll\(blob, "拍的", stickers\.map\(s => s\.pid\)\)/);
-  assert.match(cam, /toRoll\(blob, "画的", genIds\)/);
+  assert.match(cam, /toRoll\(blob, "画的", genIds, genScene\)/);
   assert.ok(ts.includes('["camrollwho"') && cam.includes('"data-wk": "camrollwhoone"'));
 });
 test("旅行：一站一站寄；样子可以定也可以让TA挑；出发前选她去不去、记不记", () => {
