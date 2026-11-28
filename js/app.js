@@ -14565,7 +14565,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 线上导演便签：只给模型看，不算她说的话；放在本轮任务末尾，离生成最近
       const _dirLive = chatDirNotesLive(chatKey);
       const _dirHint = _dirLive.length ? "\n\n〔幕后提醒，绝不出现在你说的话里〕" + uName + " 想让接下来的聊天往这个方向走：" + _dirLive.map(n => n.text).join("；") + "。顺着这个方向自然地聊过去，不用一下子说到。" : "";
-      const _taskFull = (_body ? _digitalTaskFull : _normalTaskV2) + _roomHint + _dirHint;
+      // 主动找她时也是平时那一整套（她 2026-11-28「主动消息基本上就是纯文字」）：工具一直都在表里，只是主动那几句只说了「开口」，
+      //   模型就默认成发几句话。这里只说清楚这一回能怎么找她，用不用、用哪样照TA此刻想怎么找来
+      const _proForms = opts.proactive && !_body ? [].concat(canSelfie && canSelfieImg ? ["拍一张此刻的照片"] : [], emotes.length ? ["发个表情包"] : []) : [];
+      const _proHint = _proForms.length ? "\n【主动找她的样子】主动找她跟平时聊天一样，不只是打几句字：可以" + _proForms.join("、") + "，或者就几句话——照你这会儿想怎么找她来。" : "";
+      const _taskFull = (_body ? _digitalTaskFull : _normalTaskV2) + _roomHint + _dirHint + _proHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
       // ⚠️「用手机和她一对一聊天」这句里藏着一个【地点前提】：你俩隔着屏幕。
       //   她 2026-09-09：「我们如果在同一个地方那肯定就是直接聊天而不是打字了吧」——
