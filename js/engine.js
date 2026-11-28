@@ -873,8 +873,8 @@ if (typeof window !== "undefined") window.CallLog = CallLog;
 // 「在干嘛」认不出来时按【是谁叫的】认（她 2026-10-09：「其他的也来慢慢补吧」）：
 //   一百多处调用不一处处手写，在进 callAI／runProbe 那一刻看一眼调用栈——先认函数名，再认文件。
 //   新加一处调用、表里没有，就显示「其他」；看见哪个常出现就往这两张表里补一行。
-const CALL_FN_LABEL = Object.freeze({"cameraGenFit": "相机·配一套衣服", "cameraWriteShot": "相机·写一版画面", "cameraLook": "相机·给TA看", "cameraShare": "相机·发给TA", "tripPlan": "相机·旅行排行程", "tripCard": "相机·旅行明信片", "tripMore": "相机·旅行回信／手账", "moviePlan": "相机·电影剧本", "moviePoster": "相机·电影海报", "movieScene": "相机·电影剧照", "moviePremiere": "相机·电影首映", "worldsPlan": "相机·平行人生", "worldCard": "相机·平行人生写真", "worldMore": "相机·平行人生", "onGenAlt": "小号房·起小号", "onGenPatSig": "拍一拍后缀", "replyDrawerMine": "情侣空间·抽屉回信", "peekDailyEnsure": "查手机·日常联系人", "writeBdayLetter": "生日信", "openBdayPlan": "生日计划", "suggestGroupName": "起群名", "drawLuckyChat": "幸运字符", "stampBeg": "集邮·生日池讨卡", "stampWriteSmall": "集邮·写小卡", "stampWriteSSR": "集邮·写 SSR", "stampInner": "集邮·SSR 换他视角重读", "stampExtra": "集邮·加一面", "stampReshot": "集邮·重拍", "stampPoke": "集邮·戳卡面", "genMyWeek": "我的一周", "regenCharAlt": "论坛·重起小号", "askForumWechat": "论坛·要微信", "spaceHomeTa": "情侣空间·TA 动手", "spaceBookTa": "情侣空间·TA 动笔", "collageArrange": "拼贴·TA 摆", "collageLook": "拼贴·TA 看看动几下", "collageChoose": "拼贴·TA 挑一个", "collageDraft": "拼贴·TA 起稿", "tripBookSearch": "旅行·查机票酒店", "comicFromMessages": "聊天变漫画", "coverCopy": "封面上的字", "studioShoot": "照相馆·拍", "replyToQA": "情侣问答·回答", "pickEmoteNine": "表情包·挑九宫格", "pickMyEmoteNine": "表情包·挑我的九宫格", "extractMemories": "记忆·提取", "extractGroupMemories": "记忆·群聊提取", "splitMemoryToEntries": "记忆·拆条", "generateRelation": "生成关系", "generateMyNpc": "生成我的配角", "generateNpcs": "生成配角", "generateNpc": "生成配角", "generateOfflineGroup": "群线下", "oocAsk": "场外问一句", "oocAskGroup": "群里场外问一句", "generateDiary": "日记", "gachaRedeem": "抽卡兑换", "mkThread": "查手机·聊天记录", "desireTendAllToday": "念头", "sendForumPM": "论坛私信", "openAnon": "匿名提问", "makeupOpen": "和好间", "callSend": "通话", "askYesNo": "问TA答不答应", "askAnonMe": "匿名提问", "_replyTurn": "聊天回复", "wearMatch": "穿搭", "watchKnock": "一起看", "unlinkCouple": "解除情侣", "tripPlanGen": "旅行行程", "summarizeChatRoom": "小房间小结", "schedMaybeSelfRevise": "日程自己改", "runProbeRetry": "重试", "routeWorld": "地图路线", "rerollCoupleQA": "情侣问答", "requestKinshipRaise": "亲属卡加额度", "replyGroup": "群聊", "refreshAnonPersona": "匿名主页", "reactToUserMoment": "回你的朋友圈", "radioAsk": "电台", "pinWishAsChar": "愿望板", "openAnonBox": "匿名箱", "observeRelationshipBShadow": "关系观察", "notifyChapterToChars": "同人文通知", "myClosetGen": "我的衣柜", "momentReplies": "朋友圈评论", "makeupSay": "和好间", "leaveInCoupleSpace": "情侣空间留言", "leaveAtHis": "去TA那儿留言", "ifOpen": "另一种我们", "ifAdvance": "另一种我们", "handPhoneTo": "给TA看手机", "generateTemperamentDraft": "写性格", "genWorldNodes": "地图", "genWorld": "地图", "genWhisper": "悄悄话", "genWeekSpend": "一周消费", "genWatchSession": "一起看", "genWalletProfile": "钱包档案", "genTimelineMusing": "时光轴感慨", "genTakeout": "外卖", "genSnoop": "查手机", "genShop": "购物", "genScheduleWeek": "一周日程", "genScheduleDay": "日程", "genPollVotes": "群投票", "genPhoneApp": "查手机", "genPhoneAll": "查手机", "genNetizenQ": "网友提问", "genMoment": "朋友圈", "genLetterReply": "情书回信", "genGiftThought": "礼物心声", "genExDiaryReply": "交换日记", "genDwellPlace": "住处", "genDateOutfits": "约会穿搭", "genDailySpend": "每日消费", "genCoupleRecall": "情侣回忆", "genCoupleLetter": "情书", "genCoupleDisc": "情侣唱片", "genClosetMore": "衣柜", "genCharPlaylist": "TA的歌单", "genCarrySection": "随身物品", "genCarryAll": "随身物品", "genCalMonth": "日历", "genAnonMe": "匿名主页", "gazeCall": "Ta 眼里", "gardenPlantGen": "种花", "ensureCharForumMeta": "论坛主页", "endCall": "通话小结", "desireMuseFor": "念头", "decidePayLater": "代付", "decideGroupPayLater": "群代付", "charReceiveGiftReact": "收到礼物", "brewAnonPool": "匿名箱", "blockedReaction": "拉黑反应", "backfillMemEmotion": "记忆补情绪", "autoForumForChar": "论坛发帖", "autoBuryCapsuleForChar": "时光胶囊", "astroSignSweep": "星盘", "askAnon": "匿名提问", "answerCoupleQA": "情侣问答", "_pageTheme": "页面配色", "summarizeGroup": "总结群聊", "summarizeChatBlock": "总结聊天", "summarizeChat": "总结聊天", "scenePhotoBrief": "线下照片", "offlineSummaryCall": "线下小结", "offlineRewriteScene": "线下改写", "naiTagsFor": "生图标签", "jpKanaReading": "日文注音", "generateDiaryComment": "日记评论", "_transModel": "翻译", "probeAs": "直播", "probeMany": "直播", "askStranger": "刷视频", "probeStranger": "刷视频", "onSummarizePin": "回忆卡", "onRecall": "回忆卡", "onConnect": "电台", "onStudio": "电台", "onWheelReact": "转盘", "phoneCalendarFor": "查手机·日历", "genForumBoard": "论坛", "loadForumComments": "论坛评论", "genMoreComments": "论坛评论", "refreshForumPMs": "论坛私信", "startForumPM": "论坛私信", "forumMineTick": "论坛", "genRepliesToMe": "论坛回复", "genForumSearch": "论坛搜索"});
-const CALL_FILE_LABEL = Object.freeze({"fanfic-core": "同人", "impression-core": "印象卡", "ledger-core": "记账", "zhaoying-core": "照影·性格小测", "assistant": "秋秋", "astro": "星盘", "capsule": "时光胶囊", "companion": "桌宠", "debate": "擂台", "dream": "梦境", "dreamjournal": "梦境日记", "fairy-garden": "小世界", "fanfic": "同人文", "games": "小游戏", "health": "健康", "impression": "月度印象", "ledger": "记账", "listen-talk": "一起听", "memo": "备忘录", "pomodoro": "番茄钟", "read": "一起读", "study": "一起学", "style-presets": "文风预设", "tarot": "塔罗", "theater": "小剧场", "trpg": "跑团", "watch": "一起看", "weekly": "周刊"});
+const CALL_FN_LABEL = Object.freeze({"saveTemperamentAnchors": "写性格·定锚", "onDuelChat": "集邮·对局时聊天", "cameraGenFit": "相机·配一套衣服", "cameraWriteShot": "相机·写一版画面", "cameraLook": "相机·给TA看", "cameraShare": "相机·发给TA", "tripPlan": "相机·旅行排行程", "tripCard": "相机·旅行明信片", "tripMore": "相机·旅行回信／手账", "moviePlan": "相机·电影剧本", "moviePoster": "相机·电影海报", "movieScene": "相机·电影剧照", "moviePremiere": "相机·电影首映", "worldsPlan": "相机·平行人生", "worldCard": "相机·平行人生写真", "worldMore": "相机·平行人生", "onGenAlt": "小号房·起小号", "onGenPatSig": "拍一拍后缀", "replyDrawerMine": "情侣空间·抽屉回信", "peekDailyEnsure": "查手机·日常联系人", "writeBdayLetter": "生日信", "openBdayPlan": "生日计划", "suggestGroupName": "起群名", "drawLuckyChat": "幸运字符", "stampBeg": "集邮·生日池讨卡", "stampWriteSmall": "集邮·写小卡", "stampWriteSSR": "集邮·写 SSR", "stampInner": "集邮·SSR 换他视角重读", "stampExtra": "集邮·加一面", "stampReshot": "集邮·重拍", "stampPoke": "集邮·戳卡面", "genMyWeek": "我的一周", "regenCharAlt": "论坛·重起小号", "askForumWechat": "论坛·要微信", "spaceHomeTa": "情侣空间·TA 动手", "spaceBookTa": "情侣空间·TA 动笔", "collageArrange": "拼贴·TA 摆", "collageLook": "拼贴·TA 看看动几下", "collageChoose": "拼贴·TA 挑一个", "collageDraft": "拼贴·TA 起稿", "tripBookSearch": "旅行·查机票酒店", "comicFromMessages": "聊天变漫画", "coverCopy": "封面上的字", "studioShoot": "照相馆·拍", "replyToQA": "情侣问答·回答", "pickEmoteNine": "表情包·挑九宫格", "pickMyEmoteNine": "表情包·挑我的九宫格", "extractMemories": "记忆·提取", "extractGroupMemories": "记忆·群聊提取", "splitMemoryToEntries": "记忆·拆条", "generateRelation": "生成关系", "generateMyNpc": "生成我的配角", "generateNpcs": "生成配角", "generateNpc": "生成配角", "generateOfflineGroup": "群线下", "oocAsk": "场外问一句", "oocAskGroup": "群里场外问一句", "generateDiary": "日记", "gachaRedeem": "抽卡兑换", "mkThread": "查手机·聊天记录", "desireTendAllToday": "念头", "sendForumPM": "论坛私信", "openAnon": "匿名提问", "makeupOpen": "和好间", "callSend": "通话", "askYesNo": "问TA答不答应", "askAnonMe": "匿名提问", "_replyTurn": "聊天回复", "wearMatch": "穿搭", "watchKnock": "一起看", "unlinkCouple": "解除情侣", "tripPlanGen": "旅行行程", "summarizeChatRoom": "小房间小结", "schedMaybeSelfRevise": "日程自己改", "runProbeRetry": "重试", "routeWorld": "地图路线", "rerollCoupleQA": "情侣问答", "requestKinshipRaise": "亲属卡加额度", "replyGroup": "群聊", "refreshAnonPersona": "匿名主页", "reactToUserMoment": "回你的朋友圈", "radioAsk": "电台", "pinWishAsChar": "愿望板", "openAnonBox": "匿名箱", "observeRelationshipBShadow": "关系观察", "notifyChapterToChars": "同人文通知", "myClosetGen": "我的衣柜", "momentReplies": "朋友圈评论", "makeupSay": "和好间", "leaveInCoupleSpace": "情侣空间留言", "leaveAtHis": "去TA那儿留言", "ifOpen": "另一种我们", "ifAdvance": "另一种我们", "handPhoneTo": "给TA看手机", "generateTemperamentDraft": "写性格", "genWorldNodes": "地图", "genWorld": "地图", "genWhisper": "悄悄话", "genWeekSpend": "一周消费", "genWatchSession": "一起看", "genWalletProfile": "钱包档案", "genTimelineMusing": "时光轴感慨", "genTakeout": "外卖", "genSnoop": "查手机", "genShop": "购物", "genScheduleWeek": "一周日程", "genScheduleDay": "日程", "genPollVotes": "群投票", "genPhoneApp": "查手机", "genPhoneAll": "查手机", "genNetizenQ": "网友提问", "genMoment": "朋友圈", "genLetterReply": "情书回信", "genGiftThought": "礼物心声", "genExDiaryReply": "交换日记", "genDwellPlace": "住处", "genDateOutfits": "约会穿搭", "genDailySpend": "每日消费", "genCoupleRecall": "情侣回忆", "genCoupleLetter": "情书", "genCoupleDisc": "情侣唱片", "genClosetMore": "衣柜", "genCharPlaylist": "TA的歌单", "genCarrySection": "随身物品", "genCarryAll": "随身物品", "genCalMonth": "日历", "genAnonMe": "匿名主页", "gazeCall": "Ta 眼里", "gardenPlantGen": "种花", "ensureCharForumMeta": "论坛主页", "endCall": "通话小结", "desireMuseFor": "念头", "decidePayLater": "代付", "decideGroupPayLater": "群代付", "charReceiveGiftReact": "收到礼物", "brewAnonPool": "匿名箱", "blockedReaction": "拉黑反应", "backfillMemEmotion": "记忆补情绪", "autoForumForChar": "论坛发帖", "autoBuryCapsuleForChar": "时光胶囊", "astroSignSweep": "星盘", "askAnon": "匿名提问", "answerCoupleQA": "情侣问答", "_pageTheme": "页面配色", "summarizeGroup": "总结群聊", "summarizeChatBlock": "总结聊天", "summarizeChat": "总结聊天", "scenePhotoBrief": "线下照片", "offlineSummaryCall": "线下小结", "offlineRewriteScene": "线下改写", "naiTagsFor": "生图标签", "jpKanaReading": "日文注音", "generateDiaryComment": "日记评论", "_transModel": "翻译", "probeAs": "直播", "probeMany": "直播", "askStranger": "刷视频", "probeStranger": "刷视频", "onSummarizePin": "回忆卡", "onRecall": "回忆卡", "onConnect": "电台", "onStudio": "电台", "onWheelReact": "转盘", "phoneCalendarFor": "查手机·日历", "genForumBoard": "论坛", "loadForumComments": "论坛评论", "genMoreComments": "论坛评论", "refreshForumPMs": "论坛私信", "startForumPM": "论坛私信", "forumMineTick": "论坛", "genRepliesToMe": "论坛回复", "genForumSearch": "论坛搜索"});
+const CALL_FILE_LABEL = Object.freeze({"health-core": "健康", "netroom": "联机", "netroom-trpg": "联机·跑团", "pomodoro-core": "番茄钟", "fanfic-core": "同人", "impression-core": "印象卡", "ledger-core": "记账", "zhaoying-core": "照影·性格小测", "assistant": "秋秋", "astro": "星盘", "capsule": "时光胶囊", "companion": "桌宠", "debate": "擂台", "dream": "梦境", "dreamjournal": "梦境日记", "fairy-garden": "小世界", "fanfic": "同人文", "games": "小游戏", "health": "健康", "impression": "月度印象", "ledger": "记账", "listen-talk": "一起听", "memo": "备忘录", "pomodoro": "番茄钟", "read": "一起读", "study": "一起学", "style-presets": "文风预设", "tarot": "塔罗", "theater": "小剧场", "trpg": "跑团", "watch": "一起看", "weekly": "周刊"});
 // tag 是调用点自己起的名字：中文直接用；英文那几个翻一下，认不出的不显示（落到「其他」），别把英文摆到她眼前
 const CALL_TAG_LABEL = Object.freeze({ netroom: "联机房间", zhaoying: "照影·性格小测", shike: "时刻", mydaily: "查手机·日常联系人", drawer: "情侣空间·抽屉回信", friendreq: "加好友", stamps: "集邮·信里附言", stampstory: "集邮·剧情闯关", stampshop: "集邮·小店", stamppatrol: "集邮·巡查", stampduel: "集邮·对局", stampdispatch: "集邮·派遣", stampcoach: "集邮·教练", live: "直播", shua: "刷视频", phoneWatch: "查手机", "notif-test": "测试通知", astro: "星盘", tarot: "塔罗", "wh-": "悄悄话", "mom-": "朋友圈", health: "健康" });
 function callTagLabel(tag) {
@@ -885,12 +885,12 @@ function callTagLabel(tag) {
   const k = Object.keys(CALL_TAG_LABEL).find(x => x.endsWith("-") && t.indexOf(x) === 0);
   return k ? CALL_TAG_LABEL[k] : "";
 }
-const CALL_SKIP_FN = { callAI: 1, callAIOnce: 1, once: 1, logIt: 1, runProbe: 1, runProbeInner: 1, runProbeRetry: 1 };
+const CALL_SKIP_FN = { probeOnce: 1, callAI: 1, callAIOnce: 1, once: 1, logIt: 1, runProbe: 1, runProbeInner: 1, runProbeRetry: 1 };
 // 认不出名字时退一步：调用栈里第一个不是转手的那个函数名（只用来让「其他」那一行看得出是谁）
 function callerFnOf(stack) {
   const lines = String(stack || "").split("\n").slice(1, 14);
   for (const ln of lines) {
-    const m = ln.match(/at\s+(?:async\s+)?([\w$.<>/]+)\s+\(.*?\/js\/([\w-]+)\.js/) || ln.match(/^\s*([\w$.<>/]*)@.*?\/js\/([\w-]+)\.js/);
+    const m = ln.match(/at\s+(?:async\s+)?([\w$.<>/]+)\s+\((?:.*?\/)?js\/([\w-]+)\.js/) || ln.match(/^\s*([\w$.<>/]*)@(?:.*?\/)?js\/([\w-]+)\.js/);
     if (!m) continue;
     const fn = String(m[1] || "").split(/[./]/).pop().replace(/[^\w$]/g, "");
     if (!fn || fn === "callAI" || fn === "callAIOnce" || (typeof CALL_SKIP_FN === "object" && CALL_SKIP_FN[fn])) continue;
@@ -900,10 +900,12 @@ function callerFnOf(stack) {
   }
   return "";
 }
+// ⚠️懒加载的那几份（一起学、小剧场、跑团、擂台、一起读、梦境……）是 lazy-mods.js 用内联脚本＋「//# sourceURL=js/xxx.js」跑的，
+//   栈里写的是「js/study.js」，前面没有斜杠——原来只认「/js/」，这几份一个都对不上表，全落到「其他·函数名」（她 2026-11-28「其他 · $r」）
 function callerLabelOf(stack) {
   const lines = String(stack || "").split("\n").slice(1, 14);
   for (const ln of lines) {
-    const m = ln.match(/at\s+(?:async\s+)?([\w$.<>/]+)\s+\(.*?\/js\/([\w-]+)\.js/) || ln.match(/^\s*([\w$.<>/]*)@.*?\/js\/([\w-]+)\.js/) || ln.match(/at\s+.*?\/js\/([\w-]+)\.js()/);
+    const m = ln.match(/at\s+(?:async\s+)?([\w$.<>/]+)\s+\((?:.*?\/)?js\/([\w-]+)\.js/) || ln.match(/^\s*([\w$.<>/]*)@(?:.*?\/)?js\/([\w-]+)\.js/) || ln.match(/at\s+(?:.*?[\/\s(])?js\/([\w-]+)\.js()/);
     if (!m) continue;
     const fn = String(m[1] || "").split(/[./]/).pop().replace(/[^\w$]/g, ""), file = m[2] || m[1];
     if (CALL_SKIP_FN[fn]) continue;
@@ -3878,7 +3880,8 @@ function moveDanglingLeads(list) {
       || (/^(怎么|为什么|难道|所以|但是|可是|不过|然后|而且|结果)/.test(m[2]) && /[了的吧啊呢吗嘛呀哦]$/.test(m[1]) && /^\s*[你我他她它这那咱]/.test(out[i + 1]))
       // 「行了／好了／算了／得了」挂在句尾（她 2026-11-28 截图：「这会儿又拿我小时候那张西瓜图来哄人行了」「过来吃饭吧」）：
       //   是下一句的起头，收住话头转到下一件事。前面是「就／也／都／不……」的（「这样就行了」「不用了算了」）是这句自己的结尾，不挪
-      || (/^(行了|好了|算了|得了)/.test(m[2]) && m[1].length >= 4 && !/[就也都才还又便再已不没快差太]$/.test(m[1]) && !/^\s*[吧啊呀啦嘛哦呢]/.test(out[i + 1]));
+      // 「好了／得了」紧贴在动词后面多半是补语（「把你哄好了」「做好了」，她 2026-11-28 又一张截图），不算起头；隔着逗号空格的才按起头挪（走下面那道通用的）
+      || (/^(行了|算了)/.test(m[2]) && m[1].length >= 4 && !/[就也都才还又便再已不没快差太]$/.test(m[1]) && !/^\s*[吧啊呀啦嘛哦呢]/.test(out[i + 1]));
     // 正在一条条列（群里 2026-11-08 截图：「站你旁边不丢人第二」「能找到你第三」）：前面这几泡里已经出现过上一个序号（说「第二」时前面有「第一」），
     //   这个「第N」就是下一条的开头，前面没标点也挪
     const seq = !sure && listGoesOn(m[2], out.slice(0, i).join("") + m[1]);
@@ -3902,7 +3905,10 @@ function splitLongBubble(s, allowComma) {
   //   括号里全是符号（没有汉字、字母、数字）的那一小串，后面空一格再接中文，就在它后面断，跟句号一样
   const KAO_END = (globalThis.reLB || RegExp)(String.raw`(?<=[（(][^（）()\u4e00-\u9fffA-Za-z0-9]{2,14}[）)][^\s\u4e00-\u9fffA-Za-z0-9]{0,3})\s+(?=[\u4e00-\u9fff])`);
   if (s.length > LONG && KAO_END.test(s)) out = s.split(new RegExp(KAO_END.source, "g")).map(x => x.trim()).filter(Boolean);
-  if (s.length > LONG && /[。！？!?]/.test(s.slice(0, -1))) {
+  // 短短一句里也有句号隔开两句的（她 2026-11-28 截图：「明天记得下午再来找我，上午起不来。晚安」不到 22 个字没切，
+  //   句号在气泡里又不显示，读出来成了「起不来晚安」）：句号后面还有中文，就在句号这儿切；问号叹号留在泡里看得见，短句不动
+  const SHORT_STOP = s.length <= LONG && /[\u4e00-\u9fff]{2}。+(?=[\u4e00-\u9fff]{2})/.test(s);
+  if ((s.length > LONG || SHORT_STOP) && /[。！？!?]/.test(s.slice(0, -1))) {
     // 连着的句尾标点中间夹空格也算一个句尾（她 2026-10-28：法语「cheveux ? !」把「!」单切成了一泡）
     out = out.reduce((acc, part) => acc.concat(part.split(/((?:\s*[。！？!?])+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean)), []);
   }
@@ -3914,6 +3920,9 @@ function splitLongBubble(s, allowComma) {
   // 空格前面是句末语气字（了吧呢啊吗嘛呀哦啦），后面是收尾的一小截（几个字）就另起一句（2026-11-26 群友截图：「煤球听了都把耳朵转过来了 说吧」挤成一泡、读着像「转过来了说吧」）
   const SP_PART = (globalThis.reLB || RegExp)(String.raw`(?<=[\u4e00-\u9fff]{3}[了吧呢啊吗嘛呀哦啦])\s+(?=[\u4e00-\u9fff]{1,4}[？?！!~～…]*$)`, "g");   // 只管收尾那一小截（「大考官呢 今天工位上…」那种后面是一整句的，照 11-04 她说的不切）
   out = out.reduce((acc, part) => acc.concat(/[，,。！？!?、；;]/.test(part) && !/[\u3040-\u30ff]/.test(part) ? part.split(SP_PART).map(x => x.trim()).filter(Boolean) : [part]), []);
+  // 空格后面跟一句道别（晚安、拜拜、好梦……）收尾的，也是另一句（同一张截图那种「上午起不来 晚安」）
+  const SP_BYE = (globalThis.reLB || RegExp)(String.raw`(?<=[\u4e00-\u9fff]{3})\s+(?=(?:晚安|早安|午安|拜拜|再见|好梦|回头聊|先睡了|睡了)[啦哦呀啊~～!！…]*$)`, "g");
+  out = out.reduce((acc, part) => acc.concat(part.split(SP_BYE).map(x => x.trim()).filter(Boolean)), []);
   if (allowComma === false) return bubbleGlueOrphans(out).map(bubbleRestore);
   // 逗号和【中文后面的空格】是同一刀（她 2026-10-24：「要不要提到公共的跟标点符号一起，不要新开形状」）：
   //   有的人不打标点、拿空格断句，那个空格就是它的逗号；门槛、最多几段、尾巴太短往回粘，全跟逗号共用。英文单词之间的空格不算
@@ -6685,13 +6694,22 @@ function photoSceneShotLine(seed) {
   return "【这一张是这一幕的画面·旁观视角】不是谁举着手机拍的：像旁边有人、或者镜头远远拍下了这一幕，画面里没有人拿手机对着镜头，人物不看镜头，照自己正在做的事。"
     + "这一张的机位：" + PHOTO_SCENE_SHOTS[n % PHOTO_SCENE_SHOTS.length] + "。参考图只决定这是谁，角度和构图照这一句来。";
 }
+// 真人少见的发色、瞳色、耳朵：不管什么画风，都是这个人的设定。人物照和同人图共用这一份（她 2026-11-28：金发角色和白发的她被画成两个棕发）
+const RARE_LOOK_RE = /(银|白|粉|蓝|紫|绿|红|金|彩虹|渐变)[色]?(长|短|卷)?发|(紫|红|金|粉|银|异色)[色]?(瞳|眼睛|眼眸)|猫耳|兽耳|狐耳|精灵耳|尾巴/;
+// 好几个人一起画时：谁外貌里写着这类长相，点名说一句照原样画
+function rareLookLine(people) {
+  const hit = (people || []).filter(x => x && RARE_LOOK_RE.test(String(x.appearance || "")));
+  if (!hit.length) return "";
+  return hit.map(x => "「" + (x.remark || x.name || "TA") + "」").join("") + "外貌里写的发色、瞳色、耳朵就是本来的样子，照设定原样画出来，不跟着画风或参考图里的光线变成黑发棕发。";
+}
+if (typeof window !== "undefined") window.rareLookLine = rareLookLine;
 function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 设定里【明说了画风】才算二次元：只认画风词。
   //   ⚠️发色瞳色、兽耳不算（她 2026-10-05：「有些人喜欢真人的兽耳或者银发之类的，你不能以偏概全」）——
   //   那些颜色真人照片里也照样要保留，归下面 RARE_LOOK 那一句管，跟画风无关。
   const ANIME_HINT = /二次元|动漫|动画风|漫画|立绘|插画|赛璐璐|\banime\b|\bmanga\b/i;
   // 真人少见的发色、瞳色、耳朵：不管什么画风，都是这个人的设定，照样画出来
-  const RARE_LOOK = /(银|白|粉|蓝|紫|绿|红|金|彩虹|渐变)[色]?(长|短|卷)?发|(紫|红|金|粉|银|异色)[色]?(瞳|眼睛|眼眸)|猫耳|兽耳|狐耳|精灵耳|尾巴/;
+  const RARE_LOOK = RARE_LOOK_RE;
   opts = opts || {};
   // 每一张【现掷一个机位】（她 2026-09-20：「生图还是太过于偏向锁脸的那个角度，
   // 我之前调过的还是走一样的角度」）。
@@ -6879,6 +6897,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   if (soloLook) parts.push("【「" + cName + "」长什么样·务必贴合】" + char.appearance.trim() + "。");
   // 银发、紫瞳、兽耳这些：写实照片里也是设定，不许被「真人常见」拉回黑发黑眼
   if (soloLook && RARE_LOOK.test(char.appearance)) parts.push("外貌里写的发色、瞳色、耳朵就是这个人本来的样子，照设定原样画出来，别改成黑发黑眼。");
+  // 合照里也一样（她 2026-11-28）：谁外貌里写着金发白发这些，点名照原样画
+  else if (multi && rareLookLine(cast)) parts.push(rareLookLine(cast));
   // 手部/肢端解剖（治 AI 经典翻车：比耶少一根手指、多指并指）——correct hands 关键词一起上
   parts.push("【手脚必须解剖正确】correct human hands, exactly five fingers per hand, anatomically correct fingers——每只手正好五根手指、每只脚五根脚趾；比耶(V手势)/比心/挥手/竖大拇指/握东西/十指相扣时，手指的数目、长短、朝向和关节都要正确自然，**绝对不许多指、少指、断指、并指融合、手指扭曲畸形或长度诡异**。手若入镜就照实画对，拿不准就让手自然下垂/插兜/被遮挡，也别画错。");
   // 两个人牵手（2026-10-07 群友截图：牵的手绞成一团）：十指相扣是生图模型最常画坏的姿势，

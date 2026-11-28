@@ -27,6 +27,8 @@ for (const f of ["js/app.js", "js/screens.js", "js/engine.js", "js/components.js
     // 解构时重命名也是声明：const { covered: _c, ...rest } = s（screens.js 2026-10-21 那一处）。
     //   代价是「写在 foo: _x 位置上的真孤儿」会漏报——宁可漏报，也好过天天假红。
     for (const m of code.matchAll(/[\w$"']\s*:\s*(_[A-Za-z]\w*)\s*(?=[,}])/g)) declared.add(m[1]);
+    // 数组解构也是声明：const [chatSettings, _setChatSettingsRaw] = useState({})（2026-11-28 那一处天天假红）
+    for (const m of code.matchAll(/(?:const|let|var)\s*\[([^\]]*)\]\s*=/g)) for (const n of m[1].matchAll(/(_[A-Za-z]\w*)/g)) declared.add(n[1]);
     // ⚠️前一个字符也要排除中日韩：这个仓库里有 `legacy中_charIds为空_旧全局` 这种
     //   带中文的标识符，不排的话会被从中间切开，当成一个叫 _charIds 的孤儿。
     const used = new Set();

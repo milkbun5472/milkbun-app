@@ -256,6 +256,10 @@
     const [goalOpen, setGoalOpen] = useState(false); // 顶上那条目标条:缩成一行 / 展开全文
     const [writeGoal, setWriteGoal] = useState(null); // null | string:手写下一轮目标的缓冲
     const [diff, setDiff] = useState("normal"); // 开线时的难度档
+    // 不设目标（群友 2026-11-28 许愿「有时候感觉那个目标反而限制了角色施展」）：这一轮的 goal 留空＝自由演。
+    //   开局能选；演到一半在设定面板把目标清空也是一样，写上一个又回到有目标
+    const [freeGoal, setFreeGoal] = useState(false);
+    const FREE_LINE = "【这一场不设目标】没有要抵达的节点：跟着情节和" + "对方的回应自由往下演，往哪儿走照你这个人和此刻来；goalReached、goalFailed 一律填 false。";
     const [lineSrc, setLineSrc] = useState("all");
     // 新版播放（她 2026-10-27，原来叫乙游风）：一句一句点着走；vnI＝看到第几句，vnWrite＝底下「自己写」那一格开着没，vnLog＝记录，vnHide＝长按藏起界面
     const [vnI, setVnI] = useState(-1), [vnWrite, setVnWrite] = useState(false), [vnLog, setVnLog] = useState(false), [vnHide, setVnHide] = useState(false);
@@ -508,7 +512,7 @@
       if (ho.openLine && lines.some(l => l.id === ho.openLine)) { setPlayId(ho.openLine); setView("play"); }
       else if (ho.fromCard) genFromCard(ho.fromCard); }, []);
     const acceptDraft = () => {
-      const l = { id: rid("th_"), charId: draft.charId, title: draft.title, keywords: draft.keywords, difficulty: draft.difficulty || "normal", charRole: draft.charRole, userRole: draft.userRole, world: draft.world || draft.setting, hook: draft.hook || "", charOutfit: draft.charOutfit || "", userOutfit: draft.userOutfit || "", setting: draft.setting, presetId: draft.presetId || null, fromCard: draft.fromCard || null, fromCardName: draft.fromCardName || "", createdAt: Date.now(), rounds: [{ id: rid("tr_"), goal: draft.goal, goalDone: false, goalNote: null, pending: false, msgs: draft.opening ? [{ id: rid("tm_"), role: "char", content: draft.opening, ts: Date.now() }] : [], startTs: Date.now() }] };
+      const l = { id: rid("th_"), charId: draft.charId, title: draft.title, keywords: draft.keywords, difficulty: draft.difficulty || "normal", charRole: draft.charRole, userRole: draft.userRole, world: draft.world || draft.setting, hook: draft.hook || "", charOutfit: draft.charOutfit || "", userOutfit: draft.userOutfit || "", setting: draft.setting, presetId: draft.presetId || null, fromCard: draft.fromCard || null, fromCardName: draft.fromCardName || "", createdAt: Date.now(), rounds: [{ id: rid("tr_"), goal: freeGoal ? "" : draft.goal, goalDone: false, goalNote: null, pending: false, msgs: draft.opening ? [{ id: rid("tm_"), role: "char", content: draft.opening, ts: Date.now() }] : [], startTs: Date.now() }] };
       l.vn = true;   // 新开的线默认乙游风；老线不动，在线里自己切
       update(list => [l, ...list]); setDraft(null); setKw(""); setPlayId(l.id); setView("play"); setPanelOpen(true);
     };
@@ -549,7 +553,7 @@
           //   「身份按此替换、性格仍是上面这个人」那句也收在那一处里了。
           // ⚠️下面给言秋的 ccSys 不走它：他不是被扮演的角色，扮演类的说法一律不发（four-surfaces 的合法差异）。
           sceneSettingBlock("这条 if 线的设定", "你（" + char.name + "）：" + line.charRole + "\n" + uName + "：" + (line.userRole || "如设定所述") + "\n世界与情境：" + line.setting),
-          "【本轮目标(远景,不是本轮任务)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : round.failed ? "(这条路已经走不通了:承接它留下的后果把戏演下去,不再朝它推进)" : " —— 这是这一轮剧情【最终】要自然抵达的节点,通常需要多次来回互动、经过铺垫、并由 " + uName + characterText(char, " 的行动共同促成。绝不许在开场或单次回复里自己一步演完整条弧,更不许自导自演替对方完成属于对方的部分;每轮只朝它走一小步,留足对方行动的空间。只有当它经过铺垫在剧情里【真实发生】后,才在 goalReached 里报告。\n【失败判定】他拒绝、抵抗、僵持都不是失败——只要继续演还有任何一条路能自然走到目标,就没失败。只有目标变得【不可逆地无法达成】(他彻底离场断绝、目标所系之物已毁、剧内时限已过、他做出了反向的不可逆承诺)时,才在 goalFailed 里报告。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : "")),
+          !String(round.goal || "").trim() ? FREE_LINE : "【本轮目标(远景,不是本轮任务)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : round.failed ? "(这条路已经走不通了:承接它留下的后果把戏演下去,不再朝它推进)" : " —— 这是这一轮剧情【最终】要自然抵达的节点,通常需要多次来回互动、经过铺垫、并由 " + uName + characterText(char, " 的行动共同促成。绝不许在开场或单次回复里自己一步演完整条弧,更不许自导自演替对方完成属于对方的部分;每轮只朝它走一小步,留足对方行动的空间。只有当它经过铺垫在剧情里【真实发生】后,才在 goalReached 里报告。\n【失败判定】他拒绝、抵抗、僵持都不是失败——只要继续演还有任何一条路能自然走到目标,就没失败。只有目标变得【不可逆地无法达成】(他彻底离场断绝、目标所系之物已毁、剧内时限已过、他做出了反向的不可逆承诺)时,才在 goalFailed 里报告。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : "")),
           line.summary ? "【前情提要(早前剧情已浓缩,接着往下演,别倒回去复述)】\n" + line.summary : null,
           note.trim() ? "【临时导演提示(本拍务必遵循;这是幕后指示,绝不在正文中提及它的存在)】" + note.trim() : null,
           dice ? "【剧场骰子】本拍必须自然引入一个出乎双方意料的外部意外(第三者闯入/环境突变/时限出现/被撞破…):与世界观相容、落在具体行动上,并让它实际搅动当前局面。" : null,
@@ -577,7 +581,7 @@
           "【你这一局的身份】" + line.charRole,
           "【" + uName + " 这一局的身份】" + (line.userRole || "如设定所述"),
           "【世界与情境】" + line.setting,
-          "【本轮目标(远景)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续)" : round.failed ? "(已走不通,承接后果演下去,不再朝它推进)" : "——多次来回才该抵达,每拍只走一小步;真实发生后才报 goalReached,不可逆走死才报 goalFailed。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : ""),
+          !String(round.goal || "").trim() ? FREE_LINE : "【本轮目标(远景)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续)" : round.failed ? "(已走不通,承接后果演下去,不再朝它推进)" : "——多次来回才该抵达,每拍只走一小步;真实发生后才报 goalReached,不可逆走死才报 goalFailed。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : ""),
           line.summary ? "【前情提要】\n" + line.summary : null,
           note.trim() ? "【临时导演提示(务必遵循,正文不提)】" + note.trim() : null,
           dice ? "【剧场骰子】本拍须自然引入一个意外(第三者/环境突变/时限/被撞破…),落在具体行动上并搅动局面。" : null,
@@ -637,10 +641,10 @@
         // 达成硬门槛:本轮用户发言不满 3 条时,模型报 goalReached 也不采信——防"开场自导自演一步通关"
         // 不满 3 句时报的达成先记在 earlyReach 里,够 3 句那一拍再亮出来——以前是直接扔掉,
         // 一招打中要害的那一局就永远不弹确认
-        const open = r => !r.goalDone && !r.failed;
+        const open = r => !!String(r.goal || "").trim() && !r.goalDone && !r.failed;   // 自由演的那一轮没有目标可达成
         const userN = r => r.msgs.filter(m => m.role === "user").length;
         const reachNow = r => open(r) && !!p.goalReached ? (p.goalNote || "看起来目标达成了") : null;
-        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), choices: Array.isArray(p.choices) ? p.choices.map(x => String(x || "").trim()).filter(Boolean).slice(0, 3) : undefined, cot: cotOut || undefined, cotRequested: cotAsked || undefined, registerExplicitActive: rt.active || undefined }], pending: open(r) && !r.pending && userN(r) >= 3 && (reachNow(r) || r.earlyReach) ? (reachNow(r) || r.earlyReach) : r.pending, earlyReach: open(r) && userN(r) < 3 && reachNow(r) ? reachNow(r) : (userN(r) >= 3 ? null : r.earlyReach), pendingFail: !r.goalDone && !r.failed && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), choices: Array.isArray(p.choices) ? p.choices.map(x => String(x || "").trim()).filter(Boolean).slice(0, 3) : undefined, cot: cotOut || undefined, cotRequested: cotAsked || undefined, registerExplicitActive: rt.active || undefined }], pending: open(r) && !r.pending && userN(r) >= 3 && (reachNow(r) || r.earlyReach) ? (reachNow(r) || r.earlyReach) : r.pending, earlyReach: open(r) && userN(r) < 3 && reachNow(r) ? reachNow(r) : (userN(r) >= 3 ? null : r.earlyReach), pendingFail: open(r) && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
         setNote(""); setNoteOpen(false); setDice(false); // 便签与骰子都是一次性,用完即清
         setTimeout(() => maybeSummarize(line.id), 400);
       } catch (e) {
@@ -1010,7 +1014,7 @@
       if (!m || choiceAsked.current[m.id] || !props.active) return; choiceAsked.current[m.id] = 1;
       try {
         const char = charOf(l), recent = allMsgs(l).filter(x => x.role !== "photo").slice(-6).map(x => (x.role === "user" ? uName : char.name) + "：" + String(x.content || "").slice(0, 400)).join("\n");
-        const raw = await callAI(props.active, "这是一场小剧场，" + uName + " 和 " + char.name + " 轮着演。设定：" + String(l.setting || "").slice(0, 400) + "\n这一幕的目标：" + ((l.rounds[l.rounds.length - 1] || {}).goal || "") + "\n给 " + uName + " 想两三个此刻可能会做或说的事，各一句、短，用 Ta 自己的口吻（动作直接写，说的话加引号），彼此方向不一样。只输出 JSON：{\"choices\":[\"\",\"\"]}",
+        const raw = await callAI(props.active, "这是一场小剧场，" + uName + " 和 " + char.name + " 轮着演。设定：" + String(l.setting || "").slice(0, 400) + (((l.rounds[l.rounds.length - 1] || {}).goal) ? "\n这一幕的目标：" + l.rounds[l.rounds.length - 1].goal : "") + "\n给 " + uName + " 想两三个此刻可能会做或说的事，各一句、短，用 Ta 自己的口吻（动作直接写，说的话加引号），彼此方向不一样。只输出 JSON：{\"choices\":[\"\",\"\"]}",
           [{ role: "user", content: recent || "开始。" }], { maxTokens: 8000, timeout: 60000 });
         const d = typeof extractJSON === "function" ? extractJSON(raw) : null, cs = d && Array.isArray(d.choices) ? d.choices.map(x => String(x || "").trim()).filter(Boolean).slice(0, 3) : [];
         if (cs.length) update(list => list.map(x => x.id !== l.id ? x : { ...x, rounds: x.rounds.map(r => ({ ...r, msgs: r.msgs.map(y => y.id === m.id ? { ...y, choices: cs } : y) })) }));
@@ -1048,7 +1052,7 @@
           h("button", { onClick: back, style: { flexShrink: 0, color: "#fff", fontFamily: F_BODY, fontSize: fs(13), whiteSpace: "nowrap" } }, "‹ 收起"),
           h("div", { className: "flex-1 text-center", style: { minWidth: 0, margin: "0 6px", color: "#fff" } },
             h("div", { style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_DISPLAY, fontSize: fs(14) } }, line.title),
-            round ? h("div", { "data-wk": "thrvngoal", onClick: e => { e.stopPropagation(); setGoalOpen(v => !v); }, style: { marginTop: 1, whiteSpace: goalOpen ? "normal" : "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_BODY, fontSize: fs(10), opacity: .7 } }, actName(line.rounds.length - 1) + (round.goalDone ? " ✓ " : round.failed ? " ✗ " : " · ") + round.goal) : null),
+            round ? h("div", { "data-wk": "thrvngoal", onClick: e => { e.stopPropagation(); setGoalOpen(v => !v); }, style: { marginTop: 1, whiteSpace: goalOpen ? "normal" : "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: F_BODY, fontSize: fs(10), opacity: .7 } }, actName(line.rounds.length - 1) + (round.goalDone ? " ✓ " : round.failed ? " ✗ " : " · ") + (round.goal || "自由演")) : null),
           h("button", { "data-wk": "thrvnact", onClick: e => { e.stopPropagation(); setVnAct(true); }, "aria-label": "更多", style: pill(false) }, "⋯")),
         // 目标确认、失败确认：跟原版同一套
         round && (round.pending || round.pendingFail) && !line.ended ? h("div", { onClick: e => e.stopPropagation(), style: Object.assign({ margin: "6px 14px", padding: "10px 12px", borderRadius: 12, background: "rgba(255,248,233,.94)", fontFamily: F_BODY, fontSize: fs(12.5), color: "#39382F" }, hid) },
@@ -1067,7 +1071,7 @@
               h("button", { "data-wk": "thrvnlog", onClick: e => { e.stopPropagation(); setVnAct(false); setVnLog(true); }, style: pill(false) }, "记录"),
               h("button", { "data-wk": "thrpov", "data-pov": povOf(line), onClick: e => { e.stopPropagation(); update(list => list.map(l => l.id !== line.id ? l : { ...l, pov: povOf(l) === "he" ? "me" : "he" })); props.toast(povOf(line) === "he" ? "下一拍起用「我」写" : "下一拍起用「" + taOf(char) + "」写，像卡面剧情"); }, style: pill(false) }, povOf(line) === "he" ? taOf(char) : "我"),
               h("button", { "data-wk": "thrvnclassic", onClick: e => { e.stopPropagation(); setVnAct(false); update(list => list.map(l => l.id !== line.id ? l : { ...l, vn: false })); }, style: pill(false) }, "原版")),
-            h("div", { style: { padding: "10px 20px 6px", fontSize: fs(12), color: "rgba(244,236,218,.6)" } }, "这一幕的目标：" + ((round && round.goal) || "")),
+            h("div", { style: { padding: "10px 20px 6px", fontSize: fs(12), color: "rgba(244,236,218,.6)" } }, (round && round.goal) ? "这一幕的目标：" + round.goal : "这一幕没设目标，自由演"),
             [["换个目标", "这一幕接着演，只换目标", () => genGoal("redo")], ["这一幕到这儿，开下一幕", "AI 想下一幕的目标", () => genGoal("next")], line.ended ? null : ["谢幕收线", "写一场终场戏，这条线完结（还能回看、重开）", endLine]]
               .filter(Boolean).map(r => h("button", { key: r[0], disabled: busy, onClick: () => { setVnAct(false); r[2](); }, className: "w-full text-left active:opacity-70", style: { display: "block", padding: "12px 20px", borderTop: "1px solid rgba(255,255,255,.08)" } },
                 h("div", { style: { fontSize: fs(14) } }, r[0]), h("div", { style: { fontSize: fs(11), color: "rgba(244,236,218,.6)", marginTop: 2 } }, r[1]))),
@@ -1220,7 +1224,7 @@
       const preview = draft && h("div", { "data-wk": "thrdraft", style: S.card }, staples(),
         h("input", { "data-wk": "thrdrafttitle", value: draft.title || "", onChange: e => { const v = e.target.value; setDraft(d => d ? Object.assign({}, d, { title: v }) : d); }, style: { display: "block", width: "100%", boxSizing: "border-box", background: "transparent", border: "none", borderBottom: "1px dashed " + t.line, outline: "none", padding: "0 0 2px", fontFamily: F_DISPLAY, fontSize: "calc(15px * var(--app-fs, 1))", color: t.ink, marginBottom: 8 } }),
         // 生成完可以直接改：每一格就是一个输入框，改的字原样进开演（她 2026-11-26「生成完能不能手动改」）
-        [["Ta 的新身份", "charRole"], [uName + " 的新身份", "userRole"], ["世界与长期张力", draft.world ? "world" : "setting"], ["此刻正在发生", "hook"], ["Ta 的行头", "charOutfit"], [uName + " 的行头", "userOutfit"], ["开场", "opening"], ["本轮目标", "goal"]].map(([k, f]) => draft[f] != null && draft[f] !== "" ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k),
+        [["Ta 的新身份", "charRole"], [uName + " 的新身份", "userRole"], ["世界与长期张力", draft.world ? "world" : "setting"], ["此刻正在发生", "hook"], ["Ta 的行头", "charOutfit"], [uName + " 的行头", "userOutfit"], ["开场", "opening"]].concat(freeGoal ? [] : [["本轮目标", "goal"]]).map(([k, f]) => draft[f] != null && draft[f] !== "" ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k),
           h("textarea", { "data-wk": "thrdraftedit", value: draft[f], onChange: e => { const v = e.target.value; setDraft(d => d ? Object.assign({}, d, { [f]: v }) : d); }, onInput: e => { const el = e.target; el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }, ref: el => { if (el && !el.dataset.sz) { el.dataset.sz = "1"; el.style.height = el.scrollHeight + "px"; } },
             style: Object.assign({}, S.txt, { display: "block", width: "100%", boxSizing: "border-box", resize: "none", overflow: "hidden", background: "transparent", border: "none", borderBottom: "1px dashed " + t.line, outline: "none", padding: "0 0 2px", font: "inherit", color: "inherit" }) })) : null),
         h("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } },
@@ -1238,6 +1242,10 @@
             h("div", { style: S.lbl }, "难度"),
             h("div", { style: { display: "flex", gap: 6, marginBottom: 6 } }, ["easy", "normal", "hard"].map(k =>
               h("button", { "data-wk": "thrdiff", "data-on": diff === k ? "1" : "0", key: k, onClick: () => setDiff(k), style: S.btn(diff === k) }, DIFF[k].name))),
+            h("div", { style: S.lbl }, "本轮目标"),
+            h("div", { style: { display: "flex", gap: 6, marginBottom: 6 } }, [[false, "要一个"], [true, "不设，自由演"]].map(([v, nm]) =>
+              h("button", { "data-wk": "thrfreegoal", "data-on": freeGoal === v ? "1" : "0", key: nm, onClick: () => setFreeGoal(v), style: S.btn(freeGoal === v) }, nm))),
+            freeGoal ? h("div", { style: Object.assign({}, S.lbl, { marginTop: -2 }) }, "不往哪个节点赶，跟着戏走；演到一半想要目标，去设定面板写一个就行") : null,
             !draft && h("button", { onClick: genSetting, disabled: busy, style: Object.assign({ marginTop: 4 }, S.btn(true)) }, busy ? "在想…" : "生成设定")),
           preview));
     }
@@ -1288,7 +1296,7 @@
                      onClick: () => update(list => list.map(l => l.id !== line.id ? l : { ...l, presetOn: true, presetId: p.id })),
                      style: S.btn(!!line.presetOn && line.presetId === p.id) }, p.name))))),
              h("div", { key: "gl", style: S.lbl }, "各轮目标"),
-             line.rounds.map((r, i) => h("div", { "data-wk": "thrroundgoal", key: r.id, style: Object.assign({}, S.txt, { marginBottom: 3 }) }, "第" + (i + 1) + "轮:" + r.goal + (r.goalDone ? " ✓" : r.failed ? " ✗失败" : i === line.rounds.length - 1 ? "(进行中)" : "(未完)"))),
+             line.rounds.map((r, i) => h("div", { "data-wk": "thrroundgoal", key: r.id, style: Object.assign({}, S.txt, { marginBottom: 3 }) }, "第" + (i + 1) + "轮:" + (r.goal || "自由演") + (r.goalDone ? " ✓" : r.failed ? " ✗失败" : i === line.rounds.length - 1 ? "(进行中)" : "(未完)"))),
              h("div", { key: "bt", style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } },
                line.ended ? null : (round.goalDone || round.failed)
                  ? [h("button", { key: "ai", onClick: () => genGoal("next"), disabled: busy, style: S.btn(true) }, busy ? "在想…" : "下一轮·AI想"),
