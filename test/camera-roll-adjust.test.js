@@ -145,3 +145,11 @@ test("拍过的：可以多选删除、全选删除，走 App 确认框", () => 
   assert.match(cam, /const delRollMany = keys =>/);
   for (const k of ["rollpick", "rollall", "rolldel"]) { assert.ok(cam.includes('"data-part": "' + k + '"'), k); assert.ok(ts.includes(k), k); }
 });
+test("拍过的：整页相册（三列大图）、画的那张记着画面，能复制、照这句再画", () => {
+  assert.match(cam, /if \(mode === "roll"\) return/);
+  assert.match(cam, /gridTemplateColumns: "repeat\(3, 1fr\)"/);
+  assert.match(cam, /toRoll\(blob, "画的", genIds, genScene\)/);
+  assert.match(cam, /loadJSON\("x_camRollMeta", \{\}\)/);
+  for (const k of ["rollopen", "copyprompt", "reuseprompt"]) { assert.ok(cam.includes('"data-part": "' + k + '"'), k); assert.ok(ts.includes(k), k); }
+  assert.ok(ts.includes('["camprompt"'));
+});
