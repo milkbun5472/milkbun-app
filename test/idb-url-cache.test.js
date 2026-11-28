@@ -11,3 +11,6 @@ console.log("ok idb-url-cache");
 assert(/const vurl = useStampVideo\(card && !back \? coverVideo\(card\) : null, vis\);/.test(st), "滑走就收");
 assert(/const io2 = new IntersectionObserver\(es => \{ const e = es\[es\.length - 1\]; if \(e\) setVis\(e\.isIntersecting\); \}/.test(st));
 console.log("ok stamp-video-visible");
+// 离屏幕一大截的卡把图放掉（她 2026-11-28：滑多了再点开就整页重开）
+assert(/rootMargin: "900px 0px"/.test(st) && /face: keep \? url : null/.test(st), "滑远了的卡放掉图");
+console.log("ok stamp-unload-far");

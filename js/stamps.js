@@ -120,17 +120,20 @@
   }
   window.StampThumbnails = { url: stampThumbUrl, use: (...a) => useStampThumb(...a) };   // use：别处画自己卡面时也走这一份缩略图
   function useStampThumb(ref) {
-    const [url, setUrl] = useState(() => (ref && THUMB_MEM.get(ref)) || null), [near, setNear] = useState(false), [vis, setVis] = useState(false), el = useRef(null);
+    const [url, setUrl] = useState(() => (ref && THUMB_MEM.get(ref)) || null), [near, setNear] = useState(false), [vis, setVis] = useState(false), [keep, setKeep] = useState(false), el = useRef(null);
     useEffect(() => { const n = el.current; if (!n || typeof IntersectionObserver !== "function") { setNear(true); setVis(true); return; }
       const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { setNear(true); io.disconnect(); } }, { rootMargin: "400px" }); io.observe(n);
       // 这一格此刻在不在屏幕上（进出都认）：动起来的卡面只在看得见时放，滑走就收（她 2026-11-28「下滑看其他卡会闪、会闪退」——
       //   原来滑到附近就放、之后一直放着，往下滑得越多，同时转着的视频越多，内存顶穿）
       const io2 = new IntersectionObserver(es => { const e = es[es.length - 1]; if (e) setVis(e.isIntersecting); }, { rootMargin: "80px" }); io2.observe(n);
-      return () => { io.disconnect(); io2.disconnect(); }; }, []);
+      // 离屏幕一大截的卡把图放掉（她 2026-11-28：刚打开直接点不会，往下滑多了再点开就闪、声音没了——滑过的图一张张全留在页面上，攒到顶就整页重开）。
+      //   上下各留 900 像素：慢慢滑看不出空白；缩略图地址还在内存表里，滑回来立刻挂上
+      const io3 = new IntersectionObserver(es => { const e = es[es.length - 1]; if (e) setKeep(e.isIntersecting); }, { rootMargin: "900px 0px" }); io3.observe(n);
+      return () => { io.disconnect(); io2.disconnect(); io3.disconnect(); }; }, []);
     useEffect(() => { if (!ref) { setUrl(null); return; } if (THUMB_MEM.has(ref)) { setUrl(THUMB_MEM.get(ref)); return; } if (!near) return; let alive = true;
       stampThumbUrl(ref).then(u => { if (alive && u) setUrl(u); }).catch(() => {});
       return () => { alive = false; }; }, [ref, near]);
-    return [url, el, near, vis];
+    return [url, el, near, vis, keep];
   }
   // 限定卡的标记（她 2026-11-06：「还是想要限时 if 特别一点」）：一圈这一期颜色的内框，左下角一条「限定」，大图上带这一期的名字
   const LIM_MARK_TONE = { halloween: ["#2a1a2e", "#e8893a"] };
@@ -142,10 +145,10 @@
     // 她 2026-11-07「算了把框去掉吧好丑」：一圈细线也不要了。挂点留着（stamplimmark，透明），想自己画框的写 CSS 就能接上
     return h("span", { "data-wk": "stamplimmark", "data-tone": tone[1], style: { position: "absolute", inset: 5, zIndex: 3, pointerEvents: "none", borderRadius: 2 } });
   }
-  function StampFace({ t, card, onClick, size, back }) { const ref0 = card && (card.cover || card.face), [url, el, near, vis] = useStampThumb(ref0 && !(card.hiddenImgs || []).includes(ref0) ? ref0 : null);
+  function StampFace({ t, card, onClick, size, back }) { const ref0 = card && (card.cover || card.face), [url, el, near, vis, keep] = useStampThumb(ref0 && !(card.hiddenImgs || []).includes(ref0) ? ref0 : null);
     // 卡面动起来了的 SSR：册子里那一格也在动（滑到附近才放，没封面换过别的图时才用）
     const vurl = useStampVideo(card && !back ? coverVideo(card) : null, vis);
-    return h("span", { ref: el, style: { display: "inline-block", lineHeight: 0, position: "relative" } }, h(Stamp, { t, card, face: url, onClick, size, back }), back ? null : h(LimMark, { card }),
+    return h("span", { ref: el, style: { display: "inline-block", lineHeight: 0, position: "relative" } }, h(Stamp, { t, card, face: keep ? url : null, onClick, size, back }), back ? null : h(LimMark, { card }),
       vurl ? loopVid(vurl, { left: 5, top: 5, width: "calc(100% - 10px)", height: "calc(100% - 10px)", borderRadius: 2 }) : null); }
 
   // 抽卡动画：信封落下 → 邮戳颜色预告 → 撕开一版
