@@ -67,9 +67,13 @@
   }
   // iPhone 只放【一开始就静音】的视频自己播：React 的 muted 是挂上以后才设的，iOS 当它有声、autoPlay 被拦，卡面就一动不动
   //   （她 2026-10-29：扣了钱、视频也存好了，「完全没动」）。跟番茄钟那段 LoopVideo 一样：挂上就补静音、自己叫一次 play()
-  const kickVid = v => { if (!v) return; v.muted = true; v.defaultMuted = true; v.setAttribute("muted", ""); v.setAttribute("playsinline", "");
+  // 地址等静音设好以后再给（她 2026-11-28「点进去音乐就卡没了」）：原来 src 跟着元素一起上，静音是挂上以后才补的，
+  //   中间那一下 iOS 把它当成有声视频，把正在放的歌掐了——有时候掐、有时候不掐，看谁先。现在先静音、再给地址、再叫它放
+  const kickVid = (v, url) => { if (!v) return; v.muted = true; v.defaultMuted = true; v.setAttribute("muted", ""); v.setAttribute("playsinline", "");
+    if (url && v.__vurl !== url) { v.__vurl = url; v.src = url; } else if (v.__kicked) return;
+    v.__kicked = true;
     const go = () => { const p = v.play(); if (p && p.catch) p.catch(() => {}); }; if (v.readyState >= 2) go(); else v.addEventListener("loadeddata", go, { once: true }); };
-  const loopVid = (url, extra) => h("video", { ref: kickVid, src: url, autoPlay: true, muted: true, loop: true, playsInline: true, "webkit-playsinline": "true", preload: "auto", style: Object.assign({ position: "absolute", objectFit: "cover", pointerEvents: "none" }, extra) });
+  const loopVid = (url, extra) => h("video", { key: url, ref: v => kickVid(v, url), muted: true, loop: true, playsInline: true, "webkit-playsinline": "true", preload: "auto", style: Object.assign({ position: "absolute", objectFit: "cover", pointerEvents: "none" }, extra) });
   // 册子里那一格只要小图（群里 2026-10-28：邮票多了刷着刷着全部消失）：原图 1024×1536，一屏几十张全解码，手机网页内存顶不住就把图全丢了。
   //   这里每张只解一次原图、缩成 300 宽的小图存进 IDB（th_ 开头），以后都用小图；还没滑到附近的先不加载
   const THUMB_MEM = new Map();
@@ -81,7 +85,9 @@
       const w = Math.min(300, g.width), hh = Math.round(g.height * w / g.width);
       const src = document.createElement("canvas"); src.width = g.width; src.height = g.height; const sg = src.getContext("2d");
       const cv = document.createElement("canvas"); cv.width = w; cv.height = hh; const c2 = cv.getContext("2d");
-      const frames = g.frames.map(f => { sg.putImageData(new ImageData(f.rgba, g.width, g.height), 0, 0); c2.clearRect(0, 0, w, hh); c2.drawImage(src, 0, 0, w, hh); return { rgba: c2.getImageData(0, 0, w, hh).data, delay: f.delay }; });
+      // 一帧一帧缩，每帧之间让一下（她 2026-11-28「点进去音乐就卡没了」）：一口气缩完十几帧，这段时间页面和声音都卡住
+      const frames = [];
+      for (const f of g.frames) { sg.putImageData(new ImageData(f.rgba, g.width, g.height), 0, 0); c2.clearRect(0, 0, w, hh); c2.drawImage(src, 0, 0, w, hh); frames.push({ rgba: c2.getImageData(0, 0, w, hh).data, delay: f.delay }); await new Promise(r => setTimeout(r, 0)); }
       return new Blob([GifCodec.encode({ width: w, height: hh, frames })], { type: "image/gif" });
     } catch (e) { return null; }
   };
