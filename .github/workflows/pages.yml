@@ -25,5 +25,7 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
+      # 传完等一会儿再发（2026-11-28 连着两次：包已经传好了，发布那一步紧跟着去找却「Found 0 artifact(s)」——GitHub 那边还没登记上）
+      - run: sleep 20
       - id: deployment
         uses: actions/deploy-pages@v4
