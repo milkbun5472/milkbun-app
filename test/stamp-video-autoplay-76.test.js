@@ -2,7 +2,7 @@ const test = require("node:test"); const assert = require("node:assert"); const 
 const src = fs.readFileSync(__dirname + "/../js/stamps.js", "utf8");
 test("卡面视频挂上就补静音、自己 play()：iPhone 不靠 autoPlay", () => {
   assert.match(src, /const kickVid = \(v, url\) => \{ if \(!v\) return; v\.muted = true; v\.defaultMuted = true;/); assert.match(src, /if \(url && v\.__vurl !== url\) \{ v\.__vurl = url; v\.src = url; \}/);
-  assert.match(src, /const loopVid = \(url, extra\) => h\("video", \{ key: url, ref: v => kickVid\(v, url\), muted: true/); assert.doesNotMatch(src, /h\("video", \{ ref: kickVid, src: url/);
+  assert.match(src, /const loopVid = \(url, extra\) => h\(LoopVid, \{ key: url, url, extra \}\);/); assert.match(src, /kickVid\(v, url\); return \(\) => \{ if \(!v\) return; try \{ v\.pause\(\); v\.removeAttribute\("src"\);[^}]*v\.load\(\);/); assert.match(src, /return h\("video", \{ ref: r, muted: true/); assert.doesNotMatch(src, /h\("video", \{ ref: kickVid, src: url/);
 });
 test("卡面视频能单独用系统播放器放（排查用）", () => {
   assert.match(src, /单独播放这段视频（带进度条）/);

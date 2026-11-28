@@ -73,7 +73,14 @@
     if (url && v.__vurl !== url) { v.__vurl = url; v.src = url; } else if (v.__kicked) return;
     v.__kicked = true;
     const go = () => { const p = v.play(); if (p && p.catch) p.catch(() => {}); }; if (v.readyState >= 2) go(); else v.addEventListener("loadeddata", go, { once: true }); };
-  const loopVid = (url, extra) => h("video", { key: url, ref: v => kickVid(v, url), muted: true, loop: true, playsInline: true, "webkit-playsinline": "true", preload: "auto", style: Object.assign({ position: "absolute", objectFit: "cover", pointerEvents: "none" }, extra) });
+  // 拿掉的时候把视频彻底放掉（她 2026-11-28「来回点开不同的卡几次也会闪退」）：iPhone 上 <video> 从页面上拿掉以后，解码器和缓冲不会马上还，
+  //   来回点几次，册子那几格动卡每回都新开一份，攒着攒着页面就被系统杀掉。拿掉时先停、清掉地址、load() 一下，当场还回去
+  function LoopVid({ url, extra }) {
+    const r = useRef(null);
+    useEffect(() => { const v = r.current; kickVid(v, url); return () => { if (!v) return; try { v.pause(); v.removeAttribute("src"); v.__vurl = null; v.__kicked = false; v.load(); } catch (e) {} }; }, [url]);
+    return h("video", { ref: r, muted: true, loop: true, playsInline: true, "webkit-playsinline": "true", preload: "auto", style: Object.assign({ position: "absolute", objectFit: "cover", pointerEvents: "none" }, extra) });
+  }
+  const loopVid = (url, extra) => h(LoopVid, { key: url, url, extra });
   // 册子里那一格只要小图（群里 2026-10-28：邮票多了刷着刷着全部消失）：原图 1024×1536，一屏几十张全解码，手机网页内存顶不住就把图全丢了。
   //   这里每张只解一次原图、缩成 300 宽的小图存进 IDB（th_ 开头），以后都用小图；还没滑到附近的先不加载
   const THUMB_MEM = new Map();
