@@ -21,3 +21,21 @@ for(const file of fs.readdirSync("js").filter(f=>f.endsWith(".js"))){
 }
 assert.deepStrictEqual(Object.keys(res).map(k => k + " " + res[k].join(",")), [], "这些调用在调用记录里没名字");
 });
+
+test("调用处带的英文 tag 都翻得出中文（不然调用记录里只剩「其他」）", () => {
+  const eng = fs.readFileSync("js/engine.js", "utf8");
+  const TAGS = eng.match(/const CALL_TAG_LABEL = Object\.freeze\(\{([^\n]*)\}\)/)[1];
+  const miss = [];
+  for (const file of fs.readdirSync("js").filter(f => f.endsWith(".js"))) {
+    const L = fs.readFileSync("js/" + file, "utf8").split("\n");
+    L.forEach((ln, i) => { if (!/\b(runProbe|runProbeRetry|callAI)\(/.test(ln)) return;
+      const win = L.slice(i, i + 4).join(" "), m = win.match(/\btag: *"([A-Za-z][\w-]*)"/);
+      if (m && !new RegExp("[\\s{,\"]" + m[1].replace(/-/g, "\\-") + "\"?\\s*:").test(TAGS)) miss.push(file + ":" + (i + 1) + " " + m[1]); });
+  }
+  assert.deepStrictEqual(miss, []);
+});
+test("认不出名字时不拿「$r」这种看不懂的函数名充数", () => {
+  const eng = fs.readFileSync("js/engine.js", "utf8");
+  const fn = new Function(eng.slice(eng.indexOf("const CALL_SKIP_FN"), eng.indexOf("function callerLabelOf")) + "; return callerFnOf;")();
+  assert.strictEqual(fn("Error\n    at $r (https://x/js/app.js:1:1)\n    at genThing (https://x/js/app.js:2:2)"), "genThing");
+});

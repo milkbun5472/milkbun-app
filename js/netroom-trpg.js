@@ -313,7 +313,7 @@
     const hist = T.foldHist(c.msgs.slice(c.sumCount || 0)).slice(-40), tail = tableTail(st, c, o);
     if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + tail };
     else hist.push({ role: "user", content: "(继续)" + tail });
-    const raw = await root.callAI(ctx.hostApi, sys, hist, { maxTokens: T.TOK_MAX, timeout: 300000 });
+    const raw = await root.callAI(ctx.hostApi, sys, hist, { logLabel: "联机跑团·守密人", maxTokens: T.TOK_MAX, timeout: 300000 });
     return T.parseTurnPayload(raw);
   }
   function gmLand(c, p, o) {
@@ -426,7 +426,7 @@
     // 前情账本：超过 48 条把最老的压进账本（单机那一份），失败就下回再试
     const uName = playersOf(st).join("、") || "各位玩家";
     const job = T.summaryJob ? T.summaryJob(out.c, uName) : null;
-    if (job) { try { const raw = await root.callAI(ctx.hostApi, T.SUMMARY_SYS, [{ role: "user", content: T.summaryUser(job) }], { maxTokens: T.TOK_MAX, timeout: 120000 }); const patch = T.summaryPatch(job, raw); if (patch) out.c = Object.assign({}, out.c, patch); } catch (e) { /* 下回再试 */ } }
+    if (job) { try { const raw = await root.callAI(ctx.hostApi, T.SUMMARY_SYS, [{ role: "user", content: T.summaryUser(job) }], { logLabel: "联机跑团·小结", maxTokens: T.TOK_MAX, timeout: 120000 }); const patch = T.summaryPatch(job, raw); if (patch) out.c = Object.assign({}, out.c, patch); } catch (e) { /* 下回再试 */ } }
     n.apartWho = (split || []).slice();
     n.camp = out.c; n.members = out.c.party; n.beat = st.beat + 1; n.pend = null; n.mid = null; n.busy = false; n.ck = null; n.cks = []; n.ckRes = {};
     n.phase = out.c.ended ? "done" : "act"; n.actAt = Date.now();
@@ -454,7 +454,7 @@
     const c = Object.assign({ dossier: { truth: "", twist: "" } }, st.camp, { party: st.members.map((m, i) => Object.assign({}, m, st.seatKinds[i] !== "char" ? { key: "user" } : {})) });
     const { sys, user } = T.epilogueAsk(c, playersOf(st).join("、") || "各位玩家", !c.pendingEnd && (c.stageIdx || 0) < (c.stages || []).length, cut(mv.finalAct, 400), personasOf(st, ctx.prep));
     let p = null;
-    try { p = T.parseObj(await root.callAI(ctx.hostApi, sys, [{ role: "user", content: user }], { maxTokens: T.TOK_MAX, timeout: 300000 })); } catch (e) { p = null; }
+    try { p = T.parseObj(await root.callAI(ctx.hostApi, sys, [{ role: "user", content: user }], { logLabel: "联机跑团·结局", maxTokens: T.TOK_MAX, timeout: 300000 })); } catch (e) { p = null; }
     if (!p || !Array.isArray(p.paras) || !p.paras.length) return { st: Object.assign({}, st, { busy: false, err: "终章没写出来,再点一次" }) };
     const gr = growthOf(st, c);
     const n = Object.assign({}, st, { camp: Object.assign({}, c, { ended: true, pendingEnd: false, epilogue: T.epilogueRec(p, gr.team) }), guestGrowth: gr.guests, phase: "done", busy: false, err: "" });
@@ -613,7 +613,7 @@
       const hist = T.foldHist((view.log || []).map(x => ({ role: x.role === "gm" ? "gm" : x.role === "user" ? "user" : "sys", content: x.text, who: x.who }))).slice(-16);
       if (!hist.length || hist[hist.length - 1].role !== "user") hist.push({ role: "user", content: "轮到你了。" });
       let p = null;
-      try { const raw = await root.callAI(ctx.api, sys, hist, { maxTokens: 12000, timeout: 180000 }); p = typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : JSON.parse(raw); } catch (e) { p = null; }
+      try { const raw = await root.callAI(ctx.api, sys, hist, { logLabel: "联机跑团·角色行动", maxTokens: 12000, timeout: 180000 }); p = typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : JSON.parse(raw); } catch (e) { p = null; }
       return p && typeof p === "object" && (p.say || p.do || p.try) ? { decl: { say: p.say || "", do: p.do || "", try: p.try || "" } } : { pass: true };
     },
     // NPC／掉线托管：掷数值、这一拍跟着大家
