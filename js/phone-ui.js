@@ -2239,7 +2239,8 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive 
         // 所以下一次刷新如果没动它，点自己就灭了，不用另存一份「看过没」。
         (b._upd && b._upd === lastUpd) ? h("span", { "aria-hidden": "true", style: { width: 7, height: 7, borderRadius: 99, background: "#d9705f", flexShrink: 0, alignSelf: "center" } }) : null,
         h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: "calc(15.5px * var(--app-fs, 1))", lineHeight: 1.5, color: READ_INK, wordBreak: "break-word" } }, PTX(b.title || "无题")),
-        b.author ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: READ_DIM } }, PTX(b.author)) : null),
+        // 作者最多占四成宽、长了自己折行（她 2026-11-28 截图：英文作者名带着中文译名不肯缩，把英文书名挤成一列一个词）
+        b.author ? h("div", { style: { flexShrink: 1, minWidth: 0, maxWidth: "42%", textAlign: "right", wordBreak: "break-word", fontFamily: F_BODY, fontSize: "calc(11.5px * var(--app-fs, 1))", color: READ_DIM } }, PTX(b.author)) : null),
       b.readAt ? h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", lineHeight: 1.7, color: cold ? pal.accent : READ_DIM, marginTop: 5 } }, PTX(b.readAt)) : null,
       // 走了多远：有百分比就画那么长，认不出来的不画——不画比画错强
       pct != null ? h("div", { "aria-hidden": "true", style: { height: 2, borderRadius: 2, background: READ_LINE, marginTop: 9, overflow: "hidden" } },
