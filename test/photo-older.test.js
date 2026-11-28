@@ -19,3 +19,7 @@ test("提示词换一套、编辑接口不要求原样保脸、说法男女通�
   const seg = s.slice(s.indexOf("const _yKid"), s.indexOf("const _oWho"));
   assert.ok(!/少年|少女|他的|她的/.test(seg.replace(/\/\/.*$/mg, "").replace(/const isBoy = [^\n]*/, "")), "说法要男女都适用");
 });
+test("成年那档按写进去的岁数长，不说「成熟几岁」", () => {
+  assert.match(s, /照这个岁数该有的样子长：比现在大多少就长开多少/);
+  assert.ok(!/比现在成熟几岁/.test(s));
+});
