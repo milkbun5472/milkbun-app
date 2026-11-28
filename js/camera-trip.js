@@ -7,7 +7,7 @@
   const FS = n => "calc(" + n + "px * var(--app-fs, 1))";
   const KEY = "x_camTrips";
   const GRAD = "#2f4a6d";
-  // 航空信那条红蓝斜纹（她 2026-11-28「旅行都丑，整个重做」）
+  // 红蓝斜纹不用在旅行页上（她 2026-11-28「跟邮票册撞了」），只留着给别处取用
   const AIRMAIL = "repeating-linear-gradient(-45deg,#c0473a 0 9px,transparent 9px 16px,#2f4a6d 16px 25px,transparent 25px 32px)";
   const SERIF = "'Songti SC','Noto Serif SC','STSong',serif";
   const INK = "#26303d", SUB = "#8a8275", PINK = "#c0473a";
@@ -130,7 +130,6 @@
       style: { padding: "4px 0", border: "none", background: "transparent", color: th.accent, fontSize: FS(13), fontWeight: 600, opacity: busy ? .6 : 1, whiteSpace: "nowrap" } }, "→ " + label);
     const page = (title, onBack, body, foot) => h("div", { "data-wk": wk.page, "data-theme": themeId || "trip", className: "h-full flex flex-col", style: { background: th.bg, color: th.ink } },
       typeof Head === "function" ? h(Head, { zh: title, bg: "transparent", onBack, ...(th.dark ? { ink: th.ink, lineInk: th.line } : {}) }) : null,
-      th.flat ? h("div", { style: { height: 5, flexShrink: 0, backgroundImage: AIRMAIL, opacity: .85 } }) : null,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 18px" } }, body),
       foot ? h("div", { style: { flexShrink: 0, padding: "10px 16px 14px", paddingBottom: "calc(14px + " + (typeof COMPOSER_PAD_BOTTOM !== "undefined" ? COMPOSER_PAD_BOTTOM : "0px") + ")" } }, foot) : null);
     const inp = (v, on, ph, part, rows) => h(rows ? "textarea" : "input", { value: v, placeholder: ph, rows, "data-part": part, onChange: e => on(e.target.value),
@@ -263,7 +262,7 @@
       if (journal && trip.journal) {
         const j = trip.journal, souv = got.filter(s => s.card.souvenir);
         return page("旅行手账", () => setJournal(false), [
-          h("div", { key: "jr", "data-wk": "tripjournal", style: { position: "relative", background: "#fbf8f2", margin: "14px -4px 0", padding: "30px 20px 34px", borderRadius: 2, boxShadow: "0 1px 2px rgba(60,50,30,.15), 0 18px 36px -24px rgba(60,50,30,.5)", color: INK, backgroundImage: AIRMAIL + "," + AIRMAIL, backgroundSize: "100% 6px, 100% 6px", backgroundPosition: "top, bottom", backgroundRepeat: "no-repeat" } },
+          h("div", { key: "jr", "data-wk": "tripjournal", style: { position: "relative", background: "#fbf8f2", margin: "14px -4px 0", padding: "30px 20px 34px", borderRadius: 2, boxShadow: "0 1px 2px rgba(60,50,30,.15), 0 18px 36px -24px rgba(60,50,30,.5)", color: INK, borderTop: "3px double rgba(38,48,61,.35)", borderBottom: "3px double rgba(38,48,61,.35)" } },
             h("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: -14 } }, typeof PhoneShotBtn === "function" ? h(PhoneShotBtn, { color: SUB, name: "旅行手账-" + (j.title || trip.title).slice(0, 12).replace(/[\\/:*?"<>|]/g, "") }) : null),
             h("div", { style: { textAlign: "center", fontSize: FS(10.5), letterSpacing: ".35em", color: PINK } }, "TRAVEL JOURNAL · 旅行手账"),
             h("div", { style: { textAlign: "center", fontSize: FS(22), fontWeight: 600, letterSpacing: ".1em", margin: "6px 0 4px", fontFamily: "'Songti SC','Noto Serif SC',serif" } }, j.title || trip.title),
@@ -288,7 +287,7 @@
       }
       return page(trip.title, () => setOpenId(null), [
         h("div", { key: "meta", "data-wk": "triphead", style: { textAlign: "center", padding: "18px 4px 22px", marginBottom: 18, borderBottom: "1px dashed rgba(38,48,61,.25)" } },
-          h("div", { style: { fontSize: FS(10), letterSpacing: ".4em", color: PINK } }, "PAR AVION · 航空"),
+          h("div", { style: { fontSize: FS(10), letterSpacing: ".4em", color: PINK } }, "BON VOYAGE · 旅途"),
           h("div", { style: { fontSize: FS(24), fontWeight: 600, fontFamily: SERIF, letterSpacing: ".1em", margin: "8px 0 10px", color: INK } }, trip.title),
           h("div", { style: { fontSize: FS(12), color: INK, lineHeight: 1.9 } }, trip.stops.map((s, i) => h("span", { key: i, style: { color: s.card ? INK : i === next ? PINK : "#b9b1a3", fontWeight: i === next ? 600 : 400 } }, (i ? "  ✈  " : "") + s.place))),
           h("div", { style: { fontSize: FS(11), color: SUB, marginTop: 6 } }, trip.ids.map(id => names[id]).filter(Boolean).join("、") + (trip.meGo ? " 和你" : "") + "　·　" + (trip.remember ? "记进记忆" : "不记进记忆"))),
@@ -324,7 +323,7 @@
   function JImg({ k }) { const url = typeof useIdbImgUrl === "function" ? useIdbImgUrl(k) : null; return url ? h("img", { src: url, style: { display: "block", width: "100%", aspectRatio: "1", objectFit: "cover" } }) : h("div", { style: { aspectRatio: "1", background: "#f1e4ea" } }); }
   function TripThumb({ k }) {
     const url = typeof useIdbImgUrl === "function" ? useIdbImgUrl(k) : null;
-    return h("div", { style: { width: 66, height: 66, borderRadius: 3, overflow: "hidden", flexShrink: 0, background: THEMES.trip.hero, backgroundImage: AIRMAIL, display: "flex", alignItems: "center", justifyContent: "center" } },
+    return h("div", { style: { width: 66, height: 66, borderRadius: 3, overflow: "hidden", flexShrink: 0, background: THEMES.trip.hero, display: "flex", alignItems: "center", justifyContent: "center" } },
       url ? h("img", { src: url, style: { width: "100%", height: "100%", objectFit: "cover" } }) : icon(ICONS.trip, 26));
   }
   window.CameraTrip = CameraTrip;
