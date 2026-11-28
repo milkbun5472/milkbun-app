@@ -20448,15 +20448,31 @@ async function saveChatSelImgs(messages, ids, who, done) {
   if (r.via === "download") say("存好了 " + r.n + " 张，在「下载」里");
   if (done) done();
 }
+// 最近用过的几张留着（她 2026-11-28「邮票册翻着会闪一下」）：原来每次换一张都先清空、再从 IDB 读一遍，翻回去也一样——一清一读就是一闪。
+//   现在同一把键再出现时直接拿上次那个地址；最多留 24 张，挤出去、而且没人在用的才收回。用的人一多一少由 refs 记着
+const IDB_URL_CACHE = new Map();   // key -> { url, refs }
+const IDB_URL_MAX = 24;
+function idbUrlTrim() {
+  if (IDB_URL_CACHE.size <= IDB_URL_MAX) return;
+  for (const [k, v] of IDB_URL_CACHE) { if (IDB_URL_CACHE.size <= IDB_URL_MAX) break; if (!v.refs) { URL.revokeObjectURL(v.url); IDB_URL_CACHE.delete(k); } }
+}
+// 同一把键写进了新图、或者删了：缓存里那张作废，下次照新的读
+if (typeof window !== "undefined") window.__idbUrlDrop = k => { const v = IDB_URL_CACHE.get(k); if (!v) return; IDB_URL_CACHE.delete(k); if (!v.refs) URL.revokeObjectURL(v.url); };
 function useIdbImgUrl(imgKey) {
-  const [url, setUrl] = useState(null);
+  const [url, setUrl] = useState(() => (imgKey && IDB_URL_CACHE.has(imgKey) ? IDB_URL_CACHE.get(imgKey).url : null));
   useEffect(() => {
-    let alive = true, obj = null;
-    setUrl(null);
-    if (imgKey && typeof idbImgGet === "function") {
-      idbImgGet(imgKey).then(b => { if (alive && b && b.size > 0) { obj = URL.createObjectURL(b); setUrl(obj); } }).catch(() => {});
+    let alive = true, held = null;
+    const hold = k => { const v = IDB_URL_CACHE.get(k); if (!v) return; v.refs++; held = k; IDB_URL_CACHE.delete(k); IDB_URL_CACHE.set(k, v); setUrl(v.url); };   // 挪到最新
+    if (imgKey && IDB_URL_CACHE.has(imgKey)) hold(imgKey);
+    else {
+      setUrl(null);
+      if (imgKey && typeof idbImgGet === "function") {
+        idbImgGet(imgKey).then(b => { if (!alive || !(b && b.size > 0)) return;
+          if (!IDB_URL_CACHE.has(imgKey)) IDB_URL_CACHE.set(imgKey, { url: URL.createObjectURL(b), refs: 0 });
+          hold(imgKey); idbUrlTrim(); }).catch(() => {});
+      }
     }
-    return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
+    return () => { alive = false; if (held) { const v = IDB_URL_CACHE.get(held); if (v) v.refs = Math.max(0, v.refs - 1); idbUrlTrim(); } };
   }, [imgKey]);
   return url;
 }

@@ -85,7 +85,10 @@
       return new Blob([GifCodec.encode({ width: w, height: hh, frames })], { type: "image/gif" });
     } catch (e) { return null; }
   };
-  const makeThumb = async blob => {
+  // 一次只缩一张（她 2026-11-28「翻着有时候会闪退」）：动图卡要把每一帧都解开，几张一起解，手机网页内存一下就顶穿了
+  let THUMB_Q = Promise.resolve();
+  const makeThumb = blob => { const job = THUMB_Q.then(() => makeThumb1(blob)); THUMB_Q = job.catch(() => null); return job; };
+  const makeThumb1 = async blob => {
     if (blob && blob.type === "image/gif") return await makeGifThumb(blob);
     try { if (typeof createImageBitmap === "function") { const bm = await createImageBitmap(blob); const w = 300, hh = Math.round(bm.height * w / bm.width);
       const cv = document.createElement("canvas"); cv.width = w; cv.height = hh; cv.getContext("2d").drawImage(bm, 0, 0, w, hh); bm.close && bm.close();

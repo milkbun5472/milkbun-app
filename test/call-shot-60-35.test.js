@@ -69,5 +69,7 @@ test("通话页把画面铺成底，字还读得清", () => {
 test("取图那段只写一份，三处共用", () => {
   const hook = comp.slice(comp.indexOf("function useIdbImgUrl(imgKey) {"), comp.indexOf("// 角色自拍气泡"));
   assert.ok(hook.length > 200, "找不到 useIdbImgUrl");
-  assert.match(hook, /if \(obj\) URL\.revokeObjectURL\(obj\)/, "objectURL 不撤就一直攒着（SelfieBubble 里也有一份，得切片才咬得住这一份）");
+  // 2026-11-28 起读过的图留在一份最多 24 张的缓存里（邮票册翻着会闪）：用的人散了、挤出去的那张才撤，不会一直攒着
+  assert.match(hook, /v\.refs = Math\.max\(0, v\.refs - 1\); idbUrlTrim\(\);/, "用完要还回去，缓存才挤得动");
+  assert.match(comp, /if \(!v\.refs\) \{ URL\.revokeObjectURL\(v\.url\); IDB_URL_CACHE\.delete\(k\); \}/, "挤出去的 objectURL 要撤");
 });

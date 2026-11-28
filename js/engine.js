@@ -6495,11 +6495,11 @@ async function remoteMediaGet(bucket, k) {
 async function remoteMediaDel(bucket, k) {
   try { if (window.Cloud && typeof window.Cloud.mediaDel === "function") await window.Cloud.mediaDel(bucket, k); } catch (e) {}
 }
-async function idbImgPutOnly(k, blob) { const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+async function idbImgPutOnly(k, blob) { try { if (typeof window !== "undefined" && window.__idbUrlDrop) window.__idbUrlDrop(k); } catch (e) {} const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
 async function idbImgPut(k, blob) { await idbImgPutOnly(k, blob); await nativeMediaPut("selfies", k, blob); mediaQueueAdd("selfies", k); mediaDrain(4); }
 async function idbImgGetOnly(k) { const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
 async function idbImgGet(k) { const own = await idbImgGetOnly(k).catch(() => null); if (own) return own; const native = await nativeMediaGet("selfies", k); if (native) { try { await idbImgPutOnly(k, native); } catch (e) {} return native; } const far = await remoteMediaGet("selfies", k); if (far && far.size) { try { await idbImgPutOnly(k, far); } catch (e) {} return far; } return null; }
-async function idbImgDel(k) { const db = await idbImgOpen(); await new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); await nativeMediaDel("selfies", k); await remoteMediaDel("selfies", k); }
+async function idbImgDel(k) { try { if (typeof window !== "undefined" && window.__idbUrlDrop) window.__idbUrlDrop(k); } catch (e) {} const db = await idbImgOpen(); await new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); await nativeMediaDel("selfies", k); await remoteMediaDel("selfies", k); }
 // 只要键不要图（「TA 们拍的照片」按人数张数用；整仓连图读出来太重）
 async function idbImgKeys() { const db = await idbImgOpen(); return new Promise(res => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").getAllKeys(); rq.onsuccess = () => res((rq.result || []).map(String)); rq.onerror = () => res([]); }); }
 // 自拍整仓遍历（备份 v3 用）：[[key, blob], ...]
