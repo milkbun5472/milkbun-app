@@ -15921,7 +15921,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
             if (_q && String(x.content || "").includes(_q)) { at = k; break; }
           }
           if (at < 0) return p;
-          return p.map((x, k) => k === at ? { ...x, theirStick: { ..._st, ts: Date.now() } } : x);
+          return p.map((x, k) => k === at ? { ...x, theirStick: { ..._st, ts: Date.now(), turnId } } : x);
         });
       }
       // 他拍一拍她（她 2026-10-25）：跟她拍他那行同一个样子，居中灰字；后缀用她在他聊天设置里填的那半句
@@ -16662,7 +16662,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         // 正常回合：删掉这一轮 AI 回复（保留用户最后一条）重生成
         pChat(threadKey, p => {
           const liveBranch=window.RerollBranch&&window.RerollBranch.truncateChatBranch?window.RerollBranch.truncateChatBranch(p,idx,turnId):branch;
-          const next=_keepAlt ? rerollStash(liveBranch.after, _keepAlt) : liveBranch.after;
+          // 这一轮他往她气泡上贴的表情跟着一起撤（她 2026-11-28「重roll的时候贴过表情的不会去掉」）：贴纸挂在她那条上、不在被删的那段里，
+          //   认它是哪一轮贴的；早先没记轮次的，按贴的时间不早于被删那段的第一条来认
+          const _unStick = x => x && x.theirStick && (removedTurns.includes(x.theirStick.turnId) || (!x.theirStick.turnId && Number(x.theirStick.ts) >= firstTs - 1000)) ? (({ theirStick, ...r }) => r)(x) : x;
+          const next=(_keepAlt ? rerollStash(liveBranch.after, _keepAlt) : liveBranch.after).map(_unStick);
           try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "reroll",surface:"private", charId: activeChar.id, before: p, after: next, targetIndex: liveBranch.start, turnId }); } catch (e) {}
           return next;
         });
@@ -18376,7 +18379,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
                 if (String(x.content || "").includes(_q)) { at = k; break; }
               }
               if (at < 0) return p;
-              return p.map((x, k) => k === at ? { ...x, gSticks: (x.gSticks || []).filter(g => g.by !== spk.id).concat([{ ..._gs, by: spk.id, name: spk.name }]).slice(-6) } : x);
+              return p.map((x, k) => k === at ? { ...x, gSticks: (x.gSticks || []).filter(g => g.by !== spk.id).concat([{ ..._gs, by: spk.id, name: spk.name, ts: Date.now() }]).slice(-6) } : x);
             });
           }
           // 拍一拍：拍她（她得在群里）或者拍群里另一个人
@@ -18519,7 +18522,9 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 留版：回滚之前拍下全体成员此刻的状态
       const _gKeep = gsFor(groupId).keepRerolls === true && rerollKeepable(removed) ? { msgs: removed, st: statesSnapMany(groupStateIds(groupId)) } : null;
       byChar.forEach((rec, charId) => rollbackCharTurns(charId, rec.turns, !rec.turns.length && !!(statesRef.current[charId] && rec.legacyThoughts.includes(statesRef.current[charId].thought))));
-      pGChat(groupId,p=>{const next=_gKeep?rerollStash(p.slice(0,start),_gKeep):p.slice(0,start);try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"reroll",surface:"group",charId:"g_"+groupId,before:p,after:next,targetIndex:start,turnId:m.turnId});}catch(e){}return next;});
+      // 被删那段里贴上去的表情一起撤（她 2026-11-28）：按贴的时间不早于被删那段的第一条来认
+      const _gFirst = Math.min(...removed.map(x => Number(x && x.ts) || Date.now())), _gUnStick = x => x && Array.isArray(x.gSticks) && x.gSticks.some(g => Number(g.ts) >= _gFirst - 1000) ? { ...x, gSticks: x.gSticks.filter(g => !(Number(g.ts) >= _gFirst - 1000)) } : x;
+      pGChat(groupId,p=>{const next=(_gKeep?rerollStash(p.slice(0,start),_gKeep):p.slice(0,start)).map(_gUnStick);try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"reroll",surface:"group",charId:"g_"+groupId,before:p,after:next,targetIndex:start,turnId:m.turnId});}catch(e){}return next;});
       const rerollAvoid = removed.filter(x => x && x.senderId && x.content && !x.recalled).map(x => (x.senderName ? x.senderName + "：" : "") + String(x.content)).join("\n");
       setTimeout(() => replyGroup(groupId, { rerollAvoid }), 200);
     }

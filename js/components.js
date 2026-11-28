@@ -1333,14 +1333,15 @@ function msgStickEl(m, isU, outside) {
   if (gs.length) {
     const mine = !isU && m.stick ? [m.stick] : [];
     return h("span", { "data-wk": "msgstick", "data-multi": "1", ref: msgStickFit, "data-out": outside ? "1" : undefined, style: { position: "absolute", top: -14, [isU ? "left" : "right"]: -10, height: 26, padding: "0 6px", borderRadius: 13, display: "flex", alignItems: "center", gap: 2, fontSize: 15, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 40, whiteSpace: "nowrap" } },
-      gs.concat(mine).slice(-5).map((x, k) => x.emoji ? h("span", { key: k }, x.emoji) : h("img", { key: k, src: x.url, alt: "", style: { width: 18, height: 18, objectFit: "contain" } })));
+      gs.concat(mine).slice(-5).map((x, k) => x.emoji ? h("span", { key: k }, x.emoji) : h("img", { key: k, src: stickerSrc(x.url), referrerPolicy: "no-referrer", alt: "", style: { width: 18, height: 18, objectFit: "contain" } })));
   }
   // 她贴在TA气泡上的是 stick；TA贴在她气泡上的是 theirStick（同一个画法）
+  // 表情包地址要过 stickerSrc（她 2026-11-28 截图贴上去是个裂图「?」）：从相册加的表情存在本机，存的是占位引用，直接塞 src 就裂
   const st = m && (isU ? m.theirStick : m.stick);
   if (!st || (!st.url && !st.emoji)) return null;
   // 小黄脸 emoji（她 2026-10-31：QQ 那种贴的其实是 emoji）：一个字，叠在角上
   if (st.emoji) return h("span", { "data-wk": "msgstick", "data-emoji": "1", ref: msgStickFit, "data-out": outside ? "1" : undefined, style: { position: "absolute", top: -14, [isU ? "left" : "right"]: -10, minWidth: 26, height: 26, padding: "0 3px", borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, lineHeight: 1, background: "rgba(255,255,255,.92)", boxShadow: "0 1px 3px rgba(0,0,0,.18)", pointerEvents: "none", zIndex: 40 } }, st.emoji);
-  return h("img", { "data-wk": "msgstick", ref: msgStickFit, "data-out": outside ? "1" : undefined, src: st.url, alt: st.keyword || "", style: { position: "absolute", top: -16, [isU ? "left" : "right"]: -12, width: 30, height: 30, objectFit: "contain", pointerEvents: "none", zIndex: 40, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.18))" } });
+  return h("img", { "data-wk": "msgstick", ref: msgStickFit, "data-out": outside ? "1" : undefined, src: stickerSrc(st.url), referrerPolicy: "no-referrer", alt: st.keyword || "", style: { position: "absolute", top: -16, [isU ? "left" : "right"]: -12, width: 30, height: 30, objectFit: "contain", pointerEvents: "none", zIndex: 40, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.18))" } });
 }
 function bubbleSticker(isU) {
   const S = bubbleSkinNow();

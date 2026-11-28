@@ -52,7 +52,7 @@ test("接线：设置开关默认关、状态在回滚前拍下、只在主线�
   assert.match(app, /keepRerolls: s\.keepRerolls === true,/);
   const a = app.indexOf("const _keepAlt = "), b = app.indexOf("rollbackCharTurns(activeChar.id,removedTurns,false)", a);
   assert.ok(a > 0 && b > a, "拍状态要在回滚之前");
-  assert.match(app, /const next=_keepAlt \? rerollStash\(liveBranch\.after, _keepAlt\) : liveBranch\.after;/);
+  assert.match(app, /const next=\(_keepAlt \? rerollStash\(liveBranch\.after, _keepAlt\) : liveBranch\.after\)\.map\(_unStick\);/);
   assert.match(app, /rerollNav: \(activeRoomId && activeRoomId !== "main"\) \|\| settingsFor\(activeChar\.id\)\.keepRerolls !== true \? null : rerollNavOf\(/);
   assert.match(comp, /"data-wk": "rerollnav"/);
   assert.match(ts, /\["rerollnav", /);

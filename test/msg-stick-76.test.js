@@ -30,7 +30,7 @@ test("QQ 那样的小条＋面板，能自己建几栏、挑快捷条用哪栏",
 });
 test("TA 也能往她的气泡上贴一个 emoji", () => {
   assert.match(app, /stick:\{"quote":"她某句话里的原话，照抄几个字","emoji":"一个 emoji"\}=往她那句话上贴一个表情/);
-  assert.match(app, /theirStick: \{ \.\.\._st, ts: Date\.now\(\) \}/);
+  assert.match(app, /theirStick: \{ \.\.\._st, ts: Date\.now\(\), turnId \}/);
   assert.match(app, /你往她这句上贴过一个/);
   assert.match(c, /const st = m && \(isU \? m\.theirStick : m\.stick\);/);
 });
