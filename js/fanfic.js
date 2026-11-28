@@ -155,7 +155,8 @@
     };
     return h("div", { "data-wk": "ficartpage", "data-part": "ficartview", onClick: props.onClose, className: "fixed inset-0 z-50 flex flex-col items-center justify-center", style: { background: "rgba(0,0,0,.88)", gap: 14, padding: 16 } },
       h(FicImg, { k: props.k, style: { maxWidth: "94%", maxHeight: "74vh", width: "auto", borderRadius: 6 } }),
-      h("button", { onClick: save, className: "active:opacity-70", style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.14)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, "保存这张"));
+      h("button", { onClick: save, className: "active:opacity-70", style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.14)", color: "#fff", fontFamily: F_BODY, fontSize: "calc(13.5px * var(--app-fs, 1))" } }, "保存这张"),
+      props.onDelete ? h("button", { "data-wk": "ficartdel", onClick: function (e) { e.stopPropagation(); props.onDelete(props.k); }, className: "active:opacity-70", style: { padding: "8px 18px", background: "transparent", border: "none", color: "rgba(255,255,255,.6)", fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))" } }, "删掉这张") : null);
   }
   function FicTag(props) {
     const t = useTheme();
@@ -1252,7 +1253,20 @@
                   h("button", { onClick: function () { sendReply(r.id); }, style: { fontFamily: F_BODY, fontSize: "calc(12.5px * var(--app-fs, 1))", color: t.accent }, "data-wk": "ficreaderbtn", "data-part": "15" }, "发送"))
               : h("button", { onClick: function () { setReplyTo(r.id); setReplyText(""); }, className: "mt-1.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: "calc(11px * var(--app-fs, 1))", color: t.fog }, "data-wk": "ficreaderbtn", "data-part": "16" }, "回复"));
         }) : h("div", { style: { fontFamily: F_BODY, fontSize: "calc(12px * var(--app-fs, 1))", color: t.fog, padding: "8px 0" } }, "还没有书评，写一条或点「刷出书评」召唤一批读者。"); })()),
-      artView ? h(FicArtView, { k: artView, toast: props.toast, onClose: function () { setArtView(null); } }) : null,
+      artView ? h(FicArtView, { k: artView, toast: props.toast, onClose: function () { setArtView(null); },
+        // 删掉这张（她 2026-11-28 转群友「画歪了还删不了」）：头图、本子封面（连书签一起）、书签、画手那张图，在哪儿就从哪儿拿掉
+        onDelete: function (k) {
+          requestAppConfirm("删掉这张图？", "只删这张图，文章和留言都不动。删了找不回来。", function () {
+            props.onUpdate(f.id, function (x) {
+              if (x.art && x.art.head === k) x.art = Object.assign({}, x.art, { head: "" });
+              if (x.book && x.book.cover === k) delete x.book;
+              else if (x.book && x.book.mark === k) x.book = Object.assign({}, x.book, { mark: "" });
+              x.reviews = (x.reviews || []).map(function (r) { return r && r.art === k ? Object.assign({}, r, { art: "" }) : r; });
+              return x;
+            });
+            setArtView(null); props.toast && props.toast("删掉了");
+          }, "删掉");
+        } }) : null,
       // 只给这一篇换纸（她 2026-08-30：「每一篇可以单独设置」）
       paperOpen ? h("div", { className: "fixed inset-0 z-50 flex items-end", style: { background: "rgba(0,0,0,0.35)" }, onClick: function () { setPaperOpen(false); }, "data-wk": "ficreadertap", "data-part": "1" },
         h("div", { onClick: function (e) { e.stopPropagation(); }, className: "w-full rounded-t-3xl px-6 pt-5 pb-8", style: { background: t.bg, maxHeight: "72vh", overflowY: "auto" }, "data-wk": "ficreadertap", "data-part": "2" },

@@ -6685,13 +6685,22 @@ function photoSceneShotLine(seed) {
   return "【这一张是这一幕的画面·旁观视角】不是谁举着手机拍的：像旁边有人、或者镜头远远拍下了这一幕，画面里没有人拿手机对着镜头，人物不看镜头，照自己正在做的事。"
     + "这一张的机位：" + PHOTO_SCENE_SHOTS[n % PHOTO_SCENE_SHOTS.length] + "。参考图只决定这是谁，角度和构图照这一句来。";
 }
+// 真人少见的发色、瞳色、耳朵：不管什么画风，都是这个人的设定。人物照和同人图共用这一份（她 2026-11-28：金发角色和白发的她被画成两个棕发）
+const RARE_LOOK_RE = /(银|白|粉|蓝|紫|绿|红|金|彩虹|渐变)[色]?(长|短|卷)?发|(紫|红|金|粉|银|异色)[色]?(瞳|眼睛|眼眸)|猫耳|兽耳|狐耳|精灵耳|尾巴/;
+// 好几个人一起画时：谁外貌里写着这类长相，点名说一句照原样画
+function rareLookLine(people) {
+  const hit = (people || []).filter(x => x && RARE_LOOK_RE.test(String(x.appearance || "")));
+  if (!hit.length) return "";
+  return hit.map(x => "「" + (x.remark || x.name || "TA") + "」").join("") + "外貌里写的发色、瞳色、耳朵就是本来的样子，照设定原样画出来，不跟着画风或参考图里的光线变成黑发棕发。";
+}
+if (typeof window !== "undefined") window.rareLookLine = rareLookLine;
 function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 设定里【明说了画风】才算二次元：只认画风词。
   //   ⚠️发色瞳色、兽耳不算（她 2026-10-05：「有些人喜欢真人的兽耳或者银发之类的，你不能以偏概全」）——
   //   那些颜色真人照片里也照样要保留，归下面 RARE_LOOK 那一句管，跟画风无关。
   const ANIME_HINT = /二次元|动漫|动画风|漫画|立绘|插画|赛璐璐|\banime\b|\bmanga\b/i;
   // 真人少见的发色、瞳色、耳朵：不管什么画风，都是这个人的设定，照样画出来
-  const RARE_LOOK = /(银|白|粉|蓝|紫|绿|红|金|彩虹|渐变)[色]?(长|短|卷)?发|(紫|红|金|粉|银|异色)[色]?(瞳|眼睛|眼眸)|猫耳|兽耳|狐耳|精灵耳|尾巴/;
+  const RARE_LOOK = RARE_LOOK_RE;
   opts = opts || {};
   // 每一张【现掷一个机位】（她 2026-09-20：「生图还是太过于偏向锁脸的那个角度，
   // 我之前调过的还是走一样的角度」）。
@@ -6879,6 +6888,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   if (soloLook) parts.push("【「" + cName + "」长什么样·务必贴合】" + char.appearance.trim() + "。");
   // 银发、紫瞳、兽耳这些：写实照片里也是设定，不许被「真人常见」拉回黑发黑眼
   if (soloLook && RARE_LOOK.test(char.appearance)) parts.push("外貌里写的发色、瞳色、耳朵就是这个人本来的样子，照设定原样画出来，别改成黑发黑眼。");
+  // 合照里也一样（她 2026-11-28）：谁外貌里写着金发白发这些，点名照原样画
+  else if (multi && rareLookLine(cast)) parts.push(rareLookLine(cast));
   // 手部/肢端解剖（治 AI 经典翻车：比耶少一根手指、多指并指）——correct hands 关键词一起上
   parts.push("【手脚必须解剖正确】correct human hands, exactly five fingers per hand, anatomically correct fingers——每只手正好五根手指、每只脚五根脚趾；比耶(V手势)/比心/挥手/竖大拇指/握东西/十指相扣时，手指的数目、长短、朝向和关节都要正确自然，**绝对不许多指、少指、断指、并指融合、手指扭曲畸形或长度诡异**。手若入镜就照实画对，拿不准就让手自然下垂/插兜/被遮挡，也别画错。");
   // 两个人牵手（2026-10-07 群友截图：牵的手绞成一团）：十指相扣是生图模型最常画坏的姿势，

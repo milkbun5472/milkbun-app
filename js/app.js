@@ -32712,8 +32712,10 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
   const ficImage = async (req) => {
     if (typeof imgApiReady !== "function" || !imgApiReady(loadImgApi())) { toast("先去 设置 · 图像 API 配一条线路"); return null; }
     try {
+      // 「我」照这篇里对面那个人认的那张面具来（跟聊天、照相馆同一个 photoMe）
+      const _peer = (req.cp || []).find(tok => tok !== "me");
       const who = (req.cp || []).map(tok => tok === "me"
-        ? { name: userName(profile), appearance: profile.appearance || "", refPhoto: profile.refPhoto }
+        ? (m => ({ name: m.name || userName(profile), appearance: m.appearance || "", refPhoto: m.refPhoto || null }))(photoMe(userName(profile), _peer || null))
         : characters.find(c => c.id === tok)).filter(Boolean);
       const refs = [];
       who.forEach(x => { if (x.refPhoto && refs.length < 4 && refs.indexOf(x.refPhoto) < 0) refs.push(x.refPhoto); });
@@ -32728,6 +32730,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
         : "画手读完这一章画的同人图，画这一章的名场面";
       const prompt = "【最重要·这是一张" + (req.style || "精致的同人插画") + "风格的插画，不是照片】" + frame + "。\n"
         + (look ? "【画面里的人】\n" + look + "\n参考图只决定长相：机位、姿势、表情、衣服照下面的画面来。\n" : "")
+        + (typeof rareLookLine === "function" && rareLookLine(who) ? rareLookLine(who) + "\n" : "")
         + "【画面】" + String(req.scene || "").slice(0, 400) + "\n"
         + (typeof photoShotPick === "function" && kind !== "bookmark" ? "【机位】" + photoShotPick("other") + "；画面描述里写了怎么取景的就照描述。\n" : "")
         + (plan ? window.PosterLayout.spaceLine(plan) + "\n" : "")
