@@ -13942,12 +13942,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               + "。⚠️上面这些只是让你知道哪几张是你、挑得准——发的时候直接发，跟发别的表情一样，话里不用提「这是我的表情包」「我自己画的」「用我的脸」「Q 版的我」这类话，她问起或者正聊到这件事才说。";
           })());
       }
-      if (char.npc ? char.npcMoments : _s.autoMoment) openCaps.push("moment");
-      if (!char.npc && storyRoomFor(charId)) openCaps.push("story");
-      if (!char.npc && window.Stories && window.Stories.activeFor("me", charId).some(s0 => s0.sticker && s0.sticker.type === "poll" && (s0.sticker.votes || {})[charId] == null)) openCaps.push("storyVote");
-      if (!char.npc && storyOnFor(charId) && window.Stories && window.Stories.activeFor("me", charId).some(s0 => !window.Stories.all().some(x => x.repostOf === s0.id && x.by === charId))) openCaps.push("storyRepost");
-      if (!char.npc && window.Stories && window.Stories.activeFor("me", charId).some(s0 => !(s0.reacts || {})[charId])) openCaps.push("storyReact");
-      if (isCouple) openCaps.push("whisper");
       // ── 刻一首歌进你俩的唱片（她 2026-09-03 点的，「言秋也给」）────────────
       // 【四处一样喂 · 差异登记】(施工规则/four-surfaces-same-context.md)
       //   单聊线上 ✅ 就是这里（普通角色走 openCaps，言秋走TA自己那条 hint，见下）。

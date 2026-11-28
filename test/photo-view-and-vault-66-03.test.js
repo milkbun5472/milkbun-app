@@ -228,13 +228,13 @@ test("一起听那两半都接回真正在跑的那条协议", () => {
 // 等于告诉他这两格永远不开，聊天里顺手发朋友圈/留悄悄话因此基本不发生。
 test("顺手发朋友圈 / 留悄悄话：这一格要真的开出去，而且按条件开", () => {
   assert.match(app, /const ambientHint = ambientBits\.length/, "那段说明又没了");
-  assert.match(app, /if \(_s\.autoMoment\) openCaps\.push\("moment"\);/, "moment 没进本轮开放能力");
+  assert.match(app, /if \(char\.npc \? char\.npcMoments : _s\.autoMoment\) openCaps\.push\("moment"\);/, "moment 没进本轮开放能力"); assert.equal((app.match(/openCaps\.push\("moment"\)/g) || []).length, 1, "moment 那一格推了两遍");
   assert.match(app, /if \(isCouple\) openCaps\.push\("whisper"\);/, "whisper 没进本轮开放能力");
   assert.match(app, /if \(ambientHint\) capState\.push\(ambientHint\.trim\(\)\);/);
   // ⚠️条件不成立时【一格都不给】：代码那头本来就会挡，但不给他这一格，
   //   他才不会在气泡里说「刚给你留了句悄悄话」而你那边什么都没有
   assert.ok(!/openCaps\.push\("moment"\);\s*\n\s*openCaps\.push\("whisper"\)/.test(app), "两格变成无条件给了");
-  assert.match(app, /if \(_s\.autoMoment\) ambientBits\.push\("发条朋友圈\(moment\)"\);/);
+  assert.match(app, /if \(char\.npc \? char\.npcMoments : _s\.autoMoment\) ambientBits\.push\("发条朋友圈\(moment\)"\);/);
   // ⚠️「贴一张便签」是过期说法：便签墙 v59.23 就撤掉了，悄悄话早并进了抽屉。
   //   那句一直躺在死基线里没人发现——补回来的时候必须改对去处，别把过期说法重新发出去。
   assert.match(app, /if \(isCouple\) ambientBits\.push\("给 Ta 留一句悄悄话\(whisper\)——它会落进你俩的抽屉/);
