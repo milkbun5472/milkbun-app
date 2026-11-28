@@ -7,3 +7,7 @@ assert(/window\.__idbUrlDrop = k =>/.test(comp));
 assert(/async function idbImgPutOnly\(k, blob\) \{ try \{ if \(typeof window !== "undefined" && window\.__idbUrlDrop\) window\.__idbUrlDrop\(k\);/.test(eng));
 assert(/const makeThumb = blob => \{ const job = THUMB_Q\.then\(\(\) => makeThumb1\(blob\)\);/.test(st));
 console.log("ok idb-url-cache");
+// 册子里动起来的卡面只在看得见时放（她 2026-11-28「下滑看其他卡会闪、会闪退」）
+assert(/const vurl = useStampVideo\(card && !back \? coverVideo\(card\) : null, vis\);/.test(st), "滑走就收");
+assert(/const io2 = new IntersectionObserver\(es => \{ const e = es\[es\.length - 1\]; if \(e\) setVis\(e\.isIntersecting\); \}/.test(st));
+console.log("ok stamp-video-visible");
