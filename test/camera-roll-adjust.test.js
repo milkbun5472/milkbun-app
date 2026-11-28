@@ -131,3 +131,12 @@ test("平行人生：档案、通信、一天、见面、回到现在都接上�
   const body = app.slice(app.indexOf("const tripPlan = async"), app.indexOf("const cameraGenShot = async"));
   assert.ok(!/三到六站|一两条就好|（一段）|正文一段/.test(body));
 });
+test("旅行：路上小意外、纪念品、回明信片、旅行手账、下一站接新旅行", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8"), trip = fs.readFileSync(path.join(__dirname, "..", "js", "camera-trip.js"), "utf8"), cm = fs.readFileSync(path.join(__dirname, "..", "js", "camera.js"), "utf8");
+  assert.match(app, /const tripMore = async \(kind, trip, idx, extra\) =>/);
+  assert.match(app, /onTripCard: tripCard, onTripMore: tripMore/); assert.match(cm, /onTripMore: props\.onTripMore/);
+  assert.match(app, /mishap 写这一站路上碰上的一件计划外的小事/); assert.match(app, /souvenir 是你在这一站给/);
+  assert.match(trip, /mishap: r\.mishap \|\| "", souvenir: r\.souvenir \|\| null/);
+  assert.match(trip, /const nextTrip = \(\) =>/);
+  for (const k of ["tripmishap", "tripsouvenir", "tripthread", "tripreply", "tripjournal", "tripjroute", "tripjphotos", "tripjsouvenir", "tripjsummary", "tripnext"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(trip.includes('"' + k + '"'), k); }
+});

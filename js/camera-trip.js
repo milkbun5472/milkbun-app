@@ -154,6 +154,8 @@
     const [openId, setOpenId] = useState(null);
     const [draft, setDraft] = useState(null);     // 新建：{ids, meGo, remember, place, stops}
     const [busy, setBusy] = useState("");
+    const [journal, setJournal] = useState(false);   // 走完以后的旅行手账（她 2026-11-28「都做吧」）
+    const [replyAt, setReplyAt] = useState(-1), [replyTx, setReplyTx] = useState("");
     const toast = m => props.toast && props.toast(m);
     const put = list => { setTrips(list); store(list); };
     const names = {}; chars.forEach(c => { names[c.id] = c.name; });
@@ -221,7 +223,7 @@
           const k = "img_trip_" + Date.now().toString(36);
           if (typeof idbImgPut === "function") await idbImgPut(k, r.blob);
           const style = stop.style !== "auto" ? stop.style : (r.style || STYLES[Math.floor(Math.random() * STYLES.length)].id);
-          const c = { imgKey: k, kind: r.kind, kindZh: ({ self: "自拍", other: "别人帮拍", group: "合照" })[r.kind] || "", scene: r.scene, texts: r.texts, style, ts: Date.now() };
+          const c = { imgKey: k, kind: r.kind, kindZh: ({ self: "自拍", other: "别人帮拍", group: "合照" })[r.kind] || "", scene: r.scene, texts: r.texts, style, mishap: r.mishap || "", souvenir: r.souvenir || null, ts: Date.now() };
           const list = load().map(t => t.id === trip.id ? Object.assign({}, t, { stops: t.stops.map((s, i) => i === next ? Object.assign({}, s, { card: c }) : s) }) : t);
           put(list);
         } catch (e) { toast("没寄成：" + String(e && e.message || e).slice(0, 80)); }
@@ -239,17 +241,68 @@
       const save = async (c, s) => { try { const b = await drawCard(c, s, names); if (typeof saveFile === "function") await saveFile(new File([b], "明信片-" + s.place + ".jpg", { type: "image/jpeg" })); } catch (e) { toast("没存下来：" + String(e && e.message || e).slice(0, 60)); } };
       const who = s => s.sender === "all" ? "大家一起" : names[s.sender] || "TA";
       const got = trip.stops.filter(s => s.card);
+      const patchTrip = fn => put(load().map(t => t.id === trip.id ? fn(t) : t));
+      const reply = async si => {
+        const tx = replyTx.trim(); if (busy || !tx) return; setBusy("reply");
+        try { const r = await props.onTripMore("reply", trip, si, tx);
+          patchTrip(t => Object.assign({}, t, { stops: t.stops.map((s, i) => i === si && s.card ? Object.assign({}, s, { card: Object.assign({}, s.card, { thread: (s.card.thread || []).concat([{ from: "me", text: tx, ts: Date.now() }, { from: "ta", pid: r.pid, text: r.text, ts: Date.now() }]) }) }) : s) }));
+          setReplyAt(-1); setReplyTx(""); }
+        catch (e) { toast("没寄到：" + String(e && e.message || e).slice(0, 80)); } finally { setBusy(""); }
+      };
+      const makeJournal = async () => {
+        if (busy) return; setBusy("journal");
+        try { const r = await props.onTripMore("journal", trip); patchTrip(t => Object.assign({}, t, { journal: Object.assign({}, r, { ts: Date.now() }) })); setJournal(true); }
+        catch (e) { toast("手账没做成：" + String(e && e.message || e).slice(0, 80)); } finally { setBusy(""); }
+      };
+      const nextTrip = () => { const n = trip.journal && trip.journal.next; setJournal(false); setOpenId(null); setDraft({ ids: trip.ids.slice(), meGo: trip.meGo, remember: trip.remember, place: n ? n.place : "", stops: [] }); };
+      if (journal && trip.journal) {
+        const j = trip.journal, souv = got.filter(s => s.card.souvenir);
+        return page("旅行手账", () => setJournal(false), [
+          h("div", { key: "jr", "data-wk": "tripjournal", style: { background: "#fbf7f1", margin: "4px -4px 0", padding: "26px 20px 30px", borderRadius: 4, boxShadow: "0 18px 36px -24px rgba(120,60,90,.5)", color: "#3a3340" } },
+            h("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: -14 } }, typeof PhoneShotBtn === "function" ? h(PhoneShotBtn, { color: SUB, name: "旅行手账-" + (j.title || trip.title).slice(0, 12).replace(/[\\/:*?"<>|]/g, "") }) : null),
+            h("div", { style: { textAlign: "center", fontSize: FS(10.5), letterSpacing: ".35em", color: PINK } }, "TRAVEL JOURNAL"),
+            h("div", { style: { textAlign: "center", fontSize: FS(22), fontWeight: 600, letterSpacing: ".1em", margin: "6px 0 4px", fontFamily: "'Songti SC','Noto Serif SC',serif" } }, j.title || trip.title),
+            h("div", { style: { textAlign: "center", fontSize: FS(11.5), color: SUB } }, trip.ids.map(id => names[id]).filter(Boolean).join("、") + (trip.meGo ? " 和你" : "")),
+            // 路线：几站串成一条虚线
+            h("div", { "data-wk": "tripjroute", style: { display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: "6px 0", margin: "20px 0 22px", fontSize: FS(12) } },
+              got.map((s, i) => h(React.Fragment, { key: i }, i ? h("span", { style: { width: 22, borderTop: "1.5px dashed " + PINK, margin: "0 6px", opacity: .6 } }) : null,
+                h("span", null, h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 4, background: PINK, marginRight: 5, verticalAlign: "middle" } }), s.place)))),
+            // 明信片照片：错落贴着
+            h("div", { "data-wk": "tripjphotos", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, got.map((s, i) => h("div", { key: i, style: { background: "#fff", padding: "6px 6px 8px", boxShadow: "0 6px 14px -8px rgba(0,0,0,.3)", transform: "rotate(" + (i % 2 ? 2 : -2) + "deg)" } },
+              h(JImg, { k: s.card.imgKey }), h("div", { style: { fontFamily: HAND, fontSize: FS(12.5), textAlign: "center", marginTop: 4 } }, s.place)))),
+            souv.length ? h("div", { "data-wk": "tripjsouvenir", style: { marginTop: 24 } },
+              h("div", { style: { fontSize: FS(11), letterSpacing: ".25em", color: PINK, marginBottom: 6 } }, "带回来的"),
+              souv.map((s, i) => h("div", { key: i, style: { fontSize: FS(12.5), lineHeight: 1.7 } }, "· " + s.card.souvenir.name, h("span", { style: { color: SUB, fontSize: FS(11) } }, "　" + s.place + "　" + (names[s.card.souvenir.pid] || ""))))) : null,
+            j.summary ? h("div", { "data-wk": "tripjsummary", style: { marginTop: 24, fontFamily: HAND, fontSize: FS(16.5), lineHeight: 1.7, whiteSpace: "pre-wrap" } }, j.summary, h("div", { style: { textAlign: "right", marginTop: 10 } }, "—— " + (names[j.pid] || ""))) : null),
+          j.next ? h("div", { key: "nx", "data-wk": "tripnext", style: { textAlign: "center", margin: "30px 8px 10px" } },
+            h("div", { style: { fontSize: FS(11), letterSpacing: ".25em", color: PINK } }, "下一站"),
+            h("div", { style: { fontSize: FS(18), fontWeight: 600, margin: "6px 0", fontFamily: "'Songti SC','Noto Serif SC',serif" } }, j.next.place),
+            j.next.why ? h("div", { style: { fontSize: FS(12.5), color: SUB, lineHeight: 1.7 } }, (names[j.next.pid] || "TA") + "：" + j.next.why) : null) : null,
+          h("div", { key: "redo", style: { textAlign: "center", marginTop: 14 } }, h("button", { "data-wk": "tripbtn", "data-part": "rejournal", disabled: !!busy, onClick: makeJournal, style: { border: "none", background: "transparent", color: SUB, fontSize: FS(12) } }, busy === "journal" ? "在重贴…" : "重做这页手账"))
+        ], j.next ? big("就去" + j.next.place, nextTrip, "nexttrip") : null);
+      }
       return page(trip.title, () => setOpenId(null), [
         h("div", { key: "meta", style: { fontSize: FS(11.5), color: SUB, margin: "2px 2px 14px", lineHeight: 1.6 } },
           trip.ids.map(id => names[id]).filter(Boolean).join("、") + (trip.meGo ? " 和你" : "") + " · " + trip.stops.length + " 站 · " + (trip.remember ? "记进记忆" : "不记进记忆")),
         got.length ? null : h("div", { key: "empty", style: { textAlign: "center", color: SUB, fontSize: FS(12.5), padding: "30px 0" } }, "还没寄出第一张"),
-        got.map((s, i) => h(Postcard, { key: i, card: s.card, stop: s, names, onSave: () => save(s.card, s) })),
-        h("div", { key: "route", style: { marginTop: 6, fontSize: FS(11.5), color: SUB, lineHeight: 1.9 } },
-          trip.stops.map((s, i) => h("div", { key: i, style: { color: s.card ? SUB : i === next ? INK : "#c8b8c0" } }, (s.card ? "✓ " : i === next ? "→ " : "· ") + s.place + "（" + who(s) + "寄）"))),
-        h("button", { key: "del", "data-wk": "tripbtn", "data-part": "deltrip", onClick: del, style: { marginTop: 18, border: "none", background: "transparent", color: SUB, fontSize: FS(12) } }, "删掉这趟旅行")
+        got.map((s, i) => { const si = trip.stops.indexOf(s), c = s.card;
+          return h("div", { key: i, style: { marginBottom: 30 } }, h(Postcard, { card: c, stop: s, names, onSave: () => save(c, s) }),
+            c.mishap ? h("div", { "data-wk": "tripmishap", style: { fontSize: FS(12), color: SUB, lineHeight: 1.7, margin: "10px 4px 0" } }, h("span", { style: { color: PINK, marginRight: 6 } }, "路上"), c.mishap) : null,
+            c.souvenir ? h("div", { "data-wk": "tripsouvenir", style: { fontSize: FS(12), color: SUB, lineHeight: 1.7, margin: "4px 4px 0" } }, h("span", { style: { color: PINK, marginRight: 6 } }, "带给你"), h("span", { style: { color: INK } }, c.souvenir.name), c.souvenir.why ? "　" + c.souvenir.why : "") : null,
+            (c.thread || []).length ? h("div", { "data-wk": "tripthread", style: { margin: "10px 4px 0" } }, c.thread.map((x, j) => h("div", { key: j, style: { textAlign: x.from === "me" ? "right" : "left", fontFamily: x.from === "me" ? "inherit" : HAND, fontSize: FS(x.from === "me" ? 12.5 : 15), color: x.from === "me" ? SUB : INK, lineHeight: 1.6, marginTop: 6, whiteSpace: "pre-wrap" } }, x.text))) : null,
+            props.onTripMore ? (replyAt === si ? h("div", { style: { margin: "8px 4px 0" } },
+              h("textarea", { "data-wk": "tripreply", value: replyTx, rows: 2, placeholder: "回一句给寄明信片的人", onChange: e => setReplyTx(e.target.value), style: { width: "100%", boxSizing: "border-box", border: "none", borderBottom: "1px solid #ead9e1", background: "transparent", color: INK, fontSize: FS(13), padding: "6px 0", resize: "none", outline: "none", fontFamily: "inherit" } }),
+              h("div", { style: { textAlign: "right" } }, h("button", { "data-wk": "tripbtn", "data-part": "sendreply", disabled: !!busy || !replyTx.trim(), onClick: () => reply(si), style: { border: "none", background: "transparent", color: PINK, fontWeight: 600, fontSize: FS(12.5), padding: "4px 0", opacity: busy || !replyTx.trim() ? .5 : 1 } }, busy === "reply" ? "寄过去了…" : "寄回去")))
+              : h("div", { style: { textAlign: "right", margin: "4px 4px 0" } }, h("button", { "data-wk": "tripbtn", "data-part": "reply", onClick: () => { setReplyAt(si); setReplyTx(""); }, style: { border: "none", background: "transparent", color: SUB, fontSize: FS(12), padding: "4px 0" } }, "回一句"))) : null); }),
+        h("div", { key: "route", style: { marginTop: 6, fontSize: FS(11.5), textAlign: "center", lineHeight: 2 } },
+          trip.stops.map((s, i) => h("span", { key: i, style: { color: s.card ? SUB : i === next ? PINK : "#c8b8c0", fontWeight: i === next ? 600 : 400 } }, (i ? "  →  " : "") + s.place))),
+        h("div", { key: "del", style: { textAlign: "center", marginTop: 24 } }, h("button", { "data-wk": "tripbtn", "data-part": "deltrip", onClick: del, style: { border: "none", background: "transparent", color: SUB, opacity: .7, fontSize: FS(11.5) } }, "删掉这趟旅行"))
       ], stop ? h("div", null,
         h("div", { style: { fontSize: FS(11), color: SUB, textAlign: "center", marginBottom: 8 } }, busy === "send" ? "在写、在拍…要等半分钟左右" : "下一站：" + stop.place + " · " + who(stop) + "寄"),
-        big(busy === "send" ? "在路上…" : "寄这一站", send, "send", !!busy)) : h("div", { style: { textAlign: "center", color: SUB, fontSize: FS(12.5), padding: "8px 0" } }, "这趟走完了"));
+        big(busy === "send" ? "在路上…" : "寄这一站", send, "send", !!busy))
+        : props.onTripMore ? h("div", null, h("div", { style: { fontSize: FS(11), color: SUB, textAlign: "center", marginBottom: 8 } }, busy === "journal" ? "在贴手账…" : trip.journal ? "这趟走完了" : "这趟走完了：做一页旅行手账"),
+            big(busy === "journal" ? "在贴…" : trip.journal ? "翻开手账" : "做旅行手账", () => trip.journal ? setJournal(true) : makeJournal(), "journal", !!busy))
+        : h("div", { style: { textAlign: "center", color: SUB, fontSize: FS(12.5), padding: "8px 0" } }, "这趟走完了"));
     }
 
     // ── 旅行列表 ──
@@ -262,6 +315,7 @@
         : empty("还没出过门，点下面开始第一趟")
     ], big("新的旅行", () => setDraft({ ids: chars[0] ? [chars[0].id] : [], meGo: false, remember: true, place: "", stops: [] }), "new"));
   }
+  function JImg({ k }) { const url = typeof useIdbImgUrl === "function" ? useIdbImgUrl(k) : null; return url ? h("img", { src: url, style: { display: "block", width: "100%", aspectRatio: "1", objectFit: "cover" } }) : h("div", { style: { aspectRatio: "1", background: "#f1e4ea" } }); }
   function TripThumb({ k }) {
     const url = typeof useIdbImgUrl === "function" ? useIdbImgUrl(k) : null;
     return h("div", { style: { width: 66, height: 66, borderRadius: 14, overflow: "hidden", flexShrink: 0, background: THEMES.trip.hero, display: "flex", alignItems: "center", justifyContent: "center" } },

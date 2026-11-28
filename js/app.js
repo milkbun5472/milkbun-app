@@ -20027,7 +20027,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     if (!writers.length) throw new Error("这一站没有寄信的人");
     const lead = writers[0], uName = (profileFor(lead.id) || {}).name || "她", meName = userName(profile);
     const names = tripNames(ids);
-    const before = trip.stops.slice(0, idx).filter(x => x.card).map(x => "- " + x.place + "：" + (x.card.texts || []).map(t => (((characters || []).find(c => c.id === t.pid) || {}).name || "") + "写「" + t.text + "」").join("；")).join("\n");
+    const before = trip.stops.slice(0, idx).filter(x => x.card).map(x => "- " + x.place + (x.card.mishap ? "（碰上：" + x.card.mishap + "）" : "") + "：" + (x.card.texts || []).map(t => (((characters || []).find(c => c.id === t.pid) || {}).name || "") + "写「" + t.text + "」").join("；")).join("\n");
     const head = w => "你在旅行：同行的有 " + names.filter(n => n !== w.name).concat(trip.meGo ? [uName] : []).join("、") + (trip.meGo ? "" : "（" + uName + " 这趟没来，在家等你们的明信片）") + "。"
       + "这一站是「" + stop.place + "」" + (stop.plan ? "，" + stop.plan : "") + "。"
       + (before ? "\n【前几站寄出去的明信片】\n" + before + "\n接着往下写，这一站是新的一天、新的地方，别把前面写过的再写一遍。\n" : "")
@@ -20040,8 +20040,11 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       instruction: head(lead) + "\n正面是你在这一站拍的照片，你来挑怎么拍：kind 是 self（你自拍）、other（别人帮你拍）"
         + (ids.length > 1 || trip.meGo ? "、group（同行的人一起入镜的合照）" : "") + "；scene 写画面里是什么（在哪、在干嘛、穿什么、光线），给画画的人看。"
         + "入镜的人照各自的性格来拍：谁会怎么站、怎么看镜头、手往哪放、什么表情，都是这个人会有的样子；几个人一起入镜时，站位、距离、谁挨着谁、有没有动作上的来往，要看得出他们之间是什么关系。\n" + tripCastLines(ids, trip.meGo, uName)
+        // 路上的小意外、带回来的纪念品（她 2026-11-28「都做吧」）
+        + "\n出门在外总有计划外的事：mishap 写这一站路上碰上的一件计划外的小事（好事坏事都行，照这个地方、这天和同行的人来想），这一站的照片和明信片上的话都跟着这件事走；前几站碰上过的别再来一遍。"
+        + "\nsouvenir 是你在这一站给 " + uName + " 带的一样东西：name 是什么，why 为什么挑它给她，照你的性子和你们的关系来。"
         + (pickStyle ? "\nstyle 是你挑的明信片样子，从这几种里挑一个写它的 id：" + styles.map(x => x.id + "＝" + x.zh).join("；") + "。" : ""),
-      schemaHint: "{" + (all ? "\"texts\":[{\"who\":\"名字\",\"text\":\"这个人写的\"}]" : "\"text\":\"写在背面的话\"") + ",\"kind\":\"self|other" + (ids.length > 1 || trip.meGo ? "|group" : "") + "\",\"scene\":\"画面\"" + (pickStyle ? ",\"style\":\"样子的id\"" : "") + "}",
+      schemaHint: "{" + (all ? "\"texts\":[{\"who\":\"名字\",\"text\":\"这个人写的\"}]" : "\"text\":\"写在背面的话\"") + ",\"kind\":\"self|other" + (ids.length > 1 || trip.meGo ? "|group" : "") + "\",\"scene\":\"画面\"" + ",\"mishap\":\"计划外的事\",\"souvenir\":{\"name\":\"\",\"why\":\"\"}" + (pickStyle ? ",\"style\":\"样子的id\"" : "") + "}",
       maxTokens: 12000
     });
     // 大家一起寄的一次写完（她 2026-11-27「大家一起寄不能全部一次吗」）：每个人的完整人设和彼此关系都在 tripCastLines 里
@@ -20060,7 +20063,30 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       const who = ids.slice();
       try { addMemEntry({ text: (trip.meGo ? "和" + uName + "、" : "") + names.join("、") + "一起旅行，到了「" + stop.place + "」" + (stop.plan ? "，" + stop.plan : "") + "。明信片上写：" + texts.map(t => (((characters || []).find(c => c.id === t.pid) || {}).name || "") + "「" + t.text + "」").join(" "), tags: ["旅行"], charIds: who, knownBy: who, source: "auto" }); } catch (e) {}
     }
-    return { blob, kind, kindZh: TRIP_KIND[kind], scene, texts, style, castPids: kind === "group" ? ids : [lead.id] };
+    const sv = (d && d.souvenir) || {};
+    return { blob, kind, kindZh: TRIP_KIND[kind], scene, texts, style, castPids: kind === "group" ? ids : [lead.id], mishap: String((d && d.mishap) || "").trim(), souvenir: String(sv.name || "").trim() ? { name: String(sv.name).trim(), why: String(sv.why || "").trim(), pid: lead.id } : null };
+  };
+  // 旅行的后续（她 2026-11-28「都做吧」）：reply 回明信片／journal 走完以后的旅行手账（总结＋下一趟想带她去哪）
+  const tripMore = async (kind, trip, idx, extra) => {
+    const ids = trip.ids || [], T = v => String(v == null ? "" : v).trim(), nm = id => (((characters || []).find(c => c.id === id) || {}).name || "");
+    const stopLine = x => "- " + x.place + (x.card && x.card.mishap ? "（碰上：" + x.card.mishap + "）" : "") + "：" + ((x.card && x.card.texts) || []).map(t => nm(t.pid) + "写「" + t.text + "」").join("；") + (x.card && x.card.souvenir ? "；带回「" + x.card.souvenir.name + "」" : "");
+    if (kind === "reply") {
+      const stop = trip.stops[idx], c = (characters || []).find(x => x.id === (stop.sender === "all" ? ids[0] : stop.sender)) || (characters || []).find(x => x.id === ids[0]);
+      if (!c) throw new Error("找不到寄信的人"); const r = apiFor(c.id); if (!r) throw new Error("请先到设置配置 API"); const uName = (profileFor(c.id) || {}).name || "她";
+      const thread = ((stop.card && stop.card.thread) || []).map(x => (x.from === "me" ? uName + "回：" : "你又写：") + x.text).join("\n");
+      const d = await runProbe(r, ctxFor(c), { voice: true, maxTokens: 12000, schemaHint: "{\"text\":\"回她的话\"}",
+        instruction: "你在旅行，从「" + stop.place + "」寄回一张明信片：\n" + stopLine(stop) + "\n" + (thread ? thread + "\n" : "") + uName + " 回了你：「" + T(extra) + "」\ntext 是你接着回她的话，照你的性子、你此刻在旅途上的心情和你们的关系来。" });
+      const t = T(d && d.text); if (!t) throw new Error("没回出来，再试一次"); return { text: t, pid: c.id };
+    }
+    if (kind === "journal") {
+      const c = (characters || []).find(x => x.id === ids[0]); if (!c) throw new Error("找不到同行的人"); const r = apiFor(c.id); if (!r) throw new Error("请先到设置配置 API"); const uName = (profileFor(c.id) || {}).name || "她";
+      const d = await runProbe(r, ctxFor(c), { voice: true, maxTokens: 12000, schemaHint: "{\"title\":\"\",\"summary\":\"\",\"next\":{\"place\":\"\",\"why\":\"\"}}",
+        instruction: "这趟旅行走完了。同行的有 " + tripNames(ids).join("、") + (trip.meGo ? "，还有 " + uName : "（" + uName + " 在家等明信片）") + "。\n" + tripCastLines(ids, trip.meGo, uName) + "\n【一路寄回来的】\n" + trip.stops.filter(x => x.card).map(stopLine).join("\n")
+          + "\n给这趟旅行做一页手账：title 是这趟的名字，summary 是你写在手账上的旅行总结，照你自己的口气、你记得最深的事和你们的关系来写；next 是你想下一次带 " + uName + " 去哪（place 地方，why 为什么想带她去）。" });
+      const nx = (d && d.next) || {};
+      return { title: T(d && d.title), summary: T(d && d.summary), next: T(nx.place) ? { place: T(nx.place), why: T(nx.why), pid: c.id } : null, pid: c.id };
+    }
+    throw new Error("unknown");
   };
   // ═══ 相机·电影 和 平行人生（她 2026-11-26「生人像、好看的，像旅行、邮票册那样」挑的两个）═══
   //   电影：几个人主演一部片——先定片名、角色、几场戏；出一张海报（PosterLayout 排字，跟同人本封面同一套），再一场一场拍剧照、配台词。
@@ -39767,7 +39793,7 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     // 这一档要是一间庭院房，聊天记录就是那间房的（她 2026-09-18：从这条路进来看不到记录）
     recordFor: gardenRecordFor,
     onBack: () => { setGardenEntryWorld(null); setScreen("home"); }
-  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, onClosetOf: cameraClosetOf, onGenFit: cameraGenFit, onTripPlan: tripPlan, onTripCard: tripCard, onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onMoviePremiere: moviePremiere, onWorldsPlan: worldsPlan, onWorldCard: worldCard, onWorldMore: worldMore, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
+  });else if (screen === "trpg") body = h(window.TrpgApp, trpgPropsOf(() => setScreen("home")));else if (screen === "camera") body = h(window.CameraApp, { onGen: cameraGenShot, onGenCutout: cameraGenCutout, onWriteShot: cameraWriteShot, onLook: cameraLook, onShare: cameraShare, onClosetOf: cameraClosetOf, onGenFit: cameraGenFit, onTripPlan: tripPlan, onTripCard: tripCard, onTripMore: tripMore, onMoviePlan: moviePlan, onMoviePoster: moviePoster, onMovieScene: movieScene, onMoviePremiere: moviePremiere, onWorldsPlan: worldsPlan, onWorldCard: worldCard, onWorldMore: worldMore, groupMax: GROUP_SHOT_MAX, characters: liveChars, meName: userName(profile), meAvatar: profile && profile.avatarImage, toast: toast, onBack: goHome });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
     characters: playChars,
