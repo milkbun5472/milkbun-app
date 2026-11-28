@@ -12591,7 +12591,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 外卖也一样（她 2026-11-28「外卖也是」）：三天内点过外卖（自己点的、别人给她点的，送到吃掉的也算），就会去点开外卖看
     const isTk = o => o && (o.takeout || o.kind === "takeout" || o.cat === "food");
     const takeoutFresh = apps.includes("takeout") && (ordersRef.current || []).concat(loadJSON("x_takeoutLog", []) || []).some(o => isTk(o) && Date.now() - (Number(o.ts) || 0) < 3 * 86400000);
-    const gateOpen = gate.concat(cartFresh && gate.indexOf("shop") < 0 ? ["shop"] : [], takeoutFresh && gate.indexOf("takeout") < 0 ? ["takeout"] : []);
+    // 钱包也一样（她 2026-11-28「钱包也是」）：三天内钱包里有进出（花了、收了、转了都算），就会去点开钱包看
+    const walletFresh = apps.includes("wallet") && (loadJSON("x_walletLog", []) || []).some(e => e && Date.now() - (Number(e.ts) || 0) < 3 * 86400000);
+    const gateOpen = gate.concat(cartFresh && gate.indexOf("shop") < 0 ? ["shop"] : [], takeoutFresh && gate.indexOf("takeout") < 0 ? ["takeout"] : [], walletFresh && gate.indexOf("wallet") < 0 ? ["wallet"] : []);
     try {
       const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))
           )
@@ -12658,6 +12660,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // 她勾着递过来的那几样（群友 2026-10-22：「勾选了的，但他就是不看」）：原来只列成「能打开」，模型一门心思翻聊天，从来不去。
           //   聊天照旧是重点；看完聊天，这几样里至少点开一样（挑哪样照你想知道什么）
           + (() => { const extra = ["offline", "calendar", "health", "moments"].filter(a => apps.includes(a)); return extra.length ? "\n她递手机时把" + extra.map(a => PEEK_APP_ZH[a]).join("、") + "也留着给你看了：看完聊天，这几样里至少点开一样看看（挑哪样照你这会儿最想知道什么）。" : ""; })()
+          + (walletFresh && gate.indexOf("wallet") < 0 ? "\n她这几天钱包里有进有出：想知道她钱花哪儿了、谁给她转过，可以 {\"do\":\"open\",\"app\":\"wallet\"} 点开钱包看看。" : "")
           + (takeoutFresh && gate.indexOf("takeout") < 0 ? "\n她这几天点过外卖：想知道她吃了什么、谁给她点的，可以 {\"do\":\"open\",\"app\":\"takeout\"} 点开外卖看看。" : "")
           + (() => { const ct = gateOpen.indexOf("shop") >= 0 ? (loadJSON("x_shopCart", []) || []).filter(x => x && x.name).slice(0, 12) : [];
               return ct.length ? "\n她的购物车里有没付的东西：先 {\"do\":\"open\",\"app\":\"shop\"} 点开购物才看得见，点开就是这几件：" + ct.map(x => "「" + String(x.name).slice(0, 20) + "」¥" + (Number(x.price) || 0)).join("、")

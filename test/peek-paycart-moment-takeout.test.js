@@ -17,6 +17,7 @@ test("paycart 落地：从TA钱包扣、从她购物车拿掉、变成TA替她�
   assert.match(app, /payHerCart\(viewerId, step\.items, "翻 " \+ userName\(profile\) \+ " 手机时替她付了购物车", vn \+ " 替你付的"\)/);
   assert.match(app, /她的购物车里有没付的东西：先 \{\\"do\\":\\"open\\",\\"app\\":\\"shop\\"\} 点开购物才看得见/);
   assert.match(app, /gate: gateOpen,/);
+  assert.match(app, /const walletFresh = apps\.includes\("wallet"\) && .*< 3 \* 86400000\);/);
   assert.match(app, /const takeoutFresh = apps\.includes\("takeout"\) && .*< 3 \* 86400000\);/);
   assert.match(app, /const cartFresh = apps\.includes\("shop"\) && .*Date\.now\(\) - cartTs\(x\) < 3 \* 86400000\);/);
 });
