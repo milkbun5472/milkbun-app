@@ -29364,10 +29364,15 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
       // 拍的是TA自己、而且照片里露脸（群友 2026-10-31：描述写着唇钉、眼神、耳朵，画出来脸被裁掉、也不像TA）：
       //   原来TA自己的照片一律不喂参考照，带身体字眼的还走「不露脸局部」那一档。露脸的这种改走聊天自拍那条锁脸的路
       const faceShot = !her && !!char.refPhoto && /脸|眼|嘴|唇|眉|鼻|表情|自拍|笑着|看向镜头|对着镜头|盯着镜头/.test(scene);
-      const pFinal = her ? her.prompt
+      const pFinal0 = her ? her.prompt
         : faceShot ? buildPhotoPrompt(char, scene, (statesRef.current || {})[char.id] || {}, { kind: "selfie", closet: closetTextFor(char.id) }) + (again ? "【这是重画的一张】同一件事，换个拍法、换个角度和光。" : "")
         : p0;
-      const pRefs = her ? her.refs : faceShot ? [char.refPhoto] : null;
+      // 画风选「照参考图」的（人格档案馆里那一格）：空景、局部照原来一张参考图都不带，模型不知道「他一贯的画风」是什么，只好画成写实
+      //   （群友 2026-11-28「相册里的图都是写实的」）。带上他的参考照只当画风样本，画面里不放参考图里的人
+      const styleRef = !her && !faceShot && char.photoStyle === "reference" && !!char.refPhoto;
+      const pRefs = her ? her.refs : faceShot ? [char.refPhoto] : styleRef ? [char.refPhoto] : null;
+      const pFinal = pFinal0 + (!her && !faceShot && char.photoStyle === "reference" && char.refPhoto
+        ? "\n【参考图只看画风】附的那张参考图只用来看画风：是二次元就画成同样的二次元，是写实就画成写实，线条和上色照它；参考图里的人不要出现在这张画面里。" : "");
       const out = await generateSelfieImage(pFinal, pRefs, faceShot ? { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "selfie" }) } : {});
       if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
       const sigOf = (window.PhoneKit && window.PhoneKit.photoSig) || (x => (x && x.id) || "");
@@ -32364,10 +32369,13 @@ laterPromise:{"minutes":数字,"at":"HH:MM（说的是几点就填这个，不�
     const meP = photoMe("她", char.id);
     // 「自拍」不算合照（群友 2026-10-31：「她半夜发来的对镜自拍」被画成了两个人）：她自己拍了发过来的，画面里只有她
     const herSelf = /她(?:半夜|刚才|今天|昨晚|早上|晚上)?(?:发来|发给我|传来|自拍)|她的自拍|她拍了自己/.test(scene);
-    const both = !!char.refPhoto && !herSelf && /合照|我们|一起|两个人|和她|跟她|我和/.test(scene);
+    // 描述里两个人都点了名（她自己改描述时多半直接写名字：「沈屿白和林晚」）也是合照（群友 2026-11-28「一个u一个c画成两个c」）
+    const charNamed = [char.name, char.remark].map(x => String(x || "").trim()).some(x => x.length >= 1 && scene.indexOf(x) >= 0);
+    const herNamed = names.some(x => scene.indexOf(x) >= 0);
+    const both = !!char.refPhoto && !herSelf && (/合照|我们|一起|两个人|和她|跟她|我和/.test(scene) || (charNamed && herNamed));
     const prompt = both
       ? buildPhotoPrompt(char, scene, statesRef.current[char.id] || null, { kind: "duo", me: meP, closet: closetTextFor(char.id) })
-      : buildPhotoPrompt({ id: "__me", name: meP.name, appearance: meP.appearance || "", refPhoto: profile.refPhoto }, scene + (herSelf ? "（这张是她自己拍了发给" + (char.remark || char.name) + "的）" : "（这张是" + (char.remark || char.name) + "拍的她）"), null, { kind: herSelf ? "selfie" : "other", closet: meP.closet });
+      : buildPhotoPrompt({ id: "__me", name: meP.name, appearance: meP.appearance || "", refPhoto: profile.refPhoto, photoStyle: char.photoStyle }, scene + (herSelf ? "（这张是她自己拍了发给" + (char.remark || char.name) + "的）" : "（这张是" + (char.remark || char.name) + "拍的她）"), null, { kind: herSelf ? "selfie" : "other", closet: meP.closet });
     return { prompt: prompt + (again ? "【这是重画的一张】同一件事，换个拍法：换个角度、换个距离、换个时刻的光。" : ""), refs: both ? [char.refPhoto, profile.refPhoto] : [profile.refPhoto] };
   };
   const photoMe = (fallbackName, who) => { const P = meOf(who); return {
