@@ -1,0 +1,1 @@
+require("assert")(!/往后去盘算回头/.test(require("fs").readFileSync(__dirname + "/../js/engine.js", "utf8").split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n")), "心声定义不写「往后盘算」"); console.log("ok thought-no-plan");
