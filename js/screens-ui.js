@@ -1794,7 +1794,11 @@ function loreBulkPatch(kind, v) {
   if (kind === "scope") return x => { const sc = Object.assign({ chat: true }, x.scope); LORE_SCOPE_UI.forEach(([k]) => { sc[k] = !!(v && v[k]); }); return { ...x, scope: sc, ensemble: false }; };
   return null;
 }
-function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRestore, onImportMany, onBulk, onBulkDelete }) {
+// 「谁能拿到」里的「我」（群友 2026-11-28 许愿：生图提示词想跟角色分开用）：绑给「我」的那几条，画面里有你的时候才带；
+//   聊天、线下这些文字的地方不带（那里拿世界书的都是角色）。id 就叫 "me"，跟合照、相机那几处认「她」的写法一样
+const LORE_ME = { id: "me", name: "我", remark: "我（画到我时）", avatarEmoji: "🙋" };
+function WorldBook({ entries, characters: chars0, onBack, onSave, onDelete, trash, onRestore, onImportMany, onBulk, onBulkDelete }) {
+  const characters = [LORE_ME].concat(chars0 || []);
   const t = useTheme();
   const [trashOpen, setTrashOpen] = useState(false);
   const [editing, setEditing] = useState(null); // null | {__new, charIds} | entry

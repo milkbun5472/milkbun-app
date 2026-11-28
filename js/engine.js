@@ -6889,7 +6889,10 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 世界书·生图紧跟画风那一句（群里 2026-11-08：「加了提示词世界书，生出来还是 GPT 原生感，同一段在别处用有效」）：
   //   原来它排在手、体态、身体锁、人设、身份锁那一长串后面，提示词一长就被稀释；画风、质感本来就该跟画风那句挨着说。
   //   身份锁和未成年锁照旧在后面压着，跟它冲突时以那两样为准（那句写在 imgLorePart 里）
-  const _imgLore = typeof imgLorePart !== "function" ? "" : imgLorePart([char && char.id].concat((opts && opts.cast || []).map(c => c && c.id)).filter(Boolean), sceneDesc);
+  // 画面里有她（她自己是主角、合照里的她、两人照）就把「me」也算进在场：世界书「谁能拿到」挑了「我」的那几条生图设定这时才带（2026-11-28）
+  const _imgIds = [char && char.id].concat((opts && opts.cast || []).map(c => c && c.id)).filter(Boolean).map(x => x === "__me" ? "me" : x);
+  if ((opts && opts.kind === "duo" && opts.me) && _imgIds.indexOf("me") < 0) _imgIds.push("me");
+  const _imgLore = typeof imgLorePart !== "function" ? "" : imgLorePart(_imgIds, sceneDesc);
   if (_imgLore) parts.push(_imgLore);
   // 外貌提前（她 2026-10-05：「要不要把外貌移前一点」）：原来单人照的外貌排在手、体态、身体锁、人设那一长串后面，
   //   提示词一长就被稀释。单人照挪到画风后面第一句；双人／多人照按名字对应参考图，仍在下面各自那一段里写。
