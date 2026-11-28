@@ -12584,6 +12584,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       (chatsRef.current[x.id] || []).slice(-80).forEach(m => { const app = m && CLUE[m.kind];
         if (app && apps.includes(app) && Date.now() - (m.ts || 0) < 3 * 86400000) (clues[app] = clues[app] || new Set()).add(x.remark || x.name); }); });
     const gate = Object.keys(clues);
+    // 购物车近 3 天加过东西，也是一条去看购物的线索（她 2026-11-28「他不看怎么知道我的购物车有啥」「购物车有新活动也会看」）：
+    //   跟聊天里的礼物卡同一个三天；加进购物车的时刻记在 uid 里（c_时间戳_…）。替她付得先点开看过（peek-phone.js 的 cleanScript 守着）
+    const cartTs = x => Number(x && x.ts) || Number((/^c_(\d{12,})/.exec(String((x && x.uid) || "")) || [])[1]) || 0;
+    const cartFresh = apps.includes("shop") && (loadJSON("x_shopCart", []) || []).some(x => x && x.name && Date.now() - cartTs(x) < 3 * 86400000);
+    const gateOpen = cartFresh && gate.indexOf("shop") < 0 ? gate.concat(["shop"]) : gate;
     try {
       const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))
           )
@@ -12650,9 +12655,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // 她勾着递过来的那几样（群友 2026-10-22：「勾选了的，但他就是不看」）：原来只列成「能打开」，模型一门心思翻聊天，从来不去。
           //   聊天照旧是重点；看完聊天，这几样里至少点开一样（挑哪样照你想知道什么）
           + (() => { const extra = ["offline", "calendar", "health", "moments"].filter(a => apps.includes(a)); return extra.length ? "\n她递手机时把" + extra.map(a => PEEK_APP_ZH[a]).join("、") + "也留着给你看了：看完聊天，这几样里至少点开一样看看（挑哪样照你这会儿最想知道什么）。" : ""; })()
-          + (() => { const ct = apps.includes("shop") ? (loadJSON("x_shopCart", []) || []).filter(x => x && x.name).slice(0, 12) : [];
-              return ct.length ? "\n她购物车里还躺着没付的：" + ct.map(x => "「" + String(x.name).slice(0, 20) + "」¥" + (Number(x.price) || 0)).join("、")
-                + "。你想替她付就加一步 {\"do\":\"paycart\",\"items\":[\"要付的那几件，原样抄名字；全付就留空数组\"]}——真的从你钱包扣、东西送到她手上；付不付、付哪几件照你这个人和你钱包来。" : ""; })()
+          + (() => { const ct = gateOpen.indexOf("shop") >= 0 ? (loadJSON("x_shopCart", []) || []).filter(x => x && x.name).slice(0, 12) : [];
+              return ct.length ? "\n她的购物车里有没付的东西：先 {\"do\":\"open\",\"app\":\"shop\"} 点开购物才看得见，点开就是这几件：" + ct.map(x => "「" + String(x.name).slice(0, 20) + "」¥" + (Number(x.price) || 0)).join("、")
+                + "。看了想替她付，就在点开购物之后加一步 {\"do\":\"paycart\",\"items\":[\"要付的那几件，原样抄名字；全付就留空数组\"]}——真的从你钱包扣、东西送到她手上；看不看、付不付、付哪几件照你这个人和你钱包来。没点开购物就不知道车里有什么，也付不了。" : ""; })()
           + "\n重点是你心里怎么想：每个聊天边往上翻边想，每翻一屏就冒一句，一个聊天至少 2~3 句；心声只说这一屏上看得到的那几句话（上面列的就是翻得到的全部）。每个 open 都带上 thoughts（2~3 句），点开了就一定在想。一共 25~45 步。",
         schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"chat\",\"who\":\"名字\",\"thoughts\":[{\"at\":\"那条消息里照抄的几个字\",\"t\":\"看到它时心里冒出的一句\"},{\"at\":\"另一条消息里照抄的几个字\",\"t\":\"又一句\"}]},{\"do\":\"impersonate\",\"who\":\"名字\",\"text\":\"以她的名义发的那句\"},{\"do\":\"unfriend\",\"who\":\"名字\"},{\"do\":\"pin\"},{\"do\":\"open\",\"app\":\"messages\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000
@@ -12664,7 +12669,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         .map(p => ({ title: String(p.title).slice(0, 30), anon: !!(p.anon || p.board === "匿名吧"), alt: !!p.alt }));
       const myDiary = ((diariesRef.current || {})["__me"] || []).slice().reverse().map(e => String(e.title || "").slice(0, 30)).filter(Boolean)
         .sort((a, b) => seenT.has(a) - seenT.has(b));
-      const clean = x => window.PeekPhone ? window.PeekPhone.cleanScript(x, apps, { forum: myPosts, diary: myDiary, who: others, gate, self: c.remark || c.name, selfNames: [c.remark, c.name].filter(Boolean) }) : [];
+      const clean = x => window.PeekPhone ? window.PeekPhone.cleanScript(x, apps, { forum: myPosts, diary: myDiary, who: others, gate: gateOpen, self: c.remark || c.name, selfNames: [c.remark, c.name].filter(Boolean) }) : [];
       script = clean(d);
       // 一步都没演得出来（群里 2026-10-11：「我给他手机他也不查」）：模型没写出步骤，或者写的全点在她藏起来的那几样上，
       //   原来录像当场就收了，一句话没有，看着就像TA拿了手机不翻。先再要一次，还是空的就照实说。
