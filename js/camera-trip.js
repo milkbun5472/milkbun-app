@@ -220,19 +220,22 @@
     const trip = trips.find(t => t.id === openId);
     if (trip) {
       const next = trip.stops.findIndex(s => !s.card), stop = next >= 0 ? trip.stops[next] : null;
-      const send = async () => {
-        if (busy || !stop) return; setBusy("send");
+      // 寄第 idx 站；寄过的就是重寄（她 2026-11-28「旅行也可以重roll吗」）：新的成了才换掉旧的；重寄不再记一条记忆，免得同一站记两遍
+      const sendAt = async idx => {
+        const stop = trip.stops[idx]; if (busy || !stop) return; const redo = !!stop.card; setBusy(redo ? "redo:" + idx : "send");
         try {
-          const r = await props.onTripCard(trip, next, STYLES);
+          const r = await props.onTripCard(redo ? Object.assign({}, trip, { remember: false }) : trip, idx, STYLES);
           const k = "img_trip_" + Date.now().toString(36);
           if (typeof idbImgPut === "function") await idbImgPut(k, r.blob);
           const style = stop.style !== "auto" ? stop.style : (r.style || STYLES[Math.floor(Math.random() * STYLES.length)].id);
           const c = { imgKey: k, kind: r.kind, kindZh: ({ self: "自拍", other: "别人帮拍", group: "合照" })[r.kind] || "", scene: r.scene, texts: r.texts, style, mishap: r.mishap || "", souvenir: r.souvenir || null, ts: Date.now() };
-          const list = load().map(t => t.id === trip.id ? Object.assign({}, t, { stops: t.stops.map((s, i) => i === next ? Object.assign({}, s, { card: c }) : s) }) : t);
+          const list = load().map(t => t.id === trip.id ? Object.assign({}, t, { stops: t.stops.map((s, i) => i === idx ? Object.assign({}, s, { card: c }) : s) }) : t);
           put(list);
+          if (redo && stop.card.imgKey && typeof idbImgDel === "function") { try { await idbImgDel(stop.card.imgKey); } catch (e) {} }
         } catch (e) { toast("没寄成：" + String(e && e.message || e).slice(0, 80)); }
         finally { setBusy(""); }
       };
+      const send = () => sendAt(next);
       const del = () => {
         // 同上：不用 window.confirm
         const go = async () => {
@@ -300,7 +303,9 @@
             props.onTripMore ? (replyAt === si ? h("div", { style: { margin: "8px 4px 0" } },
               h("textarea", { "data-wk": "tripreply", value: replyTx, rows: 2, placeholder: "回一句给寄明信片的人", onChange: e => setReplyTx(e.target.value), style: { width: "100%", boxSizing: "border-box", border: "none", borderBottom: "1px solid rgba(38,48,61,.18)", background: "transparent", color: INK, fontSize: FS(13), padding: "6px 0", resize: "none", outline: "none", fontFamily: "inherit" } }),
               h("div", { style: { textAlign: "right" } }, h("button", { "data-wk": "tripbtn", "data-part": "sendreply", disabled: !!busy || !replyTx.trim(), onClick: () => reply(si), style: { border: "none", background: "transparent", color: GRAD, fontWeight: 600, fontSize: FS(12.5), padding: "4px 0", opacity: busy || !replyTx.trim() ? .5 : 1 } }, busy === "reply" ? "寄过去了…" : "寄回去")))
-              : h("div", { style: { textAlign: "right", margin: "4px 4px 0" } }, h("button", { "data-wk": "tripbtn", "data-part": "reply", onClick: () => { setReplyAt(si); setReplyTx(""); }, style: { border: "none", background: "transparent", color: SUB, fontSize: FS(12), padding: "4px 0" } }, "回一句"))) : null); }),
+              : h("div", { style: { display: "flex", justifyContent: "flex-end", gap: 18, margin: "4px 4px 0" } },
+                h("button", { "data-wk": "tripbtn", "data-part": "resend", disabled: !!busy, onClick: () => sendAt(si), style: { border: "none", background: "transparent", color: SUB, fontSize: FS(12), padding: "4px 0", opacity: busy && busy !== "redo:" + si ? .5 : 1 } }, busy === "redo:" + si ? "在重寄…" : "重寄这一张"),
+                h("button", { "data-wk": "tripbtn", "data-part": "reply", onClick: () => { setReplyAt(si); setReplyTx(""); }, style: { border: "none", background: "transparent", color: SUB, fontSize: FS(12), padding: "4px 0" } }, "回一句"))) : null); }),
         h("div", { key: "del", style: { textAlign: "center", marginTop: 24 } }, h("button", { "data-wk": "tripbtn", "data-part": "deltrip", onClick: del, style: { border: "none", background: "transparent", color: SUB, opacity: .7, fontSize: FS(11.5) } }, "删掉这趟旅行"))
       ], stop ? h("div", null,
         h("div", { style: { fontSize: FS(11), color: SUB, textAlign: "center", marginBottom: 8 } }, busy === "send" ? "在写、在拍…要等半分钟左右" : "下一站：" + stop.place + " · " + who(stop) + "寄"),

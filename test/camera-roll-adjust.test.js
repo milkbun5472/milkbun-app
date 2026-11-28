@@ -137,6 +137,6 @@ test("旅行：路上小意外、纪念品、回明信片、旅行手账、下�
   assert.match(app, /onTripCard: tripCard, onTripMore: tripMore/); assert.match(cm, /onTripMore: props\.onTripMore/);
   assert.match(app, /mishap 写这一站路上碰上的一件计划外的小事/); assert.match(app, /souvenir 是你在这一站给/);
   assert.match(trip, /mishap: r\.mishap \|\| "", souvenir: r\.souvenir \|\| null/);
-  assert.match(trip, /const nextTrip = \(\) =>/);
+  assert.match(trip, /const nextTrip = \(\) =>/); assert.match(trip, /const sendAt = async idx =>/); assert.match(trip, /remember: false/); assert.ok(trip.includes('"data-part": "resend"'));
   for (const k of ["tripmishap", "tripsouvenir", "tripthread", "tripreply", "tripjournal", "tripjroute", "tripjphotos", "tripjsouvenir", "tripjsummary", "tripnext"]) { assert.ok(ts.includes('["' + k + '"'), k); assert.ok(trip.includes('"' + k + '"'), k); }
 });
