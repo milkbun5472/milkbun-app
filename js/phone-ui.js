@@ -3725,7 +3725,9 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   // 它有正文、标签、点赞、还有一颗转发按钮，半窗先扣掉一半屏幕纯属白扣。
   // 整页照【去处】那两页的做法：顶栏 shrink-0、正文 flex-1 min-h-0 overflow-y-auto，
   // 上一层那张封面糊开压暗当底衬——接得住上一层，又不抢正文。
-  const detailPage = open ? h("div", { className: "h-full min-h-0 flex flex-col", "data-wk": "pdetail", style: { background: PLAZA_BG } },
+  // key 跟列表分开（她 2026-11-28「查手机的小红书每次都会返回最上面」）：两边外框都是 div，不分开 React 就把列表那格滚动框
+  //   原样拿来装详情——内容一缩短，记着的位置被冲成 0；回来时又认它是同一格、不再放回去
+  const detailPage = open ? h("div", { key: "pdetail", className: "h-full min-h-0 flex flex-col", "data-wk": "pdetail", style: { background: PLAZA_BG } },
     h(Head, { zh: open._draft ? T("他没发出去的") : (open.act === "收藏" ? T("他收藏的") : T("他赞过的")),
       bg: "#fff", ink: PLAZA_INK, lineInk: "#eeeef1", onBack: () => setOpen(null) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
@@ -3847,7 +3849,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive })
   // ⚠️整页要【顶掉】列表，不是浮在它上面——所以在这儿 return，
   // 而且必须排在所有 hook 后面（提前 return 的组件里 hook 一律排最前，见 #310 那次教训）。
   if (detailPage) return detailPage;
-  return h("div", { className: "h-full min-h-0 flex flex-col relative", "data-wk": "papp", "data-app": "liked", style: { background: PLAZA_BG } }, topBar,
+  return h("div", { key: "plist", className: "h-full min-h-0 flex flex-col relative", "data-wk": "papp", "data-app": "liked", style: { background: PLAZA_BG } }, topBar,
     h("div", { ref: keepScroll("phone:liked:" + (char && char.id) + ":" + tab, scrollRef), className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 12px 20px" } }, PTX(page.body)),
     h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 16px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "#fff", borderTop: "1px solid #eeeef1" } },
       PAGES.map(pg => h("button", {
