@@ -11,8 +11,8 @@ test("现在的照片不算", () => {
 });
 test("提示词换一套、编辑接口不要求原样保脸", () => {
   assert.match(s, /if \(younger\) parts\.push\(PHOTO_YOUNGER_MARK \+/);
-  assert.match(s, /if \(!younger && \(multi \|\| kind === "duo" \|\| char\.refPhoto\)\) parts\.push\("【首要任务：人物身份】/);
-  assert.match(s, /if \(!legacyShape && !\(typeof PHOTO_YOUNGER_MARK === "string" && String\(promptText \|\| ""\)\.indexOf\(PHOTO_YOUNGER_MARK\) >= 0\)\s*&& !\(typeof PHOTO_POV_MARK === "string" && String\(promptText \|\| ""\)\.indexOf\(PHOTO_POV_MARK\) >= 0\)\) fd\.append\("input_fidelity", "high"\);/);
+  assert.match(s, /if \(!younger && !older && \(multi \|\| kind === "duo" \|\| char\.refPhoto\)\) parts\.push\("【首要任务：人物身份】/);
+  assert.match(s, /if \(!legacyShape && !\(typeof PHOTO_YOUNGER_MARK === "string" && String\(promptText \|\| ""\)\.indexOf\(PHOTO_YOUNGER_MARK\) >= 0\)\s*&& !\(typeof PHOTO_OLDER_MARK === "string" && String\(promptText \|\| ""\)\.indexOf\(PHOTO_OLDER_MARK\) >= 0\)\s*&& !\(typeof PHOTO_POV_MARK === "string" && String\(promptText \|\| ""\)\.indexOf\(PHOTO_POV_MARK\) >= 0\)\) fd\.append\("input_fidelity", "high"\);/);
   // TA 帮她拍（她 2026-11-13）：两支 pov 都打上记号，编辑接口不再要 high
   assert.match(s, /const _pl = PHOTO_POV_MARK \+ "【这一张从哪儿拍】"/);
   assert.match(s, /parts\.push\(PHOTO_POV_MARK \+ "【这一张的机位】/);
@@ -33,11 +33,11 @@ test("小时候也要认得出：有外貌抄外貌，没写就看参考照挑�
   assert.match(s, /看参考照，找出这个人脸上最认得出的几样/);
   assert.equal((s.match(/像从相册里扫出来的。" : ""\) \+ _yLook\);/g) || []).length, 2);
 });
-test("少年那几年按少年画（她 2026-11-28「十三岁但是看起来还是有点大」）", () => {
+test("少年那几年按中学生画（她 2026-11-28「十三岁但是看起来还是有点大」）", () => {
   const a = f.photoYoungerOf("初一运动会，十三岁的顾朝趴在跳远沙坑里");
   assert.ok(a && a.teen && a.age === "十三岁");
   assert.ok(f.photoYoungerOf("高二那年在教室后排睡觉").teen);
   assert.equal(f.photoYoungerOf("大约六七岁的小沈屿白的旧照片").teen, false);
   assert.equal(f.photoYoungerOf("十八岁生日那天切蛋糕"), null);
-  assert.match(s, /const _yKid = younger && younger\.teen \? "少年" : "孩子";/);
+  assert.match(s, /const _yKid = younger && younger\.teen \? "中学生" : "孩子";/);
 });

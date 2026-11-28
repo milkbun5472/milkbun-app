@@ -6362,7 +6362,7 @@ function photoCapLine(uName, o) {
     + "· scene 只写画面：在哪、在做什么、什么神情、穿什么。镜头角度和举不举手机不用写，出图那头会定；只有 " + uName + " 点名要某个角度或姿势，才把它写进 scene。不能在 word 里用文字假装发图。\n"
     // 旧照片（她 2026-11-28「频道里我叫他们发小时候的照片一直不发」，单聊也不发）：上面几档读着全是「现在拍一张」，
     //   翻相册找出来的老照片没处落脚。出图那头认 scene 里的「小时候／几岁」，按那个年纪画（photoYoungerOf）
-    + "· 照片也可以是从相册里翻出来的旧照：小时候的、上学时的、以前某一年的。kind 照画面里是谁填，scene 开头写明是几岁、什么时候的照片，画面就按那时候的样子出。";
+    + "· 照片也可以是从相册里翻出来的旧照：小时候的、上学时的、以前某一年的；也可以是想象中以后的样子：几年后、几十年后、老了以后。kind 照画面里是谁填，scene 开头写明是几岁、什么时候的照片，画面就按那个年纪出。";
 }
 const SCENE_ONLY_WORDS = /风景|景色|空镜|窗景|街景|夜景|全景|远景|无人|没有人|不要有人|没有人物|没有出镜|不出镜/;
 const SCENE_PERSON_WORDS = /[我你她]|TA|Ta|自拍|合照|入镜|出镜|镜头前|脸|笑|表情|眼神|手里|头发|侧脸|背影|半身|全身|穿着|坐着|站着|躺着|靠在|怀里|肩上/;
@@ -6655,6 +6655,26 @@ function photoYoungerOf(scene) {
   }
   return null;
 }
+// 以后的样子（她 2026-11-28「十八岁的角色，生成他十年后三十年后五十年后」「字要对男女都适用」「我的照片也要可以」）：
+//   跟小时候那张同一个道理——身份锁把人钉在现在的年纪，往老里画永远画回现在。认出来就换一套：年纪照描述，参考照只用来认人。
+//   「我」的照片也是拿 photoMe 当主角走 buildPhotoPrompt，所以她的照片一样有
+const PHOTO_OLDER_MARK = "【这张是以后的样子】";
+function photoOlderOf(scene, nowAge) {
+  const t = String(scene || "");
+  const zh = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 几: 0 };
+  const num = x => { x = String(x || ""); if (/^\d+$/.test(x)) return Number(x); const m = /^([一二两三四五六七八九])?(十)?([一二三四五六七八九])?$/.exec(x); if (!m || !(m[1] || m[2] || m[3])) return 0; return m[2] ? (m[1] ? zh[m[1]] : 1) * 10 + (m[3] ? zh[m[3]] : 0) : zh[m[1]] || 0; };
+  let years = 0, age = 0;
+  const ym = /(\d{1,2}|[一二两三四五六七八九十]{1,3})\s*年(?:以|之)?后/.exec(t);
+  if (ym) years = num(ym[1]);
+  const am = /(\d{2}|[二三四五六七八九]十[一二三四五六七八九]?)(?:多)?岁(?:的|时|那年|的时候|左右)/.exec(t);
+  if (am) age = num(am[1]);
+  const word = /中年|老年|晚年|老了(?:以后|之后)?|变老|年迈|白发苍苍|满头白发|退休(?:以后|之后|了)|当了?(?:爷爷|奶奶|外公|外婆)|很多年(?:以|之)?后|几十年(?:以|之)?后/.test(t);
+  const n0 = Number(nowAge) || 0;
+  if (!years && !word && !(age && (n0 ? age >= n0 + 8 : age >= 35))) return null;
+  if (!age && years && n0) age = n0 + years;
+  const band = age ? (age >= 60 ? "old" : age >= 40 ? "mid" : "adult") : /老年|晚年|老了|变老|年迈|白发苍苍|满头白发|爷爷|奶奶|外公|外婆|几十年/.test(t) ? "old" : /中年|退休/.test(t) ? "mid" : years >= 30 ? "old" : years >= 15 ? "mid" : "adult";
+  return { years, age, band };
+}
 // 合照得是画面里真有两个人（群友 2026-10-27：「为什么让 char 发照片自动生成我们的合照，描述词里也没有」）：
 //   模型 kind 填了 duo、画面描述却只写了他一个人，原来照样拿两张参考照画成合照。
 //   画面里一点没提到另一个人，就按他自己的照片拍。
@@ -6864,23 +6884,33 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const younger = _y0 ? Object.assign({}, _y0, { names: _yNamed.length ? _yNamed : _yNames }) : null;
   // 小时候也要认得出是谁（她 2026-10-27：「像同一个人小时候嘛」——发型对上了，脸成了一张通用的可爱小孩）：
   //   外貌写了就把那段当线索；没写就叫它自己看参考照挑。表情照描述（描述写板着脸，别画成甜笑）。
-  const _yKid = younger && younger.teen ? "少年" : "孩子";
+  const _yKid = younger && younger.teen ? "中学生" : "孩子";
   const _yLook = younger ? "【小时候也要认得出是谁】" + (String(char.appearance || "").trim() ? "TA 长大后的外貌是：" + String(char.appearance).trim().slice(0, 300) + "。从里面挑最认得出的几样（眼型和眼尾走向、眉形、鼻梁、嘴型、痣这类长在脸上的），" : "")
     + (char.refPhoto || _yNames.length > 1 ? "看参考照，找出这个人脸上最认得出的几样（眼型和眼尾走向、眉形、鼻梁、嘴型和嘴角、痣），" : "")
-    + "" + (younger.teen ? "按那个年纪少年的样子长，脸比现在嫩、骨架还没长开；不要画成一张谁都像的少年脸。" : "按孩子的比例缩小、柔和一点，长在孩子脸上；不要画成一张谁都像的可爱小孩脸。") + "神情照描述来，描述写的是板着脸、严肃、发呆，就别画成甜甜地笑。" : "";
-  const isMinor = !!younger || _minorWord || (_minorAge && !_adultAge);
+    + "" + (younger.teen ? "按那个年纪中学生的样子长，脸比现在嫩、骨架还没长开；不要画成一张谁都像的中学生脸。" : "按孩子的比例缩小、柔和一点，长在孩子脸上；不要画成一张谁都像的可爱小孩脸。") + "神情照描述来，描述写的是板着脸、严肃、发呆，就别画成甜甜地笑。" : "";
+  const _nowAge = (() => { const m = /(?<![0-9０-９])(1[89]|[2-9][0-9])\s*周?岁(?!那|时|的时候|起|以前|之前|前|后)/.exec(identityText); return m ? Number(m[1]) : 0; })();
+  const older = !younger && char !== "__shots" && !(opts && opts.notYounger) && typeof photoOlderOf === "function" ? photoOlderOf(sceneDesc, _nowAge) : null;
+  const isMinor = !!younger || _minorWord || (_minorAge && !_adultAge && !older);
   const isBoy = /(?:小男孩|男童|男孩|少年|男性儿童|\bboy\b)/i.test(identityText);
   const parts = [];
   if (younger && _yNames.length > 1) parts.push(PHOTO_YOUNGER_MARK + "这张合照里，" + younger.names.map(n => "「" + n + "」").join("、") + "是" + (younger.age ? younger.age : "小时候") + "的样子，不是现在的："
-    + "照画面描述把" + (younger.names.length > 1 ? "他们" : "TA") + "画成那个年纪的" + _yKid + "——" + _yKid + "的脸型、五官比例、身高和身体比例" + (younger.teen ? "：还在长个子的初高中生，脸上有少年气、肩背还单薄，一眼看得出不是成年人" : "") + "，衣服照描述来，不穿现在的衣服。"
+    + "照画面描述把" + (younger.names.length > 1 ? "他们" : "TA") + "画成那个年纪的" + _yKid + "——" + _yKid + "的脸型、五官比例、身高和身体比例" + (younger.teen ? "：还在长个子的初高中生，脸上带着青涩、肩背还单薄，一眼看得出不是成年人" : "") + "，衣服照描述来，不穿现在的衣服。"
     + (younger.names.length < _yNames.length ? _yNames.filter(n => younger.names.indexOf(n) < 0).map(n => "「" + n + "」").join("、") + "照现在的样子画，长相照参考图。" : "")
     + "参考照和外貌写的是长大以后的样子，对画小的人只用来认得出是同一个人：发色、眼型、标志性的痣或特征留着，不照搬成年的脸、身材和打扮；下面凡是说「年龄不得改变」「保住参考图的脸和身体」的，对画小的人都按小时候来。"
-    + "画面里有" + (younger.teen ? "少年" : "小孩") + "：两个人怎么待在一起照" + (younger.teen ? "同学、少年之间" : "小孩之间、或者大人带着小孩") + "的样子来（并排站、一起玩、牵着走、各自看镜头），不摆恋人的姿势。"
+    + "画面里有" + (younger.teen ? "中学生" : "小孩") + "：两个人怎么待在一起照" + (younger.teen ? "同学之间" : "小孩之间、或者大人带着小孩") + "的样子来（并排站、一起玩、牵着走、各自看镜头），不摆恋人的姿势。"
     + (/老照片|旧照|扫描|相册|胶片/.test(String(sceneDesc || "")) ? "照片本身是那个年代的老照片：颜色发旧、有颗粒和一点褪色，像从相册里扫出来的。" : "") + _yLook);
-  else if (younger) parts.push(PHOTO_YOUNGER_MARK + "画面里是「" + cName + "」" + (younger.age ? younger.age : "小时候") + "的样子，不是现在的" + cName + "：照画面描述把 TA 画成那个年纪的" + _yKid + "——" + _yKid + "的脸型、五官比例、身高和身体比例" + (younger.teen ? "：还在长个子的初高中生，脸上有少年气、肩背还单薄，一眼看得出不是成年人" : "") + "，衣服照描述来，不穿 TA 现在的衣服。"
+  else if (younger) parts.push(PHOTO_YOUNGER_MARK + "画面里是「" + cName + "」" + (younger.age ? younger.age : "小时候") + "的样子，不是现在的" + cName + "：照画面描述把 TA 画成那个年纪的" + _yKid + "——" + _yKid + "的脸型、五官比例、身高和身体比例" + (younger.teen ? "：还在长个子的初高中生，脸上带着青涩、肩背还单薄，一眼看得出不是成年人" : "") + "，衣服照描述来，不穿 TA 现在的衣服。"
     + "参考照和下面写的外貌是 TA 长大以后的样子，只用来让人认得出是同一个人：发色、眼型、标志性的痣或特征这些留着，像一个人小时候和长大后那种像；不要照搬成年的脸、身材和打扮，下面凡是说「年龄不得改变」「保住参考图的脸和身体」的，这一张都按小时候来。"
     + (/老照片|旧照|扫描|相册|胶片/.test(String(sceneDesc || "")) ? "照片本身是那个年代的老照片：颜色发旧、有颗粒和一点褪色，像从相册里扫出来的。" : "") + _yLook);
-  if (!younger && (multi || kind === "duo" || char.refPhoto)) parts.push("【首要任务：人物身份】所有人物参考图都是硬性身份来源。可改变姿势、表情、服装与背景，但不得重画、混合、平均化或替换任何参考人物的脸；无法保留全部身份时应失败，而不是生成陌生人。");
+  if (older) {
+    const _oLook = older.band === "old" ? "上了年纪的样子：脸上有深一些的皱纹和松下来的皮肤，可以有老年斑，头发花白或全白、也可能稀了，身形比年轻时单薄或发福、背可能微微弯了，眼神里是这些年攒下来的东西"
+      : older.band === "mid" ? "人到中年的样子：眼角和法令纹出来了，脸上的肉往下走了一点，发际线、发量和体型跟着岁数变，鬓角可能有几根白头发，整个人比现在沉稳"
+      : "比现在成熟几岁的样子：脸上的稚气退掉，轮廓更分明，眼神更沉，打扮和气质是那个年纪的人";
+    const _oWho = _yNames.length > 1 ? _yNames.map(n => "「" + n + "」").join("、") : "「" + cName + "」";
+    parts.push(PHOTO_OLDER_MARK + "画面里" + (_yNames.length > 1 ? "的" + _oWho + "都是" + (older.years ? older.years + "年后" : "以后") : "是" + _oWho + (older.age ? older.age + "岁" : older.years ? older.years + "年后" : "以后")) + "的样子，不是现在的：" + _oLook + "。衣服照描述来，不穿现在的衣服。"
+      + "参考照和下面写的外貌是现在的样子，只用来让人认得出是同一个人：眼型和眼尾走向、眉形、鼻梁、嘴型、痣这些长在脸上的留着，像一个人年轻时和这个年纪那种像；不要照搬现在的年纪，下面凡是说「年龄不得改变」「保住参考图的脸和身体」的，这一张都按这个年纪来。");
+  }
+  if (!younger && !older && (multi || kind === "duo" || char.refPhoto)) parts.push("【首要任务：人物身份】所有人物参考图都是硬性身份来源。可改变姿势、表情、服装与背景，但不得重画、混合、平均化或替换任何参考人物的脸；无法保留全部身份时应失败，而不是生成陌生人。");
   // 每个角色独立控制画风；旧角色无字段时继续沿用写实，避免升级后突然变画风。
   // 照相馆拍之前挑了画风（opts.paint）：那就不是照片——写实总纲整段不发，不然「手机随手拍的生活照、真实皮肤纹理」那一大段
   //   会压过开头那句画风，挑了日系动画照样出真人（群友 2026-10-17）
@@ -6925,11 +6955,11 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 数手：拿手机的那只也算（她 2026-10-01 对镜自拍截图：镜里两只手在掀衣服，画面边上又伸进来一只举手机的）
   parts.push("【数一数手】画面里每个人一共只有两条胳膊、两只手——举手机的那只也算在这两只里；画面边缘不许再伸进一只多出来、不属于任何人的手。");
   // 身体也属于人物身份。旧版曾要求“凌驾于参考图身体”，会造成脸没变、肩宽体型却被职业刻板印象重画。
-  if (!younger) parts.push("【身体身份锁，与脸同等重要】若提供人物参考图，必须保留同一个人的原始骨架与身体轮廓：肩宽、颈肩比例、躯干厚度、胸廓、腰线、四肢粗细、身高观感和整体体型都不得改变；不要增肌、加宽肩膀、加厚胸背，也不要因为『骑士／战士／军人』等职业词自动生成壮汉体格。只修复明显的解剖错误，不得以『更健康／更强壮』为理由重塑身体。若没有参考图，则严格服从身份锁和外貌设定；设定未写体型时使用普通自然体型，不做职业刻板补全。");
+  if (!younger && !older) parts.push("【身体身份锁，与脸同等重要】若提供人物参考图，必须保留同一个人的原始骨架与身体轮廓：肩宽、颈肩比例、躯干厚度、胸廓、腰线、四肢粗细、身高观感和整体体型都不得改变；不要增肌、加宽肩膀、加厚胸背，也不要因为『骑士／战士／军人』等职业词自动生成壮汉体格。只修复明显的解剖错误，不得以『更健康／更强壮』为理由重塑身体。若没有参考图，则严格服从身份锁和外貌设定；设定未写体型时使用普通自然体型，不做职业刻板补全。");
   // 体态·治「驼背」和「偷感」（v48.52）：抓拍质感不等于畏缩——人要挺拔松弛
   parts.push("【体态自然挺拔，别驼背别『偷感』】good posture, upright relaxed natural stance, straight back, shoulders relaxed and open, confident at ease——脊背基本挺直、肩膀自然打开别缩着、脖子别前伸、下巴别往里缩；**绝不许含胸驼背、缩肩弓背、佝偻畏缩**。神态松弛自在、大方自然，像很自在地在自拍/被拍，**绝不要躲闪、拘谨、猥琐、鬼鬼祟祟、偷拍似的那种『偷感』**。哪怕是随手抓拍，人也站得/坐得舒展从容。");
   // 参考照负责像谁；角色卡负责是谁、什么年龄与穿什么。两路约束必须同时生效。
-  if (!younger) parts.push("【参考照与角色设定同时锁定】参考照用于固定脸、五官、" + (opts && opts.hairFree ? "发色" : "发型") + "和人物身份" + (photoStyle === "reference" ? "，并锁定参考图的视觉媒介与画风" : "") + "；角色档案与人设用于固定年龄、性别表达、种族、体型、时代" + (fixedOutfit ? "" : "和服装") + "。不得只参考脸而忽略文字设定，也不得让参考照中冲突的身体或服装覆盖角色设定。场景和姿势可以变化，人物身份事实绝不能变化。"
+  if (!younger && !older) parts.push("【参考照与角色设定同时锁定】参考照用于固定脸、五官、" + (opts && opts.hairFree ? "发色" : "发型") + "和人物身份" + (photoStyle === "reference" ? "，并锁定参考图的视觉媒介与画风" : "") + "；角色档案与人设用于固定年龄、性别表达、种族、体型、时代" + (fixedOutfit ? "" : "和服装") + "。不得只参考脸而忽略文字设定，也不得让参考照中冲突的身体或服装覆盖角色设定。场景和姿势可以变化，人物身份事实绝不能变化。"
     // 这一张锁了衣服（比如邮票限时池的节日装）：衣服只听服装锁，人设和参考照里平时那身都不算（她 2026-11-04：万圣夜卡张张穿着参考照那件黑羽绒服）
     + (fixedOutfit ? "这一张的衣服只看后面的服装锁：人设、外貌里写的常穿衣物和参考照里那身衣服都不算，别把它们穿到这张图上。" : ""));
   // IF 卡（她 2026-11-08：群里古风想要长发，有的画得出有的画不出）：发型跟着这一张的主题走，发色、五官照旧锁
@@ -7988,6 +8018,7 @@ async function generateSelfieImageRaw(prompt, refPhotoDataUrl, opts) {
         // 「没收到图」，立刻用出事前验证过的老形状（ref.png + 不带 input_fidelity）重试。
         // 小时候的照片：参考照只是认人用的，不要求原样保脸（不然永远画回现在的年纪）
         if (!legacyShape && !(typeof PHOTO_YOUNGER_MARK === "string" && String(promptText || "").indexOf(PHOTO_YOUNGER_MARK) >= 0)
+          && !(typeof PHOTO_OLDER_MARK === "string" && String(promptText || "").indexOf(PHOTO_OLDER_MARK) >= 0)
           && !(typeof PHOTO_POV_MARK === "string" && String(promptText || "").indexOf(PHOTO_POV_MARK) >= 0)) fd.append("input_fidelity", "high");
         const refFilename = (blob, i) => {
           if (legacyShape) return "ref" + (i == null ? "" : i) + ".png";
